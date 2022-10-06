@@ -70,7 +70,7 @@ public class VerificationCodeStore {
   }
 
   private long getExpirationTimestamp(final StoredVerificationCode storedVerificationCode) {
-    return Instant.ofEpochMilli(storedVerificationCode.getTimestamp()).plus(StoredVerificationCode.EXPIRATION).getEpochSecond();
+    return Instant.ofEpochMilli(storedVerificationCode.timestamp()).plus(StoredVerificationCode.EXPIRATION).getEpochSecond();
   }
 
   public Optional<StoredVerificationCode> findForNumber(final String number) {

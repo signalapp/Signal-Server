@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-package org.whispersystems.textsecuregcm.tests.controllers;
+package org.whispersystems.textsecuregcm.controllers;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -26,12 +26,17 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableSet;
+import com.google.i18n.phonenumbers.NumberParseException;
+import com.google.i18n.phonenumbers.PhoneNumberUtil;
+import com.google.i18n.phonenumbers.Phonenumber;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
@@ -66,8 +71,6 @@ import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicCaptchaConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
-import org.whispersystems.textsecuregcm.controllers.AccountController;
-import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.AccountIdentifierResponse;
 import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
@@ -83,6 +86,7 @@ import org.whispersystems.textsecuregcm.entities.ReserveUsernameResponse;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.entities.UsernameRequest;
 import org.whispersystems.textsecuregcm.entities.UsernameResponse;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.ImpossiblePhoneNumberExceptionMapper;
@@ -92,6 +96,9 @@ import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper
 import org.whispersystems.textsecuregcm.push.PushNotification;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.recaptcha.RecaptchaClient;
+import org.whispersystems.textsecuregcm.registration.ClientType;
+import org.whispersystems.textsecuregcm.registration.MessageTransport;
+import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
 import org.whispersystems.textsecuregcm.sms.SmsSender;
 import org.whispersystems.textsecuregcm.sms.TwilioVerifyExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.storage.AbusiveHostRules;
@@ -152,6 +159,7 @@ class AccountControllerTest {
   private static RateLimiter            usernameReserveLimiter = mock(RateLimiter.class);
   private static RateLimiter            usernameLookupLimiter  = mock(RateLimiter.class);
   private static SmsSender              smsSender              = mock(SmsSender.class);
+  private static RegistrationServiceClient registrationServiceClient = mock(RegistrationServiceClient.class);
   private static TurnTokenGenerator     turnTokenGenerator     = mock(TurnTokenGenerator.class);
   private static Account                senderPinAccount       = mock(Account.class);
   private static Account                senderRegLockAccount   = mock(Account.class);
@@ -165,6 +173,8 @@ class AccountControllerTest {
 
   private static TwilioVerifyExperimentEnrollmentManager verifyExperimentEnrollmentManager = mock(
       TwilioVerifyExperimentEnrollmentManager.class);
+
+  private static ExperimentEnrollmentManager experimentEnrollmentManager = mock(ExperimentEnrollmentManager.class);
 
   private byte[] registration_lock_key = new byte[32];
   private static ExternalServiceCredentialGenerator storageCredentialGenerator = new ExternalServiceCredentialGenerator(new byte[32], new byte[32], false);
@@ -185,6 +195,7 @@ class AccountControllerTest {
           abusiveHostRules,
           rateLimiters,
           smsSender,
+          registrationServiceClient,
           dynamicConfigurationManager,
           turnTokenGenerator,
           Map.of(TEST_NUMBER, TEST_VERIFICATION_CODE),
@@ -192,7 +203,8 @@ class AccountControllerTest {
           pushNotificationManager,
           verifyExperimentEnrollmentManager,
           changeNumberManager,
-          storageCredentialGenerator))
+          storageCredentialGenerator,
+          experimentEnrollmentManager))
       .build();
 
 
@@ -233,15 +245,15 @@ class AccountControllerTest {
     when(senderTransfer.getUuid()).thenReturn(SENDER_TRANSFER_UUID);
     when(senderTransfer.getNumber()).thenReturn(SENDER_TRANSFER);
 
-    when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.of(new StoredVerificationCode("1234", System.currentTimeMillis(), "1234-push", null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.of(new StoredVerificationCode("1234", System.currentTimeMillis(), "1234-push", null, null)));
     when(pendingAccountsManager.getCodeForNumber(SENDER_OLD)).thenReturn(Optional.empty());
-    when(pendingAccountsManager.getCodeForNumber(SENDER_PIN)).thenReturn(Optional.of(new StoredVerificationCode("333333", System.currentTimeMillis(), null, null)));
-    when(pendingAccountsManager.getCodeForNumber(SENDER_REG_LOCK)).thenReturn(Optional.of(new StoredVerificationCode("666666", System.currentTimeMillis(), null, null)));
-    when(pendingAccountsManager.getCodeForNumber(SENDER_OVER_PIN)).thenReturn(Optional.of(new StoredVerificationCode("444444", System.currentTimeMillis(), null, null)));
-    when(pendingAccountsManager.getCodeForNumber(SENDER_OVER_PREFIX)).thenReturn(Optional.of(new StoredVerificationCode("777777", System.currentTimeMillis(), "1234-push", null)));
-    when(pendingAccountsManager.getCodeForNumber(SENDER_PREAUTH)).thenReturn(Optional.of(new StoredVerificationCode("555555", System.currentTimeMillis(), "validchallenge", null)));
-    when(pendingAccountsManager.getCodeForNumber(SENDER_HAS_STORAGE)).thenReturn(Optional.of(new StoredVerificationCode("666666", System.currentTimeMillis(), null, null)));
-    when(pendingAccountsManager.getCodeForNumber(SENDER_TRANSFER)).thenReturn(Optional.of(new StoredVerificationCode("1234", System.currentTimeMillis(), null, null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER_PIN)).thenReturn(Optional.of(new StoredVerificationCode("333333", System.currentTimeMillis(), null, null, null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER_REG_LOCK)).thenReturn(Optional.of(new StoredVerificationCode("666666", System.currentTimeMillis(), null, null, null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER_OVER_PIN)).thenReturn(Optional.of(new StoredVerificationCode("444444", System.currentTimeMillis(), null, null, null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER_OVER_PREFIX)).thenReturn(Optional.of(new StoredVerificationCode("777777", System.currentTimeMillis(), "1234-push", null, null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER_PREAUTH)).thenReturn(Optional.of(new StoredVerificationCode("555555", System.currentTimeMillis(), "validchallenge", null, null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER_HAS_STORAGE)).thenReturn(Optional.of(new StoredVerificationCode("666666", System.currentTimeMillis(), null, null, null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER_TRANSFER)).thenReturn(Optional.of(new StoredVerificationCode("1234", System.currentTimeMillis(), null, null, null)));
 
     when(accountsManager.getByE164(eq(SENDER_PIN))).thenReturn(Optional.of(senderPinAccount));
     when(accountsManager.getByE164(eq(SENDER_REG_LOCK))).thenReturn(Optional.of(senderRegLockAccount));
@@ -331,6 +343,7 @@ class AccountControllerTest {
         usernameReserveLimiter,
         usernameLookupLimiter,
         smsSender,
+        registrationServiceClient,
         turnTokenGenerator,
         senderPinAccount,
         senderRegLockAccount,
@@ -339,6 +352,7 @@ class AccountControllerTest {
         recaptchaClient,
         pushNotificationManager,
         verifyExperimentEnrollmentManager,
+        experimentEnrollmentManager,
         changeNumberManager);
 
     clearInvocations(AuthHelper.DISABLED_DEVICE);
@@ -464,7 +478,7 @@ class AccountControllerTest {
 
   @ParameterizedTest
   @ValueSource(booleans = {false, true})
-  void testSendCode(final boolean enrolledInVerifyExperiment) throws Exception {
+  void testSendCode(final boolean enrolledInVerifyExperiment) {
 
     when(verifyExperimentEnrollmentManager.isEnrolled(any(), anyString(), anyList(), anyString()))
         .thenReturn(enrolledInVerifyExperiment);
@@ -491,8 +505,8 @@ class AccountControllerTest {
       verify(smsSender).deliverSmsVerificationWithTwilioVerify(eq(SENDER), eq(Optional.empty()), anyString(), eq(Collections.emptyList()));
       verify(pendingAccountsManager, times(2)).store(eq(SENDER), storedVerificationCodeArgumentCaptor.capture());
 
-      assertThat(storedVerificationCodeArgumentCaptor.getValue().getTwilioVerificationSid())
-          .isEqualTo(Optional.of("VerificationSid"));
+      assertThat(storedVerificationCodeArgumentCaptor.getValue().twilioVerificationSid())
+          .isEqualTo("VerificationSid");
 
     } else {
       verify(smsSender).deliverSmsVerification(eq(SENDER), eq(Optional.empty()), anyString());
@@ -501,6 +515,37 @@ class AccountControllerTest {
     verify(abusiveHostRules).isBlocked(eq(NICE_HOST));
   }
 
+  @Test
+  void testSendCodeViaRegistrationService() throws NumberParseException {
+
+    final byte[] sessionId = "session-id".getBytes(StandardCharsets.UTF_8);
+
+    when(registrationServiceClient.sendRegistrationCode(any(), any(), any(), any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(sessionId));
+
+    when(experimentEnrollmentManager.isEnrolled(SENDER, AccountController.REGISTRATION_SERVICE_EXPERIMENT_NAME))
+        .thenReturn(true);
+
+    Response response =
+        resources.getJerseyTest()
+            .target(String.format("/v1/accounts/sms/code/%s", SENDER))
+            .queryParam("challenge", "1234-push")
+            .request()
+            .header("X-Forwarded-For", NICE_HOST)
+            .get();
+
+    assertThat(response.getStatus()).isEqualTo(200);
+
+    final Phonenumber.PhoneNumber expectedPhoneNumber = PhoneNumberUtil.getInstance().parse(SENDER, null);
+
+    verify(registrationServiceClient).sendRegistrationCode(expectedPhoneNumber, MessageTransport.SMS, ClientType.UNKNOWN, null, AccountController.REGISTRATION_RPC_TIMEOUT);
+    verify(abusiveHostRules).isBlocked(eq(NICE_HOST));
+    verify(pendingAccountsManager).store(eq(SENDER), argThat(
+        storedVerificationCode -> Arrays.equals(storedVerificationCode.sessionId(), sessionId) &&
+            "1234-push".equals(storedVerificationCode.pushCode())));
+
+    verifyNoInteractions(smsSender);
+  }
 
   @Test
   void testSendCodeImpossibleNumber() {
@@ -996,7 +1041,7 @@ class AccountControllerTest {
 
     final String challenge = "challenge";
     when(pendingAccountsManager.getCodeForNumber(RESTRICTED_NUMBER))
-        .thenReturn(Optional.of(new StoredVerificationCode("123456", System.currentTimeMillis(), challenge, null)));
+        .thenReturn(Optional.of(new StoredVerificationCode("123456", System.currentTimeMillis(), challenge, null, null)));
 
     Response response =
         resources.getJerseyTest()
@@ -1033,7 +1078,7 @@ class AccountControllerTest {
 
     final String challenge = "challenge";
     when(pendingAccountsManager.getCodeForNumber(number))
-        .thenReturn(Optional.of(new StoredVerificationCode("123456", System.currentTimeMillis(), challenge, null)));
+        .thenReturn(Optional.of(new StoredVerificationCode("123456", System.currentTimeMillis(), challenge, null, null)));
 
     when(smsSender.deliverSmsVerificationWithTwilioVerify(any(), any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
@@ -1073,7 +1118,7 @@ class AccountControllerTest {
     }
     final String challenge = "challenge";
 
-    when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.of(new StoredVerificationCode("123456", System.currentTimeMillis(), challenge, null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.of(new StoredVerificationCode("123456", System.currentTimeMillis(), challenge, null, null)));
 
     Response response =
         resources.getJerseyTest()
@@ -1106,7 +1151,7 @@ class AccountControllerTest {
             .get();
     ArgumentCaptor<StoredVerificationCode> captor = ArgumentCaptor.forClass(StoredVerificationCode.class);
     verify(pendingAccountsManager).store(eq(TEST_NUMBER), captor.capture());
-    assertThat(captor.getValue().getCode()).isEqualTo(Integer.toString(TEST_VERIFICATION_CODE));
+    assertThat(captor.getValue().code()).isEqualTo(Integer.toString(TEST_VERIFICATION_CODE));
     assertThat(response.getStatus()).isEqualTo(200);
     verifyNoInteractions(smsSender);
   }
@@ -1116,7 +1161,7 @@ class AccountControllerTest {
   void testVerifyCode(final boolean enrolledInVerifyExperiment) throws Exception {
     if (enrolledInVerifyExperiment) {
       when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(
-          Optional.of(new StoredVerificationCode("1234", System.currentTimeMillis(), "1234-push", "VerificationSid")));
+          Optional.of(new StoredVerificationCode("1234", System.currentTimeMillis(), "1234-push", "VerificationSid", null)));
     }
 
     resources.getJerseyTest()
@@ -1130,6 +1175,31 @@ class AccountControllerTest {
     if (enrolledInVerifyExperiment) {
       verify(smsSender).reportVerificationSucceeded(eq("VerificationSid"), any(), eq("registration"));
     }
+
+    verifyNoInteractions(registrationServiceClient);
+  }
+
+  @Test
+  void testVerifyCodeWithRegistrationService() throws Exception {
+    final byte[] sessionId = "session".getBytes(StandardCharsets.UTF_8);
+
+    when(pendingAccountsManager.getCodeForNumber(SENDER))
+        .thenReturn(Optional.of(
+            new StoredVerificationCode("1234", System.currentTimeMillis(), "1234-push", null, sessionId)));
+
+    when(registrationServiceClient.checkVerificationCode(sessionId, "1234", AccountController.REGISTRATION_RPC_TIMEOUT))
+        .thenReturn(CompletableFuture.completedFuture(true));
+
+    resources.getJerseyTest()
+        .target(String.format("/v1/accounts/code/%s", "1234"))
+        .request()
+        .header("Authorization", AuthHelper.getProvisioningAuthHeader(SENDER, "bar"))
+        .put(Entity.entity(new AccountAttributes(), MediaType.APPLICATION_JSON_TYPE), AccountIdentityResponse.class);
+
+    verify(accountsManager).create(eq(SENDER), eq("bar"), any(), any(), anyList());
+
+    verify(registrationServiceClient).checkVerificationCode(sessionId, "1234", AccountController.REGISTRATION_RPC_TIMEOUT);
+    verifyNoInteractions(smsSender);
   }
 
   @Test
@@ -1171,6 +1241,32 @@ class AccountControllerTest {
     assertThat(response.getStatus()).isEqualTo(403);
 
     verifyNoMoreInteractions(accountsManager);
+  }
+
+  @Test
+  void testVerifyBadCodeWithRegistrationService() {
+    final byte[] sessionId = "session".getBytes(StandardCharsets.UTF_8);
+
+    when(pendingAccountsManager.getCodeForNumber(SENDER))
+        .thenReturn(Optional.of(
+            new StoredVerificationCode("1234", System.currentTimeMillis(), "1234-push", null, sessionId)));
+
+    when(registrationServiceClient.checkVerificationCode(any(), any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(false));
+
+    Response response =
+        resources.getJerseyTest()
+            .target(String.format("/v1/accounts/code/%s", "1111"))
+            .request()
+            .header("Authorization", AuthHelper.getProvisioningAuthHeader(SENDER, "bar"))
+            .put(Entity.entity(new AccountAttributes(false, 3333, null, null, true, null),
+                MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat(response.getStatus()).isEqualTo(403);
+
+    verify(registrationServiceClient).checkVerificationCode(sessionId, "1111", AccountController.REGISTRATION_RPC_TIMEOUT);
+    verifyNoInteractions(accountsManager);
+    verifyNoInteractions(smsSender);
   }
 
   @Test
@@ -1319,7 +1415,7 @@ class AccountControllerTest {
   void testVerifyTestDeviceNumber() throws Exception {
 
     when(pendingAccountsManager.getCodeForNumber(TEST_NUMBER)).thenReturn(Optional.of(
-        new StoredVerificationCode(Integer.toString(TEST_VERIFICATION_CODE), System.currentTimeMillis(), "push", null)));
+        new StoredVerificationCode(Integer.toString(TEST_VERIFICATION_CODE), System.currentTimeMillis(), "push", null, null)));
 
 
     final Response response = resources.getJerseyTest()
@@ -1339,7 +1435,7 @@ class AccountControllerTest {
     final String code = "987654";
 
     when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
-        new StoredVerificationCode(code, System.currentTimeMillis(), "push", null)));
+        new StoredVerificationCode(code, System.currentTimeMillis(), "push", null, null)));
 
     final AccountIdentityResponse accountIdentityResponse =
         resources.getJerseyTest()
@@ -1434,7 +1530,7 @@ class AccountControllerTest {
     final String code = "987654";
 
     when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
-        new StoredVerificationCode(code, System.currentTimeMillis(), "push", null)));
+        new StoredVerificationCode(code, System.currentTimeMillis(), "push", null, null)));
 
     final Response response =
         resources.getJerseyTest()
@@ -1454,7 +1550,7 @@ class AccountControllerTest {
     final String code = "987654";
 
     when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
-        new StoredVerificationCode(code, System.currentTimeMillis(), "push", null)));
+        new StoredVerificationCode(code, System.currentTimeMillis(), "push", null, null)));
 
     final StoredRegistrationLock existingRegistrationLock = mock(StoredRegistrationLock.class);
     when(existingRegistrationLock.requiresClientRegistrationLock()).thenReturn(false);
@@ -1484,7 +1580,7 @@ class AccountControllerTest {
     final String code = "987654";
 
     when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
-        new StoredVerificationCode(code, System.currentTimeMillis(), "push", null)));
+        new StoredVerificationCode(code, System.currentTimeMillis(), "push", null, null)));
 
     final StoredRegistrationLock existingRegistrationLock = mock(StoredRegistrationLock.class);
     when(existingRegistrationLock.requiresClientRegistrationLock()).thenReturn(true);
@@ -1515,7 +1611,7 @@ class AccountControllerTest {
     final String reglock = "setec-astronomy";
 
     when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
-        new StoredVerificationCode(code, System.currentTimeMillis(), "push", null)));
+        new StoredVerificationCode(code, System.currentTimeMillis(), "push", null, null)));
 
     final StoredRegistrationLock existingRegistrationLock = mock(StoredRegistrationLock.class);
     when(existingRegistrationLock.requiresClientRegistrationLock()).thenReturn(true);
@@ -1547,7 +1643,7 @@ class AccountControllerTest {
     final String reglock = "setec-astronomy";
 
     when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
-        new StoredVerificationCode(code, System.currentTimeMillis(), "push", null)));
+        new StoredVerificationCode(code, System.currentTimeMillis(), "push", null, null)));
 
     final StoredRegistrationLock existingRegistrationLock = mock(StoredRegistrationLock.class);
     when(existingRegistrationLock.requiresClientRegistrationLock()).thenReturn(true);
@@ -1593,7 +1689,7 @@ class AccountControllerTest {
     when(AuthHelper.VALID_ACCOUNT.getDevice(3L)).thenReturn(Optional.of(device3));
 
     when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
-        new StoredVerificationCode(code, System.currentTimeMillis(), "push", null)));
+        new StoredVerificationCode(code, System.currentTimeMillis(), "push", null, null)));
 
     var deviceMessages = List.of(
             new IncomingMessage(1, 2, 2, "content2"),

@@ -158,6 +158,7 @@ import org.whispersystems.textsecuregcm.recaptcha.RecaptchaClient;
 import org.whispersystems.textsecuregcm.redis.ConnectionEventLogger;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
+import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
 import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
@@ -410,6 +411,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .workQueue(receiptSenderQueue)
         .rejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy())
         .build();
+    ExecutorService registrationCallbackExecutor = environment.lifecycle()
+        .executorService(name(getClass(), "registration-%d"))
+        .maxThreads(2)
+        .minThreads(2)
+        .build();
 
     final AdminEventLogger adminEventLogger = new GoogleCloudAdminEventLogger(
         LoggingOptions.newBuilder().setProjectId(config.getAdminEventLoggingConfiguration().projectId())
@@ -445,6 +451,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getPaymentsServiceConfiguration().getUserAuthenticationTokenSharedSecret(), true);
 
     AbusiveHostRules           abusiveHostRules           = new AbusiveHostRules(rateLimitersCluster, dynamicConfigurationManager);
+    RegistrationServiceClient  registrationServiceClient  = new RegistrationServiceClient(config.getRegistrationServiceConfiguration().getHost(), config.getRegistrationServiceConfiguration().getPort(), config.getRegistrationServiceConfiguration().getApiKey(), config.getRegistrationServiceConfiguration().getRegistrationCaCertificate(), registrationCallbackExecutor);
     SecureBackupClient         secureBackupClient         = new SecureBackupClient(backupCredentialsGenerator, backupServiceExecutor, config.getSecureBackupServiceConfiguration());
     SecureStorageClient        secureStorageClient        = new SecureStorageClient(storageCredentialsGenerator, storageServiceExecutor, config.getSecureStorageServiceConfiguration());
     ClientPresenceManager      clientPresenceManager      = new ClientPresenceManager(clientPresenceCluster, recurringJobExecutor, keyspaceNotificationDispatchExecutor);
@@ -581,6 +588,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.lifecycle().manage(clientPresenceManager);
     environment.lifecycle().manage(currencyManager);
     environment.lifecycle().manage(directoryQueue);
+    environment.lifecycle().manage(registrationServiceClient);
 
     StaticCredentialsProvider cdnCredentialsProvider = StaticCredentialsProvider
         .create(AwsBasicCredentials.create(
@@ -638,9 +646,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     // these should be common, but use @Auth DisabledPermittedAccount, which isn’t supported yet on websocket
     environment.jersey().register(
         new AccountController(pendingAccountsManager, accountsManager, abusiveHostRules, rateLimiters,
-            smsSender, dynamicConfigurationManager, turnTokenGenerator, config.getTestDevices(),
+            smsSender, registrationServiceClient, dynamicConfigurationManager, turnTokenGenerator, config.getTestDevices(),
             recaptchaClient, pushNotificationManager, verifyExperimentEnrollmentManager,
-            changeNumberManager, backupCredentialsGenerator));
+            changeNumberManager, backupCredentialsGenerator, experimentEnrollmentManager));
     environment.jersey().register(new KeysController(rateLimiters, keys, accountsManager));
 
     final List<Object> commonControllers = Lists.newArrayList(

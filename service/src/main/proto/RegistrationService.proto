@@ -1,0 +1,84 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+
+package org.signal.registration.rpc;
+
+service RegistrationService {
+  /**
+   * Sends a verification code to a destination phone number and returns the
+   * ID of the newly-created registration session.
+   */
+  rpc send_verification_code (SendVerificationCodeRequest) returns (SendVerificationCodeResponse) {}
+
+  /**
+   * Checks a client-provided verification code for a given registration
+   * session.
+   */
+  rpc check_verification_code (CheckVerificationCodeRequest) returns (CheckVerificationCodeResponse) {}
+}
+
+message SendVerificationCodeRequest {
+  /**
+   * The phone number to which to send a verification code.
+   */
+  uint64 e164 = 1;
+
+  /**
+   * The message transport to use to send a verification code to the destination
+   * phone number.
+   */
+  MessageTransport transport = 2;
+
+  /**
+   * The value of the `Accept-Language` header provided by remote clients (if
+   * any).
+   */
+  string accept_language = 3;
+
+  /**
+   * The type of client requesting a verification code.
+   */
+  ClientType client_type = 4;
+}
+
+enum MessageTransport {
+  MESSAGE_TRANSPORT_UNSPECIFIED = 0;
+  MESSAGE_TRANSPORT_SMS = 1;
+  MESSAGE_TRANSPORT_VOICE = 2;
+}
+
+enum ClientType {
+  CLIENT_TYPE_UNSPECIFIED = 0;
+  CLIENT_TYPE_IOS = 1;
+  CLIENT_TYPE_ANDROID_WITH_FCM = 2;
+  CLIENT_TYPE_ANDROID_WITHOUT_FCM = 3;
+}
+
+message SendVerificationCodeResponse {
+  /**
+   * An opaque sequence of bytes that uniquely identifies the registration
+   * session associated with this registration attempt.
+   */
+  bytes session_id = 1;
+}
+
+message CheckVerificationCodeRequest {
+  /**
+   * The session ID returned when sending a verification code.
+   */
+  bytes session_id = 1;
+
+  /**
+   * The client-provided verification code.
+   */
+  string verification_code = 2;
+}
+
+message CheckVerificationCodeResponse {
+  /**
+   * The outcome of the verification attempt; true if the verification code
+   * matched the expected code or false otherwise.
+   */
+  bool verified = 1;
+}

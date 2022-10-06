@@ -49,6 +49,7 @@
     <commons-io.version>2.9.0</commons-io.version>
     <dropwizard.version>2.0.32</dropwizard.version>
     <dropwizard-metrics-datadog.version>1.1.13</dropwizard-metrics-datadog.version>
+    <grpc.version>1.46.0</grpc.version>
     <gson.version>2.9.0</gson.version>
     <guava.version>30.1.1-jre</guava.version>
     <jackson.version>2.13.3</jackson.version>
@@ -93,6 +94,29 @@
         <version>${dropwizard.version}</version>
         <type>pom</type>
         <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>io.grpc</groupId>
+        <artifactId>grpc-netty-shaded</artifactId>
+        <version>${grpc.version}</version>
+        <scope>runtime</scope>
+      </dependency>
+      <dependency>
+        <groupId>io.grpc</groupId>
+        <artifactId>grpc-protobuf</artifactId>
+        <version>${grpc.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.grpc</groupId>
+        <artifactId>grpc-stub</artifactId>
+        <version>${grpc.version}</version>
+      </dependency>
+      <!-- Needed for gRPC with Java 9+ -->
+      <dependency>
+        <groupId>org.apache.tomcat</groupId>
+        <artifactId>annotations-api</artifactId>
+        <version>6.0.53</version>
+        <scope>provided</scope>
       </dependency>
       <dependency>
         <groupId>io.netty</groupId>
@@ -368,13 +392,16 @@
         <artifactId>protobuf-maven-plugin</artifactId>
         <version>0.6.1</version>
         <configuration>
-          <protocArtifact>com.google.protobuf:protoc:3.18.0:exe:${os.detected.classifier}</protocArtifact>
-          <checkStaleness>true</checkStaleness>
+          <checkStaleness>false</checkStaleness>
+          <protocArtifact>com.google.protobuf:protoc:3.21.1:exe:${os.detected.classifier}</protocArtifact>
+          <pluginId>grpc-java</pluginId>
+          <pluginArtifact>io.grpc:protoc-gen-grpc-java:${grpc.version}:exe:${os.detected.classifier}</pluginArtifact>
         </configuration>
         <executions>
           <execution>
             <goals>
               <goal>compile</goal>
+              <goal>compile-custom</goal>
               <goal>test-compile</goal>
             </goals>
           </execution>

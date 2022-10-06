@@ -37,6 +37,7 @@ import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RecaptchaConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RedisClusterConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RedisConfiguration;
+import org.whispersystems.textsecuregcm.configuration.RegistrationServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RemoteConfigConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ReportMessageConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SecureBackupServiceConfiguration;
@@ -263,6 +264,11 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private AbusiveMessageFilterConfiguration abusiveMessageFilter;
 
+  @Valid
+  @NotNull
+  @JsonProperty
+  private RegistrationServiceConfiguration registrationService;
+
   public AdminEventLoggingConfiguration getAdminEventLoggingConfiguration() {
     return adminEventLoggingConfiguration;
   }
@@ -443,5 +449,9 @@ public class WhisperServerConfiguration extends Configuration {
 
   public UsernameConfiguration getUsername() {
     return username;
+  }
+
+  public RegistrationServiceConfiguration getRegistrationServiceConfiguration() {
+    return registrationService;
   }
 }

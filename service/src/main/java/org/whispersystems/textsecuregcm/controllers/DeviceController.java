@@ -132,11 +132,9 @@ public class DeviceController {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 
-    VerificationCode       verificationCode       = generateVerificationCode();
-    StoredVerificationCode storedVerificationCode = new StoredVerificationCode(verificationCode.getVerificationCode(),
-                                                                               System.currentTimeMillis(),
-                                                                               null,
-                                                                               null);
+    VerificationCode verificationCode = generateVerificationCode();
+    StoredVerificationCode storedVerificationCode =
+        new StoredVerificationCode(verificationCode.getVerificationCode(), System.currentTimeMillis(), null, null, null);
 
     pendingDevices.store(account.getNumber(), storedVerificationCode);
 
