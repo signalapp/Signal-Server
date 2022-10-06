@@ -49,7 +49,7 @@
     <commons-io.version>2.9.0</commons-io.version>
     <dropwizard.version>2.0.32</dropwizard.version>
     <dropwizard-metrics-datadog.version>1.1.13</dropwizard-metrics-datadog.version>
-    <grpc.version>1.46.0</grpc.version>
+    <grpc.version>1.49.0</grpc.version>
     <gson.version>2.9.0</gson.version>
     <guava.version>30.1.1-jre</guava.version>
     <jackson.version>2.13.3</jackson.version>
@@ -62,7 +62,7 @@
     <logstash.logback.version>7.0.1</logstash.logback.version>
     <micrometer.version>1.9.3</micrometer.version>
     <mockito.version>4.7.0</mockito.version>
-    <netty.version>4.1.79.Final</netty.version>
+    <netty.version>4.1.82.Final</netty.version>
     <opentest4j.version>1.2.0</opentest4j.version>
     <protobuf.version>3.21.7</protobuf.version>
     <pushy.version>0.15.1</pushy.version>
@@ -97,7 +97,7 @@
       </dependency>
       <dependency>
         <groupId>io.grpc</groupId>
-        <artifactId>grpc-netty-shaded</artifactId>
+        <artifactId>grpc-netty</artifactId>
         <version>${grpc.version}</version>
         <scope>runtime</scope>
       </dependency>
