@@ -846,6 +846,23 @@ class MessageControllerTest {
     );
   }
 
+  @Test
+  void testSendStoryToUnknownAccount() throws Exception {
+    String accessBytes = Base64.getEncoder().encodeToString(UNIDENTIFIED_ACCESS_BYTES);
+    String json = jsonFixture("fixtures/current_message_single_device.json");
+    UUID unknownUUID = UUID.randomUUID();
+    IncomingMessageList list = SystemMapper.getMapper().readValue(json, IncomingMessageList.class);
+    Response response =
+        resources.getJerseyTest()
+            .target(String.format("/v1/messages/%s", unknownUUID))
+            .queryParam("story", "true")
+            .request()
+            .header(OptionalAccess.UNIDENTIFIED, accessBytes)
+            .put(Entity.entity(list, MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat("200 masks unknown recipient", response.getStatus(), is(equalTo(200)));
+  }
+
   private void checkBadMultiRecipientResponse(Response response, int expectedCode) throws Exception {
     assertThat("Unexpected response", response.getStatus(), is(equalTo(expectedCode)));
     verify(messageSender, never()).sendMessage(any(), any(), any(), anyBoolean());

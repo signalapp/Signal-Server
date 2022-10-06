@@ -213,7 +213,19 @@ public class MessageController {
       if (!isStory) {
         OptionalAccess.verify(source.map(AuthenticatedAccount::getAccount), accessKey, destination);
       }
-      assert (destination.isPresent());
+
+      boolean needsSync = !isSyncMessage && source.isPresent() && source.get().getAccount().getEnabledDeviceCount() > 1;
+
+      // We return 200 when stories are sent to a non-existent account. Since story sends bypass OptionalAccess.verify
+      // we leak information about whether a destination UUID exists if we return any other code (e.g. 404) from
+      // these requests.
+      if (isStory && destination.isEmpty()) {
+        return Response.ok(new SendMessageResponse(needsSync)).build();
+      }
+
+      // if destination is empty we would either throw an exception in OptionalAccess.verify when isStory is false
+      // or else return a 200 response when isStory is true.
+      assert destination.isPresent();
 
       if (source.isPresent() && !isSyncMessage) {
         checkMessageRateLimit(source.get(), destination.get(), userAgent);
@@ -254,7 +266,6 @@ public class MessageController {
         }
       }
 
-      boolean needsSync = !isSyncMessage && source.isPresent() && source.get().getAccount().getEnabledDeviceCount() > 1;
       return Response.ok(new SendMessageResponse(needsSync)).build();
     } catch (NoSuchUserException e) {
       throw new WebApplicationException(Response.status(404).build());
