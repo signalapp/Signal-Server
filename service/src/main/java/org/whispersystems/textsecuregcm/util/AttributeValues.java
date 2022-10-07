@@ -5,12 +5,12 @@
 
 package org.whispersystems.textsecuregcm.util;
 
-import software.amazon.awssdk.core.SdkBytes;
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import software.amazon.awssdk.core.SdkBytes;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
 /** AwsAV provides static helper methods for working with AWS AttributeValues. */
 public class AttributeValues {
@@ -37,6 +37,9 @@ public class AttributeValues {
     return AttributeValue.builder().s(value).build();
   }
 
+  public static AttributeValue m(Map<String, AttributeValue> value) {
+    return AttributeValue.builder().m(value).build();
+  }
 
   // More opinionated methods
 

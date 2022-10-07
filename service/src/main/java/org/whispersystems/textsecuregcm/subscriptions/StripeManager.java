@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-package org.whispersystems.textsecuregcm.stripe;
+package org.whispersystems.textsecuregcm.subscriptions;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
@@ -61,7 +61,7 @@ import javax.ws.rs.core.Response.Status;
 import org.apache.commons.codec.binary.Hex;
 import org.whispersystems.textsecuregcm.util.Conversions;
 
-public class StripeManager {
+public class StripeManager implements SubscriptionProcessorManager {
 
   private static final String METADATA_KEY_LEVEL = "level";
 
@@ -87,6 +87,16 @@ public class StripeManager {
     this.boostDescription = Objects.requireNonNull(boostDescription);
   }
 
+  @Override
+  public SubscriptionProcessor getProcessor() {
+    return SubscriptionProcessor.STRIPE;
+  }
+
+  @Override
+  public boolean supportsPaymentMethod(PaymentMethod paymentMethod) {
+    return paymentMethod == PaymentMethod.CARD;
+  }
+
   private RequestOptions commonOptions() {
     return commonOptions(null);
   }
@@ -98,17 +108,19 @@ public class StripeManager {
         .build();
   }
 
-  public CompletableFuture<Customer> createCustomer(byte[] subscriberUser) {
+  @Override
+  public CompletableFuture<ProcessorCustomer> createCustomer(byte[] subscriberUser) {
     return CompletableFuture.supplyAsync(() -> {
-      CustomerCreateParams params = CustomerCreateParams.builder()
-          .putMetadata("subscriberUser", Hex.encodeHexString(subscriberUser))
-          .build();
-      try {
-        return Customer.create(params, commonOptions(generateIdempotencyKeyForSubscriberUser(subscriberUser)));
-      } catch (StripeException e) {
-        throw new CompletionException(e);
-      }
-    }, executor);
+          CustomerCreateParams params = CustomerCreateParams.builder()
+              .putMetadata("subscriberUser", Hex.encodeHexString(subscriberUser))
+              .build();
+          try {
+            return Customer.create(params, commonOptions(generateIdempotencyKeyForSubscriberUser(subscriberUser)));
+          } catch (StripeException e) {
+            throw new CompletionException(e);
+          }
+        }, executor)
+        .thenApply(customer -> new ProcessorCustomer(customer.getId(), getProcessor()));
   }
 
   public CompletableFuture<Customer> getCustomer(String customerId) {
@@ -139,17 +151,19 @@ public class StripeManager {
     }, executor);
   }
 
-  public CompletableFuture<SetupIntent> createSetupIntent(String customerId) {
+  @Override
+  public CompletableFuture<String> createPaymentMethodSetupToken(String customerId) {
     return CompletableFuture.supplyAsync(() -> {
-      SetupIntentCreateParams params = SetupIntentCreateParams.builder()
-          .setCustomer(customerId)
-          .build();
-      try {
-        return SetupIntent.create(params, commonOptions());
-      } catch (StripeException e) {
-        throw new CompletionException(e);
-      }
-    }, executor);
+          SetupIntentCreateParams params = SetupIntentCreateParams.builder()
+              .setCustomer(customerId)
+              .build();
+          try {
+            return SetupIntent.create(params, commonOptions());
+          } catch (StripeException e) {
+            throw new CompletionException(e);
+          }
+        }, executor)
+        .thenApply(SetupIntent::getClientSecret);
   }
 
   /**

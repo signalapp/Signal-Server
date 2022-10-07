@@ -48,6 +48,7 @@ import javax.validation.constraints.NotNull;
 import javax.ws.rs.BadRequestException;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
+import javax.ws.rs.DefaultValue;
 import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.GET;
 import javax.ws.rs.InternalServerErrorException;
@@ -58,6 +59,7 @@ import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.ProcessingException;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.Context;
@@ -87,7 +89,11 @@ import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager.GetResult;
-import org.whispersystems.textsecuregcm.stripe.StripeManager;
+import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
+import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
+import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessor;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorManager;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
 
 @Path("/v1/subscription")
@@ -179,15 +185,13 @@ public class SubscriptionController {
             throw new ForbiddenException("subscriberId mismatch");
           } else if (getResult == GetResult.NOT_STORED) {
             // create a customer and write it to ddb
-            return stripeManager.createCustomer(requestData.subscriberUser).thenCompose(
-                customer -> subscriptionManager.create(
-                        requestData.subscriberUser, requestData.hmac, customer.getId(), requestData.now)
-                    .thenApply(updatedRecord -> {
-                      if (updatedRecord == null) {
-                        throw new NotFoundException();
-                      }
-                      return updatedRecord;
-                    }));
+            return subscriptionManager.create(requestData.subscriberUser, requestData.hmac, requestData.now)
+                .thenApply(updatedRecord -> {
+                  if (updatedRecord == null) {
+                    throw new ForbiddenException();
+                  }
+                  return updatedRecord;
+                });
           } else {
             // already exists so just touch access time and return
             return subscriptionManager.accessedAt(requestData.subscriberUser, requestData.now)
@@ -197,20 +201,8 @@ public class SubscriptionController {
         .thenApply(record -> Response.ok().build());
   }
 
-  public static class CreatePaymentMethodResponse {
+  record CreatePaymentMethodResponse(String clientSecret, SubscriptionProcessor processor) {
 
-    private final String clientSecret;
-
-    @JsonCreator
-    public CreatePaymentMethodResponse(
-        @JsonProperty("clientSecret") String clientSecret) {
-      this.clientSecret = clientSecret;
-    }
-
-    @SuppressWarnings("unused")
-    public String getClientSecret() {
-      return clientSecret;
-    }
   }
 
   @Timed
@@ -220,12 +212,39 @@ public class SubscriptionController {
   @Produces(MediaType.APPLICATION_JSON)
   public CompletableFuture<Response> createPaymentMethod(
       @Auth Optional<AuthenticatedAccount> authenticatedAccount,
-      @PathParam("subscriberId") String subscriberId) {
+      @PathParam("subscriberId") String subscriberId,
+      @QueryParam("type") @DefaultValue("CARD") PaymentMethod paymentMethodType) {
+
     RequestData requestData = RequestData.process(authenticatedAccount, subscriberId, clock);
+
+    final SubscriptionProcessorManager subscriptionProcessorManager = getManagerForPaymentMethod(paymentMethodType);
+
     return subscriptionManager.get(requestData.subscriberUser, requestData.hmac)
         .thenApply(this::requireRecordFromGetResult)
-        .thenCompose(record -> stripeManager.createSetupIntent(record.customerId))
-        .thenApply(setupIntent -> Response.ok(new CreatePaymentMethodResponse(setupIntent.getClientSecret())).build());
+        .thenCompose(record -> {
+          final CompletableFuture<SubscriptionManager.Record> updatedRecordFuture;
+          if (record.customerId == null) {
+            updatedRecordFuture = subscriptionProcessorManager.createCustomer(requestData.subscriberUser)
+                .thenApply(ProcessorCustomer::customerId)
+                .thenCompose(customerId -> subscriptionManager.updateProcessorAndCustomerId(record,
+                    new ProcessorCustomer(customerId,
+                        subscriptionProcessorManager.getProcessor()), Instant.now()));
+          } else {
+            updatedRecordFuture = CompletableFuture.completedFuture(record);
+          }
+
+          return updatedRecordFuture.thenCompose(
+              updatedRecord -> subscriptionProcessorManager.createPaymentMethodSetupToken(updatedRecord.customerId));
+        })
+        .thenApply(
+            token -> Response.ok(new CreatePaymentMethodResponse(token, subscriptionProcessorManager.getProcessor()))
+                .build());
+  }
+
+  private SubscriptionProcessorManager getManagerForPaymentMethod(PaymentMethod paymentMethod) {
+    return switch (paymentMethod) {
+      case CARD -> stripeManager;
+    };
   }
 
   @Timed
