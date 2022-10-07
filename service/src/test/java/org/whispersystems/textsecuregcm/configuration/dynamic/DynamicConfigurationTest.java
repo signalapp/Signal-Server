@@ -210,32 +210,6 @@ class DynamicConfigurationTest {
   }
 
   @Test
-  void testParseTwilioConfiguration() throws JsonProcessingException {
-    {
-      final String emptyConfigYaml = REQUIRED_CONFIG.concat("test: true");
-      final DynamicConfiguration emptyConfig =
-          DynamicConfigurationManager.parseConfiguration(emptyConfigYaml, DynamicConfiguration.class).orElseThrow();
-
-      assertTrue(emptyConfig.getTwilioConfiguration().getNumbers().isEmpty());
-    }
-
-    {
-      final String twilioConfigYaml = REQUIRED_CONFIG.concat("""
-          twilio:
-            numbers:
-              - 2135551212
-              - 2135551313
-          """);
-
-      final DynamicTwilioConfiguration config =
-          DynamicConfigurationManager.parseConfiguration(twilioConfigYaml, DynamicConfiguration.class).orElseThrow()
-              .getTwilioConfiguration();
-
-      assertEquals(List.of("2135551212", "2135551313"), config.getNumbers());
-    }
-  }
-
-  @Test
   void testParsePaymentsConfiguration() throws JsonProcessingException {
     {
       final String emptyConfigYaml = REQUIRED_CONFIG.concat("test: true");

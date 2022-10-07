@@ -62,29 +62,6 @@ dynamoDbTables:
   subscriptions:
     tableName: Example_Subscriptions
 
-twilio: # Twilio gateway configuration
-  accountId: unset
-  accountToken: unset
-  nanpaMessagingServiceSid: unset # Twilio SID for the messaging service to use for NANPA.
-  messagingServiceSid: unset # Twilio SID for the message service to use for non-NANPA.
-  verifyServiceSid: unset # Twilio SID for a Verify service
-  localDomain: example.com # Domain Twilio can connect back to for calls. Should be domain of your service.
-  defaultClientVerificationTexts:
-    ios: example %1$s # Text to use for the verification message on iOS. Will be passed to String.format with the verification code as argument 1.
-    androidNg: example %1$s # Text to use for the verification message on android-ng client types. Will be passed to String.format with the verification code as argument 1.
-    android202001: example %1$s # Text to use for the verification message on android-2020-01 client types. Will be passed to String.format with the verification code as argument 1.
-    android202103: example %1$s # Text to use for the verification message on android-2021-03 client types. Will be passed to String.format with the verification code as argument 1.
-    generic: example %1$s # Text to use when the client type is unrecognized. Will be passed to String.format with the verification code as argument 1.
-  regionalClientVerificationTexts: # Map of country codes to custom texts
-    999: # example country code
-      ios: example %1$s # all keys from defaultClientVerificationTexts are required
-      androidNg: example %1$s
-      android202001: example %1$s
-      android202103: example %1$s
-      generic: example %1$s
-  androidAppHash: example # Hash appended to Android
-  verifyServiceFriendlyName: example # Service name used in template. Requires Twilio account rep to enable
-
 cacheCluster: # Redis server configuration for cache cluster
   configurationUri: redis://redis.example.com:6379/
 

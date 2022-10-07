@@ -21,13 +21,9 @@ import io.micrometer.core.instrument.Tags;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nullable;
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
@@ -83,7 +79,6 @@ import org.whispersystems.textsecuregcm.entities.ReserveUsernameResponse;
 import org.whispersystems.textsecuregcm.entities.StaleDevices;
 import org.whispersystems.textsecuregcm.entities.UsernameRequest;
 import org.whispersystems.textsecuregcm.entities.UsernameResponse;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
@@ -93,8 +88,6 @@ import org.whispersystems.textsecuregcm.recaptcha.RecaptchaClient;
 import org.whispersystems.textsecuregcm.registration.ClientType;
 import org.whispersystems.textsecuregcm.registration.MessageTransport;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
-import org.whispersystems.textsecuregcm.sms.SmsSender;
-import org.whispersystems.textsecuregcm.sms.TwilioVerifyExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.storage.AbusiveHostRules;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -112,7 +105,6 @@ import org.whispersystems.textsecuregcm.util.NonNormalizedPhoneNumberException;
 import org.whispersystems.textsecuregcm.util.Optionals;
 import org.whispersystems.textsecuregcm.util.UsernameGenerator;
 import org.whispersystems.textsecuregcm.util.Util;
-import org.whispersystems.textsecuregcm.util.VerificationCode;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v1/accounts")
@@ -133,10 +125,6 @@ public class AccountController {
   private static final String CAPTCHA_ATTEMPT_COUNTER_NAME = name(AccountController.class, "captcha");
   private static final String CHALLENGE_ISSUED_COUNTER_NAME = name(AccountController.class, "challengeIssued");
 
-  private static final String TWILIO_VERIFY_ERROR_COUNTER_NAME = name(AccountController.class, "twilioVerifyError");
-  private static final String TWILIO_VERIFY_UNDELIVERED_COUNTER_NAME = name(AccountController.class, "twilioUndelivered");
-
-  private static final String INVALID_ACCEPT_LANGUAGE_COUNTER_NAME = name(AccountController.class, "invalidAcceptLanguage");
   private static final String NONSTANDARD_USERNAME_COUNTER_NAME = name(AccountController.class, "nonStandardUsername");
 
   private static final String CHALLENGE_PRESENT_TAG_NAME = "present";
@@ -157,7 +145,6 @@ public class AccountController {
   private final AccountsManager                    accounts;
   private final AbusiveHostRules                   abusiveHostRules;
   private final RateLimiters                       rateLimiters;
-  private final SmsSender                          smsSender;
   private final RegistrationServiceClient          registrationServiceClient;
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private final TurnTokenGenerator                 turnTokenGenerator;
@@ -166,12 +153,7 @@ public class AccountController {
   private final PushNotificationManager            pushNotificationManager;
   private final ExternalServiceCredentialGenerator backupServiceCredentialGenerator;
 
-  private final TwilioVerifyExperimentEnrollmentManager verifyExperimentEnrollmentManager;
-  private final ExperimentEnrollmentManager experimentEnrollmentManager;
   private final ChangeNumberManager changeNumberManager;
-
-  @VisibleForTesting
-  static final String REGISTRATION_SERVICE_EXPERIMENT_NAME = "registration-service";
 
   @VisibleForTesting
   static final Duration REGISTRATION_RPC_TIMEOUT = Duration.ofSeconds(15);
@@ -180,33 +162,27 @@ public class AccountController {
                            AccountsManager accounts,
                            AbusiveHostRules abusiveHostRules,
                            RateLimiters rateLimiters,
-                           SmsSender smsSenderFactory,
                            RegistrationServiceClient registrationServiceClient,
                            DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
                            TurnTokenGenerator turnTokenGenerator,
                            Map<String, Integer> testDevices,
                            RecaptchaClient recaptchaClient,
                            PushNotificationManager pushNotificationManager,
-                           TwilioVerifyExperimentEnrollmentManager verifyExperimentEnrollmentManager,
                            ChangeNumberManager changeNumberManager,
-                           ExternalServiceCredentialGenerator backupServiceCredentialGenerator,
-      final ExperimentEnrollmentManager experimentEnrollmentManager)
+                           ExternalServiceCredentialGenerator backupServiceCredentialGenerator)
   {
     this.pendingAccounts                   = pendingAccounts;
     this.accounts                          = accounts;
     this.abusiveHostRules                  = abusiveHostRules;
     this.rateLimiters                      = rateLimiters;
-    this.smsSender                         = smsSenderFactory;
     this.registrationServiceClient         = registrationServiceClient;
     this.dynamicConfigurationManager       = dynamicConfigurationManager;
     this.testDevices                       = testDevices;
     this.turnTokenGenerator                = turnTokenGenerator;
     this.recaptchaClient = recaptchaClient;
     this.pushNotificationManager           = pushNotificationManager;
-    this.verifyExperimentEnrollmentManager = verifyExperimentEnrollmentManager;
     this.backupServiceCredentialGenerator = backupServiceCredentialGenerator;
     this.changeNumberManager = changeNumberManager;
-    this.experimentEnrollmentManager = experimentEnrollmentManager;
   }
 
   @Timed
@@ -304,127 +280,6 @@ public class AccountController {
       default -> throw new WebApplicationException(Response.status(422).build());
     }
 
-    if (experimentEnrollmentManager.isEnrolled(number, REGISTRATION_SERVICE_EXPERIMENT_NAME)) {
-      sendVerificationCodeViaRegistrationService(number,
-          maybeStoredVerificationCode,
-          acceptLanguage,
-          client,
-          transport);
-    } else {
-      sendVerificationCodeViaTwilioSender(number,
-          maybeStoredVerificationCode,
-          acceptLanguage,
-          userAgent,
-          client,
-          transport,
-          assessmentResult);
-    }
-
-    Metrics.counter(ACCOUNT_CREATE_COUNTER_NAME, Tags.of(
-            UserAgentTagUtil.getPlatformTag(userAgent),
-            Tag.of(COUNTRY_CODE_TAG_NAME, Util.getCountryCode(number)),
-            Tag.of(REGION_TAG_NAME, Util.getRegion(number)),
-            Tag.of(VERIFICATION_TRANSPORT_TAG_NAME, transport)))
-        .increment();
-
-    return Response.ok().build();
-  }
-
-  private void sendVerificationCodeViaTwilioSender(final String number,
-      final Optional<StoredVerificationCode> maybeStoredVerificationCode,
-      final Optional<String> acceptLanguage,
-      final String userAgent,
-      final Optional<String> client,
-      final String transport,
-      final Optional<RecaptchaClient.AssessmentResult> assessmentResult) {
-    final VerificationCode verificationCode = generateVerificationCode(number);
-
-    final StoredVerificationCode storedVerificationCode = new StoredVerificationCode(verificationCode.getVerificationCode(),
-        System.currentTimeMillis(),
-        maybeStoredVerificationCode.map(StoredVerificationCode::pushCode).orElse(null),
-        maybeStoredVerificationCode.map(StoredVerificationCode::twilioVerificationSid).orElse(null),
-        maybeStoredVerificationCode.map(StoredVerificationCode::sessionId).orElse(null));
-
-    pendingAccounts.store(number, storedVerificationCode);
-
-    List<Locale.LanguageRange> languageRanges;
-    try {
-      languageRanges = acceptLanguage.map(Locale.LanguageRange::parse).orElse(Collections.emptyList());
-    } catch (final IllegalArgumentException e) {
-      logger.debug("Could not get acceptable languages; Accept-Language: {}; User-Agent: {}",
-          acceptLanguage.orElse(""),
-          userAgent,
-          e);
-
-      Metrics.counter(INVALID_ACCEPT_LANGUAGE_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent))).increment();
-      languageRanges = Collections.emptyList();
-    }
-
-    final boolean enrolledInVerifyExperiment = verifyExperimentEnrollmentManager.isEnrolled(client, number, languageRanges, transport);
-    final CompletableFuture<Optional<String>> sendVerificationWithTwilioVerifyFuture;
-
-    if (testDevices.containsKey(number)) {
-      // noop
-      sendVerificationWithTwilioVerifyFuture = CompletableFuture.completedFuture(Optional.empty());
-    } else if (transport.equals("sms")) {
-
-      if (enrolledInVerifyExperiment) {
-        sendVerificationWithTwilioVerifyFuture = smsSender.deliverSmsVerificationWithTwilioVerify(number, client, verificationCode.getVerificationCode(), languageRanges);
-      } else {
-        smsSender.deliverSmsVerification(number, client, verificationCode.getVerificationCodeDisplay());
-        sendVerificationWithTwilioVerifyFuture = CompletableFuture.completedFuture(Optional.empty());
-      }
-    } else if (transport.equals("voice")) {
-
-      if (enrolledInVerifyExperiment) {
-        sendVerificationWithTwilioVerifyFuture = smsSender.deliverVoxVerificationWithTwilioVerify(number, verificationCode.getVerificationCode(), languageRanges);
-      } else {
-        smsSender.deliverVoxVerification(number, verificationCode.getVerificationCode(), languageRanges);
-        sendVerificationWithTwilioVerifyFuture = CompletableFuture.completedFuture(Optional.empty());
-      }
-
-    } else {
-      sendVerificationWithTwilioVerifyFuture = CompletableFuture.completedFuture(Optional.empty());
-    }
-
-    sendVerificationWithTwilioVerifyFuture.whenComplete((maybeVerificationSid, throwable) -> {
-      if (throwable != null) {
-        Metrics.counter(TWILIO_VERIFY_ERROR_COUNTER_NAME).increment();
-
-        logger.warn("Error with Twilio Verify", throwable);
-        return;
-      }
-
-      if (enrolledInVerifyExperiment && maybeVerificationSid.isEmpty() && assessmentResult.isPresent()) {
-        final String countryCode = Util.getCountryCode(number);
-        final String region = Util.getRegion(number);
-
-        Metrics.counter(TWILIO_VERIFY_UNDELIVERED_COUNTER_NAME, Tags.of(
-                Tag.of(COUNTRY_CODE_TAG_NAME, countryCode),
-                Tag.of(REGION_TAG_NAME, region),
-                UserAgentTagUtil.getPlatformTag(userAgent),
-                Tag.of(SCORE_TAG_NAME, assessmentResult.get().score())))
-            .increment();
-      }
-
-      maybeVerificationSid.ifPresent(twilioVerificationSid -> {
-        StoredVerificationCode storedVerificationCodeWithVerificationSid = new StoredVerificationCode(
-            storedVerificationCode.code(),
-            storedVerificationCode.timestamp(),
-            storedVerificationCode.pushCode(),
-            twilioVerificationSid,
-            storedVerificationCode.sessionId());
-        pendingAccounts.store(number, storedVerificationCodeWithVerificationSid);
-      });
-    });
-  }
-
-  private void sendVerificationCodeViaRegistrationService(final String number,
-      final Optional<StoredVerificationCode> maybeStoredVerificationCode,
-      final Optional<String> acceptLanguage,
-      final Optional<String> client,
-      final String transport) {
-
     final Phonenumber.PhoneNumber phoneNumber;
 
     try {
@@ -461,6 +316,15 @@ public class AccountController {
         sessionId);
 
     pendingAccounts.store(number, storedVerificationCode);
+
+    Metrics.counter(ACCOUNT_CREATE_COUNTER_NAME, Tags.of(
+            UserAgentTagUtil.getPlatformTag(userAgent),
+            Tag.of(COUNTRY_CODE_TAG_NAME, Util.getCountryCode(number)),
+            Tag.of(REGION_TAG_NAME, Util.getRegion(number)),
+            Tag.of(VERIFICATION_TRANSPORT_TAG_NAME, transport)))
+        .increment();
+
+    return Response.ok().build();
   }
 
   @Timed
@@ -496,10 +360,6 @@ public class AccountController {
     if (!codeVerified) {
       throw new WebApplicationException(Response.status(403).build());
     }
-
-    maybeStoredVerificationCode.map(StoredVerificationCode::twilioVerificationSid)
-        .ifPresent(
-            verificationSid -> smsSender.reportVerificationSucceeded(verificationSid, userAgent, "registration"));
 
     Optional<Account> existingAccount = accounts.getByE164(number);
 
@@ -552,22 +412,14 @@ public class AccountController {
 
       rateLimiters.getVerifyLimiter().validate(number);
 
-      final Optional<StoredVerificationCode> maybeStoredVerificationCode = pendingAccounts.getCodeForNumber(number);
-
-      final boolean codeVerified = maybeStoredVerificationCode.map(storedVerificationCode ->
-              storedVerificationCode.sessionId() != null ?
-                  registrationServiceClient.checkVerificationCode(storedVerificationCode.sessionId(),
-                      request.code(), REGISTRATION_RPC_TIMEOUT).join() :
-                  storedVerificationCode.isValid(request.code()))
+      final boolean codeVerified = pendingAccounts.getCodeForNumber(number).map(storedVerificationCode ->
+              registrationServiceClient.checkVerificationCode(storedVerificationCode.sessionId(),
+                      request.code(), REGISTRATION_RPC_TIMEOUT).join())
           .orElse(false);
 
       if (!codeVerified) {
         throw new ForbiddenException();
       }
-
-      maybeStoredVerificationCode.map(StoredVerificationCode::twilioVerificationSid)
-          .ifPresent(
-              verificationSid -> smsSender.reportVerificationSucceeded(verificationSid, userAgent, "changeNumber"));
 
       final Optional<Account> existingAccount = accounts.getByE164(number);
 
@@ -1037,17 +889,6 @@ public class AccountController {
     }
 
     return false;
-  }
-
-  @VisibleForTesting protected
-  VerificationCode generateVerificationCode(String number) {
-    if (testDevices.containsKey(number)) {
-      return new VerificationCode(testDevices.get(number));
-    }
-
-    SecureRandom random = new SecureRandom();
-    int randomInt       = 100000 + random.nextInt(900000);
-    return new VerificationCode(randomInt);
   }
 
   private String generatePushChallenge() {

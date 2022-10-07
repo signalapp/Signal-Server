@@ -21,6 +21,7 @@ import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
@@ -86,7 +87,6 @@ import org.whispersystems.textsecuregcm.entities.ReserveUsernameResponse;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.entities.UsernameRequest;
 import org.whispersystems.textsecuregcm.entities.UsernameResponse;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.ImpossiblePhoneNumberExceptionMapper;
@@ -99,8 +99,6 @@ import org.whispersystems.textsecuregcm.recaptcha.RecaptchaClient;
 import org.whispersystems.textsecuregcm.registration.ClientType;
 import org.whispersystems.textsecuregcm.registration.MessageTransport;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
-import org.whispersystems.textsecuregcm.sms.SmsSender;
-import org.whispersystems.textsecuregcm.sms.TwilioVerifyExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.storage.AbusiveHostRules;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -144,7 +142,6 @@ class AccountControllerTest {
   private static final String INVALID_CAPTCHA_TOKEN = "invalid_token";
 
   private static final String  TEST_NUMBER            = "+14151111113";
-  private static final Integer TEST_VERIFICATION_CODE = 123456;
 
   private static StoredVerificationCodeManager pendingAccountsManager = mock(StoredVerificationCodeManager.class);
   private static AccountsManager        accountsManager        = mock(AccountsManager.class);
@@ -158,7 +155,6 @@ class AccountControllerTest {
   private static RateLimiter            usernameSetLimiter     = mock(RateLimiter.class);
   private static RateLimiter            usernameReserveLimiter = mock(RateLimiter.class);
   private static RateLimiter            usernameLookupLimiter  = mock(RateLimiter.class);
-  private static SmsSender              smsSender              = mock(SmsSender.class);
   private static RegistrationServiceClient registrationServiceClient = mock(RegistrationServiceClient.class);
   private static TurnTokenGenerator     turnTokenGenerator     = mock(TurnTokenGenerator.class);
   private static Account                senderPinAccount       = mock(Account.class);
@@ -170,11 +166,6 @@ class AccountControllerTest {
   private static ChangeNumberManager    changeNumberManager    = mock(ChangeNumberManager.class);
 
   private static DynamicConfigurationManager dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
-
-  private static TwilioVerifyExperimentEnrollmentManager verifyExperimentEnrollmentManager = mock(
-      TwilioVerifyExperimentEnrollmentManager.class);
-
-  private static ExperimentEnrollmentManager experimentEnrollmentManager = mock(ExperimentEnrollmentManager.class);
 
   private byte[] registration_lock_key = new byte[32];
   private static ExternalServiceCredentialGenerator storageCredentialGenerator = new ExternalServiceCredentialGenerator(new byte[32], new byte[32], false);
@@ -194,17 +185,14 @@ class AccountControllerTest {
           accountsManager,
           abusiveHostRules,
           rateLimiters,
-          smsSender,
           registrationServiceClient,
           dynamicConfigurationManager,
           turnTokenGenerator,
-          Map.of(TEST_NUMBER, TEST_VERIFICATION_CODE),
+          Map.of(TEST_NUMBER, 123456),
           recaptchaClient,
           pushNotificationManager,
-          verifyExperimentEnrollmentManager,
           changeNumberManager,
-          storageCredentialGenerator,
-          experimentEnrollmentManager))
+          storageCredentialGenerator))
       .build();
 
 
@@ -342,7 +330,6 @@ class AccountControllerTest {
         usernameSetLimiter,
         usernameReserveLimiter,
         usernameLookupLimiter,
-        smsSender,
         registrationServiceClient,
         turnTokenGenerator,
         senderPinAccount,
@@ -351,8 +338,6 @@ class AccountControllerTest {
         senderTransfer,
         recaptchaClient,
         pushNotificationManager,
-        verifyExperimentEnrollmentManager,
-        experimentEnrollmentManager,
         changeNumberManager);
 
     clearInvocations(AuthHelper.DISABLED_DEVICE);
@@ -455,7 +440,7 @@ class AccountControllerTest {
     assertThat(response.getStatus()).isEqualTo(400);
     assertThat(response.readEntity(String.class)).isBlank();
 
-    verifyNoMoreInteractions(pushNotificationManager);
+    verifyNoInteractions(pushNotificationManager);
   }
 
   @Test
@@ -473,58 +458,16 @@ class AccountControllerTest {
     assertThat(responseEntity.getOriginalNumber()).isEqualTo(number);
     assertThat(responseEntity.getNormalizedNumber()).isEqualTo("+447700900111");
 
-    verifyNoMoreInteractions(pushNotificationManager);
-  }
-
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  void testSendCode(final boolean enrolledInVerifyExperiment) {
-
-    when(verifyExperimentEnrollmentManager.isEnrolled(any(), anyString(), anyList(), anyString()))
-        .thenReturn(enrolledInVerifyExperiment);
-
-    if (enrolledInVerifyExperiment) {
-      when(smsSender.deliverSmsVerificationWithTwilioVerify(anyString(), any(), anyString(), anyList()))
-          .thenReturn(CompletableFuture.completedFuture(Optional.of("VerificationSid")));
-    }
-
-    Response response =
-        resources.getJerseyTest()
-                 .target(String.format("/v1/accounts/sms/code/%s", SENDER))
-                 .queryParam("challenge", "1234-push")
-                 .request()
-                 .header("X-Forwarded-For", NICE_HOST)
-                 .get();
-
-    assertThat(response.getStatus()).isEqualTo(200);
-
-    if (enrolledInVerifyExperiment) {
-      ArgumentCaptor<StoredVerificationCode> storedVerificationCodeArgumentCaptor = ArgumentCaptor
-          .forClass(StoredVerificationCode.class);
-
-      verify(smsSender).deliverSmsVerificationWithTwilioVerify(eq(SENDER), eq(Optional.empty()), anyString(), eq(Collections.emptyList()));
-      verify(pendingAccountsManager, times(2)).store(eq(SENDER), storedVerificationCodeArgumentCaptor.capture());
-
-      assertThat(storedVerificationCodeArgumentCaptor.getValue().twilioVerificationSid())
-          .isEqualTo("VerificationSid");
-
-    } else {
-      verify(smsSender).deliverSmsVerification(eq(SENDER), eq(Optional.empty()), anyString());
-    }
-    verifyNoMoreInteractions(smsSender);
-    verify(abusiveHostRules).isBlocked(eq(NICE_HOST));
+    verifyNoInteractions(pushNotificationManager);
   }
 
   @Test
-  void testSendCodeViaRegistrationService() throws NumberParseException {
+  void testSendCode() throws NumberParseException {
 
     final byte[] sessionId = "session-id".getBytes(StandardCharsets.UTF_8);
 
     when(registrationServiceClient.sendRegistrationCode(any(), any(), any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(sessionId));
-
-    when(experimentEnrollmentManager.isEnrolled(SENDER, AccountController.REGISTRATION_SERVICE_EXPERIMENT_NAME))
-        .thenReturn(true);
 
     Response response =
         resources.getJerseyTest()
@@ -543,8 +486,6 @@ class AccountControllerTest {
     verify(pendingAccountsManager).store(eq(SENDER), argThat(
         storedVerificationCode -> Arrays.equals(storedVerificationCode.sessionId(), sessionId) &&
             "1234-push".equals(storedVerificationCode.pushCode())));
-
-    verifyNoInteractions(smsSender);
   }
 
   @Test
@@ -560,7 +501,7 @@ class AccountControllerTest {
     assertThat(response.getStatus()).isEqualTo(400);
     assertThat(response.readEntity(String.class)).isBlank();
 
-    verify(smsSender, never()).deliverSmsVerification(any(), any(), any());
+    verify(registrationServiceClient, never()).sendRegistrationCode(any(), any(), any(), any(), any());
   }
 
   @Test
@@ -581,20 +522,14 @@ class AccountControllerTest {
     assertThat(responseEntity.getOriginalNumber()).isEqualTo(number);
     assertThat(responseEntity.getNormalizedNumber()).isEqualTo("+447700900111");
 
-    verify(smsSender, never()).deliverSmsVerification(any(), any(), any());
+    verify(registrationServiceClient, never()).sendRegistrationCode(any(), any(), any(), any(), any());
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  public void testSendCodeVoiceNoLocale(final boolean enrolledInVerifyExperiment) throws Exception {
+  @Test
+  public void testSendCodeVoiceNoLocale() throws NumberParseException {
 
-    when(verifyExperimentEnrollmentManager.isEnrolled(any(), anyString(), anyList(), anyString()))
-        .thenReturn(enrolledInVerifyExperiment);
-
-    if (enrolledInVerifyExperiment) {
-      when(smsSender.deliverVoxVerificationWithTwilioVerify(anyString(), anyString(), anyList()))
-          .thenReturn(CompletableFuture.completedFuture(Optional.of("VerificationSid")));
-    }
+    when(registrationServiceClient.sendRegistrationCode(any(), any(), any(), any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(new byte[16]));
 
     Response response =
         resources.getJerseyTest()
@@ -604,122 +539,18 @@ class AccountControllerTest {
             .header("X-Forwarded-For", NICE_HOST)
             .get();
 
-    assertThat(response.getStatus()).isEqualTo(200);
+    final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().parse(SENDER, null);
 
-    if (enrolledInVerifyExperiment) {
-      verify(smsSender).deliverVoxVerificationWithTwilioVerify(eq(SENDER), anyString(), eq(Collections.emptyList()));
-    } else {
-      verify(smsSender).deliverVoxVerification(eq(SENDER), anyString(), eq(Collections.emptyList()));
-    }
+    assertThat(response.getStatus()).isEqualTo(200);
+    verify(registrationServiceClient).sendRegistrationCode(phoneNumber, MessageTransport.VOICE, ClientType.UNKNOWN, null, AccountController.REGISTRATION_RPC_TIMEOUT);
     verify(abusiveHostRules).isBlocked(eq(NICE_HOST));
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  public void testSendCodeVoiceSingleLocale(final boolean enrolledInVerifyExperiment) throws Exception {
+  @Test
+  void testSendCodeWithValidPreauth() throws NumberParseException {
 
-    when(verifyExperimentEnrollmentManager.isEnrolled(any(), anyString(), anyList(), anyString()))
-        .thenReturn(enrolledInVerifyExperiment);
-
-    if (enrolledInVerifyExperiment) {
-      when(smsSender.deliverVoxVerificationWithTwilioVerify(anyString(), anyString(), anyList()))
-          .thenReturn(CompletableFuture.completedFuture(Optional.of("VerificationSid")));
-    }
-
-    Response response =
-        resources.getJerseyTest()
-            .target(String.format("/v1/accounts/voice/code/%s", SENDER))
-            .queryParam("challenge", "1234-push")
-            .request()
-            .header("Accept-Language", "pt-BR")
-            .header("X-Forwarded-For", NICE_HOST)
-            .get();
-
-    assertThat(response.getStatus()).isEqualTo(200);
-
-    if (enrolledInVerifyExperiment) {
-      verify(smsSender)
-          .deliverVoxVerificationWithTwilioVerify(eq(SENDER), anyString(), eq(Locale.LanguageRange.parse("pt-BR")));
-    } else {
-      verify(smsSender).deliverVoxVerification(eq(SENDER), anyString(), eq(Locale.LanguageRange.parse("pt-BR")));
-    }
-    verify(abusiveHostRules).isBlocked(eq(NICE_HOST));
-  }
-
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  public void testSendCodeVoiceMultipleLocales(final boolean enrolledInVerifyExperiment) throws Exception {
-
-    when(verifyExperimentEnrollmentManager.isEnrolled(any(), anyString(), anyList(), anyString()))
-        .thenReturn(enrolledInVerifyExperiment);
-
-    if (enrolledInVerifyExperiment) {
-      when(smsSender.deliverVoxVerificationWithTwilioVerify(anyString(), anyString(), anyList()))
-          .thenReturn(CompletableFuture.completedFuture(Optional.of("VerificationSid")));
-    }
-
-    Response response =
-        resources.getJerseyTest()
-            .target(String.format("/v1/accounts/voice/code/%s", SENDER))
-            .queryParam("challenge", "1234-push")
-            .request()
-            .header("Accept-Language", "en-US;q=1, ar-US;q=0.9, fa-US;q=0.8, zh-Hans-US;q=0.7, ru-RU;q=0.6, zh-Hant-US;q=0.5")
-            .header("X-Forwarded-For", NICE_HOST)
-            .get();
-
-    assertThat(response.getStatus()).isEqualTo(200);
-
-    if (enrolledInVerifyExperiment) {
-      verify(smsSender).deliverVoxVerificationWithTwilioVerify(eq(SENDER), anyString(), eq(Locale.LanguageRange
-          .parse("en-US;q=1, ar-US;q=0.9, fa-US;q=0.8, zh-Hans-US;q=0.7, ru-RU;q=0.6, zh-Hant-US;q=0.5")));
-    } else {
-      verify(smsSender).deliverVoxVerification(eq(SENDER), anyString(), eq(Locale.LanguageRange
-          .parse("en-US;q=1, ar-US;q=0.9, fa-US;q=0.8, zh-Hans-US;q=0.7, ru-RU;q=0.6, zh-Hant-US;q=0.5")));
-    }
-    verify(abusiveHostRules).isBlocked(eq(NICE_HOST));
-  }
-
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  void testSendCodeVoiceInvalidLocale(boolean enrolledInVerifyExperiment) throws Exception {
-    when(verifyExperimentEnrollmentManager.isEnrolled(any(), anyString(), anyList(), anyString()))
-        .thenReturn(enrolledInVerifyExperiment);
-
-    if (enrolledInVerifyExperiment) {
-      when(smsSender.deliverVoxVerificationWithTwilioVerify(anyString(), anyString(), anyList()))
-          .thenReturn(CompletableFuture.completedFuture(Optional.of("VerificationSid")));
-    }
-
-    Response response =
-        resources.getJerseyTest()
-            .target(String.format("/v1/accounts/voice/code/%s", SENDER))
-            .queryParam("challenge", "1234-push")
-            .request()
-            .header("Accept-Language", "This is not a reasonable Accept-Language value")
-            .header("X-Forwarded-For", NICE_HOST)
-            .get();
-
-    // Should still send a code, just with no accept language
-    assertThat(response.getStatus()).isEqualTo(200);
-
-    if (enrolledInVerifyExperiment) {
-      verify(smsSender).deliverVoxVerificationWithTwilioVerify(eq(SENDER), anyString(), eq(Collections.emptyList()));
-    } else {
-      verify(smsSender).deliverVoxVerification(eq(SENDER), anyString(), eq(Collections.emptyList()));
-    }
-  }
-
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  void testSendCodeWithValidPreauth(final boolean enrolledInVerifyExperiment) throws Exception {
-
-    when(verifyExperimentEnrollmentManager.isEnrolled(any(), anyString(), anyList(), anyString()))
-        .thenReturn(enrolledInVerifyExperiment);
-
-    if (enrolledInVerifyExperiment) {
-      when(smsSender.deliverSmsVerificationWithTwilioVerify(anyString(), any(), anyString(), anyList()))
-          .thenReturn(CompletableFuture.completedFuture(Optional.of("VerificationSid")));
-    }
+    when(registrationServiceClient.sendRegistrationCode(any(), any(), any(), any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(new byte[16]));
 
     Response response =
         resources.getJerseyTest()
@@ -731,17 +562,14 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(200);
 
-    if (enrolledInVerifyExperiment) {
-      verify(smsSender).deliverSmsVerificationWithTwilioVerify(eq(SENDER_PREAUTH), eq(Optional.empty()), anyString(),
-          eq(Collections.emptyList()));
-    } else {
-      verify(smsSender).deliverSmsVerification(eq(SENDER_PREAUTH), eq(Optional.empty()), anyString());
-    }
+    final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().parse(SENDER_PREAUTH, null);
+
+    verify(registrationServiceClient).sendRegistrationCode(phoneNumber, MessageTransport.SMS, ClientType.UNKNOWN, null, AccountController.REGISTRATION_RPC_TIMEOUT);
     verify(abusiveHostRules).isBlocked(eq(NICE_HOST));
   }
 
   @Test
-  void testSendCodeWithInvalidPreauth() throws Exception {
+  void testSendCodeWithInvalidPreauth() {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER_PREAUTH))
@@ -752,12 +580,12 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(403);
 
-    verifyNoMoreInteractions(smsSender);
-    verifyNoMoreInteractions(abusiveHostRules);
+    verifyNoInteractions(registrationServiceClient);
+    verifyNoInteractions(abusiveHostRules);
   }
 
   @Test
-  void testSendCodeWithNoPreauth() throws Exception {
+  void testSendCodeWithNoPreauth() {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER_PREAUTH))
@@ -767,22 +595,14 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(402);
 
-    verify(smsSender, never()).deliverSmsVerification(eq(SENDER_PREAUTH), eq(Optional.empty()), anyString());
-    verify(smsSender, never()).deliverSmsVerificationWithTwilioVerify(eq(SENDER_PREAUTH), eq(Optional.empty()), anyString(), anyList());
+    verifyNoInteractions(registrationServiceClient);
   }
 
+  @Test
+  void testSendiOSCode() throws NumberParseException {
 
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  void testSendiOSCode(final boolean enrolledInVerifyExperiment) throws Exception {
-
-    when(verifyExperimentEnrollmentManager.isEnrolled(any(), anyString(), anyList(), anyString()))
-        .thenReturn(enrolledInVerifyExperiment);
-
-    if (enrolledInVerifyExperiment) {
-      when(smsSender.deliverSmsVerificationWithTwilioVerify(anyString(), any(), anyString(), anyList()))
-          .thenReturn(CompletableFuture.completedFuture(Optional.of("VerificationSid")));
-    }
+    when(registrationServiceClient.sendRegistrationCode(any(), any(), any(), any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(new byte[16]));
 
     Response response =
         resources.getJerseyTest()
@@ -795,25 +615,15 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(200);
 
-    if (enrolledInVerifyExperiment) {
-      verify(smsSender).deliverSmsVerificationWithTwilioVerify(eq(SENDER), eq(Optional.of("ios")), anyString(),
-          eq(Collections.emptyList()));
-    } else {
-      verify(smsSender).deliverSmsVerification(eq(SENDER), eq(Optional.of("ios")), anyString());
-    }
+    final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().parse(SENDER, null);
+
+    verify(registrationServiceClient).sendRegistrationCode(phoneNumber, MessageTransport.SMS, ClientType.IOS, null, AccountController.REGISTRATION_RPC_TIMEOUT);
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  void testSendAndroidNgCode(final boolean enrolledInVerifyExperiment) throws Exception {
-
-    when(verifyExperimentEnrollmentManager.isEnrolled(any(), anyString(), anyList(), anyString()))
-        .thenReturn(enrolledInVerifyExperiment);
-
-    if (enrolledInVerifyExperiment) {
-      when(smsSender.deliverSmsVerificationWithTwilioVerify(anyString(), any(), anyString(), anyList()))
-          .thenReturn(CompletableFuture.completedFuture(Optional.of("VerificationSid")));
-    }
+  @Test
+  void testSendAndroidNgCode() throws NumberParseException {
+    when(registrationServiceClient.sendRegistrationCode(any(), any(), any(), any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(new byte[16]));
 
     Response response =
         resources.getJerseyTest()
@@ -826,25 +636,13 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(200);
 
-    if (enrolledInVerifyExperiment) {
-      verify(smsSender).deliverSmsVerificationWithTwilioVerify(eq(SENDER), eq(Optional.of("android-ng")), anyString(),
-          eq(Collections.emptyList()));
-    } else {
-      verify(smsSender).deliverSmsVerification(eq(SENDER), eq(Optional.of("android-ng")), anyString());
-    }
+    final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().parse(SENDER, null);
+
+    verify(registrationServiceClient).sendRegistrationCode(phoneNumber, MessageTransport.SMS, ClientType.ANDROID_WITHOUT_FCM, null, AccountController.REGISTRATION_RPC_TIMEOUT);
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  void testSendAbusiveHost(final boolean enrolledInVerifyExperiment) {
-
-    when(verifyExperimentEnrollmentManager.isEnrolled(any(), anyString(), anyList(), anyString()))
-        .thenReturn(enrolledInVerifyExperiment);
-
-    if (enrolledInVerifyExperiment) {
-      when(smsSender.deliverSmsVerificationWithTwilioVerify(anyString(), any(), anyString(), anyList()))
-          .thenReturn(CompletableFuture.completedFuture(Optional.of("VerificationSid")));
-    }
+  @Test
+  void testSendAbusiveHost() {
 
     Response response =
         resources.getJerseyTest()
@@ -857,20 +655,14 @@ class AccountControllerTest {
     assertThat(response.getStatus()).isEqualTo(402);
 
     verify(abusiveHostRules).isBlocked(eq(ABUSIVE_HOST));
-    verifyNoMoreInteractions(smsSender);
+    verifyNoInteractions(registrationServiceClient);
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  void testSendAbusiveHostWithValidCaptcha(final boolean enrolledInVerifyExperiment) throws IOException {
+  @Test
+  void testSendAbusiveHostWithValidCaptcha() throws NumberParseException {
 
-    when(verifyExperimentEnrollmentManager.isEnrolled(any(), anyString(), anyList(), anyString()))
-        .thenReturn(enrolledInVerifyExperiment);
-
-    if (enrolledInVerifyExperiment) {
-      when(smsSender.deliverSmsVerificationWithTwilioVerify(anyString(), any(), anyString(), anyList()))
-          .thenReturn(CompletableFuture.completedFuture(Optional.of("VerificationSid")));
-    }
+    when(registrationServiceClient.sendRegistrationCode(any(), any(), any(), any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(new byte[16]));
 
     Response response =
         resources.getJerseyTest()
@@ -882,27 +674,16 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(200);
 
-    verifyNoMoreInteractions(abusiveHostRules);
+    final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().parse(SENDER, null);
+
+    verifyNoInteractions(abusiveHostRules);
     verify(recaptchaClient).verify(eq(VALID_CAPTCHA_TOKEN), eq(ABUSIVE_HOST));
-    if (enrolledInVerifyExperiment) {
-      verify(smsSender).deliverSmsVerificationWithTwilioVerify(eq(SENDER), eq(Optional.empty()), anyString(),
-          eq(Collections.emptyList()));
-    } else {
-      verify(smsSender).deliverSmsVerification(eq(SENDER), eq(Optional.empty()), anyString());
-    }
+    verify(registrationServiceClient).sendRegistrationCode(phoneNumber, MessageTransport.SMS, ClientType.UNKNOWN, null, AccountController.REGISTRATION_RPC_TIMEOUT);
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  void testSendAbusiveHostWithInvalidCaptcha(final boolean enrolledInVerifyExperiment) {
+  @Test
+  void testSendAbusiveHostWithInvalidCaptcha() {
 
-    when(verifyExperimentEnrollmentManager.isEnrolled(any(), anyString(), anyList(), anyString()))
-        .thenReturn(enrolledInVerifyExperiment);
-
-    if (enrolledInVerifyExperiment) {
-      when(smsSender.deliverSmsVerificationWithTwilioVerify(anyString(), any(), anyString(), anyList()))
-          .thenReturn(CompletableFuture.completedFuture(Optional.of("VerificationSid")));
-    }
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER))
@@ -913,23 +694,13 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(402);
 
-    verifyNoMoreInteractions(abusiveHostRules);
+    verifyNoInteractions(abusiveHostRules);
     verify(recaptchaClient).verify(eq(INVALID_CAPTCHA_TOKEN), eq(ABUSIVE_HOST));
-    verifyNoMoreInteractions(smsSender);
+    verifyNoInteractions(registrationServiceClient);
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  void testSendRateLimitedHostAutoBlock(final boolean enrolledInVerifyExperiment) {
-
-    when(verifyExperimentEnrollmentManager.isEnrolled(any(), anyString(), anyList(), anyString()))
-        .thenReturn(enrolledInVerifyExperiment);
-
-    if (enrolledInVerifyExperiment) {
-      when(smsSender.deliverSmsVerificationWithTwilioVerify(anyString(), any(), anyString(), anyList()))
-          .thenReturn(CompletableFuture.completedFuture(Optional.of("VerificationSid")));
-    }
-
+  @Test
+  void testSendRateLimitedHostAutoBlock() {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER))
@@ -944,21 +715,12 @@ class AccountControllerTest {
     verify(abusiveHostRules).setBlockedHost(eq(RATE_LIMITED_IP_HOST));
     verifyNoMoreInteractions(abusiveHostRules);
 
-    verifyNoMoreInteractions(recaptchaClient);
-    verifyNoMoreInteractions(smsSender);
+    verifyNoInteractions(recaptchaClient);
+    verifyNoInteractions(registrationServiceClient);
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  void testSendRateLimitedPrefixAutoBlock(final boolean enrolledInVerifyExperiment) {
-
-    when(verifyExperimentEnrollmentManager.isEnrolled(any(), anyString(), anyList(), anyString()))
-        .thenReturn(enrolledInVerifyExperiment);
-
-    if (enrolledInVerifyExperiment) {
-      when(smsSender.deliverSmsVerificationWithTwilioVerify(anyString(), any(), anyString(), anyList()))
-          .thenReturn(CompletableFuture.completedFuture(Optional.of("VerificationSid")));
-    }
+  @Test
+  void testSendRateLimitedPrefixAutoBlock() {
 
     Response response =
         resources.getJerseyTest()
@@ -974,21 +736,12 @@ class AccountControllerTest {
     verify(abusiveHostRules).setBlockedHost(eq(RATE_LIMITED_PREFIX_HOST));
     verifyNoMoreInteractions(abusiveHostRules);
 
-    verifyNoMoreInteractions(recaptchaClient);
-    verifyNoMoreInteractions(smsSender);
+    verifyNoInteractions(recaptchaClient);
+    verifyNoInteractions(registrationServiceClient);
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  void testSendRateLimitedHostNoAutoBlock(final boolean enrolledInVerifyExperiment) {
-
-    when(verifyExperimentEnrollmentManager.isEnrolled(any(), anyString(), anyList(), anyString()))
-        .thenReturn(enrolledInVerifyExperiment);
-
-    if (enrolledInVerifyExperiment) {
-      when(smsSender.deliverSmsVerificationWithTwilioVerify(anyString(), any(), anyString(), anyList()))
-          .thenReturn(CompletableFuture.completedFuture(Optional.of("VerificationSid")));
-    }
+  @Test
+  void testSendRateLimitedHostNoAutoBlock() {
 
     Response response =
         resources.getJerseyTest()
@@ -1003,17 +756,13 @@ class AccountControllerTest {
     verify(abusiveHostRules).isBlocked(eq(RATE_LIMITED_HOST2));
     verifyNoMoreInteractions(abusiveHostRules);
 
-    verifyNoMoreInteractions(recaptchaClient);
-    verifyNoMoreInteractions(smsSender);
+    verifyNoInteractions(recaptchaClient);
+    verifyNoInteractions(registrationServiceClient);
   }
 
 
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  void testSendMultipleHost(final boolean enrolledInVerifyExperiment) {
-
-    when(verifyExperimentEnrollmentManager.isEnrolled(any(), anyString(), anyList(), anyString()))
-        .thenReturn(enrolledInVerifyExperiment);
+  @Test
+  void testSendMultipleHost() {
 
     Response response =
         resources.getJerseyTest()
@@ -1028,16 +777,12 @@ class AccountControllerTest {
     verify(abusiveHostRules, times(1)).isBlocked(eq(ABUSIVE_HOST));
 
     verifyNoMoreInteractions(abusiveHostRules);
-    verifyNoMoreInteractions(smsSender);
+    verifyNoInteractions(registrationServiceClient);
   }
 
 
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  void testSendRestrictedHostOut(final boolean enrolledInVerifyExperiment) {
-
-    when(verifyExperimentEnrollmentManager.isEnrolled(any(), anyString(), anyList(), anyString()))
-        .thenReturn(enrolledInVerifyExperiment);
+  @Test
+  void testSendRestrictedHostOut() {
 
     final String challenge = "challenge";
     when(pendingAccountsManager.getCodeForNumber(RESTRICTED_NUMBER))
@@ -1054,17 +799,15 @@ class AccountControllerTest {
     assertThat(response.getStatus()).isEqualTo(402);
 
     verify(abusiveHostRules).isBlocked(eq(NICE_HOST));
-    verifyNoMoreInteractions(smsSender);
+    verifyNoInteractions(registrationServiceClient);
   }
 
   @ParameterizedTest
   @CsvSource({
-      "+12025550123, true, true",
-      "+12025550123, false, true",
-      "+12505550199, true, false",
-      "+12505550199, false, false",
+      "+12025550123, true",
+      "+12505550199, false",
   })
-  void testRestrictedRegion(final String number, final boolean enrolledInVerifyExperiment, final boolean expectSendCode) {
+  void testRestrictedRegion(final String number, final boolean expectSendCode) throws NumberParseException {
     final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
 
@@ -1073,15 +816,12 @@ class AccountControllerTest {
 
     when(dynamicConfiguration.getCaptchaConfiguration()).thenReturn(signupCaptchaConfig);
 
-    when(verifyExperimentEnrollmentManager.isEnrolled(any(), anyString(), anyList(), anyString()))
-        .thenReturn(enrolledInVerifyExperiment);
-
     final String challenge = "challenge";
     when(pendingAccountsManager.getCodeForNumber(number))
         .thenReturn(Optional.of(new StoredVerificationCode("123456", System.currentTimeMillis(), challenge, null, null)));
 
-    when(smsSender.deliverSmsVerificationWithTwilioVerify(any(), any(), any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
+    when(registrationServiceClient.sendRegistrationCode(any(), any(), any(), any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(new byte[16]));
 
     Response response =
         resources.getJerseyTest()
@@ -1094,31 +834,22 @@ class AccountControllerTest {
     if (expectSendCode) {
       assertThat(response.getStatus()).isEqualTo(200);
 
-      if (enrolledInVerifyExperiment) {
-        verify(smsSender).deliverSmsVerificationWithTwilioVerify(eq(number), any(), any(), any());
-      } else {
-        verify(smsSender).deliverSmsVerification(eq(number), any(), any());
-      }
+      final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().parse(number, null);
+      verify(registrationServiceClient).sendRegistrationCode(phoneNumber, MessageTransport.SMS, ClientType.UNKNOWN, null, AccountController.REGISTRATION_RPC_TIMEOUT);
     } else {
       assertThat(response.getStatus()).isEqualTo(402);
-      verifyNoMoreInteractions(smsSender);
+      verifyNoInteractions(registrationServiceClient);
     }
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  void testSendRestrictedIn(final boolean enrolledInVerifyExperiment) throws Exception {
+  @Test
+  void testSendRestrictedIn() throws NumberParseException {
 
-    when(verifyExperimentEnrollmentManager.isEnrolled(any(), anyString(), anyList(), anyString()))
-        .thenReturn(enrolledInVerifyExperiment);
-
-    if (enrolledInVerifyExperiment) {
-      when(smsSender.deliverSmsVerificationWithTwilioVerify(anyString(), any(), anyString(), anyList()))
-          .thenReturn(CompletableFuture.completedFuture(Optional.of("VerificationSid")));
-    }
     final String challenge = "challenge";
 
     when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.of(new StoredVerificationCode("123456", System.currentTimeMillis(), challenge, null, null)));
+    when(registrationServiceClient.sendRegistrationCode(any(), any(), any(), any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(new byte[16]));
 
     Response response =
         resources.getJerseyTest()
@@ -1130,40 +861,38 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(200);
 
-    if (enrolledInVerifyExperiment) {
-      verify(smsSender).deliverSmsVerificationWithTwilioVerify(eq(SENDER), eq(Optional.empty()), anyString(),
-          eq(Collections.emptyList()));
-    } else {
-      verify(smsSender).deliverSmsVerification(eq(SENDER), eq(Optional.empty()), anyString());
-    }
+    final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().parse(SENDER, null);
 
-    verifyNoMoreInteractions(smsSender);
+    verify(registrationServiceClient).sendRegistrationCode(phoneNumber, MessageTransport.SMS, ClientType.UNKNOWN, null, AccountController.REGISTRATION_RPC_TIMEOUT);
   }
 
   @Test
-  void testSendCodeTestDeviceNumber() throws Exception {
-    // no push code and a blocked host, but should evade captchas and skip smsSender
+  void testSendCodeTestDeviceNumber() throws NumberParseException {
+    final byte[] sessionId = "session-id".getBytes(StandardCharsets.UTF_8);
+
+    when(registrationServiceClient.sendRegistrationCode(any(), any(), any(), any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(sessionId));
+
     Response response =
         resources.getJerseyTest()
             .target(String.format("/v1/accounts/sms/code/%s", TEST_NUMBER))
             .request()
             .header("X-Forwarded-For", ABUSIVE_HOST)
             .get();
-    ArgumentCaptor<StoredVerificationCode> captor = ArgumentCaptor.forClass(StoredVerificationCode.class);
+
+    final ArgumentCaptor<StoredVerificationCode> captor = ArgumentCaptor.forClass(StoredVerificationCode.class);
     verify(pendingAccountsManager).store(eq(TEST_NUMBER), captor.capture());
-    assertThat(captor.getValue().code()).isEqualTo(Integer.toString(TEST_VERIFICATION_CODE));
+    assertThat(captor.getValue().code()).isNull();
+    assertThat(captor.getValue().sessionId()).isEqualTo(sessionId);
     assertThat(response.getStatus()).isEqualTo(200);
-    verifyNoInteractions(smsSender);
+
+    // Even though no actual SMS will be sent, we leave that decision to the registration service
+    final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().parse(TEST_NUMBER, null);
+    verify(registrationServiceClient).sendRegistrationCode(phoneNumber, MessageTransport.SMS, ClientType.UNKNOWN, null, AccountController.REGISTRATION_RPC_TIMEOUT);
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  void testVerifyCode(final boolean enrolledInVerifyExperiment) throws Exception {
-    if (enrolledInVerifyExperiment) {
-      when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(
-          Optional.of(new StoredVerificationCode("1234", System.currentTimeMillis(), "1234-push", "VerificationSid", null)));
-    }
-
+  @Test
+  void testVerifyCode() throws Exception {
     resources.getJerseyTest()
              .target(String.format("/v1/accounts/code/%s", "1234"))
              .request()
@@ -1171,11 +900,6 @@ class AccountControllerTest {
              .put(Entity.entity(new AccountAttributes(), MediaType.APPLICATION_JSON_TYPE), AccountIdentityResponse.class);
 
     verify(accountsManager).create(eq(SENDER), eq("bar"), any(), any(), anyList());
-
-    if (enrolledInVerifyExperiment) {
-      verify(smsSender).reportVerificationSucceeded(eq("VerificationSid"), any(), eq("registration"));
-    }
-
     verifyNoInteractions(registrationServiceClient);
   }
 
@@ -1199,7 +923,6 @@ class AccountControllerTest {
     verify(accountsManager).create(eq(SENDER), eq("bar"), any(), any(), anyList());
 
     verify(registrationServiceClient).checkVerificationCode(sessionId, "1234", AccountController.REGISTRATION_RPC_TIMEOUT);
-    verifyNoInteractions(smsSender);
   }
 
   @Test
@@ -1225,7 +948,7 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(403);
 
-    verifyNoMoreInteractions(accountsManager);
+    verifyNoInteractions(accountsManager);
   }
 
   @Test
@@ -1240,7 +963,7 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(403);
 
-    verifyNoMoreInteractions(accountsManager);
+    verifyNoInteractions(accountsManager);
   }
 
   @Test
@@ -1266,7 +989,6 @@ class AccountControllerTest {
 
     verify(registrationServiceClient).checkVerificationCode(sessionId, "1111", AccountController.REGISTRATION_RPC_TIMEOUT);
     verifyNoInteractions(accountsManager);
-    verifyNoInteractions(smsSender);
   }
 
   @Test
@@ -1320,7 +1042,7 @@ class AccountControllerTest {
 
       assertThat(result.getUuid()).isNotNull();
 
-      verifyNoMoreInteractions(pinLimiter);
+      verifyNoInteractions(pinLimiter);
     } finally {
       when(senderRegLockAccount.getRegistrationLock()).thenReturn(lock);
     }
@@ -1361,7 +1083,7 @@ class AccountControllerTest {
     assertThat(failure.getBackupCredentials().getPassword().startsWith(SENDER_REG_LOCK_UUID.toString())).isTrue();
     assertThat(failure.getTimeRemaining()).isGreaterThan(0);
 
-    verifyNoMoreInteractions(pinLimiter);
+    verifyNoInteractions(pinLimiter);
   }
 
   @Test
@@ -1412,54 +1134,13 @@ class AccountControllerTest {
   }
 
   @Test
-  void testVerifyTestDeviceNumber() throws Exception {
-
-    when(pendingAccountsManager.getCodeForNumber(TEST_NUMBER)).thenReturn(Optional.of(
-        new StoredVerificationCode(Integer.toString(TEST_VERIFICATION_CODE), System.currentTimeMillis(), "push", null, null)));
-
-
-    final Response response = resources.getJerseyTest()
-        .target(String.format("/v1/accounts/code/%s", TEST_VERIFICATION_CODE))
-        .request()
-        .header("Authorization", AuthHelper.getProvisioningAuthHeader(TEST_NUMBER, "bar"))
-        .put(Entity.entity(new AccountAttributes(), MediaType.APPLICATION_JSON_TYPE));
-
-    verify(accountsManager).create(eq(TEST_NUMBER), eq("bar"), any(), any(), anyList());
-    assertThat(response.getStatus()).isEqualTo(200);
-
-  }
-
-  @Test
   void testChangePhoneNumber() throws Exception {
-    final String number = "+18005559876";
-    final String code = "987654";
-
-    when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
-        new StoredVerificationCode(code, System.currentTimeMillis(), "push", null, null)));
-
-    final AccountIdentityResponse accountIdentityResponse =
-        resources.getJerseyTest()
-            .target("/v1/accounts/number")
-            .request()
-            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.entity(new ChangePhoneNumberRequest(number, code, null, null, null, null, null),
-                MediaType.APPLICATION_JSON_TYPE), AccountIdentityResponse.class);
-
-    verify(changeNumberManager).changeNumber(eq(AuthHelper.VALID_ACCOUNT), eq(number), any(), any(), any(), any());
-
-    assertThat(accountIdentityResponse.getUuid()).isEqualTo(AuthHelper.VALID_UUID);
-    assertThat(accountIdentityResponse.getNumber()).isEqualTo(number);
-    assertThat(accountIdentityResponse.getPni()).isNotEqualTo(AuthHelper.VALID_PNI);
-  }
-
-  @Test
-  void testChangePhoneNumberWithRegistrationService() throws Exception {
     final String number = "+18005559876";
     final String code = "987654";
     final byte[] sessionId = "session".getBytes(StandardCharsets.UTF_8);
 
     when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
-        new StoredVerificationCode(code, System.currentTimeMillis(), "push", null, sessionId)));
+        new StoredVerificationCode(null, System.currentTimeMillis(), "push", null, sessionId)));
 
     when(registrationServiceClient.checkVerificationCode(any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(true));
@@ -1557,26 +1238,6 @@ class AccountControllerTest {
   void testChangePhoneNumberIncorrectCode() throws Exception {
     final String number = "+18005559876";
     final String code = "987654";
-
-    when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
-        new StoredVerificationCode(code, System.currentTimeMillis(), "push", null, null)));
-
-    final Response response =
-        resources.getJerseyTest()
-            .target("/v1/accounts/number")
-            .request()
-            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.entity(new ChangePhoneNumberRequest(number, code + "-incorrect", null, null, null, null, null),
-                MediaType.APPLICATION_JSON_TYPE));
-
-    assertThat(response.getStatus()).isEqualTo(403);
-    verify(changeNumberManager, never()).changeNumber(any(), any(), any(), any(), any(), any());
-  }
-
-  @Test
-  void testChangePhoneNumberIncorrectCodeWithRegistrationService() throws Exception {
-    final String number = "+18005559876";
-    final String code = "987654";
     final byte[] sessionId = "session-id".getBytes(StandardCharsets.UTF_8);
 
     when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
@@ -1603,9 +1264,13 @@ class AccountControllerTest {
   void testChangePhoneNumberExistingAccountReglockNotRequired() throws Exception {
     final String number = "+18005559876";
     final String code = "987654";
+    final byte[] sessionId = "session-id".getBytes(StandardCharsets.UTF_8);
 
     when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
-        new StoredVerificationCode(code, System.currentTimeMillis(), "push", null, null)));
+        new StoredVerificationCode(code, System.currentTimeMillis(), "push", null, sessionId)));
+
+    when(registrationServiceClient.checkVerificationCode(any(), any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(true));
 
     final StoredRegistrationLock existingRegistrationLock = mock(StoredRegistrationLock.class);
     when(existingRegistrationLock.requiresClientRegistrationLock()).thenReturn(false);
@@ -1633,9 +1298,13 @@ class AccountControllerTest {
   void testChangePhoneNumberExistingAccountReglockRequiredNotProvided() throws Exception {
     final String number = "+18005559876";
     final String code = "987654";
+    final byte[] sessionId = "session-id".getBytes(StandardCharsets.UTF_8);
 
     when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
-        new StoredVerificationCode(code, System.currentTimeMillis(), "push", null, null)));
+        new StoredVerificationCode(code, System.currentTimeMillis(), "push", null, sessionId)));
+
+    when(registrationServiceClient.checkVerificationCode(any(), any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(true));
 
     final StoredRegistrationLock existingRegistrationLock = mock(StoredRegistrationLock.class);
     when(existingRegistrationLock.requiresClientRegistrationLock()).thenReturn(true);
@@ -1664,9 +1333,13 @@ class AccountControllerTest {
     final String number = "+18005559876";
     final String code = "987654";
     final String reglock = "setec-astronomy";
+    final byte[] sessionId = "session-id".getBytes(StandardCharsets.UTF_8);
 
     when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
-        new StoredVerificationCode(code, System.currentTimeMillis(), "push", null, null)));
+        new StoredVerificationCode(null, System.currentTimeMillis(), "push", null, sessionId)));
+
+    when(registrationServiceClient.checkVerificationCode(any(), any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(true));
 
     final StoredRegistrationLock existingRegistrationLock = mock(StoredRegistrationLock.class);
     when(existingRegistrationLock.requiresClientRegistrationLock()).thenReturn(true);
@@ -1696,9 +1369,13 @@ class AccountControllerTest {
     final String number = "+18005559876";
     final String code = "987654";
     final String reglock = "setec-astronomy";
+    final byte[] sessionId = "session-id".getBytes(StandardCharsets.UTF_8);
 
     when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
-        new StoredVerificationCode(code, System.currentTimeMillis(), "push", null, null)));
+        new StoredVerificationCode(null, System.currentTimeMillis(), "push", null, sessionId)));
+
+    when(registrationServiceClient.checkVerificationCode(any(), any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(true));
 
     final StoredRegistrationLock existingRegistrationLock = mock(StoredRegistrationLock.class);
     when(existingRegistrationLock.requiresClientRegistrationLock()).thenReturn(true);
@@ -1728,6 +1405,7 @@ class AccountControllerTest {
     final String number = "+18005559876";
     final String code = "987654";
     final String pniIdentityKey = "changed-pni-identity-key";
+    final byte[] sessionId = "session-id".getBytes(StandardCharsets.UTF_8);
 
     Device device2 = mock(Device.class);
     when(device2.getId()).thenReturn(2L);
@@ -1744,7 +1422,10 @@ class AccountControllerTest {
     when(AuthHelper.VALID_ACCOUNT.getDevice(3L)).thenReturn(Optional.of(device3));
 
     when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
-        new StoredVerificationCode(code, System.currentTimeMillis(), "push", null, null)));
+        new StoredVerificationCode(null, System.currentTimeMillis(), "push", null, sessionId)));
+
+    when(registrationServiceClient.checkVerificationCode(any(), any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(true));
 
     var deviceMessages = List.of(
             new IncomingMessage(1, 2, 2, "content2"),
@@ -2104,7 +1785,8 @@ class AccountControllerTest {
 
   @ParameterizedTest
   @MethodSource
-  void testSignupCaptcha(final String message, final boolean enforced, final Set<String> countryCodes, final int expectedResponseStatusCode) {
+  void testSignupCaptcha(final String message, final boolean enforced, final Set<String> countryCodes, final int expectedResponseStatusCode)
+      throws NumberParseException {
     DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
     when(dynamicConfigurationManager.getConfiguration())
         .thenReturn(dynamicConfiguration);
@@ -2113,6 +1795,9 @@ class AccountControllerTest {
     signupCaptchaConfig.setSignupCountryCodes(countryCodes);
     when(dynamicConfiguration.getCaptchaConfiguration())
         .thenReturn(signupCaptchaConfig);
+
+    when(registrationServiceClient.sendRegistrationCode(any(), any(), any(), any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(new byte[16]));
 
     Response response =
         resources.getJerseyTest()
@@ -2124,8 +1809,10 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(expectedResponseStatusCode);
 
-    verify(smsSender, 200 == expectedResponseStatusCode ? times(1) : never())
-        .deliverSmsVerification(eq(SENDER), eq(Optional.empty()), anyString());
+    final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().parse(SENDER, null);
+
+    verify(registrationServiceClient, 200 == expectedResponseStatusCode ? times(1) : never())
+        .sendRegistrationCode(phoneNumber, MessageTransport.SMS, ClientType.UNKNOWN, null, AccountController.REGISTRATION_RPC_TIMEOUT);
   }
 
   static Stream<Arguments> testSignupCaptcha() {

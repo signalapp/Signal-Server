@@ -31,10 +31,6 @@ public class DynamicConfiguration {
 
   @JsonProperty
   @Valid
-  private DynamicTwilioConfiguration twilio = new DynamicTwilioConfiguration();
-
-  @JsonProperty
-  @Valid
   private DynamicCaptchaConfiguration captcha = new DynamicCaptchaConfiguration();
 
   @JsonProperty
@@ -84,15 +80,6 @@ public class DynamicConfiguration {
 
   public DynamicPaymentsConfiguration getPaymentsConfiguration() {
     return payments;
-  }
-
-  public DynamicTwilioConfiguration getTwilioConfiguration() {
-    return twilio;
-  }
-
-  @VisibleForTesting
-  public void setTwilioConfiguration(DynamicTwilioConfiguration twilioConfiguration) {
-    this.twilio = twilioConfiguration;
   }
 
   public DynamicCaptchaConfiguration getCaptchaConfiguration() {
