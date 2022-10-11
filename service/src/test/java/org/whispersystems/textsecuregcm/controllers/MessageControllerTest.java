@@ -16,6 +16,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.anyBoolean;
 import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
@@ -764,7 +765,7 @@ class MessageControllerTest {
 
   @ParameterizedTest
   @MethodSource
-  void testMultiRecipientMessage(UUID recipientUUID, boolean authorize, boolean isStory) throws Exception {
+  void testMultiRecipientMessage(UUID recipientUUID, boolean authorize, boolean isStory, boolean urgent) throws Exception {
 
     // initialize our binary payload and create an input stream
     byte[] buffer = new byte[2048];
@@ -773,6 +774,19 @@ class MessageControllerTest {
     // set up the entity to use in our PUT request
     Entity<InputStream> entity = Entity.entity(stream, MultiRecipientMessageProvider.MEDIA_TYPE);
 
+    when(multiRecipientMessageExecutor.invokeAll(any()))
+        .thenAnswer(answer -> {
+          final List<Callable> tasks = answer.getArgument(0, List.class);
+          tasks.forEach(c -> {
+            try {
+              c.call();
+            } catch (Exception e) {
+              throw new RuntimeException(e);
+            }
+          });
+          return null;
+        });
+
     // start building the request
     Invocation.Builder bldr = resources
         .getJerseyTest()
@@ -780,6 +794,7 @@ class MessageControllerTest {
         .queryParam("online", true)
         .queryParam("ts", 1663798405641L)
         .queryParam("story", isStory)
+        .queryParam("urgent", urgent)
         .request()
         .header("User-Agent", "FIXME");
 
@@ -792,10 +807,19 @@ class MessageControllerTest {
     // make the PUT request
     Response response = bldr.put(entity);
 
+    if (authorize) {
+      ArgumentCaptor<Envelope> envelopeArgumentCaptor = ArgumentCaptor.forClass(Envelope.class);
+      verify(messageSender, atLeastOnce()).sendMessage(any(), any(), envelopeArgumentCaptor.capture(), anyBoolean());
+      assertEquals(urgent, envelopeArgumentCaptor.getValue().getUrgent());
+    }
+
     // We have a 2x2x2 grid of possible situations based on:
     //   - recipient enabled stories?
     //   - sender is authorized?
     //   - message is a story?
+    //
+    // (urgent is not included in the grid because it has no effect
+    // on any of the other settings.)
 
     if (recipientUUID == MULTI_DEVICE_UUID) {
       // This is the case where the recipient has enabled stories.
@@ -835,14 +859,22 @@ class MessageControllerTest {
   // Arguments here are: recipient-UUID, is-authorized?, is-story?
   private static Stream<Arguments> testMultiRecipientMessage() {
     return Stream.of(
-        Arguments.of(MULTI_DEVICE_UUID, false, true),
-        Arguments.of(MULTI_DEVICE_UUID, false, false),
-        Arguments.of(SINGLE_DEVICE_UUID, false, true),
-        Arguments.of(SINGLE_DEVICE_UUID, false, false),
-        Arguments.of(MULTI_DEVICE_UUID, true, true),
-        Arguments.of(MULTI_DEVICE_UUID, true, false),
-        Arguments.of(SINGLE_DEVICE_UUID, true, true),
-        Arguments.of(SINGLE_DEVICE_UUID, true, false)
+        Arguments.of(MULTI_DEVICE_UUID, false, true, true),
+        Arguments.of(MULTI_DEVICE_UUID, false, false, true),
+        Arguments.of(SINGLE_DEVICE_UUID, false, true, true),
+        Arguments.of(SINGLE_DEVICE_UUID, false, false, true),
+        Arguments.of(MULTI_DEVICE_UUID, true, true, true),
+        Arguments.of(MULTI_DEVICE_UUID, true, false, true),
+        Arguments.of(SINGLE_DEVICE_UUID, true, true, true),
+        Arguments.of(SINGLE_DEVICE_UUID, true, false, true),
+        Arguments.of(MULTI_DEVICE_UUID, false, true, false),
+        Arguments.of(MULTI_DEVICE_UUID, false, false, false),
+        Arguments.of(SINGLE_DEVICE_UUID, false, true, false),
+        Arguments.of(SINGLE_DEVICE_UUID, false, false, false),
+        Arguments.of(MULTI_DEVICE_UUID, true, true, false),
+        Arguments.of(MULTI_DEVICE_UUID, true, false, false),
+        Arguments.of(SINGLE_DEVICE_UUID, true, true, false),
+        Arguments.of(SINGLE_DEVICE_UUID, true, false, false)
     );
   }
 
@@ -871,7 +903,6 @@ class MessageControllerTest {
 
   private void checkGoodMultiRecipientResponse(Response response, int expectedCount) throws Exception {
     assertThat("Unexpected response", response.getStatus(), is(equalTo(200)));
-    verify(messageSender, never()).sendMessage(any(), any(), any(), anyBoolean());
     ArgumentCaptor<List<Callable<Void>>> captor = ArgumentCaptor.forClass(List.class);
     verify(multiRecipientMessageExecutor, times(1)).invokeAll(captor.capture());
     assert (captor.getValue().size() == expectedCount);

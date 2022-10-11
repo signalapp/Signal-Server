@@ -42,6 +42,7 @@ import javax.validation.constraints.NotNull;
 import javax.ws.rs.BadRequestException;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
+import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
@@ -324,9 +325,9 @@ public class MessageController {
       @HeaderParam("X-Forwarded-For") String forwardedFor,
       @QueryParam("online") boolean online,
       @QueryParam("ts") long timestamp,
+      @QueryParam("urgent") @DefaultValue("true") final boolean isUrgent,
       @QueryParam("story") boolean isStory,
       @NotNull @Valid MultiRecipientMessage multiRecipientMessage) {
-
     Map<UUID, Account> uuidToAccountMap = Arrays.stream(multiRecipientMessage.getRecipients())
         .map(Recipient::getUuid)
         .distinct()
@@ -411,7 +412,7 @@ public class MessageController {
             Device destinationDevice = destinationAccount.getDevice(recipient.getDeviceId()).orElseThrow();
             sentMessageCounter.increment();
             try {
-              sendCommonPayloadMessage(destinationAccount, destinationDevice, timestamp, online, isStory,
+              sendCommonPayloadMessage(destinationAccount, destinationDevice, timestamp, online, isStory, isUrgent,
                   recipient, multiRecipientMessage.getCommonPayload());
             } catch (NoSuchUserException e) {
               uuids404.add(destinationAccount.getUuid());
@@ -624,6 +625,7 @@ public class MessageController {
       long timestamp,
       boolean online,
       boolean story,
+      boolean urgent,
       Recipient recipient,
       byte[] commonPayload) throws NoSuchUserException {
     try {
@@ -642,6 +644,7 @@ public class MessageController {
           .setServerTimestamp(serverTimestamp)
           .setContent(ByteString.copyFrom(payload))
           .setStory(story)
+          .setUrgent(urgent)
           .setDestinationUuid(destinationAccount.getUuid().toString());
 
       messageSender.sendMessage(destinationAccount, destinationDevice, messageBuilder.build(), online);
