@@ -24,6 +24,7 @@ import java.util.Optional;
 import java.util.UUID;
 import javax.annotation.Nonnull;
 import javax.ws.rs.BadRequestException;
+import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -66,13 +67,12 @@ public class CertificateController {
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/delivery")
   public DeliveryCertificate getDeliveryCertificate(@Auth AuthenticatedAccount auth,
-      @QueryParam("includeE164") Optional<Boolean> maybeIncludeE164)
+      @QueryParam("includeE164") @DefaultValue("true") boolean includeE164)
       throws InvalidKeyException {
+
     if (Util.isEmpty(auth.getAccount().getIdentityKey())) {
       throw new WebApplicationException(Response.Status.BAD_REQUEST);
     }
-
-    final boolean includeE164 = maybeIncludeE164.orElse(true);
 
     Metrics.counter(GENERATE_DELIVERY_CERTIFICATE_COUNTER_NAME, INCLUDE_E164_TAG_NAME, String.valueOf(includeE164))
         .increment();
