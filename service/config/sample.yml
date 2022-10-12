@@ -294,14 +294,6 @@ paymentsService:
     # list of symbols for supported currencies
     - MOB
 
-donation:
-  uri: donation.example.com # value
-  supportedCurrencies:
-    - # 1st supported currency
-    - # 2nd supported currency
-    - # ...
-    - # Nth supported currency
-
 badges:
   badges:
     - id: TEST

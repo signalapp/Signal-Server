@@ -5,9 +5,6 @@
 
 package org.whispersystems.textsecuregcm.tests.controllers;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
-import static com.github.tomakehurst.wiremock.client.WireMock.post;
-import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -27,10 +24,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -47,13 +41,7 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.configuration.BadgeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
-import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
-import org.whispersystems.textsecuregcm.configuration.DonationConfiguration;
-import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
-import org.whispersystems.textsecuregcm.configuration.StripeConfiguration;
 import org.whispersystems.textsecuregcm.controllers.DonationController;
-import org.whispersystems.textsecuregcm.entities.ApplePayAuthorizationRequest;
-import org.whispersystems.textsecuregcm.entities.ApplePayAuthorizationResponse;
 import org.whispersystems.textsecuregcm.entities.BadgeSvg;
 import org.whispersystems.textsecuregcm.entities.RedeemReceiptRequest;
 import org.whispersystems.textsecuregcm.storage.AccountBadge;
@@ -65,7 +53,6 @@ import org.whispersystems.textsecuregcm.util.TestClock;
 
 class DonationControllerTest {
 
-  private static final Executor httpClientExecutor = Executors.newSingleThreadExecutor();
   private static final long nowEpochSeconds = 1_500_000_000L;
 
   @RegisterExtension
@@ -74,20 +61,6 @@ class DonationControllerTest {
       .build();
 
   private static final SecureRandom SECURE_RANDOM = new SecureRandom();
-
-  static DonationConfiguration getDonationConfiguration() {
-    DonationConfiguration configuration = new DonationConfiguration();
-    configuration.setDescription("some description");
-    configuration.setUri("http://localhost:" + wm.getRuntimeInfo().getHttpPort() + "/foo/bar");
-    configuration.setCircuitBreaker(new CircuitBreakerConfiguration());
-    configuration.setRetry(new RetryConfiguration());
-    configuration.setSupportedCurrencies(Set.of("usd", "gbp"));
-    return configuration;
-  }
-
-  static StripeConfiguration getStripeConfiguration() {
-    return new StripeConfiguration("test-api-key", new byte[16], "Boost Description String");
-  }
 
   static BadgesConfiguration getBadgesConfiguration() {
     return new BadgesConfiguration(
@@ -137,8 +110,7 @@ class DonationControllerTest {
             ImmutableSet.of(AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)))
         .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
         .addResource(new DonationController(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager,
-            getBadgesConfiguration(), receiptCredentialPresentationFactory, httpClientExecutor,
-            getDonationConfiguration(), getStripeConfiguration()))
+            getBadgesConfiguration(), receiptCredentialPresentationFactory))
         .build();
     resources.before();
   }
@@ -146,57 +118,6 @@ class DonationControllerTest {
   @AfterEach
   void afterEach() throws Throwable {
     resources.after();
-  }
-
-  @Test
-  void testGetApplePayAuthorizationReturns200() {
-    wm.stubFor(post(urlEqualTo("/foo/bar"))
-        .withBasicAuth("test-api-key", "")
-        .willReturn(aResponse()
-            .withHeader("Content-Type", MediaType.APPLICATION_JSON)
-            .withBody("{\"id\":\"an_id\",\"client_secret\":\"some_secret\"}")));
-
-    ApplePayAuthorizationRequest request = new ApplePayAuthorizationRequest();
-    request.setCurrency("usd");
-    request.setAmount(1000);
-    Response response = resources.getJerseyTest()
-        .target("/v1/donation/authorize-apple-pay")
-        .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .post(Entity.entity(request, MediaType.APPLICATION_JSON_TYPE));
-
-    assertThat(response.getStatus()).isEqualTo(200);
-
-    ApplePayAuthorizationResponse responseObject = response.readEntity(ApplePayAuthorizationResponse.class);
-    assertThat(responseObject.getId()).isEqualTo("an_id");
-    assertThat(responseObject.getClientSecret()).isEqualTo("some_secret");
-  }
-
-  @Test
-  void testGetApplePayAuthorizationWithoutAuthHeaderReturns401() {
-    ApplePayAuthorizationRequest request = new ApplePayAuthorizationRequest();
-    request.setCurrency("usd");
-    request.setAmount(1000);
-    Response response = resources.getJerseyTest()
-        .target("/v1/donation/authorize-apple-pay")
-        .request()
-        .post(Entity.entity(request, MediaType.APPLICATION_JSON_TYPE));
-
-    assertThat(response.getStatus()).isEqualTo(401);
-  }
-
-  @Test
-  void testGetApplePayAuthorizationWithUnsupportedCurrencyReturns422() {
-    ApplePayAuthorizationRequest request = new ApplePayAuthorizationRequest();
-    request.setCurrency("zzz");
-    request.setAmount(1000);
-    Response response = resources.getJerseyTest()
-        .target("/v1/donation/authorize-apple-pay")
-        .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .post(Entity.entity(request, MediaType.APPLICATION_JSON_TYPE));
-
-    assertThat(response.getStatus()).isEqualTo(422);
   }
 
   @Test
@@ -246,13 +167,13 @@ class DonationControllerTest {
   @Test
   void testRedeemReceiptBadCredentialPresentation() throws InvalidInputException {
     when(receiptCredentialPresentationFactory.build(any())).thenThrow(new InvalidInputException());
-  
+
     final Response response = resources.getJerseyTest()
         .target("/v1/donation/redeem-receipt")
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .post(Entity.entity(new RedeemReceiptRequest(presentation, true, true), MediaType.APPLICATION_JSON_TYPE));
-  
+
     assertThat(response.getStatus()).isEqualTo(400);
   }
 }
