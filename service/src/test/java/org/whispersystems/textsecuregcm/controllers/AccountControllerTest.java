@@ -1453,6 +1453,35 @@ class AccountControllerTest {
   }
 
   @Test
+  void testChangePhoneNumberWithRegistrationService() throws Exception {
+    final String number = "+18005559876";
+    final String code = "987654";
+    final byte[] sessionId = "session".getBytes(StandardCharsets.UTF_8);
+
+    when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
+        new StoredVerificationCode(code, System.currentTimeMillis(), "push", null, sessionId)));
+
+    when(registrationServiceClient.checkVerificationCode(any(), any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(true));
+
+    final AccountIdentityResponse accountIdentityResponse =
+        resources.getJerseyTest()
+            .target("/v1/accounts/number")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(Entity.entity(new ChangePhoneNumberRequest(number, code, null, null, null, null, null),
+                MediaType.APPLICATION_JSON_TYPE), AccountIdentityResponse.class);
+
+    verify(registrationServiceClient).checkVerificationCode(sessionId, code, AccountController.REGISTRATION_RPC_TIMEOUT);
+
+    verify(changeNumberManager).changeNumber(eq(AuthHelper.VALID_ACCOUNT), eq(number), any(), any(), any(), any());
+
+    assertThat(accountIdentityResponse.getUuid()).isEqualTo(AuthHelper.VALID_UUID);
+    assertThat(accountIdentityResponse.getNumber()).isEqualTo(number);
+    assertThat(accountIdentityResponse.getPni()).isNotEqualTo(AuthHelper.VALID_PNI);
+  }
+
+  @Test
   void testChangePhoneNumberImpossibleNumber() throws Exception {
     final String number = "This is not a real phone number";
     final String code = "987654";
@@ -1539,6 +1568,32 @@ class AccountControllerTest {
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
             .put(Entity.entity(new ChangePhoneNumberRequest(number, code + "-incorrect", null, null, null, null, null),
                 MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat(response.getStatus()).isEqualTo(403);
+    verify(changeNumberManager, never()).changeNumber(any(), any(), any(), any(), any(), any());
+  }
+
+  @Test
+  void testChangePhoneNumberIncorrectCodeWithRegistrationService() throws Exception {
+    final String number = "+18005559876";
+    final String code = "987654";
+    final byte[] sessionId = "session-id".getBytes(StandardCharsets.UTF_8);
+
+    when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
+        new StoredVerificationCode(code, System.currentTimeMillis(), "push", null, sessionId)));
+
+    when(registrationServiceClient.checkVerificationCode(any(), any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(false));
+
+    final Response response =
+        resources.getJerseyTest()
+            .target("/v1/accounts/number")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(Entity.entity(new ChangePhoneNumberRequest(number, code, null, null, null, null, null),
+                MediaType.APPLICATION_JSON_TYPE));
+
+    verify(registrationServiceClient).checkVerificationCode(sessionId, code, AccountController.REGISTRATION_RPC_TIMEOUT);
 
     assertThat(response.getStatus()).isEqualTo(403);
     verify(changeNumberManager, never()).changeNumber(any(), any(), any(), any(), any(), any());

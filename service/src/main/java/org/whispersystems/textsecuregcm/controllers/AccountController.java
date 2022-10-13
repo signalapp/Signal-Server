@@ -552,13 +552,20 @@ public class AccountController {
 
       rateLimiters.getVerifyLimiter().validate(number);
 
-      final Optional<StoredVerificationCode> storedVerificationCode = pendingAccounts.getCodeForNumber(number);
+      final Optional<StoredVerificationCode> maybeStoredVerificationCode = pendingAccounts.getCodeForNumber(number);
 
-      if (storedVerificationCode.isEmpty() || !storedVerificationCode.get().isValid(request.code())) {
+      final boolean codeVerified = maybeStoredVerificationCode.map(storedVerificationCode ->
+              storedVerificationCode.sessionId() != null ?
+                  registrationServiceClient.checkVerificationCode(storedVerificationCode.sessionId(),
+                      request.code(), REGISTRATION_RPC_TIMEOUT).join() :
+                  storedVerificationCode.isValid(request.code()))
+          .orElse(false);
+
+      if (!codeVerified) {
         throw new ForbiddenException();
       }
 
-      storedVerificationCode.map(StoredVerificationCode::twilioVerificationSid)
+      maybeStoredVerificationCode.map(StoredVerificationCode::twilioVerificationSid)
           .ifPresent(
               verificationSid -> smsSender.reportVerificationSucceeded(verificationSid, userAgent, "changeNumber"));
 
