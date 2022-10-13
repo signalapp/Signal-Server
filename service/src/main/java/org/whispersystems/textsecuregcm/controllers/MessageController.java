@@ -287,9 +287,6 @@ public class MessageController {
 
   /**
    * Build mapping of accounts to devices/registration IDs.
-   * <p>
-   * Messages that are stories will only be sent to the subset of recipients who have indicated they want to receive
-   * stories.
    *
    * @param multiRecipientMessage
    * @param uuidToAccountMap
@@ -300,17 +297,20 @@ public class MessageController {
       Map<UUID, Account> uuidToAccountMap
   ) {
 
-    Stream<Recipient> recipients = Arrays.stream(multiRecipientMessage.getRecipients());
-
-    return recipients.collect(Collectors.toMap(
-        recipient -> uuidToAccountMap.get(recipient.getUuid()),
-        recipient -> new HashSet<>(
-            Collections.singletonList(new Pair<>(recipient.getDeviceId(), recipient.getRegistrationId()))),
-        (a, b) -> {
-          a.addAll(b);
-          return a;
-        }
-    ));
+    return Arrays.stream(multiRecipientMessage.getRecipients())
+        // for normal messages, all recipients UUIDs are in the map,
+        // but story messages might specify inactive UUIDs, which we
+        // have previously filtered
+        .filter(r -> uuidToAccountMap.containsKey(r.getUuid()))
+        .collect(Collectors.toMap(
+            recipient -> uuidToAccountMap.get(recipient.getUuid()),
+            recipient -> new HashSet<>(
+                Collections.singletonList(new Pair<>(recipient.getDeviceId(), recipient.getRegistrationId()))),
+            (a, b) -> {
+              a.addAll(b);
+              return a;
+            }
+        ));
   }
 
   @Timed
@@ -328,14 +328,26 @@ public class MessageController {
       @QueryParam("urgent") @DefaultValue("true") final boolean isUrgent,
       @QueryParam("story") boolean isStory,
       @NotNull @Valid MultiRecipientMessage multiRecipientMessage) {
-    Map<UUID, Account> uuidToAccountMap = Arrays.stream(multiRecipientMessage.getRecipients())
-        .map(Recipient::getUuid)
-        .distinct()
-        .collect(Collectors.toUnmodifiableMap(
-            Function.identity(),
-            uuid -> accountsManager
-                .getByAccountIdentifier(uuid)
-                .orElseThrow(() -> new WebApplicationException(Status.NOT_FOUND))));
+
+    // we skip "missing" accounts when story=true.
+    // otherwise, we return a 404 status code.
+    final Function<UUID, Stream<Account>> accountFinder = uuid -> {
+      Optional<Account> res = accountsManager.getByAccountIdentifier(uuid);
+      if (!isStory && res.isEmpty()) {
+        throw new WebApplicationException(Status.NOT_FOUND);
+      }
+      return res.stream();
+    };
+
+    // build a map from UUID to accounts
+    Map<UUID, Account> uuidToAccountMap =
+        Arrays.stream(multiRecipientMessage.getRecipients())
+            .map(Recipient::getUuid)
+            .distinct()
+            .flatMap(accountFinder)
+            .collect(Collectors.toUnmodifiableMap(
+                Account::getUuid,
+                Function.identity()));
 
     // Stories will be checked by the client; we bypass access checks here for stories.
     if (!isStory) {
