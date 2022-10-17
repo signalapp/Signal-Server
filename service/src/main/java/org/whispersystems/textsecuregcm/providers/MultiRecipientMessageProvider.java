@@ -107,10 +107,11 @@ public class MultiRecipientMessageProvider implements MessageBodyReader<MultiRec
    *
    * @return the varint value
    */
-  private long readVarint(InputStream stream) throws IOException, WebApplicationException {
+  @VisibleForTesting
+  public static long readVarint(InputStream stream) throws IOException, WebApplicationException {
     boolean hasMore = true;
     int currentOffset = 0;
-    int result = 0;
+    long result = 0;
     while (hasMore) {
       if (currentOffset >= 64) {
         throw new BadRequestException("varint is too large");
@@ -123,7 +124,7 @@ public class MultiRecipientMessageProvider implements MessageBodyReader<MultiRec
         throw new BadRequestException("varint is too large");
       }
       hasMore = (b & 0x80) != 0;
-      result |= (b & 0x7F) << currentOffset;
+      result |= (b & 0x7FL) << currentOffset;
       currentOffset += 7;
     }
     return result;

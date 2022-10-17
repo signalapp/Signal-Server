@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.entities;
 
+import java.util.Arrays;
 import java.util.UUID;
 import javax.validation.Valid;
 import javax.validation.constraints.Max;
@@ -52,6 +53,37 @@ public class MultiRecipientMessage {
 
     public byte[] getPerRecipientKeyMaterial() {
       return perRecipientKeyMaterial;
+    }
+
+    @Override
+    public boolean equals(final Object o) {
+      if (this == o)
+        return true;
+      if (o == null || getClass() != o.getClass())
+        return false;
+
+      Recipient recipient = (Recipient) o;
+
+      if (deviceId != recipient.deviceId)
+        return false;
+      if (registrationId != recipient.registrationId)
+        return false;
+      if (!uuid.equals(recipient.uuid))
+        return false;
+      return Arrays.equals(perRecipientKeyMaterial, recipient.perRecipientKeyMaterial);
+    }
+
+    @Override
+    public int hashCode() {
+      int result = uuid.hashCode();
+      result = 31 * result + (int) (deviceId ^ (deviceId >>> 32));
+      result = 31 * result + registrationId;
+      result = 31 * result + Arrays.hashCode(perRecipientKeyMaterial);
+      return result;
+    }
+
+    public String toString() {
+      return "Recipient(" + uuid + ", " + deviceId + ", " + registrationId + ", " + Arrays.toString(perRecipientKeyMaterial) + ")";
     }
   }
 

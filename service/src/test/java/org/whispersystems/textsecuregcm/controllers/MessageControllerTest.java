@@ -40,8 +40,10 @@ import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -68,6 +70,7 @@ import org.whispersystems.textsecuregcm.entities.IncomingMessageList;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.entities.MismatchedDevices;
+import org.whispersystems.textsecuregcm.entities.MultiRecipientMessage;
 import org.whispersystems.textsecuregcm.entities.MultiRecipientMessage.Recipient;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntityList;
@@ -719,20 +722,28 @@ class MessageControllerTest {
     );
   }
 
-  private void writeMultiPayloadRecipient(ByteBuffer bb, long msb, long lsb, long deviceId, int regId) throws Exception {
-    bb.putLong(msb);            // uuid (first 8 bytes)
-    bb.putLong(lsb);            // uuid (last 8 bytes)
+  private static void writePayloadDeviceId(ByteBuffer bb, long deviceId) {
     long x = deviceId;
     // write the device-id in the 7-bit varint format we use, least significant bytes first.
     do {
-      bb.put((byte)(x & 0x7f));
+      long b = x & 0x7f;
       x = x >>> 7;
+      if (x != 0) b |= 0x80;
+      bb.put((byte)b);
     } while (x != 0);
-    bb.putShort((short) regId); // registration id short
-    bb.put(new byte[48]);       // key material (48 bytes)
   }
 
-  private InputStream initializeMultiPayload(List<Recipient> recipients, byte[] buffer) throws Exception {
+  private static void writeMultiPayloadRecipient(ByteBuffer bb, Recipient r) throws Exception {
+    long msb = r.getUuid().getMostSignificantBits();
+    long lsb = r.getUuid().getLeastSignificantBits();
+    bb.putLong(msb);            // uuid (first 8 bytes)
+    bb.putLong(lsb);            // uuid (last 8 bytes)
+    writePayloadDeviceId(bb, r.getDeviceId()); // device id (1-9 bytes)
+    bb.putShort((short) r.getRegistrationId()); // registration id (2 bytes)
+    bb.put(r.getPerRecipientKeyMaterial()); // key material (48 bytes)
+  }
+
+  private static InputStream initializeMultiPayload(List<Recipient> recipients, byte[] buffer) throws Exception {
     // initialize a binary payload according to our wire format
     ByteBuffer bb = ByteBuffer.wrap(buffer);
     bb.order(ByteOrder.BIG_ENDIAN);
@@ -743,11 +754,7 @@ class MessageControllerTest {
 
     Iterator<Recipient> it = recipients.iterator();
     while (it.hasNext()) {
-      Recipient r = it.next();
-      UUID uuid = r.getUuid();
-      long msb = uuid.getMostSignificantBits();
-      long lsb = uuid.getLeastSignificantBits();
-      writeMultiPayloadRecipient(bb, msb, lsb, r.getDeviceId(), r.getRegistrationId());
+      writeMultiPayloadRecipient(bb, it.next());
     }
 
     // now write the actual message body (empty for now)
@@ -1003,4 +1010,62 @@ class MessageControllerTest {
 
     return builder.build();
   }
+
+  private static Recipient genRecipient(Random rng) {
+    UUID u1 = UUID.randomUUID(); // non-null
+    long d1 = rng.nextLong() & 0x3fffffffffffffffL + 1; // 1 to 4611686018427387903
+    int dr1 = rng.nextInt() & 0xffff; // 0 to 65535
+    byte[] perKeyBytes = new byte[48]; // size=48, non-null
+    rng.nextBytes(perKeyBytes);
+    return new Recipient(u1, d1, dr1, perKeyBytes);
+  }
+
+  private static void roundTripVarint(long expected, byte [] bytes) throws Exception {
+    ByteBuffer bb = ByteBuffer.wrap(bytes);
+    writePayloadDeviceId(bb, expected);
+    InputStream stream = new ByteArrayInputStream(bytes, 0, bb.position());
+    long got = MultiRecipientMessageProvider.readVarint(stream);
+    assertEquals(expected, got, String.format("encoded as: %s", Arrays.toString(bytes)));
+  }
+
+  @Test
+  void testVarintPayload() throws Exception {
+    Random rng = new Random();
+    byte[] bytes = new byte[12];
+
+    // some static test cases
+    for (long i = 1L; i <= 10L; i++) {
+      roundTripVarint(i, bytes);
+    }
+    roundTripVarint(Long.MAX_VALUE, bytes);
+
+    for (int i = 0; i < 1000; i++) {
+      // we need to ensure positive device IDs
+      long start = rng.nextLong() & Long.MAX_VALUE;
+      if (start == 0L) start = 1L;
+
+      // run the test for this case
+      roundTripVarint(start, bytes);
+    }
+  }
+
+  @Test
+  void testMultiPayloadRoundtrip() throws Exception {
+    Random rng = new java.util.Random();
+    List<Recipient> expected = new LinkedList<>();
+    for(int i = 0; i < 100; i++) {
+      expected.add(genRecipient(rng));
+    }
+
+    byte[] buffer = new byte[100 + expected.size() * 100];
+    InputStream entityStream = initializeMultiPayload(expected, buffer);
+    MultiRecipientMessageProvider provider = new MultiRecipientMessageProvider();
+    // the provider ignores the headers, java reflection, etc. so we don't use those here.
+    MultiRecipientMessage res = provider.readFrom(null, null, null, null, null, entityStream);
+    List<Recipient> got = Arrays.asList(res.getRecipients());
+
+    assertEquals(expected, got);
+  }
+
+
 }
