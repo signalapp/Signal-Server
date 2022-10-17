@@ -129,6 +129,7 @@ class DeviceControllerTest {
     when(account.isAnnouncementGroupSupported()).thenReturn(true);
     when(account.isChangeNumberSupported()).thenReturn(true);
     when(account.isPniSupported()).thenReturn(true);
+    when(account.isStoriesSupported()).thenReturn(true);
     when(account.isGiftBadgesSupported()).thenReturn(true);
 
     when(pendingDevicesManager.getCodeForNumber(AuthHelper.VALID_NUMBER)).thenReturn(
@@ -495,9 +496,7 @@ class DeviceControllerTest {
             AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
         .header("User-Agent", "Signal-Android/5.42.8675309 Android/30")
         .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
-    assertThat(response.getStatus()).isEqualTo(200); // Downgrade is currently supported
-    // TODO stories capability
-    // assertThat(response.getStatus()).isEqualTo(409);
+    assertThat(response.getStatus()).isEqualTo(409);
 
     deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, true, true, true, true, true);
     accountAttributes = new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
