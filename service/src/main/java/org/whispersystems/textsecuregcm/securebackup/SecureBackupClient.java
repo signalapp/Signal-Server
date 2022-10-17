@@ -46,7 +46,7 @@ public class SecureBackupClient {
                                                                         .withExecutor(executor)
                                                                         .withName("secure-backup")
                                                                         .withSecurityProtocol(FaultTolerantHttpClient.SECURITY_PROTOCOL_TLS_1_2)
-                                                                        .withTrustedServerCertificate(configuration.getBackupCaCertificate())
+                                                                        .withTrustedServerCertificates(configuration.getBackupCaCertificates().toArray(new String[0]))
                                                                         .build();
     }
 

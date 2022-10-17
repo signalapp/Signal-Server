@@ -15,33 +15,37 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 
 public class CertificateUtil {
-    public static KeyStore buildKeyStoreForPem(final String caCertificatePem) throws CertificateException
-    {
-        try {
-            X509Certificate certificate = getCertificate(caCertificatePem);
 
-            if (certificate == null) {
-                throw new CertificateException("No certificate found in parsing!");
-            }
+  public static KeyStore buildKeyStoreForPem(final String... caCertificatePems) throws CertificateException {
+    try {
+      final KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+      keyStore.load(null);
 
-            KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
-            keyStore.load(null);
-            keyStore.setCertificateEntry("ca", certificate);
-            return keyStore;
-        } catch (IOException | KeyStoreException ex) {
-            throw new CertificateException(ex);
-        } catch (NoSuchAlgorithmException ex) {
-            throw new AssertionError(ex);
+      for (int i = 0; i < caCertificatePems.length; i++) {
+        final X509Certificate certificate = getCertificate(caCertificatePems[i]);
+
+        if (certificate == null) {
+          throw new CertificateException("No certificate found in parsing!");
         }
-    }
 
-    public static X509Certificate getCertificate(final String certificatePem) throws CertificateException {
-        final CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
+        keyStore.setCertificateEntry("ca-" + i, certificate);
+      }
 
-        try (final ByteArrayInputStream pemInputStream = new ByteArrayInputStream(certificatePem.getBytes())) {
-          return (X509Certificate) certificateFactory.generateCertificate(pemInputStream);
-        } catch (IOException e) {
-            throw new CertificateException(e);
-        }
+      return keyStore;
+    } catch (IOException | KeyStoreException ex) {
+      throw new CertificateException(ex);
+    } catch (NoSuchAlgorithmException ex) {
+      throw new AssertionError(ex);
     }
+  }
+
+  public static X509Certificate getCertificate(final String certificatePem) throws CertificateException {
+    final CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
+
+    try (final ByteArrayInputStream pemInputStream = new ByteArrayInputStream(certificatePem.getBytes())) {
+      return (X509Certificate) certificateFactory.generateCertificate(pemInputStream);
+    } catch (IOException e) {
+      throw new CertificateException(e);
+    }
+  }
 }

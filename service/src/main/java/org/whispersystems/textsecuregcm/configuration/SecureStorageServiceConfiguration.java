@@ -13,6 +13,7 @@ import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
+import java.util.List;
 
 public class SecureStorageServiceConfiguration {
 
@@ -24,9 +25,9 @@ public class SecureStorageServiceConfiguration {
   @JsonProperty
   private String uri;
 
-  @NotBlank
+  @NotEmpty
   @JsonProperty
-  private String storageCaCertificate;
+  private List<@NotBlank String> storageCaCertificates;
 
   @NotNull
   @Valid
@@ -52,12 +53,12 @@ public class SecureStorageServiceConfiguration {
   }
 
   @VisibleForTesting
-  public void setStorageCaCertificate(final String certificatePem) {
-    this.storageCaCertificate = certificatePem;
+  public void setStorageCaCertificates(final List<String> certificatePem) {
+    this.storageCaCertificates = certificatePem;
   }
 
-  public String getStorageCaCertificate() {
-    return storageCaCertificate;
+  public List<String> getStorageCaCertificates() {
+    return storageCaCertificates;
   }
 
   public CircuitBreakerConfiguration getCircuitBreakerConfiguration() {

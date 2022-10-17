@@ -13,6 +13,7 @@ import javax.validation.constraints.NotNull;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
+import java.util.List;
 
 public class SecureBackupServiceConfiguration {
 
@@ -24,9 +25,9 @@ public class SecureBackupServiceConfiguration {
   @JsonProperty
   private String uri;
 
-  @NotBlank
+  @NotEmpty
   @JsonProperty
-  private String backupCaCertificate;
+  private List<@NotBlank String> backupCaCertificates;
 
   @NotNull
   @Valid
@@ -52,12 +53,12 @@ public class SecureBackupServiceConfiguration {
   }
 
   @VisibleForTesting
-  public void setBackupCaCertificate(final String backupCaCertificate) {
-    this.backupCaCertificate = backupCaCertificate;
+  public void setBackupCaCertificates(final List<String> backupCaCertificates) {
+    this.backupCaCertificates = backupCaCertificates;
   }
 
-  public String getBackupCaCertificate() {
-    return backupCaCertificate;
+  public List<String> getBackupCaCertificates() {
+    return backupCaCertificates;
   }
 
   public CircuitBreakerConfiguration getCircuitBreakerConfiguration() {

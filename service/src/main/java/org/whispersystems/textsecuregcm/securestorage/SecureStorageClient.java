@@ -47,7 +47,7 @@ public class SecureStorageClient {
                                                                         .withExecutor(executor)
                                                                         .withName("secure-storage")
                                                                         .withSecurityProtocol(FaultTolerantHttpClient.SECURITY_PROTOCOL_TLS_1_3)
-                                                                        .withTrustedServerCertificate(configuration.getStorageCaCertificate())
+                                                                        .withTrustedServerCertificates(configuration.getStorageCaCertificates().toArray(new String[0]))
                                                                         .build();
     }
 

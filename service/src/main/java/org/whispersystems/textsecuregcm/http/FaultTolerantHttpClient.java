@@ -135,7 +135,7 @@ public class FaultTolerantHttpClient {
       return this;
     }
 
-    public Builder withTrustedServerCertificate(final String certificatePem) throws CertificateException {
+    public Builder withTrustedServerCertificates(final String... certificatePem) throws CertificateException {
       this.trustStore = CertificateUtil.buildKeyStoreForPem(certificatePem);
       return this;
     }
