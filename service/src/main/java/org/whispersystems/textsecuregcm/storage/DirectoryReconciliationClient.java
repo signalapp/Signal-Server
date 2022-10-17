@@ -4,9 +4,6 @@
  */
 package org.whispersystems.textsecuregcm.storage;
 
-import static com.codahale.metrics.MetricRegistry.name;
-
-import com.codahale.metrics.SharedMetricRegistries;
 import java.security.KeyStore;
 import java.security.cert.CertificateException;
 import javax.net.ssl.SSLContext;
@@ -19,9 +16,7 @@ import org.glassfish.jersey.client.authentication.HttpAuthenticationFeature;
 import org.whispersystems.textsecuregcm.configuration.DirectoryServerConfiguration;
 import org.whispersystems.textsecuregcm.entities.DirectoryReconciliationRequest;
 import org.whispersystems.textsecuregcm.entities.DirectoryReconciliationResponse;
-import org.whispersystems.textsecuregcm.util.CertificateExpirationGauge;
 import org.whispersystems.textsecuregcm.util.CertificateUtil;
-import org.whispersystems.textsecuregcm.util.Constants;
 
 public class DirectoryReconciliationClient {
 
@@ -33,10 +28,6 @@ public class DirectoryReconciliationClient {
   {
     this.replicationUrl = directoryServerConfiguration.getReplicationUrl();
     this.client = initializeClient(directoryServerConfiguration);
-
-    SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME)
-                          .register(name(getClass(), directoryServerConfiguration.getReplicationName(), "days_until_certificate_expiration"),
-                                    new CertificateExpirationGauge(CertificateUtil.getCertificate(directoryServerConfiguration.getReplicationCaCertificate())));
   }
 
   public DirectoryReconciliationResponse add(DirectoryReconciliationRequest request) {
