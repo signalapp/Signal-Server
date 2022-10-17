@@ -5,7 +5,9 @@
 package org.whispersystems.textsecuregcm.configuration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotEmpty;
+import java.util.List;
 
 public class DirectoryServerConfiguration {
 
@@ -23,7 +25,7 @@ public class DirectoryServerConfiguration {
 
   @NotEmpty
   @JsonProperty
-  private String replicationCaCertificate;
+  private List<@NotBlank String> replicationCaCertificates;
 
   public String getReplicationName() {
     return replicationName;
@@ -37,8 +39,8 @@ public class DirectoryServerConfiguration {
     return replicationPassword;
   }
 
-  public String getReplicationCaCertificate() {
-    return replicationCaCertificate;
+  public List<String> getReplicationCaCertificates() {
+    return replicationCaCertificates;
   }
 
 }
