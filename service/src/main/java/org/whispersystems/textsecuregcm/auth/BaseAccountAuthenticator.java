@@ -30,6 +30,9 @@ public class BaseAccountAuthenticator {
   private static final String AUTHENTICATION_SUCCEEDED_TAG_NAME = "succeeded";
   private static final String AUTHENTICATION_FAILURE_REASON_TAG_NAME = "reason";
   private static final String AUTHENTICATION_ENABLED_REQUIRED_TAG_NAME = "enabledRequired";
+  private static final String AUTHENTICATION_HAS_STORY_CAPABILITY = "hasStoryCapability";
+
+  private static final String STORY_ADOPTION_COUNTER_NAME = name(BaseAccountAuthenticator.class, "storyAdoption");
 
   private static final String DAYS_SINCE_LAST_SEEN_DISTRIBUTION_NAME = name(BaseAccountAuthenticator.class, "daysSinceLastSeen");
   private static final String IS_PRIMARY_DEVICE_TAG = "isPrimary";
@@ -67,6 +70,7 @@ public class BaseAccountAuthenticator {
   public Optional<AuthenticatedAccount> authenticate(BasicCredentials basicCredentials, boolean enabledRequired) {
     boolean succeeded = false;
     String failureReason = null;
+    boolean hasStoryCapability = false;
 
     try {
       final UUID accountUuid;
@@ -104,6 +108,11 @@ public class BaseAccountAuthenticator {
         }
       }
 
+      Device.DeviceCapabilities capabilities = device.get().getCapabilities();
+      if (capabilities != null) {
+        hasStoryCapability = capabilities.isStories();
+      }
+
       AuthenticationCredentials deviceAuthenticationCredentials = device.get().getAuthenticationCredentials();
       if (deviceAuthenticationCredentials.verify(basicCredentials.getPassword())) {
         succeeded = true;
@@ -132,6 +141,9 @@ public class BaseAccountAuthenticator {
       }
 
       Metrics.counter(AUTHENTICATION_COUNTER_NAME, tags).increment();
+
+      Tags storyTags = Tags.of(AUTHENTICATION_HAS_STORY_CAPABILITY, String.valueOf(hasStoryCapability));
+      Metrics.counter(STORY_ADOPTION_COUNTER_NAME, storyTags).increment();
     }
   }
 
