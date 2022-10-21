@@ -40,6 +40,7 @@ import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
+import org.whispersystems.textsecuregcm.util.TestClock;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
@@ -78,7 +79,7 @@ class AccountsTest {
           .build())
       .build();
 
-  private Clock mockClock;
+  private TestClock clock = TestClock.pinned(Instant.EPOCH);
   private DynamicConfigurationManager<DynamicConfiguration> mockDynamicConfigManager;
   private Accounts accounts;
 
@@ -135,11 +136,8 @@ class AccountsTest {
     when(mockDynamicConfigManager.getConfiguration())
         .thenReturn(new DynamicConfiguration());
 
-    mockClock = mock(Clock.class);
-    when(mockClock.instant()).thenReturn(Instant.EPOCH);
-
     this.accounts = new Accounts(
-        mockClock,
+        clock,
         mockDynamicConfigManager,
         dynamoDbExtension.getDynamoDbClient(),
         dynamoDbExtension.getDynamoDbAsyncClient(),
@@ -810,12 +808,12 @@ class AccountsTest {
     Supplier<UUID> take = () -> accounts.reserveUsername(account2, username, Duration.ofDays(2));
 
     for (int i = 0; i <= 2; i++) {
-      when(mockClock.instant()).thenReturn(Instant.EPOCH.plus(Duration.ofDays(i)));
+      clock.pin(Instant.EPOCH.plus(Duration.ofDays(i)));
       assertThrows(ContestedOptimisticLockException.class, take::get);
     }
 
     // after 2 days, can take the name
-    when(mockClock.instant()).thenReturn(Instant.EPOCH.plus(Duration.ofDays(2)).plus(Duration.ofSeconds(1)));
+    clock.pin(Instant.EPOCH.plus(Duration.ofDays(2)).plus(Duration.ofSeconds(1)));
     final UUID token = take.get();
 
     assertThrows(ContestedOptimisticLockException.class,
@@ -840,12 +838,12 @@ class AccountsTest {
     Runnable take = () -> accounts.setUsername(account2, username);
 
     for (int i = 0; i <= 2; i++) {
-      when(mockClock.instant()).thenReturn(Instant.EPOCH.plus(Duration.ofDays(i)));
+      clock.pin(Instant.EPOCH.plus(Duration.ofDays(i)));
       assertThrows(ContestedOptimisticLockException.class, take::run);
     }
 
     // after 2 days, can take the name
-    when(mockClock.instant()).thenReturn(Instant.EPOCH.plus(Duration.ofDays(2)).plus(Duration.ofSeconds(1)));
+    clock.pin(Instant.EPOCH.plus(Duration.ofDays(2)).plus(Duration.ofSeconds(1)));
     take.run();
 
     assertThrows(ContestedOptimisticLockException.class,

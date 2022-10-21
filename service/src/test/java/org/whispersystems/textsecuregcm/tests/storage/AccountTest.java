@@ -30,6 +30,7 @@ import org.whispersystems.textsecuregcm.storage.AccountBadge;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
+import org.whispersystems.textsecuregcm.util.TestClock;
 
 class AccountTest {
 
@@ -442,8 +443,7 @@ class AccountTest {
   @Test
   void addAndRemoveBadges() {
     final Account account = AccountsHelper.generateTestAccount("+14151234567", UUID.randomUUID(), UUID.randomUUID(), List.of(createDevice(Device.MASTER_ID)), new byte[0]);
-    final Clock clock = mock(Clock.class);
-    when(clock.instant()).thenReturn(Instant.ofEpochSecond(40));
+    final Clock clock = TestClock.pinned(Instant.ofEpochSecond(40));
 
     account.addBadge(clock, new AccountBadge("foo", Instant.ofEpochSecond(42), false));
     account.addBadge(clock, new AccountBadge("bar", Instant.ofEpochSecond(44), true));

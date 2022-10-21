@@ -37,6 +37,7 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.util.Pair;
+import org.whispersystems.textsecuregcm.util.TestClock;
 
 class BaseAccountAuthenticatorTest {
 
@@ -47,7 +48,7 @@ class BaseAccountAuthenticatorTest {
 
   private AccountsManager          accountsManager;
   private BaseAccountAuthenticator baseAccountAuthenticator;
-  private Clock                    clock;
+  private TestClock                clock;
   private Account                  acct1;
   private Account                  acct2;
   private Account                  oldAccount;
@@ -55,7 +56,7 @@ class BaseAccountAuthenticatorTest {
   @BeforeEach
   void setup() {
     accountsManager = mock(AccountsManager.class);
-    clock = mock(Clock.class);
+    clock = TestClock.now();
     baseAccountAuthenticator = new BaseAccountAuthenticator(accountsManager, clock);
 
     // We use static UUIDs here because the UUID affects the "date last seen" offset
@@ -76,7 +77,7 @@ class BaseAccountAuthenticatorTest {
 
   @Test
   void testUpdateLastSeenMiddleOfDay() {
-    when(clock.instant()).thenReturn(Instant.ofEpochMilli(currentTime));
+    clock.pin(Instant.ofEpochMilli(currentTime));
 
     final Device device1 = acct1.getDevices().stream().findFirst().get();
     final Device device2 = acct2.getDevices().stream().findFirst().get();
@@ -96,7 +97,7 @@ class BaseAccountAuthenticatorTest {
 
   @Test
   void testUpdateLastSeenStartOfDay() {
-    when(clock.instant()).thenReturn(Instant.ofEpochMilli(today));
+    clock.pin(Instant.ofEpochMilli(today));
 
     final Device device1 = acct1.getDevices().stream().findFirst().get();
     final Device device2 = acct2.getDevices().stream().findFirst().get();
@@ -116,7 +117,7 @@ class BaseAccountAuthenticatorTest {
 
   @Test
   void testUpdateLastSeenEndOfDay() {
-    when(clock.instant()).thenReturn(Instant.ofEpochMilli(today + 86_400_000L - 1));
+    clock.pin(Instant.ofEpochMilli(today + 86_400_000L - 1));
 
     final Device device1 = acct1.getDevices().stream().findFirst().get();
     final Device device2 = acct2.getDevices().stream().findFirst().get();
@@ -136,7 +137,7 @@ class BaseAccountAuthenticatorTest {
 
   @Test
   void testNeverWriteYesterday() {
-    when(clock.instant()).thenReturn(Instant.ofEpochMilli(today));
+    clock.pin(Instant.ofEpochMilli(today));
 
     final Device device = oldAccount.getDevices().stream().findFirst().get();
 
@@ -157,7 +158,7 @@ class BaseAccountAuthenticatorTest {
     final Device device = mock(Device.class);
     final AuthenticationCredentials credentials = mock(AuthenticationCredentials.class);
 
-    when(clock.instant()).thenReturn(Instant.now());
+    clock.unpin();
     when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
     when(account.getUuid()).thenReturn(uuid);
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
@@ -187,7 +188,7 @@ class BaseAccountAuthenticatorTest {
     final Device device = mock(Device.class);
     final AuthenticationCredentials credentials = mock(AuthenticationCredentials.class);
 
-    when(clock.instant()).thenReturn(Instant.now());
+    clock.unpin();
     when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
     when(account.getUuid()).thenReturn(uuid);
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
@@ -218,7 +219,7 @@ class BaseAccountAuthenticatorTest {
     final Device device = mock(Device.class);
     final AuthenticationCredentials credentials = mock(AuthenticationCredentials.class);
 
-    when(clock.instant()).thenReturn(Instant.now());
+    clock.unpin();
     when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
     when(account.getUuid()).thenReturn(uuid);
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
@@ -251,7 +252,7 @@ class BaseAccountAuthenticatorTest {
     final Device device = mock(Device.class);
     final AuthenticationCredentials credentials = mock(AuthenticationCredentials.class);
 
-    when(clock.instant()).thenReturn(Instant.now());
+    clock.unpin();
     when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
     when(account.getUuid()).thenReturn(uuid);
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
@@ -288,7 +289,7 @@ class BaseAccountAuthenticatorTest {
     final Device device = mock(Device.class);
     final AuthenticationCredentials credentials = mock(AuthenticationCredentials.class);
 
-    when(clock.instant()).thenReturn(Instant.now());
+    clock.unpin();
     when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
     when(account.getUuid()).thenReturn(uuid);
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
@@ -316,7 +317,7 @@ class BaseAccountAuthenticatorTest {
     final Device device = mock(Device.class);
     final AuthenticationCredentials credentials = mock(AuthenticationCredentials.class);
 
-    when(clock.instant()).thenReturn(Instant.now());
+    clock.unpin();
     when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
     when(account.getUuid()).thenReturn(uuid);
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));

@@ -61,6 +61,7 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.RedeemedReceiptsManager;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
+import org.whispersystems.textsecuregcm.util.TestClock;
 
 class DonationControllerTest {
 
@@ -99,7 +100,7 @@ class DonationControllerTest {
         Map.of(1L, "TEST1", 2L, "TEST2", 3L, "TEST3"));
   }
 
-  Clock clock;
+  Clock clock = TestClock.pinned(Instant.ofEpochSecond(nowEpochSeconds));
   ServerZkReceiptOperations zkReceiptOperations;
   RedeemedReceiptsManager redeemedReceiptsManager;
   AccountsManager accountsManager;
@@ -112,7 +113,6 @@ class DonationControllerTest {
 
   @BeforeEach
   void beforeEach() throws Throwable {
-    clock = mock(Clock.class);
     zkReceiptOperations = mock(ServerZkReceiptOperations.class);
     redeemedReceiptsManager = mock(RedeemedReceiptsManager.class);
     accountsManager = mock(AccountsManager.class);
@@ -124,9 +124,6 @@ class DonationControllerTest {
     SECURE_RANDOM.nextBytes(presentation);
     receiptCredentialPresentationFactory = mock(DonationController.ReceiptCredentialPresentationFactory.class);
     receiptCredentialPresentation = mock(ReceiptCredentialPresentation.class);
-
-    when(clock.millis()).thenReturn(nowEpochSeconds * 1000L);
-    when(clock.instant()).thenReturn(Instant.ofEpochSecond(nowEpochSeconds));
 
     try {
       when(receiptCredentialPresentationFactory.build(presentation)).thenReturn(receiptCredentialPresentation);

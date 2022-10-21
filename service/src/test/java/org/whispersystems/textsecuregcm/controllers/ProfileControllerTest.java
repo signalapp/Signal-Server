@@ -31,6 +31,7 @@ import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -105,6 +106,7 @@ import org.whispersystems.textsecuregcm.storage.VersionedProfile;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
+import org.whispersystems.textsecuregcm.util.TestClock;
 import org.whispersystems.textsecuregcm.util.Util;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
@@ -112,7 +114,7 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 @ExtendWith(DropwizardExtensionsSupport.class)
 class ProfileControllerTest {
 
-  private static final Clock clock = mock(Clock.class);
+  private static final Clock clock = TestClock.pinned(Instant.ofEpochSecond(42));
   private static final AccountsManager accountsManager = mock(AccountsManager.class);
   private static final ProfilesManager profilesManager = mock(ProfilesManager.class);
   private static final RateLimiters rateLimiters = mock(RateLimiters.class);
@@ -171,8 +173,6 @@ class ProfileControllerTest {
   @BeforeEach
   void setup() {
     reset(s3client);
-
-    when(clock.instant()).thenReturn(Instant.ofEpochSecond(42));
 
     AccountsHelper.setupMockUpdate(accountsManager);
 

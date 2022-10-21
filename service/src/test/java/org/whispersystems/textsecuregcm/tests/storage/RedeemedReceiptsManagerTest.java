@@ -23,6 +23,7 @@ import org.signal.libsignal.zkgroup.receipts.ReceiptSerial;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtension;
 import org.whispersystems.textsecuregcm.storage.RedeemedReceiptsManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
+import org.whispersystems.textsecuregcm.util.TestClock;
 import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
 import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
 
@@ -42,15 +43,12 @@ class RedeemedReceiptsManagerTest {
           .build())
       .build();
 
-  Clock clock;
+  Clock clock = TestClock.pinned(Instant.ofEpochSecond(NOW_EPOCH_SECONDS));
   ReceiptSerial receiptSerial;
   RedeemedReceiptsManager redeemedReceiptsManager;
 
   @BeforeEach
   void beforeEach() throws InvalidInputException {
-    clock = mock(Clock.class);
-    when(clock.millis()).thenReturn(NOW_EPOCH_SECONDS * 1000L);
-    when(clock.instant()).thenReturn(Instant.ofEpochSecond(NOW_EPOCH_SECONDS));
     byte[] receiptSerialBytes = new byte[ReceiptSerial.SIZE];
     SECURE_RANDOM.nextBytes(receiptSerialBytes);
     receiptSerial = new ReceiptSerial(receiptSerialBytes);

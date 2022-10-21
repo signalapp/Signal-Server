@@ -31,6 +31,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.Pair;
+import org.whispersystems.textsecuregcm.util.TestClock;
 
 class ApnPushNotificationSchedulerTest {
 
@@ -41,7 +42,7 @@ class ApnPushNotificationSchedulerTest {
   private Device device;
 
   private APNSender apnSender;
-  private Clock clock;
+  private TestClock clock;
 
   private ApnPushNotificationScheduler apnPushNotificationScheduler;
 
@@ -70,7 +71,7 @@ class ApnPushNotificationSchedulerTest {
     when(accountsManager.getByAccountIdentifier(ACCOUNT_UUID)).thenReturn(Optional.of(account));
 
     apnSender = mock(APNSender.class);
-    clock = mock(Clock.class);
+    clock = TestClock.now();
 
     apnPushNotificationScheduler = new ApnPushNotificationScheduler(REDIS_CLUSTER_EXTENSION.getRedisCluster(), apnSender, accountsManager, clock);
   }
@@ -83,10 +84,10 @@ class ApnPushNotificationSchedulerTest {
     assertTrue(
         apnPushNotificationScheduler.getPendingDestinationsForRecurringVoipNotifications(SlotHash.getSlot(endpoint), 1).isEmpty());
 
-    when(clock.millis()).thenReturn(currentTimeMillis - 30_000);
+    clock.pin(Instant.ofEpochMilli(currentTimeMillis - 30_000));
     apnPushNotificationScheduler.scheduleRecurringVoipNotification(account, device);
 
-    when(clock.millis()).thenReturn(currentTimeMillis);
+    clock.pin(Instant.ofEpochMilli(currentTimeMillis));
     final List<String> pendingDestinations = apnPushNotificationScheduler.getPendingDestinationsForRecurringVoipNotifications(SlotHash.getSlot(endpoint), 2);
     assertEquals(1, pendingDestinations.size());
 
@@ -106,10 +107,10 @@ class ApnPushNotificationSchedulerTest {
     final ApnPushNotificationScheduler.NotificationWorker worker = apnPushNotificationScheduler.new NotificationWorker();
     final long currentTimeMillis = System.currentTimeMillis();
 
-    when(clock.millis()).thenReturn(currentTimeMillis - 30_000);
+    clock.pin(Instant.ofEpochMilli(currentTimeMillis - 30_000));
     apnPushNotificationScheduler.scheduleRecurringVoipNotification(account, device);
 
-    when(clock.millis()).thenReturn(currentTimeMillis);
+    clock.pin(Instant.ofEpochMilli(currentTimeMillis));
 
     final int slot = SlotHash.getSlot(ApnPushNotificationScheduler.getEndpointKey(account, device));
 
@@ -130,7 +131,7 @@ class ApnPushNotificationSchedulerTest {
   @Test
   void testScheduleBackgroundNotificationWithNoRecentNotification() {
     final Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
-    when(clock.millis()).thenReturn(now.toEpochMilli());
+    clock.pin(now);
 
     assertEquals(Optional.empty(),
         apnPushNotificationScheduler.getLastBackgroundNotificationTimestamp(account, device));
@@ -151,10 +152,10 @@ class ApnPushNotificationSchedulerTest {
         now.minus(ApnPushNotificationScheduler.BACKGROUND_NOTIFICATION_PERIOD.dividedBy(2));
 
     // Insert a timestamp for a recently-sent background push notification
-    when(clock.millis()).thenReturn(recentNotificationTimestamp.toEpochMilli());
+    clock.pin(Instant.ofEpochMilli(recentNotificationTimestamp.toEpochMilli()));
     apnPushNotificationScheduler.sendBackgroundNotification(account, device);
 
-    when(clock.millis()).thenReturn(now.toEpochMilli());
+    clock.pin(now);
     apnPushNotificationScheduler.scheduleBackgroundNotification(account, device);
 
     final Instant expectedScheduledTimestamp =
@@ -170,16 +171,16 @@ class ApnPushNotificationSchedulerTest {
 
     final Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
 
-    when(clock.millis()).thenReturn(now.toEpochMilli());
+    clock.pin(Instant.ofEpochMilli(now.toEpochMilli()));
     apnPushNotificationScheduler.scheduleBackgroundNotification(account, device);
 
     final int slot =
         SlotHash.getSlot(ApnPushNotificationScheduler.getPendingBackgroundNotificationQueueKey(account, device));
 
-    when(clock.millis()).thenReturn(now.minusMillis(1).toEpochMilli());
+    clock.pin(Instant.ofEpochMilli(now.minusMillis(1).toEpochMilli()));
     assertEquals(0, worker.processScheduledBackgroundNotifications(slot));
 
-    when(clock.millis()).thenReturn(now.toEpochMilli());
+    clock.pin(now);
     assertEquals(1, worker.processScheduledBackgroundNotifications(slot));
 
     final ArgumentCaptor<PushNotification> notificationCaptor = ArgumentCaptor.forClass(PushNotification.class);
@@ -203,7 +204,7 @@ class ApnPushNotificationSchedulerTest {
 
     final Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
 
-    when(clock.millis()).thenReturn(now.toEpochMilli());
+    clock.pin(now);
     apnPushNotificationScheduler.scheduleBackgroundNotification(account, device);
     apnPushNotificationScheduler.cancelScheduledNotifications(account, device);
 
