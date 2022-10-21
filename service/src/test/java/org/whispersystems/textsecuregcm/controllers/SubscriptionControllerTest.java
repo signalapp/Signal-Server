@@ -22,6 +22,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -223,9 +224,11 @@ class SubscriptionControllerTest {
     when(STRIPE_MANAGER.createCustomer(any()))
         .thenReturn(CompletableFuture.completedFuture(customer));
 
-    final SubscriptionManager.Record recordWithCustomerId = SubscriptionManager.Record.from(record.user, dynamoItem);
-    recordWithCustomerId.customerId = customerId;
-    recordWithCustomerId.processorsToCustomerIds.put(SubscriptionProcessor.STRIPE, customerId);
+    final Map<String, AttributeValue> dynamoItemWithProcessorCustomer = new HashMap<>(dynamoItem);
+    dynamoItemWithProcessorCustomer.put(SubscriptionManager.KEY_PROCESSOR_ID_CUSTOMER_ID,
+        b(new ProcessorCustomer(customerId, SubscriptionProcessor.STRIPE).toDynamoBytes()));
+    final SubscriptionManager.Record recordWithCustomerId = SubscriptionManager.Record.from(record.user,
+        dynamoItemWithProcessorCustomer);
 
     when(SUBSCRIPTION_MANAGER.updateProcessorAndCustomerId(any(SubscriptionManager.Record.class), any(),
         any(Instant.class)))

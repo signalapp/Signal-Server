@@ -10,6 +10,7 @@ import static org.whispersystems.textsecuregcm.storage.SubscriptionManager.GetRe
 import static org.whispersystems.textsecuregcm.storage.SubscriptionManager.GetResult.Type.NOT_STORED;
 import static org.whispersystems.textsecuregcm.storage.SubscriptionManager.GetResult.Type.PASSWORD_MISMATCH;
 import static org.whispersystems.textsecuregcm.util.AttributeValues.b;
+import static org.whispersystems.textsecuregcm.util.AttributeValues.m;
 import static org.whispersystems.textsecuregcm.util.AttributeValues.n;
 import static org.whispersystems.textsecuregcm.util.AttributeValues.s;
 
@@ -19,7 +20,9 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import javax.annotation.Nonnull;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,6 +33,7 @@ import org.whispersystems.textsecuregcm.storage.SubscriptionManager.Record;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessor;
 import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.GlobalSecondaryIndex;
 import software.amazon.awssdk.services.dynamodb.model.KeySchemaElement;
 import software.amazon.awssdk.services.dynamodb.model.KeyType;
@@ -56,10 +60,28 @@ class SubscriptionManagerTest {
           attributeName(SubscriptionManager.KEY_CUSTOMER_ID).
           attributeType(ScalarAttributeType.S).
           build()).
+      attributeDefinition(AttributeDefinition.builder().
+          attributeName(SubscriptionManager.KEY_PROCESSOR_ID_CUSTOMER_ID).
+          attributeType(ScalarAttributeType.S).
+          build()).
       globalSecondaryIndex(GlobalSecondaryIndex.builder().
           indexName("c_to_u").
           keySchema(KeySchemaElement.builder().
               attributeName(SubscriptionManager.KEY_CUSTOMER_ID).
+              keyType(KeyType.HASH).
+              build()).
+          projection(Projection.builder().
+              projectionType(ProjectionType.KEYS_ONLY).
+              build()).
+          provisionedThroughput(ProvisionedThroughput.builder().
+              readCapacityUnits(20L).
+              writeCapacityUnits(20L).
+              build()).
+          build()).
+      globalSecondaryIndex(GlobalSecondaryIndex.builder().
+          indexName("pc_to_u").
+          keySchema(KeySchemaElement.builder().
+              attributeName(SubscriptionManager.KEY_PROCESSOR_ID_CUSTOMER_ID).
               keyType(KeyType.HASH).
               build()).
           projection(Projection.builder().
@@ -157,14 +179,16 @@ class SubscriptionManagerTest {
     assertThat(subscriptionManager.updateProcessorAndCustomerId(userRecord,
         new ProcessorCustomer(customer, SubscriptionProcessor.STRIPE),
         subscriptionUpdated)).succeedsWithin(Duration.ofSeconds(3))
-        .hasFieldOrPropertyWithValue("customerId", customer)
+        .hasFieldOrPropertyWithValue("processorCustomer",
+            Optional.of(new ProcessorCustomer(customer, SubscriptionProcessor.STRIPE)))
         .hasFieldOrPropertyWithValue("processorsToCustomerIds", Map.of(SubscriptionProcessor.STRIPE, customer));
 
     assertThat(
         subscriptionManager.updateProcessorAndCustomerId(userRecord,
             new ProcessorCustomer(customer + "1", SubscriptionProcessor.STRIPE),
             subscriptionUpdated)).succeedsWithin(Duration.ofSeconds(3))
-        .hasFieldOrPropertyWithValue("customerId", customer)
+        .hasFieldOrPropertyWithValue("processorCustomer",
+            Optional.of(new ProcessorCustomer(customer, SubscriptionProcessor.STRIPE)))
         .hasFieldOrPropertyWithValue("processorsToCustomerIds", Map.of(SubscriptionProcessor.STRIPE, customer));
 
     // TODO test new customer ID with new processor does change the customer ID, once there is another processor
@@ -254,26 +278,20 @@ class SubscriptionManagerTest {
     Arrays.fill(hmac, (byte) 2);
     final String customerId = "abcdef";
 
-    // manually create an existing record, with only KEY_CUSTOMER_ID
-    dynamoDbExtension.getDynamoDbClient().putItem(p ->
-        p.tableName(dynamoDbExtension.getTableName())
-            .item(Map.of(
-                SubscriptionManager.KEY_USER, b(user),
-                SubscriptionManager.KEY_PASSWORD, b(hmac),
-                SubscriptionManager.KEY_CREATED_AT, n(Instant.now().getEpochSecond()),
-                SubscriptionManager.KEY_CUSTOMER_ID, s(customerId),
-                SubscriptionManager.KEY_ACCESSED_AT, n(Instant.now().getEpochSecond())
-            ))
-    );
+    assertThat(subscriptionManager.create(user, hmac, Instant.now()))
+        .succeedsWithin(Duration.ofSeconds(1));
 
     final CompletableFuture<GetResult> firstGetResult = subscriptionManager.get(user, hmac);
     assertThat(firstGetResult).succeedsWithin(Duration.ofSeconds(1));
 
     final Record firstRecord = firstGetResult.get().record;
 
-    assertThat(firstRecord.customerId).isEqualTo(customerId);
-    assertThat(firstRecord.processor).isNull();
+    assertThat(firstRecord.processorCustomer).isNull();
     assertThat(firstRecord.processorsToCustomerIds).isEmpty();
+
+    subscriptionManager.updateProcessorAndCustomerId(firstRecord,
+            new ProcessorCustomer(customerId, SubscriptionProcessor.STRIPE), Instant.now())
+        .get(1, TimeUnit.SECONDS);
 
     // Try to update the user to have a different customer ID. This should quietly fail,
     // and just return the existing customer ID.
@@ -283,7 +301,7 @@ class SubscriptionManagerTest {
 
     assertThat(firstUpdate).succeedsWithin(Duration.ofSeconds(1));
 
-    final String firstUpdateCustomerId = firstUpdate.get().customerId;
+    final String firstUpdateCustomerId = firstUpdate.get().getProcessorCustomer().orElseThrow().customerId();
     assertThat(firstUpdateCustomerId).isEqualTo(customerId);
 
     // Now update with the existing customer ID. All fields should now be populated.
@@ -292,7 +310,7 @@ class SubscriptionManagerTest {
 
     assertThat(secondUpdate).succeedsWithin(Duration.ofSeconds(1));
 
-    final String secondUpdateCustomerId = secondUpdate.get().customerId;
+    final String secondUpdateCustomerId = secondUpdate.get().getProcessorCustomer().orElseThrow().customerId();
     assertThat(secondUpdateCustomerId).isEqualTo(customerId);
 
     final CompletableFuture<GetResult> secondGetResult = subscriptionManager.get(user, hmac);
@@ -300,9 +318,56 @@ class SubscriptionManagerTest {
 
     final Record secondRecord = secondGetResult.get().record;
 
-    assertThat(secondRecord.customerId).isEqualTo(customerId);
-    assertThat(secondRecord.processor).isEqualTo(SubscriptionProcessor.STRIPE);
+    assertThat(secondRecord.getProcessorCustomer())
+        .isPresent()
+        .get()
+        .isEqualTo(new ProcessorCustomer(customerId, SubscriptionProcessor.STRIPE));
     assertThat(secondRecord.processorsToCustomerIds).isEqualTo(Map.of(SubscriptionProcessor.STRIPE, customerId));
+  }
+
+  @Test
+  void testUpdateEmptyProcessorCustomerWithValueInMap() throws Exception {
+    // it isn’t possible to create this exact data setup in current code, but this tests the conditional update expression
+    final Map<String, AttributeValue> processorCustomers = Map.of(
+        SubscriptionProcessor.STRIPE.name(), s(customer)
+    );
+
+    final Map<String, AttributeValue> dynamoItem = Map.of(
+        SubscriptionManager.KEY_USER, b(user),
+        SubscriptionManager.KEY_PASSWORD, b(password),
+        SubscriptionManager.KEY_PROCESSOR_CUSTOMER_IDS_MAP, m(processorCustomers),
+        SubscriptionManager.KEY_CREATED_AT, n(created.getEpochSecond()),
+        SubscriptionManager.KEY_ACCESSED_AT, n(Instant.now().getEpochSecond())
+    );
+
+    dynamoDbExtension.getDynamoDbAsyncClient().putItem(builder ->
+        builder.tableName(dynamoDbExtension.getTableName())
+            .item(dynamoItem)
+    ).get(1, TimeUnit.SECONDS);
+
+    final CompletableFuture<GetResult> firstGet = subscriptionManager.get(user, password);
+
+    assertThat(firstGet)
+        .succeedsWithin(Duration.ofSeconds(1))
+        .extracting(r -> r.record)
+        .satisfies(record -> {
+          assertThat(record.processorCustomer).isNull();
+          assertThat(record.processorsToCustomerIds).size().isEqualTo(1);
+          assertThat(record.processorsToCustomerIds).contains(Map.entry(SubscriptionProcessor.STRIPE, customer));
+        });
+
+    final CompletableFuture<Record> update = subscriptionManager.updateProcessorAndCustomerId(firstGet.get().record,
+        new ProcessorCustomer(customer, SubscriptionProcessor.STRIPE), Instant.now());
+
+    assertThat(update)
+        .succeedsWithin(Duration.ofSeconds(1))
+        .satisfies(record -> {
+          // processorCustomer should not have been updated
+          assertThat(record.processorCustomer).isNull();
+          assertThat(record.processorsToCustomerIds).size().isEqualTo(1);
+          assertThat(record.processorsToCustomerIds).contains(Map.entry(SubscriptionProcessor.STRIPE, customer));
+        });
+
   }
 
   @Test
@@ -326,7 +391,8 @@ class SubscriptionManagerTest {
       assertThat(record).isNotNull();
       assertThat(record.user).isEqualTo(user);
       assertThat(record.password).isEqualTo(password);
-      assertThat(record.customerId).isNull();
+      assertThat(record.processorCustomer).isNull();
+      assertThat(record.processorsToCustomerIds).isEmpty();
       assertThat(record.createdAt).isEqualTo(created);
       assertThat(record.subscriptionId).isNull();
       assertThat(record.subscriptionCreatedAt).isNull();

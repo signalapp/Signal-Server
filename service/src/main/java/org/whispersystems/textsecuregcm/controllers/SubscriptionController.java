@@ -12,7 +12,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Strings;
 import com.stripe.model.Charge;
 import com.stripe.model.Charge.Outcome;
 import com.stripe.model.Invoice;
@@ -46,6 +45,7 @@ import javax.validation.constraints.Min;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import javax.ws.rs.BadRequestException;
+import javax.ws.rs.ClientErrorException;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.DefaultValue;
@@ -150,21 +150,22 @@ public class SubscriptionController {
           if (getResult == GetResult.NOT_STORED || getResult == GetResult.PASSWORD_MISMATCH) {
             throw new NotFoundException();
           }
-          String customerId = getResult.record.customerId;
-          if (Strings.isNullOrEmpty(customerId)) {
-            throw new InternalServerErrorException("no customer id found");
-          }
-          return stripeManager.getCustomer(customerId).thenCompose(customer -> {
-            if (customer == null) {
-              throw new InternalServerErrorException("no customer record found for id " + customerId);
-            }
-            return stripeManager.listNonCanceledSubscriptions(customer);
-          }).thenCompose(subscriptions -> {
-            @SuppressWarnings("unchecked")
-            CompletableFuture<Subscription>[] futures = (CompletableFuture<Subscription>[]) subscriptions.stream()
-                .map(stripeManager::cancelSubscriptionAtEndOfCurrentPeriod).toArray(CompletableFuture[]::new);
-            return CompletableFuture.allOf(futures);
-          });
+          return getResult.record.getProcessorCustomer()
+              .map(processorCustomer -> stripeManager.getCustomer(processorCustomer.customerId())
+                  .thenCompose(customer -> {
+                    if (customer == null) {
+                      throw new InternalServerErrorException(
+                          "no customer record found for id " + processorCustomer.customerId());
+                    }
+                    return stripeManager.listNonCanceledSubscriptions(customer);
+                  }).thenCompose(subscriptions -> {
+                    @SuppressWarnings("unchecked")
+                    CompletableFuture<Subscription>[] futures = (CompletableFuture<Subscription>[]) subscriptions.stream()
+                        .map(stripeManager::cancelSubscriptionAtEndOfCurrentPeriod).toArray(CompletableFuture[]::new);
+                    return CompletableFuture.allOf(futures);
+                  }))
+              // a missing customer ID is OK; it means the subscriber never started to add a payment method
+              .orElseGet(() -> CompletableFuture.completedFuture(null));
         })
         .thenCompose(unused -> subscriptionManager.canceledAt(requestData.subscriberUser, requestData.now))
         .thenApply(unused -> Response.ok().build());
@@ -222,19 +223,22 @@ public class SubscriptionController {
     return subscriptionManager.get(requestData.subscriberUser, requestData.hmac)
         .thenApply(this::requireRecordFromGetResult)
         .thenCompose(record -> {
-          final CompletableFuture<SubscriptionManager.Record> updatedRecordFuture;
-          if (record.customerId == null) {
-            updatedRecordFuture = subscriptionProcessorManager.createCustomer(requestData.subscriberUser)
-                .thenApply(ProcessorCustomer::customerId)
-                .thenCompose(customerId -> subscriptionManager.updateProcessorAndCustomerId(record,
-                    new ProcessorCustomer(customerId,
-                        subscriptionProcessorManager.getProcessor()), Instant.now()));
-          } else {
-            updatedRecordFuture = CompletableFuture.completedFuture(record);
-          }
+          final CompletableFuture<SubscriptionManager.Record> updatedRecordFuture =
+              record.getProcessorCustomer()
+                  .map(ignored -> CompletableFuture.completedFuture(record))
+                  .orElseGet(() -> subscriptionProcessorManager.createCustomer(requestData.subscriberUser)
+                      .thenApply(ProcessorCustomer::customerId)
+                      .thenCompose(customerId -> subscriptionManager.updateProcessorAndCustomerId(record,
+                          new ProcessorCustomer(customerId, subscriptionProcessorManager.getProcessor()),
+                          Instant.now())));
 
           return updatedRecordFuture.thenCompose(
-              updatedRecord -> subscriptionProcessorManager.createPaymentMethodSetupToken(updatedRecord.customerId));
+              updatedRecord -> {
+                final String customerId = updatedRecord.getProcessorCustomer()
+                    .orElseThrow(() -> new InternalServerErrorException("record should not be missing customer"))
+                    .customerId();
+                return subscriptionProcessorManager.createPaymentMethodSetupToken(customerId);
+              });
         })
         .thenApply(
             token -> Response.ok(new CreatePaymentMethodResponse(token, subscriptionProcessorManager.getProcessor()))
@@ -259,10 +263,15 @@ public class SubscriptionController {
     RequestData requestData = RequestData.process(authenticatedAccount, subscriberId, clock);
     return subscriptionManager.get(requestData.subscriberUser, requestData.hmac)
         .thenApply(this::requireRecordFromGetResult)
-        .thenCompose(record -> stripeManager.setDefaultPaymentMethodForCustomer(record.customerId, paymentMethodId))
+        .thenCompose(record -> record.getProcessorCustomer()
+            .map(processorCustomer -> stripeManager.setDefaultPaymentMethodForCustomer(processorCustomer.customerId(),
+                paymentMethodId))
+            .orElseThrow(() ->
+                // a missing customer ID indicates the client made requests out of order,
+                // and needs to call create_payment_method to create a customer for the given payment method
+                new ClientErrorException(Status.CONFLICT)))
         .thenApply(customer -> Response.ok().build());
   }
-
   public static class SetSubscriptionLevelSuccessResponse {
 
     private final long level;
@@ -356,15 +365,22 @@ public class SubscriptionController {
           if (record.subscriptionId == null) {
             long lastSubscriptionCreatedAt =
                 record.subscriptionCreatedAt != null ? record.subscriptionCreatedAt.getEpochSecond() : 0;
-            // we don't have one yet so create it and then record the subscription id
-            //
-            // this relies on stripe's idempotency key to avoid creating more than one subscription if the client
-            // retries this request
-            return stripeManager.createSubscription(record.customerId, priceConfiguration.getId(), level,
-                    lastSubscriptionCreatedAt)
-                .thenCompose(subscription -> subscriptionManager.subscriptionCreated(
-                        requestData.subscriberUser, subscription.getId(), requestData.now, level)
-                    .thenApply(unused -> subscription));
+
+            return record.getProcessorCustomer()
+                .map(processorCustomer ->
+                    // we don't have a subscription yet so create it and then record the subscription id
+                    //
+                    // this relies on stripe's idempotency key to avoid creating more than one subscription if the client
+                    // retries this request
+                    stripeManager.createSubscription(processorCustomer.customerId(), priceConfiguration.getId(), level,
+                            lastSubscriptionCreatedAt)
+                        .thenCompose(subscription -> subscriptionManager.subscriptionCreated(
+                                requestData.subscriberUser, subscription.getId(), requestData.now, level)
+                            .thenApply(unused -> subscription)))
+                .orElseThrow(() ->
+                    // a missing customer ID indicates the client made requests out of order,
+                    // and needs to call create_payment_method to create a customer for the given payment method
+                    new ClientErrorException(Status.CONFLICT));
           } else {
             // we already have a subscription in our records so let's check the level and change it if needed
             return stripeManager.getSubscription(record.subscriptionId).thenCompose(

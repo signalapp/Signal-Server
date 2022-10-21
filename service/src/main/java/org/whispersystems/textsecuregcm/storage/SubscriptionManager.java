@@ -10,6 +10,7 @@ import static org.whispersystems.textsecuregcm.util.AttributeValues.m;
 import static org.whispersystems.textsecuregcm.util.AttributeValues.n;
 import static org.whispersystems.textsecuregcm.util.AttributeValues.s;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -18,6 +19,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import javax.annotation.Nonnull;
@@ -64,8 +66,9 @@ public class SubscriptionManager {
     public final byte[] user;
     public final byte[] password;
     public final Instant createdAt;
-    public @Nullable String customerId;
-    public @Nullable SubscriptionProcessor processor;
+    @VisibleForTesting
+    @Nullable
+    ProcessorCustomer processorCustomer;
     public Map<SubscriptionProcessor, String> processorsToCustomerIds;
     public String subscriptionId;
     public Instant subscriptionCreatedAt;
@@ -82,28 +85,28 @@ public class SubscriptionManager {
     }
 
     public static Record from(byte[] user, Map<String, AttributeValue> item) {
-      Record self = new Record(
+      Record record = new Record(
           user,
           item.get(KEY_PASSWORD).b().asByteArray(),
           getInstant(item, KEY_CREATED_AT));
 
       final Pair<SubscriptionProcessor, String> processorCustomerId = getProcessorAndCustomer(item);
       if (processorCustomerId != null) {
-        self.customerId = processorCustomerId.second();
-        self.processor = processorCustomerId.first();
-      } else {
-        // Until all existing data is migrated to KEY_PROCESSOR_ID_CUSTOMER_ID, fall back to KEY_CUSTOMER_ID
-        self.customerId = getString(item, KEY_CUSTOMER_ID);
+        record.processorCustomer = new ProcessorCustomer(processorCustomerId.second(), processorCustomerId.first());
       }
-      self.processorsToCustomerIds = getProcessorsToCustomerIds(item);
-      self.subscriptionId = getString(item, KEY_SUBSCRIPTION_ID);
-      self.subscriptionCreatedAt = getInstant(item, KEY_SUBSCRIPTION_CREATED_AT);
-      self.subscriptionLevel = getLong(item, KEY_SUBSCRIPTION_LEVEL);
-      self.subscriptionLevelChangedAt = getInstant(item, KEY_SUBSCRIPTION_LEVEL_CHANGED_AT);
-      self.accessedAt = getInstant(item, KEY_ACCESSED_AT);
-      self.canceledAt = getInstant(item, KEY_CANCELED_AT);
-      self.currentPeriodEndsAt = getInstant(item, KEY_CURRENT_PERIOD_ENDS_AT);
-      return self;
+      record.processorsToCustomerIds = getProcessorsToCustomerIds(item);
+      record.subscriptionId = getString(item, KEY_SUBSCRIPTION_ID);
+      record.subscriptionCreatedAt = getInstant(item, KEY_SUBSCRIPTION_CREATED_AT);
+      record.subscriptionLevel = getLong(item, KEY_SUBSCRIPTION_LEVEL);
+      record.subscriptionLevelChangedAt = getInstant(item, KEY_SUBSCRIPTION_LEVEL_CHANGED_AT);
+      record.accessedAt = getInstant(item, KEY_ACCESSED_AT);
+      record.canceledAt = getInstant(item, KEY_CANCELED_AT);
+      record.currentPeriodEndsAt = getInstant(item, KEY_CURRENT_PERIOD_ENDS_AT);
+      return record;
+    }
+
+    public Optional<ProcessorCustomer> getProcessorCustomer() {
+      return Optional.ofNullable(processorCustomer);
     }
 
     private static Map<SubscriptionProcessor, String> getProcessorsToCustomerIds(Map<String, AttributeValue> item) {
@@ -314,45 +317,33 @@ public class SubscriptionManager {
   public CompletableFuture<Record> updateProcessorAndCustomerId(Record userRecord,
       ProcessorCustomer activeProcessorCustomer, Instant updatedAt) {
 
-    // Don’t attempt to modify the existing map, since it may be immutable, and we also don’t want to have side effects
-    final Map<SubscriptionProcessor, String> allProcessorsAndCustomerIds = new HashMap<>(
-        userRecord.processorsToCustomerIds);
-    allProcessorsAndCustomerIds.put(activeProcessorCustomer.processor(), activeProcessorCustomer.customerId());
-
     UpdateItemRequest request = UpdateItemRequest.builder()
         .tableName(table)
         .key(Map.of(KEY_USER, b(userRecord.user)))
         .returnValues(ReturnValue.ALL_NEW)
         .conditionExpression(
-            // there is no customer attribute yet
-            "attribute_not_exists(#customer_id) " +
-                // OR this record doesn't have the new processor+customer attributes yet
-                "OR (#customer_id = :customer_id " +
-                "AND attribute_not_exists(#processor_customer_id) " +
-                // TODO once all records are guaranteed to have the map, we can do a more targeted update
-                //   "AND attribute_not_exists(#processors_to_customer_ids.#processor_name) " +
-                "AND attribute_not_exists(#processors_to_customer_ids))"
+            // there is no active processor+customer attribute
+            "attribute_not_exists(#processor_customer_id) " +
+                // or an attribute in the map with an inactive processor+customer
+                "AND attribute_not_exists(#processors_to_customer_ids.#processor_name)"
         )
         .updateExpression("SET "
             + "#customer_id = :customer_id, "
             + "#processor_customer_id = :processor_customer_id, "
-            // TODO once all records are guaranteed to have the map, we can do a more targeted update
-            //  + "#processors_to_customer_ids.#processor_name = :customer_id, "
-            + "#processors_to_customer_ids = :processors_and_customer_ids, "
+            + "#processors_to_customer_ids.#processor_name = :customer_id, "
             + "#accessed_at = :accessed_at"
         )
         .expressionAttributeNames(Map.of(
             "#accessed_at", KEY_ACCESSED_AT,
             "#customer_id", KEY_CUSTOMER_ID,
             "#processor_customer_id", KEY_PROCESSOR_ID_CUSTOMER_ID,
-            // TODO "#processor_name", activeProcessor.name(),
+            "#processor_name", activeProcessorCustomer.processor().name(),
             "#processors_to_customer_ids", KEY_PROCESSOR_CUSTOMER_IDS_MAP
         ))
         .expressionAttributeValues(Map.of(
             ":accessed_at", n(updatedAt.getEpochSecond()),
             ":customer_id", s(activeProcessorCustomer.customerId()),
-            ":processor_customer_id", b(activeProcessorCustomer.toDynamoBytes()),
-            ":processors_and_customer_ids", m(createProcessorsToCustomerIdsAttributeMap(allProcessorsAndCustomerIds))
+            ":processor_customer_id", b(activeProcessorCustomer.toDynamoBytes())
         )).build();
 
     return client.updateItem(request)
@@ -365,15 +356,6 @@ public class SubscriptionManager {
           Throwables.throwIfUnchecked(throwable);
           throw new CompletionException(throwable);
         });
-  }
-
-  private Map<String, AttributeValue> createProcessorsToCustomerIdsAttributeMap(
-      Map<SubscriptionProcessor, String> allProcessorsAndCustomerIds) {
-    final Map<String, AttributeValue> result = new HashMap<>();
-
-    allProcessorsAndCustomerIds.forEach((processor, customerId) -> result.put(processor.name(), s(customerId)));
-
-    return result;
   }
 
   public CompletableFuture<Void> accessedAt(byte[] user, Instant accessedAt) {
