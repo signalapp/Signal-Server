@@ -100,7 +100,7 @@ class DonationControllerTest {
         Map.of(1L, "TEST1", 2L, "TEST2", 3L, "TEST3"));
   }
 
-  Clock clock = TestClock.pinned(Instant.ofEpochSecond(nowEpochSeconds));
+  final Clock clock = TestClock.pinned(Instant.ofEpochSecond(nowEpochSeconds));
   ServerZkReceiptOperations zkReceiptOperations;
   RedeemedReceiptsManager redeemedReceiptsManager;
   AccountsManager accountsManager;

@@ -1,21 +1,21 @@
 package org.whispersystems.textsecuregcm.util;
 
-import java.time.Duration;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Optional;
 
 /**
  * Clock class specialized for testing.
- *
+ * <p>
  * This clock can be pinned to a particular instant or can provide the "normal" time.
- *
+ * <p>
  * Unlike normal clocks it can be dynamically pinned and unpinned to help with testing.
  * It should not be used in production.
  */
-public class TestClock extends java.time.Clock {
+public class TestClock extends Clock {
 
-  private Optional<Instant> pinnedInstant;
+  private volatile Optional<Instant> pinnedInstant;
   private final ZoneId zoneId;
 
   private TestClock(Optional<Instant> maybePinned, ZoneId id) {
@@ -25,10 +25,10 @@ public class TestClock extends java.time.Clock {
 
   /**
    * Instantiate a test clock that returns the "real" time.
-   *
+   * <p>
    * The clock can later be pinned to an instant if desired.
    *
-   * @return
+   * @return unpinned test clock.
    */
   public static TestClock now() {
     return new TestClock(Optional.empty(), ZoneId.of("UTC"));
@@ -36,12 +36,12 @@ public class TestClock extends java.time.Clock {
 
   /**
    * Instantiate a test clock pinned to a particular instant.
-   *
+   * <p>
    * The clock can later be pinned to a different instant or unpinned if desired.
-   *
+   * <p>
    * Unlike the fixed constructor no time zone is required (it defaults to UTC).
    *
-   * @param instant
+   * @param instant the instant to pin the clock to.
    * @return test clock pinned to the given instant.
    */
   public static TestClock pinned(Instant instant) {
@@ -50,10 +50,10 @@ public class TestClock extends java.time.Clock {
 
   /**
    * Pin this test clock to the given instance.
-   *
+   * <p>
    * This modifies the existing clock in-place.
    *
-   * @param instant
+   * @param instant the instant to pin the clock to.
    */
   public void pin(Instant instant) {
     this.pinnedInstant = Optional.of(instant);
@@ -61,7 +61,7 @@ public class TestClock extends java.time.Clock {
 
   /**
    * Unpin this test clock so it will being returning the "real" time.
-   *
+   * <p>
    * This modifies the existing clock in-place.
    */
   public void unpin() {
@@ -69,20 +69,19 @@ public class TestClock extends java.time.Clock {
   }
 
 
+  @Override
   public TestClock withZone(ZoneId id) {
     return new TestClock(pinnedInstant, id);
   }
 
+  @Override
   public ZoneId getZone() {
     return zoneId;
   }
 
+  @Override
   public Instant instant() {
     return pinnedInstant.orElseGet(Instant::now);
-  }
-
-  public long millis() {
-    return instant().toEpochMilli();
   }
 
 }

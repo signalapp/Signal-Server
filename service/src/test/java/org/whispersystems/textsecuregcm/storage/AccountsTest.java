@@ -79,7 +79,7 @@ class AccountsTest {
           .build())
       .build();
 
-  private TestClock clock = TestClock.pinned(Instant.EPOCH);
+  private final TestClock clock = TestClock.pinned(Instant.EPOCH);
   private DynamicConfigurationManager<DynamicConfiguration> mockDynamicConfigManager;
   private Accounts accounts;
 
