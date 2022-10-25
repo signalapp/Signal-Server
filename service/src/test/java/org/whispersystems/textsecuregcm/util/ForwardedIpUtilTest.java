@@ -28,6 +28,8 @@ class ForwardedIpUtilTest {
           arguments(null, Optional.empty()),
           arguments("", Optional.empty()),
           arguments("    ", Optional.empty()),
+          arguments("203.0.113.195,", Optional.empty()),
+          arguments("203.0.113.195, ", Optional.empty()),
           arguments("203.0.113.195", Optional.of("203.0.113.195")),
           arguments("203.0.113.195, 70.41.3.18, 150.172.238.178", Optional.of("150.172.238.178"))
       );
