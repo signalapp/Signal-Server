@@ -89,6 +89,8 @@ public class BaseAccountAuthenticator {
         return Optional.empty();
       }
 
+      hasStoryCapability = account.map(Account::isStoriesSupported).orElse(false);
+
       Optional<Device> device = account.get().getDevice(deviceId);
 
       if (device.isEmpty()) {
@@ -106,11 +108,6 @@ public class BaseAccountAuthenticator {
           failureReason = "accountDisabled";
           return Optional.empty();
         }
-      }
-
-      Device.DeviceCapabilities capabilities = device.get().getCapabilities();
-      if (capabilities != null) {
-        hasStoryCapability = capabilities.isStories();
       }
 
       AuthenticationCredentials deviceAuthenticationCredentials = device.get().getAuthenticationCredentials();
