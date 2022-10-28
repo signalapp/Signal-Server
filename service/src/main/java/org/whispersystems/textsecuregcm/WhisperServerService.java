@@ -163,7 +163,6 @@ import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
-import org.whispersystems.textsecuregcm.storage.AbusiveHostRules;
 import org.whispersystems.textsecuregcm.storage.AccountCleaner;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawler;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerCache;
@@ -457,7 +456,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ExternalServiceCredentialGenerator paymentsCredentialsGenerator = new ExternalServiceCredentialGenerator(
         config.getPaymentsServiceConfiguration().getUserAuthenticationTokenSharedSecret(), true);
 
-    AbusiveHostRules           abusiveHostRules           = new AbusiveHostRules(rateLimitersCluster, dynamicConfigurationManager);
     RegistrationServiceClient  registrationServiceClient  = new RegistrationServiceClient(config.getRegistrationServiceConfiguration().getHost(), config.getRegistrationServiceConfiguration().getPort(), config.getRegistrationServiceConfiguration().getApiKey(), config.getRegistrationServiceConfiguration().getRegistrationCaCertificate(), registrationCallbackExecutor);
     SecureBackupClient         secureBackupClient         = new SecureBackupClient(backupCredentialsGenerator, backupServiceExecutor, config.getSecureBackupServiceConfiguration());
     SecureStorageClient        secureStorageClient        = new SecureStorageClient(storageCredentialsGenerator, storageServiceExecutor, config.getSecureStorageServiceConfiguration());
@@ -653,7 +651,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     // these should be common, but use @Auth DisabledPermittedAccount, which isn’t supported yet on websocket
     environment.jersey().register(
-        new AccountController(pendingAccountsManager, accountsManager, abusiveHostRules, rateLimiters,
+        new AccountController(pendingAccountsManager, accountsManager, rateLimiters,
             registrationServiceClient, dynamicConfigurationManager, turnTokenGenerator, config.getTestDevices(),
             recaptchaClient, pushNotificationManager, changeNumberManager, backupCredentialsGenerator,
             clientPresenceManager, clock));

@@ -22,7 +22,6 @@ import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -100,7 +99,6 @@ import org.whispersystems.textsecuregcm.recaptcha.RecaptchaClient;
 import org.whispersystems.textsecuregcm.registration.ClientType;
 import org.whispersystems.textsecuregcm.registration.MessageTransport;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
-import org.whispersystems.textsecuregcm.storage.AbusiveHostRules;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
@@ -134,7 +132,6 @@ class AccountControllerTest {
   private static final UUID   SENDER_TRANSFER_UUID = UUID.randomUUID();
   private static final UUID   RESERVATION_TOKEN    = UUID.randomUUID();
 
-  private static final String ABUSIVE_HOST             = "192.168.1.1";
   private static final String NICE_HOST                = "127.0.0.1";
   private static final String RATE_LIMITED_IP_HOST     = "10.0.0.1";
   private static final String RATE_LIMITED_PREFIX_HOST = "10.0.0.2";
@@ -147,7 +144,6 @@ class AccountControllerTest {
 
   private static StoredVerificationCodeManager pendingAccountsManager = mock(StoredVerificationCodeManager.class);
   private static AccountsManager accountsManager = mock(AccountsManager.class);
-  private static AbusiveHostRules abusiveHostRules = mock(AbusiveHostRules.class);
   private static RateLimiters rateLimiters = mock(RateLimiters.class);
   private static RateLimiter rateLimiter = mock(RateLimiter.class);
   private static RateLimiter pinLimiter = mock(RateLimiter.class);
@@ -187,7 +183,6 @@ class AccountControllerTest {
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(new AccountController(pendingAccountsManager,
           accountsManager,
-          abusiveHostRules,
           rateLimiters,
           registrationServiceClient,
           dynamicConfigurationManager,
@@ -218,7 +213,6 @@ class AccountControllerTest {
     when(rateLimiters.getPinLimiter()).thenReturn(pinLimiter);
     when(rateLimiters.getSmsVoiceIpLimiter()).thenReturn(smsVoiceIpLimiter);
     when(rateLimiters.getSmsVoicePrefixLimiter()).thenReturn(smsVoicePrefixLimiter);
-    when(rateLimiters.getAutoBlockLimiter()).thenReturn(autoBlockLimiter);
     when(rateLimiters.getUsernameSetLimiter()).thenReturn(usernameSetLimiter);
     when(rateLimiters.getUsernameReserveLimiter()).thenReturn(usernameReserveLimiter);
     when(rateLimiters.getUsernameLookupLimiter()).thenReturn(usernameLookupLimiter);
@@ -303,18 +297,12 @@ class AccountControllerTest {
 
       when(dynamicConfiguration.getCaptchaConfiguration()).thenReturn(signupCaptchaConfig);
     }
-    when(abusiveHostRules.isBlocked(eq(ABUSIVE_HOST))).thenReturn(true);
-    when(abusiveHostRules.isBlocked(eq(NICE_HOST))).thenReturn(false);
-
     when(recaptchaClient.verify(eq(INVALID_CAPTCHA_TOKEN), anyString()))
         .thenReturn(RecaptchaClient.AssessmentResult.invalid());
     when(recaptchaClient.verify(eq(VALID_CAPTCHA_TOKEN), anyString()))
         .thenReturn(new RecaptchaClient.AssessmentResult(true, ""));
 
     doThrow(new RateLimitExceededException(Duration.ZERO)).when(pinLimiter).validate(eq(SENDER_OVER_PIN));
-
-    doThrow(new RateLimitExceededException(Duration.ZERO)).when(autoBlockLimiter).validate(eq(RATE_LIMITED_PREFIX_HOST));
-    doThrow(new RateLimitExceededException(Duration.ZERO)).when(autoBlockLimiter).validate(eq(RATE_LIMITED_IP_HOST));
 
     doThrow(new RateLimitExceededException(Duration.ZERO)).when(smsVoicePrefixLimiter).validate(SENDER_OVER_PREFIX.substring(0, 4+2));
     doThrow(new RateLimitExceededException(Duration.ZERO)).when(smsVoiceIpLimiter).validate(RATE_LIMITED_IP_HOST);
@@ -326,13 +314,11 @@ class AccountControllerTest {
     reset(
         pendingAccountsManager,
         accountsManager,
-        abusiveHostRules,
         rateLimiters,
         rateLimiter,
         pinLimiter,
         smsVoiceIpLimiter,
         smsVoicePrefixLimiter,
-        autoBlockLimiter,
         usernameSetLimiter,
         usernameReserveLimiter,
         usernameLookupLimiter,
@@ -489,7 +475,6 @@ class AccountControllerTest {
     final Phonenumber.PhoneNumber expectedPhoneNumber = PhoneNumberUtil.getInstance().parse(SENDER, null);
 
     verify(registrationServiceClient).sendRegistrationCode(expectedPhoneNumber, MessageTransport.SMS, ClientType.UNKNOWN, null, AccountController.REGISTRATION_RPC_TIMEOUT);
-    verify(abusiveHostRules).isBlocked(eq(NICE_HOST));
     verify(pendingAccountsManager).store(eq(SENDER), argThat(
         storedVerificationCode -> Arrays.equals(storedVerificationCode.sessionId(), sessionId) &&
             "1234-push".equals(storedVerificationCode.pushCode())));
@@ -550,7 +535,6 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(200);
     verify(registrationServiceClient).sendRegistrationCode(phoneNumber, MessageTransport.VOICE, ClientType.UNKNOWN, null, AccountController.REGISTRATION_RPC_TIMEOUT);
-    verify(abusiveHostRules).isBlocked(eq(NICE_HOST));
   }
 
   @Test
@@ -572,7 +556,6 @@ class AccountControllerTest {
     final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().parse(SENDER_PREAUTH, null);
 
     verify(registrationServiceClient).sendRegistrationCode(phoneNumber, MessageTransport.SMS, ClientType.UNKNOWN, null, AccountController.REGISTRATION_RPC_TIMEOUT);
-    verify(abusiveHostRules).isBlocked(eq(NICE_HOST));
   }
 
   @Test
@@ -588,7 +571,6 @@ class AccountControllerTest {
     assertThat(response.getStatus()).isEqualTo(403);
 
     verifyNoInteractions(registrationServiceClient);
-    verifyNoInteractions(abusiveHostRules);
   }
 
   @Test
@@ -649,24 +631,7 @@ class AccountControllerTest {
   }
 
   @Test
-  void testSendAbusiveHost() {
-
-    Response response =
-        resources.getJerseyTest()
-                 .target(String.format("/v1/accounts/sms/code/%s", SENDER))
-                 .queryParam("challenge", "1234-push")
-                 .request()
-                 .header(HttpHeaders.X_FORWARDED_FOR, ABUSIVE_HOST)
-                 .get();
-
-    assertThat(response.getStatus()).isEqualTo(402);
-
-    verify(abusiveHostRules).isBlocked(eq(ABUSIVE_HOST));
-    verifyNoInteractions(registrationServiceClient);
-  }
-
-  @Test
-  void testSendAbusiveHostWithValidCaptcha() throws NumberParseException {
+  void testSendWithValidCaptcha() throws NumberParseException {
 
     when(registrationServiceClient.sendRegistrationCode(any(), any(), any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(new byte[16]));
@@ -676,38 +641,36 @@ class AccountControllerTest {
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER))
                  .queryParam("captcha", VALID_CAPTCHA_TOKEN)
                  .request()
-                 .header(HttpHeaders.X_FORWARDED_FOR, ABUSIVE_HOST)
+                 .header("X-Forwarded-For", NICE_HOST)
                  .get();
 
     assertThat(response.getStatus()).isEqualTo(200);
 
     final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().parse(SENDER, null);
 
-    verifyNoInteractions(abusiveHostRules);
-    verify(recaptchaClient).verify(eq(VALID_CAPTCHA_TOKEN), eq(ABUSIVE_HOST));
+    verify(recaptchaClient).verify(eq(VALID_CAPTCHA_TOKEN), eq(NICE_HOST));
     verify(registrationServiceClient).sendRegistrationCode(phoneNumber, MessageTransport.SMS, ClientType.UNKNOWN, null, AccountController.REGISTRATION_RPC_TIMEOUT);
   }
 
   @Test
-  void testSendAbusiveHostWithInvalidCaptcha() {
+  void testSendWithInvalidCaptcha() {
 
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER))
                  .queryParam("captcha", INVALID_CAPTCHA_TOKEN)
                  .request()
-                 .header(HttpHeaders.X_FORWARDED_FOR, ABUSIVE_HOST)
+                 .header("X-Forwarded-For", NICE_HOST)
                  .get();
 
     assertThat(response.getStatus()).isEqualTo(402);
 
-    verifyNoInteractions(abusiveHostRules);
-    verify(recaptchaClient).verify(eq(INVALID_CAPTCHA_TOKEN), eq(ABUSIVE_HOST));
+    verify(recaptchaClient).verify(eq(INVALID_CAPTCHA_TOKEN), eq(NICE_HOST));
     verifyNoInteractions(registrationServiceClient);
   }
 
   @Test
-  void testSendRateLimitedHostAutoBlock() {
+  void testSendRateLimitedHost() {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER))
@@ -717,10 +680,6 @@ class AccountControllerTest {
                  .get();
 
     assertThat(response.getStatus()).isEqualTo(402);
-
-    verify(abusiveHostRules).isBlocked(eq(RATE_LIMITED_IP_HOST));
-    verify(abusiveHostRules).setBlockedHost(eq(RATE_LIMITED_IP_HOST));
-    verifyNoMoreInteractions(abusiveHostRules);
 
     verifyNoInteractions(recaptchaClient);
     verifyNoInteractions(registrationServiceClient);
@@ -739,54 +698,9 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(402);
 
-    verify(abusiveHostRules).isBlocked(eq(RATE_LIMITED_PREFIX_HOST));
-    verify(abusiveHostRules).setBlockedHost(eq(RATE_LIMITED_PREFIX_HOST));
-    verifyNoMoreInteractions(abusiveHostRules);
-
     verifyNoInteractions(recaptchaClient);
     verifyNoInteractions(registrationServiceClient);
   }
-
-  @Test
-  void testSendRateLimitedHostNoAutoBlock() {
-
-    Response response =
-        resources.getJerseyTest()
-                 .target(String.format("/v1/accounts/sms/code/%s", SENDER))
-                 .queryParam("challenge", "1234-push")
-                 .request()
-                 .header(HttpHeaders.X_FORWARDED_FOR, RATE_LIMITED_HOST2)
-                 .get();
-
-    assertThat(response.getStatus()).isEqualTo(402);
-
-    verify(abusiveHostRules).isBlocked(eq(RATE_LIMITED_HOST2));
-    verifyNoMoreInteractions(abusiveHostRules);
-
-    verifyNoInteractions(recaptchaClient);
-    verifyNoInteractions(registrationServiceClient);
-  }
-
-
-  @Test
-  void testSendMultipleHost() {
-
-    Response response =
-        resources.getJerseyTest()
-                 .target(String.format("/v1/accounts/sms/code/%s", SENDER))
-                 .queryParam("challenge", "1234-push")
-                 .request()
-                 .header(HttpHeaders.X_FORWARDED_FOR, NICE_HOST + ", " + ABUSIVE_HOST)
-                 .get();
-
-    assertThat(response.getStatus()).isEqualTo(402);
-
-    verify(abusiveHostRules, times(1)).isBlocked(eq(ABUSIVE_HOST));
-
-    verifyNoMoreInteractions(abusiveHostRules);
-    verifyNoInteractions(registrationServiceClient);
-  }
-
 
   @Test
   void testSendRestrictedHostOut() {
@@ -805,7 +719,6 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(402);
 
-    verify(abusiveHostRules).isBlocked(eq(NICE_HOST));
     verifyNoInteractions(registrationServiceClient);
   }
 
@@ -884,7 +797,7 @@ class AccountControllerTest {
         resources.getJerseyTest()
             .target(String.format("/v1/accounts/sms/code/%s", TEST_NUMBER))
             .request()
-            .header(HttpHeaders.X_FORWARDED_FOR, ABUSIVE_HOST)
+            .header("X-Forwarded-For", RATE_LIMITED_IP_HOST)
             .get();
 
     final ArgumentCaptor<StoredVerificationCode> captor = ArgumentCaptor.forClass(StoredVerificationCode.class);

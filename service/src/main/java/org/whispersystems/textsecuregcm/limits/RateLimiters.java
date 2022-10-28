@@ -15,7 +15,6 @@ public class RateLimiters {
   private final RateLimiter voiceDestinationDailyLimiter;
   private final RateLimiter smsVoiceIpLimiter;
   private final RateLimiter smsVoicePrefixLimiter;
-  private final RateLimiter autoBlockLimiter;
   private final RateLimiter verifyLimiter;
   private final RateLimiter pinLimiter;
 
@@ -59,10 +58,6 @@ public class RateLimiters {
     this.smsVoicePrefixLimiter = new RateLimiter(cacheCluster, "smsVoicePrefix",
                                                  config.getSmsVoicePrefix().getBucketSize(),
                                                  config.getSmsVoicePrefix().getLeakRatePerMinute());
-
-    this.autoBlockLimiter = new RateLimiter(cacheCluster, "autoBlock",
-                                            config.getAutoBlock().getBucketSize(),
-                                            config.getAutoBlock().getLeakRatePerMinute());
 
     this.verifyLimiter = new LockingRateLimiter(cacheCluster, "verify",
                                                 config.getVerifyNumber().getBucketSize(),
@@ -156,10 +151,6 @@ public class RateLimiters {
 
   public RateLimiter getSmsVoicePrefixLimiter() {
     return smsVoicePrefixLimiter;
-  }
-
-  public RateLimiter getAutoBlockLimiter() {
-    return autoBlockLimiter;
   }
 
   public RateLimiter getVoiceDestinationLimiter() {

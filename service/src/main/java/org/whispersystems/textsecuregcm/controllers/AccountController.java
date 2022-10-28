@@ -91,7 +91,6 @@ import org.whispersystems.textsecuregcm.recaptcha.RecaptchaClient;
 import org.whispersystems.textsecuregcm.registration.ClientType;
 import org.whispersystems.textsecuregcm.registration.MessageTransport;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
-import org.whispersystems.textsecuregcm.storage.AbusiveHostRules;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
@@ -115,8 +114,6 @@ public class AccountController {
 
   private final Logger         logger                   = LoggerFactory.getLogger(AccountController.class);
   private final MetricRegistry metricRegistry           = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  private final Meter          blockedHostMeter         = metricRegistry.meter(name(AccountController.class, "blocked_host"             ));
-  private final Meter          countryFilterApplicable  = metricRegistry.meter(name(AccountController.class, "country_filter_applicable"));
   private final Meter          countryFilteredHostMeter = metricRegistry.meter(name(AccountController.class, "country_limited_host"     ));
   private final Meter          rateLimitedHostMeter     = metricRegistry.meter(name(AccountController.class, "rate_limited_host"        ));
   private final Meter          rateLimitedPrefixMeter   = metricRegistry.meter(name(AccountController.class, "rate_limited_prefix"      ));
@@ -150,7 +147,6 @@ public class AccountController {
 
   private final StoredVerificationCodeManager      pendingAccounts;
   private final AccountsManager                    accounts;
-  private final AbusiveHostRules                   abusiveHostRules;
   private final RateLimiters                       rateLimiters;
   private final RegistrationServiceClient          registrationServiceClient;
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
@@ -171,7 +167,6 @@ public class AccountController {
   public AccountController(
       StoredVerificationCodeManager pendingAccounts,
       AccountsManager accounts,
-      AbusiveHostRules abusiveHostRules,
       RateLimiters rateLimiters,
       RegistrationServiceClient registrationServiceClient,
       DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
@@ -186,7 +181,6 @@ public class AccountController {
   ) {
     this.pendingAccounts = pendingAccounts;
     this.accounts = accounts;
-    this.abusiveHostRules = abusiveHostRules;
     this.rateLimiters = rateLimiters;
     this.registrationServiceClient = registrationServiceClient;
     this.dynamicConfigurationManager = dynamicConfigurationManager;
@@ -204,7 +198,6 @@ public class AccountController {
   public AccountController(
       StoredVerificationCodeManager pendingAccounts,
       AccountsManager accounts,
-      AbusiveHostRules abusiveHostRules,
       RateLimiters rateLimiters,
       RegistrationServiceClient registrationServiceClient,
       DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
@@ -215,7 +208,7 @@ public class AccountController {
       ChangeNumberManager changeNumberManager,
       ExternalServiceCredentialGenerator backupServiceCredentialGenerator
   ) {
-    this(pendingAccounts, accounts, abusiveHostRules, rateLimiters,
+    this(pendingAccounts, accounts, rateLimiters,
         registrationServiceClient, dynamicConfigurationManager, turnTokenGenerator, testDevices, recaptchaClient,
         pushNotificationManager, changeNumberManager,
         backupServiceCredentialGenerator, null, Clock.systemUTC());
@@ -886,26 +879,12 @@ public class AccountController {
     boolean countryFiltered = captchaConfig.getSignupCountryCodes().contains(countryCode) ||
         captchaConfig.getSignupRegions().contains(region);
 
-    if (abusiveHostRules.isBlocked(sourceHost)) {
-      blockedHostMeter.mark();
-      logger.info("Blocked host: {}, {}, {} ({})", transport, number, sourceHost, forwardedFor);
-      if (countryFiltered) {
-        // this host was caught in the abusiveHostRules filter, but
-        // would be caught by country filter as well
-        countryFilterApplicable.mark();
-      }
-      return true;
-    }
-
     try {
       rateLimiters.getSmsVoiceIpLimiter().validate(sourceHost);
     } catch (RateLimitExceededException e) {
       logger.info("Rate limit exceeded: {}, {}, {} ({})", transport, number, sourceHost, forwardedFor);
       rateLimitedHostMeter.mark();
-      if (shouldAutoBlock(sourceHost)) {
-        logger.info("Auto-block: {}", sourceHost);
-        abusiveHostRules.setBlockedHost(sourceHost);
-      }
+
       return true;
     }
 
@@ -914,10 +893,7 @@ public class AccountController {
     } catch (RateLimitExceededException e) {
       logger.info("Prefix rate limit exceeded: {}, {}, {} ({})", transport, number, sourceHost, forwardedFor);
       rateLimitedPrefixMeter.mark();
-      if (shouldAutoBlock(sourceHost)) {
-        logger.info("Auto-block: {}", sourceHost);
-        abusiveHostRules.setBlockedHost(sourceHost);
-      }
+
       return true;
     }
 
@@ -925,6 +901,7 @@ public class AccountController {
       countryFilteredHostMeter.mark();
       return true;
     }
+
     return false;
   }
 
@@ -942,16 +919,6 @@ public class AccountController {
       Metrics.counter(NONSTANDARD_USERNAME_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent)))
           .increment();
     }
-  }
-
-  private boolean shouldAutoBlock(String sourceHost) {
-    try {
-      rateLimiters.getAutoBlockLimiter().validate(sourceHost);
-    } catch (RateLimitExceededException e) {
-      return true;
-    }
-
-    return false;
   }
 
   private String generatePushChallenge() {
