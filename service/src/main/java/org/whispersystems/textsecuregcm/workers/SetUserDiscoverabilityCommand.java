@@ -26,7 +26,6 @@ import net.sourceforge.argparse4j.inf.Subparser;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
-import org.whispersystems.textsecuregcm.push.PushLatencyManager;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
@@ -46,9 +45,9 @@ import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.Profiles;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
+import org.whispersystems.textsecuregcm.storage.ProhibitedUsernames;
 import org.whispersystems.textsecuregcm.storage.ReportMessageDynamoDb;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
-import org.whispersystems.textsecuregcm.storage.ProhibitedUsernames;
 import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.storage.VerificationCodeStore;
 import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
@@ -102,6 +101,8 @@ public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperSer
 
       ExecutorService keyspaceNotificationDispatchExecutor = environment.lifecycle()
           .executorService(name(getClass(), "keyspaceNotification-%d")).maxThreads(4).build();
+      ExecutorService messageDeletionExecutor = environment.lifecycle()
+          .executorService(name(getClass(), "messageDeletion-%d")).maxThreads(4).build();
       ExecutorService backupServiceExecutor = environment.lifecycle()
           .executorService(name(getClass(), "backupService-%d")).maxThreads(8).minThreads(1).build();
       ExecutorService storageServiceExecutor = environment.lifecycle()
@@ -161,15 +162,14 @@ public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperSer
           configuration.getDynamoDbTables().getReservedUsernames().getTableName());
       Keys keys = new Keys(dynamoDbClient,
           configuration.getDynamoDbTables().getKeys().getTableName());
-      MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(dynamoDbClient,
+      MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(dynamoDbClient, dynamoDbAsyncClient,
           configuration.getDynamoDbTables().getMessages().getTableName(),
-          configuration.getDynamoDbTables().getMessages().getExpiration());
+          configuration.getDynamoDbTables().getMessages().getExpiration(),
+          messageDeletionExecutor);
       FaultTolerantRedisCluster messageInsertCacheCluster = new FaultTolerantRedisCluster("message_insert_cluster",
           configuration.getMessageCacheConfiguration().getRedisClusterConfiguration(), redisClusterClientResources);
       FaultTolerantRedisCluster messageReadDeleteCluster = new FaultTolerantRedisCluster("message_read_delete_cluster",
           configuration.getMessageCacheConfiguration().getRedisClusterConfiguration(), redisClusterClientResources);
-      FaultTolerantRedisCluster metricsCluster = new FaultTolerantRedisCluster("metrics_cluster",
-          configuration.getMetricsClusterConfiguration(), redisClusterClientResources);
       FaultTolerantRedisCluster clientPresenceCluster = new FaultTolerantRedisCluster("client_presence",
           configuration.getClientPresenceClusterConfiguration(), redisClusterClientResources);
       SecureBackupClient secureBackupClient = new SecureBackupClient(backupCredentialsGenerator, backupServiceExecutor,
@@ -179,8 +179,7 @@ public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperSer
       ClientPresenceManager clientPresenceManager = new ClientPresenceManager(clientPresenceCluster,
           Executors.newSingleThreadScheduledExecutor(), keyspaceNotificationDispatchExecutor);
       MessagesCache messagesCache = new MessagesCache(messageInsertCacheCluster, messageReadDeleteCluster,
-          keyspaceNotificationDispatchExecutor);
-      PushLatencyManager pushLatencyManager = new PushLatencyManager(metricsCluster, dynamicConfigurationManager);
+          Clock.systemUTC(), keyspaceNotificationDispatchExecutor, messageDeletionExecutor);
       DirectoryQueue directoryQueue = new DirectoryQueue(
           configuration.getDirectoryConfiguration().getSqsConfiguration());
       ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster);

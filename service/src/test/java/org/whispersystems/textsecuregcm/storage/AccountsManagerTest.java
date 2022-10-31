@@ -147,7 +147,7 @@ class AccountsManagerTest {
     accountsManager = new AccountsManager(
         accounts,
         phoneNumberIdentifiers,
-        RedisClusterHelper.buildMockRedisCluster(commands),
+        RedisClusterHelper.builder().stringCommands(commands).build(),
         deletedAccountsManager,
         directoryQueue,
         keys,

@@ -1,11 +1,14 @@
 <configuration>
-    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder>
-            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
-        </encoder>
-    </appender>
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
 
-    <root level="warn">
-        <appender-ref ref="STDOUT" />
-    </root>
+  <root level="warn">
+    <appender-ref ref="STDOUT"/>
+  </root>
+
+  <!-- uncomment and combine with .log() in StepVerifier for more insight into reactor operations -->
+  <!--  <logger name="reactor" level="debug"/> -->
 </configuration>

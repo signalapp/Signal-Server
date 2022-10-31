@@ -8,6 +8,8 @@ package org.whispersystems.textsecuregcm.redis;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.google.common.annotations.VisibleForTesting;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.reactor.circuitbreaker.operator.CircuitBreakerOperator;
+import io.github.resilience4j.reactor.retry.RetryOperator;
 import io.github.resilience4j.retry.Retry;
 import io.lettuce.core.ClientOptions.DisconnectedBehavior;
 import io.lettuce.core.RedisCommandTimeoutException;
@@ -24,11 +26,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import org.reactivestreams.Publisher;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RedisClusterConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
 import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 import org.whispersystems.textsecuregcm.util.Constants;
+import reactor.core.publisher.Flux;
 
 /**
  * A fault-tolerant access manager for a Redis cluster. A fault-tolerant Redis cluster provides managed,
@@ -81,64 +85,79 @@ public class FaultTolerantRedisCluster {
     }
 
     void shutdown() {
-        stringConnection.close();
-        binaryConnection.close();
+      stringConnection.close();
+      binaryConnection.close();
 
-        for (final StatefulRedisClusterPubSubConnection<?, ?> pubSubConnection : pubSubConnections) {
-            pubSubConnection.close();
-        }
+      for (final StatefulRedisClusterPubSubConnection<?, ?> pubSubConnection : pubSubConnections) {
+        pubSubConnection.close();
+      }
 
-        clusterClient.shutdown();
+      clusterClient.shutdown();
     }
 
-    public String getName() {
-        return name;
-    }
+  public String getName() {
+    return name;
+  }
 
-    public void useCluster(final Consumer<StatefulRedisClusterConnection<String, String>> consumer) {
-        useConnection(stringConnection, consumer);
-    }
+  public void useCluster(final Consumer<StatefulRedisClusterConnection<String, String>> consumer) {
+    useConnection(stringConnection, consumer);
+  }
 
-    public <T> T withCluster(final Function<StatefulRedisClusterConnection<String, String>, T> function) {
-        return withConnection(stringConnection, function);
-    }
+  public <T> T withCluster(final Function<StatefulRedisClusterConnection<String, String>, T> function) {
+    return withConnection(stringConnection, function);
+  }
 
-    public void useBinaryCluster(final Consumer<StatefulRedisClusterConnection<byte[], byte[]>> consumer) {
-        useConnection(binaryConnection, consumer);
-    }
+  public void useBinaryCluster(final Consumer<StatefulRedisClusterConnection<byte[], byte[]>> consumer) {
+    useConnection(binaryConnection, consumer);
+  }
 
-    public <T> T withBinaryCluster(final Function<StatefulRedisClusterConnection<byte[], byte[]>, T> function) {
-        return withConnection(binaryConnection, function);
-    }
+  public <T> T withBinaryCluster(final Function<StatefulRedisClusterConnection<byte[], byte[]>, T> function) {
+    return withConnection(binaryConnection, function);
+  }
 
-    private <K, V> void useConnection(final StatefulRedisClusterConnection<K, V> connection, final Consumer<StatefulRedisClusterConnection<K, V>> consumer) {
-        try {
-            circuitBreaker.executeCheckedRunnable(() -> retry.executeRunnable(() -> consumer.accept(connection)));
-        } catch (final Throwable t) {
-            if (t instanceof RedisException) {
-                throw (RedisException) t;
-            } else {
-                throw new RedisException(t);
-            }
-        }
-    }
+  public <T> Publisher<T> withBinaryClusterReactive(
+      final Function<StatefulRedisClusterConnection<byte[], byte[]>, Publisher<T>> function) {
+    return withConnectionReactive(binaryConnection, function);
+  }
 
-    private <T, K, V> T withConnection(final StatefulRedisClusterConnection<K, V> connection, final Function<StatefulRedisClusterConnection<K, V>, T> function) {
-        try {
-            return circuitBreaker.executeCheckedSupplier(() -> retry.executeCallable(() -> function.apply(connection)));
-        } catch (final Throwable t) {
-            if (t instanceof RedisException) {
-                throw (RedisException) t;
-            } else {
-                throw new RedisException(t);
-            }
-        }
+  private <K, V> void useConnection(final StatefulRedisClusterConnection<K, V> connection,
+      final Consumer<StatefulRedisClusterConnection<K, V>> consumer) {
+    try {
+      circuitBreaker.executeCheckedRunnable(() -> retry.executeRunnable(() -> consumer.accept(connection)));
+    } catch (final Throwable t) {
+      if (t instanceof RedisException) {
+        throw (RedisException) t;
+      } else {
+        throw new RedisException(t);
+      }
     }
+  }
 
-    public FaultTolerantPubSubConnection<String, String> createPubSubConnection() {
-        final StatefulRedisClusterPubSubConnection<String, String> pubSubConnection = clusterClient.connectPubSub();
-        pubSubConnections.add(pubSubConnection);
-
-        return new FaultTolerantPubSubConnection<>(name, pubSubConnection, circuitBreaker, retry);
+  private <T, K, V> T withConnection(final StatefulRedisClusterConnection<K, V> connection,
+      final Function<StatefulRedisClusterConnection<K, V>, T> function) {
+    try {
+      return circuitBreaker.executeCheckedSupplier(() -> retry.executeCallable(() -> function.apply(connection)));
+    } catch (final Throwable t) {
+      if (t instanceof RedisException) {
+        throw (RedisException) t;
+      } else {
+        throw new RedisException(t);
+      }
     }
+  }
+
+  private <T, K, V> Publisher<T> withConnectionReactive(final StatefulRedisClusterConnection<K, V> connection,
+      final Function<StatefulRedisClusterConnection<K, V>, Publisher<T>> function) {
+
+    return Flux.from(function.apply(connection))
+        .transformDeferred(RetryOperator.of(retry))
+        .transformDeferred(CircuitBreakerOperator.of(circuitBreaker));
+  }
+
+  public FaultTolerantPubSubConnection<String, String> createPubSubConnection() {
+    final StatefulRedisClusterPubSubConnection<String, String> pubSubConnection = clusterClient.connectPubSub();
+    pubSubConnections.add(pubSubConnection);
+
+    return new FaultTolerantPubSubConnection<>(name, pubSubConnection, circuitBreaker, retry);
+  }
 }

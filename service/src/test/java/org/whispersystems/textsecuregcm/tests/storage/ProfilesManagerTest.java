@@ -41,7 +41,7 @@ public class ProfilesManagerTest {
   void setUp() {
     //noinspection unchecked
     commands = mock(RedisAdvancedClusterCommands.class);
-    final FaultTolerantRedisCluster cacheCluster = RedisClusterHelper.buildMockRedisCluster(commands);
+    final FaultTolerantRedisCluster cacheCluster = RedisClusterHelper.builder().stringCommands(commands).build();
 
     profiles = mock(Profiles.class);
 

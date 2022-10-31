@@ -46,6 +46,7 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
@@ -533,17 +534,25 @@ class MessageControllerTest {
     UUID sourceUuid = UUID.randomUUID();
 
     UUID uuid1 = UUID.randomUUID();
-    when(messagesManager.delete(AuthHelper.VALID_UUID, 1, uuid1, null)).thenReturn(Optional.of(generateEnvelope(
-        uuid1, Envelope.Type.CIPHERTEXT_VALUE,
-        timestamp, sourceUuid, 1, AuthHelper.VALID_UUID, null, "hi".getBytes(), 0)));
+    when(messagesManager.delete(AuthHelper.VALID_UUID, 1, uuid1, null))
+        .thenReturn(
+            CompletableFuture.completedFuture(Optional.of(generateEnvelope(uuid1, Envelope.Type.CIPHERTEXT_VALUE,
+                timestamp, sourceUuid, 1, AuthHelper.VALID_UUID, null, "hi".getBytes(), 0))));
 
     UUID uuid2 = UUID.randomUUID();
-    when(messagesManager.delete(AuthHelper.VALID_UUID, 1, uuid2, null)).thenReturn(Optional.of(generateEnvelope(
-        uuid2, Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE,
-        System.currentTimeMillis(), sourceUuid, 1, AuthHelper.VALID_UUID, null, null, 0)));
+    when(messagesManager.delete(AuthHelper.VALID_UUID, 1, uuid2, null))
+        .thenReturn(
+            CompletableFuture.completedFuture(Optional.of(generateEnvelope(
+                uuid2, Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE,
+                System.currentTimeMillis(), sourceUuid, 1, AuthHelper.VALID_UUID, null, null, 0))));
 
     UUID uuid3 = UUID.randomUUID();
-    when(messagesManager.delete(AuthHelper.VALID_UUID, 1, uuid3, null)).thenReturn(Optional.empty());
+    when(messagesManager.delete(AuthHelper.VALID_UUID, 1, uuid3, null))
+        .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
+
+    UUID uuid4 = UUID.randomUUID();
+    when(messagesManager.delete(AuthHelper.VALID_UUID, 1, uuid4, null))
+        .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Oh No")));
 
     Response response = resources.getJerseyTest()
         .target(String.format("/v1/messages/uuid/%s", uuid1))
@@ -571,6 +580,15 @@ class MessageControllerTest {
         .delete();
 
     assertThat("Good Response Code", response.getStatus(), is(equalTo(204)));
+    verifyNoMoreInteractions(receiptSender);
+
+    response = resources.getJerseyTest()
+        .target(String.format("/v1/messages/uuid/%s", uuid4))
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .delete();
+
+    assertThat("Bad Response Code", response.getStatus(), is(equalTo(500)));
     verifyNoMoreInteractions(receiptSender);
 
   }
@@ -700,7 +718,7 @@ class MessageControllerTest {
             .target(String.format("/v1/messages/%s", SINGLE_DEVICE_UUID))
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .header("User-Agent", "FIXME")
+            .header("User-Agent", "Test-UA")
             .put(Entity.entity(SystemMapper.getMapper().readValue(jsonFixture(payloadFilename), IncomingMessageList.class),
                 MediaType.APPLICATION_JSON_TYPE));
 

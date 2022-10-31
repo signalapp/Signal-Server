@@ -22,6 +22,7 @@ import static org.mockito.Mockito.when;
 import com.google.protobuf.ByteString;
 import io.lettuce.core.cluster.SlotHash;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -46,7 +47,7 @@ class MessagePersisterTest {
   @RegisterExtension
   static final RedisClusterExtension REDIS_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
 
-  private ExecutorService notificationExecutorService;
+  private ExecutorService sharedExecutorService;
   private MessagesCache messagesCache;
   private MessagesDynamoDb messagesDynamoDb;
   private MessagePersister messagePersister;
@@ -74,9 +75,9 @@ class MessagePersisterTest {
     when(account.getNumber()).thenReturn(DESTINATION_ACCOUNT_NUMBER);
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(new DynamicConfiguration());
 
-    notificationExecutorService = Executors.newSingleThreadExecutor();
+    sharedExecutorService = Executors.newSingleThreadExecutor();
     messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-        REDIS_CLUSTER_EXTENSION.getRedisCluster(), notificationExecutorService);
+        REDIS_CLUSTER_EXTENSION.getRedisCluster(), Clock.systemUTC(), sharedExecutorService, sharedExecutorService);
     messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager,
         dynamicConfigurationManager, PERSIST_DELAY);
 
@@ -88,7 +89,7 @@ class MessagePersisterTest {
       messagesDynamoDb.store(messages, destinationUuid, destinationDeviceId);
 
       for (final MessageProtos.Envelope message : messages) {
-        messagesCache.remove(destinationUuid, destinationDeviceId, UUID.fromString(message.getServerGuid()));
+        messagesCache.remove(destinationUuid, destinationDeviceId, UUID.fromString(message.getServerGuid())).get();
       }
 
       return null;
@@ -97,8 +98,8 @@ class MessagePersisterTest {
 
   @AfterEach
   void tearDown() throws Exception {
-    notificationExecutorService.shutdown();
-    notificationExecutorService.awaitTermination(1, TimeUnit.SECONDS);
+    sharedExecutorService.shutdown();
+    sharedExecutorService.awaitTermination(1, TimeUnit.SECONDS);
   }
 
   @Test

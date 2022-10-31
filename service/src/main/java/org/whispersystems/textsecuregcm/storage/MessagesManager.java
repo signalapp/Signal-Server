@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2021 Signal Messenger, LLC
+ * Copyright 2013-2022 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.storage;
@@ -9,18 +9,29 @@ import static com.codahale.metrics.MetricRegistry.name;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
+import org.reactivestreams.Publisher;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Pair;
+import reactor.core.publisher.Flux;
 
 public class MessagesManager {
 
   private static final int RESULT_SET_CHUNK_SIZE = 100;
+
+  private static final Logger logger = LoggerFactory.getLogger(MessagesManager.class);
 
   private static final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
   private static final Meter cacheHitByGuidMeter = metricRegistry.meter(name(MessagesManager.class, "cacheHitByGuid"));
@@ -55,18 +66,32 @@ public class MessagesManager {
     return messagesCache.hasMessages(destinationUuid, destinationDevice);
   }
 
-  public Pair<List<Envelope>, Boolean> getMessagesForDevice(UUID destinationUuid, long destinationDevice, final boolean cachedMessagesOnly) {
-    List<Envelope> messageList = new ArrayList<>();
+  public Pair<List<Envelope>, Boolean> getMessagesForDevice(UUID destinationUuid, long destinationDevice,
+      boolean cachedMessagesOnly) {
 
-    if (!cachedMessagesOnly) {
-      messageList.addAll(messagesDynamoDb.load(destinationUuid, destinationDevice, RESULT_SET_CHUNK_SIZE));
-    }
+    final List<Envelope> envelopes = Flux.from(
+            getMessagesForDevice(destinationUuid, destinationDevice, RESULT_SET_CHUNK_SIZE, cachedMessagesOnly))
+        .take(RESULT_SET_CHUNK_SIZE, true)
+        .collectList()
+        .blockOptional().orElse(Collections.emptyList());
 
-    if (messageList.size() < RESULT_SET_CHUNK_SIZE) {
-      messageList.addAll(messagesCache.get(destinationUuid, destinationDevice, RESULT_SET_CHUNK_SIZE - messageList.size()));
-    }
+    return new Pair<>(envelopes, envelopes.size() >= RESULT_SET_CHUNK_SIZE);
+  }
 
-    return new Pair<>(messageList, messageList.size() >= RESULT_SET_CHUNK_SIZE);
+  public Publisher<Envelope> getMessagesForDeviceReactive(UUID destinationUuid, long destinationDevice,
+      final boolean cachedMessagesOnly) {
+
+    return getMessagesForDevice(destinationUuid, destinationDevice, null, cachedMessagesOnly);
+  }
+
+  private Publisher<Envelope> getMessagesForDevice(UUID destinationUuid, long destinationDevice,
+      @Nullable Integer limit, final boolean cachedMessagesOnly) {
+
+    final Publisher<Envelope> dynamoPublisher =
+        cachedMessagesOnly ? Flux.empty() : messagesDynamoDb.load(destinationUuid, destinationDevice, limit);
+    final Publisher<Envelope> cachePublisher = messagesCache.get(destinationUuid, destinationDevice);
+
+    return Flux.concat(dynamoPublisher, cachePublisher);
   }
 
   public void clear(UUID destinationUuid) {
@@ -79,21 +104,25 @@ public class MessagesManager {
     messagesDynamoDb.deleteAllMessagesForDevice(destinationUuid, deviceId);
   }
 
-  public Optional<Envelope> delete(UUID destinationUuid, long destinationDeviceId, UUID guid, Long serverTimestamp) {
-    Optional<Envelope> removed = messagesCache.remove(destinationUuid, destinationDeviceId, guid);
+  public CompletableFuture<Optional<Envelope>> delete(UUID destinationUuid, long destinationDeviceId, UUID guid,
+      @Nullable Long serverTimestamp) {
+    return messagesCache.remove(destinationUuid, destinationDeviceId, guid)
+        .thenCompose(removed -> {
 
-    if (removed.isEmpty()) {
-      if (serverTimestamp == null) {
-        removed = messagesDynamoDb.deleteMessageByDestinationAndGuid(destinationUuid, guid);
-      } else {
-        removed = messagesDynamoDb.deleteMessage(destinationUuid, destinationDeviceId, guid, serverTimestamp);
-      }
-      cacheMissByGuidMeter.mark();
-    } else {
-      cacheHitByGuidMeter.mark();
-    }
+          if (removed.isPresent()) {
+            cacheHitByGuidMeter.mark();
+            return CompletableFuture.completedFuture(removed);
+          }
 
-    return removed;
+          cacheMissByGuidMeter.mark();
+
+          if (serverTimestamp == null) {
+            return messagesDynamoDb.deleteMessageByDestinationAndGuid(destinationUuid, guid);
+          } else {
+            return messagesDynamoDb.deleteMessage(destinationUuid, destinationDeviceId, guid, serverTimestamp);
+          }
+
+        });
   }
 
   /**
@@ -112,10 +141,15 @@ public class MessagesManager {
 
     final List<UUID> messageGuids = messages.stream().map(message -> UUID.fromString(message.getServerGuid()))
         .collect(Collectors.toList());
-    int messagesRemovedFromCache = messagesCache.remove(destinationUuid, destinationDeviceId, messageGuids).size();
+    int messagesRemovedFromCache = 0;
+    try {
+      messagesRemovedFromCache = messagesCache.remove(destinationUuid, destinationDeviceId, messageGuids)
+          .get(30, TimeUnit.SECONDS).size();
+      persistMessageMeter.mark(nonEphemeralMessages.size());
 
-    persistMessageMeter.mark(nonEphemeralMessages.size());
-
+    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+      logger.warn("Failed to remove messages from cache", e);
+    }
     return messagesRemovedFromCache;
   }
 
@@ -129,4 +163,5 @@ public class MessagesManager {
   public void removeMessageAvailabilityListener(final MessageAvailabilityListener listener) {
     messagesCache.removeMessageAvailabilityListener(listener);
   }
+
 }

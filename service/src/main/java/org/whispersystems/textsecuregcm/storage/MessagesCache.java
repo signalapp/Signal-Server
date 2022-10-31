@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2021 Signal Messenger, LLC
+ * Copyright 2013-2022 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -22,6 +22,7 @@ import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -34,23 +35,32 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import org.reactivestreams.Publisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantPubSubConnection;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.RedisClusterUtil;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 public class MessagesCache extends RedisClusterPubSubAdapter<String, String> implements Managed {
 
   private final FaultTolerantRedisCluster readDeleteCluster;
   private final FaultTolerantPubSubConnection<String, String> pubSubConnection;
+  private final Clock clock;
 
   private final ExecutorService notificationExecutorService;
+  private final ExecutorService messageDeletionExecutorService;
 
   private final ClusterLuaScript insertScript;
   private final ClusterLuaScript removeByGuidScript;
@@ -79,22 +89,23 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
   private static final String QUEUE_KEYSPACE_PREFIX = "__keyspace@0__:user_queue::";
   private static final String PERSISTING_KEYSPACE_PREFIX = "__keyspace@0__:user_queue_persisting::";
 
-  private static final Duration MAX_EPHEMERAL_MESSAGE_DELAY = Duration.ofSeconds(10);
+  @VisibleForTesting
+  static final Duration MAX_EPHEMERAL_MESSAGE_DELAY = Duration.ofSeconds(10);
 
-  private static final String REMOVE_TIMER_NAME = name(MessagesCache.class, "remove");
-
-  private static final String REMOVE_METHOD_TAG = "method";
-  private static final String REMOVE_METHOD_UUID = "uuid";
+  private static final int PAGE_SIZE = 100;
 
   private static final Logger logger = LoggerFactory.getLogger(MessagesCache.class);
 
   public MessagesCache(final FaultTolerantRedisCluster insertCluster, final FaultTolerantRedisCluster readDeleteCluster,
-      final ExecutorService notificationExecutorService) throws IOException {
+      final Clock clock, final ExecutorService notificationExecutorService,
+      final ExecutorService messageDeletionExecutorService) throws IOException {
 
     this.readDeleteCluster = readDeleteCluster;
     this.pubSubConnection = readDeleteCluster.createPubSubConnection();
+    this.clock = clock;
 
     this.notificationExecutorService = notificationExecutorService;
+    this.messageDeletionExecutorService = messageDeletionExecutorService;
 
     this.insertScript = ClusterLuaScript.fromResource(insertCluster, "lua/insert_item.lua", ScriptOutputType.INTEGER);
     this.removeByGuidScript = ClusterLuaScript.fromResource(readDeleteCluster, "lua/remove_item_by_guid.lua",
@@ -147,33 +158,39 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
                 guid.toString().getBytes(StandardCharsets.UTF_8))));
   }
 
-  public Optional<MessageProtos.Envelope> remove(final UUID destinationUuid, final long destinationDevice,
+  public CompletableFuture<Optional<MessageProtos.Envelope>> remove(final UUID destinationUuid,
+      final long destinationDevice,
       final UUID messageGuid) {
-    return remove(destinationUuid, destinationDevice, List.of(messageGuid)).stream().findFirst();
+
+    return remove(destinationUuid, destinationDevice, List.of(messageGuid))
+        .thenApply(removed -> removed.isEmpty() ? Optional.empty() : Optional.of(removed.get(0)));
   }
 
   @SuppressWarnings("unchecked")
-  public List<MessageProtos.Envelope> remove(final UUID destinationUuid, final long destinationDevice,
+  public CompletableFuture<List<MessageProtos.Envelope>> remove(final UUID destinationUuid,
+      final long destinationDevice,
       final List<UUID> messageGuids) {
-    final List<byte[]> serialized = (List<byte[]>) Metrics.timer(REMOVE_TIMER_NAME, REMOVE_METHOD_TAG,
-        REMOVE_METHOD_UUID).record(() ->
-        removeByGuidScript.executeBinary(List.of(getMessageQueueKey(destinationUuid, destinationDevice),
+
+    return removeByGuidScript.executeBinaryAsync(List.of(getMessageQueueKey(destinationUuid, destinationDevice),
                 getMessageQueueMetadataKey(destinationUuid, destinationDevice),
                 getQueueIndexKey(destinationUuid, destinationDevice)),
             messageGuids.stream().map(guid -> guid.toString().getBytes(StandardCharsets.UTF_8))
-                .collect(Collectors.toList())));
+                .collect(Collectors.toList()))
+        .thenApplyAsync(result -> {
+          List<byte[]> serialized = (List<byte[]>) result;
 
-    final List<MessageProtos.Envelope> removedMessages = new ArrayList<>(serialized.size());
+          final List<MessageProtos.Envelope> removedMessages = new ArrayList<>(serialized.size());
 
-    for (final byte[] bytes : serialized) {
-      try {
-        removedMessages.add(MessageProtos.Envelope.parseFrom(bytes));
-      } catch (final InvalidProtocolBufferException e) {
-        logger.warn("Failed to parse envelope", e);
-      }
-    }
+          for (final byte[] bytes : serialized) {
+            try {
+              removedMessages.add(MessageProtos.Envelope.parseFrom(bytes));
+            } catch (final InvalidProtocolBufferException e) {
+              logger.warn("Failed to parse envelope", e);
+            }
+          }
 
-    return removedMessages;
+          return removedMessages;
+        }, messageDeletionExecutorService);
   }
 
   public boolean hasMessages(final UUID destinationUuid, final long destinationDevice) {
@@ -181,50 +198,110 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
         connection -> connection.sync().zcard(getMessageQueueKey(destinationUuid, destinationDevice)) > 0);
   }
 
-  @SuppressWarnings("unchecked")
-  public List<MessageProtos.Envelope> get(final UUID destinationUuid, final long destinationDevice, final int limit) {
-    return getMessagesTimer.record(() -> {
-      final List<byte[]> queueItems = (List<byte[]>) getItemsScript.executeBinary(
-          List.of(getMessageQueueKey(destinationUuid, destinationDevice),
-              getPersistInProgressKey(destinationUuid, destinationDevice)),
-          List.of(String.valueOf(limit).getBytes(StandardCharsets.UTF_8)));
+  public Publisher<MessageProtos.Envelope> get(final UUID destinationUuid, final long destinationDevice) {
 
-      final long earliestAllowableEphemeralTimestamp =
-          System.currentTimeMillis() - MAX_EPHEMERAL_MESSAGE_DELAY.toMillis();
+    final long earliestAllowableEphemeralTimestamp =
+        clock.millis() - MAX_EPHEMERAL_MESSAGE_DELAY.toMillis();
 
-      final List<MessageProtos.Envelope> messageEntities;
-      final List<UUID> staleEphemeralMessageGuids = new ArrayList<>();
+    final Flux<MessageProtos.Envelope> allMessages = getAllMessages(destinationUuid, destinationDevice)
+        .publish()
+        // We expect exactly two subscribers to this base flux:
+        // 1. the websocket that delivers messages to clients
+        // 2. an internal process to discard stale ephemeral messages
+        // The discard subscriber will subscribe immediately, but we don’t want to do any work if the
+        // websocket never subscribes.
+        .autoConnect(2);
 
-      if (queueItems.size() % 2 == 0) {
-        messageEntities = new ArrayList<>(queueItems.size() / 2);
+    final Flux<MessageProtos.Envelope> messagesToPublish = allMessages
+        .filter(Predicate.not(envelope -> isStaleEphemeralMessage(envelope, earliestAllowableEphemeralTimestamp)));
 
-        for (int i = 0; i < queueItems.size() - 1; i += 2) {
-          try {
-            final MessageProtos.Envelope message = MessageProtos.Envelope.parseFrom(queueItems.get(i));
-            if (message.getEphemeral() && message.getTimestamp() < earliestAllowableEphemeralTimestamp) {
-              staleEphemeralMessageGuids.add(UUID.fromString(message.getServerGuid()));
-              continue;
-            }
+    final Flux<MessageProtos.Envelope> staleEphemeralMessages = allMessages
+        .filter(envelope -> isStaleEphemeralMessage(envelope, earliestAllowableEphemeralTimestamp));
 
-            messageEntities.add(message);
-          } catch (InvalidProtocolBufferException e) {
-            logger.warn("Failed to parse envelope", e);
+    discardStaleEphemeralMessages(destinationUuid, destinationDevice, staleEphemeralMessages);
+
+    return messagesToPublish;
+  }
+
+  private static boolean isStaleEphemeralMessage(final MessageProtos.Envelope message,
+      long earliestAllowableTimestamp) {
+    return message.hasEphemeral() && message.getEphemeral() && message.getTimestamp() < earliestAllowableTimestamp;
+  }
+
+  private void discardStaleEphemeralMessages(final UUID destinationUuid, final long destinationDevice,
+      Flux<MessageProtos.Envelope> staleEphemeralMessages) {
+    staleEphemeralMessages
+        .map(e -> UUID.fromString(e.getServerGuid()))
+        .buffer(PAGE_SIZE)
+        .subscribeOn(Schedulers.boundedElastic())
+        .subscribe(staleEphemeralMessageGuids ->
+                remove(destinationUuid, destinationDevice, staleEphemeralMessageGuids)
+                    .thenAccept(removedMessages -> staleEphemeralMessagesCounter.increment(removedMessages.size())),
+            e -> logger.warn("Could not remove stale ephemeral messages from cache", e));
+  }
+
+  @VisibleForTesting
+  Flux<MessageProtos.Envelope> getAllMessages(final UUID destinationUuid, final long destinationDevice) {
+
+    // fetch messages by page
+    return getNextMessagePage(destinationUuid, destinationDevice, -1)
+        .expand(queueItemsAndLastMessageId -> {
+          // expand() is breadth-first, so each page will be published in order
+          if (queueItemsAndLastMessageId.first().isEmpty()) {
+            return Mono.empty();
           }
-        }
-      } else {
-        logger.error("\"Get messages\" operation returned a list with a non-even number of elements.");
-        messageEntities = Collections.emptyList();
-      }
 
-      try {
-        remove(destinationUuid, destinationDevice, staleEphemeralMessageGuids);
-        staleEphemeralMessagesCounter.increment(staleEphemeralMessageGuids.size());
-      } catch (final Throwable e) {
-        logger.warn("Could not remove stale ephemeral messages from cache", e);
-      }
+          return getNextMessagePage(destinationUuid, destinationDevice, queueItemsAndLastMessageId.second());
+        })
+        .limitRate(1)
+        // we want to ensure we don’t accidentally block the Lettuce/netty i/o executors
+        .publishOn(Schedulers.boundedElastic())
+        .map(Pair::first)
+        .flatMapIterable(queueItems -> {
+          final List<MessageProtos.Envelope> envelopes = new ArrayList<>(queueItems.size() / 2);
 
-      return messageEntities;
-    });
+          for (int i = 0; i < queueItems.size() - 1; i += 2) {
+            try {
+              final MessageProtos.Envelope message = MessageProtos.Envelope.parseFrom(queueItems.get(i));
+
+              envelopes.add(message);
+            } catch (InvalidProtocolBufferException e) {
+              logger.warn("Failed to parse envelope", e);
+            }
+          }
+
+          return envelopes;
+        });
+  }
+
+  private Flux<Pair<List<byte[]>, Long>> getNextMessagePage(final UUID destinationUuid, final long destinationDevice,
+      long messageId) {
+
+    return getItemsScript.executeBinaryReactive(
+            List.of(getMessageQueueKey(destinationUuid, destinationDevice),
+                getPersistInProgressKey(destinationUuid, destinationDevice)),
+            List.of(String.valueOf(PAGE_SIZE).getBytes(StandardCharsets.UTF_8),
+                String.valueOf(messageId).getBytes(StandardCharsets.UTF_8)))
+        .map(result -> {
+          logger.trace("Processing page: {}", messageId);
+
+          @SuppressWarnings("unchecked")
+          List<byte[]> queueItems = (List<byte[]>) result;
+
+          if (queueItems.isEmpty()) {
+            return new Pair<>(Collections.emptyList(), null);
+          }
+
+          if (queueItems.size() % 2 != 0) {
+            logger.error("\"Get messages\" operation returned a list with a non-even number of elements.");
+            return new Pair<>(Collections.emptyList(), null);
+          }
+
+          final long lastMessageId = Long.parseLong(
+              new String(queueItems.get(queueItems.size() - 1), StandardCharsets.UTF_8));
+
+          return new Pair<>(queueItems, lastMessageId);
+        });
   }
 
   @VisibleForTesting

@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2021 Signal Messenger, LLC
+ * Copyright 2013-2022 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -22,6 +22,7 @@ import static org.mockito.Mockito.when;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.IOException;
+import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -36,8 +37,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
@@ -56,6 +59,7 @@ import org.whispersystems.textsecuregcm.tests.util.MessagesDynamoDbExtension;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.websocket.WebSocketClient;
 import org.whispersystems.websocket.messages.WebSocketResponseMessage;
+import reactor.core.scheduler.Schedulers;
 
 class WebSocketConnectionIntegrationTest {
 
@@ -65,16 +69,13 @@ class WebSocketConnectionIntegrationTest {
   @RegisterExtension
   static final RedisClusterExtension REDIS_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
 
-  private static final int SEND_FUTURES_TIMEOUT_MILLIS = 100;
-
-  private ExecutorService executorService;
+  private ExecutorService sharedExecutorService;
   private MessagesDynamoDb messagesDynamoDb;
   private MessagesCache messagesCache;
   private ReportMessageManager reportMessageManager;
   private Account account;
   private Device device;
   private WebSocketClient webSocketClient;
-  private WebSocketConnection webSocketConnection;
   private ScheduledExecutorService retrySchedulingExecutor;
 
   private long serialTimestamp = System.currentTimeMillis();
@@ -82,11 +83,12 @@ class WebSocketConnectionIntegrationTest {
   @BeforeEach
   void setUp() throws Exception {
 
-    executorService = Executors.newSingleThreadExecutor();
+    sharedExecutorService = Executors.newSingleThreadExecutor();
     messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-        REDIS_CLUSTER_EXTENSION.getRedisCluster(), executorService);
-    messagesDynamoDb = new MessagesDynamoDb(dynamoDbExtension.getDynamoDbClient(), MessagesDynamoDbExtension.TABLE_NAME,
-        Duration.ofDays(7));
+        REDIS_CLUSTER_EXTENSION.getRedisCluster(), Clock.systemUTC(), sharedExecutorService, sharedExecutorService);
+    messagesDynamoDb = new MessagesDynamoDb(dynamoDbExtension.getDynamoDbClient(),
+        dynamoDbExtension.getDynamoDbAsyncClient(), MessagesDynamoDbExtension.TABLE_NAME, Duration.ofDays(7),
+        sharedExecutorService);
     reportMessageManager = mock(ReportMessageManager.class);
     account = mock(Account.class);
     device = mock(Device.class);
@@ -96,30 +98,36 @@ class WebSocketConnectionIntegrationTest {
     when(account.getNumber()).thenReturn("+18005551234");
     when(account.getUuid()).thenReturn(UUID.randomUUID());
     when(device.getId()).thenReturn(1L);
-
-    webSocketConnection = new WebSocketConnection(
-        mock(ReceiptSender.class),
-        new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager),
-        new AuthenticatedAccount(() -> new Pair<>(account, device)),
-        device,
-        webSocketClient,
-        SEND_FUTURES_TIMEOUT_MILLIS,
-        retrySchedulingExecutor);
   }
 
   @AfterEach
   void tearDown() throws Exception {
-    executorService.shutdown();
-    executorService.awaitTermination(2, TimeUnit.SECONDS);
+    sharedExecutorService.shutdown();
+    sharedExecutorService.awaitTermination(2, TimeUnit.SECONDS);
 
     retrySchedulingExecutor.shutdown();
     retrySchedulingExecutor.awaitTermination(2, TimeUnit.SECONDS);
   }
 
-  @Test
-  void testProcessStoredMessages() {
-    final int persistedMessageCount = 207;
-    final int cachedMessageCount = 173;
+  @ParameterizedTest
+  @CsvSource({
+      "207, 173, true",
+      "207, 173, false",
+      "323, 0, true",
+      "323, 0, false",
+      "0, 221, true",
+      "0, 221, false",
+  })
+  void testProcessStoredMessages(final int persistedMessageCount, final int cachedMessageCount,
+      final boolean useReactive) {
+    final WebSocketConnection webSocketConnection = new WebSocketConnection(
+        mock(ReceiptSender.class),
+        new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager),
+        new AuthenticatedAccount(() -> new Pair<>(account, device)),
+        device,
+        webSocketClient,
+        retrySchedulingExecutor,
+        useReactive);
 
     final List<MessageProtos.Envelope> expectedMessages = new ArrayList<>(persistedMessageCount + cachedMessageCount);
 
@@ -150,8 +158,8 @@ class WebSocketConnectionIntegrationTest {
       final AtomicBoolean queueCleared = new AtomicBoolean(false);
 
       when(successResponse.getStatus()).thenReturn(200);
-      when(webSocketClient.sendRequest(eq("PUT"), eq("/api/v1/message"), anyList(), any())).thenReturn(
-          CompletableFuture.completedFuture(successResponse));
+      when(webSocketClient.sendRequest(eq("PUT"), eq("/api/v1/message"), anyList(), any()))
+          .thenReturn(CompletableFuture.completedFuture(successResponse));
 
       when(webSocketClient.sendRequest(eq("PUT"), eq("/api/v1/queue/empty"), anyList(), any())).thenAnswer(
           (Answer<CompletableFuture<WebSocketResponseMessage>>) invocation -> {
@@ -194,8 +202,18 @@ class WebSocketConnectionIntegrationTest {
     });
   }
 
-  @Test
-  void testProcessStoredMessagesClientClosed() {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void testProcessStoredMessagesClientClosed(final boolean useReactive) {
+    final WebSocketConnection webSocketConnection = new WebSocketConnection(
+        mock(ReceiptSender.class),
+        new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager),
+        new AuthenticatedAccount(() -> new Pair<>(account, device)),
+        device,
+        webSocketClient,
+        retrySchedulingExecutor,
+        useReactive);
+
     final int persistedMessageCount = 207;
     final int cachedMessageCount = 173;
 
@@ -250,8 +268,20 @@ class WebSocketConnectionIntegrationTest {
     });
   }
 
-  @Test
-  void testProcessStoredMessagesSendFutureTimeout() {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void testProcessStoredMessagesSendFutureTimeout(final boolean useReactive) {
+    final WebSocketConnection webSocketConnection = new WebSocketConnection(
+        mock(ReceiptSender.class),
+        new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager),
+        new AuthenticatedAccount(() -> new Pair<>(account, device)),
+        device,
+        webSocketClient,
+        100, // use a very short timeout, so that this test completes quickly
+        retrySchedulingExecutor,
+        useReactive,
+        Schedulers.boundedElastic());
+
     final int persistedMessageCount = 207;
     final int cachedMessageCount = 173;
 
@@ -346,4 +376,5 @@ class WebSocketConnectionIntegrationTest {
         .setDestinationUuid(UUID.randomUUID().toString())
         .build();
   }
+
 }

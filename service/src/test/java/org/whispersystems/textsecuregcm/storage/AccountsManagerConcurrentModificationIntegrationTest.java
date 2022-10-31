@@ -155,7 +155,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
       accountsManager = new AccountsManager(
           accounts,
           phoneNumberIdentifiers,
-          RedisClusterHelper.buildMockRedisCluster(commands),
+          RedisClusterHelper.builder().stringCommands(commands).build(),
           deletedAccountsManager,
           mock(DirectoryQueue.class),
           mock(Keys.class),

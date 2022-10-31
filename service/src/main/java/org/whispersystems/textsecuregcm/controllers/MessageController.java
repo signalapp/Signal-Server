@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2021 Signal Messenger, LLC
+ * Copyright 2013-2022 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.controllers;
@@ -30,6 +30,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
@@ -538,25 +539,29 @@ public class MessageController {
   @Timed
   @DELETE
   @Path("/uuid/{uuid}")
-  public void removePendingMessage(@Auth AuthenticatedAccount auth, @PathParam("uuid") UUID uuid) {
-    messagesManager.delete(
-        auth.getAccount().getUuid(),
-        auth.getAuthenticatedDevice().getId(),
-        uuid,
-        null).ifPresent(deletedMessage -> {
+  public CompletableFuture<Void> removePendingMessage(@Auth AuthenticatedAccount auth, @PathParam("uuid") UUID uuid) {
+    return messagesManager.delete(
+            auth.getAccount().getUuid(),
+            auth.getAuthenticatedDevice().getId(),
+            uuid,
+            null)
+        .thenAccept(maybeDeletedMessage -> {
+          maybeDeletedMessage.ifPresent(deletedMessage -> {
 
-      WebSocketConnection.recordMessageDeliveryDuration(deletedMessage.getTimestamp(), auth.getAuthenticatedDevice());
+            WebSocketConnection.recordMessageDeliveryDuration(deletedMessage.getTimestamp(),
+                auth.getAuthenticatedDevice());
 
-      if (deletedMessage.hasSourceUuid() && deletedMessage.getType() != Type.SERVER_DELIVERY_RECEIPT) {
-        try {
-          receiptSender.sendReceipt(
-              UUID.fromString(deletedMessage.getDestinationUuid()), auth.getAuthenticatedDevice().getId(),
-              UUID.fromString(deletedMessage.getSourceUuid()), deletedMessage.getTimestamp());
-        } catch (Exception e) {
-          logger.warn("Failed to send delivery receipt", e);
-        }
-      }
-    });
+            if (deletedMessage.hasSourceUuid() && deletedMessage.getType() != Type.SERVER_DELIVERY_RECEIPT) {
+              try {
+                receiptSender.sendReceipt(
+                    UUID.fromString(deletedMessage.getDestinationUuid()), auth.getAuthenticatedDevice().getId(),
+                    UUID.fromString(deletedMessage.getSourceUuid()), deletedMessage.getTimestamp());
+              } catch (Exception e) {
+                logger.warn("Failed to send delivery receipt", e);
+              }
+            }
+          });
+        });
   }
 
   @Timed

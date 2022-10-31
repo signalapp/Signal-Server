@@ -116,7 +116,6 @@ import org.whispersystems.textsecuregcm.filters.TimestampResponseFilter;
 import org.whispersystems.textsecuregcm.limits.DynamicRateLimiters;
 import org.whispersystems.textsecuregcm.limits.PushChallengeManager;
 import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
-import org.whispersystems.textsecuregcm.limits.RateLimitChallengeOptionManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.CompletionExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.DeviceLimitExceededExceptionMapper;
@@ -330,6 +329,13 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             config.getAppConfig().getConfigurationName(),
             DynamicConfiguration.class);
 
+    BlockingQueue<Runnable> messageDeletionQueue = new ArrayBlockingQueue<>(10_000);
+    Metrics.gaugeCollectionSize(name(getClass(), "messageDeletionQueueSize"), Collections.emptyList(),
+        messageDeletionQueue);
+    ExecutorService messageDeletionAsyncExecutor = environment.lifecycle()
+        .executorService(name(getClass(), "messageDeletionAsyncExecutor-%d")).maxThreads(16)
+        .workQueue(messageDeletionQueue).build();
+
     Accounts accounts = new Accounts(dynamicConfigurationManager,
         dynamoDbClient,
         dynamoDbAsyncClient,
@@ -345,9 +351,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     Profiles profiles = new Profiles(dynamoDbClient, dynamoDbAsyncClient,
         config.getDynamoDbTables().getProfiles().getTableName());
     Keys keys = new Keys(dynamoDbClient, config.getDynamoDbTables().getKeys().getTableName());
-    MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(dynamoDbClient,
+    MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(dynamoDbClient, dynamoDbAsyncClient,
         config.getDynamoDbTables().getMessages().getTableName(),
-        config.getDynamoDbTables().getMessages().getExpiration());
+        config.getDynamoDbTables().getMessages().getExpiration(),
+        messageDeletionAsyncExecutor);
     RemoteConfigs remoteConfigs = new RemoteConfigs(dynamoDbClient,
         config.getDynamoDbTables().getRemoteConfig().getTableName());
     PushChallengeDynamoDb pushChallengeDynamoDb = new PushChallengeDynamoDb(dynamoDbClient,
@@ -452,9 +459,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     DirectoryQueue             directoryQueue             = new DirectoryQueue(config.getDirectoryConfiguration().getSqsConfiguration());
     StoredVerificationCodeManager pendingAccountsManager  = new StoredVerificationCodeManager(pendingAccounts);
     StoredVerificationCodeManager pendingDevicesManager   = new StoredVerificationCodeManager(pendingDevices);
-    ProfilesManager            profilesManager            = new ProfilesManager(profiles, cacheCluster);
-    MessagesCache              messagesCache              = new MessagesCache(messagesCluster, messagesCluster, keyspaceNotificationDispatchExecutor);
-    PushLatencyManager         pushLatencyManager         = new PushLatencyManager(metricsCluster, dynamicConfigurationManager);
+    ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster);
+    MessagesCache messagesCache = new MessagesCache(messagesCluster, messagesCluster, Clock.systemUTC(),
+        keyspaceNotificationDispatchExecutor, messageDeletionAsyncExecutor);
+    PushLatencyManager pushLatencyManager = new PushLatencyManager(metricsCluster, dynamicConfigurationManager);
     ReportMessageManager       reportMessageManager       = new ReportMessageManager(reportMessageDynamoDb, rateLimitersCluster, config.getReportMessageConfiguration().getCounterTtl());
     MessagesManager            messagesManager            = new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager);
     UsernameGenerator          usernameGenerator          = new UsernameGenerator(config.getUsername());
@@ -503,8 +511,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     PushChallengeManager pushChallengeManager = new PushChallengeManager(pushNotificationManager, pushChallengeDynamoDb);
     RateLimitChallengeManager rateLimitChallengeManager = new RateLimitChallengeManager(pushChallengeManager,
         recaptchaClient, dynamicRateLimiters);
-    RateLimitChallengeOptionManager rateLimitChallengeOptionManager =
-        new RateLimitChallengeOptionManager(dynamicRateLimiters, dynamicConfigurationManager);
 
     MessagePersister messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager, dynamicConfigurationManager, Duration.ofMinutes(config.getMessageCacheConfiguration().getPersistDelayMinutes()));
     ChangeNumberManager changeNumberManager = new ChangeNumberManager(messageSender, accountsManager);
@@ -628,8 +634,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     webSocketEnvironment.setAuthenticator(new WebSocketAccountAuthenticator(accountAuthenticator));
     webSocketEnvironment.setConnectListener(
         new AuthenticatedConnectListener(receiptSender, messagesManager, pushNotificationManager,
-            clientPresenceManager, websocketScheduledExecutor));
-    webSocketEnvironment.jersey().register(new WebsocketRefreshApplicationEventListener(accountsManager, clientPresenceManager));
+            clientPresenceManager, websocketScheduledExecutor, experimentEnrollmentManager));
+    webSocketEnvironment.jersey()
+        .register(new WebsocketRefreshApplicationEventListener(accountsManager, clientPresenceManager));
     webSocketEnvironment.jersey().register(new ContentLengthFilter(TrafficSource.WEBSOCKET));
     webSocketEnvironment.jersey().register(MultiRecipientMessageProvider.class);
     webSocketEnvironment.jersey().register(new MetricsApplicationEventListener(TrafficSource.WEBSOCKET));

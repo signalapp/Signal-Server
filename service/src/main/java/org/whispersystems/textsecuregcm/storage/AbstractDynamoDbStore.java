@@ -26,7 +26,7 @@ import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 import software.amazon.awssdk.services.dynamodb.model.WriteRequest;
 
-public class AbstractDynamoDbStore {
+public abstract class AbstractDynamoDbStore {
 
   private final DynamoDbClient dynamoDbClient;
 

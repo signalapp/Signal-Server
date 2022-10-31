@@ -15,6 +15,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.lettuce.core.cluster.SlotHash;
 import java.nio.ByteBuffer;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -32,7 +33,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
-import org.whispersystems.textsecuregcm.push.PushLatencyManager;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.tests.util.MessagesDynamoDbExtension;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
@@ -47,6 +47,7 @@ class MessagePersisterIntegrationTest {
   static final RedisClusterExtension REDIS_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
 
   private ExecutorService notificationExecutorService;
+  private ExecutorService messageDeletionExecutorService;
   private MessagesCache messagesCache;
   private MessagesManager messagesManager;
   private MessagePersister messagePersister;
@@ -66,13 +67,16 @@ class MessagePersisterIntegrationTest {
 
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(new DynamicConfiguration());
 
+    messageDeletionExecutorService = Executors.newSingleThreadExecutor();
     final MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(dynamoDbExtension.getDynamoDbClient(),
-        MessagesDynamoDbExtension.TABLE_NAME, Duration.ofDays(14));
+        dynamoDbExtension.getDynamoDbAsyncClient(), MessagesDynamoDbExtension.TABLE_NAME, Duration.ofDays(14),
+        messageDeletionExecutorService);
     final AccountsManager accountsManager = mock(AccountsManager.class);
 
     notificationExecutorService = Executors.newSingleThreadExecutor();
     messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-        REDIS_CLUSTER_EXTENSION.getRedisCluster(), notificationExecutorService);
+        REDIS_CLUSTER_EXTENSION.getRedisCluster(), Clock.systemUTC(), notificationExecutorService,
+        messageDeletionExecutorService);
     messagesManager = new MessagesManager(messagesDynamoDb, messagesCache, mock(ReportMessageManager.class));
     messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager,
         dynamicConfigurationManager, PERSIST_DELAY);
@@ -94,6 +98,9 @@ class MessagePersisterIntegrationTest {
   void tearDown() throws Exception {
     notificationExecutorService.shutdown();
     notificationExecutorService.awaitTermination(15, TimeUnit.SECONDS);
+
+    messageDeletionExecutorService.shutdown();
+    messageDeletionExecutorService.awaitTermination(15, TimeUnit.SECONDS);
   }
 
   @Test

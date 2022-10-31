@@ -78,7 +78,14 @@ public class DynamoDbExtension implements BeforeEachCallback, AfterEachCallback 
   }
 
   @Override
-  public void afterEach(ExtensionContext context) throws Exception {
+  public void afterEach(ExtensionContext context) {
+    stopServer();
+  }
+
+  /**
+   * For use in integration tests that want to test resiliency/error handling
+   */
+  public void stopServer() {
     try {
       server.stop();
     } catch (Exception e) {
