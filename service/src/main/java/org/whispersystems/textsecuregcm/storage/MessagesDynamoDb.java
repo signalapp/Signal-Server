@@ -175,9 +175,9 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
           }
           return null;
         })
-        .last()
-        .toFuture()
-        .thenApply(Optional::ofNullable);
+        .map(Optional::ofNullable)
+        .last(Optional.empty()) // if the flux is empty, last() will throw without a default
+        .toFuture();
   }
 
   public CompletableFuture<Optional<MessageProtos.Envelope>> deleteMessage(final UUID destinationAccountUuid,

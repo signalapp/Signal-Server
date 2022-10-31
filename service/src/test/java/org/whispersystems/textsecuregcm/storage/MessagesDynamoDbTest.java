@@ -11,6 +11,7 @@ import com.google.protobuf.ByteString;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
@@ -240,8 +241,11 @@ class MessagesDynamoDbTest {
     assertThat(load(secondDestinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
         .hasSize(1).element(0).isEqualTo(MESSAGE2);
 
-    messagesDynamoDb.deleteMessageByDestinationAndGuid(secondDestinationUuid,
+    final Optional<MessageProtos.Envelope> deletedMessage = messagesDynamoDb.deleteMessageByDestinationAndGuid(
+        secondDestinationUuid,
         UUID.fromString(MESSAGE2.getServerGuid())).get(5, TimeUnit.SECONDS);
+
+    assertThat(deletedMessage).isPresent();
 
     assertThat(load(destinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
         .element(0).isEqualTo(MESSAGE1);
@@ -249,6 +253,13 @@ class MessagesDynamoDbTest {
         .element(0).isEqualTo(MESSAGE3);
     assertThat(load(secondDestinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
         .isEmpty();
+
+    final Optional<MessageProtos.Envelope> alreadyDeletedMessage = messagesDynamoDb.deleteMessageByDestinationAndGuid(
+        secondDestinationUuid,
+        UUID.fromString(MESSAGE2.getServerGuid())).get(5, TimeUnit.SECONDS);
+
+    assertThat(alreadyDeletedMessage).isNotPresent();
+
   }
 
   @Test
