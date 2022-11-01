@@ -210,6 +210,7 @@ public class StripeManager implements SubscriptionProcessorManager {
     return CompletableFuture.supplyAsync(() -> {
       SubscriptionCreateParams params = SubscriptionCreateParams.builder()
           .setCustomer(customerId)
+          .setOffSession(true)
           .addItem(SubscriptionCreateParams.Item.builder()
               .setPrice(priceId)
               .build())
