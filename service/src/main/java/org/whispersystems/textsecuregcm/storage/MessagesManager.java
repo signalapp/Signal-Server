@@ -23,6 +23,7 @@ import org.reactivestreams.Publisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Pair;
 import reactor.core.publisher.Flux;
@@ -30,6 +31,7 @@ import reactor.core.publisher.Flux;
 public class MessagesManager {
 
   private static final int RESULT_SET_CHUNK_SIZE = 100;
+  final String GET_MESSAGES_FOR_DEVICE_FLUX_NAME = MetricsUtil.name(MessagesManager.class, "getMessagesForDevice");
 
   private static final Logger logger = LoggerFactory.getLogger(MessagesManager.class);
 
@@ -91,7 +93,9 @@ public class MessagesManager {
         cachedMessagesOnly ? Flux.empty() : messagesDynamoDb.load(destinationUuid, destinationDevice, limit);
     final Publisher<Envelope> cachePublisher = messagesCache.get(destinationUuid, destinationDevice);
 
-    return Flux.concat(dynamoPublisher, cachePublisher);
+    return Flux.concat(dynamoPublisher, cachePublisher)
+        .name(GET_MESSAGES_FOR_DEVICE_FLUX_NAME)
+        .metrics();
   }
 
   public void clear(UUID destinationUuid) {

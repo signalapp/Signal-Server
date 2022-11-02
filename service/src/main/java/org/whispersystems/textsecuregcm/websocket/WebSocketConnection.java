@@ -41,6 +41,7 @@ import org.whispersystems.textsecuregcm.controllers.MessageController;
 import org.whispersystems.textsecuregcm.controllers.NoSuchUserException;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.DisplacedPresenceListener;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
@@ -83,6 +84,8 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
       "clientNonSuccessResponse");
   private static final String CLIENT_CLOSED_MESSAGE_AVAILABLE_COUNTER_NAME = name(WebSocketConnection.class,
       "messageAvailableAfterClientClosed");
+  private static final String SEND_MESSAGES_FLUX_NAME = MetricsUtil.name(WebSocketConnection.class,
+      "websocketConnection");
   private static final String STATUS_CODE_TAG = "status";
   private static final String STATUS_MESSAGE_TAG = "message";
   private static final String REACTIVE_TAG = "reactive";
@@ -423,6 +426,8 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
         messagesManager.getMessagesForDeviceReactive(auth.getAccount().getUuid(), device.getId(), cachedMessagesOnly);
 
     final Disposable subscription = Flux.from(messages)
+        .name(SEND_MESSAGES_FLUX_NAME)
+        .metrics()
         .limitRate(MESSAGE_PUBLISHER_LIMIT_RATE)
         .flatMapSequential(envelope ->
             Mono.fromFuture(sendMessage(envelope).orTimeout(sendFuturesTimeoutMillis, TimeUnit.MILLISECONDS)))

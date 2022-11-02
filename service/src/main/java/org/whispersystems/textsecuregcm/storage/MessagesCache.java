@@ -44,6 +44,7 @@ import org.reactivestreams.Publisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantPubSubConnection;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
@@ -92,6 +93,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
   @VisibleForTesting
   static final Duration MAX_EPHEMERAL_MESSAGE_DELAY = Duration.ofSeconds(10);
 
+  private static final String GET_FLUX_NAME = MetricsUtil.name(MessagesCache.class, "get");
   private static final int PAGE_SIZE = 100;
 
   private static final Logger logger = LoggerFactory.getLogger(MessagesCache.class);
@@ -220,7 +222,8 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
 
     discardStaleEphemeralMessages(destinationUuid, destinationDevice, staleEphemeralMessages);
 
-    return messagesToPublish;
+    return messagesToPublish.name(GET_FLUX_NAME)
+        .metrics();
   }
 
   private static boolean isStaleEphemeralMessage(final MessageProtos.Envelope message,
