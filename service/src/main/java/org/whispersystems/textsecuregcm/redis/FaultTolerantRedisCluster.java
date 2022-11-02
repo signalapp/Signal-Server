@@ -53,35 +53,39 @@ public class FaultTolerantRedisCluster {
     private final Retry          retry;
 
     public FaultTolerantRedisCluster(final String name, final RedisClusterConfiguration clusterConfiguration, final ClientResources clientResources) {
-        this(name,
-             RedisClusterClient.create(clientResources, clusterConfiguration.getConfigurationUri()),
-             clusterConfiguration.getTimeout(),
-             clusterConfiguration.getCircuitBreakerConfiguration(),
-             clusterConfiguration.getRetryConfiguration());
+      this(name,
+          RedisClusterClient.create(clientResources, clusterConfiguration.getConfigurationUri()),
+          clusterConfiguration.getTimeout(),
+          clusterConfiguration.getCircuitBreakerConfiguration(),
+          clusterConfiguration.getRetryConfiguration());
     }
 
     @VisibleForTesting
     FaultTolerantRedisCluster(final String name, final RedisClusterClient clusterClient, final Duration commandTimeout, final CircuitBreakerConfiguration circuitBreakerConfiguration, final RetryConfiguration retryConfiguration) {
-        this.name = name;
+      this.name = name;
 
-        this.clusterClient = clusterClient;
-        this.clusterClient.setDefaultTimeout(commandTimeout);
-        this.clusterClient.setOptions(ClusterClientOptions.builder()
-                                                          .disconnectedBehavior(DisconnectedBehavior.REJECT_COMMANDS)
-                                                          .validateClusterNodeMembership(false)
-                                                          .topologyRefreshOptions(ClusterTopologyRefreshOptions.builder()
-                                                                                                               .enableAllAdaptiveRefreshTriggers()
-                                                                                                               .build())
-                                                          .build());
+      this.clusterClient = clusterClient;
+      this.clusterClient.setDefaultTimeout(commandTimeout);
+      this.clusterClient.setOptions(ClusterClientOptions.builder()
+          .disconnectedBehavior(DisconnectedBehavior.REJECT_COMMANDS)
+          .validateClusterNodeMembership(false)
+          .topologyRefreshOptions(ClusterTopologyRefreshOptions.builder()
+              .enableAllAdaptiveRefreshTriggers()
+              .build())
+          .publishOnScheduler(true)
+          .build());
 
-        this.stringConnection = clusterClient.connect();
-        this.binaryConnection = clusterClient.connect(ByteArrayCodec.INSTANCE);
+      this.stringConnection = clusterClient.connect();
+      this.binaryConnection = clusterClient.connect(ByteArrayCodec.INSTANCE);
 
-        this.circuitBreaker = CircuitBreaker.of(name + "-breaker", circuitBreakerConfiguration.toCircuitBreakerConfig());
-        this.retry          = Retry.of(name + "-retry", retryConfiguration.toRetryConfigBuilder().retryOnException(exception -> exception instanceof RedisCommandTimeoutException).build());
+      this.circuitBreaker = CircuitBreaker.of(name + "-breaker", circuitBreakerConfiguration.toCircuitBreakerConfig());
+      this.retry = Retry.of(name + "-retry", retryConfiguration.toRetryConfigBuilder()
+          .retryOnException(exception -> exception instanceof RedisCommandTimeoutException).build());
 
-        CircuitBreakerUtil.registerMetrics(SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME), circuitBreaker, FaultTolerantRedisCluster.class);
-        CircuitBreakerUtil.registerMetrics(SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME), retry, FaultTolerantRedisCluster.class);
+      CircuitBreakerUtil.registerMetrics(SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME), circuitBreaker,
+          FaultTolerantRedisCluster.class);
+      CircuitBreakerUtil.registerMetrics(SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME), retry,
+          FaultTolerantRedisCluster.class);
     }
 
     void shutdown() {
