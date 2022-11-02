@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.controllers;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -48,6 +49,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -1939,5 +1941,26 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(413);
     assertThat(response.getHeaderString("Retry-After")).isEqualTo(String.valueOf(Duration.ofSeconds(13).toSeconds()));
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void pushTokensMatch(@Nullable final String pushChallenge, @Nullable final StoredVerificationCode storedVerificationCode, final boolean expectMatch) {
+    final String number = "+18005550123";
+    final Optional<String> maybePushChallenge = Optional.ofNullable(pushChallenge);
+    final Optional<StoredVerificationCode> maybeStoredVerificationCode = Optional.ofNullable(storedVerificationCode);
+
+    assertEquals(expectMatch, AccountController.pushChallengeMatches(number, maybePushChallenge, maybeStoredVerificationCode));
+  }
+
+  private static Stream<Arguments> pushTokensMatch() {
+    return Stream.of(
+        Arguments.of(null, null, false),
+        Arguments.of("123456", null, false),
+        Arguments.of(null, new StoredVerificationCode(null, 0, null, null, null), false),
+        Arguments.of(null, new StoredVerificationCode(null, 0, "123456", null, null), false),
+        Arguments.of("654321", new StoredVerificationCode(null, 0, "123456", null, null), false),
+        Arguments.of("123456", new StoredVerificationCode(null, 0, "123456", null, null), true)
+    );
   }
 }

@@ -787,14 +787,18 @@ public class AccountController {
     }
   }
 
-  private boolean pushChallengeMatches(
+  @VisibleForTesting
+  static boolean pushChallengeMatches(
       final String number,
       final Optional<String> pushChallenge,
       final Optional<StoredVerificationCode> storedVerificationCode) {
+
     final String countryCode = Util.getCountryCode(number);
     final String region = Util.getRegion(number);
-    Optional<String> storedPushChallenge = storedVerificationCode.map(StoredVerificationCode::pushCode);
-    boolean match = Optionals.zipWith(pushChallenge, storedPushChallenge, String::equals).orElse(false);
+    final Optional<String> storedPushChallenge = storedVerificationCode.map(StoredVerificationCode::pushCode);
+
+    final boolean match = Optionals.zipWith(pushChallenge, storedPushChallenge, String::equals).orElse(false);
+
     Metrics.counter(PUSH_CHALLENGE_COUNTER_NAME,
             COUNTRY_CODE_TAG_NAME, countryCode,
             REGION_TAG_NAME, region,
@@ -802,6 +806,7 @@ public class AccountController {
             CHALLENGE_PRESENT_TAG_NAME, Boolean.toString(pushChallenge.isPresent()),
             CHALLENGE_MATCH_TAG_NAME, Boolean.toString(match))
         .increment();
+
     return match;
   }
 
