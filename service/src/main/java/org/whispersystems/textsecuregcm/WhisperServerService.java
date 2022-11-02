@@ -469,9 +469,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     MessagesCache messagesCache = new MessagesCache(messagesCluster, messagesCluster, Clock.systemUTC(),
         keyspaceNotificationDispatchExecutor, messageDeletionAsyncExecutor);
     PushLatencyManager pushLatencyManager = new PushLatencyManager(metricsCluster, dynamicConfigurationManager);
-    ReportMessageManager       reportMessageManager       = new ReportMessageManager(reportMessageDynamoDb, rateLimitersCluster, config.getReportMessageConfiguration().getCounterTtl());
-    MessagesManager            messagesManager            = new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager);
-    UsernameGenerator          usernameGenerator          = new UsernameGenerator(config.getUsername());
+    ReportMessageManager reportMessageManager = new ReportMessageManager(reportMessageDynamoDb, rateLimitersCluster,
+        config.getReportMessageConfiguration().getCounterTtl());
+    MessagesManager messagesManager = new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager,
+        messageDeletionAsyncExecutor);
+    UsernameGenerator usernameGenerator = new UsernameGenerator(config.getUsername());
     DeletedAccountsManager deletedAccountsManager = new DeletedAccountsManager(deletedAccounts,
         deletedAccountsLockDynamoDbClient, config.getDynamoDbTables().getDeletedAccountsLock().getTableName());
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,

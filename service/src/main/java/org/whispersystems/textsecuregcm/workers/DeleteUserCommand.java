@@ -186,9 +186,9 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
           configuration.getDynamoDbTables().getReportMessage().getTableName(),
           configuration.getReportMessageConfiguration().getReportTtl());
       ReportMessageManager reportMessageManager = new ReportMessageManager(reportMessageDynamoDb, rateLimitersCluster,
-              configuration.getReportMessageConfiguration().getCounterTtl());
+          configuration.getReportMessageConfiguration().getCounterTtl());
       MessagesManager messagesManager = new MessagesManager(messagesDynamoDb, messagesCache,
-              reportMessageManager);
+          reportMessageManager, messageDeletionExecutor);
       DeletedAccountsManager deletedAccountsManager = new DeletedAccountsManager(deletedAccounts,
           deletedAccountsLockDynamoDbClient,
           configuration.getDynamoDbTables().getDeletedAccountsLock().getTableName());

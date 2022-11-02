@@ -122,7 +122,7 @@ class WebSocketConnectionIntegrationTest {
       final boolean useReactive) {
     final WebSocketConnection webSocketConnection = new WebSocketConnection(
         mock(ReceiptSender.class),
-        new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager),
+        new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager, sharedExecutorService),
         new AuthenticatedAccount(() -> new Pair<>(account, device)),
         device,
         webSocketClient,
@@ -207,7 +207,7 @@ class WebSocketConnectionIntegrationTest {
   void testProcessStoredMessagesClientClosed(final boolean useReactive) {
     final WebSocketConnection webSocketConnection = new WebSocketConnection(
         mock(ReceiptSender.class),
-        new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager),
+        new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager, sharedExecutorService),
         new AuthenticatedAccount(() -> new Pair<>(account, device)),
         device,
         webSocketClient,
@@ -273,7 +273,7 @@ class WebSocketConnectionIntegrationTest {
   void testProcessStoredMessagesSendFutureTimeout(final boolean useReactive) {
     final WebSocketConnection webSocketConnection = new WebSocketConnection(
         mock(ReceiptSender.class),
-        new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager),
+        new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager, sharedExecutorService),
         new AuthenticatedAccount(() -> new Pair<>(account, device)),
         device,
         webSocketClient,

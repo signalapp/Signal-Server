@@ -30,6 +30,8 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
@@ -60,6 +62,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
   private final String tableName;
   private final Duration timeToLive;
   private final ExecutorService messageDeletionExecutor;
+  private final Scheduler messageDeletionScheduler;
 
   private static final Logger logger = LoggerFactory.getLogger(MessagesDynamoDb.class);
 
@@ -72,6 +75,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
     this.timeToLive = timeToLive;
 
     this.messageDeletionExecutor = messageDeletionExecutor;
+    this.messageDeletionScheduler = Schedulers.fromExecutor(messageDeletionExecutor);
   }
 
   public void store(final List<MessageProtos.Envelope> messages, final UUID destinationAccountUuid, final long destinationDeviceId) {
@@ -176,6 +180,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
           return null;
         })
         .map(Optional::ofNullable)
+        .subscribeOn(messageDeletionScheduler)
         .last(Optional.empty()) // if the flux is empty, last() will throw without a default
         .toFuture();
   }

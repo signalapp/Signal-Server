@@ -186,7 +186,7 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
     ReportMessageManager reportMessageManager = new ReportMessageManager(reportMessageDynamoDb, rateLimitersCluster,
         configuration.getReportMessageConfiguration().getCounterTtl());
     MessagesManager messagesManager = new MessagesManager(messagesDynamoDb, messagesCache,
-        reportMessageManager);
+        reportMessageManager, messageDeletionExecutor);
     DeletedAccountsManager deletedAccountsManager = new DeletedAccountsManager(deletedAccounts,
         deletedAccountsLockDynamoDbClient,
         configuration.getDynamoDbTables().getDeletedAccountsLock().getTableName());

@@ -12,6 +12,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import java.util.UUID;
+import java.util.concurrent.Executors;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 
@@ -22,7 +23,7 @@ class MessagesManagerTest {
   private final ReportMessageManager reportMessageManager = mock(ReportMessageManager.class);
 
   private final MessagesManager messagesManager = new MessagesManager(messagesDynamoDb, messagesCache,
-      reportMessageManager);
+      reportMessageManager, Executors.newSingleThreadExecutor());
 
   @Test
   void insert() {

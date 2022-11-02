@@ -127,7 +127,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
 
   private final Random random = new Random();
   private final boolean useReactive;
-  private Scheduler reactiveScheduler;
+  private final Scheduler reactiveScheduler;
 
   private enum StoredMessageState {
     EMPTY,

@@ -15,6 +15,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
@@ -44,14 +45,17 @@ public class MessagesManager {
   private final MessagesDynamoDb messagesDynamoDb;
   private final MessagesCache messagesCache;
   private final ReportMessageManager reportMessageManager;
+  private final ExecutorService messageDeletionExecutor;
 
   public MessagesManager(
       final MessagesDynamoDb messagesDynamoDb,
       final MessagesCache messagesCache,
-      final ReportMessageManager reportMessageManager) {
+      final ReportMessageManager reportMessageManager,
+      final ExecutorService messageDeletionExecutor) {
     this.messagesDynamoDb = messagesDynamoDb;
     this.messagesCache = messagesCache;
     this.reportMessageManager = reportMessageManager;
+    this.messageDeletionExecutor = messageDeletionExecutor;
   }
 
   public void insert(UUID destinationUuid, long destinationDevice, Envelope message) {
@@ -111,7 +115,7 @@ public class MessagesManager {
   public CompletableFuture<Optional<Envelope>> delete(UUID destinationUuid, long destinationDeviceId, UUID guid,
       @Nullable Long serverTimestamp) {
     return messagesCache.remove(destinationUuid, destinationDeviceId, guid)
-        .thenCompose(removed -> {
+        .thenComposeAsync(removed -> {
 
           if (removed.isPresent()) {
             cacheHitByGuidMeter.mark();
@@ -126,7 +130,7 @@ public class MessagesManager {
             return messagesDynamoDb.deleteMessage(destinationUuid, destinationDeviceId, guid, serverTimestamp);
           }
 
-        });
+        }, messageDeletionExecutor);
   }
 
   /**
