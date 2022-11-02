@@ -249,6 +249,7 @@ public class StripeManager implements SubscriptionProcessorManager {
           // not prorated
           .setProrationBehavior(ProrationBehavior.NONE)
           .setBillingCycleAnchor(BillingCycleAnchor.NOW)
+          .setOffSession(true)
           .addAllItem(items)
           .build();
       try {
