@@ -85,7 +85,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   private static final String CLIENT_CLOSED_MESSAGE_AVAILABLE_COUNTER_NAME = name(WebSocketConnection.class,
       "messageAvailableAfterClientClosed");
   private static final String SEND_MESSAGES_FLUX_NAME = MetricsUtil.name(WebSocketConnection.class,
-      "websocketConnection");
+      "sendMessages");
   private static final String STATUS_CODE_TAG = "status";
   private static final String STATUS_MESSAGE_TAG = "message";
   private static final String REACTIVE_TAG = "reactive";
