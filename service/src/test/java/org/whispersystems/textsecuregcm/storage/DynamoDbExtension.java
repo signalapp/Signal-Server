@@ -12,6 +12,7 @@ import java.net.ServerSocket;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -36,6 +37,8 @@ public class DynamoDbExtension implements BeforeEachCallback, AfterEachCallback 
       .readCapacityUnits(20L)
       .writeCapacityUnits(20L)
       .build();
+
+  private static final AtomicBoolean libraryLoaded = new AtomicBoolean();
 
   private DynamoDBProxyServer server;
   private int port;
@@ -75,6 +78,17 @@ public class DynamoDbExtension implements BeforeEachCallback, AfterEachCallback 
 
   public static DynamoDbExtensionBuilder builder() {
     return new DynamoDbExtensionBuilder();
+  }
+
+  private static void loadLibrary() {
+    // to avoid noise in the logs from “library already loaded” warnings, we make sure we only set it once
+    if (libraryLoaded.get()) {
+      return;
+    }
+    if (libraryLoaded.compareAndSet(false, true)) {
+      // if you see a library failed to load error, you need to run mvn test-compile at least once first
+      SQLite.setLibraryPath("target/lib");
+    }
   }
 
   @Override
@@ -135,7 +149,7 @@ public class DynamoDbExtension implements BeforeEachCallback, AfterEachCallback 
     // Even though we're using AWS SDK v2, Dynamo's local implementation's canonical location
     // is within v1 (https://github.com/aws/aws-sdk-java-v2/issues/982).  This does support
     // v2 clients, though.
-    SQLite.setLibraryPath("target/lib");  // if you see a library failed to load error, you need to run mvn test-compile at least once first
+    loadLibrary();
     ServerSocket serverSocket = new ServerSocket(0);
     serverSocket.setReuseAddress(false);
     port = serverSocket.getLocalPort();
