@@ -31,14 +31,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
-import javax.ws.rs.WebApplicationException;
 import org.apache.commons.lang3.StringUtils;
 import org.reactivestreams.Publisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
-import org.whispersystems.textsecuregcm.controllers.NoSuchUserException;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
@@ -291,12 +289,10 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
       receiptSender.sendReceipt(UUID.fromString(message.getDestinationUuid()),
           auth.getAuthenticatedDevice().getId(), UUID.fromString(message.getSourceUuid()),
           message.getTimestamp());
-    } catch (NoSuchUserException e) {
-      logger.info("No longer registered: {}", e.getMessage());
-    } catch (WebApplicationException e) {
-      logger.warn("Bad federated response for receipt: {}", e.getResponse().getStatus());
     } catch (IllegalArgumentException e) {
       logger.error("Could not parse UUID: {}", message.getSourceUuid());
+    } catch (Exception e) {
+      logger.warn("Failed to send receipt", e);
     }
   }
 
