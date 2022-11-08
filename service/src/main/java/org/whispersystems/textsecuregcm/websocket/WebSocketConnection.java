@@ -85,8 +85,8 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
       "messageAvailableAfterClientClosed");
   private static final String SEND_MESSAGES_FLUX_NAME = MetricsUtil.name(WebSocketConnection.class,
       "sendMessages");
-  private static final String SEND_MESSAGE_TIMEOUT_COUNTER = MetricsUtil.name(WebSocketConnection.class,
-      "sendMessageTimeout");
+  private static final String SEND_MESSAGE_ERROR_COUNTER = MetricsUtil.name(WebSocketConnection.class,
+      "sendMessageError");
   private static final String STATUS_CODE_TAG = "status";
   private static final String STATUS_MESSAGE_TAG = "message";
   private static final String ERROR_TYPE_TAG = "errorType";
@@ -444,7 +444,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
                   final Tags tags = Tags.of(
                       UserAgentTagUtil.getPlatformTag(client.getUserAgent()),
                       Tag.of(ERROR_TYPE_TAG, errorType));
-                  Metrics.counter(SEND_MESSAGE_TIMEOUT_COUNTER, tags).increment();
+                  Metrics.counter(SEND_MESSAGE_ERROR_COUNTER, tags).increment();
                 }))
         .doOnError(queueCleared::completeExceptionally)
         .doOnComplete(() -> queueCleared.complete(null))
