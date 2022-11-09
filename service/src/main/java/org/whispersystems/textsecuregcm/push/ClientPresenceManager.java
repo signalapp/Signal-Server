@@ -13,6 +13,8 @@ import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.lifecycle.Managed;
+import io.lettuce.core.LettuceFutures;
+import io.lettuce.core.RedisFuture;
 import io.lettuce.core.ScriptOutputType;
 import io.lettuce.core.cluster.SlotHash;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
@@ -21,6 +23,7 @@ import io.lettuce.core.cluster.models.partitions.RedisClusterNode;
 import io.lettuce.core.cluster.pubsub.RedisClusterPubSubAdapter;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -178,16 +181,25 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
         List.of(managerId, String.valueOf(PRESENCE_EXPIRATION_SECONDS)));
   }
 
+  public void disconnectAllPresences(final UUID accountUuid, final List<Long> deviceIds) {
+
+    List<String> presenceKeys = new ArrayList<>();
+    deviceIds.forEach(deviceId -> {
+      String presenceKey = getPresenceKey(accountUuid, deviceId);
+      if (isLocallyPresent(accountUuid, deviceId)) {
+        displacePresence(presenceKey, false);
+      }
+      presenceKeys.add(presenceKey);
+    });
+
+    presenceCluster.useCluster(connection -> {
+      List<RedisFuture<Long>> futures = presenceKeys.stream().map(key -> connection.async().del(key)).toList();
+      LettuceFutures.awaitAll(connection.getTimeout(), futures.toArray(new RedisFuture[0]));
+    });
+  }
+
   public void disconnectPresence(final UUID accountUuid, final long deviceId) {
-    final String presenceKey = getPresenceKey(accountUuid, deviceId);
-
-    if (isLocallyPresent(accountUuid, deviceId)) {
-      displacePresence(presenceKey, false);
-    }
-
-    // If connected locally, we still need to clean up the presence key.
-    // If connected remotely, the other server will get a keyspace message and handle the disconnect
-    presenceCluster.useCluster(connection -> connection.sync().del(presenceKey));
+    disconnectAllPresences(accountUuid, List.of(deviceId));
   }
 
   private void displacePresence(final String presenceKey, final boolean connectedElsewhere) {

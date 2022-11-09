@@ -149,6 +149,20 @@ public class Device {
     this.salt      = credentials.getSalt();
   }
 
+  /**
+   * Lock device by invalidating authentication tokens.
+   *
+   * This should only be used from Account::lockAuthenticationCredentials.
+   *
+   * See that method for more information.
+   */
+  public void lockAuthenticationCredentials() {
+    AuthenticationCredentials oldAuth = getAuthenticationCredentials();
+    String token = "!" + oldAuth.getHashedAuthenticationToken();
+    String salt = oldAuth.getSalt();
+    setAuthenticationCredentials(new AuthenticationCredentials(token, salt));
+  }
+
   public AuthenticationCredentials getAuthenticationCredentials() {
     return new AuthenticationCredentials(authToken, salt);
   }

@@ -19,8 +19,10 @@ import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
 import java.security.SecureRandom;
+import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -82,6 +84,7 @@ import org.whispersystems.textsecuregcm.entities.UsernameResponse;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
+import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.push.PushNotification;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.recaptcha.RecaptchaClient;
@@ -154,35 +157,64 @@ public class AccountController {
   private final ExternalServiceCredentialGenerator backupServiceCredentialGenerator;
 
   private final ChangeNumberManager changeNumberManager;
+  private final Clock clock;
+
+  private final ClientPresenceManager clientPresenceManager;
 
   @VisibleForTesting
   static final Duration REGISTRATION_RPC_TIMEOUT = Duration.ofSeconds(15);
 
-  public AccountController(StoredVerificationCodeManager pendingAccounts,
-                           AccountsManager accounts,
-                           AbusiveHostRules abusiveHostRules,
-                           RateLimiters rateLimiters,
-                           RegistrationServiceClient registrationServiceClient,
-                           DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
-                           TurnTokenGenerator turnTokenGenerator,
-                           Map<String, Integer> testDevices,
-                           RecaptchaClient recaptchaClient,
-                           PushNotificationManager pushNotificationManager,
-                           ChangeNumberManager changeNumberManager,
-                           ExternalServiceCredentialGenerator backupServiceCredentialGenerator)
-  {
-    this.pendingAccounts                   = pendingAccounts;
-    this.accounts                          = accounts;
-    this.abusiveHostRules                  = abusiveHostRules;
-    this.rateLimiters                      = rateLimiters;
-    this.registrationServiceClient         = registrationServiceClient;
-    this.dynamicConfigurationManager       = dynamicConfigurationManager;
-    this.testDevices                       = testDevices;
-    this.turnTokenGenerator                = turnTokenGenerator;
+  public AccountController(
+      StoredVerificationCodeManager pendingAccounts,
+      AccountsManager accounts,
+      AbusiveHostRules abusiveHostRules,
+      RateLimiters rateLimiters,
+      RegistrationServiceClient registrationServiceClient,
+      DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
+      TurnTokenGenerator turnTokenGenerator,
+      Map<String, Integer> testDevices,
+      RecaptchaClient recaptchaClient,
+      PushNotificationManager pushNotificationManager,
+      ChangeNumberManager changeNumberManager,
+      ExternalServiceCredentialGenerator backupServiceCredentialGenerator,
+      ClientPresenceManager clientPresenceManager,
+      Clock clock
+  ) {
+    this.pendingAccounts = pendingAccounts;
+    this.accounts = accounts;
+    this.abusiveHostRules = abusiveHostRules;
+    this.rateLimiters = rateLimiters;
+    this.registrationServiceClient = registrationServiceClient;
+    this.dynamicConfigurationManager = dynamicConfigurationManager;
+    this.testDevices = testDevices;
+    this.turnTokenGenerator = turnTokenGenerator;
     this.recaptchaClient = recaptchaClient;
-    this.pushNotificationManager           = pushNotificationManager;
+    this.pushNotificationManager = pushNotificationManager;
     this.backupServiceCredentialGenerator = backupServiceCredentialGenerator;
     this.changeNumberManager = changeNumberManager;
+    this.clientPresenceManager = clientPresenceManager;
+    this.clock = clock;
+  }
+
+  @VisibleForTesting
+  public AccountController(
+      StoredVerificationCodeManager pendingAccounts,
+      AccountsManager accounts,
+      AbusiveHostRules abusiveHostRules,
+      RateLimiters rateLimiters,
+      RegistrationServiceClient registrationServiceClient,
+      DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
+      TurnTokenGenerator turnTokenGenerator,
+      Map<String, Integer> testDevices,
+      RecaptchaClient recaptchaClient,
+      PushNotificationManager pushNotificationManager,
+      ChangeNumberManager changeNumberManager,
+      ExternalServiceCredentialGenerator backupServiceCredentialGenerator
+  ) {
+    this(pendingAccounts, accounts, abusiveHostRules, rateLimiters,
+        registrationServiceClient, dynamicConfigurationManager, turnTokenGenerator, testDevices, recaptchaClient,
+        pushNotificationManager, changeNumberManager,
+        backupServiceCredentialGenerator, null, Clock.systemUTC());
   }
 
   @Timed
@@ -205,7 +237,7 @@ public class AccountController {
 
     String pushChallenge = generatePushChallenge();
     StoredVerificationCode storedVerificationCode =
-        new StoredVerificationCode(null, System.currentTimeMillis(), pushChallenge, null, null);
+        new StoredVerificationCode(null, clock.millis(), pushChallenge, null, null);
 
     pendingAccounts.store(number, storedVerificationCode);
     pushNotificationManager.sendRegistrationChallengeNotification(pushToken, tokenType, storedVerificationCode.pushCode());
@@ -310,7 +342,7 @@ public class AccountController {
         messageTransport, clientType, acceptLanguage.orElse(null), REGISTRATION_RPC_TIMEOUT).join();
 
     final StoredVerificationCode storedVerificationCode = new StoredVerificationCode(null,
-        System.currentTimeMillis(),
+        clock.millis(),
         maybeStoredVerificationCode.map(StoredVerificationCode::pushCode).orElse(null),
         null,
         sessionId);
@@ -777,6 +809,12 @@ public class AccountController {
       }
 
       if (!existingRegistrationLock.verify(clientRegistrationLock)) {
+        // At this point, the client verified ownership of the phone number but doesn’t have the reglock PIN.
+        // Freezing the existing account credentials will definitively start the reglock timeout. Until the timeout, the current reglock can still be supplied,
+        // along with phone number verification, to restore access.
+        accounts.update(existingAccount, Account::lockAuthenticationCredentials);
+        List<Long> deviceIds = existingAccount.getDevices().stream().map(Device::getId).toList();
+        clientPresenceManager.disconnectAllPresences(existingAccount.getUuid(), deviceIds);
         throw new WebApplicationException(Response.status(423)
             .entity(new RegistrationLockFailure(existingRegistrationLock.getTimeRemaining(),
                 existingRegistrationLock.needsFailureCredentials() ? existingBackupCredentials : null))

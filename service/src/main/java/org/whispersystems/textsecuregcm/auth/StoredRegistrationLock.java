@@ -21,6 +21,20 @@ public class StoredRegistrationLock {
 
   private final long             lastSeen;
 
+  /**
+   * @return milliseconds since the last time the account was seen.
+   */
+  private long timeSinceLastSeen() {
+    return System.currentTimeMillis() - lastSeen;
+  }
+
+  /**
+   * @return true if the registration lock and salt are both set.
+   */
+  private boolean hasLockAndSalt() {
+    return registrationLock.isPresent() && registrationLockSalt.isPresent();
+  }
+
   public StoredRegistrationLock(Optional<String> registrationLock, Optional<String> registrationLockSalt, long lastSeen) {
     this.registrationLock     = registrationLock;
     this.registrationLockSalt = registrationLockSalt;
@@ -28,24 +42,22 @@ public class StoredRegistrationLock {
   }
 
   public boolean requiresClientRegistrationLock() {
-    return registrationLock.isPresent() && registrationLockSalt.isPresent() && System.currentTimeMillis() - lastSeen < TimeUnit.DAYS.toMillis(7);
+    boolean hasTimeRemaining = getTimeRemaining() >= 0;
+    return hasLockAndSalt() && hasTimeRemaining;
   }
 
   public boolean needsFailureCredentials() {
-    return registrationLock.isPresent() && registrationLockSalt.isPresent();
+    return hasLockAndSalt();
   }
 
   public long getTimeRemaining() {
-    return TimeUnit.DAYS.toMillis(7) - (System.currentTimeMillis() - lastSeen);
+    return TimeUnit.DAYS.toMillis(7) - timeSinceLastSeen();
   }
 
   public boolean verify(@Nullable String clientRegistrationLock) {
-    if (Util.isEmpty(clientRegistrationLock)) {
-      return false;
-    }
-
-    if (registrationLock.isPresent() && registrationLockSalt.isPresent() && !Util.isEmpty(clientRegistrationLock)) {
-      return new AuthenticationCredentials(registrationLock.get(), registrationLockSalt.get()).verify(clientRegistrationLock);
+    if (hasLockAndSalt() && Util.nonEmpty(clientRegistrationLock)) {
+      AuthenticationCredentials credentials = new AuthenticationCredentials(registrationLock.get(), registrationLockSalt.get());
+      return credentials.verify(clientRegistrationLock);
     } else {
       return false;
     }

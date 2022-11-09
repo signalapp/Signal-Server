@@ -13,6 +13,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.anyLong;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.eq;
@@ -21,7 +22,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -34,14 +34,12 @@ import com.google.i18n.phonenumbers.Phonenumber;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -95,6 +93,7 @@ import org.whispersystems.textsecuregcm.mappers.ImpossiblePhoneNumberExceptionMa
 import org.whispersystems.textsecuregcm.mappers.NonNormalizedPhoneNumberExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.NonNormalizedPhoneNumberResponse;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
+import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.push.PushNotification;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.recaptcha.RecaptchaClient;
@@ -114,6 +113,7 @@ import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.Hex;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
+import org.whispersystems.textsecuregcm.util.TestClock;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class AccountControllerTest {
@@ -146,26 +146,28 @@ class AccountControllerTest {
   private static final String  TEST_NUMBER            = "+14151111113";
 
   private static StoredVerificationCodeManager pendingAccountsManager = mock(StoredVerificationCodeManager.class);
-  private static AccountsManager        accountsManager        = mock(AccountsManager.class);
-  private static AbusiveHostRules       abusiveHostRules       = mock(AbusiveHostRules.class);
-  private static RateLimiters           rateLimiters           = mock(RateLimiters.class);
-  private static RateLimiter            rateLimiter            = mock(RateLimiter.class);
-  private static RateLimiter            pinLimiter             = mock(RateLimiter.class);
-  private static RateLimiter            smsVoiceIpLimiter      = mock(RateLimiter.class);
-  private static RateLimiter            smsVoicePrefixLimiter  = mock(RateLimiter.class);
-  private static RateLimiter            autoBlockLimiter       = mock(RateLimiter.class);
-  private static RateLimiter            usernameSetLimiter     = mock(RateLimiter.class);
-  private static RateLimiter            usernameReserveLimiter = mock(RateLimiter.class);
-  private static RateLimiter            usernameLookupLimiter  = mock(RateLimiter.class);
+  private static AccountsManager accountsManager = mock(AccountsManager.class);
+  private static AbusiveHostRules abusiveHostRules = mock(AbusiveHostRules.class);
+  private static RateLimiters rateLimiters = mock(RateLimiters.class);
+  private static RateLimiter rateLimiter = mock(RateLimiter.class);
+  private static RateLimiter pinLimiter = mock(RateLimiter.class);
+  private static RateLimiter smsVoiceIpLimiter = mock(RateLimiter.class);
+  private static RateLimiter smsVoicePrefixLimiter = mock(RateLimiter.class);
+  private static RateLimiter autoBlockLimiter = mock(RateLimiter.class);
+  private static RateLimiter usernameSetLimiter = mock(RateLimiter.class);
+  private static RateLimiter usernameReserveLimiter = mock(RateLimiter.class);
+  private static RateLimiter usernameLookupLimiter = mock(RateLimiter.class);
   private static RegistrationServiceClient registrationServiceClient = mock(RegistrationServiceClient.class);
-  private static TurnTokenGenerator     turnTokenGenerator     = mock(TurnTokenGenerator.class);
-  private static Account                senderPinAccount       = mock(Account.class);
-  private static Account                senderRegLockAccount   = mock(Account.class);
-  private static Account                senderHasStorage       = mock(Account.class);
-  private static Account                senderTransfer         = mock(Account.class);
-  private static RecaptchaClient        recaptchaClient        = mock(RecaptchaClient.class);
+  private static TurnTokenGenerator turnTokenGenerator = mock(TurnTokenGenerator.class);
+  private static Account senderPinAccount = mock(Account.class);
+  private static Account senderRegLockAccount = mock(Account.class);
+  private static Account senderHasStorage = mock(Account.class);
+  private static Account senderTransfer = mock(Account.class);
+  private static RecaptchaClient recaptchaClient = mock(RecaptchaClient.class);
   private static PushNotificationManager pushNotificationManager = mock(PushNotificationManager.class);
-  private static ChangeNumberManager    changeNumberManager    = mock(ChangeNumberManager.class);
+  private static ChangeNumberManager changeNumberManager = mock(ChangeNumberManager.class);
+  private static ClientPresenceManager clientPresenceManager = mock(ClientPresenceManager.class);
+  private static TestClock testClock = TestClock.now();
 
   private static DynamicConfigurationManager dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
 
@@ -194,7 +196,9 @@ class AccountControllerTest {
           recaptchaClient,
           pushNotificationManager,
           changeNumberManager,
-          storageCredentialGenerator))
+          storageCredentialGenerator,
+          clientPresenceManager,
+          testClock))
       .build();
 
 
@@ -340,7 +344,8 @@ class AccountControllerTest {
         senderTransfer,
         recaptchaClient,
         pushNotificationManager,
-        changeNumberManager);
+        changeNumberManager,
+        clientPresenceManager);
 
     clearInvocations(AuthHelper.DISABLED_DEVICE);
   }
@@ -1063,6 +1068,8 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(423);
 
+    verify(senderRegLockAccount).lockAuthenticationCredentials();
+    verify(clientPresenceManager, times(1)).disconnectAllPresences(eq(SENDER_REG_LOCK_UUID), any());
     verify(pinLimiter).validate(eq(SENDER_REG_LOCK));
   }
 
@@ -1085,6 +1092,8 @@ class AccountControllerTest {
     assertThat(failure.getBackupCredentials().getPassword().startsWith(SENDER_REG_LOCK_UUID.toString())).isTrue();
     assertThat(failure.getTimeRemaining()).isGreaterThan(0);
 
+    verify(senderRegLockAccount).lockAuthenticationCredentials();
+    verify(clientPresenceManager, atLeastOnce()).disconnectAllPresences(eq(SENDER_REG_LOCK_UUID), any());
     verifyNoInteractions(pinLimiter);
   }
 
@@ -1311,9 +1320,10 @@ class AccountControllerTest {
     final StoredRegistrationLock existingRegistrationLock = mock(StoredRegistrationLock.class);
     when(existingRegistrationLock.requiresClientRegistrationLock()).thenReturn(true);
 
+    final UUID existingUuid = UUID.randomUUID();
     final Account existingAccount = mock(Account.class);
     when(existingAccount.getNumber()).thenReturn(number);
-    when(existingAccount.getUuid()).thenReturn(UUID.randomUUID());
+    when(existingAccount.getUuid()).thenReturn(existingUuid);
     when(existingAccount.getRegistrationLock()).thenReturn(existingRegistrationLock);
 
     when(accountsManager.getByE164(number)).thenReturn(Optional.of(existingAccount));
@@ -1327,6 +1337,9 @@ class AccountControllerTest {
                 MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(423);
+
+    verify(existingAccount).lockAuthenticationCredentials();
+    verify(clientPresenceManager, atLeastOnce()).disconnectAllPresences(eq(existingUuid), any());
     verify(changeNumberManager, never()).changeNumber(any(), any(), any(), any(), any(), any());
   }
 
@@ -1347,9 +1360,10 @@ class AccountControllerTest {
     when(existingRegistrationLock.requiresClientRegistrationLock()).thenReturn(true);
     when(existingRegistrationLock.verify(anyString())).thenReturn(false);
 
+    UUID existingUuid = UUID.randomUUID();
     final Account existingAccount = mock(Account.class);
     when(existingAccount.getNumber()).thenReturn(number);
-    when(existingAccount.getUuid()).thenReturn(UUID.randomUUID());
+    when(existingAccount.getUuid()).thenReturn(existingUuid);
     when(existingAccount.getRegistrationLock()).thenReturn(existingRegistrationLock);
 
     when(accountsManager.getByE164(number)).thenReturn(Optional.of(existingAccount));
@@ -1363,6 +1377,9 @@ class AccountControllerTest {
                 MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(423);
+
+    verify(existingAccount).lockAuthenticationCredentials();
+    verify(clientPresenceManager, atLeastOnce()).disconnectAllPresences(eq(existingUuid), any());
     verify(changeNumberManager, never()).changeNumber(any(), any(), any(), any(), any(), any());
   }
 
@@ -1399,6 +1416,8 @@ class AccountControllerTest {
                 MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(200);
+    verify(senderRegLockAccount, never()).lockAuthenticationCredentials();
+    verify(clientPresenceManager, never()).disconnectAllPresences(eq(SENDER_REG_LOCK_UUID), any());
     verify(changeNumberManager).changeNumber(eq(AuthHelper.VALID_ACCOUNT), any(), any(), any(), any(), any());
   }
 
