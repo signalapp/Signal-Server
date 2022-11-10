@@ -4,19 +4,16 @@
  */
 package org.whispersystems.textsecuregcm.storage;
 
-import com.google.common.annotations.VisibleForTesting;
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
+
+import io.micrometer.core.instrument.Metrics;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Tag;
-import io.micrometer.core.instrument.Tags;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.util.Util;
-
-import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 public class AccountCleaner extends AccountDatabaseCrawlerListener {
 
@@ -43,17 +40,11 @@ public class AccountCleaner extends AccountDatabaseCrawlerListener {
   protected void onCrawlChunk(Optional<UUID> fromUuid, List<Account> chunkAccounts) {
     for (Account account : chunkAccounts) {
       if (isExpired(account) || needsExplicitRemoval(account)) {
-        final Tag deletionReason;
-
-        if (needsExplicitRemoval(account)) {
-          deletionReason = Tag.of(DELETION_REASON_TAG_NAME, "newlyExpired");
-        } else {
-          deletionReason = Tag.of(DELETION_REASON_TAG_NAME, "previouslyExpired");
-        }
+        final String deletionReason = needsExplicitRemoval(account) ? "newlyExpired" : "previouslyExpired";
 
         try {
           accountsManager.delete(account, AccountsManager.DeletionReason.EXPIRED);
-          Metrics.counter(DELETED_ACCOUNT_COUNTER_NAME, Tags.of(deletionReason)).increment();
+          Metrics.counter(DELETED_ACCOUNT_COUNTER_NAME, DELETION_REASON_TAG_NAME, deletionReason).increment();
         } catch (final Exception e) {
           log.warn("Failed to delete account {}", account.getUuid(), e);
         }
