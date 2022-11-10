@@ -290,6 +290,9 @@ remoteConfig:
 paymentsService:
   userAuthenticationTokenSharedSecret: 0000000f0000000f0000000f0000000f0000000f0000000f0000000f0000000f # hex-encoded 32-byte secret shared with MobileCoin services used to generate auth tokens for Signal users
   fixerApiKey: unset
+  coinMarketCapApiKey: unset
+  coinMarketCapCurrencyIds:
+    MOB: 7878
   paymentCurrencies:
     # list of symbols for supported currencies
     - MOB

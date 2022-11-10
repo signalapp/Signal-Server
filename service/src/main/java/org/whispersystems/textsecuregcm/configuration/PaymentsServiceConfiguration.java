@@ -9,14 +9,24 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
 
+import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotEmpty;
 import java.util.List;
+import java.util.Map;
 
 public class PaymentsServiceConfiguration {
 
   @NotEmpty
   @JsonProperty
   private String userAuthenticationTokenSharedSecret;
+
+  @NotBlank
+  @JsonProperty
+  private String coinMarketCapApiKey;
+
+  @JsonProperty
+  @NotEmpty
+  private Map<@NotBlank String, Integer> coinMarketCapCurrencyIds;
 
   @NotEmpty
   @JsonProperty
@@ -28,6 +38,14 @@ public class PaymentsServiceConfiguration {
 
   public byte[] getUserAuthenticationTokenSharedSecret() throws DecoderException {
     return Hex.decodeHex(userAuthenticationTokenSharedSecret.toCharArray());
+  }
+
+  public String getCoinMarketCapApiKey() {
+    return coinMarketCapApiKey;
+  }
+
+  public Map<String, Integer> getCoinMarketCapCurrencyIds() {
+    return coinMarketCapCurrencyIds;
   }
 
   public String getFixerApiKey() {
