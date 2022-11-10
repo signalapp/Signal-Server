@@ -8,19 +8,16 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.Arrays;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.storage.AccountsManager.DeletionReason;
 
 class AccountCleanerTest {
@@ -77,27 +74,6 @@ class AccountCleanerTest {
     verify(accountsManager).delete(undeletedDisabledAccount, DeletionReason.EXPIRED);
     verify(accountsManager, never()).delete(eq(undeletedEnabledAccount), any());
 
-    verifyNoMoreInteractions(accountsManager);
-  }
-
-  @Test
-  void testMaxAccountUpdates() throws AccountDatabaseCrawlerRestartException, InterruptedException {
-    List<Account> accounts = new LinkedList<>();
-    accounts.add(undeletedEnabledAccount);
-
-    int activeExpiredAccountCount = AccountCleaner.MAX_ACCOUNT_DELETIONS_PER_CHUNK + 1;
-    for (int addedAccountCount = 0; addedAccountCount < activeExpiredAccountCount; addedAccountCount++) {
-      accounts.add(undeletedDisabledAccount);
-    }
-
-    accounts.add(deletedDisabledAccount);
-
-    AccountCleaner accountCleaner = new AccountCleaner(accountsManager);
-    accountCleaner.onCrawlStart();
-    accountCleaner.timeAndProcessCrawlChunk(Optional.empty(), accounts);
-    accountCleaner.onCrawlEnd(Optional.empty());
-
-    verify(accountsManager, times(AccountCleaner.MAX_ACCOUNT_DELETIONS_PER_CHUNK)).delete(undeletedDisabledAccount, AccountsManager.DeletionReason.EXPIRED);
     verifyNoMoreInteractions(accountsManager);
   }
 

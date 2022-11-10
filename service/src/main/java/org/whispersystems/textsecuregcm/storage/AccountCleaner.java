@@ -25,9 +25,6 @@ public class AccountCleaner extends AccountDatabaseCrawlerListener {
   private static final String DELETED_ACCOUNT_COUNTER_NAME = name(AccountCleaner.class, "deletedAccounts");
   private static final String DELETION_REASON_TAG_NAME = "reason";
 
-  @VisibleForTesting
-  static final int MAX_ACCOUNT_DELETIONS_PER_CHUNK = 256;
-
   private final AccountsManager accountsManager;
 
   public AccountCleaner(AccountsManager accountsManager) {
@@ -44,8 +41,6 @@ public class AccountCleaner extends AccountDatabaseCrawlerListener {
 
   @Override
   protected void onCrawlChunk(Optional<UUID> fromUuid, List<Account> chunkAccounts) {
-    int accountUpdateCount = 0;
-
     for (Account account : chunkAccounts) {
       if (isExpired(account) || needsExplicitRemoval(account)) {
         final Tag deletionReason;
@@ -56,15 +51,11 @@ public class AccountCleaner extends AccountDatabaseCrawlerListener {
           deletionReason = Tag.of(DELETION_REASON_TAG_NAME, "previouslyExpired");
         }
 
-        if (accountUpdateCount < MAX_ACCOUNT_DELETIONS_PER_CHUNK) {
-          try {
-            accountsManager.delete(account, AccountsManager.DeletionReason.EXPIRED);
-            accountUpdateCount++;
-
-            Metrics.counter(DELETED_ACCOUNT_COUNTER_NAME, Tags.of(deletionReason)).increment();
-          } catch (final Exception e) {
-            log.warn("Failed to delete account {}", account.getUuid(), e);
-          }
+        try {
+          accountsManager.delete(account, AccountsManager.DeletionReason.EXPIRED);
+          Metrics.counter(DELETED_ACCOUNT_COUNTER_NAME, Tags.of(deletionReason)).increment();
+        } catch (final Exception e) {
+          log.warn("Failed to delete account {}", account.getUuid(), e);
         }
       }
     }
