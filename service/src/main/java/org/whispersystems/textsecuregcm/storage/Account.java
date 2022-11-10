@@ -472,6 +472,18 @@ public class Account {
     this.version = version;
   }
 
+
+  /**
+   * Have all this account's devices been manually locked?
+   *
+   * @see Device#hasLockedCredentials
+   *
+   * @return true if all the account's devices were locked, false otherwise.
+   */
+  public boolean hasLockedCredentials() {
+    return devices.stream().allMatch(Device::hasLockedCredentials);
+  }
+
   /**
    * Lock account by invalidating authentication tokens.
    *

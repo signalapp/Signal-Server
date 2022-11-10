@@ -150,6 +150,19 @@ public class Device {
   }
 
   /**
+   * Has this device been manually locked?
+   *
+   * We lock a device by prepending "!" to its token.
+   * This character cannot normally appear in valid tokens.
+   *
+   * @return true if the credential was locked, false otherwise.
+   */
+  public boolean hasLockedCredentials() {
+    AuthenticationCredentials auth = getAuthenticationCredentials();
+    return auth.getHashedAuthenticationToken().startsWith("!");
+  }
+
+  /**
    * Lock device by invalidating authentication tokens.
    *
    * This should only be used from Account::lockAuthenticationCredentials.

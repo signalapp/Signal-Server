@@ -130,6 +130,8 @@ public class AccountController {
 
   private static final String NONSTANDARD_USERNAME_COUNTER_NAME = name(AccountController.class, "nonStandardUsername");
 
+  private static final String LOCKED_ACCOUNT_COUNTER_NAME = name(AccountController.class, "lockedAccount");
+
   private static final String CHALLENGE_PRESENT_TAG_NAME = "present";
   private static final String CHALLENGE_MATCH_TAG_NAME = "matches";
   private static final String COUNTRY_CODE_TAG_NAME = "countryCode";
@@ -142,6 +144,8 @@ public class AccountController {
   private static final String REGION_CODE_TAG_NAME = "regionCode";
   private static final String VERIFICATION_TRANSPORT_TAG_NAME = "transport";
   private static final String SCORE_TAG_NAME = "score";
+  private static final String LOCK_REASON_TAG_NAME = "lockReason";
+  private static final String ALREADY_LOCKED_TAG_NAME = "alreadyLocked";
 
 
   private final StoredVerificationCodeManager      pendingAccounts;
@@ -812,11 +816,25 @@ public class AccountController {
 
       if (!existingRegistrationLock.verify(clientRegistrationLock)) {
         // At this point, the client verified ownership of the phone number but doesn’t have the reglock PIN.
-        // Freezing the existing account credentials will definitively start the reglock timeout. Until the timeout, the current reglock can still be supplied,
+        // Freezing the existing account credentials will definitively start the reglock timeout.
+        // Until the timeout, the current reglock can still be supplied,
         // along with phone number verification, to restore access.
-        final Account updatedAccount = accounts.update(existingAccount, Account::lockAuthenticationCredentials);
+        boolean alreadyLocked = existingAccount.hasLockedCredentials();
+        Metrics.counter(LOCKED_ACCOUNT_COUNTER_NAME,
+                LOCK_REASON_TAG_NAME, "verifiedNumberFailedReglock",
+                ALREADY_LOCKED_TAG_NAME, Boolean.toString(alreadyLocked))
+            .increment();
+
+        final Account updatedAccount;
+        if (!alreadyLocked) {
+          updatedAccount = accounts.update(existingAccount, Account::lockAuthenticationCredentials);
+        } else {
+          updatedAccount = existingAccount;
+        }
+
         List<Long> deviceIds = updatedAccount.getDevices().stream().map(Device::getId).toList();
         clientPresenceManager.disconnectAllPresences(updatedAccount.getUuid(), deviceIds);
+
         throw new WebApplicationException(Response.status(423)
             .entity(new RegistrationLockFailure(existingRegistrationLock.getTimeRemaining(),
                 existingRegistrationLock.needsFailureCredentials() ? existingBackupCredentials : null))
