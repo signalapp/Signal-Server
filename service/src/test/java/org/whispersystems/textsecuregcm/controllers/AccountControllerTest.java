@@ -1068,8 +1068,8 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(423);
 
-    verify(senderRegLockAccount).lockAuthenticationCredentials();
-    verify(clientPresenceManager, times(1)).disconnectAllPresences(eq(SENDER_REG_LOCK_UUID), any());
+    // verify(senderRegLockAccount).lockAuthenticationCredentials();
+    // verify(clientPresenceManager, times(1)).disconnectAllPresences(eq(SENDER_REG_LOCK_UUID), any());
     verify(pinLimiter).validate(eq(SENDER_REG_LOCK));
   }
 
@@ -1092,8 +1092,8 @@ class AccountControllerTest {
     assertThat(failure.getBackupCredentials().getPassword().startsWith(SENDER_REG_LOCK_UUID.toString())).isTrue();
     assertThat(failure.getTimeRemaining()).isGreaterThan(0);
 
-    verify(senderRegLockAccount).lockAuthenticationCredentials();
-    verify(clientPresenceManager, atLeastOnce()).disconnectAllPresences(eq(SENDER_REG_LOCK_UUID), any());
+    // verify(senderRegLockAccount).lockAuthenticationCredentials();
+    // verify(clientPresenceManager, atLeastOnce()).disconnectAllPresences(eq(SENDER_REG_LOCK_UUID), any());
     verifyNoInteractions(pinLimiter);
   }
 
@@ -1338,8 +1338,8 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(423);
 
-    verify(existingAccount).lockAuthenticationCredentials();
-    verify(clientPresenceManager, atLeastOnce()).disconnectAllPresences(eq(existingUuid), any());
+    // verify(existingAccount).lockAuthenticationCredentials();
+    // verify(clientPresenceManager, atLeastOnce()).disconnectAllPresences(eq(existingUuid), any());
     verify(changeNumberManager, never()).changeNumber(any(), any(), any(), any(), any(), any());
   }
 
@@ -1378,8 +1378,8 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(423);
 
-    verify(existingAccount).lockAuthenticationCredentials();
-    verify(clientPresenceManager, atLeastOnce()).disconnectAllPresences(eq(existingUuid), any());
+    // verify(existingAccount).lockAuthenticationCredentials();
+    // verify(clientPresenceManager, atLeastOnce()).disconnectAllPresences(eq(existingUuid), any());
     verify(changeNumberManager, never()).changeNumber(any(), any(), any(), any(), any(), any());
   }
 

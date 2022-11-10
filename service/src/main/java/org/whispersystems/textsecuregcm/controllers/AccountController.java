@@ -819,7 +819,7 @@ public class AccountController {
         // Freezing the existing account credentials will definitively start the reglock timeout.
         // Until the timeout, the current reglock can still be supplied,
         // along with phone number verification, to restore access.
-        boolean alreadyLocked = existingAccount.hasLockedCredentials();
+        /* boolean alreadyLocked = existingAccount.hasLockedCredentials();
         Metrics.counter(LOCKED_ACCOUNT_COUNTER_NAME,
                 LOCK_REASON_TAG_NAME, "verifiedNumberFailedReglock",
                 ALREADY_LOCKED_TAG_NAME, Boolean.toString(alreadyLocked))
@@ -833,7 +833,7 @@ public class AccountController {
         }
 
         List<Long> deviceIds = updatedAccount.getDevices().stream().map(Device::getId).toList();
-        clientPresenceManager.disconnectAllPresences(updatedAccount.getUuid(), deviceIds);
+        clientPresenceManager.disconnectAllPresences(updatedAccount.getUuid(), deviceIds); */
 
         throw new WebApplicationException(Response.status(423)
             .entity(new RegistrationLockFailure(existingRegistrationLock.getTimeRemaining(),
