@@ -808,20 +808,22 @@ public class AccountController {
         rateLimiters.getPinLimiter().validate(existingAccount.getNumber());
       }
 
+      final String phoneNumber = existingAccount.getNumber();
+
       if (!existingRegistrationLock.verify(clientRegistrationLock)) {
         // At this point, the client verified ownership of the phone number but doesn’t have the reglock PIN.
         // Freezing the existing account credentials will definitively start the reglock timeout. Until the timeout, the current reglock can still be supplied,
         // along with phone number verification, to restore access.
-        accounts.update(existingAccount, Account::lockAuthenticationCredentials);
-        List<Long> deviceIds = existingAccount.getDevices().stream().map(Device::getId).toList();
-        clientPresenceManager.disconnectAllPresences(existingAccount.getUuid(), deviceIds);
+        final Account updatedAccount = accounts.update(existingAccount, Account::lockAuthenticationCredentials);
+        List<Long> deviceIds = updatedAccount.getDevices().stream().map(Device::getId).toList();
+        clientPresenceManager.disconnectAllPresences(updatedAccount.getUuid(), deviceIds);
         throw new WebApplicationException(Response.status(423)
             .entity(new RegistrationLockFailure(existingRegistrationLock.getTimeRemaining(),
                 existingRegistrationLock.needsFailureCredentials() ? existingBackupCredentials : null))
             .build());
       }
 
-      rateLimiters.getPinLimiter().clear(existingAccount.getNumber());
+      rateLimiters.getPinLimiter().clear(phoneNumber);
     }
   }
 
