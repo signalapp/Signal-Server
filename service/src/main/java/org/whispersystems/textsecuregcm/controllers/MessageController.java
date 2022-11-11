@@ -16,6 +16,7 @@ import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
 import java.security.MessageDigest;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -98,6 +99,7 @@ import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
 import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 import org.whispersystems.textsecuregcm.websocket.WebSocketConnection;
 import org.whispersystems.websocket.Stories;
+import reactor.core.scheduler.Schedulers;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v1/messages")
@@ -482,7 +484,7 @@ public class MessageController {
   @Timed
   @GET
   @Produces(MediaType.APPLICATION_JSON)
-  public OutgoingMessageEntityList getPendingMessages(@Auth AuthenticatedAccount auth,
+  public CompletableFuture<OutgoingMessageEntityList> getPendingMessages(@Auth AuthenticatedAccount auth,
       @HeaderParam(Stories.X_SIGNAL_RECEIVE_STORIES) String receiveStoriesHeader,
       @HeaderParam("User-Agent") String userAgent) {
 
@@ -490,39 +492,40 @@ public class MessageController {
 
     pushNotificationManager.handleMessagesRetrieved(auth.getAccount(), auth.getAuthenticatedDevice(), userAgent);
 
-    final OutgoingMessageEntityList outgoingMessages;
-    {
-      final Pair<List<Envelope>, Boolean> messagesAndHasMore = messagesManager.getMessagesForDevice(
-          auth.getAccount().getUuid(),
-          auth.getAuthenticatedDevice().getId(),
-          false);
+    return messagesManager.getMessagesForDevice(
+            auth.getAccount().getUuid(),
+            auth.getAuthenticatedDevice().getId(),
+            false)
+        .map(messagesAndHasMore -> {
+          Stream<Envelope> envelopes = messagesAndHasMore.first().stream();
+          if (!shouldReceiveStories) {
+            envelopes = envelopes.filter(e -> !e.getStory());
+          }
 
-      Stream<Envelope> envelopes = messagesAndHasMore.first().stream();
-      if (!shouldReceiveStories) {
-        envelopes = envelopes.filter(e -> !e.getStory());
-      }
+          final OutgoingMessageEntityList messages = new OutgoingMessageEntityList(envelopes
+              .map(OutgoingMessageEntity::fromEnvelope)
+              .peek(
+                  outgoingMessageEntity -> MessageMetrics.measureAccountOutgoingMessageUuidMismatches(auth.getAccount(),
+                      outgoingMessageEntity))
+              .collect(Collectors.toList()),
+              messagesAndHasMore.second());
 
-      outgoingMessages = new OutgoingMessageEntityList(envelopes
-          .map(OutgoingMessageEntity::fromEnvelope)
-          .peek(outgoingMessageEntity -> MessageMetrics.measureAccountOutgoingMessageUuidMismatches(auth.getAccount(),
-              outgoingMessageEntity))
-          .collect(Collectors.toList()),
-          messagesAndHasMore.second());
-    }
+          String platform;
 
-    {
-      String platform;
+          try {
+            platform = UserAgentUtil.parseUserAgentString(userAgent).getPlatform().name().toLowerCase();
+          } catch (final UnrecognizedUserAgentException ignored) {
+            platform = "unrecognized";
+          }
 
-      try {
-        platform = UserAgentUtil.parseUserAgentString(userAgent).getPlatform().name().toLowerCase();
-      } catch (final UnrecognizedUserAgentException ignored) {
-        platform = "unrecognized";
-      }
+          Metrics.summary(OUTGOING_MESSAGE_LIST_SIZE_BYTES_DISTRIBUTION_NAME, "platform", platform)
+              .record(estimateMessageListSizeBytes(messages));
 
-      Metrics.summary(OUTGOING_MESSAGE_LIST_SIZE_BYTES_DISTRIBUTION_NAME, "platform", platform).record(estimateMessageListSizeBytes(outgoingMessages));
-    }
-
-    return outgoingMessages;
+          return messages;
+        })
+        .timeout(Duration.ofSeconds(5))
+        .subscribeOn(Schedulers.boundedElastic())
+        .toFuture();
   }
 
   private static long estimateMessageListSizeBytes(final OutgoingMessageEntityList messageList) {

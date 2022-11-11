@@ -27,7 +27,7 @@ import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Pair;
 import reactor.core.publisher.Flux;
-import reactor.core.scheduler.Schedulers;
+import reactor.core.publisher.Mono;
 
 public class MessagesManager {
 
@@ -72,23 +72,14 @@ public class MessagesManager {
     return messagesCache.hasMessages(destinationUuid, destinationDevice);
   }
 
-  public Pair<List<Envelope>, Boolean> getMessagesForDevice(UUID destinationUuid, long destinationDevice,
+  public Mono<Pair<List<Envelope>, Boolean>> getMessagesForDevice(UUID destinationUuid, long destinationDevice,
       boolean cachedMessagesOnly) {
 
-    try {
-      final List<Envelope> envelopes = Flux.from(
-              getMessagesForDevice(destinationUuid, destinationDevice, RESULT_SET_CHUNK_SIZE, cachedMessagesOnly))
-          .take(RESULT_SET_CHUNK_SIZE, true)
-          .collectList()
-          .subscribeOn(Schedulers.boundedElastic())
-          .toFuture()
-          .get(5, TimeUnit.SECONDS);
-
-      return new Pair<>(envelopes, envelopes.size() >= RESULT_SET_CHUNK_SIZE);
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
-
+    return Flux.from(
+            getMessagesForDevice(destinationUuid, destinationDevice, RESULT_SET_CHUNK_SIZE, cachedMessagesOnly))
+        .take(RESULT_SET_CHUNK_SIZE, true)
+        .collectList()
+        .map(envelopes -> new Pair<>(envelopes, envelopes.size() >= RESULT_SET_CHUNK_SIZE));
   }
 
   public Publisher<Envelope> getMessagesForDeviceReactive(UUID destinationUuid, long destinationDevice,

@@ -54,6 +54,7 @@ import javax.ws.rs.client.Entity;
 import javax.ws.rs.client.Invocation;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import org.glassfish.jersey.server.ServerProperties;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -96,6 +97,7 @@ import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.websocket.Stories;
+import reactor.core.publisher.Mono;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class MessageControllerTest {
@@ -138,6 +140,7 @@ class MessageControllerTest {
   private static final ExecutorService multiRecipientMessageExecutor = mock(ExecutorService.class);
 
   private static final ResourceExtension resources = ResourceExtension.builder()
+      .addProperty(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE)
       .addProvider(AuthHelper.getAuthFilter())
       .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(
           ImmutableSet.of(AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)))
@@ -461,7 +464,7 @@ class MessageControllerTest {
     );
 
     when(messagesManager.getMessagesForDevice(eq(AuthHelper.VALID_UUID), eq(1L), anyBoolean()))
-        .thenReturn(new Pair<>(envelopes, false));
+        .thenReturn(Mono.just(new Pair<>(envelopes, false)));
 
     final String userAgent = "Test-UA";
 
@@ -515,7 +518,7 @@ class MessageControllerTest {
     );
 
     when(messagesManager.getMessagesForDevice(eq(AuthHelper.VALID_UUID), eq(1L), anyBoolean()))
-        .thenReturn(new Pair<>(messages, false));
+        .thenReturn(Mono.just(new Pair<>(messages, false)));
 
     Response response =
         resources.getJerseyTest().target("/v1/messages/")
@@ -528,7 +531,7 @@ class MessageControllerTest {
   }
 
   @Test
-  void testDeleteMessages() throws Exception {
+  void testDeleteMessages() {
     long timestamp = System.currentTimeMillis();
 
     UUID sourceUuid = UUID.randomUUID();
