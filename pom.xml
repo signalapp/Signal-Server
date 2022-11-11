@@ -154,7 +154,7 @@
       <dependency>
         <groupId>io.projectreactor</groupId>
         <artifactId>reactor-bom</artifactId>
-        <version>2020.0.23</version> <!-- 3.4.x, see https://github.com/reactor/reactor#bom-versioning-scheme -->
+        <version>2020.0.24</version> <!-- 3.4.x, see https://github.com/reactor/reactor#bom-versioning-scheme -->
         <type>pom</type>
         <scope>import</scope>
       </dependency>
