@@ -52,6 +52,7 @@ import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.RedisClusterUtil;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
 public class MessagesCache extends RedisClusterPubSubAdapter<String, String> implements Managed {
@@ -62,6 +63,8 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
 
   private final ExecutorService notificationExecutorService;
   private final ExecutorService messageDeletionExecutorService;
+  // messageDeletionExecutorService wrapped into a reactor Scheduler
+  private final Scheduler messageDeletionScheduler;
 
   private final ClusterLuaScript insertScript;
   private final ClusterLuaScript removeByGuidScript;
@@ -108,6 +111,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
 
     this.notificationExecutorService = notificationExecutorService;
     this.messageDeletionExecutorService = messageDeletionExecutorService;
+    this.messageDeletionScheduler = Schedulers.fromExecutorService(messageDeletionExecutorService, "messageDeletion");
 
     this.insertScript = ClusterLuaScript.fromResource(insertCluster, "lua/insert_item.lua", ScriptOutputType.INTEGER);
     this.removeByGuidScript = ClusterLuaScript.fromResource(readDeleteCluster, "lua/remove_item_by_guid.lua",
@@ -236,7 +240,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
     staleEphemeralMessages
         .map(e -> UUID.fromString(e.getServerGuid()))
         .buffer(PAGE_SIZE)
-        .subscribeOn(Schedulers.boundedElastic())
+        .subscribeOn(messageDeletionScheduler)
         .subscribe(staleEphemeralMessageGuids ->
                 remove(destinationUuid, destinationDevice, staleEphemeralMessageGuids)
                     .thenAccept(removedMessages -> staleEphemeralMessagesCounter.increment(removedMessages.size())),

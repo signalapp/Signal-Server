@@ -560,7 +560,7 @@ class MessagesCacheTest {
           .build();
 
       messagesCache = new MessagesCache(mockCluster, mockCluster, Clock.systemUTC(), mock(ExecutorService.class),
-          mock(ExecutorService.class));
+          Executors.newSingleThreadExecutor());
     }
 
     @AfterEach

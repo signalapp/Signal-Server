@@ -329,7 +329,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             config.getAppConfig().getConfigurationName(),
             DynamicConfiguration.class);
 
-    BlockingQueue<Runnable> messageDeletionQueue = new ArrayBlockingQueue<>(10_000);
+    BlockingQueue<Runnable> messageDeletionQueue = new LinkedBlockingQueue<>();
     Metrics.gaugeCollectionSize(name(getClass(), "messageDeletionQueueSize"), Collections.emptyList(),
         messageDeletionQueue);
     ExecutorService messageDeletionAsyncExecutor = environment.lifecycle()
