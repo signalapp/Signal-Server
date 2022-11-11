@@ -643,7 +643,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     webSocketEnvironment.setAuthenticator(new WebSocketAccountAuthenticator(accountAuthenticator));
     webSocketEnvironment.setConnectListener(
         new AuthenticatedConnectListener(receiptSender, messagesManager, pushNotificationManager,
-            clientPresenceManager, websocketScheduledExecutor, experimentEnrollmentManager));
+            clientPresenceManager, websocketScheduledExecutor));
     webSocketEnvironment.jersey()
         .register(new WebsocketRefreshApplicationEventListener(accountsManager, clientPresenceManager));
     webSocketEnvironment.jersey().register(new ContentLengthFilter(TrafficSource.WEBSOCKET));

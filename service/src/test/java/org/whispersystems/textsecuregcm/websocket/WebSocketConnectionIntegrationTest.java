@@ -37,10 +37,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
@@ -111,23 +111,18 @@ class WebSocketConnectionIntegrationTest {
 
   @ParameterizedTest
   @CsvSource({
-      "207, 173, true",
-      "207, 173, false",
-      "323, 0, true",
-      "323, 0, false",
-      "0, 221, true",
-      "0, 221, false",
+      "207, 173",
+      "323, 0",
+      "0, 221",
   })
-  void testProcessStoredMessages(final int persistedMessageCount, final int cachedMessageCount,
-      final boolean useReactive) {
+  void testProcessStoredMessages(final int persistedMessageCount, final int cachedMessageCount) {
     final WebSocketConnection webSocketConnection = new WebSocketConnection(
         mock(ReceiptSender.class),
         new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager, sharedExecutorService),
         new AuthenticatedAccount(() -> new Pair<>(account, device)),
         device,
         webSocketClient,
-        retrySchedulingExecutor,
-        useReactive);
+        retrySchedulingExecutor);
 
     final List<MessageProtos.Envelope> expectedMessages = new ArrayList<>(persistedMessageCount + cachedMessageCount);
 
@@ -202,17 +197,15 @@ class WebSocketConnectionIntegrationTest {
     });
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void testProcessStoredMessagesClientClosed(final boolean useReactive) {
+  @Test
+  void testProcessStoredMessagesClientClosed() {
     final WebSocketConnection webSocketConnection = new WebSocketConnection(
         mock(ReceiptSender.class),
         new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager, sharedExecutorService),
         new AuthenticatedAccount(() -> new Pair<>(account, device)),
         device,
         webSocketClient,
-        retrySchedulingExecutor,
-        useReactive);
+        retrySchedulingExecutor);
 
     final int persistedMessageCount = 207;
     final int cachedMessageCount = 173;
@@ -268,9 +261,8 @@ class WebSocketConnectionIntegrationTest {
     });
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void testProcessStoredMessagesSendFutureTimeout(final boolean useReactive) {
+  @Test
+  void testProcessStoredMessagesSendFutureTimeout() {
     final WebSocketConnection webSocketConnection = new WebSocketConnection(
         mock(ReceiptSender.class),
         new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager, sharedExecutorService),
@@ -279,7 +271,6 @@ class WebSocketConnectionIntegrationTest {
         webSocketClient,
         100, // use a very short timeout, so that this test completes quickly
         retrySchedulingExecutor,
-        useReactive,
         Schedulers.boundedElastic());
 
     final int persistedMessageCount = 207;

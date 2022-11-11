@@ -48,7 +48,6 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessageAvailabilityListener;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.util.Constants;
-import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.TimestampHeaderUtil;
 import org.whispersystems.websocket.WebSocketClient;
 import org.whispersystems.websocket.messages.WebSocketResponseMessage;
@@ -90,7 +89,6 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   private static final String STATUS_CODE_TAG = "status";
   private static final String STATUS_MESSAGE_TAG = "message";
   private static final String ERROR_TYPE_TAG = "errorType";
-  private static final String REACTIVE_TAG = "reactive";
 
   private static final long SLOW_DRAIN_THRESHOLD = 10_000;
 
@@ -128,7 +126,6 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   private final AtomicReference<Disposable> messageSubscription = new AtomicReference<>();
 
   private final Random random = new Random();
-  private final boolean useReactive;
   private final Scheduler reactiveScheduler;
 
   private enum StoredMessageState {
@@ -142,8 +139,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
       AuthenticatedAccount auth,
       Device device,
       WebSocketClient client,
-      ScheduledExecutorService scheduledExecutorService,
-      boolean useReactive) {
+      ScheduledExecutorService scheduledExecutorService) {
 
     this(receiptSender,
         messagesManager,
@@ -151,7 +147,6 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
         device,
         client,
         scheduledExecutorService,
-        useReactive,
         Schedulers.boundedElastic());
   }
 
@@ -162,7 +157,6 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
       Device device,
       WebSocketClient client,
       ScheduledExecutorService scheduledExecutorService,
-      boolean useReactive,
       Scheduler reactiveScheduler) {
 
     this(receiptSender,
@@ -172,7 +166,6 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
         client,
         DEFAULT_SEND_FUTURES_TIMEOUT_MILLIS,
         scheduledExecutorService,
-        useReactive,
         reactiveScheduler);
   }
 
@@ -184,7 +177,6 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
       WebSocketClient client,
       int sendFuturesTimeoutMillis,
       ScheduledExecutorService scheduledExecutorService,
-      boolean useReactive,
       Scheduler reactiveScheduler) {
 
     this.receiptSender = receiptSender;
@@ -194,7 +186,6 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
     this.client = client;
     this.sendFuturesTimeoutMillis = sendFuturesTimeoutMillis;
     this.scheduledExecutorService = scheduledExecutorService;
-    this.useReactive = useReactive;
     this.reactiveScheduler = reactiveScheduler;
   }
 
@@ -249,8 +240,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
               final List<Tag> tags = new ArrayList<>(
                   List.of(
                       Tag.of(STATUS_CODE_TAG, String.valueOf(response.getStatus())),
-                      UserAgentTagUtil.getPlatformTag(client.getUserAgent()),
-                      Tag.of(REACTIVE_TAG, String.valueOf(useReactive))
+                      UserAgentTagUtil.getPlatformTag(client.getUserAgent())
                   ));
 
               // TODO Remove this once we've identified the cause of message rejections from desktop clients
@@ -297,21 +287,11 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
 
   @VisibleForTesting
   void processStoredMessages() {
-    if (useReactive) {
-      processStoredMessages_reactive();
-    } else {
-      processStoredMessage_paged();
-    }
-  }
-
-  private void processStoredMessage_paged() {
-    assert !useReactive;
-
     if (processStoredMessagesSemaphore.tryAcquire()) {
       final StoredMessageState state = storedMessageState.getAndSet(StoredMessageState.EMPTY);
       final CompletableFuture<Void> queueCleared = new CompletableFuture<>();
 
-      sendNextMessagePage(state != StoredMessageState.PERSISTED_NEW_MESSAGES_AVAILABLE, queueCleared);
+      sendMessages(state != StoredMessageState.PERSISTED_NEW_MESSAGES_AVAILABLE, queueCleared);
 
       setQueueClearedHandler(state, queueCleared);
     }
@@ -325,8 +305,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
 
         if (sentInitialQueueEmptyMessage.compareAndSet(false, true)) {
           final List<Tag> tags = List.of(
-              UserAgentTagUtil.getPlatformTag(client.getUserAgent()),
-              Tag.of(REACTIVE_TAG, String.valueOf(useReactive))
+              UserAgentTagUtil.getPlatformTag(client.getUserAgent())
           );
           final long drainDuration = System.currentTimeMillis() - queueDrainStartTime.get();
 
@@ -373,54 +352,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
     });
   }
 
-  private void processStoredMessages_reactive() {
-    assert useReactive;
-
-    if (processStoredMessagesSemaphore.tryAcquire()) {
-      final StoredMessageState state = storedMessageState.getAndSet(StoredMessageState.EMPTY);
-      final CompletableFuture<Void> queueCleared = new CompletableFuture<>();
-
-      sendMessagesReactive(state != StoredMessageState.PERSISTED_NEW_MESSAGES_AVAILABLE, queueCleared);
-
-      setQueueClearedHandler(state, queueCleared);
-    }
-  }
-
-  private void sendNextMessagePage(final boolean cachedMessagesOnly, final CompletableFuture<Void> queueCleared) {
-    try {
-      final Pair<List<Envelope>, Boolean> messagesAndHasMore = messagesManager.getMessagesForDevice(
-          auth.getAccount().getUuid(), device.getId(), cachedMessagesOnly);
-
-      final List<Envelope> messages = messagesAndHasMore.first();
-      final boolean hasMore = messagesAndHasMore.second();
-
-      final CompletableFuture<?>[] sendFutures = new CompletableFuture[messages.size()];
-
-      for (int i = 0; i < messages.size(); i++) {
-        final Envelope envelope = messages.get(i);
-        sendFutures[i] = sendMessage(envelope);
-      }
-
-      // Set a large, non-zero timeout, to prevent any failure to acknowledge receipt from blocking indefinitely
-      CompletableFuture.allOf(sendFutures)
-          .orTimeout(sendFuturesTimeoutMillis, TimeUnit.MILLISECONDS)
-          .whenComplete((v, cause) -> {
-            if (cause == null) {
-              if (hasMore) {
-                sendNextMessagePage(cachedMessagesOnly, queueCleared);
-              } else {
-                queueCleared.complete(null);
-              }
-            } else {
-              queueCleared.completeExceptionally(cause);
-            }
-          });
-    } catch (final Exception e) {
-      queueCleared.completeExceptionally(e);
-    }
-  }
-
-  private void sendMessagesReactive(final boolean cachedMessagesOnly, final CompletableFuture<Void> queueCleared) {
+  private void sendMessages(final boolean cachedMessagesOnly, final CompletableFuture<Void> queueCleared) {
 
     final Publisher<Envelope> messages =
         messagesManager.getMessagesForDeviceReactive(auth.getAccount().getUuid(), device.getId(), cachedMessagesOnly);
@@ -503,8 +435,8 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   public void handleDisplacement(final boolean connectedElsewhere) {
     final Tags tags = Tags.of(
         UserAgentTagUtil.getPlatformTag(client.getUserAgent()),
-        Tag.of("connectedElsewhere", String.valueOf(connectedElsewhere)),
-        Tag.of(REACTIVE_TAG, String.valueOf(useReactive)));
+        Tag.of("connectedElsewhere", String.valueOf(connectedElsewhere))
+    );
 
     Metrics.counter(DISPLACEMENT_COUNTER_NAME, tags).increment();
 

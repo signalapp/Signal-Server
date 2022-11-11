@@ -11,18 +11,13 @@ import com.codahale.metrics.Counter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
-import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Tags;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import org.eclipse.jetty.websocket.api.UpgradeResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
@@ -50,8 +45,6 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
 
   private static final long RENEW_PRESENCE_INTERVAL_MINUTES = 5;
 
-  private static final String REACTIVE_MESSAGE_QUEUE_EXPERIMENT_NAME = "reactive_message_queue_v1";
-
   private static final Logger log = LoggerFactory.getLogger(AuthenticatedConnectListener.class);
 
   private final ReceiptSender receiptSender;
@@ -59,26 +52,17 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
   private final PushNotificationManager pushNotificationManager;
   private final ClientPresenceManager clientPresenceManager;
   private final ScheduledExecutorService scheduledExecutorService;
-  private final ExperimentEnrollmentManager experimentEnrollmentManager;
-
-  private final AtomicInteger openReactiveWebSockets = new AtomicInteger(0);
-  private final AtomicInteger openStandardWebSockets = new AtomicInteger(0);
 
   public AuthenticatedConnectListener(ReceiptSender receiptSender,
       MessagesManager messagesManager,
       PushNotificationManager pushNotificationManager,
       ClientPresenceManager clientPresenceManager,
-      ScheduledExecutorService scheduledExecutorService,
-      ExperimentEnrollmentManager experimentEnrollmentManager) {
+      ScheduledExecutorService scheduledExecutorService) {
     this.receiptSender = receiptSender;
     this.messagesManager = messagesManager;
     this.pushNotificationManager = pushNotificationManager;
     this.clientPresenceManager = clientPresenceManager;
     this.scheduledExecutorService = scheduledExecutorService;
-    this.experimentEnrollmentManager = experimentEnrollmentManager;
-
-    Metrics.gauge(OPEN_WEBSOCKET_COUNTER_NAME, Tags.of("reactive", String.valueOf(true)), openReactiveWebSockets);
-    Metrics.gauge(OPEN_WEBSOCKET_COUNTER_NAME, Tags.of("reactive", String.valueOf(false)), openStandardWebSockets);
   }
 
   @Override
@@ -87,21 +71,12 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
       final AuthenticatedAccount auth = context.getAuthenticated(AuthenticatedAccount.class);
       final Device device = auth.getAuthenticatedDevice();
       final Timer.Context timer = durationTimer.time();
-      final boolean enrolledInReactiveMessageQueue = experimentEnrollmentManager.isEnrolled(
-          auth.getAccount().getUuid(),
-          REACTIVE_MESSAGE_QUEUE_EXPERIMENT_NAME);
       final WebSocketConnection connection = new WebSocketConnection(receiptSender,
           messagesManager, auth, device,
           context.getClient(),
-          scheduledExecutorService,
-          enrolledInReactiveMessageQueue);
+          scheduledExecutorService);
 
       openWebsocketCounter.inc();
-      if (enrolledInReactiveMessageQueue) {
-        openReactiveWebSockets.incrementAndGet();
-      } else {
-        openStandardWebSockets.incrementAndGet();
-      }
 
       pushNotificationManager.handleMessagesRetrieved(auth.getAccount(), device, context.getClient().getUserAgent());
 
@@ -109,11 +84,6 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
 
       context.addListener((closingContext, statusCode, reason) -> {
         openWebsocketCounter.dec();
-        if (enrolledInReactiveMessageQueue) {
-          openReactiveWebSockets.decrementAndGet();
-        } else {
-          openStandardWebSockets.decrementAndGet();
-        }
 
         timer.stop();
 
