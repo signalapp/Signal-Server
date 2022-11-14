@@ -12,12 +12,12 @@ import javax.ws.rs.container.ContainerRequestContext;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.metrics.TrafficSource;
 
-class ContentLengthFilterTest {
+class RequestStatisticsFilterTest {
 
   @Test
   void testFilter() throws Exception {
 
-    final ContentLengthFilter contentLengthFilter = new ContentLengthFilter(TrafficSource.WEBSOCKET);
+    final RequestStatisticsFilter requestStatisticsFilter = new RequestStatisticsFilter(TrafficSource.WEBSOCKET);
 
     final ContainerRequestContext requestContext = mock(ContainerRequestContext.class);
 
@@ -25,8 +25,8 @@ class ContentLengthFilterTest {
     when(requestContext.getLength()).thenReturn(Integer.MAX_VALUE);
     when(requestContext.getLength()).thenThrow(RuntimeException.class);
 
-    contentLengthFilter.filter(requestContext);
-    contentLengthFilter.filter(requestContext);
-    contentLengthFilter.filter(requestContext);
+    requestStatisticsFilter.filter(requestContext);
+    requestStatisticsFilter.filter(requestContext);
+    requestStatisticsFilter.filter(requestContext);
   }
 }

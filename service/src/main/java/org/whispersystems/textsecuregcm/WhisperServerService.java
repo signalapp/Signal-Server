@@ -110,7 +110,7 @@ import org.whispersystems.textsecuregcm.currency.CoinMarketCapClient;
 import org.whispersystems.textsecuregcm.currency.CurrencyConversionManager;
 import org.whispersystems.textsecuregcm.currency.FixerClient;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
-import org.whispersystems.textsecuregcm.filters.ContentLengthFilter;
+import org.whispersystems.textsecuregcm.filters.RequestStatisticsFilter;
 import org.whispersystems.textsecuregcm.filters.RemoteDeprecationFilter;
 import org.whispersystems.textsecuregcm.filters.TimestampResponseFilter;
 import org.whispersystems.textsecuregcm.limits.DynamicRateLimiters;
@@ -624,7 +624,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .addFilter("RemoteDeprecationFilter", new RemoteDeprecationFilter(dynamicConfigurationManager))
         .addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST), false, "/*");
 
-    environment.jersey().register(new ContentLengthFilter(TrafficSource.HTTP));
+    environment.jersey().register(new RequestStatisticsFilter(TrafficSource.HTTP));
     environment.jersey().register(MultiRecipientMessageProvider.class);
     environment.jersey().register(new MetricsApplicationEventListener(TrafficSource.HTTP));
     environment.jersey()
@@ -646,7 +646,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             clientPresenceManager, websocketScheduledExecutor));
     webSocketEnvironment.jersey()
         .register(new WebsocketRefreshApplicationEventListener(accountsManager, clientPresenceManager));
-    webSocketEnvironment.jersey().register(new ContentLengthFilter(TrafficSource.WEBSOCKET));
+    webSocketEnvironment.jersey().register(new RequestStatisticsFilter(TrafficSource.WEBSOCKET));
     webSocketEnvironment.jersey().register(MultiRecipientMessageProvider.class);
     webSocketEnvironment.jersey().register(new MetricsApplicationEventListener(TrafficSource.WEBSOCKET));
     webSocketEnvironment.jersey().register(new KeepAliveController(clientPresenceManager));
