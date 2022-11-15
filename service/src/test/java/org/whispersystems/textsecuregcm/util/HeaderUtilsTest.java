@@ -14,13 +14,13 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-class ForwardedIpUtilTest {
+class HeaderUtilsTest {
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     @ParameterizedTest
     @MethodSource("argumentsForGetMostRecentProxy")
     void getMostRecentProxy(final String forwardedFor, final Optional<String> expectedMostRecentProxy) {
-      assertEquals(expectedMostRecentProxy, ForwardedIpUtil.getMostRecentProxy(forwardedFor));
+      assertEquals(expectedMostRecentProxy, HeaderUtils.getMostRecentProxy(forwardedFor));
     }
 
     private static Stream<Arguments> argumentsForGetMostRecentProxy() {

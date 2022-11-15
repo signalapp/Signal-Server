@@ -14,7 +14,6 @@ import javax.ws.rs.container.ContainerResponseContext;
 import javax.ws.rs.core.MultivaluedMap;
 import org.glassfish.jersey.message.internal.HeaderUtils;
 import org.junit.jupiter.api.Test;
-import org.whispersystems.textsecuregcm.util.TimestampHeaderUtil;
 
 class TimestampResponseFilterTest {
 
@@ -29,6 +28,6 @@ class TimestampResponseFilterTest {
 
         new TimestampResponseFilter().filter(requestContext, responseContext);
 
-        assertTrue(headers.containsKey(TimestampHeaderUtil.TIMESTAMP_HEADER));
+        assertTrue(headers.containsKey(org.whispersystems.textsecuregcm.util.HeaderUtils.TIMESTAMP_HEADER));
     }
 }

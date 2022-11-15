@@ -13,7 +13,6 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.anyLong;
-import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.eq;
@@ -28,6 +27,7 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.net.HttpHeaders;
 import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
@@ -481,7 +481,7 @@ class AccountControllerTest {
             .target(String.format("/v1/accounts/sms/code/%s", SENDER))
             .queryParam("challenge", "1234-push")
             .request()
-            .header("X-Forwarded-For", NICE_HOST)
+            .header(HttpHeaders.X_FORWARDED_FOR, NICE_HOST)
             .get();
 
     assertThat(response.getStatus()).isEqualTo(200);
@@ -502,7 +502,7 @@ class AccountControllerTest {
             .target(String.format("/v1/accounts/sms/code/%s", "Definitely not a real number"))
             .queryParam("challenge", "1234-push")
             .request()
-            .header("X-Forwarded-For", NICE_HOST)
+            .header(HttpHeaders.X_FORWARDED_FOR, NICE_HOST)
             .get();
 
     assertThat(response.getStatus()).isEqualTo(400);
@@ -520,7 +520,7 @@ class AccountControllerTest {
             .target(String.format("/v1/accounts/sms/code/%s", number))
             .queryParam("challenge", "1234-push")
             .request()
-            .header("X-Forwarded-For", NICE_HOST)
+            .header(HttpHeaders.X_FORWARDED_FOR, NICE_HOST)
             .get();
 
     assertThat(response.getStatus()).isEqualTo(400);
@@ -543,7 +543,7 @@ class AccountControllerTest {
             .target(String.format("/v1/accounts/voice/code/%s", SENDER))
             .queryParam("challenge", "1234-push")
             .request()
-            .header("X-Forwarded-For", NICE_HOST)
+            .header(HttpHeaders.X_FORWARDED_FOR, NICE_HOST)
             .get();
 
     final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().parse(SENDER, null);
@@ -564,7 +564,7 @@ class AccountControllerTest {
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER_PREAUTH))
                  .queryParam("challenge", "validchallenge")
                  .request()
-                 .header("X-Forwarded-For", NICE_HOST)
+                 .header(HttpHeaders.X_FORWARDED_FOR, NICE_HOST)
                  .get();
 
     assertThat(response.getStatus()).isEqualTo(200);
@@ -582,7 +582,7 @@ class AccountControllerTest {
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER_PREAUTH))
                  .queryParam("challenge", "invalidchallenge")
                  .request()
-                 .header("X-Forwarded-For", NICE_HOST)
+                 .header(HttpHeaders.X_FORWARDED_FOR, NICE_HOST)
                  .get();
 
     assertThat(response.getStatus()).isEqualTo(403);
@@ -597,7 +597,7 @@ class AccountControllerTest {
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER_PREAUTH))
                  .request()
-                 .header("X-Forwarded-For", NICE_HOST)
+                 .header(HttpHeaders.X_FORWARDED_FOR, NICE_HOST)
                  .get();
 
     assertThat(response.getStatus()).isEqualTo(402);
@@ -617,7 +617,7 @@ class AccountControllerTest {
                  .queryParam("client", "ios")
                  .queryParam("challenge", "1234-push")
                  .request()
-                 .header("X-Forwarded-For", NICE_HOST)
+                 .header(HttpHeaders.X_FORWARDED_FOR, NICE_HOST)
                  .get();
 
     assertThat(response.getStatus()).isEqualTo(200);
@@ -638,7 +638,7 @@ class AccountControllerTest {
                  .queryParam("client", "android-ng")
                  .queryParam("challenge", "1234-push")
                  .request()
-                 .header("X-Forwarded-For", NICE_HOST)
+                 .header(HttpHeaders.X_FORWARDED_FOR, NICE_HOST)
                  .get();
 
     assertThat(response.getStatus()).isEqualTo(200);
@@ -656,7 +656,7 @@ class AccountControllerTest {
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER))
                  .queryParam("challenge", "1234-push")
                  .request()
-                 .header("X-Forwarded-For", ABUSIVE_HOST)
+                 .header(HttpHeaders.X_FORWARDED_FOR, ABUSIVE_HOST)
                  .get();
 
     assertThat(response.getStatus()).isEqualTo(402);
@@ -676,7 +676,7 @@ class AccountControllerTest {
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER))
                  .queryParam("captcha", VALID_CAPTCHA_TOKEN)
                  .request()
-                 .header("X-Forwarded-For", ABUSIVE_HOST)
+                 .header(HttpHeaders.X_FORWARDED_FOR, ABUSIVE_HOST)
                  .get();
 
     assertThat(response.getStatus()).isEqualTo(200);
@@ -696,7 +696,7 @@ class AccountControllerTest {
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER))
                  .queryParam("captcha", INVALID_CAPTCHA_TOKEN)
                  .request()
-                 .header("X-Forwarded-For", ABUSIVE_HOST)
+                 .header(HttpHeaders.X_FORWARDED_FOR, ABUSIVE_HOST)
                  .get();
 
     assertThat(response.getStatus()).isEqualTo(402);
@@ -713,7 +713,7 @@ class AccountControllerTest {
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER))
                  .queryParam("challenge", "1234-push")
                  .request()
-                 .header("X-Forwarded-For", RATE_LIMITED_IP_HOST)
+                 .header(HttpHeaders.X_FORWARDED_FOR, RATE_LIMITED_IP_HOST)
                  .get();
 
     assertThat(response.getStatus()).isEqualTo(402);
@@ -734,7 +734,7 @@ class AccountControllerTest {
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER_OVER_PREFIX))
                  .queryParam("challenge", "1234-push")
                  .request()
-                 .header("X-Forwarded-For", RATE_LIMITED_PREFIX_HOST)
+                 .header(HttpHeaders.X_FORWARDED_FOR, RATE_LIMITED_PREFIX_HOST)
                  .get();
 
     assertThat(response.getStatus()).isEqualTo(402);
@@ -755,7 +755,7 @@ class AccountControllerTest {
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER))
                  .queryParam("challenge", "1234-push")
                  .request()
-                 .header("X-Forwarded-For", RATE_LIMITED_HOST2)
+                 .header(HttpHeaders.X_FORWARDED_FOR, RATE_LIMITED_HOST2)
                  .get();
 
     assertThat(response.getStatus()).isEqualTo(402);
@@ -776,7 +776,7 @@ class AccountControllerTest {
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER))
                  .queryParam("challenge", "1234-push")
                  .request()
-                 .header("X-Forwarded-For", NICE_HOST + ", " + ABUSIVE_HOST)
+                 .header(HttpHeaders.X_FORWARDED_FOR, NICE_HOST + ", " + ABUSIVE_HOST)
                  .get();
 
     assertThat(response.getStatus()).isEqualTo(402);
@@ -800,7 +800,7 @@ class AccountControllerTest {
                  .target(String.format("/v1/accounts/sms/code/%s", RESTRICTED_NUMBER))
                  .queryParam("challenge", challenge)
                  .request()
-                 .header("X-Forwarded-For", NICE_HOST)
+                 .header(HttpHeaders.X_FORWARDED_FOR, NICE_HOST)
                  .get();
 
     assertThat(response.getStatus()).isEqualTo(402);
@@ -835,7 +835,7 @@ class AccountControllerTest {
             .target(String.format("/v1/accounts/sms/code/%s", number))
             .queryParam("challenge", challenge)
             .request()
-            .header("X-Forwarded-For", NICE_HOST)
+            .header(HttpHeaders.X_FORWARDED_FOR, NICE_HOST)
             .get();
 
     if (expectSendCode) {
@@ -863,7 +863,7 @@ class AccountControllerTest {
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER))
                  .queryParam("challenge", challenge)
                  .request()
-                 .header("X-Forwarded-For", NICE_HOST)
+                 .header(HttpHeaders.X_FORWARDED_FOR, NICE_HOST)
                  .get();
 
     assertThat(response.getStatus()).isEqualTo(200);
@@ -884,7 +884,7 @@ class AccountControllerTest {
         resources.getJerseyTest()
             .target(String.format("/v1/accounts/sms/code/%s", TEST_NUMBER))
             .request()
-            .header("X-Forwarded-For", ABUSIVE_HOST)
+            .header(HttpHeaders.X_FORWARDED_FOR, ABUSIVE_HOST)
             .get();
 
     final ArgumentCaptor<StoredVerificationCode> captor = ArgumentCaptor.forClass(StoredVerificationCode.class);
@@ -1825,7 +1825,7 @@ class AccountControllerTest {
             .target(String.format("/v1/accounts/sms/code/%s", SENDER))
             .queryParam("challenge", "1234-push")
             .request()
-            .header("X-Forwarded-For", NICE_HOST)
+            .header(HttpHeaders.X_FORWARDED_FOR, NICE_HOST)
             .get();
 
     assertThat(response.getStatus()).isEqualTo(expectedResponseStatusCode);
@@ -1861,21 +1861,21 @@ class AccountControllerTest {
     assertThat(resources.getJerseyTest()
         .target(String.format("/v1/accounts/account/%s", accountIdentifier))
         .request()
-        .header("X-Forwarded-For", "127.0.0.1")
+        .header(HttpHeaders.X_FORWARDED_FOR, "127.0.0.1")
         .head()
         .getStatus()).isEqualTo(200);
 
     assertThat(resources.getJerseyTest()
         .target(String.format("/v1/accounts/account/%s", phoneNumberIdentifier))
         .request()
-        .header("X-Forwarded-For", "127.0.0.1")
+        .header(HttpHeaders.X_FORWARDED_FOR, "127.0.0.1")
         .head()
         .getStatus()).isEqualTo(200);
 
     assertThat(resources.getJerseyTest()
         .target(String.format("/v1/accounts/account/%s", UUID.randomUUID()))
         .request()
-        .header("X-Forwarded-For", "127.0.0.1")
+        .header(HttpHeaders.X_FORWARDED_FOR, "127.0.0.1")
         .head()
         .getStatus()).isEqualTo(404);
   }
@@ -1893,7 +1893,7 @@ class AccountControllerTest {
     final Response response = resources.getJerseyTest()
         .target(String.format("/v1/accounts/account/%s", accountIdentifier))
         .request()
-        .header("X-Forwarded-For", "127.0.0.1")
+        .header(HttpHeaders.X_FORWARDED_FOR, "127.0.0.1")
         .head();
 
     assertThat(response.getStatus()).isEqualTo(413);
@@ -1905,7 +1905,7 @@ class AccountControllerTest {
     final Response response = resources.getJerseyTest()
         .target(String.format("/v1/accounts/account/%s", UUID.randomUUID()))
         .request()
-        .header("X-Forwarded-For", "")
+        .header(HttpHeaders.X_FORWARDED_FOR, "")
         .head();
 
     assertThat(response.getStatus()).isEqualTo(413);
@@ -1918,7 +1918,7 @@ class AccountControllerTest {
         .target(String.format("/v1/accounts/account/%s", UUID.randomUUID()))
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .header("X-Forwarded-For", "127.0.0.1")
+        .header(HttpHeaders.X_FORWARDED_FOR, "127.0.0.1")
         .head()
         .getStatus()).isEqualTo(400);
   }
@@ -1933,7 +1933,7 @@ class AccountControllerTest {
     Response response = resources.getJerseyTest()
         .target("v1/accounts/username/n00bkiller.1234")
         .request()
-        .header("X-Forwarded-For", "127.0.0.1")
+        .header(HttpHeaders.X_FORWARDED_FOR, "127.0.0.1")
         .get();
     assertThat(response.getStatus()).isEqualTo(200);
     assertThat(response.readEntity(AccountIdentifierResponse.class).uuid()).isEqualTo(uuid);
@@ -1945,7 +1945,7 @@ class AccountControllerTest {
     assertThat(resources.getJerseyTest()
         .target("v1/accounts/username/n00bkiller.1234")
         .request()
-        .header("X-Forwarded-For", "127.0.0.1")
+        .header(HttpHeaders.X_FORWARDED_FOR, "127.0.0.1")
         .get().getStatus()).isEqualTo(404);
   }
 
@@ -1955,7 +1955,7 @@ class AccountControllerTest {
     final Response response = resources.getJerseyTest()
         .target("/v1/accounts/username/test.123")
         .request()
-        .header("X-Forwarded-For", "127.0.0.1")
+        .header(HttpHeaders.X_FORWARDED_FOR, "127.0.0.1")
         .get();
 
     assertThat(response.getStatus()).isEqualTo(413);

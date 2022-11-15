@@ -48,7 +48,7 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessageAvailabilityListener;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.util.Constants;
-import org.whispersystems.textsecuregcm.util.TimestampHeaderUtil;
+import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.websocket.WebSocketClient;
 import org.whispersystems.websocket.messages.WebSocketResponseMessage;
 import reactor.core.Disposable;
@@ -220,7 +220,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
 
     // X-Signal-Key: false must be sent until Android stops assuming it missing means true
     return client.sendRequest("PUT", "/api/v1/message",
-            List.of("X-Signal-Key: false", TimestampHeaderUtil.getTimestampHeader()), body)
+            List.of(HeaderUtils.X_SIGNAL_KEY + ": false", HeaderUtils.getTimestampHeader()), body)
         .whenComplete((ignored, throwable) -> {
           if (throwable != null) {
             sendFailuresMeter.mark();
@@ -317,7 +317,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
           }
 
           client.sendRequest("PUT", "/api/v1/queue/empty",
-              Collections.singletonList(TimestampHeaderUtil.getTimestampHeader()), Optional.empty());
+              Collections.singletonList(HeaderUtils.getTimestampHeader()), Optional.empty());
         }
       } else {
         storedMessageState.compareAndSet(StoredMessageState.EMPTY, state);

@@ -16,6 +16,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.net.HttpHeaders;
 import io.dropwizard.jersey.DropwizardResourceConfig;
 import io.dropwizard.jersey.jackson.JacksonMessageBodyProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
@@ -83,7 +84,7 @@ class LoggingUnhandledExceptionMapperTest {
     resources.getJerseyTest()
         .target(targetPath)
         .request()
-        .header("User-Agent", userAgentHeader)
+        .header(HttpHeaders.USER_AGENT, userAgentHeader)
         .get();
 
     if (expectException) {
@@ -140,8 +141,8 @@ class LoggingUnhandledExceptionMapperTest {
 
     when(session.getUpgradeRequest()).thenReturn(request);
     when(session.getRemote()).thenReturn(remoteEndpoint);
-    when(request.getHeader("User-Agent")).thenReturn(userAgentHeader);
-    when(request.getHeaders()).thenReturn(Map.of("User-Agent", List.of(userAgentHeader)));
+    when(request.getHeader(HttpHeaders.USER_AGENT)).thenReturn(userAgentHeader);
+    when(request.getHeaders()).thenReturn(Map.of(HttpHeaders.USER_AGENT, List.of(userAgentHeader)));
 
     return provider;
   }

@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.controllers;
 import static com.codahale.metrics.MetricRegistry.name;
 
 import com.codahale.metrics.annotation.Timed;
+import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
@@ -94,7 +95,7 @@ public class KeysController {
   public void setKeys(@Auth final DisabledPermittedAuthenticatedAccount disabledPermittedAuth,
       @NotNull @Valid final PreKeyState preKeys,
       @QueryParam("identity") final Optional<String> identityType,
-      @HeaderParam("User-Agent") String userAgent) {
+      @HeaderParam(HttpHeaders.USER_AGENT) String userAgent) {
     Account account = disabledPermittedAuth.getAccount();
     Device device = disabledPermittedAuth.getAuthenticatedDevice();
     boolean updateAccount = false;
@@ -151,7 +152,7 @@ public class KeysController {
       @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
       @PathParam("identifier") UUID targetUuid,
       @PathParam("device_id") String deviceId,
-      @HeaderParam("User-Agent") String userAgent)
+      @HeaderParam(HttpHeaders.USER_AGENT) String userAgent)
       throws RateLimitExceededException {
 
     if (!auth.isPresent() && !accessKey.isPresent()) {

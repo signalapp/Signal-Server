@@ -13,6 +13,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.google.common.net.HttpHeaders;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -264,7 +265,7 @@ class PushNotificationManagerTest {
     final UUID accountIdentifier = UUID.randomUUID();
     final Account account = mock(Account.class);
     final Device device = mock(Device.class);
-    final String userAgent = "User-Agent";
+    final String userAgent = HttpHeaders.USER_AGENT;
 
     when(account.getUuid()).thenReturn(accountIdentifier);
     when(device.getId()).thenReturn(Device.MASTER_ID);

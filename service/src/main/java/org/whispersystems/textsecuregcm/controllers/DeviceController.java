@@ -6,6 +6,7 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import com.codahale.metrics.annotation.Timed;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.Auth;
 import java.security.SecureRandom;
 import java.util.LinkedList;
@@ -148,8 +149,8 @@ public class DeviceController {
   @Path("/{verification_code}")
   @ChangesDeviceEnabledState
   public DeviceResponse verifyDeviceToken(@PathParam("verification_code") String verificationCode,
-      @HeaderParam("Authorization") BasicAuthorizationHeader authorizationHeader,
-      @HeaderParam("User-Agent") String userAgent,
+      @HeaderParam(HttpHeaders.AUTHORIZATION) BasicAuthorizationHeader authorizationHeader,
+      @HeaderParam(HttpHeaders.USER_AGENT) String userAgent,
       @NotNull @Valid AccountAttributes accountAttributes,
       @Context ContainerRequest containerRequest)
       throws RateLimitExceededException, DeviceLimitExceededException {

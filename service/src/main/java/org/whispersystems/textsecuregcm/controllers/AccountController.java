@@ -11,6 +11,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.annotation.Timed;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.net.HttpHeaders;
 import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
@@ -22,7 +23,6 @@ import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -101,8 +101,8 @@ import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.storage.UsernameNotAvailableException;
 import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundException;
 import org.whispersystems.textsecuregcm.util.Constants;
-import org.whispersystems.textsecuregcm.util.ForwardedIpUtil;
 import org.whispersystems.textsecuregcm.util.Hex;
+import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.ImpossiblePhoneNumberException;
 import org.whispersystems.textsecuregcm.util.NonNormalizedPhoneNumberException;
 import org.whispersystems.textsecuregcm.util.Optionals;
@@ -256,9 +256,9 @@ public class AccountController {
   @Produces(MediaType.APPLICATION_JSON)
   public Response createAccount(@PathParam("transport")         String transport,
                                 @PathParam("number")            String number,
-                                @HeaderParam("X-Forwarded-For") String forwardedFor,
-                                @HeaderParam("User-Agent")      String userAgent,
-                                @HeaderParam("Accept-Language") Optional<String> acceptLanguage,
+                                @HeaderParam(HttpHeaders.X_FORWARDED_FOR) String forwardedFor,
+                                @HeaderParam(HttpHeaders.USER_AGENT)      String userAgent,
+                                @HeaderParam(HttpHeaders.ACCEPT_LANGUAGE) Optional<String> acceptLanguage,
                                 @QueryParam("client")           Optional<String> client,
                                 @QueryParam("captcha")          Optional<String> captcha,
                                 @QueryParam("challenge")        Optional<String> pushChallenge)
@@ -266,7 +266,7 @@ public class AccountController {
 
     Util.requireNormalizedNumber(number);
 
-    final String sourceHost = ForwardedIpUtil.getMostRecentProxy(forwardedFor).orElseThrow();
+    final String sourceHost = HeaderUtils.getMostRecentProxy(forwardedFor).orElseThrow();
     final Optional<StoredVerificationCode> maybeStoredVerificationCode = pendingAccounts.getCodeForNumber(number);
 
     final String countryCode = Util.getCountryCode(number);
@@ -369,9 +369,9 @@ public class AccountController {
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/code/{verification_code}")
   public AccountIdentityResponse verifyAccount(@PathParam("verification_code") String verificationCode,
-                                             @HeaderParam("Authorization") BasicAuthorizationHeader authorizationHeader,
-                                             @HeaderParam("X-Signal-Agent") String signalAgent,
-                                             @HeaderParam("User-Agent") String userAgent,
+                                             @HeaderParam(HttpHeaders.AUTHORIZATION) BasicAuthorizationHeader authorizationHeader,
+                                             @HeaderParam(HeaderUtils.X_SIGNAL_AGENT) String signalAgent,
+                                             @HeaderParam(HttpHeaders.USER_AGENT) String userAgent,
                                              @QueryParam("transfer") Optional<Boolean> availableForTransfer,
                                              @NotNull @Valid AccountAttributes accountAttributes)
       throws RateLimitExceededException, InterruptedException {
@@ -433,7 +433,7 @@ public class AccountController {
   @Produces(MediaType.APPLICATION_JSON)
   public AccountIdentityResponse changeNumber(@Auth final AuthenticatedAccount authenticatedAccount,
       @NotNull @Valid final ChangePhoneNumberRequest request,
-      @HeaderParam("User-Agent") String userAgent)
+      @HeaderParam(HttpHeaders.USER_AGENT) String userAgent)
       throws RateLimitExceededException, InterruptedException, ImpossiblePhoneNumberException, NonNormalizedPhoneNumberException {
 
     if (!authenticatedAccount.getAuthenticatedDevice().isMaster()) {
@@ -622,7 +622,7 @@ public class AccountController {
   @Produces(MediaType.APPLICATION_JSON)
   @ChangesDeviceEnabledState
   public void setAccountAttributes(@Auth DisabledPermittedAuthenticatedAccount disabledPermittedAuth,
-      @HeaderParam("X-Signal-Agent") String userAgent,
+      @HeaderParam(HeaderUtils.X_SIGNAL_AGENT) String userAgent,
       @NotNull @Valid AccountAttributes attributes) {
     Account account = disabledPermittedAuth.getAccount();
     long deviceId = disabledPermittedAuth.getAuthenticatedDevice().getId();
@@ -678,7 +678,7 @@ public class AccountController {
   @Produces(MediaType.APPLICATION_JSON)
   @Consumes(MediaType.APPLICATION_JSON)
   public ReserveUsernameResponse reserveUsername(@Auth AuthenticatedAccount auth,
-      @HeaderParam("X-Signal-Agent") String userAgent,
+      @HeaderParam(HeaderUtils.X_SIGNAL_AGENT) String userAgent,
       @NotNull @Valid ReserveUsernameRequest usernameRequest) throws RateLimitExceededException {
 
     rateLimiters.getUsernameReserveLimiter().validate(auth.getAccount().getUuid());
@@ -700,7 +700,7 @@ public class AccountController {
   @Produces(MediaType.APPLICATION_JSON)
   @Consumes(MediaType.APPLICATION_JSON)
   public UsernameResponse confirmUsername(@Auth AuthenticatedAccount auth,
-      @HeaderParam("X-Signal-Agent") String userAgent,
+      @HeaderParam(HeaderUtils.X_SIGNAL_AGENT) String userAgent,
       @NotNull @Valid ConfirmUsernameRequest confirmRequest) throws RateLimitExceededException {
     rateLimiters.getUsernameSetLimiter().validate(auth.getAccount().getUuid());
 
@@ -724,7 +724,7 @@ public class AccountController {
   @Consumes(MediaType.APPLICATION_JSON)
   public UsernameResponse setUsername(
       @Auth AuthenticatedAccount auth,
-      @HeaderParam("X-Signal-Agent") String userAgent,
+      @HeaderParam(HeaderUtils.X_SIGNAL_AGENT) String userAgent,
       @NotNull @Valid UsernameRequest usernameRequest) throws RateLimitExceededException {
     rateLimiters.getUsernameSetLimiter().validate(auth.getAccount().getUuid());
     checkUsername(usernameRequest.existingUsername(), userAgent);
@@ -746,8 +746,8 @@ public class AccountController {
   @Path("/username/{username}")
   @Produces(MediaType.APPLICATION_JSON)
   public AccountIdentifierResponse lookupUsername(
-      @HeaderParam("X-Signal-Agent") final String userAgent,
-      @HeaderParam("X-Forwarded-For") final String forwardedFor,
+      @HeaderParam(HeaderUtils.X_SIGNAL_AGENT) final String userAgent,
+      @HeaderParam(HttpHeaders.X_FORWARDED_FOR) final String forwardedFor,
       @PathParam("username") final String username,
       @Context final HttpServletRequest request) throws RateLimitExceededException {
 
@@ -770,7 +770,7 @@ public class AccountController {
   @HEAD
   @Path("/account/{uuid}")
   public Response accountExists(
-      @HeaderParam("X-Forwarded-For") final String forwardedFor,
+      @HeaderParam(HttpHeaders.X_FORWARDED_FOR) final String forwardedFor,
       @PathParam("uuid") final UUID uuid,
       @Context HttpServletRequest request) throws RateLimitExceededException {
 
@@ -788,7 +788,7 @@ public class AccountController {
   }
 
   private void rateLimitByClientIp(final RateLimiter rateLimiter, final String forwardedFor) throws RateLimitExceededException {
-    final String mostRecentProxy = ForwardedIpUtil.getMostRecentProxy(forwardedFor)
+    final String mostRecentProxy = HeaderUtils.getMostRecentProxy(forwardedFor)
         .orElseThrow(() -> {
           // Missing/malformed Forwarded-For, so we cannot check for a rate-limit.
           // This shouldn't happen, so conservatively assume we're over the rate-limit

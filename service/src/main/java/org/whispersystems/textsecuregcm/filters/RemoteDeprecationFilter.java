@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.filters;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
+import com.google.common.net.HttpHeaders;
 import com.vdurmont.semver4j.Semver;
 import io.micrometer.core.instrument.Metrics;
 import java.io.IOException;
@@ -63,7 +64,7 @@ public class RemoteDeprecationFilter implements Filter {
     boolean shouldBlock = false;
 
     try {
-      final String userAgentString = ((HttpServletRequest) request).getHeader("User-Agent");
+      final String userAgentString = ((HttpServletRequest) request).getHeader(HttpHeaders.USER_AGENT);
       final UserAgent userAgent = UserAgentUtil.parseUserAgentString(userAgentString);
 
       if (blockedVersionsByPlatform.containsKey(userAgent.getPlatform())) {

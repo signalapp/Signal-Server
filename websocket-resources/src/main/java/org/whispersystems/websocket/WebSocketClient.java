@@ -4,6 +4,14 @@
  */
 package org.whispersystems.websocket;
 
+import com.google.common.net.HttpHeaders;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.security.SecureRandom;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import org.eclipse.jetty.websocket.api.RemoteEndpoint;
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.WebSocketException;
@@ -13,14 +21,6 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.websocket.messages.WebSocketMessage;
 import org.whispersystems.websocket.messages.WebSocketMessageFactory;
 import org.whispersystems.websocket.messages.WebSocketResponseMessage;
-
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.security.SecureRandom;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class WebSocketClient {
@@ -76,7 +76,7 @@ public class WebSocketClient {
   }
 
   public String getUserAgent() {
-    return session.getUpgradeRequest().getHeader("User-Agent");
+    return session.getUpgradeRequest().getHeader(HttpHeaders.USER_AGENT);
   }
 
   public long getCreatedTimestamp() {

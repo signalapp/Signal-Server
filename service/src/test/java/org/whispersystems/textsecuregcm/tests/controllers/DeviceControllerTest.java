@@ -17,6 +17,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
@@ -313,7 +314,7 @@ class DeviceControllerTest {
         .target("/v1/devices/5678901")
         .request()
         .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
-        .header("User-Agent", userAgent)
+        .header(HttpHeaders.USER_AGENT, userAgent)
         .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(expectedStatus);
@@ -354,7 +355,7 @@ class DeviceControllerTest {
                                  .target("/v1/devices/5678901")
                                  .request()
                                  .header("authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
-                                 .header("user-agent", "Signal-Android/4.68.3 Android/25")
+                                 .header(HttpHeaders.USER_AGENT, "Signal-Android/4.68.3 Android/25")
                                  .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(409);
@@ -365,7 +366,7 @@ class DeviceControllerTest {
                         .target("/v1/devices/5678901")
                         .request()
                         .header("authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
-                        .header("user-agent", "Signal-Android/4.68.3 Android/25")
+                        .header(HttpHeaders.USER_AGENT, "Signal-Android/4.68.3 Android/25")
                         .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(200);
@@ -382,7 +383,7 @@ class DeviceControllerTest {
         .target("/v1/devices/5678901")
         .request()
         .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-        .header("User-Agent", "Signal-Android/5.42.8675309 Android/30")
+        .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
         .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatus()).isEqualTo(409);
 
@@ -393,7 +394,7 @@ class DeviceControllerTest {
         .target("/v1/devices/5678901")
         .request()
         .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-        .header("User-Agent", "Signal-Android/5.42.8675309 Android/30")
+        .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
         .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatus()).isEqualTo(200);
   }
@@ -409,7 +410,7 @@ class DeviceControllerTest {
         .target("/v1/devices/5678901")
         .request()
         .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-        .header("User-Agent", "Signal-Android/5.42.8675309 Android/30")
+        .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
         .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatus()).isEqualTo(409);
 
@@ -420,7 +421,7 @@ class DeviceControllerTest {
         .target("/v1/devices/5678901")
         .request()
         .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-        .header("User-Agent", "Signal-Android/5.42.8675309 Android/30")
+        .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
         .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatus()).isEqualTo(200);
   }
@@ -437,7 +438,7 @@ class DeviceControllerTest {
         .request()
         .header("Authorization",
             AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-        .header("User-Agent", "Signal-Android/5.42.8675309 Android/30")
+        .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
         .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatus()).isEqualTo(409);
 
@@ -449,7 +450,7 @@ class DeviceControllerTest {
         .request()
         .header("Authorization",
             AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-        .header("User-Agent", "Signal-Android/5.42.8675309 Android/30")
+        .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
         .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatus()).isEqualTo(200);
   }
@@ -465,7 +466,7 @@ class DeviceControllerTest {
         .target("/v1/devices/5678901")
         .request()
         .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-        .header("User-Agent", "Signal-Android/5.42.8675309 Android/30")
+        .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
         .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatus()).isEqualTo(409);
 
@@ -477,7 +478,7 @@ class DeviceControllerTest {
         .request()
         .header("Authorization",
             AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-        .header("User-Agent", "Signal-Android/5.42.8675309 Android/30")
+        .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
         .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatus()).isEqualTo(200);
   }
@@ -494,7 +495,7 @@ class DeviceControllerTest {
         .request()
         .header("Authorization",
             AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-        .header("User-Agent", "Signal-Android/5.42.8675309 Android/30")
+        .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
         .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatus()).isEqualTo(409);
 
@@ -506,7 +507,7 @@ class DeviceControllerTest {
         .request()
         .header("Authorization",
             AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-        .header("User-Agent", "Signal-Android/5.42.8675309 Android/30")
+        .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
         .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatus()).isEqualTo(200);
   }
@@ -520,7 +521,7 @@ class DeviceControllerTest {
         .target("/v1/devices/5678901")
         .request()
         .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-        .header("User-Agent", "Signal-Android/5.42.8675309 Android/30")
+        .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
         .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatus()).isEqualTo(409);
 
@@ -532,7 +533,7 @@ class DeviceControllerTest {
         .request()
         .header("Authorization",
             AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-        .header("User-Agent", "Signal-Android/5.42.8675309 Android/30")
+        .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
         .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatus()).isEqualTo(200);
   }
@@ -550,7 +551,7 @@ class DeviceControllerTest {
         .target("/v1/devices/" + deviceId)
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .header("User-Agent", "Signal-Android/5.42.8675309 Android/30")
+        .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
         .delete();
 
     assertThat(response.getStatus()).isEqualTo(204);

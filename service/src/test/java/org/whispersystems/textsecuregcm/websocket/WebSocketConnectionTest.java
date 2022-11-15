@@ -24,6 +24,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 
+import com.google.common.net.HttpHeaders;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.dropwizard.auth.basic.BasicCredentials;
@@ -170,7 +171,7 @@ class WebSocketConnectionTest {
     when(accountsManager.getByE164("sender1")).thenReturn(Optional.of(sender1));
     when(accountsManager.getByE164("sender2")).thenReturn(Optional.empty());
 
-    String userAgent = "user-agent";
+    String userAgent = HttpHeaders.USER_AGENT;
 
     when(storedMessages.getMessagesForDeviceReactive(account.getUuid(), device.getId(), false))
         .thenReturn(Flux.fromIterable(outgoingMessages));
@@ -318,7 +319,7 @@ class WebSocketConnectionTest {
     when(accountsManager.getByE164("sender1")).thenReturn(Optional.of(sender1));
     when(accountsManager.getByE164("sender2")).thenReturn(Optional.empty());
 
-    String userAgent = "user-agent";
+    String userAgent = HttpHeaders.USER_AGENT;
 
     when(storedMessages.getMessagesForDeviceReactive(account.getUuid(), device.getId(), false))
         .thenReturn(Flux.fromIterable(pendingMessages));

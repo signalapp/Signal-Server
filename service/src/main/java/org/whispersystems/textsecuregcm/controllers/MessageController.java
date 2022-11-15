@@ -8,6 +8,7 @@ import static com.codahale.metrics.MetricRegistry.name;
 
 import com.codahale.metrics.annotation.Timed;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.net.HttpHeaders;
 import com.google.protobuf.ByteString;
 import io.dropwizard.auth.Auth;
 import io.dropwizard.util.DataSize;
@@ -166,8 +167,8 @@ public class MessageController {
   @FilterAbusiveMessages
   public Response sendMessage(@Auth Optional<AuthenticatedAccount> source,
       @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
-      @HeaderParam("User-Agent") String userAgent,
-      @HeaderParam("X-Forwarded-For") String forwardedFor,
+      @HeaderParam(HttpHeaders.USER_AGENT) String userAgent,
+      @HeaderParam(HttpHeaders.X_FORWARDED_FOR) String forwardedFor,
       @PathParam("destination") UUID destinationUuid,
       @QueryParam("story") boolean isStory,
       @NotNull @Valid IncomingMessageList messages)
@@ -324,8 +325,8 @@ public class MessageController {
   @FilterAbusiveMessages
   public Response sendMultiRecipientMessage(
       @HeaderParam(OptionalAccess.UNIDENTIFIED) @Nullable CombinedUnidentifiedSenderAccessKeys accessKeys,
-      @HeaderParam("User-Agent") String userAgent,
-      @HeaderParam("X-Forwarded-For") String forwardedFor,
+      @HeaderParam(HttpHeaders.USER_AGENT) String userAgent,
+      @HeaderParam(HttpHeaders.X_FORWARDED_FOR) String forwardedFor,
       @QueryParam("online") boolean online,
       @QueryParam("ts") long timestamp,
       @QueryParam("urgent") @DefaultValue("true") final boolean isUrgent,
@@ -486,7 +487,7 @@ public class MessageController {
   @Produces(MediaType.APPLICATION_JSON)
   public CompletableFuture<OutgoingMessageEntityList> getPendingMessages(@Auth AuthenticatedAccount auth,
       @HeaderParam(Stories.X_SIGNAL_RECEIVE_STORIES) String receiveStoriesHeader,
-      @HeaderParam("User-Agent") String userAgent) {
+      @HeaderParam(HttpHeaders.USER_AGENT) String userAgent) {
 
     boolean shouldReceiveStories = Stories.parseReceiveStoriesHeader(receiveStoriesHeader);
 

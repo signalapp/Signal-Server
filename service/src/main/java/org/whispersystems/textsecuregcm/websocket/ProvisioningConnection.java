@@ -6,16 +6,15 @@
 package org.whispersystems.textsecuregcm.websocket;
 
 import com.google.protobuf.InvalidProtocolBufferException;
+import java.util.Collections;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.dispatch.DispatchChannel;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.ProvisioningUuid;
 import org.whispersystems.textsecuregcm.storage.PubSubProtos.PubSubMessage;
-import org.whispersystems.textsecuregcm.util.TimestampHeaderUtil;
+import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.websocket.WebSocketClient;
-
-import java.util.Collections;
-import java.util.Optional;
 
 public class ProvisioningConnection implements DispatchChannel {
 
@@ -35,7 +34,7 @@ public class ProvisioningConnection implements DispatchChannel {
       if (outgoingMessage.getType() == PubSubMessage.Type.DELIVER) {
         Optional<byte[]> body = Optional.of(outgoingMessage.getContent().toByteArray());
 
-        client.sendRequest("PUT", "/v1/message", Collections.singletonList(TimestampHeaderUtil.getTimestampHeader()), body)
+        client.sendRequest("PUT", "/v1/message", Collections.singletonList(HeaderUtils.getTimestampHeader()), body)
               .thenAccept(response -> client.close(1001, "All you get."))
               .exceptionally(throwable -> {
                 client.close(1001, "That's all!");
@@ -51,7 +50,7 @@ public class ProvisioningConnection implements DispatchChannel {
   public void onDispatchSubscribed(String channel) {
     try {
       ProvisioningAddress address = new ProvisioningAddress(channel);
-      this.client.sendRequest("PUT", "/v1/address", Collections.singletonList(TimestampHeaderUtil.getTimestampHeader()),
+      this.client.sendRequest("PUT", "/v1/address", Collections.singletonList(HeaderUtils.getTimestampHeader()),
               Optional.of(ProvisioningUuid.newBuilder()
                       .setUuid(address.getAddress())
                       .build()

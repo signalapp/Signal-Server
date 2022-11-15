@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Signal Messenger, LLC
+ * Copyright 2022 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -10,15 +10,21 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 
-/**
- * Tools for working with chains of IP addresses in forwarding lists in HTTP headers.
- *
- * @see <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Forwarded-For">X-Forwarded-For - HTTP | MDN</a>
- */
-public final class ForwardedIpUtil {
+public final class HeaderUtils {
 
-  private ForwardedIpUtil() {
+  public static final String X_SIGNAL_AGENT = "X-Signal-Agent";
+
+  public static final String X_SIGNAL_KEY = "X-Signal-Key";
+
+  public static final String TIMESTAMP_HEADER = "X-Signal-Timestamp";
+
+  private HeaderUtils() {
     // utility class
+  }
+
+  @Nonnull
+  public static String getTimestampHeader() {
+    return TIMESTAMP_HEADER + ":" + System.currentTimeMillis();
   }
 
   /**
@@ -28,6 +34,8 @@ public final class ForwardedIpUtil {
    *
    * @return the IP address of the most recent proxy in the forwarding chain, or empty if none was found or
    * {@code forwardedFor} was null
+   *
+   * @see <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Forwarded-For">X-Forwarded-For - HTTP | MDN</a>
    */
   @Nonnull
   public static Optional<String> getMostRecentProxy(@Nullable final String forwardedFor) {

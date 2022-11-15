@@ -15,6 +15,7 @@ import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
@@ -107,7 +108,7 @@ class ChallengeControllerTest {
 
     final Response response = EXTENSION.target("/v1/challenge")
         .request()
-        .header("X-Forwarded-For", "10.0.0.1")
+        .header(HttpHeaders.X_FORWARDED_FOR, "10.0.0.1")
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .put(Entity.json(recaptchaChallengeJson));
 
@@ -130,7 +131,7 @@ class ChallengeControllerTest {
 
     final Response response = EXTENSION.target("/v1/challenge")
         .request()
-        .header("X-Forwarded-For", "10.0.0.1")
+        .header(HttpHeaders.X_FORWARDED_FOR, "10.0.0.1")
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .put(Entity.json(recaptchaChallengeJson));
 
@@ -167,7 +168,7 @@ class ChallengeControllerTest {
 
     final Response response = EXTENSION.target("/v1/challenge")
         .request()
-        .header("X-Forwarded-For", "10.0.0.1")
+        .header(HttpHeaders.X_FORWARDED_FOR, "10.0.0.1")
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .put(Entity.json(unrecognizedJson));
 

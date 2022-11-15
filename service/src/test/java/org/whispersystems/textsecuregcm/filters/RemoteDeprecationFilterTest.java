@@ -12,6 +12,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.google.common.net.HttpHeaders;
 import com.vdurmont.semver4j.Semver;
 import java.io.IOException;
 import java.util.EnumMap;
@@ -100,7 +101,7 @@ class RemoteDeprecationFilterTest {
       final HttpServletResponse servletResponse = mock(HttpServletResponse.class);
       final FilterChain filterChain = mock(FilterChain.class);
 
-      when(servletRequest.getHeader("User-Agent")).thenReturn(userAgent);
+      when(servletRequest.getHeader(HttpHeaders.USER_AGENT)).thenReturn(userAgent);
 
       final RemoteDeprecationFilter filter = new RemoteDeprecationFilter(dynamicConfigurationManager);
       filter.doFilter(servletRequest, servletResponse, filterChain);

@@ -317,7 +317,7 @@ public class ProfileController {
       @Auth Optional<AuthenticatedAccount> auth,
       @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
       @Context ContainerRequestContext containerRequestContext,
-      @HeaderParam("User-Agent") String userAgent,
+      @HeaderParam(HttpHeaders.USER_AGENT) String userAgent,
       @PathParam("identifier") UUID identifier,
       @QueryParam("ca") boolean useCaCertificate)
       throws RateLimitExceededException {

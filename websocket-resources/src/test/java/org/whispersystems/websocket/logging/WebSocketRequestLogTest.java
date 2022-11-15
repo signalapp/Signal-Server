@@ -10,6 +10,7 @@ import static org.mockito.Mockito.mock;
 import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.core.OutputStreamAppender;
 import ch.qos.logback.core.spi.DeferredProcessingAware;
+import com.google.common.net.HttpHeaders;
 import io.dropwizard.logging.AbstractOutputStreamAppenderFactory;
 import java.io.ByteArrayOutputStream;
 import java.net.URI;
@@ -78,7 +79,7 @@ public class WebSocketRequestLogTest {
     ContainerRequest request = new ContainerRequest(null, URI.create("/v1/test"), "GET",
         new WebSocketSecurityContext(new ContextPrincipal(sessionContext)), new MapPropertiesDelegate(new HashMap<>()),
         null);
-    request.header("User-Agent", "SmertZeSmert");
+    request.header(HttpHeaders.USER_AGENT, "SmertZeSmert");
     request.header("Referer", "https://moxie.org");
     ContainerResponse response = new ContainerResponse(request, Response.ok("My response body").build());
 

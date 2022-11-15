@@ -7,11 +7,17 @@ package org.whispersystems.textsecuregcm.metrics;
 
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.net.HttpHeaders;
 import com.vdurmont.semver4j.Semver;
 import com.vdurmont.semver4j.SemverException;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.glassfish.jersey.server.monitoring.RequestEvent;
 import org.glassfish.jersey.server.monitoring.RequestEventListener;
 import org.whispersystems.textsecuregcm.util.logging.UriInfoUtil;
@@ -19,12 +25,6 @@ import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
 import org.whispersystems.textsecuregcm.util.ua.UserAgent;
 import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Gathers and reports request-level metrics.
@@ -75,7 +75,7 @@ public class MetricsRequestEventListener implements RequestEventListener {
                 tags.add(Tag.of(STATUS_CODE_TAG, String.valueOf(event.getContainerResponse().getStatus())));
                 tags.add(Tag.of(TRAFFIC_SOURCE_TAG, trafficSource.name().toLowerCase()));
 
-                final List<String> userAgentValues = event.getContainerRequest().getRequestHeader("User-Agent");
+                final List<String> userAgentValues = event.getContainerRequest().getRequestHeader(HttpHeaders.USER_AGENT);
                 // tags.addAll(UserAgentTagUtil.getUserAgentTags(userAgentValues != null ? userAgentValues.stream().findFirst().orElse(null) : null));
                 tags.add(UserAgentTagUtil.getPlatformTag(userAgentValues != null ? userAgentValues.stream().findFirst().orElse(null) : null));
 
