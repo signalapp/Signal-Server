@@ -672,19 +672,23 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             ReceiptCredentialPresentation::new),
         new MessageController(rateLimiters, messageSender, receiptSender, accountsManager, deletedAccountsManager, messagesManager, pushNotificationManager, reportMessageManager, multiRecipientMessageExecutor),
         new PaymentsController(currencyManager, paymentsCredentialsGenerator),
-        new ProfileController(clock, rateLimiters, accountsManager, profilesManager, dynamicConfigurationManager, profileBadgeConverter, config.getBadges(), cdnS3Client, profileCdnPolicyGenerator, profileCdnPolicySigner, config.getCdnConfiguration().getBucket(), zkProfileOperations, batchIdentityCheckExecutor),
+        new ProfileController(clock, rateLimiters, accountsManager, profilesManager, dynamicConfigurationManager,
+            profileBadgeConverter, config.getBadges(), cdnS3Client, profileCdnPolicyGenerator, profileCdnPolicySigner,
+            config.getCdnConfiguration().getBucket(), zkProfileOperations, batchIdentityCheckExecutor),
         new ProvisioningController(rateLimiters, provisioningManager),
-        new RemoteConfigController(remoteConfigsManager, adminEventLogger, config.getRemoteConfigConfiguration().getAuthorizedTokens(), config.getRemoteConfigConfiguration().getGlobalConfig()),
+        new RemoteConfigController(remoteConfigsManager, adminEventLogger,
+            config.getRemoteConfigConfiguration().getAuthorizedTokens(),
+            config.getRemoteConfigConfiguration().getGlobalConfig()),
         new SecureBackupController(backupCredentialsGenerator),
         new SecureStorageController(storageCredentialsGenerator),
         new StickerController(rateLimiters, config.getCdnConfiguration().getAccessKey(),
             config.getCdnConfiguration().getAccessSecret(), config.getCdnConfiguration().getRegion(),
             config.getCdnConfiguration().getBucket())
     );
-    if (config.getSubscription() != null && config.getBoost() != null) {
-      commonControllers.add(new SubscriptionController(clock, config.getSubscription(), config.getBoost(),
-          config.getGift(), subscriptionManager, stripeManager, zkReceiptOperations, issuedReceiptsManager,
-          profileBadgeConverter, resourceBundleLevelTranslator));
+    if (config.getSubscription() != null && config.getOneTimeDonations() != null) {
+      commonControllers.add(new SubscriptionController(clock, config.getSubscription(), config.getOneTimeDonations(),
+          subscriptionManager, stripeManager, zkReceiptOperations, issuedReceiptsManager, profileBadgeConverter,
+          resourceBundleLevelTranslator));
     }
 
     for (Object controller : commonControllers) {

@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.subscriptions;
 
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 public interface SubscriptionProcessorManager {
@@ -16,4 +17,6 @@ public interface SubscriptionProcessorManager {
   CompletableFuture<ProcessorCustomer> createCustomer(byte[] subscriberUser);
 
   CompletableFuture<String> createPaymentMethodSetupToken(String customerId);
+
+  Set<String> getSupportedCurrencies();
 }

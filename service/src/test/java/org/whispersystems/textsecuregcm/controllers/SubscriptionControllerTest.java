@@ -15,12 +15,15 @@ import static org.mockito.Mockito.when;
 import static org.whispersystems.textsecuregcm.util.AttributeValues.b;
 import static org.whispersystems.textsecuregcm.util.AttributeValues.n;
 
+import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.stripe.exception.ApiException;
 import com.stripe.model.Subscription;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Arrays;
@@ -32,6 +35,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.function.Predicate;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.Response;
 import org.glassfish.jersey.server.ServerProperties;
@@ -46,16 +50,15 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.badges.BadgeTranslator;
 import org.whispersystems.textsecuregcm.badges.LevelTranslator;
-import org.whispersystems.textsecuregcm.configuration.BoostConfiguration;
-import org.whispersystems.textsecuregcm.configuration.GiftConfiguration;
+import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
-import org.whispersystems.textsecuregcm.configuration.SubscriptionLevelConfiguration;
-import org.whispersystems.textsecuregcm.configuration.SubscriptionPriceConfiguration;
 import org.whispersystems.textsecuregcm.controllers.SubscriptionController.GetLevelsResponse;
+import org.whispersystems.textsecuregcm.controllers.SubscriptionController.GetSubscriptionConfigurationResponse;
 import org.whispersystems.textsecuregcm.entities.Badge;
 import org.whispersystems.textsecuregcm.entities.BadgeSvg;
 import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
+import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessor;
@@ -67,17 +70,31 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 class SubscriptionControllerTest {
 
   private static final Clock CLOCK = mock(Clock.class);
-  private static final SubscriptionConfiguration SUBSCRIPTION_CONFIG = mock(SubscriptionConfiguration.class);
-  private static final BoostConfiguration BOOST_CONFIG = mock(BoostConfiguration.class);
-  private static final GiftConfiguration GIFT_CONFIG = mock(GiftConfiguration.class);
+
+  private static final YAMLMapper YAML_MAPPER = new YAMLMapper();
+
+  static {
+    YAML_MAPPER.registerModule(new JavaTimeModule());
+  }
+
+  private static final SubscriptionConfiguration SUBSCRIPTION_CONFIG = ConfigHelper.getSubscriptionConfig();
+  private static final OneTimeDonationConfiguration ONETIME_CONFIG = ConfigHelper.getOneTimeConfig();
   private static final SubscriptionManager SUBSCRIPTION_MANAGER = mock(SubscriptionManager.class);
   private static final StripeManager STRIPE_MANAGER = mock(StripeManager.class);
+
+  static {
+    when(STRIPE_MANAGER.getSupportedCurrencies())
+        .thenCallRealMethod();
+    when(STRIPE_MANAGER.supportsPaymentMethod(PaymentMethod.CARD))
+        .thenCallRealMethod();
+  }
+
   private static final ServerZkReceiptOperations ZK_OPS = mock(ServerZkReceiptOperations.class);
   private static final IssuedReceiptsManager ISSUED_RECEIPTS_MANAGER = mock(IssuedReceiptsManager.class);
   private static final BadgeTranslator BADGE_TRANSLATOR = mock(BadgeTranslator.class);
   private static final LevelTranslator LEVEL_TRANSLATOR = mock(LevelTranslator.class);
   private static final SubscriptionController SUBSCRIPTION_CONTROLLER = new SubscriptionController(
-      CLOCK, SUBSCRIPTION_CONFIG, BOOST_CONFIG, GIFT_CONFIG, SUBSCRIPTION_MANAGER, STRIPE_MANAGER, ZK_OPS,
+      CLOCK, SUBSCRIPTION_CONFIG, ONETIME_CONFIG, SUBSCRIPTION_MANAGER, STRIPE_MANAGER, ZK_OPS,
       ISSUED_RECEIPTS_MANAGER, BADGE_TRANSLATOR, LEVEL_TRANSLATOR);
   private static final ResourceExtension RESOURCE_EXTENSION = ResourceExtension.builder()
       .addProperty(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE)
@@ -96,7 +113,7 @@ class SubscriptionControllerTest {
 
   @AfterEach
   void tearDown() {
-    reset(CLOCK, SUBSCRIPTION_CONFIG, SUBSCRIPTION_MANAGER, STRIPE_MANAGER, ZK_OPS, ISSUED_RECEIPTS_MANAGER,
+    reset(CLOCK, SUBSCRIPTION_MANAGER, STRIPE_MANAGER, ZK_OPS, ISSUED_RECEIPTS_MANAGER,
         BADGE_TRANSLATOR, LEVEL_TRANSLATOR);
   }
 
@@ -121,7 +138,7 @@ class SubscriptionControllerTest {
   class SetSubscriptionLevel {
 
     private final long levelId = 5L;
-    private final String currency = "eur";
+    private final String currency = "jpy";
 
     private String subscriberId;
 
@@ -144,15 +161,6 @@ class SubscriptionControllerTest {
           Arrays.copyOfRange(subscriberUserAndKey, 0, 16), dynamoItem);
       when(SUBSCRIPTION_MANAGER.get(eq(Arrays.copyOfRange(subscriberUserAndKey, 0, 16)), any()))
           .thenReturn(CompletableFuture.completedFuture(SubscriptionManager.GetResult.found(record)));
-
-      final SubscriptionLevelConfiguration levelConfig = mock(SubscriptionLevelConfiguration.class);
-      when(SUBSCRIPTION_CONFIG.getLevels())
-          .thenReturn(Map.of(levelId, levelConfig));
-
-      final SubscriptionPriceConfiguration priceConfig = new SubscriptionPriceConfiguration("testPriceId",
-          BigDecimal.TEN);
-      when(levelConfig.getPrices())
-          .thenReturn(Map.of(currency, priceConfig));
 
       when(SUBSCRIPTION_MANAGER.subscriptionCreated(any(), any(), any(), anyLong()))
           .thenReturn(CompletableFuture.completedFuture(null));
@@ -364,15 +372,170 @@ class SubscriptionControllerTest {
   }
 
   @Test
-  void getLevels() {
-    when(SUBSCRIPTION_CONFIG.getLevels()).thenReturn(Map.of(
-        1L, new SubscriptionLevelConfiguration("B1", "P1",
-            Map.of("USD", new SubscriptionPriceConfiguration("R1", BigDecimal.valueOf(100)))),
-        2L, new SubscriptionLevelConfiguration("B2", "P2",
-            Map.of("USD", new SubscriptionPriceConfiguration("R2", BigDecimal.valueOf(200)))),
-        3L, new SubscriptionLevelConfiguration("B3", "P3",
-            Map.of("USD", new SubscriptionPriceConfiguration("R3", BigDecimal.valueOf(300))))
+  void getSubscriptionConfiguration() {
+
+    when(BADGE_TRANSLATOR.translate(any(), eq("B1"))).thenReturn(new Badge("B1", "cat1", "name1", "desc1",
+        List.of("l", "m", "h", "x", "xx", "xxx"), "SVG",
+        List.of(new BadgeSvg("sl", "sd"), new BadgeSvg("ml", "md"), new BadgeSvg("ll", "ld"))));
+    when(BADGE_TRANSLATOR.translate(any(), eq("B2"))).thenReturn(new Badge("B2", "cat2", "name2", "desc2",
+        List.of("l", "m", "h", "x", "xx", "xxx"), "SVG",
+        List.of(new BadgeSvg("sl", "sd"), new BadgeSvg("ml", "md"), new BadgeSvg("ll", "ld"))));
+    when(BADGE_TRANSLATOR.translate(any(), eq("B3"))).thenReturn(new Badge("B3", "cat3", "name3", "desc3",
+        List.of("l", "m", "h", "x", "xx", "xxx"), "SVG",
+        List.of(new BadgeSvg("sl", "sd"), new BadgeSvg("ml", "md"), new BadgeSvg("ll", "ld"))));
+    when(BADGE_TRANSLATOR.translate(any(), eq("BOOST"))).thenReturn(new Badge("BOOST", "boost1", "boost1", "boost1",
+        List.of("l", "m", "h", "x", "xx", "xxx"), "SVG",
+        List.of(new BadgeSvg("sl", "sd"), new BadgeSvg("ml", "md"), new BadgeSvg("ll", "ld"))));
+    when(BADGE_TRANSLATOR.translate(any(), eq("GIFT"))).thenReturn(new Badge("GIFT", "gift1", "gift1", "gift1",
+        List.of("l", "m", "h", "x", "xx", "xxx"), "SVG",
+        List.of(new BadgeSvg("sl", "sd"), new BadgeSvg("ml", "md"), new BadgeSvg("ll", "ld"))));
+    when(LEVEL_TRANSLATOR.translate(any(), eq("B1"))).thenReturn("Z1");
+    when(LEVEL_TRANSLATOR.translate(any(), eq("B2"))).thenReturn("Z2");
+    when(LEVEL_TRANSLATOR.translate(any(), eq("B3"))).thenReturn("Z3");
+    when(LEVEL_TRANSLATOR.translate(any(), eq("BOOST"))).thenReturn("ZBOOST");
+    when(LEVEL_TRANSLATOR.translate(any(), eq("GIFT"))).thenReturn("ZGIFT");
+
+    GetSubscriptionConfigurationResponse response = RESOURCE_EXTENSION.target("/v1/subscription/configuration")
+        .request()
+        .get(GetSubscriptionConfigurationResponse.class);
+
+    assertThat(response.currencies()).containsKeys("usd", "jpy", "bif").satisfies(currencyMap -> {
+      assertThat(currencyMap).extractingByKey("usd").satisfies(currency -> {
+        assertThat(currency.minimum()).isEqualByComparingTo(
+            BigDecimal.valueOf(2.5).setScale(2, RoundingMode.HALF_EVEN));
+        assertThat(currency.oneTime()).isEqualTo(
+            Map.of("1",
+                List.of(BigDecimal.valueOf(5.5).setScale(2, RoundingMode.HALF_EVEN), BigDecimal.valueOf(6),
+                    BigDecimal.valueOf(7), BigDecimal.valueOf(8),
+                    BigDecimal.valueOf(9), BigDecimal.valueOf(10)), "100",
+                List.of(BigDecimal.valueOf(20))));
+        assertThat(currency.subscription()).isEqualTo(
+            Map.of("5", BigDecimal.valueOf(5), "15", BigDecimal.valueOf(15), "35", BigDecimal.valueOf(35)));
+        assertThat(currency.supportedPaymentMethods()).isEqualTo(List.of("CARD"));
+      });
+
+      assertThat(currencyMap).extractingByKey("jpy").satisfies(currency -> {
+        assertThat(currency.minimum()).isEqualByComparingTo(
+            BigDecimal.valueOf(250));
+        assertThat(currency.oneTime()).isEqualTo(
+            Map.of("1",
+                List.of(BigDecimal.valueOf(550), BigDecimal.valueOf(600),
+                    BigDecimal.valueOf(700), BigDecimal.valueOf(800),
+                    BigDecimal.valueOf(900), BigDecimal.valueOf(1000)), "100",
+                List.of(BigDecimal.valueOf(2000))));
+        assertThat(currency.subscription()).isEqualTo(
+            Map.of("5", BigDecimal.valueOf(500), "15", BigDecimal.valueOf(1500), "35", BigDecimal.valueOf(3500)));
+        assertThat(currency.supportedPaymentMethods()).isEqualTo(List.of("CARD"));
+      });
+
+      assertThat(currencyMap).extractingByKey("bif").satisfies(currency -> {
+        assertThat(currency.minimum()).isEqualByComparingTo(
+            BigDecimal.valueOf(2500));
+        assertThat(currency.oneTime()).isEqualTo(
+            Map.of("1",
+                List.of(BigDecimal.valueOf(5500), BigDecimal.valueOf(6000),
+                    BigDecimal.valueOf(7000), BigDecimal.valueOf(8000),
+                    BigDecimal.valueOf(9000), BigDecimal.valueOf(10000)), "100",
+                List.of(BigDecimal.valueOf(20000))));
+        assertThat(currency.subscription()).isEqualTo(
+            Map.of("5", BigDecimal.valueOf(5000), "15", BigDecimal.valueOf(15000), "35", BigDecimal.valueOf(35000)));
+        assertThat(currency.supportedPaymentMethods()).isEqualTo(List.of("CARD"));
+      });
+    });
+
+    assertThat(response.levels()).containsKeys("1", "5", "15", "35", "100").satisfies(levelsMap -> {
+      assertThat(levelsMap).extractingByKey("1").satisfies(level -> {
+        assertThat(level.name()).isEqualTo("ZBOOST");
+        assertThat(level).extracting(SubscriptionController.LevelConfiguration::badge).satisfies(badge -> {
+          assertThat(badge.getId()).isEqualTo("BOOST");
+          assertThat(badge.getName()).isEqualTo("boost1");
+        });
+      });
+
+      assertThat(levelsMap).extractingByKey("100").satisfies(level -> {
+        assertThat(level.name()).isEqualTo("ZGIFT");
+        assertThat(level).extracting(SubscriptionController.LevelConfiguration::badge).satisfies(badge -> {
+          assertThat(badge.getId()).isEqualTo("GIFT");
+          assertThat(badge.getName()).isEqualTo("gift1");
+        });
+      });
+
+      assertThat(levelsMap).extractingByKey("5").satisfies(level -> {
+        assertThat(level.name()).isEqualTo("Z1");
+        assertThat(level).extracting(SubscriptionController.LevelConfiguration::badge).satisfies(badge -> {
+          assertThat(badge.getId()).isEqualTo("B1");
+          assertThat(badge.getName()).isEqualTo("name1");
+        });
+      });
+
+      assertThat(levelsMap).extractingByKey("15").satisfies(level -> {
+        assertThat(level.name()).isEqualTo("Z2");
+        assertThat(level).extracting(SubscriptionController.LevelConfiguration::badge).satisfies(badge -> {
+          assertThat(badge.getId()).isEqualTo("B2");
+          assertThat(badge.getName()).isEqualTo("name2");
+        });
+      });
+
+      assertThat(levelsMap).extractingByKey("35").satisfies(level -> {
+        assertThat(level.name()).isEqualTo("Z3");
+        assertThat(level).extracting(SubscriptionController.LevelConfiguration::badge).satisfies(badge -> {
+          assertThat(badge.getId()).isEqualTo("B3");
+          assertThat(badge.getName()).isEqualTo("name3");
+        });
+      });
+    });
+
+    // check the badge vs purchasable badge fields
+    // subscription levels are Badge, while one-time levels are PurchasableBadge, which adds `duration`
+    Map<String, Object> genericResponse = RESOURCE_EXTENSION.target("/v1/subscription/configuration")
+        .request()
+        .get(Map.class);
+
+    assertThat(genericResponse.get("levels")).satisfies(levels -> {
+      final Set<String> oneTimeLevels = Set.of("1", "100");
+      oneTimeLevels.forEach(oneTimeLevel -> {
+        assertThat((Map<String, Map<String, Map<String, Object>>>) levels).extractingByKey(oneTimeLevel)
+            .satisfies(level -> {
+              assertThat(level.get("badge")).containsKeys("duration");
+            });
+      });
+
+      ((Map<String, ?>) levels).keySet().stream()
+          .filter(Predicate.not(oneTimeLevels::contains))
+          .forEach(subscriptionLevel -> {
+            assertThat((Map<String, Map<String, Map<String, Object>>>) levels).extractingByKey(subscriptionLevel)
+                .satisfies(level -> {
+                  assertThat(level.get("badge")).doesNotContainKeys("duration");
+                });
+          });
+    });
+  }
+
+  @Test
+  void testGetBoostAmounts() {
+    final Map<?, ?> boostAmounts = RESOURCE_EXTENSION.target("/v1/subscription/boost/amounts")
+        .request()
+        .get(Map.class);
+
+    assertThat(boostAmounts).isEqualTo(Map.of(
+        "USD", List.of(5.50, 6, 7, 8, 9, 10),
+        "JPY", List.of(550, 600, 700, 800, 900, 1000),
+        "BIF", List.of(5500, 6000, 7000, 8000, 9000, 10000)
     ));
+
+    final Map<?, ?> giftAmounts = RESOURCE_EXTENSION.target("/v1/subscription/boost/amounts/gift")
+        .request()
+        .get(Map.class);
+
+    assertThat(giftAmounts).isEqualTo(Map.of(
+        "USD", 20,
+        "JPY", 2000,
+        "BIF", 20000
+    ));
+  }
+
+  @Test
+  void getLevels() {
     when(BADGE_TRANSLATOR.translate(any(), eq("B1"))).thenReturn(new Badge("B1", "cat1", "name1", "desc1",
         List.of("l", "m", "h", "x", "xx", "xxx"), "SVG",
         List.of(new BadgeSvg("sl", "sd"), new BadgeSvg("ml", "md"), new BadgeSvg("ll", "ld"))));
@@ -390,28 +553,136 @@ class SubscriptionControllerTest {
         .request()
         .get(GetLevelsResponse.class);
 
-    assertThat(response.getLevels()).containsKeys(1L, 2L, 3L).satisfies(longLevelMap -> {
-      assertThat(longLevelMap).extractingByKey(1L).satisfies(level -> {
+    assertThat(response.getLevels()).containsKeys(5L, 15L, 35L).satisfies(longLevelMap -> {
+      assertThat(longLevelMap).extractingByKey(5L).satisfies(level -> {
         assertThat(level.getName()).isEqualTo("Z1");
         assertThat(level.getBadge().getId()).isEqualTo("B1");
         assertThat(level.getCurrencies()).containsKeys("USD").extractingByKey("USD").satisfies(price -> {
-          assertThat(price).isEqualTo("100");
+          assertThat(price).isEqualTo("5");
         });
       });
-      assertThat(longLevelMap).extractingByKey(2L).satisfies(level -> {
+      assertThat(longLevelMap).extractingByKey(15L).satisfies(level -> {
         assertThat(level.getName()).isEqualTo("Z2");
         assertThat(level.getBadge().getId()).isEqualTo("B2");
         assertThat(level.getCurrencies()).containsKeys("USD").extractingByKey("USD").satisfies(price -> {
-          assertThat(price).isEqualTo("200");
+          assertThat(price).isEqualTo("15");
         });
       });
-      assertThat(longLevelMap).extractingByKey(3L).satisfies(level -> {
+      assertThat(longLevelMap).extractingByKey(35L).satisfies(level -> {
         assertThat(level.getName()).isEqualTo("Z3");
         assertThat(level.getBadge().getId()).isEqualTo("B3");
         assertThat(level.getCurrencies()).containsKeys("USD").extractingByKey("USD").satisfies(price -> {
-          assertThat(price).isEqualTo("300");
+          assertThat(price).isEqualTo("35");
         });
       });
     });
   }
+
+  /**
+   * Encapsulates {@code static} configuration, to keep the class header simpler and avoid illegal forward references
+   */
+  private record ConfigHelper() {
+
+    private static SubscriptionConfiguration getSubscriptionConfig() {
+      return readValue(SUBSCRIPTION_CONFIG_YAML, SubscriptionConfiguration.class);
+    }
+
+    private static OneTimeDonationConfiguration getOneTimeConfig() {
+      return readValue(ONETIME_CONFIG_YAML, OneTimeDonationConfiguration.class);
+    }
+
+    private static <T> T readValue(String yaml, Class<T> type) {
+      try {
+        return YAML_MAPPER.readValue(yaml, type);
+      } catch (Exception e) {
+        throw new RuntimeException(e);
+      }
+    }
+
+    private static final String SUBSCRIPTION_CONFIG_YAML = """
+        badgeGracePeriod: P15D
+        levels:
+          5:
+            badge: B1
+            prices:
+              usd:
+                amount: '5'
+                id: R1
+              jpy:
+                amount: '500'
+                id: Q1
+              bif:
+                amount: '5000'
+                id: S1
+          15:
+            badge: B2
+            prices:
+              usd:
+                amount: '15'
+                id: R2
+              jpy:
+                amount: '1500'
+                id: Q2
+              bif:
+                amount: '15000'
+                id: S2
+          35:
+            badge: B3
+            prices:
+              usd:
+                amount: '35'
+                id: R3
+              jpy:
+                amount: '3500'
+                id: Q3
+              bif:
+                amount: '35000'
+                id: S3
+        """;
+
+    private static final String ONETIME_CONFIG_YAML = """
+        boost:
+          level: 1
+          expiration: P45D
+          badge: BOOST
+        gift:
+          level: 100
+          expiration: P60D
+          badge: GIFT
+        currencies:
+          usd:
+            minimum: '2.50'
+            gift: '20'
+            boosts:
+              - '5.50'
+              - '6'
+              - '7'
+              - '8'
+              - '9'
+              - '10'
+          jpy:
+            minimum: '250'
+            gift: '2000'
+            boosts:
+              - '550'
+              - '600'
+              - '700'
+              - '800'
+              - '900'
+              - '1000'
+          bif:
+            minimum: '2500'
+            gift: '20000'
+            boosts:
+              - '5500'
+              - '6000'
+              - '7000'
+              - '8000'
+              - '9000'
+              - '10000'
+        """;
+
+  }
+
+
 }

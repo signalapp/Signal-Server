@@ -328,27 +328,27 @@ subscription: # configuration for Stripe subscriptions
           amount: '10'
           id: price_example # stripe ID
 
-boost:
-  level: 1
-  expiration: P90D
-  badge: EXAMPLE
+oneTimeDonations:
+  boost:
+    level: 1
+    expiration: P90D
+    badge: EXAMPLE
+  gift:
+    level: 10
+    expiration: P90D
+    badge: EXAMPLE
   currencies:
     # ISO 4217 currency codes and amounts in those currencies
     xts:
-      - '1'
-      - '2'
-      - '4'
-      - '8'
-      - '20'
-      - '40'
-
-gift:
-  level: 10
-  expiration: P90D
-  badge: EXAMPLE
-  currencies:
-    # ISO 4217 currency codes and amounts in those currencies
-    xts: '2'
+      minimum: '0.5'
+      gift: '2'
+      boosts:
+        - '1'
+        - '2'
+        - '4'
+        - '8'
+        - '20'
+        - '40'
 
 registrationService:
   host: registration.example.com

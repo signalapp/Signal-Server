@@ -19,7 +19,6 @@ import org.whispersystems.textsecuregcm.configuration.ApnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AppConfigConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AwsAttachmentsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
-import org.whispersystems.textsecuregcm.configuration.BoostConfiguration;
 import org.whispersystems.textsecuregcm.configuration.CdnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DatadogConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DirectoryConfiguration;
@@ -28,9 +27,9 @@ import org.whispersystems.textsecuregcm.configuration.DynamoDbClientConfiguratio
 import org.whispersystems.textsecuregcm.configuration.DynamoDbTables;
 import org.whispersystems.textsecuregcm.configuration.FcmConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GcpAttachmentsConfiguration;
-import org.whispersystems.textsecuregcm.configuration.GiftConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MaxDeviceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MessageCacheConfiguration;
+import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.PaymentsServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RecaptchaConfiguration;
@@ -231,12 +230,7 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @JsonProperty
   @NotNull
-  private BoostConfiguration boost;
-
-  @Valid
-  @JsonProperty
-  @NotNull
-  private GiftConfiguration gift;
+  private OneTimeDonationConfiguration oneTimeDonations;
 
   @Valid
   @NotNull
@@ -411,12 +405,8 @@ public class WhisperServerConfiguration extends Configuration {
     return subscription;
   }
 
-  public BoostConfiguration getBoost() {
-    return boost;
-  }
-
-  public GiftConfiguration getGift() {
-    return gift;
+  public OneTimeDonationConfiguration getOneTimeDonations() {
+    return oneTimeDonations;
   }
 
   public ReportMessageConfiguration getReportMessageConfiguration() {

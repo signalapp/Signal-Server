@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
@@ -64,6 +65,18 @@ import org.whispersystems.textsecuregcm.util.Conversions;
 public class StripeManager implements SubscriptionProcessorManager {
 
   private static final String METADATA_KEY_LEVEL = "level";
+
+  // https://stripe.com/docs/currencies?presentment-currency=US
+  private static final Set<String> SUPPORTED_CURRENCIES = Set.of(
+      "aed", "afn", "all", "amd", "ang", "aoa", "ars", "aud", "awg", "azn", "bam", "bbd", "bdt", "bgn", "bif", "bmd",
+      "bnd", "bob", "brl", "bsd", "bwp", "bzd", "cad", "cdf", "chf", "clp", "cny", "cop", "crc", "cve", "czk", "djf",
+      "dkk", "dop", "dzd", "egp", "etb", "eur", "fjd", "fkp", "gbp", "gel", "gip", "gmd", "gnf", "gtq", "gyd", "hkd",
+      "hnl", "hrk", "htg", "huf", "idr", "ils", "inr", "isk", "jmd", "jpy", "kes", "kgs", "khr", "kmf", "krw", "kyd",
+      "kzt", "lak", "lbp", "lkr", "lrd", "lsl", "mad", "mdl", "mga", "mkd", "mmk", "mnt", "mop", "mro", "mur", "mvr",
+      "mwk", "mxn", "myr", "mzn", "nad", "ngn", "nio", "nok", "npr", "nzd", "pab", "pen", "pgk", "php", "pkr", "pln",
+      "pyg", "qar", "ron", "rsd", "rub", "rwf", "sar", "sbd", "scr", "sek", "sgd", "shp", "sll", "sos", "srd", "std",
+      "szl", "thb", "tjs", "top", "try", "ttd", "twd", "tzs", "uah", "ugx", "usd", "uyu", "uzs", "vnd", "vuv", "wst",
+      "xaf", "xcd", "xof", "xpf", "yer", "zar", "zmw");
 
   private final String apiKey;
   private final Executor executor;
@@ -164,6 +177,11 @@ public class StripeManager implements SubscriptionProcessorManager {
           }
         }, executor)
         .thenApply(SetupIntent::getClientSecret);
+  }
+
+  @Override
+  public Set<String> getSupportedCurrencies() {
+    return SUPPORTED_CURRENCIES;
   }
 
   /**

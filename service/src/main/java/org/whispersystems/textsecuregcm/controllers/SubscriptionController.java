@@ -12,6 +12,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.annotations.VisibleForTesting;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Charge;
 import com.stripe.model.Charge.Outcome;
@@ -28,8 +29,10 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -80,8 +83,8 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.badges.BadgeTranslator;
 import org.whispersystems.textsecuregcm.badges.LevelTranslator;
-import org.whispersystems.textsecuregcm.configuration.BoostConfiguration;
-import org.whispersystems.textsecuregcm.configuration.GiftConfiguration;
+import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
+import org.whispersystems.textsecuregcm.configuration.OneTimeDonationCurrencyConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionLevelConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionPriceConfiguration;
@@ -105,22 +108,21 @@ public class SubscriptionController {
 
   private final Clock clock;
   private final SubscriptionConfiguration subscriptionConfiguration;
-  private final BoostConfiguration boostConfiguration;
-  private final GiftConfiguration giftConfiguration;
+  private final OneTimeDonationConfiguration oneTimeDonationConfiguration;
   private final SubscriptionManager subscriptionManager;
   private final StripeManager stripeManager;
   private final ServerZkReceiptOperations zkReceiptOperations;
   private final IssuedReceiptsManager issuedReceiptsManager;
   private final BadgeTranslator badgeTranslator;
   private final LevelTranslator levelTranslator;
+  private final Map<String, CurrencyConfiguration> currencyConfiguration;
 
   private static final String INVALID_ACCEPT_LANGUAGE_COUNTER_NAME = name(SubscriptionController.class, "invalidAcceptLanguage");
 
   public SubscriptionController(
       @Nonnull Clock clock,
       @Nonnull SubscriptionConfiguration subscriptionConfiguration,
-      @Nonnull BoostConfiguration boostConfiguration,
-      @Nonnull GiftConfiguration giftConfiguration,
+      @Nonnull OneTimeDonationConfiguration oneTimeDonationConfiguration,
       @Nonnull SubscriptionManager subscriptionManager,
       @Nonnull StripeManager stripeManager,
       @Nonnull ServerZkReceiptOperations zkReceiptOperations,
@@ -129,14 +131,84 @@ public class SubscriptionController {
       @Nonnull LevelTranslator levelTranslator) {
     this.clock = Objects.requireNonNull(clock);
     this.subscriptionConfiguration = Objects.requireNonNull(subscriptionConfiguration);
-    this.boostConfiguration = Objects.requireNonNull(boostConfiguration);
-    this.giftConfiguration = Objects.requireNonNull(giftConfiguration);
+    this.oneTimeDonationConfiguration = Objects.requireNonNull(oneTimeDonationConfiguration);
     this.subscriptionManager = Objects.requireNonNull(subscriptionManager);
     this.stripeManager = Objects.requireNonNull(stripeManager);
     this.zkReceiptOperations = Objects.requireNonNull(zkReceiptOperations);
     this.issuedReceiptsManager = Objects.requireNonNull(issuedReceiptsManager);
     this.badgeTranslator = Objects.requireNonNull(badgeTranslator);
     this.levelTranslator = Objects.requireNonNull(levelTranslator);
+
+    this.currencyConfiguration = buildCurrencyConfiguration(this.oneTimeDonationConfiguration,
+        this.subscriptionConfiguration, List.of(stripeManager));
+  }
+
+  private static Map<String, CurrencyConfiguration> buildCurrencyConfiguration(
+      OneTimeDonationConfiguration oneTimeDonationConfiguration,
+      SubscriptionConfiguration subscriptionConfiguration,
+      List<SubscriptionProcessorManager> subscriptionProcessorManagers) {
+
+    return oneTimeDonationConfiguration.currencies()
+        .entrySet().stream()
+        .collect(Collectors.toMap(Entry::getKey, currencyAndConfig -> {
+          final String currency = currencyAndConfig.getKey();
+          final OneTimeDonationCurrencyConfiguration currencyConfig = currencyAndConfig.getValue();
+
+          final Map<String, List<BigDecimal>> oneTimeLevelsToSuggestedAmounts = Map.of(
+              String.valueOf(oneTimeDonationConfiguration.boost().level()), currencyConfig.boosts(),
+              String.valueOf(oneTimeDonationConfiguration.gift().level()), List.of(currencyConfig.gift())
+          );
+
+          final Map<String, BigDecimal> subscriptionLevelsToAmounts = subscriptionConfiguration.getLevels()
+              .entrySet().stream()
+              .filter(levelIdAndConfig -> levelIdAndConfig.getValue().getPrices().containsKey(currency))
+              .collect(Collectors.toMap(
+                  levelIdAndConfig -> String.valueOf(levelIdAndConfig.getKey()),
+                  levelIdAndConfig -> levelIdAndConfig.getValue().getPrices().get(currency).getAmount()));
+
+          final List<String> supportedPaymentMethods = Arrays.stream(PaymentMethod.values())
+              .filter(paymentMethod -> subscriptionProcessorManagers.stream()
+                  .anyMatch(manager -> manager.getSupportedCurrencies().contains(currency)
+                      && manager.supportsPaymentMethod(paymentMethod)))
+              .map(PaymentMethod::name)
+              .collect(Collectors.toList());
+
+          if (supportedPaymentMethods.isEmpty()) {
+            throw new RuntimeException("Configuration has currency with no processor support: " + currency);
+          }
+
+          return new CurrencyConfiguration(currencyConfig.minimum(), oneTimeLevelsToSuggestedAmounts,
+              subscriptionLevelsToAmounts, supportedPaymentMethods);
+        }));
+  }
+
+  @VisibleForTesting
+  GetSubscriptionConfigurationResponse buildGetSubscriptionConfigurationResponse(List<Locale> acceptableLanguages) {
+
+    final Map<String, LevelConfiguration> levels = new HashMap<>();
+
+    subscriptionConfiguration.getLevels().forEach((levelId, levelConfig) -> {
+      final LevelConfiguration levelConfiguration = new LevelConfiguration(
+          levelTranslator.translate(acceptableLanguages, levelConfig.getBadge()),
+          badgeTranslator.translate(acceptableLanguages, levelConfig.getBadge()));
+      levels.put(String.valueOf(levelId), levelConfiguration);
+    });
+
+    levels.put(String.valueOf(oneTimeDonationConfiguration.boost().level()),
+        new LevelConfiguration(
+            levelTranslator.translate(acceptableLanguages, oneTimeDonationConfiguration.boost().badge()),
+            // NB: the one-time badges are PurchasableBadge, which has a `duration` field
+            new PurchasableBadge(
+                badgeTranslator.translate(acceptableLanguages, oneTimeDonationConfiguration.boost().badge()),
+                oneTimeDonationConfiguration.boost().expiration())));
+    levels.put(String.valueOf(oneTimeDonationConfiguration.gift().level()),
+        new LevelConfiguration(
+            levelTranslator.translate(acceptableLanguages, oneTimeDonationConfiguration.gift().badge()),
+            new PurchasableBadge(
+                badgeTranslator.translate(acceptableLanguages, oneTimeDonationConfiguration.gift().badge()),
+                oneTimeDonationConfiguration.gift().expiration())));
+
+    return new GetSubscriptionConfigurationResponse(currencyConfiguration, levels);
   }
 
   @Timed
@@ -463,10 +535,58 @@ public class SubscriptionController {
     }
   }
 
+  /**
+   * Comprehensive configuration for subscriptions and one-time donations
+   *
+   * @param currencies map of lower-cased ISO 3 currency codes to minimums and level-specific scalar amounts
+   * @param levels     map of numeric level IDs to level-specific configuration
+   */
+  public record GetSubscriptionConfigurationResponse(Map<String, CurrencyConfiguration> currencies,
+                                                     Map<String, LevelConfiguration> levels) {
+
+  }
+
+  /**
+   * Configuration for a currency - use to present appropriate client interfaces
+   *
+   * @param minimum                 the minimum amount that may be submitted for a one-time donation in the currency
+   * @param oneTime                 map of numeric one-time donation level IDs to the list of default amounts to be
+   *                                presented
+   * @param subscription            map of numeric subscription level IDs to the amount charged for that level
+   * @param supportedPaymentMethods the payment methods that support the given currency
+   */
+  public record CurrencyConfiguration(BigDecimal minimum, Map<String, List<BigDecimal>> oneTime,
+                                      Map<String, BigDecimal> subscription,
+                                      List<String> supportedPaymentMethods) {
+
+  }
+
+  /**
+   * Configuration for a donation level - use to present appropriate client interfaces
+   *
+   * @param name  the localized name for the level
+   * @param badge the displayable badge associated with the level
+   */
+  public record LevelConfiguration(String name, Badge badge) {
+
+  }
+
+  @Timed
+  @GET
+  @Path("/configuration")
+  @Produces(MediaType.APPLICATION_JSON)
+  public CompletableFuture<Response> getConfiguration(@Context ContainerRequestContext containerRequestContext) {
+    return CompletableFuture.supplyAsync(() -> {
+      List<Locale> acceptableLanguages = getAcceptableLanguagesForRequest(containerRequestContext);
+      return Response.ok(buildGetSubscriptionConfigurationResponse(acceptableLanguages)).build();
+    });
+  }
+
   @Timed
   @GET
   @Path("/levels")
   @Produces(MediaType.APPLICATION_JSON)
+  @Deprecated // use /configuration
   public CompletableFuture<Response> getLevels(@Context ContainerRequestContext containerRequestContext) {
     return CompletableFuture.supplyAsync(() -> {
       List<Locale> acceptableLanguages = getAcceptableLanguagesForRequest(containerRequestContext);
@@ -514,16 +634,21 @@ public class SubscriptionController {
   @GET
   @Path("/boost/badges")
   @Produces(MediaType.APPLICATION_JSON)
+  @Deprecated // use /configuration
   public CompletableFuture<Response> getBoostBadges(@Context ContainerRequestContext containerRequestContext) {
     return CompletableFuture.supplyAsync(() -> {
-      long boostLevel = boostConfiguration.getLevel();
-      String boostBadge = boostConfiguration.getBadge();
-      long giftLevel = giftConfiguration.level();
-      String giftBadge = giftConfiguration.badge();
+      long boostLevel = oneTimeDonationConfiguration.boost().level();
+      String boostBadge = oneTimeDonationConfiguration.boost().badge();
+      long giftLevel = oneTimeDonationConfiguration.gift().level();
+      String giftBadge = oneTimeDonationConfiguration.gift().badge();
       List<Locale> acceptableLanguages = getAcceptableLanguagesForRequest(containerRequestContext);
       GetBoostBadgesResponse getBoostBadgesResponse = new GetBoostBadgesResponse(Map.of(
-          boostLevel, new GetBoostBadgesResponse.Level(new PurchasableBadge(badgeTranslator.translate(acceptableLanguages, boostBadge), boostConfiguration.getExpiration())),
-          giftLevel, new GetBoostBadgesResponse.Level(new PurchasableBadge(badgeTranslator.translate(acceptableLanguages, giftBadge), giftConfiguration.expiration()))));
+          boostLevel, new GetBoostBadgesResponse.Level(
+              new PurchasableBadge(badgeTranslator.translate(acceptableLanguages, boostBadge),
+                  oneTimeDonationConfiguration.boost().expiration())),
+          giftLevel, new GetBoostBadgesResponse.Level(
+              new PurchasableBadge(badgeTranslator.translate(acceptableLanguages, giftBadge),
+                  oneTimeDonationConfiguration.gift().expiration()))));
       return Response.ok(getBoostBadgesResponse).build();
     });
   }
@@ -532,20 +657,24 @@ public class SubscriptionController {
   @GET
   @Path("/boost/amounts")
   @Produces(MediaType.APPLICATION_JSON)
+  @Deprecated // use /configuration
   public CompletableFuture<Response> getBoostAmounts() {
     return CompletableFuture.supplyAsync(() -> Response.ok(
-        boostConfiguration.getCurrencies().entrySet().stream().collect(
-            Collectors.toMap(entry -> entry.getKey().toUpperCase(Locale.ROOT), Entry::getValue))).build());
+            oneTimeDonationConfiguration.currencies().entrySet().stream().collect(
+                Collectors.toMap(entry -> entry.getKey().toUpperCase(Locale.ROOT), entry -> entry.getValue().boosts())))
+        .build());
   }
 
   @Timed
   @GET
   @Path("/boost/amounts/gift")
   @Produces(MediaType.APPLICATION_JSON)
+  @Deprecated // use /configuration
   public CompletableFuture<Response> getGiftAmounts() {
     return CompletableFuture.supplyAsync(() -> Response.ok(
-        giftConfiguration.currencies().entrySet().stream().collect(
-            Collectors.toMap(entry -> entry.getKey().toUpperCase(Locale.ROOT), Entry::getValue))).build());
+            oneTimeDonationConfiguration.currencies().entrySet().stream().collect(
+                Collectors.toMap(entry -> entry.getKey().toUpperCase(Locale.ROOT), entry -> entry.getValue().gift())))
+        .build());
   }
 
   public static class CreateBoostRequest {
@@ -576,16 +705,20 @@ public class SubscriptionController {
   @Produces(MediaType.APPLICATION_JSON)
   public CompletableFuture<Response> createBoostPaymentIntent(@NotNull @Valid CreateBoostRequest request) {
     return CompletableFuture.runAsync(() -> {
-      if (request.level == null) {
-        request.level = boostConfiguration.getLevel();
-      }
-      if (request.level == giftConfiguration.level()) {
-        BigDecimal amountConfigured = giftConfiguration.currencies().get(request.currency.toLowerCase(Locale.ROOT));
-        if (amountConfigured == null || stripeManager.convertConfiguredAmountToStripeAmount(request.currency, amountConfigured).compareTo(BigDecimal.valueOf(request.amount)) != 0) {
-          throw new WebApplicationException(Response.status(Status.CONFLICT).entity(Map.of("error", "level_amount_mismatch")).build());
-        }
-      }
-    })
+          if (request.level == null) {
+            request.level = oneTimeDonationConfiguration.boost().level();
+          }
+          if (request.level == oneTimeDonationConfiguration.gift().level()) {
+            BigDecimal amountConfigured = oneTimeDonationConfiguration.currencies()
+                .get(request.currency.toLowerCase(Locale.ROOT)).gift();
+            if (amountConfigured == null ||
+                stripeManager.convertConfiguredAmountToStripeAmount(request.currency, amountConfigured)
+                    .compareTo(BigDecimal.valueOf(request.amount)) != 0) {
+              throw new WebApplicationException(
+                  Response.status(Status.CONFLICT).entity(Map.of("error", "level_amount_mismatch")).build());
+            }
+          }
+        })
         .thenCompose(unused -> stripeManager.createPaymentIntent(request.currency, request.amount, request.level))
         .thenApply(paymentIntent -> Response.ok(new CreateBoostResponse(paymentIntent.getClientSecret())).build());
   }
@@ -627,21 +760,23 @@ public class SubscriptionController {
           if (!StringUtils.equalsIgnoreCase("succeeded", paymentIntent.getStatus())) {
             throw new WebApplicationException(Status.PAYMENT_REQUIRED);
           }
-          long level = boostConfiguration.getLevel();
+          long level = oneTimeDonationConfiguration.boost().level();
           if (paymentIntent.getMetadata() != null) {
-            String levelMetadata = paymentIntent.getMetadata().getOrDefault("level", Long.toString(boostConfiguration.getLevel()));
+            String levelMetadata = paymentIntent.getMetadata()
+                .getOrDefault("level", Long.toString(oneTimeDonationConfiguration.boost().level()));
             try {
               level = Long.parseLong(levelMetadata);
             } catch (NumberFormatException e) {
-              logger.error("failed to parse level metadata ({}) on payment intent {}", levelMetadata, paymentIntent.getId(), e);
+              logger.error("failed to parse level metadata ({}) on payment intent {}", levelMetadata,
+                  paymentIntent.getId(), e);
               throw new WebApplicationException(Status.INTERNAL_SERVER_ERROR);
             }
           }
           Duration levelExpiration;
-          if (boostConfiguration.getLevel() == level) {
-            levelExpiration = boostConfiguration.getExpiration();
-          } else if (giftConfiguration.level() == level) {
-            levelExpiration = giftConfiguration.expiration();
+          if (oneTimeDonationConfiguration.boost().level() == level) {
+            levelExpiration = oneTimeDonationConfiguration.boost().expiration();
+          } else if (oneTimeDonationConfiguration.gift().level() == level) {
+            levelExpiration = oneTimeDonationConfiguration.gift().expiration();
           } else {
             logger.error("level ({}) returned from payment intent that is unknown to the server", level);
             throw new WebApplicationException(Status.INTERNAL_SERVER_ERROR);
