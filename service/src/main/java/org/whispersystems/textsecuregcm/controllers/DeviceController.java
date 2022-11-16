@@ -133,7 +133,7 @@ public class DeviceController {
 
     VerificationCode verificationCode = generateVerificationCode();
     StoredVerificationCode storedVerificationCode =
-        new StoredVerificationCode(verificationCode.getVerificationCode(), System.currentTimeMillis(), null, null, null);
+        new StoredVerificationCode(verificationCode.getVerificationCode(), System.currentTimeMillis(), null, null);
 
     pendingDevices.store(account.getNumber(), storedVerificationCode);
 

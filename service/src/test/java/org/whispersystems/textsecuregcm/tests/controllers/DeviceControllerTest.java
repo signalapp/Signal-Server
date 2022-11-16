@@ -134,7 +134,7 @@ class DeviceControllerTest {
     when(account.isPaymentActivationSupported()).thenReturn(false);
 
     when(pendingDevicesManager.getCodeForNumber(AuthHelper.VALID_NUMBER)).thenReturn(
-        Optional.of(new StoredVerificationCode("5678901", System.currentTimeMillis(), null, null, null)));
+        Optional.of(new StoredVerificationCode("5678901", System.currentTimeMillis(), null, null)));
     when(pendingDevicesManager.getCodeForNumber(AuthHelper.VALID_NUMBER_TWO)).thenReturn(Optional.empty());
     when(accountsManager.getByE164(AuthHelper.VALID_NUMBER)).thenReturn(Optional.of(account));
     when(accountsManager.getByE164(AuthHelper.VALID_NUMBER_TWO)).thenReturn(Optional.of(maxedAccount));

@@ -53,8 +53,8 @@ class VerificationCodeStoreTest {
   void testStoreAndFind() {
     assertEquals(Optional.empty(), verificationCodeStore.findForNumber(PHONE_NUMBER));
 
-    final StoredVerificationCode originalCode = new StoredVerificationCode("1234", VALID_TIMESTAMP, "abcd", "0987", "session".getBytes(StandardCharsets.UTF_8));
-    final StoredVerificationCode secondCode = new StoredVerificationCode("5678", VALID_TIMESTAMP, "efgh", "7890", "changed-session".getBytes(StandardCharsets.UTF_8));
+    final StoredVerificationCode originalCode = new StoredVerificationCode("1234", VALID_TIMESTAMP, "abcd", "session".getBytes(StandardCharsets.UTF_8));
+    final StoredVerificationCode secondCode = new StoredVerificationCode("5678", VALID_TIMESTAMP, "efgh", "changed-session".getBytes(StandardCharsets.UTF_8));
 
     verificationCodeStore.insert(PHONE_NUMBER, originalCode);
     {
@@ -77,13 +77,13 @@ class VerificationCodeStoreTest {
   void testRemove() {
     assertEquals(Optional.empty(), verificationCodeStore.findForNumber(PHONE_NUMBER));
 
-    verificationCodeStore.insert(PHONE_NUMBER, new StoredVerificationCode("1234", VALID_TIMESTAMP, "abcd", "0987", "session".getBytes(StandardCharsets.UTF_8)));
+    verificationCodeStore.insert(PHONE_NUMBER, new StoredVerificationCode("1234", VALID_TIMESTAMP, "abcd", "session".getBytes(StandardCharsets.UTF_8)));
     assertTrue(verificationCodeStore.findForNumber(PHONE_NUMBER).isPresent());
 
     verificationCodeStore.remove(PHONE_NUMBER);
     assertFalse(verificationCodeStore.findForNumber(PHONE_NUMBER).isPresent());
 
-    verificationCodeStore.insert(PHONE_NUMBER, new StoredVerificationCode("1234", EXPIRED_TIMESTAMP, "abcd", "0987", "session".getBytes(StandardCharsets.UTF_8)));
+    verificationCodeStore.insert(PHONE_NUMBER, new StoredVerificationCode("1234", EXPIRED_TIMESTAMP, "abcd", "session".getBytes(StandardCharsets.UTF_8)));
     assertFalse(verificationCodeStore.findForNumber(PHONE_NUMBER).isPresent());
   }
 
@@ -97,7 +97,6 @@ class VerificationCodeStoreTest {
     return Objects.equals(first.code(), second.code()) &&
         first.timestamp() == second.timestamp() &&
         Objects.equals(first.pushCode(), second.pushCode()) &&
-        Objects.equals(first.twilioVerificationSid(), second.twilioVerificationSid()) &&
         Arrays.equals(first.sessionId(), second.sessionId());
   }
 }

@@ -13,7 +13,6 @@ import org.whispersystems.textsecuregcm.util.Util;
 public record StoredVerificationCode(String code,
                                      long timestamp,
                                      String pushCode,
-                                     @Nullable String twilioVerificationSid,
                                      @Nullable byte[] sessionId) {
 
   public static final Duration EXPIRATION = Duration.ofMinutes(10);

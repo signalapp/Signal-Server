@@ -235,15 +235,15 @@ class AccountControllerTest {
     when(senderTransfer.getUuid()).thenReturn(SENDER_TRANSFER_UUID);
     when(senderTransfer.getNumber()).thenReturn(SENDER_TRANSFER);
 
-    when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.of(new StoredVerificationCode("1234", System.currentTimeMillis(), "1234-push", null, null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.of(new StoredVerificationCode("1234", System.currentTimeMillis(), "1234-push", null)));
     when(pendingAccountsManager.getCodeForNumber(SENDER_OLD)).thenReturn(Optional.empty());
-    when(pendingAccountsManager.getCodeForNumber(SENDER_PIN)).thenReturn(Optional.of(new StoredVerificationCode("333333", System.currentTimeMillis(), null, null, null)));
-    when(pendingAccountsManager.getCodeForNumber(SENDER_REG_LOCK)).thenReturn(Optional.of(new StoredVerificationCode("666666", System.currentTimeMillis(), null, null, null)));
-    when(pendingAccountsManager.getCodeForNumber(SENDER_OVER_PIN)).thenReturn(Optional.of(new StoredVerificationCode("444444", System.currentTimeMillis(), null, null, null)));
-    when(pendingAccountsManager.getCodeForNumber(SENDER_OVER_PREFIX)).thenReturn(Optional.of(new StoredVerificationCode("777777", System.currentTimeMillis(), "1234-push", null, null)));
-    when(pendingAccountsManager.getCodeForNumber(SENDER_PREAUTH)).thenReturn(Optional.of(new StoredVerificationCode("555555", System.currentTimeMillis(), "validchallenge", null, null)));
-    when(pendingAccountsManager.getCodeForNumber(SENDER_HAS_STORAGE)).thenReturn(Optional.of(new StoredVerificationCode("666666", System.currentTimeMillis(), null, null, null)));
-    when(pendingAccountsManager.getCodeForNumber(SENDER_TRANSFER)).thenReturn(Optional.of(new StoredVerificationCode("1234", System.currentTimeMillis(), null, null, null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER_PIN)).thenReturn(Optional.of(new StoredVerificationCode("333333", System.currentTimeMillis(), null, null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER_REG_LOCK)).thenReturn(Optional.of(new StoredVerificationCode("666666", System.currentTimeMillis(), null, null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER_OVER_PIN)).thenReturn(Optional.of(new StoredVerificationCode("444444", System.currentTimeMillis(), null, null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER_OVER_PREFIX)).thenReturn(Optional.of(new StoredVerificationCode("777777", System.currentTimeMillis(), "1234-push", null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER_PREAUTH)).thenReturn(Optional.of(new StoredVerificationCode("555555", System.currentTimeMillis(), "validchallenge", null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER_HAS_STORAGE)).thenReturn(Optional.of(new StoredVerificationCode("666666", System.currentTimeMillis(), null, null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER_TRANSFER)).thenReturn(Optional.of(new StoredVerificationCode("1234", System.currentTimeMillis(), null, null)));
 
     when(accountsManager.getByE164(eq(SENDER_PIN))).thenReturn(Optional.of(senderPinAccount));
     when(accountsManager.getByE164(eq(SENDER_REG_LOCK))).thenReturn(Optional.of(senderRegLockAccount));
@@ -709,7 +709,7 @@ class AccountControllerTest {
 
     final String challenge = "challenge";
     when(pendingAccountsManager.getCodeForNumber(RESTRICTED_NUMBER))
-        .thenReturn(Optional.of(new StoredVerificationCode("123456", System.currentTimeMillis(), challenge, null, null)));
+        .thenReturn(Optional.of(new StoredVerificationCode("123456", System.currentTimeMillis(), challenge, null)));
 
     Response response =
         resources.getJerseyTest()
@@ -740,7 +740,7 @@ class AccountControllerTest {
 
     final String challenge = "challenge";
     when(pendingAccountsManager.getCodeForNumber(number))
-        .thenReturn(Optional.of(new StoredVerificationCode("123456", System.currentTimeMillis(), challenge, null, null)));
+        .thenReturn(Optional.of(new StoredVerificationCode("123456", System.currentTimeMillis(), challenge, null)));
 
     when(registrationServiceClient.sendRegistrationCode(any(), any(), any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(new byte[16]));
@@ -769,7 +769,7 @@ class AccountControllerTest {
 
     final String challenge = "challenge";
 
-    when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.of(new StoredVerificationCode("123456", System.currentTimeMillis(), challenge, null, null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.of(new StoredVerificationCode("123456", System.currentTimeMillis(), challenge, null)));
     when(registrationServiceClient.sendRegistrationCode(any(), any(), any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(new byte[16]));
 
@@ -831,7 +831,7 @@ class AccountControllerTest {
 
     when(pendingAccountsManager.getCodeForNumber(SENDER))
         .thenReturn(Optional.of(
-            new StoredVerificationCode("1234", System.currentTimeMillis(), "1234-push", null, sessionId)));
+            new StoredVerificationCode("1234", System.currentTimeMillis(), "1234-push", sessionId)));
 
     when(registrationServiceClient.checkVerificationCode(sessionId, "1234", AccountController.REGISTRATION_RPC_TIMEOUT))
         .thenReturn(CompletableFuture.completedFuture(true));
@@ -894,7 +894,7 @@ class AccountControllerTest {
 
     when(pendingAccountsManager.getCodeForNumber(SENDER))
         .thenReturn(Optional.of(
-            new StoredVerificationCode("1234", System.currentTimeMillis(), "1234-push", null, sessionId)));
+            new StoredVerificationCode("1234", System.currentTimeMillis(), "1234-push", sessionId)));
 
     when(registrationServiceClient.checkVerificationCode(any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(false));
@@ -1066,7 +1066,7 @@ class AccountControllerTest {
     final byte[] sessionId = "session".getBytes(StandardCharsets.UTF_8);
 
     when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
-        new StoredVerificationCode(null, System.currentTimeMillis(), "push", null, sessionId)));
+        new StoredVerificationCode(null, System.currentTimeMillis(), "push", sessionId)));
 
     when(registrationServiceClient.checkVerificationCode(any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(true));
@@ -1167,7 +1167,7 @@ class AccountControllerTest {
     final byte[] sessionId = "session-id".getBytes(StandardCharsets.UTF_8);
 
     when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
-        new StoredVerificationCode(code, System.currentTimeMillis(), "push", null, sessionId)));
+        new StoredVerificationCode(code, System.currentTimeMillis(), "push", sessionId)));
 
     when(registrationServiceClient.checkVerificationCode(any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(false));
@@ -1193,7 +1193,7 @@ class AccountControllerTest {
     final byte[] sessionId = "session-id".getBytes(StandardCharsets.UTF_8);
 
     when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
-        new StoredVerificationCode(code, System.currentTimeMillis(), "push", null, sessionId)));
+        new StoredVerificationCode(code, System.currentTimeMillis(), "push", sessionId)));
 
     when(registrationServiceClient.checkVerificationCode(any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(true));
@@ -1227,7 +1227,7 @@ class AccountControllerTest {
     final byte[] sessionId = "session-id".getBytes(StandardCharsets.UTF_8);
 
     when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
-        new StoredVerificationCode(code, System.currentTimeMillis(), "push", null, sessionId)));
+        new StoredVerificationCode(code, System.currentTimeMillis(), "push", sessionId)));
 
     when(registrationServiceClient.checkVerificationCode(any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(true));
@@ -1266,7 +1266,7 @@ class AccountControllerTest {
     final byte[] sessionId = "session-id".getBytes(StandardCharsets.UTF_8);
 
     when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
-        new StoredVerificationCode(null, System.currentTimeMillis(), "push", null, sessionId)));
+        new StoredVerificationCode(null, System.currentTimeMillis(), "push", sessionId)));
 
     when(registrationServiceClient.checkVerificationCode(any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(true));
@@ -1306,7 +1306,7 @@ class AccountControllerTest {
     final byte[] sessionId = "session-id".getBytes(StandardCharsets.UTF_8);
 
     when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
-        new StoredVerificationCode(null, System.currentTimeMillis(), "push", null, sessionId)));
+        new StoredVerificationCode(null, System.currentTimeMillis(), "push", sessionId)));
 
     when(registrationServiceClient.checkVerificationCode(any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(true));
@@ -1358,7 +1358,7 @@ class AccountControllerTest {
     when(AuthHelper.VALID_ACCOUNT.getDevice(3L)).thenReturn(Optional.of(device3));
 
     when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
-        new StoredVerificationCode(null, System.currentTimeMillis(), "push", null, sessionId)));
+        new StoredVerificationCode(null, System.currentTimeMillis(), "push", sessionId)));
 
     when(registrationServiceClient.checkVerificationCode(any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(true));
@@ -1891,10 +1891,10 @@ class AccountControllerTest {
     return Stream.of(
         Arguments.of(null, null, false),
         Arguments.of("123456", null, false),
-        Arguments.of(null, new StoredVerificationCode(null, 0, null, null, null), false),
-        Arguments.of(null, new StoredVerificationCode(null, 0, "123456", null, null), false),
-        Arguments.of("654321", new StoredVerificationCode(null, 0, "123456", null, null), false),
-        Arguments.of("123456", new StoredVerificationCode(null, 0, "123456", null, null), true)
+        Arguments.of(null, new StoredVerificationCode(null, 0, null, null), false),
+        Arguments.of(null, new StoredVerificationCode(null, 0, "123456", null), false),
+        Arguments.of("654321", new StoredVerificationCode(null, 0, "123456", null), false),
+        Arguments.of("123456", new StoredVerificationCode(null, 0, "123456", null), true)
     );
   }
 }

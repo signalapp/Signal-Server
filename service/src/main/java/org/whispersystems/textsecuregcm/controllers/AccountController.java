@@ -244,7 +244,7 @@ public class AccountController {
 
     String pushChallenge = generatePushChallenge();
     StoredVerificationCode storedVerificationCode =
-        new StoredVerificationCode(null, clock.millis(), pushChallenge, null, null);
+        new StoredVerificationCode(null, clock.millis(), pushChallenge, null);
 
     pendingAccounts.store(number, storedVerificationCode);
     pushNotificationManager.sendRegistrationChallengeNotification(pushToken, tokenType, storedVerificationCode.pushCode());
@@ -352,7 +352,6 @@ public class AccountController {
     final StoredVerificationCode storedVerificationCode = new StoredVerificationCode(null,
         clock.millis(),
         maybeStoredVerificationCode.map(StoredVerificationCode::pushCode).orElse(null),
-        null,
         sessionId);
 
     pendingAccounts.store(number, storedVerificationCode);
