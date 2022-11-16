@@ -211,6 +211,7 @@ public class StripeManager implements SubscriptionProcessorManager {
       SubscriptionCreateParams params = SubscriptionCreateParams.builder()
           .setCustomer(customerId)
           .setOffSession(true)
+          .setPaymentBehavior(SubscriptionCreateParams.PaymentBehavior.ERROR_IF_INCOMPLETE)
           .addItem(SubscriptionCreateParams.Item.builder()
               .setPrice(priceId)
               .build())
@@ -250,6 +251,7 @@ public class StripeManager implements SubscriptionProcessorManager {
           .setProrationBehavior(ProrationBehavior.NONE)
           .setBillingCycleAnchor(BillingCycleAnchor.NOW)
           .setOffSession(true)
+          .setPaymentBehavior(SubscriptionUpdateParams.PaymentBehavior.ERROR_IF_INCOMPLETE)
           .addAllItem(items)
           .build();
       try {

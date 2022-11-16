@@ -12,6 +12,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.stripe.exception.StripeException;
 import com.stripe.model.Charge;
 import com.stripe.model.Charge.Outcome;
 import com.stripe.model.Invoice;
@@ -36,6 +37,7 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.crypto.Mac;
@@ -294,6 +296,7 @@ public class SubscriptionController {
       public enum Type {
         UNSUPPORTED_LEVEL,
         UNSUPPORTED_CURRENCY,
+        PAYMENT_REQUIRES_ACTION,
       }
 
       private final Type type;
@@ -374,6 +377,22 @@ public class SubscriptionController {
                     // retries this request
                     stripeManager.createSubscription(processorCustomer.customerId(), priceConfiguration.getId(), level,
                             lastSubscriptionCreatedAt)
+                        .exceptionally(e -> {
+                          if (e.getCause() instanceof StripeException stripeException
+                              && stripeException.getCode().equals("subscription_payment_intent_requires_action")) {
+                            throw new BadRequestException(Response.status(Status.BAD_REQUEST)
+                                .entity(new SetSubscriptionLevelErrorResponse(List.of(
+                                    new SetSubscriptionLevelErrorResponse.Error(
+                                        SetSubscriptionLevelErrorResponse.Error.Type.PAYMENT_REQUIRES_ACTION, null
+                                    )
+                                ))).build());
+                          }
+                          if (e instanceof RuntimeException re) {
+                            throw re;
+                          }
+
+                          throw new CompletionException(e);
+                        })
                         .thenCompose(subscription -> subscriptionManager.subscriptionCreated(
                                 requestData.subscriberUser, subscription.getId(), requestData.now, level)
                             .thenApply(unused -> subscription)))

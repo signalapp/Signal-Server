@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
@@ -14,6 +15,8 @@ import static org.mockito.Mockito.when;
 import static org.whispersystems.textsecuregcm.util.AttributeValues.b;
 import static org.whispersystems.textsecuregcm.util.AttributeValues.n;
 
+import com.stripe.exception.ApiException;
+import com.stripe.model.Subscription;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
@@ -26,13 +29,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.Response;
 import org.glassfish.jersey.server.ServerProperties;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
@@ -109,6 +115,115 @@ class SubscriptionControllerTest {
         .request()
         .post(Entity.json(""));
     assertThat(response.getStatus()).isEqualTo(422);
+  }
+
+  @Nested
+  class SetSubscriptionLevel {
+
+    private final long levelId = 5L;
+    private final String currency = "eur";
+
+    private String subscriberId;
+
+    @BeforeEach
+    void setUp() {
+      when(CLOCK.instant()).thenReturn(Instant.now());
+
+      final byte[] subscriberUserAndKey = new byte[32];
+      Arrays.fill(subscriberUserAndKey, (byte) 1);
+      subscriberId = Base64.getEncoder().encodeToString(subscriberUserAndKey);
+
+      final ProcessorCustomer processorCustomer = new ProcessorCustomer("testCustomerId", SubscriptionProcessor.STRIPE);
+
+      final Map<String, AttributeValue> dynamoItem = Map.of(SubscriptionManager.KEY_PASSWORD, b(new byte[16]),
+          SubscriptionManager.KEY_CREATED_AT, n(Instant.now().getEpochSecond()),
+          SubscriptionManager.KEY_ACCESSED_AT, n(Instant.now().getEpochSecond()),
+          SubscriptionManager.KEY_PROCESSOR_ID_CUSTOMER_ID, b(processorCustomer.toDynamoBytes())
+      );
+      final SubscriptionManager.Record record = SubscriptionManager.Record.from(
+          Arrays.copyOfRange(subscriberUserAndKey, 0, 16), dynamoItem);
+      when(SUBSCRIPTION_MANAGER.get(eq(Arrays.copyOfRange(subscriberUserAndKey, 0, 16)), any()))
+          .thenReturn(CompletableFuture.completedFuture(SubscriptionManager.GetResult.found(record)));
+
+      final SubscriptionLevelConfiguration levelConfig = mock(SubscriptionLevelConfiguration.class);
+      when(SUBSCRIPTION_CONFIG.getLevels())
+          .thenReturn(Map.of(levelId, levelConfig));
+
+      final SubscriptionPriceConfiguration priceConfig = new SubscriptionPriceConfiguration("testPriceId",
+          BigDecimal.TEN);
+      when(levelConfig.getPrices())
+          .thenReturn(Map.of(currency, priceConfig));
+
+      when(SUBSCRIPTION_MANAGER.subscriptionCreated(any(), any(), any(), anyLong()))
+          .thenReturn(CompletableFuture.completedFuture(null));
+    }
+
+    @Test
+    void success() {
+      when(STRIPE_MANAGER.createSubscription(any(), any(), anyLong(), anyLong()))
+          .thenReturn(CompletableFuture.completedFuture(mock(Subscription.class)));
+
+      final String level = String.valueOf(levelId);
+      final String idempotencyKey = UUID.randomUUID().toString();
+      final Response response = RESOURCE_EXTENSION.target(
+              String.format("/v1/subscription/%s/level/%s/%s/%s", subscriberId, level, currency, idempotencyKey))
+          .request()
+          .put(Entity.json(""));
+
+      assertThat(response.getStatus()).isEqualTo(200);
+    }
+
+    @Test
+    void missingCustomerId() {
+      final byte[] subscriberUserAndKey = new byte[32];
+      Arrays.fill(subscriberUserAndKey, (byte) 1);
+      subscriberId = Base64.getEncoder().encodeToString(subscriberUserAndKey);
+
+      final Map<String, AttributeValue> dynamoItem = Map.of(SubscriptionManager.KEY_PASSWORD, b(new byte[16]),
+          SubscriptionManager.KEY_CREATED_AT, n(Instant.now().getEpochSecond()),
+          SubscriptionManager.KEY_ACCESSED_AT, n(Instant.now().getEpochSecond())
+          // missing processor:customer field
+      );
+      final SubscriptionManager.Record record = SubscriptionManager.Record.from(
+          Arrays.copyOfRange(subscriberUserAndKey, 0, 16), dynamoItem);
+      when(SUBSCRIPTION_MANAGER.get(eq(Arrays.copyOfRange(subscriberUserAndKey, 0, 16)), any()))
+          .thenReturn(CompletableFuture.completedFuture(SubscriptionManager.GetResult.found(record)));
+
+      final String level = String.valueOf(levelId);
+      final String idempotencyKey = UUID.randomUUID().toString();
+      final Response response = RESOURCE_EXTENSION.target(
+              String.format("/v1/subscription/%s/level/%s/%s/%s", subscriberId, level, currency, idempotencyKey))
+          .request()
+          .put(Entity.json(""));
+
+      assertThat(response.getStatus()).isEqualTo(409);
+    }
+
+    @Test
+    void stripePaymentIntentRequiresAction() {
+      final ApiException stripeException = new ApiException("Payment intent requires action",
+          UUID.randomUUID().toString(), "subscription_payment_intent_requires_action", 400, new Exception());
+      when(STRIPE_MANAGER.createSubscription(any(), any(), anyLong(), anyLong()))
+          .thenReturn(CompletableFuture.failedFuture(new CompletionException(stripeException)));
+
+      final String level = String.valueOf(levelId);
+      final String idempotencyKey = UUID.randomUUID().toString();
+      final Response response = RESOURCE_EXTENSION.target(
+              String.format("/v1/subscription/%s/level/%s/%s/%s", subscriberId, level, currency, idempotencyKey))
+          .request()
+          .put(Entity.json(""));
+
+      assertThat(response.getStatus()).isEqualTo(400);
+
+      assertThat(response.readEntity(SubscriptionController.SetSubscriptionLevelErrorResponse.class))
+          .satisfies(errorResponse -> {
+            assertThat(errorResponse.getErrors())
+                .anySatisfy(error -> {
+                  assertThat(error.getType()).isEqualTo(
+                      SubscriptionController.SetSubscriptionLevelErrorResponse.Error.Type.PAYMENT_REQUIRES_ACTION);
+                });
+          });
+    }
   }
 
   @Test
@@ -205,8 +320,7 @@ class SubscriptionControllerTest {
     final SubscriptionManager.Record record = SubscriptionManager.Record.from(
         Arrays.copyOfRange(subscriberUserAndKey, 0, 16), dynamoItem);
     when(SUBSCRIPTION_MANAGER.create(any(), any(), any(Instant.class)))
-        .thenReturn(CompletableFuture.completedFuture(
-            record));
+        .thenReturn(CompletableFuture.completedFuture(record));
 
     final Response createSubscriberResponse = RESOURCE_EXTENSION
         .target(String.format("/v1/subscription/%s", subscriberId))
