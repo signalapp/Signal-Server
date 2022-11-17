@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletionException;
 import javax.annotation.Nullable;
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
@@ -232,7 +233,7 @@ public class AccountController {
                              @PathParam("token") String pushToken,
                              @PathParam("number") String number,
                              @QueryParam("voip") @DefaultValue("true") boolean useVoip)
-      throws ImpossiblePhoneNumberException, NonNormalizedPhoneNumberException {
+      throws ImpossiblePhoneNumberException, NonNormalizedPhoneNumberException, RateLimitExceededException {
 
     final PushNotification.TokenType tokenType = switch(pushType) {
       case "apn" -> useVoip ? PushNotification.TokenType.APN_VOIP : PushNotification.TokenType.APN;
@@ -242,9 +243,18 @@ public class AccountController {
 
     Util.requireNormalizedNumber(number);
 
-    String pushChallenge = generatePushChallenge();
-    StoredVerificationCode storedVerificationCode =
-        new StoredVerificationCode(null, clock.millis(), pushChallenge, null);
+    final Phonenumber.PhoneNumber phoneNumber;
+    try {
+      phoneNumber = PhoneNumberUtil.getInstance().parse(number, null);
+    } catch (final NumberParseException e) {
+      // This should never happen since we just verified that the number is already normalized
+      throw new BadRequestException("Bad phone number");
+    }
+
+    final String pushChallenge = generatePushChallenge();
+    final byte[] sessionId = createRegistrationSession(phoneNumber);
+    final StoredVerificationCode storedVerificationCode =
+        new StoredVerificationCode(null, clock.millis(), pushChallenge, sessionId);
 
     pendingAccounts.store(number, storedVerificationCode);
     pushNotificationManager.sendRegistrationChallengeNotification(pushToken, tokenType, storedVerificationCode.pushCode());
@@ -346,8 +356,16 @@ public class AccountController {
       }
     }).orElse(ClientType.UNKNOWN);
 
-    final byte[] sessionId = registrationServiceClient.sendRegistrationCode(phoneNumber,
-        messageTransport, clientType, acceptLanguage.orElse(null), REGISTRATION_RPC_TIMEOUT).join();
+    // During the transition to explicit session creation, some previously-stored records may not have a session ID;
+    // after the transition, we can assume that any existing record has an associated session ID.
+    final byte[] sessionId =  maybeStoredVerificationCode.isPresent() && maybeStoredVerificationCode.get().sessionId() != null ?
+        maybeStoredVerificationCode.get().sessionId() : createRegistrationSession(phoneNumber);
+
+    registrationServiceClient.sendRegistrationCode(sessionId,
+        messageTransport,
+        clientType,
+        acceptLanguage.orElse(null),
+        REGISTRATION_RPC_TIMEOUT).join();
 
     final StoredVerificationCode storedVerificationCode = new StoredVerificationCode(null,
         clock.millis(),
@@ -939,5 +957,24 @@ public class AccountController {
     random.nextBytes(challenge);
 
     return Hex.toStringCondensed(challenge);
+  }
+
+  private byte[] createRegistrationSession(final Phonenumber.PhoneNumber phoneNumber) throws RateLimitExceededException {
+
+    try {
+      return registrationServiceClient.createRegistrationSession(phoneNumber, REGISTRATION_RPC_TIMEOUT).join();
+    } catch (final CompletionException e) {
+      Throwable cause = e;
+
+      while (cause instanceof CompletionException) {
+        cause = cause.getCause();
+      }
+
+      if (cause instanceof RateLimitExceededException rateLimitExceededException) {
+        throw rateLimitExceededException;
+      }
+
+      throw e;
+    }
   }
 }

@@ -6,8 +6,13 @@ package org.signal.registration.rpc;
 
 service RegistrationService {
   /**
-   * Sends a verification code to a destination phone number and returns the
-   * ID of the newly-created registration session.
+   * Create a new registration session for a given destination phone number.
+   */
+  rpc create_session (CreateRegistrationSessionRequest) returns (CreateRegistrationSessionResponse) {}
+
+  /**
+   * Sends a verification code to a destination phone number within the context
+   * of a previously-created registration session.
    */
   rpc send_verification_code (SendVerificationCodeRequest) returns (SendVerificationCodeResponse) {}
 
@@ -18,9 +23,71 @@ service RegistrationService {
   rpc check_verification_code (CheckVerificationCodeRequest) returns (CheckVerificationCodeResponse) {}
 }
 
+message CreateRegistrationSessionRequest {
+  /**
+   * The phone number for which to create a new registration session.
+   */
+  uint64 e164 = 1;
+}
+
+message CreateRegistrationSessionResponse {
+  oneof response {
+    /**
+     * Metadata for the newly-created session.
+     */
+    RegistrationSessionMetadata session_metadata = 1;
+
+    /**
+     * A response explaining why a session could not be created as requested.
+     */
+    CreateRegistrationSessionError error = 2;
+  }
+}
+
+message RegistrationSessionMetadata {
+  /**
+   * An opaque sequence of bytes that uniquely identifies the registration
+   * session associated with this registration attempt.
+   */
+  bytes session_id = 1;
+}
+
+message CreateRegistrationSessionError {
+  /**
+   * The type of error that prevented a session from being created.
+   */
+  CreateRegistrationSessionErrorType error_type = 1;
+
+  /**
+   * Indicates that this error is fatal and should not be retried without
+   * modification. Non-fatal errors may be retried without modification after
+   * the duration indicated by `retry_after_seconds`.
+   */
+  bool fatal = 2;
+
+  /**
+   * If this error is not fatal (see `fatal`), indicates the duration in seconds
+   * from the present after which the request may be retried without
+   * modification. This value has no meaning otherwise.
+   */
+  uint64 retry_after_seconds = 3;
+}
+
+enum CreateRegistrationSessionErrorType {
+  ERROR_TYPE_UNSPECIFIED = 0;
+
+  /**
+   * Indicates that a session could not be created because too many requests to
+   * create a session for the given phone number have been received in some
+   * window of time. Callers should wait and try again later.
+   */
+  ERROR_TYPE_RATE_LIMITED = 1;
+}
+
 message SendVerificationCodeRequest {
   /**
-   * The phone number to which to send a verification code.
+   * The phone number to which to send a verification code. Ignored (and may be
+   * null if `session_id` is set.
    */
   uint64 e164 = 1;
 
@@ -31,8 +98,8 @@ message SendVerificationCodeRequest {
   MessageTransport transport = 2;
 
   /**
-   * The value of the `Accept-Language` header provided by remote clients (if
-   * any).
+   * A prioritized list of languages accepted by the destination; should be
+   * provided in the same format as the value of an HTTP Accept-Language header.
    */
   string accept_language = 3;
 
@@ -40,6 +107,11 @@ message SendVerificationCodeRequest {
    * The type of client requesting a verification code.
    */
   ClientType client_type = 4;
+
+  /**
+   * The ID of a session within which to send (or re-send) a verification code.
+   */
+  bytes session_id = 5;
 }
 
 enum MessageTransport {

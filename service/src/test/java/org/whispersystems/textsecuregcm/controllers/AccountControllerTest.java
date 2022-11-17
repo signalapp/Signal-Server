@@ -29,7 +29,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HttpHeaders;
 import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
-import com.google.i18n.phonenumbers.Phonenumber;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
@@ -339,7 +338,10 @@ class AccountControllerTest {
   }
 
   @Test
-  void testGetFcmPreauth() throws Exception {
+  void testGetFcmPreauth() throws NumberParseException {
+    when(registrationServiceClient.createRegistrationSession(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(new byte[16]));
+
     Response response = resources.getJerseyTest()
                                  .target("/v1/accounts/fcm/preauth/mytoken/+14152222222")
                                  .request()
@@ -349,6 +351,9 @@ class AccountControllerTest {
 
     final ArgumentCaptor<String> challengeTokenCaptor = ArgumentCaptor.forClass(String.class);
 
+    verify(registrationServiceClient).createRegistrationSession(
+        eq(PhoneNumberUtil.getInstance().parse("+14152222222", null)), any());
+
     verify(pushNotificationManager).sendRegistrationChallengeNotification(
         eq("mytoken"), eq(PushNotification.TokenType.FCM), challengeTokenCaptor.capture());
 
@@ -356,7 +361,10 @@ class AccountControllerTest {
   }
 
   @Test
-  void testGetFcmPreauthIvoryCoast() throws Exception {
+  void testGetFcmPreauthIvoryCoast() throws NumberParseException {
+    when(registrationServiceClient.createRegistrationSession(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(new byte[16]));
+
     Response response = resources.getJerseyTest()
             .target("/v1/accounts/fcm/preauth/mytoken/+2250707312345")
             .request()
@@ -366,6 +374,9 @@ class AccountControllerTest {
 
     final ArgumentCaptor<String> challengeTokenCaptor = ArgumentCaptor.forClass(String.class);
 
+    verify(registrationServiceClient).createRegistrationSession(
+        eq(PhoneNumberUtil.getInstance().parse("+2250707312345", null)), any());
+
     verify(pushNotificationManager).sendRegistrationChallengeNotification(
         eq("mytoken"), eq(PushNotification.TokenType.FCM), challengeTokenCaptor.capture());
 
@@ -373,7 +384,10 @@ class AccountControllerTest {
   }
 
   @Test
-  void testGetApnPreauth() throws Exception {
+  void testGetApnPreauth() throws NumberParseException {
+    when(registrationServiceClient.createRegistrationSession(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(new byte[16]));
+
     Response response = resources.getJerseyTest()
                                  .target("/v1/accounts/apn/preauth/mytoken/+14152222222")
                                  .request()
@@ -383,6 +397,9 @@ class AccountControllerTest {
 
     final ArgumentCaptor<String> challengeTokenCaptor = ArgumentCaptor.forClass(String.class);
 
+    verify(registrationServiceClient).createRegistrationSession(
+        eq(PhoneNumberUtil.getInstance().parse("+14152222222", null)), any());
+
     verify(pushNotificationManager).sendRegistrationChallengeNotification(
         eq("mytoken"), eq(PushNotification.TokenType.APN_VOIP), challengeTokenCaptor.capture());
 
@@ -390,7 +407,10 @@ class AccountControllerTest {
   }
 
   @Test
-  void testGetApnPreauthExplicitVoip() throws Exception {
+  void testGetApnPreauthExplicitVoip() throws NumberParseException {
+    when(registrationServiceClient.createRegistrationSession(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(new byte[16]));
+
     Response response = resources.getJerseyTest()
         .target("/v1/accounts/apn/preauth/mytoken/+14152222222")
         .queryParam("voip", "true")
@@ -401,6 +421,9 @@ class AccountControllerTest {
 
     final ArgumentCaptor<String> challengeTokenCaptor = ArgumentCaptor.forClass(String.class);
 
+    verify(registrationServiceClient).createRegistrationSession(
+        eq(PhoneNumberUtil.getInstance().parse("+14152222222", null)), any());
+
     verify(pushNotificationManager).sendRegistrationChallengeNotification(
         eq("mytoken"), eq(PushNotification.TokenType.APN_VOIP), challengeTokenCaptor.capture());
 
@@ -408,7 +431,10 @@ class AccountControllerTest {
   }
 
   @Test
-  void testGetApnPreauthExplicitNoVoip() throws Exception {
+  void testGetApnPreauthExplicitNoVoip() throws NumberParseException {
+    when(registrationServiceClient.createRegistrationSession(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(new byte[16]));
+
     Response response = resources.getJerseyTest()
         .target("/v1/accounts/apn/preauth/mytoken/+14152222222")
         .queryParam("voip", "false")
@@ -418,6 +444,9 @@ class AccountControllerTest {
     assertThat(response.getStatus()).isEqualTo(200);
 
     final ArgumentCaptor<String> challengeTokenCaptor = ArgumentCaptor.forClass(String.class);
+
+    verify(registrationServiceClient).createRegistrationSession(
+        eq(PhoneNumberUtil.getInstance().parse("+14152222222", null)), any());
 
     verify(pushNotificationManager).sendRegistrationChallengeNotification(
         eq("mytoken"), eq(PushNotification.TokenType.APN), challengeTokenCaptor.capture());
@@ -435,6 +464,7 @@ class AccountControllerTest {
     assertThat(response.getStatus()).isEqualTo(400);
     assertThat(response.readEntity(String.class)).isBlank();
 
+    verifyNoInteractions(registrationServiceClient);
     verifyNoInteractions(pushNotificationManager);
   }
 
@@ -453,13 +483,42 @@ class AccountControllerTest {
     assertThat(responseEntity.getOriginalNumber()).isEqualTo(number);
     assertThat(responseEntity.getNormalizedNumber()).isEqualTo("+447700900111");
 
+    verifyNoInteractions(registrationServiceClient);
     verifyNoInteractions(pushNotificationManager);
   }
 
   @Test
-  void testSendCode() throws NumberParseException {
-
+  void testSendCodeWithExistingSessionFromPreauth() {
     final byte[] sessionId = "session-id".getBytes(StandardCharsets.UTF_8);
+
+    when(pendingAccountsManager.getCodeForNumber(SENDER))
+        .thenReturn(Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), "1234-push", sessionId)));
+
+    when(registrationServiceClient.sendRegistrationCode(eq(sessionId), any(), any(), any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(sessionId));
+
+    Response response =
+        resources.getJerseyTest()
+            .target(String.format("/v1/accounts/sms/code/%s", SENDER))
+            .queryParam("challenge", "1234-push")
+            .request()
+            .header(HttpHeaders.X_FORWARDED_FOR, NICE_HOST)
+            .get();
+
+    assertThat(response.getStatus()).isEqualTo(200);
+
+    verify(registrationServiceClient).sendRegistrationCode(sessionId, MessageTransport.SMS, ClientType.UNKNOWN, null, AccountController.REGISTRATION_RPC_TIMEOUT);
+    verify(pendingAccountsManager).store(eq(SENDER), argThat(
+        storedVerificationCode -> Arrays.equals(storedVerificationCode.sessionId(), sessionId) &&
+            "1234-push".equals(storedVerificationCode.pushCode())));
+  }
+
+  @Test
+  void testSendCode() {
+    final byte[] sessionId = "session-id".getBytes(StandardCharsets.UTF_8);
+
+    when(registrationServiceClient.createRegistrationSession(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(sessionId));
 
     when(registrationServiceClient.sendRegistrationCode(any(), any(), any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(sessionId));
@@ -474,12 +533,28 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(200);
 
-    final Phonenumber.PhoneNumber expectedPhoneNumber = PhoneNumberUtil.getInstance().parse(SENDER, null);
-
-    verify(registrationServiceClient).sendRegistrationCode(expectedPhoneNumber, MessageTransport.SMS, ClientType.UNKNOWN, null, AccountController.REGISTRATION_RPC_TIMEOUT);
+    verify(registrationServiceClient).sendRegistrationCode(sessionId, MessageTransport.SMS, ClientType.UNKNOWN, null, AccountController.REGISTRATION_RPC_TIMEOUT);
     verify(pendingAccountsManager).store(eq(SENDER), argThat(
         storedVerificationCode -> Arrays.equals(storedVerificationCode.sessionId(), sessionId) &&
             "1234-push".equals(storedVerificationCode.pushCode())));
+  }
+
+  @Test
+  void testSendCodeRateLimited() {
+    when(registrationServiceClient.createRegistrationSession(any(), any()))
+        .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(Duration.ofMinutes(10))));
+
+    Response response =
+        resources.getJerseyTest()
+            .target(String.format("/v1/accounts/sms/code/%s", SENDER))
+            .queryParam("challenge", "1234-push")
+            .request()
+            .header(HttpHeaders.X_FORWARDED_FOR, NICE_HOST)
+            .get();
+
+    assertThat(response.getStatus()).isEqualTo(413);
+
+    verify(registrationServiceClient, never()).sendRegistrationCode(any(), any(), any(), any(), any());
   }
 
   @Test
@@ -520,10 +595,15 @@ class AccountControllerTest {
   }
 
   @Test
-  public void testSendCodeVoiceNoLocale() throws NumberParseException {
+  public void testSendCodeVoiceNoLocale() {
+
+    final byte[] sessionId = "session".getBytes(StandardCharsets.UTF_8);
 
     when(registrationServiceClient.sendRegistrationCode(any(), any(), any(), any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(new byte[16]));
+        .thenReturn(CompletableFuture.completedFuture(sessionId));
+
+    when(registrationServiceClient.createRegistrationSession(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(sessionId));
 
     Response response =
         resources.getJerseyTest()
@@ -533,17 +613,20 @@ class AccountControllerTest {
             .header(HttpHeaders.X_FORWARDED_FOR, NICE_HOST)
             .get();
 
-    final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().parse(SENDER, null);
-
     assertThat(response.getStatus()).isEqualTo(200);
-    verify(registrationServiceClient).sendRegistrationCode(phoneNumber, MessageTransport.VOICE, ClientType.UNKNOWN, null, AccountController.REGISTRATION_RPC_TIMEOUT);
+    verify(registrationServiceClient).sendRegistrationCode(sessionId, MessageTransport.VOICE, ClientType.UNKNOWN, null, AccountController.REGISTRATION_RPC_TIMEOUT);
   }
 
   @Test
-  void testSendCodeWithValidPreauth() throws NumberParseException {
+  void testSendCodeWithValidPreauth() {
+
+    final byte[] sessionId = "session".getBytes(StandardCharsets.UTF_8);
 
     when(registrationServiceClient.sendRegistrationCode(any(), any(), any(), any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(new byte[16]));
+        .thenReturn(CompletableFuture.completedFuture(sessionId));
+
+    when(registrationServiceClient.createRegistrationSession(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(sessionId));
 
     Response response =
         resources.getJerseyTest()
@@ -555,9 +638,7 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(200);
 
-    final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().parse(SENDER_PREAUTH, null);
-
-    verify(registrationServiceClient).sendRegistrationCode(phoneNumber, MessageTransport.SMS, ClientType.UNKNOWN, null, AccountController.REGISTRATION_RPC_TIMEOUT);
+    verify(registrationServiceClient).sendRegistrationCode(sessionId, MessageTransport.SMS, ClientType.UNKNOWN, null, AccountController.REGISTRATION_RPC_TIMEOUT);
   }
 
   @Test
@@ -590,10 +671,15 @@ class AccountControllerTest {
   }
 
   @Test
-  void testSendiOSCode() throws NumberParseException {
+  void testSendiOSCode() {
+
+    final byte[] sessionId = "session".getBytes(StandardCharsets.UTF_8);
 
     when(registrationServiceClient.sendRegistrationCode(any(), any(), any(), any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(new byte[16]));
+        .thenReturn(CompletableFuture.completedFuture(sessionId));
+
+    when(registrationServiceClient.createRegistrationSession(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(sessionId));
 
     Response response =
         resources.getJerseyTest()
@@ -606,15 +692,18 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(200);
 
-    final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().parse(SENDER, null);
-
-    verify(registrationServiceClient).sendRegistrationCode(phoneNumber, MessageTransport.SMS, ClientType.IOS, null, AccountController.REGISTRATION_RPC_TIMEOUT);
+    verify(registrationServiceClient).sendRegistrationCode(sessionId, MessageTransport.SMS, ClientType.IOS, null, AccountController.REGISTRATION_RPC_TIMEOUT);
   }
 
   @Test
-  void testSendAndroidNgCode() throws NumberParseException {
+  void testSendAndroidNgCode() {
+    final byte[] sessionId = "session".getBytes(StandardCharsets.UTF_8);
+
     when(registrationServiceClient.sendRegistrationCode(any(), any(), any(), any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(new byte[16]));
+        .thenReturn(CompletableFuture.completedFuture(sessionId));
+
+    when(registrationServiceClient.createRegistrationSession(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(sessionId));
 
     Response response =
         resources.getJerseyTest()
@@ -627,16 +716,19 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(200);
 
-    final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().parse(SENDER, null);
-
-    verify(registrationServiceClient).sendRegistrationCode(phoneNumber, MessageTransport.SMS, ClientType.ANDROID_WITHOUT_FCM, null, AccountController.REGISTRATION_RPC_TIMEOUT);
+    verify(registrationServiceClient).sendRegistrationCode(sessionId, MessageTransport.SMS, ClientType.ANDROID_WITHOUT_FCM, null, AccountController.REGISTRATION_RPC_TIMEOUT);
   }
 
   @Test
   void testSendWithValidCaptcha() throws NumberParseException, IOException {
 
+    final byte[] sessionId = "session".getBytes(StandardCharsets.UTF_8);
+
     when(registrationServiceClient.sendRegistrationCode(any(), any(), any(), any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(new byte[16]));
+        .thenReturn(CompletableFuture.completedFuture(sessionId));
+
+    when(registrationServiceClient.createRegistrationSession(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(sessionId));
 
     Response response =
         resources.getJerseyTest()
@@ -648,10 +740,8 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(200);
 
-    final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().parse(SENDER, null);
-
     verify(captchaChecker).verify(eq(VALID_CAPTCHA_TOKEN), eq(NICE_HOST));
-    verify(registrationServiceClient).sendRegistrationCode(phoneNumber, MessageTransport.SMS, ClientType.UNKNOWN, null, AccountController.REGISTRATION_RPC_TIMEOUT);
+    verify(registrationServiceClient).sendRegistrationCode(sessionId, MessageTransport.SMS, ClientType.UNKNOWN, null, AccountController.REGISTRATION_RPC_TIMEOUT);
   }
 
   @Test
@@ -742,8 +832,13 @@ class AccountControllerTest {
     when(pendingAccountsManager.getCodeForNumber(number))
         .thenReturn(Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), challenge, null)));
 
+    final byte[] sessionId = "session".getBytes(StandardCharsets.UTF_8);
+
     when(registrationServiceClient.sendRegistrationCode(any(), any(), any(), any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(new byte[16]));
+        .thenReturn(CompletableFuture.completedFuture(sessionId));
+
+    when(registrationServiceClient.createRegistrationSession(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(sessionId));
 
     Response response =
         resources.getJerseyTest()
@@ -755,9 +850,7 @@ class AccountControllerTest {
 
     if (expectSendCode) {
       assertThat(response.getStatus()).isEqualTo(200);
-
-      final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().parse(number, null);
-      verify(registrationServiceClient).sendRegistrationCode(phoneNumber, MessageTransport.SMS, ClientType.UNKNOWN, null, AccountController.REGISTRATION_RPC_TIMEOUT);
+      verify(registrationServiceClient).sendRegistrationCode(sessionId, MessageTransport.SMS, ClientType.UNKNOWN, null, AccountController.REGISTRATION_RPC_TIMEOUT);
     } else {
       assertThat(response.getStatus()).isEqualTo(402);
       verifyNoInteractions(registrationServiceClient);
@@ -765,13 +858,17 @@ class AccountControllerTest {
   }
 
   @Test
-  void testSendRestrictedIn() throws NumberParseException {
+  void testSendRestrictedIn() {
 
     final String challenge = "challenge";
+    final byte[] sessionId = "session".getBytes(StandardCharsets.UTF_8);
 
     when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), challenge, null)));
     when(registrationServiceClient.sendRegistrationCode(any(), any(), any(), any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(new byte[16]));
+        .thenReturn(CompletableFuture.completedFuture(sessionId));
+
+    when(registrationServiceClient.createRegistrationSession(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(sessionId));
 
     Response response =
         resources.getJerseyTest()
@@ -783,16 +880,17 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(200);
 
-    final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().parse(SENDER, null);
-
-    verify(registrationServiceClient).sendRegistrationCode(phoneNumber, MessageTransport.SMS, ClientType.UNKNOWN, null, AccountController.REGISTRATION_RPC_TIMEOUT);
+    verify(registrationServiceClient).sendRegistrationCode(sessionId, MessageTransport.SMS, ClientType.UNKNOWN, null, AccountController.REGISTRATION_RPC_TIMEOUT);
   }
 
   @Test
-  void testSendCodeTestDeviceNumber() throws NumberParseException {
+  void testSendCodeTestDeviceNumber() {
     final byte[] sessionId = "session-id".getBytes(StandardCharsets.UTF_8);
 
     when(registrationServiceClient.sendRegistrationCode(any(), any(), any(), any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(sessionId));
+
+    when(registrationServiceClient.createRegistrationSession(any(), any()))
         .thenReturn(CompletableFuture.completedFuture(sessionId));
 
     Response response =
@@ -809,8 +907,7 @@ class AccountControllerTest {
     assertThat(response.getStatus()).isEqualTo(200);
 
     // Even though no actual SMS will be sent, we leave that decision to the registration service
-    final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().parse(TEST_NUMBER, null);
-    verify(registrationServiceClient).sendRegistrationCode(phoneNumber, MessageTransport.SMS, ClientType.UNKNOWN, null, AccountController.REGISTRATION_RPC_TIMEOUT);
+    verify(registrationServiceClient).sendRegistrationCode(sessionId, MessageTransport.SMS, ClientType.UNKNOWN, null, AccountController.REGISTRATION_RPC_TIMEOUT);
   }
 
   @Test
@@ -1766,8 +1863,7 @@ class AccountControllerTest {
 
   @ParameterizedTest
   @MethodSource
-  void testSignupCaptcha(final String message, final boolean enforced, final Set<String> countryCodes, final int expectedResponseStatusCode)
-      throws NumberParseException {
+  void testSignupCaptcha(final String message, final boolean enforced, final Set<String> countryCodes, final int expectedResponseStatusCode) {
     DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
     when(dynamicConfigurationManager.getConfiguration())
         .thenReturn(dynamicConfiguration);
@@ -1777,8 +1873,13 @@ class AccountControllerTest {
     when(dynamicConfiguration.getCaptchaConfiguration())
         .thenReturn(signupCaptchaConfig);
 
+    final byte[] sessionId = "session".getBytes(StandardCharsets.UTF_8);
+
     when(registrationServiceClient.sendRegistrationCode(any(), any(), any(), any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(new byte[16]));
+        .thenReturn(CompletableFuture.completedFuture(sessionId));
+
+    when(registrationServiceClient.createRegistrationSession(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(sessionId));
 
     Response response =
         resources.getJerseyTest()
@@ -1790,10 +1891,8 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(expectedResponseStatusCode);
 
-    final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().parse(SENDER, null);
-
     verify(registrationServiceClient, 200 == expectedResponseStatusCode ? times(1) : never())
-        .sendRegistrationCode(phoneNumber, MessageTransport.SMS, ClientType.UNKNOWN, null, AccountController.REGISTRATION_RPC_TIMEOUT);
+        .sendRegistrationCode(sessionId, MessageTransport.SMS, ClientType.UNKNOWN, null, AccountController.REGISTRATION_RPC_TIMEOUT);
   }
 
   static Stream<Arguments> testSignupCaptcha() {

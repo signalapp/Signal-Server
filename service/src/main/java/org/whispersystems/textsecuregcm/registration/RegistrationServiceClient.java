@@ -16,15 +16,19 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.StringUtils;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.signal.registration.rpc.CheckVerificationCodeRequest;
 import org.signal.registration.rpc.CheckVerificationCodeResponse;
+import org.signal.registration.rpc.CreateRegistrationSessionRequest;
 import org.signal.registration.rpc.RegistrationServiceGrpc;
 import org.signal.registration.rpc.SendVerificationCodeRequest;
+import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 
 public class RegistrationServiceClient implements Managed {
 
@@ -52,17 +56,36 @@ public class RegistrationServiceClient implements Managed {
     this.callbackExecutor = callbackExecutor;
   }
 
-  public CompletableFuture<byte[]> sendRegistrationCode(final Phonenumber.PhoneNumber phoneNumber,
+  public CompletableFuture<byte[]> createRegistrationSession(final Phonenumber.PhoneNumber phoneNumber, final Duration timeout) {
+    final long e164 = Long.parseLong(
+        PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164).substring(1));
+
+    return toCompletableFuture(stub.withDeadline(toDeadline(timeout))
+        .createSession(CreateRegistrationSessionRequest.newBuilder()
+            .setE164(e164)
+            .build()))
+        .thenApply(response -> switch (response.getResponseCase()) {
+          case SESSION_METADATA -> response.getSessionMetadata().getSessionId().toByteArray();
+
+          case ERROR -> {
+            switch (response.getError().getErrorType()) {
+              case ERROR_TYPE_RATE_LIMITED -> throw new CompletionException(new RateLimitExceededException(Duration.ofSeconds(response.getError().getRetryAfterSeconds())));
+              default -> throw new RuntimeException("Unrecognized error type from registration service: " + response.getError().getErrorType());
+            }
+          }
+
+          case RESPONSE_NOT_SET -> throw new RuntimeException("No response from registration service");
+        });
+  }
+
+  public CompletableFuture<byte[]> sendRegistrationCode(final byte[] sessionId,
       final MessageTransport messageTransport,
       final ClientType clientType,
       @Nullable final String acceptLanguage,
       final Duration timeout) {
 
-    final long e164 = Long.parseLong(
-        PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164).substring(1));
-
     final SendVerificationCodeRequest.Builder requestBuilder = SendVerificationCodeRequest.newBuilder()
-        .setE164(e164)
+        .setSessionId(ByteString.copyFrom(sessionId))
         .setTransport(getRpcMessageTransport(messageTransport))
         .setClientType(getRpcClientType(clientType));
 
