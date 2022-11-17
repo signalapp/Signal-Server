@@ -235,15 +235,15 @@ class AccountControllerTest {
     when(senderTransfer.getUuid()).thenReturn(SENDER_TRANSFER_UUID);
     when(senderTransfer.getNumber()).thenReturn(SENDER_TRANSFER);
 
-    when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.of(new StoredVerificationCode("1234", System.currentTimeMillis(), "1234-push", null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), "1234-push", null)));
     when(pendingAccountsManager.getCodeForNumber(SENDER_OLD)).thenReturn(Optional.empty());
-    when(pendingAccountsManager.getCodeForNumber(SENDER_PIN)).thenReturn(Optional.of(new StoredVerificationCode("333333", System.currentTimeMillis(), null, null)));
-    when(pendingAccountsManager.getCodeForNumber(SENDER_REG_LOCK)).thenReturn(Optional.of(new StoredVerificationCode("666666", System.currentTimeMillis(), null, null)));
-    when(pendingAccountsManager.getCodeForNumber(SENDER_OVER_PIN)).thenReturn(Optional.of(new StoredVerificationCode("444444", System.currentTimeMillis(), null, null)));
-    when(pendingAccountsManager.getCodeForNumber(SENDER_OVER_PREFIX)).thenReturn(Optional.of(new StoredVerificationCode("777777", System.currentTimeMillis(), "1234-push", null)));
-    when(pendingAccountsManager.getCodeForNumber(SENDER_PREAUTH)).thenReturn(Optional.of(new StoredVerificationCode("555555", System.currentTimeMillis(), "validchallenge", null)));
-    when(pendingAccountsManager.getCodeForNumber(SENDER_HAS_STORAGE)).thenReturn(Optional.of(new StoredVerificationCode("666666", System.currentTimeMillis(), null, null)));
-    when(pendingAccountsManager.getCodeForNumber(SENDER_TRANSFER)).thenReturn(Optional.of(new StoredVerificationCode("1234", System.currentTimeMillis(), null, null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER_PIN)).thenReturn(Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), null, null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER_REG_LOCK)).thenReturn(Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), null, null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER_OVER_PIN)).thenReturn(Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), null, null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER_OVER_PREFIX)).thenReturn(Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), "1234-push", null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER_PREAUTH)).thenReturn(Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), "validchallenge", null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER_HAS_STORAGE)).thenReturn(Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), null, null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER_TRANSFER)).thenReturn(Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), null, null)));
 
     when(accountsManager.getByE164(eq(SENDER_PIN))).thenReturn(Optional.of(senderPinAccount));
     when(accountsManager.getByE164(eq(SENDER_REG_LOCK))).thenReturn(Optional.of(senderRegLockAccount));
@@ -709,7 +709,7 @@ class AccountControllerTest {
 
     final String challenge = "challenge";
     when(pendingAccountsManager.getCodeForNumber(RESTRICTED_NUMBER))
-        .thenReturn(Optional.of(new StoredVerificationCode("123456", System.currentTimeMillis(), challenge, null)));
+        .thenReturn(Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), challenge, null)));
 
     Response response =
         resources.getJerseyTest()
@@ -740,7 +740,7 @@ class AccountControllerTest {
 
     final String challenge = "challenge";
     when(pendingAccountsManager.getCodeForNumber(number))
-        .thenReturn(Optional.of(new StoredVerificationCode("123456", System.currentTimeMillis(), challenge, null)));
+        .thenReturn(Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), challenge, null)));
 
     when(registrationServiceClient.sendRegistrationCode(any(), any(), any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(new byte[16]));
@@ -769,7 +769,7 @@ class AccountControllerTest {
 
     final String challenge = "challenge";
 
-    when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.of(new StoredVerificationCode("123456", System.currentTimeMillis(), challenge, null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), challenge, null)));
     when(registrationServiceClient.sendRegistrationCode(any(), any(), any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(new byte[16]));
 
@@ -815,29 +815,17 @@ class AccountControllerTest {
 
   @Test
   void testVerifyCode() throws Exception {
-    resources.getJerseyTest()
-             .target(String.format("/v1/accounts/code/%s", "1234"))
-             .request()
-             .header("Authorization", AuthHelper.getProvisioningAuthHeader(SENDER, "bar"))
-             .put(Entity.entity(new AccountAttributes(), MediaType.APPLICATION_JSON_TYPE), AccountIdentityResponse.class);
-
-    verify(accountsManager).create(eq(SENDER), eq("bar"), any(), any(), anyList());
-    verifyNoInteractions(registrationServiceClient);
-  }
-
-  @Test
-  void testVerifyCodeWithRegistrationService() throws Exception {
     final byte[] sessionId = "session".getBytes(StandardCharsets.UTF_8);
 
     when(pendingAccountsManager.getCodeForNumber(SENDER))
         .thenReturn(Optional.of(
-            new StoredVerificationCode("1234", System.currentTimeMillis(), "1234-push", sessionId)));
+            new StoredVerificationCode(null, System.currentTimeMillis(), "1234-push", sessionId)));
 
     when(registrationServiceClient.checkVerificationCode(sessionId, "1234", AccountController.REGISTRATION_RPC_TIMEOUT))
         .thenReturn(CompletableFuture.completedFuture(true));
 
     resources.getJerseyTest()
-        .target(String.format("/v1/accounts/code/%s", "1234"))
+        .target("/v1/accounts/code/1234")
         .request()
         .header("Authorization", AuthHelper.getProvisioningAuthHeader(SENDER, "bar"))
         .put(Entity.entity(new AccountAttributes(), MediaType.APPLICATION_JSON_TYPE), AccountIdentityResponse.class);
@@ -850,7 +838,7 @@ class AccountControllerTest {
   @Test
   void testVerifyCodeBadCredentials() {
     final Response response = resources.getJerseyTest()
-        .target(String.format("/v1/accounts/code/%s", "1234"))
+        .target("/v1/accounts/code/1234")
         .request()
         .header("Authorization", "This is not a valid authorization header")
         .put(Entity.entity(new AccountAttributes(), MediaType.APPLICATION_JSON_TYPE));
@@ -862,7 +850,7 @@ class AccountControllerTest {
   void testVerifyCodeOld() {
     Response response =
         resources.getJerseyTest()
-            .target(String.format("/v1/accounts/code/%s", "1234"))
+            .target("/v1/accounts/code/1234")
             .request()
             .header("Authorization", AuthHelper.getProvisioningAuthHeader(SENDER_OLD, "bar"))
             .put(Entity.entity(new AccountAttributes(false, 2222, null, null, true, null),
@@ -875,33 +863,18 @@ class AccountControllerTest {
 
   @Test
   void testVerifyBadCode() {
-    Response response =
-        resources.getJerseyTest()
-            .target(String.format("/v1/accounts/code/%s", "1111"))
-            .request()
-            .header("Authorization", AuthHelper.getProvisioningAuthHeader(SENDER, "bar"))
-            .put(Entity.entity(new AccountAttributes(false, 3333, null, null, true, null),
-                MediaType.APPLICATION_JSON_TYPE));
-
-    assertThat(response.getStatus()).isEqualTo(403);
-
-    verifyNoInteractions(accountsManager);
-  }
-
-  @Test
-  void testVerifyBadCodeWithRegistrationService() {
     final byte[] sessionId = "session".getBytes(StandardCharsets.UTF_8);
 
     when(pendingAccountsManager.getCodeForNumber(SENDER))
         .thenReturn(Optional.of(
-            new StoredVerificationCode("1234", System.currentTimeMillis(), "1234-push", sessionId)));
+            new StoredVerificationCode(null, System.currentTimeMillis(), "1234-push", sessionId)));
 
     when(registrationServiceClient.checkVerificationCode(any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(false));
 
     Response response =
         resources.getJerseyTest()
-            .target(String.format("/v1/accounts/code/%s", "1111"))
+            .target("/v1/accounts/code/1111")
             .request()
             .header("Authorization", AuthHelper.getProvisioningAuthHeader(SENDER, "bar"))
             .put(Entity.entity(new AccountAttributes(false, 3333, null, null, true, null),
@@ -915,9 +888,18 @@ class AccountControllerTest {
 
   @Test
   void testVerifyRegistrationLock() throws Exception {
+    final byte[] sessionId = "session".getBytes(StandardCharsets.UTF_8);
+
+    when(pendingAccountsManager.getCodeForNumber(SENDER_REG_LOCK))
+        .thenReturn(Optional.of(
+            new StoredVerificationCode(null, System.currentTimeMillis(), "666666-push", sessionId)));
+
+    when(registrationServiceClient.checkVerificationCode(sessionId, "666666", AccountController.REGISTRATION_RPC_TIMEOUT))
+        .thenReturn(CompletableFuture.completedFuture(true));
+
     AccountIdentityResponse result =
         resources.getJerseyTest()
-            .target(String.format("/v1/accounts/code/%s", "666666"))
+            .target("/v1/accounts/code/666666")
             .request()
             .header("Authorization", AuthHelper.getProvisioningAuthHeader(SENDER_REG_LOCK, "bar"))
             .put(Entity.entity(new AccountAttributes(false, 3333, null, Hex.toStringCondensed(registration_lock_key), true, null),
@@ -930,9 +912,18 @@ class AccountControllerTest {
 
   @Test
   void testVerifyRegistrationLockSetsRegistrationLockOnNewAccount() throws Exception {
+    final byte[] sessionId = "session".getBytes(StandardCharsets.UTF_8);
+
+    when(pendingAccountsManager.getCodeForNumber(SENDER_REG_LOCK))
+        .thenReturn(Optional.of(
+            new StoredVerificationCode(null, System.currentTimeMillis(), "666666-push", sessionId)));
+
+    when(registrationServiceClient.checkVerificationCode(sessionId, "666666", AccountController.REGISTRATION_RPC_TIMEOUT))
+        .thenReturn(CompletableFuture.completedFuture(true));
+
     AccountIdentityResponse result =
         resources.getJerseyTest()
-            .target(String.format("/v1/accounts/code/%s", "666666"))
+            .target("/v1/accounts/code/666666")
             .request()
             .header("Authorization", AuthHelper.getProvisioningAuthHeader(SENDER_REG_LOCK, "bar"))
             .put(Entity.entity(new AccountAttributes(false, 3333, null, Hex.toStringCondensed(registration_lock_key), true, null),
@@ -954,9 +945,18 @@ class AccountControllerTest {
     try {
       when(senderRegLockAccount.getRegistrationLock()).thenReturn(lock.forTime(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(7)));
 
+      final byte[] sessionId = "session".getBytes(StandardCharsets.UTF_8);
+
+      when(pendingAccountsManager.getCodeForNumber(SENDER_REG_LOCK))
+          .thenReturn(Optional.of(
+              new StoredVerificationCode(null, System.currentTimeMillis(), "666666-push", sessionId)));
+
+      when(registrationServiceClient.checkVerificationCode(sessionId, "666666", AccountController.REGISTRATION_RPC_TIMEOUT))
+          .thenReturn(CompletableFuture.completedFuture(true));
+
       AccountIdentityResponse result =
           resources.getJerseyTest()
-              .target(String.format("/v1/accounts/code/%s", "666666"))
+              .target("/v1/accounts/code/666666")
               .request()
               .header("Authorization", AuthHelper.getProvisioningAuthHeader(SENDER_REG_LOCK, "bar"))
               .put(Entity.entity(new AccountAttributes(false, 3333, null, null, true, null),
@@ -972,9 +972,18 @@ class AccountControllerTest {
 
   @Test
   void testVerifyWrongRegistrationLock() throws Exception {
+    final byte[] sessionId = "session".getBytes(StandardCharsets.UTF_8);
+
+    when(pendingAccountsManager.getCodeForNumber(SENDER_REG_LOCK))
+        .thenReturn(Optional.of(
+            new StoredVerificationCode(null, System.currentTimeMillis(), "666666-push", sessionId)));
+
+    when(registrationServiceClient.checkVerificationCode(sessionId, "666666", AccountController.REGISTRATION_RPC_TIMEOUT))
+        .thenReturn(CompletableFuture.completedFuture(true));
+
     Response response =
         resources.getJerseyTest()
-            .target(String.format("/v1/accounts/code/%s", "666666"))
+            .target("/v1/accounts/code/666666")
             .request()
             .header("Authorization", AuthHelper.getProvisioningAuthHeader(SENDER_REG_LOCK, "bar"))
             .put(Entity.entity(new AccountAttributes(false, 3333, null,
@@ -989,10 +998,19 @@ class AccountControllerTest {
   }
 
   @Test
-  void testVerifyNoRegistrationLock() throws Exception {
+  void testVerifyNoRegistrationLock() {
+    final byte[] sessionId = "session".getBytes(StandardCharsets.UTF_8);
+
+    when(pendingAccountsManager.getCodeForNumber(SENDER_REG_LOCK))
+        .thenReturn(Optional.of(
+            new StoredVerificationCode(null, System.currentTimeMillis(), "666666-push", sessionId)));
+
+    when(registrationServiceClient.checkVerificationCode(sessionId, "666666", AccountController.REGISTRATION_RPC_TIMEOUT))
+        .thenReturn(CompletableFuture.completedFuture(true));
+
     Response response =
         resources.getJerseyTest()
-            .target(String.format("/v1/accounts/code/%s", "666666"))
+            .target("/v1/accounts/code/666666")
             .request()
             .header("Authorization", AuthHelper.getProvisioningAuthHeader(SENDER_REG_LOCK, "bar"))
             .put(Entity.entity(new AccountAttributes(false, 3333, null, null, true, null),
@@ -1014,11 +1032,20 @@ class AccountControllerTest {
 
   @Test
   void testVerifyTransferSupported() {
+    final byte[] sessionId = "session".getBytes(StandardCharsets.UTF_8);
+
+    when(pendingAccountsManager.getCodeForNumber(SENDER_TRANSFER))
+        .thenReturn(Optional.of(
+            new StoredVerificationCode(null, System.currentTimeMillis(), "1234-push", sessionId)));
+
+    when(registrationServiceClient.checkVerificationCode(sessionId, "1234", AccountController.REGISTRATION_RPC_TIMEOUT))
+        .thenReturn(CompletableFuture.completedFuture(true));
+
     when(senderTransfer.isTransferSupported()).thenReturn(true);
 
     final Response response =
         resources.getJerseyTest()
-            .target(String.format("/v1/accounts/code/%s", "1234"))
+            .target("/v1/accounts/code/1234")
             .queryParam("transfer", true)
             .request()
             .header("Authorization", AuthHelper.getProvisioningAuthHeader(SENDER_TRANSFER, "bar"))
@@ -1030,11 +1057,20 @@ class AccountControllerTest {
 
   @Test
   void testVerifyTransferNotSupported() {
+    final byte[] sessionId = "session".getBytes(StandardCharsets.UTF_8);
+
+    when(pendingAccountsManager.getCodeForNumber(SENDER_TRANSFER))
+        .thenReturn(Optional.of(
+            new StoredVerificationCode(null, System.currentTimeMillis(), "1234-push", sessionId)));
+
+    when(registrationServiceClient.checkVerificationCode(sessionId, "1234", AccountController.REGISTRATION_RPC_TIMEOUT))
+        .thenReturn(CompletableFuture.completedFuture(true));
+
     when(senderTransfer.isTransferSupported()).thenReturn(false);
 
     final Response response =
         resources.getJerseyTest()
-            .target(String.format("/v1/accounts/code/%s", "1234"))
+            .target("/v1/accounts/code/1234")
             .queryParam("transfer", true)
             .request()
             .header("Authorization", AuthHelper.getProvisioningAuthHeader(SENDER_TRANSFER, "bar"))
@@ -1046,11 +1082,20 @@ class AccountControllerTest {
 
   @Test
   void testVerifyTransferSupportedNotRequested() {
+    final byte[] sessionId = "session".getBytes(StandardCharsets.UTF_8);
+
+    when(pendingAccountsManager.getCodeForNumber(SENDER_TRANSFER))
+        .thenReturn(Optional.of(
+            new StoredVerificationCode(null, System.currentTimeMillis(), "1234-push", sessionId)));
+
+    when(registrationServiceClient.checkVerificationCode(sessionId, "1234", AccountController.REGISTRATION_RPC_TIMEOUT))
+        .thenReturn(CompletableFuture.completedFuture(true));
+
     when(senderTransfer.isTransferSupported()).thenReturn(true);
 
     final Response response =
         resources.getJerseyTest()
-            .target(String.format("/v1/accounts/code/%s", "1234"))
+            .target("/v1/accounts/code/1234")
             .request()
             .header("Authorization", AuthHelper.getProvisioningAuthHeader(SENDER_TRANSFER, "bar"))
             .put(Entity.entity(new AccountAttributes(false, 2222, null, null, true, null),

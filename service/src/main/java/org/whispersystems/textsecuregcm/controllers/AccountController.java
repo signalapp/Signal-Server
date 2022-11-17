@@ -387,13 +387,9 @@ public class AccountController {
     // Note that successful verification depends on being able to find a stored verification code for the given number.
     // We check that numbers are normalized before we store verification codes, and so don't need to re-assert
     // normalization here.
-    final Optional<StoredVerificationCode> maybeStoredVerificationCode = pendingAccounts.getCodeForNumber(number);
-
-    final boolean codeVerified = maybeStoredVerificationCode.map(storedVerificationCode ->
-            storedVerificationCode.sessionId() != null ?
-                registrationServiceClient.checkVerificationCode(storedVerificationCode.sessionId(),
-                    verificationCode, REGISTRATION_RPC_TIMEOUT).join() :
-                storedVerificationCode.isValid(verificationCode))
+    final boolean codeVerified = pendingAccounts.getCodeForNumber(number).map(storedVerificationCode ->
+            registrationServiceClient.checkVerificationCode(storedVerificationCode.sessionId(),
+                verificationCode, REGISTRATION_RPC_TIMEOUT).join())
         .orElse(false);
 
     if (!codeVerified) {
