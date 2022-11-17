@@ -392,8 +392,6 @@ class SubscriptionControllerTest {
     when(LEVEL_TRANSLATOR.translate(any(), eq("B1"))).thenReturn("Z1");
     when(LEVEL_TRANSLATOR.translate(any(), eq("B2"))).thenReturn("Z2");
     when(LEVEL_TRANSLATOR.translate(any(), eq("B3"))).thenReturn("Z3");
-    when(LEVEL_TRANSLATOR.translate(any(), eq("BOOST"))).thenReturn("ZBOOST");
-    when(LEVEL_TRANSLATOR.translate(any(), eq("GIFT"))).thenReturn("ZGIFT");
 
     GetSubscriptionConfigurationResponse response = RESOURCE_EXTENSION.target("/v1/subscription/configuration")
         .request()
@@ -445,7 +443,7 @@ class SubscriptionControllerTest {
 
     assertThat(response.levels()).containsKeys("1", "5", "15", "35", "100").satisfies(levelsMap -> {
       assertThat(levelsMap).extractingByKey("1").satisfies(level -> {
-        assertThat(level.name()).isEqualTo("ZBOOST");
+        assertThat(level.name()).isEqualTo("boost1"); // level name is the same as badge name
         assertThat(level).extracting(SubscriptionController.LevelConfiguration::badge).satisfies(badge -> {
           assertThat(badge.getId()).isEqualTo("BOOST");
           assertThat(badge.getName()).isEqualTo("boost1");
@@ -453,7 +451,7 @@ class SubscriptionControllerTest {
       });
 
       assertThat(levelsMap).extractingByKey("100").satisfies(level -> {
-        assertThat(level.name()).isEqualTo("ZGIFT");
+        assertThat(level.name()).isEqualTo("gift1"); // level name is the same as badge name
         assertThat(level).extracting(SubscriptionController.LevelConfiguration::badge).satisfies(badge -> {
           assertThat(badge.getId()).isEqualTo("GIFT");
           assertThat(badge.getName()).isEqualTo("gift1");

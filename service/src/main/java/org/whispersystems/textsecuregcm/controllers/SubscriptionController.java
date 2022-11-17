@@ -194,18 +194,22 @@ public class SubscriptionController {
       levels.put(String.valueOf(levelId), levelConfiguration);
     });
 
+    final Badge boostBadge = badgeTranslator.translate(acceptableLanguages,
+        oneTimeDonationConfiguration.boost().badge());
     levels.put(String.valueOf(oneTimeDonationConfiguration.boost().level()),
         new LevelConfiguration(
-            levelTranslator.translate(acceptableLanguages, oneTimeDonationConfiguration.boost().badge()),
+            boostBadge.getName(),
             // NB: the one-time badges are PurchasableBadge, which has a `duration` field
             new PurchasableBadge(
-                badgeTranslator.translate(acceptableLanguages, oneTimeDonationConfiguration.boost().badge()),
+                boostBadge,
                 oneTimeDonationConfiguration.boost().expiration())));
+
+    final Badge giftBadge = badgeTranslator.translate(acceptableLanguages, oneTimeDonationConfiguration.gift().badge());
     levels.put(String.valueOf(oneTimeDonationConfiguration.gift().level()),
         new LevelConfiguration(
-            levelTranslator.translate(acceptableLanguages, oneTimeDonationConfiguration.gift().badge()),
+            giftBadge.getName(),
             new PurchasableBadge(
-                badgeTranslator.translate(acceptableLanguages, oneTimeDonationConfiguration.gift().badge()),
+                giftBadge,
                 oneTimeDonationConfiguration.gift().expiration())));
 
     return new GetSubscriptionConfigurationResponse(currencyConfiguration, levels);
