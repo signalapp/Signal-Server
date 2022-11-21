@@ -193,8 +193,6 @@ class ProfileControllerTest {
     when(profileAccount.getUuid()).thenReturn(AuthHelper.VALID_UUID_TWO);
     when(profileAccount.getPhoneNumberIdentifier()).thenReturn(AuthHelper.VALID_PNI_TWO);
     when(profileAccount.isEnabled()).thenReturn(true);
-    when(profileAccount.isGroupsV2Supported()).thenReturn(false);
-    when(profileAccount.isGv1MigrationSupported()).thenReturn(false);
     when(profileAccount.isSenderKeySupported()).thenReturn(false);
     when(profileAccount.isAnnouncementGroupSupported()).thenReturn(false);
     when(profileAccount.isChangeNumberSupported()).thenReturn(false);
@@ -207,8 +205,6 @@ class ProfileControllerTest {
     when(capabilitiesAccount.getIdentityKey()).thenReturn(ACCOUNT_IDENTITY_KEY);
     when(capabilitiesAccount.getPhoneNumberIdentityKey()).thenReturn(ACCOUNT_PHONE_NUMBER_IDENTITY_KEY);
     when(capabilitiesAccount.isEnabled()).thenReturn(true);
-    when(capabilitiesAccount.isGroupsV2Supported()).thenReturn(true);
-    when(capabilitiesAccount.isGv1MigrationSupported()).thenReturn(true);
     when(capabilitiesAccount.isSenderKeySupported()).thenReturn(true);
     when(capabilitiesAccount.isAnnouncementGroupSupported()).thenReturn(true);
     when(capabilitiesAccount.isChangeNumberSupported()).thenReturn(true);
@@ -396,7 +392,6 @@ class ProfileControllerTest {
                               .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                               .get(BaseProfileResponse.class);
 
-    assertThat(profile.getCapabilities().isGv2()).isTrue();
     assertThat(profile.getCapabilities().isGv1Migration()).isTrue();
     assertThat(profile.getCapabilities().isSenderKey()).isTrue();
     assertThat(profile.getCapabilities().isAnnouncementGroup()).isTrue();
@@ -408,8 +403,7 @@ class ProfileControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
         .get(BaseProfileResponse.class);
 
-    assertThat(profile.getCapabilities().isGv2()).isFalse();
-    assertThat(profile.getCapabilities().isGv1Migration()).isFalse();
+    assertThat(profile.getCapabilities().isGv1Migration()).isTrue();
     assertThat(profile.getCapabilities().isSenderKey()).isFalse();
     assertThat(profile.getCapabilities().isAnnouncementGroup()).isFalse();
   }
@@ -753,8 +747,7 @@ class ProfileControllerTest {
     assertThat(profile.getAbout()).isEqualTo("about");
     assertThat(profile.getAboutEmoji()).isEqualTo("emoji");
     assertThat(profile.getAvatar()).isEqualTo("profiles/validavatar");
-    assertThat(profile.getBaseProfileResponse().getCapabilities().isGv2()).isFalse();
-    assertThat(profile.getBaseProfileResponse().getCapabilities().isGv1Migration()).isFalse();
+    assertThat(profile.getBaseProfileResponse().getCapabilities().isGv1Migration()).isTrue();
     assertThat(profile.getBaseProfileResponse().getUuid()).isEqualTo(AuthHelper.VALID_UUID_TWO);
     assertThat(profile.getBaseProfileResponse().getBadges()).hasSize(1).element(0).has(new Condition<>(
         badge -> "Test Badge".equals(badge.getName()), "has badge with expected name"));

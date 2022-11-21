@@ -12,17 +12,13 @@ public class UserCapabilities {
 
   public static UserCapabilities createForAccount(Account account) {
     return new UserCapabilities(
-        account.isGroupsV2Supported(),
-        account.isGv1MigrationSupported(),
+        true,
         account.isSenderKeySupported(),
         account.isAnnouncementGroupSupported(),
         account.isChangeNumberSupported(),
         account.isStoriesSupported(),
         account.isGiftBadgesSupported());
   }
-
-  @JsonProperty
-  private boolean gv2;
 
   @JsonProperty("gv1-migration")
   private boolean gv1Migration;
@@ -45,7 +41,7 @@ public class UserCapabilities {
   public UserCapabilities() {
   }
 
-  public UserCapabilities(final boolean gv2,
+  public UserCapabilities(
       boolean gv1Migration,
       final boolean senderKey,
       final boolean announcementGroup,
@@ -53,17 +49,12 @@ public class UserCapabilities {
       final boolean stories,
       final boolean giftBadges) {
 
-    this.gv2 = gv2;
     this.gv1Migration = gv1Migration;
     this.senderKey = senderKey;
     this.announcementGroup = announcementGroup;
     this.changeNumber = changeNumber;
     this.stories = stories;
     this.giftBadges = giftBadges;
-  }
-
-  public boolean isGv2() {
-    return gv2;
   }
 
   public boolean isGv1Migration() {

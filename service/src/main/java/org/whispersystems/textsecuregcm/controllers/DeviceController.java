@@ -188,7 +188,7 @@ public class DeviceController {
     }
 
     final DeviceCapabilities capabilities = accountAttributes.getCapabilities();
-    if (capabilities != null && isCapabilityDowngrade(account.get(), capabilities, userAgent)) {
+    if (capabilities != null && isCapabilityDowngrade(account.get(), capabilities)) {
       throw new WebApplicationException(Response.status(409).build());
     }
 
@@ -236,7 +236,7 @@ public class DeviceController {
     return new VerificationCode(randomInt);
   }
 
-  private boolean isCapabilityDowngrade(Account account, DeviceCapabilities capabilities, String userAgent) {
+  private boolean isCapabilityDowngrade(Account account, DeviceCapabilities capabilities) {
     boolean isDowngrade = false;
 
     isDowngrade |= account.isStoriesSupported() && !capabilities.isStories();
@@ -244,34 +244,7 @@ public class DeviceController {
     isDowngrade |= account.isChangeNumberSupported() && !capabilities.isChangeNumber();
     isDowngrade |= account.isAnnouncementGroupSupported() && !capabilities.isAnnouncementGroup();
     isDowngrade |= account.isSenderKeySupported() && !capabilities.isSenderKey();
-    isDowngrade |= account.isGv1MigrationSupported() && !capabilities.isGv1Migration();
     isDowngrade |= account.isGiftBadgesSupported() && !capabilities.isGiftBadges();
-
-    if (account.isGroupsV2Supported()) {
-      try {
-        switch (UserAgentUtil.parseUserAgentString(userAgent).getPlatform()) {
-          case DESKTOP:
-          case ANDROID: {
-            if (!capabilities.isGv2_3()) {
-              isDowngrade = true;
-            }
-
-            break;
-          }
-
-          case IOS: {
-            if (!capabilities.isGv2_2() && !capabilities.isGv2_3()) {
-              isDowngrade = true;
-            }
-
-            break;
-          }
-        }
-      } catch (final UnrecognizedUserAgentException e) {
-        // If we can't parse the UA string, the client is for sure too old to support groups V2
-        isDowngrade = true;
-      }
-    }
 
     return isDowngrade;
   }

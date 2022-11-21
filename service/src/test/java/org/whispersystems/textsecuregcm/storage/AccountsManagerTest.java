@@ -603,7 +603,7 @@ class AccountsManagerTest {
   @ValueSource(booleans = {true, false})
   void testCreateWithStorageCapability(final boolean hasStorage) throws InterruptedException {
     final AccountAttributes attributes = new AccountAttributes(false, 0, null, null, true,
-        new DeviceCapabilities(false, false, false, hasStorage, false, false, false, false, false, false, false, false));
+        new DeviceCapabilities(hasStorage, false, false, false, false, false, false, false));
 
     final Account account = accountsManager.create("+18005550123", "password", null, attributes, new ArrayList<>());
 

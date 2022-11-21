@@ -181,14 +181,6 @@ public class Account {
     return devices.stream().filter(device -> device.getId() == deviceId).findFirst();
   }
 
-  public boolean isGroupsV2Supported() {
-    requireNotStale();
-
-    return devices.stream()
-                  .filter(Device::isEnabled)
-                  .allMatch(Device::isGroupsV2Supported);
-  }
-
   public boolean isStorageSupported() {
     requireNotStale();
 
@@ -199,10 +191,6 @@ public class Account {
     requireNotStale();
 
     return getMasterDevice().map(Device::getCapabilities).map(Device.DeviceCapabilities::isTransfer).orElse(false);
-  }
-
-  public boolean isGv1MigrationSupported() {
-    return allEnabledDevicesHaveCapability(DeviceCapabilities::isGv1Migration);
   }
 
   public boolean isSenderKeySupported() {

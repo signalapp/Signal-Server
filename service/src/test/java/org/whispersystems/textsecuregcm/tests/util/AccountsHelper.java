@@ -120,8 +120,6 @@ public class AccountsHelper {
           case "isEnabled" -> when(updatedAccount.isEnabled()).thenAnswer(stubbing);
           case "isDiscoverableByPhoneNumber" -> when(updatedAccount.isDiscoverableByPhoneNumber()).thenAnswer(stubbing);
           case "getNextDeviceId" -> when(updatedAccount.getNextDeviceId()).thenAnswer(stubbing);
-          case "isGroupsV2Supported" -> when(updatedAccount.isGroupsV2Supported()).thenAnswer(stubbing);
-          case "isGv1MigrationSupported" -> when(updatedAccount.isGv1MigrationSupported()).thenAnswer(stubbing);
           case "isSenderKeySupported" -> when(updatedAccount.isSenderKeySupported()).thenAnswer(stubbing);
           case "isAnnouncementGroupSupported" -> when(updatedAccount.isAnnouncementGroupSupported()).thenAnswer(stubbing);
           case "isChangeNumberSupported" -> when(updatedAccount.isChangeNumberSupported()).thenAnswer(stubbing);
