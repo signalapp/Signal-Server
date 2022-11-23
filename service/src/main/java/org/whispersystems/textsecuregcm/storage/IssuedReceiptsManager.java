@@ -26,14 +26,16 @@ import javax.crypto.spec.SecretKeySpec;
 import javax.ws.rs.ClientErrorException;
 import javax.ws.rs.core.Response.Status;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialRequest;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessor;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 
 public class IssuedReceiptsManager {
 
-  public static final String KEY_STRIPE_ID = "A";  // S  (HashKey)
+  public static final String KEY_PROCESSOR_ITEM_ID = "A";  // S  (HashKey)
   public static final String KEY_ISSUED_RECEIPT_TAG = "B";  // B
   public static final String KEY_EXPIRATION = "E";  // N
 
@@ -54,29 +56,39 @@ public class IssuedReceiptsManager {
   }
 
   /**
-   * Returns a future that completes normally if either this stripe item was never issued a receipt credential
+   * Returns a future that completes normally if either this processor item was never issued a receipt credential
    * previously OR if it was issued a receipt credential previously for the exact same receipt credential request
    * enabling clients to retry in case they missed the original response.
-   *
-   * If this stripe item has already been used to issue another receipt, throws a 409 conflict web application
-   * exception.
-   *
-   * Stripe item is expected to refer to an invoice line item (subscriptions) or a payment intent (one-time).
+   * <p>
+   * If this item has already been used to issue another receipt, throws a 409 conflict web application exception.
+   * <p>
+   * For {@link SubscriptionProcessor#STRIPE}, item is expected to refer to an invoice line item (subscriptions) or a
+   * payment intent (one-time).
    */
   public CompletableFuture<Void> recordIssuance(
-      String stripeId,
+      String processorItemId,
+      SubscriptionProcessor processor,
       ReceiptCredentialRequest request,
       Instant now) {
+
+    final AttributeValue key;
+    if (processor == SubscriptionProcessor.STRIPE) {
+      // As the first processor, Stripe’s IDs were not prefixed. Its item IDs have documented prefixes (`il_`, `pi_`)
+      // that will not collide with `SubscriptionProcessor` names
+      key = s(processorItemId);
+    } else {
+      key = s(processor.name() + "_" + processorItemId);
+    }
     UpdateItemRequest updateItemRequest = UpdateItemRequest.builder()
         .tableName(table)
-        .key(Map.of(KEY_STRIPE_ID, s(stripeId)))
+        .key(Map.of(KEY_PROCESSOR_ITEM_ID, key))
         .conditionExpression("attribute_not_exists(#key) OR #tag = :tag")
         .returnValues(ReturnValue.NONE)
         .updateExpression("SET "
             + "#tag = if_not_exists(#tag, :tag), "
             + "#exp = if_not_exists(#exp, :exp)")
         .expressionAttributeNames(Map.of(
-            "#key", KEY_STRIPE_ID,
+            "#key", KEY_PROCESSOR_ITEM_ID,
             "#tag", KEY_ISSUED_RECEIPT_TAG,
             "#exp", KEY_EXPIRATION))
         .expressionAttributeValues(Map.of(

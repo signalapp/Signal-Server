@@ -19,8 +19,8 @@ import static org.whispersystems.textsecuregcm.util.AttributeValues.n;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.stripe.exception.ApiException;
-import com.stripe.model.Subscription;
 import com.stripe.model.PaymentIntent;
+import com.stripe.model.Subscription;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
@@ -61,7 +61,7 @@ import org.whispersystems.textsecuregcm.entities.BadgeSvg;
 import org.whispersystems.textsecuregcm.mappers.CompletionExceptionMapper;
 import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
-import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
+import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessor;
@@ -87,18 +87,21 @@ class SubscriptionControllerTest {
   private static final PaymentIntent PAYMENT_INTENT = mock(PaymentIntent.class);
 
   static {
+    // this behavior is required by the SubscriptionController constructor
     when(STRIPE_MANAGER.getSupportedCurrencies())
-        .thenCallRealMethod();
-    when(STRIPE_MANAGER.supportsPaymentMethod(PaymentMethod.CARD))
+        .thenReturn(Set.of("usd", "jpy", "bif"));
+    when(STRIPE_MANAGER.supportsPaymentMethod(any()))
         .thenCallRealMethod();
   }
+
+  private static final BraintreeManager BRAINTREE_MANAGER = mock(BraintreeManager.class);
 
   private static final ServerZkReceiptOperations ZK_OPS = mock(ServerZkReceiptOperations.class);
   private static final IssuedReceiptsManager ISSUED_RECEIPTS_MANAGER = mock(IssuedReceiptsManager.class);
   private static final BadgeTranslator BADGE_TRANSLATOR = mock(BadgeTranslator.class);
   private static final LevelTranslator LEVEL_TRANSLATOR = mock(LevelTranslator.class);
   private static final SubscriptionController SUBSCRIPTION_CONTROLLER = new SubscriptionController(
-      CLOCK, SUBSCRIPTION_CONFIG, ONETIME_CONFIG, SUBSCRIPTION_MANAGER, STRIPE_MANAGER, ZK_OPS,
+      CLOCK, SUBSCRIPTION_CONFIG, ONETIME_CONFIG, SUBSCRIPTION_MANAGER, STRIPE_MANAGER, BRAINTREE_MANAGER, ZK_OPS,
       ISSUED_RECEIPTS_MANAGER, BADGE_TRANSLATOR, LEVEL_TRANSLATOR);
   private static final ResourceExtension RESOURCE_EXTENSION = ResourceExtension.builder()
       .addProperty(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE)
@@ -157,8 +160,9 @@ class SubscriptionControllerTest {
   @Test
   void testCreateBoostPaymentIntent() {
     when(STRIPE_MANAGER.convertConfiguredAmountToStripeAmount(any(), any())).thenReturn(new BigDecimal(300));
-    when(STRIPE_MANAGER.createPaymentIntent(anyString(), anyLong(),  anyLong()))
+    when(STRIPE_MANAGER.createPaymentIntent(anyString(), anyLong(), anyLong()))
         .thenReturn(CompletableFuture.completedFuture(PAYMENT_INTENT));
+    when(STRIPE_MANAGER.supportsCurrency("usd")).thenReturn(true);
 
     String clientSecret = "some_client_secret";
     when(PAYMENT_INTENT.getClientSecret()).thenReturn(clientSecret);
@@ -168,7 +172,7 @@ class SubscriptionControllerTest {
         .post(Entity.json("{\"currency\": \"USD\", \"amount\": 300, \"level\": null}"));
     assertThat(response.getStatus()).isEqualTo(200);
   }
-  
+
   @Test
   void createBoostReceiptInvalid() {
     final Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/receipt_credentials")

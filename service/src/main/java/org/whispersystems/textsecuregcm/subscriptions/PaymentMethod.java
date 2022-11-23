@@ -10,4 +10,8 @@ public enum PaymentMethod {
    * A credit card or debit card, including those from Apple Pay and Google Pay
    */
   CARD,
+  /**
+   * A PayPal account
+   */
+  PAYPAL,
 }

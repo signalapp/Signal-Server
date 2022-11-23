@@ -15,6 +15,25 @@ stripe:
   idempotencyKeyGenerator: abcdefg12345678= # base64 for creating request idempotency hash
   boostDescription: >
     Example
+  supportedCurrencies:
+    - xts
+  # - ...
+  # - Nth supported currency
+
+
+braintree:
+  merchantId: unset
+  publicKey: unset
+  privateKey: unset
+  environment: unset
+  graphqlUrl: unset
+  merchantAccounts:
+    # ISO 4217 currency code and its corresponding sub-merchant account
+    'xts': unset
+  supportedCurrencies:
+    - xts
+  # - ...
+  # - Nth supported currency
 
 dynamoDbClientConfiguration:
   region: us-west-2 # AWS Region

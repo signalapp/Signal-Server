@@ -19,6 +19,7 @@ import org.whispersystems.textsecuregcm.configuration.ApnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AppConfigConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AwsAttachmentsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
+import org.whispersystems.textsecuregcm.configuration.BraintreeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.CdnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DatadogConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DirectoryConfiguration;
@@ -61,6 +62,11 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @JsonProperty
   private StripeConfiguration stripe;
+
+  @NotNull
+  @Valid
+  @JsonProperty
+  private BraintreeConfiguration braintree;
 
   @NotNull
   @Valid
@@ -257,6 +263,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public StripeConfiguration getStripe() {
     return stripe;
+  }
+
+  public BraintreeConfiguration getBraintree() {
+    return braintree;
   }
 
   public DynamoDbClientConfiguration getDynamoDbClientConfiguration() {

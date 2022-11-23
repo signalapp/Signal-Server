@@ -200,6 +200,7 @@ import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.storage.VerificationCodeStore;
+import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
@@ -409,10 +410,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ExecutorService batchIdentityCheckExecutor = environment.lifecycle().executorService(name(getClass(), "batchIdentityCheck-%d")).minThreads(32).maxThreads(32).build();
     ExecutorService multiRecipientMessageExecutor = environment.lifecycle()
         .executorService(name(getClass(), "multiRecipientMessage-%d")).minThreads(64).maxThreads(64).build();
-    ExecutorService stripeExecutor = environment.lifecycle().executorService(name(getClass(), "stripe-%d")).
-        maxThreads(availableProcessors).  // mostly this is IO bound so tying to number of processors is tenuous at best
-        minThreads(availableProcessors).  // mostly this is IO bound so tying to number of processors is tenuous at best
-        allowCoreThreadTimeOut(true).
+    ExecutorService subscriptionProcessorExecutor = environment.lifecycle()
+        .executorService(name(getClass(), "subscriptionProcessor-%d"))
+        .maxThreads(availableProcessors)  // mostly this is IO bound so tying to number of processors is tenuous at best
+        .minThreads(availableProcessors)  // mostly this is IO bound so tying to number of processors is tenuous at best
+        .allowCoreThreadTimeOut(true).
         build();
     ExecutorService receiptSenderExecutor = environment.lifecycle()
         .executorService(name(getClass(), "receiptSender-%d"))
@@ -435,8 +437,13 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getAdminEventLoggingConfiguration().projectId(),
         config.getAdminEventLoggingConfiguration().logName());
 
-    StripeManager stripeManager = new StripeManager(config.getStripe().getApiKey(), stripeExecutor,
-        config.getStripe().getIdempotencyKeyGenerator(), config.getStripe().getBoostDescription());
+    StripeManager stripeManager = new StripeManager(config.getStripe().apiKey(), subscriptionProcessorExecutor,
+        config.getStripe().idempotencyKeyGenerator(), config.getStripe().boostDescription(), config.getStripe()
+        .supportedCurrencies());
+    BraintreeManager braintreeManager = new BraintreeManager(config.getBraintree().merchantId(),
+        config.getBraintree().publicKey(), config.getBraintree().privateKey(), config.getBraintree().environment(),
+        config.getBraintree().supportedCurrencies(), config.getBraintree().merchantAccounts(),
+        config.getBraintree().graphqlUrl(), config.getBraintree().circuitBreaker(), subscriptionProcessorExecutor);
 
     ExternalServiceCredentialGenerator directoryCredentialsGenerator = new ExternalServiceCredentialGenerator(
         config.getDirectoryConfiguration().getDirectoryClientConfiguration().getUserAuthenticationTokenSharedSecret(),
@@ -686,7 +693,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     );
     if (config.getSubscription() != null && config.getOneTimeDonations() != null) {
       commonControllers.add(new SubscriptionController(clock, config.getSubscription(), config.getOneTimeDonations(),
-          subscriptionManager, stripeManager, zkReceiptOperations, issuedReceiptsManager, profileBadgeConverter,
+          subscriptionManager, stripeManager, braintreeManager, zkReceiptOperations, issuedReceiptsManager, profileBadgeConverter,
           resourceBundleLevelTranslator));
     }
 

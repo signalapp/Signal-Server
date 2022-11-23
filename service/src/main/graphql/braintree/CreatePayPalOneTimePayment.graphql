@@ -1,0 +1,7 @@
+# https://graphql.braintreepayments.com/reference/#Mutation--createPayPalOneTimePayment
+mutation CreatePayPalOneTimePayment($input: CreatePayPalOneTimePaymentInput!) {
+  createPayPalOneTimePayment(input: $input) {
+    approvalUrl,
+    paymentId
+  }
+}

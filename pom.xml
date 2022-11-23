@@ -44,6 +44,7 @@
   <properties>
     <aws.sdk.version>1.12.287</aws.sdk.version>
     <aws.sdk2.version>2.17.258</aws.sdk2.version>
+    <braintree.version>3.19.0</braintree.version>
     <commons-codec.version>1.15</commons-codec.version>
     <commons-csv.version>1.8</commons-csv.version>
     <commons-io.version>2.9.0</commons-io.version>
@@ -283,6 +284,11 @@
         <groupId>com.stripe</groupId>
         <artifactId>stripe-java</artifactId>
         <version>${stripe.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.braintreepayments.gateway</groupId>
+        <artifactId>braintree-java</artifactId>
+        <version>${braintree.version}</version>
       </dependency>
       <dependency>
         <groupId>com.google.code.gson</groupId>

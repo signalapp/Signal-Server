@@ -19,6 +19,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialRequest;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessor;
 import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
 import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
 
@@ -31,9 +32,9 @@ class IssuedReceiptsManagerTest {
   @RegisterExtension
   static DynamoDbExtension dynamoDbExtension = DynamoDbExtension.builder()
       .tableName(ISSUED_RECEIPTS_TABLE_NAME)
-      .hashKey(IssuedReceiptsManager.KEY_STRIPE_ID)
+      .hashKey(IssuedReceiptsManager.KEY_PROCESSOR_ITEM_ID)
       .attributeDefinition(AttributeDefinition.builder()
-          .attributeName(IssuedReceiptsManager.KEY_STRIPE_ID)
+          .attributeName(IssuedReceiptsManager.KEY_PROCESSOR_ITEM_ID)
           .attributeType(ScalarAttributeType.S)
           .build())
       .build();
@@ -59,18 +60,21 @@ class IssuedReceiptsManagerTest {
     byte[] request1 = new byte[20];
     SECURE_RANDOM.nextBytes(request1);
     when(receiptCredentialRequest.serialize()).thenReturn(request1);
-    CompletableFuture<Void> future = issuedReceiptsManager.recordIssuance("item-1", receiptCredentialRequest, now);
+    CompletableFuture<Void> future = issuedReceiptsManager.recordIssuance("item-1", SubscriptionProcessor.STRIPE,
+        receiptCredentialRequest, now);
     assertThat(future).succeedsWithin(Duration.ofSeconds(3));
 
     // same request should succeed
-    future = issuedReceiptsManager.recordIssuance("item-1", receiptCredentialRequest, now);
+    future = issuedReceiptsManager.recordIssuance("item-1", SubscriptionProcessor.STRIPE, receiptCredentialRequest,
+        now);
     assertThat(future).succeedsWithin(Duration.ofSeconds(3));
 
     // same item with new request should fail
     byte[] request2 = new byte[20];
     SECURE_RANDOM.nextBytes(request2);
     when(receiptCredentialRequest.serialize()).thenReturn(request2);
-    future = issuedReceiptsManager.recordIssuance("item-1", receiptCredentialRequest, now);
+    future = issuedReceiptsManager.recordIssuance("item-1", SubscriptionProcessor.STRIPE, receiptCredentialRequest,
+        now);
     assertThat(future).failsWithin(Duration.ofSeconds(3)).
         withThrowableOfType(Throwable.class).
         havingCause().
@@ -80,7 +84,8 @@ class IssuedReceiptsManagerTest {
             "status 409"));
 
     // different item with new request should be okay though
-    future = issuedReceiptsManager.recordIssuance("item-2", receiptCredentialRequest, now);
+    future = issuedReceiptsManager.recordIssuance("item-2", SubscriptionProcessor.STRIPE, receiptCredentialRequest,
+        now);
     assertThat(future).succeedsWithin(Duration.ofSeconds(3));
   }
 }

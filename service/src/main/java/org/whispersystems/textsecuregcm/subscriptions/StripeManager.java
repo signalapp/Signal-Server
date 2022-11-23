@@ -42,6 +42,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -66,28 +67,18 @@ public class StripeManager implements SubscriptionProcessorManager {
 
   private static final String METADATA_KEY_LEVEL = "level";
 
-  // https://stripe.com/docs/currencies?presentment-currency=US
-  private static final Set<String> SUPPORTED_CURRENCIES = Set.of(
-      "aed", "afn", "all", "amd", "ang", "aoa", "ars", "aud", "awg", "azn", "bam", "bbd", "bdt", "bgn", "bif", "bmd",
-      "bnd", "bob", "brl", "bsd", "bwp", "bzd", "cad", "cdf", "chf", "clp", "cny", "cop", "crc", "cve", "czk", "djf",
-      "dkk", "dop", "dzd", "egp", "etb", "eur", "fjd", "fkp", "gbp", "gel", "gip", "gmd", "gnf", "gtq", "gyd", "hkd",
-      "hnl", "hrk", "htg", "huf", "idr", "ils", "inr", "isk", "jmd", "jpy", "kes", "kgs", "khr", "kmf", "krw", "kyd",
-      "kzt", "lak", "lbp", "lkr", "lrd", "lsl", "mad", "mdl", "mga", "mkd", "mmk", "mnt", "mop", "mro", "mur", "mvr",
-      "mwk", "mxn", "myr", "mzn", "nad", "ngn", "nio", "nok", "npr", "nzd", "pab", "pen", "pgk", "php", "pkr", "pln",
-      "pyg", "qar", "ron", "rsd", "rub", "rwf", "sar", "sbd", "scr", "sek", "sgd", "shp", "sll", "sos", "srd", "std",
-      "szl", "thb", "tjs", "top", "try", "ttd", "twd", "tzs", "uah", "ugx", "usd", "uyu", "uzs", "vnd", "vuv", "wst",
-      "xaf", "xcd", "xof", "xpf", "yer", "zar", "zmw");
-
   private final String apiKey;
   private final Executor executor;
   private final byte[] idempotencyKeyGenerator;
   private final String boostDescription;
+  private final Set<String> supportedCurrencies;
 
   public StripeManager(
       @Nonnull String apiKey,
       @Nonnull Executor executor,
       @Nonnull byte[] idempotencyKeyGenerator,
-      @Nonnull String boostDescription) {
+      @Nonnull String boostDescription,
+      @Nonnull Set<String> supportedCurrencies) {
     this.apiKey = Objects.requireNonNull(apiKey);
     if (Strings.isNullOrEmpty(apiKey)) {
       throw new IllegalArgumentException("apiKey cannot be empty");
@@ -98,6 +89,7 @@ public class StripeManager implements SubscriptionProcessorManager {
       throw new IllegalArgumentException("idempotencyKeyGenerator cannot be empty");
     }
     this.boostDescription = Objects.requireNonNull(boostDescription);
+    this.supportedCurrencies = supportedCurrencies;
   }
 
   @Override
@@ -108,6 +100,11 @@ public class StripeManager implements SubscriptionProcessorManager {
   @Override
   public boolean supportsPaymentMethod(PaymentMethod paymentMethod) {
     return paymentMethod == PaymentMethod.CARD;
+  }
+
+  @Override
+  public boolean supportsCurrency(final String currency) {
+    return supportedCurrencies.contains(currency);
   }
 
   private RequestOptions commonOptions() {
@@ -181,7 +178,7 @@ public class StripeManager implements SubscriptionProcessorManager {
 
   @Override
   public Set<String> getSupportedCurrencies() {
-    return SUPPORTED_CURRENCIES;
+    return supportedCurrencies;
   }
 
   /**
@@ -210,10 +207,15 @@ public class StripeManager implements SubscriptionProcessorManager {
     }, executor);
   }
 
-  public CompletableFuture<PaymentIntent> getPaymentIntent(String paymentIntentId) {
+  public CompletableFuture<PaymentDetails> getPaymentDetails(String paymentIntentId) {
     return CompletableFuture.supplyAsync(() -> {
       try {
-        return PaymentIntent.retrieve(paymentIntentId, commonOptions());
+        final PaymentIntent paymentIntent = PaymentIntent.retrieve(paymentIntentId, commonOptions());
+
+        return new PaymentDetails(paymentIntent.getId(),
+            paymentIntent.getMetadata() == null ? Collections.emptyMap() : paymentIntent.getMetadata(),
+            getPaymentStatusForStatus(paymentIntent.getStatus()),
+            Instant.ofEpochSecond(paymentIntent.getCreated()));
       } catch (StripeException e) {
         if (e.getStatusCode() == 404) {
           return null;
@@ -224,7 +226,16 @@ public class StripeManager implements SubscriptionProcessorManager {
     }, executor);
   }
 
-  public CompletableFuture<Subscription> createSubscription(String customerId, String priceId, long level, long lastSubscriptionCreatedAt) {
+  private static PaymentStatus getPaymentStatusForStatus(String status) {
+    return switch (status.toLowerCase(Locale.ROOT)) {
+      case "processing" -> PaymentStatus.PROCESSING;
+      case "succeeded" -> PaymentStatus.SUCCEEDED;
+      default -> PaymentStatus.UNKNOWN;
+    };
+  }
+
+  public CompletableFuture<Subscription> createSubscription(String customerId, String priceId, long level,
+      long lastSubscriptionCreatedAt) {
     return CompletableFuture.supplyAsync(() -> {
       SubscriptionCreateParams params = SubscriptionCreateParams.builder()
           .setCustomer(customerId)

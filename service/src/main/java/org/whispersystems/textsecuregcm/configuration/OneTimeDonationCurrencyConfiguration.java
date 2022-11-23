@@ -20,11 +20,11 @@ import org.whispersystems.textsecuregcm.util.ExactlySize;
  * @param boosts  the list of suggested one-time donation amounts
  */
 public record OneTimeDonationCurrencyConfiguration(
-    @DecimalMin("0.01") BigDecimal minimum,
-    @DecimalMin("0.01") BigDecimal gift,
+    @NotNull @DecimalMin("0.01") BigDecimal minimum,
+    @NotNull @DecimalMin("0.01") BigDecimal gift,
     @Valid
     @ExactlySize(6)
     @NotNull
-    List<@DecimalMin("0.01") BigDecimal> boosts) {
+    List<@NotNull @DecimalMin("0.01") BigDecimal> boosts) {
 
 }

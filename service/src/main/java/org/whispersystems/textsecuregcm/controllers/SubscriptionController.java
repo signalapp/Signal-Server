@@ -94,6 +94,7 @@ import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager.GetResult;
+import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
@@ -111,6 +112,7 @@ public class SubscriptionController {
   private final OneTimeDonationConfiguration oneTimeDonationConfiguration;
   private final SubscriptionManager subscriptionManager;
   private final StripeManager stripeManager;
+  private final BraintreeManager braintreeManager;
   private final ServerZkReceiptOperations zkReceiptOperations;
   private final IssuedReceiptsManager issuedReceiptsManager;
   private final BadgeTranslator badgeTranslator;
@@ -125,6 +127,7 @@ public class SubscriptionController {
       @Nonnull OneTimeDonationConfiguration oneTimeDonationConfiguration,
       @Nonnull SubscriptionManager subscriptionManager,
       @Nonnull StripeManager stripeManager,
+      @Nonnull BraintreeManager braintreeManager,
       @Nonnull ServerZkReceiptOperations zkReceiptOperations,
       @Nonnull IssuedReceiptsManager issuedReceiptsManager,
       @Nonnull BadgeTranslator badgeTranslator,
@@ -134,13 +137,14 @@ public class SubscriptionController {
     this.oneTimeDonationConfiguration = Objects.requireNonNull(oneTimeDonationConfiguration);
     this.subscriptionManager = Objects.requireNonNull(subscriptionManager);
     this.stripeManager = Objects.requireNonNull(stripeManager);
+    this.braintreeManager = Objects.requireNonNull(braintreeManager);
     this.zkReceiptOperations = Objects.requireNonNull(zkReceiptOperations);
     this.issuedReceiptsManager = Objects.requireNonNull(issuedReceiptsManager);
     this.badgeTranslator = Objects.requireNonNull(badgeTranslator);
     this.levelTranslator = Objects.requireNonNull(levelTranslator);
 
     this.currencyConfiguration = buildCurrencyConfiguration(this.oneTimeDonationConfiguration,
-        this.subscriptionConfiguration, List.of(stripeManager));
+        this.subscriptionConfiguration, List.of(stripeManager, braintreeManager));
   }
 
   private static Map<String, CurrencyConfiguration> buildCurrencyConfiguration(
@@ -326,6 +330,14 @@ public class SubscriptionController {
   private SubscriptionProcessorManager getManagerForPaymentMethod(PaymentMethod paymentMethod) {
     return switch (paymentMethod) {
       case CARD -> stripeManager;
+      case PAYPAL -> braintreeManager;
+    };
+  }
+
+  private SubscriptionProcessorManager getManagerForProcessor(SubscriptionProcessor processor) {
+    return switch (processor) {
+      case STRIPE -> stripeManager;
+      case BRAINTREE -> braintreeManager;
     };
   }
 
@@ -682,9 +694,25 @@ public class SubscriptionController {
   }
 
   public static class CreateBoostRequest {
-    @NotEmpty @ExactlySize(3) public String currency;
-    @Min(1) public long amount;
+
+    @NotEmpty
+    @ExactlySize(3)
+    public String currency;
+    @Min(1)
+    public long amount;
     public Long level;
+  }
+
+  public static class CreatePayPalBoostRequest extends CreateBoostRequest {
+
+    @NotEmpty
+    public String returnUrl;
+    @NotEmpty
+    public String cancelUrl;
+  }
+
+  record CreatePayPalBoostResponse(String approvalUrl, String paymentId) {
+
   }
 
   public static class CreateBoostResponse {
@@ -723,22 +751,109 @@ public class SubscriptionController {
                   Response.status(Status.CONFLICT).entity(Map.of("error", "level_amount_mismatch")).build());
             }
           }
-          BigDecimal minCurrencyAmountMajorUnits = oneTimeDonationConfiguration.currencies()
-              .get(request.currency.toLowerCase(Locale.ROOT)).minimum();
-          BigDecimal minCurrencyAmountMinorUnits = stripeManager.convertConfiguredAmountToStripeAmount(request.currency,
-              minCurrencyAmountMajorUnits);
-          if (minCurrencyAmountMinorUnits.compareTo(amount) > 0) {
-            throw new BadRequestException(Response.status(Status.BAD_REQUEST)
-                .entity(Map.of("error", "amount_below_currency_minimum")).build());
-          }
+          validateRequestCurrencyAmount(request, amount, stripeManager);
         })
         .thenCompose(unused -> stripeManager.createPaymentIntent(request.currency, request.amount, request.level))
         .thenApply(paymentIntent -> Response.ok(new CreateBoostResponse(paymentIntent.getClientSecret())).build());
   }
 
+  /**
+   * Validates that the currency and amount in the request are supported by the {@code manager} and exceed the minimum
+   * permitted amount
+   *
+   * @throws BadRequestException indicates validation failed. Inspect {@code response.error} for details
+   */
+  private void validateRequestCurrencyAmount(CreateBoostRequest request, BigDecimal amount,
+      SubscriptionProcessorManager manager) {
+
+    if (!manager.supportsCurrency(request.currency.toLowerCase(Locale.ROOT))) {
+      throw new BadRequestException(Response.status(Status.BAD_REQUEST)
+          .entity(Map.of("error", "unsupported_currency")).build());
+    }
+
+    BigDecimal minCurrencyAmountMajorUnits = oneTimeDonationConfiguration.currencies()
+        .get(request.currency.toLowerCase(Locale.ROOT)).minimum();
+    BigDecimal minCurrencyAmountMinorUnits = stripeManager.convertConfiguredAmountToStripeAmount(request.currency,
+        minCurrencyAmountMajorUnits);
+    if (minCurrencyAmountMinorUnits.compareTo(amount) > 0) {
+      throw new BadRequestException(Response.status(Status.BAD_REQUEST)
+          .entity(Map.of("error", "amount_below_currency_minimum")).build());
+    }
+  }
+
+  @Timed
+  @POST
+  @Path("/boost/paypal/create")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public CompletableFuture<Response> createPayPalBoost(@NotNull @Valid CreatePayPalBoostRequest request,
+      @Context ContainerRequestContext containerRequestContext) {
+
+    return CompletableFuture.runAsync(() -> {
+          if (request.level == null) {
+            request.level = oneTimeDonationConfiguration.boost().level();
+          }
+
+          validateRequestCurrencyAmount(request, BigDecimal.valueOf(request.amount), braintreeManager);
+        })
+        .thenCompose(unused -> {
+          final Locale locale = getAcceptableLanguagesForRequest(containerRequestContext).stream()
+              .filter(l -> !"*".equals(l.getLanguage()))
+              .findFirst()
+              .orElse(Locale.US);
+
+          return braintreeManager.createOneTimePayment(request.currency.toUpperCase(Locale.ROOT), request.amount,
+              locale.toLanguageTag(),
+              request.returnUrl, request.cancelUrl);
+        })
+        .thenApply(approvalDetails -> Response.ok(
+            new CreatePayPalBoostResponse(approvalDetails.approvalUrl(), approvalDetails.paymentId())).build());
+  }
+
+  public static class ConfirmPayPalBoostRequest extends CreateBoostRequest {
+
+    @NotEmpty
+    public String payerId;
+    @NotEmpty
+    public String paymentId; // PAYID-…
+    @NotEmpty
+    public String paymentToken; // EC-…
+  }
+
+  record ConfirmPayPalBoostResponse(String paymentId) {
+
+  }
+
+  @Timed
+  @POST
+  @Path("/boost/paypal/confirm")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public CompletableFuture<Response> confirmPayPalBoost(@NotNull @Valid ConfirmPayPalBoostRequest request) {
+
+    return CompletableFuture.runAsync(() -> {
+          if (request.level == null) {
+            request.level = oneTimeDonationConfiguration.boost().level();
+          }
+        })
+        .thenCompose(unused -> braintreeManager.captureOneTimePayment(request.payerId, request.paymentId,
+            request.paymentToken, request.currency, request.amount, request.level))
+        .thenApply(chargeSuccessDetails -> Response.ok(
+            new ConfirmPayPalBoostResponse(chargeSuccessDetails.paymentId())).build());
+  }
+
   public static class CreateBoostReceiptCredentialsRequest {
-    @NotNull public String paymentIntentId;
-    @NotNull public byte[] receiptCredentialRequest;
+
+    /**
+     * a payment ID from {@link #processor}
+     */
+    @NotNull
+    public String paymentIntentId;
+    @NotNull
+    public byte[] receiptCredentialRequest;
+
+    @NotNull
+    public SubscriptionProcessor processor = SubscriptionProcessor.STRIPE;
   }
 
   public static class CreateBoostReceiptCredentialsResponse {
@@ -762,26 +877,30 @@ public class SubscriptionController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletableFuture<Response> createBoostReceiptCredentials(@NotNull @Valid CreateBoostReceiptCredentialsRequest request) {
-    return stripeManager.getPaymentIntent(request.paymentIntentId)
-        .thenCompose(paymentIntent -> {
-          if (paymentIntent == null) {
+
+    final SubscriptionProcessorManager manager = getManagerForProcessor(request.processor);
+
+    return manager.getPaymentDetails(request.paymentIntentId)
+        .thenCompose(paymentDetails -> {
+          if (paymentDetails == null) {
             throw new WebApplicationException(Status.NOT_FOUND);
           }
-          if (StringUtils.equalsIgnoreCase("processing", paymentIntent.getStatus())) {
-            throw new WebApplicationException(Status.NO_CONTENT);
+          switch (paymentDetails.status()) {
+            case PROCESSING -> throw new WebApplicationException(Status.NO_CONTENT);
+            case SUCCEEDED -> {
+            }
+            default -> throw new WebApplicationException(Status.PAYMENT_REQUIRED);
           }
-          if (!StringUtils.equalsIgnoreCase("succeeded", paymentIntent.getStatus())) {
-            throw new WebApplicationException(Status.PAYMENT_REQUIRED);
-          }
+
           long level = oneTimeDonationConfiguration.boost().level();
-          if (paymentIntent.getMetadata() != null) {
-            String levelMetadata = paymentIntent.getMetadata()
+          if (paymentDetails.customMetadata() != null) {
+            String levelMetadata = paymentDetails.customMetadata()
                 .getOrDefault("level", Long.toString(oneTimeDonationConfiguration.boost().level()));
             try {
               level = Long.parseLong(levelMetadata);
             } catch (NumberFormatException e) {
               logger.error("failed to parse level metadata ({}) on payment intent {}", levelMetadata,
-                  paymentIntent.getId(), e);
+                  paymentDetails.id(), e);
               throw new WebApplicationException(Status.INTERNAL_SERVER_ERROR);
             }
           }
@@ -801,9 +920,10 @@ public class SubscriptionController {
             throw new BadRequestException("invalid receipt credential request", e);
           }
           final long finalLevel = level;
-          return issuedReceiptsManager.recordIssuance(paymentIntent.getId(), receiptCredentialRequest, clock.instant())
+          return issuedReceiptsManager.recordIssuance(paymentDetails.id(), manager.getProcessor(),
+                  receiptCredentialRequest, clock.instant())
               .thenApply(unused -> {
-                Instant expiration = Instant.ofEpochSecond(paymentIntent.getCreated())
+                Instant expiration = paymentDetails.created()
                     .plus(levelExpiration)
                     .truncatedTo(ChronoUnit.DAYS)
                     .plus(1, ChronoUnit.DAYS);
@@ -1052,7 +1172,8 @@ public class SubscriptionController {
           return stripeManager.getLatestInvoiceForSubscription(record.subscriptionId)
               .thenCompose(invoice -> convertInvoiceToReceipt(invoice, record.subscriptionId))
               .thenCompose(receipt -> issuedReceiptsManager.recordIssuance(
-                      receipt.getInvoiceLineItemId(), receiptCredentialRequest, requestData.now)
+                      receipt.getInvoiceLineItemId(), SubscriptionProcessor.STRIPE, receiptCredentialRequest,
+                      requestData.now)
                   .thenApply(unused -> receipt))
               .thenApply(receipt -> {
                 ReceiptCredentialResponse receiptCredentialResponse;
