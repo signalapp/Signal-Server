@@ -56,8 +56,8 @@
     <jackson.version>2.13.4</jackson.version>
     <jaxb.version>2.3.1</jaxb.version>
     <jedis.version>2.9.0</jedis.version>
-    <kotlin.version>1.7.10</kotlin.version>
-    <kotlinx-serialization.version>1.4.0</kotlinx-serialization.version>
+    <kotlin.version>1.7.21</kotlin.version>
+    <kotlinx-serialization.version>1.4.1</kotlinx-serialization.version>
     <lettuce.version>6.2.1.RELEASE</lettuce.version>
     <libphonenumber.version>8.12.54</libphonenumber.version>
     <logstash.logback.version>7.0.1</logstash.logback.version>
@@ -156,6 +156,13 @@
         <groupId>io.projectreactor</groupId>
         <artifactId>reactor-bom</artifactId>
         <version>2020.0.24</version> <!-- 3.4.x, see https://github.com/reactor/reactor#bom-versioning-scheme -->
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.jetbrains.kotlin</groupId>
+        <artifactId>kotlin-bom</artifactId>
+        <version>${kotlin.version}</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
