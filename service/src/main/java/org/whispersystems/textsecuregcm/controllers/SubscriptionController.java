@@ -712,15 +712,24 @@ public class SubscriptionController {
           if (request.level == null) {
             request.level = oneTimeDonationConfiguration.boost().level();
           }
+          BigDecimal amount = BigDecimal.valueOf(request.amount);
           if (request.level == oneTimeDonationConfiguration.gift().level()) {
             BigDecimal amountConfigured = oneTimeDonationConfiguration.currencies()
                 .get(request.currency.toLowerCase(Locale.ROOT)).gift();
             if (amountConfigured == null ||
                 stripeManager.convertConfiguredAmountToStripeAmount(request.currency, amountConfigured)
-                    .compareTo(BigDecimal.valueOf(request.amount)) != 0) {
+                    .compareTo(amount) != 0) {
               throw new WebApplicationException(
                   Response.status(Status.CONFLICT).entity(Map.of("error", "level_amount_mismatch")).build());
             }
+          }
+          BigDecimal minCurrencyAmountMajorUnits = oneTimeDonationConfiguration.currencies()
+              .get(request.currency.toLowerCase(Locale.ROOT)).minimum();
+          BigDecimal minCurrencyAmountMinorUnits = stripeManager.convertConfiguredAmountToStripeAmount(request.currency,
+              minCurrencyAmountMajorUnits);
+          if (minCurrencyAmountMinorUnits.compareTo(amount) > 0) {
+            throw new BadRequestException(Response.status(Status.BAD_REQUEST)
+                .entity(Map.of("error", "amount_below_currency_minimum")).build());
           }
         })
         .thenCompose(unused -> stripeManager.createPaymentIntent(request.currency, request.amount, request.level))

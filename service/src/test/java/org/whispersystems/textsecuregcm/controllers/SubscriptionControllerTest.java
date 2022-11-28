@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.controllers;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
@@ -19,6 +20,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.stripe.exception.ApiException;
 import com.stripe.model.Subscription;
+import com.stripe.model.PaymentIntent;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
@@ -56,6 +58,7 @@ import org.whispersystems.textsecuregcm.controllers.SubscriptionController.GetLe
 import org.whispersystems.textsecuregcm.controllers.SubscriptionController.GetSubscriptionConfigurationResponse;
 import org.whispersystems.textsecuregcm.entities.Badge;
 import org.whispersystems.textsecuregcm.entities.BadgeSvg;
+import org.whispersystems.textsecuregcm.mappers.CompletionExceptionMapper;
 import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
@@ -81,6 +84,7 @@ class SubscriptionControllerTest {
   private static final OneTimeDonationConfiguration ONETIME_CONFIG = ConfigHelper.getOneTimeConfig();
   private static final SubscriptionManager SUBSCRIPTION_MANAGER = mock(SubscriptionManager.class);
   private static final StripeManager STRIPE_MANAGER = mock(StripeManager.class);
+  private static final PaymentIntent PAYMENT_INTENT = mock(PaymentIntent.class);
 
   static {
     when(STRIPE_MANAGER.getSupportedCurrencies())
@@ -99,6 +103,7 @@ class SubscriptionControllerTest {
   private static final ResourceExtension RESOURCE_EXTENSION = ResourceExtension.builder()
       .addProperty(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE)
       .addProvider(AuthHelper.getAuthFilter())
+      .addProvider(CompletionExceptionMapper.class)
       .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(Set.of(
           AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)))
       .setMapper(SystemMapper.getMapper())
@@ -117,6 +122,53 @@ class SubscriptionControllerTest {
         BADGE_TRANSLATOR, LEVEL_TRANSLATOR);
   }
 
+  @Test
+  void testCreateBoostPaymentIntentAmountBelowCurrencyMinimum() {
+    when(STRIPE_MANAGER.convertConfiguredAmountToStripeAmount(any(), any())).thenReturn(new BigDecimal(250));
+    final Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/create")
+        .request()
+        .post(Entity.json("""
+            {
+              "currency": "USD",
+              "amount": 249,
+              "level": null
+            }
+          """));
+    assertThat(response.getStatus()).isEqualTo(400);
+  }
+
+  @Test
+  void testCreateBoostPaymentIntentLevelAmountMismatch() {
+    when(STRIPE_MANAGER.convertConfiguredAmountToStripeAmount(any(), any())).thenReturn(new BigDecimal(20));
+
+    final Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/create")
+        .request()
+        .post(Entity.json("""
+            {
+              "currency": "USD",
+              "amount": 25,
+              "level": 100
+            }
+          """
+        ));
+    assertThat(response.getStatus()).isEqualTo(409);
+  }
+
+  @Test
+  void testCreateBoostPaymentIntent() {
+    when(STRIPE_MANAGER.convertConfiguredAmountToStripeAmount(any(), any())).thenReturn(new BigDecimal(300));
+    when(STRIPE_MANAGER.createPaymentIntent(anyString(), anyLong(),  anyLong()))
+        .thenReturn(CompletableFuture.completedFuture(PAYMENT_INTENT));
+
+    String clientSecret = "some_client_secret";
+    when(PAYMENT_INTENT.getClientSecret()).thenReturn(clientSecret);
+
+    final Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/create")
+        .request()
+        .post(Entity.json("{\"currency\": \"USD\", \"amount\": 300, \"level\": null}"));
+    assertThat(response.getStatus()).isEqualTo(200);
+  }
+  
   @Test
   void createBoostReceiptInvalid() {
     final Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/receipt_credentials")
@@ -649,7 +701,7 @@ class SubscriptionControllerTest {
           badge: GIFT
         currencies:
           usd:
-            minimum: '2.50'
+            minimum: '2.50' # fractional to test BigDecimal conversion
             gift: '20'
             boosts:
               - '5.50'
