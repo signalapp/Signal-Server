@@ -17,7 +17,6 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.uuid.UUIDComparator;
 import java.nio.charset.StandardCharsets;
-import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -138,7 +137,6 @@ class AccountsTest {
 
     this.accounts = new Accounts(
         clock,
-        mockDynamicConfigManager,
         dynamoDbExtension.getDynamoDbClient(),
         dynamoDbExtension.getDynamoDbAsyncClient(),
         dynamoDbExtension.getTableName(),
@@ -373,7 +371,7 @@ class AccountsTest {
   void testUpdateWithMockTransactionConflictException(boolean wrapException) {
 
     final DynamoDbAsyncClient dynamoDbAsyncClient = mock(DynamoDbAsyncClient.class);
-    accounts = new Accounts(mockDynamicConfigManager, mock(DynamoDbClient.class),
+    accounts = new Accounts(mock(DynamoDbClient.class),
         dynamoDbAsyncClient, dynamoDbExtension.getTableName(),
         NUMBER_CONSTRAINT_TABLE_NAME, PNI_CONSTRAINT_TABLE_NAME, USERNAME_CONSTRAINT_TABLE_NAME, SCAN_PAGE_SIZE);
 

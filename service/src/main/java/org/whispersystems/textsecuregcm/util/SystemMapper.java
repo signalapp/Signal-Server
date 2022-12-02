@@ -10,20 +10,25 @@ import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import javax.annotation.Nonnull;
 
 public class SystemMapper {
 
-  private static final ObjectMapper mapper = new ObjectMapper();
+  private static final ObjectMapper MAPPER = build();
 
-  static {
+
+  @Nonnull
+  public static ObjectMapper getMapper() {
+    return MAPPER;
+  }
+
+  @Nonnull
+  private static ObjectMapper build() {
+    final ObjectMapper mapper = new ObjectMapper();
     mapper.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.NONE);
     mapper.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
     mapper.registerModule(new JavaTimeModule());
     mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-  }
-
-  public static ObjectMapper getMapper() {
     return mapper;
   }
-
 }

@@ -337,7 +337,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .executorService(name(getClass(), "messageDeletionAsyncExecutor-%d")).maxThreads(16)
         .workQueue(messageDeletionQueue).build();
 
-    Accounts accounts = new Accounts(dynamicConfigurationManager,
+    Accounts accounts = new Accounts(
         dynamoDbClient,
         dynamoDbAsyncClient,
         config.getDynamoDbTables().getAccounts().getTableName(),

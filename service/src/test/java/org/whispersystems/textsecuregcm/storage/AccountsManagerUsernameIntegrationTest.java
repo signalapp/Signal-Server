@@ -5,6 +5,27 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.argThat;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.function.Consumer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -22,17 +43,14 @@ import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.UsernameGenerator;
-import software.amazon.awssdk.services.dynamodb.model.*;
-import java.time.Clock;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.*;
-import java.util.function.Consumer;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.CreateTableRequest;
+import software.amazon.awssdk.services.dynamodb.model.KeySchemaElement;
+import software.amazon.awssdk.services.dynamodb.model.KeyType;
+import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
+import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 
 class AccountsManagerUsernameIntegrationTest {
 
@@ -126,7 +144,6 @@ class AccountsManagerUsernameIntegrationTest {
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
 
     accounts = Mockito.spy(new Accounts(
-        dynamicConfigurationManager,
         ACCOUNTS_DYNAMO_EXTENSION.getDynamoDbClient(),
         ACCOUNTS_DYNAMO_EXTENSION.getDynamoDbAsyncClient(),
         ACCOUNTS_DYNAMO_EXTENSION.getTableName(),

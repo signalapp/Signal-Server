@@ -157,7 +157,6 @@ class AccountsManagerChangeNumberIntegrationTest {
       when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
 
       final Accounts accounts = new Accounts(
-          dynamicConfigurationManager,
           ACCOUNTS_DYNAMO_EXTENSION.getDynamoDbClient(),
           ACCOUNTS_DYNAMO_EXTENSION.getDynamoDbAsyncClient(),
           ACCOUNTS_DYNAMO_EXTENSION.getTableName(),

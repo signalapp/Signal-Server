@@ -127,7 +127,6 @@ class AccountsManagerConcurrentModificationIntegrationTest {
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(new DynamicConfiguration());
 
     accounts = new Accounts(
-        dynamicConfigurationManager,
         dynamoDbExtension.getDynamoDbClient(),
         dynamoDbExtension.getDynamoDbAsyncClient(),
         dynamoDbExtension.getTableName(),

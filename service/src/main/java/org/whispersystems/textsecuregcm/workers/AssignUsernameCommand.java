@@ -141,7 +141,7 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
     VerificationCodeStore pendingAccounts = new VerificationCodeStore(dynamoDbClient,
         configuration.getDynamoDbTables().getPendingAccounts().getTableName());
 
-    Accounts accounts = new Accounts(dynamicConfigurationManager,
+    Accounts accounts = new Accounts(
         dynamoDbClient,
         dynamoDbAsyncClient,
         configuration.getDynamoDbTables().getAccounts().getTableName(),
