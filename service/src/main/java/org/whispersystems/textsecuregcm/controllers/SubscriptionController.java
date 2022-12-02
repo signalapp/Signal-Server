@@ -777,7 +777,9 @@ public class SubscriptionController {
         minCurrencyAmountMajorUnits);
     if (minCurrencyAmountMinorUnits.compareTo(amount) > 0) {
       throw new BadRequestException(Response.status(Status.BAD_REQUEST)
-          .entity(Map.of("error", "amount_below_currency_minimum")).build());
+          .entity(Map.of(
+              "error", "amount_below_currency_minimum",
+              "minimum", minCurrencyAmountMajorUnits.toString())).build());
     }
   }
 

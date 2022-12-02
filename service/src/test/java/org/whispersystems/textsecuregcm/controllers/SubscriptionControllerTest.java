@@ -128,16 +128,24 @@ class SubscriptionControllerTest {
   @Test
   void testCreateBoostPaymentIntentAmountBelowCurrencyMinimum() {
     when(STRIPE_MANAGER.convertConfiguredAmountToStripeAmount(any(), any())).thenReturn(new BigDecimal(250));
+    when(STRIPE_MANAGER.supportsCurrency("usd")).thenReturn(true);
     final Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/create")
         .request()
         .post(Entity.json("""
-            {
-              "currency": "USD",
-              "amount": 249,
-              "level": null
-            }
-          """));
+              {
+                "currency": "USD",
+                "amount": 249,
+                "level": null
+              }
+            """));
     assertThat(response.getStatus()).isEqualTo(400);
+    assertThat(response.hasEntity()).isTrue();
+    assertThat(response.readEntity(Map.class))
+        .isNotNull()
+        .containsAllEntriesOf(Map.of(
+            "error", "amount_below_currency_minimum",
+            "minimum", "2.50"
+        ));
   }
 
   @Test
