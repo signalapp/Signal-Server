@@ -1,3 +1,8 @@
+/*
+ * Copyright 2022 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 package org.whispersystems.textsecuregcm.configuration.dynamic;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -16,6 +21,12 @@ public class DynamicCaptchaConfiguration {
   @DecimalMax("1")
   @NotNull
   private BigDecimal scoreFloor;
+
+  @JsonProperty
+  private boolean allowHCaptcha = false;
+
+  @JsonProperty
+  private boolean allowRecaptcha = true;
 
   @JsonProperty
   @NotNull
@@ -45,5 +56,23 @@ public class DynamicCaptchaConfiguration {
 
   public Set<String> getSignupRegions() {
     return signupRegions;
+  }
+
+  public boolean isAllowHCaptcha() {
+    return allowHCaptcha;
+  }
+
+  public boolean isAllowRecaptcha() {
+    return allowRecaptcha;
+  }
+
+  @VisibleForTesting
+  public void setAllowHCaptcha(final boolean allowHCaptcha) {
+    this.allowHCaptcha = allowHCaptcha;
+  }
+
+  @VisibleForTesting
+  public void setScoreFloor(final BigDecimal scoreFloor) {
+    this.scoreFloor = scoreFloor;
   }
 }

@@ -5,22 +5,22 @@ import static com.codahale.metrics.MetricRegistry.name;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import org.whispersystems.textsecuregcm.abuse.RateLimitChallengeListener;
+import org.whispersystems.textsecuregcm.captcha.CaptchaChecker;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
-import org.whispersystems.textsecuregcm.recaptcha.RecaptchaClient;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.util.Util;
 
 public class RateLimitChallengeManager {
 
   private final PushChallengeManager pushChallengeManager;
-  private final RecaptchaClient recaptchaClient;
-
+  private final CaptchaChecker captchaChecker;
   private final DynamicRateLimiters rateLimiters;
 
   private final List<RateLimitChallengeListener> rateLimitChallengeListeners =
@@ -34,11 +34,11 @@ public class RateLimitChallengeManager {
 
   public RateLimitChallengeManager(
       final PushChallengeManager pushChallengeManager,
-      final RecaptchaClient recaptchaClient,
+      final CaptchaChecker captchaChecker,
       final DynamicRateLimiters rateLimiters) {
 
     this.pushChallengeManager = pushChallengeManager;
-    this.recaptchaClient = recaptchaClient;
+    this.captchaChecker = captchaChecker;
     this.rateLimiters = rateLimiters;
   }
 
@@ -58,11 +58,11 @@ public class RateLimitChallengeManager {
   }
 
   public void answerRecaptchaChallenge(final Account account, final String captcha, final String mostRecentProxyIp, final String userAgent)
-      throws RateLimitExceededException {
+      throws RateLimitExceededException, IOException {
 
     rateLimiters.getRecaptchaChallengeAttemptLimiter().validate(account.getUuid());
 
-    final boolean challengeSuccess = recaptchaClient.verify(captcha, mostRecentProxyIp).valid();
+    final boolean challengeSuccess = captchaChecker.verify(captcha, mostRecentProxyIp).valid();
 
     final Tags tags = Tags.of(
         Tag.of(SOURCE_COUNTRY_TAG_NAME, Util.getCountryCode(account.getNumber())),

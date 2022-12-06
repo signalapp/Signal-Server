@@ -3,15 +3,15 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-package org.whispersystems.textsecuregcm.recaptcha;
+package org.whispersystems.textsecuregcm.captcha;
 
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import com.google.api.gax.core.FixedCredentialsProvider;
+import com.google.api.gax.rpc.ApiException;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.recaptchaenterprise.v1.RecaptchaEnterpriseServiceClient;
 import com.google.cloud.recaptchaenterprise.v1.RecaptchaEnterpriseServiceSettings;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.recaptchaenterprise.v1.Assessment;
 import com.google.recaptchaenterprise.v1.Event;
 import com.google.recaptchaenterprise.v1.RiskAnalysis;
@@ -21,22 +21,18 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import javax.annotation.Nonnull;
-import javax.ws.rs.BadRequestException;
-import org.apache.commons.lang3.StringUtils;
+import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicCaptchaConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 
-public class RecaptchaClient {
+public class RecaptchaClient implements CaptchaClient {
+
   private static final Logger log = LoggerFactory.getLogger(RecaptchaClient.class);
 
-  @VisibleForTesting
-  static final String SEPARATOR = ".";
-  @VisibleForTesting
-  static final String V2_PREFIX = "signal-recaptcha-v2" + RecaptchaClient.SEPARATOR;
-  private static final String ASSESSMENTS_COUNTER_NAME = name(RecaptchaClient.class, "assessments");
-
+  private static final String V2_PREFIX = "signal-recaptcha-v2";
   private static final String INVALID_REASON_COUNTER_NAME = name(RecaptchaClient.class, "invalidReason");
   private static final String ASSESSMENT_REASON_COUNTER_NAME = name(RecaptchaClient.class, "assessmentReason");
 
@@ -61,57 +57,20 @@ public class RecaptchaClient {
     }
   }
 
-  /**
-   * Parses the sitekey, token, and action (if any) from {@code input}. The expected input format is: {@code [version
-   * prefix.]sitekey.[action.]token}.
-   * <p>
-   * For action to be optional, there is a strong assumption that the token will never contain a {@value  SEPARATOR}.
-   * Observation suggests {@code token} is base-64 encoded. In practice, an action should always be present, but we
-   * don’t need to be strict.
-   */
-  static String[] parseInputToken(final String input) {
-    String[] parts = StringUtils.removeStart(input, V2_PREFIX).split("\\" + SEPARATOR, 3);
-
-    if (parts.length == 1) {
-      throw new BadRequestException("too few parts");
-    }
-
-    if (parts.length == 2) {
-      // we got some parts, assume it is action that is missing
-      return new String[]{parts[0], null, parts[1]};
-    }
-
-    return parts;
+  @Override
+  public String scheme() {
+    return V2_PREFIX;
   }
 
-  /**
-   * A captcha assessment
-   *
-   * @param valid whether the captcha was passed
-   * @param score string representation of the risk level
-   */
-  public record AssessmentResult(boolean valid, String score) {
-    public static AssessmentResult invalid() {
-      return new AssessmentResult(false, "");
+  @Override
+  public org.whispersystems.textsecuregcm.captcha.AssessmentResult verify(final String sitekey,
+      final @Nullable String expectedAction,
+      final String token, final String ip) throws IOException {
+    final DynamicCaptchaConfiguration config = dynamicConfigurationManager.getConfiguration().getCaptchaConfiguration();
+    if (!config.isAllowRecaptcha()) {
+      log.warn("Received request to verify a recaptcha, but recaptcha is not enabled");
+      return AssessmentResult.invalid();
     }
-  }
-
-  /*
-   * recaptcha enterprise scores are from [0.0, 1.0] in increments of .1
-   * map to [0, 100] for easier interpretation
-   */
-  @VisibleForTesting
-  static String scoreString(final float score) {
-    return Integer.toString((int) (score * 100));
-  }
-
-
-  public AssessmentResult verify(final String input, final String ip) {
-    final String[] parts = parseInputToken(input);
-
-    final String sitekey = parts[0];
-    final String expectedAction = parts[1];
-    final String token = parts[2];
 
     Event.Builder eventBuilder = Event.newBuilder()
         .setSiteKey(sitekey)
@@ -123,32 +82,30 @@ public class RecaptchaClient {
     }
 
     final Event event = eventBuilder.build();
-    final Assessment assessment = client.createAssessment(projectPath, Assessment.newBuilder().setEvent(event).build());
-
-    Metrics.counter(ASSESSMENTS_COUNTER_NAME,
-            "action", String.valueOf(expectedAction),
-            "valid", String.valueOf(assessment.getTokenProperties().getValid()))
-        .increment();
-
+    final Assessment assessment;
+    try {
+      assessment = client.createAssessment(projectPath, Assessment.newBuilder().setEvent(event).build());
+    } catch (ApiException e) {
+      throw new IOException(e);
+    }
 
     if (assessment.getTokenProperties().getValid()) {
       final float score = assessment.getRiskAnalysis().getScore();
       log.debug("assessment for {} was valid, score: {}", expectedAction, score);
       for (RiskAnalysis.ClassificationReason reason : assessment.getRiskAnalysis().getReasonsList()) {
         Metrics.counter(ASSESSMENT_REASON_COUNTER_NAME,
-            "action", String.valueOf(expectedAction),
-            "score", scoreString(score),
-            "reason", reason.name())
+                "action", String.valueOf(expectedAction),
+                "score", AssessmentResult.scoreString(score),
+                "reason", reason.name())
             .increment();
       }
       return new AssessmentResult(
-          score >=
-              dynamicConfigurationManager.getConfiguration().getCaptchaConfiguration().getScoreFloor().floatValue(),
-          scoreString(score));
+          score >= config.getScoreFloor().floatValue(),
+          AssessmentResult.scoreString(score));
     } else {
       Metrics.counter(INVALID_REASON_COUNTER_NAME,
-          "action", String.valueOf(expectedAction),
-          "reason", assessment.getTokenProperties().getInvalidReason().name())
+              "action", String.valueOf(expectedAction),
+              "reason", assessment.getTokenProperties().getInvalidReason().name())
           .increment();
       return AssessmentResult.invalid();
     }

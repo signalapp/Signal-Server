@@ -12,6 +12,7 @@ import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
+import java.io.IOException;
 import java.util.NoSuchElementException;
 import javax.validation.Valid;
 import javax.ws.rs.Consumes;
@@ -50,7 +51,7 @@ public class ChallengeController {
   public Response handleChallengeResponse(@Auth final AuthenticatedAccount auth,
       @Valid final AnswerChallengeRequest answerRequest,
       @HeaderParam(HttpHeaders.X_FORWARDED_FOR) final String forwardedFor,
-      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) throws RateLimitExceededException {
+      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) throws RateLimitExceededException, IOException {
 
     Tags tags = Tags.of(UserAgentTagUtil.getPlatformTag(userAgent));
 

@@ -19,6 +19,7 @@ import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
+import java.io.IOException;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
@@ -63,6 +64,8 @@ import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.auth.TurnToken;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
+import org.whispersystems.textsecuregcm.captcha.AssessmentResult;
+import org.whispersystems.textsecuregcm.captcha.CaptchaChecker;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicCaptchaConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
@@ -87,7 +90,6 @@ import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.push.PushNotification;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
-import org.whispersystems.textsecuregcm.recaptcha.RecaptchaClient;
 import org.whispersystems.textsecuregcm.registration.ClientType;
 import org.whispersystems.textsecuregcm.registration.MessageTransport;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
@@ -100,8 +102,8 @@ import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.storage.UsernameNotAvailableException;
 import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundException;
 import org.whispersystems.textsecuregcm.util.Constants;
-import org.whispersystems.textsecuregcm.util.Hex;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
+import org.whispersystems.textsecuregcm.util.Hex;
 import org.whispersystems.textsecuregcm.util.ImpossiblePhoneNumberException;
 import org.whispersystems.textsecuregcm.util.NonNormalizedPhoneNumberException;
 import org.whispersystems.textsecuregcm.util.Optionals;
@@ -152,7 +154,7 @@ public class AccountController {
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private final TurnTokenGenerator                 turnTokenGenerator;
   private final Map<String, Integer>               testDevices;
-  private final RecaptchaClient recaptchaClient;
+  private final CaptchaChecker                     captchaChecker;
   private final PushNotificationManager            pushNotificationManager;
   private final ExternalServiceCredentialGenerator backupServiceCredentialGenerator;
 
@@ -172,7 +174,7 @@ public class AccountController {
       DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
       TurnTokenGenerator turnTokenGenerator,
       Map<String, Integer> testDevices,
-      RecaptchaClient recaptchaClient,
+      CaptchaChecker captchaChecker,
       PushNotificationManager pushNotificationManager,
       ChangeNumberManager changeNumberManager,
       ExternalServiceCredentialGenerator backupServiceCredentialGenerator,
@@ -186,7 +188,7 @@ public class AccountController {
     this.dynamicConfigurationManager = dynamicConfigurationManager;
     this.testDevices = testDevices;
     this.turnTokenGenerator = turnTokenGenerator;
-    this.recaptchaClient = recaptchaClient;
+    this.captchaChecker = captchaChecker;
     this.pushNotificationManager = pushNotificationManager;
     this.backupServiceCredentialGenerator = backupServiceCredentialGenerator;
     this.changeNumberManager = changeNumberManager;
@@ -203,13 +205,13 @@ public class AccountController {
       DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
       TurnTokenGenerator turnTokenGenerator,
       Map<String, Integer> testDevices,
-      RecaptchaClient recaptchaClient,
+      CaptchaChecker captchaChecker,
       PushNotificationManager pushNotificationManager,
       ChangeNumberManager changeNumberManager,
       ExternalServiceCredentialGenerator backupServiceCredentialGenerator
   ) {
     this(pendingAccounts, accounts, rateLimiters,
-        registrationServiceClient, dynamicConfigurationManager, turnTokenGenerator, testDevices, recaptchaClient,
+        registrationServiceClient, dynamicConfigurationManager, turnTokenGenerator, testDevices, captchaChecker,
         pushNotificationManager, changeNumberManager,
         backupServiceCredentialGenerator, null, Clock.systemUTC());
   }
@@ -255,7 +257,7 @@ public class AccountController {
                                 @QueryParam("client")           Optional<String> client,
                                 @QueryParam("captcha")          Optional<String> captcha,
                                 @QueryParam("challenge")        Optional<String> pushChallenge)
-      throws RateLimitExceededException, ImpossiblePhoneNumberException, NonNormalizedPhoneNumberException {
+      throws RateLimitExceededException, ImpossiblePhoneNumberException, NonNormalizedPhoneNumberException, IOException {
 
     Util.requireNormalizedNumber(number);
 
@@ -266,8 +268,9 @@ public class AccountController {
     final String region = Util.getRegion(number);
 
     // if there's a captcha, assess it, otherwise check if we need a captcha
-    final Optional<RecaptchaClient.AssessmentResult> assessmentResult = captcha
-        .map(captchaToken -> recaptchaClient.verify(captchaToken, sourceHost));
+    final Optional<AssessmentResult> assessmentResult = captcha.isPresent()
+        ? Optional.of(captchaChecker.verify(captcha.get(), sourceHost))
+        : Optional.empty();
 
     assessmentResult.ifPresent(result ->
         Metrics.counter(CAPTCHA_ATTEMPT_COUNTER_NAME, Tags.of(

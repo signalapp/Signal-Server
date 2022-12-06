@@ -19,6 +19,7 @@ import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
+import java.io.IOException;
 import java.time.Duration;
 import java.util.Set;
 import javax.ws.rs.client.Entity;
@@ -97,7 +98,7 @@ class ChallengeControllerTest {
   }
 
   @Test
-  void testHandleRecaptcha() throws RateLimitExceededException {
+  void testHandleRecaptcha() throws RateLimitExceededException, IOException {
     final String recaptchaChallengeJson = """
         {
           "type": "recaptcha",
@@ -117,7 +118,7 @@ class ChallengeControllerTest {
   }
 
   @Test
-  void testHandleRecaptchaRateLimited() throws RateLimitExceededException {
+  void testHandleRecaptchaRateLimited() throws RateLimitExceededException, IOException {
     final String recaptchaChallengeJson = """
         {
           "type": "recaptcha",

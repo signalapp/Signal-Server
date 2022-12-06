@@ -83,6 +83,8 @@ import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
 import org.whispersystems.textsecuregcm.auth.WebsocketRefreshApplicationEventListener;
 import org.whispersystems.textsecuregcm.badges.ConfiguredProfileBadgeConverter;
 import org.whispersystems.textsecuregcm.badges.ResourceBundleLevelTranslator;
+import org.whispersystems.textsecuregcm.captcha.CaptchaChecker;
+import org.whispersystems.textsecuregcm.captcha.HCaptchaClient;
 import org.whispersystems.textsecuregcm.configuration.DirectoryServerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
@@ -153,7 +155,7 @@ import org.whispersystems.textsecuregcm.push.ProvisioningManager;
 import org.whispersystems.textsecuregcm.push.PushLatencyManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
-import org.whispersystems.textsecuregcm.recaptcha.RecaptchaClient;
+import org.whispersystems.textsecuregcm.captcha.RecaptchaClient;
 import org.whispersystems.textsecuregcm.redis.ConnectionEventLogger;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
@@ -518,13 +520,18 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     MessageSender            messageSender      = new MessageSender(clientPresenceManager, messagesManager, pushNotificationManager, pushLatencyManager);
     ReceiptSender            receiptSender      = new ReceiptSender(accountsManager, messageSender, receiptSenderExecutor);
     TurnTokenGenerator       turnTokenGenerator = new TurnTokenGenerator(dynamicConfigurationManager);
+
     RecaptchaClient recaptchaClient = new RecaptchaClient(
         config.getRecaptchaConfiguration().getProjectPath(),
         config.getRecaptchaConfiguration().getCredentialConfigurationJson(),
         dynamicConfigurationManager);
+    HttpClient hcaptchaHttpClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_2).connectTimeout(Duration.ofSeconds(10)).build();
+    HCaptchaClient hCaptchaClient = new HCaptchaClient(config.getHCaptchaConfiguration().apiKey(), hcaptchaHttpClient, dynamicConfigurationManager);
+    CaptchaChecker captchaChecker = new CaptchaChecker(List.of(recaptchaClient, hCaptchaClient));
+
     PushChallengeManager pushChallengeManager = new PushChallengeManager(pushNotificationManager, pushChallengeDynamoDb);
     RateLimitChallengeManager rateLimitChallengeManager = new RateLimitChallengeManager(pushChallengeManager,
-        recaptchaClient, dynamicRateLimiters);
+        captchaChecker, dynamicRateLimiters);
 
     MessagePersister messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager, dynamicConfigurationManager, Duration.ofMinutes(config.getMessageCacheConfiguration().getPersistDelayMinutes()));
     ChangeNumberManager changeNumberManager = new ChangeNumberManager(messageSender, accountsManager);
@@ -661,7 +668,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.jersey().register(
         new AccountController(pendingAccountsManager, accountsManager, rateLimiters,
             registrationServiceClient, dynamicConfigurationManager, turnTokenGenerator, config.getTestDevices(),
-            recaptchaClient, pushNotificationManager, changeNumberManager, backupCredentialsGenerator,
+            captchaChecker, pushNotificationManager, changeNumberManager, backupCredentialsGenerator,
             clientPresenceManager, clock));
 
     environment.jersey().register(new KeysController(rateLimiters, keys, accountsManager));

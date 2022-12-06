@@ -7,19 +7,22 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.io.IOException;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.abuse.RateLimitChallengeListener;
+import org.whispersystems.textsecuregcm.captcha.AssessmentResult;
+import org.whispersystems.textsecuregcm.captcha.CaptchaChecker;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
-import org.whispersystems.textsecuregcm.recaptcha.RecaptchaClient;
+import org.whispersystems.textsecuregcm.captcha.RecaptchaClient;
 import org.whispersystems.textsecuregcm.storage.Account;
 
 class RateLimitChallengeManagerTest {
 
   private PushChallengeManager pushChallengeManager;
-  private RecaptchaClient recaptchaClient;
+  private CaptchaChecker captchaChecker;
   private DynamicRateLimiters rateLimiters;
   private RateLimitChallengeListener rateLimitChallengeListener;
 
@@ -28,13 +31,13 @@ class RateLimitChallengeManagerTest {
   @BeforeEach
   void setUp() {
     pushChallengeManager = mock(PushChallengeManager.class);
-    recaptchaClient = mock(RecaptchaClient.class);
+    captchaChecker = mock(CaptchaChecker.class);
     rateLimiters = mock(DynamicRateLimiters.class);
     rateLimitChallengeListener = mock(RateLimitChallengeListener.class);
 
     rateLimitChallengeManager = new RateLimitChallengeManager(
         pushChallengeManager,
-        recaptchaClient,
+        captchaChecker,
         rateLimiters);
 
     rateLimitChallengeManager.addListener(rateLimitChallengeListener);
@@ -63,15 +66,15 @@ class RateLimitChallengeManagerTest {
 
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
-  void answerRecaptchaChallenge(final boolean successfulChallenge) throws RateLimitExceededException {
+  void answerRecaptchaChallenge(final boolean successfulChallenge) throws RateLimitExceededException, IOException {
     final Account account = mock(Account.class);
     when(account.getNumber()).thenReturn("+18005551234");
     when(account.getUuid()).thenReturn(UUID.randomUUID());
 
-    when(recaptchaClient.verify(any(), any()))
+    when(captchaChecker.verify(any(), any()))
         .thenReturn(successfulChallenge
-            ? new RecaptchaClient.AssessmentResult(true, "")
-            : RecaptchaClient.AssessmentResult.invalid());
+            ? new AssessmentResult(true, "")
+            : AssessmentResult.invalid());
 
     when(rateLimiters.getRecaptchaChallengeAttemptLimiter()).thenReturn(mock(RateLimiter.class));
     when(rateLimiters.getRecaptchaChallengeSuccessLimiter()).thenReturn(mock(RateLimiter.class));

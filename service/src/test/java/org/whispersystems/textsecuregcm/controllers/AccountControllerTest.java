@@ -33,6 +33,7 @@ import com.google.i18n.phonenumbers.Phonenumber;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.Duration;
@@ -69,6 +70,8 @@ import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
 import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
+import org.whispersystems.textsecuregcm.captcha.AssessmentResult;
+import org.whispersystems.textsecuregcm.captcha.CaptchaChecker;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicCaptchaConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
@@ -95,7 +98,6 @@ import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.push.PushNotification;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
-import org.whispersystems.textsecuregcm.recaptcha.RecaptchaClient;
 import org.whispersystems.textsecuregcm.registration.ClientType;
 import org.whispersystems.textsecuregcm.registration.MessageTransport;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
@@ -159,7 +161,7 @@ class AccountControllerTest {
   private static Account senderRegLockAccount = mock(Account.class);
   private static Account senderHasStorage = mock(Account.class);
   private static Account senderTransfer = mock(Account.class);
-  private static RecaptchaClient recaptchaClient = mock(RecaptchaClient.class);
+  private static CaptchaChecker captchaChecker = mock(CaptchaChecker.class);
   private static PushNotificationManager pushNotificationManager = mock(PushNotificationManager.class);
   private static ChangeNumberManager changeNumberManager = mock(ChangeNumberManager.class);
   private static ClientPresenceManager clientPresenceManager = mock(ClientPresenceManager.class);
@@ -188,7 +190,7 @@ class AccountControllerTest {
           dynamicConfigurationManager,
           turnTokenGenerator,
           Map.of(TEST_NUMBER, 123456),
-          recaptchaClient,
+          captchaChecker,
           pushNotificationManager,
           changeNumberManager,
           storageCredentialGenerator,
@@ -297,10 +299,10 @@ class AccountControllerTest {
 
       when(dynamicConfiguration.getCaptchaConfiguration()).thenReturn(signupCaptchaConfig);
     }
-    when(recaptchaClient.verify(eq(INVALID_CAPTCHA_TOKEN), anyString()))
-        .thenReturn(RecaptchaClient.AssessmentResult.invalid());
-    when(recaptchaClient.verify(eq(VALID_CAPTCHA_TOKEN), anyString()))
-        .thenReturn(new RecaptchaClient.AssessmentResult(true, ""));
+    when(captchaChecker.verify(eq(INVALID_CAPTCHA_TOKEN), anyString()))
+        .thenReturn(AssessmentResult.invalid());
+    when(captchaChecker.verify(eq(VALID_CAPTCHA_TOKEN), anyString()))
+        .thenReturn(new AssessmentResult(true, ""));
 
     doThrow(new RateLimitExceededException(Duration.ZERO)).when(pinLimiter).validate(eq(SENDER_OVER_PIN));
 
@@ -328,7 +330,7 @@ class AccountControllerTest {
         senderRegLockAccount,
         senderHasStorage,
         senderTransfer,
-        recaptchaClient,
+        captchaChecker,
         pushNotificationManager,
         changeNumberManager,
         clientPresenceManager);
@@ -631,7 +633,7 @@ class AccountControllerTest {
   }
 
   @Test
-  void testSendWithValidCaptcha() throws NumberParseException {
+  void testSendWithValidCaptcha() throws NumberParseException, IOException {
 
     when(registrationServiceClient.sendRegistrationCode(any(), any(), any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(new byte[16]));
@@ -648,12 +650,12 @@ class AccountControllerTest {
 
     final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().parse(SENDER, null);
 
-    verify(recaptchaClient).verify(eq(VALID_CAPTCHA_TOKEN), eq(NICE_HOST));
+    verify(captchaChecker).verify(eq(VALID_CAPTCHA_TOKEN), eq(NICE_HOST));
     verify(registrationServiceClient).sendRegistrationCode(phoneNumber, MessageTransport.SMS, ClientType.UNKNOWN, null, AccountController.REGISTRATION_RPC_TIMEOUT);
   }
 
   @Test
-  void testSendWithInvalidCaptcha() {
+  void testSendWithInvalidCaptcha() throws IOException {
 
     Response response =
         resources.getJerseyTest()
@@ -665,7 +667,7 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(402);
 
-    verify(recaptchaClient).verify(eq(INVALID_CAPTCHA_TOKEN), eq(NICE_HOST));
+    verify(captchaChecker).verify(eq(INVALID_CAPTCHA_TOKEN), eq(NICE_HOST));
     verifyNoInteractions(registrationServiceClient);
   }
 
@@ -681,7 +683,7 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(402);
 
-    verifyNoInteractions(recaptchaClient);
+    verifyNoInteractions(captchaChecker);
     verifyNoInteractions(registrationServiceClient);
   }
 
@@ -698,7 +700,7 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(402);
 
-    verifyNoInteractions(recaptchaClient);
+    verifyNoInteractions(captchaChecker);
     verifyNoInteractions(registrationServiceClient);
   }
 

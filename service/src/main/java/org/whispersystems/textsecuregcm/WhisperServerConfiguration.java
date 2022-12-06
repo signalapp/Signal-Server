@@ -28,6 +28,7 @@ import org.whispersystems.textsecuregcm.configuration.DynamoDbClientConfiguratio
 import org.whispersystems.textsecuregcm.configuration.DynamoDbTables;
 import org.whispersystems.textsecuregcm.configuration.FcmConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GcpAttachmentsConfiguration;
+import org.whispersystems.textsecuregcm.configuration.HCaptchaConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MaxDeviceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MessageCacheConfiguration;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
@@ -196,6 +197,11 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @NotNull
   @JsonProperty
+  private HCaptchaConfiguration hCaptcha;
+
+  @Valid
+  @NotNull
+  @JsonProperty
   private SecureStorageServiceConfiguration storageService;
 
   @Valid
@@ -279,6 +285,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public RecaptchaConfiguration getRecaptchaConfiguration() {
     return recaptcha;
+  }
+
+  public HCaptchaConfiguration getHCaptchaConfiguration() {
+    return hCaptcha;
   }
 
   public VoiceVerificationConfiguration getVoiceVerificationConfiguration() {
