@@ -18,6 +18,7 @@ import com.braintree.graphql.client.type.PayPalExperienceProfileInput;
 import com.braintree.graphql.client.type.PayPalIntent;
 import com.braintree.graphql.client.type.PayPalLandingPageType;
 import com.braintree.graphql.client.type.PayPalOneTimePaymentInput;
+import com.braintree.graphql.client.type.PayPalUserAction;
 import com.braintree.graphql.client.type.TokenizePayPalOneTimePaymentInput;
 import com.braintree.graphql.client.type.TransactionInput;
 import com.braintree.graphql.clientoperation.ChargePayPalOneTimePaymentMutation;
@@ -101,7 +102,8 @@ class BraintreeGraphqlClient {
                 Optional.present(false),
                 Optional.present(PayPalLandingPageType.LOGIN),
                 Optional.present(locale),
-                Optional.absent())),
+                Optional.absent(),
+                Optional.present(PayPalUserAction.COMMIT))),
         Optional.absent(),
         Optional.absent(),
         returnUrl,

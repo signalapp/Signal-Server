@@ -3962,24 +3962,34 @@
               "defaultValue": null
             },
             {
-              "name": "paypalExperienceProfile",
-              "description": "Defines the experience profile used to render the approval flow.",
-              "type": {
-                "kind": "INPUT_OBJECT",
-                "name": "PayPalExperienceProfileInput",
-                "ofType": null
+              "name" : "paypalExperienceProfile",
+              "description" : "Defines the experience profile used to render the billing agreement approval flow.",
+              "type" : {
+                "kind" : "INPUT_OBJECT",
+                "name" : "PayPalBillingAgreementExperienceProfileInput",
+                "ofType" : null
               },
-              "defaultValue": null
+              "defaultValue" : null
             },
             {
-              "name": "shippingAddress",
-              "description": "Merchant-provided shipping address. Fields addressLine1, adminArea2, and countryCode are required for Billing Agreements.",
-              "type": {
-                "kind": "INPUT_OBJECT",
-                "name": "AddressInput",
-                "ofType": null
+              "name" : "shippingAddress",
+              "description" : "Merchant-provided shipping address. Fields addressLine1, adminArea2, and countryCode are required for Billing Agreements.",
+              "type" : {
+                "kind" : "INPUT_OBJECT",
+                "name" : "AddressInput",
+                "ofType" : null
               },
-              "defaultValue": null
+              "defaultValue" : null
+            },
+            {
+              "name" : "paypalProductAttributes",
+              "description" : "Product attributes input for PayPal billing agreement.",
+              "type" : {
+                "kind" : "INPUT_OBJECT",
+                "name" : "PayPalProductAttributesInput",
+                "ofType" : null
+              },
+              "defaultValue" : null
             }
           ],
           "interfaces": null,
@@ -6984,16 +6994,28 @@
               "deprecationReason": "Use `protectionLevel` instead."
             },
             {
-              "name": "protectionLevel",
-              "description": "The protection level of the dispute.",
-              "args": [],
-              "type": {
-                "kind": "ENUM",
-                "name": "DisputeProtectionLevel",
-                "ofType": null
+              "name" : "protectionLevel",
+              "description" : "The protection level of the dispute.",
+              "args" : [],
+              "type" : {
+                "kind" : "ENUM",
+                "name" : "DisputeProtectionLevel",
+                "ofType" : null
               },
-              "isDeprecated": false,
-              "deprecationReason": null
+              "isDeprecated" : false,
+              "deprecationReason" : null
+            },
+            {
+              "name" : "preDisputeProgram",
+              "description" : "The pre-dispute program of the dispute.",
+              "args" : [],
+              "type" : {
+                "kind" : "ENUM",
+                "name" : "PreDisputeProgram",
+                "ofType" : null
+              },
+              "isDeprecated" : false,
+              "deprecationReason" : null
             }
           ],
           "inputFields": null,
@@ -7935,17 +7957,27 @@
                 "name": "SearchChargebackProtectionLevelInput",
                 "ofType": null
               },
-              "defaultValue": null
+              "defaultValue" : null
             },
             {
-              "name": "protectionLevel",
-              "description": "Find disputes with a given protection level.",
-              "type": {
-                "kind": "INPUT_OBJECT",
-                "name": "SearchDisputeProtectionLevelInput",
-                "ofType": null
+              "name" : "protectionLevel",
+              "description" : "Find disputes with a given protection level.",
+              "type" : {
+                "kind" : "INPUT_OBJECT",
+                "name" : "SearchDisputeProtectionLevelInput",
+                "ofType" : null
               },
-              "defaultValue": null
+              "defaultValue" : null
+            },
+            {
+              "name" : "preDisputeProgram",
+              "description" : "Find disputes with a given pre-dispute program.",
+              "type" : {
+                "kind" : "INPUT_OBJECT",
+                "name" : "SearchPreDisputeProgramInput",
+                "ofType" : null
+              },
+              "defaultValue" : null
             }
           ],
           "interfaces": null,
@@ -16058,26 +16090,134 @@
               "type": {
                 "kind": "SCALAR",
                 "name": "ID",
-                "ofType": null
+                "ofType" : null
               },
-              "defaultValue": null
+              "defaultValue" : null
             }
           ],
-          "interfaces": null,
-          "enumValues": null,
-          "possibleTypes": null
+          "interfaces" : null,
+          "enumValues" : null,
+          "possibleTypes" : null
         },
         {
-          "kind": "INPUT_OBJECT",
-          "name": "PayPalBillingAgreementInput",
-          "description": "Input fields for a PayPal account to be vaulted.",
-          "fields": null,
-          "inputFields": [
+          "kind" : "ENUM",
+          "name" : "PayPalBillingAgreementChargePattern",
+          "description" : "Expected business/pricing model for a billing agreement (Charge Patterns).",
+          "fields" : null,
+          "inputFields" : null,
+          "interfaces" : null,
+          "enumValues" : [
             {
-              "name": "billingAgreementToken",
-              "description": "The Billing Agreement token.",
-              "type": {
-                "kind": "NON_NULL",
+              "name" : "DEFERRED",
+              "description" : "Pay after use, non-recurring post-paid, variable amount, irregular.",
+              "isDeprecated" : false,
+              "deprecationReason" : null
+            },
+            {
+              "name" : "IMMEDIATE",
+              "description" : "On-demand instant payments - non-recurring, pre-paid, variable amount.",
+              "isDeprecated" : false,
+              "deprecationReason" : null
+            },
+            {
+              "name" : "RECURRING_POSTPAID",
+              "description" : "Pay on a fixed date based on usage or consumption after the goods/service is delivered.",
+              "isDeprecated" : false,
+              "deprecationReason" : null
+            },
+            {
+              "name" : "RECURRING_PREPAID",
+              "description" : "Pay upfront fixed or variable amount on a fixed date before the goods/service is delivered.",
+              "isDeprecated" : false,
+              "deprecationReason" : null
+            },
+            {
+              "name" : "THRESHOLD_POSTPAID",
+              "description" : "Charge payer when the set amount is reached or monthly billing cycle, whichever comes first, after the goods/service is delivered.",
+              "isDeprecated" : false,
+              "deprecationReason" : null
+            },
+            {
+              "name" : "THRESHOLD_PREPAID",
+              "description" : "Charge payer when the set amount is reached or monthly billing cycle, whichever comes first, before the goods/service is delivered.",
+              "isDeprecated" : false,
+              "deprecationReason" : null
+            }
+          ],
+          "possibleTypes" : null
+        },
+        {
+          "kind" : "INPUT_OBJECT",
+          "name" : "PayPalBillingAgreementExperienceProfileInput",
+          "description" : "Controls the experience in a PayPal billing agreement approval flow.",
+          "fields" : null,
+          "inputFields" : [
+            {
+              "name" : "brandName",
+              "description" : "Merchant brand name to be displayed on the PayPal approval pages.",
+              "type" : {
+                "kind" : "SCALAR",
+                "name" : "String",
+                "ofType" : null
+              },
+              "defaultValue" : null
+            },
+            {
+              "name" : "collectShippingAddress",
+              "description" : "Indicates whether a shipping address will be collected from the customer during the agreement approval flow.",
+              "type" : {
+                "kind" : "SCALAR",
+                "name" : "Boolean",
+                "ofType" : null
+              },
+              "defaultValue" : null
+            },
+            {
+              "name" : "landingPageType",
+              "description" : "Specifies the PayPal page to display when a user lands on the PayPal site to complete the payment.",
+              "type" : {
+                "kind" : "ENUM",
+                "name" : "PayPalLandingPageType",
+                "ofType" : null
+              },
+              "defaultValue" : null
+            },
+            {
+              "name" : "locale",
+              "description" : "Locale of the PayPal payment approval experience.",
+              "type" : {
+                "kind" : "SCALAR",
+                "name" : "Language",
+                "ofType" : null
+              },
+              "defaultValue" : null
+            },
+            {
+              "name" : "shippingAddressEditable",
+              "description" : "Indicates whether to enable user editing of the shipping address. Only applies when shipping address is provided by merchant.",
+              "type" : {
+                "kind" : "SCALAR",
+                "name" : "Boolean",
+                "ofType" : null
+              },
+              "defaultValue" : null
+            }
+          ],
+          "interfaces" : null,
+          "enumValues" : null,
+          "possibleTypes" : null
+        },
+        {
+          "kind" : "INPUT_OBJECT",
+          "name" : "PayPalBillingAgreementInput",
+          "description" : "Input fields for a PayPal account to be vaulted.",
+          "fields" : null,
+          "inputFields" : [
+            {
+              "name" : "billingAgreementToken",
+              "description" : "The Billing Agreement token.",
+              "type" : {
+                "kind" : "NON_NULL",
                 "name": null,
                 "ofType": {
                   "kind": "SCALAR",
@@ -16362,17 +16502,27 @@
                 "name": "Language",
                 "ofType": null
               },
-              "defaultValue": null
+              "defaultValue" : null
             },
             {
-              "name": "shippingAddressEditable",
-              "description": "Indicates whether to enable user editing of the shipping address. Only applies when shipping address is provided by merchant.",
-              "type": {
-                "kind": "SCALAR",
-                "name": "Boolean",
-                "ofType": null
+              "name" : "shippingAddressEditable",
+              "description" : "Indicates whether to enable user editing of the shipping address. Only applies when shipping address is provided by merchant.",
+              "type" : {
+                "kind" : "SCALAR",
+                "name" : "Boolean",
+                "ofType" : null
               },
-              "defaultValue": null
+              "defaultValue" : null
+            },
+            {
+              "name" : "userAction",
+              "description" : "Presents the customer with either the Continue or Pay Now (COMMIT) checkout flow. Default is Continue flow if the field is not provided.",
+              "type" : {
+                "kind" : "ENUM",
+                "name" : "PayPalUserAction",
+                "ofType" : null
+              },
+              "defaultValue" : null
             }
           ],
           "interfaces": null,
@@ -16940,26 +17090,47 @@
               "type": {
                 "kind": "SCALAR",
                 "name": "String",
-                "ofType": null
+                "ofType" : null
               },
-              "defaultValue": null
+              "defaultValue" : null
             }
           ],
-          "interfaces": null,
-          "enumValues": null,
-          "possibleTypes": null
+          "interfaces" : null,
+          "enumValues" : null,
+          "possibleTypes" : null
         },
         {
-          "kind": "OBJECT",
-          "name": "PayPalQualifyingFinancingOption",
-          "description": "PayPal qualifying financing options for a product.",
-          "fields": [
+          "kind" : "INPUT_OBJECT",
+          "name" : "PayPalProductAttributesInput",
+          "description" : "Product attributes input for PayPal billing agreement.",
+          "fields" : null,
+          "inputFields" : [
             {
-              "name": "apr",
-              "description": "APR percentage.",
-              "args": [],
-              "type": {
-                "kind": "SCALAR",
+              "name" : "paypalBillingAgreementChargePattern",
+              "description" : "Expected business/pricing model for a billing agreement (Charge Patterns).",
+              "type" : {
+                "kind" : "ENUM",
+                "name" : "PayPalBillingAgreementChargePattern",
+                "ofType" : null
+              },
+              "defaultValue" : null
+            }
+          ],
+          "interfaces" : null,
+          "enumValues" : null,
+          "possibleTypes" : null
+        },
+        {
+          "kind" : "OBJECT",
+          "name" : "PayPalQualifyingFinancingOption",
+          "description" : "PayPal qualifying financing options for a product.",
+          "fields" : [
+            {
+              "name" : "apr",
+              "description" : "APR percentage.",
+              "args" : [],
+              "type" : {
+                "kind" : "SCALAR",
                 "name": "Percentage",
                 "ofType": null
               },
@@ -17589,26 +17760,49 @@
               "type": {
                 "kind": "OBJECT",
                 "name": "PaymentMethod",
-                "ofType": null
+                "ofType" : null
               },
-              "isDeprecated": false,
-              "deprecationReason": null
+              "isDeprecated" : false,
+              "deprecationReason" : null
             }
           ],
-          "inputFields": null,
-          "interfaces": [],
-          "enumValues": null,
-          "possibleTypes": null
+          "inputFields" : null,
+          "interfaces" : [],
+          "enumValues" : null,
+          "possibleTypes" : null
         },
         {
-          "kind": "INTERFACE",
-          "name": "Payment",
-          "description": "A merchant-initiated movement of money between the merchant and a customer, by way of a payment method. Payments can represent money moving either from a customer to the merchant by charging a payment method (a Transaction), or from the merchant back to a customer by refunding a previous transaction (a Refund).",
-          "fields": [
+          "kind" : "ENUM",
+          "name" : "PayPalUserAction",
+          "description" : "PayPal User action type.",
+          "fields" : null,
+          "inputFields" : null,
+          "interfaces" : null,
+          "enumValues" : [
             {
-              "name": "id",
-              "description": "Unique identifier.",
-              "args": [],
+              "name" : "COMMIT",
+              "description" : null,
+              "isDeprecated" : false,
+              "deprecationReason" : null
+            },
+            {
+              "name" : "CONTINUE",
+              "description" : null,
+              "isDeprecated" : false,
+              "deprecationReason" : null
+            }
+          ],
+          "possibleTypes" : null
+        },
+        {
+          "kind" : "INTERFACE",
+          "name" : "Payment",
+          "description" : "A merchant-initiated movement of money between the merchant and a customer, by way of a payment method. Payments can represent money moving either from a customer to the merchant by charging a payment method (a Transaction), or from the merchant back to a customer by refunding a previous transaction (a Refund).",
+          "fields" : [
+            {
+              "name" : "id",
+              "description" : "Unique identifier.",
+              "args" : [],
               "type": {
                 "kind": "NON_NULL",
                 "name": null,
@@ -19479,25 +19673,48 @@
               "name": "extensionNumber",
               "description": "The extension number.",
               "type": {
-                "kind": "SCALAR",
-                "name": "String",
-                "ofType": null
+                "kind" : "SCALAR",
+                "name" : "String",
+                "ofType" : null
               },
-              "defaultValue": null
+              "defaultValue" : null
             }
           ],
-          "interfaces": null,
-          "enumValues": null,
-          "possibleTypes": null
+          "interfaces" : null,
+          "enumValues" : null,
+          "possibleTypes" : null
         },
         {
-          "kind": "ENUM",
-          "name": "ProcessorDeclineType",
-          "description": "Whether the decline is likely to be temporary or persistent. Can be taken into consideration when determining whether to retry a declined charge.",
-          "fields": null,
-          "inputFields": null,
-          "interfaces": null,
-          "enumValues": [
+          "kind" : "ENUM",
+          "name" : "PreDisputeProgram",
+          "description" : "The pre-dispute program of the dispute.",
+          "fields" : null,
+          "inputFields" : null,
+          "interfaces" : null,
+          "enumValues" : [
+            {
+              "name" : "NONE",
+              "description" : "The dispute does not have a pre-dispute program.",
+              "isDeprecated" : false,
+              "deprecationReason" : null
+            },
+            {
+              "name" : "VISA_RDR",
+              "description" : "The dispute is part of the Visa Rapid Dispute Resolution (RDR) program.",
+              "isDeprecated" : false,
+              "deprecationReason" : null
+            }
+          ],
+          "possibleTypes" : null
+        },
+        {
+          "kind" : "ENUM",
+          "name" : "ProcessorDeclineType",
+          "description" : "Whether the decline is likely to be temporary or persistent. Can be taken into consideration when determining whether to retry a declined charge.",
+          "fields" : null,
+          "inputFields" : null,
+          "interfaces" : null,
+          "enumValues" : [
             {
               "name": "HARD",
               "description": "Hard declines are the result of an error or issue which can't be resolved immediately; the decline is not temporary and subsequent charges on the same payment method will likely not be successful.",
@@ -20163,19 +20380,31 @@
                 "ofType": null
               },
               "isDeprecated": false,
-              "deprecationReason": null
+              "deprecationReason" : null
             },
             {
-              "name": "disbursementDetails",
-              "description": "The disbursement details associated with this refund. This field is only available after the refund is SETTLED and if you have an eligible merchant account.",
-              "args": [],
-              "type": {
-                "kind": "OBJECT",
-                "name": "DisbursementDetails",
-                "ofType": null
+              "name" : "disbursementDetails",
+              "description" : "The disbursement details associated with this refund. This field is only available after the refund is SETTLED and if you have an eligible merchant account.",
+              "args" : [],
+              "type" : {
+                "kind" : "OBJECT",
+                "name" : "DisbursementDetails",
+                "ofType" : null
               },
-              "isDeprecated": false,
-              "deprecationReason": null
+              "isDeprecated" : false,
+              "deprecationReason" : null
+            },
+            {
+              "name" : "paymentInitiatedAt",
+              "description" : "The refund date and time as reported by the in-store payment terminal.",
+              "args" : [],
+              "type" : {
+                "kind" : "SCALAR",
+                "name" : "Timestamp",
+                "ofType" : null
+              },
+              "isDeprecated" : false,
+              "deprecationReason" : null
             }
           ],
           "inputFields": null,
@@ -24010,17 +24239,57 @@
                 "name": "SearchTimestampInput",
                 "ofType": null
               },
-              "defaultValue": null
+              "defaultValue" : null
             },
             {
-              "name": "voidedAt",
-              "description": "Find transactions with a given voided at time.",
-              "type": {
-                "kind": "INPUT_OBJECT",
-                "name": "SearchTimestampInput",
-                "ofType": null
+              "name" : "voidedAt",
+              "description" : "Find transactions with a given voided at time.",
+              "type" : {
+                "kind" : "INPUT_OBJECT",
+                "name" : "SearchTimestampInput",
+                "ofType" : null
               },
-              "defaultValue": null
+              "defaultValue" : null
+            },
+            {
+              "name" : "authorizationExpiredAt",
+              "description" : "Find transactions with a given authorization expired at time.",
+              "type" : {
+                "kind" : "INPUT_OBJECT",
+                "name" : "SearchTimestampInput",
+                "ofType" : null
+              },
+              "defaultValue" : null
+            },
+            {
+              "name" : "authorizedAt",
+              "description" : "Find transactions with a given authorized at time.",
+              "type" : {
+                "kind" : "INPUT_OBJECT",
+                "name" : "SearchTimestampInput",
+                "ofType" : null
+              },
+              "defaultValue" : null
+            },
+            {
+              "name" : "gatewayRejectedAt",
+              "description" : "Find transactions with a given gateway rejected at time.",
+              "type" : {
+                "kind" : "INPUT_OBJECT",
+                "name" : "SearchTimestampInput",
+                "ofType" : null
+              },
+              "defaultValue" : null
+            },
+            {
+              "name" : "processorDeclinedAt",
+              "description" : "Find transactions with a given processor declined at time.",
+              "type" : {
+                "kind" : "INPUT_OBJECT",
+                "name" : "SearchTimestampInput",
+                "ofType" : null
+              },
+              "defaultValue" : null
             }
           ],
           "interfaces": null,
@@ -24036,25 +24305,64 @@
             {
               "name": "in",
               "description": "The payment is a transaction and/or a refund.",
-              "type": {
-                "kind": "LIST",
-                "name": null,
-                "ofType": {
-                  "kind": "NON_NULL",
-                  "name": null,
-                  "ofType": {
-                    "kind": "ENUM",
-                    "name": "PaymentSearchType",
-                    "ofType": null
+              "type" : {
+                "kind" : "LIST",
+                "name" : null,
+                "ofType" : {
+                  "kind" : "NON_NULL",
+                  "name" : null,
+                  "ofType" : {
+                    "kind" : "ENUM",
+                    "name" : "PaymentSearchType",
+                    "ofType" : null
                   }
                 }
               },
-              "defaultValue": null
+              "defaultValue" : null
             }
           ],
-          "interfaces": null,
-          "enumValues": null,
-          "possibleTypes": null
+          "interfaces" : null,
+          "enumValues" : null,
+          "possibleTypes" : null
+        },
+        {
+          "kind" : "INPUT_OBJECT",
+          "name" : "SearchPreDisputeProgramInput",
+          "description" : "Input fields for searching for a dispute with a given pre-dispute program.",
+          "fields" : null,
+          "inputFields" : [
+            {
+              "name" : "is",
+              "description" : "The dispute's pre-dispute program is exactly this value.",
+              "type" : {
+                "kind" : "ENUM",
+                "name" : "PreDisputeProgram",
+                "ofType" : null
+              },
+              "defaultValue" : null
+            },
+            {
+              "name" : "in",
+              "description" : "The dispute's pre-dispute program is one of these values.",
+              "type" : {
+                "kind" : "LIST",
+                "name" : null,
+                "ofType" : {
+                  "kind" : "NON_NULL",
+                  "name" : null,
+                  "ofType" : {
+                    "kind" : "ENUM",
+                    "name" : "PreDisputeProgram",
+                    "ofType" : null
+                  }
+                }
+              },
+              "defaultValue" : null
+            }
+          ],
+          "interfaces" : null,
+          "enumValues" : null,
+          "possibleTypes" : null
         },
         {
           "kind": "INPUT_OBJECT",
@@ -34780,6 +35088,6 @@
     }
   },
   "extensions": {
-    "requestId": "b0a5a574-0298-4b69-8406-f2db0b1c6e30"
+    "requestId" : "1773a68c-af86-410b-aea2-e03390380697"
   }
 }
