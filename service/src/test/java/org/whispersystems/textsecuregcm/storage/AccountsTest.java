@@ -43,6 +43,7 @@ import org.whispersystems.textsecuregcm.util.TestClock;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
 import software.amazon.awssdk.services.dynamodb.model.CreateTableRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
@@ -617,7 +618,7 @@ class AccountsTest {
     final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
     accounts.create(account);
 
-    final String username = "test";
+    final String username = "TeST";
 
     assertThat(accounts.getByUsername(username)).isEmpty();
 
@@ -638,6 +639,12 @@ class AccountsTest {
     accounts.setUsername(account, secondUsername);
 
     assertThat(accounts.getByUsername(username)).isEmpty();
+    assertThat(dynamoDbExtension.getDynamoDbClient()
+        .getItem(GetItemRequest.builder()
+            .tableName(USERNAME_CONSTRAINT_TABLE_NAME)
+            .key(Map.of(Accounts.ATTR_USERNAME, AttributeValues.fromString("test")))
+            .build())
+        .item()).isEmpty();
 
     {
       final Optional<Account> maybeAccount = accounts.getByUsername(secondUsername);
@@ -688,7 +695,7 @@ class AccountsTest {
     final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
     accounts.create(account);
 
-    final String username = "test";
+    final String username = "TeST";
 
     accounts.setUsername(account, username);
     assertThat(accounts.getByUsername(username)).isPresent();
@@ -731,29 +738,31 @@ class AccountsTest {
     final Account account2 = generateAccount("+18005552222", UUID.randomUUID(), UUID.randomUUID());
     accounts.create(account2);
 
-    final UUID token = accounts.reserveUsername(account1, "garfield", Duration.ofDays(1));
-    assertThat(account1.getReservedUsernameHash()).get().isEqualTo(Accounts.reservedUsernameHash(account1.getUuid(), "garfield"));
+    final UUID token = accounts.reserveUsername(account1, "GarfielD", Duration.ofDays(1));
+    assertThat(account1.getReservedUsernameHash()).get().isEqualTo(Accounts.reservedUsernameHash(account1.getUuid(), "GarfielD"));
     assertThat(account1.getUsername()).isEmpty();
 
-    // account 2 shouldn't be able to reserve the username
+    // account 2 shouldn't be able to reserve the username if it's the same when normalized
     assertThrows(ContestedOptimisticLockException.class,
-        () -> accounts.reserveUsername(account2, "garfield", Duration.ofDays(1)));
+        () -> accounts.reserveUsername(account2, "gARFIELd", Duration.ofDays(1)));
     assertThrows(ContestedOptimisticLockException.class,
-        () -> accounts.confirmUsername(account2, "garfield", UUID.randomUUID()));
-    assertThat(accounts.getByUsername("garfield")).isEmpty();
+        () -> accounts.confirmUsername(account2, "gARFIELd", UUID.randomUUID()));
+    assertThat(accounts.getByUsername("gARFIELd")).isEmpty();
 
-    accounts.confirmUsername(account1, "garfield", token);
+    accounts.confirmUsername(account1, "GarfielD", token);
     assertThat(account1.getReservedUsernameHash()).isEmpty();
-    assertThat(account1.getUsername()).get().isEqualTo("garfield");
-    assertThat(accounts.getByUsername("garfield").get().getUuid()).isEqualTo(account1.getUuid());
+    assertThat(account1.getUsername()).get().isEqualTo("GarfielD");
+    assertThat(accounts.getByUsername("GarfielD").get().getUuid()).isEqualTo(account1.getUuid());
 
-    assertThat(dynamoDbExtension.getDynamoDbClient()
+    final Map<String, AttributeValue> usernameConstraintRecord = dynamoDbExtension.getDynamoDbClient()
         .getItem(GetItemRequest.builder()
             .tableName(USERNAME_CONSTRAINT_TABLE_NAME)
             .key(Map.of(Accounts.ATTR_USERNAME, AttributeValues.fromString("garfield")))
             .build())
-        .item())
-        .doesNotContainKey(Accounts.ATTR_TTL);
+        .item();
+
+    assertThat(usernameConstraintRecord).containsKey(Accounts.ATTR_USERNAME);
+    assertThat(usernameConstraintRecord).doesNotContainKey(Accounts.ATTR_TTL);
   }
 
   @Test
@@ -761,7 +770,7 @@ class AccountsTest {
     final Account account1 = generateAccount("+18005551111", UUID.randomUUID(), UUID.randomUUID());
     accounts.create(account1);
 
-    final String username = "unsinkablesam";
+    final String username = "UnSinkaBlesam";
 
     final UUID token = accounts.reserveUsername(account1, username, Duration.ofDays(1));
     assertThat(accounts.usernameAvailable(username)).isFalse();

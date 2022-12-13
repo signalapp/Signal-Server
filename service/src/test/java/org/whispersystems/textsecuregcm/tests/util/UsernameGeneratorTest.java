@@ -28,8 +28,8 @@ public class UsernameGeneratorTest {
 
   static Stream<Arguments> nicknameValidation() {
     return Stream.of(
-        Arguments.of("Test", false, "upper case"),
-        Arguments.of("tesT", false, "upper case"),
+        Arguments.of("Test", true, "upper case"),
+        Arguments.of("tesT", true, "upper case"),
         Arguments.of("te-st", false, "illegal character"),
         Arguments.of("ab\uD83D\uDC1B", false, "illegal character"),
         Arguments.of("1test", false, "illegal start"),
@@ -55,7 +55,7 @@ public class UsernameGeneratorTest {
 
   static Stream<Arguments> nonStandardUsernames() {
     return Stream.of(
-        Arguments.of("Test.123", false),
+        Arguments.of("Test.123", true),
         Arguments.of("test.-123", false),
         Arguments.of("test.0", false),
         Arguments.of("test.", false),

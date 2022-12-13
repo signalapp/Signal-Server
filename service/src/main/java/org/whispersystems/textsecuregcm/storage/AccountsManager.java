@@ -51,6 +51,7 @@ import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.DestinationDeviceValidator;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.UsernameGenerator;
+import org.whispersystems.textsecuregcm.util.UsernameNormalizer;
 import org.whispersystems.textsecuregcm.util.Util;
 
 public class AccountsManager {
@@ -391,7 +392,7 @@ public class AccountsManager {
       return account;
     }
 
-    final byte[] newHash = Accounts.reservedUsernameHash(account.getUuid(), reservedUsername);
+    final byte[] newHash = Accounts.reservedUsernameHash(account.getUuid(), UsernameNormalizer.normalize(reservedUsername));
     if (!account.getReservedUsernameHash().map(oldHash -> Arrays.equals(oldHash, newHash)).orElse(false)) {
       // no such reservation existed, either there was no previous call to reserveUsername
       // or the reservation changed
@@ -720,8 +721,8 @@ public class AccountsManager {
             clientPresenceManager.disconnectPresence(account.getUuid(), device.getId())));
   }
 
-  private String getUsernameAccountMapKey(String key) {
-    return "UAccountMap::" + key;
+  private String getUsernameAccountMapKey(String username) {
+    return "UAccountMap::" + UsernameNormalizer.normalize(username);
   }
 
   private String getAccountMapKey(String key) {

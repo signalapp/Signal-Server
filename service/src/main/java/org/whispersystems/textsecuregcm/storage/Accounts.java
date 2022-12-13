@@ -39,6 +39,7 @@ import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
+import org.whispersystems.textsecuregcm.util.UsernameNormalizer;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
@@ -304,7 +305,6 @@ public class Accounts extends AbstractDynamoDbStore {
       final String reservedUsername,
       final Duration ttl) {
     final long startNanos = System.nanoTime();
-
     // if there is an existing old reservation it will be cleaned up via ttl
     final Optional<byte[]> maybeOriginalReservation = account.getReservedUsernameHash();
     account.setReservedUsernameHash(reservedUsernameHash(account.getUuid(), reservedUsername));
@@ -322,7 +322,7 @@ public class Accounts extends AbstractDynamoDbStore {
               .tableName(usernamesConstraintTableName)
               .item(Map.of(
                   KEY_ACCOUNT_UUID, AttributeValues.fromUUID(reservationToken),
-                  ATTR_USERNAME, AttributeValues.fromString(reservedUsername),
+                  ATTR_USERNAME, AttributeValues.fromString(UsernameNormalizer.normalize(reservedUsername)),
                   ATTR_TTL, AttributeValues.fromLong(expirationTime)))
               .conditionExpression("attribute_not_exists(#username) OR (#ttl < :now)")
               .expressionAttributeNames(Map.of("#username", ATTR_USERNAME, "#ttl", ATTR_TTL))
@@ -411,12 +411,13 @@ public class Accounts extends AbstractDynamoDbStore {
       final List<TransactWriteItem> writeItems = new ArrayList<>();
 
       // add the username to the constraint table, wiping out the ttl if we had already reserved the name
+      // Persist the normalized username in the usernamesConstraint table and the original username in the accounts table
       writeItems.add(TransactWriteItem.builder()
           .put(Put.builder()
               .tableName(usernamesConstraintTableName)
               .item(Map.of(
                   KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid()),
-                  ATTR_USERNAME, AttributeValues.fromString(username)))
+                  ATTR_USERNAME, AttributeValues.fromString(UsernameNormalizer.normalize(username))))
               // it's not in the constraint table OR it's expired OR it was reserved by us
               .conditionExpression("attribute_not_exists(#username) OR #ttl < :now OR #aci = :reservation ")
               .expressionAttributeNames(Map.of("#username", ATTR_USERNAME, "#ttl", ATTR_TTL, "#aci", KEY_ACCOUNT_UUID))
@@ -446,7 +447,7 @@ public class Accounts extends AbstractDynamoDbStore {
               .build());
 
       maybeOriginalUsername.ifPresent(originalUsername -> writeItems.add(
-          buildDelete(usernamesConstraintTableName, ATTR_USERNAME, originalUsername)));
+          buildDelete(usernamesConstraintTableName, ATTR_USERNAME, UsernameNormalizer.normalize(originalUsername))));
 
       final TransactWriteItemsRequest request = TransactWriteItemsRequest.builder()
           .transactItems(writeItems)
@@ -499,7 +500,7 @@ public class Accounts extends AbstractDynamoDbStore {
                       .build())
                   .build());
 
-          writeItems.add(buildDelete(usernamesConstraintTableName, ATTR_USERNAME, username));
+          writeItems.add(buildDelete(usernamesConstraintTableName, ATTR_USERNAME, UsernameNormalizer.normalize(username)));
 
           final TransactWriteItemsRequest request = TransactWriteItemsRequest.builder()
               .transactItems(writeItems)
@@ -606,7 +607,7 @@ public class Accounts extends AbstractDynamoDbStore {
 
   public boolean usernameAvailable(final Optional<UUID> reservationToken, final String username) {
     final Optional<Map<String, AttributeValue>> usernameItem = itemByKey(
-        usernamesConstraintTableName, ATTR_USERNAME, AttributeValues.fromString(username));
+        usernamesConstraintTableName, ATTR_USERNAME, AttributeValues.fromString(UsernameNormalizer.normalize(username)));
 
     if (usernameItem.isEmpty()) {
       // username is free
@@ -643,7 +644,7 @@ public class Accounts extends AbstractDynamoDbStore {
         GET_BY_USERNAME_TIMER,
         usernamesConstraintTableName,
         ATTR_USERNAME,
-        AttributeValues.fromString(username),
+        AttributeValues.fromString(UsernameNormalizer.normalize(username)),
         item -> !item.containsKey(ATTR_TTL) // ignore items with a ttl (reservations)
     );
   }
@@ -665,11 +666,10 @@ public class Accounts extends AbstractDynamoDbStore {
       ));
 
       account.getUsername().ifPresent(username -> transactWriteItems.add(
-          buildDelete(usernamesConstraintTableName, ATTR_USERNAME, username)));
+          buildDelete(usernamesConstraintTableName, ATTR_USERNAME, UsernameNormalizer.normalize(username))));
 
       final TransactWriteItemsRequest request = TransactWriteItemsRequest.builder()
           .transactItems(transactWriteItems).build();
-
       db().transactWriteItems(request);
     }));
   }
@@ -852,7 +852,7 @@ public class Accounts extends AbstractDynamoDbStore {
       throw new AssertionError(e);
     }
     final ByteBuffer byteBuffer = ByteBuffer.allocate(32 + 1);
-    sha256.update(reservedUsername.getBytes(StandardCharsets.UTF_8));
+    sha256.update(UsernameNormalizer.normalize(reservedUsername).getBytes(StandardCharsets.UTF_8));
     sha256.update(UUIDUtil.toBytes(accountId));
     byteBuffer.put(RESERVED_USERNAME_HASH_VERSION);
     byteBuffer.put(sha256.digest());

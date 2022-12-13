@@ -1496,32 +1496,32 @@ class AccountControllerTest {
   @Test
   void testSetUsername() throws UsernameNotAvailableException {
     Account account = mock(Account.class);
-    when(account.getUsername()).thenReturn(Optional.of("n00bkiller.1234"));
-    when(accountsManager.setUsername(any(), eq("n00bkiller"), isNull()))
+    when(account.getUsername()).thenReturn(Optional.of("N00bkilleR.1234"));
+    when(accountsManager.setUsername(any(), eq("N00bkilleR"), isNull()))
         .thenReturn(account);
     Response response =
         resources.getJerseyTest()
                  .target("/v1/accounts/username")
                  .request()
                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                 .put(Entity.json(new UsernameRequest("n00bkiller", null)));
+                 .put(Entity.json(new UsernameRequest("N00bkilleR", null)));
     assertThat(response.getStatus()).isEqualTo(200);
-    assertThat(response.readEntity(UsernameResponse.class).username()).isEqualTo("n00bkiller.1234");
+    assertThat(response.readEntity(UsernameResponse.class).username()).isEqualTo("N00bkilleR.1234");
   }
 
   @Test
   void testReserveUsername() throws UsernameNotAvailableException {
-    when(accountsManager.reserveUsername(any(), eq("n00bkiller")))
-        .thenReturn(new AccountsManager.UsernameReservation(null, "n00bkiller.1234", RESERVATION_TOKEN));
+    when(accountsManager.reserveUsername(any(), eq("N00bkilleR")))
+        .thenReturn(new AccountsManager.UsernameReservation(null, "N00bkilleR.1234", RESERVATION_TOKEN));
     Response response =
         resources.getJerseyTest()
             .target("/v1/accounts/username/reserved")
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.json(new ReserveUsernameRequest("n00bkiller")));
+            .put(Entity.json(new ReserveUsernameRequest("N00bkilleR")));
     assertThat(response.getStatus()).isEqualTo(200);
     assertThat(response.readEntity(ReserveUsernameResponse.class))
-        .satisfies(r -> r.username().equals("n00bkiller.1234"))
+        .satisfies(r -> r.username().equals("N00bkilleR.1234"))
         .satisfies(r -> r.reservationToken().equals(RESERVATION_TOKEN));
   }
 

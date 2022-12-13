@@ -63,6 +63,7 @@ import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
 import org.whispersystems.textsecuregcm.util.UsernameGenerator;
+import org.whispersystems.textsecuregcm.util.UsernameNormalizer;
 
 class AccountsManagerTest {
 
@@ -751,7 +752,7 @@ class AccountsManagerTest {
   @Test
   void testSetReservedUsername() throws UsernameNotAvailableException, UsernameReservationNotFoundException {
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
-    final String reserved = "scooby.1234";
+    final String reserved = "sCoObY.1234";
     setReservationHash(account, reserved);
     when(accounts.usernameAvailable(eq(Optional.of(RESERVATION_TOKEN)), eq(reserved))).thenReturn(true);
     accountsManager.confirmReservedUsername(account, reserved, RESERVATION_TOKEN);

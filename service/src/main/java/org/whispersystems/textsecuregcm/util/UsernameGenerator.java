@@ -22,18 +22,17 @@ import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 public class UsernameGenerator {
   /**
-   * Nicknames are
+   * Nicknames
    * <list>
-   *   <li> lowercase </li>
    *   <li> do not start with a number </li>
-   *   <li> alphanumeric or underscores only </li>
-   *   <li> minimum length 3 </li>
-   *   <li> maximum length 32 </li>
+   *   <li> are alphanumeric or underscores only </li>
+   *   <li> have minimum length 3 </li>
+   *   <li> have maximum length 32 </li>
    * </list>
    *
    * Usernames typically consist of a nickname and an integer discriminator
    */
-  public static final Pattern NICKNAME_PATTERN = Pattern.compile("^[_a-z][_a-z0-9]{2,31}$");
+  public static final Pattern NICKNAME_PATTERN = Pattern.compile("^[_a-zA-Z][_a-zA-Z0-9]{2,31}$");
   public static final String SEPARATOR = ".";
 
   private static final Counter USERNAME_NOT_AVAILABLE_COUNTER = Metrics.counter(name(UsernameGenerator.class, "usernameNotAvailable"));
