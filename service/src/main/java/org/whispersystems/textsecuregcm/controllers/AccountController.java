@@ -16,6 +16,7 @@ import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import io.dropwizard.auth.Auth;
+import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
@@ -23,6 +24,7 @@ import java.io.IOException;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.Optional;
@@ -126,6 +128,8 @@ public class AccountController {
   private static final String ACCOUNT_VERIFY_COUNTER_NAME = name(AccountController.class, "verify");
   private static final String CAPTCHA_ATTEMPT_COUNTER_NAME = name(AccountController.class, "captcha");
   private static final String CHALLENGE_ISSUED_COUNTER_NAME = name(AccountController.class, "challengeIssued");
+
+  private static final DistributionSummary REREGISTRATION_IDLE_DAYS_DISTRIBUTION_NAME = Metrics.summary(name(AccountController.class, "reregistrationIdleDays"));
 
   private static final String NONSTANDARD_USERNAME_COUNTER_NAME = name(AccountController.class, "nonStandardUsername");
 
@@ -394,6 +398,12 @@ public class AccountController {
     }
 
     Optional<Account> existingAccount = accounts.getByE164(number);
+
+    existingAccount.ifPresent(account -> {
+      Instant accountLastSeen = Instant.ofEpochMilli(account.getLastSeen());
+      Duration timeSinceLastSeen = Duration.between(accountLastSeen, Instant.now());
+      REREGISTRATION_IDLE_DAYS_DISTRIBUTION_NAME.record(timeSinceLastSeen.toDays());
+    });
 
     if (existingAccount.isPresent()) {
       verifyRegistrationLock(existingAccount.get(), accountAttributes.getRegistrationLock());
