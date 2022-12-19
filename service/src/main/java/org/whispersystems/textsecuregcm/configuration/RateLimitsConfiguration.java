@@ -57,6 +57,9 @@ public class RateLimitsConfiguration {
   private RateLimitConfiguration stickerPack = new RateLimitConfiguration(50, 20 / (24.0 * 60.0));
 
   @JsonProperty
+  private RateLimitConfiguration artPack = new RateLimitConfiguration(50, 20 / (24.0 * 60.0));
+
+  @JsonProperty
   private RateLimitConfiguration usernameLookup = new RateLimitConfiguration(100, 100 / (24.0 * 60.0));
 
   @JsonProperty
@@ -133,6 +136,10 @@ public class RateLimitsConfiguration {
 
   public RateLimitConfiguration getStickerPack() {
     return stickerPack;
+  }
+
+  public RateLimitConfiguration getArtPack() {
+    return artPack;
   }
 
   public RateLimitConfiguration getUsernameLookup() {

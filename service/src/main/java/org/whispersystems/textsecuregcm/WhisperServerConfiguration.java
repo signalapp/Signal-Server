@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2021 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm;
@@ -33,6 +33,7 @@ import org.whispersystems.textsecuregcm.configuration.MaxDeviceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MessageCacheConfiguration;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.PaymentsServiceConfiguration;
+import org.whispersystems.textsecuregcm.configuration.ArtServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RecaptchaConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RedisClusterConfiguration;
@@ -213,6 +214,11 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @JsonProperty
   private PaymentsServiceConfiguration paymentsService;
+
+  @Valid
+  @NotNull
+  @JsonProperty
+  private ArtServiceConfiguration artService;
 
   @Valid
   @NotNull
@@ -403,6 +409,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public PaymentsServiceConfiguration getPaymentsServiceConfiguration() {
     return paymentsService;
+  }
+
+  public ArtServiceConfiguration getArtServiceConfiguration() {
+    return artService;
   }
 
   public ZkConfig getZkConfig() {

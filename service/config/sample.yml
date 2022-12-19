@@ -319,6 +319,10 @@ paymentsService:
     # list of symbols for supported currencies
     - MOB
 
+artService:
+  userAuthenticationTokenSharedSecret: 0000000f0000000f0000000f0000000f0000000f0000000f0000000f0000000f # hex-encoded 32-byte secret not shared with any external service, but used in ArtController
+  userAuthenticationTokenUserIdSecret: 00000f # hex-encoded secret to obscure user phone numbers from Sticker Creator
+
 badges:
   badges:
     - id: TEST

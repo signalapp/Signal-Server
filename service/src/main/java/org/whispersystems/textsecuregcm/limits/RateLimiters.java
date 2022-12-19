@@ -29,6 +29,8 @@ public class RateLimiters {
 
   private final RateLimiter profileLimiter;
   private final RateLimiter stickerPackLimiter;
+
+  private final RateLimiter artPackLimiter;
   private final RateLimiter usernameLookupLimiter;
   private final RateLimiter usernameSetLimiter;
 
@@ -98,6 +100,10 @@ public class RateLimiters {
     this.stickerPackLimiter = new RateLimiter(cacheCluster, "stickerPack",
                                               config.getStickerPack().getBucketSize(),
                                               config.getStickerPack().getLeakRatePerMinute());
+
+    this.artPackLimiter = new RateLimiter(cacheCluster, "artPack",
+        config.getArtPack().getBucketSize(),
+        config.getArtPack().getLeakRatePerMinute());
 
     this.usernameLookupLimiter = new RateLimiter(cacheCluster, "usernameLookup",
                                                  config.getUsernameLookup().getBucketSize(),
@@ -179,6 +185,10 @@ public class RateLimiters {
 
   public RateLimiter getStickerPackLimiter() {
     return stickerPackLimiter;
+  }
+
+  public RateLimiter getArtPackLimiter() {
+    return artPackLimiter;
   }
 
   public RateLimiter getUsernameLookupLimiter() {
