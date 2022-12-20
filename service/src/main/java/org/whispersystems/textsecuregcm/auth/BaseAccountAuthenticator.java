@@ -146,9 +146,18 @@ public class BaseAccountAuthenticator {
 
   @VisibleForTesting
   public Account updateLastSeen(Account account, Device device) {
-    final long lastSeenOffsetSeconds   = Math.abs(account.getUuid().getLeastSignificantBits()) % ChronoUnit.DAYS.getDuration().toSeconds();
+    // compute a non-negative integer between 0 and 86400.
+    long n = Util.ensureNonNegativeLong(account.getUuid().getLeastSignificantBits());
+    final long lastSeenOffsetSeconds = n % ChronoUnit.DAYS.getDuration().toSeconds();
+
+    // produce a truncated timestamp which is either today at UTC midnight
+    // or yesterday at UTC midnight, based on per-user randomized offset used.
     final long todayInMillisWithOffset = Util.todayInMillisGivenOffsetFromNow(clock, Duration.ofSeconds(lastSeenOffsetSeconds).negated());
 
+    // only update the device's last seen time when it falls behind the truncated timestamp.
+    // this ensure a few things:
+    //   (1) each account will only update last-seen at most once per day
+    //   (2) these updates will occur throughout the day rather than all occurring at UTC midnight.
     if (device.getLastSeen() < todayInMillisWithOffset) {
       Metrics.summary(DAYS_SINCE_LAST_SEEN_DISTRIBUTION_NAME, IS_PRIMARY_DEVICE_TAG, String.valueOf(device.isMaster()))
           .record(Duration.ofMillis(todayInMillisWithOffset - device.getLastSeen()).toDays());

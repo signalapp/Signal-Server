@@ -41,6 +41,7 @@ import org.whispersystems.textsecuregcm.entities.UserRemoteConfigList;
 import org.whispersystems.textsecuregcm.storage.RemoteConfig;
 import org.whispersystems.textsecuregcm.storage.RemoteConfigsManager;
 import org.whispersystems.textsecuregcm.util.Conversions;
+import org.whispersystems.textsecuregcm.util.Util;
 
 @Path("/v1/config")
 public class RemoteConfigController {
@@ -133,7 +134,7 @@ public class RemoteConfigController {
     digest.update(bb.array());
 
     byte[] hash   = digest.digest(hashKey);
-    int    bucket = (int)(Math.abs(Conversions.byteArrayToLong(hash)) % 100);
+    int    bucket = (int)(Util.ensureNonNegativeLong(Conversions.byteArrayToLong(hash)) % 100);
 
     return bucket < configPercentage;
   }

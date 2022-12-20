@@ -10,6 +10,7 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfigurati
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicTurnConfiguration;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.util.Pair;
+import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.util.WeightedRandomSelect;
 
 import javax.crypto.Mac;
@@ -36,7 +37,7 @@ public class TurnTokenGenerator {
       List<String> urls         = urls(e164);
       Mac    mac                = Mac.getInstance("HmacSHA1");
       long   validUntilSeconds  = (System.currentTimeMillis() + TimeUnit.DAYS.toMillis(1)) / 1000;
-      long   user               = Math.abs(new SecureRandom().nextInt());
+      long   user               = Util.ensureNonNegativeInt(new SecureRandom().nextInt());
       String userTime           = validUntilSeconds + ":"  + user;
 
       mac.init(new SecretKeySpec(key, "HmacSHA1"));

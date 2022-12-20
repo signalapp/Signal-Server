@@ -191,4 +191,29 @@ public class Util {
   public static Optional<String> findBestLocale(List<LanguageRange> priorityList, Collection<String> supportedLocales) {
     return Optional.ofNullable(Locale.lookupTag(priorityList, supportedLocales));
   }
+
+  /**
+   * Map ints to non-negative ints.
+   * <br>
+   * Unlike Math.abs this method handles Integer.MIN_VALUE correctly.
+   *
+   * @param n any int value
+   * @return an int value guaranteed to be non-negative
+   */
+  public static int ensureNonNegativeInt(int n) {
+    return n == Integer.MIN_VALUE ? 0 : Math.abs(n);
+  }
+
+  /**
+   * Map longs to non-negative longs.
+   * <br>
+   * Unlike Math.abs this method handles Long.MIN_VALUE correctly.
+   *
+   * @param n any long value
+   * @return a long value guaranteed to be non-negative
+   */
+  public static long ensureNonNegativeLong(long n) {
+    return n == Long.MIN_VALUE ? 0 : Math.abs(n);
+  }
+
 }

@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.auth;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.codec.binary.Hex;
 import org.signal.libsignal.protocol.kdf.HKDF;
+import org.whispersystems.textsecuregcm.util.Util;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -32,13 +33,13 @@ public class AuthenticationCredentials {
   }
 
   public AuthenticationCredentials(String authenticationToken) {
-    this.salt                      = String.valueOf(Math.abs(new SecureRandom().nextInt()));
+    this.salt = String.valueOf(Util.ensureNonNegativeInt(new SecureRandom().nextInt()));
     this.hashedAuthenticationToken = getV2HashedValue(salt, authenticationToken);
   }
 
   @VisibleForTesting
   public AuthenticationCredentials v1ForTesting(String authenticationToken) {
-    String salt = String.valueOf(Math.abs(new SecureRandom().nextInt()));
+    String salt = String.valueOf(Util.ensureNonNegativeInt(new SecureRandom().nextInt()));
     return new AuthenticationCredentials(getV1HashedValue(salt, authenticationToken), salt);
   }
 
