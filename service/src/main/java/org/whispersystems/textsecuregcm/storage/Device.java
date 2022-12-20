@@ -277,12 +277,15 @@ public class Device {
     @JsonProperty
     private boolean giftBadges;
 
+    @JsonProperty
+    private boolean paymentActivation;
+
     public DeviceCapabilities() {
     }
 
     public DeviceCapabilities(boolean storage, boolean transfer,
         final boolean senderKey, final boolean announcementGroup, final boolean changeNumber,
-        final boolean pni, final boolean stories, final boolean giftBadges) {
+        final boolean pni, final boolean stories, final boolean giftBadges, final boolean paymentActivation) {
       this.storage = storage;
       this.transfer = transfer;
       this.senderKey = senderKey;
@@ -291,6 +294,7 @@ public class Device {
       this.pni = pni;
       this.stories = stories;
       this.giftBadges = giftBadges;
+      this.paymentActivation = paymentActivation;
     }
 
     public boolean isStorage() {
@@ -323,6 +327,10 @@ public class Device {
 
     public boolean isGiftBadges() {
       return giftBadges;
+    }
+
+    public boolean isPaymentActivation() {
+      return paymentActivation;
     }
   }
 }

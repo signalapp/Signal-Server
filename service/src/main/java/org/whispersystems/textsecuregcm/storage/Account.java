@@ -221,6 +221,10 @@ public class Account {
     return allEnabledDevicesHaveCapability(DeviceCapabilities::isGiftBadges);
   }
 
+  public boolean isPaymentActivationSupported() {
+    return allEnabledDevicesHaveCapability(DeviceCapabilities::isPaymentActivation);
+  }
+
   private boolean allEnabledDevicesHaveCapability(Predicate<DeviceCapabilities> predicate) {
     requireNotStale();
 

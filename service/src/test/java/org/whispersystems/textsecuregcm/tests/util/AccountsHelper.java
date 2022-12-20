@@ -126,6 +126,7 @@ public class AccountsHelper {
           case "isPniSupported" -> when(updatedAccount.isPniSupported()).thenAnswer(stubbing);
           case "isStoriesSupported" -> when(updatedAccount.isStoriesSupported()).thenAnswer(stubbing);
           case "isGiftBadgesSupported" -> when(updatedAccount.isGiftBadgesSupported()).thenAnswer(stubbing);
+          case "isPaymentActivationSupported" -> when(updatedAccount.isPaymentActivationSupported()).thenAnswer(stubbing);
           case "getEnabledDeviceCount" -> when(updatedAccount.getEnabledDeviceCount()).thenAnswer(stubbing);
           case "getRegistrationLock" -> when(updatedAccount.getRegistrationLock()).thenAnswer(stubbing);
           case "getIdentityKey" -> when(updatedAccount.getIdentityKey()).thenAnswer(stubbing);

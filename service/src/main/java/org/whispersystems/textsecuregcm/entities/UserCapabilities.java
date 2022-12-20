@@ -17,7 +17,8 @@ public class UserCapabilities {
         account.isAnnouncementGroupSupported(),
         account.isChangeNumberSupported(),
         account.isStoriesSupported(),
-        account.isGiftBadgesSupported());
+        account.isGiftBadgesSupported(),
+        false); // Hardcode to false until all clients support the flow
   }
 
   @JsonProperty("gv1-migration")
@@ -38,6 +39,9 @@ public class UserCapabilities {
   @JsonProperty
   private boolean giftBadges;
 
+  @JsonProperty
+  private boolean paymentActivation;
+
   public UserCapabilities() {
   }
 
@@ -47,7 +51,8 @@ public class UserCapabilities {
       final boolean announcementGroup,
       final boolean changeNumber,
       final boolean stories,
-      final boolean giftBadges) {
+      final boolean giftBadges,
+      final boolean paymentActivation) {
 
     this.gv1Migration = gv1Migration;
     this.senderKey = senderKey;
@@ -55,6 +60,7 @@ public class UserCapabilities {
     this.changeNumber = changeNumber;
     this.stories = stories;
     this.giftBadges = giftBadges;
+    this.paymentActivation = paymentActivation;
   }
 
   public boolean isGv1Migration() {
@@ -80,4 +86,6 @@ public class UserCapabilities {
   public boolean isGiftBadges() {
     return giftBadges;
   }
+
+  public boolean isPaymentActivation() { return paymentActivation; }
 }

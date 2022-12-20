@@ -38,6 +38,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
@@ -130,6 +131,7 @@ class DeviceControllerTest {
     when(account.isPniSupported()).thenReturn(true);
     when(account.isStoriesSupported()).thenReturn(true);
     when(account.isGiftBadgesSupported()).thenReturn(true);
+    when(account.isPaymentActivationSupported()).thenReturn(false);
 
     when(pendingDevicesManager.getCodeForNumber(AuthHelper.VALID_NUMBER)).thenReturn(
         Optional.of(new StoredVerificationCode("5678901", System.currentTimeMillis(), null, null, null)));
@@ -304,7 +306,7 @@ class DeviceControllerTest {
   @Test
   void deviceDowngradeSenderKeyTest() {
     DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, false, true,
-        true, true, true, true);
+        true, true, true, true, true);
     AccountAttributes accountAttributes =
         new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
     Response response = resources
@@ -316,7 +318,7 @@ class DeviceControllerTest {
         .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatus()).isEqualTo(409);
 
-    deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, true);
+    deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, true, true);
     accountAttributes = new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
     response = resources
         .getJerseyTest()
@@ -331,7 +333,7 @@ class DeviceControllerTest {
   @Test
   void deviceDowngradeAnnouncementGroupTest() {
     DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, true, false,
-        true, true, true, true);
+        true, true, true, true, true);
     AccountAttributes accountAttributes =
         new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
     Response response = resources
@@ -343,7 +345,7 @@ class DeviceControllerTest {
         .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatus()).isEqualTo(409);
 
-    deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, true);
+    deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, true, true);
     accountAttributes = new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
     response = resources
         .getJerseyTest()
@@ -358,7 +360,7 @@ class DeviceControllerTest {
   @Test
   void deviceDowngradeChangeNumberTest() {
     DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, true, true,
-        false, true, true, true);
+        false, true, true, true, true);
     AccountAttributes accountAttributes =
         new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
     Response response = resources
@@ -371,7 +373,7 @@ class DeviceControllerTest {
         .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatus()).isEqualTo(409);
 
-    deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, true);
+    deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, true, true);
     accountAttributes = new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
     response = resources
         .getJerseyTest()
@@ -387,7 +389,7 @@ class DeviceControllerTest {
   @Test
   void deviceDowngradePniTest() {
     DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, true, true, true,
-        false, true, true);
+        false, true, true, true);
     AccountAttributes accountAttributes =
         new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
     Response response = resources
@@ -399,7 +401,7 @@ class DeviceControllerTest {
         .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatus()).isEqualTo(409);
 
-    deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, true);
+    deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, true, true);
     accountAttributes = new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
     response = resources
         .getJerseyTest()
@@ -415,7 +417,7 @@ class DeviceControllerTest {
   @Test
   void deviceDowngradeStoriesTest() {
     DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, true, true, true,
-        true, false, true);
+        true, false, true, true);
     AccountAttributes accountAttributes =
         new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
     Response response = resources
@@ -428,7 +430,7 @@ class DeviceControllerTest {
         .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatus()).isEqualTo(409);
 
-    deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, true);
+    deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, true, true);
     accountAttributes = new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
     response = resources
         .getJerseyTest()
@@ -443,7 +445,7 @@ class DeviceControllerTest {
 
   @Test
   void deviceDowngradeGiftBadgesTest() {
-    DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, false);
+    DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, false, true);
     AccountAttributes accountAttributes = new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
     Response response = resources
         .getJerseyTest()
@@ -454,7 +456,7 @@ class DeviceControllerTest {
         .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatus()).isEqualTo(409);
 
-    deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, true);
+    deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, true, true);
     accountAttributes = new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
     response = resources
         .getJerseyTest()
@@ -462,6 +464,22 @@ class DeviceControllerTest {
         .request()
         .header("Authorization",
             AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+        .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
+        .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
+    assertThat(response.getStatus()).isEqualTo(200);
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void deviceDowngradePaymentActivationTest(boolean paymentActivation) {
+    // Update when we start returning true value of capability & restricting downgrades
+    DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, true, paymentActivation);
+    AccountAttributes accountAttributes = new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
+    Response response = resources
+        .getJerseyTest()
+        .target("/v1/devices/5678901")
+        .request()
+        .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
         .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
         .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatus()).isEqualTo(200);
