@@ -15,7 +15,8 @@ public record UserCapabilities(
     boolean changeNumber,
     boolean stories,
     boolean giftBadges,
-    boolean paymentActivation) {
+    boolean paymentActivation,
+    boolean pni) {
 
   public static UserCapabilities createForAccount(Account account) {
     return new UserCapabilities(
@@ -25,6 +26,12 @@ public record UserCapabilities(
         account.isChangeNumberSupported(),
         account.isStoriesSupported(),
         account.isGiftBadgesSupported(),
-        false); // Hardcode to false until all clients support the flow
+
+        // Hardcode payment activation flag to false until all clients support the flow
+        false,
+
+        // Although originally intended to indicate that clients support phone number identifiers, the scope of this
+        // flag has expanded to cover phone number privacy in general
+        account.isPniSupported());
   }
 }
