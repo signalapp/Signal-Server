@@ -392,9 +392,9 @@ class ProfileControllerTest {
                               .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                               .get(BaseProfileResponse.class);
 
-    assertThat(profile.getCapabilities().isGv1Migration()).isTrue();
-    assertThat(profile.getCapabilities().isSenderKey()).isTrue();
-    assertThat(profile.getCapabilities().isAnnouncementGroup()).isTrue();
+    assertThat(profile.getCapabilities().gv1Migration()).isTrue();
+    assertThat(profile.getCapabilities().senderKey()).isTrue();
+    assertThat(profile.getCapabilities().announcementGroup()).isTrue();
 
     profile = resources
         .getJerseyTest()
@@ -403,9 +403,9 @@ class ProfileControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
         .get(BaseProfileResponse.class);
 
-    assertThat(profile.getCapabilities().isGv1Migration()).isTrue();
-    assertThat(profile.getCapabilities().isSenderKey()).isFalse();
-    assertThat(profile.getCapabilities().isAnnouncementGroup()).isFalse();
+    assertThat(profile.getCapabilities().gv1Migration()).isTrue();
+    assertThat(profile.getCapabilities().senderKey()).isFalse();
+    assertThat(profile.getCapabilities().announcementGroup()).isFalse();
   }
 
   @Test
@@ -747,7 +747,7 @@ class ProfileControllerTest {
     assertThat(profile.getAbout()).isEqualTo("about");
     assertThat(profile.getAboutEmoji()).isEqualTo("emoji");
     assertThat(profile.getAvatar()).isEqualTo("profiles/validavatar");
-    assertThat(profile.getBaseProfileResponse().getCapabilities().isGv1Migration()).isTrue();
+    assertThat(profile.getBaseProfileResponse().getCapabilities().gv1Migration()).isTrue();
     assertThat(profile.getBaseProfileResponse().getUuid()).isEqualTo(AuthHelper.VALID_UUID_TWO);
     assertThat(profile.getBaseProfileResponse().getBadges()).hasSize(1).element(0).has(new Condition<>(
         badge -> "Test Badge".equals(badge.getName()), "has badge with expected name"));
