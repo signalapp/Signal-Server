@@ -129,7 +129,11 @@ public class AccountController {
   private static final String CAPTCHA_ATTEMPT_COUNTER_NAME = name(AccountController.class, "captcha");
   private static final String CHALLENGE_ISSUED_COUNTER_NAME = name(AccountController.class, "challengeIssued");
 
-  private static final DistributionSummary REREGISTRATION_IDLE_DAYS_DISTRIBUTION_NAME = Metrics.summary(name(AccountController.class, "reregistrationIdleDays"));
+  private static final DistributionSummary REREGISTRATION_IDLE_DAYS_DISTRIBUTION_NAME = DistributionSummary
+      .builder(name(AccountController.class, "reregistrationIdleDays"))
+      .publishPercentiles(0.75, 0.95, 0.99, 0.999)
+      .distributionStatisticExpiry(Duration.ofHours(2))
+      .register(Metrics.globalRegistry);
 
   private static final String NONSTANDARD_USERNAME_COUNTER_NAME = name(AccountController.class, "nonStandardUsername");
 
