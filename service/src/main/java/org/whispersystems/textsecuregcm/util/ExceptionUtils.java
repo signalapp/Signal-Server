@@ -27,7 +27,7 @@ public final class ExceptionUtils {
   }
 
   /**
-   * Wraps the given {@code throwable} in a {@link CompletionException} unless the given {@code throwable} is alreadt
+   * Wraps the given {@code throwable} in a {@link CompletionException} unless the given {@code throwable} is already
    * a {@code CompletionException}, in which case this method returns the original throwable.
    *
    * @param throwable the throwable to wrap in a {@code CompletionException}
