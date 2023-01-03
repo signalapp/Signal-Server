@@ -57,29 +57,11 @@ class SubscriptionManagerTest {
           attributeType(ScalarAttributeType.B).
           build()).
       attributeDefinition(AttributeDefinition.builder().
-          attributeName(SubscriptionManager.KEY_CUSTOMER_ID).
-          attributeType(ScalarAttributeType.S).
-          build()).
-      attributeDefinition(AttributeDefinition.builder().
           attributeName(SubscriptionManager.KEY_PROCESSOR_ID_CUSTOMER_ID).
-          attributeType(ScalarAttributeType.S).
+          attributeType(ScalarAttributeType.B).
           build()).
       globalSecondaryIndex(GlobalSecondaryIndex.builder().
-          indexName("c_to_u").
-          keySchema(KeySchemaElement.builder().
-              attributeName(SubscriptionManager.KEY_CUSTOMER_ID).
-              keyType(KeyType.HASH).
-              build()).
-          projection(Projection.builder().
-              projectionType(ProjectionType.KEYS_ONLY).
-              build()).
-          provisionedThroughput(ProvisionedThroughput.builder().
-              readCapacityUnits(20L).
-              writeCapacityUnits(20L).
-              build()).
-          build()).
-      globalSecondaryIndex(GlobalSecondaryIndex.builder().
-          indexName("pc_to_u").
+          indexName(SubscriptionManager.INDEX_NAME).
           keySchema(KeySchemaElement.builder().
               attributeName(SubscriptionManager.KEY_PROCESSOR_ID_CUSTOMER_ID).
               keyType(KeyType.HASH).
@@ -193,7 +175,8 @@ class SubscriptionManagerTest {
 
     // TODO test new customer ID with new processor does change the customer ID, once there is another processor
 
-    assertThat(subscriptionManager.getSubscriberUserByStripeCustomerId(customer))
+    assertThat(subscriptionManager.getSubscriberUserByProcessorCustomer(
+        new ProcessorCustomer(customer, SubscriptionProcessor.STRIPE)))
         .succeedsWithin(Duration.ofSeconds(3)).
         isEqualTo(user);
   }
@@ -210,7 +193,8 @@ class SubscriptionManagerTest {
     assertThat(subscriptionManager.updateProcessorAndCustomerId(userRecord,
         new ProcessorCustomer(customer, SubscriptionProcessor.STRIPE),
         subscriptionUpdated)).succeedsWithin(Duration.ofSeconds(3));
-    assertThat(subscriptionManager.getSubscriberUserByStripeCustomerId(customer)).
+    assertThat(subscriptionManager.getSubscriberUserByProcessorCustomer(
+        new ProcessorCustomer(customer, SubscriptionProcessor.STRIPE))).
         succeedsWithin(Duration.ofSeconds(3)).
         isEqualTo(user);
   }

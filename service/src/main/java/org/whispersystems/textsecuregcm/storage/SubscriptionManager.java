@@ -46,8 +46,6 @@ public class SubscriptionManager {
 
   public static final String KEY_USER = "U";  // B  (Hash Key)
   public static final String KEY_PASSWORD = "P";  // B
-  @Deprecated
-  public static final String KEY_CUSTOMER_ID = "C";  // S  (GSI Hash Key of `c_to_u` index)
   public static final String KEY_PROCESSOR_ID_CUSTOMER_ID = "PC"; // B (GSI Hash Key of `pc_to_u` index)
   public static final String KEY_CREATED_AT = "R";  // N
   public static final String KEY_PROCESSOR_CUSTOMER_IDS_MAP = "PCI"; // M
@@ -59,7 +57,7 @@ public class SubscriptionManager {
   public static final String KEY_CANCELED_AT = "B";  // N
   public static final String KEY_CURRENT_PERIOD_ENDS_AT = "D";  // N
 
-  public static final String INDEX_NAME = "c_to_u";  // Hash Key "C"
+  public static final String INDEX_NAME = "pc_to_u";  // Hash Key "C"
 
   public static class Record {
 
@@ -188,26 +186,26 @@ public class SubscriptionManager {
   /**
    * Looks in the GSI for a record with the given customer id and returns the user id.
    */
-  public CompletableFuture<byte[]> getSubscriberUserByStripeCustomerId(@Nonnull String customerId) {
+  public CompletableFuture<byte[]> getSubscriberUserByProcessorCustomer(ProcessorCustomer processorCustomer) {
     QueryRequest query = QueryRequest.builder()
         .tableName(table)
         .indexName(INDEX_NAME)
-        .keyConditionExpression("#customer_id = :customer_id")
+        .keyConditionExpression("#processor_customer_id = :processor_customer_id")
         .projectionExpression("#user")
         .expressionAttributeNames(Map.of(
-            "#customer_id", KEY_CUSTOMER_ID,
+            "#processor_customer_id", KEY_PROCESSOR_ID_CUSTOMER_ID,
             "#user", KEY_USER))
         .expressionAttributeValues(Map.of(
-            ":customer_id", s(Objects.requireNonNull(customerId))))
+            ":processor_customer_id", b(processorCustomer.toDynamoBytes())))
         .build();
     return client.query(query).thenApply(queryResponse -> {
       int count = queryResponse.count();
       if (count == 0) {
         return null;
       } else if (count > 1) {
-        logger.error("expected invariant of 1-1 subscriber-customer violated for customer {}", customerId);
+        logger.error("expected invariant of 1-1 subscriber-customer violated for customer {}", processorCustomer);
         throw new IllegalStateException(
-            "expected invariant of 1-1 subscriber-customer violated for customer " + customerId);
+            "expected invariant of 1-1 subscriber-customer violated for customer " + processorCustomer);
       } else {
         Map<String, AttributeValue> result = queryResponse.items().get(0);
         return result.get(KEY_USER).b().asByteArray();
@@ -328,14 +326,12 @@ public class SubscriptionManager {
                 "AND attribute_not_exists(#processors_to_customer_ids.#processor_name)"
         )
         .updateExpression("SET "
-            + "#customer_id = :customer_id, "
             + "#processor_customer_id = :processor_customer_id, "
             + "#processors_to_customer_ids.#processor_name = :customer_id, "
             + "#accessed_at = :accessed_at"
         )
         .expressionAttributeNames(Map.of(
             "#accessed_at", KEY_ACCESSED_AT,
-            "#customer_id", KEY_CUSTOMER_ID,
             "#processor_customer_id", KEY_PROCESSOR_ID_CUSTOMER_ID,
             "#processor_name", activeProcessorCustomer.processor().name(),
             "#processors_to_customer_ids", KEY_PROCESSOR_CUSTOMER_IDS_MAP
