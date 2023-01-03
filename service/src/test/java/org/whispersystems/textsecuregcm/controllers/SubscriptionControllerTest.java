@@ -416,7 +416,7 @@ class SubscriptionControllerTest {
     final SubscriptionManager.Record recordWithCustomerId = SubscriptionManager.Record.from(record.user,
         dynamoItemWithProcessorCustomer);
 
-    when(SUBSCRIPTION_MANAGER.updateProcessorAndCustomerId(any(SubscriptionManager.Record.class), any(),
+    when(SUBSCRIPTION_MANAGER.setProcessorAndCustomerId(any(SubscriptionManager.Record.class), any(),
         any(Instant.class)))
         .thenReturn(CompletableFuture.completedFuture(recordWithCustomerId));
 

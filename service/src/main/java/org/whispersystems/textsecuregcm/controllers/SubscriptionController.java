@@ -310,7 +310,7 @@ public class SubscriptionController {
                   .map(ignored -> CompletableFuture.completedFuture(record))
                   .orElseGet(() -> subscriptionProcessorManager.createCustomer(requestData.subscriberUser)
                       .thenApply(ProcessorCustomer::customerId)
-                      .thenCompose(customerId -> subscriptionManager.updateProcessorAndCustomerId(record,
+                      .thenCompose(customerId -> subscriptionManager.setProcessorAndCustomerId(record,
                           new ProcessorCustomer(customerId, subscriptionProcessorManager.getProcessor()),
                           Instant.now())));
 
