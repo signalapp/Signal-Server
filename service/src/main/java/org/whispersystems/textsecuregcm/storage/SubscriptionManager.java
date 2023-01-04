@@ -6,7 +6,6 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import static org.whispersystems.textsecuregcm.util.AttributeValues.b;
-import static org.whispersystems.textsecuregcm.util.AttributeValues.m;
 import static org.whispersystems.textsecuregcm.util.AttributeValues.n;
 import static org.whispersystems.textsecuregcm.util.AttributeValues.s;
 
@@ -48,8 +47,6 @@ public class SubscriptionManager {
   public static final String KEY_PASSWORD = "P";  // B
   public static final String KEY_PROCESSOR_ID_CUSTOMER_ID = "PC"; // B (GSI Hash Key of `pc_to_u` index)
   public static final String KEY_CREATED_AT = "R";  // N
-  @Deprecated
-  public static final String KEY_PROCESSOR_CUSTOMER_IDS_MAP = "PCI"; // M
   public static final String KEY_SUBSCRIPTION_ID = "S";  // S
   public static final String KEY_SUBSCRIPTION_CREATED_AT = "T";  // N
   public static final String KEY_SUBSCRIPTION_LEVEL = "L";
@@ -264,21 +261,18 @@ public class SubscriptionManager {
         .updateExpression("SET "
             + "#password = if_not_exists(#password, :password), "
             + "#created_at = if_not_exists(#created_at, :created_at), "
-            + "#accessed_at = if_not_exists(#accessed_at, :accessed_at), "
-            + "#processors_to_customer_ids = if_not_exists(#processors_to_customer_ids, :initial_empty_map)"
+            + "#accessed_at = if_not_exists(#accessed_at, :accessed_at)"
         )
         .expressionAttributeNames(Map.of(
             "#user", KEY_USER,
             "#password", KEY_PASSWORD,
             "#created_at", KEY_CREATED_AT,
-            "#accessed_at", KEY_ACCESSED_AT,
-            "#processors_to_customer_ids", KEY_PROCESSOR_CUSTOMER_IDS_MAP)
+            "#accessed_at", KEY_ACCESSED_AT)
         )
         .expressionAttributeValues(Map.of(
             ":password", b(password),
             ":created_at", n(createdAt.getEpochSecond()),
-            ":accessed_at", n(createdAt.getEpochSecond()),
-            ":initial_empty_map", m(Map.of()))
+            ":accessed_at", n(createdAt.getEpochSecond()))
         )
         .build();
     return client.updateItem(request).handle((updateItemResponse, throwable) -> {
