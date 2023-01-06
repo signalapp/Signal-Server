@@ -48,8 +48,6 @@ import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.util.VerificationCode;
-import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
-import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 
 @Path("/v1/devices")
 public class DeviceController {

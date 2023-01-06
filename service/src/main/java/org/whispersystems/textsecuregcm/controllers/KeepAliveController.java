@@ -10,17 +10,15 @@ import static com.codahale.metrics.MetricRegistry.name;
 import com.codahale.metrics.annotation.Timed;
 import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tags;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.core.Response;
-import io.micrometer.core.instrument.Tags;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
-import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
-import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 import org.whispersystems.websocket.session.WebSocketSession;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
 

@@ -4,9 +4,9 @@
  */
 package org.whispersystems.textsecuregcm.controllers;
 
-import javax.annotation.Nullable;
 import java.time.Duration;
 import java.util.Optional;
+import javax.annotation.Nullable;
 
 public class RateLimitExceededException extends Exception {
 
