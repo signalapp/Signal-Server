@@ -1002,7 +1002,7 @@ class AccountControllerTest {
             .put(Entity.entity(new AccountAttributes(false, 3333, null, Hex.toStringCondensed(registration_lock_key), true, null),
                 MediaType.APPLICATION_JSON_TYPE), AccountIdentityResponse.class);
 
-    assertThat(result.getUuid()).isNotNull();
+    assertThat(result.uuid()).isNotNull();
 
     verify(pinLimiter).validate(eq(SENDER_REG_LOCK));
   }
@@ -1026,7 +1026,7 @@ class AccountControllerTest {
             .put(Entity.entity(new AccountAttributes(false, 3333, null, Hex.toStringCondensed(registration_lock_key), true, null),
                 MediaType.APPLICATION_JSON_TYPE), AccountIdentityResponse.class);
 
-    assertThat(result.getUuid()).isNotNull();
+    assertThat(result.uuid()).isNotNull();
 
     verify(pinLimiter).validate(eq(SENDER_REG_LOCK));
 
@@ -1059,7 +1059,7 @@ class AccountControllerTest {
               .put(Entity.entity(new AccountAttributes(false, 3333, null, null, true, null),
                   MediaType.APPLICATION_JSON_TYPE), AccountIdentityResponse.class);
 
-      assertThat(result.getUuid()).isNotNull();
+      assertThat(result.uuid()).isNotNull();
 
       verifyNoInteractions(pinLimiter);
     } finally {
@@ -1225,9 +1225,9 @@ class AccountControllerTest {
 
     verify(changeNumberManager).changeNumber(eq(AuthHelper.VALID_ACCOUNT), eq(number), any(), any(), any(), any());
 
-    assertThat(accountIdentityResponse.getUuid()).isEqualTo(AuthHelper.VALID_UUID);
-    assertThat(accountIdentityResponse.getNumber()).isEqualTo(number);
-    assertThat(accountIdentityResponse.getPni()).isNotEqualTo(AuthHelper.VALID_PNI);
+    assertThat(accountIdentityResponse.uuid()).isEqualTo(AuthHelper.VALID_UUID);
+    assertThat(accountIdentityResponse.number()).isEqualTo(number);
+    assertThat(accountIdentityResponse.pni()).isNotEqualTo(AuthHelper.VALID_PNI);
   }
 
   @Test
@@ -1526,9 +1526,9 @@ class AccountControllerTest {
 
     verify(changeNumberManager).changeNumber(eq(AuthHelper.VALID_ACCOUNT), eq(number), any(), any(), any(), any());
 
-    assertThat(accountIdentityResponse.getUuid()).isEqualTo(AuthHelper.VALID_UUID);
-    assertThat(accountIdentityResponse.getNumber()).isEqualTo(number);
-    assertThat(accountIdentityResponse.getPni()).isNotEqualTo(AuthHelper.VALID_PNI);
+    assertThat(accountIdentityResponse.uuid()).isEqualTo(AuthHelper.VALID_UUID);
+    assertThat(accountIdentityResponse.number()).isEqualTo(number);
+    assertThat(accountIdentityResponse.pni()).isNotEqualTo(AuthHelper.VALID_PNI);
   }
 
   @Test
@@ -1634,7 +1634,7 @@ class AccountControllerTest {
                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                  .get(AccountIdentityResponse.class);
 
-    assertThat(response.getUuid()).isEqualTo(AuthHelper.VALID_UUID);
+    assertThat(response.uuid()).isEqualTo(AuthHelper.VALID_UUID);
   }
 
   @Test
