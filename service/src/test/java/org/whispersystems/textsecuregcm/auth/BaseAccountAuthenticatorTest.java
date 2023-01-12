@@ -19,7 +19,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.dropwizard.auth.basic.BasicCredentials;
-import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -31,7 +30,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
+import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -208,37 +207,46 @@ class BaseAccountAuthenticatorTest {
     verify(accountsManager, never()).updateDeviceAuthentication(any(), any(), any());
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void testAuthenticateEnabledRequired(final boolean enabledRequired) {
+  @CartesianTest
+  void testAuthenticateEnabledRequired(
+      @CartesianTest.Values(booleans = {true, false}) final boolean enabledRequired,
+      @CartesianTest.Values(booleans = {true, false}) final boolean accountEnabled,
+      @CartesianTest.Values(booleans = {true, false}) final boolean deviceEnabled,
+      @CartesianTest.Values(booleans = {true, false}) final boolean authenticatedDeviceIsPrimary) {
     final UUID uuid = UUID.randomUUID();
-    final long deviceId = 1;
+    final long deviceId = authenticatedDeviceIsPrimary ? 1 : 2;
     final String password = "12345";
 
     final Account account = mock(Account.class);
-    final Device device = mock(Device.class);
+    final Device authenticatedDevice = mock(Device.class);
     final AuthenticationCredentials credentials = mock(AuthenticationCredentials.class);
 
     clock.unpin();
     when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
     when(account.getUuid()).thenReturn(uuid);
-    when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
-    when(account.isEnabled()).thenReturn(false);
-    when(device.getId()).thenReturn(deviceId);
-    when(device.isEnabled()).thenReturn(false);
-    when(device.getAuthenticationCredentials()).thenReturn(credentials);
+    when(account.getDevice(deviceId)).thenReturn(Optional.of(authenticatedDevice));
+    when(account.isEnabled()).thenReturn(accountEnabled);
+    when(authenticatedDevice.getId()).thenReturn(deviceId);
+    when(authenticatedDevice.isEnabled()).thenReturn(deviceEnabled);
+    when(authenticatedDevice.getAuthenticationCredentials()).thenReturn(credentials);
     when(credentials.verify(password)).thenReturn(true);
     when(credentials.getVersion()).thenReturn(AuthenticationCredentials.CURRENT_VERSION);
 
+    final String identifier;
+    if (authenticatedDeviceIsPrimary) {
+      identifier = uuid.toString();
+    } else {
+      identifier = uuid.toString() + BaseAccountAuthenticator.DEVICE_ID_SEPARATOR + deviceId;
+    }
     final Optional<AuthenticatedAccount> maybeAuthenticatedAccount =
-        baseAccountAuthenticator.authenticate(new BasicCredentials(uuid.toString(), password), enabledRequired);
+        baseAccountAuthenticator.authenticate(new BasicCredentials(identifier, password), enabledRequired);
 
-    if (enabledRequired) {
+    if (enabledRequired && !(accountEnabled && deviceEnabled)) {
       assertThat(maybeAuthenticatedAccount).isEmpty();
     } else {
       assertThat(maybeAuthenticatedAccount).isPresent();
       assertThat(maybeAuthenticatedAccount.get().getAccount().getUuid()).isEqualTo(uuid);
-      assertThat(maybeAuthenticatedAccount.get().getAuthenticatedDevice()).isEqualTo(device);
+      assertThat(maybeAuthenticatedAccount.get().getAuthenticatedDevice()).isEqualTo(authenticatedDevice);
     }
   }
 

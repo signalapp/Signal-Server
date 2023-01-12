@@ -27,15 +27,20 @@ import org.whispersystems.textsecuregcm.util.Util;
 public class BaseAccountAuthenticator {
 
   private static final String AUTHENTICATION_COUNTER_NAME = name(BaseAccountAuthenticator.class, "authentication");
+  private static final String ENABLED_NOT_REQUIRED_AUTHENTICATION_COUNTER_NAME = name(BaseAccountAuthenticator.class,
+      "enabledNotRequiredAuthentication");
   private static final String AUTHENTICATION_SUCCEEDED_TAG_NAME = "succeeded";
   private static final String AUTHENTICATION_FAILURE_REASON_TAG_NAME = "reason";
-  private static final String AUTHENTICATION_ENABLED_REQUIRED_TAG_NAME = "enabledRequired";
+  private static final String ENABLED_TAG_NAME = "enabled";
   private static final String AUTHENTICATION_HAS_STORY_CAPABILITY = "hasStoryCapability";
 
   private static final String STORY_ADOPTION_COUNTER_NAME = name(BaseAccountAuthenticator.class, "storyAdoption");
 
   private static final String DAYS_SINCE_LAST_SEEN_DISTRIBUTION_NAME = name(BaseAccountAuthenticator.class, "daysSinceLastSeen");
   private static final String IS_PRIMARY_DEVICE_TAG = "isPrimary";
+
+  @VisibleForTesting
+  static final char DEVICE_ID_SEPARATOR = '.';
 
   private final AccountsManager accountsManager;
   private final Clock           clock;
@@ -54,7 +59,7 @@ public class BaseAccountAuthenticator {
     final String identifier;
     final long deviceId;
 
-    final int deviceIdSeparatorIndex = basicUsername.indexOf('.');
+    final int deviceIdSeparatorIndex = basicUsername.indexOf(DEVICE_ID_SEPARATOR);
 
     if (deviceIdSeparatorIndex == -1) {
       identifier = basicUsername;
@@ -99,15 +104,23 @@ public class BaseAccountAuthenticator {
       }
 
       if (enabledRequired) {
-        if (!device.get().isEnabled()) {
+        final boolean deviceDisabled = !device.get().isEnabled();
+        if (deviceDisabled) {
           failureReason = "deviceDisabled";
-          return Optional.empty();
         }
 
-        if (!account.get().isEnabled()) {
+        final boolean accountDisabled = !account.get().isEnabled();
+        if (accountDisabled) {
           failureReason = "accountDisabled";
+        }
+        if (accountDisabled || deviceDisabled) {
           return Optional.empty();
         }
+      } else {
+        Metrics.counter(ENABLED_NOT_REQUIRED_AUTHENTICATION_COUNTER_NAME,
+                ENABLED_TAG_NAME, String.valueOf(device.get().isEnabled() && account.get().isEnabled()),
+                IS_PRIMARY_DEVICE_TAG, String.valueOf(device.get().isMaster()))
+            .increment();
       }
 
       AuthenticationCredentials deviceAuthenticationCredentials = device.get().getAuthenticationCredentials();
@@ -130,8 +143,7 @@ public class BaseAccountAuthenticator {
       return Optional.empty();
     } finally {
       Tags tags = Tags.of(
-          AUTHENTICATION_SUCCEEDED_TAG_NAME, String.valueOf(succeeded),
-          AUTHENTICATION_ENABLED_REQUIRED_TAG_NAME, String.valueOf(enabledRequired));
+          AUTHENTICATION_SUCCEEDED_TAG_NAME, String.valueOf(succeeded));
 
       if (StringUtils.isNotBlank(failureReason)) {
         tags = tags.and(AUTHENTICATION_FAILURE_REASON_TAG_NAME, failureReason);
