@@ -1116,11 +1116,11 @@ class AccountControllerTest {
     assertThat(response.getStatus()).isEqualTo(423);
 
     RegistrationLockFailure failure = response.readEntity(RegistrationLockFailure.class);
-    assertThat(failure.getBackupCredentials()).isNotNull();
-    assertThat(failure.getBackupCredentials().username()).isEqualTo(SENDER_REG_LOCK_UUID.toString());
-    assertThat(failure.getBackupCredentials().password()).isNotEmpty();
-    assertThat(failure.getBackupCredentials().password().startsWith(SENDER_REG_LOCK_UUID.toString())).isTrue();
-    assertThat(failure.getTimeRemaining()).isGreaterThan(0);
+    assertThat(failure.backupCredentials()).isNotNull();
+    assertThat(failure.backupCredentials().username()).isEqualTo(SENDER_REG_LOCK_UUID.toString());
+    assertThat(failure.backupCredentials().password()).isNotEmpty();
+    assertThat(failure.backupCredentials().password().startsWith(SENDER_REG_LOCK_UUID.toString())).isTrue();
+    assertThat(failure.timeRemaining()).isGreaterThan(0);
 
     // verify(senderRegLockAccount).lockAuthenticationCredentials();
     // verify(clientPresenceManager, atLeastOnce()).disconnectAllPresences(eq(SENDER_REG_LOCK_UUID), any());
