@@ -54,7 +54,7 @@ class ArtControllerTest {
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
             .get(ExternalServiceCredentials.class);
 
-    assertThat(token.getPassword()).isNotEmpty();
-    assertThat(token.getUsername()).isNotEmpty();
+    assertThat(token.password()).isNotEmpty();
+    assertThat(token.username()).isNotEmpty();
   }
 }

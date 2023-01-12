@@ -57,7 +57,7 @@ public class SecureBackupClient {
                 .uri(deleteUri)
                 .DELETE()
                 .header("Authorization", "Basic " + Base64.getEncoder().encodeToString(
-                    (credentials.getUsername() + ":" + credentials.getPassword()).getBytes(StandardCharsets.UTF_8)))
+                    (credentials.username() + ":" + credentials.password()).getBytes(StandardCharsets.UTF_8)))
                 .build();
 
         return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString()).thenApply(response -> {

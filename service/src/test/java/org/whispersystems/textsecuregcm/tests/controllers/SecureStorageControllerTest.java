@@ -46,8 +46,8 @@ class SecureStorageControllerTest {
                                                       .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                                                       .get(ExternalServiceCredentials.class);
 
-    assertThat(credentials.getPassword()).isNotEmpty();
-    assertThat(credentials.getUsername()).isNotEmpty();
+    assertThat(credentials.password()).isNotEmpty();
+    assertThat(credentials.username()).isNotEmpty();
   }
 
   @Test

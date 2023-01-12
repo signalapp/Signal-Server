@@ -39,8 +39,8 @@ class DirectoryControllerV2Test {
     final ExternalServiceCredentials credentials = (ExternalServiceCredentials) controller.getAuthToken(
         new AuthenticatedAccount(() -> new Pair<>(account, mock(Device.class)))).getEntity();
 
-    assertEquals(credentials.getUsername(), "d369bc712e2e0dd36258");
-    assertEquals(credentials.getPassword(), "1633738643:4433b0fab41f25f79dd4");
+    assertEquals(credentials.username(), "d369bc712e2e0dd36258");
+    assertEquals(credentials.password(), "1633738643:4433b0fab41f25f79dd4");
   }
 
 }

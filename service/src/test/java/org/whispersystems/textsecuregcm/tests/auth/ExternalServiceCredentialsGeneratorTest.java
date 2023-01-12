@@ -18,8 +18,8 @@ class ExternalServiceCredentialsGeneratorTest {
     ExternalServiceCredentialGenerator generator = new ExternalServiceCredentialGenerator(new byte[32], new byte[32]);
     ExternalServiceCredentials credentials = generator.generateFor("+14152222222");
 
-    assertThat(credentials.getUsername()).isNotEqualTo("+14152222222");
-    assertThat(credentials.getPassword().startsWith("+14152222222")).isFalse();
+    assertThat(credentials.username()).isNotEqualTo("+14152222222");
+    assertThat(credentials.password().startsWith("+14152222222")).isFalse();
   }
 
   @Test
@@ -27,8 +27,8 @@ class ExternalServiceCredentialsGeneratorTest {
     ExternalServiceCredentialGenerator generator = new ExternalServiceCredentialGenerator(new byte[32], new byte[32], false);
     ExternalServiceCredentials credentials = generator.generateFor("+14152222222");
 
-    assertThat(credentials.getUsername()).isEqualTo("+14152222222");
-    assertThat(credentials.getPassword().startsWith("+14152222222")).isTrue();
+    assertThat(credentials.username()).isEqualTo("+14152222222");
+    assertThat(credentials.password().startsWith("+14152222222")).isTrue();
   }
 
 }

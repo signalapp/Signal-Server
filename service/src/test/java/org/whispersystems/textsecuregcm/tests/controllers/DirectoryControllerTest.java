@@ -69,8 +69,8 @@ class DirectoryControllerTest {
                      .request()
                      .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                      .get(ExternalServiceCredentials.class);
-    assertThat(token.getUsername()).isEqualTo(validCredentials.getUsername());
-    assertThat(token.getPassword()).isEqualTo(validCredentials.getPassword());
+    assertThat(token.username()).isEqualTo(validCredentials.username());
+    assertThat(token.password()).isEqualTo(validCredentials.password());
   }
 
   @Test
