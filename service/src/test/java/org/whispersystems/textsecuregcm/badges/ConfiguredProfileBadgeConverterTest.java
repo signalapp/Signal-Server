@@ -11,7 +11,6 @@ import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -46,7 +45,7 @@ public class ConfiguredProfileBadgeConverterTest {
   private ResourceBundle resourceBundle;
 
   @BeforeEach
-  private void beforeEach() {
+  void beforeEach() {
     resourceBundleFactory = mock(ResourceBundleFactory.class, (invocation) -> {
       throw new UnsupportedOperationException();
     });
