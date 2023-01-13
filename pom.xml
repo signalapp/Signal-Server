@@ -62,7 +62,7 @@
     <libphonenumber.version>8.12.54</libphonenumber.version>
     <logstash.logback.version>7.0.1</logstash.logback.version>
     <micrometer.version>1.10.3</micrometer.version>
-    <mockito.version>4.7.0</mockito.version>
+    <mockito.version>4.11.0</mockito.version>
     <netty.version>4.1.82.Final</netty.version>
     <opentest4j.version>1.2.0</opentest4j.version>
     <protobuf.version>3.21.7</protobuf.version>
