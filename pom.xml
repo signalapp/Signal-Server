@@ -42,7 +42,7 @@
   </modules>
 
   <properties>
-    <aws.sdk.version>1.12.287</aws.sdk.version>
+    <aws.sdk.version>1.12.376</aws.sdk.version>
     <aws.sdk2.version>2.19.8</aws.sdk2.version>
     <braintree.version>3.19.0</braintree.version>
     <commons-codec.version>1.15</commons-codec.version>
