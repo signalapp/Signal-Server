@@ -60,7 +60,7 @@
     <kotlinx-serialization.version>1.4.1</kotlinx-serialization.version>
     <lettuce.version>6.2.1.RELEASE</lettuce.version>
     <libphonenumber.version>8.12.54</libphonenumber.version>
-    <logstash.logback.version>7.0.1</logstash.logback.version>
+    <logstash.logback.version>7.2</logstash.logback.version>
     <micrometer.version>1.10.3</micrometer.version>
     <mockito.version>4.11.0</mockito.version>
     <netty.version>4.1.82.Final</netty.version>
