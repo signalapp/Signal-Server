@@ -36,7 +36,7 @@ public enum SubscriptionProcessor {
   private final byte id;
 
   SubscriptionProcessor(int id) {
-    if (id > 256) {
+    if (id > 255) {
       throw new IllegalArgumentException("ID must fit in one byte: " + id);
     }
 

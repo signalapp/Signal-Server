@@ -40,6 +40,7 @@ import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
 class SubscriptionManagerTest {
 
   private static final long NOW_EPOCH_SECONDS = 1_500_000_000L;
+  private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(3);
   private static final String SUBSCRIPTIONS_TABLE_NAME = "subscriptions";
   private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
@@ -95,13 +96,13 @@ class SubscriptionManagerTest {
     Instant created2 = Instant.ofEpochSecond(NOW_EPOCH_SECONDS + 1);
 
     CompletableFuture<GetResult> getFuture = subscriptionManager.get(user, password1);
-    assertThat(getFuture).succeedsWithin(Duration.ofSeconds(3)).satisfies(getResult -> {
+    assertThat(getFuture).succeedsWithin(DEFAULT_TIMEOUT).satisfies(getResult -> {
       assertThat(getResult.type).isEqualTo(NOT_STORED);
       assertThat(getResult.record).isNull();
     });
 
     getFuture = subscriptionManager.get(user, password2);
-    assertThat(getFuture).succeedsWithin(Duration.ofSeconds(3)).satisfies(getResult -> {
+    assertThat(getFuture).succeedsWithin(DEFAULT_TIMEOUT).satisfies(getResult -> {
       assertThat(getResult.type).isEqualTo(NOT_STORED);
       assertThat(getResult.record).isNull();
     });
@@ -109,35 +110,35 @@ class SubscriptionManagerTest {
     CompletableFuture<SubscriptionManager.Record> createFuture =
         subscriptionManager.create(user, password1, created1);
     Consumer<Record> recordRequirements = checkFreshlyCreatedRecord(user, password1, created1);
-    assertThat(createFuture).succeedsWithin(Duration.ofSeconds(3)).satisfies(recordRequirements);
+    assertThat(createFuture).succeedsWithin(DEFAULT_TIMEOUT).satisfies(recordRequirements);
 
     // password check fails so this should return null
     createFuture = subscriptionManager.create(user, password2, created2);
-    assertThat(createFuture).succeedsWithin(Duration.ofSeconds(3)).isNull();
+    assertThat(createFuture).succeedsWithin(DEFAULT_TIMEOUT).isNull();
 
     // password check matches, but the record already exists so nothing should get updated
     createFuture = subscriptionManager.create(user, password1, created2);
-    assertThat(createFuture).succeedsWithin(Duration.ofSeconds(3)).satisfies(recordRequirements);
+    assertThat(createFuture).succeedsWithin(DEFAULT_TIMEOUT).satisfies(recordRequirements);
   }
 
   @Test
   void testGet() {
     byte[] wrongUser = getRandomBytes(16);
     byte[] wrongPassword = getRandomBytes(16);
-    assertThat(subscriptionManager.create(user, password, created)).succeedsWithin(Duration.ofSeconds(3));
+    assertThat(subscriptionManager.create(user, password, created)).succeedsWithin(DEFAULT_TIMEOUT);
 
-    assertThat(subscriptionManager.get(user, password)).succeedsWithin(Duration.ofSeconds(3)).satisfies(getResult -> {
+    assertThat(subscriptionManager.get(user, password)).succeedsWithin(DEFAULT_TIMEOUT).satisfies(getResult -> {
       assertThat(getResult.type).isEqualTo(FOUND);
       assertThat(getResult.record).isNotNull().satisfies(checkFreshlyCreatedRecord(user, password, created));
     });
 
-    assertThat(subscriptionManager.get(user, wrongPassword)).succeedsWithin(Duration.ofSeconds(3))
+    assertThat(subscriptionManager.get(user, wrongPassword)).succeedsWithin(DEFAULT_TIMEOUT)
         .satisfies(getResult -> {
           assertThat(getResult.type).isEqualTo(PASSWORD_MISMATCH);
           assertThat(getResult.record).isNull();
         });
 
-    assertThat(subscriptionManager.get(wrongUser, password)).succeedsWithin(Duration.ofSeconds(3))
+    assertThat(subscriptionManager.get(wrongUser, password)).succeedsWithin(DEFAULT_TIMEOUT)
         .satisfies(getResult -> {
           assertThat(getResult.type).isEqualTo(NOT_STORED);
           assertThat(getResult.record).isNull();
@@ -147,15 +148,15 @@ class SubscriptionManagerTest {
   @Test
   void testSetCustomerIdAndProcessor() throws Exception {
     Instant subscriptionUpdated = Instant.ofEpochSecond(NOW_EPOCH_SECONDS + 1);
-    assertThat(subscriptionManager.create(user, password, created)).succeedsWithin(Duration.ofSeconds(3));
+    assertThat(subscriptionManager.create(user, password, created)).succeedsWithin(DEFAULT_TIMEOUT);
 
     final CompletableFuture<GetResult> getUser = subscriptionManager.get(user, password);
-    assertThat(getUser).succeedsWithin(Duration.ofSeconds(3));
+    assertThat(getUser).succeedsWithin(DEFAULT_TIMEOUT);
     final Record userRecord = getUser.get().record;
 
     assertThat(subscriptionManager.setProcessorAndCustomerId(userRecord,
         new ProcessorCustomer(customer, SubscriptionProcessor.STRIPE),
-        subscriptionUpdated)).succeedsWithin(Duration.ofSeconds(3))
+        subscriptionUpdated)).succeedsWithin(DEFAULT_TIMEOUT)
         .hasFieldOrPropertyWithValue("processorCustomer",
             Optional.of(new ProcessorCustomer(customer, SubscriptionProcessor.STRIPE)));
 
@@ -166,7 +167,7 @@ class SubscriptionManagerTest {
     assertThat(
         subscriptionManager.setProcessorAndCustomerId(userRecord,
             new ProcessorCustomer(customer + "1", SubscriptionProcessor.STRIPE),
-            subscriptionUpdated)).failsWithin(Duration.ofSeconds(3))
+            subscriptionUpdated)).failsWithin(DEFAULT_TIMEOUT)
         .withThrowableOfType(ExecutionException.class)
         .withCauseInstanceOf(ClientErrorException.class)
         .extracting(Throwable::getCause)
@@ -176,7 +177,7 @@ class SubscriptionManagerTest {
     assertThat(
         subscriptionManager.setProcessorAndCustomerId(userRecord,
             new ProcessorCustomer(customer, SubscriptionProcessor.STRIPE),
-            subscriptionUpdated)).failsWithin(Duration.ofSeconds(3))
+            subscriptionUpdated)).failsWithin(DEFAULT_TIMEOUT)
         .withThrowableOfType(ExecutionException.class)
         .withCauseInstanceOf(ClientErrorException.class)
         .extracting(Throwable::getCause)
@@ -184,34 +185,34 @@ class SubscriptionManagerTest {
 
     assertThat(subscriptionManager.getSubscriberUserByProcessorCustomer(
         new ProcessorCustomer(customer, SubscriptionProcessor.STRIPE)))
-        .succeedsWithin(Duration.ofSeconds(3)).
+        .succeedsWithin(DEFAULT_TIMEOUT).
         isEqualTo(user);
   }
 
   @Test
   void testLookupByCustomerId() throws Exception {
     Instant subscriptionUpdated = Instant.ofEpochSecond(NOW_EPOCH_SECONDS + 1);
-    assertThat(subscriptionManager.create(user, password, created)).succeedsWithin(Duration.ofSeconds(3));
+    assertThat(subscriptionManager.create(user, password, created)).succeedsWithin(DEFAULT_TIMEOUT);
 
     final CompletableFuture<GetResult> getUser = subscriptionManager.get(user, password);
-    assertThat(getUser).succeedsWithin(Duration.ofSeconds(3));
+    assertThat(getUser).succeedsWithin(DEFAULT_TIMEOUT);
     final Record userRecord = getUser.get().record;
 
     assertThat(subscriptionManager.setProcessorAndCustomerId(userRecord,
         new ProcessorCustomer(customer, SubscriptionProcessor.STRIPE),
-        subscriptionUpdated)).succeedsWithin(Duration.ofSeconds(3));
+        subscriptionUpdated)).succeedsWithin(DEFAULT_TIMEOUT);
     assertThat(subscriptionManager.getSubscriberUserByProcessorCustomer(
         new ProcessorCustomer(customer, SubscriptionProcessor.STRIPE))).
-        succeedsWithin(Duration.ofSeconds(3)).
+        succeedsWithin(DEFAULT_TIMEOUT).
         isEqualTo(user);
   }
 
   @Test
   void testCanceledAt() {
     Instant canceled = Instant.ofEpochSecond(NOW_EPOCH_SECONDS + 42);
-    assertThat(subscriptionManager.create(user, password, created)).succeedsWithin(Duration.ofSeconds(3));
-    assertThat(subscriptionManager.canceledAt(user, canceled)).succeedsWithin(Duration.ofSeconds(3));
-    assertThat(subscriptionManager.get(user, password)).succeedsWithin(Duration.ofSeconds(3)).satisfies(getResult -> {
+    assertThat(subscriptionManager.create(user, password, created)).succeedsWithin(DEFAULT_TIMEOUT);
+    assertThat(subscriptionManager.canceledAt(user, canceled)).succeedsWithin(DEFAULT_TIMEOUT);
+    assertThat(subscriptionManager.get(user, password)).succeedsWithin(DEFAULT_TIMEOUT).satisfies(getResult -> {
       assertThat(getResult).isNotNull();
       assertThat(getResult.type).isEqualTo(FOUND);
       assertThat(getResult.record).isNotNull().satisfies(record -> {
@@ -227,10 +228,10 @@ class SubscriptionManagerTest {
     String subscriptionId = Base64.getEncoder().encodeToString(getRandomBytes(16));
     Instant subscriptionCreated = Instant.ofEpochSecond(NOW_EPOCH_SECONDS + 1);
     long level = 42;
-    assertThat(subscriptionManager.create(user, password, created)).succeedsWithin(Duration.ofSeconds(3));
+    assertThat(subscriptionManager.create(user, password, created)).succeedsWithin(DEFAULT_TIMEOUT);
     assertThat(subscriptionManager.subscriptionCreated(user, subscriptionId, subscriptionCreated, level)).
-        succeedsWithin(Duration.ofSeconds(3));
-    assertThat(subscriptionManager.get(user, password)).succeedsWithin(Duration.ofSeconds(3)).satisfies(getResult -> {
+        succeedsWithin(DEFAULT_TIMEOUT);
+    assertThat(subscriptionManager.get(user, password)).succeedsWithin(DEFAULT_TIMEOUT).satisfies(getResult -> {
       assertThat(getResult).isNotNull();
       assertThat(getResult.type).isEqualTo(FOUND);
       assertThat(getResult.record).isNotNull().satisfies(record -> {
@@ -247,15 +248,20 @@ class SubscriptionManagerTest {
   void testSubscriptionLevelChanged() {
     Instant at = Instant.ofEpochSecond(NOW_EPOCH_SECONDS + 500);
     long level = 1776;
-    assertThat(subscriptionManager.create(user, password, created)).succeedsWithin(Duration.ofSeconds(3));
-    assertThat(subscriptionManager.subscriptionLevelChanged(user, at, level)).succeedsWithin(Duration.ofSeconds(3));
-    assertThat(subscriptionManager.get(user, password)).succeedsWithin(Duration.ofSeconds(3)).satisfies(getResult -> {
+    String updatedSubscriptionId = "new";
+    assertThat(subscriptionManager.create(user, password, created)).succeedsWithin(DEFAULT_TIMEOUT);
+    assertThat(subscriptionManager.subscriptionCreated(user, "original", created, level - 1)).succeedsWithin(
+        DEFAULT_TIMEOUT);
+    assertThat(subscriptionManager.subscriptionLevelChanged(user, at, level, updatedSubscriptionId)).succeedsWithin(
+        DEFAULT_TIMEOUT);
+    assertThat(subscriptionManager.get(user, password)).succeedsWithin(DEFAULT_TIMEOUT).satisfies(getResult -> {
       assertThat(getResult).isNotNull();
       assertThat(getResult.type).isEqualTo(FOUND);
       assertThat(getResult.record).isNotNull().satisfies(record -> {
         assertThat(record.accessedAt).isEqualTo(at);
         assertThat(record.subscriptionLevelChangedAt).isEqualTo(at);
         assertThat(record.subscriptionLevel).isEqualTo(level);
+        assertThat(record.subscriptionId).isEqualTo(updatedSubscriptionId);
       });
     });
   }

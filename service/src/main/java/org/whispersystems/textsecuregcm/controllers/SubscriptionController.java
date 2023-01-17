@@ -14,11 +14,6 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import com.stripe.exception.StripeException;
-import com.stripe.model.Charge;
-import com.stripe.model.Charge.Outcome;
-import com.stripe.model.Invoice;
-import com.stripe.model.InvoiceLineItem;
-import com.stripe.model.Subscription;
 import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
@@ -31,7 +26,6 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Base64;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -47,6 +41,7 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import javax.validation.Valid;
 import javax.validation.constraints.Min;
+import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import javax.ws.rs.BadRequestException;
@@ -72,7 +67,6 @@ import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
-import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialRequest;
@@ -87,7 +81,6 @@ import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfigurati
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationCurrencyConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionLevelConfiguration;
-import org.whispersystems.textsecuregcm.configuration.SubscriptionPriceConfiguration;
 import org.whispersystems.textsecuregcm.entities.Badge;
 import org.whispersystems.textsecuregcm.entities.PurchasableBadge;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
@@ -98,6 +91,7 @@ import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionCurrencyUtil;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessor;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorManager;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
@@ -168,7 +162,7 @@ public class SubscriptionController {
               .filter(levelIdAndConfig -> levelIdAndConfig.getValue().getPrices().containsKey(currency))
               .collect(Collectors.toMap(
                   levelIdAndConfig -> String.valueOf(levelIdAndConfig.getKey()),
-                  levelIdAndConfig -> levelIdAndConfig.getValue().getPrices().get(currency).getAmount()));
+                  levelIdAndConfig -> levelIdAndConfig.getValue().getPrices().get(currency).amount()));
 
           final List<String> supportedPaymentMethods = Arrays.stream(PaymentMethod.values())
               .filter(paymentMethod -> subscriptionProcessorManagers.stream()
@@ -233,19 +227,7 @@ public class SubscriptionController {
             throw new NotFoundException();
           }
           return getResult.record.getProcessorCustomer()
-              .map(processorCustomer -> stripeManager.getCustomer(processorCustomer.customerId())
-                  .thenCompose(customer -> {
-                    if (customer == null) {
-                      throw new InternalServerErrorException(
-                          "no customer record found for id " + processorCustomer.customerId());
-                    }
-                    return stripeManager.listNonCanceledSubscriptions(customer);
-                  }).thenCompose(subscriptions -> {
-                    @SuppressWarnings("unchecked")
-                    CompletableFuture<Subscription>[] futures = (CompletableFuture<Subscription>[]) subscriptions.stream()
-                        .map(stripeManager::cancelSubscriptionAtEndOfCurrentPeriod).toArray(CompletableFuture[]::new);
-                    return CompletableFuture.allOf(futures);
-                  }))
+                  .map(processorCustomer -> getManagerForProcessor(processorCustomer.processor()).cancelAllActiveSubscriptions(processorCustomer.customerId()))
               // a missing customer ID is OK; it means the subscriber never started to add a payment method
               .orElseGet(() -> CompletableFuture.completedFuture(null));
         })
@@ -307,7 +289,14 @@ public class SubscriptionController {
         .thenCompose(record -> {
           final CompletableFuture<SubscriptionManager.Record> updatedRecordFuture =
               record.getProcessorCustomer()
-                  .map(ignored -> CompletableFuture.completedFuture(record))
+                  .map(ProcessorCustomer::processor)
+                  .map(processor -> {
+                    if (processor != subscriptionProcessorManager.getProcessor()) {
+                      throw new ClientErrorException("existing processor does not match", Status.CONFLICT);
+                    }
+
+                    return CompletableFuture.completedFuture(record);
+                  })
                   .orElseGet(() -> subscriptionProcessorManager.createCustomer(requestData.subscriberUser)
                       .thenApply(ProcessorCustomer::customerId)
                       .thenCompose(customerId -> subscriptionManager.setProcessorAndCustomerId(record,
@@ -317,6 +306,7 @@ public class SubscriptionController {
           return updatedRecordFuture.thenCompose(
               updatedRecord -> {
                 final String customerId = updatedRecord.getProcessorCustomer()
+                    .filter(pc -> pc.processor().equals(subscriptionProcessorManager.getProcessor()))
                     .orElseThrow(() -> new InternalServerErrorException("record should not be missing customer"))
                     .customerId();
                 return subscriptionProcessorManager.createPaymentMethodSetupToken(customerId);
@@ -324,6 +314,64 @@ public class SubscriptionController {
         })
         .thenApply(
             token -> Response.ok(new CreatePaymentMethodResponse(token, subscriptionProcessorManager.getProcessor()))
+                .build());
+  }
+
+  public record CreatePayPalBillingAgreementRequest(@NotBlank String returnUrl, @NotBlank String cancelUrl) {
+
+  }
+
+  public record CreatePayPalBillingAgreementResponse(@NotBlank String approvalUrl, @NotBlank String token) {
+
+  }
+
+  @Timed
+  @POST
+  @Path("/{subscriberId}/create_payment_method/paypal")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public CompletableFuture<Response> createPayPalPaymentMethod(
+      @Auth Optional<AuthenticatedAccount> authenticatedAccount,
+      @PathParam("subscriberId") String subscriberId,
+      @NotNull @Valid CreatePayPalBillingAgreementRequest request,
+      @Context ContainerRequestContext containerRequestContext) {
+
+    RequestData requestData = RequestData.process(authenticatedAccount, subscriberId, clock);
+
+    return subscriptionManager.get(requestData.subscriberUser, requestData.hmac)
+        .thenApply(this::requireRecordFromGetResult)
+        .thenCompose(record -> {
+
+          final CompletableFuture<SubscriptionManager.Record> updatedRecordFuture =
+              record.getProcessorCustomer()
+                  .map(ProcessorCustomer::processor)
+                  .map(processor -> {
+                    if (processor != braintreeManager.getProcessor()) {
+                      throw new ClientErrorException("existing processor does not match", Status.CONFLICT);
+                    }
+                    return CompletableFuture.completedFuture(record);
+                  })
+                  .orElseGet(() -> braintreeManager.createCustomer(requestData.subscriberUser)
+                      .thenApply(ProcessorCustomer::customerId)
+                      .thenCompose(customerId -> subscriptionManager.setProcessorAndCustomerId(record,
+                          new ProcessorCustomer(customerId, braintreeManager.getProcessor()),
+                          Instant.now())));
+
+          return updatedRecordFuture.thenCompose(
+              updatedRecord -> {
+                final Locale locale = getAcceptableLanguagesForRequest(containerRequestContext).stream()
+                    .filter(l -> !"*".equals(l.getLanguage()))
+                    .findFirst()
+                    .orElse(Locale.US);
+
+                return braintreeManager.createPayPalBillingAgreement(request.returnUrl, request.cancelUrl,
+                    locale.toLanguageTag());
+              });
+        })
+        .thenApply(
+            billingAgreementApprovalDetails -> Response.ok(
+                    new CreatePayPalBillingAgreementResponse(billingAgreementApprovalDetails.approvalUrl(),
+                        billingAgreementApprovalDetails.billingAgreementToken()))
                 .build());
   }
 
@@ -346,6 +394,7 @@ public class SubscriptionController {
   @Path("/{subscriberId}/default_payment_method/{paymentMethodId}")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
+  @Deprecated // use /{subscriberId}/default_payment_method/{processor}/{paymentMethodId}
   public CompletableFuture<Response> setDefaultPaymentMethod(
       @Auth Optional<AuthenticatedAccount> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId,
@@ -353,9 +402,30 @@ public class SubscriptionController {
     RequestData requestData = RequestData.process(authenticatedAccount, subscriberId, clock);
     return subscriptionManager.get(requestData.subscriberUser, requestData.hmac)
         .thenApply(this::requireRecordFromGetResult)
+        .thenCompose(record -> stripeManager.setDefaultPaymentMethodForCustomer(
+            record.getProcessorCustomer().orElseThrow().customerId(), paymentMethodId, record.subscriptionId))
+        .thenApply(customer -> Response.ok().build());
+  }
+
+  @Timed
+  @POST
+  @Path("/{subscriberId}/default_payment_method/{processor}/{paymentMethodToken}")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public CompletableFuture<Response> setDefaultPaymentMethodWithProcessor(
+      @Auth Optional<AuthenticatedAccount> authenticatedAccount,
+      @PathParam("subscriberId") String subscriberId,
+      @PathParam("processor") SubscriptionProcessor processor,
+      @PathParam("paymentMethodToken") @NotEmpty String paymentMethodToken) {
+    RequestData requestData = RequestData.process(authenticatedAccount, subscriberId, clock);
+
+    final SubscriptionProcessorManager manager = getManagerForProcessor(processor);
+
+    return subscriptionManager.get(requestData.subscriberUser, requestData.hmac)
+        .thenApply(this::requireRecordFromGetResult)
         .thenCompose(record -> record.getProcessorCustomer()
-            .map(processorCustomer -> stripeManager.setDefaultPaymentMethodForCustomer(processorCustomer.customerId(),
-                paymentMethodId))
+            .map(processorCustomer -> manager.setDefaultPaymentMethodForCustomer(processorCustomer.customerId(),
+                paymentMethodToken, record.subscriptionId))
             .orElseThrow(() ->
                 // a missing customer ID indicates the client made requests out of order,
                 // and needs to call create_payment_method to create a customer for the given payment method
@@ -435,76 +505,67 @@ public class SubscriptionController {
     return subscriptionManager.get(requestData.subscriberUser, requestData.hmac)
         .thenApply(this::requireRecordFromGetResult)
         .thenCompose(record -> {
-          SubscriptionLevelConfiguration levelConfiguration = subscriptionConfiguration.getLevels().get(level);
-          if (levelConfiguration == null) {
-            throw new BadRequestException(Response.status(Status.BAD_REQUEST)
-                .entity(new SetSubscriptionLevelErrorResponse(List.of(
-                    new SetSubscriptionLevelErrorResponse.Error(
-                        SetSubscriptionLevelErrorResponse.Error.Type.UNSUPPORTED_LEVEL, null))))
-                .build());
-          }
-          SubscriptionPriceConfiguration priceConfiguration = levelConfiguration.getPrices()
-              .get(currency.toLowerCase(Locale.ROOT));
-          if (priceConfiguration == null) {
-            throw new BadRequestException(Response.status(Status.BAD_REQUEST)
-                .entity(new SetSubscriptionLevelErrorResponse(List.of(
-                    new SetSubscriptionLevelErrorResponse.Error(
-                        SetSubscriptionLevelErrorResponse.Error.Type.UNSUPPORTED_CURRENCY, null))))
-                .build());
-          }
 
-          if (record.subscriptionId == null) {
-            long lastSubscriptionCreatedAt =
-                record.subscriptionCreatedAt != null ? record.subscriptionCreatedAt.getEpochSecond() : 0;
+            final ProcessorCustomer processorCustomer = record.getProcessorCustomer()
+                    .orElseThrow(() ->
+                            // a missing customer ID indicates the client made requests out of order,
+                            // and needs to call create_payment_method to create a customer for the given payment method
+                            new ClientErrorException(Status.CONFLICT));
 
-            return record.getProcessorCustomer()
-                .map(processorCustomer ->
-                    // we don't have a subscription yet so create it and then record the subscription id
-                    //
-                    // this relies on stripe's idempotency key to avoid creating more than one subscription if the client
-                    // retries this request
-                    stripeManager.createSubscription(processorCustomer.customerId(), priceConfiguration.getId(), level,
-                            lastSubscriptionCreatedAt)
-                        .exceptionally(e -> {
-                          if (e.getCause() instanceof StripeException stripeException
-                              && stripeException.getCode().equals("subscription_payment_intent_requires_action")) {
-                            throw new BadRequestException(Response.status(Status.BAD_REQUEST)
-                                .entity(new SetSubscriptionLevelErrorResponse(List.of(
-                                    new SetSubscriptionLevelErrorResponse.Error(
-                                        SetSubscriptionLevelErrorResponse.Error.Type.PAYMENT_REQUIRES_ACTION, null
-                                    )
-                                ))).build());
-                          }
-                          if (e instanceof RuntimeException re) {
+            final String subscriptionTemplateId = getSubscriptionTemplateId(level, currency, processorCustomer.processor());
+
+            final SubscriptionProcessorManager manager = getManagerForProcessor(processorCustomer.processor());
+
+            return Optional.ofNullable(record.subscriptionId)
+                    .map(subId -> {
+                        // we already have a subscription in our records so let's check the level and change it if needed
+                        return manager.getSubscription(subId).thenCompose(
+                                subscription -> manager.getLevelForSubscription(subscription).thenCompose(existingLevel -> {
+                                    if (level == existingLevel) {
+                                        return CompletableFuture.completedFuture(subscription);
+                              }
+                              return manager.updateSubscription(
+                                              subscription, subscriptionTemplateId, level, idempotencyKey)
+                                      .thenCompose(updatedSubscription ->
+                                              subscriptionManager.subscriptionLevelChanged(requestData.subscriberUser,
+                                                      requestData.now,
+                                                      level, updatedSubscription.id())
+                                                      .thenApply(unused -> updatedSubscription));
+                          }));
+              }).orElseGet(() -> {
+                      long lastSubscriptionCreatedAt =
+                              record.subscriptionCreatedAt != null ? record.subscriptionCreatedAt.getEpochSecond() : 0;
+
+                      // we don't have a subscription yet so create it and then record the subscription id
+                      //
+                      // this relies on stripe's idempotency key to avoid creating more than one subscription if the client
+                      // retries this request
+                      return manager.createSubscription(processorCustomer.customerId(),
+                                      subscriptionTemplateId,
+                                      level,
+                                      lastSubscriptionCreatedAt)
+                              .exceptionally(e -> {
+                                  if (e.getCause() instanceof StripeException stripeException
+                                          && stripeException.getCode().equals("subscription_payment_intent_requires_action")) {
+                                      throw new BadRequestException(Response.status(Status.BAD_REQUEST)
+                                              .entity(new SetSubscriptionLevelErrorResponse(List.of(
+                                                      new SetSubscriptionLevelErrorResponse.Error(
+                                                              SetSubscriptionLevelErrorResponse.Error.Type.PAYMENT_REQUIRES_ACTION, null
+                                )
+                            ))).build());
+                      }
+                        if (e instanceof RuntimeException re) {
                             throw re;
-                          }
+                        }
 
-                          throw new CompletionException(e);
-                        })
+                        throw new CompletionException(e);
+                    })
                         .thenCompose(subscription -> subscriptionManager.subscriptionCreated(
-                                requestData.subscriberUser, subscription.getId(), requestData.now, level)
-                            .thenApply(unused -> subscription)))
-                .orElseThrow(() ->
-                    // a missing customer ID indicates the client made requests out of order,
-                    // and needs to call create_payment_method to create a customer for the given payment method
-                    new ClientErrorException(Status.CONFLICT));
-          } else {
-            // we already have a subscription in our records so let's check the level and change it if needed
-            return stripeManager.getSubscription(record.subscriptionId).thenCompose(
-                subscription -> stripeManager.getLevelForSubscription(subscription).thenCompose(existingLevel -> {
-                  if (level == existingLevel) {
-                    return CompletableFuture.completedFuture(subscription);
-                  }
-                  return stripeManager.updateSubscription(
-                          subscription, priceConfiguration.getId(), level, idempotencyKey)
-                      .thenCompose(updatedSubscription ->
-                          subscriptionManager.subscriptionLevelChanged(requestData.subscriberUser, requestData.now,
-                                  level)
-                              .thenApply(unused -> updatedSubscription));
-                }));
-          }
+                                        requestData.subscriberUser, subscription.id(), requestData.now, level)
+                                .thenApply(unused -> subscription));
+                  });
         })
-        .thenApply(subscription -> Response.ok(new SetSubscriptionLevelSuccessResponse(level)).build());
+            .thenApply(unused -> Response.ok(new SetSubscriptionLevelSuccessResponse(level)).build());
   }
 
   public static class GetLevelsResponse {
@@ -613,7 +674,7 @@ public class SubscriptionController {
                   badgeTranslator.translate(acceptableLanguages, entry.getValue().getBadge()),
                   entry.getValue().getPrices().entrySet().stream().collect(
                       Collectors.toMap(levelEntry -> levelEntry.getKey().toUpperCase(Locale.ROOT),
-                          levelEntry -> levelEntry.getValue().getAmount()))))));
+                          levelEntry -> levelEntry.getValue().amount()))))));
       return Response.ok(getLevelsResponse).build();
     });
   }
@@ -730,6 +791,9 @@ public class SubscriptionController {
     }
   }
 
+  /**
+   * Creates a Stripe PaymentIntent with the requested amount and currency
+   */
   @Timed
   @POST
   @Path("/boost/create")
@@ -745,7 +809,7 @@ public class SubscriptionController {
             BigDecimal amountConfigured = oneTimeDonationConfiguration.currencies()
                 .get(request.currency.toLowerCase(Locale.ROOT)).gift();
             if (amountConfigured == null ||
-                stripeManager.convertConfiguredAmountToStripeAmount(request.currency, amountConfigured)
+                SubscriptionCurrencyUtil.convertConfiguredAmountToStripeAmount(request.currency, amountConfigured)
                     .compareTo(amount) != 0) {
               throw new WebApplicationException(
                   Response.status(Status.CONFLICT).entity(Map.of("error", "level_amount_mismatch")).build());
@@ -773,7 +837,8 @@ public class SubscriptionController {
 
     BigDecimal minCurrencyAmountMajorUnits = oneTimeDonationConfiguration.currencies()
         .get(request.currency.toLowerCase(Locale.ROOT)).minimum();
-    BigDecimal minCurrencyAmountMinorUnits = stripeManager.convertConfiguredAmountToStripeAmount(request.currency,
+    BigDecimal minCurrencyAmountMinorUnits = SubscriptionCurrencyUtil.convertConfiguredAmountToApiAmount(
+        request.currency,
         minCurrencyAmountMajorUnits);
     if (minCurrencyAmountMinorUnits.compareTo(amount) > 0) {
       throw new BadRequestException(Response.status(Status.BAD_REQUEST)
@@ -954,6 +1019,7 @@ public class SubscriptionController {
       private final String currency;
       private final BigDecimal amount;
       private final String status;
+      private final SubscriptionProcessor processor;
 
       @JsonCreator
       public Subscription(
@@ -964,7 +1030,8 @@ public class SubscriptionController {
           @JsonProperty("cancelAtPeriodEnd") boolean cancelAtPeriodEnd,
           @JsonProperty("currency") String currency,
           @JsonProperty("amount") BigDecimal amount,
-          @JsonProperty("status") String status) {
+          @JsonProperty("status") String status,
+          @JsonProperty("processor") SubscriptionProcessor processor) {
         this.level = level;
         this.billingCycleAnchor = billingCycleAnchor;
         this.endOfCurrentPeriod = endOfCurrentPeriod;
@@ -973,6 +1040,7 @@ public class SubscriptionController {
         this.currency = currency;
         this.amount = amount;
         this.status = status;
+        this.processor = processor;
       }
 
       public long getLevel() {
@@ -1005,6 +1073,10 @@ public class SubscriptionController {
 
       public String getStatus() {
         return status;
+      }
+
+      public SubscriptionProcessor getProcessor() {
+        return processor;
       }
     }
 
@@ -1082,38 +1154,38 @@ public class SubscriptionController {
     return subscriptionManager.get(requestData.subscriberUser, requestData.hmac)
         .thenApply(this::requireRecordFromGetResult)
         .thenCompose(record -> {
-          if (record.subscriptionId == null) {
-            return CompletableFuture.completedFuture(Response.ok(new GetSubscriptionInformationResponse(null, null)).build());
-          }
-          return stripeManager.getSubscription(record.subscriptionId).thenCompose(subscription ->
-              stripeManager.getPriceForSubscription(subscription).thenCompose(price ->
-                  stripeManager.getLevelForPrice(price).thenApply(level -> {
-                    GetSubscriptionInformationResponse.ChargeFailure chargeFailure = null;
-                    if (subscription.getLatestInvoiceObject() != null && subscription.getLatestInvoiceObject().getChargeObject() != null &&
-                        (subscription.getLatestInvoiceObject().getChargeObject().getFailureCode() != null || subscription.getLatestInvoiceObject().getChargeObject().getFailureMessage() != null)) {
-                      Charge charge = subscription.getLatestInvoiceObject().getChargeObject();
-                      Outcome outcome = charge.getOutcome();
-                      chargeFailure = new GetSubscriptionInformationResponse.ChargeFailure(
-                          charge.getFailureCode(),
-                          charge.getFailureMessage(),
-                          outcome != null ? outcome.getNetworkStatus() : null,
-                          outcome != null ? outcome.getReason() : null,
-                          outcome != null ? outcome.getType() : null);
-                    }
-                    return Response.ok(
-                        new GetSubscriptionInformationResponse(
-                            new GetSubscriptionInformationResponse.Subscription(
-                                level,
-                                Instant.ofEpochSecond(subscription.getBillingCycleAnchor()),
-                                Instant.ofEpochSecond(subscription.getCurrentPeriodEnd()),
-                                Objects.equals(subscription.getStatus(), "active"),
-                                subscription.getCancelAtPeriodEnd(),
-                                price.getCurrency().toUpperCase(Locale.ROOT),
-                                price.getUnitAmountDecimal(),
-                                subscription.getStatus()),
-                            chargeFailure
-                        )).build();
-                  })));
+            if (record.subscriptionId == null) {
+                return CompletableFuture.completedFuture(Response.ok(new GetSubscriptionInformationResponse(null, null)).build());
+            }
+
+            final SubscriptionProcessorManager manager = getManagerForProcessor(record.getProcessorCustomer().orElseThrow().processor());
+
+            return manager.getSubscription(record.subscriptionId).thenCompose(subscription ->
+                    manager.getSubscriptionInformation(subscription).thenApply(subscriptionInformation -> {
+                        final GetSubscriptionInformationResponse.ChargeFailure chargeFailure = Optional.ofNullable(subscriptionInformation.chargeFailure())
+                                .map(chargeFailure1 -> new GetSubscriptionInformationResponse.ChargeFailure(
+                                        subscriptionInformation.chargeFailure().code(),
+                                        subscriptionInformation.chargeFailure().message(),
+                                        subscriptionInformation.chargeFailure().outcomeNetworkStatus(),
+                                        subscriptionInformation.chargeFailure().outcomeReason(),
+                                        subscriptionInformation.chargeFailure().outcomeType()
+                                ))
+                                .orElse(null);
+                        return Response.ok(
+                                new GetSubscriptionInformationResponse(
+                                    new GetSubscriptionInformationResponse.Subscription(
+                                        subscriptionInformation.level(),
+                                        subscriptionInformation.billingCycleAnchor(),
+                                        subscriptionInformation.endOfCurrentPeriod(),
+                                        subscriptionInformation.active(),
+                                        subscriptionInformation.cancelAtPeriodEnd(),
+                                        subscriptionInformation.price().currency(),
+                                        subscriptionInformation.price().amount(),
+                                        subscriptionInformation.status().getApiValue(),
+                                        manager.getProcessor()),
+                                    chargeFailure
+                                )).build();
+                    }));
         });
   }
 
@@ -1162,98 +1234,60 @@ public class SubscriptionController {
     return subscriptionManager.get(requestData.subscriberUser, requestData.hmac)
         .thenApply(this::requireRecordFromGetResult)
         .thenCompose(record -> {
-          if (record.subscriptionId == null) {
-            return CompletableFuture.completedFuture(Response.status(Status.NOT_FOUND).build());
-          }
-          ReceiptCredentialRequest receiptCredentialRequest;
-          try {
-            receiptCredentialRequest = new ReceiptCredentialRequest(request.getReceiptCredentialRequest());
-          } catch (InvalidInputException e) {
-            throw new BadRequestException("invalid receipt credential request", e);
-          }
-          return stripeManager.getLatestInvoiceForSubscription(record.subscriptionId)
-              .thenCompose(invoice -> convertInvoiceToReceipt(invoice, record.subscriptionId))
-              .thenCompose(receipt -> issuedReceiptsManager.recordIssuance(
-                      receipt.getInvoiceLineItemId(), SubscriptionProcessor.STRIPE, receiptCredentialRequest,
-                      requestData.now)
-                  .thenApply(unused -> receipt))
-              .thenApply(receipt -> {
-                ReceiptCredentialResponse receiptCredentialResponse;
-                try {
-                  receiptCredentialResponse = zkReceiptOperations.issueReceiptCredential(
-                      receiptCredentialRequest, receipt.getExpiration().getEpochSecond(), receipt.getLevel());
-                } catch (VerificationFailedException e) {
-                  throw new BadRequestException("receipt credential request failed verification", e);
-                }
-                return Response.ok(new GetReceiptCredentialsResponse(receiptCredentialResponse.serialize())).build();
-              });
+            if (record.subscriptionId == null) {
+                return CompletableFuture.completedFuture(Response.status(Status.NOT_FOUND).build());
+            }
+            ReceiptCredentialRequest receiptCredentialRequest;
+            try {
+                receiptCredentialRequest = new ReceiptCredentialRequest(request.getReceiptCredentialRequest());
+            } catch (InvalidInputException e) {
+                throw new BadRequestException("invalid receipt credential request", e);
+            }
+
+            final SubscriptionProcessorManager manager = getManagerForProcessor(record.getProcessorCustomer().orElseThrow().processor());
+            return manager.getReceiptItem(record.subscriptionId)
+                    .thenCompose(receipt -> issuedReceiptsManager.recordIssuance(
+                                    receipt.itemId(), SubscriptionProcessor.STRIPE, receiptCredentialRequest,
+                                    requestData.now)
+                            .thenApply(unused -> receipt))
+                    .thenApply(receipt -> {
+                        ReceiptCredentialResponse receiptCredentialResponse;
+                        try {
+                            receiptCredentialResponse = zkReceiptOperations.issueReceiptCredential(
+                                    receiptCredentialRequest, receiptExpirationWithGracePeriod(receipt.expiration()).getEpochSecond(), receipt.level());
+                        } catch (VerificationFailedException e) {
+                            throw new BadRequestException("receipt credential request failed verification", e);
+                        }
+                        return Response.ok(new GetReceiptCredentialsResponse(receiptCredentialResponse.serialize())).build();
+                    });
         });
   }
 
-  public static class Receipt {
-
-    private final Instant expiration;
-    private final long level;
-    private final String invoiceLineItemId;
-
-    public Receipt(Instant expiration, long level, String invoiceLineItemId) {
-      this.expiration = expiration;
-      this.level = level;
-      this.invoiceLineItemId = invoiceLineItemId;
+    private Instant receiptExpirationWithGracePeriod(Instant itemExpiration) {
+        return itemExpiration.plus(subscriptionConfiguration.getBadgeGracePeriod())
+                .truncatedTo(ChronoUnit.DAYS)
+                .plus(1, ChronoUnit.DAYS);
     }
 
-    public Instant getExpiration() {
-      return expiration;
-    }
-
-    public long getLevel() {
-      return level;
-    }
-
-    public String getInvoiceLineItemId() {
-      return invoiceLineItemId;
-    }
-  }
-
-  private CompletableFuture<Receipt> convertInvoiceToReceipt(Invoice latestSubscriptionInvoice, String subscriptionId) {
-    if (latestSubscriptionInvoice == null) {
-      throw new WebApplicationException(Status.NO_CONTENT);
-    }
-    if (StringUtils.equalsIgnoreCase("open", latestSubscriptionInvoice.getStatus())) {
-      throw new WebApplicationException(Status.NO_CONTENT);
-    }
-    if (!StringUtils.equalsIgnoreCase("paid", latestSubscriptionInvoice.getStatus())) {
-      throw new WebApplicationException(Status.PAYMENT_REQUIRED);
-    }
-
-    return stripeManager.getInvoiceLineItemsForInvoice(latestSubscriptionInvoice).thenCompose(invoiceLineItems -> {
-      Collection<InvoiceLineItem> subscriptionLineItems = invoiceLineItems.stream()
-          .filter(invoiceLineItem -> Objects.equals("subscription", invoiceLineItem.getType()))
-          .collect(Collectors.toList());
-      if (subscriptionLineItems.isEmpty()) {
-        throw new IllegalStateException("latest subscription invoice has no subscription line items; subscriptionId="
-            + subscriptionId + "; invoiceId=" + latestSubscriptionInvoice.getId());
-      }
-      if (subscriptionLineItems.size() > 1) {
-        throw new IllegalStateException(
-            "latest subscription invoice has too many subscription line items; subscriptionId=" + subscriptionId
-                + "; invoiceId=" + latestSubscriptionInvoice.getId() + "; count=" + subscriptionLineItems.size());
+    private String getSubscriptionTemplateId(long level, String currency, SubscriptionProcessor processor) {
+      SubscriptionLevelConfiguration levelConfiguration = subscriptionConfiguration.getLevels().get(level);
+      if (levelConfiguration == null) {
+        throw new BadRequestException(Response.status(Status.BAD_REQUEST)
+            .entity(new SetSubscriptionLevelErrorResponse(List.of(
+                new SetSubscriptionLevelErrorResponse.Error(
+                    SetSubscriptionLevelErrorResponse.Error.Type.UNSUPPORTED_LEVEL, null))))
+            .build());
       }
 
-      InvoiceLineItem subscriptionLineItem = subscriptionLineItems.stream().findAny().get();
-      return getReceiptForSubscriptionInvoiceLineItem(subscriptionLineItem);
-    });
-  }
-
-  private CompletableFuture<Receipt> getReceiptForSubscriptionInvoiceLineItem(InvoiceLineItem subscriptionLineItem) {
-    return stripeManager.getProductForPrice(subscriptionLineItem.getPrice().getId()).thenApply(product -> new Receipt(
-        Instant.ofEpochSecond(subscriptionLineItem.getPeriod().getEnd())
-            .plus(subscriptionConfiguration.getBadgeGracePeriod())
-            .truncatedTo(ChronoUnit.DAYS)
-            .plus(1, ChronoUnit.DAYS),
-        stripeManager.getLevelForProduct(product),
-        subscriptionLineItem.getId()));
-  }
+      return Optional.ofNullable(levelConfiguration.getPrices()
+              .get(currency.toLowerCase(Locale.ROOT)))
+          .map(priceConfiguration -> priceConfiguration.processorIds().get(processor))
+          .orElseThrow(() -> new BadRequestException(Response.status(Status.BAD_REQUEST)
+              .entity(new SetSubscriptionLevelErrorResponse(List.of(
+                  new SetSubscriptionLevelErrorResponse.Error(
+                      SetSubscriptionLevelErrorResponse.Error.Type.UNSUPPORTED_CURRENCY, null))))
+              .build()));
+    }
 
   private SubscriptionManager.Record requireRecordFromGetResult(SubscriptionManager.GetResult getResult) {
     if (getResult == GetResult.PASSWORD_MISMATCH) {

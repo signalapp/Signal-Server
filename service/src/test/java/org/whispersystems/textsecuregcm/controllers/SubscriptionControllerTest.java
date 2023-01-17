@@ -20,7 +20,6 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.stripe.exception.ApiException;
 import com.stripe.model.PaymentIntent;
-import com.stripe.model.Subscription;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
@@ -65,6 +64,7 @@ import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessor;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
@@ -127,7 +127,6 @@ class SubscriptionControllerTest {
 
   @Test
   void testCreateBoostPaymentIntentAmountBelowCurrencyMinimum() {
-    when(STRIPE_MANAGER.convertConfiguredAmountToStripeAmount(any(), any())).thenReturn(new BigDecimal(250));
     when(STRIPE_MANAGER.supportsCurrency("usd")).thenReturn(true);
     final Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/create")
         .request()
@@ -150,24 +149,21 @@ class SubscriptionControllerTest {
 
   @Test
   void testCreateBoostPaymentIntentLevelAmountMismatch() {
-    when(STRIPE_MANAGER.convertConfiguredAmountToStripeAmount(any(), any())).thenReturn(new BigDecimal(20));
-
     final Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/create")
         .request()
         .post(Entity.json("""
-            {
-              "currency": "USD",
-              "amount": 25,
-              "level": 100
-            }
-          """
+              {
+                "currency": "USD",
+                "amount": 25,
+                "level": 100
+              }
+            """
         ));
     assertThat(response.getStatus()).isEqualTo(409);
   }
 
   @Test
   void testCreateBoostPaymentIntent() {
-    when(STRIPE_MANAGER.convertConfiguredAmountToStripeAmount(any(), any())).thenReturn(new BigDecimal(300));
     when(STRIPE_MANAGER.createPaymentIntent(anyString(), anyLong(), anyLong()))
         .thenReturn(CompletableFuture.completedFuture(PAYMENT_INTENT));
     when(STRIPE_MANAGER.supportsCurrency("usd")).thenReturn(true);
@@ -233,7 +229,7 @@ class SubscriptionControllerTest {
     @Test
     void success() {
       when(STRIPE_MANAGER.createSubscription(any(), any(), anyLong(), anyLong()))
-          .thenReturn(CompletableFuture.completedFuture(mock(Subscription.class)));
+          .thenReturn(CompletableFuture.completedFuture(mock(SubscriptionProcessorManager.SubscriptionId.class)));
 
       final String level = String.valueOf(levelId);
       final String idempotencyKey = UUID.randomUUID().toString();
@@ -669,37 +665,55 @@ class SubscriptionControllerTest {
             prices:
               usd:
                 amount: '5'
-                id: R1
+                processorIds:
+                  STRIPE: R1
+                  BRAINTREE: M1
               jpy:
                 amount: '500'
-                id: Q1
+                processorIds:
+                  STRIPE: Q1
+                  BRAINTREE: N1
               bif:
                 amount: '5000'
-                id: S1
+                processorIds:
+                  STRIPE: S1
+                  BRAINTREE: O1
           15:
             badge: B2
             prices:
               usd:
                 amount: '15'
-                id: R2
+                processorIds:
+                  STRIPE: R2
+                  BRAINTREE: M2
               jpy:
                 amount: '1500'
-                id: Q2
+                processorIds:
+                  STRIPE: Q2
+                  BRAINTREE: N2
               bif:
                 amount: '15000'
-                id: S2
+                processorIds:
+                  STRIPE: S2
+                  BRAINTREE: O2
           35:
             badge: B3
             prices:
               usd:
                 amount: '35'
-                id: R3
+                processorIds:
+                  STRIPE: R3
+                  BRAINTREE: M3
               jpy:
                 amount: '3500'
-                id: Q3
+                processorIds:
+                  STRIPE: Q3
+                  BRAINTREE: N3
               bif:
                 amount: '35000'
-                id: S3
+                processorIds:
+                  STRIPE: S3
+                  BRAINTREE: O3
         """;
 
     private static final String ONETIME_CONFIG_YAML = """

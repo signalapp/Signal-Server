@@ -5,31 +5,16 @@
 
 package org.whispersystems.textsecuregcm.configuration;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import java.math.BigDecimal;
+import java.util.Map;
+import javax.validation.Valid;
 import javax.validation.constraints.DecimalMin;
+import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessor;
 
-public class SubscriptionPriceConfiguration {
+public record SubscriptionPriceConfiguration(@Valid @NotEmpty Map<SubscriptionProcessor, @NotBlank String> processorIds,
+                                             @NotNull @DecimalMin("0.01") BigDecimal amount) {
 
-  private final String id;
-  private final BigDecimal amount;
-
-  @JsonCreator
-  public SubscriptionPriceConfiguration(
-      @JsonProperty("id") @NotEmpty String id,
-      @JsonProperty("amount") @NotNull @DecimalMin("0.01") BigDecimal amount) {
-    this.id = id;
-    this.amount = amount;
-  }
-
-  public String getId() {
-    return id;
-  }
-
-  public BigDecimal getAmount() {
-    return amount;
-  }
 }

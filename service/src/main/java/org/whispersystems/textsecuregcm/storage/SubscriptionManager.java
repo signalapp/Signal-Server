@@ -65,6 +65,7 @@ public class SubscriptionManager {
     @VisibleForTesting
     @Nullable
     ProcessorCustomer processorCustomer;
+    @Nullable
     public String subscriptionId;
     public Instant subscriptionCreatedAt;
     public Long subscriptionLevel;
@@ -187,7 +188,8 @@ public class SubscriptionManager {
       if (count == 0) {
         return null;
       } else if (count > 1) {
-        logger.error("expected invariant of 1-1 subscriber-customer violated for customer {}", processorCustomer);
+        logger.error("expected invariant of 1-1 subscriber-customer violated for customer {} ({})",
+            processorCustomer.customerId(), processorCustomer.processor());
         throw new IllegalStateException(
             "expected invariant of 1-1 subscriber-customer violated for customer " + processorCustomer);
       } else {
@@ -392,7 +394,7 @@ public class SubscriptionManager {
   }
 
   public CompletableFuture<Void> subscriptionLevelChanged(
-      byte[] user, Instant subscriptionLevelChangedAt, long level) {
+      byte[] user, Instant subscriptionLevelChangedAt, long level, String subscriptionId) {
     checkUserLength(user);
 
     UpdateItemRequest request = UpdateItemRequest.builder()
@@ -401,14 +403,17 @@ public class SubscriptionManager {
         .returnValues(ReturnValue.NONE)
         .updateExpression("SET "
             + "#accessed_at = :accessed_at, "
+            + "#subscription_id = :subscription_id, "
             + "#subscription_level = :subscription_level, "
             + "#subscription_level_changed_at = :subscription_level_changed_at")
         .expressionAttributeNames(Map.of(
             "#accessed_at", KEY_ACCESSED_AT,
+            "#subscription_id", KEY_SUBSCRIPTION_ID,
             "#subscription_level", KEY_SUBSCRIPTION_LEVEL,
             "#subscription_level_changed_at", KEY_SUBSCRIPTION_LEVEL_CHANGED_AT))
         .expressionAttributeValues(Map.of(
             ":accessed_at", n(subscriptionLevelChangedAt.getEpochSecond()),
+            ":subscription_id", s(subscriptionId),
             ":subscription_level", n(level),
             ":subscription_level_changed_at", n(subscriptionLevelChangedAt.getEpochSecond())))
         .build();

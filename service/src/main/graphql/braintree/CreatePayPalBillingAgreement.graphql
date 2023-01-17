@@ -1,0 +1,6 @@
+mutation CreatePayPalBillingAgreement($input: CreatePayPalBillingAgreementInput!) {
+  createPayPalBillingAgreement(input: $input) {
+    approvalUrl,
+    billingAgreementToken
+  }
+}

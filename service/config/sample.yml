@@ -352,7 +352,9 @@ subscription: # configuration for Stripe subscriptions
         # list of ISO 4217 currency codes and amounts for the given badge level
         xts:
           amount: '10'
-          id: price_example # stripe ID
+          processorIds:
+            STRIPE: price_example   # stripe Price ID
+            BRAINTREE: plan_example # braintree Plan ID
 
 oneTimeDonations:
   boost:

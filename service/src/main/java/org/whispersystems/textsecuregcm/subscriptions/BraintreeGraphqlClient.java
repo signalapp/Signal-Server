@@ -11,19 +11,29 @@ import com.apollographql.apollo3.api.Operations;
 import com.apollographql.apollo3.api.Optional;
 import com.apollographql.apollo3.api.json.BufferedSinkJsonWriter;
 import com.braintree.graphql.client.type.ChargePaymentMethodInput;
+import com.braintree.graphql.client.type.CreatePayPalBillingAgreementInput;
 import com.braintree.graphql.client.type.CreatePayPalOneTimePaymentInput;
 import com.braintree.graphql.client.type.CustomFieldInput;
 import com.braintree.graphql.client.type.MonetaryAmountInput;
+import com.braintree.graphql.client.type.PayPalBillingAgreementChargePattern;
+import com.braintree.graphql.client.type.PayPalBillingAgreementExperienceProfileInput;
+import com.braintree.graphql.client.type.PayPalBillingAgreementInput;
 import com.braintree.graphql.client.type.PayPalExperienceProfileInput;
 import com.braintree.graphql.client.type.PayPalIntent;
 import com.braintree.graphql.client.type.PayPalLandingPageType;
 import com.braintree.graphql.client.type.PayPalOneTimePaymentInput;
+import com.braintree.graphql.client.type.PayPalProductAttributesInput;
 import com.braintree.graphql.client.type.PayPalUserAction;
+import com.braintree.graphql.client.type.TokenizePayPalBillingAgreementInput;
 import com.braintree.graphql.client.type.TokenizePayPalOneTimePaymentInput;
 import com.braintree.graphql.client.type.TransactionInput;
+import com.braintree.graphql.client.type.VaultPaymentMethodInput;
 import com.braintree.graphql.clientoperation.ChargePayPalOneTimePaymentMutation;
+import com.braintree.graphql.clientoperation.CreatePayPalBillingAgreementMutation;
 import com.braintree.graphql.clientoperation.CreatePayPalOneTimePaymentMutation;
+import com.braintree.graphql.clientoperation.TokenizePayPalBillingAgreementMutation;
 import com.braintree.graphql.clientoperation.TokenizePayPalOneTimePaymentMutation;
+import com.braintree.graphql.clientoperation.VaultPaymentMethodMutation;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -182,6 +192,94 @@ class BraintreeGraphqlClient {
             Optional.absent(),
             Optional.absent()
         )
+    );
+  }
+
+  public CompletableFuture<CreatePayPalBillingAgreementMutation.CreatePayPalBillingAgreement> createPayPalBillingAgreement(
+      final String returnUrl, final String cancelUrl, final String locale) {
+
+    final CreatePayPalBillingAgreementInput input = buildCreatePayPalBillingAgreementInput(returnUrl, cancelUrl,
+        locale);
+    final CreatePayPalBillingAgreementMutation mutation = new CreatePayPalBillingAgreementMutation(input);
+    final HttpRequest request = buildRequest(mutation);
+
+    return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+        .thenApply(httpResponse -> {
+          // IntelliJ users: type parameters error “no instance of type variable exists so that Data conforms to Data”
+          // is not accurate; this might be fixed in Kotlin 1.8: https://youtrack.jetbrains.com/issue/KTIJ-21905/
+          final CreatePayPalBillingAgreementMutation.Data data = assertSuccessAndExtractData(httpResponse, mutation);
+          return data.createPayPalBillingAgreement;
+        });
+  }
+
+  private static CreatePayPalBillingAgreementInput buildCreatePayPalBillingAgreementInput(String returnUrl,
+      String cancelUrl, String locale) {
+
+    return new CreatePayPalBillingAgreementInput(
+        Optional.absent(),
+        Optional.absent(),
+        returnUrl,
+        cancelUrl,
+        Optional.absent(),
+        Optional.absent(),
+        Optional.present(false), // offerPayPalCredit
+        Optional.absent(),
+        Optional.present(
+            new PayPalBillingAgreementExperienceProfileInput(Optional.present("Signal"),
+                Optional.present(false), // collectShippingAddress
+                Optional.present(PayPalLandingPageType.LOGIN),
+                Optional.present(locale),
+                Optional.absent())),
+        Optional.absent(),
+        Optional.present(new PayPalProductAttributesInput(
+            Optional.present(PayPalBillingAgreementChargePattern.RECURRING_PREPAID)
+        ))
+    );
+  }
+
+  public CompletableFuture<TokenizePayPalBillingAgreementMutation.TokenizePayPalBillingAgreement> tokenizePayPalBillingAgreement(
+      final String billingAgreementToken) {
+
+    final TokenizePayPalBillingAgreementInput input = new TokenizePayPalBillingAgreementInput(
+        Optional.absent(),
+        new PayPalBillingAgreementInput(billingAgreementToken));
+    final TokenizePayPalBillingAgreementMutation mutation = new TokenizePayPalBillingAgreementMutation(input);
+    final HttpRequest request = buildRequest(mutation);
+
+    return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+        .thenApply(httpResponse -> {
+          // IntelliJ users: type parameters error “no instance of type variable exists so that Data conforms to Data”
+          // is not accurate; this might be fixed in Kotlin 1.8: https://youtrack.jetbrains.com/issue/KTIJ-21905/
+          final TokenizePayPalBillingAgreementMutation.Data data = assertSuccessAndExtractData(httpResponse, mutation);
+          return data.tokenizePayPalBillingAgreement;
+        });
+  }
+
+  public CompletableFuture<VaultPaymentMethodMutation.VaultPaymentMethod> vaultPaymentMethod(final String customerId,
+      final String paymentMethodId) {
+
+    final VaultPaymentMethodInput input = buildVaultPaymentMethodInput(customerId, paymentMethodId);
+    final VaultPaymentMethodMutation mutation = new VaultPaymentMethodMutation(input);
+    final HttpRequest request = buildRequest(mutation);
+
+    return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+        .thenApply(httpResponse -> {
+          // IntelliJ users: type parameters error “no instance of type variable exists so that Data conforms to Data”
+          // is not accurate; this might be fixed in Kotlin 1.8: https://youtrack.jetbrains.com/issue/KTIJ-21905/
+          final VaultPaymentMethodMutation.Data data = assertSuccessAndExtractData(httpResponse, mutation);
+          return data.vaultPaymentMethod;
+        });
+  }
+
+  private static VaultPaymentMethodInput buildVaultPaymentMethodInput(String customerId, String paymentMethodId) {
+    return new VaultPaymentMethodInput(
+        Optional.absent(),
+        paymentMethodId,
+        Optional.absent(),
+        Optional.absent(),
+        Optional.present(customerId),
+        Optional.absent(),
+        Optional.absent()
     );
   }
 
