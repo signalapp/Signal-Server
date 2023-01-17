@@ -130,7 +130,7 @@ public class AccountController {
   private static final String CAPTCHA_ATTEMPT_COUNTER_NAME = name(AccountController.class, "captcha");
   private static final String CHALLENGE_ISSUED_COUNTER_NAME = name(AccountController.class, "challengeIssued");
 
-  private static final DistributionSummary REREGISTRATION_IDLE_DAYS_DISTRIBUTION_NAME = DistributionSummary
+  private static final DistributionSummary REREGISTRATION_IDLE_DAYS_DISTRIBUTION = DistributionSummary
       .builder(name(AccountController.class, "reregistrationIdleDays"))
       .publishPercentiles(0.75, 0.95, 0.99, 0.999)
       .distributionStatisticExpiry(Duration.ofHours(2))
@@ -419,7 +419,7 @@ public class AccountController {
     existingAccount.ifPresent(account -> {
       Instant accountLastSeen = Instant.ofEpochMilli(account.getLastSeen());
       Duration timeSinceLastSeen = Duration.between(accountLastSeen, Instant.now());
-      REREGISTRATION_IDLE_DAYS_DISTRIBUTION_NAME.record(timeSinceLastSeen.toDays());
+      REREGISTRATION_IDLE_DAYS_DISTRIBUTION.record(timeSinceLastSeen.toDays());
     });
 
     if (existingAccount.isPresent()) {
