@@ -113,7 +113,11 @@ public class SubscriptionController {
   private final LevelTranslator levelTranslator;
   private final Map<String, CurrencyConfiguration> currencyConfiguration;
 
-  private static final String INVALID_ACCEPT_LANGUAGE_COUNTER_NAME = name(SubscriptionController.class, "invalidAcceptLanguage");
+  private static final String INVALID_ACCEPT_LANGUAGE_COUNTER_NAME = name(SubscriptionController.class,
+      "invalidAcceptLanguage");
+  private static final String RECEIPT_ISSUED_COUNTER_NAME = name(SubscriptionController.class, "receiptIssued");
+  private static final String PROCESSOR_TAG_NAME = "processor";
+  private static final String TYPE_TAG_NAME = "type";
 
   public SubscriptionController(
       @Nonnull Clock clock,
@@ -1001,6 +1005,10 @@ public class SubscriptionController {
                 } catch (VerificationFailedException e) {
                   throw new BadRequestException("receipt credential request failed verification", e);
                 }
+                Metrics.counter(RECEIPT_ISSUED_COUNTER_NAME,
+                        PROCESSOR_TAG_NAME, manager.getProcessor().toString(),
+                        TYPE_TAG_NAME, "boost")
+                    .increment();
                 return Response.ok(new CreateBoostReceiptCredentialsResponse(receiptCredentialResponse.serialize()))
                     .build();
               });
@@ -1247,18 +1255,24 @@ public class SubscriptionController {
             final SubscriptionProcessorManager manager = getManagerForProcessor(record.getProcessorCustomer().orElseThrow().processor());
             return manager.getReceiptItem(record.subscriptionId)
                     .thenCompose(receipt -> issuedReceiptsManager.recordIssuance(
-                                    receipt.itemId(), SubscriptionProcessor.STRIPE, receiptCredentialRequest,
-                                    requestData.now)
+                            receipt.itemId(), manager.getProcessor(), receiptCredentialRequest,
+                            requestData.now)
                             .thenApply(unused -> receipt))
                     .thenApply(receipt -> {
-                        ReceiptCredentialResponse receiptCredentialResponse;
-                        try {
-                            receiptCredentialResponse = zkReceiptOperations.issueReceiptCredential(
-                                    receiptCredentialRequest, receiptExpirationWithGracePeriod(receipt.expiration()).getEpochSecond(), receipt.level());
-                        } catch (VerificationFailedException e) {
-                            throw new BadRequestException("receipt credential request failed verification", e);
-                        }
-                        return Response.ok(new GetReceiptCredentialsResponse(receiptCredentialResponse.serialize())).build();
+                      ReceiptCredentialResponse receiptCredentialResponse;
+                      try {
+                        receiptCredentialResponse = zkReceiptOperations.issueReceiptCredential(
+                            receiptCredentialRequest,
+                            receiptExpirationWithGracePeriod(receipt.expiration()).getEpochSecond(), receipt.level());
+                      } catch (VerificationFailedException e) {
+                        throw new BadRequestException("receipt credential request failed verification", e);
+                      }
+                      Metrics.counter(RECEIPT_ISSUED_COUNTER_NAME,
+                              PROCESSOR_TAG_NAME, manager.getProcessor().toString(),
+                              TYPE_TAG_NAME, "subscription")
+                          .increment();
+                      return Response.ok(new GetReceiptCredentialsResponse(receiptCredentialResponse.serialize()))
+                          .build();
                     });
         });
   }
