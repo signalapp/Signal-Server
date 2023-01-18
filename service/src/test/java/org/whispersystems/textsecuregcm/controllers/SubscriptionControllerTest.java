@@ -12,9 +12,12 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 import static org.whispersystems.textsecuregcm.util.AttributeValues.b;
 import static org.whispersystems.textsecuregcm.util.AttributeValues.n;
+import static org.whispersystems.textsecuregcm.util.AttributeValues.s;
 
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -37,15 +40,18 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.Response;
 import org.glassfish.jersey.server.ServerProperties;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
@@ -66,6 +72,7 @@ import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessor;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
+import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
@@ -84,17 +91,21 @@ class SubscriptionControllerTest {
   private static final OneTimeDonationConfiguration ONETIME_CONFIG = ConfigHelper.getOneTimeConfig();
   private static final SubscriptionManager SUBSCRIPTION_MANAGER = mock(SubscriptionManager.class);
   private static final StripeManager STRIPE_MANAGER = mock(StripeManager.class);
+  private static final BraintreeManager BRAINTREE_MANAGER = mock(BraintreeManager.class);
   private static final PaymentIntent PAYMENT_INTENT = mock(PaymentIntent.class);
 
   static {
     // this behavior is required by the SubscriptionController constructor
+    List.of(STRIPE_MANAGER, BRAINTREE_MANAGER)
+        .forEach(manager -> {
+          when(manager.supportsPaymentMethod(any()))
+              .thenCallRealMethod();
+        });
     when(STRIPE_MANAGER.getSupportedCurrencies())
         .thenReturn(Set.of("usd", "jpy", "bif"));
-    when(STRIPE_MANAGER.supportsPaymentMethod(any()))
-        .thenCallRealMethod();
+    when(BRAINTREE_MANAGER.getSupportedCurrencies())
+        .thenReturn(Set.of("usd", "jpy"));
   }
-
-  private static final BraintreeManager BRAINTREE_MANAGER = mock(BraintreeManager.class);
 
   private static final ServerZkReceiptOperations ZK_OPS = mock(ServerZkReceiptOperations.class);
   private static final IssuedReceiptsManager ISSUED_RECEIPTS_MANAGER = mock(IssuedReceiptsManager.class);
@@ -116,13 +127,11 @@ class SubscriptionControllerTest {
 
   @BeforeEach
   void setUp() {
-    when(STRIPE_MANAGER.getProcessor()).thenReturn(SubscriptionProcessor.STRIPE);
-  }
-
-  @AfterEach
-  void tearDown() {
-    reset(CLOCK, SUBSCRIPTION_MANAGER, STRIPE_MANAGER, ZK_OPS, ISSUED_RECEIPTS_MANAGER,
+    reset(CLOCK, SUBSCRIPTION_MANAGER, STRIPE_MANAGER, BRAINTREE_MANAGER, ZK_OPS, ISSUED_RECEIPTS_MANAGER,
         BADGE_TRANSLATOR, LEVEL_TRANSLATOR);
+
+    when(STRIPE_MANAGER.getProcessor()).thenReturn(SubscriptionProcessor.STRIPE);
+    when(BRAINTREE_MANAGER.getProcessor()).thenReturn(SubscriptionProcessor.BRAINTREE);
   }
 
   @Test
@@ -432,6 +441,158 @@ class SubscriptionControllerTest {
   }
 
   @Test
+  void setSubscriptionLevelMissingProcessorCustomer() {
+    // set up record
+    final byte[] subscriberUserAndKey = new byte[32];
+    Arrays.fill(subscriberUserAndKey, (byte) 1);
+    final String subscriberId = Base64.getEncoder().encodeToString(subscriberUserAndKey);
+
+    final Map<String, AttributeValue> dynamoItem = Map.of(SubscriptionManager.KEY_PASSWORD, b(new byte[16]),
+        SubscriptionManager.KEY_CREATED_AT, n(Instant.now().getEpochSecond()),
+        SubscriptionManager.KEY_ACCESSED_AT, n(Instant.now().getEpochSecond())
+    );
+    final SubscriptionManager.Record record = SubscriptionManager.Record.from(
+        Arrays.copyOfRange(subscriberUserAndKey, 0, 16), dynamoItem);
+    when(SUBSCRIPTION_MANAGER.create(any(), any(), any(Instant.class)))
+        .thenReturn(CompletableFuture.completedFuture(record));
+
+    // set up mocks
+    when(CLOCK.instant()).thenReturn(Instant.now());
+    when(SUBSCRIPTION_MANAGER.get(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(SubscriptionManager.GetResult.found(record)));
+
+    final Response response = RESOURCE_EXTENSION
+        .target(String.format("/v1/subscription/%s/level/%d/%s/%s", subscriberId, 5, "usd", "abcd"))
+        .request()
+        .put(Entity.json(""));
+
+    assertThat(response.getStatus()).isEqualTo(409);
+  }
+
+  @Test
+  void setSubscriptionLevel() {
+    // set up record
+    final byte[] subscriberUserAndKey = new byte[32];
+    Arrays.fill(subscriberUserAndKey, (byte) 1);
+    final String subscriberId = Base64.getEncoder().encodeToString(subscriberUserAndKey);
+
+    final String customerId = "customer";
+    final Map<String, AttributeValue> dynamoItem = Map.of(SubscriptionManager.KEY_PASSWORD, b(new byte[16]),
+        SubscriptionManager.KEY_CREATED_AT, n(Instant.now().getEpochSecond()),
+        SubscriptionManager.KEY_ACCESSED_AT, n(Instant.now().getEpochSecond()),
+        SubscriptionManager.KEY_PROCESSOR_ID_CUSTOMER_ID,
+        b(new ProcessorCustomer(customerId, SubscriptionProcessor.BRAINTREE).toDynamoBytes())
+    );
+    final SubscriptionManager.Record record = SubscriptionManager.Record.from(
+        Arrays.copyOfRange(subscriberUserAndKey, 0, 16), dynamoItem);
+    when(SUBSCRIPTION_MANAGER.create(any(), any(), any(Instant.class)))
+        .thenReturn(CompletableFuture.completedFuture(record));
+
+    // set up mocks
+    when(CLOCK.instant()).thenReturn(Instant.now());
+    when(SUBSCRIPTION_MANAGER.get(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(SubscriptionManager.GetResult.found(record)));
+
+    when(BRAINTREE_MANAGER.createSubscription(any(), any(), anyLong(), anyLong()))
+        .thenReturn(CompletableFuture.completedFuture(new SubscriptionProcessorManager.SubscriptionId(
+            "subscription")));
+    when(SUBSCRIPTION_MANAGER.subscriptionCreated(any(), any(), any(), anyLong()))
+        .thenReturn(CompletableFuture.completedFuture(null));
+
+    final long level = 5;
+    final Response response = RESOURCE_EXTENSION
+        .target(String.format("/v1/subscription/%s/level/%d/%s/%s", subscriberId, level, "usd", "abcd"))
+        .request()
+        .put(Entity.json(""));
+
+    verify(BRAINTREE_MANAGER).createSubscription(eq(customerId), eq("M1"), eq(level), eq(0L));
+    verifyNoMoreInteractions(BRAINTREE_MANAGER);
+
+    assertThat(response.getStatus()).isEqualTo(200);
+
+    assertThat(response.readEntity(SubscriptionController.SetSubscriptionLevelSuccessResponse.class))
+        .extracting(SubscriptionController.SetSubscriptionLevelSuccessResponse::getLevel)
+        .isEqualTo(level);
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void setSubscriptionLevelExistingSubscription(final String existingCurrency, final long existingLevel,
+      final String requestCurrency, final long requestLevel, final boolean expectUpdate) {
+
+    // set up record
+    final byte[] subscriberUserAndKey = new byte[32];
+    Arrays.fill(subscriberUserAndKey, (byte) 1);
+    final String subscriberId = Base64.getEncoder().encodeToString(subscriberUserAndKey);
+
+    final String customerId = "customer";
+    final String existingSubscriptionId = "existingSubscription";
+    final Map<String, AttributeValue> dynamoItem = Map.of(SubscriptionManager.KEY_PASSWORD, b(new byte[16]),
+        SubscriptionManager.KEY_CREATED_AT, n(Instant.now().getEpochSecond()),
+        SubscriptionManager.KEY_ACCESSED_AT, n(Instant.now().getEpochSecond()),
+        SubscriptionManager.KEY_PROCESSOR_ID_CUSTOMER_ID,
+        b(new ProcessorCustomer(customerId, SubscriptionProcessor.BRAINTREE).toDynamoBytes()),
+        SubscriptionManager.KEY_SUBSCRIPTION_ID, s(existingSubscriptionId)
+    );
+    final SubscriptionManager.Record record = SubscriptionManager.Record.from(
+        Arrays.copyOfRange(subscriberUserAndKey, 0, 16), dynamoItem);
+    when(SUBSCRIPTION_MANAGER.create(any(), any(), any(Instant.class)))
+        .thenReturn(CompletableFuture.completedFuture(record));
+
+    // set up mocks
+    when(CLOCK.instant()).thenReturn(Instant.now());
+    when(SUBSCRIPTION_MANAGER.get(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(SubscriptionManager.GetResult.found(record)));
+
+    final Object subscriptionObj = new Object();
+    when(BRAINTREE_MANAGER.getSubscription(any()))
+        .thenReturn(CompletableFuture.completedFuture(subscriptionObj));
+    when(BRAINTREE_MANAGER.getLevelAndCurrencyForSubscription(subscriptionObj))
+        .thenReturn(CompletableFuture.completedFuture(new Pair<>(existingLevel, existingCurrency)));
+    final String updatedSubscriptionId = "updatedSubscriptionId";
+
+    if (expectUpdate) {
+      when(BRAINTREE_MANAGER.updateSubscription(any(), any(), anyLong(), anyString()))
+          .thenReturn(CompletableFuture.completedFuture(new SubscriptionProcessorManager.SubscriptionId(
+              updatedSubscriptionId)));
+      when(SUBSCRIPTION_MANAGER.subscriptionLevelChanged(any(), any(), anyLong(), anyString()))
+          .thenReturn(CompletableFuture.completedFuture(null));
+    }
+
+    final String idempotencyKey = "abcd";
+    final Response response = RESOURCE_EXTENSION
+        .target(String.format("/v1/subscription/%s/level/%d/%s/%s", subscriberId, requestLevel, requestCurrency,
+            idempotencyKey))
+        .request()
+        .put(Entity.json(""));
+
+    verify(BRAINTREE_MANAGER).getSubscription(any());
+    verify(BRAINTREE_MANAGER).getLevelAndCurrencyForSubscription(any());
+
+    if (expectUpdate) {
+      verify(BRAINTREE_MANAGER).updateSubscription(any(), any(), eq(requestLevel), eq(idempotencyKey));
+      verify(SUBSCRIPTION_MANAGER).subscriptionLevelChanged(any(), any(), eq(requestLevel), eq(updatedSubscriptionId));
+    }
+
+    verifyNoMoreInteractions(BRAINTREE_MANAGER);
+
+    assertThat(response.getStatus()).isEqualTo(200);
+
+    assertThat(response.readEntity(SubscriptionController.SetSubscriptionLevelSuccessResponse.class))
+        .extracting(SubscriptionController.SetSubscriptionLevelSuccessResponse::getLevel)
+        .isEqualTo(requestLevel);
+  }
+
+  static Stream<Arguments> setSubscriptionLevelExistingSubscription() {
+    return Stream.of(
+        Arguments.of("usd", 5, "usd", 5, false),
+        Arguments.of("usd", 5, "jpy", 5, true),
+        Arguments.of("usd", 5, "usd", 15, true),
+        Arguments.of("usd", 5, "jpy", 15, true)
+    );
+  }
+
+  @Test
   void getSubscriptionConfiguration() {
 
     when(BADGE_TRANSLATOR.translate(any(), eq("B1"))).thenReturn(new Badge("B1", "cat1", "name1", "desc1",
@@ -469,7 +630,7 @@ class SubscriptionControllerTest {
                 List.of(BigDecimal.valueOf(20))));
         assertThat(currency.subscription()).isEqualTo(
             Map.of("5", BigDecimal.valueOf(5), "15", BigDecimal.valueOf(15), "35", BigDecimal.valueOf(35)));
-        assertThat(currency.supportedPaymentMethods()).isEqualTo(List.of("CARD"));
+        assertThat(currency.supportedPaymentMethods()).isEqualTo(List.of("CARD", "PAYPAL"));
       });
 
       assertThat(currencyMap).extractingByKey("jpy").satisfies(currency -> {
@@ -483,7 +644,7 @@ class SubscriptionControllerTest {
                 List.of(BigDecimal.valueOf(2000))));
         assertThat(currency.subscription()).isEqualTo(
             Map.of("5", BigDecimal.valueOf(500), "15", BigDecimal.valueOf(1500), "35", BigDecimal.valueOf(3500)));
-        assertThat(currency.supportedPaymentMethods()).isEqualTo(List.of("CARD"));
+        assertThat(currency.supportedPaymentMethods()).isEqualTo(List.of("CARD", "PAYPAL"));
       });
 
       assertThat(currencyMap).extractingByKey("bif").satisfies(currency -> {
