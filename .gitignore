@@ -26,3 +26,6 @@ deployer.log
 !/service/src/main/resources/org/signal/badges/Badges_en.properties
 /service/src/main/resources/org/signal/subscriptions/Subscriptions_*.properties
 !/service/src/main/resources/org/signal/subscriptions/Subscriptions_en.properties
+.project
+.classpath
+.settings
