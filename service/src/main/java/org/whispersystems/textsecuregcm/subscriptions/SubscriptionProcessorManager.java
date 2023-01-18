@@ -42,12 +42,16 @@ public interface SubscriptionProcessorManager {
   CompletableFuture<Object> getSubscription(String subscriptionId);
 
   CompletableFuture<SubscriptionId> createSubscription(String customerId, String templateId, long level,
-                                                       long lastSubscriptionCreatedAt);
+      long lastSubscriptionCreatedAt);
 
   CompletableFuture<SubscriptionId> updateSubscription(
       Object subscription, String templateId, long level, String idempotencyKey);
 
-  CompletableFuture<Long> getLevelForSubscription(Object subscription);
+  /**
+   * @param subscription
+   * @return the subscription’s current level and lower-case currency code
+   */
+  CompletableFuture<LevelAndCurrency> getLevelAndCurrencyForSubscription(Object subscription);
 
   CompletableFuture<Void> cancelAllActiveSubscriptions(String customerId);
 
@@ -157,6 +161,10 @@ public interface SubscriptionProcessorManager {
   }
 
   record ReceiptItem(String itemId, Instant expiration, long level) {
+
+  }
+
+  record LevelAndCurrency(long level, String currency) {
 
   }
 

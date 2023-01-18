@@ -510,64 +510,64 @@ public class SubscriptionController {
         .thenApply(this::requireRecordFromGetResult)
         .thenCompose(record -> {
 
-            final ProcessorCustomer processorCustomer = record.getProcessorCustomer()
-                    .orElseThrow(() ->
-                            // a missing customer ID indicates the client made requests out of order,
-                            // and needs to call create_payment_method to create a customer for the given payment method
-                            new ClientErrorException(Status.CONFLICT));
+          final ProcessorCustomer processorCustomer = record.getProcessorCustomer()
+              .orElseThrow(() ->
+                  // a missing customer ID indicates the client made requests out of order,
+                  // and needs to call create_payment_method to create a customer for the given payment method
+                  new ClientErrorException(Status.CONFLICT));
 
-            final String subscriptionTemplateId = getSubscriptionTemplateId(level, currency, processorCustomer.processor());
+          final String subscriptionTemplateId = getSubscriptionTemplateId(level, currency,
+              processorCustomer.processor());
 
-            final SubscriptionProcessorManager manager = getManagerForProcessor(processorCustomer.processor());
+          final SubscriptionProcessorManager manager = getManagerForProcessor(processorCustomer.processor());
 
-            return Optional.ofNullable(record.subscriptionId)
-                    .map(subId -> {
-                        // we already have a subscription in our records so let's check the level and change it if needed
-                        return manager.getSubscription(subId).thenCompose(
-                                subscription -> manager.getLevelForSubscription(subscription).thenCompose(existingLevel -> {
-                                    if (level == existingLevel) {
-                                        return CompletableFuture.completedFuture(subscription);
-                              }
-                              return manager.updateSubscription(
-                                              subscription, subscriptionTemplateId, level, idempotencyKey)
-                                      .thenCompose(updatedSubscription ->
-                                              subscriptionManager.subscriptionLevelChanged(requestData.subscriberUser,
-                                                      requestData.now,
-                                                      level, updatedSubscription.id())
-                                                      .thenApply(unused -> updatedSubscription));
-                          }));
-              }).orElseGet(() -> {
-                      long lastSubscriptionCreatedAt =
-                              record.subscriptionCreatedAt != null ? record.subscriptionCreatedAt.getEpochSecond() : 0;
-
-                      // we don't have a subscription yet so create it and then record the subscription id
-                      //
-                      // this relies on stripe's idempotency key to avoid creating more than one subscription if the client
-                      // retries this request
-                      return manager.createSubscription(processorCustomer.customerId(),
-                                      subscriptionTemplateId,
-                                      level,
-                                      lastSubscriptionCreatedAt)
-                              .exceptionally(e -> {
-                                  if (e.getCause() instanceof StripeException stripeException
-                                          && stripeException.getCode().equals("subscription_payment_intent_requires_action")) {
-                                      throw new BadRequestException(Response.status(Status.BAD_REQUEST)
-                                              .entity(new SetSubscriptionLevelErrorResponse(List.of(
-                                                      new SetSubscriptionLevelErrorResponse.Error(
-                                                              SetSubscriptionLevelErrorResponse.Error.Type.PAYMENT_REQUIRES_ACTION, null
-                                )
-                            ))).build());
+          return Optional.ofNullable(record.subscriptionId).map(subId -> {
+            // we already have a subscription in our records so let's check the level and currency,
+            // and only change it if needed
+            return manager.getSubscription(subId).thenCompose(
+                subscription -> manager.getLevelAndCurrencyForSubscription(subscription)
+                    .thenCompose(existingLevelAndCurrency -> {
+                      if (existingLevelAndCurrency.equals(new SubscriptionProcessorManager.LevelAndCurrency(level,
+                          currency.toLowerCase(Locale.ROOT)))) {
+                        return CompletableFuture.completedFuture(subscription);
                       }
-                        if (e instanceof RuntimeException re) {
-                            throw re;
-                        }
+                      return manager.updateSubscription(
+                              subscription, subscriptionTemplateId, level, idempotencyKey)
+                          .thenCompose(updatedSubscription ->
+                              subscriptionManager.subscriptionLevelChanged(requestData.subscriberUser,
+                                      requestData.now,
+                                      level, updatedSubscription.id())
+                                  .thenApply(unused -> updatedSubscription));
+                    }));
+          }).orElseGet(() -> {
+            long lastSubscriptionCreatedAt =
+                record.subscriptionCreatedAt != null ? record.subscriptionCreatedAt.getEpochSecond() : 0;
 
-                        throw new CompletionException(e);
-                    })
-                        .thenCompose(subscription -> subscriptionManager.subscriptionCreated(
-                                        requestData.subscriberUser, subscription.id(), requestData.now, level)
-                                .thenApply(unused -> subscription));
-                  });
+            // we don't have a subscription yet so create it and then record the subscription id
+            return manager.createSubscription(processorCustomer.customerId(),
+                    subscriptionTemplateId,
+                    level,
+                    lastSubscriptionCreatedAt)
+                .exceptionally(e -> {
+                  if (e.getCause() instanceof StripeException stripeException
+                      && stripeException.getCode().equals("subscription_payment_intent_requires_action")) {
+                    throw new BadRequestException(Response.status(Status.BAD_REQUEST)
+                        .entity(new SetSubscriptionLevelErrorResponse(List.of(
+                            new SetSubscriptionLevelErrorResponse.Error(
+                                SetSubscriptionLevelErrorResponse.Error.Type.PAYMENT_REQUIRES_ACTION, null
+                            )
+                        ))).build());
+                  }
+                  if (e instanceof RuntimeException re) {
+                    throw re;
+                  }
+
+                  throw new CompletionException(e);
+                })
+                .thenCompose(subscription -> subscriptionManager.subscriptionCreated(
+                        requestData.subscriberUser, subscription.id(), requestData.now, level)
+                    .thenApply(unused -> subscription));
+          });
         })
             .thenApply(unused -> Response.ok(new SetSubscriptionLevelSuccessResponse(level)).build());
   }

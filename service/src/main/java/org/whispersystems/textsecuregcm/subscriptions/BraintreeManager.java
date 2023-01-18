@@ -358,11 +358,13 @@ public class BraintreeManager implements SubscriptionProcessorManager {
   }
 
   @Override
-  public CompletableFuture<Long> getLevelForSubscription(Object subscriptionObj) {
+  public CompletableFuture<LevelAndCurrency> getLevelAndCurrencyForSubscription(Object subscriptionObj) {
     final Subscription subscription = getSubscription(subscriptionObj);
 
     return findPlan(subscription.getPlanId())
-        .thenApply(this::getLevelForPlan);
+        .thenApply(
+            plan -> new LevelAndCurrency(getLevelForPlan(plan), plan.getCurrencyIsoCode().toLowerCase(Locale.ROOT)));
+
   }
 
   private CompletableFuture<Plan> findPlan(String planId) {

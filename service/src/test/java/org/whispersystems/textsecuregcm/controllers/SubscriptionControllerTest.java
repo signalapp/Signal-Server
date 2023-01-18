@@ -72,7 +72,6 @@ import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessor;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
-import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
@@ -548,7 +547,8 @@ class SubscriptionControllerTest {
     when(BRAINTREE_MANAGER.getSubscription(any()))
         .thenReturn(CompletableFuture.completedFuture(subscriptionObj));
     when(BRAINTREE_MANAGER.getLevelAndCurrencyForSubscription(subscriptionObj))
-        .thenReturn(CompletableFuture.completedFuture(new Pair<>(existingLevel, existingCurrency)));
+        .thenReturn(CompletableFuture.completedFuture(
+            new SubscriptionProcessorManager.LevelAndCurrency(existingLevel, existingCurrency)));
     final String updatedSubscriptionId = "updatedSubscriptionId";
 
     if (expectUpdate) {

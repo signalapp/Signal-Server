@@ -246,37 +246,37 @@ public class StripeManager implements SubscriptionProcessorManager {
   @Override
   public CompletableFuture<SubscriptionId> createSubscription(String customerId, String priceId, long level,
       long lastSubscriptionCreatedAt) {
+    // this relies on Stripe's idempotency key to avoid creating more than one subscription if the client
+    // retries this request
     return CompletableFuture.supplyAsync(() -> {
           SubscriptionCreateParams params = SubscriptionCreateParams.builder()
               .setCustomer(customerId)
               .setOffSession(true)
               .setPaymentBehavior(SubscriptionCreateParams.PaymentBehavior.ERROR_IF_INCOMPLETE)
               .addItem(SubscriptionCreateParams.Item.builder()
-                              .setPrice(priceId)
-                              .build())
-                      .putMetadata(METADATA_KEY_LEVEL, Long.toString(level))
-                      .build();
-              try {
-                // the idempotency key intentionally excludes priceId
-                //
-                // If the client tells the server several times in a row before the initial creation of a subscription to
-                // create a subscription, we want to ensure only one gets created.
-                return Subscription.create(params, commonOptions(generateIdempotencyKeyForCreateSubscription(
-                        customerId, lastSubscriptionCreatedAt)));
-              } catch (StripeException e) {
-                throw new CompletionException(e);
-              }
-            }, executor)
-            .thenApply(subscription -> new SubscriptionId(subscription.getId()));
+                  .setPrice(priceId)
+                  .build())
+              .putMetadata(METADATA_KEY_LEVEL, Long.toString(level))
+              .build();
+          try {
+            // the idempotency key intentionally excludes priceId
+            //
+            // If the client tells the server several times in a row before the initial creation of a subscription to
+            // create a subscription, we want to ensure only one gets created.
+            return Subscription.create(params, commonOptions(generateIdempotencyKeyForCreateSubscription(
+                customerId, lastSubscriptionCreatedAt)));
+          } catch (StripeException e) {
+            throw new CompletionException(e);
+          }
+        }, executor)
+        .thenApply(subscription -> new SubscriptionId(subscription.getId()));
   }
 
   @Override
   public CompletableFuture<SubscriptionId> updateSubscription(
           Object subscriptionObj, String priceId, long level, String idempotencyKey) {
 
-    if (!(subscriptionObj instanceof final Subscription subscription)) {
-      throw new IllegalArgumentException("invalid subscription object: " + subscriptionObj.getClass().getName());
-    }
+    final Subscription subscription = getSubscription(subscriptionObj);
 
     return CompletableFuture.supplyAsync(() -> {
               List<SubscriptionUpdateParams.Item> items = new ArrayList<>();
@@ -400,12 +400,12 @@ public class StripeManager implements SubscriptionProcessorManager {
   }
 
   @Override
-  public CompletableFuture<Long> getLevelForSubscription(Object subscriptionObj) {
-    if (!(subscriptionObj instanceof final Subscription subscription)) {
+  public CompletableFuture<LevelAndCurrency> getLevelAndCurrencyForSubscription(Object subscriptionObj) {
+    final Subscription subscription = getSubscription(subscriptionObj);
 
-      throw new IllegalArgumentException("Invalid subscription object: " + subscriptionObj.getClass().getName());
-    }
-    return getProductForSubscription(subscription).thenApply(this::getLevelForProduct);
+    return getProductForSubscription(subscription).thenApply(
+        product -> new LevelAndCurrency(getLevelForProduct(product), subscription.getCurrency().toLowerCase(
+            Locale.ROOT)));
   }
 
   public CompletableFuture<Long> getLevelForPrice(Price price) {
