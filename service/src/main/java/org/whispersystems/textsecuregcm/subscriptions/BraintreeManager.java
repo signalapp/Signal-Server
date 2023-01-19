@@ -297,32 +297,17 @@ public class BraintreeManager implements SubscriptionProcessorManager {
               .filter(Subscription::neverExpires)
               .findAny();
 
-          final CompletableFuture<Plan> planFuture = maybeExistingSubscription.map(sub ->
-              findPlan(sub.getPlanId()).thenApply(plan -> {
-                if (getLevelForPlan(plan) != level) {
-                  // if this happens, the likely cause is retrying an apparently failed request (likely some sort of timeout or network interruption)
-                  // with a different level.
-                  // In this case, it’s safer and easier to recover by returning this subscription, rather than
-                  // returning an error
-                  logger.warn("existing subscription had unexpected level");
-                }
-                return plan;
-              })).orElseGet(() -> findPlan(planId));
-
-          return maybeExistingSubscription
-              .map(subscription -> {
-                return findPlan(subscription.getPlanId())
-                    .thenApply(plan -> {
-                      if (getLevelForPlan(plan) != level) {
-                        // if this happens, the likely cause is retrying an apparently failed request (likely some sort of timeout or network interruption)
-                        // with a different level.
-                        // In this case, it’s safer and easier to recover by returning this subscription, rather than
-                        // returning an error
-                        logger.warn("existing subscription had unexpected level");
-                      }
-                      return subscription;
-                    });
-              })
+          return maybeExistingSubscription.map(subscription -> findPlan(subscription.getPlanId())
+                  .thenApply(plan -> {
+                    if (getLevelForPlan(plan) != level) {
+                      // if this happens, the likely cause is retrying an apparently failed request (likely some sort of timeout or network interruption)
+                      // with a different level.
+                      // In this case, it’s safer and easier to recover by returning this subscription, rather than
+                      // returning an error
+                      logger.warn("existing subscription had unexpected level");
+                    }
+                    return subscription;
+                  }))
               .orElseGet(() -> findPlan(planId).thenApplyAsync(plan -> {
                 final Result<Subscription> result = braintreeGateway.subscription().create(new SubscriptionRequest()
                     .planId(planId)
