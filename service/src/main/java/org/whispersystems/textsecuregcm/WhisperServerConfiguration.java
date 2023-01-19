@@ -49,7 +49,6 @@ import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TestDeviceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.UnidentifiedDeliveryConfiguration;
 import org.whispersystems.textsecuregcm.configuration.UsernameConfiguration;
-import org.whispersystems.textsecuregcm.configuration.VoiceVerificationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ZkConfig;
 import org.whispersystems.websocket.configuration.WebSocketConfiguration;
 
@@ -194,11 +193,6 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @NotNull
   @JsonProperty
-  private VoiceVerificationConfiguration voiceVerification;
-
-  @Valid
-  @NotNull
-  @JsonProperty
   private RecaptchaConfiguration recaptcha;
 
   @Valid
@@ -301,10 +295,6 @@ public class WhisperServerConfiguration extends Configuration {
 
   public HCaptchaConfiguration getHCaptchaConfiguration() {
     return hCaptcha;
-  }
-
-  public VoiceVerificationConfiguration getVoiceVerificationConfiguration() {
-    return voiceVerification;
   }
 
   public WebSocketConfiguration getWebSocketConfiguration() {

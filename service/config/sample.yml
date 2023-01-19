@@ -229,11 +229,6 @@ unidentifiedDelivery:
   privateKey: ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789AAAAAAA
   expiresDays: 7
 
-voiceVerification:
-  url: https://cdn-ca.signal.org/verification/
-  locales:
-    - en
-
 recaptcha:
   projectPath: projects/example
   credentialConfigurationJson: "{ }" # service account configuration for backend authentication

@@ -107,7 +107,6 @@ import org.whispersystems.textsecuregcm.controllers.SecureStorageController;
 import org.whispersystems.textsecuregcm.controllers.SecureValueRecovery2Controller;
 import org.whispersystems.textsecuregcm.controllers.StickerController;
 import org.whispersystems.textsecuregcm.controllers.SubscriptionController;
-import org.whispersystems.textsecuregcm.controllers.VoiceVerificationController;
 import org.whispersystems.textsecuregcm.currency.CoinMarketCapClient;
 import org.whispersystems.textsecuregcm.currency.CurrencyConversionManager;
 import org.whispersystems.textsecuregcm.currency.FixerClient;
@@ -650,8 +649,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         ImmutableSet.of(AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)));
     environment.jersey().register(new WebsocketRefreshApplicationEventListener(accountsManager, clientPresenceManager));
     environment.jersey().register(new TimestampResponseFilter());
-    environment.jersey().register(new VoiceVerificationController(config.getVoiceVerificationConfiguration().getUrl(),
-        config.getVoiceVerificationConfiguration().getLocales()));
 
     ///
     WebSocketEnvironment<AuthenticatedAccount> webSocketEnvironment = new WebSocketEnvironment<>(environment,
