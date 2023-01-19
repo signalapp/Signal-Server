@@ -30,4 +30,19 @@ public interface AbusiveMessageFilter extends ContainerRequestFilter, Managed {
    * @throws IOException if the filter could not read its configuration source for any reason
    */
   void configure(String environmentName) throws IOException;
+
+  /**
+   * Builds a spam report token provider. This will generate tokens used by the spam reporting system.
+   *
+   * @return the configured spam report token provider.
+   */
+  ReportSpamTokenProvider getReportSpamTokenProvider();
+
+  /**
+   * Builds a spam report token handler. This will handle tokens received by the spam reporting system.
+   *
+   * @return the configured spam report token handler
+   */
+  ReportSpamTokenHandler getReportSpamTokenHandler();
+
 }

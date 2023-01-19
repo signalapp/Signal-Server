@@ -55,12 +55,16 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.container.ContainerRequestContext;
+import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.abuse.FilterAbusiveMessages;
+import org.whispersystems.textsecuregcm.abuse.ReportSpamTokenHandler;
+import org.whispersystems.textsecuregcm.abuse.ReportSpamTokenProvider;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.CombinedUnidentifiedSenderAccessKeys;
@@ -78,6 +82,7 @@ import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntityList;
 import org.whispersystems.textsecuregcm.entities.SendMessageResponse;
 import org.whispersystems.textsecuregcm.entities.SendMultiRecipientMessageResponse;
+import org.whispersystems.textsecuregcm.entities.SpamReport;
 import org.whispersystems.textsecuregcm.entities.StaleDevices;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
@@ -117,6 +122,8 @@ public class MessageController {
   private final PushNotificationManager pushNotificationManager;
   private final ReportMessageManager reportMessageManager;
   private final ExecutorService multiRecipientMessageExecutor;
+  private final ReportSpamTokenProvider reportSpamTokenProvider;
+  private final ReportSpamTokenHandler reportSpamTokenHandler;
 
   private static final String REJECT_OVERSIZE_MESSAGE_COUNTER = name(MessageController.class, "rejectOversizeMessage");
   private static final String SENT_MESSAGE_COUNTER_NAME = name(MessageController.class, "sentMessages");
@@ -147,7 +154,9 @@ public class MessageController {
       MessagesManager messagesManager,
       PushNotificationManager pushNotificationManager,
       ReportMessageManager reportMessageManager,
-      @Nonnull ExecutorService multiRecipientMessageExecutor) {
+      @Nonnull ExecutorService multiRecipientMessageExecutor,
+      @Nonnull ReportSpamTokenProvider reportSpamTokenProvider,
+      @Nonnull ReportSpamTokenHandler reportSpamTokenHandler) {
     this.rateLimiters = rateLimiters;
     this.messageSender = messageSender;
     this.receiptSender = receiptSender;
@@ -157,6 +166,9 @@ public class MessageController {
     this.pushNotificationManager = pushNotificationManager;
     this.reportMessageManager = reportMessageManager;
     this.multiRecipientMessageExecutor = Objects.requireNonNull(multiRecipientMessageExecutor);
+    this.reportSpamTokenProvider = reportSpamTokenProvider;
+    this.reportSpamTokenHandler = reportSpamTokenHandler;
+
   }
 
   @Timed
@@ -171,7 +183,9 @@ public class MessageController {
       @HeaderParam(HttpHeaders.X_FORWARDED_FOR) String forwardedFor,
       @PathParam("destination") UUID destinationUuid,
       @QueryParam("story") boolean isStory,
-      @NotNull @Valid IncomingMessageList messages)
+      @NotNull @Valid IncomingMessageList messages,
+      @Context ContainerRequestContext context
+  )
       throws RateLimitExceededException {
 
     if (source.isEmpty() && accessKey.isEmpty() && !isStory) {
@@ -188,6 +202,13 @@ public class MessageController {
       }
     } else {
       senderType = SENDER_TYPE_UNIDENTIFIED;
+    }
+
+    final Optional<byte[]> spamReportToken;
+    if (senderType.equals(SENDER_TYPE_IDENTIFIED)) {
+      spamReportToken = reportSpamTokenProvider.makeReportSpamToken(context);
+    } else {
+      spamReportToken = Optional.empty();
     }
 
     for (final IncomingMessage message : messages.messages()) {
@@ -267,7 +288,18 @@ public class MessageController {
 
         if (destinationDevice.isPresent()) {
           Metrics.counter(SENT_MESSAGE_COUNTER_NAME, tags).increment();
-          sendIndividualMessage(source, destination.get(), destinationDevice.get(), destinationUuid, messages.timestamp(), messages.online(), isStory, messages.urgent(), incomingMessage, userAgent);
+          sendIndividualMessage(
+              source,
+              destination.get(),
+              destinationDevice.get(),
+              destinationUuid,
+              messages.timestamp(),
+              messages.online(),
+              isStory,
+              messages.urgent(),
+              incomingMessage,
+              userAgent,
+              spamReportToken);
         }
       }
 
@@ -570,9 +602,14 @@ public class MessageController {
 
   @Timed
   @POST
+  @Consumes(MediaType.APPLICATION_JSON)
   @Path("/report/{source}/{messageGuid}")
-  public Response reportMessage(@Auth AuthenticatedAccount auth, @PathParam("source") String source,
-      @PathParam("messageGuid") UUID messageGuid) {
+  public Response reportSpamMessage(
+      @Auth AuthenticatedAccount auth,
+      @PathParam("source") String source,
+      @PathParam("messageGuid") UUID messageGuid,
+      @Nullable @Valid SpamReport spamReport
+  ) {
 
     final Optional<String> sourceNumber;
     final Optional<UUID> sourceAci;
@@ -602,13 +639,30 @@ public class MessageController {
       }
     }
 
-    reportMessageManager.report(sourceNumber, sourceAci, sourcePni, messageGuid, auth.getAccount().getUuid());
+    UUID spamReporterUuid = auth.getAccount().getUuid();
+
+    // spam report token is optional, but if provided ensure it is valid base64.
+    byte[] spamReportToken = null;
+    if (spamReport != null) {
+      try {
+        spamReportToken = Base64.getDecoder().decode(spamReport.token());
+      } catch (IllegalArgumentException e) {
+        throw new WebApplicationException(Response.status(400).build());
+      }
+    }
+
+    // fire-and-forget: we don't want to block the response on this action.
+    CompletableFuture<Boolean> ignored =
+      reportSpamTokenHandler.handle(sourceNumber, sourceAci, sourcePni, messageGuid, spamReporterUuid, spamReportToken);
+
+    reportMessageManager.report(sourceNumber, sourceAci, sourcePni, messageGuid, spamReporterUuid);
 
     return Response.status(Status.ACCEPTED)
         .build();
   }
 
-  private void sendIndividualMessage(Optional<AuthenticatedAccount> source,
+  private void sendIndividualMessage(
+      Optional<AuthenticatedAccount> source,
       Account destinationAccount,
       Device destinationDevice,
       UUID destinationUuid,
@@ -617,18 +671,23 @@ public class MessageController {
       boolean story,
       boolean urgent,
       IncomingMessage incomingMessage,
-      String userAgentString)
+      String userAgentString,
+      Optional<byte[]> spamReportToken)
       throws NoSuchUserException {
     try {
       final Envelope envelope;
 
       try {
-        envelope = incomingMessage.toEnvelope(destinationUuid,
-            source.map(AuthenticatedAccount::getAccount).orElse(null),
-            source.map(authenticatedAccount -> authenticatedAccount.getAuthenticatedDevice().getId()).orElse(null),
+        Account sourceAccount = source.map(AuthenticatedAccount::getAccount).orElse(null);
+        Long sourceDeviceId = source.map(account -> account.getAuthenticatedDevice().getId()).orElse(null);
+        envelope = incomingMessage.toEnvelope(
+            destinationUuid,
+            sourceAccount,
+            sourceDeviceId,
             timestamp == 0 ? System.currentTimeMillis() : timestamp,
             story,
-            urgent);
+            urgent,
+            spamReportToken.orElse(null));
       } catch (final IllegalArgumentException e) {
         logger.warn("Received bad envelope type {} from {}", incomingMessage.type(), userAgentString);
         throw new BadRequestException(e);

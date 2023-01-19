@@ -33,7 +33,8 @@ message Envelope {
   optional bool urgent = 14 [default=true];
   optional string updated_pni = 15;
   optional bool story = 16; // indicates that the content is a story.
-  // next: 17
+  optional bytes report_spam_token = 17; // token sent when reporting spam
+  // next: 18
 }
 
 message ProvisioningUuid {

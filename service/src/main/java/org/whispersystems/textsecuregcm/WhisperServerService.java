@@ -73,6 +73,8 @@ import org.whispersystems.dispatch.DispatchManager;
 import org.whispersystems.textsecuregcm.abuse.AbusiveMessageFilter;
 import org.whispersystems.textsecuregcm.abuse.FilterAbusiveMessages;
 import org.whispersystems.textsecuregcm.abuse.RateLimitChallengeListener;
+import org.whispersystems.textsecuregcm.abuse.ReportSpamTokenHandler;
+import org.whispersystems.textsecuregcm.abuse.ReportSpamTokenProvider;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.CertificateGenerator;
@@ -678,49 +680,28 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     environment.jersey().register(new KeysController(rateLimiters, keys, accountsManager));
 
-    final List<Object> commonControllers = Lists.newArrayList(
-        new ArtController(rateLimiters, artCredentialsGenerator),
-        new AttachmentControllerV2(rateLimiters, config.getAwsAttachmentsConfiguration().getAccessKey(), config.getAwsAttachmentsConfiguration().getAccessSecret(), config.getAwsAttachmentsConfiguration().getRegion(), config.getAwsAttachmentsConfiguration().getBucket()),
-        new AttachmentControllerV3(rateLimiters, config.getGcpAttachmentsConfiguration().getDomain(), config.getGcpAttachmentsConfiguration().getEmail(), config.getGcpAttachmentsConfiguration().getMaxSizeInBytes(), config.getGcpAttachmentsConfiguration().getPathPrefix(), config.getGcpAttachmentsConfiguration().getRsaSigningKey()),
-        new CertificateController(new CertificateGenerator(config.getDeliveryCertificate().getCertificate(), config.getDeliveryCertificate().getPrivateKey(), config.getDeliveryCertificate().getExpiresDays()), zkAuthOperations, clock),
-        new ChallengeController(rateLimitChallengeManager),
-        new DeviceController(pendingDevicesManager, accountsManager, messagesManager, keys, rateLimiters, config.getMaxDevices()),
-        new DirectoryController(directoryCredentialsGenerator),
-        new DirectoryV2Controller(directoryV2CredentialsGenerator),
-        new DonationController(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager, config.getBadges(),
-            ReceiptCredentialPresentation::new),
-        new MessageController(rateLimiters, messageSender, receiptSender, accountsManager, deletedAccountsManager, messagesManager, pushNotificationManager, reportMessageManager, multiRecipientMessageExecutor),
-        new PaymentsController(currencyManager, paymentsCredentialsGenerator),
-        new ProfileController(clock, rateLimiters, accountsManager, profilesManager, dynamicConfigurationManager,
-            profileBadgeConverter, config.getBadges(), cdnS3Client, profileCdnPolicyGenerator, profileCdnPolicySigner,
-            config.getCdnConfiguration().getBucket(), zkProfileOperations, batchIdentityCheckExecutor),
-        new ProvisioningController(rateLimiters, provisioningManager),
-        new RemoteConfigController(remoteConfigsManager, adminEventLogger,
-            config.getRemoteConfigConfiguration().getAuthorizedTokens(),
-            config.getRemoteConfigConfiguration().getGlobalConfig()),
-        new SecureBackupController(backupCredentialsGenerator),
-        new SecureStorageController(storageCredentialsGenerator),
-        new StickerController(rateLimiters, config.getCdnConfiguration().getAccessKey(),
-            config.getCdnConfiguration().getAccessSecret(), config.getCdnConfiguration().getRegion(),
-            config.getCdnConfiguration().getBucket())
-    );
-    if (config.getSubscription() != null && config.getOneTimeDonations() != null) {
-      commonControllers.add(new SubscriptionController(clock, config.getSubscription(), config.getOneTimeDonations(),
-          subscriptionManager, stripeManager, braintreeManager, zkReceiptOperations, issuedReceiptsManager, profileBadgeConverter,
-          resourceBundleLevelTranslator));
-    }
-
-    for (Object controller : commonControllers) {
-      environment.jersey().register(controller);
-      webSocketEnvironment.jersey().register(controller);
-    }
-
     boolean registeredAbusiveMessageFilter = false;
+    ReportSpamTokenProvider reportSpamTokenProvider = null;
+    ReportSpamTokenHandler reportSpamTokenHandler = null;
 
     for (final AbusiveMessageFilter filter : ServiceLoader.load(AbusiveMessageFilter.class)) {
       if (filter.getClass().isAnnotationPresent(FilterAbusiveMessages.class)) {
         try {
           filter.configure(config.getAbusiveMessageFilterConfiguration().getEnvironment());
+
+          ReportSpamTokenProvider thisProvider = filter.getReportSpamTokenProvider();
+          if (reportSpamTokenProvider == null) {
+            reportSpamTokenProvider = thisProvider;
+          } else if (thisProvider != null) {
+            log.info("Multiple spam report token providers found. Using the first.");
+          }
+
+          ReportSpamTokenHandler thisHandler = filter.getReportSpamTokenHandler();
+          if (reportSpamTokenHandler == null) {
+            reportSpamTokenHandler = thisHandler;
+          } else if (thisProvider != null) {
+            log.info("Multiple spam report token handlers found. Using the first.");
+          }
 
           environment.lifecycle().manage(filter);
           environment.jersey().register(filter);
@@ -744,6 +725,52 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     if (!registeredAbusiveMessageFilter) {
       log.warn("No abusive message filters installed");
+    }
+
+    if (reportSpamTokenProvider == null) {
+      reportSpamTokenProvider = ReportSpamTokenProvider.noop();
+    }
+
+    if (reportSpamTokenHandler == null) {
+      reportSpamTokenHandler = ReportSpamTokenHandler.noop();
+    }
+
+    final List<Object> commonControllers = Lists.newArrayList(
+        new ArtController(rateLimiters, artCredentialsGenerator),
+        new AttachmentControllerV2(rateLimiters, config.getAwsAttachmentsConfiguration().getAccessKey(), config.getAwsAttachmentsConfiguration().getAccessSecret(), config.getAwsAttachmentsConfiguration().getRegion(), config.getAwsAttachmentsConfiguration().getBucket()),
+        new AttachmentControllerV3(rateLimiters, config.getGcpAttachmentsConfiguration().getDomain(), config.getGcpAttachmentsConfiguration().getEmail(), config.getGcpAttachmentsConfiguration().getMaxSizeInBytes(), config.getGcpAttachmentsConfiguration().getPathPrefix(), config.getGcpAttachmentsConfiguration().getRsaSigningKey()),
+        new CertificateController(new CertificateGenerator(config.getDeliveryCertificate().getCertificate(), config.getDeliveryCertificate().getPrivateKey(), config.getDeliveryCertificate().getExpiresDays()), zkAuthOperations, clock),
+        new ChallengeController(rateLimitChallengeManager),
+        new DeviceController(pendingDevicesManager, accountsManager, messagesManager, keys, rateLimiters, config.getMaxDevices()),
+        new DirectoryController(directoryCredentialsGenerator),
+        new DirectoryV2Controller(directoryV2CredentialsGenerator),
+        new DonationController(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager, config.getBadges(),
+            ReceiptCredentialPresentation::new),
+        new MessageController(rateLimiters, messageSender, receiptSender, accountsManager, deletedAccountsManager, messagesManager, pushNotificationManager, reportMessageManager, multiRecipientMessageExecutor,
+            reportSpamTokenProvider, reportSpamTokenHandler),
+        new PaymentsController(currencyManager, paymentsCredentialsGenerator),
+        new ProfileController(clock, rateLimiters, accountsManager, profilesManager, dynamicConfigurationManager,
+            profileBadgeConverter, config.getBadges(), cdnS3Client, profileCdnPolicyGenerator, profileCdnPolicySigner,
+            config.getCdnConfiguration().getBucket(), zkProfileOperations, batchIdentityCheckExecutor),
+        new ProvisioningController(rateLimiters, provisioningManager),
+        new RemoteConfigController(remoteConfigsManager, adminEventLogger,
+            config.getRemoteConfigConfiguration().getAuthorizedTokens(),
+            config.getRemoteConfigConfiguration().getGlobalConfig()),
+        new SecureBackupController(backupCredentialsGenerator),
+        new SecureStorageController(storageCredentialsGenerator),
+        new StickerController(rateLimiters, config.getCdnConfiguration().getAccessKey(),
+            config.getCdnConfiguration().getAccessSecret(), config.getCdnConfiguration().getRegion(),
+            config.getCdnConfiguration().getBucket())
+    );
+    if (config.getSubscription() != null && config.getOneTimeDonations() != null) {
+      commonControllers.add(new SubscriptionController(clock, config.getSubscription(), config.getOneTimeDonations(),
+          subscriptionManager, stripeManager, braintreeManager, zkReceiptOperations, issuedReceiptsManager, profileBadgeConverter,
+          resourceBundleLevelTranslator));
+    }
+
+    for (Object controller : commonControllers) {
+      environment.jersey().register(controller);
+      webSocketEnvironment.jersey().register(controller);
     }
 
     WebSocketEnvironment<AuthenticatedAccount> provisioningEnvironment = new WebSocketEnvironment<>(environment,

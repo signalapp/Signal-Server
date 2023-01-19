@@ -18,7 +18,8 @@ public record IncomingMessage(int type, long destinationDeviceId, int destinatio
       @Nullable Long sourceDeviceId,
       final long timestamp,
       final boolean story,
-      final boolean urgent) {
+      final boolean urgent,
+      @Nullable byte[] reportSpamToken) {
 
     final MessageProtos.Envelope.Type envelopeType = MessageProtos.Envelope.Type.forNumber(type());
 
@@ -36,8 +37,13 @@ public record IncomingMessage(int type, long destinationDeviceId, int destinatio
         .setUrgent(urgent);
 
     if (sourceAccount != null && sourceDeviceId != null) {
-      envelopeBuilder.setSourceUuid(sourceAccount.getUuid().toString())
+      envelopeBuilder
+          .setSourceUuid(sourceAccount.getUuid().toString())
           .setSourceDevice(sourceDeviceId.intValue());
+    }
+
+    if (reportSpamToken != null) {
+      envelopeBuilder.setReportSpamToken(ByteString.copyFrom(reportSpamToken));
     }
 
     if (StringUtils.isNotEmpty(content())) {
