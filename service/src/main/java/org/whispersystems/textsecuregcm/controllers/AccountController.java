@@ -361,11 +361,7 @@ public class AccountController {
     final byte[] sessionId =  maybeStoredVerificationCode.isPresent() && maybeStoredVerificationCode.get().sessionId() != null ?
         maybeStoredVerificationCode.get().sessionId() : createRegistrationSession(phoneNumber);
 
-    registrationServiceClient.sendRegistrationCode(sessionId,
-        messageTransport,
-        clientType,
-        acceptLanguage.orElse(null),
-        REGISTRATION_RPC_TIMEOUT).join();
+    sendVerificationCode(sessionId, messageTransport, clientType, acceptLanguage);
 
     final StoredVerificationCode storedVerificationCode = new StoredVerificationCode(null,
         clock.millis(),
@@ -405,10 +401,14 @@ public class AccountController {
     // Note that successful verification depends on being able to find a stored verification code for the given number.
     // We check that numbers are normalized before we store verification codes, and so don't need to re-assert
     // normalization here.
-    final boolean codeVerified = pendingAccounts.getCodeForNumber(number).map(storedVerificationCode ->
-            registrationServiceClient.checkVerificationCode(storedVerificationCode.sessionId(),
-                verificationCode, REGISTRATION_RPC_TIMEOUT).join())
-        .orElse(false);
+    final boolean codeVerified;
+    final Optional<StoredVerificationCode> maybeStoredVerificationCode = pendingAccounts.getCodeForNumber(number);
+
+    if (maybeStoredVerificationCode.isPresent()) {
+      codeVerified = checkVerificationCode(maybeStoredVerificationCode.get().sessionId(), verificationCode);
+    } else {
+      codeVerified = false;
+    }
 
     if (!codeVerified) {
       throw new WebApplicationException(Response.status(403).build());
@@ -471,10 +471,14 @@ public class AccountController {
 
       rateLimiters.getVerifyLimiter().validate(number);
 
-      final boolean codeVerified = pendingAccounts.getCodeForNumber(number).map(storedVerificationCode ->
-              registrationServiceClient.checkVerificationCode(storedVerificationCode.sessionId(),
-                      request.code(), REGISTRATION_RPC_TIMEOUT).join())
-          .orElse(false);
+      final boolean codeVerified;
+      final Optional<StoredVerificationCode> maybeStoredVerificationCode = pendingAccounts.getCodeForNumber(number);
+
+      if (maybeStoredVerificationCode.isPresent()) {
+        codeVerified = checkVerificationCode(maybeStoredVerificationCode.get().sessionId(), request.code());
+      } else {
+        codeVerified = false;
+      }
 
       if (!codeVerified) {
         throw new ForbiddenException();
@@ -964,17 +968,50 @@ public class AccountController {
     try {
       return registrationServiceClient.createRegistrationSession(phoneNumber, REGISTRATION_RPC_TIMEOUT).join();
     } catch (final CompletionException e) {
-      Throwable cause = e;
-
-      while (cause instanceof CompletionException) {
-        cause = cause.getCause();
-      }
-
-      if (cause instanceof RateLimitExceededException rateLimitExceededException) {
-        throw rateLimitExceededException;
-      }
-
+      rethrowRateLimitException(e);
       throw e;
+    }
+  }
+
+  private void sendVerificationCode(final byte[] sessionId,
+      final MessageTransport messageTransport,
+      final ClientType clientType,
+      final Optional<String> acceptLanguage) throws RateLimitExceededException {
+
+    try {
+      registrationServiceClient.sendRegistrationCode(sessionId,
+          messageTransport,
+          clientType,
+          acceptLanguage.orElse(null),
+          REGISTRATION_RPC_TIMEOUT).join();
+    } catch (final CompletionException e) {
+      rethrowRateLimitException(e);
+      throw e;
+    }
+  }
+
+  private boolean checkVerificationCode(final byte[] sessionId, final String verificationCode)
+      throws RateLimitExceededException {
+
+    try {
+      return registrationServiceClient.checkVerificationCode(sessionId, verificationCode, REGISTRATION_RPC_TIMEOUT).join();
+    } catch (final CompletionException e) {
+      rethrowRateLimitException(e);
+      throw e;
+    }
+  }
+
+  private void rethrowRateLimitException(final CompletionException completionException)
+      throws RateLimitExceededException {
+
+    Throwable cause = completionException;
+
+    while (cause instanceof CompletionException) {
+      cause = cause.getCause();
+    }
+
+    if (cause instanceof RateLimitExceededException rateLimitExceededException) {
+      throw rateLimitExceededException;
     }
   }
 }
