@@ -331,11 +331,12 @@ class AccountControllerTest {
     when(captchaChecker.verify(eq(VALID_CAPTCHA_TOKEN), anyString()))
         .thenReturn(new AssessmentResult(true, ""));
 
-    doThrow(new RateLimitExceededException(Duration.ZERO)).when(pinLimiter).validate(eq(SENDER_OVER_PIN));
+    doThrow(new RateLimitExceededException(Duration.ZERO, true)).when(pinLimiter).validate(eq(SENDER_OVER_PIN));
 
-    doThrow(new RateLimitExceededException(Duration.ZERO)).when(smsVoicePrefixLimiter).validate(SENDER_OVER_PREFIX.substring(0, 4+2));
-    doThrow(new RateLimitExceededException(Duration.ZERO)).when(smsVoiceIpLimiter).validate(RATE_LIMITED_IP_HOST);
-    doThrow(new RateLimitExceededException(Duration.ZERO)).when(smsVoiceIpLimiter).validate(RATE_LIMITED_HOST2);
+    doThrow(new RateLimitExceededException(Duration.ZERO, true)).when(smsVoicePrefixLimiter)
+        .validate(SENDER_OVER_PREFIX.substring(0, 4 + 2));
+    doThrow(new RateLimitExceededException(Duration.ZERO, true)).when(smsVoiceIpLimiter).validate(RATE_LIMITED_IP_HOST);
+    doThrow(new RateLimitExceededException(Duration.ZERO, true)).when(smsVoiceIpLimiter).validate(RATE_LIMITED_HOST2);
   }
 
   @AfterEach
@@ -571,7 +572,7 @@ class AccountControllerTest {
   @Test
   void testSendCodeRateLimited() {
     when(registrationServiceClient.createRegistrationSession(any(), any()))
-        .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(Duration.ofMinutes(10))));
+        .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(Duration.ofMinutes(10), true)));
 
     Response response =
         resources.getJerseyTest()
@@ -2050,7 +2051,7 @@ class AccountControllerTest {
     when(accountsManager.getByAccountIdentifier(accountIdentifier)).thenReturn(Optional.of(account));
 
     MockUtils.updateRateLimiterResponseToFail(
-        rateLimiters, RateLimiters.Handle.CHECK_ACCOUNT_EXISTENCE, "127.0.0.1", expectedRetryAfter);
+        rateLimiters, RateLimiters.Handle.CHECK_ACCOUNT_EXISTENCE, "127.0.0.1", expectedRetryAfter, true);
 
     final Response response = resources.getJerseyTest()
         .target(String.format("/v1/accounts/account/%s", accountIdentifier))
@@ -2115,7 +2116,7 @@ class AccountControllerTest {
   void testLookupUsernameRateLimited() throws RateLimitExceededException {
     final Duration expectedRetryAfter = Duration.ofSeconds(13);
     MockUtils.updateRateLimiterResponseToFail(
-        rateLimiters, RateLimiters.Handle.USERNAME_LOOKUP, "127.0.0.1", expectedRetryAfter);
+        rateLimiters, RateLimiters.Handle.USERNAME_LOOKUP, "127.0.0.1", expectedRetryAfter, true);
     final Response response = resources.getJerseyTest()
         .target(String.format("v1/accounts/username_hash/%s", BASE_64_URL_USERNAME_HASH_1))
         .request()

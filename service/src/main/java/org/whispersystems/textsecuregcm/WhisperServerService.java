@@ -76,6 +76,7 @@ import org.whispersystems.textsecuregcm.auth.CertificateGenerator;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
+import org.whispersystems.textsecuregcm.auth.PhoneVerificationTokenManager;
 import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
 import org.whispersystems.textsecuregcm.auth.WebsocketRefreshApplicationEventListener;
@@ -87,6 +88,7 @@ import org.whispersystems.textsecuregcm.captcha.RecaptchaClient;
 import org.whispersystems.textsecuregcm.configuration.DirectoryServerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
+import org.whispersystems.textsecuregcm.controllers.AccountControllerV2;
 import org.whispersystems.textsecuregcm.controllers.ArtController;
 import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV2;
 import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV3;
@@ -524,16 +526,22 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     final RegistrationLockVerificationManager registrationLockVerificationManager = new RegistrationLockVerificationManager(
         accountsManager, clientPresenceManager, backupCredentialsGenerator, rateLimiters);
+    final PhoneVerificationTokenManager phoneVerificationTokenManager = new PhoneVerificationTokenManager(
+        registrationServiceClient, registrationRecoveryPasswordsManager);
 
-    ReportedMessageMetricsListener reportedMessageMetricsListener = new ReportedMessageMetricsListener(accountsManager);
+    final ReportedMessageMetricsListener reportedMessageMetricsListener = new ReportedMessageMetricsListener(
+        accountsManager);
     reportMessageManager.addListener(reportedMessageMetricsListener);
 
-    AccountAuthenticator                  accountAuthenticator                  = new AccountAuthenticator(accountsManager);
-    DisabledPermittedAccountAuthenticator disabledPermittedAccountAuthenticator = new DisabledPermittedAccountAuthenticator(accountsManager);
+    final AccountAuthenticator accountAuthenticator = new AccountAuthenticator(accountsManager);
+    final DisabledPermittedAccountAuthenticator disabledPermittedAccountAuthenticator = new DisabledPermittedAccountAuthenticator(
+        accountsManager);
 
-    MessageSender            messageSender      = new MessageSender(clientPresenceManager, messagesManager, pushNotificationManager, pushLatencyManager);
-    ReceiptSender            receiptSender      = new ReceiptSender(accountsManager, messageSender, receiptSenderExecutor);
-    TurnTokenGenerator       turnTokenGenerator = new TurnTokenGenerator(dynamicConfigurationManager);
+    final MessageSender messageSender = new MessageSender(clientPresenceManager, messagesManager,
+        pushNotificationManager,
+        pushLatencyManager);
+    final ReceiptSender receiptSender = new ReceiptSender(accountsManager, messageSender, receiptSenderExecutor);
+    final TurnTokenGenerator turnTokenGenerator = new TurnTokenGenerator(dynamicConfigurationManager);
 
     RecaptchaClient recaptchaClient = new RecaptchaClient(
         config.getRecaptchaConfiguration().getProjectPath(),
@@ -731,6 +739,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     }
 
     final List<Object> commonControllers = Lists.newArrayList(
+        new AccountControllerV2(accountsManager, changeNumberManager, phoneVerificationTokenManager,
+            registrationLockVerificationManager, rateLimiters),
         new ArtController(rateLimiters, artCredentialsGenerator),
         new AttachmentControllerV2(rateLimiters, config.getAwsAttachmentsConfiguration().getAccessKey(), config.getAwsAttachmentsConfiguration().getAccessSecret(), config.getAwsAttachmentsConfiguration().getRegion(), config.getAwsAttachmentsConfiguration().getBucket()),
         new AttachmentControllerV3(rateLimiters, config.getGcpAttachmentsConfiguration().getDomain(), config.getGcpAttachmentsConfiguration().getEmail(), config.getGcpAttachmentsConfiguration().getMaxSizeInBytes(), config.getGcpAttachmentsConfiguration().getPathPrefix(), config.getGcpAttachmentsConfiguration().getRsaSigningKey()),
@@ -748,8 +758,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             profileBadgeConverter, config.getBadges(), cdnS3Client, profileCdnPolicyGenerator, profileCdnPolicySigner,
             config.getCdnConfiguration().getBucket(), zkProfileOperations, batchIdentityCheckExecutor),
         new ProvisioningController(rateLimiters, provisioningManager),
-        new RegistrationController(accountsManager, registrationServiceClient, registrationLockVerificationManager,
-            registrationRecoveryPasswordsManager, rateLimiters),
+        new RegistrationController(accountsManager, phoneVerificationTokenManager, registrationLockVerificationManager,
+            rateLimiters),
         new RemoteConfigController(remoteConfigsManager, adminEventLogger,
             config.getRemoteConfigConfiguration().getAuthorizedTokens(),
             config.getRemoteConfigConfiguration().getGlobalConfig()),

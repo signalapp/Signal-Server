@@ -86,7 +86,8 @@ class ChallengeControllerTest {
         """;
 
     final Duration retryAfter = Duration.ofMinutes(17);
-    doThrow(new RateLimitExceededException(retryAfter)).when(rateLimitChallengeManager).answerPushChallenge(any(), any());
+    doThrow(new RateLimitExceededException(retryAfter, true)).when(rateLimitChallengeManager)
+        .answerPushChallenge(any(), any());
 
     final Response response = EXTENSION.target("/v1/challenge")
         .request()
@@ -128,7 +129,8 @@ class ChallengeControllerTest {
         """;
 
     final Duration retryAfter = Duration.ofMinutes(17);
-    doThrow(new RateLimitExceededException(retryAfter)).when(rateLimitChallengeManager).answerRecaptchaChallenge(any(), any(), any(), any());
+    doThrow(new RateLimitExceededException(retryAfter, true)).when(rateLimitChallengeManager)
+        .answerRecaptchaChallenge(any(), any(), any(), any());
 
     final Response response = EXTENSION.target("/v1/challenge")
         .request()

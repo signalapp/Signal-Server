@@ -72,11 +72,11 @@ public class RateLimitedByIpTest {
   public void testRateLimits() throws Exception {
     Mockito.doNothing().when(RATE_LIMITER).validate(Mockito.eq(IP));
     validateSuccess("/test/strict", VALID_X_FORWARDED_FOR);
-    Mockito.doThrow(new RateLimitExceededException(RETRY_AFTER)).when(RATE_LIMITER).validate(Mockito.eq(IP));
+    Mockito.doThrow(new RateLimitExceededException(RETRY_AFTER, true)).when(RATE_LIMITER).validate(Mockito.eq(IP));
     validateFailure("/test/strict", VALID_X_FORWARDED_FOR, RETRY_AFTER);
     Mockito.doNothing().when(RATE_LIMITER).validate(Mockito.eq(IP));
     validateSuccess("/test/strict", VALID_X_FORWARDED_FOR);
-    Mockito.doThrow(new RateLimitExceededException(RETRY_AFTER)).when(RATE_LIMITER).validate(Mockito.eq(IP));
+    Mockito.doThrow(new RateLimitExceededException(RETRY_AFTER, true)).when(RATE_LIMITER).validate(Mockito.eq(IP));
     validateFailure("/test/strict", VALID_X_FORWARDED_FOR, RETRY_AFTER);
   }
 
@@ -92,7 +92,7 @@ public class RateLimitedByIpTest {
     validateSuccess("/test/loose", "");
 
     // also checking that even if rate limiter is failing -- it doesn't matter in the case of invalid IP
-    Mockito.doThrow(new RateLimitExceededException(RETRY_AFTER)).when(RATE_LIMITER).validate(Mockito.anyString());
+    Mockito.doThrow(new RateLimitExceededException(RETRY_AFTER, true)).when(RATE_LIMITER).validate(Mockito.anyString());
     validateFailure("/test/loose", VALID_X_FORWARDED_FOR, RETRY_AFTER);
     validateSuccess("/test/loose", INVALID_X_FORWARDED_FOR);
     validateSuccess("/test/loose", "");

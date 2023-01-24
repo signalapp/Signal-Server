@@ -89,9 +89,12 @@ public class RegistrationServiceClient implements Managed {
 
           case ERROR -> {
             switch (response.getError().getErrorType()) {
-              case CREATE_REGISTRATION_SESSION_ERROR_TYPE_RATE_LIMITED -> throw new CompletionException(new RateLimitExceededException(Duration.ofSeconds(response.getError().getRetryAfterSeconds())));
+              case CREATE_REGISTRATION_SESSION_ERROR_TYPE_RATE_LIMITED -> throw new CompletionException(
+                  new RateLimitExceededException(Duration.ofSeconds(response.getError().getRetryAfterSeconds()),
+                      true));
               case CREATE_REGISTRATION_SESSION_ERROR_TYPE_ILLEGAL_PHONE_NUMBER -> throw new IllegalArgumentException();
-              default -> throw new RuntimeException("Unrecognized error type from registration service: " + response.getError().getErrorType());
+              default -> throw new RuntimeException(
+                  "Unrecognized error type from registration service: " + response.getError().getErrorType());
             }
           }
 
@@ -119,8 +122,9 @@ public class RegistrationServiceClient implements Managed {
         .thenApply(response -> {
           if (response.hasError()) {
             switch (response.getError().getErrorType()) {
-              case SEND_VERIFICATION_CODE_ERROR_TYPE_RATE_LIMITED ->
-                  throw new CompletionException(new RateLimitExceededException(Duration.ofSeconds(response.getError().getRetryAfterSeconds())));
+              case SEND_VERIFICATION_CODE_ERROR_TYPE_RATE_LIMITED -> throw new CompletionException(
+                  new RateLimitExceededException(Duration.ofSeconds(response.getError().getRetryAfterSeconds()),
+                      true));
 
               default -> throw new CompletionException(new RuntimeException("Failed to send verification code: " + response.getError().getErrorType()));
             }
@@ -142,8 +146,9 @@ public class RegistrationServiceClient implements Managed {
         .thenApply(response -> {
           if (response.hasError()) {
             switch (response.getError().getErrorType()) {
-              case CHECK_VERIFICATION_CODE_ERROR_TYPE_RATE_LIMITED ->
-                  throw new CompletionException(new RateLimitExceededException(Duration.ofSeconds(response.getError().getRetryAfterSeconds())));
+              case CHECK_VERIFICATION_CODE_ERROR_TYPE_RATE_LIMITED -> throw new CompletionException(
+                  new RateLimitExceededException(Duration.ofSeconds(response.getError().getRetryAfterSeconds()),
+                      true));
 
               default -> throw new CompletionException(new RuntimeException("Failed to check verification code: " + response.getError().getErrorType()));
             }

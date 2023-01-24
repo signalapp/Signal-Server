@@ -13,42 +13,33 @@ import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
-import java.security.MessageDigest;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Optional;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
-import javax.ws.rs.BadRequestException;
 import javax.ws.rs.Consumes;
-import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.HeaderParam;
-import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
-import javax.ws.rs.ServerErrorException;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.BasicAuthorizationHeader;
+import org.whispersystems.textsecuregcm.auth.PhoneVerificationTokenManager;
 import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager;
 import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
+import org.whispersystems.textsecuregcm.entities.PhoneVerificationRequest;
 import org.whispersystems.textsecuregcm.entities.RegistrationRequest;
-import org.whispersystems.textsecuregcm.entities.RegistrationSession;
+import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
-import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -68,24 +59,17 @@ public class RegistrationController {
   private static final String REGION_CODE_TAG_NAME = "regionCode";
   private static final String VERIFICATION_TYPE_TAG_NAME = "verification";
 
-  private static final Duration REGISTRATION_RPC_TIMEOUT = Duration.ofSeconds(15);
-  private static final long VERIFICATION_TIMEOUT_SECONDS = REGISTRATION_RPC_TIMEOUT.plusSeconds(1).getSeconds();
-
   private final AccountsManager accounts;
-  private final RegistrationServiceClient registrationServiceClient;
+  private final PhoneVerificationTokenManager phoneVerificationTokenManager;
   private final RegistrationLockVerificationManager registrationLockVerificationManager;
-  private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
   private final RateLimiters rateLimiters;
 
   public RegistrationController(final AccountsManager accounts,
-      final RegistrationServiceClient registrationServiceClient,
-      final RegistrationLockVerificationManager registrationLockVerificationManager,
-      final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
-      final RateLimiters rateLimiters) {
+      final PhoneVerificationTokenManager phoneVerificationTokenManager,
+      final RegistrationLockVerificationManager registrationLockVerificationManager, final RateLimiters rateLimiters) {
     this.accounts = accounts;
-    this.registrationServiceClient = registrationServiceClient;
+    this.phoneVerificationTokenManager = phoneVerificationTokenManager;
     this.registrationLockVerificationManager = registrationLockVerificationManager;
-    this.registrationRecoveryPasswordsManager = registrationRecoveryPasswordsManager;
     this.rateLimiters = rateLimiters;
   }
 
@@ -99,17 +83,13 @@ public class RegistrationController {
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
       @NotNull @Valid final RegistrationRequest registrationRequest) throws RateLimitExceededException, InterruptedException {
 
-    rateLimiters.getRegistrationLimiter().validate(registrationRequest.sessionId());
-
     final String number = authorizationHeader.getUsername();
     final String password = authorizationHeader.getPassword();
 
-    // decide on the method of verification based on the registration request parameters and verify
-    final RegistrationRequest.VerificationType verificationType = registrationRequest.verificationType();
-    switch (verificationType) {
-      case SESSION -> verifyBySessionId(number, registrationRequest.decodeSessionId());
-      case RECOVERY_PASSWORD -> verifyByRecoveryPassword(number, registrationRequest.recoveryPassword());
-    }
+    RateLimiter.adaptLegacyException(() -> rateLimiters.getRegistrationLimiter().validate(number));
+
+    final PhoneVerificationRequest.VerificationType verificationType = phoneVerificationTokenManager.verify(number,
+        registrationRequest);
 
     final Optional<Account> existingAccount = accounts.getByE164(number);
 
@@ -146,34 +126,4 @@ public class RegistrationController {
         existingAccount.map(Account::isStorageSupported).orElse(false));
   }
 
-  private void verifyBySessionId(final String number, final byte[] sessionId) throws InterruptedException {
-    try {
-      final RegistrationSession session = registrationServiceClient
-          .getSession(sessionId, REGISTRATION_RPC_TIMEOUT)
-          .get(VERIFICATION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-          .orElseThrow(() -> new NotAuthorizedException("session not verified"));
-
-      if (!MessageDigest.isEqual(number.getBytes(), session.number().getBytes())) {
-        throw new BadRequestException("number does not match session");
-      }
-      if (!session.verified()) {
-        throw new NotAuthorizedException("session not verified");
-      }
-    } catch (final CancellationException | ExecutionException | TimeoutException e) {
-      logger.error("Registration service failure", e);
-      throw new ServerErrorException(Response.Status.SERVICE_UNAVAILABLE);
-    }
-  }
-
-  private void verifyByRecoveryPassword(final String number, final byte[] recoveryPassword) throws InterruptedException {
-    try {
-      final boolean verified = registrationRecoveryPasswordsManager.verify(number, recoveryPassword)
-          .get(VERIFICATION_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-      if (!verified) {
-        throw new ForbiddenException("recoveryPassword couldn't be verified");
-      }
-    } catch (final ExecutionException | TimeoutException e) {
-      throw new ServerErrorException(Response.Status.SERVICE_UNAVAILABLE);
-    }
-  }
 }

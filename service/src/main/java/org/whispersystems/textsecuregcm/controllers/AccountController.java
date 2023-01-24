@@ -798,7 +798,7 @@ public class AccountController {
           // This shouldn't happen, so conservatively assume we're over the rate-limit
           // and indicate that the client should retry
           logger.error("Missing/bad Forwarded-For: {}", forwardedFor);
-          return new RateLimitExceededException(Duration.ofHours(1));
+          return new RateLimitExceededException(Duration.ofHours(1), true);
         });
 
     rateLimiter.validate(mostRecentProxy);

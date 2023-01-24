@@ -57,7 +57,7 @@ public class RateLimiter {
         setBucket(key, bucket);
       } else {
         meter.mark();
-        throw new RateLimitExceededException(bucket.getTimeUntilSpaceAvailable(amount));
+        throw new RateLimitExceededException(bucket.getTimeUntilSpaceAvailable(amount), true);
       }
     }
   }
@@ -131,5 +131,23 @@ public class RateLimiter {
 
   public boolean hasConfiguration(final RateLimitConfiguration configuration) {
     return bucketSize == configuration.getBucketSize() && leakRatePerMinute == configuration.getLeakRatePerMinute();
+  }
+
+  /**
+   * If the wrapped {@code validate()} call throws a {@link RateLimitExceededException}, it will adapt it to ensure that
+   * {@link RateLimitExceededException#isLegacy()} returns {@code true}
+   */
+  public static void adaptLegacyException(final RateLimitValidator validator) throws RateLimitExceededException {
+    try {
+      validator.validate();
+    } catch (final RateLimitExceededException e) {
+      throw new RateLimitExceededException(e.getRetryDuration().orElse(null), false);
+    }
+  }
+
+  @FunctionalInterface
+  public interface RateLimitValidator {
+
+    void validate() throws RateLimitExceededException;
   }
 }

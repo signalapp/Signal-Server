@@ -29,7 +29,8 @@ public class RateLimitByIpFilter implements ContainerRequestFilter {
   private static final Logger logger = LoggerFactory.getLogger(RateLimitByIpFilter.class);
 
   @VisibleForTesting
-  static final RateLimitExceededException INVALID_HEADER_EXCEPTION = new RateLimitExceededException(Duration.ofHours(1));
+  static final RateLimitExceededException INVALID_HEADER_EXCEPTION = new RateLimitExceededException(Duration.ofHours(1),
+      true);
 
   private static final ExceptionMapper<RateLimitExceededException> EXCEPTION_MAPPER = new RateLimitExceededExceptionMapper();
 

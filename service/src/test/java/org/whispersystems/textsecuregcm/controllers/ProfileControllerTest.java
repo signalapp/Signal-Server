@@ -255,7 +255,8 @@ class ProfileControllerTest {
 
   @Test
   void testProfileGetByAciRateLimited() throws RateLimitExceededException {
-    doThrow(new RateLimitExceededException(Duration.ofSeconds(13))).when(rateLimiter).validate(AuthHelper.VALID_UUID);
+    doThrow(new RateLimitExceededException(Duration.ofSeconds(13), true)).when(rateLimiter)
+        .validate(AuthHelper.VALID_UUID);
 
     Response response= resources.getJerseyTest()
         .target("/v1/profile/" + AuthHelper.VALID_UUID_TWO)
@@ -326,7 +327,8 @@ class ProfileControllerTest {
 
   @Test
   void testProfileGetByPniRateLimited() throws RateLimitExceededException {
-    doThrow(new RateLimitExceededException(Duration.ofSeconds(13))).when(rateLimiter).validate(AuthHelper.VALID_UUID);
+    doThrow(new RateLimitExceededException(Duration.ofSeconds(13), true)).when(rateLimiter)
+        .validate(AuthHelper.VALID_UUID);
 
     Response response= resources.getJerseyTest()
         .target("/v1/profile/" + AuthHelper.VALID_PNI_TWO)

@@ -60,11 +60,12 @@ public final class MockUtils {
       final RateLimiters rateLimitersMock,
       final RateLimiters.Handle handle,
       final String input,
-      final Duration retryAfter) {
+      final Duration retryAfter,
+      final boolean legacyStatusCode) {
     final RateLimiter mockRateLimiter = Mockito.mock(RateLimiter.class);
     doReturn(Optional.of(mockRateLimiter)).when(rateLimitersMock).byHandle(eq(handle));
     try {
-      doThrow(new RateLimitExceededException(retryAfter)).when(mockRateLimiter).validate(eq(input));
+      doThrow(new RateLimitExceededException(retryAfter, legacyStatusCode)).when(mockRateLimiter).validate(eq(input));
     } catch (final RateLimitExceededException e) {
       throw new RuntimeException(e);
     }

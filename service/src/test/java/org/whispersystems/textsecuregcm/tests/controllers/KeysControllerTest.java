@@ -340,7 +340,7 @@ class KeysControllerTest {
   @Test
   void testGetKeysRateLimited() throws RateLimitExceededException {
     Duration retryAfter = Duration.ofSeconds(31);
-    doThrow(new RateLimitExceededException(retryAfter)).when(rateLimiter).validate(anyString());
+    doThrow(new RateLimitExceededException(retryAfter, true)).when(rateLimiter).validate(anyString());
 
     Response result = resources.getJerseyTest()
         .target(String.format("/v2/keys/%s/*", EXISTS_PNI))

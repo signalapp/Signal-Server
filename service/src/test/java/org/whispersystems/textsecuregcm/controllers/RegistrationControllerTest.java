@@ -13,6 +13,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import java.nio.charset.StandardCharsets;
@@ -37,6 +38,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.whispersystems.textsecuregcm.auth.PhoneVerificationTokenManager;
 import org.whispersystems.textsecuregcm.auth.RegistrationLockError;
 import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
@@ -51,12 +53,18 @@ import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
+import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class RegistrationControllerTest {
 
-  private static final String NUMBER = "+18005551212";
+  private static final String NUMBER = PhoneNumberUtil.getInstance().format(
+      PhoneNumberUtil.getInstance().getExampleNumber("US"),
+      PhoneNumberUtil.PhoneNumberFormat.E164);
+
+  public static final String PASSWORD = "password";
+
   private final AccountsManager accountsManager = mock(AccountsManager.class);
   private final RegistrationServiceClient registrationServiceClient = mock(RegistrationServiceClient.class);
   private final RegistrationLockVerificationManager registrationLockVerificationManager = mock(
@@ -66,7 +74,6 @@ class RegistrationControllerTest {
   private final RateLimiters rateLimiters = mock(RateLimiters.class);
 
   private final RateLimiter registrationLimiter = mock(RateLimiter.class);
-  private final RateLimiter pinLimiter = mock(RateLimiter.class);
 
   private final ResourceExtension resources = ResourceExtension.builder()
       .addProperty(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE)
@@ -76,14 +83,14 @@ class RegistrationControllerTest {
       .setMapper(SystemMapper.getMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(
-          new RegistrationController(accountsManager, registrationServiceClient, registrationLockVerificationManager,
-              registrationRecoveryPasswordsManager, rateLimiters))
+          new RegistrationController(accountsManager,
+              new PhoneVerificationTokenManager(registrationServiceClient, registrationRecoveryPasswordsManager),
+              registrationLockVerificationManager, rateLimiters))
       .build();
 
   @BeforeEach
   void setUp() {
     when(rateLimiters.getRegistrationLimiter()).thenReturn(registrationLimiter);
-    when(rateLimiters.getPinLimiter()).thenReturn(pinLimiter);
   }
 
   @Test
@@ -130,25 +137,23 @@ class RegistrationControllerTest {
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/registration")
         .request()
-        .header(HttpHeaders.AUTHORIZATION, authorizationHeader(NUMBER));
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
     try (Response response = request.post(Entity.json(invalidRequestJson()))) {
       assertEquals(422, response.getStatus());
     }
   }
 
   @Test
-  void rateLimitedSession() throws Exception {
-    final String sessionId = "sessionId";
+  void rateLimitedNumber() throws Exception {
     doThrow(RateLimitExceededException.class)
-        .when(registrationLimiter).validate(encodeSessionId(sessionId));
+        .when(registrationLimiter).validate(NUMBER);
 
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/registration")
         .request()
-        .header(HttpHeaders.AUTHORIZATION, authorizationHeader(NUMBER));
-    try (Response response = request.post(Entity.json(requestJson(sessionId)))) {
-      assertEquals(413, response.getStatus());
-      // In the future, change to assertEquals(429, response.getStatus());
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
+    try (Response response = request.post(Entity.json(requestJson("sessionId")))) {
+      assertEquals(429, response.getStatus());
     }
   }
 
@@ -160,7 +165,7 @@ class RegistrationControllerTest {
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/registration")
         .request()
-        .header(HttpHeaders.AUTHORIZATION, authorizationHeader(NUMBER));
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
     try (Response response = request.post(Entity.json(requestJson("sessionId")))) {
       assertEquals(HttpStatus.SC_SERVICE_UNAVAILABLE, response.getStatus());
     }
@@ -174,7 +179,7 @@ class RegistrationControllerTest {
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/registration")
         .request()
-        .header(HttpHeaders.AUTHORIZATION, authorizationHeader(NUMBER));
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
     try (Response response = request.post(Entity.json(requestJsonRecoveryPassword(new byte[32])))) {
       assertEquals(HttpStatus.SC_SERVICE_UNAVAILABLE, response.getStatus());
     }
@@ -190,7 +195,7 @@ class RegistrationControllerTest {
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/registration")
         .request()
-        .header(HttpHeaders.AUTHORIZATION, authorizationHeader(NUMBER));
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
     try (Response response = request.post(Entity.json(requestJson("sessionId")))) {
       assertEquals(expectedStatus, response.getStatus(), message);
     }
@@ -214,7 +219,7 @@ class RegistrationControllerTest {
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/registration")
         .request()
-        .header(HttpHeaders.AUTHORIZATION, authorizationHeader(NUMBER));
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
     final byte[] recoveryPassword = new byte[32];
     try (Response response = request.post(Entity.json(requestJsonRecoveryPassword(recoveryPassword)))) {
       assertEquals(200, response.getStatus());
@@ -229,7 +234,7 @@ class RegistrationControllerTest {
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/registration")
         .request()
-        .header(HttpHeaders.AUTHORIZATION, authorizationHeader(NUMBER));
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
     try (Response response = request.post(Entity.json(requestJsonRecoveryPassword(new byte[32])))) {
       assertEquals(403, response.getStatus());
     }
@@ -245,7 +250,7 @@ class RegistrationControllerTest {
 
     final Exception e = switch (error) {
       case MISMATCH -> new WebApplicationException(error.getExpectedStatus());
-      case RATE_LIMITED -> new RateLimitExceededException(null);
+      case RATE_LIMITED -> new RateLimitExceededException(null, true);
     };
     doThrow(e)
         .when(registrationLockVerificationManager).verifyRegistrationLock(any(), any());
@@ -253,7 +258,7 @@ class RegistrationControllerTest {
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/registration")
         .request()
-        .header(HttpHeaders.AUTHORIZATION, authorizationHeader(NUMBER));
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
     try (Response response = request.post(Entity.json(requestJson("sessionId")))) {
       assertEquals(error.getExpectedStatus(), response.getStatus());
     }
@@ -286,7 +291,7 @@ class RegistrationControllerTest {
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/registration")
         .request()
-        .header(HttpHeaders.AUTHORIZATION, authorizationHeader(NUMBER));
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
     try (Response response = request.post(Entity.json(requestJson("sessionId", new byte[0], skipDeviceTransfer)))) {
       assertEquals(expectedStatus, response.getStatus());
     }
@@ -294,7 +299,7 @@ class RegistrationControllerTest {
 
   // this is functionally the same as deviceTransferAvailable(existingAccount=false)
   @Test
-  void success() throws Exception {
+  void registrationSuccess() throws Exception {
     when(registrationServiceClient.getSession(any(), any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(new RegistrationSession(NUMBER, true))));
     when(accountsManager.create(any(), any(), any(), any(), any()))
@@ -303,7 +308,7 @@ class RegistrationControllerTest {
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/registration")
         .request()
-        .header(HttpHeaders.AUTHORIZATION, authorizationHeader(NUMBER));
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
     try (Response response = request.post(Entity.json(requestJson("sessionId")))) {
       assertEquals(200, response.getStatus());
     }
@@ -365,13 +370,8 @@ class RegistrationControllerTest {
         """;
   }
 
-  private static String authorizationHeader(final String number) {
-    return "Basic " + Base64.getEncoder().encodeToString(
-        String.format("%s:password", number).getBytes(StandardCharsets.UTF_8));
-  }
-
   private static String encodeSessionId(final String sessionId) {
-    return Base64.getEncoder().encodeToString(sessionId.getBytes(StandardCharsets.UTF_8));
+    return Base64.getUrlEncoder().encodeToString(sessionId.getBytes(StandardCharsets.UTF_8));
   }
 
   private static String encodeRecoveryPassword(final byte[] recoveryPassword) {
