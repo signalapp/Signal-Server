@@ -131,6 +131,7 @@ public class MessageController {
   private static final String OUTGOING_MESSAGE_LIST_SIZE_BYTES_DISTRIBUTION_NAME = name(MessageController.class, "outgoingMessageListSizeBytes");
   private static final String RATE_LIMITED_MESSAGE_COUNTER_NAME = name(MessageController.class, "rateLimitedMessage");
   private static final String REJECT_INVALID_ENVELOPE_TYPE = name(MessageController.class, "rejectInvalidEnvelopeType");
+  private static final String REPORT_SPAM_TOKENS_RECEIVED_COUNTER_NAME = name(MessageController.class, "reportSpamTokensReceived");
 
   private static final String EPHEMERAL_TAG_NAME = "ephemeral";
   private static final String SENDER_TYPE_TAG_NAME = "senderType";
@@ -646,7 +647,9 @@ public class MessageController {
     if (spamReport != null) {
       try {
         spamReportToken = Base64.getDecoder().decode(spamReport.token());
+        Metrics.counter(REPORT_SPAM_TOKENS_RECEIVED_COUNTER_NAME).increment();
       } catch (IllegalArgumentException e) {
+        logger.error("Invalid report spam token provided", e);
         throw new WebApplicationException(Response.status(400).build());
       }
     }
