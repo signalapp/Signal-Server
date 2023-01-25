@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2021 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.controllers;
@@ -13,15 +13,25 @@ import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import org.apache.commons.codec.DecoderException;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
-import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
+import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
+import org.whispersystems.textsecuregcm.configuration.DirectoryClientConfiguration;
 
 @Path("/v1/directory")
 public class DirectoryController {
 
-  private final ExternalServiceCredentialGenerator directoryServiceTokenGenerator;
+  private final ExternalServiceCredentialsGenerator directoryServiceTokenGenerator;
 
-  public DirectoryController(ExternalServiceCredentialGenerator userTokenGenerator) {
+  public static ExternalServiceCredentialsGenerator credentialsGenerator(final DirectoryClientConfiguration cfg)
+      throws DecoderException {
+    return ExternalServiceCredentialsGenerator
+        .builder(cfg.getUserAuthenticationTokenSharedSecret())
+        .withUserDerivationKey(cfg.getUserAuthenticationTokenUserIdSecret())
+        .build();
+  }
+
+  public DirectoryController(ExternalServiceCredentialsGenerator userTokenGenerator) {
     this.directoryServiceTokenGenerator = userTokenGenerator;
   }
 

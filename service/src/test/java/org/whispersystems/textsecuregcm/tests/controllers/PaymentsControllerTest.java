@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2021 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -25,8 +25,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
-import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
+import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.controllers.PaymentsController;
 import org.whispersystems.textsecuregcm.currency.CurrencyConversionManager;
 import org.whispersystems.textsecuregcm.entities.CurrencyConversionEntity;
@@ -36,7 +36,7 @@ import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 @ExtendWith(DropwizardExtensionsSupport.class)
 class PaymentsControllerTest {
 
-  private static final ExternalServiceCredentialGenerator paymentsCredentialGenerator = mock(ExternalServiceCredentialGenerator.class);
+  private static final ExternalServiceCredentialsGenerator paymentsCredentialsGenerator = mock(ExternalServiceCredentialsGenerator.class);
   private static final CurrencyConversionManager currencyManager                      = mock(CurrencyConversionManager.class);
 
   private final ExternalServiceCredentials validCredentials = new ExternalServiceCredentials("username", "password");
@@ -46,13 +46,13 @@ class PaymentsControllerTest {
       .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(
           ImmutableSet.of(AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)))
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-      .addResource(new PaymentsController(currencyManager, paymentsCredentialGenerator))
+      .addResource(new PaymentsController(currencyManager, paymentsCredentialsGenerator))
       .build();
 
 
   @BeforeEach
   void setup() {
-    when(paymentsCredentialGenerator.generateFor(eq(AuthHelper.VALID_UUID.toString()))).thenReturn(validCredentials);
+    when(paymentsCredentialsGenerator.generateForUuid(eq(AuthHelper.VALID_UUID))).thenReturn(validCredentials);
     when(currencyManager.getCurrencyConversions()).thenReturn(Optional.of(
         new CurrencyConversionEntityList(List.of(
             new CurrencyConversionEntity("FOO", Map.of(

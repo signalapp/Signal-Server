@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Signal Messenger, LLC
+ * Copyright 2023 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -15,8 +15,9 @@ import java.time.ZoneId;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
-import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
+import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
+import org.whispersystems.textsecuregcm.configuration.DirectoryV2ClientConfiguration;
 import org.whispersystems.textsecuregcm.controllers.DirectoryV2Controller;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -26,11 +27,12 @@ class DirectoryControllerV2Test {
 
   @Test
   void testAuthToken() {
-    final ExternalServiceCredentialGenerator credentialGenerator = new ExternalServiceCredentialGenerator(
-        new byte[]{0x1}, new byte[]{0x2}, true, false,
-        Clock.fixed(Instant.ofEpochSecond(1633738643L), ZoneId.of("Etc/UTC")));
+    final ExternalServiceCredentialsGenerator credentialsGenerator = DirectoryV2Controller.credentialsGenerator(
+        new DirectoryV2ClientConfiguration(new byte[]{0x1}, new byte[]{0x2}),
+        Clock.fixed(Instant.ofEpochSecond(1633738643L), ZoneId.of("Etc/UTC"))
+    );
 
-    final DirectoryV2Controller controller = new DirectoryV2Controller(credentialGenerator);
+    final DirectoryV2Controller controller = new DirectoryV2Controller(credentialsGenerator);
 
     final Account account = mock(Account.class);
     final UUID uuid = UUID.fromString("11111111-1111-1111-1111-111111111111");

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Signal Messenger, LLC
+ * Copyright 2023 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -23,18 +23,18 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.RandomStringUtils;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
-import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
+import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.configuration.SecureBackupServiceConfiguration;
 
 class SecureBackupClientTest {
 
   private UUID accountUuid;
-  private ExternalServiceCredentialGenerator credentialGenerator;
+  private ExternalServiceCredentialsGenerator credentialsGenerator;
   private ExecutorService httpExecutor;
 
   private SecureBackupClient secureStorageClient;
@@ -47,7 +47,7 @@ class SecureBackupClientTest {
   @BeforeEach
   void setUp() throws CertificateException {
     accountUuid         = UUID.randomUUID();
-    credentialGenerator = mock(ExternalServiceCredentialGenerator.class);
+    credentialsGenerator = mock(ExternalServiceCredentialsGenerator.class);
     httpExecutor        = Executors.newSingleThreadExecutor();
 
     final SecureBackupServiceConfiguration config = new SecureBackupServiceConfiguration();
@@ -101,7 +101,7 @@ class SecureBackupClientTest {
         -----END CERTIFICATE-----
         """));
 
-    secureStorageClient = new SecureBackupClient(credentialGenerator, httpExecutor, config);
+    secureStorageClient = new SecureBackupClient(credentialsGenerator, httpExecutor, config);
   }
 
   @AfterEach
@@ -115,7 +115,7 @@ class SecureBackupClientTest {
     final String username = RandomStringUtils.randomAlphabetic(16);
     final String password = RandomStringUtils.randomAlphanumeric(32);
 
-    when(credentialGenerator.generateFor(accountUuid.toString())).thenReturn(new ExternalServiceCredentials(username, password));
+    when(credentialsGenerator.generateForUuid(accountUuid)).thenReturn(new ExternalServiceCredentials(username, password));
 
     wireMock.stubFor(delete(urlEqualTo(SecureBackupClient.DELETE_PATH))
         .withBasicAuth(username, password)
@@ -130,7 +130,7 @@ class SecureBackupClientTest {
     final String username = RandomStringUtils.randomAlphabetic(16);
     final String password = RandomStringUtils.randomAlphanumeric(32);
 
-    when(credentialGenerator.generateFor(accountUuid.toString())).thenReturn(new ExternalServiceCredentials(username, password));
+    when(credentialsGenerator.generateForUuid(accountUuid)).thenReturn(new ExternalServiceCredentials(username, password));
 
     wireMock.stubFor(delete(urlEqualTo(SecureBackupClient.DELETE_PATH))
         .withBasicAuth(username, password)

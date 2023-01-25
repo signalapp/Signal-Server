@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2021 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -32,7 +32,7 @@ public class AttachmentControllerV2 {
 
   public AttachmentControllerV2(RateLimiters rateLimiters, String accessKey, String accessSecret, String region,
       String bucket) {
-    this.rateLimiter = rateLimiters.getAttachmentLimiter();
+    this.rateLimiter = rateLimiters.getAttachmentLimiter();  
     this.policyGenerator = new PostPolicyGenerator(region, bucket, accessKey);
     this.policySigner = new PolicySigner(accessSecret, region);
   }

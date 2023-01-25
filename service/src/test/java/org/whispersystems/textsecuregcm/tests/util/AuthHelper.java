@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2021 Signal Messenger, LLC
+ * Copyright 2013-2023 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.tests.util;
 
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.when;
 
@@ -26,10 +25,10 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.util.HeaderUtils;
 
 public class AuthHelper {
   // Static seed to ensure reproducible tests.
@@ -201,19 +200,15 @@ public class AuthHelper {
   }
 
   public static String getAuthHeader(UUID uuid, long deviceId, String password) {
-    return getAuthHeader(uuid.toString() + "." + deviceId, password);
+    return HeaderUtils.basicAuthHeader(uuid.toString() + "." + deviceId, password);
   }
 
   public static String getAuthHeader(UUID uuid, String password) {
-    return getAuthHeader(uuid.toString(), password);
+    return HeaderUtils.basicAuthHeader(uuid.toString(), password);
   }
 
   public static String getProvisioningAuthHeader(String number, String password) {
-    return getAuthHeader(number, password);
-  }
-
-  private static String getAuthHeader(String identifier, String password) {
-    return "Basic " + Base64.getEncoder().encodeToString((identifier + ":" + password).getBytes());
+    return HeaderUtils.basicAuthHeader(number, password);
   }
 
   public static String getUnidentifiedAccessHeader(byte[] key) {

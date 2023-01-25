@@ -1,14 +1,19 @@
 /*
- * Copyright 2022 Signal Messenger, LLC
+ * Copyright 2023 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
 package org.whispersystems.textsecuregcm.util;
 
+import static java.util.Objects.requireNonNull;
+
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
+import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 
 public final class HeaderUtils {
 
@@ -20,6 +25,16 @@ public final class HeaderUtils {
 
   private HeaderUtils() {
     // utility class
+  }
+
+  public static String basicAuthHeader(final ExternalServiceCredentials credentials) {
+    return basicAuthHeader(credentials.username(), credentials.password());
+  }
+
+  public static String basicAuthHeader(final String username, final String password) {
+    requireNonNull(username);
+    requireNonNull(password);
+    return "Basic " + Base64.getEncoder().encodeToString((username + ":" + password).getBytes(StandardCharsets.UTF_8));
   }
 
   @Nonnull

@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2021 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -11,17 +11,27 @@ import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
+import org.apache.commons.codec.DecoderException;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
-import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
+import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
+import org.whispersystems.textsecuregcm.configuration.SecureBackupServiceConfiguration;
 
 @Path("/v1/backup")
 public class SecureBackupController {
 
-  private final ExternalServiceCredentialGenerator backupServiceCredentialGenerator;
+  private final ExternalServiceCredentialsGenerator backupServiceCredentialsGenerator;
 
-  public SecureBackupController(ExternalServiceCredentialGenerator backupServiceCredentialGenerator) {
-    this.backupServiceCredentialGenerator = backupServiceCredentialGenerator;
+  public static ExternalServiceCredentialsGenerator credentialsGenerator(final SecureBackupServiceConfiguration cfg)
+      throws DecoderException {
+    return ExternalServiceCredentialsGenerator
+        .builder(cfg.getUserAuthenticationTokenSharedSecret())
+        .prependUsername(true)
+        .build();
+  }
+
+  public SecureBackupController(ExternalServiceCredentialsGenerator backupServiceCredentialsGenerator) {
+    this.backupServiceCredentialsGenerator = backupServiceCredentialsGenerator;
   }
 
   @Timed
@@ -29,6 +39,6 @@ public class SecureBackupController {
   @Path("/auth")
   @Produces(MediaType.APPLICATION_JSON)
   public ExternalServiceCredentials getAuth(@Auth AuthenticatedAccount auth) {
-    return backupServiceCredentialGenerator.generateFor(auth.getAccount().getUuid().toString());
+    return backupServiceCredentialsGenerator.generateForUuid(auth.getAccount().getUuid());
   }
 }

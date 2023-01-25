@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2021 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -26,15 +26,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
-import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
+import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.controllers.DirectoryController;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class DirectoryControllerTest {
 
-  private static final ExternalServiceCredentialGenerator directoryCredentialsGenerator = mock(ExternalServiceCredentialGenerator.class);
+  private static final ExternalServiceCredentialsGenerator directoryCredentialsGenerator = mock(ExternalServiceCredentialsGenerator.class);
   private static final ExternalServiceCredentials         validCredentials              = new ExternalServiceCredentials("username", "password");
 
   private static final ResourceExtension resources = ResourceExtension.builder()

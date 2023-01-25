@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2021 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -25,8 +25,10 @@ import net.sourceforge.argparse4j.inf.Subparser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
-import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
+import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.controllers.SecureBackupController;
+import org.whispersystems.textsecuregcm.controllers.SecureStorageController;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
@@ -105,11 +107,11 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
       ExecutorService storageServiceExecutor = environment.lifecycle()
           .executorService(name(getClass(), "storageService-%d")).maxThreads(8).minThreads(1).build();
 
-      ExternalServiceCredentialGenerator backupCredentialsGenerator = new ExternalServiceCredentialGenerator(
-          configuration.getSecureBackupServiceConfiguration().getUserAuthenticationTokenSharedSecret(), true);
-      ExternalServiceCredentialGenerator storageCredentialsGenerator = new ExternalServiceCredentialGenerator(
-          configuration.getSecureStorageServiceConfiguration().getUserAuthenticationTokenSharedSecret(), true);
-
+      ExternalServiceCredentialsGenerator backupCredentialsGenerator = SecureBackupController.credentialsGenerator(
+          configuration.getSecureBackupServiceConfiguration());
+      ExternalServiceCredentialsGenerator storageCredentialsGenerator = SecureStorageController.credentialsGenerator(
+          configuration.getSecureStorageServiceConfiguration());
+      
       DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = new DynamicConfigurationManager<>(
           configuration.getAppConfig().getApplication(), configuration.getAppConfig().getEnvironment(),
           configuration.getAppConfig().getConfigurationName(), DynamicConfiguration.class);

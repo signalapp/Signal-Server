@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2021 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.controllers;
@@ -61,8 +61,8 @@ import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.auth.BasicAuthorizationHeader;
 import org.whispersystems.textsecuregcm.auth.ChangesDeviceEnabledState;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
-import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
+import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.auth.TurnToken;
@@ -165,7 +165,7 @@ public class AccountController {
   private final Map<String, Integer>               testDevices;
   private final CaptchaChecker                     captchaChecker;
   private final PushNotificationManager            pushNotificationManager;
-  private final ExternalServiceCredentialGenerator backupServiceCredentialGenerator;
+  private final ExternalServiceCredentialsGenerator backupServiceCredentialsGenerator;
 
   private final ChangeNumberManager changeNumberManager;
   private final Clock clock;
@@ -186,7 +186,7 @@ public class AccountController {
       CaptchaChecker captchaChecker,
       PushNotificationManager pushNotificationManager,
       ChangeNumberManager changeNumberManager,
-      ExternalServiceCredentialGenerator backupServiceCredentialGenerator,
+      ExternalServiceCredentialsGenerator backupServiceCredentialsGenerator,
       ClientPresenceManager clientPresenceManager,
       Clock clock
   ) {
@@ -199,7 +199,7 @@ public class AccountController {
     this.turnTokenGenerator = turnTokenGenerator;
     this.captchaChecker = captchaChecker;
     this.pushNotificationManager = pushNotificationManager;
-    this.backupServiceCredentialGenerator = backupServiceCredentialGenerator;
+    this.backupServiceCredentialsGenerator = backupServiceCredentialsGenerator;
     this.changeNumberManager = changeNumberManager;
     this.clientPresenceManager = clientPresenceManager;
     this.clock = clock;
@@ -217,12 +217,12 @@ public class AccountController {
       CaptchaChecker captchaChecker,
       PushNotificationManager pushNotificationManager,
       ChangeNumberManager changeNumberManager,
-      ExternalServiceCredentialGenerator backupServiceCredentialGenerator
+      ExternalServiceCredentialsGenerator backupServiceCredentialsGenerator
   ) {
     this(pendingAccounts, accounts, rateLimiters,
         registrationServiceClient, dynamicConfigurationManager, turnTokenGenerator, testDevices, captchaChecker,
         pushNotificationManager, changeNumberManager,
-        backupServiceCredentialGenerator, null, Clock.systemUTC());
+        backupServiceCredentialsGenerator, null, Clock.systemUTC());
   }
 
   @Timed
@@ -832,7 +832,7 @@ public class AccountController {
 
     final StoredRegistrationLock existingRegistrationLock = existingAccount.getRegistrationLock();
     final ExternalServiceCredentials existingBackupCredentials =
-        backupServiceCredentialGenerator.generateFor(existingAccount.getUuid().toString());
+        backupServiceCredentialsGenerator.generateForUuid(existingAccount.getUuid());
 
     if (existingRegistrationLock.requiresClientRegistrationLock()) {
       if (!Util.isEmpty(clientRegistrationLock)) {
