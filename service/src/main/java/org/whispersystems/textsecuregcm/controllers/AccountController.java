@@ -997,7 +997,9 @@ public class AccountController {
       return registrationServiceClient.checkVerificationCode(sessionId, verificationCode, REGISTRATION_RPC_TIMEOUT).join();
     } catch (final CompletionException e) {
       rethrowRateLimitException(e);
-      throw e;
+
+      // For legacy API compatibility, funnel all errors into the same return value
+      return false;
     }
   }
 
