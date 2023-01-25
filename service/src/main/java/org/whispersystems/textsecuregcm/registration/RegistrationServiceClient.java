@@ -128,7 +128,7 @@ public class RegistrationServiceClient implements Managed {
               default -> throw new CompletionException(new RuntimeException("Failed to check verification code: " + response.getError().getErrorType()));
             }
           } else {
-            return response.getSessionMetadata().getVerified();
+            return response.getVerified() || response.getSessionMetadata().getVerified();
           }
         });
   }
