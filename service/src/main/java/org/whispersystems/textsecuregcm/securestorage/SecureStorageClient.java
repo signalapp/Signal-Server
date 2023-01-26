@@ -40,8 +40,8 @@ public class SecureStorageClient {
         this.storageServiceCredentialsGenerator = storageServiceCredentialsGenerator;
         this.deleteUri                         = URI.create(configuration.uri()).resolve(DELETE_PATH);
         this.httpClient                        = FaultTolerantHttpClient.newBuilder()
-                                                                        .withCircuitBreaker(configuration.circuitBreakerConfig())
-                                                                        .withRetry(configuration.retryConfig())
+                                                                        .withCircuitBreaker(configuration.circuitBreaker())
+                                                                        .withRetry(configuration.retry())
                                                                         .withVersion(HttpClient.Version.HTTP_1_1)
                                                                         .withConnectTimeout(Duration.ofSeconds(10))
                                                                         .withRedirect(HttpClient.Redirect.NEVER)

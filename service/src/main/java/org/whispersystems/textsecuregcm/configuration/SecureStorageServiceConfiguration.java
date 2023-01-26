@@ -5,8 +5,6 @@
 
 package org.whispersystems.textsecuregcm.configuration;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.annotations.VisibleForTesting;
 import java.util.List;
 import javax.validation.Valid;
 import javax.validation.constraints.NotBlank;
@@ -17,15 +15,16 @@ import org.apache.commons.codec.binary.Hex;
 public record SecureStorageServiceConfiguration(@NotEmpty String userAuthenticationTokenSharedSecret,
                                                 @NotBlank String uri,
                                                 @NotEmpty List<@NotBlank String> storageCaCertificates,
-                                                @Valid @JsonProperty("circuitBreaker") CircuitBreakerConfiguration circuitBreakerConfig,
-                                                @Valid @JsonProperty("retry") RetryConfiguration retryConfig) {
+                                                @Valid CircuitBreakerConfiguration circuitBreaker,
+                                                @Valid RetryConfiguration retry) {
 
-  @VisibleForTesting
-  public SecureStorageServiceConfiguration(
-      final @NotEmpty String userAuthenticationTokenSharedSecret,
-      final @NotBlank String uri,
-      final @NotEmpty List<@NotBlank String> storageCaCertificates) {
-    this(userAuthenticationTokenSharedSecret, uri, storageCaCertificates, new CircuitBreakerConfiguration(), new RetryConfiguration());
+  public SecureStorageServiceConfiguration {
+    if (circuitBreaker == null) {
+      circuitBreaker = new CircuitBreakerConfiguration();
+    }
+    if (retry == null) {
+      retry = new RetryConfiguration();
+    }
   }
 
   public byte[] decodeUserAuthenticationTokenSharedSecret() throws DecoderException {
