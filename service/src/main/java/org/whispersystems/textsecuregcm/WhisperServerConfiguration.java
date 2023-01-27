@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Map;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
-import org.whispersystems.textsecuregcm.configuration.AbusiveMessageFilterConfiguration;
+import org.whispersystems.textsecuregcm.configuration.SpamFilterConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AccountDatabaseCrawlerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AdminEventLoggingConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ApnConfiguration;
@@ -268,7 +268,7 @@ public class WhisperServerConfiguration extends Configuration {
 
   @Valid
   @JsonProperty
-  private AbusiveMessageFilterConfiguration abusiveMessageFilter;
+  private SpamFilterConfiguration spamFilterConfiguration;
 
   @Valid
   @NotNull
@@ -453,8 +453,8 @@ public class WhisperServerConfiguration extends Configuration {
     return reportMessage;
   }
 
-  public AbusiveMessageFilterConfiguration getAbusiveMessageFilterConfiguration() {
-    return abusiveMessageFilter;
+  public SpamFilterConfiguration getSpamFilterConfiguration() {
+    return spamFilterConfiguration;
   }
 
   public UsernameConfiguration getUsername() {

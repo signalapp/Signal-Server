@@ -364,22 +364,22 @@
 
   <profiles>
     <profile>
-      <id>include-abusive-message-filter</id>
+      <id>include-spam-filter</id>
       <activation>
         <file>
-          <exists>abusive-message-filter/pom.xml</exists>
+          <exists>spam-filter/pom.xml</exists>
         </file>
       </activation>
       <modules>
-        <module>abusive-message-filter</module>
+        <module>spam-filter</module>
       </modules>
     </profile>
 
     <profile>
-      <id>exclude-abusive-message-filter</id>
+      <id>exclude-spam-filter</id>
       <activation>
         <file>
-          <missing>abusive-message-filter/pom.xml</missing>
+          <missing>spam-filter/pom.xml</missing>
         </file>
       </activation>
     </profile>

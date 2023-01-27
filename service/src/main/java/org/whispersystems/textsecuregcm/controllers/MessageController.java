@@ -62,9 +62,9 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.abuse.FilterAbusiveMessages;
-import org.whispersystems.textsecuregcm.abuse.ReportSpamTokenHandler;
-import org.whispersystems.textsecuregcm.abuse.ReportSpamTokenProvider;
+import org.whispersystems.textsecuregcm.spam.FilterSpam;
+import org.whispersystems.textsecuregcm.spam.ReportSpamTokenHandler;
+import org.whispersystems.textsecuregcm.spam.ReportSpamTokenProvider;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.CombinedUnidentifiedSenderAccessKeys;
@@ -177,7 +177,7 @@ public class MessageController {
   @PUT
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  @FilterAbusiveMessages
+  @FilterSpam
   public Response sendMessage(@Auth Optional<AuthenticatedAccount> source,
       @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
       @HeaderParam(HttpHeaders.USER_AGENT) String userAgent,
@@ -355,7 +355,7 @@ public class MessageController {
   @PUT
   @Consumes(MultiRecipientMessageProvider.MEDIA_TYPE)
   @Produces(MediaType.APPLICATION_JSON)
-  @FilterAbusiveMessages
+  @FilterSpam
   public Response sendMultiRecipientMessage(
       @HeaderParam(OptionalAccess.UNIDENTIFIED) @Nullable CombinedUnidentifiedSenderAccessKeys accessKeys,
       @HeaderParam(HttpHeaders.USER_AGENT) String userAgent,

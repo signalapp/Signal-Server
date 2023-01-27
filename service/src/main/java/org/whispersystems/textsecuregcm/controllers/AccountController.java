@@ -55,7 +55,7 @@ import javax.ws.rs.core.Response.Status;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.abuse.FilterAbusiveMessages;
+import org.whispersystems.textsecuregcm.spam.FilterSpam;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.auth.BasicAuthorizationHeader;
@@ -265,7 +265,7 @@ public class AccountController {
   @Timed
   @GET
   @Path("/{transport}/code/{number}")
-  @FilterAbusiveMessages
+  @FilterSpam
   @Produces(MediaType.APPLICATION_JSON)
   public Response createAccount(@PathParam("transport")         String transport,
                                 @PathParam("number")            String number,

@@ -7,5 +7,5 @@
 #
 # External developers may safely ignore this submodule.
 [submodule "abusive-message-filter"]
-	path = abusive-message-filter
+	path = spam-filter
 	url = REDACTED

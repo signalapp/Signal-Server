@@ -9,14 +9,14 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import javax.validation.constraints.NotBlank;
 
-public class AbusiveMessageFilterConfiguration {
+public class SpamFilterConfiguration {
 
   @JsonProperty
   @NotBlank
   private final String environment;
 
   @JsonCreator
-  public AbusiveMessageFilterConfiguration(@JsonProperty("environment") final String environment) {
+  public SpamFilterConfiguration(@JsonProperty("environment") final String environment) {
     this.environment = environment;
   }
 

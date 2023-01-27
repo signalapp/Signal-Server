@@ -89,7 +89,7 @@ public class ReportMessageManager {
   }
 
   /**
-   * Returns the number of times messages from the given account have been reported by recipients as abusive. Note that
+   * Returns the number of times messages from the given account have been reported by recipients as spam. Note that
    * this method makes a call to an external service, and callers should take care to memoize calls where possible and
    * avoid unnecessary calls.
    *

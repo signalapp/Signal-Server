@@ -1,4 +1,4 @@
-package org.whispersystems.textsecuregcm.abuse;
+package org.whispersystems.textsecuregcm.spam;
 
 import java.util.Optional;
 import java.util.UUID;

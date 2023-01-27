@@ -1,7 +1,6 @@
 package org.whispersystems.textsecuregcm.configuration.dynamic;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.annotations.VisibleForTesting;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
@@ -47,10 +46,6 @@ public class DynamicConfiguration {
   @JsonProperty
   @Valid
   private DynamicTurnConfiguration turn = new DynamicTurnConfiguration();
-
-  @JsonProperty
-  @Valid
-  DynamicAbusiveHostRulesConfiguration abusiveHostRules = new DynamicAbusiveHostRulesConfiguration();
 
   @JsonProperty
   @Valid
@@ -100,10 +95,6 @@ public class DynamicConfiguration {
 
   public DynamicTurnConfiguration getTurnConfiguration() {
     return turn;
-  }
-
-  public DynamicAbusiveHostRulesConfiguration getAbusiveHostRules() {
-    return abusiveHostRules;
   }
 
   public DynamicMessagePersisterConfiguration getMessagePersisterConfiguration() {

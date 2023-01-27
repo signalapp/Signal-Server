@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-package org.whispersystems.textsecuregcm.abuse;
+package org.whispersystems.textsecuregcm.spam;
 
 
 import org.whispersystems.textsecuregcm.storage.Account;

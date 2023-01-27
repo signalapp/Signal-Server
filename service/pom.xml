@@ -446,7 +446,7 @@
 
   <profiles>
     <profile>
-      <id>exclude-abusive-message-filter</id>
+      <id>exclude-spam-filter</id>
       <build>
         <plugins>
           <plugin>

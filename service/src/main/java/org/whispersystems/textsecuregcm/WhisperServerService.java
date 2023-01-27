@@ -70,11 +70,11 @@ import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.dispatch.DispatchManager;
-import org.whispersystems.textsecuregcm.abuse.AbusiveMessageFilter;
-import org.whispersystems.textsecuregcm.abuse.FilterAbusiveMessages;
-import org.whispersystems.textsecuregcm.abuse.RateLimitChallengeListener;
-import org.whispersystems.textsecuregcm.abuse.ReportSpamTokenHandler;
-import org.whispersystems.textsecuregcm.abuse.ReportSpamTokenProvider;
+import org.whispersystems.textsecuregcm.spam.SpamFilter;
+import org.whispersystems.textsecuregcm.spam.FilterSpam;
+import org.whispersystems.textsecuregcm.spam.RateLimitChallengeListener;
+import org.whispersystems.textsecuregcm.spam.ReportSpamTokenHandler;
+import org.whispersystems.textsecuregcm.spam.ReportSpamTokenProvider;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.CertificateGenerator;
@@ -677,14 +677,14 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     environment.jersey().register(new KeysController(rateLimiters, keys, accountsManager));
 
-    boolean registeredAbusiveMessageFilter = false;
+    boolean registeredSpamFilter = false;
     ReportSpamTokenProvider reportSpamTokenProvider = null;
     ReportSpamTokenHandler reportSpamTokenHandler = null;
 
-    for (final AbusiveMessageFilter filter : ServiceLoader.load(AbusiveMessageFilter.class)) {
-      if (filter.getClass().isAnnotationPresent(FilterAbusiveMessages.class)) {
+    for (final SpamFilter filter : ServiceLoader.load(SpamFilter.class)) {
+      if (filter.getClass().isAnnotationPresent(FilterSpam.class)) {
         try {
-          filter.configure(config.getAbusiveMessageFilterConfiguration().getEnvironment());
+          filter.configure(config.getSpamFilterConfiguration().getEnvironment());
 
           ReportSpamTokenProvider thisProvider = filter.getReportSpamTokenProvider();
           if (reportSpamTokenProvider == null) {
@@ -704,13 +704,13 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
           environment.jersey().register(filter);
           webSocketEnvironment.jersey().register(filter);
 
-          log.info("Registered abusive message filter: {}", filter.getClass().getName());
-          registeredAbusiveMessageFilter = true;
+          log.info("Registered spam filter: {}", filter.getClass().getName());
+          registeredSpamFilter = true;
         } catch (final Exception e) {
-          log.warn("Failed to register abusive message filter: {}", filter.getClass().getName(), e);
+          log.warn("Failed to register spam filter: {}", filter.getClass().getName(), e);
         }
       } else {
-        log.warn("Abusive message filter {} not annotated with @FilterAbusiveMessages and will not be installed",
+        log.warn("Spam filter {} not annotated with @FilterSpam and will not be installed",
             filter.getClass().getName());
       }
 
@@ -720,8 +720,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
       }
     }
 
-    if (!registeredAbusiveMessageFilter) {
-      log.warn("No abusive message filters installed");
+    if (!registeredSpamFilter) {
+      log.warn("No spam filters installed");
     }
 
     if (reportSpamTokenProvider == null) {
