@@ -109,6 +109,7 @@ import org.whispersystems.textsecuregcm.controllers.ProvisioningController;
 import org.whispersystems.textsecuregcm.controllers.RemoteConfigController;
 import org.whispersystems.textsecuregcm.controllers.SecureBackupController;
 import org.whispersystems.textsecuregcm.controllers.SecureStorageController;
+import org.whispersystems.textsecuregcm.controllers.SecureValueRecovery2Controller;
 import org.whispersystems.textsecuregcm.controllers.StickerController;
 import org.whispersystems.textsecuregcm.controllers.SubscriptionController;
 import org.whispersystems.textsecuregcm.controllers.VoiceVerificationController;
@@ -462,7 +463,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getPaymentsServiceConfiguration());
     ExternalServiceCredentialsGenerator artCredentialsGenerator = ArtController.credentialsGenerator(
         config.getArtServiceConfiguration());
-    
+    ExternalServiceCredentialsGenerator svr2CredentialsGenerator = SecureValueRecovery2Controller.credentialsGenerator(
+        config.getSvr2Configuration());
+
     dynamicConfigurationManager.start();
 
     ExperimentEnrollmentManager experimentEnrollmentManager = new ExperimentEnrollmentManager(dynamicConfigurationManager);
@@ -752,6 +755,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             config.getRemoteConfigConfiguration().getGlobalConfig()),
         new SecureBackupController(backupCredentialsGenerator),
         new SecureStorageController(storageCredentialsGenerator),
+        new SecureValueRecovery2Controller(svr2CredentialsGenerator),
         new StickerController(rateLimiters, config.getCdnConfiguration().getAccessKey(),
             config.getCdnConfiguration().getAccessSecret(), config.getCdnConfiguration().getRegion(),
             config.getCdnConfiguration().getBucket())

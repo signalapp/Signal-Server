@@ -43,6 +43,7 @@ import org.whispersystems.textsecuregcm.configuration.RemoteConfigConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ReportMessageConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SecureBackupServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SecureStorageServiceConfiguration;
+import org.whispersystems.textsecuregcm.configuration.SecureValueRecovery2Configuration;
 import org.whispersystems.textsecuregcm.configuration.StripeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TestDeviceConfiguration;
@@ -124,6 +125,11 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @JsonProperty
   private DirectoryV2Configuration directoryV2;
+
+  @NotNull
+  @Valid
+  @JsonProperty
+  private SecureValueRecovery2Configuration svr2;
 
   @NotNull
   @Valid
@@ -327,6 +333,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public DirectoryConfiguration getDirectoryConfiguration() {
     return directory;
+  }
+
+  public SecureValueRecovery2Configuration getSvr2Configuration() {
+    return svr2;
   }
 
   public DirectoryV2Configuration getDirectoryV2Configuration() {
