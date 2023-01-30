@@ -89,6 +89,7 @@ import org.whispersystems.textsecuregcm.entities.ReserveUsernameResponse;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.entities.UsernameRequest;
 import org.whispersystems.textsecuregcm.entities.UsernameResponse;
+import org.whispersystems.textsecuregcm.limits.RateLimitByIpFilter;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.ImpossiblePhoneNumberExceptionMapper;
@@ -112,7 +113,7 @@ import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundExcep
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.Hex;
-import org.whispersystems.textsecuregcm.util.MockHelper;
+import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.TestClock;
 
@@ -172,7 +173,7 @@ class AccountControllerTest {
 
   private byte[] registration_lock_key = new byte[32];
 
-  private static final SecureStorageServiceConfiguration STORAGE_CFG = MockHelper.buildMock(
+  private static final SecureStorageServiceConfiguration STORAGE_CFG = MockUtils.buildMock(
       SecureStorageServiceConfiguration.class,
       cfg -> when(cfg.decodeUserAuthenticationTokenSharedSecret()).thenReturn(new byte[32]));
 
@@ -188,6 +189,7 @@ class AccountControllerTest {
       .addProvider(new RateLimitExceededExceptionMapper())
       .addProvider(new ImpossiblePhoneNumberExceptionMapper())
       .addProvider(new NonNormalizedPhoneNumberExceptionMapper())
+      .addProvider(new RateLimitByIpFilter(rateLimiters))
       .setMapper(SystemMapper.getMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(new AccountController(pendingAccountsManager,
@@ -1949,13 +1951,13 @@ class AccountControllerTest {
 
   @Test
   void testAccountExistsRateLimited() throws RateLimitExceededException {
+    final Duration expectedRetryAfter = Duration.ofSeconds(13);
     final Account account = mock(Account.class);
     final UUID accountIdentifier = UUID.randomUUID();
     when(accountsManager.getByAccountIdentifier(accountIdentifier)).thenReturn(Optional.of(account));
 
-    final RateLimiter checkAccountLimiter = mock(RateLimiter.class);
-    when(rateLimiters.getCheckAccountExistenceLimiter()).thenReturn(checkAccountLimiter);
-    doThrow(new RateLimitExceededException(Duration.ofSeconds(13))).when(checkAccountLimiter).validate("127.0.0.1");
+    MockUtils.updateRateLimiterResponseToFail(
+        rateLimiters, RateLimiters.Handle.CHECK_ACCOUNT_EXISTENCE, "127.0.0.1", expectedRetryAfter);
 
     final Response response = resources.getJerseyTest()
         .target(String.format("/v1/accounts/account/%s", accountIdentifier))
@@ -1964,7 +1966,7 @@ class AccountControllerTest {
         .head();
 
     assertThat(response.getStatus()).isEqualTo(413);
-    assertThat(response.getHeaderString("Retry-After")).isEqualTo(String.valueOf(Duration.ofSeconds(13).toSeconds()));
+    assertThat(response.getHeaderString("Retry-After")).isEqualTo(String.valueOf(expectedRetryAfter.toSeconds()));
   }
 
   @Test
@@ -2018,7 +2020,9 @@ class AccountControllerTest {
 
   @Test
   void testLookupUsernameRateLimited() throws RateLimitExceededException {
-    doThrow(new RateLimitExceededException(Duration.ofSeconds(13))).when(usernameLookupLimiter).validate("127.0.0.1");
+    final Duration expectedRetryAfter = Duration.ofSeconds(13);
+    MockUtils.updateRateLimiterResponseToFail(
+        rateLimiters, RateLimiters.Handle.USERNAME_LOOKUP, "127.0.0.1", expectedRetryAfter);
     final Response response = resources.getJerseyTest()
         .target("/v1/accounts/username/test.123")
         .request()
@@ -2026,7 +2030,7 @@ class AccountControllerTest {
         .get();
 
     assertThat(response.getStatus()).isEqualTo(413);
-    assertThat(response.getHeaderString("Retry-After")).isEqualTo(String.valueOf(Duration.ofSeconds(13).toSeconds()));
+    assertThat(response.getHeaderString("Retry-After")).isEqualTo(String.valueOf(expectedRetryAfter.toSeconds()));
   }
 
   @ParameterizedTest

@@ -23,13 +23,13 @@ import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator
 import org.whispersystems.textsecuregcm.configuration.SecureStorageServiceConfiguration;
 import org.whispersystems.textsecuregcm.controllers.SecureStorageController;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
-import org.whispersystems.textsecuregcm.util.MockHelper;
+import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class SecureStorageControllerTest {
 
-  private static final SecureStorageServiceConfiguration STORAGE_CFG = MockHelper.buildMock(
+  private static final SecureStorageServiceConfiguration STORAGE_CFG = MockUtils.buildMock(
       SecureStorageServiceConfiguration.class,
       cfg -> when(cfg.decodeUserAuthenticationTokenSharedSecret()).thenReturn(new byte[32]));
 

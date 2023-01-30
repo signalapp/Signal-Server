@@ -739,7 +739,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new RemoteConfigController(remoteConfigsManager, adminEventLogger,
             config.getRemoteConfigConfiguration().getAuthorizedTokens(),
             config.getRemoteConfigConfiguration().getGlobalConfig()),
-        new SecureBackupController(backupCredentialsGenerator),
+        new SecureBackupController(backupCredentialsGenerator, accountsManager),
         new SecureStorageController(storageCredentialsGenerator),
         new SecureValueRecovery2Controller(svr2CredentialsGenerator),
         new StickerController(rateLimiters, config.getCdnConfiguration().getAccessKey(),

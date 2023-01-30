@@ -26,13 +26,13 @@ import org.whispersystems.textsecuregcm.controllers.ArtController;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
-import org.whispersystems.textsecuregcm.util.MockHelper;
+import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class ArtControllerTest {
 
-  private static final ArtServiceConfiguration ART_SERVICE_CONFIGURATION = MockHelper.buildMock(
+  private static final ArtServiceConfiguration ART_SERVICE_CONFIGURATION = MockUtils.buildMock(
       ArtServiceConfiguration.class,
       cfg -> {
         Mockito.when(cfg.getUserAuthenticationTokenSharedSecret()).thenReturn(new byte[32]);

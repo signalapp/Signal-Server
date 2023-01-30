@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.configuration;
@@ -73,6 +73,9 @@ public class RateLimitsConfiguration {
 
   @JsonProperty
   private RateLimitConfiguration stories = new RateLimitConfiguration(10_000, 10_000 / (24.0 * 60.0));
+
+  @JsonProperty
+  private RateLimitConfiguration backupAuthCheck = new RateLimitConfiguration(100, 100 / (24.0 * 60.0));
 
   public RateLimitConfiguration getAutoBlock() {
     return autoBlock;
@@ -158,7 +161,13 @@ public class RateLimitsConfiguration {
     return checkAccountExistence;
   }
 
-  public RateLimitConfiguration getStories() { return stories; }
+  public RateLimitConfiguration getStories() {
+    return stories;
+  }
+
+  public RateLimitConfiguration getBackupAuthCheck() {
+    return backupAuthCheck;
+  }
 
   public static class RateLimitConfiguration {
     @JsonProperty

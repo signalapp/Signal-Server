@@ -6,11 +6,12 @@
 package org.whispersystems.textsecuregcm.util;
 
 import java.nio.charset.StandardCharsets;
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
 import java.security.InvalidKeyException;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 
 public final class HmacUtils {
 
@@ -62,5 +63,15 @@ public final class HmacUtils {
 
   public static String hmac256TruncatedToHexString(final byte[] key, final String input, final int length) {
     return hmac256TruncatedToHexString(key, input.getBytes(StandardCharsets.UTF_8), length);
+  }
+
+  public static boolean hmacHexStringsEqual(final String expectedAsHexString, final String actualAsHexString) {
+    try {
+      final byte[] aBytes = HEX.parseHex(expectedAsHexString);
+      final byte[] bBytes = HEX.parseHex(actualAsHexString);
+      return MessageDigest.isEqual(aBytes, bBytes);
+    } catch (final IllegalArgumentException e) {
+      return false;
+    }
   }
 }

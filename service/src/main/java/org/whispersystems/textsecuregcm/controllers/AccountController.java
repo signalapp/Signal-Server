@@ -87,6 +87,7 @@ import org.whispersystems.textsecuregcm.entities.ReserveUsernameResponse;
 import org.whispersystems.textsecuregcm.entities.StaleDevices;
 import org.whispersystems.textsecuregcm.entities.UsernameRequest;
 import org.whispersystems.textsecuregcm.entities.UsernameResponse;
+import org.whispersystems.textsecuregcm.limits.RateLimitedByIp;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
@@ -772,9 +773,9 @@ public class AccountController {
   @GET
   @Path("/username/{username}")
   @Produces(MediaType.APPLICATION_JSON)
+  @RateLimitedByIp(RateLimiters.Handle.USERNAME_LOOKUP)
   public AccountIdentifierResponse lookupUsername(
       @HeaderParam(HeaderUtils.X_SIGNAL_AGENT) final String userAgent,
-      @HeaderParam(HttpHeaders.X_FORWARDED_FOR) final String forwardedFor,
       @PathParam("username") final String username,
       @Context final HttpServletRequest request) throws RateLimitExceededException {
 
@@ -782,8 +783,6 @@ public class AccountController {
     if (StringUtils.isNotBlank(request.getHeader("Authorization"))) {
       throw new BadRequestException();
     }
-
-    rateLimitByClientIp(rateLimiters.getUsernameLookupLimiter(), forwardedFor);
 
     checkUsername(username, userAgent);
 
@@ -796,8 +795,8 @@ public class AccountController {
 
   @HEAD
   @Path("/account/{uuid}")
+  @RateLimitedByIp(RateLimiters.Handle.CHECK_ACCOUNT_EXISTENCE)
   public Response accountExists(
-      @HeaderParam(HttpHeaders.X_FORWARDED_FOR) final String forwardedFor,
       @PathParam("uuid") final UUID uuid,
       @Context HttpServletRequest request) throws RateLimitExceededException {
 
@@ -805,7 +804,6 @@ public class AccountController {
     if (StringUtils.isNotBlank(request.getHeader("Authorization"))) {
       throw new BadRequestException();
     }
-    rateLimitByClientIp(rateLimiters.getCheckAccountExistenceLimiter(), forwardedFor);
 
     final Status status = accounts.getByAccountIdentifier(uuid)
         .or(() -> accounts.getByPhoneNumberIdentifier(uuid))
