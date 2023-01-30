@@ -643,13 +643,14 @@ public class MessageController {
     UUID spamReporterUuid = auth.getAccount().getUuid();
 
     // spam report token is optional, but if provided ensure it is valid base64.
-    @Nullable final byte[] spamReportToken = spamReport != null ? spamReport.token() : null;
+    final Optional<byte[]> maybeSpamReportToken =
+        spamReport != null ? Optional.of(spamReport.token()) : Optional.empty();
 
     // fire-and-forget: we don't want to block the response on this action.
     CompletableFuture<Boolean> ignored =
-      reportSpamTokenHandler.handle(sourceNumber, sourceAci, sourcePni, messageGuid, spamReporterUuid, spamReportToken);
+      reportSpamTokenHandler.handle(sourceNumber, sourceAci, sourcePni, messageGuid, spamReporterUuid, maybeSpamReportToken.orElse(null));
 
-    reportMessageManager.report(sourceNumber, sourceAci, sourcePni, messageGuid, spamReporterUuid);
+    reportMessageManager.report(sourceNumber, sourceAci, sourcePni, messageGuid, spamReporterUuid, maybeSpamReportToken);
 
     return Response.status(Status.ACCEPTED)
         .build();

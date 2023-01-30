@@ -5,9 +5,10 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
+import java.util.Optional;
 import java.util.UUID;
 
 public interface ReportedMessageListener {
 
-  void handleMessageReported(String sourceNumber, UUID messageGuid, UUID reporterUuid);
+  void handleMessageReported(String sourceNumber, UUID messageGuid, UUID reporterUuid, Optional<byte[]> reportSpamToken);
 }

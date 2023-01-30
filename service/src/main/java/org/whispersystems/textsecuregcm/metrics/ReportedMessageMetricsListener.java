@@ -9,6 +9,7 @@ import static com.codahale.metrics.MetricRegistry.name;
 
 import io.micrometer.core.instrument.Metrics;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import net.logstash.logback.marker.Markers;
 import org.slf4j.Logger;
@@ -35,7 +36,9 @@ public class ReportedMessageMetricsListener implements ReportedMessageListener {
   }
 
   @Override
-  public void handleMessageReported(final String sourceNumber, final UUID messageGuid, final UUID reporterUuid) {
+  public void handleMessageReported(final String sourceNumber, final UUID messageGuid, final UUID reporterUuid,
+      final Optional<byte[]> reportSpamToken) {
+
     final String sourceCountryCode = Util.getCountryCode(sourceNumber);
 
     Metrics.counter(REPORTED_COUNTER_NAME, COUNTRY_CODE_TAG_NAME, sourceCountryCode).increment();

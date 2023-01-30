@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.anyBoolean;
 import static org.mockito.Mockito.anyString;
@@ -67,6 +68,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatcher;
 import org.whispersystems.textsecuregcm.spam.ReportSpamTokenHandler;
 import org.whispersystems.textsecuregcm.spam.ReportSpamTokenProvider;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
@@ -634,7 +636,7 @@ class MessageControllerTest {
     assertThat(response.getStatus(), is(equalTo(202)));
 
     verify(reportMessageManager).report(Optional.of(senderNumber), Optional.of(senderAci), Optional.of(senderPni),
-        messageGuid, AuthHelper.VALID_UUID);
+        messageGuid, AuthHelper.VALID_UUID, Optional.empty());
     verify(deletedAccountsManager, never()).findDeletedAccountE164(any(UUID.class));
     verify(accountsManager, never()).getPhoneNumberIdentifier(anyString());
 
@@ -651,7 +653,7 @@ class MessageControllerTest {
     assertThat(response.getStatus(), is(equalTo(202)));
 
     verify(reportMessageManager).report(Optional.of(senderNumber), Optional.of(senderAci), Optional.of(senderPni),
-        messageGuid, AuthHelper.VALID_UUID);
+        messageGuid, AuthHelper.VALID_UUID, Optional.empty());
   }
 
   @Test
@@ -681,7 +683,7 @@ class MessageControllerTest {
     assertThat(response.getStatus(), is(equalTo(202)));
 
     verify(reportMessageManager).report(Optional.of(senderNumber), Optional.of(senderAci), Optional.of(senderPni),
-        messageGuid, AuthHelper.VALID_UUID);
+        messageGuid, AuthHelper.VALID_UUID, Optional.empty());
     verify(deletedAccountsManager, never()).findDeletedAccountE164(any(UUID.class));
     verify(accountsManager, never()).getPhoneNumberIdentifier(anyString());
 
@@ -699,7 +701,7 @@ class MessageControllerTest {
     assertThat(response.getStatus(), is(equalTo(202)));
 
     verify(reportMessageManager).report(Optional.of(senderNumber), Optional.of(senderAci), Optional.of(senderPni),
-        messageGuid, AuthHelper.VALID_UUID);
+        messageGuid, AuthHelper.VALID_UUID, Optional.empty());
   }
 
   @Test
@@ -733,8 +735,12 @@ class MessageControllerTest {
     assertThat(response.getStatus(), is(equalTo(202)));
     verify(REPORT_SPAM_TOKEN_HANDLER).handle(any(), any(), any(), any(), any(), captor.capture());
     assertArrayEquals(new byte[3], captor.getValue());
-    verify(reportMessageManager).report(Optional.of(senderNumber), Optional.of(senderAci), Optional.of(senderPni),
-        messageGuid, AuthHelper.VALID_UUID);
+    verify(reportMessageManager).report(eq(Optional.of(senderNumber)),
+        eq(Optional.of(senderAci)),
+        eq(Optional.of(senderPni)),
+        eq(messageGuid),
+        eq(AuthHelper.VALID_UUID),
+        argThat(maybeBytes -> maybeBytes.map(bytes -> Arrays.equals(bytes, new byte[3])).orElse(false)));
     verify(deletedAccountsManager, never()).findDeletedAccountE164(any(UUID.class));
     verify(accountsManager, never()).getPhoneNumberIdentifier(anyString());
     when(accountsManager.getByAccountIdentifier(senderAci)).thenReturn(Optional.empty());
@@ -754,8 +760,12 @@ class MessageControllerTest {
     assertThat(response.getStatus(), is(equalTo(202)));
     verify(REPORT_SPAM_TOKEN_HANDLER).handle(any(), any(), any(), any(), any(), captor.capture());
     assertArrayEquals(new byte[5], captor.getValue());
-    verify(reportMessageManager).report(Optional.of(senderNumber), Optional.of(senderAci), Optional.of(senderPni),
-        messageGuid, AuthHelper.VALID_UUID);
+    verify(reportMessageManager).report(eq(Optional.of(senderNumber)),
+        eq(Optional.of(senderAci)),
+        eq(Optional.of(senderPni)),
+        eq(messageGuid),
+        eq(AuthHelper.VALID_UUID),
+        argThat(maybeBytes -> maybeBytes.map(bytes -> Arrays.equals(bytes, new byte[5])).orElse(false)));
   }
 
   @Test

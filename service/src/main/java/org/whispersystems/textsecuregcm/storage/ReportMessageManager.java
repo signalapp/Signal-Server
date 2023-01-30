@@ -15,8 +15,10 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import io.micrometer.core.instrument.Metrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
@@ -28,6 +30,10 @@ public class ReportMessageManager {
   private final Duration counterTtl;
 
   private final List<ReportedMessageListener> reportedMessageListeners = new ArrayList<>();
+
+  private static final String REPORT_MESSAGE_COUNTER_NAME = MetricsUtil.name(ReportMessageManager.class);
+  private static final String FOUND_MESSAGE_TAG = "foundMessage";
+  private static final String TOKEN_PRESENT_TAG = "hasReportSpamToken";
 
   private static final Logger logger = LoggerFactory.getLogger(ReportMessageManager.class);
 
@@ -56,11 +62,20 @@ public class ReportMessageManager {
     }
   }
 
-  public void report(Optional<String> sourceNumber, Optional<UUID> sourceAci, Optional<UUID> sourcePni,
-      UUID messageGuid, UUID reporterUuid) {
+  public void report(final Optional<String> sourceNumber,
+      final Optional<UUID> sourceAci,
+      final Optional<UUID> sourcePni,
+      final UUID messageGuid,
+      final UUID reporterUuid,
+      final Optional<byte[]> reportSpamToken) {
 
     final boolean found = sourceAci.map(uuid -> reportMessageDynamoDb.remove(hash(messageGuid, uuid.toString())))
         .orElse(false);
+
+    Metrics.counter(REPORT_MESSAGE_COUNTER_NAME,
+        FOUND_MESSAGE_TAG, String.valueOf(found),
+        TOKEN_PRESENT_TAG, String.valueOf(reportSpamToken.isPresent()))
+        .increment();
 
     if (found) {
       rateLimitCluster.useCluster(connection -> {
@@ -80,7 +95,7 @@ public class ReportMessageManager {
       sourceNumber.ifPresent(number ->
           reportedMessageListeners.forEach(listener -> {
             try {
-              listener.handleMessageReported(number, messageGuid, reporterUuid);
+              listener.handleMessageReported(number, messageGuid, reporterUuid, reportSpamToken);
             } catch (final Exception e) {
               logger.error("Failed to notify listener of reported message", e);
             }
