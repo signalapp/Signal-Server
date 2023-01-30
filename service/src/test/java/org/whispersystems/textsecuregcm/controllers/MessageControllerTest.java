@@ -8,7 +8,6 @@ package org.whispersystems.textsecuregcm.controllers;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -19,7 +18,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.anyBoolean;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.atLeastOnce;
-import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
@@ -68,9 +66,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
-import org.mockito.ArgumentMatcher;
-import org.whispersystems.textsecuregcm.spam.ReportSpamTokenHandler;
-import org.whispersystems.textsecuregcm.spam.ReportSpamTokenProvider;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
@@ -94,6 +89,7 @@ import org.whispersystems.textsecuregcm.providers.MultiRecipientMessageProvider;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
+import org.whispersystems.textsecuregcm.spam.ReportSpamTokenProvider;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DeletedAccountsManager;
@@ -144,7 +140,6 @@ class MessageControllerTest {
   private static final PushNotificationManager pushNotificationManager = mock(PushNotificationManager.class);
   private static final ReportMessageManager reportMessageManager = mock(ReportMessageManager.class);
   private static final ExecutorService multiRecipientMessageExecutor = mock(ExecutorService.class);
-  private static final ReportSpamTokenHandler REPORT_SPAM_TOKEN_HANDLER = mock(ReportSpamTokenHandler.class);
 
   private static final ResourceExtension resources = ResourceExtension.builder()
       .addProperty(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE)
@@ -157,7 +152,7 @@ class MessageControllerTest {
       .addResource(
           new MessageController(rateLimiters, messageSender, receiptSender, accountsManager, deletedAccountsManager,
               messagesManager, pushNotificationManager, reportMessageManager, multiRecipientMessageExecutor,
-              ReportSpamTokenProvider.noop(), REPORT_SPAM_TOKEN_HANDLER))
+              ReportSpamTokenProvider.noop()))
       .build();
 
   @BeforeEach
@@ -184,8 +179,6 @@ class MessageControllerTest {
     when(accountsManager.getByAccountIdentifier(INTERNATIONAL_UUID)).thenReturn(Optional.of(internationalAccount));
 
     when(rateLimiters.getMessagesLimiter()).thenReturn(rateLimiter);
-
-    when(REPORT_SPAM_TOKEN_HANDLER.handle(any(), any(), any(), any(), any(), any())).thenReturn(CompletableFuture.completedFuture(false));
   }
 
   private static Device generateTestDevice(final long id, final int registrationId, final int pniRegistrationId, final SignedPreKey signedPreKey, final long createdAt, final long lastSeen) {
@@ -214,8 +207,7 @@ class MessageControllerTest {
         rateLimiter,
         pushNotificationManager,
         reportMessageManager,
-        multiRecipientMessageExecutor,
-        REPORT_SPAM_TOKEN_HANDLER
+        multiRecipientMessageExecutor
     );
   }
 
@@ -720,9 +712,6 @@ class MessageControllerTest {
     when(accountsManager.getByAccountIdentifier(senderAci)).thenReturn(Optional.of(account));
     when(deletedAccountsManager.findDeletedAccountE164(senderAci)).thenReturn(Optional.of(senderNumber));
     when(accountsManager.getPhoneNumberIdentifier(senderNumber)).thenReturn(senderPni);
-    when(REPORT_SPAM_TOKEN_HANDLER.handle(any(), any(), any(), any(), any(), any())).thenReturn(CompletableFuture.completedFuture(true));
-
-    ArgumentCaptor<byte[]> captor = ArgumentCaptor.forClass(byte[].class);
 
     Entity<SpamReport> entity = Entity.entity(new SpamReport(new byte[3]), "application/json");
     Response response =
@@ -733,8 +722,6 @@ class MessageControllerTest {
             .post(entity);
 
     assertThat(response.getStatus(), is(equalTo(202)));
-    verify(REPORT_SPAM_TOKEN_HANDLER).handle(any(), any(), any(), any(), any(), captor.capture());
-    assertArrayEquals(new byte[3], captor.getValue());
     verify(reportMessageManager).report(eq(Optional.of(senderNumber)),
         eq(Optional.of(senderAci)),
         eq(Optional.of(senderPni)),
@@ -744,8 +731,6 @@ class MessageControllerTest {
     verify(deletedAccountsManager, never()).findDeletedAccountE164(any(UUID.class));
     verify(accountsManager, never()).getPhoneNumberIdentifier(anyString());
     when(accountsManager.getByAccountIdentifier(senderAci)).thenReturn(Optional.empty());
-
-    clearInvocations(REPORT_SPAM_TOKEN_HANDLER);
 
     messageGuid = UUID.randomUUID();
 
@@ -758,8 +743,6 @@ class MessageControllerTest {
             .post(entity);
 
     assertThat(response.getStatus(), is(equalTo(202)));
-    verify(REPORT_SPAM_TOKEN_HANDLER).handle(any(), any(), any(), any(), any(), captor.capture());
-    assertArrayEquals(new byte[5], captor.getValue());
     verify(reportMessageManager).report(eq(Optional.of(senderNumber)),
         eq(Optional.of(senderAci)),
         eq(Optional.of(senderPni)),

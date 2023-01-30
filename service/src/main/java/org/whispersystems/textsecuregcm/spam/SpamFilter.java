@@ -6,8 +6,10 @@
 package org.whispersystems.textsecuregcm.spam;
 
 import io.dropwizard.lifecycle.Managed;
+import org.whispersystems.textsecuregcm.storage.ReportedMessageListener;
 import javax.ws.rs.container.ContainerRequestFilter;
 import java.io.IOException;
+import java.util.List;
 
 /**
  * A spam filter is a {@link ContainerRequestFilter} that filters requests to message-sending endpoints to
@@ -39,10 +41,10 @@ public interface SpamFilter extends ContainerRequestFilter, Managed {
   ReportSpamTokenProvider getReportSpamTokenProvider();
 
   /**
-   * Builds a spam report token handler. This will handle tokens received by the spam reporting system.
+   * Return any and all reported message listeners controlled by the spam filter. Listeners will be registered with the
+   * {@link org.whispersystems.textsecuregcm.storage.ReportMessageManager}.
    *
-   * @return the configured spam report token handler
+   * @return a list of reported message listeners controlled by the spam filter
    */
-  ReportSpamTokenHandler getReportSpamTokenHandler();
-
+  List<ReportedMessageListener> getReportedMessageListeners();
 }

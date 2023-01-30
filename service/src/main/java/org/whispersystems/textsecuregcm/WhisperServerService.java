@@ -70,11 +70,6 @@ import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.dispatch.DispatchManager;
-import org.whispersystems.textsecuregcm.spam.SpamFilter;
-import org.whispersystems.textsecuregcm.spam.FilterSpam;
-import org.whispersystems.textsecuregcm.spam.RateLimitChallengeListener;
-import org.whispersystems.textsecuregcm.spam.ReportSpamTokenHandler;
-import org.whispersystems.textsecuregcm.spam.ReportSpamTokenProvider;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.CertificateGenerator;
@@ -168,6 +163,10 @@ import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
+import org.whispersystems.textsecuregcm.spam.FilterSpam;
+import org.whispersystems.textsecuregcm.spam.RateLimitChallengeListener;
+import org.whispersystems.textsecuregcm.spam.ReportSpamTokenProvider;
+import org.whispersystems.textsecuregcm.spam.SpamFilter;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.AccountCleaner;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawler;
@@ -679,7 +678,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     boolean registeredSpamFilter = false;
     ReportSpamTokenProvider reportSpamTokenProvider = null;
-    ReportSpamTokenHandler reportSpamTokenHandler = null;
 
     for (final SpamFilter filter : ServiceLoader.load(SpamFilter.class)) {
       if (filter.getClass().isAnnotationPresent(FilterSpam.class)) {
@@ -693,12 +691,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             log.info("Multiple spam report token providers found. Using the first.");
           }
 
-          ReportSpamTokenHandler thisHandler = filter.getReportSpamTokenHandler();
-          if (reportSpamTokenHandler == null) {
-            reportSpamTokenHandler = thisHandler;
-          } else if (thisProvider != null) {
-            log.info("Multiple spam report token handlers found. Using the first.");
-          }
+          filter.getReportedMessageListeners().forEach(reportMessageManager::addListener);
 
           environment.lifecycle().manage(filter);
           environment.jersey().register(filter);
@@ -728,10 +721,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
       reportSpamTokenProvider = ReportSpamTokenProvider.noop();
     }
 
-    if (reportSpamTokenHandler == null) {
-      reportSpamTokenHandler = ReportSpamTokenHandler.noop();
-    }
-
     final List<Object> commonControllers = Lists.newArrayList(
         new ArtController(rateLimiters, artCredentialsGenerator),
         new AttachmentControllerV2(rateLimiters, config.getAwsAttachmentsConfiguration().getAccessKey(), config.getAwsAttachmentsConfiguration().getAccessSecret(), config.getAwsAttachmentsConfiguration().getRegion(), config.getAwsAttachmentsConfiguration().getBucket()),
@@ -744,7 +733,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new DonationController(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager, config.getBadges(),
             ReceiptCredentialPresentation::new),
         new MessageController(rateLimiters, messageSender, receiptSender, accountsManager, deletedAccountsManager, messagesManager, pushNotificationManager, reportMessageManager, multiRecipientMessageExecutor,
-            reportSpamTokenProvider, reportSpamTokenHandler),
+            reportSpamTokenProvider),
         new PaymentsController(currencyManager, paymentsCredentialsGenerator),
         new ProfileController(clock, rateLimiters, accountsManager, profilesManager, dynamicConfigurationManager,
             profileBadgeConverter, config.getBadges(), cdnS3Client, profileCdnPolicyGenerator, profileCdnPolicySigner,

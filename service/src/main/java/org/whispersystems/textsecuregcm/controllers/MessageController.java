@@ -62,9 +62,6 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.spam.FilterSpam;
-import org.whispersystems.textsecuregcm.spam.ReportSpamTokenHandler;
-import org.whispersystems.textsecuregcm.spam.ReportSpamTokenProvider;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.CombinedUnidentifiedSenderAccessKeys;
@@ -92,6 +89,8 @@ import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
+import org.whispersystems.textsecuregcm.spam.FilterSpam;
+import org.whispersystems.textsecuregcm.spam.ReportSpamTokenProvider;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DeletedAccountsManager;
@@ -123,7 +122,6 @@ public class MessageController {
   private final ReportMessageManager reportMessageManager;
   private final ExecutorService multiRecipientMessageExecutor;
   private final ReportSpamTokenProvider reportSpamTokenProvider;
-  private final ReportSpamTokenHandler reportSpamTokenHandler;
 
   private static final String REJECT_OVERSIZE_MESSAGE_COUNTER = name(MessageController.class, "rejectOversizeMessage");
   private static final String SENT_MESSAGE_COUNTER_NAME = name(MessageController.class, "sentMessages");
@@ -131,7 +129,6 @@ public class MessageController {
   private static final String OUTGOING_MESSAGE_LIST_SIZE_BYTES_DISTRIBUTION_NAME = name(MessageController.class, "outgoingMessageListSizeBytes");
   private static final String RATE_LIMITED_MESSAGE_COUNTER_NAME = name(MessageController.class, "rateLimitedMessage");
   private static final String REJECT_INVALID_ENVELOPE_TYPE = name(MessageController.class, "rejectInvalidEnvelopeType");
-  private static final String REPORT_SPAM_TOKENS_RECEIVED_COUNTER_NAME = name(MessageController.class, "reportSpamTokensReceived");
 
   private static final String EPHEMERAL_TAG_NAME = "ephemeral";
   private static final String SENDER_TYPE_TAG_NAME = "senderType";
@@ -156,8 +153,7 @@ public class MessageController {
       PushNotificationManager pushNotificationManager,
       ReportMessageManager reportMessageManager,
       @Nonnull ExecutorService multiRecipientMessageExecutor,
-      @Nonnull ReportSpamTokenProvider reportSpamTokenProvider,
-      @Nonnull ReportSpamTokenHandler reportSpamTokenHandler) {
+      @Nonnull ReportSpamTokenProvider reportSpamTokenProvider) {
     this.rateLimiters = rateLimiters;
     this.messageSender = messageSender;
     this.receiptSender = receiptSender;
@@ -168,8 +164,6 @@ public class MessageController {
     this.reportMessageManager = reportMessageManager;
     this.multiRecipientMessageExecutor = Objects.requireNonNull(multiRecipientMessageExecutor);
     this.reportSpamTokenProvider = reportSpamTokenProvider;
-    this.reportSpamTokenHandler = reportSpamTokenHandler;
-
   }
 
   @Timed
@@ -645,10 +639,6 @@ public class MessageController {
     // spam report token is optional, but if provided ensure it is valid base64.
     final Optional<byte[]> maybeSpamReportToken =
         spamReport != null ? Optional.of(spamReport.token()) : Optional.empty();
-
-    // fire-and-forget: we don't want to block the response on this action.
-    CompletableFuture<Boolean> ignored =
-      reportSpamTokenHandler.handle(sourceNumber, sourceAci, sourcePni, messageGuid, spamReporterUuid, maybeSpamReportToken.orElse(null));
 
     reportMessageManager.report(sourceNumber, sourceAci, sourcePni, messageGuid, spamReporterUuid, maybeSpamReportToken);
 
