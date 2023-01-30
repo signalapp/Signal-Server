@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2022 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -38,7 +38,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
-import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
+import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
@@ -199,7 +199,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
     final byte[] unidentifiedAccessKey = new byte[]{1};
     final String pin = "1234";
     final String registrationLock = "reglock";
-    final AuthenticationCredentials credentials = new AuthenticationCredentials(registrationLock);
+    final SaltedTokenHash credentials = SaltedTokenHash.generateFor(registrationLock);
     final boolean unrestrictedUnidentifiedAccess = true;
     final long lastSeen = Instant.now().getEpochSecond();
 
@@ -208,7 +208,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
         modifyAccount(uuid, account -> account.setCurrentProfileVersion(currentProfileVersion)),
         modifyAccount(uuid, account -> account.setIdentityKey(identityKey)),
         modifyAccount(uuid, account -> account.setUnidentifiedAccessKey(unidentifiedAccessKey)),
-        modifyAccount(uuid, account -> account.setRegistrationLock(credentials.getHashedAuthenticationToken(), credentials.getSalt())),
+        modifyAccount(uuid, account -> account.setRegistrationLock(credentials.hash(), credentials.salt())),
         modifyAccount(uuid, account -> account.setUnrestrictedUnidentifiedAccess(unrestrictedUnidentifiedAccess)),
         modifyDevice(uuid, Device.MASTER_ID, device -> device.setLastSeen(lastSeen)),
         modifyDevice(uuid, Device.MASTER_ID, device -> device.setName("deviceName"))

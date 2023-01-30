@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2021 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -123,15 +123,15 @@ public class BaseAccountAuthenticator {
             .increment();
       }
 
-      AuthenticationCredentials deviceAuthenticationCredentials = device.get().getAuthenticationCredentials();
-      if (deviceAuthenticationCredentials.verify(basicCredentials.getPassword())) {
+      SaltedTokenHash deviceSaltedTokenHash = device.get().getAuthTokenHash();
+      if (deviceSaltedTokenHash.verify(basicCredentials.getPassword())) {
         succeeded = true;
         Account authenticatedAccount = updateLastSeen(account.get(), device.get());
-        if (deviceAuthenticationCredentials.getVersion() != AuthenticationCredentials.CURRENT_VERSION) {
+        if (deviceSaltedTokenHash.getVersion() != SaltedTokenHash.CURRENT_VERSION) {
           authenticatedAccount = accountsManager.updateDeviceAuthentication(
               authenticatedAccount,
               device.get(),
-              new AuthenticationCredentials(basicCredentials.getPassword()));  // new credentials have current version
+              SaltedTokenHash.generateFor(basicCredentials.getPassword()));  // new credentials have current version
         }
         return Optional.of(new AuthenticatedAccount(
             new RefreshingAccountAndDeviceSupplier(authenticatedAccount, device.get().getId(), accountsManager)));

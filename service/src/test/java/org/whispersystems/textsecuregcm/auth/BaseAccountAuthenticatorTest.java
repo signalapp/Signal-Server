@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2021 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -155,7 +155,7 @@ class BaseAccountAuthenticatorTest {
 
     final Account account = mock(Account.class);
     final Device device = mock(Device.class);
-    final AuthenticationCredentials credentials = mock(AuthenticationCredentials.class);
+    final SaltedTokenHash credentials = mock(SaltedTokenHash.class);
 
     clock.unpin();
     when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
@@ -164,9 +164,9 @@ class BaseAccountAuthenticatorTest {
     when(account.isEnabled()).thenReturn(true);
     when(device.getId()).thenReturn(deviceId);
     when(device.isEnabled()).thenReturn(true);
-    when(device.getAuthenticationCredentials()).thenReturn(credentials);
+    when(device.getAuthTokenHash()).thenReturn(credentials);
     when(credentials.verify(password)).thenReturn(true);
-    when(credentials.getVersion()).thenReturn(AuthenticationCredentials.CURRENT_VERSION);
+    when(credentials.getVersion()).thenReturn(SaltedTokenHash.CURRENT_VERSION);
 
     final Optional<AuthenticatedAccount> maybeAuthenticatedAccount =
         baseAccountAuthenticator.authenticate(new BasicCredentials(uuid.toString(), password), true);
@@ -185,7 +185,7 @@ class BaseAccountAuthenticatorTest {
 
     final Account account = mock(Account.class);
     final Device device = mock(Device.class);
-    final AuthenticationCredentials credentials = mock(AuthenticationCredentials.class);
+    final SaltedTokenHash credentials = mock(SaltedTokenHash.class);
 
     clock.unpin();
     when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
@@ -194,9 +194,9 @@ class BaseAccountAuthenticatorTest {
     when(account.isEnabled()).thenReturn(true);
     when(device.getId()).thenReturn(deviceId);
     when(device.isEnabled()).thenReturn(true);
-    when(device.getAuthenticationCredentials()).thenReturn(credentials);
+    when(device.getAuthTokenHash()).thenReturn(credentials);
     when(credentials.verify(password)).thenReturn(true);
-    when(credentials.getVersion()).thenReturn(AuthenticationCredentials.CURRENT_VERSION);
+    when(credentials.getVersion()).thenReturn(SaltedTokenHash.CURRENT_VERSION);
 
     final Optional<AuthenticatedAccount> maybeAuthenticatedAccount =
         baseAccountAuthenticator.authenticate(new BasicCredentials(uuid + "." + deviceId, password), true);
@@ -219,7 +219,7 @@ class BaseAccountAuthenticatorTest {
 
     final Account account = mock(Account.class);
     final Device authenticatedDevice = mock(Device.class);
-    final AuthenticationCredentials credentials = mock(AuthenticationCredentials.class);
+    final SaltedTokenHash credentials = mock(SaltedTokenHash.class);
 
     clock.unpin();
     when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
@@ -228,9 +228,9 @@ class BaseAccountAuthenticatorTest {
     when(account.isEnabled()).thenReturn(accountEnabled);
     when(authenticatedDevice.getId()).thenReturn(deviceId);
     when(authenticatedDevice.isEnabled()).thenReturn(deviceEnabled);
-    when(authenticatedDevice.getAuthenticationCredentials()).thenReturn(credentials);
+    when(authenticatedDevice.getAuthTokenHash()).thenReturn(credentials);
     when(credentials.verify(password)).thenReturn(true);
-    when(credentials.getVersion()).thenReturn(AuthenticationCredentials.CURRENT_VERSION);
+    when(credentials.getVersion()).thenReturn(SaltedTokenHash.CURRENT_VERSION);
 
     final String identifier;
     if (authenticatedDeviceIsPrimary) {
@@ -258,7 +258,7 @@ class BaseAccountAuthenticatorTest {
 
     final Account account = mock(Account.class);
     final Device device = mock(Device.class);
-    final AuthenticationCredentials credentials = mock(AuthenticationCredentials.class);
+    final SaltedTokenHash credentials = mock(SaltedTokenHash.class);
 
     clock.unpin();
     when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
@@ -267,9 +267,9 @@ class BaseAccountAuthenticatorTest {
     when(account.isEnabled()).thenReturn(true);
     when(device.getId()).thenReturn(deviceId);
     when(device.isEnabled()).thenReturn(true);
-    when(device.getAuthenticationCredentials()).thenReturn(credentials);
+    when(device.getAuthTokenHash()).thenReturn(credentials);
     when(credentials.verify(password)).thenReturn(true);
-    when(credentials.getVersion()).thenReturn(AuthenticationCredentials.Version.V1);
+    when(credentials.getVersion()).thenReturn(SaltedTokenHash.Version.V1);
 
     final Optional<AuthenticatedAccount> maybeAuthenticatedAccount =
         baseAccountAuthenticator.authenticate(new BasicCredentials(uuid.toString(), password), true);
@@ -295,7 +295,7 @@ class BaseAccountAuthenticatorTest {
 
     final Account account = mock(Account.class);
     final Device device = mock(Device.class);
-    final AuthenticationCredentials credentials = mock(AuthenticationCredentials.class);
+    final SaltedTokenHash credentials = mock(SaltedTokenHash.class);
 
     clock.unpin();
     when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
@@ -304,9 +304,9 @@ class BaseAccountAuthenticatorTest {
     when(account.isEnabled()).thenReturn(true);
     when(device.getId()).thenReturn(deviceId);
     when(device.isEnabled()).thenReturn(true);
-    when(device.getAuthenticationCredentials()).thenReturn(credentials);
+    when(device.getAuthTokenHash()).thenReturn(credentials);
     when(credentials.verify(password)).thenReturn(true);
-    when(credentials.getVersion()).thenReturn(AuthenticationCredentials.CURRENT_VERSION);
+    when(credentials.getVersion()).thenReturn(SaltedTokenHash.CURRENT_VERSION);
 
     final Optional<AuthenticatedAccount> maybeAuthenticatedAccount =
         baseAccountAuthenticator.authenticate(new BasicCredentials(uuid + "." + (deviceId + 1), password), true);
@@ -323,7 +323,7 @@ class BaseAccountAuthenticatorTest {
 
     final Account account = mock(Account.class);
     final Device device = mock(Device.class);
-    final AuthenticationCredentials credentials = mock(AuthenticationCredentials.class);
+    final SaltedTokenHash credentials = mock(SaltedTokenHash.class);
 
     clock.unpin();
     when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
@@ -332,9 +332,9 @@ class BaseAccountAuthenticatorTest {
     when(account.isEnabled()).thenReturn(true);
     when(device.getId()).thenReturn(deviceId);
     when(device.isEnabled()).thenReturn(true);
-    when(device.getAuthenticationCredentials()).thenReturn(credentials);
+    when(device.getAuthTokenHash()).thenReturn(credentials);
     when(credentials.verify(password)).thenReturn(true);
-    when(credentials.getVersion()).thenReturn(AuthenticationCredentials.CURRENT_VERSION);
+    when(credentials.getVersion()).thenReturn(SaltedTokenHash.CURRENT_VERSION);
 
     final String incorrectPassword = password + "incorrect";
 

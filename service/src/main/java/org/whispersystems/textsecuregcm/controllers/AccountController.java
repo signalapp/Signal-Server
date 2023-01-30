@@ -55,14 +55,13 @@ import javax.ws.rs.core.Response.Status;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.spam.FilterSpam;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
-import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.auth.BasicAuthorizationHeader;
 import org.whispersystems.textsecuregcm.auth.ChangesDeviceEnabledState;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
+import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.auth.TurnToken;
@@ -97,6 +96,7 @@ import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.registration.ClientType;
 import org.whispersystems.textsecuregcm.registration.MessageTransport;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
+import org.whispersystems.textsecuregcm.spam.FilterSpam;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
@@ -615,10 +615,10 @@ public class AccountController {
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/registration_lock")
   public void setRegistrationLock(@Auth AuthenticatedAccount auth, @NotNull @Valid RegistrationLock accountLock) {
-    AuthenticationCredentials credentials = new AuthenticationCredentials(accountLock.getRegistrationLock());
+    SaltedTokenHash credentials = SaltedTokenHash.generateFor(accountLock.getRegistrationLock());
 
     accounts.update(auth.getAccount(),
-        a -> a.setRegistrationLock(credentials.getHashedAuthenticationToken(), credentials.getSalt()));
+        a -> a.setRegistrationLock(credentials.hash(), credentials.salt()));
   }
 
   @Timed

@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2022 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.storage;
@@ -18,7 +18,7 @@ import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
+import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
@@ -390,8 +390,8 @@ public class Account {
 
   public void setRegistrationLockFromAttributes(final AccountAttributes attributes) {
     if (!Util.isEmpty(attributes.getRegistrationLock())) {
-      AuthenticationCredentials credentials = new AuthenticationCredentials(attributes.getRegistrationLock());
-      setRegistrationLock(credentials.getHashedAuthenticationToken(), credentials.getSalt());
+      SaltedTokenHash credentials = SaltedTokenHash.generateFor(attributes.getRegistrationLock());
+      setRegistrationLock(credentials.hash(), credentials.salt());
     } else {
       setRegistrationLock(null, null);
     }
@@ -485,8 +485,8 @@ public class Account {
    * of the phone number, or after 7 days the phone number holder can register a new
    * account.
    */
-  public void lockAuthenticationCredentials() {
-    devices.forEach(Device::lockAuthenticationCredentials);
+  public void lockAuthTokenHash() {
+    devices.forEach(Device::lockAuthTokenHash);
   }
 
   boolean isStale() {

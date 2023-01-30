@@ -63,9 +63,9 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
-import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
+import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
@@ -213,7 +213,7 @@ class AccountControllerTest {
     clearInvocations(AuthHelper.VALID_ACCOUNT, AuthHelper.UNDISCOVERABLE_ACCOUNT);
 
     new SecureRandom().nextBytes(registration_lock_key);
-    AuthenticationCredentials registrationLockCredentials = new AuthenticationCredentials(Hex.toStringCondensed(registration_lock_key));
+    SaltedTokenHash registrationLockCredentials = SaltedTokenHash.generateFor(Hex.toStringCondensed(registration_lock_key));
 
     AccountsHelper.setupMockUpdate(accountsManager);
 
@@ -235,7 +235,7 @@ class AccountControllerTest {
     when(senderHasStorage.isStorageSupported()).thenReturn(true);
     when(senderHasStorage.getRegistrationLock()).thenReturn(new StoredRegistrationLock(Optional.empty(), Optional.empty(), System.currentTimeMillis()));
 
-    when(senderRegLockAccount.getRegistrationLock()).thenReturn(new StoredRegistrationLock(Optional.of(registrationLockCredentials.getHashedAuthenticationToken()), Optional.of(registrationLockCredentials.getSalt()), System.currentTimeMillis()));
+    when(senderRegLockAccount.getRegistrationLock()).thenReturn(new StoredRegistrationLock(Optional.of(registrationLockCredentials.hash()), Optional.of(registrationLockCredentials.salt()), System.currentTimeMillis()));
     when(senderRegLockAccount.getLastSeen()).thenReturn(System.currentTimeMillis());
     when(senderRegLockAccount.getUuid()).thenReturn(SENDER_REG_LOCK_UUID);
     when(senderRegLockAccount.getNumber()).thenReturn(SENDER_REG_LOCK);
@@ -1483,7 +1483,7 @@ class AccountControllerTest {
                 MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(200);
-    verify(senderRegLockAccount, never()).lockAuthenticationCredentials();
+    verify(senderRegLockAccount, never()).lockAuthTokenHash();
     verify(clientPresenceManager, never()).disconnectAllPresences(eq(SENDER_REG_LOCK_UUID), any());
     verify(changeNumberManager).changeNumber(eq(AuthHelper.VALID_ACCOUNT), any(), any(), any(), any(), any());
   }

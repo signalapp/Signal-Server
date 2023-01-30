@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2022 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -20,7 +20,7 @@ import java.util.UUID;
 import java.util.function.Consumer;
 import org.mockito.MockingDetails;
 import org.mockito.stubbing.Stubbing;
-import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
+import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -75,7 +75,7 @@ public class AccountsHelper {
     });
 
     when(mockAccountsManager.updateDeviceAuthentication(any(), any(), any())).thenAnswer(answer -> {
-      answer.getArgument(1, Device.class).setAuthenticationCredentials(answer.getArgument(2, AuthenticationCredentials.class));
+      answer.getArgument(1, Device.class).setAuthTokenHash(answer.getArgument(2, SaltedTokenHash.class));
       return mockAccountsManager.update(answer.getArgument(0, Account.class), account -> {});
     });
   }

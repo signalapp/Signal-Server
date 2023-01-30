@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2022 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.storage;
@@ -9,7 +9,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.OptionalInt;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
-import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
+import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -144,9 +144,9 @@ public class Device {
     this.name = name;
   }
 
-  public void setAuthenticationCredentials(AuthenticationCredentials credentials) {
-    this.authToken = credentials.getHashedAuthenticationToken();
-    this.salt      = credentials.getSalt();
+  public void setAuthTokenHash(SaltedTokenHash credentials) {
+    this.authToken = credentials.hash();
+    this.salt      = credentials.salt();
   }
 
   /**
@@ -158,8 +158,8 @@ public class Device {
    * @return true if the credential was locked, false otherwise.
    */
   public boolean hasLockedCredentials() {
-    AuthenticationCredentials auth = getAuthenticationCredentials();
-    return auth.getHashedAuthenticationToken().startsWith("!");
+    SaltedTokenHash auth = getAuthTokenHash();
+    return auth.hash().startsWith("!");
   }
 
   /**
@@ -169,15 +169,15 @@ public class Device {
    *
    * See that method for more information.
    */
-  public void lockAuthenticationCredentials() {
-    AuthenticationCredentials oldAuth = getAuthenticationCredentials();
-    String token = "!" + oldAuth.getHashedAuthenticationToken();
-    String salt = oldAuth.getSalt();
-    setAuthenticationCredentials(new AuthenticationCredentials(token, salt));
+  public void lockAuthTokenHash() {
+    SaltedTokenHash oldAuth = getAuthTokenHash();
+    String token = "!" + oldAuth.hash();
+    String salt = oldAuth.salt();
+    setAuthTokenHash(new SaltedTokenHash(token, salt));
   }
 
-  public AuthenticationCredentials getAuthenticationCredentials() {
-    return new AuthenticationCredentials(authToken, salt);
+  public SaltedTokenHash getAuthTokenHash() {
+    return new SaltedTokenHash(authToken, salt);
   }
 
   @Nullable

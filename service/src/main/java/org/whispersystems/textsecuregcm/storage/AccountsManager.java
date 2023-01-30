@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2022 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.storage;
@@ -36,7 +36,7 @@ import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
+import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
@@ -169,7 +169,7 @@ public class AccountsManager {
       deletedAccountsManager.lockAndTake(number, maybeRecentlyDeletedUuid -> {
         Device device = new Device();
         device.setId(Device.MASTER_ID);
-        device.setAuthenticationCredentials(new AuthenticationCredentials(password));
+        device.setAuthTokenHash(SaltedTokenHash.generateFor(password));
         device.setFetchesMessages(accountAttributes.getFetchesMessages());
         device.setRegistrationId(accountAttributes.getRegistrationId());
         accountAttributes.getPhoneNumberIdentityRegistrationId().ifPresent(device::setPhoneNumberIdentityRegistrationId);
@@ -496,12 +496,12 @@ public class AccountsManager {
     });
   }
 
-  public Account updateDeviceAuthentication(final Account account, final Device device, final AuthenticationCredentials credentials) {
-    Preconditions.checkArgument(credentials.getVersion() == AuthenticationCredentials.CURRENT_VERSION);
+  public Account updateDeviceAuthentication(final Account account, final Device device, final SaltedTokenHash credentials) {
+    Preconditions.checkArgument(credentials.getVersion() == SaltedTokenHash.CURRENT_VERSION);
     return updateDevice(account, device.getId(), new Consumer<Device>() {
       @Override
       public void accept(final Device device) {
-        device.setAuthenticationCredentials(credentials);
+        device.setAuthTokenHash(credentials);
       }
     });
   }

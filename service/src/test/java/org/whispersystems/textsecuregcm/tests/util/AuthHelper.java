@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2023 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -22,9 +22,9 @@ import java.util.Random;
 import java.util.UUID;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
-import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -79,12 +79,12 @@ public class AuthHelper {
   public static Device VALID_DEVICE_3_PRIMARY = mock(Device.class);
   public static Device VALID_DEVICE_3_LINKED  = mock(Device.class);
 
-  private static AuthenticationCredentials VALID_CREDENTIALS           = mock(AuthenticationCredentials.class);
-  private static AuthenticationCredentials VALID_CREDENTIALS_TWO       = mock(AuthenticationCredentials.class);
-  private static AuthenticationCredentials VALID_CREDENTIALS_3_PRIMARY = mock(AuthenticationCredentials.class);
-  private static AuthenticationCredentials VALID_CREDENTIALS_3_LINKED  = mock(AuthenticationCredentials.class);
-  private static AuthenticationCredentials DISABLED_CREDENTIALS        = mock(AuthenticationCredentials.class);
-  private static AuthenticationCredentials UNDISCOVERABLE_CREDENTIALS  = mock(AuthenticationCredentials.class);
+  private static SaltedTokenHash VALID_CREDENTIALS           = mock(SaltedTokenHash.class);
+  private static SaltedTokenHash VALID_CREDENTIALS_TWO       = mock(SaltedTokenHash.class);
+  private static SaltedTokenHash VALID_CREDENTIALS_3_PRIMARY = mock(SaltedTokenHash.class);
+  private static SaltedTokenHash VALID_CREDENTIALS_3_LINKED  = mock(SaltedTokenHash.class);
+  private static SaltedTokenHash DISABLED_CREDENTIALS        = mock(SaltedTokenHash.class);
+  private static SaltedTokenHash UNDISCOVERABLE_CREDENTIALS  = mock(SaltedTokenHash.class);
 
   public static PolymorphicAuthDynamicFeature<? extends Principal> getAuthFilter() {
     when(VALID_CREDENTIALS.verify("foo")).thenReturn(true);
@@ -94,12 +94,12 @@ public class AuthHelper {
     when(DISABLED_CREDENTIALS.verify(DISABLED_PASSWORD)).thenReturn(true);
     when(UNDISCOVERABLE_CREDENTIALS.verify(UNDISCOVERABLE_PASSWORD)).thenReturn(true);
 
-    when(VALID_DEVICE.getAuthenticationCredentials()).thenReturn(VALID_CREDENTIALS);
-    when(VALID_DEVICE_TWO.getAuthenticationCredentials()).thenReturn(VALID_CREDENTIALS_TWO);
-    when(VALID_DEVICE_3_PRIMARY.getAuthenticationCredentials()).thenReturn(VALID_CREDENTIALS_3_PRIMARY);
-    when(VALID_DEVICE_3_LINKED.getAuthenticationCredentials()).thenReturn(VALID_CREDENTIALS_3_LINKED);
-    when(DISABLED_DEVICE.getAuthenticationCredentials()).thenReturn(DISABLED_CREDENTIALS);
-    when(UNDISCOVERABLE_DEVICE.getAuthenticationCredentials()).thenReturn(UNDISCOVERABLE_CREDENTIALS);
+    when(VALID_DEVICE.getAuthTokenHash()).thenReturn(VALID_CREDENTIALS);
+    when(VALID_DEVICE_TWO.getAuthTokenHash()).thenReturn(VALID_CREDENTIALS_TWO);
+    when(VALID_DEVICE_3_PRIMARY.getAuthTokenHash()).thenReturn(VALID_CREDENTIALS_3_PRIMARY);
+    when(VALID_DEVICE_3_LINKED.getAuthTokenHash()).thenReturn(VALID_CREDENTIALS_3_LINKED);
+    when(DISABLED_DEVICE.getAuthTokenHash()).thenReturn(DISABLED_CREDENTIALS);
+    when(UNDISCOVERABLE_DEVICE.getAuthTokenHash()).thenReturn(UNDISCOVERABLE_CREDENTIALS);
 
     when(VALID_DEVICE.isMaster()).thenReturn(true);
     when(VALID_DEVICE_TWO.isMaster()).thenReturn(true);
@@ -231,7 +231,7 @@ public class AuthHelper {
     public final String                    password;
     public final Account                   account                   = mock(Account.class);
     public final Device                    device                    = mock(Device.class);
-    public final AuthenticationCredentials authenticationCredentials = mock(AuthenticationCredentials.class);
+    public final SaltedTokenHash saltedTokenHash = mock(SaltedTokenHash.class);
 
     public TestAccount(String number, UUID uuid, String password) {
       this.number = number;
@@ -244,8 +244,8 @@ public class AuthHelper {
     }
 
     private void setup(final AccountsManager accountsManager) {
-      when(authenticationCredentials.verify(password)).thenReturn(true);
-      when(device.getAuthenticationCredentials()).thenReturn(authenticationCredentials);
+      when(saltedTokenHash.verify(password)).thenReturn(true);
+      when(device.getAuthTokenHash()).thenReturn(saltedTokenHash);
       when(device.isMaster()).thenReturn(true);
       when(device.getId()).thenReturn(1L);
       when(device.isEnabled()).thenReturn(true);

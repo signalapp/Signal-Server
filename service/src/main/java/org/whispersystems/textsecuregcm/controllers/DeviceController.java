@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2022 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.controllers;
@@ -30,9 +30,9 @@ import javax.ws.rs.core.Response;
 import org.glassfish.jersey.server.ContainerRequest;
 import org.whispersystems.textsecuregcm.auth.AuthEnablementRefreshRequirementProvider;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
-import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.auth.BasicAuthorizationHeader;
 import org.whispersystems.textsecuregcm.auth.ChangesDeviceEnabledState;
+import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.DeviceInfo;
@@ -192,7 +192,7 @@ public class DeviceController {
 
     Device device = new Device();
     device.setName(accountAttributes.getName());
-    device.setAuthenticationCredentials(new AuthenticationCredentials(password));
+    device.setAuthTokenHash(SaltedTokenHash.generateFor(password));
     device.setFetchesMessages(accountAttributes.getFetchesMessages());
     device.setRegistrationId(accountAttributes.getRegistrationId());
     accountAttributes.getPhoneNumberIdentityRegistrationId().ifPresent(device::setPhoneNumberIdentityRegistrationId);

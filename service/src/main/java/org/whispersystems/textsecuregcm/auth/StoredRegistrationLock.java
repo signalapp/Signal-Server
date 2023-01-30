@@ -1,16 +1,15 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
 package org.whispersystems.textsecuregcm.auth;
 
 import com.google.common.annotations.VisibleForTesting;
-import org.whispersystems.textsecuregcm.util.Util;
-
-import javax.annotation.Nullable;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import javax.annotation.Nullable;
+import org.whispersystems.textsecuregcm.util.Util;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class StoredRegistrationLock {
@@ -56,7 +55,7 @@ public class StoredRegistrationLock {
 
   public boolean verify(@Nullable String clientRegistrationLock) {
     if (hasLockAndSalt() && Util.nonEmpty(clientRegistrationLock)) {
-      AuthenticationCredentials credentials = new AuthenticationCredentials(registrationLock.get(), registrationLockSalt.get());
+      SaltedTokenHash credentials = new SaltedTokenHash(registrationLock.get(), registrationLockSalt.get());
       return credentials.verify(clientRegistrationLock);
     } else {
       return false;
