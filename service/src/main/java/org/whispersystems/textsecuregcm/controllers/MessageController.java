@@ -643,16 +643,7 @@ public class MessageController {
     UUID spamReporterUuid = auth.getAccount().getUuid();
 
     // spam report token is optional, but if provided ensure it is valid base64.
-    byte[] spamReportToken = null;
-    if (spamReport != null) {
-      try {
-        spamReportToken = Base64.getDecoder().decode(spamReport.token());
-        Metrics.counter(REPORT_SPAM_TOKENS_RECEIVED_COUNTER_NAME).increment();
-      } catch (IllegalArgumentException e) {
-        logger.error("Invalid report spam token provided", e);
-        throw new WebApplicationException(Response.status(400).build());
-      }
-    }
+    @Nullable final byte[] spamReportToken = spamReport != null ? spamReport.token() : null;
 
     // fire-and-forget: we don't want to block the response on this action.
     CompletableFuture<Boolean> ignored =

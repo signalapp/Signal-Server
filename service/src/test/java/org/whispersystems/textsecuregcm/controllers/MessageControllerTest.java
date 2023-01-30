@@ -722,8 +722,7 @@ class MessageControllerTest {
 
     ArgumentCaptor<byte[]> captor = ArgumentCaptor.forClass(byte[].class);
 
-    String token = Base64.getEncoder().encodeToString(new byte[3]);
-    Entity<SpamReport> entity = Entity.entity(new SpamReport(token), "application/json");
+    Entity<SpamReport> entity = Entity.entity(new SpamReport(new byte[3]), "application/json");
     Response response =
         resources.getJerseyTest()
             .target(String.format("/v1/messages/report/%s/%s", senderAci, messageGuid))
@@ -744,8 +743,7 @@ class MessageControllerTest {
 
     messageGuid = UUID.randomUUID();
 
-    token = Base64.getEncoder().encodeToString(new byte[5]);
-    entity = Entity.entity(new SpamReport(token), "application/json");
+    entity = Entity.entity(new SpamReport(new byte[5]), "application/json");
     response =
         resources.getJerseyTest()
             .target(String.format("/v1/messages/report/%s/%s", senderAci, messageGuid))
