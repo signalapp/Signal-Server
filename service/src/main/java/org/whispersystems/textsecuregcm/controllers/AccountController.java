@@ -967,7 +967,12 @@ public class AccountController {
       return registrationServiceClient.createRegistrationSession(phoneNumber, REGISTRATION_RPC_TIMEOUT).join();
     } catch (final CompletionException e) {
       rethrowRateLimitException(e);
-      throw e;
+
+      logger.debug("Failed to create session", e);
+
+      // Meet legacy client expectations by "swallowing" session creation exceptions and proceeding as if we had created
+      // a new session. Future operations on this "session" will always fail, but that's the legacy behavior.
+      return new byte[16];
     }
   }
 
@@ -983,8 +988,11 @@ public class AccountController {
           acceptLanguage.orElse(null),
           REGISTRATION_RPC_TIMEOUT).join();
     } catch (final CompletionException e) {
+      // Note that, to meet legacy client expectations, we'll ONLY rethrow rate limit exceptions. All others will be
+      // swallowed silently.
       rethrowRateLimitException(e);
-      throw e;
+
+      logger.debug("Failed to send verification code", e);
     }
   }
 
