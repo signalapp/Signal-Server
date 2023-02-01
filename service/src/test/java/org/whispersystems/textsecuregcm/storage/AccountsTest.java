@@ -9,8 +9,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -23,7 +21,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -31,6 +28,7 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.function.Supplier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -68,14 +66,8 @@ class AccountsTest {
   private static final String NUMBER_CONSTRAINT_TABLE_NAME = "numbers_test";
   private static final String PNI_CONSTRAINT_TABLE_NAME = "pni_test";
   private static final String USERNAME_CONSTRAINT_TABLE_NAME = "username_test";
-  private static final String BASE_64_URL_USERNAME_HASH_1 = "9p6Tip7BFefFOJzv4kv4GyXEYsBVfk_WbjNejdlOvQE";
-  private static final String BASE_64_URL_USERNAME_HASH_2 = "NLUom-CHwtemcdvOTTXdmXmzRIV7F05leS8lwkVK_vc";
-  private static final byte[] USERNAME_HASH_1 = Base64.getUrlDecoder().decode(BASE_64_URL_USERNAME_HASH_1);
-  private static final byte[] USERNAME_HASH_2 = Base64.getUrlDecoder().decode(BASE_64_URL_USERNAME_HASH_2);
 
   private static final int SCAN_PAGE_SIZE = 1;
-
-
 
   @RegisterExtension
   static DynamoDbExtension dynamoDbExtension = DynamoDbExtension.builder()
@@ -126,12 +118,12 @@ class AccountsTest {
     CreateTableRequest createUsernamesTableRequest = CreateTableRequest.builder()
         .tableName(USERNAME_CONSTRAINT_TABLE_NAME)
         .keySchema(KeySchemaElement.builder()
-            .attributeName(Accounts.ATTR_USERNAME_HASH)
+            .attributeName(Accounts.ATTR_USERNAME)
             .keyType(KeyType.HASH)
             .build())
         .attributeDefinitions(AttributeDefinition.builder()
-            .attributeName(Accounts.ATTR_USERNAME_HASH)
-            .attributeType(ScalarAttributeType.B)
+            .attributeName(Accounts.ATTR_USERNAME)
+            .attributeType(ScalarAttributeType.S)
             .build())
         .provisionedThroughput(DynamoDbExtension.DEFAULT_PROVISIONED_THROUGHPUT)
         .build();
@@ -622,38 +614,40 @@ class AccountsTest {
   }
 
   @Test
-  void testSwitchUsernameHashes() {
+  void testSetUsername() {
     final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
     accounts.create(account);
 
-    assertThat(accounts.getByUsernameHash(USERNAME_HASH_1)).isEmpty();
+    final String username = "TeST";
 
-    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1));
-    accounts.confirmUsernameHash(account, USERNAME_HASH_1);
+    assertThat(accounts.getByUsername(username)).isEmpty();
+
+    accounts.setUsername(account, username);
 
     {
-      final Optional<Account> maybeAccount = accounts.getByUsernameHash(USERNAME_HASH_1);
+      final Optional<Account> maybeAccount = accounts.getByUsername(username);
 
       assertThat(maybeAccount).hasValueSatisfying(retrievedAccount ->
-          assertThat(retrievedAccount.getUsernameHash()).hasValueSatisfying(retrievedUsernameHash ->
-              assertArrayEquals(retrievedUsernameHash, USERNAME_HASH_1)));
+          assertThat(retrievedAccount.getUsername()).hasValueSatisfying(retrievedUsername ->
+              assertThat(retrievedUsername).isEqualTo(username)));
 
       verifyStoredState(account.getNumber(), account.getUuid(), account.getPhoneNumberIdentifier(),          maybeAccount.orElseThrow(), account);
     }
 
-    accounts.reserveUsernameHash(account, USERNAME_HASH_2, Duration.ofDays(1));
-    accounts.confirmUsernameHash(account, USERNAME_HASH_2);
+    final String secondUsername = username + "2";
 
-    assertThat(accounts.getByUsernameHash(USERNAME_HASH_1)).isEmpty();
+    accounts.setUsername(account, secondUsername);
+
+    assertThat(accounts.getByUsername(username)).isEmpty();
     assertThat(dynamoDbExtension.getDynamoDbClient()
         .getItem(GetItemRequest.builder()
             .tableName(USERNAME_CONSTRAINT_TABLE_NAME)
-            .key(Map.of(Accounts.ATTR_USERNAME_HASH, AttributeValues.fromByteArray(USERNAME_HASH_1)))
+            .key(Map.of(Accounts.ATTR_USERNAME, AttributeValues.fromString("test")))
             .build())
         .item()).isEmpty();
 
     {
-      final Optional<Account> maybeAccount = accounts.getByUsernameHash(USERNAME_HASH_2);
+      final Optional<Account> maybeAccount = accounts.getByUsername(secondUsername);
 
       assertThat(maybeAccount).isPresent();
       verifyStoredState(account.getNumber(), account.getUuid(), account.getPhoneNumberIdentifier(),
@@ -662,51 +656,38 @@ class AccountsTest {
   }
 
   @Test
-  void testUsernameHashConflict() {
+  void testSetUsernameConflict() {
     final Account firstAccount = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
     final Account secondAccount = generateAccount("+18005559876", UUID.randomUUID(), UUID.randomUUID());
 
     accounts.create(firstAccount);
     accounts.create(secondAccount);
 
-    // first account reserves and confirms username hash
-    assertThatNoException().isThrownBy(() -> {
-      accounts.reserveUsernameHash(firstAccount, USERNAME_HASH_1, Duration.ofDays(1));
-      accounts.confirmUsernameHash(firstAccount, USERNAME_HASH_1);
-    });
+    final String username = "test";
 
-    final Optional<Account> maybeAccount = accounts.getByUsernameHash(USERNAME_HASH_1);
+    assertThatNoException().isThrownBy(() -> accounts.setUsername(firstAccount, username));
+
+    final Optional<Account> maybeAccount = accounts.getByUsername(username);
 
     assertThat(maybeAccount).isPresent();
     verifyStoredState(firstAccount.getNumber(), firstAccount.getUuid(), firstAccount.getPhoneNumberIdentifier(), maybeAccount.get(), firstAccount);
 
-    // throw an error if second account tries to reserve or confirm the same username hash
     assertThatExceptionOfType(ContestedOptimisticLockException.class)
-        .isThrownBy(() -> accounts.reserveUsernameHash(secondAccount, USERNAME_HASH_1, Duration.ofDays(1)));
-    assertThatExceptionOfType(ContestedOptimisticLockException.class)
-        .isThrownBy(() -> accounts.confirmUsernameHash(secondAccount, USERNAME_HASH_1));
+        .isThrownBy(() -> accounts.setUsername(secondAccount, username));
 
-    // throw an error if first account tries to reserve or confirm the username hash that it has already confirmed
-    assertThatExceptionOfType(ContestedOptimisticLockException.class)
-        .isThrownBy(() -> accounts.reserveUsernameHash(firstAccount, USERNAME_HASH_1, Duration.ofDays(1)));
-    assertThatExceptionOfType(ContestedOptimisticLockException.class)
-        .isThrownBy(() -> accounts.confirmUsernameHash(firstAccount, USERNAME_HASH_1));
-
-    assertThat(secondAccount.getReservedUsernameHash()).isEmpty();
-    assertThat(secondAccount.getUsernameHash()).isEmpty();
+    assertThat(secondAccount.getUsername()).isEmpty();
   }
 
   @Test
-  void testConfirmUsernameHashVersionMismatch() {
+  void testSetUsernameVersionMismatch() {
     final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
     accounts.create(account);
-    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1));
     account.setVersion(account.getVersion() + 77);
 
     assertThatExceptionOfType(ContestedOptimisticLockException.class)
-        .isThrownBy(() -> accounts.confirmUsernameHash(account, USERNAME_HASH_1));
+        .isThrownBy(() -> accounts.setUsername(account, "test"));
 
-    assertThat(account.getUsernameHash()).isEmpty();
+    assertThat(account.getUsername()).isEmpty();
   }
 
   @Test
@@ -714,15 +695,16 @@ class AccountsTest {
     final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
     accounts.create(account);
 
-    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1));
-    accounts.confirmUsernameHash(account, USERNAME_HASH_1);
-    assertThat(accounts.getByUsernameHash(USERNAME_HASH_1)).isPresent();
+    final String username = "TeST";
 
-    accounts.clearUsernameHash(account);
+    accounts.setUsername(account, username);
+    assertThat(accounts.getByUsername(username)).isPresent();
 
-    assertThat(accounts.getByUsernameHash(USERNAME_HASH_1)).isEmpty();
+    accounts.clearUsername(account);
+
+    assertThat(accounts.getByUsername(username)).isEmpty();
     assertThat(accounts.getByAccountIdentifier(account.getUuid()))
-        .hasValueSatisfying(clearedAccount -> assertThat(clearedAccount.getUsernameHash()).isEmpty());
+        .hasValueSatisfying(clearedAccount -> assertThat(clearedAccount.getUsername()).isEmpty());
   }
 
   @Test
@@ -730,7 +712,7 @@ class AccountsTest {
     final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
     accounts.create(account);
 
-    assertThatNoException().isThrownBy(() -> accounts.clearUsernameHash(account));
+    assertThatNoException().isThrownBy(() -> accounts.clearUsername(account));
   }
 
   @Test
@@ -738,136 +720,167 @@ class AccountsTest {
     final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
     accounts.create(account);
 
-    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1));
-    accounts.confirmUsernameHash(account, USERNAME_HASH_1);
+    final String username = "test";
+
+    accounts.setUsername(account, username);
 
     account.setVersion(account.getVersion() + 12);
 
-    assertThatExceptionOfType(ContestedOptimisticLockException.class).isThrownBy(() -> accounts.clearUsernameHash(account));
+    assertThatExceptionOfType(ContestedOptimisticLockException.class).isThrownBy(() -> accounts.clearUsername(account));
 
-    assertArrayEquals(account.getUsernameHash().orElseThrow(), USERNAME_HASH_1);
+    assertThat(account.getUsername()).hasValueSatisfying(u -> assertThat(u).isEqualTo(username));
   }
 
   @Test
-  void testReservedUsernameHash() {
+  void testReservedUsername() {
     final Account account1 = generateAccount("+18005551111", UUID.randomUUID(), UUID.randomUUID());
     accounts.create(account1);
     final Account account2 = generateAccount("+18005552222", UUID.randomUUID(), UUID.randomUUID());
     accounts.create(account2);
 
-    accounts.reserveUsernameHash(account1, USERNAME_HASH_1, Duration.ofDays(1));
-    assertArrayEquals(account1.getReservedUsernameHash().orElseThrow(), USERNAME_HASH_1);
-    assertThat(account1.getUsernameHash()).isEmpty();
+    final UUID token = accounts.reserveUsername(account1, "GarfielD", Duration.ofDays(1));
+    assertThat(account1.getReservedUsernameHash()).get().isEqualTo(Accounts.reservedUsernameHash(account1.getUuid(), "GarfielD"));
+    assertThat(account1.getUsername()).isEmpty();
 
-    // account 2 shouldn't be able to reserve or confirm the same username hash
+    // account 2 shouldn't be able to reserve the username if it's the same when normalized
     assertThrows(ContestedOptimisticLockException.class,
-        () -> accounts.reserveUsernameHash(account2, USERNAME_HASH_1, Duration.ofDays(1)));
+        () -> accounts.reserveUsername(account2, "gARFIELd", Duration.ofDays(1)));
     assertThrows(ContestedOptimisticLockException.class,
-        () -> accounts.confirmUsernameHash(account2, USERNAME_HASH_1));
-    assertThat(accounts.getByUsernameHash(USERNAME_HASH_1)).isEmpty();
+        () -> accounts.confirmUsername(account2, "gARFIELd", UUID.randomUUID()));
+    assertThat(accounts.getByUsername("gARFIELd")).isEmpty();
 
-    accounts.confirmUsernameHash(account1, USERNAME_HASH_1);
+    accounts.confirmUsername(account1, "GarfielD", token);
     assertThat(account1.getReservedUsernameHash()).isEmpty();
-    assertArrayEquals(account1.getUsernameHash().orElseThrow(), USERNAME_HASH_1);
-    assertThat(accounts.getByUsernameHash(USERNAME_HASH_1).get().getUuid()).isEqualTo(account1.getUuid());
+    assertThat(account1.getUsername()).get().isEqualTo("GarfielD");
+    assertThat(accounts.getByUsername("GarfielD").get().getUuid()).isEqualTo(account1.getUuid());
 
     final Map<String, AttributeValue> usernameConstraintRecord = dynamoDbExtension.getDynamoDbClient()
         .getItem(GetItemRequest.builder()
             .tableName(USERNAME_CONSTRAINT_TABLE_NAME)
-            .key(Map.of(Accounts.ATTR_USERNAME_HASH, AttributeValues.fromByteArray(USERNAME_HASH_1)))
+            .key(Map.of(Accounts.ATTR_USERNAME, AttributeValues.fromString("garfield")))
             .build())
         .item();
 
-    assertThat(usernameConstraintRecord).containsKey(Accounts.ATTR_USERNAME_HASH);
+    assertThat(usernameConstraintRecord).containsKey(Accounts.ATTR_USERNAME);
     assertThat(usernameConstraintRecord).doesNotContainKey(Accounts.ATTR_TTL);
   }
 
   @Test
-  void testUsernameHashAvailable() {
+  void testUsernameAvailable() {
     final Account account1 = generateAccount("+18005551111", UUID.randomUUID(), UUID.randomUUID());
     accounts.create(account1);
 
-    accounts.reserveUsernameHash(account1, USERNAME_HASH_1, Duration.ofDays(1));
-    assertThat(accounts.usernameHashAvailable(USERNAME_HASH_1)).isFalse();
-    assertThat(accounts.usernameHashAvailable(Optional.empty(), USERNAME_HASH_1)).isFalse();
-    assertThat(accounts.usernameHashAvailable(Optional.of(UUID.randomUUID()), USERNAME_HASH_1)).isFalse();
-    assertThat(accounts.usernameHashAvailable(Optional.of(account1.getUuid()), USERNAME_HASH_1)).isTrue();
+    final String username = "UnSinkaBlesam";
 
-    accounts.confirmUsernameHash(account1, USERNAME_HASH_1);
-    assertThat(accounts.usernameHashAvailable(USERNAME_HASH_1)).isFalse();
-    assertThat(accounts.usernameHashAvailable(Optional.empty(), USERNAME_HASH_1)).isFalse();
-    assertThat(accounts.usernameHashAvailable(Optional.of(UUID.randomUUID()), USERNAME_HASH_1)).isFalse();
-    assertThat(accounts.usernameHashAvailable(Optional.of(account1.getUuid()), USERNAME_HASH_1)).isFalse();
+    final UUID token = accounts.reserveUsername(account1, username, Duration.ofDays(1));
+    assertThat(accounts.usernameAvailable(username)).isFalse();
+    assertThat(accounts.usernameAvailable(Optional.empty(), username)).isFalse();
+    assertThat(accounts.usernameAvailable(Optional.of(UUID.randomUUID()), username)).isFalse();
+    assertThat(accounts.usernameAvailable(Optional.of(token), username)).isTrue();
+
+    accounts.confirmUsername(account1, username, token);
+    assertThat(accounts.usernameAvailable(username)).isFalse();
+    assertThat(accounts.usernameAvailable(Optional.empty(), username)).isFalse();
+    assertThat(accounts.usernameAvailable(Optional.of(UUID.randomUUID()), username)).isFalse();
+    assertThat(accounts.usernameAvailable(Optional.of(token), username)).isFalse();
   }
 
-  @Test
-  void testConfirmReservedUsernameHashWrongAccountUuid() {
-    final Account account1 = generateAccount("+18005551111", UUID.randomUUID(), UUID.randomUUID());
-    accounts.create(account1);
-    final Account account2 = generateAccount("+18005552222", UUID.randomUUID(), UUID.randomUUID());
-    accounts.create(account2);
 
-    accounts.reserveUsernameHash(account1, USERNAME_HASH_1, Duration.ofDays(1));
-    assertArrayEquals(account1.getReservedUsernameHash().orElseThrow(), USERNAME_HASH_1);
-    assertThat(account1.getUsernameHash()).isEmpty();
+    @Test
+  void testReservedUsernameWrongToken() {
+    final Account account = generateAccount("+18005551111", UUID.randomUUID(), UUID.randomUUID());
+    accounts.create(account);
+    accounts.reserveUsername(account, "grumpy", Duration.ofDays(1));
+    assertThat(account.getReservedUsernameHash())
+        .get()
+        .isEqualTo(Accounts.reservedUsernameHash(account.getUuid(), "grumpy"));
+    assertThat(account.getUsername()).isEmpty();
 
-    // only account1 should be able to confirm the reserved hash
     assertThrows(ContestedOptimisticLockException.class,
-        () -> accounts.confirmUsernameHash(account2, USERNAME_HASH_1));
+        () -> accounts.confirmUsername(account, "grumpy", UUID.randomUUID()));
+    assertThrows(ContestedOptimisticLockException.class,
+        () -> accounts.setUsername(account, "grumpy"));
   }
 
   @Test
-  void testConfirmExpiredReservedUsernameHash() {
+  void testReserveExpiredReservedUsername() {
     final Account account1 = generateAccount("+18005551111", UUID.randomUUID(), UUID.randomUUID());
     accounts.create(account1);
     final Account account2 = generateAccount("+18005552222", UUID.randomUUID(), UUID.randomUUID());
     accounts.create(account2);
+    final String username = "snowball.02";
 
-    accounts.reserveUsernameHash(account1, USERNAME_HASH_1, Duration.ofDays(2));
+    accounts.reserveUsername(account1, username, Duration.ofDays(2));
 
-    Runnable runnable = () -> accounts.reserveUsernameHash(account2, USERNAME_HASH_1, Duration.ofDays(1));
+    Supplier<UUID> take = () -> accounts.reserveUsername(account2, username, Duration.ofDays(2));
 
     for (int i = 0; i <= 2; i++) {
       clock.pin(Instant.EPOCH.plus(Duration.ofDays(i)));
-      assertThrows(ContestedOptimisticLockException.class, runnable::run);
+      assertThrows(ContestedOptimisticLockException.class, take::get);
     }
 
-    // after 2 days, can reserve and confirm the hash
+    // after 2 days, can take the name
     clock.pin(Instant.EPOCH.plus(Duration.ofDays(2)).plus(Duration.ofSeconds(1)));
-    runnable.run();
-    assertEquals(account2.getReservedUsernameHash().orElseThrow(), USERNAME_HASH_1);
-
-    accounts.confirmUsernameHash(account2, USERNAME_HASH_1);
+    final UUID token = take.get();
 
     assertThrows(ContestedOptimisticLockException.class,
-        () -> accounts.reserveUsernameHash(account1, USERNAME_HASH_1, Duration.ofDays(2)));
+        () -> accounts.reserveUsername(account1, username, Duration.ofDays(2)));
     assertThrows(ContestedOptimisticLockException.class,
-        () -> accounts.confirmUsernameHash(account1, USERNAME_HASH_1));
-    assertThat(accounts.getByUsernameHash(USERNAME_HASH_1).get().getUuid()).isEqualTo(account2.getUuid());
+        () -> accounts.setUsername(account1, username));
+
+    accounts.confirmUsername(account2, username, token);
+    assertThat(accounts.getByUsername(username).get().getUuid()).isEqualTo(account2.getUuid());
   }
 
   @Test
-  void testRetryReserveUsernameHash() {
+  void testTakeExpiredReservedUsername() {
+    final Account account1 = generateAccount("+18005551111", UUID.randomUUID(), UUID.randomUUID());
+    accounts.create(account1);
+    final Account account2 = generateAccount("+18005552222", UUID.randomUUID(), UUID.randomUUID());
+    accounts.create(account2);
+    final String username = "simon.123";
+
+    accounts.reserveUsername(account1, username, Duration.ofDays(2));
+
+    Runnable take = () -> accounts.setUsername(account2, username);
+
+    for (int i = 0; i <= 2; i++) {
+      clock.pin(Instant.EPOCH.plus(Duration.ofDays(i)));
+      assertThrows(ContestedOptimisticLockException.class, take::run);
+    }
+
+    // after 2 days, can take the name
+    clock.pin(Instant.EPOCH.plus(Duration.ofDays(2)).plus(Duration.ofSeconds(1)));
+    take.run();
+
+    assertThrows(ContestedOptimisticLockException.class,
+        () -> accounts.reserveUsername(account1, username, Duration.ofDays(2)));
+    assertThrows(ContestedOptimisticLockException.class,
+        () -> accounts.setUsername(account1, username));
+    assertThat(accounts.getByUsername(username).get().getUuid()).isEqualTo(account2.getUuid());
+  }
+
+  @Test
+  void testRetryReserveUsername() {
     final Account account = generateAccount("+18005551111", UUID.randomUUID(), UUID.randomUUID());
     accounts.create(account);
-    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(2));
+    accounts.reserveUsername(account, "jorts", Duration.ofDays(2));
 
     assertThrows(ContestedOptimisticLockException.class,
-        () -> accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(2)),
-        "Shouldn't be able to re-reserve same username hash (would extend ttl)");
+        () -> accounts.reserveUsername(account, "jorts", Duration.ofDays(2)),
+        "Shouldn't be able to re-reserve same username (would extend ttl)");
   }
 
   @Test
-  void testReserveConfirmUsernameHashVersionConflict() {
+  void testReserveUsernameVersionConflict() {
     final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
     accounts.create(account);
     account.setVersion(account.getVersion() + 12);
     assertThrows(ContestedOptimisticLockException.class,
-        () -> accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1)));
+        () -> accounts.reserveUsername(account, "salem", Duration.ofDays(1)));
     assertThrows(ContestedOptimisticLockException.class,
-        () -> accounts.confirmUsernameHash(account, USERNAME_HASH_1));
-    assertThat(account.getReservedUsernameHash()).isEmpty();
-    assertThat(account.getUsernameHash()).isEmpty();
+        () -> accounts.setUsername(account, "salem"));
+
   }
 
   private Device generateDevice(long id) {

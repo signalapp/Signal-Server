@@ -11,6 +11,6 @@ import javax.annotation.Nullable;
 public record AccountIdentityResponse(UUID uuid,
                                       String number,
                                       UUID pni,
-                                      @Nullable byte[] usernameHash,
+                                      @Nullable String username,
                                       boolean storageCapable) {
 }

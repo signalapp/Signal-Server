@@ -7,16 +7,11 @@ package org.whispersystems.textsecuregcm.storage;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.util.Optionals;
-import java.security.MessageDigest;
-import java.security.SecureRandom;
-import java.util.Arrays;
-
 
 class AccountChangeValidator {
 
   private final boolean allowNumberChange;
-  private final boolean allowUsernameHashChange;
+  private final boolean allowUsernameChange;
 
   static final AccountChangeValidator GENERAL_CHANGE_VALIDATOR = new AccountChangeValidator(false, false);
   static final AccountChangeValidator NUMBER_CHANGE_VALIDATOR = new AccountChangeValidator(true, false);
@@ -25,10 +20,10 @@ class AccountChangeValidator {
   private static final Logger logger = LoggerFactory.getLogger(AccountChangeValidator.class);
 
   AccountChangeValidator(final boolean allowNumberChange,
-      final boolean allowUsernameHashChange) {
+      final boolean allowUsernameChange) {
 
     this.allowNumberChange = allowNumberChange;
-    this.allowUsernameHashChange = allowUsernameHashChange;
+    this.allowUsernameChange = allowUsernameChange;
   }
 
   public void validateChange(final Account originalAccount, final Account updatedAccount) {
@@ -49,21 +44,13 @@ class AccountChangeValidator {
       }
     }
 
-    if (!allowUsernameHashChange) {
-      // We can potentially replace this with the actual hash of some invalid username (e.g. 1nickname.123)
-      final byte[] dummyHash = new byte[32];
-      new SecureRandom().nextBytes(dummyHash);
+    if (!allowUsernameChange) {
+      assert updatedAccount.getUsername().equals(originalAccount.getUsername());
 
-      final byte[] updatedAccountUsernameHash = updatedAccount.getUsernameHash().orElse(dummyHash);
-      final byte[] originalAccountUsernameHash = originalAccount.getUsernameHash().orElse(dummyHash);
-
-      boolean usernameUnchanged = MessageDigest.isEqual(updatedAccountUsernameHash, originalAccountUsernameHash);
-
-      if (!usernameUnchanged) {
-        logger.error("Username hash changed via \"normal\" update; username hashes must be changed via reserveUsernameHash and confirmUsernameHash methods",
+      if (!updatedAccount.getUsername().equals(originalAccount.getUsername())) {
+        logger.error("Username changed via \"normal\" update; usernames must be changed via setUsername method",
             new RuntimeException());
       }
-      assert usernameUnchanged;
     }
   }
 }

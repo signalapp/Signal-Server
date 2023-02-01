@@ -17,8 +17,6 @@ import io.dropwizard.cli.EnvironmentCommand;
 import io.dropwizard.setup.Environment;
 import io.lettuce.core.resource.ClientResources;
 import java.time.Clock;
-import java.util.Base64;
-import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -52,10 +50,10 @@ import org.whispersystems.textsecuregcm.storage.ProhibitedUsernames;
 import org.whispersystems.textsecuregcm.storage.ReportMessageDynamoDb;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
-import org.whispersystems.textsecuregcm.storage.UsernameHashNotAvailableException;
-import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundException;
+import org.whispersystems.textsecuregcm.storage.UsernameNotAvailableException;
 import org.whispersystems.textsecuregcm.storage.VerificationCodeStore;
 import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
+import org.whispersystems.textsecuregcm.util.UsernameGenerator;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 
@@ -67,18 +65,18 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
       public void run(WhisperServerConfiguration configuration, Environment environment) {
 
       }
-    }, "assign-username-hash", "assign a username hash to an account");
+    }, "assign-username", "assign a username to an account");
   }
 
   @Override
   public void configure(Subparser subparser) {
     super.configure(subparser);
 
-    subparser.addArgument("-u", "--usernameHash")
-        .dest("usernameHash")
+    subparser.addArgument("-n", "--nickname")
+        .dest("nickname")
         .type(String.class)
         .required(true)
-        .help("The username hash to assign");
+        .help("The nickname (without discriminator) to assign");
 
     subparser.addArgument("-a", "--aci")
         .dest("aci")
@@ -194,25 +192,22 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
     DeletedAccountsManager deletedAccountsManager = new DeletedAccountsManager(deletedAccounts,
         deletedAccountsLockDynamoDbClient,
         configuration.getDynamoDbTables().getDeletedAccountsLock().getTableName());
+    UsernameGenerator usernameGenerator = new UsernameGenerator(configuration.getUsername());
     StoredVerificationCodeManager pendingAccountsManager = new StoredVerificationCodeManager(pendingAccounts);
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
-        deletedAccountsManager, directoryQueue, keys, messagesManager, profilesManager,
-        pendingAccountsManager, secureStorageClient, secureBackupClient, clientPresenceManager,
+        deletedAccountsManager, directoryQueue, keys, messagesManager, prohibitedUsernames, profilesManager,
+        pendingAccountsManager, secureStorageClient, secureBackupClient, clientPresenceManager, usernameGenerator,
         experimentEnrollmentManager, Clock.systemUTC());
 
-    final String usernameHash = namespace.getString("usernameHash");
+    final String nickname = namespace.getString("nickname");
     final UUID accountIdentifier = UUID.fromString(namespace.getString("aci"));
 
     accountsManager.getByAccountIdentifier(accountIdentifier).ifPresentOrElse(account -> {
           try {
-            final AccountsManager.UsernameReservation reservation = accountsManager.reserveUsernameHash(account,
-                List.of(Base64.getUrlDecoder().decode(usernameHash)));
-            final Account result = accountsManager.confirmReservedUsernameHash(account, Base64.getUrlDecoder().decode(usernameHash));
-            System.out.println("New username hash: " + usernameHash);
-          } catch (final UsernameHashNotAvailableException e) {
-            throw new IllegalArgumentException("Username hash already taken");
-          } catch (final UsernameReservationNotFoundException e) {
-            throw new IllegalArgumentException("Username hash reservation not found");
+            final Account result = accountsManager.setUsername(account, nickname, null);
+            System.out.println("New username: " + result.getUsername());
+          } catch (final UsernameNotAvailableException e) {
+            throw new IllegalArgumentException("Username already taken");
           }
         },
         () -> {

@@ -123,7 +123,6 @@ import org.whispersystems.textsecuregcm.mappers.DeviceLimitExceededExceptionMapp
 import org.whispersystems.textsecuregcm.mappers.IOExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.ImpossiblePhoneNumberExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.InvalidWebsocketAddressExceptionMapper;
-import org.whispersystems.textsecuregcm.mappers.JsonMappingExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.NonNormalizedPhoneNumberExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.ServerRejectedExceptionMapper;
@@ -193,6 +192,7 @@ import org.whispersystems.textsecuregcm.storage.NonNormalizedAccountCrawlerListe
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.Profiles;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
+import org.whispersystems.textsecuregcm.storage.ProhibitedUsernames;
 import org.whispersystems.textsecuregcm.storage.PubSubManager;
 import org.whispersystems.textsecuregcm.storage.PushChallengeDynamoDb;
 import org.whispersystems.textsecuregcm.storage.PushFeedbackProcessor;
@@ -209,6 +209,7 @@ import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
 import org.whispersystems.textsecuregcm.util.HostnameUtil;
+import org.whispersystems.textsecuregcm.util.UsernameGenerator;
 import org.whispersystems.textsecuregcm.util.logging.LoggingUnhandledExceptionMapper;
 import org.whispersystems.textsecuregcm.util.logging.UncaughtExceptionHandler;
 import org.whispersystems.textsecuregcm.websocket.AuthenticatedConnectListener;
@@ -350,6 +351,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getDynamoDbTables().getAccounts().getScanPageSize());
     PhoneNumberIdentifiers phoneNumberIdentifiers = new PhoneNumberIdentifiers(dynamoDbClient,
         config.getDynamoDbTables().getPhoneNumberIdentifiers().getTableName());
+    ProhibitedUsernames prohibitedUsernames = new ProhibitedUsernames(dynamoDbClient,
+        config.getDynamoDbTables().getReservedUsernames().getTableName());
     Profiles profiles = new Profiles(dynamoDbClient, dynamoDbAsyncClient,
         config.getDynamoDbTables().getProfiles().getTableName());
     Keys keys = new Keys(dynamoDbClient, config.getDynamoDbTables().getKeys().getTableName());
@@ -480,11 +483,12 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getReportMessageConfiguration().getCounterTtl());
     MessagesManager messagesManager = new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager,
         messageDeletionAsyncExecutor);
+    UsernameGenerator usernameGenerator = new UsernameGenerator(config.getUsername());
     DeletedAccountsManager deletedAccountsManager = new DeletedAccountsManager(deletedAccounts,
         deletedAccountsLockDynamoDbClient, config.getDynamoDbTables().getDeletedAccountsLock().getTableName());
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
-        deletedAccountsManager, directoryQueue, keys, messagesManager, profilesManager,
-        pendingAccountsManager, secureStorageClient, secureBackupClient, clientPresenceManager,
+        deletedAccountsManager, directoryQueue, keys, messagesManager, prohibitedUsernames, profilesManager,
+        pendingAccountsManager, secureStorageClient, secureBackupClient, clientPresenceManager, usernameGenerator,
         experimentEnrollmentManager, clock);
     RemoteConfigsManager       remoteConfigsManager       = new RemoteConfigsManager(remoteConfigs);
     DispatchManager            dispatchManager            = new DispatchManager(pubSubClientFactory, Optional.empty());
@@ -816,8 +820,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new DeviceLimitExceededExceptionMapper(),
         new ServerRejectedExceptionMapper(),
         new ImpossiblePhoneNumberExceptionMapper(),
-        new NonNormalizedPhoneNumberExceptionMapper(),
-        new JsonMappingExceptionMapper()
+        new NonNormalizedPhoneNumberExceptionMapper()
     ).forEach(exceptionMapper -> {
       environment.jersey().register(exceptionMapper);
       webSocketEnvironment.jersey().register(exceptionMapper);

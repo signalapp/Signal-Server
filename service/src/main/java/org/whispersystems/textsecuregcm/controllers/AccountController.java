@@ -26,7 +26,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -76,17 +75,18 @@ import org.whispersystems.textsecuregcm.entities.AccountIdentifierResponse;
 import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
 import org.whispersystems.textsecuregcm.entities.ChangePhoneNumberRequest;
-import org.whispersystems.textsecuregcm.entities.ConfirmUsernameHashRequest;
+import org.whispersystems.textsecuregcm.entities.ConfirmUsernameRequest;
 import org.whispersystems.textsecuregcm.entities.DeviceName;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
 import org.whispersystems.textsecuregcm.entities.MismatchedDevices;
 import org.whispersystems.textsecuregcm.entities.RegistrationLock;
 import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
-import org.whispersystems.textsecuregcm.entities.ReserveUsernameHashRequest;
-import org.whispersystems.textsecuregcm.entities.ReserveUsernameHashResponse;
+import org.whispersystems.textsecuregcm.entities.ReserveUsernameRequest;
+import org.whispersystems.textsecuregcm.entities.ReserveUsernameResponse;
 import org.whispersystems.textsecuregcm.entities.StaleDevices;
+import org.whispersystems.textsecuregcm.entities.UsernameRequest;
+import org.whispersystems.textsecuregcm.entities.UsernameResponse;
 import org.whispersystems.textsecuregcm.limits.RateLimitedByIp;
-import org.whispersystems.textsecuregcm.entities.UsernameHashResponse;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
@@ -103,7 +103,7 @@ import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
-import org.whispersystems.textsecuregcm.storage.UsernameHashNotAvailableException;
+import org.whispersystems.textsecuregcm.storage.UsernameNotAvailableException;
 import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundException;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
@@ -111,13 +111,13 @@ import org.whispersystems.textsecuregcm.util.Hex;
 import org.whispersystems.textsecuregcm.util.ImpossiblePhoneNumberException;
 import org.whispersystems.textsecuregcm.util.NonNormalizedPhoneNumberException;
 import org.whispersystems.textsecuregcm.util.Optionals;
+import org.whispersystems.textsecuregcm.util.UsernameGenerator;
 import org.whispersystems.textsecuregcm.util.Util;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v1/accounts")
 public class AccountController {
-  public static final int MAXIMUM_USERNAME_HASHES_LIST_LENGTH = 20;
-  public static final int USERNAME_HASH_LENGTH = 32;
+
   private final Logger         logger                   = LoggerFactory.getLogger(AccountController.class);
   private final MetricRegistry metricRegistry           = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
   private final Meter          countryFilteredHostMeter = metricRegistry.meter(name(AccountController.class, "country_limited_host"     ));
@@ -136,7 +136,11 @@ public class AccountController {
       .publishPercentiles(0.75, 0.95, 0.99, 0.999)
       .distributionStatisticExpiry(Duration.ofHours(2))
       .register(Metrics.globalRegistry);
+
+  private static final String NONSTANDARD_USERNAME_COUNTER_NAME = name(AccountController.class, "nonStandardUsername");
+
   private static final String LOCKED_ACCOUNT_COUNTER_NAME = name(AccountController.class, "lockedAccount");
+
   private static final String CHALLENGE_PRESENT_TAG_NAME = "present";
   private static final String CHALLENGE_MATCH_TAG_NAME = "matches";
   private static final String COUNTRY_CODE_TAG_NAME = "countryCode";
@@ -443,7 +447,7 @@ public class AccountController {
     return new AccountIdentityResponse(account.getUuid(),
         account.getNumber(),
         account.getPhoneNumberIdentifier(),
-        account.getUsernameHash().orElse(null),
+        account.getUsername().orElse(null),
         existingAccount.map(Account::isStorageSupported).orElse(false));
   }
 
@@ -504,7 +508,7 @@ public class AccountController {
           updatedAccount.getUuid(),
           updatedAccount.getNumber(),
           updatedAccount.getPhoneNumberIdentifier(),
-          updatedAccount.getUsernameHash().orElse(null),
+          updatedAccount.getUsername().orElse(null),
           updatedAccount.isStorageSupported());
     } catch (MismatchedDevicesException e) {
       throw new WebApplicationException(Response.status(409)
@@ -683,78 +687,96 @@ public class AccountController {
     return new AccountIdentityResponse(auth.getAccount().getUuid(),
         auth.getAccount().getNumber(),
         auth.getAccount().getPhoneNumberIdentifier(),
-        auth.getAccount().getUsernameHash().orElse(null),
+        auth.getAccount().getUsername().orElse(null),
         auth.getAccount().isStorageSupported());
   }
 
   @Timed
   @DELETE
-  @Path("/username_hash")
+  @Path("/username")
   @Produces(MediaType.APPLICATION_JSON)
-  public void deleteUsernameHash(@Auth AuthenticatedAccount auth) {
-    accounts.clearUsernameHash(auth.getAccount());
+  public void deleteUsername(@Auth AuthenticatedAccount auth) {
+    accounts.clearUsername(auth.getAccount());
   }
+
 
   @Timed
   @PUT
-  @Path("/username_hash/reserve")
+  @Path("/username/reserved")
   @Produces(MediaType.APPLICATION_JSON)
   @Consumes(MediaType.APPLICATION_JSON)
-  public ReserveUsernameHashResponse reserveUsernameHash(@Auth AuthenticatedAccount auth,
+  public ReserveUsernameResponse reserveUsername(@Auth AuthenticatedAccount auth,
       @HeaderParam(HeaderUtils.X_SIGNAL_AGENT) String userAgent,
-      @NotNull @Valid ReserveUsernameHashRequest usernameRequest) throws RateLimitExceededException {
+      @NotNull @Valid ReserveUsernameRequest usernameRequest) throws RateLimitExceededException {
 
     rateLimiters.getUsernameReserveLimiter().validate(auth.getAccount().getUuid());
 
-    for (byte[] hash : usernameRequest.usernameHashes()) {
-      if (hash.length != USERNAME_HASH_LENGTH) {
-        throw new WebApplicationException(Response.status(422).build());
-      }
-    }
-
     try {
-      final AccountsManager.UsernameReservation reservation = accounts.reserveUsernameHash(
+      final AccountsManager.UsernameReservation reservation = accounts.reserveUsername(
           auth.getAccount(),
-          usernameRequest.usernameHashes()
+          usernameRequest.nickname()
       );
-      return new ReserveUsernameHashResponse(reservation.reservedUsernameHash());
-    } catch (final UsernameHashNotAvailableException e) {
+      return new ReserveUsernameResponse(reservation.reservedUsername(), reservation.reservationToken());
+    } catch (final UsernameNotAvailableException e) {
       throw new WebApplicationException(Status.CONFLICT);
     }
   }
 
   @Timed
   @PUT
-  @Path("/username_hash/confirm")
+  @Path("/username/confirm")
   @Produces(MediaType.APPLICATION_JSON)
   @Consumes(MediaType.APPLICATION_JSON)
-  public UsernameHashResponse confirmUsernameHash(@Auth AuthenticatedAccount auth,
+  public UsernameResponse confirmUsername(@Auth AuthenticatedAccount auth,
       @HeaderParam(HeaderUtils.X_SIGNAL_AGENT) String userAgent,
-      @NotNull @Valid ConfirmUsernameHashRequest confirmRequest) throws RateLimitExceededException {
+      @NotNull @Valid ConfirmUsernameRequest confirmRequest) throws RateLimitExceededException {
     rateLimiters.getUsernameSetLimiter().validate(auth.getAccount().getUuid());
 
     try {
-      final Account account = accounts.confirmReservedUsernameHash(auth.getAccount(), confirmRequest.usernameHash());
+      final Account account = accounts.confirmReservedUsername(auth.getAccount(), confirmRequest.usernameToConfirm(), confirmRequest.reservationToken());
       return account
-          .getUsernameHash()
-          .map(UsernameHashResponse::new)
+          .getUsername()
+          .map(UsernameResponse::new)
           .orElseThrow(() -> new IllegalStateException("Could not get username after setting"));
     } catch (final UsernameReservationNotFoundException e) {
       throw new WebApplicationException(Status.CONFLICT);
-    } catch (final UsernameHashNotAvailableException e) {
+    } catch (final UsernameNotAvailableException e) {
       throw new WebApplicationException(Status.GONE);
     }
   }
 
   @Timed
+  @PUT
+  @Path("/username")
+  @Produces(MediaType.APPLICATION_JSON)
+  @Consumes(MediaType.APPLICATION_JSON)
+  public UsernameResponse setUsername(
+      @Auth AuthenticatedAccount auth,
+      @HeaderParam(HeaderUtils.X_SIGNAL_AGENT) String userAgent,
+      @NotNull @Valid UsernameRequest usernameRequest) throws RateLimitExceededException {
+    rateLimiters.getUsernameSetLimiter().validate(auth.getAccount().getUuid());
+    checkUsername(usernameRequest.existingUsername(), userAgent);
+
+    try {
+      final Account account = accounts.setUsername(auth.getAccount(), usernameRequest.nickname(),
+          usernameRequest.existingUsername());
+      return account
+          .getUsername()
+          .map(UsernameResponse::new)
+          .orElseThrow(() -> new IllegalStateException("Could not get username after setting"));
+    } catch (final UsernameNotAvailableException e) {
+      throw new WebApplicationException(Status.CONFLICT);
+    }
+  }
+
+  @Timed
   @GET
-  @Path("/username_hash/{usernameHash}")
+  @Path("/username/{username}")
   @Produces(MediaType.APPLICATION_JSON)
   @RateLimitedByIp(RateLimiters.Handle.USERNAME_LOOKUP)
-  public AccountIdentifierResponse lookupUsernameHash(
+  public AccountIdentifierResponse lookupUsername(
       @HeaderParam(HeaderUtils.X_SIGNAL_AGENT) final String userAgent,
-      @HeaderParam(HttpHeaders.X_FORWARDED_FOR) final String forwardedFor,
-      @PathParam("usernameHash") final String usernameHash,
+      @PathParam("username") final String username,
       @Context final HttpServletRequest request) throws RateLimitExceededException {
 
     // Disallow clients from making authenticated requests to this endpoint
@@ -762,21 +784,10 @@ public class AccountController {
       throw new BadRequestException();
     }
 
-    rateLimitByClientIp(rateLimiters.getUsernameLookupLimiter(), forwardedFor);
-
-    final byte[] hash;
-    try {
-      hash = Base64.getUrlDecoder().decode(usernameHash);
-    } catch (IllegalArgumentException | AssertionError e) {
-      throw new WebApplicationException(Response.status(422).build());
-    }
-
-    if (hash.length != USERNAME_HASH_LENGTH) {
-      throw new WebApplicationException(Response.status(422).build());
-    }
+    checkUsername(username, userAgent);
 
     return accounts
-        .getByUsernameHash(hash)
+        .getByUsername(username)
         .map(Account::getUuid)
         .map(AccountIdentifierResponse::new)
         .orElseThrow(() -> new WebApplicationException(Status.NOT_FOUND));
@@ -931,6 +942,15 @@ public class AccountController {
   @Path("/me")
   public void deleteAccount(@Auth AuthenticatedAccount auth) throws InterruptedException {
     accounts.delete(auth.getAccount(), AccountsManager.DeletionReason.USER_REQUEST);
+  }
+
+  private void checkUsername(final String username, final String userAgent) {
+    if (StringUtils.isNotBlank(username) && !UsernameGenerator.isStandardFormat(username)) {
+      // Technically, a username may not be in the nickname#discriminator format
+      // if created through some out-of-band mechanism, but it is atypical.
+      Metrics.counter(NONSTANDARD_USERNAME_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent)))
+          .increment();
+    }
   }
 
   private String generatePushChallenge() {

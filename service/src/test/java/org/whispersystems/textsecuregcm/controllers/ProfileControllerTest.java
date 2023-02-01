@@ -31,6 +31,7 @@ import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -131,8 +132,6 @@ class ProfileControllerTest {
   private static final String ACCOUNT_PHONE_NUMBER_IDENTITY_KEY = "bazz";
   private static final String ACCOUNT_TWO_IDENTITY_KEY = "bar";
   private static final String ACCOUNT_TWO_PHONE_NUMBER_IDENTITY_KEY = "baz";
-  private static final String BASE_64_URL_USERNAME_HASH = "9p6Tip7BFefFOJzv4kv4GyXEYsBVfk_WbjNejdlOvQE";
-  private static final byte[] USERNAME_HASH = Base64.getUrlDecoder().decode(BASE_64_URL_USERNAME_HASH);
   @SuppressWarnings("unchecked")
   private static final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = mock(
       DynamicConfigurationManager.class);
@@ -198,7 +197,7 @@ class ProfileControllerTest {
     when(profileAccount.isAnnouncementGroupSupported()).thenReturn(false);
     when(profileAccount.isChangeNumberSupported()).thenReturn(false);
     when(profileAccount.getCurrentProfileVersion()).thenReturn(Optional.empty());
-    when(profileAccount.getUsernameHash()).thenReturn(Optional.of(USERNAME_HASH));
+    when(profileAccount.getUsername()).thenReturn(Optional.of("n00bkiller"));
     when(profileAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of("1337".getBytes()));
 
     Account capabilitiesAccount = mock(Account.class);
@@ -213,7 +212,7 @@ class ProfileControllerTest {
     when(accountsManager.getByE164(AuthHelper.VALID_NUMBER_TWO)).thenReturn(Optional.of(profileAccount));
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID_TWO)).thenReturn(Optional.of(profileAccount));
     when(accountsManager.getByPhoneNumberIdentifier(AuthHelper.VALID_PNI_TWO)).thenReturn(Optional.of(profileAccount));
-    when(accountsManager.getByUsernameHash(USERNAME_HASH)).thenReturn(Optional.of(profileAccount));
+    when(accountsManager.getByUsername("n00bkiller")).thenReturn(Optional.of(profileAccount));
 
     when(accountsManager.getByE164(AuthHelper.VALID_NUMBER)).thenReturn(Optional.of(capabilitiesAccount));
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(capabilitiesAccount));
