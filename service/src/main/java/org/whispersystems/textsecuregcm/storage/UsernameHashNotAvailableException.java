@@ -5,5 +5,5 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
-public class UsernameNotAvailableException extends Exception {
+public class UsernameHashNotAvailableException extends Exception {
 }

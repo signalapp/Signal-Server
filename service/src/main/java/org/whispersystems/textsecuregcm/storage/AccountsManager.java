@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -50,8 +51,6 @@ import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.DestinationDeviceValidator;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
-import org.whispersystems.textsecuregcm.util.UsernameGenerator;
-import org.whispersystems.textsecuregcm.util.UsernameNormalizer;
 import org.whispersystems.textsecuregcm.util.Util;
 
 public class AccountsManager {
@@ -60,13 +59,13 @@ public class AccountsManager {
   private static final Timer createTimer = metricRegistry.timer(name(AccountsManager.class, "create"));
   private static final Timer updateTimer = metricRegistry.timer(name(AccountsManager.class, "update"));
   private static final Timer getByNumberTimer = metricRegistry.timer(name(AccountsManager.class, "getByNumber"));
-  private static final Timer getByUsernameTimer = metricRegistry.timer(name(AccountsManager.class, "getByUsername"));
+  private static final Timer getByUsernameHashTimer = metricRegistry.timer(name(AccountsManager.class, "getByUsernameHash"));
   private static final Timer getByUuidTimer = metricRegistry.timer(name(AccountsManager.class, "getByUuid"));
   private static final Timer deleteTimer = metricRegistry.timer(name(AccountsManager.class, "delete"));
 
   private static final Timer redisSetTimer = metricRegistry.timer(name(AccountsManager.class, "redisSet"));
   private static final Timer redisNumberGetTimer = metricRegistry.timer(name(AccountsManager.class, "redisNumberGet"));
-  private static final Timer redisUsernameGetTimer = metricRegistry.timer(name(AccountsManager.class, "redisUsernameGet"));
+  private static final Timer redisUsernameHashGetTimer = metricRegistry.timer(name(AccountsManager.class, "redisUsernameHashGet"));
   private static final Timer redisPniGetTimer = metricRegistry.timer(name(AccountsManager.class, "redisPniGet"));
   private static final Timer redisUuidGetTimer = metricRegistry.timer(name(AccountsManager.class, "redisUuidGet"));
   private static final Timer redisDeleteTimer = metricRegistry.timer(name(AccountsManager.class, "redisDelete"));
@@ -88,7 +87,6 @@ public class AccountsManager {
   private final DirectoryQueue directoryQueue;
   private final Keys keys;
   private final MessagesManager messagesManager;
-  private final ProhibitedUsernames prohibitedUsernames;
   private final ProfilesManager profilesManager;
   private final StoredVerificationCodeManager pendingAccounts;
   private final SecureStorageClient secureStorageClient;
@@ -96,7 +94,6 @@ public class AccountsManager {
   private final ClientPresenceManager clientPresenceManager;
   private final ExperimentEnrollmentManager experimentEnrollmentManager;
   private final Clock clock;
-  private final UsernameGenerator usernameGenerator;
 
   private static final ObjectMapper mapper = SystemMapper.getMapper();
 
@@ -106,9 +103,11 @@ public class AccountsManager {
   // the owner.
   private static final long CACHE_TTL_SECONDS = Duration.ofDays(2).toSeconds();
 
+  private static final Duration USERNAME_HASH_RESERVATION_TTL_MINUTES = Duration.ofMinutes(5);
+
   @FunctionalInterface
   private interface AccountPersister {
-    void persistAccount(Account account) throws UsernameNotAvailableException;
+    void persistAccount(Account account) throws UsernameHashNotAvailableException;
   }
 
   public enum DeletionReason {
@@ -130,13 +129,11 @@ public class AccountsManager {
       final DirectoryQueue directoryQueue,
       final Keys keys,
       final MessagesManager messagesManager,
-      final ProhibitedUsernames prohibitedUsernames,
       final ProfilesManager profilesManager,
       final StoredVerificationCodeManager pendingAccounts,
       final SecureStorageClient secureStorageClient,
       final SecureBackupClient secureBackupClient,
       final ClientPresenceManager clientPresenceManager,
-      final UsernameGenerator usernameGenerator,
       final ExperimentEnrollmentManager experimentEnrollmentManager,
       final Clock clock) {
     this.accounts = accounts;
@@ -151,8 +148,6 @@ public class AccountsManager {
     this.secureStorageClient = secureStorageClient;
     this.secureBackupClient  = secureBackupClient;
     this.clientPresenceManager = clientPresenceManager;
-    this.prohibitedUsernames = prohibitedUsernames;
-    this.usernameGenerator = usernameGenerator;
     this.experimentEnrollmentManager = experimentEnrollmentManager;
     this.clock = Objects.requireNonNull(clock);
   }
@@ -324,42 +319,43 @@ public class AccountsManager {
     return updatedAccount.get();
   }
 
-  public record UsernameReservation(Account account, String reservedUsername, UUID reservationToken){}
+  public record UsernameReservation(Account account, byte[] reservedUsernameHash){}
 
   /**
-   * Generate a username from a nickname, and reserve it so no other accounts may take it.
+   * Reserve a username hash so that no other accounts may take it.
    *
-   * The reserved username can later be set with {@link #confirmReservedUsername(Account, String, UUID)}. The reservation
-   * will eventually expire, after which point confirmReservedUsername may fail if another account has taken the
-   * username.
+   * The reserved hash can later be set with {@link #confirmReservedUsernameHash(Account, byte[])}. The reservation
+   * will eventually expire, after which point confirmReservedUsernameHash may fail if another account has taken the
+   * username hash.
    *
    * @param account the account to update
-   * @param requestedNickname the nickname to reserve a username for
-   * @return the reserved username and an updated Account object
-   * @throws UsernameNotAvailableException no username is available for the requested nickname
+   * @param requestedUsernameHashes the list of username hashes to attempt to reserve
+   * @return the reserved username hash and an updated Account object
+   * @throws UsernameHashNotAvailableException no username hash is available
    */
-  public UsernameReservation reserveUsername(final Account account, final String requestedNickname) throws UsernameNotAvailableException {
+  public UsernameReservation reserveUsernameHash(final Account account, final List<byte[]> requestedUsernameHashes) throws UsernameHashNotAvailableException {
     if (!experimentEnrollmentManager.isEnrolled(account.getUuid(), USERNAME_EXPERIMENT_NAME)) {
-      throw new UsernameNotAvailableException();
+      throw new UsernameHashNotAvailableException();
     }
 
-    if (prohibitedUsernames.isProhibited(requestedNickname, account.getUuid())) {
-      throw new UsernameNotAvailableException();
-    }
     redisDelete(account);
 
     class Reserver implements AccountPersister {
-      UUID reservationToken;
-      String reservedUsername;
+      byte[] reservedUsernameHash;
 
       @Override
-      public void persistAccount(final Account account) throws UsernameNotAvailableException {
-        // In the future, this may also check for any forbidden discriminators
-        reservedUsername = usernameGenerator.generateAvailableUsername(requestedNickname, accounts::usernameAvailable);
-        reservationToken = accounts.reserveUsername(
-            account,
-            reservedUsername,
-            usernameGenerator.getReservationTtl());
+      public void persistAccount(final Account account) throws UsernameHashNotAvailableException {
+        for (byte[] usernameHash : requestedUsernameHashes) {
+          if (accounts.usernameHashAvailable(usernameHash)) {
+            reservedUsernameHash = usernameHash;
+            accounts.reserveUsernameHash(
+              account,
+              usernameHash,
+              USERNAME_HASH_RESERVATION_TTL_MINUTES);
+            return;
+          }
+        }
+        throw new UsernameHashNotAvailableException();
       }
     }
     final Reserver reserver = new Reserver();
@@ -369,31 +365,28 @@ public class AccountsManager {
         reserver,
         () -> accounts.getByAccountIdentifier(account.getUuid()).orElseThrow(),
         AccountChangeValidator.USERNAME_CHANGE_VALIDATOR);
-    return new UsernameReservation(updatedAccount, reserver.reservedUsername, reserver.reservationToken);
+    return new UsernameReservation(updatedAccount, reserver.reservedUsernameHash);
   }
 
   /**
-   * Set a username previously reserved with {@link #reserveUsername(Account, String)}
+   * Set a username hash previously reserved with {@link #reserveUsernameHash(Account, List<String>)}
    *
    * @param account the account to update
-   * @param reservedUsername the previously reserved username
-   * @param reservationToken the UUID returned from the reservation
-   * @return the updated account with the username field set
-   * @throws UsernameNotAvailableException if the reserved username has been taken (because the reservation expired)
-   * @throws UsernameReservationNotFoundException if `reservedUsername` was not reserved in the account
+   * @param reservedUsernameHash the previously reserved username hash
+   * @return the updated account with the username hash field set
+   * @throws UsernameHashNotAvailableException if the reserved username hash has been taken (because the reservation expired)
+   * @throws UsernameReservationNotFoundException if `reservedUsernameHash` was not reserved in the account
    */
-  public Account confirmReservedUsername(final Account account, final String reservedUsername, final UUID reservationToken) throws UsernameNotAvailableException, UsernameReservationNotFoundException {
+  public Account confirmReservedUsernameHash(final Account account, final byte[] reservedUsernameHash) throws UsernameHashNotAvailableException, UsernameReservationNotFoundException {
     if (!experimentEnrollmentManager.isEnrolled(account.getUuid(), USERNAME_EXPERIMENT_NAME)) {
-      throw new UsernameNotAvailableException();
+      throw new UsernameHashNotAvailableException();
     }
-
-    if (account.getUsername().map(reservedUsername::equals).orElse(false)) {
+    if (account.getUsernameHash().map(currentUsernameHash -> Arrays.equals(currentUsernameHash, reservedUsernameHash)).orElse(false)) {
       // the client likely already succeeded and is retrying
       return account;
     }
 
-    final byte[] newHash = Accounts.reservedUsernameHash(account.getUuid(), UsernameNormalizer.normalize(reservedUsername));
-    if (!account.getReservedUsernameHash().map(oldHash -> Arrays.equals(oldHash, newHash)).orElse(false)) {
+    if (!account.getReservedUsernameHash().map(oldHash -> Arrays.equals(oldHash, reservedUsernameHash)).orElse(false)) {
       // no such reservation existed, either there was no previous call to reserveUsername
       // or the reservation changed
       throw new UsernameReservationNotFoundException();
@@ -405,63 +398,23 @@ public class AccountsManager {
         account,
         a -> true,
         a -> {
-          // though we know this username was reserved, the reservation could have lapsed
-          if (!accounts.usernameAvailable(Optional.of(reservationToken), reservedUsername)) {
-            throw new UsernameNotAvailableException();
+          // though we know this username hash was reserved, the reservation could have lapsed
+          if (!accounts.usernameHashAvailable(Optional.of(account.getUuid()), reservedUsernameHash)) {
+            throw new UsernameHashNotAvailableException();
           }
-          accounts.confirmUsername(a, reservedUsername, reservationToken);
+          accounts.confirmUsernameHash(a, reservedUsernameHash);
         },
         () -> accounts.getByAccountIdentifier(account.getUuid()).orElseThrow(),
         AccountChangeValidator.USERNAME_CHANGE_VALIDATOR);
   }
 
-  /**
-   * Sets a username generated from `requestedNickname` with no prior reservation
-   *
-   * @param account the account to update
-   * @param requestedNickname the nickname to generate a username from
-   * @param expectedOldUsername the expected existing username of the account (for replay detection)
-   * @return the updated account with the username field set
-   * @throws UsernameNotAvailableException if no free username could be set for `requestedNickname`
-   */
-  public Account setUsername(final Account account, final String requestedNickname, final @Nullable String expectedOldUsername) throws UsernameNotAvailableException {
-    if (!experimentEnrollmentManager.isEnrolled(account.getUuid(), USERNAME_EXPERIMENT_NAME)) {
-      throw new UsernameNotAvailableException();
-    }
-
-    if (prohibitedUsernames.isProhibited(requestedNickname, account.getUuid())) {
-      throw new UsernameNotAvailableException();
-    }
-
-    final Optional<String> currentUsername = account.getUsername();
-    final Optional<String> currentNickname = currentUsername.map(UsernameGenerator::extractNickname);
-    if (currentNickname.map(requestedNickname::equals).orElse(false) && !Objects.equals(expectedOldUsername, currentUsername.orElse(null))) {
-      // The requested nickname matches what the server already has, and the
-      // client provided the wrong existing username. Treat this as a replayed
-      // request, assuming that the client has previously succeeded
-      return account;
-    }
-
-    redisDelete(account);
-
-    return failableUpdateWithRetries(
-        account,
-        a -> true,
-        // In the future, this may also check for any forbidden discriminators
-        a -> accounts.setUsername(
-            a,
-            usernameGenerator.generateAvailableUsername(requestedNickname, accounts::usernameAvailable)),
-        () -> accounts.getByAccountIdentifier(account.getUuid()).orElseThrow(),
-        AccountChangeValidator.USERNAME_CHANGE_VALIDATOR);
-  }
-
-  public Account clearUsername(final Account account) {
+  public Account clearUsernameHash(final Account account) {
     redisDelete(account);
 
     return updateWithRetries(
         account,
         a -> true,
-        accounts::clearUsername,
+        accounts::clearUsernameHash,
         () -> accounts.getByAccountIdentifier(account.getUuid()).orElseThrow(),
         AccountChangeValidator.USERNAME_CHANGE_VALIDATOR);
   }
@@ -547,7 +500,7 @@ public class AccountsManager {
       final AccountChangeValidator changeValidator) {
     try {
       return failableUpdateWithRetries(account, updater, persister::accept, retriever, changeValidator);
-    } catch (UsernameNotAvailableException e) {
+    } catch (UsernameHashNotAvailableException e) {
       // not possible
       throw new IllegalStateException(e);
     }
@@ -557,7 +510,7 @@ public class AccountsManager {
       final Function<Account, Boolean> updater,
       final AccountPersister persister,
       final Supplier<Account> retriever,
-      final AccountChangeValidator changeValidator) throws UsernameNotAvailableException {
+      final AccountChangeValidator changeValidator) throws UsernameHashNotAvailableException {
 
     Account originalAccount = cloneAccount(account);
 
@@ -640,11 +593,11 @@ public class AccountsManager {
     }
   }
 
-  public Optional<Account> getByUsername(final String username) {
-    try (final Timer.Context ignored = getByUsernameTimer.time()) {
-      Optional<Account> account = redisGetByUsername(username);
+  public Optional<Account> getByUsernameHash(final byte[] usernameHash) {
+    try (final Timer.Context ignored = getByUsernameHashTimer.time()) {
+      Optional<Account> account = redisGetByUsernameHash(usernameHash);
       if (account.isEmpty()) {
-        account = accounts.getByUsername(username);
+        account = accounts.getByUsernameHash(usernameHash);
         account.ifPresent(this::redisSet);
       }
 
@@ -721,8 +674,8 @@ public class AccountsManager {
             clientPresenceManager.disconnectPresence(account.getUuid(), device.getId())));
   }
 
-  private String getUsernameAccountMapKey(String username) {
-    return "UAccountMap::" + UsernameNormalizer.normalize(username);
+  private String getUsernameHashAccountMapKey(byte[] usernameHash) {
+    return "UAccountMap::" + Base64.getUrlEncoder().withoutPadding().encodeToString(usernameHash);
   }
 
   private String getAccountMapKey(String key) {
@@ -744,8 +697,8 @@ public class AccountsManager {
         commands.setex(getAccountMapKey(account.getNumber()), CACHE_TTL_SECONDS, account.getUuid().toString());
         commands.setex(getAccountEntityKey(account.getUuid()), CACHE_TTL_SECONDS, accountJson);
 
-        account.getUsername().ifPresent(username ->
-            commands.setex(getUsernameAccountMapKey(username), CACHE_TTL_SECONDS, account.getUuid().toString()));
+        account.getUsernameHash().ifPresent(usernameHash ->
+            commands.setex(getUsernameHashAccountMapKey(usernameHash), CACHE_TTL_SECONDS, account.getUuid().toString()));
       });
     } catch (JsonProcessingException e) {
       throw new IllegalStateException(e);
@@ -760,8 +713,8 @@ public class AccountsManager {
     return redisGetBySecondaryKey(getAccountMapKey(e164), redisNumberGetTimer);
   }
 
-  private Optional<Account> redisGetByUsername(String username) {
-    return redisGetBySecondaryKey(getUsernameAccountMapKey(username), redisUsernameGetTimer);
+  private Optional<Account> redisGetByUsernameHash(byte[] usernameHash) {
+    return redisGetBySecondaryKey(getUsernameHashAccountMapKey(usernameHash), redisUsernameHashGetTimer);
   }
 
   private Optional<Account> redisGetBySecondaryKey(String secondaryKey, Timer timer) {
@@ -812,7 +765,7 @@ public class AccountsManager {
             getAccountMapKey(account.getPhoneNumberIdentifier().toString()),
             getAccountEntityKey(account.getUuid()));
 
-        account.getUsername().ifPresent(username -> connection.sync().del(getUsernameAccountMapKey(username)));
+        account.getUsernameHash().ifPresent(usernameHash -> connection.sync().del(getUsernameHashAccountMapKey(usernameHash)));
       });
     }
   }
