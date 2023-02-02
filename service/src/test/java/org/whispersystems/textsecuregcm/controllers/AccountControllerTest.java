@@ -6,12 +6,12 @@
 package org.whispersystems.textsecuregcm.controllers;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doThrow;
@@ -24,7 +24,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HttpHeaders;
 import com.google.i18n.phonenumbers.NumberParseException;
@@ -37,6 +36,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -79,20 +79,20 @@ import org.whispersystems.textsecuregcm.entities.AccountIdentifierResponse;
 import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
 import org.whispersystems.textsecuregcm.entities.ChangePhoneNumberRequest;
-import org.whispersystems.textsecuregcm.entities.ConfirmUsernameRequest;
+import org.whispersystems.textsecuregcm.entities.ConfirmUsernameHashRequest;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
 import org.whispersystems.textsecuregcm.entities.IncomingMessage;
 import org.whispersystems.textsecuregcm.entities.RegistrationLock;
 import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
-import org.whispersystems.textsecuregcm.entities.ReserveUsernameRequest;
-import org.whispersystems.textsecuregcm.entities.ReserveUsernameResponse;
+import org.whispersystems.textsecuregcm.entities.ReserveUsernameHashRequest;
+import org.whispersystems.textsecuregcm.entities.ReserveUsernameHashResponse;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
-import org.whispersystems.textsecuregcm.entities.UsernameRequest;
-import org.whispersystems.textsecuregcm.entities.UsernameResponse;
 import org.whispersystems.textsecuregcm.limits.RateLimitByIpFilter;
+import org.whispersystems.textsecuregcm.entities.UsernameHashResponse;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.ImpossiblePhoneNumberExceptionMapper;
+import org.whispersystems.textsecuregcm.mappers.JsonMappingExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.NonNormalizedPhoneNumberExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.NonNormalizedPhoneNumberResponse;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
@@ -108,7 +108,7 @@ import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
-import org.whispersystems.textsecuregcm.storage.UsernameNotAvailableException;
+import org.whispersystems.textsecuregcm.storage.UsernameHashNotAvailableException;
 import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundException;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
@@ -119,7 +119,6 @@ import org.whispersystems.textsecuregcm.util.TestClock;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class AccountControllerTest {
-
   private static final String SENDER             = "+14152222222";
   private static final String SENDER_OLD         = "+14151111111";
   private static final String SENDER_PIN         = "+14153333333";
@@ -131,10 +130,18 @@ class AccountControllerTest {
   private static final String SENDER_TRANSFER    = "+14151111112";
   private static final String RESTRICTED_COUNTRY = "800";
   private static final String RESTRICTED_NUMBER  = "+" + RESTRICTED_COUNTRY + "11111111";
+  private static final String BASE_64_URL_USERNAME_HASH_1 = "9p6Tip7BFefFOJzv4kv4GyXEYsBVfk_WbjNejdlOvQE";
+  private static final String BASE_64_URL_USERNAME_HASH_2 = "NLUom-CHwtemcdvOTTXdmXmzRIV7F05leS8lwkVK_vc";
+
+  private static final String INVALID_BASE_64_URL_USERNAME_HASH = "fA+VkNbvB6dVfx/6NpaRSK6mvhhAUBgDNWFaD7+7gvs=";
+  private static final String TOO_SHORT_BASE_64_URL_USERNAME_HASH = "P2oMuxx0xgGxSpTO0ACq3IztEOBDaV9t9YFu4bAGpQ";
+  private static final byte[] USERNAME_HASH_1 = Base64.getUrlDecoder().decode(BASE_64_URL_USERNAME_HASH_1);
+  private static final byte[] USERNAME_HASH_2 = Base64.getUrlDecoder().decode(BASE_64_URL_USERNAME_HASH_2);
+  private static final byte[] INVALID_USERNAME_HASH = Base64.getDecoder().decode(INVALID_BASE_64_URL_USERNAME_HASH);
+  private static final byte[] TOO_SHORT_USERNAME_HASH = Base64.getUrlDecoder().decode(TOO_SHORT_BASE_64_URL_USERNAME_HASH);
 
   private static final UUID   SENDER_REG_LOCK_UUID = UUID.randomUUID();
   private static final UUID   SENDER_TRANSFER_UUID = UUID.randomUUID();
-  private static final UUID   RESERVATION_TOKEN    = UUID.randomUUID();
 
   private static final String NICE_HOST                = "127.0.0.1";
   private static final String RATE_LIMITED_IP_HOST     = "10.0.0.1";
@@ -186,6 +193,7 @@ class AccountControllerTest {
           new PolymorphicAuthValueFactoryProvider.Binder<>(
               ImmutableSet.of(AuthenticatedAccount.class,
                   DisabledPermittedAuthenticatedAccount.class)))
+      .addProvider(new JsonMappingExceptionMapper())
       .addProvider(new RateLimitExceededExceptionMapper())
       .addProvider(new ImpossiblePhoneNumberExceptionMapper())
       .addProvider(new NonNormalizedPhoneNumberExceptionMapper())
@@ -271,9 +279,6 @@ class AccountControllerTest {
 
       return account;
     });
-
-    when(accountsManager.setUsername(AuthHelper.VALID_ACCOUNT, "takenusername", null))
-        .thenThrow(new UsernameNotAvailableException());
 
     when(changeNumberManager.changeNumber(any(), any(), any(), any(), any(), any())).thenAnswer((Answer<Account>) invocation -> {
       final Account account = invocation.getArgument(0, Account.class);
@@ -1648,143 +1653,140 @@ class AccountControllerTest {
   }
 
   @Test
-  void testSetUsername() throws UsernameNotAvailableException {
-    Account account = mock(Account.class);
-    when(account.getUsername()).thenReturn(Optional.of("N00bkilleR.1234"));
-    when(accountsManager.setUsername(any(), eq("N00bkilleR"), isNull()))
-        .thenReturn(account);
+  void testReserveUsernameHash() throws UsernameHashNotAvailableException {
+    when(accountsManager.reserveUsernameHash(any(), any()))
+        .thenReturn(new AccountsManager.UsernameReservation(null, USERNAME_HASH_1));
     Response response =
         resources.getJerseyTest()
-                 .target("/v1/accounts/username")
-                 .request()
-                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                 .put(Entity.json(new UsernameRequest("N00bkilleR", null)));
-    assertThat(response.getStatus()).isEqualTo(200);
-    assertThat(response.readEntity(UsernameResponse.class).username()).isEqualTo("N00bkilleR.1234");
-  }
-
-  @Test
-  void testReserveUsername() throws UsernameNotAvailableException {
-    when(accountsManager.reserveUsername(any(), eq("N00bkilleR")))
-        .thenReturn(new AccountsManager.UsernameReservation(null, "N00bkilleR.1234", RESERVATION_TOKEN));
-    Response response =
-        resources.getJerseyTest()
-            .target("/v1/accounts/username/reserved")
+            .target("/v1/accounts/username_hash/reserve")
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.json(new ReserveUsernameRequest("N00bkilleR")));
+            .put(Entity.json(new ReserveUsernameHashRequest(List.of(USERNAME_HASH_1, USERNAME_HASH_2))));
     assertThat(response.getStatus()).isEqualTo(200);
-    assertThat(response.readEntity(ReserveUsernameResponse.class))
-        .satisfies(r -> r.username().equals("N00bkilleR.1234"))
-        .satisfies(r -> r.reservationToken().equals(RESERVATION_TOKEN));
+    assertThat(response.readEntity(ReserveUsernameHashResponse.class))
+        .satisfies(r -> assertThat(r.usernameHash()).hasSize(32));
   }
 
   @Test
-  void testCommitUsername() throws UsernameNotAvailableException, UsernameReservationNotFoundException {
-    Account account = mock(Account.class);
-    when(account.getUsername()).thenReturn(Optional.of("n00bkiller.1234"));
-    when(accountsManager.confirmReservedUsername(any(), eq("n00bkiller.1234"), eq(RESERVATION_TOKEN))).thenReturn(account);
+  void testReserveUsernameHashUnavailable() throws UsernameHashNotAvailableException {
+    when(accountsManager.reserveUsernameHash(any(), anyList()))
+        .thenThrow(new UsernameHashNotAvailableException());
     Response response =
         resources.getJerseyTest()
-            .target("/v1/accounts/username/confirm")
+            .target("/v1/accounts/username_hash/reserve")
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.json(new ConfirmUsernameRequest("n00bkiller.1234", RESERVATION_TOKEN)));
-    assertThat(response.getStatus()).isEqualTo(200);
-    assertThat(response.readEntity(UsernameResponse.class).username()).isEqualTo("n00bkiller.1234");
+            .put(Entity.json(new ReserveUsernameHashRequest(List.of(USERNAME_HASH_1, USERNAME_HASH_2))));
+    assertThat(response.getStatus()).isEqualTo(409);
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void testReserveUsernameHashListSizeInvalid(List<byte[]> usernameHashes) {
+    Response response =
+        resources.getJerseyTest()
+            .target("/v1/accounts/username_hash/reserve")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(Entity.json(new ReserveUsernameHashRequest(usernameHashes)));
+    assertThat(response.getStatus()).isEqualTo(422);
+  }
+
+  static Stream<Arguments> testReserveUsernameHashListSizeInvalid() {
+    return Stream.of(
+        Arguments.of(Collections.nCopies(21, USERNAME_HASH_1)),
+        Arguments.of(Collections.emptyList())
+    );
   }
 
   @Test
-  void testCommitUnreservedUsername() throws UsernameNotAvailableException, UsernameReservationNotFoundException {
-    when(accountsManager.confirmReservedUsername(any(), eq("n00bkiller.1234"), eq(RESERVATION_TOKEN)))
+  void testReserveUsernameHashInvalidHashSize() {
+    List<byte[]> usernameHashes = List.of(new byte[31]);
+    Response response =
+        resources.getJerseyTest()
+            .target("/v1/accounts/username_hash/reserve")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(Entity.json(new ReserveUsernameHashRequest(usernameHashes)));
+    assertThat(response.getStatus()).isEqualTo(422);
+  }
+
+  @Test
+  void testReserveUsernameHashInvalidBase64UrlEncoding() {
+    Response response =
+        resources.getJerseyTest()
+            .target("/v1/accounts/username_hash/reserve")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(Entity.json(
+                // Has '+' and '='characters which are invalid in base64url
+                """
+                  {
+                    "usernameHashes": ["jh1jJ50oGn9wUXAFNtDus6AJgWOQ6XbZzF+wCv7OOQs="]
+                  }
+                """));
+    assertThat(response.getStatus()).isEqualTo(422);
+  }
+
+  @Test
+  void testCommitUsername() throws UsernameHashNotAvailableException, UsernameReservationNotFoundException {
+    Account account = mock(Account.class);
+    when(account.getUsernameHash()).thenReturn(Optional.of(USERNAME_HASH_1));
+    when(accountsManager.confirmReservedUsernameHash(any(), eq(USERNAME_HASH_1))).thenReturn(account);
+    Response response =
+        resources.getJerseyTest()
+            .target("/v1/accounts/username_hash/confirm")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(Entity.json(new ConfirmUsernameHashRequest(USERNAME_HASH_1)));
+    assertThat(response.getStatus()).isEqualTo(200);
+    assertArrayEquals(response.readEntity(UsernameHashResponse.class).usernameHash(), USERNAME_HASH_1);
+  }
+
+  @Test
+  void testCommitUnreservedUsername() throws UsernameHashNotAvailableException, UsernameReservationNotFoundException {
+    when(accountsManager.confirmReservedUsernameHash(any(), eq(USERNAME_HASH_1)))
         .thenThrow(new UsernameReservationNotFoundException());
     Response response =
         resources.getJerseyTest()
-            .target("/v1/accounts/username/confirm")
+            .target("/v1/accounts/username_hash/confirm")
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.json(new ConfirmUsernameRequest("n00bkiller.1234", RESERVATION_TOKEN)));
+            .put(Entity.json(new ConfirmUsernameHashRequest(USERNAME_HASH_1)));
     assertThat(response.getStatus()).isEqualTo(409);
   }
 
   @Test
-  void testCommitLapsedUsername() throws UsernameNotAvailableException, UsernameReservationNotFoundException {
-    when(accountsManager.confirmReservedUsername(any(), eq("n00bkiller.1234"), eq(RESERVATION_TOKEN)))
-        .thenThrow(new UsernameNotAvailableException());
+  void testCommitLapsedUsername() throws UsernameHashNotAvailableException, UsernameReservationNotFoundException {
+    when(accountsManager.confirmReservedUsernameHash(any(), eq(USERNAME_HASH_1)))
+        .thenThrow(new UsernameHashNotAvailableException());
     Response response =
         resources.getJerseyTest()
-            .target("/v1/accounts/username/confirm")
+            .target("/v1/accounts/username_hash/confirm")
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.json(new ConfirmUsernameRequest("n00bkiller.1234", RESERVATION_TOKEN)));
+            .put(Entity.json(new ConfirmUsernameHashRequest(USERNAME_HASH_1)));
     assertThat(response.getStatus()).isEqualTo(410);
-  }
-
-  @Test
-  void testSetTakenUsername() {
-    Response response =
-        resources.getJerseyTest()
-                 .target("/v1/accounts/username/")
-                 .request()
-                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                 .put(Entity.json(new UsernameRequest("takenusername", null)));
-
-    assertThat(response.getStatus()).isEqualTo(409);
-  }
-
-  @Test
-  void testSetInvalidUsername() {
-    Response response =
-        resources.getJerseyTest()
-                 .target("/v1/accounts/username")
-                 .request()
-                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                 // contains non-ascii character
-                 .put(Entity.json(new UsernameRequest("pаypal", null)));
-
-    assertThat(response.getStatus()).isEqualTo(422);
-  }
-
-  @Test
-  void testSetInvalidPrefixUsername() throws JsonProcessingException {
-    Response response =
-        resources.getJerseyTest()
-                 .target("/v1/accounts/username")
-                 .request()
-                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                 .put(Entity.json(new UsernameRequest("0n00bkiller", null)));
-    assertThat(response.getStatus()).isEqualTo(422);
-  }
-
-  @Test
-  void testSetUsernameBadAuth() {
-    Response response =
-        resources.getJerseyTest()
-                 .target("/v1/accounts/username")
-                 .request()
-                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.INVALID_PASSWORD))
-                 .put(Entity.json(new UsernameRequest("n00bkiller", null)));
-    assertThat(response.getStatus()).isEqualTo(401);
   }
 
   @Test
   void testDeleteUsername() {
     Response response =
         resources.getJerseyTest()
-                 .target("/v1/accounts/username/")
+                 .target("/v1/accounts/username_hash/")
                  .request()
                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                  .delete();
 
     assertThat(response.getStatus()).isEqualTo(204);
-    verify(accountsManager).clearUsername(AuthHelper.VALID_ACCOUNT);
+    verify(accountsManager).clearUsernameHash(AuthHelper.VALID_ACCOUNT);
   }
 
   @Test
   void testDeleteUsernameBadAuth() {
     Response response =
         resources.getJerseyTest()
-                 .target("/v1/accounts/username/")
+                 .target("/v1/accounts/username_hash/")
                  .request()
                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.INVALID_PASSWORD))
                  .delete();
@@ -1998,9 +2000,9 @@ class AccountControllerTest {
     final UUID uuid = UUID.randomUUID();
     when(account.getUuid()).thenReturn(uuid);
 
-    when(accountsManager.getByUsername(eq("n00bkiller.1234"))).thenReturn(Optional.of(account));
+    when(accountsManager.getByUsernameHash(any())).thenReturn(Optional.of(account));
     Response response = resources.getJerseyTest()
-        .target("v1/accounts/username/n00bkiller.1234")
+        .target(String.format("v1/accounts/username_hash/%s", BASE_64_URL_USERNAME_HASH_1))
         .request()
         .header(HttpHeaders.X_FORWARDED_FOR, "127.0.0.1")
         .get();
@@ -2010,9 +2012,9 @@ class AccountControllerTest {
 
   @Test
   void testLookupUsernameDoesNotExist() {
-    when(accountsManager.getByUsername(eq("n00bkiller.1234"))).thenReturn(Optional.empty());
+    when(accountsManager.getByUsernameHash(any())).thenReturn(Optional.empty());
     assertThat(resources.getJerseyTest()
-        .target("v1/accounts/username/n00bkiller.1234")
+        .target(String.format("v1/accounts/username_hash/%s", BASE_64_URL_USERNAME_HASH_1))
         .request()
         .header(HttpHeaders.X_FORWARDED_FOR, "127.0.0.1")
         .get().getStatus()).isEqualTo(404);
@@ -2024,13 +2026,41 @@ class AccountControllerTest {
     MockUtils.updateRateLimiterResponseToFail(
         rateLimiters, RateLimiters.Handle.USERNAME_LOOKUP, "127.0.0.1", expectedRetryAfter);
     final Response response = resources.getJerseyTest()
-        .target("/v1/accounts/username/test.123")
+        .target(String.format("v1/accounts/username_hash/%s", BASE_64_URL_USERNAME_HASH_1))
         .request()
         .header(HttpHeaders.X_FORWARDED_FOR, "127.0.0.1")
         .get();
 
     assertThat(response.getStatus()).isEqualTo(413);
     assertThat(response.getHeaderString("Retry-After")).isEqualTo(String.valueOf(expectedRetryAfter.toSeconds()));
+  }
+
+  @Test
+  void testLookupUsernameAuthenticated() {
+    assertThat(resources.getJerseyTest()
+        .target(String.format("/v1/accounts/username_hash/%s", USERNAME_HASH_1))
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .header(HttpHeaders.X_FORWARDED_FOR, "127.0.0.1")
+        .get()
+        .getStatus()).isEqualTo(400);
+  }
+
+  @Test
+  void testLookupUsernameInvalidFormat() {
+    assertThat(resources.getJerseyTest()
+        .target(String.format("/v1/accounts/username_hash/%s", INVALID_USERNAME_HASH))
+        .request()
+        .header(HttpHeaders.X_FORWARDED_FOR, "127.0.0.1")
+        .get()
+        .getStatus()).isEqualTo(422);
+
+    assertThat(resources.getJerseyTest()
+        .target(String.format("/v1/accounts/username_hash/%s", TOO_SHORT_USERNAME_HASH))
+        .request()
+        .header(HttpHeaders.X_FORWARDED_FOR, "127.0.0.1")
+        .get()
+        .getStatus()).isEqualTo(422);
   }
 
   @ParameterizedTest

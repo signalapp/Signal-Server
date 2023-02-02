@@ -16,12 +16,15 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
+import org.whispersystems.textsecuregcm.util.ByteArrayBase64UrlAdapter;
 import org.whispersystems.textsecuregcm.util.Util;
 
 public class Account {
@@ -39,10 +42,14 @@ public class Account {
   private String number;
 
   @JsonProperty
+  @JsonSerialize(using = ByteArrayBase64UrlAdapter.Serializing.class)
+  @JsonDeserialize(using = ByteArrayBase64UrlAdapter.Deserializing.class)
   @Nullable
-  private String username;
+  private byte[] usernameHash;
 
   @JsonProperty
+  @JsonSerialize(using = ByteArrayBase64UrlAdapter.Serializing.class)
+  @JsonDeserialize(using = ByteArrayBase64UrlAdapter.Deserializing.class)
   @Nullable
   private byte[] reservedUsernameHash;
 
@@ -126,16 +133,16 @@ public class Account {
     this.phoneNumberIdentifier = phoneNumberIdentifier;
   }
 
-  public Optional<String> getUsername() {
+  public Optional<byte[]> getUsernameHash() {
     requireNotStale();
 
-    return Optional.ofNullable(username);
+    return Optional.ofNullable(usernameHash);
   }
 
-  public void setUsername(final String username) {
+  public void setUsernameHash(final byte[] usernameHash) {
     requireNotStale();
 
-    this.username = username;
+    this.usernameHash = usernameHash;
   }
 
   public Optional<byte[]> getReservedUsernameHash() {

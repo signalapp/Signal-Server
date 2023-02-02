@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.Base64;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -26,8 +27,10 @@ class AccountChangeValidatorTest {
   private static final UUID ORIGINAL_PNI = UUID.randomUUID();
   private static final UUID CHANGED_PNI = UUID.randomUUID();
 
-  private static final String ORIGINAL_USERNAME = "bruce_wayne";
-  private static final String CHANGED_USERNAME = "batman";
+  private static final String BASE_64_URL_ORIGINAL_USERNAME = "9p6Tip7BFefFOJzv4kv4GyXEYsBVfk_WbjNejdlOvQE";
+  private static final String BASE_64_URL_CHANGED_USERNAME = "NLUom-CHwtemcdvOTTXdmXmzRIV7F05leS8lwkVK_vc";
+  private static final byte[] ORIGINAL_USERNAME_HASH = Base64.getUrlDecoder().decode(BASE_64_URL_ORIGINAL_USERNAME);
+  private static final byte[] CHANGED_USERNAME_HASH = Base64.getUrlDecoder().decode(BASE_64_URL_CHANGED_USERNAME);
 
   @ParameterizedTest
   @MethodSource
@@ -49,22 +52,22 @@ class AccountChangeValidatorTest {
     final Account originalAccount = mock(Account.class);
     when(originalAccount.getNumber()).thenReturn(ORIGINAL_NUMBER);
     when(originalAccount.getPhoneNumberIdentifier()).thenReturn(ORIGINAL_PNI);
-    when(originalAccount.getUsername()).thenReturn(Optional.of(ORIGINAL_USERNAME));
+    when(originalAccount.getUsernameHash()).thenReturn(Optional.of(ORIGINAL_USERNAME_HASH));
 
     final Account unchangedAccount = mock(Account.class);
     when(unchangedAccount.getNumber()).thenReturn(ORIGINAL_NUMBER);
     when(unchangedAccount.getPhoneNumberIdentifier()).thenReturn(ORIGINAL_PNI);
-    when(unchangedAccount.getUsername()).thenReturn(Optional.of(ORIGINAL_USERNAME));
+    when(unchangedAccount.getUsernameHash()).thenReturn(Optional.of(ORIGINAL_USERNAME_HASH));
 
     final Account changedNumberAccount = mock(Account.class);
     when(changedNumberAccount.getNumber()).thenReturn(CHANGED_NUMBER);
     when(changedNumberAccount.getPhoneNumberIdentifier()).thenReturn(CHANGED_PNI);
-    when(changedNumberAccount.getUsername()).thenReturn(Optional.of(ORIGINAL_USERNAME));
+    when(changedNumberAccount.getUsernameHash()).thenReturn(Optional.of(ORIGINAL_USERNAME_HASH));
 
     final Account changedUsernameAccount = mock(Account.class);
     when(changedUsernameAccount.getNumber()).thenReturn(ORIGINAL_NUMBER);
     when(changedUsernameAccount.getPhoneNumberIdentifier()).thenReturn(ORIGINAL_PNI);
-    when(changedUsernameAccount.getUsername()).thenReturn(Optional.of(CHANGED_USERNAME));
+    when(changedUsernameAccount.getUsernameHash()).thenReturn(Optional.of(CHANGED_USERNAME_HASH));
 
     return Stream.of(
         Arguments.of(originalAccount, unchangedAccount, AccountChangeValidator.GENERAL_CHANGE_VALIDATOR, true),

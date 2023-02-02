@@ -55,7 +55,6 @@ import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.storage.VerificationCodeStore;
 import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
-import org.whispersystems.textsecuregcm.util.UsernameGenerator;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 
@@ -195,10 +194,9 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
           deletedAccountsLockDynamoDbClient,
           configuration.getDynamoDbTables().getDeletedAccountsLock().getTableName());
       StoredVerificationCodeManager pendingAccountsManager = new StoredVerificationCodeManager(pendingAccounts);
-      UsernameGenerator usernameGenerator = new UsernameGenerator(configuration.getUsername());
       AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
-          deletedAccountsManager, directoryQueue, keys, messagesManager, prohibitedUsernames, profilesManager,
-          pendingAccountsManager, secureStorageClient, secureBackupClient, clientPresenceManager, usernameGenerator,
+          deletedAccountsManager, directoryQueue, keys, messagesManager, profilesManager,
+          pendingAccountsManager, secureStorageClient, secureBackupClient, clientPresenceManager,
           experimentEnrollmentManager, clock);
 
       for (String user : users) {

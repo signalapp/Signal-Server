@@ -51,7 +51,6 @@ import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
 import org.whispersystems.textsecuregcm.tests.util.JsonHelpers;
 import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
 import org.whispersystems.textsecuregcm.util.Pair;
-import org.whispersystems.textsecuregcm.util.UsernameGenerator;
 import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
 import software.amazon.awssdk.services.dynamodb.model.CreateTableRequest;
 import software.amazon.awssdk.services.dynamodb.model.KeySchemaElement;
@@ -159,13 +158,11 @@ class AccountsManagerConcurrentModificationIntegrationTest {
           mock(DirectoryQueue.class),
           mock(Keys.class),
           mock(MessagesManager.class),
-          mock(ProhibitedUsernames.class),
           mock(ProfilesManager.class),
           mock(StoredVerificationCodeManager.class),
           mock(SecureStorageClient.class),
           mock(SecureBackupClient.class),
           mock(ClientPresenceManager.class),
-          mock(UsernameGenerator.class),
           mock(ExperimentEnrollmentManager.class),
           mock(Clock.class)
       );
