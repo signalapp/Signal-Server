@@ -164,6 +164,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
           mock(SecureBackupClient.class),
           mock(ClientPresenceManager.class),
           mock(ExperimentEnrollmentManager.class),
+          mock(RegistrationRecoveryPasswordsManager.class),
           mock(Clock.class)
       );
     }

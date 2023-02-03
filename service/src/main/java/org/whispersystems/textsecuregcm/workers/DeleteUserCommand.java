@@ -50,6 +50,8 @@ import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.Profiles;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.ProhibitedUsernames;
+import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswords;
+import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageDynamoDb;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
@@ -143,6 +145,14 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
           configuration.getDynamoDbTables().getDeletedAccounts().getNeedsReconciliationIndexName());
       VerificationCodeStore pendingAccounts = new VerificationCodeStore(dynamoDbClient,
           configuration.getDynamoDbTables().getPendingAccounts().getTableName());
+      RegistrationRecoveryPasswords registrationRecoveryPasswords = new RegistrationRecoveryPasswords(
+          configuration.getDynamoDbTables().getRegistrationRecovery().getTableName(),
+          configuration.getDynamoDbTables().getRegistrationRecovery().getExpiration(),
+          dynamoDbClient,
+          dynamoDbAsyncClient
+      );
+
+      RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager = new RegistrationRecoveryPasswordsManager(registrationRecoveryPasswords);
 
       Accounts accounts = new Accounts(
           dynamoDbClient,
@@ -197,7 +207,7 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
       AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
           deletedAccountsManager, directoryQueue, keys, messagesManager, profilesManager,
           pendingAccountsManager, secureStorageClient, secureBackupClient, clientPresenceManager,
-          experimentEnrollmentManager, clock);
+          experimentEnrollmentManager, registrationRecoveryPasswordsManager, clock);
 
       for (String user : users) {
         Optional<Account> account = accountsManager.getByE164(user);

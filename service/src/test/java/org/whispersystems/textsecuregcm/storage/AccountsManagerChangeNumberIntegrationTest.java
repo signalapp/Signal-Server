@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2021 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -197,6 +197,7 @@ class AccountsManagerChangeNumberIntegrationTest {
           secureBackupClient,
           clientPresenceManager,
           mock(ExperimentEnrollmentManager.class),
+          mock(RegistrationRecoveryPasswordsManager.class),
           mock(Clock.class));
     }
   }

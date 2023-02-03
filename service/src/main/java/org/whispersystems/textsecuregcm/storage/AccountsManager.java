@@ -6,6 +6,7 @@ package org.whispersystems.textsecuregcm.storage;
 
 
 import static com.codahale.metrics.MetricRegistry.name;
+import static java.util.Objects.requireNonNull;
 
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
@@ -26,7 +27,6 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -93,6 +93,7 @@ public class AccountsManager {
   private final SecureBackupClient secureBackupClient;
   private final ClientPresenceManager clientPresenceManager;
   private final ExperimentEnrollmentManager experimentEnrollmentManager;
+  private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
   private final Clock clock;
 
   private static final ObjectMapper mapper = SystemMapper.getMapper();
@@ -135,6 +136,7 @@ public class AccountsManager {
       final SecureBackupClient secureBackupClient,
       final ClientPresenceManager clientPresenceManager,
       final ExperimentEnrollmentManager experimentEnrollmentManager,
+      final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
       final Clock clock) {
     this.accounts = accounts;
     this.phoneNumberIdentifiers = phoneNumberIdentifiers;
@@ -149,7 +151,8 @@ public class AccountsManager {
     this.secureBackupClient  = secureBackupClient;
     this.clientPresenceManager = clientPresenceManager;
     this.experimentEnrollmentManager = experimentEnrollmentManager;
-    this.clock = Objects.requireNonNull(clock);
+    this.registrationRecoveryPasswordsManager = requireNonNull(registrationRecoveryPasswordsManager);
+    this.clock = requireNonNull(clock);
   }
 
   public Account create(final String number,
@@ -230,6 +233,9 @@ public class AccountsManager {
           // The newly-created account has explicitly opted out of discoverability
           directoryQueue.deleteAccount(account);
         }
+
+        accountAttributes.recoveryPassword().ifPresent(registrationRecoveryPassword ->
+            registrationRecoveryPasswordsManager.storeForCurrentNumber(account.getNumber(), registrationRecoveryPassword));
       });
 
       return account;
@@ -451,12 +457,7 @@ public class AccountsManager {
 
   public Account updateDeviceAuthentication(final Account account, final Device device, final SaltedTokenHash credentials) {
     Preconditions.checkArgument(credentials.getVersion() == SaltedTokenHash.CURRENT_VERSION);
-    return updateDevice(account, device.getId(), new Consumer<Device>() {
-      @Override
-      public void accept(final Device device) {
-        device.setAuthTokenHash(credentials);
-      }
-    });
+    return updateDevice(account, device.getId(), device1 -> device1.setAuthTokenHash(credentials));
   }
 
   /**
@@ -662,6 +663,7 @@ public class AccountsManager {
     keys.delete(account.getPhoneNumberIdentifier());
     messagesManager.clear(account.getUuid());
     messagesManager.clear(account.getPhoneNumberIdentifier());
+    registrationRecoveryPasswordsManager.removeForNumber(account.getNumber());
 
     deleteStorageServiceDataFuture.join();
     deleteBackupServiceDataFuture.join();

@@ -1,16 +1,19 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.google.common.annotations.VisibleForTesting;
+import java.util.Optional;
+import java.util.OptionalInt;
 import javax.annotation.Nullable;
 import javax.validation.constraints.Size;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
+import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
-import java.util.OptionalInt;
 
 public class AccountAttributes {
 
@@ -20,7 +23,6 @@ public class AccountAttributes {
   @JsonProperty
   private int registrationId;
 
-  @Nullable
   @JsonProperty("pniRegistrationId")
   private Integer phoneNumberIdentityRegistrationId;
 
@@ -44,11 +46,22 @@ public class AccountAttributes {
   @JsonProperty
   private boolean discoverableByPhoneNumber = true;
 
-  public AccountAttributes() {}
+  @JsonProperty
+  @Nullable
+  @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
+  private byte[] recoveryPassword = null;
+
+  public AccountAttributes() {
+  }
 
   @VisibleForTesting
-  public AccountAttributes(boolean fetchesMessages, int registrationId, String name, String registrationLock,
-      boolean discoverableByPhoneNumber, final DeviceCapabilities capabilities) {
+  public AccountAttributes(
+      final boolean fetchesMessages,
+      final int registrationId,
+      final String name,
+      final String registrationLock,
+      final boolean discoverableByPhoneNumber,
+      final DeviceCapabilities capabilities) {
     this.fetchesMessages = fetchesMessages;
     this.registrationId = registrationId;
     this.name = name;
@@ -93,8 +106,19 @@ public class AccountAttributes {
     return discoverableByPhoneNumber;
   }
 
+  public Optional<byte[]> recoveryPassword() {
+    return Optional.ofNullable(recoveryPassword);
+  }
+
   @VisibleForTesting
-  public void setUnidentifiedAccessKey(final byte[] unidentifiedAccessKey) {
+  public AccountAttributes withUnidentifiedAccessKey(final byte[] unidentifiedAccessKey) {
     this.unidentifiedAccessKey = unidentifiedAccessKey;
+    return this;
+  }
+
+  @VisibleForTesting
+  public AccountAttributes withRecoveryPassword(final byte[] recoveryPassword) {
+    this.recoveryPassword = recoveryPassword;
+    return this;
   }
 }

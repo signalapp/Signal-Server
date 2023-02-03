@@ -85,8 +85,8 @@ import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
 import org.whispersystems.textsecuregcm.entities.ReserveUsernameHashRequest;
 import org.whispersystems.textsecuregcm.entities.ReserveUsernameHashResponse;
 import org.whispersystems.textsecuregcm.entities.StaleDevices;
-import org.whispersystems.textsecuregcm.limits.RateLimitedByIp;
 import org.whispersystems.textsecuregcm.entities.UsernameHashResponse;
+import org.whispersystems.textsecuregcm.limits.RateLimitedByIp;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
@@ -102,6 +102,7 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
+import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.storage.UsernameHashNotAvailableException;
 import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundException;
@@ -163,7 +164,7 @@ public class AccountController {
   private final CaptchaChecker                     captchaChecker;
   private final PushNotificationManager            pushNotificationManager;
   private final ExternalServiceCredentialsGenerator backupServiceCredentialsGenerator;
-
+  private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
   private final ChangeNumberManager changeNumberManager;
   private final Clock clock;
 
@@ -183,6 +184,7 @@ public class AccountController {
       CaptchaChecker captchaChecker,
       PushNotificationManager pushNotificationManager,
       ChangeNumberManager changeNumberManager,
+      RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
       ExternalServiceCredentialsGenerator backupServiceCredentialsGenerator,
       ClientPresenceManager clientPresenceManager,
       Clock clock
@@ -199,6 +201,7 @@ public class AccountController {
     this.backupServiceCredentialsGenerator = backupServiceCredentialsGenerator;
     this.changeNumberManager = changeNumberManager;
     this.clientPresenceManager = clientPresenceManager;
+    this.registrationRecoveryPasswordsManager = registrationRecoveryPasswordsManager;
     this.clock = clock;
   }
 
@@ -214,11 +217,12 @@ public class AccountController {
       CaptchaChecker captchaChecker,
       PushNotificationManager pushNotificationManager,
       ChangeNumberManager changeNumberManager,
+      RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
       ExternalServiceCredentialsGenerator backupServiceCredentialsGenerator
   ) {
     this(pendingAccounts, accounts, rateLimiters,
         registrationServiceClient, dynamicConfigurationManager, turnTokenGenerator, testDevices, captchaChecker,
-        pushNotificationManager, changeNumberManager,
+        pushNotificationManager, changeNumberManager, registrationRecoveryPasswordsManager,
         backupServiceCredentialsGenerator, null, Clock.systemUTC());
   }
 
@@ -645,13 +649,14 @@ public class AccountController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   @ChangesDeviceEnabledState
-  public void setAccountAttributes(@Auth DisabledPermittedAuthenticatedAccount disabledPermittedAuth,
+  public void setAccountAttributes(
+      @Auth DisabledPermittedAuthenticatedAccount disabledPermittedAuth,
       @HeaderParam(HeaderUtils.X_SIGNAL_AGENT) String userAgent,
       @NotNull @Valid AccountAttributes attributes) {
-    Account account = disabledPermittedAuth.getAccount();
-    long deviceId = disabledPermittedAuth.getAuthenticatedDevice().getId();
+    final Account account = disabledPermittedAuth.getAccount();
+    final long deviceId = disabledPermittedAuth.getAuthenticatedDevice().getId();
 
-    accounts.update(account, a -> {
+    final Account updatedAccount = accounts.update(account, a -> {
       a.getDevice(deviceId).ifPresent(d -> {
         d.setFetchesMessages(attributes.getFetchesMessages());
         d.setName(attributes.getName());
@@ -667,6 +672,10 @@ public class AccountController {
       a.setUnrestrictedUnidentifiedAccess(attributes.isUnrestrictedUnidentifiedAccess());
       a.setDiscoverableByPhoneNumber(attributes.isDiscoverableByPhoneNumber());
     });
+
+    // if registration recovery password was sent to us, store it (or refresh its expiration)
+    attributes.recoveryPassword().ifPresent(registrationRecoveryPassword ->
+        registrationRecoveryPasswordsManager.storeForCurrentNumber(updatedAccount.getNumber(), registrationRecoveryPassword));
   }
 
   @GET

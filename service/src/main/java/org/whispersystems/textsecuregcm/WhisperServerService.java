@@ -197,6 +197,8 @@ import org.whispersystems.textsecuregcm.storage.PubSubManager;
 import org.whispersystems.textsecuregcm.storage.PushChallengeDynamoDb;
 import org.whispersystems.textsecuregcm.storage.PushFeedbackProcessor;
 import org.whispersystems.textsecuregcm.storage.RedeemedReceiptsManager;
+import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswords;
+import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.RemoteConfigs;
 import org.whispersystems.textsecuregcm.storage.RemoteConfigsManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageDynamoDb;
@@ -368,6 +370,12 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getDynamoDbTables().getPendingAccounts().getTableName());
     VerificationCodeStore pendingDevices = new VerificationCodeStore(dynamoDbClient,
         config.getDynamoDbTables().getPendingDevices().getTableName());
+    RegistrationRecoveryPasswords registrationRecoveryPasswords = new RegistrationRecoveryPasswords(
+        config.getDynamoDbTables().getRegistrationRecovery().getTableName(),
+        config.getDynamoDbTables().getRegistrationRecovery().getExpiration(),
+        dynamoDbClient,
+        dynamoDbAsyncClient
+    );
 
     reactor.util.Metrics.MicrometerConfiguration.useRegistry(Metrics.globalRegistry);
     Schedulers.enableMetrics();
@@ -464,6 +472,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     dynamicConfigurationManager.start();
 
     ExperimentEnrollmentManager experimentEnrollmentManager = new ExperimentEnrollmentManager(dynamicConfigurationManager);
+    RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager = new RegistrationRecoveryPasswordsManager(registrationRecoveryPasswords);
 
     RegistrationServiceClient  registrationServiceClient  = new RegistrationServiceClient(config.getRegistrationServiceConfiguration().getHost(), config.getRegistrationServiceConfiguration().getPort(), config.getRegistrationServiceConfiguration().getApiKey(), config.getRegistrationServiceConfiguration().getRegistrationCaCertificate(), registrationCallbackExecutor);
     SecureBackupClient         secureBackupClient         = new SecureBackupClient(backupCredentialsGenerator, backupServiceExecutor, config.getSecureBackupServiceConfiguration());
@@ -485,7 +494,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
         deletedAccountsManager, directoryQueue, keys, messagesManager, profilesManager,
         pendingAccountsManager, secureStorageClient, secureBackupClient, clientPresenceManager,
-        experimentEnrollmentManager, clock);
+        experimentEnrollmentManager, registrationRecoveryPasswordsManager, clock);
     RemoteConfigsManager       remoteConfigsManager       = new RemoteConfigsManager(remoteConfigs);
     DispatchManager            dispatchManager            = new DispatchManager(pubSubClientFactory, Optional.empty());
     PubSubManager              pubSubManager              = new PubSubManager(pubsubClient, dispatchManager);
@@ -664,7 +673,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.jersey().register(
         new AccountController(pendingAccountsManager, accountsManager, rateLimiters,
             registrationServiceClient, dynamicConfigurationManager, turnTokenGenerator, config.getTestDevices(),
-            captchaChecker, pushNotificationManager, changeNumberManager, backupCredentialsGenerator,
+            captchaChecker, pushNotificationManager, changeNumberManager, registrationRecoveryPasswordsManager, backupCredentialsGenerator,
             clientPresenceManager, clock));
 
     environment.jersey().register(new KeysController(rateLimiters, keys, accountsManager));

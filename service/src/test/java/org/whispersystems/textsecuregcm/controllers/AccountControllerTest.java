@@ -50,6 +50,7 @@ import javax.annotation.Nullable;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import org.apache.commons.lang3.RandomUtils;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -87,8 +88,8 @@ import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
 import org.whispersystems.textsecuregcm.entities.ReserveUsernameHashRequest;
 import org.whispersystems.textsecuregcm.entities.ReserveUsernameHashResponse;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
-import org.whispersystems.textsecuregcm.limits.RateLimitByIpFilter;
 import org.whispersystems.textsecuregcm.entities.UsernameHashResponse;
+import org.whispersystems.textsecuregcm.limits.RateLimitByIpFilter;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.ImpossiblePhoneNumberExceptionMapper;
@@ -107,6 +108,7 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
+import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.storage.UsernameHashNotAvailableException;
 import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundException;
@@ -173,6 +175,8 @@ class AccountControllerTest {
   private static CaptchaChecker captchaChecker = mock(CaptchaChecker.class);
   private static PushNotificationManager pushNotificationManager = mock(PushNotificationManager.class);
   private static ChangeNumberManager changeNumberManager = mock(ChangeNumberManager.class);
+  private static RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager = mock(
+      RegistrationRecoveryPasswordsManager.class);
   private static ClientPresenceManager clientPresenceManager = mock(ClientPresenceManager.class);
   private static TestClock testClock = TestClock.now();
 
@@ -210,6 +214,7 @@ class AccountControllerTest {
           captchaChecker,
           pushNotificationManager,
           changeNumberManager,
+          registrationRecoveryPasswordsManager,
           STORAGE_CREDENTIAL_GENERATOR,
           clientPresenceManager,
           testClock))
@@ -1819,6 +1824,21 @@ class AccountControllerTest {
   }
 
   @Test
+  void testAccountsAttributesUpdateRecoveryPassword() {
+    final byte[] recoveryPassword = RandomUtils.nextBytes(32);
+    final Response response =
+        resources.getJerseyTest()
+            .target("/v1/accounts/attributes/")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.UNDISCOVERABLE_UUID, AuthHelper.UNDISCOVERABLE_PASSWORD))
+            .put(Entity.json(new AccountAttributes(false, 2222, null, null, true, null)
+                .withRecoveryPassword(recoveryPassword)));
+
+    assertThat(response.getStatus()).isEqualTo(204);
+    verify(registrationRecoveryPasswordsManager).storeForCurrentNumber(eq(AuthHelper.UNDISCOVERABLE_NUMBER), eq(recoveryPassword));
+  }
+
+  @Test
   void testSetAccountAttributesDisableDiscovery() {
     Response response =
             resources.getJerseyTest()
@@ -1832,15 +1852,13 @@ class AccountControllerTest {
 
   @Test
   void testSetAccountAttributesBadUnidentifiedKeyLength() {
-    final AccountAttributes attributes = new AccountAttributes(false, 2222, null, null, false, null);
-    attributes.setUnidentifiedAccessKey(new byte[7]);
-
     Response response =
         resources.getJerseyTest()
             .target("/v1/accounts/attributes/")
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.json(attributes));
+            .put(Entity.json(new AccountAttributes(false, 2222, null, null, false, null)
+                .withUnidentifiedAccessKey(new byte[7])));
 
     assertThat(response.getStatus()).isEqualTo(422);
   }

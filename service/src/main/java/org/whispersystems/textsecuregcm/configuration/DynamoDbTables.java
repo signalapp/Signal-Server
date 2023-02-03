@@ -62,6 +62,7 @@ public class DynamoDbTables {
   private final Table reportMessage;
   private final Table reservedUsernames;
   private final Table subscriptions;
+  private final TableWithExpiration registrationRecovery;
 
   public DynamoDbTables(
       @JsonProperty("accounts") final AccountsTableConfiguration accounts,
@@ -79,7 +80,8 @@ public class DynamoDbTables {
       @JsonProperty("remoteConfig") final Table remoteConfig,
       @JsonProperty("reportMessage") final Table reportMessage,
       @JsonProperty("reservedUsernames") final Table reservedUsernames,
-      @JsonProperty("subscriptions") final Table subscriptions) {
+      @JsonProperty("subscriptions") final Table subscriptions,
+      @JsonProperty("registrationRecovery") final TableWithExpiration registrationRecovery) {
 
     this.accounts = accounts;
     this.deletedAccounts = deletedAccounts;
@@ -97,6 +99,7 @@ public class DynamoDbTables {
     this.reportMessage = reportMessage;
     this.reservedUsernames = reservedUsernames;
     this.subscriptions = subscriptions;
+    this.registrationRecovery = registrationRecovery;
   }
 
   @NotNull
@@ -193,5 +196,11 @@ public class DynamoDbTables {
   @Valid
   public Table getSubscriptions() {
     return subscriptions;
+  }
+
+  @NotNull
+  @Valid
+  public TableWithExpiration getRegistrationRecovery() {
+    return registrationRecovery;
   }
 }
