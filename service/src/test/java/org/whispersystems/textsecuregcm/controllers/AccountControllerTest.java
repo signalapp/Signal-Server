@@ -67,13 +67,14 @@ import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
+import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
 import org.whispersystems.textsecuregcm.captcha.AssessmentResult;
 import org.whispersystems.textsecuregcm.captcha.CaptchaChecker;
-import org.whispersystems.textsecuregcm.configuration.SecureStorageServiceConfiguration;
+import org.whispersystems.textsecuregcm.configuration.SecureBackupServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicCaptchaConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
@@ -184,12 +185,15 @@ class AccountControllerTest {
 
   private byte[] registration_lock_key = new byte[32];
 
-  private static final SecureStorageServiceConfiguration STORAGE_CFG = MockUtils.buildMock(
-      SecureStorageServiceConfiguration.class,
-      cfg -> when(cfg.decodeUserAuthenticationTokenSharedSecret()).thenReturn(new byte[32]));
+  private static final SecureBackupServiceConfiguration BACKUP_CFG = MockUtils.buildMock(
+      SecureBackupServiceConfiguration.class,
+      cfg -> when(cfg.getUserAuthenticationTokenSharedSecret()).thenReturn(new byte[32]));
 
-  private static final ExternalServiceCredentialsGenerator STORAGE_CREDENTIAL_GENERATOR = SecureStorageController
-      .credentialsGenerator(STORAGE_CFG);
+  private static final ExternalServiceCredentialsGenerator backupCredentialsGenerator = SecureBackupController.credentialsGenerator(
+      BACKUP_CFG);
+
+  private static final RegistrationLockVerificationManager registrationLockVerificationManager = new RegistrationLockVerificationManager(
+      accountsManager, clientPresenceManager, backupCredentialsGenerator, rateLimiters);
 
   private static final ResourceExtension resources = ResourceExtension.builder()
       .addProvider(AuthHelper.getAuthFilter())
@@ -214,9 +218,8 @@ class AccountControllerTest {
           captchaChecker,
           pushNotificationManager,
           changeNumberManager,
+          registrationLockVerificationManager,
           registrationRecoveryPasswordsManager,
-          STORAGE_CREDENTIAL_GENERATOR,
-          clientPresenceManager,
           testClock))
       .build();
 

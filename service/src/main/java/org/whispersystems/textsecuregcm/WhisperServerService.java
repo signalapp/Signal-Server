@@ -76,6 +76,7 @@ import org.whispersystems.textsecuregcm.auth.CertificateGenerator;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
+import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
 import org.whispersystems.textsecuregcm.auth.WebsocketRefreshApplicationEventListener;
 import org.whispersystems.textsecuregcm.badges.ConfiguredProfileBadgeConverter;
@@ -101,6 +102,7 @@ import org.whispersystems.textsecuregcm.controllers.MessageController;
 import org.whispersystems.textsecuregcm.controllers.PaymentsController;
 import org.whispersystems.textsecuregcm.controllers.ProfileController;
 import org.whispersystems.textsecuregcm.controllers.ProvisioningController;
+import org.whispersystems.textsecuregcm.controllers.RegistrationController;
 import org.whispersystems.textsecuregcm.controllers.RemoteConfigController;
 import org.whispersystems.textsecuregcm.controllers.SecureBackupController;
 import org.whispersystems.textsecuregcm.controllers.SecureStorageController;
@@ -518,6 +520,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     SubscriptionManager subscriptionManager = new SubscriptionManager(
         config.getDynamoDbTables().getSubscriptions().getTableName(), dynamoDbAsyncClient);
 
+    final RegistrationLockVerificationManager registrationLockVerificationManager = new RegistrationLockVerificationManager(
+        accountsManager, clientPresenceManager, backupCredentialsGenerator, rateLimiters);
+
     ReportedMessageMetricsListener reportedMessageMetricsListener = new ReportedMessageMetricsListener(accountsManager);
     reportMessageManager.addListener(reportedMessageMetricsListener);
 
@@ -673,8 +678,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.jersey().register(
         new AccountController(pendingAccountsManager, accountsManager, rateLimiters,
             registrationServiceClient, dynamicConfigurationManager, turnTokenGenerator, config.getTestDevices(),
-            captchaChecker, pushNotificationManager, changeNumberManager, registrationRecoveryPasswordsManager, backupCredentialsGenerator,
-            clientPresenceManager, clock));
+            captchaChecker, pushNotificationManager, changeNumberManager, registrationLockVerificationManager,
+            registrationRecoveryPasswordsManager, clock));
 
     environment.jersey().register(new KeysController(rateLimiters, keys, accountsManager));
 
@@ -741,6 +746,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             profileBadgeConverter, config.getBadges(), cdnS3Client, profileCdnPolicyGenerator, profileCdnPolicySigner,
             config.getCdnConfiguration().getBucket(), zkProfileOperations, batchIdentityCheckExecutor),
         new ProvisioningController(rateLimiters, provisioningManager),
+        new RegistrationController(accountsManager, registrationServiceClient, registrationLockVerificationManager,
+            rateLimiters),
         new RemoteConfigController(remoteConfigsManager, adminEventLogger,
             config.getRemoteConfigConfiguration().getAuthorizedTokens(),
             config.getRemoteConfigConfiguration().getGlobalConfig()),

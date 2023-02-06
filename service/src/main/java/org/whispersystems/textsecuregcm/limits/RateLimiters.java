@@ -43,6 +43,7 @@ public class RateLimiters {
   private final RateLimiter smsVoicePrefixLimiter;
   private final RateLimiter verifyLimiter;
   private final RateLimiter pinLimiter;
+  private final RateLimiter registrationLimiter;
   private final RateLimiter attachmentLimiter;
   private final RateLimiter preKeysLimiter;
   private final RateLimiter messagesLimiter;
@@ -54,7 +55,6 @@ public class RateLimiters {
   private final RateLimiter artPackLimiter;
   private final RateLimiter usernameSetLimiter;
   private final RateLimiter usernameReserveLimiter;
-  private final RateLimiter storiesLimiter;
 
   private final Map<String, RateLimiter> rateLimiterByHandle;
 
@@ -66,6 +66,7 @@ public class RateLimiters {
     this.smsVoicePrefixLimiter = fromConfig("smsVoicePrefix", config.getSmsVoicePrefix(), cacheCluster);
     this.verifyLimiter = fromConfig("verify", config.getVerifyNumber(), cacheCluster);
     this.pinLimiter = fromConfig("pin", config.getVerifyPin(), cacheCluster);
+    this.registrationLimiter = fromConfig("registration", config.getRegistration(), cacheCluster);
     this.attachmentLimiter = fromConfig("attachmentCreate", config.getAttachments(), cacheCluster);
     this.preKeysLimiter = fromConfig("prekeys", config.getPreKeys(), cacheCluster);
     this.messagesLimiter = fromConfig("messages", config.getMessages(), cacheCluster);
@@ -77,7 +78,6 @@ public class RateLimiters {
     this.artPackLimiter = fromConfig("artPack", config.getArtPack(), cacheCluster);
     this.usernameSetLimiter = fromConfig("usernameSet", config.getUsernameSet(), cacheCluster);
     this.usernameReserveLimiter = fromConfig("usernameReserve", config.getUsernameReserve(), cacheCluster);
-    this.storiesLimiter = fromConfig("stories", config.getStories(), cacheCluster);
 
     this.rateLimiterByHandle = Stream.of(
         fromConfig(Handle.BACKUP_AUTH_CHECK.id(), config.getBackupAuthCheck(), cacheCluster),
@@ -138,6 +138,10 @@ public class RateLimiters {
     return pinLimiter;
   }
 
+  public RateLimiter getRegistrationLimiter() {
+    return registrationLimiter;
+  }
+
   public RateLimiter getTurnLimiter() {
     return turnLimiter;
   }
@@ -168,10 +172,6 @@ public class RateLimiters {
 
   public RateLimiter getCheckAccountExistenceLimiter() {
     return byHandle(Handle.CHECK_ACCOUNT_EXISTENCE).orElseThrow();
-  }
-
-  public RateLimiter getStoriesLimiter() {
-    return storiesLimiter;
   }
 
   private static RateLimiter fromConfig(

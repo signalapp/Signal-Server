@@ -32,7 +32,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
-import javax.annotation.Nullable;
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
@@ -61,10 +60,8 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.BasicAuthorizationHeader;
 import org.whispersystems.textsecuregcm.auth.ChangesDeviceEnabledState;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
-import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
-import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
+import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
-import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.auth.TurnToken;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
@@ -82,7 +79,6 @@ import org.whispersystems.textsecuregcm.entities.DeviceName;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
 import org.whispersystems.textsecuregcm.entities.MismatchedDevices;
 import org.whispersystems.textsecuregcm.entities.RegistrationLock;
-import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
 import org.whispersystems.textsecuregcm.entities.ReserveUsernameHashRequest;
 import org.whispersystems.textsecuregcm.entities.ReserveUsernameHashResponse;
 import org.whispersystems.textsecuregcm.entities.StaleDevices;
@@ -91,7 +87,6 @@ import org.whispersystems.textsecuregcm.limits.RateLimitedByIp;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
-import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.push.PushNotification;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.registration.ClientType;
@@ -137,7 +132,7 @@ public class AccountController {
       .publishPercentiles(0.75, 0.95, 0.99, 0.999)
       .distributionStatisticExpiry(Duration.ofHours(2))
       .register(Metrics.globalRegistry);
-  private static final String LOCKED_ACCOUNT_COUNTER_NAME = name(AccountController.class, "lockedAccount");
+
   private static final String CHALLENGE_PRESENT_TAG_NAME = "present";
   private static final String CHALLENGE_MATCH_TAG_NAME = "matches";
   private static final String COUNTRY_CODE_TAG_NAME = "countryCode";
@@ -150,25 +145,22 @@ public class AccountController {
   private static final String REGION_CODE_TAG_NAME = "regionCode";
   private static final String VERIFICATION_TRANSPORT_TAG_NAME = "transport";
   private static final String SCORE_TAG_NAME = "score";
-  private static final String LOCK_REASON_TAG_NAME = "lockReason";
-  private static final String ALREADY_LOCKED_TAG_NAME = "alreadyLocked";
 
 
-  private final StoredVerificationCodeManager      pendingAccounts;
-  private final AccountsManager                    accounts;
-  private final RateLimiters                       rateLimiters;
-  private final RegistrationServiceClient          registrationServiceClient;
+  private final StoredVerificationCodeManager pendingAccounts;
+  private final AccountsManager accounts;
+  private final RateLimiters rateLimiters;
+  private final RegistrationServiceClient registrationServiceClient;
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
-  private final TurnTokenGenerator                 turnTokenGenerator;
-  private final Map<String, Integer>               testDevices;
-  private final CaptchaChecker                     captchaChecker;
-  private final PushNotificationManager            pushNotificationManager;
-  private final ExternalServiceCredentialsGenerator backupServiceCredentialsGenerator;
+  private final TurnTokenGenerator turnTokenGenerator;
+  private final Map<String, Integer> testDevices;
+  private final CaptchaChecker captchaChecker;
+  private final PushNotificationManager pushNotificationManager;
+  private final RegistrationLockVerificationManager registrationLockVerificationManager;
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
   private final ChangeNumberManager changeNumberManager;
   private final Clock clock;
 
-  private final ClientPresenceManager clientPresenceManager;
 
   @VisibleForTesting
   static final Duration REGISTRATION_RPC_TIMEOUT = Duration.ofSeconds(15);
@@ -184,9 +176,8 @@ public class AccountController {
       CaptchaChecker captchaChecker,
       PushNotificationManager pushNotificationManager,
       ChangeNumberManager changeNumberManager,
+      RegistrationLockVerificationManager registrationLockVerificationManager,
       RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
-      ExternalServiceCredentialsGenerator backupServiceCredentialsGenerator,
-      ClientPresenceManager clientPresenceManager,
       Clock clock
   ) {
     this.pendingAccounts = pendingAccounts;
@@ -198,32 +189,10 @@ public class AccountController {
     this.turnTokenGenerator = turnTokenGenerator;
     this.captchaChecker = captchaChecker;
     this.pushNotificationManager = pushNotificationManager;
-    this.backupServiceCredentialsGenerator = backupServiceCredentialsGenerator;
+    this.registrationLockVerificationManager = registrationLockVerificationManager;
     this.changeNumberManager = changeNumberManager;
-    this.clientPresenceManager = clientPresenceManager;
     this.registrationRecoveryPasswordsManager = registrationRecoveryPasswordsManager;
     this.clock = clock;
-  }
-
-  @VisibleForTesting
-  public AccountController(
-      StoredVerificationCodeManager pendingAccounts,
-      AccountsManager accounts,
-      RateLimiters rateLimiters,
-      RegistrationServiceClient registrationServiceClient,
-      DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
-      TurnTokenGenerator turnTokenGenerator,
-      Map<String, Integer> testDevices,
-      CaptchaChecker captchaChecker,
-      PushNotificationManager pushNotificationManager,
-      ChangeNumberManager changeNumberManager,
-      RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
-      ExternalServiceCredentialsGenerator backupServiceCredentialsGenerator
-  ) {
-    this(pendingAccounts, accounts, rateLimiters,
-        registrationServiceClient, dynamicConfigurationManager, turnTokenGenerator, testDevices, captchaChecker,
-        pushNotificationManager, changeNumberManager, registrationRecoveryPasswordsManager,
-        backupServiceCredentialsGenerator, null, Clock.systemUTC());
   }
 
   @Timed
@@ -424,7 +393,8 @@ public class AccountController {
     });
 
     if (existingAccount.isPresent()) {
-      verifyRegistrationLock(existingAccount.get(), accountAttributes.getRegistrationLock());
+      registrationLockVerificationManager.verifyRegistrationLock(existingAccount.get(),
+          accountAttributes.getRegistrationLock());
     }
 
     if (availableForTransfer.orElse(false) && existingAccount.map(Account::isTransferSupported).orElse(false)) {
@@ -488,7 +458,7 @@ public class AccountController {
       final Optional<Account> existingAccount = accounts.getByE164(number);
 
       if (existingAccount.isPresent()) {
-        verifyRegistrationLock(existingAccount.get(), request.registrationLock());
+        registrationLockVerificationManager.verifyRegistrationLock(existingAccount.get(), request.registrationLock());
       }
 
       rateLimiters.getVerifyLimiter().clear(number);
@@ -821,51 +791,6 @@ public class AccountController {
         });
 
     rateLimiter.validate(mostRecentProxy);
-  }
-
-  private void verifyRegistrationLock(final Account existingAccount, @Nullable final String clientRegistrationLock)
-      throws RateLimitExceededException, WebApplicationException {
-
-    final StoredRegistrationLock existingRegistrationLock = existingAccount.getRegistrationLock();
-    final ExternalServiceCredentials existingBackupCredentials =
-        backupServiceCredentialsGenerator.generateForUuid(existingAccount.getUuid());
-
-    if (existingRegistrationLock.requiresClientRegistrationLock()) {
-      if (!Util.isEmpty(clientRegistrationLock)) {
-        rateLimiters.getPinLimiter().validate(existingAccount.getNumber());
-      }
-
-      final String phoneNumber = existingAccount.getNumber();
-
-      if (!existingRegistrationLock.verify(clientRegistrationLock)) {
-        // At this point, the client verified ownership of the phone number but doesn’t have the reglock PIN.
-        // Freezing the existing account credentials will definitively start the reglock timeout.
-        // Until the timeout, the current reglock can still be supplied,
-        // along with phone number verification, to restore access.
-        /* boolean alreadyLocked = existingAccount.hasLockedCredentials();
-        Metrics.counter(LOCKED_ACCOUNT_COUNTER_NAME,
-                LOCK_REASON_TAG_NAME, "verifiedNumberFailedReglock",
-                ALREADY_LOCKED_TAG_NAME, Boolean.toString(alreadyLocked))
-            .increment();
-
-        final Account updatedAccount;
-        if (!alreadyLocked) {
-          updatedAccount = accounts.update(existingAccount, Account::lockAuthenticationCredentials);
-        } else {
-          updatedAccount = existingAccount;
-        }
-
-        List<Long> deviceIds = updatedAccount.getDevices().stream().map(Device::getId).toList();
-        clientPresenceManager.disconnectAllPresences(updatedAccount.getUuid(), deviceIds); */
-
-        throw new WebApplicationException(Response.status(423)
-            .entity(new RegistrationLockFailure(existingRegistrationLock.getTimeRemaining(),
-                existingRegistrationLock.needsFailureCredentials() ? existingBackupCredentials : null))
-            .build());
-      }
-
-      rateLimiters.getPinLimiter().clear(phoneNumber);
-    }
   }
 
   @VisibleForTesting

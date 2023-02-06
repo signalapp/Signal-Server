@@ -11,6 +11,11 @@ service RegistrationService {
   rpc create_session (CreateRegistrationSessionRequest) returns (CreateRegistrationSessionResponse) {}
 
   /**
+   * Retrieves session metadata for a given session.
+   */
+  rpc get_session_metadata (GetRegistrationSessionMetadataRequest) returns (GetRegistrationSessionMetadataResponse) {}
+
+  /**
    * Sends a verification code to a destination phone number within the context
    * of a previously-created registration session.
    */
@@ -56,6 +61,11 @@ message RegistrationSessionMetadata {
    * of this session.
    */
   bool verified = 2;
+
+  /**
+   * The phone number associated with this registration session.
+   */
+  uint64 e164 = 3;
 }
 
 message CreateRegistrationSessionError {
@@ -93,6 +103,33 @@ enum CreateRegistrationSessionErrorType {
    * Indicates that the provided phone number could not be parsed.
    */
   CREATE_REGISTRATION_SESSION_ERROR_TYPE_ILLEGAL_PHONE_NUMBER = 2;
+}
+
+message GetRegistrationSessionMetadataRequest {
+  /**
+   * The ID of the session for which to retrieve metadata.
+   */
+  bytes session_id = 1;
+}
+
+message GetRegistrationSessionMetadataResponse {
+  oneof response {
+    RegistrationSessionMetadata session_metadata = 1;
+    GetRegistrationSessionMetadataError error = 2;
+  }
+}
+
+message GetRegistrationSessionMetadataError {
+  GetRegistrationSessionMetadataErrorType error_type = 1;
+}
+
+enum GetRegistrationSessionMetadataErrorType {
+  GET_REGISTRATION_SESSION_METADATA_ERROR_TYPE_UNSPECIFIED = 0;
+
+  /**
+   * No session was found with the given identifier.
+   */
+  GET_REGISTRATION_SESSION_METADATA_ERROR_TYPE_NOT_FOUND = 1;
 }
 
 message SendVerificationCodeRequest {

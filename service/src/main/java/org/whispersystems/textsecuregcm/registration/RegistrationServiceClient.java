@@ -3,6 +3,7 @@ package org.whispersystems.textsecuregcm.registration;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import com.google.protobuf.ByteString;
@@ -16,7 +17,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.time.Instant;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
@@ -24,17 +25,36 @@ import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.StringUtils;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.signal.registration.rpc.CheckVerificationCodeRequest;
-import org.signal.registration.rpc.CheckVerificationCodeResponse;
 import org.signal.registration.rpc.CreateRegistrationSessionRequest;
+import org.signal.registration.rpc.GetRegistrationSessionMetadataRequest;
 import org.signal.registration.rpc.RegistrationServiceGrpc;
 import org.signal.registration.rpc.SendVerificationCodeRequest;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
+import org.whispersystems.textsecuregcm.entities.RegistrationSession;
 
 public class RegistrationServiceClient implements Managed {
 
   private final ManagedChannel channel;
   private final RegistrationServiceGrpc.RegistrationServiceFutureStub stub;
   private final Executor callbackExecutor;
+
+  /**
+   * @param from an e164 in a {@code long} representation e.g. {@code 18005550123}
+   * @return the e164 in a {@code String} representation (e.g. {@code "+18005550123"})
+   * @throws IllegalArgumentException if the number cannot be parsed to a string
+   */
+  static String convertNumeralE164ToString(long from) {
+
+    try {
+      final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance()
+          .parse("+" + from, null);
+      return PhoneNumberUtil.getInstance()
+          .format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164);
+    } catch (final NumberParseException e) {
+      throw new IllegalArgumentException("could not parse to phone number", e);
+    }
+
+  }
 
   public RegistrationServiceClient(final String host,
       final int port,
@@ -116,9 +136,9 @@ public class RegistrationServiceClient implements Managed {
 
     return toCompletableFuture(stub.withDeadline(toDeadline(timeout))
         .checkVerificationCode(CheckVerificationCodeRequest.newBuilder()
-        .setSessionId(ByteString.copyFrom(sessionId))
-        .setVerificationCode(verificationCode)
-        .build()))
+            .setSessionId(ByteString.copyFrom(sessionId))
+            .setVerificationCode(verificationCode)
+            .build()))
         .thenApply(response -> {
           if (response.hasError()) {
             switch (response.getError().getErrorType()) {
@@ -130,6 +150,26 @@ public class RegistrationServiceClient implements Managed {
           } else {
             return response.getVerified() || response.getSessionMetadata().getVerified();
           }
+        });
+  }
+
+  public CompletableFuture<Optional<RegistrationSession>> getSession(final byte[] sessionId,
+      final Duration timeout) {
+    return toCompletableFuture(stub.withDeadline(toDeadline(timeout)).getSessionMetadata(
+        GetRegistrationSessionMetadataRequest.newBuilder()
+            .setSessionId(ByteString.copyFrom(sessionId)).build()))
+        .thenApply(response -> {
+          if (response.hasError()) {
+            switch (response.getError().getErrorType()) {
+              case GET_REGISTRATION_SESSION_METADATA_ERROR_TYPE_NOT_FOUND -> {
+                return Optional.empty();
+              }
+              default -> throw new RuntimeException("Failed to get session: " + response.getError().getErrorType());
+            }
+          }
+
+          final String number = convertNumeralE164ToString(response.getSessionMetadata().getE164());
+          return Optional.of(new RegistrationSession(number, response.getSessionMetadata().getVerified()));
         });
   }
 

@@ -24,13 +24,13 @@ public class RateLimitsConfiguration {
   private RateLimitConfiguration smsVoicePrefix = new RateLimitConfiguration(1000, 1000);
 
   @JsonProperty
-  private RateLimitConfiguration autoBlock = new RateLimitConfiguration(500, 500);
-
-  @JsonProperty
   private RateLimitConfiguration verifyNumber = new RateLimitConfiguration(2, 2);
 
   @JsonProperty
   private RateLimitConfiguration verifyPin = new RateLimitConfiguration(10, 1 / (24.0 * 60.0));
+
+  @JsonProperty
+  private RateLimitConfiguration registration = new RateLimitConfiguration(2, 2);
 
   @JsonProperty
   private RateLimitConfiguration attachments = new RateLimitConfiguration(50, 50);
@@ -72,14 +72,7 @@ public class RateLimitsConfiguration {
   private RateLimitConfiguration checkAccountExistence = new RateLimitConfiguration(1_000, 1_000 / 60.0);
 
   @JsonProperty
-  private RateLimitConfiguration stories = new RateLimitConfiguration(10_000, 10_000 / (24.0 * 60.0));
-
-  @JsonProperty
   private RateLimitConfiguration backupAuthCheck = new RateLimitConfiguration(100, 100 / (24.0 * 60.0));
-
-  public RateLimitConfiguration getAutoBlock() {
-    return autoBlock;
-  }
 
   public RateLimitConfiguration getAllocateDevice() {
     return allocateDevice;
@@ -129,6 +122,10 @@ public class RateLimitsConfiguration {
     return verifyPin;
   }
 
+  public RateLimitConfiguration getRegistration() {
+    return registration;
+  }
+
   public RateLimitConfiguration getTurnAllocations() {
     return turnAllocations;
   }
@@ -159,10 +156,6 @@ public class RateLimitsConfiguration {
 
   public RateLimitConfiguration getCheckAccountExistence() {
     return checkAccountExistence;
-  }
-
-  public RateLimitConfiguration getStories() {
-    return stories;
   }
 
   public RateLimitConfiguration getBackupAuthCheck() {
