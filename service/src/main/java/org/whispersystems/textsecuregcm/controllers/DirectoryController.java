@@ -13,7 +13,6 @@ import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import org.apache.commons.codec.DecoderException;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.configuration.DirectoryClientConfiguration;
@@ -23,8 +22,7 @@ public class DirectoryController {
 
   private final ExternalServiceCredentialsGenerator directoryServiceTokenGenerator;
 
-  public static ExternalServiceCredentialsGenerator credentialsGenerator(final DirectoryClientConfiguration cfg)
-      throws DecoderException {
+  public static ExternalServiceCredentialsGenerator credentialsGenerator(final DirectoryClientConfiguration cfg) {
     return ExternalServiceCredentialsGenerator
         .builder(cfg.getUserAuthenticationTokenSharedSecret())
         .withUserDerivationKey(cfg.getUserAuthenticationTokenUserIdSecret())

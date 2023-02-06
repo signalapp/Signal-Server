@@ -17,10 +17,10 @@ import java.security.SignatureException;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.Base64;
+import java.util.HexFormat;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nonnull;
-import org.apache.commons.codec.binary.Hex;
 
 public class CanonicalRequestSigner {
 
@@ -52,7 +52,7 @@ public class CanonicalRequestSigner {
       throw new AssertionError(e);
     }
     sha256.update(canonicalRequest.getCanonicalRequest().getBytes(StandardCharsets.UTF_8));
-    result.append(Hex.encodeHex(sha256.digest()));
+    result.append(HexFormat.of().formatHex(sha256.digest()));
 
     return result.toString();
   }
@@ -67,7 +67,7 @@ public class CanonicalRequestSigner {
     } catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException e) {
       throw new AssertionError(e);
     }
-    return Hex.encodeHexString(signature);
+    return HexFormat.of().formatHex(signature);
   }
 
   private static PrivateKey initializeRsaSigningKey(String rsaSigningKey) throws IOException, InvalidKeyException, InvalidKeySpecException {

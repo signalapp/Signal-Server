@@ -29,6 +29,7 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -64,8 +65,6 @@ import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
-import org.apache.commons.codec.DecoderException;
-import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
@@ -530,10 +529,11 @@ public class ProfileController {
       final UUID uuid) {
     try {
       final ProfileKeyCommitment commitment = new ProfileKeyCommitment(profile.getCommitment());
-      final ProfileKeyCredentialRequest request = new ProfileKeyCredentialRequest(Hex.decodeHex(encodedProfileCredentialRequest));
+      final ProfileKeyCredentialRequest request = new ProfileKeyCredentialRequest(
+          HexFormat.of().parseHex(encodedProfileCredentialRequest));
 
       return zkProfileOperations.issueProfileKeyCredential(request, uuid, commitment);
-    } catch (DecoderException | VerificationFailedException | InvalidInputException e) {
+    } catch (IllegalArgumentException | VerificationFailedException | InvalidInputException e) {
       throw new WebApplicationException(e, Response.status(Response.Status.BAD_REQUEST).build());
     }
   }
@@ -545,10 +545,11 @@ public class ProfileController {
 
     try {
       final ProfileKeyCommitment commitment = new ProfileKeyCommitment(profile.getCommitment());
-      final ProfileKeyCredentialRequest request = new ProfileKeyCredentialRequest(Hex.decodeHex(encodedCredentialRequest));
+      final ProfileKeyCredentialRequest request = new ProfileKeyCredentialRequest(
+          HexFormat.of().parseHex(encodedCredentialRequest));
 
       return zkProfileOperations.issuePniCredential(request, accountIdentifier, phoneNumberIdentifier, commitment);
-    } catch (DecoderException | VerificationFailedException | InvalidInputException e) {
+    } catch (IllegalArgumentException | VerificationFailedException | InvalidInputException e) {
       throw new WebApplicationException(e, Response.status(Response.Status.BAD_REQUEST).build());
     }
   }
@@ -561,10 +562,11 @@ public class ProfileController {
 
     try {
       final ProfileKeyCommitment commitment = new ProfileKeyCommitment(profile.getCommitment());
-      final ProfileKeyCredentialRequest request = new ProfileKeyCredentialRequest(Hex.decodeHex(encodedCredentialRequest));
+      final ProfileKeyCredentialRequest request = new ProfileKeyCredentialRequest(
+          HexFormat.of().parseHex(encodedCredentialRequest));
 
       return zkProfileOperations.issueExpiringProfileKeyCredential(request, accountIdentifier, commitment, expiration);
-    } catch (DecoderException | VerificationFailedException | InvalidInputException e) {
+    } catch (IllegalArgumentException | VerificationFailedException | InvalidInputException e) {
       throw new WebApplicationException(e, Response.status(Response.Status.BAD_REQUEST).build());
     }
   }

@@ -14,13 +14,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import org.apache.commons.codec.binary.Base64;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -117,7 +117,7 @@ public class ChangeNumberManagerTest {
 
     final IncomingMessage msg = mock(IncomingMessage.class);
     when(msg.destinationDeviceId()).thenReturn(2L);
-    when(msg.content()).thenReturn(Base64.encodeBase64String(new byte[]{1}));
+    when(msg.content()).thenReturn(Base64.getEncoder().encodeToString(new byte[]{1}));
 
     changeNumberManager.changeNumber(account, changedE164, pniIdentityKey, prekeys, List.of(msg), registrationIds);
 

@@ -38,6 +38,7 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -114,7 +115,6 @@ import org.whispersystems.textsecuregcm.storage.UsernameHashNotAvailableExceptio
 import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundException;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
-import org.whispersystems.textsecuregcm.util.Hex;
 import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.TestClock;
@@ -226,7 +226,8 @@ class AccountControllerTest {
     clearInvocations(AuthHelper.VALID_ACCOUNT, AuthHelper.UNDISCOVERABLE_ACCOUNT);
 
     new SecureRandom().nextBytes(registration_lock_key);
-    SaltedTokenHash registrationLockCredentials = SaltedTokenHash.generateFor(Hex.toStringCondensed(registration_lock_key));
+    SaltedTokenHash registrationLockCredentials = SaltedTokenHash.generateFor(
+        HexFormat.of().formatHex(registration_lock_key));
 
     AccountsHelper.setupMockUpdate(accountsManager);
 
@@ -1019,7 +1020,8 @@ class AccountControllerTest {
             .target("/v1/accounts/code/666666")
             .request()
             .header("Authorization", AuthHelper.getProvisioningAuthHeader(SENDER_REG_LOCK, "bar"))
-            .put(Entity.entity(new AccountAttributes(false, 3333, null, Hex.toStringCondensed(registration_lock_key), true, null),
+            .put(Entity.entity(
+                new AccountAttributes(false, 3333, null, HexFormat.of().formatHex(registration_lock_key), true, null),
                 MediaType.APPLICATION_JSON_TYPE), AccountIdentityResponse.class);
 
     assertThat(result.uuid()).isNotNull();
@@ -1043,7 +1045,8 @@ class AccountControllerTest {
             .target("/v1/accounts/code/666666")
             .request()
             .header("Authorization", AuthHelper.getProvisioningAuthHeader(SENDER_REG_LOCK, "bar"))
-            .put(Entity.entity(new AccountAttributes(false, 3333, null, Hex.toStringCondensed(registration_lock_key), true, null),
+            .put(Entity.entity(
+                new AccountAttributes(false, 3333, null, HexFormat.of().formatHex(registration_lock_key), true, null),
                 MediaType.APPLICATION_JSON_TYPE), AccountIdentityResponse.class);
 
     assertThat(result.uuid()).isNotNull();
@@ -1051,7 +1054,7 @@ class AccountControllerTest {
     verify(pinLimiter).validate(eq(SENDER_REG_LOCK));
 
     verify(accountsManager).create(eq(SENDER_REG_LOCK), eq("bar"), any(), argThat(
-        attributes -> Hex.toStringCondensed(registration_lock_key).equals(attributes.getRegistrationLock())),
+            attributes -> HexFormat.of().formatHex(registration_lock_key).equals(attributes.getRegistrationLock())),
         argThat(List::isEmpty));
   }
 
@@ -1104,7 +1107,7 @@ class AccountControllerTest {
             .request()
             .header("Authorization", AuthHelper.getProvisioningAuthHeader(SENDER_REG_LOCK, "bar"))
             .put(Entity.entity(new AccountAttributes(false, 3333, null,
-                    Hex.toStringCondensed(new byte[32]), true, null),
+                    HexFormat.of().formatHex(new byte[32]), true, null),
                 MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(423);

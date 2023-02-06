@@ -6,10 +6,8 @@
 package org.whispersystems.textsecuregcm.configuration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.apache.commons.codec.DecoderException;
-import org.apache.commons.codec.binary.Hex;
-
 import java.time.Duration;
+import java.util.HexFormat;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 
@@ -27,12 +25,12 @@ public class ArtServiceConfiguration {
   @NotNull
   private Duration tokenExpiration = Duration.ofDays(1);
 
-  public byte[] getUserAuthenticationTokenSharedSecret() throws DecoderException {
-    return Hex.decodeHex(userAuthenticationTokenSharedSecret.toCharArray());
+  public byte[] getUserAuthenticationTokenSharedSecret() {
+    return HexFormat.of().parseHex(userAuthenticationTokenSharedSecret);
   }
 
-  public byte[] getUserAuthenticationTokenUserIdSecret() throws DecoderException {
-    return Hex.decodeHex(userAuthenticationTokenUserIdSecret.toCharArray());
+  public byte[] getUserAuthenticationTokenUserIdSecret() {
+    return HexFormat.of().parseHex(userAuthenticationTokenUserIdSecret);
   }
 
   public Duration getTokenExpiration() {

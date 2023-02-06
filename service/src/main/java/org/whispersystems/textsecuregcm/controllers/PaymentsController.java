@@ -11,7 +11,6 @@ import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
-import org.apache.commons.codec.DecoderException;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
@@ -25,17 +24,17 @@ public class PaymentsController {
   private final ExternalServiceCredentialsGenerator paymentsServiceCredentialsGenerator;
   private final CurrencyConversionManager currencyManager;
 
-  
-  public static ExternalServiceCredentialsGenerator credentialsGenerator(final PaymentsServiceConfiguration cfg)
-      throws DecoderException {
+
+  public static ExternalServiceCredentialsGenerator credentialsGenerator(final PaymentsServiceConfiguration cfg) {
     return ExternalServiceCredentialsGenerator
         .builder(cfg.getUserAuthenticationTokenSharedSecret())
         .prependUsername(true)
         .build();
   }
 
-  public PaymentsController(final CurrencyConversionManager currencyManager, final ExternalServiceCredentialsGenerator paymentsServiceCredentialsGenerator) {
-    this.currencyManager                    = currencyManager;
+  public PaymentsController(final CurrencyConversionManager currencyManager,
+      final ExternalServiceCredentialsGenerator paymentsServiceCredentialsGenerator) {
+    this.currencyManager = currencyManager;
     this.paymentsServiceCredentialsGenerator = paymentsServiceCredentialsGenerator;
   }
 

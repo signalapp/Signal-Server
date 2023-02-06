@@ -5,12 +5,11 @@
 
 package org.whispersystems.textsecuregcm.s3;
 
-import org.apache.commons.codec.binary.Base64;
-import org.whispersystems.textsecuregcm.util.Pair;
-
-import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Base64;
+import org.whispersystems.textsecuregcm.util.Pair;
 
 public class PostPolicyGenerator {
 
@@ -28,30 +27,26 @@ public class PostPolicyGenerator {
   }
 
   public Pair<String, String> createFor(ZonedDateTime now, String object, int maxSizeInBytes) {
-    try {
-      String expiration     = now.plusMinutes(30).format(DateTimeFormatter.ISO_INSTANT);
-      String credentialDate = now.format(CREDENTIAL_DATE);
-      String requestDate    = now.format(AWS_DATE_TIME  );
-      String credential     = String.format("%s/%s/%s/s3/aws4_request", awsAccessId, credentialDate, region);
+    String expiration = now.plusMinutes(30).format(DateTimeFormatter.ISO_INSTANT);
+    String credentialDate = now.format(CREDENTIAL_DATE);
+    String requestDate = now.format(AWS_DATE_TIME);
+    String credential = String.format("%s/%s/%s/s3/aws4_request", awsAccessId, credentialDate, region);
 
-      String policy = String.format("{ \"expiration\": \"%s\",\n" +
-                                        "  \"conditions\": [\n" +
-                                        "    {\"bucket\": \"%s\"},\n" +
-                                        "    {\"key\": \"%s\"},\n" +
-                                        "    {\"acl\": \"private\"},\n" +
-                                        "    [\"starts-with\", \"$Content-Type\", \"\"],\n" +
-                                        "    [\"content-length-range\", 1, " + maxSizeInBytes + "],\n" +
-                                        "\n" +
-                                        "    {\"x-amz-credential\": \"%s\"},\n" +
-                                        "    {\"x-amz-algorithm\": \"AWS4-HMAC-SHA256\"},\n" +
-                                        "    {\"x-amz-date\": \"%s\" }\n" +
-                                        "  ]\n" +
-                                        "}", expiration, bucket, object, credential, requestDate);
+    String policy = String.format("{ \"expiration\": \"%s\",\n" +
+        "  \"conditions\": [\n" +
+        "    {\"bucket\": \"%s\"},\n" +
+        "    {\"key\": \"%s\"},\n" +
+        "    {\"acl\": \"private\"},\n" +
+        "    [\"starts-with\", \"$Content-Type\", \"\"],\n" +
+        "    [\"content-length-range\", 1, " + maxSizeInBytes + "],\n" +
+        "\n" +
+        "    {\"x-amz-credential\": \"%s\"},\n" +
+        "    {\"x-amz-algorithm\": \"AWS4-HMAC-SHA256\"},\n" +
+        "    {\"x-amz-date\": \"%s\" }\n" +
+        "  ]\n" +
+        "}", expiration, bucket, object, credential, requestDate);
 
-      return new Pair<>(credential, Base64.encodeBase64String(policy.getBytes("UTF-8")));
-    } catch (UnsupportedEncodingException e) {
-      throw new AssertionError(e);
-    }
+    return new Pair<>(credential, Base64.getEncoder().encodeToString(policy.getBytes(StandardCharsets.UTF_8)));
   }
 
 }

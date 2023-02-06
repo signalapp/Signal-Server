@@ -5,9 +5,8 @@
 package org.whispersystems.textsecuregcm.configuration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.HexFormat;
 import javax.validation.constraints.NotEmpty;
-import org.apache.commons.codec.DecoderException;
-import org.apache.commons.codec.binary.Hex;
 
 public class DirectoryClientConfiguration {
 
@@ -19,12 +18,12 @@ public class DirectoryClientConfiguration {
   @JsonProperty
   private String userAuthenticationTokenUserIdSecret;
 
-  public byte[] getUserAuthenticationTokenSharedSecret() throws DecoderException {
-    return Hex.decodeHex(userAuthenticationTokenSharedSecret.toCharArray());
+  public byte[] getUserAuthenticationTokenSharedSecret() {
+    return HexFormat.of().parseHex(userAuthenticationTokenSharedSecret);
   }
 
-  public byte[] getUserAuthenticationTokenUserIdSecret() throws DecoderException {
-    return Hex.decodeHex(userAuthenticationTokenUserIdSecret.toCharArray());
+  public byte[] getUserAuthenticationTokenUserIdSecret() {
+    return HexFormat.of().parseHex(userAuthenticationTokenUserIdSecret);
   }
 
 }

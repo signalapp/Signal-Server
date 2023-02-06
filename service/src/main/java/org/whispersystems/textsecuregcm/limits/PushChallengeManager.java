@@ -10,8 +10,7 @@ import static com.codahale.metrics.MetricRegistry.name;
 import io.micrometer.core.instrument.Metrics;
 import java.security.SecureRandom;
 import java.time.Duration;
-import org.apache.commons.codec.DecoderException;
-import org.apache.commons.codec.binary.Hex;
+import java.util.HexFormat;
 import org.apache.commons.lang3.StringUtils;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
@@ -55,7 +54,7 @@ public class PushChallengeManager {
     final String platform;
 
     if (pushChallengeDynamoDb.add(account.getUuid(), token, CHALLENGE_TTL)) {
-      pushNotificationManager.sendRateLimitChallengeNotification(account, Hex.encodeHexString(token));
+      pushNotificationManager.sendRateLimitChallengeNotification(account, HexFormat.of().formatHex(token));
 
       sent = true;
 
@@ -83,8 +82,8 @@ public class PushChallengeManager {
     boolean success = false;
 
     try {
-      success = pushChallengeDynamoDb.remove(account.getUuid(), Hex.decodeHex(challengeTokenHex));
-    } catch (final DecoderException ignored) {
+      success = pushChallengeDynamoDb.remove(account.getUuid(), HexFormat.of().parseHex(challengeTokenHex));
+    } catch (final IllegalArgumentException ignored) {
     }
 
     final String platform = account.getMasterDevice().map(masterDevice -> {

@@ -5,12 +5,11 @@
 
 package org.whispersystems.textsecuregcm.configuration;
 
+import java.util.HexFormat;
 import java.util.List;
 import javax.validation.Valid;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotEmpty;
-import org.apache.commons.codec.DecoderException;
-import org.apache.commons.codec.binary.Hex;
 
 public record SecureStorageServiceConfiguration(@NotEmpty String userAuthenticationTokenSharedSecret,
                                                 @NotBlank String uri,
@@ -27,7 +26,7 @@ public record SecureStorageServiceConfiguration(@NotEmpty String userAuthenticat
     }
   }
 
-  public byte[] decodeUserAuthenticationTokenSharedSecret() throws DecoderException {
-    return Hex.decodeHex(userAuthenticationTokenSharedSecret.toCharArray());
+  public byte[] decodeUserAuthenticationTokenSharedSecret() {
+    return HexFormat.of().parseHex(userAuthenticationTokenSharedSecret);
   }
 }

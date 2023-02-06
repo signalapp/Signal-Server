@@ -23,6 +23,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Comparator;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -35,7 +36,6 @@ import javax.annotation.Nullable;
 import javax.ws.rs.ClientErrorException;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
-import org.apache.commons.codec.binary.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
@@ -233,7 +233,7 @@ public class BraintreeManager implements SubscriptionProcessorManager {
   public CompletableFuture<ProcessorCustomer> createCustomer(final byte[] subscriberUser) {
     return CompletableFuture.supplyAsync(() -> {
           final CustomerRequest request = new CustomerRequest()
-                  .customField("subscriber_user", Hex.encodeHexString(subscriberUser));
+              .customField("subscriber_user", HexFormat.of().formatHex(subscriberUser));
           try {
             return braintreeGateway.customer().create(request);
           } catch (BraintreeException e) {

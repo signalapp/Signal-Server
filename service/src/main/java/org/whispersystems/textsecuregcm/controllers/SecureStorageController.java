@@ -11,7 +11,6 @@ import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
-import org.apache.commons.codec.DecoderException;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
@@ -23,14 +22,10 @@ public class SecureStorageController {
   private final ExternalServiceCredentialsGenerator storageServiceCredentialsGenerator;
 
   public static ExternalServiceCredentialsGenerator credentialsGenerator(final SecureStorageServiceConfiguration cfg) {
-    try {
-      return ExternalServiceCredentialsGenerator
-          .builder(cfg.decodeUserAuthenticationTokenSharedSecret())
-          .prependUsername(true)
-          .build();
-    } catch (DecoderException e) {
-      throw new IllegalArgumentException(e);
-    }
+    return ExternalServiceCredentialsGenerator
+        .builder(cfg.decodeUserAuthenticationTokenSharedSecret())
+        .prependUsername(true)
+        .build();
   }
 
   public SecureStorageController(ExternalServiceCredentialsGenerator storageServiceCredentialsGenerator) {

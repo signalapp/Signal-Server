@@ -44,6 +44,7 @@ import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -61,7 +62,6 @@ import javax.ws.rs.InternalServerErrorException;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
-import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.lang3.StringUtils;
 import org.whispersystems.textsecuregcm.util.Conversions;
 
@@ -124,7 +124,7 @@ public class StripeManager implements SubscriptionProcessorManager {
   public CompletableFuture<ProcessorCustomer> createCustomer(byte[] subscriberUser) {
     return CompletableFuture.supplyAsync(() -> {
           CustomerCreateParams params = CustomerCreateParams.builder()
-              .putMetadata("subscriberUser", Hex.encodeHexString(subscriberUser))
+              .putMetadata("subscriberUser", HexFormat.of().formatHex(subscriberUser))
               .build();
           try {
             return Customer.create(params, commonOptions(generateIdempotencyKeyForSubscriberUser(subscriberUser)));

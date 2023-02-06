@@ -12,7 +12,6 @@ import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
-import org.apache.commons.codec.DecoderException;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
@@ -25,16 +24,12 @@ public class ArtController {
   private final RateLimiters rateLimiters;
 
   public static ExternalServiceCredentialsGenerator credentialsGenerator(final ArtServiceConfiguration cfg) {
-    try {
-      return ExternalServiceCredentialsGenerator
-          .builder(cfg.getUserAuthenticationTokenSharedSecret())
-          .withUserDerivationKey(cfg.getUserAuthenticationTokenUserIdSecret())
-          .prependUsername(false)
-          .truncateSignature(false)
-          .build();
-    } catch (DecoderException e) {
-      throw new IllegalArgumentException(e);
-    }
+    return ExternalServiceCredentialsGenerator
+        .builder(cfg.getUserAuthenticationTokenSharedSecret())
+        .withUserDerivationKey(cfg.getUserAuthenticationTokenUserIdSecret())
+        .prependUsername(false)
+        .truncateSignature(false)
+        .build();
   }
 
   public ArtController(RateLimiters rateLimiters,

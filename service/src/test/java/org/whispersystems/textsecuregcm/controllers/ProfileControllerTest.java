@@ -36,6 +36,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -47,7 +48,6 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.MultivaluedHashMap;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
-import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.assertj.core.api.Condition;
 import org.glassfish.jersey.server.ServerProperties;
@@ -945,7 +945,8 @@ class ProfileControllerTest {
         .thenReturn(credentialResponse);
 
     final ProfileKeyCredentialProfileResponse profile = resources.getJerseyTest()
-        .target(String.format("/v1/profile/%s/%s/%s", AuthHelper.VALID_UUID, version, Hex.encodeHexString(credentialRequest.serialize())))
+        .target(String.format("/v1/profile/%s/%s/%s", AuthHelper.VALID_UUID, version,
+            HexFormat.of().formatHex(credentialRequest.serialize())))
         .request()
         .headers(authHeaders)
         .get(ProfileKeyCredentialProfileResponse.class);
@@ -1029,7 +1030,8 @@ class ProfileControllerTest {
         .thenReturn(credentialResponse);
 
     final PniCredentialProfileResponse profile = resources.getJerseyTest()
-        .target(String.format("/v1/profile/%s/%s/%s", AuthHelper.VALID_UUID, version, Hex.encodeHexString(credentialRequest.serialize())))
+        .target(String.format("/v1/profile/%s/%s/%s", AuthHelper.VALID_UUID, version,
+            HexFormat.of().formatHex(credentialRequest.serialize())))
         .queryParam("credentialType", "pni")
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
@@ -1078,7 +1080,8 @@ class ProfileControllerTest {
         .thenReturn(credentialResponse);
 
     final Response response = resources.getJerseyTest()
-        .target(String.format("/v1/profile/%s/%s/%s", AuthHelper.VALID_UUID, version, Hex.encodeHexString(credentialRequest.serialize())))
+        .target(String.format("/v1/profile/%s/%s/%s", AuthHelper.VALID_UUID, version,
+            HexFormat.of().formatHex(credentialRequest.serialize())))
         .queryParam("credentialType", "pni")
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
@@ -1135,7 +1138,8 @@ class ProfileControllerTest {
         .thenReturn(credentialResponse);
 
     final ExpiringProfileKeyCredentialProfileResponse profile = resources.getJerseyTest()
-        .target(String.format("/v1/profile/%s/%s/%s", AuthHelper.VALID_UUID, version, Hex.encodeHexString(credentialRequest.serialize())))
+        .target(String.format("/v1/profile/%s/%s/%s", AuthHelper.VALID_UUID, version,
+            HexFormat.of().formatHex(credentialRequest.serialize())))
         .queryParam("credentialType", "expiringProfileKey")
         .request()
         .headers(authHeaders)

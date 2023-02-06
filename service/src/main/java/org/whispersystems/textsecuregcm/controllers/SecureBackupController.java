@@ -24,7 +24,6 @@ import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
-import org.apache.commons.codec.DecoderException;
 import org.apache.commons.lang3.tuple.Pair;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
@@ -53,15 +52,11 @@ public class SecureBackupController {
   public static ExternalServiceCredentialsGenerator credentialsGenerator(
       final SecureBackupServiceConfiguration cfg,
       final Clock clock) {
-    try {
-      return ExternalServiceCredentialsGenerator
-          .builder(cfg.getUserAuthenticationTokenSharedSecret())
-          .prependUsername(true)
-          .withClock(clock)
-          .build();
-    } catch (final DecoderException e) {
-      throw new IllegalStateException(e);
-    }
+    return ExternalServiceCredentialsGenerator
+        .builder(cfg.getUserAuthenticationTokenSharedSecret())
+        .prependUsername(true)
+        .withClock(clock)
+        .build();
   }
 
   public SecureBackupController(

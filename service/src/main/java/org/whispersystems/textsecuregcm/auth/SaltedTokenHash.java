@@ -8,7 +8,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
-import org.apache.commons.codec.binary.Hex;
+import java.util.HexFormat;
 import org.signal.libsignal.protocol.kdf.HKDF;
 
 public record SaltedTokenHash(String hash, String salt) {
@@ -52,13 +52,13 @@ public record SaltedTokenHash(String hash, String salt) {
   private static String generateSalt() {
     final byte[] salt = new byte[SALT_SIZE];
     SECURE_RANDOM.nextBytes(salt);
-    return Hex.encodeHexString(salt);
+    return HexFormat.of().formatHex(salt);
   }
 
   private static String calculateV1Hash(final String salt, final String token) {
     try {
-      return new String(
-          Hex.encodeHex(MessageDigest.getInstance("SHA1").digest((salt + token).getBytes(StandardCharsets.UTF_8))));
+      return HexFormat.of()
+          .formatHex(MessageDigest.getInstance("SHA1").digest((salt + token).getBytes(StandardCharsets.UTF_8)));
     } catch (final NoSuchAlgorithmException e) {
       throw new AssertionError(e);
     }
@@ -70,6 +70,6 @@ public record SaltedTokenHash(String hash, String salt) {
         salt.getBytes(StandardCharsets.UTF_8),  // salt
         AUTH_TOKEN_HKDF_INFO,
         32);
-    return V2_PREFIX + Hex.encodeHexString(secret);
+    return V2_PREFIX + HexFormat.of().formatHex(secret);
   }
 }

@@ -6,13 +6,11 @@
 package org.whispersystems.textsecuregcm.configuration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.apache.commons.codec.DecoderException;
-import org.apache.commons.codec.binary.Hex;
-
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotEmpty;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.NotEmpty;
 
 public class PaymentsServiceConfiguration {
 
@@ -36,8 +34,8 @@ public class PaymentsServiceConfiguration {
   @JsonProperty
   private List<String> paymentCurrencies;
 
-  public byte[] getUserAuthenticationTokenSharedSecret() throws DecoderException {
-    return Hex.decodeHex(userAuthenticationTokenSharedSecret.toCharArray());
+  public byte[] getUserAuthenticationTokenSharedSecret() {
+    return HexFormat.of().parseHex(userAuthenticationTokenSharedSecret);
   }
 
   public String getCoinMarketCapApiKey() {

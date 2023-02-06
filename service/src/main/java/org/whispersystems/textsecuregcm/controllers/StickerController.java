@@ -9,6 +9,7 @@ import io.dropwizard.auth.Auth;
 import java.security.SecureRandom;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.HexFormat;
 import java.util.LinkedList;
 import java.util.List;
 import javax.validation.constraints.Max;
@@ -25,7 +26,6 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.util.Constants;
-import org.whispersystems.textsecuregcm.util.Hex;
 import org.whispersystems.textsecuregcm.util.Pair;
 
 @Path("/v1/sticker")
@@ -78,7 +78,7 @@ public class StickerController {
     byte[] object = new byte[16];
     new SecureRandom().nextBytes(object);
 
-    return Hex.toStringCondensed(object);
+    return HexFormat.of().formatHex(object);
   }
 
 }
