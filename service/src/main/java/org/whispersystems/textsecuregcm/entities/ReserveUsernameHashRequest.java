@@ -11,10 +11,12 @@ import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
 import org.whispersystems.textsecuregcm.util.ByteArrayBase64UrlAdapter;
 import javax.validation.Valid;
+import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 import java.util.List;
 
 public record ReserveUsernameHashRequest(
+    @NotNull
     @Valid
     @Size(min=1, max=AccountController.MAXIMUM_USERNAME_HASHES_LIST_LENGTH)
     @JsonSerialize(contentUsing = ByteArrayBase64UrlAdapter.Serializing.class)

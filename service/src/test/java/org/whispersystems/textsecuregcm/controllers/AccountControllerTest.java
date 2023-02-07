@@ -1723,6 +1723,17 @@ class AccountControllerTest {
   }
 
   @Test
+  void testReserveUsernameHashNullList() {
+    Response response =
+        resources.getJerseyTest()
+            .target("/v1/accounts/username_hash/reserve")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(Entity.json(new ReserveUsernameHashRequest(null)));
+    assertThat(response.getStatus()).isEqualTo(422);
+  }
+
+  @Test
   void testReserveUsernameHashInvalidBase64UrlEncoding() {
     Response response =
         resources.getJerseyTest()
