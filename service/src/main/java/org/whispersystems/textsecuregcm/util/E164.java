@@ -29,7 +29,7 @@ import javax.validation.Payload;
 @Documented
 public @interface E164 {
 
-  String message() default "{org.whispersystems.textsecuregcm.util.E164.message}";
+  String message() default "value is not a valid E164 number";
 
   Class<?>[] groups() default { };
 
