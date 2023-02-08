@@ -747,7 +747,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             config.getCdnConfiguration().getBucket(), zkProfileOperations, batchIdentityCheckExecutor),
         new ProvisioningController(rateLimiters, provisioningManager),
         new RegistrationController(accountsManager, registrationServiceClient, registrationLockVerificationManager,
-            rateLimiters),
+            registrationRecoveryPasswordsManager, rateLimiters),
         new RemoteConfigController(remoteConfigsManager, adminEventLogger,
             config.getRemoteConfigConfiguration().getAuthorizedTokens(),
             config.getRemoteConfigConfiguration().getGlobalConfig()),
