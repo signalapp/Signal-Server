@@ -133,11 +133,6 @@ public class RegistrationController {
     final Account account = accounts.create(number, password, signalAgent, registrationRequest.accountAttributes(),
         existingAccount.map(Account::getBadges).orElseGet(ArrayList::new));
 
-    // now that the number is verified and account is created,
-    // we can store recovery password for this number
-    registrationRequest.accountAttributes().recoveryPassword().ifPresent(recoveryPassword ->
-        registrationRecoveryPasswordsManager.storeForCurrentNumber(number, recoveryPassword));
-
     Metrics.counter(ACCOUNT_CREATED_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
             Tag.of(COUNTRY_CODE_TAG_NAME, Util.getCountryCode(number)),
             Tag.of(REGION_CODE_TAG_NAME, Util.getRegion(number)),
