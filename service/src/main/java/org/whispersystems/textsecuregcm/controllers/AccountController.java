@@ -54,6 +54,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import org.apache.commons.lang3.StringUtils;
+import org.signal.libsignal.usernames.BaseUsernameException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
@@ -107,6 +108,7 @@ import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.ImpossiblePhoneNumberException;
 import org.whispersystems.textsecuregcm.util.NonNormalizedPhoneNumberException;
 import org.whispersystems.textsecuregcm.util.Optionals;
+import org.whispersystems.textsecuregcm.util.UsernameHashZkProofVerifier;
 import org.whispersystems.textsecuregcm.util.Util;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
@@ -160,6 +162,7 @@ public class AccountController {
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
   private final ChangeNumberManager changeNumberManager;
   private final Clock clock;
+  private final UsernameHashZkProofVerifier usernameHashZkProofVerifier;
 
 
   @VisibleForTesting
@@ -178,6 +181,7 @@ public class AccountController {
       ChangeNumberManager changeNumberManager,
       RegistrationLockVerificationManager registrationLockVerificationManager,
       RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
+      UsernameHashZkProofVerifier usernameHashZkProofVerifier,
       Clock clock
   ) {
     this.pendingAccounts = pendingAccounts;
@@ -192,6 +196,7 @@ public class AccountController {
     this.registrationLockVerificationManager = registrationLockVerificationManager;
     this.changeNumberManager = changeNumberManager;
     this.registrationRecoveryPasswordsManager = registrationRecoveryPasswordsManager;
+    this.usernameHashZkProofVerifier = usernameHashZkProofVerifier;
     this.clock = clock;
   }
 
@@ -711,6 +716,12 @@ public class AccountController {
       @HeaderParam(HeaderUtils.X_SIGNAL_AGENT) String userAgent,
       @NotNull @Valid ConfirmUsernameHashRequest confirmRequest) throws RateLimitExceededException {
     rateLimiters.getUsernameSetLimiter().validate(auth.getAccount().getUuid());
+
+    try {
+      usernameHashZkProofVerifier.verifyProof(confirmRequest.zkProof(), confirmRequest.usernameHash());
+    } catch (final BaseUsernameException e) {
+      throw new WebApplicationException(Response.status(422).build());
+    }
 
     try {
       final Account account = accounts.confirmReservedUsernameHash(auth.getAccount(), confirmRequest.usernameHash());

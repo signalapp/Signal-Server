@@ -213,6 +213,7 @@ import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
 import org.whispersystems.textsecuregcm.util.HostnameUtil;
+import org.whispersystems.textsecuregcm.util.UsernameHashZkProofVerifier;
 import org.whispersystems.textsecuregcm.util.logging.LoggingUnhandledExceptionMapper;
 import org.whispersystems.textsecuregcm.util.logging.UncaughtExceptionHandler;
 import org.whispersystems.textsecuregcm.websocket.AuthenticatedConnectListener;
@@ -475,6 +476,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     ExperimentEnrollmentManager experimentEnrollmentManager = new ExperimentEnrollmentManager(dynamicConfigurationManager);
     RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager = new RegistrationRecoveryPasswordsManager(registrationRecoveryPasswords);
+    UsernameHashZkProofVerifier usernameHashZkProofVerifier = new UsernameHashZkProofVerifier();
 
     RegistrationServiceClient  registrationServiceClient  = new RegistrationServiceClient(config.getRegistrationServiceConfiguration().getHost(), config.getRegistrationServiceConfiguration().getPort(), config.getRegistrationServiceConfiguration().getApiKey(), config.getRegistrationServiceConfiguration().getRegistrationCaCertificate(), registrationCallbackExecutor);
     SecureBackupClient         secureBackupClient         = new SecureBackupClient(backupCredentialsGenerator, backupServiceExecutor, config.getSecureBackupServiceConfiguration());
@@ -679,7 +681,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new AccountController(pendingAccountsManager, accountsManager, rateLimiters,
             registrationServiceClient, dynamicConfigurationManager, turnTokenGenerator, config.getTestDevices(),
             captchaChecker, pushNotificationManager, changeNumberManager, registrationLockVerificationManager,
-            registrationRecoveryPasswordsManager, clock));
+            registrationRecoveryPasswordsManager, usernameHashZkProofVerifier, clock));
 
     environment.jersey().register(new KeysController(rateLimiters, keys, accountsManager));
 

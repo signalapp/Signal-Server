@@ -15,5 +15,9 @@ public record ConfirmUsernameHashRequest(
     @JsonSerialize(using = ByteArrayBase64UrlAdapter.Serializing.class)
     @JsonDeserialize(using = ByteArrayBase64UrlAdapter.Deserializing.class)
     @ExactlySize(AccountController.USERNAME_HASH_LENGTH)
-    byte[] usernameHash
+    byte[] usernameHash,
+
+    @JsonSerialize(using = ByteArrayBase64UrlAdapter.Serializing.class)
+    @JsonDeserialize(using = ByteArrayBase64UrlAdapter.Deserializing.class)
+    byte[] zkProof
 ) {}
