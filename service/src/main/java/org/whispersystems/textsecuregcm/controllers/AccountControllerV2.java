@@ -45,7 +45,7 @@ import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
 @Path("/v2/accounts")
 public class AccountControllerV2 {
 
-  private static final String CHANGE_NUMBER_COUNTER_NAME = name(AccountControllerV2.class, "create");
+  private static final String CHANGE_NUMBER_COUNTER_NAME = name(AccountControllerV2.class, "changeNumber");
   private static final String VERIFICATION_TYPE_TAG_NAME = "verification";
 
   private final AccountsManager accountsManager;
