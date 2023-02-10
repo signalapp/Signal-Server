@@ -32,6 +32,7 @@ import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager
 import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
 import org.whispersystems.textsecuregcm.entities.ChangeNumberRequest;
 import org.whispersystems.textsecuregcm.entities.MismatchedDevices;
+import org.whispersystems.textsecuregcm.entities.PhoneNumberDiscoverabilityRequest;
 import org.whispersystems.textsecuregcm.entities.PhoneVerificationRequest;
 import org.whispersystems.textsecuregcm.entities.StaleDevices;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
@@ -129,4 +130,16 @@ public class AccountControllerV2 {
     }
   }
 
+  @Timed
+  @PUT
+  @Path("/phone_number_discoverability")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public void setPhoneNumberDiscoverability(
+      @Auth AuthenticatedAccount auth,
+      @NotNull @Valid PhoneNumberDiscoverabilityRequest phoneNumberDiscoverability
+  ) {
+    accountsManager.update(auth.getAccount(), a -> a.setDiscoverableByPhoneNumber(
+        phoneNumberDiscoverability.discoverableByPhoneNumber()));
+  }
 }
