@@ -64,7 +64,6 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.Status;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
@@ -178,24 +177,27 @@ public class ProfileController {
   @Produces(MediaType.APPLICATION_JSON)
   @Consumes(MediaType.APPLICATION_JSON)
   public Response setProfile(@Auth AuthenticatedAccount auth, @NotNull @Valid CreateProfileRequest request) {
+
+    final Optional<VersionedProfile> currentProfile = profilesManager.get(auth.getAccount().getUuid(),
+        request.getVersion());
+
     if (StringUtils.isNotBlank(request.getPaymentAddress())) {
       final boolean hasDisallowedPrefix =
           dynamicConfigurationManager.getConfiguration().getPaymentsConfiguration().getDisallowedPrefixes().stream()
               .anyMatch(prefix -> auth.getAccount().getNumber().startsWith(prefix));
 
-      if (hasDisallowedPrefix) {
-        return Response.status(Status.FORBIDDEN).build();
+      if (hasDisallowedPrefix && currentProfile.map(VersionedProfile::getPaymentAddress).isEmpty()) {
+        return Response.status(Response.Status.FORBIDDEN).build();
       }
     }
 
-    Optional<VersionedProfile> currentProfile = profilesManager.get(auth.getAccount().getUuid(), request.getVersion());
-
     Optional<String> currentAvatar = Optional.empty();
-    if (currentProfile.isPresent() && currentProfile.get().getAvatar() != null && currentProfile.get().getAvatar().startsWith("profiles/")) {
+    if (currentProfile.isPresent() && currentProfile.get().getAvatar() != null && currentProfile.get().getAvatar()
+        .startsWith("profiles/")) {
       currentAvatar = Optional.of(currentProfile.get().getAvatar());
     }
 
-    String avatar = switch (request.getAvatarChange()) {
+    final String avatar = switch (request.getAvatarChange()) {
       case UNCHANGED -> currentAvatar.orElse(null);
       case CLEAR -> null;
       case UPDATE -> generateAvatarObjectName();
@@ -218,7 +220,7 @@ public class ProfileController {
           .build()));
     }
 
-    List<AccountBadge> updatedBadges = request.getBadges()
+    final List<AccountBadge> updatedBadges = request.getBadges()
         .map(badges -> mergeBadgeIdsWithExistingAccountBadges(badges, auth.getAccount().getBadges()))
         .orElseGet(() -> auth.getAccount().getBadges());
 

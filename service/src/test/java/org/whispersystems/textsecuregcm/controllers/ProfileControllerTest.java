@@ -59,6 +59,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.ServerPublicParams;
@@ -729,7 +730,9 @@ class ProfileControllerTest {
         .target("/v1/profile")
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
-        .put(Entity.entity(new CreateProfileRequest(commitment, "yetanotherversion", name, null, null, paymentAddress, false, false, List.of()), MediaType.APPLICATION_JSON_TYPE));
+        .put(Entity.entity(
+            new CreateProfileRequest(commitment, "yetanotherversion", name, null, null, paymentAddress, false, false,
+                List.of()), MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(403);
     assertThat(response.hasEntity()).isFalse();
@@ -737,13 +740,68 @@ class ProfileControllerTest {
     verify(profilesManager, never()).set(any(), any());
   }
 
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void testSetProfilePaymentAddressCountryNotAllowedExistingPaymentAddress(
+      final boolean existingPaymentAddressOnProfile) throws InvalidInputException {
+    when(dynamicPaymentsConfiguration.getDisallowedPrefixes())
+        .thenReturn(List.of(AuthHelper.VALID_NUMBER_TWO.substring(0, 3)));
+
+    ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(AuthHelper.VALID_UUID);
+
+    clearInvocations(AuthHelper.VALID_ACCOUNT_TWO);
+
+    when(profilesManager.get(eq(AuthHelper.VALID_UUID_TWO), any()))
+        .thenReturn(Optional.of(
+            new VersionedProfile("1", "name", null, null, null,
+                existingPaymentAddressOnProfile ? RandomStringUtils.randomAlphanumeric(776) : null,
+                commitment.serialize())));
+
+    final String name = RandomStringUtils.randomAlphabetic(380);
+    final String paymentAddress = RandomStringUtils.randomAlphanumeric(776);
+
+    Response response = resources.getJerseyTest()
+        .target("/v1/profile")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
+        .put(Entity.entity(
+            new CreateProfileRequest(commitment, "yetanotherversion", name, null, null, paymentAddress, false, false,
+                List.of()), MediaType.APPLICATION_JSON_TYPE));
+
+    if (existingPaymentAddressOnProfile) {
+      assertThat(response.getStatus()).isEqualTo(200);
+      assertThat(response.hasEntity()).isFalse();
+
+      ArgumentCaptor<VersionedProfile> profileArgumentCaptor = ArgumentCaptor.forClass(VersionedProfile.class);
+
+      verify(profilesManager).get(eq(AuthHelper.VALID_UUID_TWO), eq("yetanotherversion"));
+      verify(profilesManager).set(eq(AuthHelper.VALID_UUID_TWO), profileArgumentCaptor.capture());
+
+      verifyNoMoreInteractions(s3client);
+
+      final VersionedProfile profile = profileArgumentCaptor.getValue();
+      assertThat(profile.getCommitment()).isEqualTo(commitment.serialize());
+      assertThat(profile.getAvatar()).isNull();
+      assertThat(profile.getVersion()).isEqualTo("yetanotherversion");
+      assertThat(profile.getName()).isEqualTo(name);
+      assertThat(profile.getAboutEmoji()).isNull();
+      assertThat(profile.getAbout()).isNull();
+      assertThat(profile.getPaymentAddress()).isEqualTo(paymentAddress);
+    } else {
+      assertThat(response.getStatus()).isEqualTo(403);
+      assertThat(response.hasEntity()).isFalse();
+
+      verify(profilesManager, never()).set(any(), any());
+    }
+  }
+
   @Test
   void testGetProfileByVersion() throws RateLimitExceededException {
     VersionedProfileResponse profile = resources.getJerseyTest()
-                               .target("/v1/profile/" + AuthHelper.VALID_UUID_TWO + "/validversion")
-                               .request()
-                               .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                               .get(VersionedProfileResponse.class);
+        .target("/v1/profile/" + AuthHelper.VALID_UUID_TWO + "/validversion")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .get(VersionedProfileResponse.class);
 
     assertThat(profile.getBaseProfileResponse().getIdentityKey()).isEqualTo(ACCOUNT_TWO_IDENTITY_KEY);
     assertThat(profile.getName()).isEqualTo("validname");
