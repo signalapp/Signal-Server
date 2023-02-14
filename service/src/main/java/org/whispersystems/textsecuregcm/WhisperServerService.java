@@ -735,6 +735,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     }
 
     if (reportSpamTokenProvider == null) {
+      log.warn("No spam-reporting token providers found; using default (no-op) provider as a default");
       reportSpamTokenProvider = ReportSpamTokenProvider.noop();
     }
 
