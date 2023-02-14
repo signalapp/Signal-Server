@@ -23,16 +23,6 @@ public interface ReportSpamTokenProvider {
    * @return the provider
    */
   static ReportSpamTokenProvider noop() {
-    return create(c -> Optional.empty());
-  }
-
-  /**
-   * Provider which generates ReportSpamTokens using the given function
-   *
-   * @param fn function from message requests to optional tokens
-   * @return the provider
-   */
-  static ReportSpamTokenProvider create(Function<ContainerRequestContext, Optional<byte[]>> fn) {
-    return fn::apply;
+    return context -> Optional.empty();
   }
 }
