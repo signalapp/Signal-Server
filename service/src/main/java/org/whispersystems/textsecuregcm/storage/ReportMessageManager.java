@@ -31,7 +31,7 @@ public class ReportMessageManager {
 
   private final List<ReportedMessageListener> reportedMessageListeners = new ArrayList<>();
 
-  private static final String REPORT_MESSAGE_COUNTER_NAME = MetricsUtil.name(ReportMessageManager.class);
+  private static final String REPORT_MESSAGE_COUNTER_NAME = MetricsUtil.name(ReportMessageManager.class, "reportMessage");
   private static final String FOUND_MESSAGE_TAG = "foundMessage";
   private static final String TOKEN_PRESENT_TAG = "hasReportSpamToken";
 
