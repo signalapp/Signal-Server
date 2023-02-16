@@ -413,7 +413,14 @@
     <dependency>
       <groupId>com.amazonaws</groupId>
       <artifactId>DynamoDBLocal</artifactId>
-      <version>1.20.0</version>
+      <version>1.21.0</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.github.ganadist.sqlite4java</groupId>
+      <artifactId>libsqlite4java-osx-aarch64</artifactId>
+      <version>1.0.392</version>
+      <type>dylib</type>
       <scope>test</scope>
     </dependency>
 
