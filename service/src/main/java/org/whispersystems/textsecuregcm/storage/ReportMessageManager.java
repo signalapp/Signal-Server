@@ -16,9 +16,11 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tags;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
+import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
@@ -67,14 +69,16 @@ public class ReportMessageManager {
       final Optional<UUID> sourcePni,
       final UUID messageGuid,
       final UUID reporterUuid,
-      final Optional<byte[]> reportSpamToken) {
+      final Optional<byte[]> reportSpamToken,
+      final String reporterUserAgent) {
 
     final boolean found = sourceAci.map(uuid -> reportMessageDynamoDb.remove(hash(messageGuid, uuid.toString())))
         .orElse(false);
 
     Metrics.counter(REPORT_MESSAGE_COUNTER_NAME,
-        FOUND_MESSAGE_TAG, String.valueOf(found),
-        TOKEN_PRESENT_TAG, String.valueOf(reportSpamToken.isPresent()))
+            Tags.of(FOUND_MESSAGE_TAG, String.valueOf(found),
+                    TOKEN_PRESENT_TAG, String.valueOf(reportSpamToken.isPresent()))
+                .and(UserAgentTagUtil.getPlatformTag(reporterUserAgent)))
         .increment();
 
     if (found) {

@@ -29,7 +29,6 @@ import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.asJson;
 import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.jsonFixture;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.common.net.HttpHeaders;
 import com.google.protobuf.ByteString;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
@@ -54,6 +53,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.client.Invocation;
+import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import org.glassfish.jersey.server.ServerProperties;
@@ -607,6 +607,7 @@ class MessageControllerTest {
     final String senderNumber = "+12125550001";
     final UUID senderAci = UUID.randomUUID();
     final UUID senderPni = UUID.randomUUID();
+    final String userAgent = "user-agent";
     UUID messageGuid = UUID.randomUUID();
 
     final Account account = mock(Account.class);
@@ -623,12 +624,13 @@ class MessageControllerTest {
             .target(String.format("/v1/messages/report/%s/%s", senderNumber, messageGuid))
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .header(HttpHeaders.USER_AGENT, userAgent)
             .post(null);
 
     assertThat(response.getStatus(), is(equalTo(202)));
 
     verify(reportMessageManager).report(Optional.of(senderNumber), Optional.of(senderAci), Optional.of(senderPni),
-        messageGuid, AuthHelper.VALID_UUID, Optional.empty());
+        messageGuid, AuthHelper.VALID_UUID, Optional.empty(), userAgent);
     verify(deletedAccountsManager, never()).findDeletedAccountE164(any(UUID.class));
     verify(accountsManager, never()).getPhoneNumberIdentifier(anyString());
 
@@ -640,12 +642,13 @@ class MessageControllerTest {
             .target(String.format("/v1/messages/report/%s/%s", senderNumber, messageGuid))
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .header(HttpHeaders.USER_AGENT, userAgent)
             .post(null);
 
     assertThat(response.getStatus(), is(equalTo(202)));
 
     verify(reportMessageManager).report(Optional.of(senderNumber), Optional.of(senderAci), Optional.of(senderPni),
-        messageGuid, AuthHelper.VALID_UUID, Optional.empty());
+        messageGuid, AuthHelper.VALID_UUID, Optional.empty(), userAgent);
   }
 
   @Test
@@ -654,6 +657,7 @@ class MessageControllerTest {
     final String senderNumber = "+12125550001";
     final UUID senderAci = UUID.randomUUID();
     final UUID senderPni = UUID.randomUUID();
+    final String userAgent = "user-agent";
     UUID messageGuid = UUID.randomUUID();
 
     final Account account = mock(Account.class);
@@ -670,12 +674,13 @@ class MessageControllerTest {
             .target(String.format("/v1/messages/report/%s/%s", senderAci, messageGuid))
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .header(HttpHeaders.USER_AGENT, userAgent)
             .post(null);
 
     assertThat(response.getStatus(), is(equalTo(202)));
 
     verify(reportMessageManager).report(Optional.of(senderNumber), Optional.of(senderAci), Optional.of(senderPni),
-        messageGuid, AuthHelper.VALID_UUID, Optional.empty());
+        messageGuid, AuthHelper.VALID_UUID, Optional.empty(), userAgent);
     verify(deletedAccountsManager, never()).findDeletedAccountE164(any(UUID.class));
     verify(accountsManager, never()).getPhoneNumberIdentifier(anyString());
 
@@ -688,12 +693,13 @@ class MessageControllerTest {
             .target(String.format("/v1/messages/report/%s/%s", senderAci, messageGuid))
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .header(HttpHeaders.USER_AGENT, userAgent)
             .post(null);
 
     assertThat(response.getStatus(), is(equalTo(202)));
 
     verify(reportMessageManager).report(Optional.of(senderNumber), Optional.of(senderAci), Optional.of(senderPni),
-        messageGuid, AuthHelper.VALID_UUID, Optional.empty());
+        messageGuid, AuthHelper.VALID_UUID, Optional.empty(), userAgent);
   }
 
   @Test
@@ -727,7 +733,8 @@ class MessageControllerTest {
         eq(Optional.of(senderPni)),
         eq(messageGuid),
         eq(AuthHelper.VALID_UUID),
-        argThat(maybeBytes -> maybeBytes.map(bytes -> Arrays.equals(bytes, new byte[3])).orElse(false)));
+        argThat(maybeBytes -> maybeBytes.map(bytes -> Arrays.equals(bytes, new byte[3])).orElse(false)),
+        any());
     verify(deletedAccountsManager, never()).findDeletedAccountE164(any(UUID.class));
     verify(accountsManager, never()).getPhoneNumberIdentifier(anyString());
     when(accountsManager.getByAccountIdentifier(senderAci)).thenReturn(Optional.empty());
@@ -748,7 +755,8 @@ class MessageControllerTest {
         eq(Optional.of(senderPni)),
         eq(messageGuid),
         eq(AuthHelper.VALID_UUID),
-        argThat(maybeBytes -> maybeBytes.map(bytes -> Arrays.equals(bytes, new byte[5])).orElse(false)));
+        argThat(maybeBytes -> maybeBytes.map(bytes -> Arrays.equals(bytes, new byte[5])).orElse(false)),
+        any());
   }
 
   @Test

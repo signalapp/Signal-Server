@@ -81,13 +81,13 @@ class ReportMessageManagerTest {
 
     when(reportMessageDynamoDb.remove(any())).thenReturn(false);
     reportMessageManager.report(Optional.of(sourceNumber), Optional.of(sourceAci), Optional.of(sourcePni), messageGuid,
-        reporterUuid, Optional.empty());
+        reporterUuid, Optional.empty(), "user-agent");
 
     assertEquals(0, reportMessageManager.getRecentReportCount(sourceAccount));
 
     when(reportMessageDynamoDb.remove(any())).thenReturn(true);
     reportMessageManager.report(Optional.of(sourceNumber), Optional.of(sourceAci), Optional.of(sourcePni), messageGuid,
-        reporterUuid, Optional.empty());
+        reporterUuid, Optional.empty(), "user-agent");
 
     assertEquals(1, reportMessageManager.getRecentReportCount(sourceAccount));
     verify(listener).handleMessageReported(sourceNumber, messageGuid, reporterUuid, Optional.empty());
@@ -100,7 +100,7 @@ class ReportMessageManagerTest {
 
     for (int i = 0; i < 100; i++) {
       reportMessageManager.report(Optional.of(sourceNumber), Optional.of(sourceAci), Optional.of(sourcePni),
-          messageGuid, UUID.randomUUID(), Optional.empty());
+          messageGuid, UUID.randomUUID(), Optional.empty(), "user-agent");
     }
 
     assertTrue(reportMessageManager.getRecentReportCount(sourceAccount) > 10);
@@ -114,7 +114,7 @@ class ReportMessageManagerTest {
     for (int i = 0; i < 100; i++) {
       reportMessageManager.report(Optional.of(sourceNumber), Optional.of(sourceAci), Optional.of(sourcePni),
           messageGuid,
-          reporterUuid, Optional.empty());
+          reporterUuid, Optional.empty(), "user-agent");
     }
 
     assertEquals(1, reportMessageManager.getRecentReportCount(sourceAccount));
@@ -127,11 +127,11 @@ class ReportMessageManagerTest {
 
     for (int i = 0; i < 100; i++) {
       reportMessageManager.report(Optional.empty(), Optional.of(sourceAci), Optional.of(sourcePni),
-          messageGuid, UUID.randomUUID(), Optional.empty());
+          messageGuid, UUID.randomUUID(), Optional.empty(), "user-agent");
     }
 
     reportMessageManager.report(Optional.empty(), Optional.of(sourceAci), Optional.empty(),
-        messageGuid, UUID.randomUUID(), Optional.empty());
+        messageGuid, UUID.randomUUID(), Optional.empty(), "user-agent");
 
     final int recentReportCount = reportMessageManager.getRecentReportCount(sourceAccount);
     assertTrue(recentReportCount > 10);

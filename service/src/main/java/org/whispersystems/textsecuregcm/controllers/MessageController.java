@@ -603,7 +603,8 @@ public class MessageController {
       @Auth AuthenticatedAccount auth,
       @PathParam("source") String source,
       @PathParam("messageGuid") UUID messageGuid,
-      @Nullable @Valid SpamReport spamReport
+      @Nullable @Valid SpamReport spamReport,
+      @HeaderParam(HttpHeaders.USER_AGENT) String userAgent
   ) {
 
     final Optional<String> sourceNumber;
@@ -640,7 +641,7 @@ public class MessageController {
     final Optional<byte[]> maybeSpamReportToken =
         spamReport != null ? Optional.of(spamReport.token()) : Optional.empty();
 
-    reportMessageManager.report(sourceNumber, sourceAci, sourcePni, messageGuid, spamReporterUuid, maybeSpamReportToken);
+    reportMessageManager.report(sourceNumber, sourceAci, sourcePni, messageGuid, spamReporterUuid, maybeSpamReportToken, userAgent);
 
     return Response.status(Status.ACCEPTED)
         .build();
