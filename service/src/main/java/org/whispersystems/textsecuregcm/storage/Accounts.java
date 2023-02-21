@@ -195,6 +195,9 @@ public class Accounts extends AbstractDynamoDbStore {
             account.setUuid(UUIDUtil.fromByteBuffer(actualAccountUuid));
 
             final Account existingAccount = getByAccountIdentifier(account.getUuid()).orElseThrow();
+
+            // It's up to the client to delete this username hash if they can't retrieve and decrypt the plaintext username from storage service
+            existingAccount.getUsernameHash().ifPresent(existingUsernameHash -> account.setUsernameHash(existingUsernameHash));
             account.setNumber(existingAccount.getNumber(), existingAccount.getPhoneNumberIdentifier());
             account.setVersion(existingAccount.getVersion());
 

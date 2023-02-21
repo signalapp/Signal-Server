@@ -19,6 +19,7 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.uuid.UUIDComparator;
 import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -163,14 +164,14 @@ class AccountsTest {
     boolean freshUser = accounts.create(account);
 
     assertThat(freshUser).isTrue();
-    verifyStoredState("+14151112222", account.getUuid(), account.getPhoneNumberIdentifier(), account, true);
+    verifyStoredState("+14151112222", account.getUuid(), account.getPhoneNumberIdentifier(), null, account, true);
 
     assertPhoneNumberConstraintExists("+14151112222", account.getUuid());
     assertPhoneNumberIdentifierConstraintExists(account.getPhoneNumberIdentifier(), account.getUuid());
 
     freshUser = accounts.create(account);
     assertThat(freshUser).isTrue();
-    verifyStoredState("+14151112222", account.getUuid(), account.getPhoneNumberIdentifier(), account, true);
+    verifyStoredState("+14151112222", account.getUuid(), account.getPhoneNumberIdentifier(), null, account, true);
 
     assertPhoneNumberConstraintExists("+14151112222", account.getUuid());
     assertPhoneNumberIdentifierConstraintExists(account.getPhoneNumberIdentifier(), account.getUuid());
@@ -183,7 +184,7 @@ class AccountsTest {
 
     accounts.create(account);
 
-    verifyStoredState("+14151112222", account.getUuid(), account.getPhoneNumberIdentifier(), account, true);
+    verifyStoredState("+14151112222", account.getUuid(), account.getPhoneNumberIdentifier(), null, account, true);
 
     assertPhoneNumberConstraintExists("+14151112222", account.getUuid());
     assertPhoneNumberIdentifierConstraintExists(account.getPhoneNumberIdentifier(), account.getUuid());
@@ -212,8 +213,8 @@ class AccountsTest {
     assertThat(retrievedFirst.isPresent()).isTrue();
     assertThat(retrievedSecond.isPresent()).isTrue();
 
-    verifyStoredState("+14151112222", uuidFirst, pniFirst, retrievedFirst.get(), accountFirst);
-    verifyStoredState("+14152221111", uuidSecond, pniSecond, retrievedSecond.get(), accountSecond);
+    verifyStoredState("+14151112222", uuidFirst, pniFirst, null, retrievedFirst.get(), accountFirst);
+    verifyStoredState("+14152221111", uuidSecond, pniSecond, null, retrievedSecond.get(), accountSecond);
 
     retrievedFirst = accounts.getByAccountIdentifier(uuidFirst);
     retrievedSecond = accounts.getByAccountIdentifier(uuidSecond);
@@ -221,8 +222,8 @@ class AccountsTest {
     assertThat(retrievedFirst.isPresent()).isTrue();
     assertThat(retrievedSecond.isPresent()).isTrue();
 
-    verifyStoredState("+14151112222", uuidFirst, pniFirst, retrievedFirst.get(), accountFirst);
-    verifyStoredState("+14152221111", uuidSecond, pniSecond, retrievedSecond.get(), accountSecond);
+    verifyStoredState("+14151112222", uuidFirst, pniFirst, null, retrievedFirst.get(), accountFirst);
+    verifyStoredState("+14152221111", uuidSecond, pniSecond, null, retrievedSecond.get(), accountSecond);
 
     retrievedFirst = accounts.getByPhoneNumberIdentifier(pniFirst);
     retrievedSecond = accounts.getByPhoneNumberIdentifier(pniSecond);
@@ -230,8 +231,8 @@ class AccountsTest {
     assertThat(retrievedFirst.isPresent()).isTrue();
     assertThat(retrievedSecond.isPresent()).isTrue();
 
-    verifyStoredState("+14151112222", uuidFirst, pniFirst, retrievedFirst.get(), accountFirst);
-    verifyStoredState("+14152221111", uuidSecond, pniSecond, retrievedSecond.get(), accountSecond);
+    verifyStoredState("+14151112222", uuidFirst, pniFirst, null, retrievedFirst.get(), accountFirst);
+    verifyStoredState("+14152221111", uuidSecond, pniSecond, null, retrievedSecond.get(), accountSecond);
   }
 
   @Test
@@ -284,12 +285,12 @@ class AccountsTest {
     Optional<Account> retrieved = accounts.getByE164("+14151112222");
 
     assertThat(retrieved.isPresent()).isTrue();
-    verifyStoredState("+14151112222", uuid, null, retrieved.get(), account);
+    verifyStoredState("+14151112222", uuid, null, null, retrieved.get(), account);
 
     retrieved = accounts.getByAccountIdentifier(uuid);
 
     assertThat(retrieved.isPresent()).isTrue();
-    verifyStoredState("+14151112222", uuid, null, retrieved.get(), account);
+    verifyStoredState("+14151112222", uuid, null, null, retrieved.get(), account);
   }
 
   @Test
@@ -301,7 +302,14 @@ class AccountsTest {
 
     accounts.create(account);
 
-    verifyStoredState("+14151112222", account.getUuid(), account.getPhoneNumberIdentifier(), account, true);
+    final SecureRandom byteGenerator = new SecureRandom();
+    final byte[] usernameHash = new byte[32];
+    byteGenerator.nextBytes(usernameHash);
+
+    // Set up the existing account to have a username hash
+    accounts.confirmUsernameHash(account, usernameHash);
+
+    verifyStoredState("+14151112222", account.getUuid(), account.getPhoneNumberIdentifier(), usernameHash, account, true);
 
     assertPhoneNumberConstraintExists("+14151112222", firstUuid);
     assertPhoneNumberIdentifierConstraintExists(firstPni, firstUuid);
@@ -315,7 +323,7 @@ class AccountsTest {
 
     final boolean freshUser = accounts.create(account);
     assertThat(freshUser).isFalse();
-    verifyStoredState("+14151112222", firstUuid, firstPni, account, true);
+    verifyStoredState("+14151112222", firstUuid, firstPni, usernameHash, account, true);
 
     assertPhoneNumberConstraintExists("+14151112222", firstUuid);
     assertPhoneNumberIdentifierConstraintExists(firstPni, firstUuid);
@@ -346,12 +354,12 @@ class AccountsTest {
     Optional<Account> retrieved = accounts.getByE164("+14151112222");
 
     assertThat(retrieved.isPresent()).isTrue();
-    verifyStoredState("+14151112222", account.getUuid(), account.getPhoneNumberIdentifier(), retrieved.get(), account);
+    verifyStoredState("+14151112222", account.getUuid(), account.getPhoneNumberIdentifier(), null, retrieved.get(), account);
 
     retrieved = accounts.getByAccountIdentifier(account.getUuid());
 
     assertThat(retrieved.isPresent()).isTrue();
-    verifyStoredState("+14151112222", account.getUuid(), account.getPhoneNumberIdentifier(), account, true);
+    verifyStoredState("+14151112222", account.getUuid(), account.getPhoneNumberIdentifier(), null, account, true);
 
     device = generateDevice(1);
     Account unknownAccount = generateAccount("+14151113333", UUID.randomUUID(), UUID.randomUUID(), List.of(device));
@@ -362,7 +370,7 @@ class AccountsTest {
 
     assertThat(account.getVersion()).isEqualTo(2);
 
-    verifyStoredState("+14151112222", account.getUuid(), account.getPhoneNumberIdentifier(), account, true);
+    verifyStoredState("+14151112222", account.getUuid(), account.getPhoneNumberIdentifier(), null, account, true);
 
     account.setVersion(1);
 
@@ -372,7 +380,7 @@ class AccountsTest {
 
     accounts.update(account);
 
-    verifyStoredState("+14151112222", account.getUuid(), account.getPhoneNumberIdentifier(), account, true);
+    verifyStoredState("+14151112222", account.getUuid(), account.getPhoneNumberIdentifier(), null, account, true);
   }
 
   @ParameterizedTest
@@ -418,7 +426,7 @@ class AccountsTest {
           .findAny()
           .orElseThrow();
 
-      verifyStoredState(expectedAccount.getNumber(), expectedAccount.getUuid(), expectedAccount.getPhoneNumberIdentifier(), retrievedAccount, expectedAccount);
+      verifyStoredState(expectedAccount.getNumber(), expectedAccount.getUuid(), expectedAccount.getPhoneNumberIdentifier(), null, retrievedAccount, expectedAccount);
 
       users.remove(expectedAccount);
     }
@@ -435,7 +443,7 @@ class AccountsTest {
             .findAny()
             .orElseThrow();
 
-        verifyStoredState(expectedAccount.getNumber(), expectedAccount.getUuid(), expectedAccount.getPhoneNumberIdentifier(), retrievedAccount, expectedAccount);
+        verifyStoredState(expectedAccount.getNumber(), expectedAccount.getUuid(), expectedAccount.getPhoneNumberIdentifier(), null, retrievedAccount, expectedAccount);
 
         users.remove(expectedAccount);
       }
@@ -472,7 +480,7 @@ class AccountsTest {
     assertPhoneNumberIdentifierConstraintDoesNotExist(deletedAccount.getPhoneNumberIdentifier());
 
     verifyStoredState(retainedAccount.getNumber(), retainedAccount.getUuid(), retainedAccount.getPhoneNumberIdentifier(),
-        accounts.getByAccountIdentifier(retainedAccount.getUuid()).get(), retainedAccount);
+        null, accounts.getByAccountIdentifier(retainedAccount.getUuid()).get(), retainedAccount);
 
     {
       final Account recreatedAccount = generateAccount(deletedAccount.getNumber(), UUID.randomUUID(),
@@ -483,7 +491,7 @@ class AccountsTest {
       assertThat(freshUser).isTrue();
       assertThat(accounts.getByAccountIdentifier(recreatedAccount.getUuid())).isPresent();
       verifyStoredState(recreatedAccount.getNumber(), recreatedAccount.getUuid(), recreatedAccount.getPhoneNumberIdentifier(),
-          accounts.getByAccountIdentifier(recreatedAccount.getUuid()).get(), recreatedAccount);
+          null, accounts.getByAccountIdentifier(recreatedAccount.getUuid()).get(), recreatedAccount);
 
       assertPhoneNumberConstraintExists(recreatedAccount.getNumber(), recreatedAccount.getUuid());
       assertPhoneNumberIdentifierConstraintExists(recreatedAccount.getPhoneNumberIdentifier(), recreatedAccount.getUuid());
@@ -510,13 +518,13 @@ class AccountsTest {
     Account account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID(), List.of(device));
     account.setDiscoverableByPhoneNumber(false);
     accounts.create(account);
-    verifyStoredState("+14151112222", account.getUuid(), account.getPhoneNumberIdentifier(), account, false);
+    verifyStoredState("+14151112222", account.getUuid(), account.getPhoneNumberIdentifier(), null, account, false);
     account.setDiscoverableByPhoneNumber(true);
     accounts.update(account);
-    verifyStoredState("+14151112222", account.getUuid(), account.getPhoneNumberIdentifier(), account, true);
+    verifyStoredState("+14151112222", account.getUuid(), account.getPhoneNumberIdentifier(), null, account, true);
     account.setDiscoverableByPhoneNumber(false);
     accounts.update(account);
-    verifyStoredState("+14151112222", account.getUuid(), account.getPhoneNumberIdentifier(), account, false);
+    verifyStoredState("+14151112222", account.getUuid(), account.getPhoneNumberIdentifier(), null, account, false);
   }
 
   @Test
@@ -541,7 +549,7 @@ class AccountsTest {
       final Optional<Account> retrieved = accounts.getByE164(originalNumber);
       assertThat(retrieved).isPresent();
 
-      verifyStoredState(originalNumber, account.getUuid(), account.getPhoneNumberIdentifier(), retrieved.get(), account);
+      verifyStoredState(originalNumber, account.getUuid(), account.getPhoneNumberIdentifier(), null, retrieved.get(), account);
     }
 
     accounts.changeNumber(account, targetNumber, targetPni);
@@ -558,7 +566,7 @@ class AccountsTest {
       final Optional<Account> retrieved = accounts.getByE164(targetNumber);
       assertThat(retrieved).isPresent();
 
-      verifyStoredState(targetNumber, account.getUuid(), account.getPhoneNumberIdentifier(), retrieved.get(), account);
+      verifyStoredState(targetNumber, account.getUuid(), account.getPhoneNumberIdentifier(), null, retrieved.get(), account);
 
       assertThat(retrieved.get().getPhoneNumberIdentifier()).isEqualTo(targetPni);
       assertThat(accounts.getByPhoneNumberIdentifier(targetPni)).isPresent();
@@ -634,11 +642,7 @@ class AccountsTest {
     {
       final Optional<Account> maybeAccount = accounts.getByUsernameHash(USERNAME_HASH_1);
 
-      assertThat(maybeAccount).hasValueSatisfying(retrievedAccount ->
-          assertThat(retrievedAccount.getUsernameHash()).hasValueSatisfying(retrievedUsernameHash ->
-              assertArrayEquals(retrievedUsernameHash, USERNAME_HASH_1)));
-
-      verifyStoredState(account.getNumber(), account.getUuid(), account.getPhoneNumberIdentifier(),          maybeAccount.orElseThrow(), account);
+      verifyStoredState(account.getNumber(), account.getUuid(), account.getPhoneNumberIdentifier(), USERNAME_HASH_1, maybeAccount.orElseThrow(), account);
     }
 
     accounts.reserveUsernameHash(account, USERNAME_HASH_2, Duration.ofDays(1));
@@ -657,7 +661,7 @@ class AccountsTest {
 
       assertThat(maybeAccount).isPresent();
       verifyStoredState(account.getNumber(), account.getUuid(), account.getPhoneNumberIdentifier(),
-          maybeAccount.get(), account);
+          USERNAME_HASH_2, maybeAccount.get(), account);
     }
   }
 
@@ -678,7 +682,7 @@ class AccountsTest {
     final Optional<Account> maybeAccount = accounts.getByUsernameHash(USERNAME_HASH_1);
 
     assertThat(maybeAccount).isPresent();
-    verifyStoredState(firstAccount.getNumber(), firstAccount.getUuid(), firstAccount.getPhoneNumberIdentifier(), maybeAccount.get(), firstAccount);
+    verifyStoredState(firstAccount.getNumber(), firstAccount.getUuid(), firstAccount.getPhoneNumberIdentifier(), USERNAME_HASH_1, maybeAccount.get(), firstAccount);
 
     // throw an error if second account tries to reserve or confirm the same username hash
     assertThatExceptionOfType(ContestedOptimisticLockException.class)
@@ -929,7 +933,7 @@ class AccountsTest {
     assertThat(pniConstraintResponse.hasItem()).isFalse();
   }
 
-  private void verifyStoredState(String number, UUID uuid, UUID pni, Account expecting, boolean canonicallyDiscoverable) {
+  private void verifyStoredState(String number, UUID uuid, UUID pni, byte[] usernameHash, Account expecting, boolean canonicallyDiscoverable) {
     final DynamoDbClient db = dynamoDbExtension.getDynamoDbClient();
 
     final GetItemResponse get = db.getItem(GetItemRequest.builder()
@@ -951,19 +955,22 @@ class AccountsTest {
       assertThat(AttributeValues.getByteArray(get.item(), Accounts.ATTR_UAK, null))
           .isEqualTo(expecting.getUnidentifiedAccessKey().orElse(null));
 
+      assertArrayEquals(AttributeValues.getByteArray(get.item(), Accounts.ATTR_USERNAME_HASH, null), usernameHash);
+
       Account result = Accounts.fromItem(get.item());
-      verifyStoredState(number, uuid, pni, result, expecting);
+      verifyStoredState(number, uuid, pni, usernameHash, result, expecting);
     } else {
       throw new AssertionError("No data");
     }
   }
 
-  private void verifyStoredState(String number, UUID uuid, UUID pni, Account result, Account expecting) {
+  private void verifyStoredState(String number, UUID uuid, UUID pni, byte[] usernameHash, Account result, Account expecting) {
     assertThat(result.getNumber()).isEqualTo(number);
     assertThat(result.getPhoneNumberIdentifier()).isEqualTo(pni);
     assertThat(result.getLastSeen()).isEqualTo(expecting.getLastSeen());
     assertThat(result.getUuid()).isEqualTo(uuid);
     assertThat(result.getVersion()).isEqualTo(expecting.getVersion());
+    assertArrayEquals(result.getUsernameHash().orElse(null), usernameHash);
     assertThat(Arrays.equals(result.getUnidentifiedAccessKey().get(), expecting.getUnidentifiedAccessKey().get())).isTrue();
 
     for (Device expectingDevice : expecting.getDevices()) {
