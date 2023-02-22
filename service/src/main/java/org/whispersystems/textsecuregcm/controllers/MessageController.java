@@ -637,9 +637,11 @@ public class MessageController {
 
     UUID spamReporterUuid = auth.getAccount().getUuid();
 
-    // spam report token is optional, but if provided ensure it is valid base64.
+    // spam report token is optional, but if provided ensure it is valid base64 and non-empty.
     final Optional<byte[]> maybeSpamReportToken =
-        spamReport != null ? Optional.ofNullable(spamReport.token()) : Optional.empty();
+        Optional.ofNullable(spamReport)
+            .flatMap(r -> Optional.ofNullable(r.token()))
+            .filter(t -> t.length > 0);
 
     reportMessageManager.report(sourceNumber, sourceAci, sourcePni, messageGuid, spamReporterUuid, maybeSpamReportToken, userAgent);
 
