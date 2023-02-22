@@ -72,6 +72,9 @@ dynamoDbTables:
   redeemedReceipts:
     tableName: Example_RedeemedReceipts
     expiration: P30D # Duration of time until rows expire
+  registrationRecovery:
+    tableName: Example_RegistrationRecovery
+    expiration: P300D # Duration of time until rows expire
   remoteConfig:
     tableName: Example_RemoteConfig
   reportMessage:
@@ -80,9 +83,8 @@ dynamoDbTables:
     tableName: Example_ReservedUsernames
   subscriptions:
     tableName: Example_Subscriptions
-  registrationRecovery:
-    tableName: Example_RegistrationRecovery
-    expiration: P300D # Duration of time until rows expire
+  verificationSessions:
+    tableName: Example_VerificationSessions
 
 cacheCluster: # Redis server configuration for cache cluster
   configurationUri: redis://redis.example.com:6379/

@@ -5,6 +5,8 @@
 
 package org.whispersystems.textsecuregcm.auth;
 
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import java.security.MessageDigest;
 import java.time.Duration;
 import java.util.concurrent.CancellationException;
@@ -19,7 +21,7 @@ import javax.ws.rs.core.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.PhoneVerificationRequest;
-import org.whispersystems.textsecuregcm.entities.RegistrationSession;
+import org.whispersystems.textsecuregcm.entities.RegistrationServiceSession;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 
@@ -46,7 +48,8 @@ public class PhoneVerificationTokenManager {
    * @param request the request with exactly one verification token (RegistrationService sessionId or registration
    *                recovery password)
    * @return if verification was successful, returns the verification type
-   * @throws BadRequestException    if the number does not match the sessionId’s number
+   * @throws BadRequestException    if the number does not match the sessionId’s number, or the remote service rejects
+   *                                the session ID as invalid
    * @throws NotAuthorizedException if the session is not verified
    * @throws ForbiddenException     if the recovery password is not valid
    * @throws InterruptedException   if verification did not complete before a timeout
@@ -65,7 +68,7 @@ public class PhoneVerificationTokenManager {
 
   private void verifyBySessionId(final String number, final byte[] sessionId) throws InterruptedException {
     try {
-      final RegistrationSession session = registrationServiceClient
+      final RegistrationServiceSession session = registrationServiceClient
           .getSession(sessionId, REGISTRATION_RPC_TIMEOUT)
           .get(VERIFICATION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
           .orElseThrow(() -> new NotAuthorizedException("session not verified"));
@@ -76,7 +79,19 @@ public class PhoneVerificationTokenManager {
       if (!session.verified()) {
         throw new NotAuthorizedException("session not verified");
       }
-    } catch (final CancellationException | ExecutionException | TimeoutException e) {
+    } catch (final ExecutionException e) {
+
+      if (e.getCause() instanceof StatusRuntimeException grpcRuntimeException) {
+        if (grpcRuntimeException.getStatus().getCode() == Status.Code.INVALID_ARGUMENT) {
+          throw new BadRequestException();
+        }
+      }
+
+      logger.error("Registration service failure", e);
+      throw new ServerErrorException(Response.Status.SERVICE_UNAVAILABLE);
+
+    } catch (final CancellationException | TimeoutException e) {
+
       logger.error("Registration service failure", e);
       throw new ServerErrorException(Response.Status.SERVICE_UNAVAILABLE);
     }

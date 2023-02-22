@@ -17,6 +17,7 @@ import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Base64;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -43,7 +44,7 @@ import org.whispersystems.textsecuregcm.auth.RegistrationLockError;
 import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.RegistrationRequest;
-import org.whispersystems.textsecuregcm.entities.RegistrationSession;
+import org.whispersystems.textsecuregcm.entities.RegistrationServiceSession;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.ImpossiblePhoneNumberExceptionMapper;
@@ -59,11 +60,12 @@ import org.whispersystems.textsecuregcm.util.SystemMapper;
 @ExtendWith(DropwizardExtensionsSupport.class)
 class RegistrationControllerTest {
 
+  private static final long SESSION_EXPIRATION_SECONDS = Duration.ofMinutes(10).toSeconds();
+
   private static final String NUMBER = PhoneNumberUtil.getInstance().format(
       PhoneNumberUtil.getInstance().getExampleNumber("US"),
       PhoneNumberUtil.PhoneNumberFormat.E164);
-
-  public static final String PASSWORD = "password";
+  private static final String PASSWORD = "password";
 
   private final AccountsManager accountsManager = mock(AccountsManager.class);
   private final RegistrationServiceClient registrationServiceClient = mock(RegistrationServiceClient.class);
@@ -187,7 +189,7 @@ class RegistrationControllerTest {
 
   @ParameterizedTest
   @MethodSource
-  void registrationServiceSessionCheck(@Nullable final RegistrationSession session, final int expectedStatus,
+  void registrationServiceSessionCheck(@Nullable final RegistrationServiceSession session, final int expectedStatus,
       final String message) {
     when(registrationServiceClient.getSession(any(), any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.ofNullable(session)));
@@ -204,8 +206,15 @@ class RegistrationControllerTest {
   static Stream<Arguments> registrationServiceSessionCheck() {
     return Stream.of(
         Arguments.of(null, 401, "session not found"),
-        Arguments.of(new RegistrationSession("+18005551234", false), 400, "session number mismatch"),
-        Arguments.of(new RegistrationSession(NUMBER, false), 401, "session not verified")
+        Arguments.of(
+            new RegistrationServiceSession(new byte[16], "+18005551234", false, null, null, null,
+                SESSION_EXPIRATION_SECONDS),
+            400,
+            "session number mismatch"),
+        Arguments.of(
+            new RegistrationServiceSession(new byte[16], NUMBER, false, null, null, null, SESSION_EXPIRATION_SECONDS),
+            401,
+            "session not verified")
     );
   }
 
@@ -244,7 +253,10 @@ class RegistrationControllerTest {
   @EnumSource(RegistrationLockError.class)
   void registrationLock(final RegistrationLockError error) throws Exception {
     when(registrationServiceClient.getSession(any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(new RegistrationSession(NUMBER, true))));
+        .thenReturn(
+            CompletableFuture.completedFuture(
+                Optional.of(new RegistrationServiceSession(new byte[16], NUMBER, true, null, null, null,
+                    SESSION_EXPIRATION_SECONDS))));
 
     when(accountsManager.getByE164(any())).thenReturn(Optional.of(mock(Account.class)));
 
@@ -275,7 +287,10 @@ class RegistrationControllerTest {
   void deviceTransferAvailable(final boolean existingAccount, final boolean transferSupported,
       final boolean skipDeviceTransfer, final int expectedStatus) throws Exception {
     when(registrationServiceClient.getSession(any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(new RegistrationSession(NUMBER, true))));
+        .thenReturn(
+            CompletableFuture.completedFuture(
+                Optional.of(new RegistrationServiceSession(new byte[16], NUMBER, true, null, null, null,
+                    SESSION_EXPIRATION_SECONDS))));
 
     final Optional<Account> maybeAccount;
     if (existingAccount) {
@@ -301,7 +316,10 @@ class RegistrationControllerTest {
   @Test
   void registrationSuccess() throws Exception {
     when(registrationServiceClient.getSession(any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(new RegistrationSession(NUMBER, true))));
+        .thenReturn(
+            CompletableFuture.completedFuture(
+                Optional.of(new RegistrationServiceSession(new byte[16], NUMBER, true, null, null, null,
+                    SESSION_EXPIRATION_SECONDS))));
     when(accountsManager.create(any(), any(), any(), any(), any()))
         .thenReturn(mock(Account.class));
 

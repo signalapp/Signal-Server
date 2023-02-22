@@ -75,6 +75,7 @@ import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
 import org.whispersystems.textsecuregcm.captcha.AssessmentResult;
 import org.whispersystems.textsecuregcm.captcha.CaptchaChecker;
+import org.whispersystems.textsecuregcm.captcha.RegistrationCaptchaManager;
 import org.whispersystems.textsecuregcm.configuration.SecureBackupServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicCaptchaConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
@@ -197,6 +198,8 @@ class AccountControllerTest {
 
   private static final RegistrationLockVerificationManager registrationLockVerificationManager = new RegistrationLockVerificationManager(
       accountsManager, clientPresenceManager, backupCredentialsGenerator, rateLimiters);
+  private static final RegistrationCaptchaManager registrationCaptchaManager = new RegistrationCaptchaManager(
+      captchaChecker, rateLimiters, Map.of(TEST_NUMBER, 123456), dynamicConfigurationManager);
 
   private static final ResourceExtension resources = ResourceExtension.builder()
       .addProvider(AuthHelper.getAuthFilter())
@@ -217,8 +220,7 @@ class AccountControllerTest {
           registrationServiceClient,
           dynamicConfigurationManager,
           turnTokenGenerator,
-          Map.of(TEST_NUMBER, 123456),
-          captchaChecker,
+          registrationCaptchaManager,
           pushNotificationManager,
           changeNumberManager,
           registrationLockVerificationManager,
@@ -250,30 +252,43 @@ class AccountControllerTest {
     when(rateLimiters.getUsernameLookupLimiter()).thenReturn(usernameLookupLimiter);
 
     when(senderPinAccount.getLastSeen()).thenReturn(System.currentTimeMillis());
-    when(senderPinAccount.getRegistrationLock()).thenReturn(new StoredRegistrationLock(Optional.empty(), Optional.empty(), System.currentTimeMillis()));
+    when(senderPinAccount.getRegistrationLock()).thenReturn(
+        new StoredRegistrationLock(Optional.empty(), Optional.empty(), System.currentTimeMillis()));
 
     when(senderHasStorage.getUuid()).thenReturn(UUID.randomUUID());
     when(senderHasStorage.isStorageSupported()).thenReturn(true);
-    when(senderHasStorage.getRegistrationLock()).thenReturn(new StoredRegistrationLock(Optional.empty(), Optional.empty(), System.currentTimeMillis()));
+    when(senderHasStorage.getRegistrationLock()).thenReturn(
+        new StoredRegistrationLock(Optional.empty(), Optional.empty(), System.currentTimeMillis()));
 
-    when(senderRegLockAccount.getRegistrationLock()).thenReturn(new StoredRegistrationLock(Optional.of(registrationLockCredentials.hash()), Optional.of(registrationLockCredentials.salt()), System.currentTimeMillis()));
+    when(senderRegLockAccount.getRegistrationLock()).thenReturn(
+        new StoredRegistrationLock(Optional.of(registrationLockCredentials.hash()),
+            Optional.of(registrationLockCredentials.salt()), System.currentTimeMillis()));
     when(senderRegLockAccount.getLastSeen()).thenReturn(System.currentTimeMillis());
     when(senderRegLockAccount.getUuid()).thenReturn(SENDER_REG_LOCK_UUID);
     when(senderRegLockAccount.getNumber()).thenReturn(SENDER_REG_LOCK);
 
-    when(senderTransfer.getRegistrationLock()).thenReturn(new StoredRegistrationLock(Optional.empty(), Optional.empty(), System.currentTimeMillis()));
+    when(senderTransfer.getRegistrationLock()).thenReturn(
+        new StoredRegistrationLock(Optional.empty(), Optional.empty(), System.currentTimeMillis()));
     when(senderTransfer.getUuid()).thenReturn(SENDER_TRANSFER_UUID);
     when(senderTransfer.getNumber()).thenReturn(SENDER_TRANSFER);
 
-    when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), "1234-push", null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(
+        Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), "1234-push", null)));
     when(pendingAccountsManager.getCodeForNumber(SENDER_OLD)).thenReturn(Optional.empty());
-    when(pendingAccountsManager.getCodeForNumber(SENDER_PIN)).thenReturn(Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), null, null)));
-    when(pendingAccountsManager.getCodeForNumber(SENDER_REG_LOCK)).thenReturn(Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), null, null)));
-    when(pendingAccountsManager.getCodeForNumber(SENDER_OVER_PIN)).thenReturn(Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), null, null)));
-    when(pendingAccountsManager.getCodeForNumber(SENDER_OVER_PREFIX)).thenReturn(Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), "1234-push", null)));
-    when(pendingAccountsManager.getCodeForNumber(SENDER_PREAUTH)).thenReturn(Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), "validchallenge", null)));
-    when(pendingAccountsManager.getCodeForNumber(SENDER_HAS_STORAGE)).thenReturn(Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), null, null)));
-    when(pendingAccountsManager.getCodeForNumber(SENDER_TRANSFER)).thenReturn(Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), null, null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER_PIN)).thenReturn(
+        Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), null, null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER_REG_LOCK)).thenReturn(
+        Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), null, null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER_OVER_PIN)).thenReturn(
+        Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), null, null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER_OVER_PREFIX)).thenReturn(
+        Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), "1234-push", null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER_PREAUTH)).thenReturn(
+        Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), "validchallenge", null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER_HAS_STORAGE)).thenReturn(
+        Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), null, null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER_TRANSFER)).thenReturn(
+        Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), null, null)));
 
     when(accountsManager.getByE164(eq(SENDER_PIN))).thenReturn(Optional.of(senderPinAccount));
     when(accountsManager.getByE164(eq(SENDER_REG_LOCK))).thenReturn(Optional.of(senderRegLockAccount));
@@ -953,7 +968,8 @@ class AccountControllerTest {
     final String challenge = "challenge";
     final byte[] sessionId = "session".getBytes(StandardCharsets.UTF_8);
 
-    when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), challenge, null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.of(
+        new StoredVerificationCode(null, System.currentTimeMillis(), challenge, null)));
     when(registrationServiceClient.sendRegistrationCode(any(), any(), any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(sessionId));
 
@@ -1103,8 +1119,8 @@ class AccountControllerTest {
     final byte[] sessionId = "session".getBytes(StandardCharsets.UTF_8);
 
     when(pendingAccountsManager.getCodeForNumber(SENDER_REG_LOCK))
-        .thenReturn(Optional.of(
-            new StoredVerificationCode(null, System.currentTimeMillis(), "666666-push", sessionId)));
+        .thenReturn(
+            Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), "666666-push", sessionId)));
 
     when(registrationServiceClient.checkVerificationCode(sessionId, "666666", AccountController.REGISTRATION_RPC_TIMEOUT))
         .thenReturn(CompletableFuture.completedFuture(true));
@@ -1137,8 +1153,8 @@ class AccountControllerTest {
       final byte[] sessionId = "session".getBytes(StandardCharsets.UTF_8);
 
       when(pendingAccountsManager.getCodeForNumber(SENDER_REG_LOCK))
-          .thenReturn(Optional.of(
-              new StoredVerificationCode(null, System.currentTimeMillis(), "666666-push", sessionId)));
+          .thenReturn(
+              Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), "666666-push", sessionId)));
 
       when(registrationServiceClient.checkVerificationCode(sessionId, "666666", AccountController.REGISTRATION_RPC_TIMEOUT))
           .thenReturn(CompletableFuture.completedFuture(true));
@@ -1164,8 +1180,8 @@ class AccountControllerTest {
     final byte[] sessionId = "session".getBytes(StandardCharsets.UTF_8);
 
     when(pendingAccountsManager.getCodeForNumber(SENDER_REG_LOCK))
-        .thenReturn(Optional.of(
-            new StoredVerificationCode(null, System.currentTimeMillis(), "666666-push", sessionId)));
+        .thenReturn(
+            Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), "666666-push", sessionId)));
 
     when(registrationServiceClient.checkVerificationCode(sessionId, "666666", AccountController.REGISTRATION_RPC_TIMEOUT))
         .thenReturn(CompletableFuture.completedFuture(true));
@@ -1191,8 +1207,8 @@ class AccountControllerTest {
     final byte[] sessionId = "session".getBytes(StandardCharsets.UTF_8);
 
     when(pendingAccountsManager.getCodeForNumber(SENDER_REG_LOCK))
-        .thenReturn(Optional.of(
-            new StoredVerificationCode(null, System.currentTimeMillis(), "666666-push", sessionId)));
+        .thenReturn(
+            Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), "666666-push", sessionId)));
 
     when(registrationServiceClient.checkVerificationCode(sessionId, "666666", AccountController.REGISTRATION_RPC_TIMEOUT))
         .thenReturn(CompletableFuture.completedFuture(true));
@@ -1224,8 +1240,7 @@ class AccountControllerTest {
     final byte[] sessionId = "session".getBytes(StandardCharsets.UTF_8);
 
     when(pendingAccountsManager.getCodeForNumber(SENDER_TRANSFER))
-        .thenReturn(Optional.of(
-            new StoredVerificationCode(null, System.currentTimeMillis(), "1234-push", sessionId)));
+        .thenReturn(Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), "1234-push", sessionId)));
 
     when(registrationServiceClient.checkVerificationCode(sessionId, "1234", AccountController.REGISTRATION_RPC_TIMEOUT))
         .thenReturn(CompletableFuture.completedFuture(true));
@@ -1249,8 +1264,7 @@ class AccountControllerTest {
     final byte[] sessionId = "session".getBytes(StandardCharsets.UTF_8);
 
     when(pendingAccountsManager.getCodeForNumber(SENDER_TRANSFER))
-        .thenReturn(Optional.of(
-            new StoredVerificationCode(null, System.currentTimeMillis(), "1234-push", sessionId)));
+        .thenReturn(Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), "1234-push", sessionId)));
 
     when(registrationServiceClient.checkVerificationCode(sessionId, "1234", AccountController.REGISTRATION_RPC_TIMEOUT))
         .thenReturn(CompletableFuture.completedFuture(true));
@@ -1274,8 +1288,7 @@ class AccountControllerTest {
     final byte[] sessionId = "session".getBytes(StandardCharsets.UTF_8);
 
     when(pendingAccountsManager.getCodeForNumber(SENDER_TRANSFER))
-        .thenReturn(Optional.of(
-            new StoredVerificationCode(null, System.currentTimeMillis(), "1234-push", sessionId)));
+        .thenReturn(Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), "1234-push", sessionId)));
 
     when(registrationServiceClient.checkVerificationCode(sessionId, "1234", AccountController.REGISTRATION_RPC_TIMEOUT))
         .thenReturn(CompletableFuture.completedFuture(true));
@@ -1299,8 +1312,8 @@ class AccountControllerTest {
     final String code = "987654";
     final byte[] sessionId = "session".getBytes(StandardCharsets.UTF_8);
 
-    when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
-        new StoredVerificationCode(null, System.currentTimeMillis(), "push", sessionId)));
+    when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(
+        Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), "push", sessionId)));
 
     when(registrationServiceClient.checkVerificationCode(any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(true));
@@ -1400,8 +1413,8 @@ class AccountControllerTest {
     final String code = "987654";
     final byte[] sessionId = "session-id".getBytes(StandardCharsets.UTF_8);
 
-    when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
-        new StoredVerificationCode(code, System.currentTimeMillis(), "push", sessionId)));
+    when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(
+        Optional.of(new StoredVerificationCode(code, System.currentTimeMillis(), "push", sessionId)));
 
     when(registrationServiceClient.checkVerificationCode(any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(false));
@@ -1426,8 +1439,8 @@ class AccountControllerTest {
     final String code = "987654";
     final byte[] sessionId = "session-id".getBytes(StandardCharsets.UTF_8);
 
-    when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
-        new StoredVerificationCode(code, System.currentTimeMillis(), "push", sessionId)));
+    when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(
+        Optional.of(new StoredVerificationCode(code, System.currentTimeMillis(), "push", sessionId)));
 
     when(registrationServiceClient.checkVerificationCode(any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(true));
@@ -1460,8 +1473,8 @@ class AccountControllerTest {
     final String code = "987654";
     final byte[] sessionId = "session-id".getBytes(StandardCharsets.UTF_8);
 
-    when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
-        new StoredVerificationCode(code, System.currentTimeMillis(), "push", sessionId)));
+    when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(
+        Optional.of(new StoredVerificationCode(code, System.currentTimeMillis(), "push", sessionId)));
 
     when(registrationServiceClient.checkVerificationCode(any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(true));
@@ -1539,8 +1552,8 @@ class AccountControllerTest {
     final String reglock = "setec-astronomy";
     final byte[] sessionId = "session-id".getBytes(StandardCharsets.UTF_8);
 
-    when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
-        new StoredVerificationCode(null, System.currentTimeMillis(), "push", sessionId)));
+    when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(
+        Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), "push", sessionId)));
 
     when(registrationServiceClient.checkVerificationCode(any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(true));
@@ -1591,15 +1604,15 @@ class AccountControllerTest {
     when(AuthHelper.VALID_ACCOUNT.getDevice(2L)).thenReturn(Optional.of(device2));
     when(AuthHelper.VALID_ACCOUNT.getDevice(3L)).thenReturn(Optional.of(device3));
 
-    when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
-        new StoredVerificationCode(null, System.currentTimeMillis(), "push", sessionId)));
+    when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(
+        Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), "push", sessionId)));
 
     when(registrationServiceClient.checkVerificationCode(any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(true));
 
     var deviceMessages = List.of(
-            new IncomingMessage(1, 2, 2, "content2"),
-            new IncomingMessage(1, 3, 3, "content3"));
+        new IncomingMessage(1, 2, 2, "content2"),
+        new IncomingMessage(1, 3, 3, "content3"));
     var deviceKeys = Map.of(1L, new SignedPreKey(), 2L, new SignedPreKey(), 3L, new SignedPreKey());
 
     final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 47, 3L, 89);
@@ -2231,8 +2244,10 @@ class AccountControllerTest {
         Arguments.of("123456", null, false),
         Arguments.of(null, new StoredVerificationCode(null, 0, null, null), false),
         Arguments.of(null, new StoredVerificationCode(null, 0, "123456", null), false),
-        Arguments.of("654321", new StoredVerificationCode(null, 0, "123456", null), false),
-        Arguments.of("123456", new StoredVerificationCode(null, 0, "123456", null), true)
+        Arguments.of("654321", new StoredVerificationCode(null, 0, "123456", null),
+            false),
+        Arguments.of("123456", new StoredVerificationCode(null, 0, "123456", null),
+            true)
     );
   }
 }

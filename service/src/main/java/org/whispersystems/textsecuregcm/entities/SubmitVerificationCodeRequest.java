@@ -5,6 +5,8 @@
 
 package org.whispersystems.textsecuregcm.entities;
 
-public record RegistrationSession(String number, boolean verified) {
+import javax.validation.constraints.NotBlank;
+
+public record SubmitVerificationCodeRequest(@NotBlank String code) {
 
 }

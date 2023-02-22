@@ -30,6 +30,12 @@ public class RateLimitsConfiguration {
   private RateLimitConfiguration verifyPin = new RateLimitConfiguration(10, 1 / (24.0 * 60.0));
 
   @JsonProperty
+  private RateLimitConfiguration verificationCaptcha = new RateLimitConfiguration(10, 2);
+
+  @JsonProperty
+  private RateLimitConfiguration verificationPushChallenge = new RateLimitConfiguration(5, 2);
+
+  @JsonProperty
   private RateLimitConfiguration registration = new RateLimitConfiguration(2, 2);
 
   @JsonProperty
@@ -120,6 +126,14 @@ public class RateLimitsConfiguration {
 
   public RateLimitConfiguration getVerifyPin() {
     return verifyPin;
+  }
+
+  public RateLimitConfiguration getVerificationCaptcha() {
+    return verificationCaptcha;
+  }
+
+  public RateLimitConfiguration getVerificationPushChallenge() {
+    return verificationPushChallenge;
   }
 
   public RateLimitConfiguration getRegistration() {

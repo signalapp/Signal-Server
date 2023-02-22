@@ -28,9 +28,11 @@ import org.signal.registration.rpc.CheckVerificationCodeRequest;
 import org.signal.registration.rpc.CreateRegistrationSessionRequest;
 import org.signal.registration.rpc.GetRegistrationSessionMetadataRequest;
 import org.signal.registration.rpc.RegistrationServiceGrpc;
+import org.signal.registration.rpc.RegistrationSessionMetadata;
 import org.signal.registration.rpc.SendVerificationCodeRequest;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
-import org.whispersystems.textsecuregcm.entities.RegistrationSession;
+import org.whispersystems.textsecuregcm.controllers.VerificationSessionRateLimitExceededException;
+import org.whispersystems.textsecuregcm.entities.RegistrationServiceSession;
 
 public class RegistrationServiceClient implements Managed {
 
@@ -76,7 +78,10 @@ public class RegistrationServiceClient implements Managed {
     this.callbackExecutor = callbackExecutor;
   }
 
-  public CompletableFuture<byte[]> createRegistrationSession(final Phonenumber.PhoneNumber phoneNumber, final Duration timeout) {
+  // The …Session suffix methods distinguish the new methods, which return Sessions, from the old.
+  // Once the deprecated methods are removed, the names can be streamlined.
+  public CompletableFuture<RegistrationServiceSession> createRegistrationSessionSession(
+      final Phonenumber.PhoneNumber phoneNumber, final Duration timeout) {
     final long e164 = Long.parseLong(
         PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164).substring(1));
 
@@ -85,12 +90,14 @@ public class RegistrationServiceClient implements Managed {
             .setE164(e164)
             .build()))
         .thenApply(response -> switch (response.getResponseCase()) {
-          case SESSION_METADATA -> response.getSessionMetadata().getSessionId().toByteArray();
+          case SESSION_METADATA -> buildSessionResponseFromMetadata(response.getSessionMetadata());
 
           case ERROR -> {
             switch (response.getError().getErrorType()) {
               case CREATE_REGISTRATION_SESSION_ERROR_TYPE_RATE_LIMITED -> throw new CompletionException(
-                  new RateLimitExceededException(Duration.ofSeconds(response.getError().getRetryAfterSeconds()),
+                  new RateLimitExceededException(response.getError().getMayRetry()
+                      ? Duration.ofSeconds(response.getError().getRetryAfterSeconds())
+                      : null,
                       true));
               case CREATE_REGISTRATION_SESSION_ERROR_TYPE_ILLEGAL_PHONE_NUMBER -> throw new IllegalArgumentException();
               default -> throw new RuntimeException(
@@ -102,7 +109,14 @@ public class RegistrationServiceClient implements Managed {
         });
   }
 
-  public CompletableFuture<byte[]> sendRegistrationCode(final byte[] sessionId,
+  @Deprecated
+  public CompletableFuture<byte[]> createRegistrationSession(final Phonenumber.PhoneNumber phoneNumber,
+      final Duration timeout) {
+    return createRegistrationSessionSession(phoneNumber, timeout)
+        .thenApply(RegistrationServiceSession::id);
+  }
+
+  public CompletableFuture<RegistrationServiceSession> sendVerificationCode(final byte[] sessionId,
       final MessageTransport messageTransport,
       final ClientType clientType,
       @Nullable final String acceptLanguage,
@@ -123,21 +137,57 @@ public class RegistrationServiceClient implements Managed {
           if (response.hasError()) {
             switch (response.getError().getErrorType()) {
               case SEND_VERIFICATION_CODE_ERROR_TYPE_RATE_LIMITED -> throw new CompletionException(
-                  new RateLimitExceededException(Duration.ofSeconds(response.getError().getRetryAfterSeconds()),
+                  new VerificationSessionRateLimitExceededException(
+                      buildSessionResponseFromMetadata(response.getSessionMetadata()),
+                      response.getError().getMayRetry()
+                          ? Duration.ofSeconds(response.getError().getRetryAfterSeconds())
+                          : null,
                       true));
 
-              default -> throw new CompletionException(new RuntimeException("Failed to send verification code: " + response.getError().getErrorType()));
+              case SEND_VERIFICATION_CODE_ERROR_TYPE_SESSION_NOT_FOUND -> throw new CompletionException(
+                  new RegistrationServiceException(null));
+
+              case SEND_VERIFICATION_CODE_ERROR_TYPE_SESSION_ALREADY_VERIFIED -> throw new CompletionException(
+                  new RegistrationServiceException(buildSessionResponseFromMetadata(response.getSessionMetadata())));
+
+              case SEND_VERIFICATION_CODE_ERROR_TYPE_SENDER_REJECTED -> throw new CompletionException(
+                  RegistrationServiceSenderException.rejected(response.getError().getMayRetry()));
+              case SEND_VERIFICATION_CODE_ERROR_TYPE_SENDER_ILLEGAL_ARGUMENT -> throw new CompletionException(
+                  RegistrationServiceSenderException.illegalArgument(response.getError().getMayRetry()));
+              case SEND_VERIFICATION_CODE_ERROR_TYPE_UNSPECIFIED -> throw new CompletionException(
+                  RegistrationServiceSenderException.unknown(response.getError().getMayRetry()));
+
+              default -> throw new CompletionException(
+                  new RuntimeException("Failed to send verification code: " + response.getError().getErrorType()));
             }
           } else {
-            return response.getSessionId().toByteArray();
+            return buildSessionResponseFromMetadata(response.getSessionMetadata());
           }
-      });
+        });
   }
 
+  @Deprecated
+  public CompletableFuture<byte[]> sendRegistrationCode(final byte[] sessionId,
+      final MessageTransport messageTransport,
+      final ClientType clientType,
+      @Nullable final String acceptLanguage,
+      final Duration timeout) {
+    return sendVerificationCode(sessionId, messageTransport, clientType, acceptLanguage, timeout)
+        .thenApply(RegistrationServiceSession::id);
+  }
+
+  @Deprecated
   public CompletableFuture<Boolean> checkVerificationCode(final byte[] sessionId,
       final String verificationCode,
       final Duration timeout) {
 
+    return checkVerificationCodeSession(sessionId, verificationCode, timeout)
+        .thenApply(RegistrationServiceSession::verified);
+  }
+
+  public CompletableFuture<RegistrationServiceSession> checkVerificationCodeSession(final byte[] sessionId,
+      final String verificationCode,
+      final Duration timeout) {
     return toCompletableFuture(stub.withDeadline(toDeadline(timeout))
         .checkVerificationCode(CheckVerificationCodeRequest.newBuilder()
             .setSessionId(ByteString.copyFrom(sessionId))
@@ -147,18 +197,32 @@ public class RegistrationServiceClient implements Managed {
           if (response.hasError()) {
             switch (response.getError().getErrorType()) {
               case CHECK_VERIFICATION_CODE_ERROR_TYPE_RATE_LIMITED -> throw new CompletionException(
-                  new RateLimitExceededException(Duration.ofSeconds(response.getError().getRetryAfterSeconds()),
+                  new VerificationSessionRateLimitExceededException(
+                      buildSessionResponseFromMetadata(response.getSessionMetadata()),
+                      response.getError().getMayRetry()
+                          ? Duration.ofSeconds(response.getError().getRetryAfterSeconds())
+                          : null,
                       true));
 
-              default -> throw new CompletionException(new RuntimeException("Failed to check verification code: " + response.getError().getErrorType()));
+              case CHECK_VERIFICATION_CODE_ERROR_TYPE_NO_CODE_SENT, CHECK_VERIFICATION_CODE_ERROR_TYPE_ATTEMPT_EXPIRED ->
+                  throw new CompletionException(
+                      new RegistrationServiceException(buildSessionResponseFromMetadata(response.getSessionMetadata()))
+                  );
+
+              case CHECK_VERIFICATION_CODE_ERROR_TYPE_SESSION_NOT_FOUND -> throw new CompletionException(
+                  new RegistrationServiceException(null)
+              );
+
+              default -> throw new CompletionException(
+                  new RuntimeException("Failed to check verification code: " + response.getError().getErrorType()));
             }
           } else {
-            return response.getVerified() || response.getSessionMetadata().getVerified();
+            return buildSessionResponseFromMetadata(response.getSessionMetadata());
           }
         });
   }
 
-  public CompletableFuture<Optional<RegistrationSession>> getSession(final byte[] sessionId,
+  public CompletableFuture<Optional<RegistrationServiceSession>> getSession(final byte[] sessionId,
       final Duration timeout) {
     return toCompletableFuture(stub.withDeadline(toDeadline(timeout)).getSessionMetadata(
         GetRegistrationSessionMetadataRequest.newBuilder()
@@ -173,9 +237,14 @@ public class RegistrationServiceClient implements Managed {
             }
           }
 
-          final String number = convertNumeralE164ToString(response.getSessionMetadata().getE164());
-          return Optional.of(new RegistrationSession(number, response.getSessionMetadata().getVerified()));
+          return Optional.of(buildSessionResponseFromMetadata(response.getSessionMetadata()));
         });
+  }
+
+  private static RegistrationServiceSession buildSessionResponseFromMetadata(
+      final RegistrationSessionMetadata sessionMetadata) {
+    return new RegistrationServiceSession(sessionMetadata.getSessionId().toByteArray(),
+        convertNumeralE164ToString(sessionMetadata.getE164()), sessionMetadata);
   }
 
   private static Deadline toDeadline(final Duration timeout) {

@@ -24,6 +24,7 @@ import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
@@ -59,7 +60,7 @@ import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager
 import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
 import org.whispersystems.textsecuregcm.entities.ChangeNumberRequest;
 import org.whispersystems.textsecuregcm.entities.PhoneNumberDiscoverabilityRequest;
-import org.whispersystems.textsecuregcm.entities.RegistrationSession;
+import org.whispersystems.textsecuregcm.entities.RegistrationServiceSession;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.ImpossiblePhoneNumberExceptionMapper;
@@ -78,7 +79,9 @@ import org.whispersystems.textsecuregcm.util.SystemMapper;
 @ExtendWith(DropwizardExtensionsSupport.class)
 class AccountControllerV2Test {
 
-  public static final String NEW_NUMBER = PhoneNumberUtil.getInstance().format(
+  private static final long SESSION_EXPIRATION_SECONDS = Duration.ofMinutes(10).toSeconds();
+
+  private static final String NEW_NUMBER = PhoneNumberUtil.getInstance().format(
       PhoneNumberUtil.getInstance().getExampleNumber("US"),
       PhoneNumberUtil.PhoneNumberFormat.E164);
 
@@ -146,7 +149,9 @@ class AccountControllerV2Test {
     void changeNumberSuccess() throws Exception {
 
       when(registrationServiceClient.getSession(any(), any()))
-          .thenReturn(CompletableFuture.completedFuture(Optional.of(new RegistrationSession(NEW_NUMBER, true))));
+          .thenReturn(CompletableFuture.completedFuture(
+              Optional.of(new RegistrationServiceSession(new byte[16], NEW_NUMBER, true, null, null, null,
+                  SESSION_EXPIRATION_SECONDS))));
 
       final AccountIdentityResponse accountIdentityResponse =
           resources.getJerseyTest()
@@ -245,7 +250,7 @@ class AccountControllerV2Test {
 
     @ParameterizedTest
     @MethodSource
-    void registrationServiceSessionCheck(@Nullable final RegistrationSession session, final int expectedStatus,
+    void registrationServiceSessionCheck(@Nullable final RegistrationServiceSession session, final int expectedStatus,
         final String message) {
       when(registrationServiceClient.getSession(any(), any()))
           .thenReturn(CompletableFuture.completedFuture(Optional.ofNullable(session)));
@@ -263,8 +268,14 @@ class AccountControllerV2Test {
     static Stream<Arguments> registrationServiceSessionCheck() {
       return Stream.of(
           Arguments.of(null, 401, "session not found"),
-          Arguments.of(new RegistrationSession("+18005551234", false), 400, "session number mismatch"),
-          Arguments.of(new RegistrationSession(NEW_NUMBER, false), 401, "session not verified")
+          Arguments.of(new RegistrationServiceSession(new byte[16], "+18005551234", false, null, null, null,
+                  SESSION_EXPIRATION_SECONDS), 400,
+              "session number mismatch"),
+          Arguments.of(
+              new RegistrationServiceSession(new byte[16], NEW_NUMBER, false, null, null, null,
+                  SESSION_EXPIRATION_SECONDS),
+              401,
+              "session not verified")
       );
     }
 
@@ -273,7 +284,9 @@ class AccountControllerV2Test {
     void registrationLock(final RegistrationLockError error) throws Exception {
       when(registrationServiceClient.getSession(any(), any()))
           .thenReturn(
-              CompletableFuture.completedFuture(Optional.of(new RegistrationSession(NEW_NUMBER, true))));
+              CompletableFuture.completedFuture(
+                  Optional.of(new RegistrationServiceSession(new byte[16], NEW_NUMBER, true, null, null, null,
+                      SESSION_EXPIRATION_SECONDS))));
 
       when(accountsManager.getByE164(any())).thenReturn(Optional.of(mock(Account.class)));
 

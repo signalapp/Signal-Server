@@ -58,11 +58,12 @@ public class DynamoDbTables {
   private final Table profiles;
   private final Table pushChallenge;
   private final TableWithExpiration redeemedReceipts;
+  private final TableWithExpiration registrationRecovery;
   private final Table remoteConfig;
   private final Table reportMessage;
   private final Table reservedUsernames;
   private final Table subscriptions;
-  private final TableWithExpiration registrationRecovery;
+  private final Table verificationSessions;
 
   public DynamoDbTables(
       @JsonProperty("accounts") final AccountsTableConfiguration accounts,
@@ -77,11 +78,12 @@ public class DynamoDbTables {
       @JsonProperty("profiles") final Table profiles,
       @JsonProperty("pushChallenge") final Table pushChallenge,
       @JsonProperty("redeemedReceipts") final TableWithExpiration redeemedReceipts,
+      @JsonProperty("registrationRecovery") final TableWithExpiration registrationRecovery,
       @JsonProperty("remoteConfig") final Table remoteConfig,
       @JsonProperty("reportMessage") final Table reportMessage,
       @JsonProperty("reservedUsernames") final Table reservedUsernames,
       @JsonProperty("subscriptions") final Table subscriptions,
-      @JsonProperty("registrationRecovery") final TableWithExpiration registrationRecovery) {
+      @JsonProperty("verificationSessions") final Table verificationSessions) {
 
     this.accounts = accounts;
     this.deletedAccounts = deletedAccounts;
@@ -95,11 +97,12 @@ public class DynamoDbTables {
     this.profiles = profiles;
     this.pushChallenge = pushChallenge;
     this.redeemedReceipts = redeemedReceipts;
+    this.registrationRecovery = registrationRecovery;
     this.remoteConfig = remoteConfig;
     this.reportMessage = reportMessage;
     this.reservedUsernames = reservedUsernames;
     this.subscriptions = subscriptions;
-    this.registrationRecovery = registrationRecovery;
+    this.verificationSessions = verificationSessions;
   }
 
   @NotNull
@@ -176,6 +179,12 @@ public class DynamoDbTables {
 
   @NotNull
   @Valid
+  public TableWithExpiration getRegistrationRecovery() {
+    return registrationRecovery;
+  }
+
+  @NotNull
+  @Valid
   public Table getRemoteConfig() {
     return remoteConfig;
   }
@@ -200,7 +209,7 @@ public class DynamoDbTables {
 
   @NotNull
   @Valid
-  public TableWithExpiration getRegistrationRecovery() {
-    return registrationRecovery;
+  public Table getVerificationSessions() {
+    return verificationSessions;
   }
 }

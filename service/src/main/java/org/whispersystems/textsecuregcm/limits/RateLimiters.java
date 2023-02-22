@@ -42,6 +42,8 @@ public class RateLimiters {
   private final RateLimiter smsVoiceIpLimiter;
   private final RateLimiter smsVoicePrefixLimiter;
   private final RateLimiter verifyLimiter;
+  private final RateLimiter verificationCaptchaLimiter;
+  private final RateLimiter verificationPushChallengeLimiter;
   private final RateLimiter pinLimiter;
   private final RateLimiter registrationLimiter;
   private final RateLimiter attachmentLimiter;
@@ -61,10 +63,14 @@ public class RateLimiters {
   public RateLimiters(final RateLimitsConfiguration config, final FaultTolerantRedisCluster cacheCluster) {
     this.smsDestinationLimiter = fromConfig("smsDestination", config.getSmsDestination(), cacheCluster);
     this.voiceDestinationLimiter = fromConfig("voxDestination", config.getVoiceDestination(), cacheCluster);
-    this.voiceDestinationDailyLimiter = fromConfig("voxDestinationDaily", config.getVoiceDestinationDaily(), cacheCluster);
+    this.voiceDestinationDailyLimiter = fromConfig("voxDestinationDaily", config.getVoiceDestinationDaily(),
+        cacheCluster);
     this.smsVoiceIpLimiter = fromConfig("smsVoiceIp", config.getSmsVoiceIp(), cacheCluster);
     this.smsVoicePrefixLimiter = fromConfig("smsVoicePrefix", config.getSmsVoicePrefix(), cacheCluster);
     this.verifyLimiter = fromConfig("verify", config.getVerifyNumber(), cacheCluster);
+    this.verificationCaptchaLimiter = fromConfig("verificationCaptcha", config.getVerificationCaptcha(), cacheCluster);
+    this.verificationPushChallengeLimiter = fromConfig("verificationPushChallenge",
+        config.getVerificationPushChallenge(), cacheCluster);
     this.pinLimiter = fromConfig("pin", config.getVerifyPin(), cacheCluster);
     this.registrationLimiter = fromConfig("registration", config.getRegistration(), cacheCluster);
     this.attachmentLimiter = fromConfig("attachmentCreate", config.getAttachments(), cacheCluster);
@@ -132,6 +138,14 @@ public class RateLimiters {
 
   public RateLimiter getVerifyLimiter() {
     return verifyLimiter;
+  }
+
+  public RateLimiter getVerificationCaptchaLimiter() {
+    return verificationCaptchaLimiter;
+  }
+
+  public RateLimiter getVerificationPushChallengeLimiter() {
+    return verificationPushChallengeLimiter;
   }
 
   public RateLimiter getPinLimiter() {

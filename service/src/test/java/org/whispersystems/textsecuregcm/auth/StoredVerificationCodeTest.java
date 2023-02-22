@@ -22,8 +22,7 @@ class StoredVerificationCodeTest {
 
   private static Stream<Arguments> isValid() {
     return Stream.of(
-        Arguments.of(
-            new StoredVerificationCode("code", System.currentTimeMillis(), null, null), "code", true),
+        Arguments.of(new StoredVerificationCode("code", System.currentTimeMillis(), null, null), "code", true),
         Arguments.of(new StoredVerificationCode("code", System.currentTimeMillis(), null, null), "incorrect", false),
         Arguments.of(new StoredVerificationCode("", System.currentTimeMillis(), null, null), "", false)
     );

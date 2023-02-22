@@ -28,7 +28,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HexFormat;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
@@ -67,8 +66,7 @@ import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.auth.TurnToken;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
 import org.whispersystems.textsecuregcm.captcha.AssessmentResult;
-import org.whispersystems.textsecuregcm.captcha.CaptchaChecker;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicCaptchaConfiguration;
+import org.whispersystems.textsecuregcm.captcha.RegistrationCaptchaManager;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.AccountIdentifierResponse;
@@ -118,9 +116,6 @@ public class AccountController {
   public static final int USERNAME_HASH_LENGTH = 32;
   private final Logger         logger                   = LoggerFactory.getLogger(AccountController.class);
   private final MetricRegistry metricRegistry           = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  private final Meter          countryFilteredHostMeter = metricRegistry.meter(name(AccountController.class, "country_limited_host"     ));
-  private final Meter          rateLimitedHostMeter     = metricRegistry.meter(name(AccountController.class, "rate_limited_host"        ));
-  private final Meter          rateLimitedPrefixMeter   = metricRegistry.meter(name(AccountController.class, "rate_limited_prefix"      ));
   private final Meter          captchaRequiredMeter     = metricRegistry.meter(name(AccountController.class, "captcha_required"         ));
 
   private static final String PUSH_CHALLENGE_COUNTER_NAME = name(AccountController.class, "pushChallenge");
@@ -155,8 +150,7 @@ public class AccountController {
   private final RegistrationServiceClient registrationServiceClient;
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private final TurnTokenGenerator turnTokenGenerator;
-  private final Map<String, Integer> testDevices;
-  private final CaptchaChecker captchaChecker;
+  private final RegistrationCaptchaManager registrationCaptchaManager;
   private final PushNotificationManager pushNotificationManager;
   private final RegistrationLockVerificationManager registrationLockVerificationManager;
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
@@ -175,8 +169,7 @@ public class AccountController {
       RegistrationServiceClient registrationServiceClient,
       DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
       TurnTokenGenerator turnTokenGenerator,
-      Map<String, Integer> testDevices,
-      CaptchaChecker captchaChecker,
+      RegistrationCaptchaManager registrationCaptchaManager,
       PushNotificationManager pushNotificationManager,
       ChangeNumberManager changeNumberManager,
       RegistrationLockVerificationManager registrationLockVerificationManager,
@@ -189,9 +182,8 @@ public class AccountController {
     this.rateLimiters = rateLimiters;
     this.registrationServiceClient = registrationServiceClient;
     this.dynamicConfigurationManager = dynamicConfigurationManager;
-    this.testDevices = testDevices;
     this.turnTokenGenerator = turnTokenGenerator;
-    this.captchaChecker = captchaChecker;
+    this.registrationCaptchaManager = registrationCaptchaManager;
     this.pushNotificationManager = pushNotificationManager;
     this.registrationLockVerificationManager = registrationLockVerificationManager;
     this.changeNumberManager = changeNumberManager;
@@ -245,6 +237,7 @@ public class AccountController {
       } else {
         final byte[] sessionId = createRegistrationSession(phoneNumber);
         storedVerificationCode = new StoredVerificationCode(null, clock.millis(), generatePushChallenge(), sessionId);
+        new StoredVerificationCode(null, clock.millis(), generatePushChallenge(), sessionId);
       }
     }
 
@@ -278,9 +271,7 @@ public class AccountController {
     final String region = Util.getRegion(number);
 
     // if there's a captcha, assess it, otherwise check if we need a captcha
-    final Optional<AssessmentResult> assessmentResult = captcha.isPresent()
-        ? Optional.of(captchaChecker.verify(captcha.get(), sourceHost))
-        : Optional.empty();
+    final Optional<AssessmentResult> assessmentResult = registrationCaptchaManager.assessCaptcha(captcha, sourceHost);
 
     assessmentResult.ifPresent(result ->
         Metrics.counter(CAPTCHA_ATTEMPT_COUNTER_NAME, Tags.of(
@@ -300,7 +291,8 @@ public class AccountController {
 
     final boolean requiresCaptcha = assessmentResult
         .map(result -> !result.valid())
-        .orElseGet(() -> requiresCaptcha(number, transport, forwardedFor, sourceHost, pushChallengeMatch));
+        .orElseGet(
+            () -> registrationCaptchaManager.requiresCaptcha(number, forwardedFor, sourceHost, pushChallengeMatch));
 
     if (requiresCaptcha) {
       captchaRequiredMeter.mark();
@@ -357,8 +349,7 @@ public class AccountController {
 
     final StoredVerificationCode storedVerificationCode = new StoredVerificationCode(null,
         clock.millis(),
-        maybeStoredVerificationCode.map(StoredVerificationCode::pushCode).orElse(null),
-        sessionId);
+        maybeStoredVerificationCode.map(StoredVerificationCode::pushCode).orElse(null), sessionId);
 
     pendingAccounts.store(number, storedVerificationCode);
 
@@ -842,50 +833,6 @@ public class AccountController {
         .increment();
 
     return match;
-  }
-
-  private boolean requiresCaptcha(String number, String transport, String forwardedFor, String sourceHost, boolean pushChallengeMatch) {
-    if (testDevices.containsKey(number)) {
-      return false;
-    }
-
-    if (!pushChallengeMatch) {
-      return true;
-    }
-
-    final String countryCode = Util.getCountryCode(number);
-    final String region = Util.getRegion(number);
-
-    DynamicCaptchaConfiguration captchaConfig = dynamicConfigurationManager.getConfiguration()
-        .getCaptchaConfiguration();
-
-    boolean countryFiltered = captchaConfig.getSignupCountryCodes().contains(countryCode) ||
-        captchaConfig.getSignupRegions().contains(region);
-
-    try {
-      rateLimiters.getSmsVoiceIpLimiter().validate(sourceHost);
-    } catch (RateLimitExceededException e) {
-      logger.info("Rate limit exceeded: {}, {}, {} ({})", transport, number, sourceHost, forwardedFor);
-      rateLimitedHostMeter.mark();
-
-      return true;
-    }
-
-    try {
-      rateLimiters.getSmsVoicePrefixLimiter().validate(Util.getNumberPrefix(number));
-    } catch (RateLimitExceededException e) {
-      logger.info("Prefix rate limit exceeded: {}, {}, {} ({})", transport, number, sourceHost, forwardedFor);
-      rateLimitedPrefixMeter.mark();
-
-      return true;
-    }
-
-    if (countryFiltered) {
-      countryFilteredHostMeter.mark();
-      return true;
-    }
-
-    return false;
   }
 
   @Timed

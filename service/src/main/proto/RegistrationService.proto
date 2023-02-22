@@ -66,6 +66,66 @@ message RegistrationSessionMetadata {
    * The phone number associated with this registration session.
    */
   uint64 e164 = 3;
+
+  /**
+   * Indicates whether the caller may request delivery of a verification code
+   * via SMS now or at some time in the future. If true, the time a caller must
+   * wait before requesting a verification code via SMS is given in the
+   * `next_sms_seconds` field.
+   */
+  bool may_request_sms = 4;
+
+  /**
+   * The duration, in seconds, after which a caller will next be allowed to
+   * request delivery of a verification code via SMS if `may_request_sms` is
+   * true. If zero, a caller may request a verification code via SMS
+   * immediately. If `may_request_sms` is false, this field has no meaning.
+   */
+  uint64 next_sms_seconds = 5;
+
+  /**
+   * Indicates whether the caller may request delivery of a verification code
+   * via a phone call now or at some time in the future. If true, the time a
+   * caller must wait before requesting a verification code via SMS is given in
+   * the `next_voice_call_seconds` field. If false, simply waiting will not
+   * allow the caller to request a phone call and the caller may need to
+   * perform some other action (like attempting verification code delivery via
+   * SMS) before requesting a voice call.
+   */
+  bool may_request_voice_call = 6;
+
+  /**
+   * The duration, in seconds, after which a caller will next be allowed to
+   * request delivery of a verification code via a phone call if
+   * `may_request_voice_call` is true. If zero, a caller may request a
+   * verification code via a phone call immediately. If `may_request_voice_call`
+   * is false, this field has no meaning.
+   */
+  uint64 next_voice_call_seconds = 7;
+
+  /**
+   * Indicates whether the caller may submit new verification codes now or at
+   * some time in the future. If true, the time a caller must wait before
+   * submitting a verification code is given in the `next_code_check_seconds`
+   * field. If false, simply waiting will not allow the caller to submit a
+   * verification code and the caller may need to perform some other action
+   * (like requesting delivery of a verification code) before checking a
+   * verification code.
+   */
+  bool may_check_code = 8;
+
+  /**
+   * The duration, in seconds, after which a caller will next be allowed to
+   * submit a verification code if `may_check_code` is true. If zero, a caller
+   * may submit a verification code immediately. If `may_check_code` is false,
+   * this field has no meaning.
+   */
+  uint64 next_code_check_seconds = 9;
+
+  /**
+   * The duration, in seconds, after which this session will expire.
+   */
+  uint64 expiration_seconds = 10;
 }
 
 message CreateRegistrationSessionError {
@@ -316,28 +376,29 @@ enum CheckVerificationCodeErrorType {
   CHECK_VERIFICATION_CODE_ERROR_TYPE_UNSPECIFIED = 0;
 
   /**
-   * The caller has made too many incorrect guesses within the scope of this
-   * session and may not make any further guesses.
-   */
-  CHECK_VERIFICATION_CODE_ERROR_TYPE_ATTEMPTS_EXHAUSTED = 1;
-
-  /**
    * The caller has attempted to submit a verification code even though no
    * verification codes have been sent within the scope of this session. The
    * caller must issue a "send code" request before trying again.
    */
-  CHECK_VERIFICATION_CODE_ERROR_TYPE_NO_CODE_SENT = 2;
+  CHECK_VERIFICATION_CODE_ERROR_TYPE_NO_CODE_SENT = 1;
 
   /**
    * The caller has made too many guesses within some period of time. Callers
    * should wait for the duration prescribed in the session metadata object
    * elsewhere in the response before trying again.
    */
-  CHECK_VERIFICATION_CODE_ERROR_TYPE_RATE_LIMITED = 3;
+  CHECK_VERIFICATION_CODE_ERROR_TYPE_RATE_LIMITED = 2;
 
   /**
    * The session identified in this request could not be found (possibly due to
    * session expiration).
    */
-  CHECK_VERIFICATION_CODE_ERROR_TYPE_SESSION_NOT_FOUND = 4;
+  CHECK_VERIFICATION_CODE_ERROR_TYPE_SESSION_NOT_FOUND = 3;
+
+  /**
+   * The session identified in this request is still active, but the most
+   * recently-sent code has expired. Callers should request a new code, then
+   * try again.
+   */
+  CHECK_VERIFICATION_CODE_ERROR_TYPE_ATTEMPT_EXPIRED = 4;
 }

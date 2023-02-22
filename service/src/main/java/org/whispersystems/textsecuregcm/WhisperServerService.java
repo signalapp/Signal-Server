@@ -85,6 +85,7 @@ import org.whispersystems.textsecuregcm.badges.ResourceBundleLevelTranslator;
 import org.whispersystems.textsecuregcm.captcha.CaptchaChecker;
 import org.whispersystems.textsecuregcm.captcha.HCaptchaClient;
 import org.whispersystems.textsecuregcm.captcha.RecaptchaClient;
+import org.whispersystems.textsecuregcm.captcha.RegistrationCaptchaManager;
 import org.whispersystems.textsecuregcm.configuration.DirectoryServerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
@@ -111,6 +112,7 @@ import org.whispersystems.textsecuregcm.controllers.SecureStorageController;
 import org.whispersystems.textsecuregcm.controllers.SecureValueRecovery2Controller;
 import org.whispersystems.textsecuregcm.controllers.StickerController;
 import org.whispersystems.textsecuregcm.controllers.SubscriptionController;
+import org.whispersystems.textsecuregcm.controllers.VerificationController;
 import org.whispersystems.textsecuregcm.currency.CoinMarketCapClient;
 import org.whispersystems.textsecuregcm.currency.CurrencyConversionManager;
 import org.whispersystems.textsecuregcm.currency.FixerClient;
@@ -130,6 +132,7 @@ import org.whispersystems.textsecuregcm.mappers.InvalidWebsocketAddressException
 import org.whispersystems.textsecuregcm.mappers.JsonMappingExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.NonNormalizedPhoneNumberExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
+import org.whispersystems.textsecuregcm.mappers.RegistrationServiceSenderExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.ServerRejectedExceptionMapper;
 import org.whispersystems.textsecuregcm.metrics.ApplicationShutdownMonitor;
 import org.whispersystems.textsecuregcm.metrics.BufferPoolGauges;
@@ -210,6 +213,8 @@ import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.storage.VerificationCodeStore;
+import org.whispersystems.textsecuregcm.storage.VerificationSessionManager;
+import org.whispersystems.textsecuregcm.storage.VerificationSessions;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
 import org.whispersystems.textsecuregcm.util.Constants;
@@ -382,6 +387,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         dynamoDbAsyncClient
     );
 
+    final VerificationSessions verificationSessions = new VerificationSessions(dynamoDbAsyncClient,
+        config.getDynamoDbTables().getVerificationSessions().getTableName(), clock);
     reactor.util.Metrics.MicrometerConfiguration.useRegistry(Metrics.globalRegistry);
     Schedulers.enableMetrics();
 
@@ -632,11 +639,14 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.lifecycle().manage(directoryQueue);
     environment.lifecycle().manage(registrationServiceClient);
 
+    final RegistrationCaptchaManager registrationCaptchaManager = new RegistrationCaptchaManager(captchaChecker,
+        rateLimiters, config.getTestDevices(), dynamicConfigurationManager);
+
     StaticCredentialsProvider cdnCredentialsProvider = StaticCredentialsProvider
         .create(AwsBasicCredentials.create(
             config.getCdnConfiguration().getAccessKey(),
             config.getCdnConfiguration().getAccessSecret()));
-    S3Client cdnS3Client               = S3Client.builder()
+    S3Client cdnS3Client = S3Client.builder()
         .credentialsProvider(cdnCredentialsProvider)
         .region(Region.of(config.getCdnConfiguration().getRegion()))
         .build();
@@ -687,9 +697,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     // these should be common, but use @Auth DisabledPermittedAccount, which isn’t supported yet on websocket
     environment.jersey().register(
         new AccountController(pendingAccountsManager, accountsManager, rateLimiters,
-            registrationServiceClient, dynamicConfigurationManager, turnTokenGenerator, config.getTestDevices(),
-            captchaChecker, pushNotificationManager, changeNumberManager, registrationLockVerificationManager,
-            registrationRecoveryPasswordsManager, usernameHashZkProofVerifier, clock));
+            registrationServiceClient, dynamicConfigurationManager, turnTokenGenerator,
+            registrationCaptchaManager, pushNotificationManager, changeNumberManager,
+            registrationLockVerificationManager, registrationRecoveryPasswordsManager, usernameHashZkProofVerifier, clock));
 
     environment.jersey().register(new KeysController(rateLimiters, keys, accountsManager));
 
@@ -769,7 +779,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new SecureValueRecovery2Controller(svr2CredentialsGenerator),
         new StickerController(rateLimiters, config.getCdnConfiguration().getAccessKey(),
             config.getCdnConfiguration().getAccessSecret(), config.getCdnConfiguration().getRegion(),
-            config.getCdnConfiguration().getBucket())
+            config.getCdnConfiguration().getBucket()),
+        new VerificationController(registrationServiceClient, new VerificationSessionManager(verificationSessions),
+            pushNotificationManager, registrationCaptchaManager, registrationRecoveryPasswordsManager, rateLimiters,
+            clock)
     );
     if (config.getSubscription() != null && config.getOneTimeDonations() != null) {
       commonControllers.add(new SubscriptionController(clock, config.getSubscription(), config.getOneTimeDonations(),
@@ -846,6 +859,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new ServerRejectedExceptionMapper(),
         new ImpossiblePhoneNumberExceptionMapper(),
         new NonNormalizedPhoneNumberExceptionMapper(),
+        new RegistrationServiceSenderExceptionMapper(),
         new JsonMappingExceptionMapper()
     ).forEach(exceptionMapper -> {
       environment.jersey().register(exceptionMapper);

@@ -10,9 +10,9 @@ import java.time.Duration;
 import javax.annotation.Nullable;
 import org.whispersystems.textsecuregcm.util.Util;
 
-public record StoredVerificationCode(String code,
+public record StoredVerificationCode(@Nullable String code,
                                      long timestamp,
-                                     String pushCode,
+                                     @Nullable String pushCode,
                                      @Nullable byte[] sessionId) {
 
   public static final Duration EXPIRATION = Duration.ofMinutes(10);
