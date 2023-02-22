@@ -16,6 +16,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.stripe.exception.StripeException;
 import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
 import java.math.BigDecimal;
 import java.security.InvalidKeyException;
@@ -51,6 +52,7 @@ import javax.ws.rs.DELETE;
 import javax.ws.rs.DefaultValue;
 import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.GET;
+import javax.ws.rs.HeaderParam;
 import javax.ws.rs.InternalServerErrorException;
 import javax.ws.rs.NotFoundException;
 import javax.ws.rs.POST;
@@ -947,7 +949,9 @@ public class SubscriptionController {
   @Path("/boost/receipt_credentials")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletableFuture<Response> createBoostReceiptCredentials(@NotNull @Valid CreateBoostReceiptCredentialsRequest request) {
+  public CompletableFuture<Response> createBoostReceiptCredentials(
+      @NotNull @Valid final CreateBoostReceiptCredentialsRequest request,
+      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) {
 
     final SubscriptionProcessorManager manager = getManagerForProcessor(request.processor);
 
@@ -1006,8 +1010,10 @@ public class SubscriptionController {
                   throw new BadRequestException("receipt credential request failed verification", e);
                 }
                 Metrics.counter(RECEIPT_ISSUED_COUNTER_NAME,
-                        PROCESSOR_TAG_NAME, manager.getProcessor().toString(),
-                        TYPE_TAG_NAME, "boost")
+                        Tags.of(
+                            Tag.of(PROCESSOR_TAG_NAME, manager.getProcessor().toString()),
+                            Tag.of(TYPE_TAG_NAME, "boost"),
+                            UserAgentTagUtil.getPlatformTag(userAgent)))
                     .increment();
                 return Response.ok(new CreateBoostReceiptCredentialsResponse(receiptCredentialResponse.serialize()))
                     .build();
@@ -1236,6 +1242,7 @@ public class SubscriptionController {
   @Produces(MediaType.APPLICATION_JSON)
   public CompletableFuture<Response> createSubscriptionReceiptCredentials(
       @Auth Optional<AuthenticatedAccount> authenticatedAccount,
+      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
       @PathParam("subscriberId") String subscriberId,
       @NotNull @Valid GetReceiptCredentialsRequest request) {
     RequestData requestData = RequestData.process(authenticatedAccount, subscriberId, clock);
@@ -1268,8 +1275,10 @@ public class SubscriptionController {
                         throw new BadRequestException("receipt credential request failed verification", e);
                       }
                       Metrics.counter(RECEIPT_ISSUED_COUNTER_NAME,
-                              PROCESSOR_TAG_NAME, manager.getProcessor().toString(),
-                              TYPE_TAG_NAME, "subscription")
+                              Tags.of(
+                                  Tag.of(PROCESSOR_TAG_NAME, manager.getProcessor().toString()),
+                                  Tag.of(TYPE_TAG_NAME, "subscription"),
+                                  UserAgentTagUtil.getPlatformTag(userAgent)))
                           .increment();
                       return Response.ok(new GetReceiptCredentialsResponse(receiptCredentialResponse.serialize()))
                           .build();
