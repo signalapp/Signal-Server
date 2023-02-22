@@ -372,8 +372,10 @@ class AccountControllerTest {
     when(registrationServiceClient.createRegistrationSession(any(), any()))
         .thenReturn(CompletableFuture.completedFuture(new byte[16]));
 
+    when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.empty());
+
     Response response = resources.getJerseyTest()
-                                 .target("/v1/accounts/fcm/preauth/mytoken/+14152222222")
+                                 .target("/v1/accounts/fcm/preauth/mytoken/" + SENDER)
                                  .request()
                                  .get();
 
@@ -382,7 +384,7 @@ class AccountControllerTest {
     final ArgumentCaptor<String> challengeTokenCaptor = ArgumentCaptor.forClass(String.class);
 
     verify(registrationServiceClient).createRegistrationSession(
-        eq(PhoneNumberUtil.getInstance().parse("+14152222222", null)), any());
+        eq(PhoneNumberUtil.getInstance().parse(SENDER, null)), any());
 
     verify(pushNotificationManager).sendRegistrationChallengeNotification(
         eq("mytoken"), eq(PushNotification.TokenType.FCM), challengeTokenCaptor.capture());
@@ -418,8 +420,10 @@ class AccountControllerTest {
     when(registrationServiceClient.createRegistrationSession(any(), any()))
         .thenReturn(CompletableFuture.completedFuture(new byte[16]));
 
+    when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.empty());
+
     Response response = resources.getJerseyTest()
-                                 .target("/v1/accounts/apn/preauth/mytoken/+14152222222")
+                                 .target("/v1/accounts/apn/preauth/mytoken/" + SENDER)
                                  .request()
                                  .get();
 
@@ -428,7 +432,7 @@ class AccountControllerTest {
     final ArgumentCaptor<String> challengeTokenCaptor = ArgumentCaptor.forClass(String.class);
 
     verify(registrationServiceClient).createRegistrationSession(
-        eq(PhoneNumberUtil.getInstance().parse("+14152222222", null)), any());
+        eq(PhoneNumberUtil.getInstance().parse(SENDER, null)), any());
 
     verify(pushNotificationManager).sendRegistrationChallengeNotification(
         eq("mytoken"), eq(PushNotification.TokenType.APN_VOIP), challengeTokenCaptor.capture());
@@ -441,8 +445,10 @@ class AccountControllerTest {
     when(registrationServiceClient.createRegistrationSession(any(), any()))
         .thenReturn(CompletableFuture.completedFuture(new byte[16]));
 
+    when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.empty());
+
     Response response = resources.getJerseyTest()
-        .target("/v1/accounts/apn/preauth/mytoken/+14152222222")
+        .target("/v1/accounts/apn/preauth/mytoken/" + SENDER)
         .queryParam("voip", "true")
         .request()
         .get();
@@ -452,7 +458,7 @@ class AccountControllerTest {
     final ArgumentCaptor<String> challengeTokenCaptor = ArgumentCaptor.forClass(String.class);
 
     verify(registrationServiceClient).createRegistrationSession(
-        eq(PhoneNumberUtil.getInstance().parse("+14152222222", null)), any());
+        eq(PhoneNumberUtil.getInstance().parse(SENDER, null)), any());
 
     verify(pushNotificationManager).sendRegistrationChallengeNotification(
         eq("mytoken"), eq(PushNotification.TokenType.APN_VOIP), challengeTokenCaptor.capture());
@@ -465,8 +471,10 @@ class AccountControllerTest {
     when(registrationServiceClient.createRegistrationSession(any(), any()))
         .thenReturn(CompletableFuture.completedFuture(new byte[16]));
 
+    when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.empty());
+
     Response response = resources.getJerseyTest()
-        .target("/v1/accounts/apn/preauth/mytoken/+14152222222")
+        .target("/v1/accounts/apn/preauth/mytoken/" + SENDER)
         .queryParam("voip", "false")
         .request()
         .get();
@@ -476,7 +484,7 @@ class AccountControllerTest {
     final ArgumentCaptor<String> challengeTokenCaptor = ArgumentCaptor.forClass(String.class);
 
     verify(registrationServiceClient).createRegistrationSession(
-        eq(PhoneNumberUtil.getInstance().parse("+14152222222", null)), any());
+        eq(PhoneNumberUtil.getInstance().parse(SENDER, null)), any());
 
     verify(pushNotificationManager).sendRegistrationChallengeNotification(
         eq("mytoken"), eq(PushNotification.TokenType.APN), challengeTokenCaptor.capture());
@@ -515,6 +523,58 @@ class AccountControllerTest {
 
     verifyNoInteractions(registrationServiceClient);
     verifyNoInteractions(pushNotificationManager);
+  }
+
+  @Test
+  void testGetPreauthExistingSession() throws NumberParseException {
+    final String existingPushCode = "existing-push-code";
+
+    when(registrationServiceClient.createRegistrationSession(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(new byte[16]));
+
+    when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(
+        Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), existingPushCode, new byte[16])));
+
+    Response response = resources.getJerseyTest()
+        .target("/v1/accounts/apn/preauth/mytoken/" + SENDER)
+        .request()
+        .get();
+
+    assertThat(response.getStatus()).isEqualTo(200);
+
+    final ArgumentCaptor<String> challengeTokenCaptor = ArgumentCaptor.forClass(String.class);
+
+    verify(registrationServiceClient, never()).createRegistrationSession(any(), any());
+
+    verify(pushNotificationManager).sendRegistrationChallengeNotification(
+        eq("mytoken"), eq(PushNotification.TokenType.APN_VOIP), challengeTokenCaptor.capture());
+
+    assertThat(challengeTokenCaptor.getValue()).isEqualTo(existingPushCode);
+  }
+
+  @Test
+  void testGetPreauthExistingSessionWithoutPushCode() throws NumberParseException {
+    when(registrationServiceClient.createRegistrationSession(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(new byte[16]));
+
+    when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(
+        Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), null, new byte[16])));
+
+    Response response = resources.getJerseyTest()
+        .target("/v1/accounts/apn/preauth/mytoken/" + SENDER)
+        .request()
+        .get();
+
+    assertThat(response.getStatus()).isEqualTo(200);
+
+    final ArgumentCaptor<String> challengeTokenCaptor = ArgumentCaptor.forClass(String.class);
+
+    verify(registrationServiceClient, never()).createRegistrationSession(any(), any());
+
+    verify(pushNotificationManager).sendRegistrationChallengeNotification(
+        eq("mytoken"), eq(PushNotification.TokenType.APN_VOIP), challengeTokenCaptor.capture());
+
+    assertThat(challengeTokenCaptor.getValue().length()).isEqualTo(32);
   }
 
   @Test

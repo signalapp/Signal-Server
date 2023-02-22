@@ -226,10 +226,27 @@ public class AccountController {
       throw new BadRequestException("Bad phone number");
     }
 
-    final String pushChallenge = generatePushChallenge();
-    final byte[] sessionId = createRegistrationSession(phoneNumber);
-    final StoredVerificationCode storedVerificationCode =
-        new StoredVerificationCode(null, clock.millis(), pushChallenge, sessionId);
+    final StoredVerificationCode storedVerificationCode;
+    {
+      final Optional<StoredVerificationCode> maybeStoredVerificationCode = pendingAccounts.getCodeForNumber(number);
+
+      if (maybeStoredVerificationCode.isPresent()) {
+        final StoredVerificationCode existingStoredVerificationCode = maybeStoredVerificationCode.get();
+
+        if (StringUtils.isBlank(existingStoredVerificationCode.pushCode())) {
+          storedVerificationCode = new StoredVerificationCode(
+              existingStoredVerificationCode.code(),
+              existingStoredVerificationCode.timestamp(),
+              generatePushChallenge(),
+              existingStoredVerificationCode.sessionId());
+        } else {
+          storedVerificationCode = existingStoredVerificationCode;
+        }
+      } else {
+        final byte[] sessionId = createRegistrationSession(phoneNumber);
+        storedVerificationCode = new StoredVerificationCode(null, clock.millis(), generatePushChallenge(), sessionId);
+      }
+    }
 
     pendingAccounts.store(number, storedVerificationCode);
     pushNotificationManager.sendRegistrationChallengeNotification(pushToken, tokenType, storedVerificationCode.pushCode());
