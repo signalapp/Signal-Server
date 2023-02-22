@@ -639,7 +639,7 @@ public class MessageController {
 
     // spam report token is optional, but if provided ensure it is valid base64.
     final Optional<byte[]> maybeSpamReportToken =
-        spamReport != null ? Optional.of(spamReport.token()) : Optional.empty();
+        spamReport != null ? Optional.ofNullable(spamReport.token()) : Optional.empty();
 
     reportMessageManager.report(sourceNumber, sourceAci, sourcePni, messageGuid, spamReporterUuid, maybeSpamReportToken, userAgent);
 

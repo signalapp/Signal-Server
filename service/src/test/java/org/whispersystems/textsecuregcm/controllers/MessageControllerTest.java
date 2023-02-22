@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -58,6 +59,8 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import org.glassfish.jersey.server.ServerProperties;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
+import org.hamcrest.CoreMatchers;
+import org.hamcrest.Matcher;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -757,6 +760,50 @@ class MessageControllerTest {
         eq(AuthHelper.VALID_UUID),
         argThat(maybeBytes -> maybeBytes.map(bytes -> Arrays.equals(bytes, new byte[5])).orElse(false)),
         any());
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void testReportMessageByAciWithNullSpamReportToken(Entity<?> entity, boolean expectOk) {
+
+    final String senderNumber = "+12125550001";
+    final UUID senderAci = UUID.randomUUID();
+    final UUID senderPni = UUID.randomUUID();
+    UUID messageGuid = UUID.randomUUID();
+
+    final Account account = mock(Account.class);
+    when(account.getUuid()).thenReturn(senderAci);
+    when(account.getNumber()).thenReturn(senderNumber);
+    when(account.getPhoneNumberIdentifier()).thenReturn(senderPni);
+
+    when(accountsManager.getByAccountIdentifier(senderAci)).thenReturn(Optional.of(account));
+    when(deletedAccountsManager.findDeletedAccountE164(senderAci)).thenReturn(Optional.of(senderNumber));
+    when(accountsManager.getPhoneNumberIdentifier(senderNumber)).thenReturn(senderPni);
+
+    Response response =
+        resources.getJerseyTest()
+            .target(String.format("/v1/messages/report/%s/%s", senderAci, messageGuid))
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .post(entity);
+
+    Matcher<Integer> matcher = expectOk ? is(equalTo(202)) : not(equalTo(202));
+    assertThat(response.getStatus(), matcher);
+  }
+
+  private static Stream<Arguments> testReportMessageByAciWithNullSpamReportToken() {
+    return Stream.of(
+        Arguments.of(Entity.json(new SpamReport(new byte[5])), true),
+        Arguments.of(Entity.json("{\"token\":\"AAAAAAA\"}"), true),
+        Arguments.of(Entity.json(new SpamReport(new byte[0])), true),
+        Arguments.of(Entity.json(new SpamReport(null)), true),
+        Arguments.of(Entity.json("{\"token\": \"\"}"), true),
+        Arguments.of(Entity.json("{\"token\": null}"), true),
+        Arguments.of(Entity.json("null"), true),
+        Arguments.of(Entity.json("{\"weird\": 123}"), true),
+        Arguments.of(Entity.json("\"weirder\""), false),
+        Arguments.of(Entity.json("weirdest"), false)
+    );
   }
 
   @Test
