@@ -239,11 +239,7 @@ enum ClientType {
 }
 
 message SendVerificationCodeResponse {
-  /**
-   * An opaque sequence of bytes that uniquely identifies the registration
-   * session associated with this registration attempt.
-   */
-  bytes session_id = 1;
+  reserved 1;
 
   /**
    * Metadata for the named session. May be absent if the session could not be
@@ -329,11 +325,7 @@ message CheckVerificationCodeRequest {
 }
 
 message CheckVerificationCodeResponse {
-  /**
-   * The outcome of the verification attempt; true if the verification code
-   * matched the expected code or false otherwise.
-   */
-  bool verified = 1;
+  reserved 1;
 
   /**
    * Metadata for the named session. May be absent if the session could not be
