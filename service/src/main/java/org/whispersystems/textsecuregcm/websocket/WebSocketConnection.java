@@ -367,12 +367,13 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
                     .orTimeout(sendFuturesTimeoutMillis, TimeUnit.MILLISECONDS))
                 .doOnError(e -> {
                   final String errorType;
-                  if (!(e instanceof TimeoutException)) {
-                    // TimeoutExceptions are expected, no need to log
+                  if (e instanceof TimeoutException) {
+                    errorType = "timeout";
+                  } else if (e instanceof java.nio.channels.ClosedChannelException) {
+                    errorType = "closedChannel";
+                  } else {
                     logger.warn("Send message failed", e);
                     errorType = "other";
-                  } else {
-                    errorType = "timeout";
                   }
                   final Tags tags = Tags.of(
                       UserAgentTagUtil.getPlatformTag(client.getUserAgent()),
