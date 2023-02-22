@@ -52,6 +52,7 @@ import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.websocket.WebSocketClient;
 import org.whispersystems.websocket.messages.WebSocketResponseMessage;
 import reactor.core.Disposable;
+import reactor.core.observability.micrometer.Micrometer;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
@@ -359,7 +360,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
 
     final Disposable subscription = Flux.from(messages)
         .name(SEND_MESSAGES_FLUX_NAME)
-        .metrics()
+        .tap(Micrometer.metrics(Metrics.globalRegistry))
         .limitRate(MESSAGE_PUBLISHER_LIMIT_RATE)
         .flatMapSequential(envelope ->
             Mono.fromFuture(sendMessage(envelope)

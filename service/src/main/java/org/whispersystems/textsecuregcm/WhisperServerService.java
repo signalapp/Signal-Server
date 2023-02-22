@@ -238,7 +238,6 @@ import org.whispersystems.textsecuregcm.workers.SetUserDiscoverabilityCommand;
 import org.whispersystems.textsecuregcm.workers.ZkParamsCommand;
 import org.whispersystems.websocket.WebSocketResourceProviderFactory;
 import org.whispersystems.websocket.setup.WebSocketEnvironment;
-import reactor.core.scheduler.Schedulers;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
@@ -389,8 +388,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     final VerificationSessions verificationSessions = new VerificationSessions(dynamoDbAsyncClient,
         config.getDynamoDbTables().getVerificationSessions().getTableName(), clock);
-    reactor.util.Metrics.MicrometerConfiguration.useRegistry(Metrics.globalRegistry);
-    Schedulers.enableMetrics();
 
     RedisClientFactory pubSubClientFactory = new RedisClientFactory("pubsub_cache",
         config.getPubsubCacheConfiguration().getUrl(), config.getPubsubCacheConfiguration().getReplicaUrls(),

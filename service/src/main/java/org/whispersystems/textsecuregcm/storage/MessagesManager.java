@@ -9,6 +9,7 @@ import static com.codahale.metrics.MetricRegistry.name;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
+import io.micrometer.core.instrument.Metrics;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -26,6 +27,7 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Pair;
+import reactor.core.observability.micrometer.Micrometer;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -77,7 +79,7 @@ public class MessagesManager {
 
     return Flux.from(
             getMessagesForDevice(destinationUuid, destinationDevice, RESULT_SET_CHUNK_SIZE, cachedMessagesOnly))
-        .take(RESULT_SET_CHUNK_SIZE, true)
+        .take(RESULT_SET_CHUNK_SIZE)
         .collectList()
         .map(envelopes -> new Pair<>(envelopes, envelopes.size() >= RESULT_SET_CHUNK_SIZE));
   }
@@ -97,7 +99,7 @@ public class MessagesManager {
 
     return Flux.concat(dynamoPublisher, cachePublisher)
         .name(GET_MESSAGES_FOR_DEVICE_FLUX_NAME)
-        .metrics();
+        .tap(Micrometer.metrics(Metrics.globalRegistry));
   }
 
   public void clear(UUID destinationUuid) {

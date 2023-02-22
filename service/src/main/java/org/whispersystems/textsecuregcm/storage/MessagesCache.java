@@ -50,6 +50,7 @@ import org.whispersystems.textsecuregcm.redis.FaultTolerantPubSubConnection;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.RedisClusterUtil;
+import reactor.core.observability.micrometer.Micrometer;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
@@ -227,7 +228,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
     discardStaleEphemeralMessages(destinationUuid, destinationDevice, staleEphemeralMessages);
 
     return messagesToPublish.name(GET_FLUX_NAME)
-        .metrics();
+        .tap(Micrometer.metrics(Metrics.globalRegistry));
   }
 
   private static boolean isStaleEphemeralMessage(final MessageProtos.Envelope message,
