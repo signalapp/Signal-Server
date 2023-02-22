@@ -1,7 +1,0 @@
-mutation VaultPaymentMethod($input: VaultPaymentMethodInput!) {
-  vaultPaymentMethod(input: $input) {
-    paymentMethod {
-      id
-    }
-  }
-}

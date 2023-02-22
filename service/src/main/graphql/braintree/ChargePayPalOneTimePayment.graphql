@@ -1,9 +1,0 @@
-# https://graphql.braintreepayments.com/reference/#Mutation--chargePaymentMethod
-mutation ChargePayPalOneTimePayment($input: ChargePaymentMethodInput!) {
-  chargePaymentMethod(input: $input) {
-    transaction {
-      id,
-      status
-    }
-  }
-}

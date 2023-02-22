@@ -1,7 +1,0 @@
-mutation TokenizePayPalBillingAgreement($input: TokenizePayPalBillingAgreementInput!) {
-  tokenizePayPalBillingAgreement(input: $input) {
-    paymentMethod {
-      id
-    }
-  }
-}

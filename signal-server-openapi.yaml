@@ -1,0 +1,3343 @@
+openapi: 3.0.1
+info:
+  title: Signal Server
+  license:
+    name: AGPL-3.0-only
+    url: https://www.gnu.org/licenses/agpl-3.0.txt
+servers:
+- url: https://chat.signal.org
+  description: Production service
+- url: https://chat.staging.signal.org
+  description: Staging service
+paths:
+  /v1/accounts/account/{uuid}:
+    head:
+      tags:
+      - Account
+      operationId: accountExists
+      parameters:
+      - name: uuid
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        default:
+          description: default response
+          content:
+            '*/*': {}
+  /v1/accounts/number:
+    put:
+      tags:
+      - Account
+      operationId: changeNumber
+      parameters:
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              $ref: '#/components/schemas/ChangePhoneNumberRequest'
+        required: true
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountIdentityResponse'
+      security:
+      - authenticatedAccount: []
+  /v1/accounts/username_hash/confirm:
+    put:
+      tags:
+      - Account
+      operationId: confirmUsernameHash
+      parameters:
+      - name: X-Signal-Agent
+        in: header
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmUsernameHashRequest'
+        required: true
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsernameHashResponse'
+      security:
+      - authenticatedAccount: []
+  /v1/accounts/{transport}/code/{number}:
+    get:
+      tags:
+      - Account
+      operationId: createAccount
+      parameters:
+      - name: transport
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: number
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: X-Forwarded-For
+        in: header
+        schema:
+          type: string
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
+      - name: Accept-Language
+        in: header
+        schema:
+          type: string
+      - name: client
+        in: query
+        schema:
+          type: string
+      - name: captcha
+        in: query
+        schema:
+          type: string
+      - name: challenge
+        in: query
+        schema:
+          type: string
+      responses:
+        default:
+          description: default response
+          content:
+            application/json: {}
+  /v1/accounts/me:
+    get:
+      tags:
+      - Account
+      operationId: getMe
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountIdentityResponse'
+      security:
+      - authenticatedAccount: []
+    delete:
+      tags:
+      - Account
+      operationId: deleteAccount
+      responses:
+        default:
+          description: default response
+          content:
+            '*/*': {}
+      security:
+      - authenticatedAccount: []
+  /v1/accounts/apn:
+    put:
+      tags:
+      - Account
+      operationId: setApnRegistrationId
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApnRegistrationId'
+        required: true
+      responses:
+        default:
+          description: default response
+          content:
+            '*/*': {}
+      security:
+      - authenticatedAccount: []
+    delete:
+      tags:
+      - Account
+      operationId: deleteApnRegistrationId
+      responses:
+        default:
+          description: default response
+          content:
+            '*/*': {}
+      security:
+      - authenticatedAccount: []
+  /v1/accounts/gcm:
+    put:
+      tags:
+      - Account
+      operationId: setGcmRegistrationId
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GcmRegistrationId'
+        required: true
+      responses:
+        default:
+          description: default response
+          content:
+            '*/*': {}
+      security:
+      - authenticatedAccount: []
+    delete:
+      tags:
+      - Account
+      operationId: deleteGcmRegistrationId
+      responses:
+        default:
+          description: default response
+          content:
+            '*/*': {}
+      security:
+      - authenticatedAccount: []
+  /v1/accounts/username_hash:
+    delete:
+      tags:
+      - Account
+      operationId: deleteUsernameHash
+      responses:
+        default:
+          description: default response
+          content:
+            application/json: {}
+      security:
+      - authenticatedAccount: []
+  /v1/accounts/{type}/preauth/{token}/{number}:
+    get:
+      tags:
+      - Account
+      operationId: getPreAuth
+      parameters:
+      - name: type
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: number
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: voip
+        in: query
+        schema:
+          type: boolean
+          default: true
+      responses:
+        default:
+          description: default response
+          content:
+            application/json: {}
+  /v1/accounts/turn:
+    get:
+      tags:
+      - Account
+      operationId: getTurnToken
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TurnToken'
+      security:
+      - authenticatedAccount: []
+  /v1/accounts/username_hash/{usernameHash}:
+    get:
+      tags:
+      - Account
+      operationId: lookupUsernameHash
+      parameters:
+      - name: X-Signal-Agent
+        in: header
+        schema:
+          type: string
+      - name: X-Forwarded-For
+        in: header
+        schema:
+          type: string
+      - name: usernameHash
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountIdentifierResponse'
+  /v1/accounts/registration_lock:
+    put:
+      tags:
+      - Account
+      operationId: setRegistrationLock
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              $ref: '#/components/schemas/RegistrationLock'
+        required: true
+      responses:
+        default:
+          description: default response
+          content:
+            application/json: {}
+      security:
+      - authenticatedAccount: []
+    delete:
+      tags:
+      - Account
+      operationId: removeRegistrationLock
+      responses:
+        default:
+          description: default response
+          content:
+            '*/*': {}
+      security:
+      - authenticatedAccount: []
+  /v1/accounts/signaling_key:
+    delete:
+      tags:
+      - Account
+      operationId: removeSignalingKey
+      responses:
+        default:
+          description: default response
+          content:
+            '*/*': {}
+      security:
+      - authenticatedAccount: []
+  /v1/accounts/username_hash/reserve:
+    put:
+      tags:
+      - Account
+      operationId: reserveUsernameHash
+      parameters:
+      - name: X-Signal-Agent
+        in: header
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReserveUsernameHashRequest'
+        required: true
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReserveUsernameHashResponse'
+      security:
+      - authenticatedAccount: []
+  /v1/accounts/attributes:
+    put:
+      tags:
+      - Account
+      operationId: setAccountAttributes
+      parameters:
+      - name: X-Signal-Agent
+        in: header
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountAttributes'
+        required: true
+      responses:
+        default:
+          description: default response
+          content:
+            application/json: {}
+      security:
+      - authenticatedAccount: []
+  /v1/accounts/name:
+    put:
+      tags:
+      - Account
+      operationId: setName
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              $ref: '#/components/schemas/DeviceName'
+        required: true
+      responses:
+        default:
+          description: default response
+          content:
+            '*/*': {}
+      security:
+      - authenticatedAccount: []
+  /v1/accounts/code/{verification_code}:
+    put:
+      tags:
+      - Account
+      operationId: verifyAccount
+      parameters:
+      - name: verification_code
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: Authorization
+        in: header
+        schema:
+          $ref: '#/components/schemas/BasicAuthorizationHeader'
+      - name: X-Signal-Agent
+        in: header
+        schema:
+          type: string
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
+      - name: transfer
+        in: query
+        schema:
+          type: boolean
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountAttributes'
+        required: true
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountIdentityResponse'
+  /v1/accounts/whoami:
+    get:
+      tags:
+      - Account
+      operationId: whoAmI
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountIdentityResponse'
+      security:
+      - authenticatedAccount: []
+  /v2/accounts/number:
+    put:
+      tags:
+      - Account
+      operationId: changeNumber_1
+      parameters:
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeNumberRequest'
+        required: true
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountIdentityResponse'
+      security:
+      - authenticatedAccount: []
+  /v2/accounts/phone_number_discoverability:
+    put:
+      tags:
+      - Account
+      operationId: setPhoneNumberDiscoverability
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhoneNumberDiscoverabilityRequest'
+        required: true
+      responses:
+        default:
+          description: default response
+          content:
+            application/json: {}
+      security:
+      - authenticatedAccount: []
+  /v1/art/auth:
+    get:
+      tags:
+      - Art
+      operationId: getAuth
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExternalServiceCredentials'
+      security:
+      - authenticatedAccount: []
+  /v2/attachments/form/upload:
+    get:
+      tags:
+      - Attachments
+      operationId: getAttachmentUploadForm
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttachmentDescriptorV2'
+      security:
+      - authenticatedAccount: []
+  /v3/attachments/form/upload:
+    get:
+      tags:
+      - Attachments
+      operationId: getAttachmentUploadForm_1
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttachmentDescriptorV3'
+      security:
+      - authenticatedAccount: []
+  /v1/certificate/group/{startRedemptionTime}/{endRedemptionTime}:
+    get:
+      tags:
+      - Certificate
+      operationId: getAuthenticationCredentials
+      parameters:
+      - name: startRedemptionTime
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int32
+      - name: endRedemptionTime
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int32
+      - name: identity
+        in: query
+        schema:
+          type: string
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupCredentials'
+      deprecated: true
+      security:
+      - authenticatedAccount: []
+  /v1/certificate/delivery:
+    get:
+      tags:
+      - Certificate
+      operationId: getDeliveryCertificate
+      parameters:
+      - name: includeE164
+        in: query
+        schema:
+          type: boolean
+          default: true
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryCertificate'
+      security:
+      - authenticatedAccount: []
+  /v1/certificate/auth/group:
+    get:
+      tags:
+      - Certificate
+      operationId: getGroupAuthenticationCredentials
+      parameters:
+      - name: redemptionStartSeconds
+        in: query
+        schema:
+          type: integer
+          format: int32
+      - name: redemptionEndSeconds
+        in: query
+        schema:
+          type: integer
+          format: int32
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupCredentials'
+      security:
+      - authenticatedAccount: []
+  /v1/challenge:
+    put:
+      tags:
+      - Challenge
+      operationId: handleChallengeResponse
+      parameters:
+      - name: X-Forwarded-For
+        in: header
+        schema:
+          type: string
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnswerChallengeRequest'
+      responses:
+        default:
+          description: default response
+          content:
+            application/json: {}
+      security:
+      - authenticatedAccount: []
+  /v1/challenge/push:
+    post:
+      tags:
+      - Challenge
+      operationId: requestPushChallenge
+      responses:
+        default:
+          description: default response
+          content:
+            '*/*': {}
+      security:
+      - authenticatedAccount: []
+  /v1/devices/provisioning/code:
+    get:
+      tags:
+      - Devices
+      operationId: createDeviceToken
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationCode'
+      security:
+      - authenticatedAccount: []
+  /v1/devices:
+    get:
+      tags:
+      - Devices
+      operationId: getDevices
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceInfoList'
+      security:
+      - authenticatedAccount: []
+  /v1/devices/{device_id}:
+    delete:
+      tags:
+      - Devices
+      operationId: removeDevice
+      parameters:
+      - name: device_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        default:
+          description: default response
+          content:
+            '*/*': {}
+      security:
+      - authenticatedAccount: []
+  /v1/devices/capabilities:
+    put:
+      tags:
+      - Devices
+      operationId: setCapabiltities
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              $ref: '#/components/schemas/DeviceCapabilities'
+        required: true
+      responses:
+        default:
+          description: default response
+          content:
+            '*/*': {}
+      security:
+      - authenticatedAccount: []
+  /v1/devices/unauthenticated_delivery:
+    put:
+      tags:
+      - Devices
+      operationId: setUnauthenticatedDelivery
+      responses:
+        default:
+          description: default response
+          content:
+            '*/*': {}
+      security:
+      - authenticatedAccount: []
+  /v1/devices/{verification_code}:
+    put:
+      tags:
+      - Devices
+      operationId: verifyDeviceToken
+      parameters:
+      - name: verification_code
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: Authorization
+        in: header
+        schema:
+          $ref: '#/components/schemas/BasicAuthorizationHeader'
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountAttributes'
+        required: true
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceResponse'
+  /v1/directory/auth:
+    get:
+      tags:
+      - Directory
+      operationId: getAuthToken
+      responses:
+        default:
+          description: default response
+          content:
+            application/json: {}
+      security:
+      - authenticatedAccount: []
+  /v1/directory/tokens:
+    put:
+      tags:
+      - Directory
+      operationId: getContactIntersection
+      responses:
+        default:
+          description: default response
+          content:
+            application/json: {}
+      security:
+      - authenticatedAccount: []
+  /v1/directory/{token}:
+    get:
+      tags:
+      - Directory
+      operationId: getTokenPresence
+      responses:
+        default:
+          description: default response
+          content:
+            application/json: {}
+      security:
+      - authenticatedAccount: []
+  /v1/directory/feedback-v3/{status}:
+    put:
+      tags:
+      - Directory
+      operationId: setFeedback
+      responses:
+        default:
+          description: default response
+          content:
+            application/json: {}
+      security:
+      - authenticatedAccount: []
+  /v2/directory/auth:
+    get:
+      tags:
+      - Directory
+      operationId: getAuthToken_1
+      responses:
+        default:
+          description: default response
+          content:
+            application/json: {}
+      security:
+      - authenticatedAccount: []
+  /v1/donation/redeem-receipt:
+    post:
+      tags:
+      - Donations
+      operationId: redeemReceipt
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RedeemReceiptRequest'
+        required: true
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                type: object
+            text/plain:
+              schema:
+                type: object
+      security:
+      - authenticatedAccount: []
+  /v1/keepalive:
+    get:
+      tags:
+      - Keep Alive
+      operationId: getKeepAlive
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              $ref: '#/components/schemas/WebSocketSessionContext'
+      responses:
+        default:
+          description: default response
+          content:
+            '*/*': {}
+      security:
+      - authenticatedAccount: []
+  /v1/keepalive/provisioning:
+    get:
+      tags:
+      - Keep Alive
+      operationId: getProvisioningKeepAlive
+      responses:
+        default:
+          description: default response
+          content:
+            '*/*': {}
+  /v2/keys/{identifier}/{device_id}:
+    get:
+      tags:
+      - Keys
+      operationId: getDeviceKeys
+      parameters:
+      - name: Unidentified-Access-Key
+        in: header
+        schema:
+          $ref: '#/components/schemas/Anonymous'
+      - name: identifier
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: device_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              $ref: '#/components/schemas/AuthenticatedAccount'
+      responses:
+        default:
+          description: default response
+          content:
+            application/json: {}
+  /v2/keys/signed:
+    get:
+      tags:
+      - Keys
+      operationId: getSignedKey
+      parameters:
+      - name: identity
+        in: query
+        schema:
+          type: string
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignedPreKey'
+      security:
+      - authenticatedAccount: []
+    put:
+      tags:
+      - Keys
+      operationId: setSignedKey
+      parameters:
+      - name: identity
+        in: query
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignedPreKey'
+      responses:
+        default:
+          description: default response
+          content:
+            '*/*': {}
+      security:
+      - authenticatedAccount: []
+  /v2/keys:
+    get:
+      tags:
+      - Keys
+      operationId: getStatus
+      parameters:
+      - name: identity
+        in: query
+        schema:
+          type: string
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreKeyCount'
+      security:
+      - authenticatedAccount: []
+    put:
+      tags:
+      - Keys
+      operationId: setKeys
+      parameters:
+      - name: identity
+        in: query
+        schema:
+          type: string
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreKeyState'
+        required: true
+      responses:
+        default:
+          description: default response
+          content:
+            '*/*': {}
+      security:
+      - authenticatedAccount: []
+  /v1/messages:
+    get:
+      tags:
+      - Messages
+      operationId: getPendingMessages
+      parameters:
+      - name: X-Signal-Receive-Stories
+        in: header
+        schema:
+          type: string
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
+                  completedExceptionally:
+                    type: boolean
+                  numberOfDependents:
+                    type: integer
+                    format: int32
+      security:
+      - authenticatedAccount: []
+  /v1/messages/uuid/{uuid}:
+    delete:
+      tags:
+      - Messages
+      operationId: removePendingMessage
+      parameters:
+      - name: uuid
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        default:
+          description: default response
+          content:
+            '*/*':
+              schema:
+                type: object
+                properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
+                  completedExceptionally:
+                    type: boolean
+                  numberOfDependents:
+                    type: integer
+                    format: int32
+      security:
+      - authenticatedAccount: []
+  /v1/messages/report/{source}/{messageGuid}:
+    post:
+      tags:
+      - Messages
+      operationId: reportSpamMessage
+      parameters:
+      - name: source
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: messageGuid
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SpamReport'
+      responses:
+        default:
+          description: default response
+          content:
+            '*/*': {}
+      security:
+      - authenticatedAccount: []
+  /v1/messages/{destination}:
+    put:
+      tags:
+      - Messages
+      operationId: sendMessage
+      parameters:
+      - name: Unidentified-Access-Key
+        in: header
+        schema:
+          $ref: '#/components/schemas/Anonymous'
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
+      - name: X-Forwarded-For
+        in: header
+        schema:
+          type: string
+      - name: destination
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: story
+        in: query
+        schema:
+          type: boolean
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthenticatedAccount'
+      responses:
+        default:
+          description: default response
+          content:
+            application/json: {}
+  /v1/messages/multi_recipient:
+    put:
+      tags:
+      - Messages
+      operationId: sendMultiRecipientMessage
+      parameters:
+      - name: Unidentified-Access-Key
+        in: header
+        schema:
+          $ref: '#/components/schemas/CombinedUnidentifiedSenderAccessKeys'
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
+      - name: X-Forwarded-For
+        in: header
+        schema:
+          type: string
+      - name: online
+        in: query
+        schema:
+          type: boolean
+      - name: ts
+        in: query
+        schema:
+          type: integer
+          format: int64
+      - name: urgent
+        in: query
+        schema:
+          type: boolean
+          default: true
+      - name: story
+        in: query
+        schema:
+          type: boolean
+      requestBody:
+        content:
+          application/vnd.signal-messenger.mrm:
+            schema:
+              $ref: '#/components/schemas/MultiRecipientMessage'
+        required: true
+      responses:
+        default:
+          description: default response
+          content:
+            application/json: {}
+  /v1/payments/auth:
+    get:
+      tags:
+      - Payments
+      operationId: getAuth_1
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExternalServiceCredentials'
+      security:
+      - authenticatedAccount: []
+  /v1/payments/conversions:
+    get:
+      tags:
+      - Payments
+      operationId: getConversions
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrencyConversionEntityList'
+      security:
+      - authenticatedAccount: []
+  /v1/profile/{uuid}/{version}:
+    get:
+      tags:
+      - Profile
+      operationId: getProfile
+      parameters:
+      - name: Unidentified-Access-Key
+        in: header
+        schema:
+          $ref: '#/components/schemas/Anonymous'
+      - name: uuid
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: version
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              $ref: '#/components/schemas/AuthenticatedAccount'
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VersionedProfileResponse'
+  /v1/profile/{uuid}/{version}/{credentialRequest}:
+    get:
+      tags:
+      - Profile
+      operationId: getProfile_1
+      parameters:
+      - name: Unidentified-Access-Key
+        in: header
+        schema:
+          $ref: '#/components/schemas/Anonymous'
+      - name: uuid
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: version
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: credentialRequest
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: credentialType
+        in: query
+        schema:
+          type: string
+          default: profileKey
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              $ref: '#/components/schemas/AuthenticatedAccount'
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialProfileResponse'
+  /v1/profile/{identifier}:
+    get:
+      tags:
+      - Profile
+      operationId: getUnversionedProfile
+      parameters:
+      - name: Unidentified-Access-Key
+        in: header
+        schema:
+          $ref: '#/components/schemas/Anonymous'
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
+      - name: identifier
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: ca
+        in: query
+        schema:
+          type: boolean
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              $ref: '#/components/schemas/AuthenticatedAccount'
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseProfileResponse'
+  /v1/profile/identity_check/batch:
+    post:
+      tags:
+      - Profile
+      operationId: runBatchIdentityCheck
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchIdentityCheckRequest'
+        required: true
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
+                  completedExceptionally:
+                    type: boolean
+                  numberOfDependents:
+                    type: integer
+                    format: int32
+  /v1/profile:
+    put:
+      tags:
+      - Profile
+      operationId: setProfile
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProfileRequest'
+        required: true
+      responses:
+        default:
+          description: default response
+          content:
+            application/json: {}
+      security:
+      - authenticatedAccount: []
+  /v1/provisioning/{destination}:
+    put:
+      tags:
+      - Provisioning
+      operationId: sendProvisioningMessage
+      parameters:
+      - name: destination
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProvisioningMessage'
+        required: true
+      responses:
+        default:
+          description: default response
+          content:
+            application/json: {}
+      security:
+      - authenticatedAccount: []
+  /v1/registration:
+    post:
+      tags:
+      - Registration
+      operationId: register
+      parameters:
+      - name: Authorization
+        in: header
+        required: true
+        schema:
+          $ref: '#/components/schemas/BasicAuthorizationHeader'
+      - name: X-Signal-Agent
+        in: header
+        schema:
+          type: string
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrationRequest'
+        required: true
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountIdentityResponse'
+  /v1/config/{name}:
+    delete:
+      tags:
+      - Remote Config
+      operationId: delete
+      parameters:
+      - name: Config-Token
+        in: header
+        schema:
+          type: string
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        default:
+          description: default response
+          content:
+            '*/*': {}
+  /v1/config:
+    get:
+      tags:
+      - Remote Config
+      operationId: getAll
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserRemoteConfigList'
+      security:
+      - authenticatedAccount: []
+    put:
+      tags:
+      - Remote Config
+      operationId: set
+      parameters:
+      - name: Config-Token
+        in: header
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RemoteConfig'
+        required: true
+      responses:
+        default:
+          description: default response
+          content:
+            application/json: {}
+  /v1/backup/auth/check:
+    post:
+      tags:
+      - Secure Value Recovery
+      summary: Check SVR credentials
+      description: |
+        Over time, clients may wind up with multiple sets of KBS authentication credentials in cloud storage.
+        To determine which set is most current and should be used to communicate with KBS to retrieve a master password
+        (from which a registration recovery password can be derived), clients should call this endpoint
+        with a list of stored credentials. The response will identify which (if any) set of credentials are appropriate for communicating with KBS.
+      operationId: authCheck
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthCheckRequest'
+        required: true
+      responses:
+        "200":
+          description: '`JSON` with the check results.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthCheckResponse'
+        "422":
+          description: Provided list of KBS credentials could not be parsed
+        "400":
+          description: '`POST` request body is not a valid `JSON`'
+  /v1/backup/auth:
+    get:
+      tags:
+      - Secure Value Recovery
+      summary: Generate credentials for SVR
+      description: |
+        Generate SVR service credentials. Generated credentials have an expiration time of 30 days.
+      operationId: getAuth_2
+      responses:
+        "200":
+          description: '`JSON` with generated credentials.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExternalServiceCredentials'
+        "401":
+          description: Account authentication check failed.
+      security:
+      - authenticatedAccount: []
+  /v1/storage/auth:
+    get:
+      tags:
+      - Secure Storage
+      operationId: getAuth_3
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExternalServiceCredentials'
+      security:
+      - authenticatedAccount: []
+  /v2/backup/auth:
+    get:
+      tags:
+      - Secure Value Recovery
+      summary: Generate credentials for SVR2
+      description: |
+        Generate SVR2 service credentials. Generated credentials have an expiration time of 30 days.
+      operationId: getAuth_4
+      responses:
+        "200":
+          description: '`JSON` with generated credentials.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExternalServiceCredentials'
+        "401":
+          description: Account authentication check failed.
+      security:
+      - authenticatedAccount: []
+  /v1/sticker/pack/form/{count}:
+    get:
+      tags:
+      - Stickers
+      operationId: getStickersForm
+      parameters:
+      - name: count
+        in: path
+        required: true
+        schema:
+          maximum: 201
+          minimum: 1
+          type: integer
+          format: int32
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StickerPackFormUploadAttributes'
+      security:
+      - authenticatedAccount: []
+  /v1/subscription/boost/paypal/confirm:
+    post:
+      tags:
+      - Subscriptions
+      operationId: confirmPayPalBoost
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmPayPalBoostRequest'
+        required: true
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
+                  completedExceptionally:
+                    type: boolean
+                  numberOfDependents:
+                    type: integer
+                    format: int32
+  /v1/subscription/boost/create:
+    post:
+      tags:
+      - Subscriptions
+      operationId: createBoostPaymentIntent
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBoostRequest'
+        required: true
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
+                  completedExceptionally:
+                    type: boolean
+                  numberOfDependents:
+                    type: integer
+                    format: int32
+  /v1/subscription/boost/receipt_credentials:
+    post:
+      tags:
+      - Subscriptions
+      operationId: createBoostReceiptCredentials
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBoostReceiptCredentialsRequest'
+        required: true
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
+                  completedExceptionally:
+                    type: boolean
+                  numberOfDependents:
+                    type: integer
+                    format: int32
+  /v1/subscription/boost/paypal/create:
+    post:
+      tags:
+      - Subscriptions
+      operationId: createPayPalBoost
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePayPalBoostRequest'
+        required: true
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
+                  completedExceptionally:
+                    type: boolean
+                  numberOfDependents:
+                    type: integer
+                    format: int32
+  /v1/subscription/{subscriberId}/create_payment_method/paypal:
+    post:
+      tags:
+      - Subscriptions
+      operationId: createPayPalPaymentMethod
+      parameters:
+      - name: subscriberId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthenticatedAccount'
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
+                  completedExceptionally:
+                    type: boolean
+                  numberOfDependents:
+                    type: integer
+                    format: int32
+  /v1/subscription/{subscriberId}/create_payment_method:
+    post:
+      tags:
+      - Subscriptions
+      operationId: createPaymentMethod
+      parameters:
+      - name: subscriberId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: type
+        in: query
+        schema:
+          type: string
+          default: CARD
+          enum:
+          - CARD
+          - PAYPAL
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthenticatedAccount'
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
+                  completedExceptionally:
+                    type: boolean
+                  numberOfDependents:
+                    type: integer
+                    format: int32
+  /v1/subscription/{subscriberId}/receipt_credentials:
+    post:
+      tags:
+      - Subscriptions
+      operationId: createSubscriptionReceiptCredentials
+      parameters:
+      - name: subscriberId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthenticatedAccount'
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
+                  completedExceptionally:
+                    type: boolean
+                  numberOfDependents:
+                    type: integer
+                    format: int32
+  /v1/subscription/{subscriberId}:
+    get:
+      tags:
+      - Subscriptions
+      operationId: getSubscriptionInformation
+      parameters:
+      - name: subscriberId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              $ref: '#/components/schemas/AuthenticatedAccount'
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
+                  completedExceptionally:
+                    type: boolean
+                  numberOfDependents:
+                    type: integer
+                    format: int32
+    put:
+      tags:
+      - Subscriptions
+      operationId: updateSubscriber
+      parameters:
+      - name: subscriberId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthenticatedAccount'
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
+                  completedExceptionally:
+                    type: boolean
+                  numberOfDependents:
+                    type: integer
+                    format: int32
+    delete:
+      tags:
+      - Subscriptions
+      operationId: deleteSubscriber
+      parameters:
+      - name: subscriberId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              $ref: '#/components/schemas/AuthenticatedAccount'
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
+                  completedExceptionally:
+                    type: boolean
+                  numberOfDependents:
+                    type: integer
+                    format: int32
+  /v1/subscription/boost/amounts:
+    get:
+      tags:
+      - Subscriptions
+      operationId: getBoostAmounts
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
+                  completedExceptionally:
+                    type: boolean
+                  numberOfDependents:
+                    type: integer
+                    format: int32
+      deprecated: true
+  /v1/subscription/boost/badges:
+    get:
+      tags:
+      - Subscriptions
+      operationId: getBoostBadges
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
+                  completedExceptionally:
+                    type: boolean
+                  numberOfDependents:
+                    type: integer
+                    format: int32
+      deprecated: true
+  /v1/subscription/configuration:
+    get:
+      tags:
+      - Subscriptions
+      operationId: getConfiguration
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
+                  completedExceptionally:
+                    type: boolean
+                  numberOfDependents:
+                    type: integer
+                    format: int32
+  /v1/subscription/boost/amounts/gift:
+    get:
+      tags:
+      - Subscriptions
+      operationId: getGiftAmounts
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
+                  completedExceptionally:
+                    type: boolean
+                  numberOfDependents:
+                    type: integer
+                    format: int32
+      deprecated: true
+  /v1/subscription/levels:
+    get:
+      tags:
+      - Subscriptions
+      operationId: getLevels
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
+                  completedExceptionally:
+                    type: boolean
+                  numberOfDependents:
+                    type: integer
+                    format: int32
+      deprecated: true
+  /v1/subscription/{subscriberId}/default_payment_method/{paymentMethodId}:
+    post:
+      tags:
+      - Subscriptions
+      operationId: setDefaultPaymentMethod
+      parameters:
+      - name: subscriberId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: paymentMethodId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthenticatedAccount'
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
+                  completedExceptionally:
+                    type: boolean
+                  numberOfDependents:
+                    type: integer
+                    format: int32
+      deprecated: true
+  /v1/subscription/{subscriberId}/default_payment_method/{processor}/{paymentMethodToken}:
+    post:
+      tags:
+      - Subscriptions
+      operationId: setDefaultPaymentMethodWithProcessor
+      parameters:
+      - name: subscriberId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: processor
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - STRIPE
+          - BRAINTREE
+      - name: paymentMethodToken
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthenticatedAccount'
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
+                  completedExceptionally:
+                    type: boolean
+                  numberOfDependents:
+                    type: integer
+                    format: int32
+  /v1/subscription/{subscriberId}/level/{level}/{currency}/{idempotencyKey}:
+    put:
+      tags:
+      - Subscriptions
+      operationId: setSubscriptionLevel
+      parameters:
+      - name: subscriberId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: level
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: currency
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: idempotencyKey
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthenticatedAccount'
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
+                  completedExceptionally:
+                    type: boolean
+                  numberOfDependents:
+                    type: integer
+                    format: int32
+components:
+  schemas:
+    AccountIdentityResponse:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        number:
+          type: string
+        pni:
+          type: string
+          format: uuid
+        usernameHash:
+          type: array
+          items:
+            type: string
+            format: byte
+        storageCapable:
+          type: boolean
+    ChangePhoneNumberRequest:
+      required:
+      - code
+      - number
+      type: object
+      properties:
+        reglock:
+          type: string
+        number:
+          type: string
+        code:
+          type: string
+        pniIdentityKey:
+          type: string
+        deviceMessages:
+          type: array
+          items:
+            $ref: '#/components/schemas/IncomingMessage'
+        devicePniSignedPrekeys:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/SignedPreKey'
+        pniRegistrationIds:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int32
+    IncomingMessage:
+      type: object
+      properties:
+        type:
+          type: integer
+          format: int32
+        destinationDeviceId:
+          type: integer
+          format: int64
+        destinationRegistrationId:
+          type: integer
+          format: int32
+        content:
+          type: string
+    SignedPreKey:
+      required:
+      - keyId
+      - publicKey
+      - signature
+      type: object
+      properties:
+        keyId:
+          type: integer
+          format: int64
+        publicKey:
+          type: string
+        signature:
+          type: string
+    UsernameHashResponse:
+      type: object
+      properties:
+        usernameHash:
+          type: array
+          items:
+            type: string
+            format: byte
+    ConfirmUsernameHashRequest:
+      type: object
+      properties:
+        usernameHash:
+          type: array
+          items:
+            type: string
+            format: byte
+        zkProof:
+          type: array
+          items:
+            type: string
+            format: byte
+    TurnToken:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+        urls:
+          type: array
+          items:
+            type: string
+    AccountIdentifierResponse:
+      required:
+      - uuid
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+    ReserveUsernameHashResponse:
+      type: object
+      properties:
+        usernameHash:
+          type: array
+          items:
+            type: string
+            format: byte
+    ReserveUsernameHashRequest:
+      required:
+      - usernameHashes
+      type: object
+      properties:
+        usernameHashes:
+          maxItems: 20
+          minItems: 1
+          type: array
+          items:
+            type: array
+            items:
+              type: string
+              format: byte
+    AccountAttributes:
+      type: object
+      properties:
+        fetchesMessages:
+          type: boolean
+        registrationId:
+          type: integer
+          format: int32
+        name:
+          maxLength: 204
+          minLength: 0
+          type: string
+        registrationLock:
+          type: string
+        unidentifiedAccessKey:
+          type: array
+          items:
+            type: string
+            format: byte
+        unrestrictedUnidentifiedAccess:
+          type: boolean
+        capabilities:
+          $ref: '#/components/schemas/DeviceCapabilities'
+        discoverableByPhoneNumber:
+          type: boolean
+        recoveryPassword:
+          type: array
+          items:
+            type: string
+            format: byte
+        pniRegistrationId:
+          type: object
+          properties:
+            empty:
+              type: boolean
+            present:
+              type: boolean
+            asInt:
+              type: integer
+              format: int32
+    DeviceCapabilities:
+      type: object
+      properties:
+        storage:
+          type: boolean
+        transfer:
+          type: boolean
+        senderKey:
+          type: boolean
+        announcementGroup:
+          type: boolean
+        changeNumber:
+          type: boolean
+        pni:
+          type: boolean
+        stories:
+          type: boolean
+        giftBadges:
+          type: boolean
+        paymentActivation:
+          type: boolean
+    ApnRegistrationId:
+      required:
+      - apnRegistrationId
+      type: object
+      properties:
+        apnRegistrationId:
+          type: string
+        voipRegistrationId:
+          type: string
+    GcmRegistrationId:
+      required:
+      - gcmRegistrationId
+      type: object
+      properties:
+        gcmRegistrationId:
+          type: string
+    DeviceName:
+      required:
+      - deviceName
+      type: object
+      properties:
+        deviceName:
+          maxLength: 300
+          minLength: 0
+          type: string
+    RegistrationLock:
+      required:
+      - registrationLock
+      type: object
+      properties:
+        registrationLock:
+          maxLength: 64
+          minLength: 64
+          type: string
+    BasicAuthorizationHeader:
+      type: object
+      properties:
+        username:
+          type: string
+        deviceId:
+          type: integer
+          format: int64
+        password:
+          type: string
+    ChangeNumberRequest:
+      required:
+      - deviceMessages
+      - devicePniSignedPrekeys
+      - number
+      - pniIdentityKey
+      - pniRegistrationIds
+      type: object
+      properties:
+        reglock:
+          type: string
+        sessionId:
+          type: string
+        recoveryPassword:
+          type: array
+          items:
+            type: string
+            format: byte
+        number:
+          type: string
+        pniIdentityKey:
+          type: string
+        deviceMessages:
+          type: array
+          items:
+            $ref: '#/components/schemas/IncomingMessage'
+        devicePniSignedPrekeys:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/SignedPreKey'
+        pniRegistrationIds:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int32
+        valid:
+          type: boolean
+    PhoneNumberDiscoverabilityRequest:
+      required:
+      - discoverableByPhoneNumber
+      type: object
+      properties:
+        discoverableByPhoneNumber:
+          type: boolean
+    ExternalServiceCredentials:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+    AttachmentDescriptorV2:
+      type: object
+      properties:
+        key:
+          type: string
+        credential:
+          type: string
+        acl:
+          type: string
+        algorithm:
+          type: string
+        date:
+          type: string
+        policy:
+          type: string
+        signature:
+          type: string
+        attachmentId:
+          type: integer
+          format: int64
+        attachmentIdString:
+          type: string
+    AttachmentDescriptorV3:
+      type: object
+      properties:
+        cdn:
+          type: integer
+          format: int32
+        key:
+          type: string
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+        signedUploadLocation:
+          type: string
+    GroupCredential:
+      type: object
+      properties:
+        credential:
+          type: array
+          items:
+            type: string
+            format: byte
+        redemptionTime:
+          type: integer
+          format: int64
+    GroupCredentials:
+      type: object
+      properties:
+        credentials:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroupCredential'
+        pni:
+          type: string
+          format: uuid
+    DeliveryCertificate:
+      type: object
+      properties:
+        certificate:
+          type: array
+          items:
+            type: string
+            format: byte
+    AnswerChallengeRequest:
+      required:
+      - type
+      type: object
+      properties:
+        type:
+          type: string
+      discriminator:
+        propertyName: type
+    AnswerPushChallengeRequest:
+      required:
+      - challenge
+      type: object
+      allOf:
+      - $ref: '#/components/schemas/AnswerChallengeRequest'
+      - type: object
+        properties:
+          challenge:
+            type: string
+    AnswerRecaptchaChallengeRequest:
+      required:
+      - captcha
+      - token
+      type: object
+      allOf:
+      - $ref: '#/components/schemas/AnswerChallengeRequest'
+      - type: object
+        properties:
+          token:
+            type: string
+          captcha:
+            type: string
+    VerificationCode:
+      type: object
+      properties:
+        verificationCode:
+          type: string
+    DeviceInfo:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        lastSeen:
+          type: integer
+          format: int64
+        created:
+          type: integer
+          format: int64
+    DeviceInfoList:
+      type: object
+      properties:
+        devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviceInfo'
+    DeviceResponse:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        pni:
+          type: string
+          format: uuid
+        deviceId:
+          type: integer
+          format: int64
+    RedeemReceiptRequest:
+      required:
+      - receiptCredentialPresentation
+      type: object
+      properties:
+        receiptCredentialPresentation:
+          type: array
+          items:
+            type: string
+            format: byte
+        visible:
+          type: boolean
+        primary:
+          type: boolean
+    WebSocketClient:
+      type: object
+      properties:
+        open:
+          type: boolean
+        userAgent:
+          type: string
+        createdTimestamp:
+          type: integer
+          format: int64
+    WebSocketSessionContext:
+      type: object
+      properties:
+        authenticated:
+          type: object
+        client:
+          $ref: '#/components/schemas/WebSocketClient'
+    Account:
+      type: object
+      properties:
+        number:
+          type: string
+        usernameHash:
+          type: array
+          items:
+            type: string
+            format: byte
+        reservedUsernameHash:
+          type: array
+          items:
+            type: string
+            format: byte
+        devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/Device'
+        identityKey:
+          type: string
+        badges:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccountBadge'
+        registrationLock:
+          $ref: '#/components/schemas/StoredRegistrationLock'
+        registrationLockSalt:
+          type: string
+        version:
+          type: integer
+          format: int32
+        enabled:
+          type: boolean
+        masterDevice:
+          $ref: '#/components/schemas/Device'
+        transferSupported:
+          type: boolean
+        storageSupported:
+          type: boolean
+        lastSeen:
+          type: integer
+          format: int64
+        pniSupported:
+          type: boolean
+        giftBadgesSupported:
+          type: boolean
+        nextDeviceId:
+          type: integer
+          format: int64
+        senderKeySupported:
+          type: boolean
+        storiesSupported:
+          type: boolean
+        changeNumberSupported:
+          type: boolean
+        enabledDeviceCount:
+          type: integer
+          format: int32
+        registrationLockFromAttributes:
+          $ref: '#/components/schemas/AccountAttributes'
+        paymentActivationSupported:
+          type: boolean
+        announcementGroupSupported:
+          type: boolean
+        pni:
+          type: string
+          format: uuid
+        pniIdentityKey:
+          type: string
+        cpv:
+          type: string
+        uak:
+          type: array
+          items:
+            type: string
+            format: byte
+        uua:
+          type: boolean
+        inCds:
+          type: boolean
+    AccountBadge:
+      type: object
+      properties:
+        id:
+          type: string
+        expiration:
+          type: string
+          format: date-time
+        visible:
+          type: boolean
+    AuthenticatedAccount:
+      type: object
+      properties:
+        name:
+          type: string
+        authenticatedDevice:
+          $ref: '#/components/schemas/Device'
+        account:
+          $ref: '#/components/schemas/Account'
+    Device:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        authToken:
+          type: string
+        salt:
+          type: string
+        gcmId:
+          type: string
+        apnId:
+          type: string
+        voipApnId:
+          type: string
+        pushTimestamp:
+          type: integer
+          format: int64
+        uninstalledFeedback:
+          type: integer
+          format: int64
+        fetchesMessages:
+          type: boolean
+        registrationId:
+          type: integer
+          format: int32
+        signedPreKey:
+          $ref: '#/components/schemas/SignedPreKey'
+        lastSeen:
+          type: integer
+          format: int64
+        created:
+          type: integer
+          format: int64
+        userAgent:
+          type: string
+        capabilities:
+          $ref: '#/components/schemas/DeviceCapabilities'
+        enabled:
+          type: boolean
+        authTokenHash:
+          $ref: '#/components/schemas/SaltedTokenHash'
+        uninstalledFeedbackTimestamp:
+          type: integer
+          format: int64
+        master:
+          type: boolean
+        pniRegistrationId:
+          type: object
+          properties:
+            empty:
+              type: boolean
+            present:
+              type: boolean
+            asInt:
+              type: integer
+              format: int32
+        pniSignedPreKey:
+          $ref: '#/components/schemas/SignedPreKey'
+    SaltedTokenHash:
+      type: object
+      properties:
+        hash:
+          type: string
+        salt:
+          type: string
+        version:
+          type: string
+          enum:
+          - V1
+          - V2
+    StoredRegistrationLock:
+      type: object
+      properties:
+        timeRemaining:
+          type: integer
+          format: int64
+    Anonymous:
+      type: object
+      properties:
+        accessKey:
+          type: array
+          items:
+            type: string
+            format: byte
+    PreKeyCount:
+      type: object
+      properties:
+        count:
+          type: integer
+          format: int32
+    PreKey:
+      required:
+      - keyId
+      - publicKey
+      type: object
+      properties:
+        keyId:
+          type: integer
+          format: int64
+        publicKey:
+          type: string
+    PreKeyState:
+      required:
+      - identityKey
+      - preKeys
+      - signedPreKey
+      type: object
+      properties:
+        preKeys:
+          type: array
+          items:
+            $ref: '#/components/schemas/PreKey'
+        signedPreKey:
+          $ref: '#/components/schemas/SignedPreKey'
+        identityKey:
+          type: string
+    SpamReport:
+      type: object
+      properties:
+        token:
+          type: array
+          items:
+            type: string
+            format: byte
+    IncomingMessageList:
+      required:
+      - messages
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/IncomingMessage'
+        online:
+          type: boolean
+        urgent:
+          type: boolean
+        timestamp:
+          type: integer
+          format: int64
+    CombinedUnidentifiedSenderAccessKeys:
+      type: object
+      properties:
+        accessKeys:
+          type: array
+          items:
+            type: string
+            format: byte
+    MultiRecipientMessage:
+      required:
+      - commonPayload
+      - recipients
+      type: object
+      properties:
+        recipients:
+          maxItems: 5000
+          minItems: 1
+          type: array
+          items:
+            $ref: '#/components/schemas/Recipient'
+        commonPayload:
+          maxItems: 2147483647
+          minItems: 32
+          type: array
+          items:
+            type: string
+            format: byte
+    Recipient:
+      required:
+      - perRecipientKeyMaterial
+      - uuid
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        deviceId:
+          minimum: 1
+          type: integer
+          format: int64
+        registrationId:
+          maximum: 65535
+          minimum: 0
+          type: integer
+          format: int32
+        perRecipientKeyMaterial:
+          maxItems: 48
+          minItems: 48
+          type: array
+          items:
+            type: string
+            format: byte
+    CurrencyConversionEntity:
+      type: object
+      properties:
+        base:
+          type: string
+        conversions:
+          type: object
+          additionalProperties:
+            type: number
+    CurrencyConversionEntityList:
+      type: object
+      properties:
+        currencies:
+          type: array
+          items:
+            $ref: '#/components/schemas/CurrencyConversionEntity'
+        timestamp:
+          type: integer
+          format: int64
+    Badge:
+      type: object
+      properties:
+        id:
+          type: string
+        category:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        sprites6:
+          type: array
+          items:
+            type: string
+        svg:
+          type: string
+        svgs:
+          type: array
+          items:
+            $ref: '#/components/schemas/BadgeSvg'
+        imageUrl:
+          type: string
+    BadgeSvg:
+      required:
+      - dark
+      - light
+      type: object
+      properties:
+        light:
+          type: string
+        dark:
+          type: string
+    BaseProfileResponse:
+      type: object
+      properties:
+        identityKey:
+          type: string
+        unidentifiedAccess:
+          type: string
+        unrestrictedUnidentifiedAccess:
+          type: boolean
+        capabilities:
+          $ref: '#/components/schemas/UserCapabilities'
+        badges:
+          type: array
+          items:
+            $ref: '#/components/schemas/Badge'
+        uuid:
+          type: string
+          format: uuid
+    UserCapabilities:
+      type: object
+      properties:
+        gv1-migration:
+          type: boolean
+        senderKey:
+          type: boolean
+        announcementGroup:
+          type: boolean
+        changeNumber:
+          type: boolean
+        stories:
+          type: boolean
+        giftBadges:
+          type: boolean
+        paymentActivation:
+          type: boolean
+        pni:
+          type: boolean
+    VersionedProfileResponse:
+      type: object
+      properties:
+        identityKey:
+          type: string
+        unidentifiedAccess:
+          type: string
+        unrestrictedUnidentifiedAccess:
+          type: boolean
+        capabilities:
+          $ref: '#/components/schemas/UserCapabilities'
+        badges:
+          type: array
+          items:
+            $ref: '#/components/schemas/Badge'
+        uuid:
+          type: string
+          format: uuid
+        name:
+          type: string
+        about:
+          type: string
+        aboutEmoji:
+          type: string
+        avatar:
+          type: string
+        paymentAddress:
+          type: string
+    CredentialProfileResponse:
+      type: object
+      properties:
+        identityKey:
+          type: string
+        unidentifiedAccess:
+          type: string
+        unrestrictedUnidentifiedAccess:
+          type: boolean
+        capabilities:
+          $ref: '#/components/schemas/UserCapabilities'
+        badges:
+          type: array
+          items:
+            $ref: '#/components/schemas/Badge'
+        uuid:
+          type: string
+          format: uuid
+        name:
+          type: string
+        about:
+          type: string
+        aboutEmoji:
+          type: string
+        avatar:
+          type: string
+        paymentAddress:
+          type: string
+    BatchIdentityCheckRequest:
+      required:
+      - elements
+      type: object
+      properties:
+        elements:
+          maxItems: 1000
+          minItems: 0
+          type: array
+          items:
+            $ref: '#/components/schemas/Element'
+    Element:
+      required:
+      - fingerprint
+      type: object
+      properties:
+        aci:
+          type: string
+          format: uuid
+        uuid:
+          type: string
+          format: uuid
+        fingerprint:
+          type: array
+          items:
+            type: string
+            format: byte
+    CreateProfileRequest:
+      required:
+      - commitment
+      - version
+      type: object
+      properties:
+        version:
+          type: string
+        name:
+          type: string
+        avatar:
+          type: boolean
+        sameAvatar:
+          type: boolean
+        aboutEmoji:
+          type: string
+        about:
+          type: string
+        paymentAddress:
+          type: string
+        badgeIds:
+          type: array
+          items:
+            type: string
+        commitment:
+          $ref: '#/components/schemas/ProfileKeyCommitment'
+        avatarChange:
+          type: string
+          enum:
+          - UNCHANGED
+          - CLEAR
+          - UPDATE
+        badges:
+          type: array
+          items:
+            type: string
+    ProfileKeyCommitment:
+      type: object
+      properties:
+        internalContentsForJNI:
+          type: array
+          items:
+            type: string
+            format: byte
+    ProvisioningMessage:
+      required:
+      - body
+      type: object
+      properties:
+        body:
+          type: string
+    RegistrationRequest:
+      required:
+      - accountAttributes
+      type: object
+      properties:
+        sessionId:
+          type: string
+        recoveryPassword:
+          type: array
+          items:
+            type: string
+            format: byte
+        accountAttributes:
+          $ref: '#/components/schemas/AccountAttributes'
+        skipDeviceTransfer:
+          type: boolean
+        valid:
+          type: boolean
+    UserRemoteConfig:
+      type: object
+      properties:
+        name:
+          type: string
+        enabled:
+          type: boolean
+        value:
+          type: string
+    UserRemoteConfigList:
+      type: object
+      properties:
+        config:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserRemoteConfig'
+    RemoteConfig:
+      required:
+      - percentage
+      - uuids
+      type: object
+      properties:
+        name:
+          pattern: "[A-Za-z0-9\\.]+"
+          type: string
+        percentage:
+          maximum: 100
+          minimum: 0
+          type: integer
+          format: int32
+        uuids:
+          uniqueItems: true
+          type: array
+          items:
+            type: string
+            format: uuid
+        defaultValue:
+          type: string
+        value:
+          type: string
+        hashKey:
+          type: string
+    AuthCheckResponse:
+      required:
+      - matches
+      type: object
+      properties:
+        matches:
+          type: object
+          additionalProperties:
+            type: string
+            description: "A dictionary with the auth check results: `KBS Credentials\
+              \ -> 'match'/'no-match'/'invalid'`"
+            enum:
+            - match
+            - no-match
+            - invalid
+          description: "A dictionary with the auth check results: `KBS Credentials\
+            \ -> 'match'/'no-match'/'invalid'`"
+    AuthCheckRequest:
+      required:
+      - number
+      - passwords
+      type: object
+      properties:
+        number:
+          type: string
+          description: The e164-formatted phone number.
+        passwords:
+          maxItems: 10
+          minItems: 0
+          type: array
+          description: "A list of SVR auth values, previously retrieved from `/v1/backup/auth`;\
+            \ may contain at most 10."
+          items:
+            type: string
+            description: "A list of SVR auth values, previously retrieved from `/v1/backup/auth`;\
+              \ may contain at most 10."
+    StickerPackFormUploadAttributes:
+      type: object
+      properties:
+        manifest:
+          $ref: '#/components/schemas/StickerPackFormUploadItem'
+        stickers:
+          type: array
+          items:
+            $ref: '#/components/schemas/StickerPackFormUploadItem'
+        packId:
+          type: string
+    StickerPackFormUploadItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int32
+        key:
+          type: string
+        credential:
+          type: string
+        acl:
+          type: string
+        algorithm:
+          type: string
+        date:
+          type: string
+        policy:
+          type: string
+        signature:
+          type: string
+    ConfirmPayPalBoostRequest:
+      required:
+      - currency
+      - payerId
+      - paymentId
+      - paymentToken
+      type: object
+      properties:
+        currency:
+          type: string
+        amount:
+          minimum: 1
+          type: integer
+          format: int64
+        level:
+          type: integer
+          format: int64
+        payerId:
+          type: string
+        paymentId:
+          type: string
+        paymentToken:
+          type: string
+    CreateBoostRequest:
+      required:
+      - currency
+      type: object
+      properties:
+        currency:
+          type: string
+        amount:
+          minimum: 1
+          type: integer
+          format: int64
+        level:
+          type: integer
+          format: int64
+    CreateBoostReceiptCredentialsRequest:
+      required:
+      - paymentIntentId
+      - processor
+      - receiptCredentialRequest
+      type: object
+      properties:
+        paymentIntentId:
+          type: string
+        receiptCredentialRequest:
+          type: array
+          items:
+            type: string
+            format: byte
+        processor:
+          type: string
+          enum:
+          - STRIPE
+          - BRAINTREE
+    CreatePayPalBoostRequest:
+      required:
+      - cancelUrl
+      - currency
+      - returnUrl
+      type: object
+      properties:
+        currency:
+          type: string
+        amount:
+          minimum: 1
+          type: integer
+          format: int64
+        level:
+          type: integer
+          format: int64
+        returnUrl:
+          type: string
+        cancelUrl:
+          type: string
+    CreatePayPalBillingAgreementRequest:
+      required:
+      - cancelUrl
+      - returnUrl
+      type: object
+      properties:
+        returnUrl:
+          type: string
+        cancelUrl:
+          type: string
+    GetReceiptCredentialsRequest:
+      required:
+      - receiptCredentialRequest
+      type: object
+      properties:
+        receiptCredentialRequest:
+          type: array
+          items:
+            type: string
+            format: byte
+  securitySchemes:
+    authenticatedAccount:
+      type: http
+      description: "Account authentication is based on Basic authentication schema,\
+        \ \nwhere `username` has a format of `<user_id>[.<device_id>]`. If `device_id`\
+        \ is not specified,\nuser's `main` device is assumed.\n"
+      scheme: basic
