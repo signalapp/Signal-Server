@@ -1,3 +1,8 @@
+/*
+ * Copyright 2023 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 package org.whispersystems.textsecuregcm.limits;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -12,17 +17,17 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.whispersystems.textsecuregcm.spam.RateLimitChallengeListener;
 import org.whispersystems.textsecuregcm.captcha.AssessmentResult;
 import org.whispersystems.textsecuregcm.captcha.CaptchaChecker;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
+import org.whispersystems.textsecuregcm.spam.RateLimitChallengeListener;
 import org.whispersystems.textsecuregcm.storage.Account;
 
 class RateLimitChallengeManagerTest {
 
   private PushChallengeManager pushChallengeManager;
   private CaptchaChecker captchaChecker;
-  private DynamicRateLimiters rateLimiters;
+  private RateLimiters rateLimiters;
   private RateLimitChallengeListener rateLimitChallengeListener;
 
   private RateLimitChallengeManager rateLimitChallengeManager;
@@ -31,7 +36,7 @@ class RateLimitChallengeManagerTest {
   void setUp() {
     pushChallengeManager = mock(PushChallengeManager.class);
     captchaChecker = mock(CaptchaChecker.class);
-    rateLimiters = mock(DynamicRateLimiters.class);
+    rateLimiters = mock(RateLimiters.class);
     rateLimitChallengeListener = mock(RateLimitChallengeListener.class);
 
     rateLimitChallengeManager = new RateLimitChallengeManager(

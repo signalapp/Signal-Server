@@ -14,7 +14,7 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface RateLimitedByIp {
 
-  RateLimiters.Handle value();
+  RateLimiters.For value();
 
   boolean failOnUnresolvedIp() default true;
 }

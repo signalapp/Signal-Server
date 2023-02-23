@@ -5,193 +5,232 @@
 package org.whispersystems.textsecuregcm.limits;
 
 
+import com.google.common.annotations.VisibleForTesting;
 import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-import org.apache.commons.lang3.tuple.Pair;
-import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 
-public class RateLimiters {
+public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
 
-  public enum Handle {
-    USERNAME_LOOKUP("usernameLookup"),
-    CHECK_ACCOUNT_EXISTENCE("checkAccountExistence"),
-    BACKUP_AUTH_CHECK;
+  public enum For implements RateLimiterDescriptor {
+    BACKUP_AUTH_CHECK("backupAuthCheck", false, new RateLimiterConfig(100, 100 / (24.0 * 60.0))),
+
+    SMS_DESTINATION("smsDestination", false, new RateLimiterConfig(2, 2)),
+
+    VOICE_DESTINATION("voxDestination", false, new RateLimiterConfig(2, 1.0 / 2.0)),
+
+    VOICE_DESTINATION_DAILY("voxDestinationDaily", false, new RateLimiterConfig(10, 10.0 / (24.0 * 60.0))),
+
+    SMS_VOICE_IP("smsVoiceIp", false, new RateLimiterConfig(1000, 1000)),
+
+    SMS_VOICE_PREFIX("smsVoicePrefix", false, new RateLimiterConfig(1000, 1000)),
+
+    VERIFY("verify", false, new RateLimiterConfig(2, 2)),
+
+    PIN("pin", false, new RateLimiterConfig(10, 1 / (24.0 * 60.0))),
+
+    ATTACHMENT("attachmentCreate", false, new RateLimiterConfig(50, 50)),
+
+    PRE_KEYS("prekeys", false, new RateLimiterConfig(6, 1.0 / 10.0)),
+
+    MESSAGES("messages", false, new RateLimiterConfig(60, 60)),
+
+    ALLOCATE_DEVICE("allocateDevice", false, new RateLimiterConfig(2, 1.0 / 2.0)),
+
+    VERIFY_DEVICE("verifyDevice", false, new RateLimiterConfig(6, 1.0 / 10.0)),
+
+    TURN("turnAllocate", false, new RateLimiterConfig(60, 60)),
+
+    PROFILE("profile", false, new RateLimiterConfig(4320, 3)),
+
+    STICKER_PACK("stickerPack", false, new RateLimiterConfig(50, 20 / (24.0 * 60.0))),
+
+    ART_PACK("artPack", false, new RateLimiterConfig(50, 20 / (24.0 * 60.0))),
+
+    USERNAME_LOOKUP("usernameLookup", false, new RateLimiterConfig(100, 100 / (24.0 * 60.0))),
+
+    USERNAME_SET("usernameSet", false, new RateLimiterConfig(100, 100 / (24.0 * 60.0))),
+
+    USERNAME_RESERVE("usernameReserve", false, new RateLimiterConfig(100, 100 / (24.0 * 60.0))),
+
+    CHECK_ACCOUNT_EXISTENCE("checkAccountExistence", false, new RateLimiterConfig(1_000, 1_000 / 60.0)),
+
+    STORIES("stories", false, new RateLimiterConfig(10_000, 10_000 / (24.0 * 60.0))),
+
+    REGISTRATION("registration", false, new RateLimiterConfig(2, 2)),
+
+    VERIFICATION_PUSH_CHALLENGE("verificationPushChallenge", false, new RateLimiterConfig(5, 2)),
+
+    VERIFICATION_CAPTCHA("verificationCaptcha", false, new RateLimiterConfig(10, 2)),
+
+    RATE_LIMIT_RESET("rateLimitReset", true, new RateLimiterConfig(2, 2.0 / (60 * 24))),
+
+    RECAPTCHA_CHALLENGE_ATTEMPT("recaptchaChallengeAttempt", true, new RateLimiterConfig(10, 10.0 / (60 * 24))),
+
+    RECAPTCHA_CHALLENGE_SUCCESS("recaptchaChallengeSuccess", true, new RateLimiterConfig(2, 2.0 / (60 * 24))),
+
+    PUSH_CHALLENGE_ATTEMPT("pushChallengeAttempt", true, new RateLimiterConfig(10, 10.0 / (60 * 24))),
+
+    PUSH_CHALLENGE_SUCCESS("pushChallengeSuccess", true, new RateLimiterConfig(2, 2.0 / (60 * 24))),
+    ;
 
     private final String id;
 
+    private final boolean dynamic;
 
-    Handle(final String id) {
+    private final RateLimiterConfig defaultConfig;
+
+    For(final String id, final boolean dynamic, final RateLimiterConfig defaultConfig) {
       this.id = id;
-    }
-
-    Handle() {
-      this.id = name();
+      this.dynamic = dynamic;
+      this.defaultConfig = defaultConfig;
     }
 
     public String id() {
       return id;
     }
+
+    @Override
+    public boolean isDynamic() {
+      return dynamic;
+    }
+
+    public RateLimiterConfig defaultConfig() {
+      return defaultConfig;
+    }
   }
 
-  private final RateLimiter smsDestinationLimiter;
-  private final RateLimiter voiceDestinationLimiter;
-  private final RateLimiter voiceDestinationDailyLimiter;
-  private final RateLimiter smsVoiceIpLimiter;
-  private final RateLimiter smsVoicePrefixLimiter;
-  private final RateLimiter verifyLimiter;
-  private final RateLimiter verificationCaptchaLimiter;
-  private final RateLimiter verificationPushChallengeLimiter;
-  private final RateLimiter pinLimiter;
-  private final RateLimiter registrationLimiter;
-  private final RateLimiter attachmentLimiter;
-  private final RateLimiter preKeysLimiter;
-  private final RateLimiter messagesLimiter;
-  private final RateLimiter allocateDeviceLimiter;
-  private final RateLimiter verifyDeviceLimiter;
-  private final RateLimiter turnLimiter;
-  private final RateLimiter profileLimiter;
-  private final RateLimiter stickerPackLimiter;
-  private final RateLimiter artPackLimiter;
-  private final RateLimiter usernameSetLimiter;
-  private final RateLimiter usernameReserveLimiter;
-
-  private final Map<String, RateLimiter> rateLimiterByHandle;
-
-  public RateLimiters(final RateLimitsConfiguration config, final FaultTolerantRedisCluster cacheCluster) {
-    this.smsDestinationLimiter = fromConfig("smsDestination", config.getSmsDestination(), cacheCluster);
-    this.voiceDestinationLimiter = fromConfig("voxDestination", config.getVoiceDestination(), cacheCluster);
-    this.voiceDestinationDailyLimiter = fromConfig("voxDestinationDaily", config.getVoiceDestinationDaily(),
-        cacheCluster);
-    this.smsVoiceIpLimiter = fromConfig("smsVoiceIp", config.getSmsVoiceIp(), cacheCluster);
-    this.smsVoicePrefixLimiter = fromConfig("smsVoicePrefix", config.getSmsVoicePrefix(), cacheCluster);
-    this.verifyLimiter = fromConfig("verify", config.getVerifyNumber(), cacheCluster);
-    this.verificationCaptchaLimiter = fromConfig("verificationCaptcha", config.getVerificationCaptcha(), cacheCluster);
-    this.verificationPushChallengeLimiter = fromConfig("verificationPushChallenge",
-        config.getVerificationPushChallenge(), cacheCluster);
-    this.pinLimiter = fromConfig("pin", config.getVerifyPin(), cacheCluster);
-    this.registrationLimiter = fromConfig("registration", config.getRegistration(), cacheCluster);
-    this.attachmentLimiter = fromConfig("attachmentCreate", config.getAttachments(), cacheCluster);
-    this.preKeysLimiter = fromConfig("prekeys", config.getPreKeys(), cacheCluster);
-    this.messagesLimiter = fromConfig("messages", config.getMessages(), cacheCluster);
-    this.allocateDeviceLimiter = fromConfig("allocateDevice", config.getAllocateDevice(), cacheCluster);
-    this.verifyDeviceLimiter = fromConfig("verifyDevice", config.getVerifyDevice(), cacheCluster);
-    this.turnLimiter = fromConfig("turnAllocate", config.getTurnAllocations(), cacheCluster);
-    this.profileLimiter = fromConfig("profile", config.getProfile(), cacheCluster);
-    this.stickerPackLimiter = fromConfig("stickerPack", config.getStickerPack(), cacheCluster);
-    this.artPackLimiter = fromConfig("artPack", config.getArtPack(), cacheCluster);
-    this.usernameSetLimiter = fromConfig("usernameSet", config.getUsernameSet(), cacheCluster);
-    this.usernameReserveLimiter = fromConfig("usernameReserve", config.getUsernameReserve(), cacheCluster);
-
-    this.rateLimiterByHandle = Stream.of(
-        fromConfig(Handle.BACKUP_AUTH_CHECK.id(), config.getBackupAuthCheck(), cacheCluster),
-        fromConfig(Handle.CHECK_ACCOUNT_EXISTENCE.id(), config.getCheckAccountExistence(), cacheCluster),
-        fromConfig(Handle.USERNAME_LOOKUP.id(), config.getUsernameLookup(), cacheCluster)
-    ).map(rl -> Pair.of(rl.name, rl)).collect(Collectors.toMap(Pair::getKey, Pair::getValue));
+  public static RateLimiters createAndValidate(
+      final Map<String, RateLimiterConfig> configs,
+      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
+      final FaultTolerantRedisCluster cacheCluster) {
+    final RateLimiters rateLimiters = new RateLimiters(configs, dynamicConfigurationManager, cacheCluster);
+    rateLimiters.validateValuesAndConfigs();
+    return rateLimiters;
   }
 
-  public Optional<RateLimiter> byHandle(final Handle handle) {
-    return Optional.ofNullable(rateLimiterByHandle.get(handle.id()));
+  @VisibleForTesting
+  RateLimiters(
+      final Map<String, RateLimiterConfig> configs,
+      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
+      final FaultTolerantRedisCluster cacheCluster) {
+    super(For.values(), configs, dynamicConfigurationManager, cacheCluster);
   }
 
   public RateLimiter getAllocateDeviceLimiter() {
-    return allocateDeviceLimiter;
+    return forDescriptor(For.ALLOCATE_DEVICE);
   }
 
   public RateLimiter getVerifyDeviceLimiter() {
-    return verifyDeviceLimiter;
+    return forDescriptor(For.VERIFY_DEVICE);
   }
 
   public RateLimiter getMessagesLimiter() {
-    return messagesLimiter;
+    return forDescriptor(For.MESSAGES);
   }
 
   public RateLimiter getPreKeysLimiter() {
-    return preKeysLimiter;
+    return forDescriptor(For.PRE_KEYS);
   }
 
   public RateLimiter getAttachmentLimiter() {
-    return this.attachmentLimiter;
+    return forDescriptor(For.ATTACHMENT);
   }
 
   public RateLimiter getSmsDestinationLimiter() {
-    return smsDestinationLimiter;
+    return forDescriptor(For.SMS_DESTINATION);
   }
 
   public RateLimiter getSmsVoiceIpLimiter() {
-    return smsVoiceIpLimiter;
+    return forDescriptor(For.SMS_VOICE_IP);
   }
 
   public RateLimiter getSmsVoicePrefixLimiter() {
-    return smsVoicePrefixLimiter;
+    return forDescriptor(For.SMS_VOICE_PREFIX);
   }
 
   public RateLimiter getVoiceDestinationLimiter() {
-    return voiceDestinationLimiter;
+    return forDescriptor(For.VOICE_DESTINATION);
   }
 
   public RateLimiter getVoiceDestinationDailyLimiter() {
-    return voiceDestinationDailyLimiter;
+    return forDescriptor(For.VOICE_DESTINATION_DAILY);
   }
 
   public RateLimiter getVerifyLimiter() {
-    return verifyLimiter;
-  }
-
-  public RateLimiter getVerificationCaptchaLimiter() {
-    return verificationCaptchaLimiter;
-  }
-
-  public RateLimiter getVerificationPushChallengeLimiter() {
-    return verificationPushChallengeLimiter;
+    return forDescriptor(For.VERIFY);
   }
 
   public RateLimiter getPinLimiter() {
-    return pinLimiter;
-  }
-
-  public RateLimiter getRegistrationLimiter() {
-    return registrationLimiter;
+    return forDescriptor(For.PIN);
   }
 
   public RateLimiter getTurnLimiter() {
-    return turnLimiter;
+    return forDescriptor(For.TURN);
   }
 
   public RateLimiter getProfileLimiter() {
-    return profileLimiter;
+    return forDescriptor(For.PROFILE);
   }
 
   public RateLimiter getStickerPackLimiter() {
-    return stickerPackLimiter;
+    return forDescriptor(For.STICKER_PACK);
   }
 
   public RateLimiter getArtPackLimiter() {
-    return artPackLimiter;
+    return forDescriptor(For.ART_PACK);
   }
 
   public RateLimiter getUsernameLookupLimiter() {
-    return byHandle(Handle.USERNAME_LOOKUP).orElseThrow();
+    return forDescriptor(For.USERNAME_LOOKUP);
   }
 
   public RateLimiter getUsernameSetLimiter() {
-    return usernameSetLimiter;
+    return forDescriptor(For.USERNAME_SET);
   }
 
   public RateLimiter getUsernameReserveLimiter() {
-    return usernameReserveLimiter;
+    return forDescriptor(For.USERNAME_RESERVE);
   }
 
   public RateLimiter getCheckAccountExistenceLimiter() {
-    return byHandle(Handle.CHECK_ACCOUNT_EXISTENCE).orElseThrow();
+    return forDescriptor(For.CHECK_ACCOUNT_EXISTENCE);
   }
 
-  private static RateLimiter fromConfig(
-      final String name,
-      final RateLimitsConfiguration.RateLimitConfiguration cfg,
-      final FaultTolerantRedisCluster cacheCluster) {
-    return new RateLimiter(cacheCluster, name, cfg.getBucketSize(), cfg.getLeakRatePerMinute());
+  public RateLimiter getStoriesLimiter() {
+    return forDescriptor(For.STORIES);
+  }
+
+  public RateLimiter getRegistrationLimiter() {
+    return forDescriptor(For.REGISTRATION);
+  }
+
+  public RateLimiter getRateLimitResetLimiter() {
+    return forDescriptor(For.RATE_LIMIT_RESET);
+  }
+
+  public RateLimiter getRecaptchaChallengeAttemptLimiter() {
+    return forDescriptor(For.RECAPTCHA_CHALLENGE_ATTEMPT);
+  }
+
+  public RateLimiter getRecaptchaChallengeSuccessLimiter() {
+    return forDescriptor(For.RECAPTCHA_CHALLENGE_SUCCESS);
+  }
+
+  public RateLimiter getPushChallengeAttemptLimiter() {
+    return forDescriptor(For.PUSH_CHALLENGE_ATTEMPT);
+  }
+
+  public RateLimiter getPushChallengeSuccessLimiter() {
+    return forDescriptor(For.PUSH_CHALLENGE_SUCCESS);
+  }
+
+  public RateLimiter getVerificationPushChallengeLimiter() {
+    return forDescriptor(For.VERIFICATION_PUSH_CHALLENGE);
+  }
+
+  public RateLimiter getVerificationCaptchaLimiter() {
+    return forDescriptor(For.VERIFICATION_CAPTCHA);
   }
 }

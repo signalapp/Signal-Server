@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2021 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -30,13 +30,13 @@ import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 class RateLimitChallengeOptionManagerTest {
 
   private DynamicRateLimitChallengeConfiguration rateLimitChallengeConfiguration;
-  private DynamicRateLimiters rateLimiters;
+  private RateLimiters rateLimiters;
 
   private RateLimitChallengeOptionManager rateLimitChallengeOptionManager;
 
   @BeforeEach
   void setUp() {
-    rateLimiters = mock(DynamicRateLimiters.class);
+    rateLimiters = mock(RateLimiters.class);
 
     final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
         mock(DynamicConfigurationManager.class);

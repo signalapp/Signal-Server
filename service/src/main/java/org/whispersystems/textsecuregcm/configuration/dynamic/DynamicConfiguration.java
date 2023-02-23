@@ -1,10 +1,17 @@
+/*
+ * Copyright 2023 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 package org.whispersystems.textsecuregcm.configuration.dynamic;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import javax.validation.Valid;
+import org.whispersystems.textsecuregcm.limits.RateLimiterConfig;
 
 public class DynamicConfiguration {
 
@@ -18,7 +25,7 @@ public class DynamicConfiguration {
 
   @JsonProperty
   @Valid
-  private DynamicRateLimitsConfiguration limits = new DynamicRateLimitsConfiguration();
+  private Map<String, RateLimiterConfig> limits = new HashMap<>();
 
   @JsonProperty
   @Valid
@@ -65,7 +72,7 @@ public class DynamicConfiguration {
     return Optional.ofNullable(preRegistrationExperiments.get(experimentName));
   }
 
-  public DynamicRateLimitsConfiguration getLimits() {
+  public Map<String, RateLimiterConfig> getLimits() {
     return limits;
   }
 

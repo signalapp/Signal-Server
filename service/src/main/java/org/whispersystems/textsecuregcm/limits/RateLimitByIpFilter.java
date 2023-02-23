@@ -58,7 +58,7 @@ public class RateLimitByIpFilter implements ContainerRequestFilter {
       return;
     }
 
-    final RateLimiters.Handle handle = annotation.value();
+    final RateLimiters.For handle = annotation.value();
 
     try {
       final String xffHeader = requestContext.getHeaders().getFirst(HttpHeaders.X_FORWARDED_FOR);
@@ -77,13 +77,8 @@ public class RateLimitByIpFilter implements ContainerRequestFilter {
         return;
       }
 
-      final Optional<RateLimiter> maybeRateLimiter = rateLimiters.byHandle(handle);
-      if (maybeRateLimiter.isEmpty()) {
-        logger.warn("RateLimiter not found for {}. Make sure it's initialized in RateLimiters class", handle);
-        return;
-      }
-
-      maybeRateLimiter.get().validate(maybeMostRecentProxy.get());
+      final RateLimiter rateLimiter = rateLimiters.forDescriptor(handle);
+      rateLimiter.validate(maybeMostRecentProxy.get());
     } catch (RateLimitExceededException e) {
       final Response response = EXCEPTION_MAPPER.toResponse(e);
       throw new ClientErrorException(response);

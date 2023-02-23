@@ -746,7 +746,7 @@ public class AccountController {
   @GET
   @Path("/username_hash/{usernameHash}")
   @Produces(MediaType.APPLICATION_JSON)
-  @RateLimitedByIp(RateLimiters.Handle.USERNAME_LOOKUP)
+  @RateLimitedByIp(RateLimiters.For.USERNAME_LOOKUP)
   public AccountIdentifierResponse lookupUsernameHash(
       @HeaderParam(HeaderUtils.X_SIGNAL_AGENT) final String userAgent,
       @HeaderParam(HttpHeaders.X_FORWARDED_FOR) final String forwardedFor,
@@ -780,7 +780,7 @@ public class AccountController {
 
   @HEAD
   @Path("/account/{uuid}")
-  @RateLimitedByIp(RateLimiters.Handle.CHECK_ACCOUNT_EXISTENCE)
+  @RateLimitedByIp(RateLimiters.For.CHECK_ACCOUNT_EXISTENCE)
   public Response accountExists(
       @PathParam("uuid") final UUID uuid,
       @Context HttpServletRequest request) throws RateLimitExceededException {

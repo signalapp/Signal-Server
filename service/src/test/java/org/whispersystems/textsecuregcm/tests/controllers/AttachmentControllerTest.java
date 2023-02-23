@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2021 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -42,17 +42,16 @@ import org.whispersystems.textsecuregcm.entities.AttachmentDescriptorV3;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
+import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class AttachmentControllerTest {
 
-  private static RateLimiters             rateLimiters  = mock(RateLimiters.class            );
-  private static RateLimiter              rateLimiter   = mock(RateLimiter.class             );
+  private static final RateLimiter RATE_LIMITER = mock(RateLimiter.class);
 
-  static {
-    when(rateLimiters.getAttachmentLimiter()).thenReturn(rateLimiter);
-  }
+  private static final RateLimiters RATE_LIMITERS = MockUtils.buildMock(RateLimiters.class, rateLimiters ->
+      when(rateLimiters.getAttachmentLimiter()).thenReturn(RATE_LIMITER));
 
   public static final String RSA_PRIVATE_KEY_PEM;
 
@@ -80,8 +79,8 @@ class AttachmentControllerTest {
               ImmutableSet.of(AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)))
               .setMapper(SystemMapper.getMapper())
               .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-              .addResource(new AttachmentControllerV2(rateLimiters, "accessKey", "accessSecret", "us-east-1", "attachmentv2-bucket"))
-              .addResource(new AttachmentControllerV3(rateLimiters, "some-cdn.signal.org", "signal@example.com", 1000, "/attach-here", RSA_PRIVATE_KEY_PEM))
+              .addResource(new AttachmentControllerV2(RATE_LIMITERS, "accessKey", "accessSecret", "us-east-1", "attachmentv2-bucket"))
+              .addResource(new AttachmentControllerV3(RATE_LIMITERS, "some-cdn.signal.org", "signal@example.com", 1000, "/attach-here", RSA_PRIVATE_KEY_PEM))
               .build();
     } catch (IOException | InvalidKeyException | InvalidKeySpecException e) {
       throw new AssertionError(e);

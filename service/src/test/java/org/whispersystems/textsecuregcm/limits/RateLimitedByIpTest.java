@@ -11,7 +11,6 @@ import com.google.common.net.HttpHeaders;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import java.time.Duration;
-import java.util.Optional;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.core.Response;
@@ -43,14 +42,14 @@ public class RateLimitedByIpTest {
   public static class Controller {
     @GET
     @Path("/strict")
-    @RateLimitedByIp(RateLimiters.Handle.BACKUP_AUTH_CHECK)
+    @RateLimitedByIp(RateLimiters.For.BACKUP_AUTH_CHECK)
     public Response strict() {
       return Response.ok().build();
     }
 
     @GET
     @Path("/loose")
-    @RateLimitedByIp(value = RateLimiters.Handle.BACKUP_AUTH_CHECK, failOnUnresolvedIp = false)
+    @RateLimitedByIp(value = RateLimiters.For.BACKUP_AUTH_CHECK, failOnUnresolvedIp = false)
     public Response loose() {
       return Response.ok().build();
     }
@@ -59,7 +58,7 @@ public class RateLimitedByIpTest {
   private static final RateLimiter RATE_LIMITER = Mockito.mock(RateLimiter.class);
 
   private static final RateLimiters RATE_LIMITERS = MockUtils.buildMock(RateLimiters.class, rl ->
-      Mockito.when(rl.byHandle(Mockito.eq(RateLimiters.Handle.BACKUP_AUTH_CHECK))).thenReturn(Optional.of(RATE_LIMITER)));
+      Mockito.when(rl.forDescriptor(Mockito.eq(RateLimiters.For.BACKUP_AUTH_CHECK))).thenReturn(RATE_LIMITER));
 
   private static final ResourceExtension RESOURCES = ResourceExtension.builder()
       .setMapper(SystemMapper.getMapper())

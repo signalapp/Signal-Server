@@ -1,3 +1,8 @@
+/*
+ * Copyright 2023 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 package org.whispersystems.textsecuregcm.limits;
 
 import static com.codahale.metrics.MetricRegistry.name;
@@ -9,11 +14,11 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import org.whispersystems.textsecuregcm.spam.RateLimitChallengeListener;
 import org.whispersystems.textsecuregcm.captcha.CaptchaChecker;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
+import org.whispersystems.textsecuregcm.spam.RateLimitChallengeListener;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -21,7 +26,7 @@ public class RateLimitChallengeManager {
 
   private final PushChallengeManager pushChallengeManager;
   private final CaptchaChecker captchaChecker;
-  private final DynamicRateLimiters rateLimiters;
+  private final RateLimiters rateLimiters;
 
   private final List<RateLimitChallengeListener> rateLimitChallengeListeners =
       Collections.synchronizedList(new ArrayList<>());
@@ -35,7 +40,7 @@ public class RateLimitChallengeManager {
   public RateLimitChallengeManager(
       final PushChallengeManager pushChallengeManager,
       final CaptchaChecker captchaChecker,
-      final DynamicRateLimiters rateLimiters) {
+      final RateLimiters rateLimiters) {
 
     this.pushChallengeManager = pushChallengeManager;
     this.captchaChecker = captchaChecker;

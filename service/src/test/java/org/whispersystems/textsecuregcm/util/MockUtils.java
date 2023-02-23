@@ -45,10 +45,10 @@ public final class MockUtils {
 
   public static void updateRateLimiterResponseToAllow(
       final RateLimiters rateLimitersMock,
-      final RateLimiters.Handle handle,
+      final RateLimiters.For handle,
       final String input) {
     final RateLimiter mockRateLimiter = Mockito.mock(RateLimiter.class);
-    doReturn(Optional.of(mockRateLimiter)).when(rateLimitersMock).byHandle(eq(handle));
+    doReturn(Optional.of(mockRateLimiter)).when(rateLimitersMock).forDescriptor(eq(handle));
     try {
       doNothing().when(mockRateLimiter).validate(eq(input));
     } catch (final RateLimitExceededException e) {
@@ -58,12 +58,12 @@ public final class MockUtils {
 
   public static void updateRateLimiterResponseToFail(
       final RateLimiters rateLimitersMock,
-      final RateLimiters.Handle handle,
+      final RateLimiters.For handle,
       final String input,
       final Duration retryAfter,
       final boolean legacyStatusCode) {
     final RateLimiter mockRateLimiter = Mockito.mock(RateLimiter.class);
-    doReturn(Optional.of(mockRateLimiter)).when(rateLimitersMock).byHandle(eq(handle));
+    doReturn(mockRateLimiter).when(rateLimitersMock).forDescriptor(eq(handle));
     try {
       doThrow(new RateLimitExceededException(retryAfter, legacyStatusCode)).when(mockRateLimiter).validate(eq(input));
     } catch (final RateLimitExceededException e) {

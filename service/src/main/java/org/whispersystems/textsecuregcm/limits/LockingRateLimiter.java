@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -16,22 +16,28 @@ import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.util.Constants;
 
-public class LockingRateLimiter extends RateLimiter {
+public class LockingRateLimiter extends StaticRateLimiter {
+
+  private static final RateLimitExceededException REUSABLE_RATE_LIMIT_EXCEEDED_EXCEPTION
+      = new RateLimitExceededException(Duration.ZERO, true);
 
   private final Meter meter;
 
-  public LockingRateLimiter(FaultTolerantRedisCluster cacheCluster, String name, int bucketSize, double leakRatePerMinute) {
-    super(cacheCluster, name, bucketSize, leakRatePerMinute);
 
-    MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
+  public LockingRateLimiter(
+      final String name,
+      final RateLimiterConfig config,
+      final FaultTolerantRedisCluster cacheCluster) {
+    super(name, config, cacheCluster);
+    final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
     this.meter = metricRegistry.meter(name(getClass(), name, "locked"));
   }
 
   @Override
-  public void validate(String key, int amount) throws RateLimitExceededException {
+  public void validate(final String key, final int amount) throws RateLimitExceededException {
     if (!acquireLock(key)) {
       meter.mark();
-      throw new RateLimitExceededException(Duration.ZERO, true);
+      throw REUSABLE_RATE_LIMIT_EXCEEDED_EXCEPTION;
     }
 
     try {
@@ -41,22 +47,15 @@ public class LockingRateLimiter extends RateLimiter {
     }
   }
 
-  @Override
-  public void validate(String key) throws RateLimitExceededException {
-    validate(key, 1);
-  }
-
-  private void releaseLock(String key) {
+  private void releaseLock(final String key) {
     cacheCluster.useCluster(connection -> connection.sync().del(getLockName(key)));
   }
 
-  private boolean acquireLock(String key) {
+  private boolean acquireLock(final String key) {
     return cacheCluster.withCluster(connection -> connection.sync().set(getLockName(key), "L", SetArgs.Builder.nx().ex(10))) != null;
   }
 
-  private String getLockName(String key) {
+  private String getLockName(final String key) {
     return "leaky_lock::" + name + "::" + key;
   }
-
-
 }

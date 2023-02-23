@@ -20,7 +20,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
-import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration.RateLimitConfiguration;
+import org.whispersystems.textsecuregcm.limits.RateLimiterConfig;
+import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
@@ -274,30 +275,19 @@ class DynamicConfigurationTest {
 
   @Test
   void testParseLimits() throws JsonProcessingException {
-    {
-      final String emptyConfigYaml = REQUIRED_CONFIG.concat("test: true");
-      final DynamicConfiguration emptyConfig =
-          DynamicConfigurationManager.parseConfiguration(emptyConfigYaml, DynamicConfiguration.class).orElseThrow();
-
-      assertThat(emptyConfig.getLimits().getRateLimitReset().getBucketSize()).isEqualTo(2);
-      assertThat(emptyConfig.getLimits().getRateLimitReset().getLeakRatePerMinute()).isEqualTo(2.0 / (60 * 24));
-    }
-
-    {
-      final String limitsConfig = REQUIRED_CONFIG.concat("""
+    final String limitsConfig = REQUIRED_CONFIG.concat("""
           limits:
             rateLimitReset:
               bucketSize: 17
               leakRatePerMinute: 44
           """);
 
-      final RateLimitConfiguration resetRateLimitConfiguration =
-          DynamicConfigurationManager.parseConfiguration(limitsConfig, DynamicConfiguration.class).orElseThrow()
-              .getLimits().getRateLimitReset();
+    final RateLimiterConfig resetRateLimiterConfig =
+        DynamicConfigurationManager.parseConfiguration(limitsConfig, DynamicConfiguration.class).orElseThrow()
+            .getLimits().get(RateLimiters.For.RATE_LIMIT_RESET.id());
 
-      assertThat(resetRateLimitConfiguration.getBucketSize()).isEqualTo(17);
-      assertThat(resetRateLimitConfiguration.getLeakRatePerMinute()).isEqualTo(44);
-    }
+    assertThat(resetRateLimiterConfig.bucketSize()).isEqualTo(17);
+    assertThat(resetRateLimiterConfig.leakRatePerMinute()).isEqualTo(44);
   }
 
   @Test

@@ -79,7 +79,7 @@ public class SecureBackupController {
   @Path("/auth/check")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  @RateLimitedByIp(RateLimiters.Handle.BACKUP_AUTH_CHECK)
+  @RateLimitedByIp(RateLimiters.For.BACKUP_AUTH_CHECK)
   public AuthCheckResponse authCheck(@NotNull @Valid final AuthCheckRequest request) {
     final Map<String, AuthCheckResponse.Result> results = new HashMap<>();
     final Map<String, Pair<UUID, Long>> tokenToUuid = new HashMap<>();

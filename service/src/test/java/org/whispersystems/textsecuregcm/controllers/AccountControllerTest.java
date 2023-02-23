@@ -171,6 +171,7 @@ class AccountControllerTest {
   private static RateLimiter usernameSetLimiter = mock(RateLimiter.class);
   private static RateLimiter usernameReserveLimiter = mock(RateLimiter.class);
   private static RateLimiter usernameLookupLimiter = mock(RateLimiter.class);
+  private static RateLimiter checkAccountExistence = mock(RateLimiter.class);
   private static RegistrationServiceClient registrationServiceClient = mock(RegistrationServiceClient.class);
   private static TurnTokenGenerator turnTokenGenerator = mock(TurnTokenGenerator.class);
   private static Account senderPinAccount = mock(Account.class);
@@ -250,6 +251,8 @@ class AccountControllerTest {
     when(rateLimiters.getUsernameSetLimiter()).thenReturn(usernameSetLimiter);
     when(rateLimiters.getUsernameReserveLimiter()).thenReturn(usernameReserveLimiter);
     when(rateLimiters.getUsernameLookupLimiter()).thenReturn(usernameLookupLimiter);
+    when(rateLimiters.forDescriptor(eq(RateLimiters.For.USERNAME_LOOKUP))).thenReturn(usernameLookupLimiter);
+    when(rateLimiters.forDescriptor(eq(RateLimiters.For.CHECK_ACCOUNT_EXISTENCE))).thenReturn(checkAccountExistence);
 
     when(senderPinAccount.getLastSeen()).thenReturn(System.currentTimeMillis());
     when(senderPinAccount.getRegistrationLock()).thenReturn(
@@ -2124,7 +2127,7 @@ class AccountControllerTest {
     when(accountsManager.getByAccountIdentifier(accountIdentifier)).thenReturn(Optional.of(account));
 
     MockUtils.updateRateLimiterResponseToFail(
-        rateLimiters, RateLimiters.Handle.CHECK_ACCOUNT_EXISTENCE, "127.0.0.1", expectedRetryAfter, true);
+        rateLimiters, RateLimiters.For.CHECK_ACCOUNT_EXISTENCE, "127.0.0.1", expectedRetryAfter, true);
 
     final Response response = resources.getJerseyTest()
         .target(String.format("/v1/accounts/account/%s", accountIdentifier))
@@ -2189,7 +2192,7 @@ class AccountControllerTest {
   void testLookupUsernameRateLimited() throws RateLimitExceededException {
     final Duration expectedRetryAfter = Duration.ofSeconds(13);
     MockUtils.updateRateLimiterResponseToFail(
-        rateLimiters, RateLimiters.Handle.USERNAME_LOOKUP, "127.0.0.1", expectedRetryAfter, true);
+        rateLimiters, RateLimiters.For.USERNAME_LOOKUP, "127.0.0.1", expectedRetryAfter, true);
     final Response response = resources.getJerseyTest()
         .target(String.format("v1/accounts/username_hash/%s", BASE_64_URL_USERNAME_HASH_1))
         .request()
