@@ -4,12 +4,9 @@
  */
 package org.whispersystems.textsecuregcm.limits;
 
-import static com.codahale.metrics.MetricRegistry.name;
 import static java.util.Objects.requireNonNull;
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
-import com.codahale.metrics.Meter;
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.SharedMetricRegistries;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
@@ -18,9 +15,7 @@ import java.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
-import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
-import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 public class StaticRateLimiter implements RateLimiter {
@@ -34,19 +29,15 @@ public class StaticRateLimiter implements RateLimiter {
   protected final FaultTolerantRedisCluster cacheCluster;
 
   private final Counter counter;
-  @Deprecated
-  private final Meter meter;
 
   public StaticRateLimiter(
       final String name,
       final RateLimiterConfig config,
       final FaultTolerantRedisCluster cacheCluster) {
-    final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
     this.name = requireNonNull(name);
     this.config = requireNonNull(config);
     this.cacheCluster = requireNonNull(cacheCluster);
-    this.meter = metricRegistry.meter(name(getClass(), name, "exceeded"));
-    this.counter = Metrics.counter(MetricsUtil.name(getClass(), "exceeded"), "name", name);
+    this.counter = Metrics.counter(name(getClass(), "exceeded"), "name", name);
   }
 
   @Override
@@ -55,7 +46,6 @@ public class StaticRateLimiter implements RateLimiter {
     if (bucket.add(amount)) {
       setBucket(key, bucket);
     } else {
-      meter.mark();
       counter.increment();
       throw new RateLimitExceededException(bucket.getTimeUntilSpaceAvailable(amount), true);
     }
