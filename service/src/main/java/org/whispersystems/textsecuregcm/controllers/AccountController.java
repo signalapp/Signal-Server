@@ -419,8 +419,6 @@ public class AccountController {
     Account account = accounts.create(number, password, signalAgent, accountAttributes,
         existingAccount.map(Account::getBadges).orElseGet(ArrayList::new));
 
-    metricRegistry.meter(name(AccountController.class, "verify", Util.getCountryCode(number))).mark();
-
     Metrics.counter(ACCOUNT_VERIFY_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
             Tag.of(COUNTRY_CODE_TAG_NAME, Util.getCountryCode(number)),
             Tag.of(REGION_TAG_NAME, Util.getRegion(number)),

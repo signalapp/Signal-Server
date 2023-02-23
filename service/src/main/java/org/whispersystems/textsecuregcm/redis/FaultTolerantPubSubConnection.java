@@ -38,7 +38,7 @@ public class FaultTolerantPubSubConnection<K, V> {
       final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
       this.executeTimer = metricRegistry.timer(name(getClass(), name + "-pubsub", "execute"));
 
-      CircuitBreakerUtil.registerMetrics(metricRegistry, circuitBreaker, FaultTolerantPubSubConnection.class);
+      CircuitBreakerUtil.registerMetrics(circuitBreaker, FaultTolerantPubSubConnection.class);
     }
 
     public void usePubSubConnection(final Consumer<StatefulRedisClusterPubSubConnection<K, V>> consumer) {

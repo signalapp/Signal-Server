@@ -5,10 +5,8 @@
 
 package org.whispersystems.textsecuregcm.util;
 
-import com.codahale.metrics.Meter;
-import com.codahale.metrics.MetricRegistry;
-
 import static com.codahale.metrics.MetricRegistry.name;
+
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.retry.Retry;
 import io.micrometer.core.instrument.Counter;
@@ -25,11 +23,7 @@ public class CircuitBreakerUtil {
   private static final String NAME_TAG_NAME = "name";
   private static final String OUTCOME_TAG_NAME = "outcome";
 
-  public static void registerMetrics(MetricRegistry metricRegistry, CircuitBreaker circuitBreaker, Class<?> clazz) {
-    Meter successMeter     = metricRegistry.meter(name(clazz, circuitBreaker.getName(), "success"    ));
-    Meter failureMeter     = metricRegistry.meter(name(clazz, circuitBreaker.getName(), "failure"    ));
-    Meter unpermittedMeter = metricRegistry.meter(name(clazz, circuitBreaker.getName(), "unpermitted"));
-
+  public static void registerMetrics(CircuitBreaker circuitBreaker, Class<?> clazz) {
     final String breakerName = clazz.getSimpleName() + "/" + circuitBreaker.getName();
 
     final Counter successCounter = Metrics.counter(CIRCUIT_BREAKER_CALL_COUNTER_NAME,
@@ -45,33 +39,23 @@ public class CircuitBreakerUtil {
         OUTCOME_TAG_NAME, "unpermitted");
 
     circuitBreaker.getEventPublisher().onSuccess(event -> {
-      successMeter.mark();
       successCounter.increment();
     });
 
     circuitBreaker.getEventPublisher().onError(event -> {
-      failureMeter.mark();
       failureCounter.increment();
     });
 
     circuitBreaker.getEventPublisher().onCallNotPermitted(event -> {
-      unpermittedMeter.mark();
       unpermittedCounter.increment();
     });
-
-    metricRegistry.gauge(name(clazz, circuitBreaker.getName(), "state"), () -> ()-> circuitBreaker.getState().getOrder());
 
     Metrics.gauge(CIRCUIT_BREAKER_STATE_GAUGE_NAME,
         Tags.of(Tag.of(NAME_TAG_NAME, circuitBreaker.getName())),
         circuitBreaker, breaker -> breaker.getState().getOrder());
   }
 
-  public static void registerMetrics(MetricRegistry metricRegistry, Retry retry, Class<?> clazz) {
-    Meter successMeter      = metricRegistry.meter(name(clazz, retry.getName(), "success"      ));
-    Meter retryMeter        = metricRegistry.meter(name(clazz, retry.getName(), "retry"        ));
-    Meter errorMeter        = metricRegistry.meter(name(clazz, retry.getName(), "error"        ));
-    Meter ignoredErrorMeter = metricRegistry.meter(name(clazz, retry.getName(), "ignored_error"));
-
+  public static void registerMetrics(Retry retry, Class<?> clazz) {
     final String retryName = clazz.getSimpleName() + "/" + retry.getName();
 
     final Counter successCounter = Metrics.counter(RETRY_CALL_COUNTER_NAME,
@@ -91,22 +75,18 @@ public class CircuitBreakerUtil {
         OUTCOME_TAG_NAME, "ignored_error");
 
     retry.getEventPublisher().onSuccess(event -> {
-      successMeter.mark();
       successCounter.increment();
     });
 
     retry.getEventPublisher().onRetry(event -> {
-      retryMeter.mark();
       retryCounter.increment();
     });
 
     retry.getEventPublisher().onError(event -> {
-      errorMeter.mark();
       errorCounter.increment();
     });
 
     retry.getEventPublisher().onIgnoredError(event -> {
-      ignoredErrorMeter.mark();
       ignoredErrorCounter.increment();
     });
   }

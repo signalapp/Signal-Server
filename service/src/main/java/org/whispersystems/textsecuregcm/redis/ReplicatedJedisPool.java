@@ -5,21 +5,16 @@
 
 package org.whispersystems.textsecuregcm.redis;
 
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.SharedMetricRegistries;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
-import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
-import org.whispersystems.textsecuregcm.util.Constants;
-
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
-
-import io.github.resilience4j.circuitbreaker.CircuitBreaker;
-import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
+import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.exceptions.JedisException;
@@ -39,11 +34,10 @@ public class ReplicatedJedisPool {
   {
     if (replicas.size() < 1) throw new IllegalArgumentException("There must be at least one replica");
 
-    MetricRegistry       metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
     CircuitBreakerConfig config         = circuitBreakerConfiguration.toCircuitBreakerConfig();
     CircuitBreaker       masterBreaker  = CircuitBreaker.of(String.format("%s-master", name), config);
 
-    CircuitBreakerUtil.registerMetrics(metricRegistry, masterBreaker, ReplicatedJedisPool.class);
+    CircuitBreakerUtil.registerMetrics(masterBreaker, ReplicatedJedisPool.class);
 
     this.master   = CircuitBreaker.decorateSupplier(masterBreaker, master::getResource);
     this.replicas = new ArrayList<>(replicas.size());
@@ -52,7 +46,7 @@ public class ReplicatedJedisPool {
       JedisPool      replica      = replicas.get(i);
       CircuitBreaker slaveBreaker = CircuitBreaker.of(String.format("%s-slave-%d", name, i), config);
 
-      CircuitBreakerUtil.registerMetrics(metricRegistry, slaveBreaker, ReplicatedJedisPool.class);
+      CircuitBreakerUtil.registerMetrics(slaveBreaker, ReplicatedJedisPool.class);
       this.replicas.add(CircuitBreaker.decorateSupplier(slaveBreaker, replica::getResource));
     }
   }

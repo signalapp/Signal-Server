@@ -5,7 +5,6 @@
 
 package org.whispersystems.textsecuregcm.redis;
 
-import com.codahale.metrics.SharedMetricRegistries;
 import com.google.common.annotations.VisibleForTesting;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.reactor.circuitbreaker.operator.CircuitBreakerOperator;
@@ -31,7 +30,6 @@ import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguratio
 import org.whispersystems.textsecuregcm.configuration.RedisClusterConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
 import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
-import org.whispersystems.textsecuregcm.util.Constants;
 import reactor.core.publisher.Flux;
 
 /**
@@ -82,10 +80,8 @@ public class FaultTolerantRedisCluster {
       this.retry = Retry.of(name + "-retry", retryConfiguration.toRetryConfigBuilder()
           .retryOnException(exception -> exception instanceof RedisCommandTimeoutException).build());
 
-      CircuitBreakerUtil.registerMetrics(SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME), circuitBreaker,
-          FaultTolerantRedisCluster.class);
-      CircuitBreakerUtil.registerMetrics(SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME), retry,
-          FaultTolerantRedisCluster.class);
+      CircuitBreakerUtil.registerMetrics(circuitBreaker, FaultTolerantRedisCluster.class);
+      CircuitBreakerUtil.registerMetrics(retry, FaultTolerantRedisCluster.class);
     }
 
     void shutdown() {

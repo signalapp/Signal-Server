@@ -50,7 +50,6 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.Keys;
-import org.whispersystems.textsecuregcm.util.Util;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v2/keys")
@@ -60,11 +59,8 @@ public class KeysController {
   private final Keys                        keys;
   private final AccountsManager             accounts;
 
-  private static final String PREKEY_REQUEST_COUNTER_NAME = name(KeysController.class, "preKeyGet");
   private static final String IDENTITY_KEY_CHANGE_FORBIDDEN_COUNTER_NAME = name(KeysController.class, "identityKeyChangeForbidden");
 
-  private static final String SOURCE_COUNTRY_TAG_NAME = "sourceCountry";
-  private static final String INTERNATIONAL_TAG_NAME = "international";
   private static final String IDENTITY_TYPE_TAG_NAME = "identityType";
   private static final String HAS_IDENTITY_KEY_TAG_NAME = "hasIdentityKey";
 
@@ -169,16 +165,6 @@ public class KeysController {
       OptionalAccess.verify(account, accessKey, maybeTarget, deviceId);
 
       target = maybeTarget.orElseThrow();
-    }
-
-    {
-      final String sourceCountryCode = account.map(a -> Util.getCountryCode(a.getNumber())).orElse("0");
-      final String targetCountryCode = Util.getCountryCode(target.getNumber());
-
-      Metrics.counter(PREKEY_REQUEST_COUNTER_NAME, Tags.of(
-          SOURCE_COUNTRY_TAG_NAME, sourceCountryCode,
-          INTERNATIONAL_TAG_NAME, String.valueOf(!sourceCountryCode.equals(targetCountryCode))
-      )).increment();
     }
 
     if (account.isPresent()) {

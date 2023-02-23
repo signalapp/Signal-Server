@@ -5,18 +5,9 @@
 
 package org.whispersystems.textsecuregcm.http;
 
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.SharedMetricRegistries;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
-import org.glassfish.jersey.SslConfigurator;
-import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
-import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
-import org.whispersystems.textsecuregcm.util.CertificateUtil;
-import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
-import org.whispersystems.textsecuregcm.util.Constants;
-
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -29,6 +20,11 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
+import org.glassfish.jersey.SslConfigurator;
+import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
+import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
+import org.whispersystems.textsecuregcm.util.CertificateUtil;
+import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 
 public class FaultTolerantHttpClient {
 
@@ -49,13 +45,12 @@ public class FaultTolerantHttpClient {
     this.retryExecutor = Executors.newSingleThreadScheduledExecutor();
     this.breaker       = CircuitBreaker.of(name + "-breaker", circuitBreakerConfiguration.toCircuitBreakerConfig());
 
-    MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-    CircuitBreakerUtil.registerMetrics(metricRegistry, breaker, FaultTolerantHttpClient.class);
+    CircuitBreakerUtil.registerMetrics(breaker, FaultTolerantHttpClient.class);
 
     if (retryConfiguration != null) {
       RetryConfig retryConfig = retryConfiguration.<HttpResponse>toRetryConfigBuilder().retryOnResult(o -> o.statusCode() >= 500).build();
       this.retry = Retry.of(name + "-retry", retryConfig);
-      CircuitBreakerUtil.registerMetrics(metricRegistry, retry, FaultTolerantHttpClient.class);
+      CircuitBreakerUtil.registerMetrics(retry, FaultTolerantHttpClient.class);
     } else {
       this.retry = null;
     }
