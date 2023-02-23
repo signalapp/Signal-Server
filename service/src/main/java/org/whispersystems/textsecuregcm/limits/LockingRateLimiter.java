@@ -11,8 +11,11 @@ import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import io.lettuce.core.SetArgs;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Metrics;
 import java.time.Duration;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.util.Constants;
 
@@ -21,7 +24,9 @@ public class LockingRateLimiter extends StaticRateLimiter {
   private static final RateLimitExceededException REUSABLE_RATE_LIMIT_EXCEEDED_EXCEPTION
       = new RateLimitExceededException(Duration.ZERO, true);
 
+  @Deprecated
   private final Meter meter;
+  private final Counter counter;
 
 
   public LockingRateLimiter(
@@ -31,12 +36,14 @@ public class LockingRateLimiter extends StaticRateLimiter {
     super(name, config, cacheCluster);
     final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
     this.meter = metricRegistry.meter(name(getClass(), name, "locked"));
+    this.counter = Metrics.counter(MetricsUtil.name(getClass(), "locked"), "name", name);
   }
 
   @Override
   public void validate(final String key, final int amount) throws RateLimitExceededException {
     if (!acquireLock(key)) {
       meter.mark();
+      counter.increment();
       throw REUSABLE_RATE_LIMIT_EXCEEDED_EXCEPTION;
     }
 
