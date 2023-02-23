@@ -14,8 +14,10 @@ import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.retry.Retry;
 import io.lettuce.core.RedisException;
 import io.lettuce.core.cluster.pubsub.StatefulRedisClusterPubSubConnection;
+import io.micrometer.core.instrument.Metrics;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 import org.whispersystems.textsecuregcm.util.Constants;
 
@@ -26,7 +28,9 @@ public class FaultTolerantPubSubConnection<K, V> {
     private final CircuitBreaker circuitBreaker;
     private final Retry          retry;
 
-    private final Timer         executeTimer;
+  @Deprecated
+  private final Timer executeTimer;
+  private final io.micrometer.core.instrument.Timer newExecuteTimer;
 
     public FaultTolerantPubSubConnection(final String name, final StatefulRedisClusterPubSubConnection<K, V> pubSubConnection, final CircuitBreaker circuitBreaker, final Retry retry) {
       this.pubSubConnection = pubSubConnection;
@@ -37,6 +41,7 @@ public class FaultTolerantPubSubConnection<K, V> {
 
       final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
       this.executeTimer = metricRegistry.timer(name(getClass(), name + "-pubsub", "execute"));
+      this.newExecuteTimer = Metrics.timer(MetricsUtil.name(getClass(), "execute", "name", name + "-pubsub"));
 
       CircuitBreakerUtil.registerMetrics(circuitBreaker, FaultTolerantPubSubConnection.class);
     }
@@ -45,7 +50,7 @@ public class FaultTolerantPubSubConnection<K, V> {
         try {
             circuitBreaker.executeCheckedRunnable(() -> retry.executeRunnable(() -> {
                 try (final Timer.Context ignored = executeTimer.time()) {
-                    consumer.accept(pubSubConnection);
+                  newExecuteTimer.record(() -> consumer.accept(pubSubConnection));
                 }
             }));
         } catch (final Throwable t) {
@@ -61,7 +66,7 @@ public class FaultTolerantPubSubConnection<K, V> {
         try {
             return circuitBreaker.executeCheckedSupplier(() -> retry.executeCallable(() -> {
                 try (final Timer.Context ignored = executeTimer.time()) {
-                    return function.apply(pubSubConnection);
+                  return newExecuteTimer.record(() -> function.apply(pubSubConnection));
                 }
             }));
         } catch (final Throwable t) {
