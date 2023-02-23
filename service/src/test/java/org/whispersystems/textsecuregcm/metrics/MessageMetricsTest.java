@@ -70,7 +70,7 @@ class MessageMetricsTest {
   }
 
   private OutgoingMessageEntity createOutgoingMessageEntity(UUID destinationUuid) {
-    return new OutgoingMessageEntity(UUID.randomUUID(), 1, 1L, null, 1, destinationUuid, null, new byte[]{}, 1, true, false);
+    return new OutgoingMessageEntity(UUID.randomUUID(), 1, 1L, null, 1, destinationUuid, null, new byte[]{}, 1, true, false, null);
   }
 
   @Test

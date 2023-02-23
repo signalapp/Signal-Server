@@ -13,7 +13,7 @@ import javax.annotation.Nullable;
 
 public record OutgoingMessageEntity(UUID guid, int type, long timestamp, @Nullable UUID sourceUuid, int sourceDevice,
                                     UUID destinationUuid, @Nullable UUID updatedPni, byte[] content,
-                                    long serverTimestamp, boolean urgent, boolean story) {
+                                    long serverTimestamp, boolean urgent, boolean story, @Nullable byte[] reportSpamToken) {
 
   public MessageProtos.Envelope toEnvelope() {
     final MessageProtos.Envelope.Builder builder = MessageProtos.Envelope.newBuilder()
@@ -38,10 +38,15 @@ public record OutgoingMessageEntity(UUID guid, int type, long timestamp, @Nullab
       builder.setUpdatedPni(updatedPni().toString());
     }
 
+    if (reportSpamToken != null) {
+      builder.setReportSpamToken(ByteString.copyFrom(reportSpamToken));
+    }
+
     return builder.build();
   }
 
   public static OutgoingMessageEntity fromEnvelope(final MessageProtos.Envelope envelope) {
+    ByteString token = envelope.getReportSpamToken();
     return new OutgoingMessageEntity(
         UUID.fromString(envelope.getServerGuid()),
         envelope.getType().getNumber(),
@@ -53,7 +58,8 @@ public record OutgoingMessageEntity(UUID guid, int type, long timestamp, @Nullab
         envelope.getContent().toByteArray(),
         envelope.getServerTimestamp(),
         envelope.getUrgent(),
-        envelope.getStory());
+        envelope.getStory(),
+        token.isEmpty() ? null : token.toByteArray());
   }
 
   @Override
@@ -75,14 +81,16 @@ public record OutgoingMessageEntity(UUID guid, int type, long timestamp, @Nullab
         Arrays.equals(content, that.content) &&
         serverTimestamp == that.serverTimestamp &&
         urgent == that.urgent &&
-        story == that.story;
+        story == that.story &&
+        Arrays.equals(reportSpamToken, that.reportSpamToken);
   }
 
   @Override
   public int hashCode() {
-    int result = Objects.hash(guid, type, timestamp, sourceUuid, sourceDevice, destinationUuid, updatedPni,
-        serverTimestamp, urgent, story);
+    int result = Objects.hash(
+        guid, type, timestamp, sourceUuid, sourceDevice, destinationUuid, updatedPni, serverTimestamp, urgent, story);
     result = 31 * result + Arrays.hashCode(content);
+    result = 71 * result + Arrays.hashCode(reportSpamToken);
     return result;
   }
 }
