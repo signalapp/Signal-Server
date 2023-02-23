@@ -27,8 +27,6 @@ import io.dropwizard.auth.basic.BasicCredentialAuthFilter;
 import io.dropwizard.auth.basic.BasicCredentials;
 import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
-import io.lettuce.core.metrics.MicrometerCommandLatencyRecorder;
-import io.lettuce.core.metrics.MicrometerOptions;
 import io.lettuce.core.resource.ClientResources;
 import io.micrometer.core.instrument.Meter.Id;
 import io.micrometer.core.instrument.Metrics;
@@ -140,7 +138,6 @@ import org.whispersystems.textsecuregcm.metrics.CpuUsageGauge;
 import org.whispersystems.textsecuregcm.metrics.FileDescriptorGauge;
 import org.whispersystems.textsecuregcm.metrics.FreeMemoryGauge;
 import org.whispersystems.textsecuregcm.metrics.GarbageCollectionGauges;
-import org.whispersystems.textsecuregcm.metrics.LettuceMetricsMeterFilter;
 import org.whispersystems.textsecuregcm.metrics.MaxFileDescriptorGauge;
 import org.whispersystems.textsecuregcm.metrics.MetricsApplicationEventListener;
 import org.whispersystems.textsecuregcm.metrics.MetricsRequestEventListener;
@@ -293,7 +290,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
           .meterFilter(MeterFilter.denyNameStartsWith(MetricsRequestEventListener.ANDROID_REQUEST_COUNTER_NAME))
           .meterFilter(MeterFilter.denyNameStartsWith(MetricsRequestEventListener.DESKTOP_REQUEST_COUNTER_NAME))
           .meterFilter(MeterFilter.denyNameStartsWith(MetricsRequestEventListener.IOS_REQUEST_COUNTER_NAME))
-          .meterFilter(new LettuceMetricsMeterFilter())
           .meterFilter(new MeterFilter() {
             @Override
             public DistributionStatisticConfig configure(final Id id, final DistributionStatisticConfig config) {
@@ -394,9 +390,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getPubsubCacheConfiguration().getCircuitBreakerConfiguration());
     ReplicatedJedisPool pubsubClient = pubSubClientFactory.getRedisClientPool();
 
-    MicrometerOptions options = MicrometerOptions.builder().build();
-    ClientResources redisClientResources = ClientResources.builder()
-        .commandLatencyRecorder(new MicrometerCommandLatencyRecorder(Metrics.globalRegistry, options)).build();
+    ClientResources redisClientResources = ClientResources.builder().build();
     ConnectionEventLogger.logConnectionEvents(redisClientResources);
 
     FaultTolerantRedisCluster cacheCluster             = new FaultTolerantRedisCluster("main_cache_cluster", config.getCacheClusterConfiguration(), redisClientResources);
