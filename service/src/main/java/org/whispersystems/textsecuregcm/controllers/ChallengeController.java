@@ -12,6 +12,12 @@ import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.headers.Header;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.io.IOException;
 import java.util.NoSuchElementException;
@@ -50,6 +56,23 @@ public class ChallengeController {
   @PUT
   @Produces(MediaType.APPLICATION_JSON)
   @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(
+      summary = "Submit proof of a challenge completion",
+      description = """
+          Some server endpoints (the "send message" endpoint, for example) may return a 428 response indicating the client must complete a challenge before continuing.
+          Clients may use this endpoint to provide proof of a completed challenge. If successful, the client may then 
+          continue their original operation.
+          """,
+      requestBody = @RequestBody(content = {@Content(schema = @Schema(oneOf = {AnswerPushChallengeRequest.class,
+          AnswerRecaptchaChallengeRequest.class}))})
+  )
+  @ApiResponse(responseCode = "200", description = "Indicates the challenge proof was accepted")
+  @ApiResponse(responseCode = "413", description = "Too many attempts", headers = @Header(
+      name = "Retry-After",
+      description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
+  @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
+      name = "Retry-After",
+      description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
   public Response handleChallengeResponse(@Auth final AuthenticatedAccount auth,
       @Valid final AnswerChallengeRequest answerRequest,
       @HeaderParam(HttpHeaders.X_FORWARDED_FOR) final String forwardedFor,
@@ -88,6 +111,47 @@ public class ChallengeController {
   @Timed
   @POST
   @Path("/push")
+  @Operation(
+      summary = "Request a push challenge",
+      description = """
+          Clients may proactively request a push challenge by making an empty POST request. Push challenges will only be
+          sent to the requesting account’s main device. When the push is received it may be provided as proof of completed 
+          challenge to /v1/challenge.
+          APNs challenge payloads will be formatted as follows:
+          ```
+          {
+              "aps": {
+                  "sound": "default",
+                  "alert": {
+                      "loc-key": "APN_Message"
+                  }
+              },
+              "rateLimitChallenge": "{CHALLENGE_TOKEN}"
+          }
+          ```
+          FCM challenge payloads will be formatted as follows: 
+          ```
+          {"rateLimitChallenge": "{CHALLENGE_TOKEN}"}
+          ```
+
+          Clients may retry the PUT in the event of an HTTP/5xx response (except HTTP/508) from the server, but must 
+          implement an exponential back-off system and limit the total number of retries.
+          """
+  )
+  @ApiResponse(responseCode = "200", description = """
+      Indicates a payload to the account's primary device has been attempted. When clients receive a challenge push
+      notification, they may issue a PUT request to /v1/challenge.
+      """)
+  @ApiResponse(responseCode = "404", description = """
+      The server does not have a push notification token for the authenticated account’s main device; clients may add a push
+      token and try again
+      """)
+  @ApiResponse(responseCode = "413", description = "Too many attempts", headers = @Header(
+      name = "Retry-After",
+      description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
+  @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
+      name = "Retry-After",
+      description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
   public Response requestPushChallenge(@Auth final AuthenticatedAccount auth) {
     try {
       rateLimitChallengeManager.sendPushChallenge(auth.getAccount());

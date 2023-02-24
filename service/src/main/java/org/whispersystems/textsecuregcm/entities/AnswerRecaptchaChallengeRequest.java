@@ -5,13 +5,18 @@
 
 package org.whispersystems.textsecuregcm.entities;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import javax.validation.constraints.NotBlank;
 
 public class AnswerRecaptchaChallengeRequest extends AnswerChallengeRequest {
 
+  @Schema(description = "The value of the token field from the server's 428 response")
   @NotBlank
   private String token;
 
+  @Schema(
+      description = "A string representing a solved captcha",
+      example = "signal-hcaptcha.30b01b46-d8c9-4c30-bbd7-9719acfe0c10.challenge.abcdefg1345")
   @NotBlank
   private String captcha;
 
