@@ -19,7 +19,6 @@ import com.braintreegateway.TransactionSearchRequest;
 import com.braintreegateway.exceptions.BraintreeException;
 import com.braintreegateway.exceptions.NotFoundException;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Comparator;
@@ -40,6 +39,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
+import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 public class BraintreeManager implements SubscriptionProcessorManager {
 
@@ -374,7 +374,7 @@ public class BraintreeManager implements SubscriptionProcessorManager {
   private long getLevelForPlan(final Plan plan) {
     final BraintreePlanMetadata metadata;
     try {
-      metadata = new ObjectMapper().readValue(plan.getDescription(), BraintreePlanMetadata.class);
+      metadata = SystemMapper.jsonMapper().readValue(plan.getDescription(), BraintreePlanMetadata.class);
 
     } catch (JsonProcessingException e) {
       throw new RuntimeException(e);
@@ -477,7 +477,7 @@ public class BraintreeManager implements SubscriptionProcessorManager {
 
       final BraintreePlanMetadata metadata;
       try {
-        metadata = new ObjectMapper().readValue(plan.getDescription(), BraintreePlanMetadata.class);
+        metadata = SystemMapper.jsonMapper().readValue(plan.getDescription(), BraintreePlanMetadata.class);
 
       } catch (JsonProcessingException e) {
         throw new RuntimeException(e);

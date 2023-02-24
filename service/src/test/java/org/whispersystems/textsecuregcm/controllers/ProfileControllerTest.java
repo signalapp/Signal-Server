@@ -147,7 +147,7 @@ class ProfileControllerTest {
       .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(
           ImmutableSet.of(AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)))
       .addProvider(new RateLimitExceededExceptionMapper())
-      .setMapper(SystemMapper.getMapper())
+      .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(new ProfileController(
           clock,
@@ -1392,7 +1392,7 @@ class ProfileControllerTest {
       // `null` properties should be omitted from the response
       assertThat(responseJson).doesNotContain("null");
 
-      BatchIdentityCheckResponse identityCheckResponse = SystemMapper.getMapper()
+      BatchIdentityCheckResponse identityCheckResponse = SystemMapper.jsonMapper()
           .readValue(responseJson, BatchIdentityCheckResponse.class);
       assertThat(identityCheckResponse).isNotNull();
       assertThat(identityCheckResponse.elements()).isNotNull().hasSize(2);

@@ -84,7 +84,7 @@ public abstract class SerializedExpireableJsonDynamoStore<T> {
       final Map<String, AttributeValue> attributeValueMap = new HashMap<>(Map.of(
           KEY_KEY, AttributeValues.fromString(key),
           ATTR_SERIALIZED_VALUE,
-          AttributeValues.fromString(SystemMapper.getMapper().writeValueAsString(v))));
+          AttributeValues.fromString(SystemMapper.jsonMapper().writeValueAsString(v))));
       if (v instanceof Expireable ev) {
         attributeValueMap.put(ATTR_TTL, AttributeValues.fromLong(getExpirationTimestamp(ev)));
       }
@@ -117,7 +117,7 @@ public abstract class SerializedExpireableJsonDynamoStore<T> {
           try {
             return response.hasItem()
                 ? filterMaybeExpiredValue(
-                SystemMapper.getMapper()
+                SystemMapper.jsonMapper()
                     .readValue(response.item().get(ATTR_SERIALIZED_VALUE).s(), deserializationTargetClass))
                 : Optional.empty();
           } catch (final JsonProcessingException e) {

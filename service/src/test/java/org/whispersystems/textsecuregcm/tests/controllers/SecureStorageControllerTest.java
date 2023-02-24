@@ -40,7 +40,7 @@ class SecureStorageControllerTest {
       .addProvider(AuthHelper.getAuthFilter())
       .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(
           ImmutableSet.of(AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)))
-      .setMapper(SystemMapper.getMapper())
+      .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(new SecureStorageController(STORAGE_CREDENTIAL_GENERATOR))
       .build();

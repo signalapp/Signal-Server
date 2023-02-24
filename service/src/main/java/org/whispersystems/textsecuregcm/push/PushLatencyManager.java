@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2022 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -106,7 +106,7 @@ public class PushLatencyManager {
 
   void recordPushSent(final UUID accountUuid, final long deviceId, final boolean isVoip) {
     try {
-      final String recordJson = SystemMapper.getMapper().writeValueAsString(
+      final String recordJson = SystemMapper.jsonMapper().writeValueAsString(
           new PushRecord(Instant.now(clock), isVoip ? PushType.VOIP : PushType.STANDARD));
 
       redisCluster.useCluster(connection ->
@@ -159,7 +159,7 @@ public class PushLatencyManager {
           .thenApply(recordJson -> {
             if (StringUtils.isNotEmpty(recordJson)) {
               try {
-                return SystemMapper.getMapper().readValue(recordJson, PushRecord.class);
+                return SystemMapper.jsonMapper().readValue(recordJson, PushRecord.class);
               } catch (JsonProcessingException e) {
                 return null;
               }

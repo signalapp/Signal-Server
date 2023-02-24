@@ -105,7 +105,7 @@ class AccountControllerV2Test {
       .addProvider(new RateLimitExceededExceptionMapper())
       .addProvider(new ImpossiblePhoneNumberExceptionMapper())
       .addProvider(new NonNormalizedPhoneNumberExceptionMapper())
-      .setMapper(SystemMapper.getMapper())
+      .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(
           new AccountControllerV2(accountsManager, changeNumberManager,

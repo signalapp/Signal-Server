@@ -5,12 +5,14 @@
 
 package org.whispersystems.textsecuregcm.entities;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.exc.InvalidTypeIdException;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 class AnswerChallengeRequestTest {
 
@@ -25,7 +27,7 @@ class AnswerChallengeRequestTest {
           """;
 
       final AnswerChallengeRequest answerChallengeRequest =
-          SystemMapper.getMapper().readValue(pushChallengeJson, AnswerChallengeRequest.class);
+          SystemMapper.jsonMapper().readValue(pushChallengeJson, AnswerChallengeRequest.class);
 
       assertTrue(answerChallengeRequest instanceof AnswerPushChallengeRequest);
       assertEquals("Hello I am a push challenge token",
@@ -42,7 +44,7 @@ class AnswerChallengeRequestTest {
           """;
 
       final AnswerChallengeRequest answerChallengeRequest =
-          SystemMapper.getMapper().readValue(recaptchaChallengeJson, AnswerChallengeRequest.class);
+          SystemMapper.jsonMapper().readValue(recaptchaChallengeJson, AnswerChallengeRequest.class);
 
       assertTrue(answerChallengeRequest instanceof AnswerRecaptchaChallengeRequest);
 
@@ -63,7 +65,7 @@ class AnswerChallengeRequestTest {
           """;
 
       assertThrows(InvalidTypeIdException.class,
-          () -> SystemMapper.getMapper().readValue(unrecognizedTypeJson, AnswerChallengeRequest.class));
+          () -> SystemMapper.jsonMapper().readValue(unrecognizedTypeJson, AnswerChallengeRequest.class));
     }
   }
 }

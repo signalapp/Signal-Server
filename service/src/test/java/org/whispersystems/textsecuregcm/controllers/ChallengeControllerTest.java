@@ -47,7 +47,7 @@ class ChallengeControllerTest {
       .addProvider(AuthHelper.getAuthFilter())
       .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(
           Set.of(AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)))
-      .setMapper(SystemMapper.getMapper())
+      .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(new RateLimitExceededExceptionMapper())
       .addResource(challengeController)

@@ -19,8 +19,7 @@ import static org.whispersystems.textsecuregcm.util.AttributeValues.b;
 import static org.whispersystems.textsecuregcm.util.AttributeValues.n;
 import static org.whispersystems.textsecuregcm.util.AttributeValues.s;
 
-import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stripe.exception.ApiException;
 import com.stripe.model.PaymentIntent;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
@@ -80,11 +79,7 @@ class SubscriptionControllerTest {
 
   private static final Clock CLOCK = mock(Clock.class);
 
-  private static final YAMLMapper YAML_MAPPER = new YAMLMapper();
-
-  static {
-    YAML_MAPPER.registerModule(new JavaTimeModule());
-  }
+  private static final ObjectMapper YAML_MAPPER = SystemMapper.yamlMapper();
 
   private static final SubscriptionConfiguration SUBSCRIPTION_CONFIG = ConfigHelper.getSubscriptionConfig();
   private static final OneTimeDonationConfiguration ONETIME_CONFIG = ConfigHelper.getOneTimeConfig();
@@ -119,7 +114,7 @@ class SubscriptionControllerTest {
       .addProvider(CompletionExceptionMapper.class)
       .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(Set.of(
           AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)))
-      .setMapper(SystemMapper.getMapper())
+      .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(SUBSCRIPTION_CONTROLLER)
       .build();

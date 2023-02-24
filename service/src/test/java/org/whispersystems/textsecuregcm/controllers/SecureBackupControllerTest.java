@@ -68,7 +68,7 @@ class SecureBackupControllerTest {
 
   private static final ResourceExtension RESOURCES = ResourceExtension.builder()
       .addProvider(AuthHelper.getAuthFilter())
-      .setMapper(SystemMapper.getMapper())
+      .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(CONTROLLER)
       .build();

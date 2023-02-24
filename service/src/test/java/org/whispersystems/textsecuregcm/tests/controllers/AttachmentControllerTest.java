@@ -77,7 +77,7 @@ class AttachmentControllerTest {
           .addProvider(AuthHelper.getAuthFilter())
           .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(
               ImmutableSet.of(AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)))
-              .setMapper(SystemMapper.getMapper())
+              .setMapper(SystemMapper.jsonMapper())
               .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
               .addResource(new AttachmentControllerV2(RATE_LIMITERS, "accessKey", "accessSecret", "us-east-1", "attachmentv2-bucket"))
               .addResource(new AttachmentControllerV3(RATE_LIMITERS, "some-cdn.signal.org", "signal@example.com", 1000, "/attach-here", RSA_PRIVATE_KEY_PEM))

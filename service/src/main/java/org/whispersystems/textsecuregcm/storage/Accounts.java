@@ -14,9 +14,6 @@ import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -271,7 +268,7 @@ public class Accounts extends AbstractDynamoDbStore {
                         "#version", ATTR_VERSION))
                     .expressionAttributeValues(Map.of(
                         ":number", numberAttr,
-                        ":data", AttributeValues.fromByteArray(SystemMapper.getMapper().writeValueAsBytes(account)),
+                        ":data", AttributeValues.fromByteArray(SystemMapper.jsonMapper().writeValueAsBytes(account)),
                         ":cds", AttributeValues.fromBool(account.shouldBeVisibleInDirectory()),
                         ":pni", pniAttr,
                         ":version", AttributeValues.fromInt(account.getVersion()),
@@ -342,7 +339,7 @@ public class Accounts extends AbstractDynamoDbStore {
                   .conditionExpression("#version = :version")
                   .expressionAttributeNames(Map.of("#data", ATTR_ACCOUNT_DATA, "#version", ATTR_VERSION))
                   .expressionAttributeValues(Map.of(
-                      ":data", AttributeValues.fromByteArray(SystemMapper.getMapper().writeValueAsBytes(account)),
+                      ":data", AttributeValues.fromByteArray(SystemMapper.jsonMapper().writeValueAsBytes(account)),
                       ":version", AttributeValues.fromInt(account.getVersion()),
                       ":version_increment", AttributeValues.fromInt(1)))
                   .build())
@@ -423,7 +420,7 @@ public class Accounts extends AbstractDynamoDbStore {
                       "#username_hash", ATTR_USERNAME_HASH,
                       "#version", ATTR_VERSION))
                   .expressionAttributeValues(Map.of(
-                      ":data", AttributeValues.fromByteArray(SystemMapper.getMapper().writeValueAsBytes(account)),
+                      ":data", AttributeValues.fromByteArray(SystemMapper.jsonMapper().writeValueAsBytes(account)),
                       ":username_hash", AttributeValues.fromByteArray(usernameHash),
                       ":version", AttributeValues.fromInt(account.getVersion()),
                       ":version_increment", AttributeValues.fromInt(1)))
@@ -478,7 +475,7 @@ public class Accounts extends AbstractDynamoDbStore {
                           "#username_hash", ATTR_USERNAME_HASH,
                           "#version", ATTR_VERSION))
                       .expressionAttributeValues(Map.of(
-                          ":data", AttributeValues.fromByteArray(SystemMapper.getMapper().writeValueAsBytes(account)),
+                          ":data", AttributeValues.fromByteArray(SystemMapper.jsonMapper().writeValueAsBytes(account)),
                           ":version", AttributeValues.fromInt(account.getVersion()),
                           ":version_increment", AttributeValues.fromInt(1)))
                       .build())
@@ -523,7 +520,7 @@ public class Accounts extends AbstractDynamoDbStore {
             "#cds", ATTR_CANONICALLY_DISCOVERABLE,
             "#version", ATTR_VERSION));
         final Map<String, AttributeValue> attrValues = new HashMap<>(Map.of(
-            ":data", AttributeValues.fromByteArray(SystemMapper.getMapper().writeValueAsBytes(account)),
+            ":data", AttributeValues.fromByteArray(SystemMapper.jsonMapper().writeValueAsBytes(account)),
             ":cds", AttributeValues.fromBool(account.shouldBeVisibleInDirectory()),
             ":version", AttributeValues.fromInt(account.getVersion()),
             ":version_increment", AttributeValues.fromInt(1)));
@@ -720,7 +717,7 @@ public class Accounts extends AbstractDynamoDbStore {
         KEY_ACCOUNT_UUID, uuidAttr,
         ATTR_ACCOUNT_E164, numberAttr,
         ATTR_PNI_UUID, pniUuidAttr,
-        ATTR_ACCOUNT_DATA, AttributeValues.fromByteArray(SystemMapper.getMapper().writeValueAsBytes(account)),
+        ATTR_ACCOUNT_DATA, AttributeValues.fromByteArray(SystemMapper.jsonMapper().writeValueAsBytes(account)),
         ATTR_VERSION, AttributeValues.fromInt(account.getVersion()),
         ATTR_CANONICALLY_DISCOVERABLE, AttributeValues.fromBool(account.shouldBeVisibleInDirectory())));
 
@@ -842,7 +839,7 @@ public class Accounts extends AbstractDynamoDbStore {
       throw new RuntimeException("item missing values");
     }
     try {
-      final Account account = SystemMapper.getMapper().readValue(item.get(ATTR_ACCOUNT_DATA).b().asByteArray(), Account.class);
+      final Account account = SystemMapper.jsonMapper().readValue(item.get(ATTR_ACCOUNT_DATA).b().asByteArray(), Account.class);
 
       final UUID accountIdentifier = UUIDUtil.fromByteBuffer(item.get(KEY_ACCOUNT_UUID).b().asByteBuffer());
       final UUID phoneNumberIdentifierFromAttribute = AttributeValues.getUUID(item, ATTR_PNI_UUID, null);

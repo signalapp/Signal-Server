@@ -1,12 +1,13 @@
+/*
+ * Copyright 2023 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 package org.whispersystems.textsecuregcm.storage;
 
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.instrument.Metrics;
 import java.time.Duration;
@@ -18,6 +19,7 @@ import javax.validation.Validation;
 import javax.validation.Validator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.Util;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.services.appconfigdata.AppConfigDataClient;
@@ -38,11 +40,6 @@ public class DynamicConfigurationManager<T> {
   private final AtomicReference<T> configuration = new AtomicReference<>();
   private String configurationToken = null;
   private boolean initialized = false;
-
-
-  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper(new YAMLFactory())
-      .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-      .registerModule(new JavaTimeModule());
 
   private static final Validator VALIDATOR = Validation.buildDefaultValidatorFactory().getValidator();
 
@@ -143,7 +140,7 @@ public class DynamicConfigurationManager<T> {
   @VisibleForTesting
   public static <T> Optional<T> parseConfiguration(final String configurationYaml, final Class<T> configurationClass)
       throws JsonProcessingException {
-    final T configuration = OBJECT_MAPPER.readValue(configurationYaml, configurationClass);
+    final T configuration = SystemMapper.yamlMapper().readValue(configurationYaml, configurationClass);
     final Set<ConstraintViolation<T>> violations = VALIDATOR.validate(configuration);
 
     final Optional<T> maybeDynamicConfiguration;

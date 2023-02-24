@@ -137,7 +137,7 @@ public class AccountsHelper {
       }
 
     } else {
-      final ObjectMapper mapper = SystemMapper.getMapper();
+      final ObjectMapper mapper = SystemMapper.jsonMapper();
       updatedAccount = mapper.readValue(mapper.writeValueAsBytes(account), Account.class);
       updatedAccount.setNumber(account.getNumber(), account.getPhoneNumberIdentifier());
       account.markStale();

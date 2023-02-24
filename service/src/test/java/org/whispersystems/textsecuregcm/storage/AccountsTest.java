@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2022 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -271,7 +271,7 @@ class AccountsTest {
               .item(Map.of(
                   Accounts.KEY_ACCOUNT_UUID, AttributeValues.fromUUID(uuid),
                   Accounts.ATTR_ACCOUNT_E164, AttributeValues.fromString(account.getNumber()),
-                  Accounts.ATTR_ACCOUNT_DATA, AttributeValues.fromByteArray(SystemMapper.getMapper().writeValueAsBytes(account)),
+                  Accounts.ATTR_ACCOUNT_DATA, AttributeValues.fromByteArray(SystemMapper.jsonMapper().writeValueAsBytes(account)),
                   Accounts.ATTR_VERSION, AttributeValues.fromInt(account.getVersion()),
                   Accounts.ATTR_CANONICALLY_DISCOVERABLE, AttributeValues.fromBool(account.shouldBeVisibleInDirectory())))
               .build())

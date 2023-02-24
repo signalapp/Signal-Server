@@ -96,7 +96,7 @@ public class AccountsManager {
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
   private final Clock clock;
 
-  private static final ObjectMapper mapper = SystemMapper.getMapper();
+  private static final ObjectMapper mapper = SystemMapper.jsonMapper();
 
   // An account that's used at least daily will get reset in the cache at least once per day when its "last seen"
   // timestamp updates; expiring entries after two days will help clear out "zombie" cache entries that are read

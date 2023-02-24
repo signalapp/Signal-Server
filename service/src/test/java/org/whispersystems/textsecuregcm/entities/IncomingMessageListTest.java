@@ -1,15 +1,16 @@
 /*
- * Copyright 2013-2022 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
 package org.whispersystems.textsecuregcm.entities;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 class IncomingMessageListTest {
 
@@ -26,7 +27,7 @@ class IncomingMessageListTest {
           """;
 
       final IncomingMessageList incomingMessageList =
-          SystemMapper.getMapper().readValue(incomingMessageListJson, IncomingMessageList.class);
+          SystemMapper.jsonMapper().readValue(incomingMessageListJson, IncomingMessageList.class);
 
       assertTrue(incomingMessageList.online());
       assertFalse(incomingMessageList.urgent());
@@ -42,7 +43,7 @@ class IncomingMessageListTest {
           """;
 
       final IncomingMessageList incomingMessageList =
-          SystemMapper.getMapper().readValue(incomingMessageListJson, IncomingMessageList.class);
+          SystemMapper.jsonMapper().readValue(incomingMessageListJson, IncomingMessageList.class);
 
       assertTrue(incomingMessageList.online());
       assertTrue(incomingMessageList.urgent());

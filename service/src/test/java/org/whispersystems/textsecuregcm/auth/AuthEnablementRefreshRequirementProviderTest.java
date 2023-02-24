@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -17,7 +17,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -76,6 +75,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
+import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.websocket.WebSocketResourceProvider;
 import org.whispersystems.websocket.auth.WebsocketAuthValueFactoryProvider;
 import org.whispersystems.websocket.logging.WebsocketRequestLog;
@@ -326,7 +326,7 @@ class AuthEnablementRefreshRequirementProviderTest {
       resourceConfig.register(new TestResource());
       resourceConfig.register(new WebSocketSessionContextValueFactoryProvider.Binder());
       resourceConfig.register(new WebsocketAuthValueFactoryProvider.Binder<>(TestPrincipal.class));
-      resourceConfig.register(new JacksonMessageBodyProvider(new ObjectMapper()));
+      resourceConfig.register(new JacksonMessageBodyProvider(SystemMapper.jsonMapper()));
 
       ApplicationHandler applicationHandler = new ApplicationHandler(resourceConfig);
       WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);

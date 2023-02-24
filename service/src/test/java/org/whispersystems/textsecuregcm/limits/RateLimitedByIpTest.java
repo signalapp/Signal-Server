@@ -61,7 +61,7 @@ public class RateLimitedByIpTest {
       Mockito.when(rl.forDescriptor(Mockito.eq(RateLimiters.For.BACKUP_AUTH_CHECK))).thenReturn(RATE_LIMITER));
 
   private static final ResourceExtension RESOURCES = ResourceExtension.builder()
-      .setMapper(SystemMapper.getMapper())
+      .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(new Controller())
       .addProvider(new RateLimitByIpFilter(RATE_LIMITERS))

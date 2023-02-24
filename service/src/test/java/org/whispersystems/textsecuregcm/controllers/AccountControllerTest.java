@@ -213,7 +213,7 @@ class AccountControllerTest {
       .addProvider(new ImpossiblePhoneNumberExceptionMapper())
       .addProvider(new NonNormalizedPhoneNumberExceptionMapper())
       .addProvider(new RateLimitByIpFilter(rateLimiters))
-      .setMapper(SystemMapper.getMapper())
+      .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(new AccountController(pendingAccountsManager,
           accountsManager,

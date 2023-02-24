@@ -92,7 +92,7 @@ class VerificationControllerTest {
       .addProvider(new ImpossiblePhoneNumberExceptionMapper())
       .addProvider(new NonNormalizedPhoneNumberExceptionMapper())
       .addProvider(new RegistrationServiceSenderExceptionMapper())
-      .setMapper(SystemMapper.getMapper())
+      .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(
           new VerificationController(registrationServiceClient, verificationSessionManager, pushNotificationManager,

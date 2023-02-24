@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2022 Signal Messenger, LLC
+ * Copyright 2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -81,7 +81,7 @@ public class HCaptchaClient implements CaptchaClient {
       throw new IOException("hCaptcha http failure : " + response.statusCode());
     }
 
-    final HCaptchaResponse hCaptchaResponse = SystemMapper.getMapper()
+    final HCaptchaResponse hCaptchaResponse = SystemMapper.jsonMapper()
         .readValue(response.body(), HCaptchaResponse.class);
 
     logger.debug("received hCaptcha response: {}", hCaptchaResponse);

@@ -82,7 +82,7 @@ class RegistrationControllerTest {
       .addProvider(new RateLimitExceededExceptionMapper())
       .addProvider(new ImpossiblePhoneNumberExceptionMapper())
       .addProvider(new NonNormalizedPhoneNumberExceptionMapper())
-      .setMapper(SystemMapper.getMapper())
+      .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(
           new RegistrationController(accountsManager,

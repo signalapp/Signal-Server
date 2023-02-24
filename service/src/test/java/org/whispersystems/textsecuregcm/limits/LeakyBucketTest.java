@@ -15,6 +15,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
+import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 class LeakyBucketTest {
 
@@ -35,7 +36,7 @@ class LeakyBucketTest {
 
   @Test
   void testLapseRate() throws IOException {
-    ObjectMapper mapper     = new ObjectMapper();
+    ObjectMapper mapper     = SystemMapper.jsonMapper();
     String       serialized = "{\"bucketSize\":2,\"leakRatePerMillis\":8.333333333333334E-6,\"spaceRemaining\":0,\"lastUpdateTimeMillis\":" + (System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(2)) + "}";
 
     LeakyBucket leakyBucket = LeakyBucket.fromSerialized(mapper, serialized);

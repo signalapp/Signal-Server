@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -15,7 +15,7 @@ import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 public class JsonHelpers {
 
-  private static final ObjectMapper objectMapper = SystemMapper.getMapper();
+  private static final ObjectMapper objectMapper = SystemMapper.jsonMapper();
 
   public static String asJson(Object object) throws JsonProcessingException {
     return objectMapper.writeValueAsString(object);

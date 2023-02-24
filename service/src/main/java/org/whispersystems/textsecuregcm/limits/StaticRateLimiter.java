@@ -12,7 +12,6 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.time.Duration;
 import org.slf4j.Logger;
@@ -25,8 +24,6 @@ import org.whispersystems.textsecuregcm.util.SystemMapper;
 public class StaticRateLimiter implements RateLimiter {
 
   private static final Logger logger = LoggerFactory.getLogger(StaticRateLimiter.class);
-
-  private static final ObjectMapper MAPPER = SystemMapper.getMapper();
 
   protected final String name;
 
@@ -81,7 +78,7 @@ public class StaticRateLimiter implements RateLimiter {
 
   private void setBucket(final String key, final LeakyBucket bucket) {
     try {
-      final String serialized = bucket.serialize(MAPPER);
+      final String serialized = bucket.serialize(SystemMapper.jsonMapper());
       cacheCluster.useCluster(connection -> connection.sync().setex(
           getBucketName(key),
           (int) Math.ceil((config.bucketSize() / config.leakRatePerMillis()) / 1000),
@@ -96,7 +93,7 @@ public class StaticRateLimiter implements RateLimiter {
       final String serialized = cacheCluster.withCluster(connection -> connection.sync().get(getBucketName(key)));
 
       if (serialized != null) {
-        return LeakyBucket.fromSerialized(MAPPER, serialized);
+        return LeakyBucket.fromSerialized(SystemMapper.jsonMapper(), serialized);
       }
     } catch (final IOException e) {
       logger.warn("Deserialization error", e);

@@ -59,7 +59,6 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import org.glassfish.jersey.server.ServerProperties;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
-import org.hamcrest.CoreMatchers;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -221,7 +220,7 @@ class MessageControllerTest {
             .target(String.format("/v1/messages/%s", SINGLE_DEVICE_UUID))
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_UUID, AuthHelper.DISABLED_PASSWORD))
-            .put(Entity.entity(SystemMapper.getMapper().readValue(jsonFixture("fixtures/current_message_single_device.json"),
+            .put(Entity.entity(SystemMapper.jsonMapper().readValue(jsonFixture("fixtures/current_message_single_device.json"),
                     IncomingMessageList.class),
                 MediaType.APPLICATION_JSON_TYPE));
 
@@ -235,7 +234,7 @@ class MessageControllerTest {
             .target(String.format("/v1/messages/%s", SINGLE_DEVICE_UUID))
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.entity(SystemMapper.getMapper().readValue(jsonFixture("fixtures/current_message_single_device.json"),
+            .put(Entity.entity(SystemMapper.jsonMapper().readValue(jsonFixture("fixtures/current_message_single_device.json"),
                     IncomingMessageList.class),
                 MediaType.APPLICATION_JSON_TYPE));
 
@@ -256,7 +255,7 @@ class MessageControllerTest {
             .target(String.format("/v1/messages/%s", SINGLE_DEVICE_UUID))
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.entity(SystemMapper.getMapper().readValue(jsonFixture("fixtures/current_message_single_device_not_urgent.json"),
+            .put(Entity.entity(SystemMapper.jsonMapper().readValue(jsonFixture("fixtures/current_message_single_device_not_urgent.json"),
                     IncomingMessageList.class),
                 MediaType.APPLICATION_JSON_TYPE));
 
@@ -277,7 +276,7 @@ class MessageControllerTest {
             .target(String.format("/v1/messages/%s", SINGLE_DEVICE_PNI))
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.entity(SystemMapper.getMapper().readValue(jsonFixture("fixtures/current_message_single_device.json"),
+            .put(Entity.entity(SystemMapper.jsonMapper().readValue(jsonFixture("fixtures/current_message_single_device.json"),
                     IncomingMessageList.class),
                 MediaType.APPLICATION_JSON_TYPE));
 
@@ -297,7 +296,7 @@ class MessageControllerTest {
             .target(String.format("/v1/messages/%s", SINGLE_DEVICE_UUID))
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.entity(SystemMapper.getMapper().readValue(jsonFixture("fixtures/current_message_null_message_in_list.json"), IncomingMessageList.class),
+            .put(Entity.entity(SystemMapper.jsonMapper().readValue(jsonFixture("fixtures/current_message_null_message_in_list.json"), IncomingMessageList.class),
                 MediaType.APPLICATION_JSON_TYPE));
 
     assertThat("Bad request", response.getStatus(), is(equalTo(422)));
@@ -310,7 +309,7 @@ class MessageControllerTest {
             .target(String.format("/v1/messages/%s", SINGLE_DEVICE_UUID))
             .request()
             .header(OptionalAccess.UNIDENTIFIED, Base64.getEncoder().encodeToString(UNIDENTIFIED_ACCESS_BYTES))
-            .put(Entity.entity(SystemMapper.getMapper().readValue(jsonFixture("fixtures/current_message_single_device.json"),
+            .put(Entity.entity(SystemMapper.jsonMapper().readValue(jsonFixture("fixtures/current_message_single_device.json"),
                     IncomingMessageList.class),
                 MediaType.APPLICATION_JSON_TYPE));
 
@@ -329,7 +328,7 @@ class MessageControllerTest {
         resources.getJerseyTest()
             .target(String.format("/v1/messages/%s", SINGLE_DEVICE_UUID))
             .request()
-            .put(Entity.entity(SystemMapper.getMapper().readValue(jsonFixture("fixtures/current_message_single_device.json"),
+            .put(Entity.entity(SystemMapper.jsonMapper().readValue(jsonFixture("fixtures/current_message_single_device.json"),
                     IncomingMessageList.class),
                 MediaType.APPLICATION_JSON_TYPE));
 
@@ -343,7 +342,7 @@ class MessageControllerTest {
             .target(String.format("/v1/messages/%s", MULTI_DEVICE_UUID))
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.entity(SystemMapper.getMapper().readValue(jsonFixture("fixtures/current_message_single_device.json"),
+            .put(Entity.entity(SystemMapper.jsonMapper().readValue(jsonFixture("fixtures/current_message_single_device.json"),
                     IncomingMessageList.class),
                 MediaType.APPLICATION_JSON_TYPE));
 
@@ -363,7 +362,7 @@ class MessageControllerTest {
             .target(String.format("/v1/messages/%s", MULTI_DEVICE_UUID))
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.entity(SystemMapper.getMapper().readValue(jsonFixture("fixtures/current_message_extra_device.json"),
+            .put(Entity.entity(SystemMapper.jsonMapper().readValue(jsonFixture("fixtures/current_message_extra_device.json"),
                     IncomingMessageList.class),
                 MediaType.APPLICATION_JSON_TYPE));
 
@@ -383,7 +382,7 @@ class MessageControllerTest {
             .target(String.format("/v1/messages/%s", MULTI_DEVICE_UUID))
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.entity(SystemMapper.getMapper().readValue(jsonFixture("fixtures/current_message_multi_device.json"),
+            .put(Entity.entity(SystemMapper.jsonMapper().readValue(jsonFixture("fixtures/current_message_multi_device.json"),
                     IncomingMessageList.class),
                 MediaType.APPLICATION_JSON_TYPE));
 
@@ -403,7 +402,7 @@ class MessageControllerTest {
             .target(String.format("/v1/messages/%s", MULTI_DEVICE_UUID))
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.entity(SystemMapper.getMapper().readValue(jsonFixture("fixtures/current_message_multi_device_not_urgent.json"),
+            .put(Entity.entity(SystemMapper.jsonMapper().readValue(jsonFixture("fixtures/current_message_multi_device_not_urgent.json"),
                     IncomingMessageList.class),
                 MediaType.APPLICATION_JSON_TYPE));
 
@@ -423,7 +422,7 @@ class MessageControllerTest {
             .target(String.format("/v1/messages/%s", MULTI_DEVICE_PNI))
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.entity(SystemMapper.getMapper().readValue(jsonFixture("fixtures/current_message_multi_device_pni.json"),
+            .put(Entity.entity(SystemMapper.jsonMapper().readValue(jsonFixture("fixtures/current_message_multi_device_pni.json"),
                     IncomingMessageList.class),
                 MediaType.APPLICATION_JSON_TYPE));
 
@@ -438,7 +437,7 @@ class MessageControllerTest {
         resources.getJerseyTest().target(String.format("/v1/messages/%s", MULTI_DEVICE_UUID))
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.entity(SystemMapper.getMapper().readValue(jsonFixture("fixtures/current_message_registration_id.json"),
+            .put(Entity.entity(SystemMapper.jsonMapper().readValue(jsonFixture("fixtures/current_message_registration_id.json"),
                     IncomingMessageList.class),
                 MediaType.APPLICATION_JSON_TYPE));
 
@@ -837,7 +836,7 @@ class MessageControllerTest {
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
             .header(HttpHeaders.USER_AGENT, "Test-UA")
-            .put(Entity.entity(SystemMapper.getMapper().readValue(jsonFixture(payloadFilename), IncomingMessageList.class),
+            .put(Entity.entity(SystemMapper.jsonMapper().readValue(jsonFixture(payloadFilename), IncomingMessageList.class),
                 MediaType.APPLICATION_JSON_TYPE));
 
     if (expectOk) {
@@ -1031,7 +1030,7 @@ class MessageControllerTest {
     String accessBytes = Base64.getEncoder().encodeToString(UNIDENTIFIED_ACCESS_BYTES);
     String json = jsonFixture("fixtures/current_message_single_device.json");
     UUID unknownUUID = UUID.randomUUID();
-    IncomingMessageList list = SystemMapper.getMapper().readValue(json, IncomingMessageList.class);
+    IncomingMessageList list = SystemMapper.jsonMapper().readValue(json, IncomingMessageList.class);
     Response response =
         resources.getJerseyTest()
             .target(String.format("/v1/messages/%s", unknownUUID))

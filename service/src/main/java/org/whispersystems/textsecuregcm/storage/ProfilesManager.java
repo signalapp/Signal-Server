@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -30,7 +30,7 @@ public class ProfilesManager {
       final FaultTolerantRedisCluster cacheCluster) {
     this.profiles = profiles;
     this.cacheCluster = cacheCluster;
-    this.mapper = SystemMapper.getMapper();
+    this.mapper = SystemMapper.jsonMapper();
   }
 
   public void set(UUID uuid, VersionedProfile versionedProfile) {

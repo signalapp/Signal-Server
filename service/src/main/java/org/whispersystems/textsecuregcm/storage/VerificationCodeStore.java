@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2021 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -58,7 +58,7 @@ public class VerificationCodeStore {
             .tableName(tableName)
             .item(Map.of(
                 KEY_E164, AttributeValues.fromString(number),
-                ATTR_STORED_CODE, AttributeValues.fromString(SystemMapper.getMapper().writeValueAsString(verificationCode)),
+                ATTR_STORED_CODE, AttributeValues.fromString(SystemMapper.jsonMapper().writeValueAsString(verificationCode)),
                 ATTR_TTL, AttributeValues.fromLong(getExpirationTimestamp(verificationCode))))
             .build());
       } catch (final JsonProcessingException e) {
@@ -84,7 +84,7 @@ public class VerificationCodeStore {
       try {
         return response.hasItem()
             ? filterMaybeExpiredCode(
-            SystemMapper.getMapper().readValue(response.item().get(ATTR_STORED_CODE).s(), StoredVerificationCode.class))
+            SystemMapper.jsonMapper().readValue(response.item().get(ATTR_STORED_CODE).s(), StoredVerificationCode.class))
             : Optional.empty();
       } catch (final JsonProcessingException e) {
         log.error("Failed to parse stored verification code", e);

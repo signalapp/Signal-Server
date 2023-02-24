@@ -1,11 +1,13 @@
+/*
+ * Copyright 2023 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 package org.whispersystems.textsecuregcm.currency;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.annotations.VisibleForTesting;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.util.SystemMapper;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.URI;
@@ -13,6 +15,9 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 public class CoinMarketCapClient {
 
@@ -64,7 +69,7 @@ public class CoinMarketCapClient {
 
   @VisibleForTesting
   static CoinMarketCapResponse parseResponse(final String responseJson) throws JsonProcessingException {
-    return SystemMapper.getMapper().readValue(responseJson, CoinMarketCapResponse.class);
+    return SystemMapper.jsonMapper().readValue(responseJson, CoinMarketCapResponse.class);
   }
 
   @VisibleForTesting
