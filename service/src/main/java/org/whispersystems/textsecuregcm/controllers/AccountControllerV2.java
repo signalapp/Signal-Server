@@ -5,7 +5,7 @@
 
 package org.whispersystems.textsecuregcm.controllers;
 
-import static com.codahale.metrics.MetricRegistry.name;
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import com.codahale.metrics.annotation.Timed;
 import com.google.common.net.HttpHeaders;
