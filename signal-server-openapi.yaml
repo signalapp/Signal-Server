@@ -1,6 +1,6 @@
 openapi: 3.0.1
 info:
-  title: Signal Server
+  title: Signal Server API
   license:
     name: AGPL-3.0-only
     url: https://www.gnu.org/licenses/agpl-3.0.txt
@@ -893,16 +893,14 @@ paths:
         in: header
         schema:
           type: string
-      requestBody:
-        content:
-          '*/*':
-            schema:
-              $ref: '#/components/schemas/AuthenticatedAccount'
       responses:
         default:
           description: default response
           content:
             application/json: {}
+      security:
+      - authenticatedAccount: []
+      - {}
   /v2/keys/signed:
     get:
       tags:
@@ -1117,12 +1115,16 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AuthenticatedAccount'
+              $ref: '#/components/schemas/IncomingMessageList'
+        required: true
       responses:
         default:
           description: default response
           content:
             application/json: {}
+      security:
+      - authenticatedAccount: []
+      - {}
   /v1/messages/multi_recipient:
     put:
       tags:
@@ -1219,11 +1221,6 @@ paths:
         required: true
         schema:
           type: string
-      requestBody:
-        content:
-          '*/*':
-            schema:
-              $ref: '#/components/schemas/AuthenticatedAccount'
       responses:
         default:
           description: default response
@@ -1231,6 +1228,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/VersionedProfileResponse'
+      security:
+      - authenticatedAccount: []
+      - {}
   /v1/profile/{uuid}/{version}/{credentialRequest}:
     get:
       tags:
@@ -1262,11 +1262,6 @@ paths:
         schema:
           type: string
           default: profileKey
-      requestBody:
-        content:
-          '*/*':
-            schema:
-              $ref: '#/components/schemas/AuthenticatedAccount'
       responses:
         default:
           description: default response
@@ -1274,6 +1269,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CredentialProfileResponse'
+      security:
+      - authenticatedAccount: []
+      - {}
   /v1/profile/{identifier}:
     get:
       tags:
@@ -1298,11 +1296,6 @@ paths:
         in: query
         schema:
           type: boolean
-      requestBody:
-        content:
-          '*/*':
-            schema:
-              $ref: '#/components/schemas/AuthenticatedAccount'
       responses:
         default:
           description: default response
@@ -1310,6 +1303,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BaseProfileResponse'
+      security:
+      - authenticatedAccount: []
+      - {}
   /v1/profile/identity_check/batch:
     post:
       tags:
@@ -1473,9 +1469,9 @@ paths:
       summary: Check SVR credentials
       description: |
         Over time, clients may wind up with multiple sets of KBS authentication credentials in cloud storage.
-        To determine which set is most current and should be used to communicate with KBS to retrieve a master password
+        To determine which set is most current and should be used to communicate with SVR to retrieve a master password
         (from which a registration recovery password can be derived), clients should call this endpoint
-        with a list of stored credentials. The response will identify which (if any) set of credentials are appropriate for communicating with KBS.
+        with a list of stored credentials. The response will identify which (if any) set of credentials are appropriate for communicating with SVR.
       operationId: authCheck
       requestBody:
         content:
@@ -1500,7 +1496,8 @@ paths:
       - Secure Value Recovery
       summary: Generate credentials for SVR
       description: |
-        Generate SVR service credentials. Generated credentials have an expiration time of 30 days.
+        Generate SVR service credentials. Generated credentials have an expiration time of 30 days
+        (however, the TTL is fully controlled by the server side and may change even for already generated credentials).
       operationId: getAuth_2
       responses:
         "200":
@@ -1533,7 +1530,8 @@ paths:
       - Secure Value Recovery
       summary: Generate credentials for SVR2
       description: |
-        Generate SVR2 service credentials. Generated credentials have an expiration time of 30 days.
+        Generate SVR2 service credentials. Generated credentials have an expiration time of 30 days
+        (however, the TTL is fully controlled by the server side and may change even for already generated credentials).
       operationId: getAuth_4
       responses:
         "200":
@@ -1630,6 +1628,11 @@ paths:
       tags:
       - Subscriptions
       operationId: createBoostReceiptCredentials
+      parameters:
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
       requestBody:
         content:
           application/json:
@@ -1696,7 +1699,8 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AuthenticatedAccount'
+              $ref: '#/components/schemas/CreatePayPalBillingAgreementRequest'
+        required: true
       responses:
         default:
           description: default response
@@ -1714,6 +1718,9 @@ paths:
                   numberOfDependents:
                     type: integer
                     format: int32
+      security:
+      - authenticatedAccount: []
+      - {}
   /v1/subscription/{subscriberId}/create_payment_method:
     post:
       tags:
@@ -1733,11 +1740,6 @@ paths:
           enum:
           - CARD
           - PAYPAL
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AuthenticatedAccount'
       responses:
         default:
           description: default response
@@ -1755,12 +1757,19 @@ paths:
                   numberOfDependents:
                     type: integer
                     format: int32
+      security:
+      - authenticatedAccount: []
+      - {}
   /v1/subscription/{subscriberId}/receipt_credentials:
     post:
       tags:
       - Subscriptions
       operationId: createSubscriptionReceiptCredentials
       parameters:
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
       - name: subscriberId
         in: path
         required: true
@@ -1770,7 +1779,8 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AuthenticatedAccount'
+              $ref: '#/components/schemas/GetReceiptCredentialsRequest'
+        required: true
       responses:
         default:
           description: default response
@@ -1788,6 +1798,9 @@ paths:
                   numberOfDependents:
                     type: integer
                     format: int32
+      security:
+      - authenticatedAccount: []
+      - {}
   /v1/subscription/{subscriberId}:
     get:
       tags:
@@ -1799,11 +1812,6 @@ paths:
         required: true
         schema:
           type: string
-      requestBody:
-        content:
-          '*/*':
-            schema:
-              $ref: '#/components/schemas/AuthenticatedAccount'
       responses:
         default:
           description: default response
@@ -1821,6 +1829,9 @@ paths:
                   numberOfDependents:
                     type: integer
                     format: int32
+      security:
+      - authenticatedAccount: []
+      - {}
     put:
       tags:
       - Subscriptions
@@ -1831,11 +1842,6 @@ paths:
         required: true
         schema:
           type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AuthenticatedAccount'
       responses:
         default:
           description: default response
@@ -1853,6 +1859,9 @@ paths:
                   numberOfDependents:
                     type: integer
                     format: int32
+      security:
+      - authenticatedAccount: []
+      - {}
     delete:
       tags:
       - Subscriptions
@@ -1863,11 +1872,6 @@ paths:
         required: true
         schema:
           type: string
-      requestBody:
-        content:
-          '*/*':
-            schema:
-              $ref: '#/components/schemas/AuthenticatedAccount'
       responses:
         default:
           description: default response
@@ -1885,6 +1889,9 @@ paths:
                   numberOfDependents:
                     type: integer
                     format: int32
+      security:
+      - authenticatedAccount: []
+      - {}
   /v1/subscription/boost/amounts:
     get:
       tags:
@@ -2015,11 +2022,6 @@ paths:
         required: true
         schema:
           type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AuthenticatedAccount'
       responses:
         default:
           description: default response
@@ -2038,6 +2040,9 @@ paths:
                     type: integer
                     format: int32
       deprecated: true
+      security:
+      - authenticatedAccount: []
+      - {}
   /v1/subscription/{subscriberId}/default_payment_method/{processor}/{paymentMethodToken}:
     post:
       tags:
@@ -2062,11 +2067,6 @@ paths:
         required: true
         schema:
           type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AuthenticatedAccount'
       responses:
         default:
           description: default response
@@ -2084,6 +2084,9 @@ paths:
                   numberOfDependents:
                     type: integer
                     format: int32
+      security:
+      - authenticatedAccount: []
+      - {}
   /v1/subscription/{subscriberId}/level/{level}/{currency}/{idempotencyKey}:
     put:
       tags:
@@ -2111,11 +2114,6 @@ paths:
         required: true
         schema:
           type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AuthenticatedAccount'
       responses:
         default:
           description: default response
@@ -2133,6 +2131,135 @@ paths:
                   numberOfDependents:
                     type: integer
                     format: int32
+      security:
+      - authenticatedAccount: []
+      - {}
+  /v1/verification/session:
+    post:
+      tags:
+      - Verification
+      operationId: createSession
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateVerificationSessionRequest'
+        required: true
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationSessionResponse'
+  /v1/verification/session/{sessionId}:
+    get:
+      tags:
+      - Verification
+      operationId: getSession
+      parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationSessionResponse'
+    patch:
+      tags:
+      - Verification
+      operationId: updateSession
+      parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: X-Forwarded-For
+        in: header
+        schema:
+          type: string
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateVerificationSessionRequest'
+        required: true
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationSessionResponse'
+  /v1/verification/session/{sessionId}/code:
+    put:
+      tags:
+      - Verification
+      operationId: verifyCode
+      parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitVerificationCodeRequest'
+        required: true
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationSessionResponse'
+    post:
+      tags:
+      - Verification
+      operationId: requestVerificationCode
+      parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
+      - name: Accept-Language
+        in: header
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerificationCodeRequest'
+        required: true
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationSessionResponse'
 components:
   schemas:
     AccountIdentityResponse:
@@ -2580,11 +2707,11 @@ components:
       properties:
         open:
           type: boolean
-        userAgent:
-          type: string
         createdTimestamp:
           type: integer
           format: int64
+        userAgent:
+          type: string
     WebSocketSessionContext:
       type: object
       properties:
@@ -2592,186 +2719,6 @@ components:
           type: object
         client:
           $ref: '#/components/schemas/WebSocketClient'
-    Account:
-      type: object
-      properties:
-        number:
-          type: string
-        usernameHash:
-          type: array
-          items:
-            type: string
-            format: byte
-        reservedUsernameHash:
-          type: array
-          items:
-            type: string
-            format: byte
-        devices:
-          type: array
-          items:
-            $ref: '#/components/schemas/Device'
-        identityKey:
-          type: string
-        badges:
-          type: array
-          items:
-            $ref: '#/components/schemas/AccountBadge'
-        registrationLock:
-          $ref: '#/components/schemas/StoredRegistrationLock'
-        registrationLockSalt:
-          type: string
-        version:
-          type: integer
-          format: int32
-        enabled:
-          type: boolean
-        masterDevice:
-          $ref: '#/components/schemas/Device'
-        transferSupported:
-          type: boolean
-        storageSupported:
-          type: boolean
-        lastSeen:
-          type: integer
-          format: int64
-        pniSupported:
-          type: boolean
-        giftBadgesSupported:
-          type: boolean
-        nextDeviceId:
-          type: integer
-          format: int64
-        senderKeySupported:
-          type: boolean
-        storiesSupported:
-          type: boolean
-        changeNumberSupported:
-          type: boolean
-        enabledDeviceCount:
-          type: integer
-          format: int32
-        registrationLockFromAttributes:
-          $ref: '#/components/schemas/AccountAttributes'
-        paymentActivationSupported:
-          type: boolean
-        announcementGroupSupported:
-          type: boolean
-        pni:
-          type: string
-          format: uuid
-        pniIdentityKey:
-          type: string
-        cpv:
-          type: string
-        uak:
-          type: array
-          items:
-            type: string
-            format: byte
-        uua:
-          type: boolean
-        inCds:
-          type: boolean
-    AccountBadge:
-      type: object
-      properties:
-        id:
-          type: string
-        expiration:
-          type: string
-          format: date-time
-        visible:
-          type: boolean
-    AuthenticatedAccount:
-      type: object
-      properties:
-        name:
-          type: string
-        authenticatedDevice:
-          $ref: '#/components/schemas/Device'
-        account:
-          $ref: '#/components/schemas/Account'
-    Device:
-      type: object
-      properties:
-        id:
-          type: integer
-          format: int64
-        name:
-          type: string
-        authToken:
-          type: string
-        salt:
-          type: string
-        gcmId:
-          type: string
-        apnId:
-          type: string
-        voipApnId:
-          type: string
-        pushTimestamp:
-          type: integer
-          format: int64
-        uninstalledFeedback:
-          type: integer
-          format: int64
-        fetchesMessages:
-          type: boolean
-        registrationId:
-          type: integer
-          format: int32
-        signedPreKey:
-          $ref: '#/components/schemas/SignedPreKey'
-        lastSeen:
-          type: integer
-          format: int64
-        created:
-          type: integer
-          format: int64
-        userAgent:
-          type: string
-        capabilities:
-          $ref: '#/components/schemas/DeviceCapabilities'
-        enabled:
-          type: boolean
-        authTokenHash:
-          $ref: '#/components/schemas/SaltedTokenHash'
-        uninstalledFeedbackTimestamp:
-          type: integer
-          format: int64
-        master:
-          type: boolean
-        pniRegistrationId:
-          type: object
-          properties:
-            empty:
-              type: boolean
-            present:
-              type: boolean
-            asInt:
-              type: integer
-              format: int32
-        pniSignedPreKey:
-          $ref: '#/components/schemas/SignedPreKey'
-    SaltedTokenHash:
-      type: object
-      properties:
-        hash:
-          type: string
-        salt:
-          type: string
-        version:
-          type: string
-          enum:
-          - V1
-          - V2
-    StoredRegistrationLock:
-      type: object
-      properties:
-        timeRemaining:
-          type: integer
-          format: int64
     Anonymous:
       type: object
       properties:
@@ -3334,6 +3281,91 @@ components:
           items:
             type: string
             format: byte
+    VerificationSessionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        nextSms:
+          type: integer
+          format: int64
+        nextCall:
+          type: integer
+          format: int64
+        nextVerificationAttempt:
+          type: integer
+          format: int64
+        allowedToRequestCode:
+          type: boolean
+        requestedInformation:
+          type: array
+          items:
+            type: string
+            enum:
+            - pushChallenge
+            - captcha
+        verified:
+          type: boolean
+    CreateVerificationSessionRequest:
+      required:
+      - number
+      type: object
+      properties:
+        number:
+          type: string
+        pushToken:
+          type: string
+        pushTokenType:
+          type: string
+          enum:
+          - apn
+          - fcm
+        pushChallenge:
+          type: string
+        captcha:
+          type: string
+        mcc:
+          type: string
+        mnc:
+          type: string
+    UpdateVerificationSessionRequest:
+      type: object
+      properties:
+        pushToken:
+          type: string
+        pushTokenType:
+          type: string
+          enum:
+          - apn
+          - fcm
+        pushChallenge:
+          type: string
+        captcha:
+          type: string
+        mcc:
+          type: string
+        mnc:
+          type: string
+    VerificationCodeRequest:
+      required:
+      - client
+      - transport
+      type: object
+      properties:
+        transport:
+          type: string
+          enum:
+          - sms
+          - voice
+        client:
+          type: string
+    SubmitVerificationCodeRequest:
+      required:
+      - code
+      type: object
+      properties:
+        code:
+          type: string
   securitySchemes:
     authenticatedAccount:
       type: http
