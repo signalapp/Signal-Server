@@ -44,6 +44,7 @@ import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.Util;
 
 @Path("/v1/registration")
+@io.swagger.v3.oas.annotations.tags.Tag(name = "Registration")
 public class RegistrationController {
 
   private static final Logger logger = LoggerFactory.getLogger(RegistrationController.class);

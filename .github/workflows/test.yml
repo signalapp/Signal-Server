@@ -1,6 +1,9 @@
 name: Service CI
 
-on: [push]
+on:
+  push:
+    branches-ignore:
+      - gh-pages
 
 jobs:
   build:

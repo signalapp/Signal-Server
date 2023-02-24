@@ -8,6 +8,7 @@ import com.codahale.metrics.annotation.Timed;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.Auth;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.security.SecureRandom;
 import java.util.LinkedList;
 import java.util.List;
@@ -50,6 +51,7 @@ import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.util.VerificationCode;
 
 @Path("/v1/devices")
+@Tag(name = "Devices")
 public class DeviceController {
 
   private static final int MAX_DEVICES = 6;

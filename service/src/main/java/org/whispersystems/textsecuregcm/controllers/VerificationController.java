@@ -84,6 +84,7 @@ import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.Util;
 
 @Path("/v1/verification")
+@io.swagger.v3.oas.annotations.tags.Tag(name = "Verification")
 public class VerificationController {
 
   private static final Logger logger = LoggerFactory.getLogger(VerificationController.class);

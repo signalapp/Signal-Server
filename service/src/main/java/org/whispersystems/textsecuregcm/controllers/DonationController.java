@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import com.codahale.metrics.annotation.Timed;
 import io.dropwizard.auth.Auth;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Objects;
@@ -42,6 +43,7 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.RedeemedReceiptsManager;
 
 @Path("/v1/donation")
+@Tag(name = "Donations")
 public class DonationController {
 
   public interface ReceiptCredentialPresentationFactory {

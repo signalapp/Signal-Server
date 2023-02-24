@@ -9,6 +9,9 @@ import static java.util.Objects.requireNonNull;
 
 import com.codahale.metrics.annotation.Timed;
 import io.dropwizard.auth.Auth;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.Clock;
 import java.util.HashMap;
 import java.util.Map;
@@ -37,6 +40,7 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
 @Path("/v1/backup")
+@Tag(name = "Secure Value Recovery")
 public class SecureBackupController {
 
   private static final long MAX_AGE_SECONDS = TimeUnit.DAYS.toSeconds(30);
@@ -70,6 +74,15 @@ public class SecureBackupController {
   @GET
   @Path("/auth")
   @Produces(MediaType.APPLICATION_JSON)
+  @Operation(
+      summary = "Generate credentials for SVR",
+      description = """
+          Generate SVR service credentials. Generated credentials have an expiration time of 30 days 
+          (however, the TTL is fully controlled by the server side and may change even for already generated credentials). 
+          """
+  )
+  @ApiResponse(responseCode = "200", description = "`JSON` with generated credentials.", useReturnTypeSchema = true)
+  @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
   public ExternalServiceCredentials getAuth(final @Auth AuthenticatedAccount auth) {
     return credentialsGenerator.generateForUuid(auth.getAccount().getUuid());
   }
@@ -80,6 +93,18 @@ public class SecureBackupController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   @RateLimitedByIp(RateLimiters.For.BACKUP_AUTH_CHECK)
+  @Operation(
+      summary = "Check SVR credentials",
+      description = """
+          Over time, clients may wind up with multiple sets of KBS authentication credentials in cloud storage. 
+          To determine which set is most current and should be used to communicate with SVR to retrieve a master password 
+          (from which a registration recovery password can be derived), clients should call this endpoint 
+          with a list of stored credentials. The response will identify which (if any) set of credentials are appropriate for communicating with SVR.
+          """
+  )
+  @ApiResponse(responseCode = "200", description = "`JSON` with the check results.", useReturnTypeSchema = true)
+  @ApiResponse(responseCode = "422", description = "Provided list of KBS credentials could not be parsed")
+  @ApiResponse(responseCode = "400", description = "`POST` request body is not a valid `JSON`")
   public AuthCheckResponse authCheck(@NotNull @Valid final AuthCheckRequest request) {
     final Map<String, AuthCheckResponse.Result> results = new HashMap<>();
     final Map<String, Pair<UUID, Long>> tokenToUuid = new HashMap<>();

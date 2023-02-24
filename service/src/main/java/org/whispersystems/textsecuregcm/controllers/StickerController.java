@@ -1,11 +1,12 @@
 /*
- * Copyright 2013-2021 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
 package org.whispersystems.textsecuregcm.controllers;
 
 import io.dropwizard.auth.Auth;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.security.SecureRandom;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -29,6 +30,7 @@ import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Pair;
 
 @Path("/v1/sticker")
+@Tag(name = "Stickers")
 public class StickerController {
 
   private final RateLimiters        rateLimiters;

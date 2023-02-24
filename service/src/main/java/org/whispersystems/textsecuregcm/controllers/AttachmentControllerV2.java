@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import com.codahale.metrics.annotation.Timed;
 import io.dropwizard.auth.Auth;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.security.SecureRandom;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -24,6 +25,7 @@ import org.whispersystems.textsecuregcm.util.Conversions;
 import org.whispersystems.textsecuregcm.util.Pair;
 
 @Path("/v2/attachments")
+@Tag(name = "Attachments")
 public class AttachmentControllerV2 {
 
   private final PostPolicyGenerator policyGenerator;

@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2021 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -14,6 +14,7 @@ import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import io.vavr.Tuple;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -111,6 +112,7 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v1/profile")
+@Tag(name = "Profile")
 public class ProfileController {
 
   private final Logger logger = LoggerFactory.getLogger(ProfileController.class);

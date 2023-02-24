@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <parent>
+    <artifactId>TextSecureServer</artifactId>
+    <groupId>org.whispersystems.textsecure</groupId>
+    <version>JGITVER</version>
+  </parent>
+  <modelVersion>4.0.0</modelVersion>
+  <artifactId>api-doc</artifactId>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.whispersystems.textsecure</groupId>
+      <artifactId>service</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>io.swagger.core.v3</groupId>
+        <artifactId>swagger-maven-plugin</artifactId>
+        <version>2.2.8</version>
+        <configuration>
+          <outputFileName>signal-server-openapi</outputFileName>
+          <outputPath>${project.build.directory}/openapi</outputPath>
+          <outputFormat>YAML</outputFormat>
+          <configurationFilePath>${project.basedir}/src/main/resources/openapi/openapi-configuration.yaml
+          </configurationFilePath>
+        </configuration>
+        <executions>
+          <execution>
+            <phase>compile</phase>
+            <goals>
+              <goal>resolve</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

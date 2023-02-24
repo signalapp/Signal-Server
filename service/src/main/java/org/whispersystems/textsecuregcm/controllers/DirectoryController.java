@@ -6,6 +6,7 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import com.codahale.metrics.annotation.Timed;
 import io.dropwizard.auth.Auth;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
 import javax.ws.rs.PUT;
@@ -18,6 +19,7 @@ import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator
 import org.whispersystems.textsecuregcm.configuration.DirectoryClientConfiguration;
 
 @Path("/v1/directory")
+@Tag(name = "Directory")
 public class DirectoryController {
 
   private final ExternalServiceCredentialsGenerator directoryServiceTokenGenerator;

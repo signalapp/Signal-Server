@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import com.codahale.metrics.annotation.Timed;
 import io.dropwizard.auth.Auth;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
@@ -17,6 +18,7 @@ import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator
 import org.whispersystems.textsecuregcm.configuration.SecureStorageServiceConfiguration;
 
 @Path("/v1/storage")
+@Tag(name = "Secure Storage")
 public class SecureStorageController {
 
   private final ExternalServiceCredentialsGenerator storageServiceCredentialsGenerator;

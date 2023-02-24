@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2022 Signal Messenger, LLC
+ * Copyright 2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -99,6 +99,7 @@ import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorManag
 import org.whispersystems.textsecuregcm.util.ExactlySize;
 
 @Path("/v1/subscription")
+@io.swagger.v3.oas.annotations.tags.Tag(name = "Subscriptions")
 public class SubscriptionController {
 
   private static final Logger logger = LoggerFactory.getLogger(SubscriptionController.class);

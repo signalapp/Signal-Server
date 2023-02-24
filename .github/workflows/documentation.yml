@@ -1,0 +1,33 @@
+name: Update Documentation
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'maven'
+      - name: Compile and Build OpenAPI file
+        run: ./mvnw compile
+      - name: Update Documentation
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cp -r api-doc/target/openapi/signal-server-openapi.yaml /tmp/
+          git config user.email "github@signal.org"
+          git config user.name "Documentation Updater"
+          git fetch origin gh-pages
+          git checkout gh-pages
+          cp /tmp/signal-server-openapi.yaml .
+          git commit -a -m "Updating documentation"
+          git push origin gh-pages

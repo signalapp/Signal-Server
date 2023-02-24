@@ -12,6 +12,7 @@ import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.io.IOException;
 import java.util.NoSuchElementException;
 import javax.validation.Valid;
@@ -33,6 +34,7 @@ import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 
 @Path("/v1/challenge")
+@Tag(name = "Challenge")
 public class ChallengeController {
 
   private final RateLimitChallengeManager rateLimitChallengeManager;

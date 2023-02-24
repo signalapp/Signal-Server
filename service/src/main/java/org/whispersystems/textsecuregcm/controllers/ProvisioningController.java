@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import com.codahale.metrics.annotation.Timed;
 import io.dropwizard.auth.Auth;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.Base64;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
@@ -25,6 +26,7 @@ import org.whispersystems.textsecuregcm.push.ProvisioningManager;
 import org.whispersystems.textsecuregcm.websocket.ProvisioningAddress;
 
 @Path("/v1/provisioning")
+@Tag(name = "Provisioning")
 public class ProvisioningController {
 
   private final RateLimiters        rateLimiters;

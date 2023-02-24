@@ -111,6 +111,7 @@ import org.whispersystems.textsecuregcm.util.Util;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v1/accounts")
+@io.swagger.v3.oas.annotations.tags.Tag(name = "Account")
 public class AccountController {
   public static final int MAXIMUM_USERNAME_HASHES_LIST_LENGTH = 20;
   public static final int USERNAME_HASH_LENGTH = 32;

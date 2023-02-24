@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import com.codahale.metrics.annotation.Timed;
 import io.dropwizard.auth.Auth;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.UUID;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
@@ -19,6 +20,7 @@ import org.whispersystems.textsecuregcm.configuration.ArtServiceConfiguration;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 
 @Path("/v1/art")
+@Tag(name = "Art")
 public class ArtController {
   private final ExternalServiceCredentialsGenerator artServiceCredentialsGenerator;
   private final RateLimiters rateLimiters;

@@ -43,6 +43,7 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
 
 @Path("/v2/accounts")
+@io.swagger.v3.oas.annotations.tags.Tag(name = "Account")
 public class AccountControllerV2 {
 
   private static final String CHANGE_NUMBER_COUNTER_NAME = name(AccountControllerV2.class, "changeNumber");

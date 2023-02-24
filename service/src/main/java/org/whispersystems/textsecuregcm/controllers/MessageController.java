@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2022 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.controllers;
@@ -108,6 +108,7 @@ import reactor.core.scheduler.Schedulers;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v1/messages")
+@io.swagger.v3.oas.annotations.tags.Tag(name = "Messages")
 public class MessageController {
 
   private static final Logger logger = LoggerFactory.getLogger(MessageController.class);

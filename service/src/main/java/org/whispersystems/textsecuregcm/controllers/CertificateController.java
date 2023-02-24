@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2022 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -11,6 +11,7 @@ import com.codahale.metrics.annotation.Timed;
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Metrics;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.security.InvalidKeyException;
 import java.time.Clock;
 import java.time.Duration;
@@ -42,6 +43,7 @@ import org.whispersystems.textsecuregcm.util.Util;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v1/certificate")
+@Tag(name = "Certificate")
 public class CertificateController {
 
   private final CertificateGenerator certificateGenerator;

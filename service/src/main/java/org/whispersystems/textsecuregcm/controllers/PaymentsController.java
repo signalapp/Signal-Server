@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import com.codahale.metrics.annotation.Timed;
 import io.dropwizard.auth.Auth;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
@@ -19,6 +20,7 @@ import org.whispersystems.textsecuregcm.currency.CurrencyConversionManager;
 import org.whispersystems.textsecuregcm.entities.CurrencyConversionEntityList;
 
 @Path("/v1/payments")
+@Tag(name = "Payments")
 public class PaymentsController {
 
   private final ExternalServiceCredentialsGenerator paymentsServiceCredentialsGenerator;

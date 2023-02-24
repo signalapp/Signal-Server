@@ -1,0 +1,25 @@
+resourcePackages:
+  - org.whispersystems.textsecuregcm
+prettyPrint: true
+cacheTTL: 0
+readerClass: org.signal.openapi.OpenApiReader
+openAPI:
+  info:
+    title: Signal Server API
+    license:
+      name: AGPL-3.0-only
+      url: https://www.gnu.org/licenses/agpl-3.0.txt
+  servers:
+    - url: https://chat.signal.org
+      description: Production service
+    - url: https://chat.staging.signal.org
+      description: Staging service
+  components:
+    securitySchemes:
+      authenticatedAccount:
+        type: http
+        scheme: basic
+        description: |
+          Account authentication is based on Basic authentication schema, 
+          where `username` has a format of `<user_id>[.<device_id>]`. If `device_id` is not specified,
+          user's `main` device is assumed.

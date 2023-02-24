@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2021 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -11,6 +11,7 @@ import com.codahale.metrics.annotation.Timed;
 import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.core.Response;
@@ -24,6 +25,7 @@ import org.whispersystems.websocket.session.WebSocketSessionContext;
 
 
 @Path("/v1/keepalive")
+@Tag(name = "Keep Alive")
 public class KeepAliveController {
 
   private final Logger logger = LoggerFactory.getLogger(KeepAliveController.class);
