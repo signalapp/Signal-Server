@@ -35,31 +35,31 @@ class UserAgentTagUtilTest {
     return Stream.of(
         Arguments.of("This is obviously not a reasonable User-Agent string.", UserAgentTagUtil.UNRECOGNIZED_TAGS),
         Arguments.of(null, UserAgentTagUtil.UNRECOGNIZED_TAGS),
-        Arguments.of("Signal-Android 4.53.7 (Android 8.1)", platformVersionTags("android", "4.53.7")),
-        Arguments.of("Signal Desktop 1.2.3", platformVersionTags("desktop", "1.2.3")),
-        Arguments.of("Signal/3.9.0 (iPhone; iOS 12.2; Scale/3.00)", platformVersionTags("ios", "3.9.0")),
-        Arguments.of("Signal-Android 1.2.3 (Android 8.1)", UserAgentTagUtil.UNRECOGNIZED_TAGS),
-        Arguments.of("Signal Desktop 3.9.0", platformVersionTags("desktop", "3.9.0")),
-        Arguments.of("Signal/4.53.7 (iPhone; iOS 12.2; Scale/3.00)", platformVersionTags("ios", "4.53.7")),
-        Arguments.of("Signal-Android 4.68.3 (Android 9)", platformVersionTags("android", "4.68.3")),
-        Arguments.of("Signal-Android 1.2.3 (Android 4.3)", UserAgentTagUtil.UNRECOGNIZED_TAGS),
-        Arguments.of("Signal-Android 4.68.3.0-bobsbootlegclient", UserAgentTagUtil.UNRECOGNIZED_TAGS),
-        Arguments.of("Signal Desktop 1.22.45-foo-0", UserAgentTagUtil.UNRECOGNIZED_TAGS),
-        Arguments.of("Signal Desktop 1.34.5-beta.1-fakeclientemporium", UserAgentTagUtil.UNRECOGNIZED_TAGS),
-        Arguments.of("Signal Desktop 1.32.0-beta.3", UserAgentTagUtil.UNRECOGNIZED_TAGS)
+        Arguments.of("Signal-Android/4.53.7 (Android 8.1)", platformVersionTags("android", "4.53.7")),
+        Arguments.of("Signal-Desktop/1.2.3", platformVersionTags("desktop", "1.2.3")),
+        Arguments.of("Signal-iOS/3.9.0 (iPhone; iOS 12.2; Scale/3.00)", platformVersionTags("ios", "3.9.0")),
+        Arguments.of("Signal-Android/1.2.3 (Android 8.1)", UserAgentTagUtil.UNRECOGNIZED_TAGS),
+        Arguments.of("Signal-Desktop/3.9.0", platformVersionTags("desktop", "3.9.0")),
+        Arguments.of("Signal-iOS/4.53.7 (iPhone; iOS 12.2; Scale/3.00)", platformVersionTags("ios", "4.53.7")),
+        Arguments.of("Signal-Android/4.68.3 (Android 9)", platformVersionTags("android", "4.68.3")),
+        Arguments.of("Signal-Android/1.2.3 (Android 4.3)", UserAgentTagUtil.UNRECOGNIZED_TAGS),
+        Arguments.of("Signal-Android/4.68.3.0-bobsbootlegclient", UserAgentTagUtil.UNRECOGNIZED_TAGS),
+        Arguments.of("Signal-Desktop/1.22.45-foo-0", UserAgentTagUtil.UNRECOGNIZED_TAGS),
+        Arguments.of("Signal-Desktop/1.34.5-beta.1-fakeclientemporium", UserAgentTagUtil.UNRECOGNIZED_TAGS),
+        Arguments.of("Signal-Desktop/1.32.0-beta.3", UserAgentTagUtil.UNRECOGNIZED_TAGS)
     );
   }
 
   @Test
   void testGetUserAgentTagsFlooded() {
     for (int i = 0; i < UserAgentTagUtil.MAX_VERSIONS; i++) {
-      UserAgentTagUtil.getUserAgentTags(String.format("Signal-Android 4.0.%d (Android 8.1)", i));
+      UserAgentTagUtil.getUserAgentTags(String.format("Signal-Android/4.0.%d (Android 8.1)", i));
     }
 
     assertEquals(UserAgentTagUtil.OVERFLOW_TAGS,
-        UserAgentTagUtil.getUserAgentTags("Signal-Android 4.1.0 (Android 8.1)"));
+        UserAgentTagUtil.getUserAgentTags("Signal-Android/4.1.0 (Android 8.1)"));
 
-    final List<Tag> tags = UserAgentTagUtil.getUserAgentTags("Signal-Android 4.0.0 (Android 8.1)");
+    final List<Tag> tags = UserAgentTagUtil.getUserAgentTags("Signal-Android/4.0.0 (Android 8.1)");
 
     assertEquals(2, tags.size());
     assertTrue(tags.contains(Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")));
@@ -77,19 +77,19 @@ class UserAgentTagUtilTest {
         Arguments.of("This is obviously not a reasonable User-Agent string.",
             Tag.of(UserAgentTagUtil.PLATFORM_TAG, "unrecognized")),
         Arguments.of(null, Tag.of(UserAgentTagUtil.PLATFORM_TAG, "unrecognized")),
-        Arguments.of("Signal-Android 4.53.7 (Android 8.1)", Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")),
-        Arguments.of("Signal Desktop 1.2.3", Tag.of(UserAgentTagUtil.PLATFORM_TAG, "desktop")),
-        Arguments.of("Signal/3.9.0 (iPhone; iOS 12.2; Scale/3.00)", Tag.of(UserAgentTagUtil.PLATFORM_TAG, "ios")),
-        Arguments.of("Signal-Android 1.2.3 (Android 8.1)", Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")),
-        Arguments.of("Signal Desktop 3.9.0", Tag.of(UserAgentTagUtil.PLATFORM_TAG, "desktop")),
-        Arguments.of("Signal/4.53.7 (iPhone; iOS 12.2; Scale/3.00)", Tag.of(UserAgentTagUtil.PLATFORM_TAG, "ios")),
-        Arguments.of("Signal-Android 4.68.3 (Android 9)", Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")),
-        Arguments.of("Signal-Android 1.2.3 (Android 4.3)", Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")),
-        Arguments.of("Signal-Android 4.68.3.0-bobsbootlegclient", Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")),
-        Arguments.of("Signal Desktop 1.22.45-foo-0", Tag.of(UserAgentTagUtil.PLATFORM_TAG, "desktop")),
-        Arguments.of("Signal Desktop 1.34.5-beta.1-fakeclientemporium",
+        Arguments.of("Signal-Android/4.53.7 (Android 8.1)", Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")),
+        Arguments.of("Signal-Desktop/1.2.3", Tag.of(UserAgentTagUtil.PLATFORM_TAG, "desktop")),
+        Arguments.of("Signal-iOS/3.9.0 (iPhone; iOS 12.2; Scale/3.00)", Tag.of(UserAgentTagUtil.PLATFORM_TAG, "ios")),
+        Arguments.of("Signal-Android/1.2.3 (Android 8.1)", Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")),
+        Arguments.of("Signal-Desktop/3.9.0", Tag.of(UserAgentTagUtil.PLATFORM_TAG, "desktop")),
+        Arguments.of("Signal-iOS/4.53.7 (iPhone; iOS 12.2; Scale/3.00)", Tag.of(UserAgentTagUtil.PLATFORM_TAG, "ios")),
+        Arguments.of("Signal-Android/4.68.3 (Android 9)", Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")),
+        Arguments.of("Signal-Android/1.2.3 (Android 4.3)", Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")),
+        Arguments.of("Signal-Android/4.68.3.0-bobsbootlegclient", Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")),
+        Arguments.of("Signal-Desktop/1.22.45-foo-0", Tag.of(UserAgentTagUtil.PLATFORM_TAG, "desktop")),
+        Arguments.of("Signal-Desktop/1.34.5-beta.1-fakeclientemporium",
             Tag.of(UserAgentTagUtil.PLATFORM_TAG, "desktop")),
-        Arguments.of("Signal Desktop 1.32.0-beta.3", Tag.of(UserAgentTagUtil.PLATFORM_TAG, "desktop"))
+        Arguments.of("Signal-Desktop/1.32.0-beta.3", Tag.of(UserAgentTagUtil.PLATFORM_TAG, "desktop"))
     );
   }
 }

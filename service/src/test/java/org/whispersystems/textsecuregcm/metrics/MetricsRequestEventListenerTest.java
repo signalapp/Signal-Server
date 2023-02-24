@@ -86,7 +86,7 @@ class MetricsRequestEventListenerTest {
         when(uriInfo.getMatchedTemplates()).thenReturn(Collections.singletonList(new UriTemplate(path)));
 
         final ContainerRequest request = mock(ContainerRequest.class);
-        when(request.getRequestHeader(HttpHeaders.USER_AGENT)).thenReturn(Collections.singletonList("Signal-Android 4.53.7 (Android 8.1)"));
+        when(request.getRequestHeader(HttpHeaders.USER_AGENT)).thenReturn(Collections.singletonList("Signal-Android/4.53.7 (Android 8.1)"));
 
         final ContainerResponse response = mock(ContainerResponse.class);
         when(response.getStatus()).thenReturn(statusCode);
@@ -143,8 +143,8 @@ class MetricsRequestEventListenerTest {
 
         when(session.getUpgradeRequest()).thenReturn(request);
         when(session.getRemote()).thenReturn(remoteEndpoint);
-        when(request.getHeader(HttpHeaders.USER_AGENT)).thenReturn("Signal-Android 4.53.7 (Android 8.1)");
-        when(request.getHeaders()).thenReturn(Map.of(HttpHeaders.USER_AGENT, List.of("Signal-Android 4.53.7 (Android 8.1)")));
+        when(request.getHeader(HttpHeaders.USER_AGENT)).thenReturn("Signal-Android/4.53.7 (Android 8.1)");
+        when(request.getHeaders()).thenReturn(Map.of(HttpHeaders.USER_AGENT, List.of("Signal-Android/4.53.7 (Android 8.1)")));
 
         final ArgumentCaptor<Iterable<Tag>> tagCaptor = ArgumentCaptor.forClass(Iterable.class);
         when(meterRegistry.counter(eq(MetricsRequestEventListener.REQUEST_COUNTER_NAME), any(Iterable.class))).thenReturn(counter);
