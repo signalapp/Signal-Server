@@ -11,9 +11,6 @@ import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
 import com.codahale.metrics.SharedMetricRegistries;
-import com.fasterxml.jackson.annotation.JsonAutoDetect;
-import com.fasterxml.jackson.annotation.PropertyAccessor;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.logging.LoggingOptions;
 import com.google.common.collect.ImmutableMap;
@@ -216,6 +213,7 @@ import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
 import org.whispersystems.textsecuregcm.util.HostnameUtil;
+import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.UsernameHashZkProofVerifier;
 import org.whispersystems.textsecuregcm.util.logging.LoggingUnhandledExceptionMapper;
 import org.whispersystems.textsecuregcm.util.logging.UncaughtExceptionHandler;
@@ -301,9 +299,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     environment.lifecycle().manage(new MicrometerRegistryManager(Metrics.globalRegistry));
 
-    environment.getObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-    environment.getObjectMapper().setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.NONE);
-    environment.getObjectMapper().setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
+    SystemMapper.configureMapper(environment.getObjectMapper());
 
     HeaderControlledResourceBundleLookup headerControlledResourceBundleLookup =
         new HeaderControlledResourceBundleLookup();
