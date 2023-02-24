@@ -615,6 +615,11 @@ paths:
     put:
       tags:
       - Challenge
+      summary: Submit proof of a challenge completion
+      description: |
+        Some server endpoints (the "send message" endpoint, for example) may return a 428 response indicating the client must complete a challenge before continuing.
+        Clients may use this endpoint to provide proof of a completed challenge. If successful, the client may then
+        continue their original operation.
       operationId: handleChallengeResponse
       parameters:
       - name: X-Forwarded-For
@@ -629,24 +634,80 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AnswerChallengeRequest'
+              oneOf:
+              - $ref: '#/components/schemas/AnswerPushChallengeRequest'
+              - $ref: '#/components/schemas/AnswerRecaptchaChallengeRequest'
       responses:
-        default:
-          description: default response
-          content:
-            application/json: {}
+        "200":
+          description: Indicates the challenge proof was accepted
+        "413":
+          description: Too many attempts
+          headers:
+            Retry-After:
+              description: "If present, an positive integer indicating the number\
+                \ of seconds before a subsequent attempt could succeed"
+              style: simple
+        "429":
+          description: Too many attempts
+          headers:
+            Retry-After:
+              description: "If present, an positive integer indicating the number\
+                \ of seconds before a subsequent attempt could succeed"
+              style: simple
       security:
       - authenticatedAccount: []
   /v1/challenge/push:
     post:
       tags:
       - Challenge
+      summary: Request a push challenge
+      description: |
+        Clients may proactively request a push challenge by making an empty POST request. Push challenges will only be
+        sent to the requesting account’s main device. When the push is received it may be provided as proof of completed
+        challenge to /v1/challenge.
+        APNs challenge payloads will be formatted as follows:
+        ```
+        {
+            "aps": {
+                "sound": "default",
+                "alert": {
+                    "loc-key": "APN_Message"
+                }
+            },
+            "rateLimitChallenge": "{CHALLENGE_TOKEN}"
+        }
+        ```
+        FCM challenge payloads will be formatted as follows:
+        ```
+        {"rateLimitChallenge": "{CHALLENGE_TOKEN}"}
+        ```
+
+        Clients may retry the PUT in the event of an HTTP/5xx response (except HTTP/508) from the server, but must
+        implement an exponential back-off system and limit the total number of retries.
       operationId: requestPushChallenge
       responses:
-        default:
-          description: default response
-          content:
-            '*/*': {}
+        "200":
+          description: |
+            Indicates a payload to the account's primary device has been attempted. When clients receive a challenge push
+            notification, they may issue a PUT request to /v1/challenge.
+        "404":
+          description: |
+            The server does not have a push notification token for the authenticated account’s main device; clients may add a push
+            token and try again
+        "413":
+          description: Too many attempts
+          headers:
+            Retry-After:
+              description: "If present, an positive integer indicating the number\
+                \ of seconds before a subsequent attempt could succeed"
+              style: simple
+        "429":
+          description: Too many attempts
+          headers:
+            Retry-After:
+              description: "If present, an positive integer indicating the number\
+                \ of seconds before a subsequent attempt could succeed"
+              style: simple
       security:
       - authenticatedAccount: []
   /v1/devices/provisioning/code:
@@ -2618,15 +2679,6 @@ components:
           items:
             type: string
             format: byte
-    AnswerChallengeRequest:
-      required:
-      - type
-      type: object
-      properties:
-        type:
-          type: string
-      discriminator:
-        propertyName: type
     AnswerPushChallengeRequest:
       required:
       - challenge
@@ -2637,6 +2689,7 @@ components:
         properties:
           challenge:
             type: string
+            description: A token provided to the client via a push payload
     AnswerRecaptchaChallengeRequest:
       required:
       - captcha
@@ -2648,8 +2701,20 @@ components:
         properties:
           token:
             type: string
+            description: The value of the token field from the server's 428 response
           captcha:
             type: string
+            description: A string representing a solved captcha
+            example: signal-hcaptcha.30b01b46-d8c9-4c30-bbd7-9719acfe0c10.challenge.abcdefg1345
+    AnswerChallengeRequest:
+      required:
+      - type
+      type: object
+      properties:
+        type:
+          type: string
+      discriminator:
+        propertyName: type
     VerificationCode:
       type: object
       properties:
