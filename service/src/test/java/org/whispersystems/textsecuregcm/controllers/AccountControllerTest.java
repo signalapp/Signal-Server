@@ -1689,10 +1689,10 @@ class AccountControllerTest {
   void testSetGcmId() {
     Response response =
         resources.getJerseyTest()
-                 .target("/v1/accounts/gcm/")
-                 .request()
-                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_UUID, AuthHelper.DISABLED_PASSWORD))
-                 .put(Entity.json(new GcmRegistrationId("z000")));
+            .target("/v1/accounts/gcm/")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_UUID, AuthHelper.DISABLED_PASSWORD))
+            .put(Entity.json(new GcmRegistrationId("z000")));
 
     assertThat(response.getStatus()).isEqualTo(204);
 
@@ -1701,13 +1701,26 @@ class AccountControllerTest {
   }
 
   @Test
+  void testSetGcmIdInvalidrequest() {
+    Response response =
+        resources.getJerseyTest()
+            .target("/v1/accounts/gcm/")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_UUID, AuthHelper.DISABLED_PASSWORD))
+            .put(Entity.json("{}"));
+
+    assertThat(response.getStatus()).isEqualTo(422);
+
+  }
+
+  @Test
   void testSetApnId() {
     Response response =
         resources.getJerseyTest()
-                 .target("/v1/accounts/apn/")
-                 .request()
-                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_UUID, AuthHelper.DISABLED_PASSWORD))
-                 .put(Entity.json(new ApnRegistrationId("first", "second")));
+            .target("/v1/accounts/apn/")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_UUID, AuthHelper.DISABLED_PASSWORD))
+            .put(Entity.json(new ApnRegistrationId("first", "second")));
 
     assertThat(response.getStatus()).isEqualTo(204);
 
