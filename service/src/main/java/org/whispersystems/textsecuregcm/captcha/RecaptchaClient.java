@@ -18,6 +18,7 @@ import com.google.recaptchaenterprise.v1.RiskAnalysis;
 import io.micrometer.core.instrument.Metrics;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import javax.annotation.Nonnull;
@@ -99,8 +100,9 @@ public class RecaptchaClient implements CaptchaClient {
                 "reason", reason.name())
             .increment();
       }
+      final BigDecimal threshold = config.getScoreFloorByAction().getOrDefault(expectedAction, config.getScoreFloor());
       return new AssessmentResult(
-          score >= config.getScoreFloor().floatValue(),
+          score >= threshold.floatValue(),
           AssessmentResult.scoreString(score));
     } else {
       Metrics.counter(INVALID_REASON_COUNTER_NAME,

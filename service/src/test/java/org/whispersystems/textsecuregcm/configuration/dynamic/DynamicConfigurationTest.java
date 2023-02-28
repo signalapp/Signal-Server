@@ -262,6 +262,9 @@ class DynamicConfigurationTest {
             signupCountryCodes:
               - 1
             scoreFloor: 0.9
+            scoreFloorByAction:
+              challenge: 0.1
+              registration: 0.2
           """;
 
       final DynamicCaptchaConfiguration config =
@@ -270,6 +273,8 @@ class DynamicConfigurationTest {
 
       assertEquals(Set.of("1"), config.getSignupCountryCodes());
       assertEquals(0.9f, config.getScoreFloor().floatValue());
+      assertEquals(0.1f, config.getScoreFloorByAction().get("challenge").floatValue());
+      assertEquals(0.2f, config.getScoreFloorByAction().get("registration").floatValue());
     }
   }
 

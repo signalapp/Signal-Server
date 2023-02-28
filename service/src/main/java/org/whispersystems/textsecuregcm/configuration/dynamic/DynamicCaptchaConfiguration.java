@@ -9,6 +9,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import java.math.BigDecimal;
 import java.util.Collections;
+import java.util.Map;
 import java.util.Set;
 import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.DecimalMin;
@@ -27,6 +28,11 @@ public class DynamicCaptchaConfiguration {
 
   @JsonProperty
   private boolean allowRecaptcha = true;
+
+
+  @JsonProperty
+  @NotNull
+  private Map<String, BigDecimal> scoreFloorByAction = Collections.emptyMap();
 
   @JsonProperty
   @NotNull
@@ -64,6 +70,10 @@ public class DynamicCaptchaConfiguration {
 
   public boolean isAllowRecaptcha() {
     return allowRecaptcha;
+  }
+
+  public Map<String, BigDecimal> getScoreFloorByAction() {
+    return scoreFloorByAction;
   }
 
   @VisibleForTesting

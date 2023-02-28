@@ -9,6 +9,7 @@ import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import io.micrometer.core.instrument.Metrics;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -109,6 +110,8 @@ public class HCaptchaClient implements CaptchaClient {
           "reason", reason,
           "score", scoreString).increment();
     }
-    return new AssessmentResult(score >= config.getScoreFloor().floatValue(), scoreString);
+
+    final BigDecimal threshold = config.getScoreFloorByAction().getOrDefault(action, config.getScoreFloor());
+    return new AssessmentResult(score >= threshold.floatValue(), scoreString);
   }
 }
