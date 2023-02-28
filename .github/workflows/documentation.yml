@@ -29,5 +29,5 @@ jobs:
           git fetch origin gh-pages
           git checkout gh-pages
           cp /tmp/signal-server-openapi.yaml .
-          git commit -a -m "Updating documentation"
-          git push origin gh-pages
+          git diff --quiet || git commit -a -m "Updating documentation"
+          git push origin gh-pages -q
