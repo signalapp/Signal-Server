@@ -11,14 +11,20 @@ import com.codahale.metrics.Counter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tags;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
+import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
@@ -27,6 +33,9 @@ import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.util.Constants;
+import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
+import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
+import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
 import org.whispersystems.websocket.setup.WebSocketConnectListener;
 
@@ -40,8 +49,8 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
   private static final Counter openWebsocketCounter = metricRegistry.counter(
       name(WebSocketConnection.class, "open_websockets"));
 
-  private static final String OPEN_WEBSOCKET_COUNTER_NAME = MetricsUtil.name(WebSocketConnection.class,
-      "openWebsockets");
+  private static final String OPEN_WEBSOCKET_COUNTER_NAME =
+      MetricsUtil.name(WebSocketConnection.class, "openWebsockets");
 
   private static final long RENEW_PRESENCE_INTERVAL_MINUTES = 5;
 
@@ -53,6 +62,9 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
   private final ClientPresenceManager clientPresenceManager;
   private final ScheduledExecutorService scheduledExecutorService;
 
+  private final Map<ClientPlatform, AtomicInteger> openWebsocketsByClientPlatform;
+  private final AtomicInteger openWebsocketsFromUnknownPlatforms;
+
   public AuthenticatedConnectListener(ReceiptSender receiptSender,
       MessagesManager messagesManager,
       PushNotificationManager pushNotificationManager,
@@ -63,6 +75,20 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
     this.pushNotificationManager = pushNotificationManager;
     this.clientPresenceManager = clientPresenceManager;
     this.scheduledExecutorService = scheduledExecutorService;
+
+    openWebsocketsByClientPlatform = new EnumMap<>(ClientPlatform.class);
+
+    for (final ClientPlatform clientPlatform : ClientPlatform.values()) {
+      openWebsocketsByClientPlatform.put(clientPlatform, new AtomicInteger(0));
+
+      Metrics.gauge(OPEN_WEBSOCKET_COUNTER_NAME, Tags.of(UserAgentTagUtil.PLATFORM_TAG, clientPlatform.name().toLowerCase()),
+          openWebsocketsByClientPlatform.get(clientPlatform));
+    }
+
+    openWebsocketsFromUnknownPlatforms = new AtomicInteger(0);
+
+    Metrics.gauge(OPEN_WEBSOCKET_COUNTER_NAME, Tags.of(UserAgentTagUtil.PLATFORM_TAG, "unrecognized"),
+        openWebsocketsFromUnknownPlatforms);
   }
 
   @Override
@@ -76,6 +102,9 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
           context.getClient(),
           scheduledExecutorService);
 
+      final AtomicInteger openWebsocketAtomicInteger = getOpenWebsocketCounter(context.getClient().getUserAgent());
+
+      openWebsocketAtomicInteger.incrementAndGet();
       openWebsocketCounter.inc();
 
       pushNotificationManager.handleMessagesRetrieved(auth.getAccount(), device, context.getClient().getUserAgent());
@@ -83,6 +112,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
       final AtomicReference<ScheduledFuture<?>> renewPresenceFutureReference = new AtomicReference<>();
 
       context.addListener((closingContext, statusCode, reason) -> {
+        openWebsocketAtomicInteger.decrementAndGet();
         openWebsocketCounter.dec();
 
         timer.stop();
@@ -126,6 +156,14 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
     } else {
       final Timer.Context timer = unauthenticatedDurationTimer.time();
       context.addListener((context1, statusCode, reason) -> timer.stop());
+    }
+  }
+
+  private AtomicInteger getOpenWebsocketCounter(final String userAgentString) {
+    try {
+      return openWebsocketsByClientPlatform.get(UserAgentUtil.parseUserAgentString(userAgentString).getPlatform());
+    } catch (final UnrecognizedUserAgentException e) {
+      return openWebsocketsFromUnknownPlatforms;
     }
   }
 }
