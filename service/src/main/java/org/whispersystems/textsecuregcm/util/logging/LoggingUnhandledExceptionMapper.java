@@ -16,6 +16,9 @@ import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
 import org.whispersystems.textsecuregcm.util.ua.UserAgent;
 import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 
+/**
+ * Extends {@link LoggingExceptionMapper} to include the method and path in the log message, if they are available.
+ */
 public class LoggingUnhandledExceptionMapper extends LoggingExceptionMapper<Throwable> {
 
   @Context

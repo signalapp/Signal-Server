@@ -12,13 +12,13 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.ext.ExceptionMapper;
 import javax.ws.rs.ext.Provider;
-import javax.ws.rs.ext.Providers;
+import org.glassfish.jersey.spi.ExceptionMappers;
 
 @Provider
 public class CompletionExceptionMapper implements ExceptionMapper<CompletionException> {
 
   @Context
-  private Providers providers;
+  private ExceptionMappers exceptionMappers;
 
   @Override
   public Response toResponse(final CompletionException exception) {
@@ -26,8 +26,7 @@ public class CompletionExceptionMapper implements ExceptionMapper<CompletionExce
 
     if (cause != null) {
 
-      final Class type = cause.getClass();
-      final ExceptionMapper exceptionMapper = providers.getExceptionMapper(type);
+      final ExceptionMapper exceptionMapper = exceptionMappers.findMapping(cause);
 
       // some exception mappers, like LoggingExceptionMapper, have side effects (e.g., logging)
       // so we always build their response…
