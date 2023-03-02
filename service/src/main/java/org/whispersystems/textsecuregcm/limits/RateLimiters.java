@@ -56,9 +56,7 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
 
     CHECK_ACCOUNT_EXISTENCE("checkAccountExistence", false, new RateLimiterConfig(1_000, 1_000 / 60.0)),
 
-    STORIES("stories", false, new RateLimiterConfig(10_000, 10_000 / (24.0 * 60.0))),
-
-    REGISTRATION("registration", false, new RateLimiterConfig(2, 2)),
+    REGISTRATION("registration", false, new RateLimiterConfig(6, 2)),
 
     VERIFICATION_PUSH_CHALLENGE("verificationPushChallenge", false, new RateLimiterConfig(5, 2)),
 
@@ -196,10 +194,6 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
 
   public RateLimiter getCheckAccountExistenceLimiter() {
     return forDescriptor(For.CHECK_ACCOUNT_EXISTENCE);
-  }
-
-  public RateLimiter getStoriesLimiter() {
-    return forDescriptor(For.STORIES);
   }
 
   public RateLimiter getRegistrationLimiter() {
