@@ -61,7 +61,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
 import org.signal.libsignal.usernames.BaseUsernameException;
@@ -1746,16 +1745,38 @@ class AccountControllerTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"/v1/accounts/whoami/", "/v1/accounts/me/"})
-  public void testWhoAmI(final String path) {
-    AccountIdentityResponse response =
-        resources.getJerseyTest()
-                 .target(path)
-                 .request()
-                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                 .get(AccountIdentityResponse.class);
+  @MethodSource
+  void testWhoAmI(final String path, final boolean enabledAccount, final int expectedHttpStatusCode) {
+    final UUID aci;
+    final String password;
+    if (enabledAccount) {
+      aci = AuthHelper.VALID_UUID;
+      password = AuthHelper.VALID_PASSWORD;
+    } else {
+      aci = AuthHelper.DISABLED_UUID;
+      password = AuthHelper.DISABLED_PASSWORD;
+    }
 
-    assertThat(response.uuid()).isEqualTo(AuthHelper.VALID_UUID);
+    final Response response = resources.getJerseyTest()
+        .target(path)
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(aci, password))
+        .get();
+
+    assertThat(response.getStatus()).isEqualTo(expectedHttpStatusCode);
+
+    if (expectedHttpStatusCode == 200) {
+      assertThat(response.readEntity(AccountIdentityResponse.class).uuid()).isEqualTo(aci);
+    }
+  }
+
+  static Stream<Arguments> testWhoAmI() {
+    return Stream.of(
+        Arguments.of("/v1/accounts/whoami", true, 200),
+        Arguments.of("/v1/accounts/whoami", false, 401),
+        Arguments.of("/v1/accounts/me", true, 200),
+        Arguments.of("/v1/accounts/me", false, 200)
+    );
   }
 
   @Test

@@ -56,6 +56,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.usernames.BaseUsernameException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.auth.AccountAndAuthenticatedDeviceHolder;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.BasicAuthorizationHeader;
 import org.whispersystems.textsecuregcm.auth.ChangesDeviceEnabledState;
@@ -664,14 +665,18 @@ public class AccountController {
   @GET
   @Path("/me")
   @Produces(MediaType.APPLICATION_JSON)
-  public AccountIdentityResponse getMe(@Auth AuthenticatedAccount auth) {
-    return whoAmI(auth);
+  public AccountIdentityResponse getMe(@Auth DisabledPermittedAuthenticatedAccount auth) {
+    return buildAccountIdentityResponse(auth);
   }
 
   @GET
   @Path("/whoami")
   @Produces(MediaType.APPLICATION_JSON)
   public AccountIdentityResponse whoAmI(@Auth AuthenticatedAccount auth) {
+    return buildAccountIdentityResponse(auth);
+  }
+
+  private AccountIdentityResponse buildAccountIdentityResponse(AccountAndAuthenticatedDeviceHolder auth) {
     return new AccountIdentityResponse(auth.getAccount().getUuid(),
         auth.getAccount().getNumber(),
         auth.getAccount().getPhoneNumberIdentifier(),
