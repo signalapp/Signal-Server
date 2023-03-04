@@ -161,7 +161,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
                 getMessageQueueMetadataKey(destinationUuid, destinationDevice),
                 getQueueIndexKey(destinationUuid, destinationDevice)),
             List.of(messageWithGuid.toByteArray(),
-                String.valueOf(message.getTimestamp()).getBytes(StandardCharsets.UTF_8),
+                String.valueOf(message.getServerTimestamp()).getBytes(StandardCharsets.UTF_8),
                 guid.toString().getBytes(StandardCharsets.UTF_8))));
   }
 

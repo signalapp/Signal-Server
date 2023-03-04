@@ -179,10 +179,10 @@ class MessagePersisterIntegrationTest {
     return bb.getLong();
   }
 
-  private MessageProtos.Envelope generateRandomMessage(final UUID messageGuid, final long timestamp) {
+  private MessageProtos.Envelope generateRandomMessage(final UUID messageGuid, final long serverTimestamp) {
     return MessageProtos.Envelope.newBuilder()
-        .setTimestamp(timestamp)
-        .setServerTimestamp(timestamp)
+        .setTimestamp(serverTimestamp * 2) // client timestamp may not be accurate
+        .setServerTimestamp(serverTimestamp)
         .setContent(ByteString.copyFromUtf8(RandomStringUtils.randomAlphanumeric(256)))
         .setType(MessageProtos.Envelope.Type.CIPHERTEXT)
         .setServerGuid(messageGuid.toString())
