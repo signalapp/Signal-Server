@@ -6,15 +6,22 @@
 package org.whispersystems.textsecuregcm.limits;
 
 import java.util.UUID;
+import java.util.concurrent.CompletionStage;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 
 public interface RateLimiter {
 
   void validate(String key, int amount) throws RateLimitExceededException;
 
+  CompletionStage<Void> validateAsync(String key, int amount);
+
   boolean hasAvailablePermits(String key, int permits);
 
+  CompletionStage<Boolean> hasAvailablePermitsAsync(String key, int amount);
+
   void clear(String key);
+
+  CompletionStage<Void> clearAsync(String key);
 
   RateLimiterConfig config();
 
@@ -30,12 +37,32 @@ public interface RateLimiter {
     validate(srcAccountUuid.toString() + "__" + dstAccountUuid.toString());
   }
 
+  default CompletionStage<Void> validateAsync(final String key) {
+    return validateAsync(key, 1);
+  }
+
+  default CompletionStage<Void> validateAsync(final UUID accountUuid) {
+    return validateAsync(accountUuid.toString());
+  }
+
+  default CompletionStage<Void> validateAsync(final UUID srcAccountUuid, final UUID dstAccountUuid) {
+    return validateAsync(srcAccountUuid.toString() + "__" + dstAccountUuid.toString());
+  }
+
   default boolean hasAvailablePermits(final UUID accountUuid, final int permits) {
     return hasAvailablePermits(accountUuid.toString(), permits);
   }
 
+  default CompletionStage<Boolean> hasAvailablePermitsAsync(final UUID accountUuid, final int permits) {
+    return hasAvailablePermitsAsync(accountUuid.toString(), permits);
+  }
+
   default void clear(final UUID accountUuid) {
     clear(accountUuid.toString());
+  }
+
+  default CompletionStage<Void> clearAsync(final UUID accountUuid) {
+    return clearAsync(accountUuid.toString());
   }
 
   /**

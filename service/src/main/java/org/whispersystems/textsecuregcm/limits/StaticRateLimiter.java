@@ -5,60 +5,96 @@
 package org.whispersystems.textsecuregcm.limits;
 
 import static java.util.Objects.requireNonNull;
-import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
-import java.io.IOException;
+import java.time.Clock;
 import java.time.Duration;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.util.List;
+import java.util.concurrent.CompletionStage;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
+import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
-import org.whispersystems.textsecuregcm.util.SystemMapper;
+import org.whispersystems.textsecuregcm.util.Util;
 
 public class StaticRateLimiter implements RateLimiter {
-
-  private static final Logger logger = LoggerFactory.getLogger(StaticRateLimiter.class);
 
   protected final String name;
 
   private final RateLimiterConfig config;
 
-  protected final FaultTolerantRedisCluster cacheCluster;
-
   private final Counter counter;
+
+  private final ClusterLuaScript validateScript;
+
+  private final FaultTolerantRedisCluster cacheCluster;
+
+  private final Clock clock;
+
 
   public StaticRateLimiter(
       final String name,
       final RateLimiterConfig config,
-      final FaultTolerantRedisCluster cacheCluster) {
+      final ClusterLuaScript validateScript,
+      final FaultTolerantRedisCluster cacheCluster,
+      final Clock clock) {
     this.name = requireNonNull(name);
     this.config = requireNonNull(config);
+    this.validateScript = requireNonNull(validateScript);
     this.cacheCluster = requireNonNull(cacheCluster);
-    this.counter = Metrics.counter(name(getClass(), "exceeded"), "name", name);
+    this.clock = requireNonNull(clock);
+    this.counter = Metrics.counter(MetricsUtil.name(getClass(), "exceeded"), "name", name);
   }
 
   @Override
   public void validate(final String key, final int amount) throws RateLimitExceededException {
-    final LeakyBucket bucket = getBucket(key);
-    if (bucket.add(amount)) {
-      setBucket(key, bucket);
-    } else {
+    final long deficitPermitsAmount = executeValidateScript(key, amount, true);
+    if (deficitPermitsAmount > 0) {
       counter.increment();
-      throw new RateLimitExceededException(bucket.getTimeUntilSpaceAvailable(amount), true);
+      final Duration retryAfter = Duration.ofMillis(
+          (long) Math.ceil((double) deficitPermitsAmount / config.leakRatePerMillis()));
+      throw new RateLimitExceededException(retryAfter, true);
     }
   }
 
   @Override
-  public boolean hasAvailablePermits(final String key, final int permits) {
-    return getBucket(key).getTimeUntilSpaceAvailable(permits).equals(Duration.ZERO);
+  public CompletionStage<Void> validateAsync(final String key, final int amount) {
+    return executeValidateScriptAsync(key, amount, true)
+        .thenCompose(deficitPermitsAmount -> {
+          if (deficitPermitsAmount == 0) {
+            return completedFuture(null);
+          }
+          counter.increment();
+          final Duration retryAfter = Duration.ofMillis(
+              (long) Math.ceil((double) deficitPermitsAmount / config.leakRatePerMillis()));
+          return failedFuture(new RateLimitExceededException(retryAfter, true));
+        });
+  }
+
+  @Override
+  public boolean hasAvailablePermits(final String key, final int amount) {
+    final long deficitPermitsAmount = executeValidateScript(key, amount, false);
+    return deficitPermitsAmount == 0;
+  }
+
+  @Override
+  public CompletionStage<Boolean> hasAvailablePermitsAsync(final String key, final int amount) {
+    return executeValidateScriptAsync(key, amount, false)
+        .thenApply(deficitPermitsAmount -> deficitPermitsAmount == 0);
   }
 
   @Override
   public void clear(final String key) {
-    cacheCluster.useCluster(connection -> connection.sync().del(getBucketName(key)));
+    cacheCluster.useCluster(connection -> connection.sync().del(bucketName(key)));
+  }
+
+  @Override
+  public CompletionStage<Void> clearAsync(final String key) {
+    return cacheCluster.withCluster(connection -> connection.async().del(bucketName(key)))
+        .thenRun(Util.NOOP);
   }
 
   @Override
@@ -66,33 +102,31 @@ public class StaticRateLimiter implements RateLimiter {
     return config;
   }
 
-  private void setBucket(final String key, final LeakyBucket bucket) {
-    try {
-      final String serialized = bucket.serialize(SystemMapper.jsonMapper());
-      cacheCluster.useCluster(connection -> connection.sync().setex(
-          getBucketName(key),
-          (int) Math.ceil((config.bucketSize() / config.leakRatePerMillis()) / 1000),
-          serialized));
-    } catch (final JsonProcessingException e) {
-      throw new IllegalArgumentException(e);
-    }
+  private long executeValidateScript(final String key, final int amount, final boolean applyChanges) {
+    final List<String> keys = List.of(bucketName(key));
+    final List<String> arguments = List.of(
+        String.valueOf(config.bucketSize()),
+        String.valueOf(config.leakRatePerMillis()),
+        String.valueOf(clock.millis()),
+        String.valueOf(amount),
+        String.valueOf(applyChanges)
+    );
+    return (Long) validateScript.execute(keys, arguments);
   }
 
-  private LeakyBucket getBucket(final String key) {
-    try {
-      final String serialized = cacheCluster.withCluster(connection -> connection.sync().get(getBucketName(key)));
-
-      if (serialized != null) {
-        return LeakyBucket.fromSerialized(SystemMapper.jsonMapper(), serialized);
-      }
-    } catch (final IOException e) {
-      logger.warn("Deserialization error", e);
-    }
-
-    return new LeakyBucket(config.bucketSize(), config.leakRatePerMillis());
+  private CompletionStage<Long> executeValidateScriptAsync(final String key, final int amount, final boolean applyChanges) {
+    final List<String> keys = List.of(bucketName(key));
+    final List<String> arguments = List.of(
+        String.valueOf(config.bucketSize()),
+        String.valueOf(config.leakRatePerMillis()),
+        String.valueOf(clock.millis()),
+        String.valueOf(amount),
+        String.valueOf(applyChanges)
+    );
+    return validateScript.executeAsync(keys, arguments).thenApply(o -> (Long) o);
   }
 
-  private String getBucketName(final String key) {
+  private String bucketName(final String key) {
     return "leaky_bucket::" + name + "::" + key;
   }
 }

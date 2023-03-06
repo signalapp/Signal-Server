@@ -7,7 +7,11 @@ package org.whispersystems.textsecuregcm.limits;
 
 import static java.util.Objects.requireNonNull;
 
+import io.lettuce.core.ScriptOutputType;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.lang.invoke.MethodHandles;
+import java.time.Clock;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
@@ -17,6 +21,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 
@@ -33,12 +38,14 @@ public abstract class BaseRateLimiters<T extends RateLimiterDescriptor> {
       final T[] values,
       final Map<String, RateLimiterConfig> configs,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
-      final FaultTolerantRedisCluster cacheCluster) {
+      final ClusterLuaScript validateScript,
+      final FaultTolerantRedisCluster cacheCluster,
+      final Clock clock) {
     this.configs = configs;
     this.rateLimiterByDescriptor = Arrays.stream(values)
         .map(descriptor -> Pair.of(
             descriptor,
-            createForDescriptor(descriptor, configs, dynamicConfigurationManager, cacheCluster)))
+            createForDescriptor(descriptor, configs, dynamicConfigurationManager, validateScript, cacheCluster, clock)))
         .collect(Collectors.toUnmodifiableMap(Pair::getKey, Pair::getValue));
   }
 
@@ -62,11 +69,22 @@ public abstract class BaseRateLimiters<T extends RateLimiterDescriptor> {
     }
   }
 
+  protected static ClusterLuaScript defaultScript(final FaultTolerantRedisCluster cacheCluster) {
+    try {
+      return ClusterLuaScript.fromResource(
+          cacheCluster, "lua/validate_rate_limit.lua", ScriptOutputType.INTEGER);
+    } catch (final IOException e) {
+      throw new UncheckedIOException("Failed to load rate limit validation script", e);
+    }
+  }
+
   private static RateLimiter createForDescriptor(
       final RateLimiterDescriptor descriptor,
       final Map<String, RateLimiterConfig> configs,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
-      final FaultTolerantRedisCluster cacheCluster) {
+      final ClusterLuaScript validateScript,
+      final FaultTolerantRedisCluster cacheCluster,
+      final Clock clock) {
     if (descriptor.isDynamic()) {
       final Supplier<RateLimiterConfig> configResolver = () -> {
         final RateLimiterConfig config = dynamicConfigurationManager.getConfiguration().getLimits().get(descriptor.id());
@@ -74,9 +92,9 @@ public abstract class BaseRateLimiters<T extends RateLimiterDescriptor> {
             ? config
             : configs.getOrDefault(descriptor.id(), descriptor.defaultConfig());
       };
-      return new DynamicRateLimiter(descriptor.id(), configResolver, cacheCluster);
+      return new DynamicRateLimiter(descriptor.id(), configResolver, validateScript, cacheCluster, clock);
     }
     final RateLimiterConfig cfg = configs.getOrDefault(descriptor.id(), descriptor.defaultConfig());
-    return new StaticRateLimiter(descriptor.id(), cfg, cacheCluster);
+    return new StaticRateLimiter(descriptor.id(), cfg, validateScript, cacheCluster, clock);
   }
 }

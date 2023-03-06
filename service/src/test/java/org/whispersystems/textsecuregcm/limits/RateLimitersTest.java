@@ -18,9 +18,11 @@ import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.util.MockUtils;
+import org.whispersystems.textsecuregcm.util.MutableClock;
 
 @SuppressWarnings("unchecked")
 public class RateLimitersTest {
@@ -30,7 +32,11 @@ public class RateLimitersTest {
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfig =
       MockUtils.buildMock(DynamicConfigurationManager.class, cfg -> when(cfg.getConfiguration()).thenReturn(configuration));
 
+  private final ClusterLuaScript validateScript = mock(ClusterLuaScript.class);
+
   private final FaultTolerantRedisCluster redisCluster = mock(FaultTolerantRedisCluster.class);
+
+  private final MutableClock clock = MockUtils.mutableClock(0);
 
   private static final String BAD_YAML = """
       limits:
@@ -59,12 +65,12 @@ public class RateLimitersTest {
   public void testValidateConfigs() throws Exception {
     assertThrows(IllegalArgumentException.class, () -> {
       final GenericHolder cfg = DynamicConfigurationManager.parseConfiguration(BAD_YAML, GenericHolder.class).orElseThrow();
-      final RateLimiters rateLimiters = new RateLimiters(cfg.limits(), dynamicConfig, redisCluster);
+      final RateLimiters rateLimiters = new RateLimiters(cfg.limits(), dynamicConfig, validateScript, redisCluster, clock);
       rateLimiters.validateValuesAndConfigs();
     });
 
     final GenericHolder cfg = DynamicConfigurationManager.parseConfiguration(GOOD_YAML, GenericHolder.class).orElseThrow();
-    final RateLimiters rateLimiters = new RateLimiters(cfg.limits(), dynamicConfig, redisCluster);
+    final RateLimiters rateLimiters = new RateLimiters(cfg.limits(), dynamicConfig, validateScript, redisCluster, clock);
     rateLimiters.validateValuesAndConfigs();
   }
 
@@ -79,18 +85,22 @@ public class RateLimitersTest {
         new TestDescriptor[] { td1, td2, td3, tdDup },
         Collections.emptyMap(),
         dynamicConfig,
-        redisCluster) {});
+        validateScript,
+        redisCluster,
+        clock) {});
 
     new BaseRateLimiters<>(
         new TestDescriptor[] { td1, td2, td3 },
         Collections.emptyMap(),
         dynamicConfig,
-        redisCluster) {};
+        validateScript,
+        redisCluster,
+        clock) {};
   }
 
   @Test
   void testUnchangingConfiguration() {
-    final RateLimiters rateLimiters = new RateLimiters(Collections.emptyMap(), dynamicConfig, redisCluster);
+    final RateLimiters rateLimiters = new RateLimiters(Collections.emptyMap(), dynamicConfig, validateScript, redisCluster, clock);
     final RateLimiter limiter = rateLimiters.getRateLimitResetLimiter();
     final RateLimiterConfig expected = RateLimiters.For.RATE_LIMIT_RESET.defaultConfig();
     assertEquals(expected, limiter.config());
@@ -109,7 +119,7 @@ public class RateLimitersTest {
 
     when(configuration.getLimits()).thenReturn(limitsConfigMap);
 
-    final RateLimiters rateLimiters = new RateLimiters(Collections.emptyMap(), dynamicConfig, redisCluster);
+    final RateLimiters rateLimiters = new RateLimiters(Collections.emptyMap(), dynamicConfig, validateScript, redisCluster, clock);
     final RateLimiter limiter = rateLimiters.getRateLimitResetLimiter();
 
     limitsConfigMap.put(RateLimiters.For.RATE_LIMIT_RESET.id(), initialRateLimiterConfig);
@@ -137,7 +147,7 @@ public class RateLimitersTest {
 
     when(configuration.getLimits()).thenReturn(mapForDynamic);
 
-    final RateLimiters rateLimiters = new RateLimiters(mapForStatic, dynamicConfig, redisCluster);
+    final RateLimiters rateLimiters = new RateLimiters(mapForStatic, dynamicConfig, validateScript, redisCluster, clock);
     final RateLimiter limiter = rateLimiters.forDescriptor(descriptor);
 
     // test only default is present
