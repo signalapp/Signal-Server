@@ -1448,7 +1448,7 @@ class AccountControllerTest {
         .thenReturn(CompletableFuture.completedFuture(true));
 
     final StoredRegistrationLock existingRegistrationLock = mock(StoredRegistrationLock.class);
-    when(existingRegistrationLock.requiresClientRegistrationLock()).thenReturn(false);
+    when(existingRegistrationLock.getStatus()).thenReturn(StoredRegistrationLock.Status.ABSENT);
 
     final Account existingAccount = mock(Account.class);
     when(existingAccount.getNumber()).thenReturn(number);
@@ -1482,7 +1482,7 @@ class AccountControllerTest {
         .thenReturn(CompletableFuture.completedFuture(true));
 
     final StoredRegistrationLock existingRegistrationLock = mock(StoredRegistrationLock.class);
-    when(existingRegistrationLock.requiresClientRegistrationLock()).thenReturn(true);
+    when(existingRegistrationLock.getStatus()).thenReturn(StoredRegistrationLock.Status.REQUIRED);
 
     final UUID existingUuid = UUID.randomUUID();
     final Account existingAccount = mock(Account.class);
@@ -1521,7 +1521,7 @@ class AccountControllerTest {
         .thenReturn(CompletableFuture.completedFuture(true));
 
     final StoredRegistrationLock existingRegistrationLock = mock(StoredRegistrationLock.class);
-    when(existingRegistrationLock.requiresClientRegistrationLock()).thenReturn(true);
+    when(existingRegistrationLock.getStatus()).thenReturn(StoredRegistrationLock.Status.REQUIRED);
     when(existingRegistrationLock.verify(anyString())).thenReturn(false);
 
     UUID existingUuid = UUID.randomUUID();
@@ -1561,7 +1561,7 @@ class AccountControllerTest {
         .thenReturn(CompletableFuture.completedFuture(true));
 
     final StoredRegistrationLock existingRegistrationLock = mock(StoredRegistrationLock.class);
-    when(existingRegistrationLock.requiresClientRegistrationLock()).thenReturn(true);
+    when(existingRegistrationLock.getStatus()).thenReturn(StoredRegistrationLock.Status.REQUIRED);
     when(existingRegistrationLock.verify(reglock)).thenReturn(true);
 
     final Account existingAccount = mock(Account.class);

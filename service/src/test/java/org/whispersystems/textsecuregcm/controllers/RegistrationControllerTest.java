@@ -265,7 +265,7 @@ class RegistrationControllerTest {
       case RATE_LIMITED -> new RateLimitExceededException(null, true);
     };
     doThrow(e)
-        .when(registrationLockVerificationManager).verifyRegistrationLock(any(), any());
+        .when(registrationLockVerificationManager).verifyRegistrationLock(any(), any(), any(), any(), any());
 
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/registration")

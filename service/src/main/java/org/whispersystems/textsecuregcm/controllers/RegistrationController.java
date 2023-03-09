@@ -102,7 +102,8 @@ public class RegistrationController {
 
     if (existingAccount.isPresent()) {
       registrationLockVerificationManager.verifyRegistrationLock(existingAccount.get(),
-          registrationRequest.accountAttributes().getRegistrationLock());
+          registrationRequest.accountAttributes().getRegistrationLock(),
+          userAgent, RegistrationLockVerificationManager.Flow.REGISTRATION, verificationType);
     }
 
     if (!registrationRequest.skipDeviceTransfer() && existingAccount.map(Account::isTransferSupported).orElse(false)) {

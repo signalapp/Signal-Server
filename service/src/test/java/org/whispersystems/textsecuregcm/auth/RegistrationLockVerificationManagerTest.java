@@ -26,6 +26,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
+import org.whispersystems.textsecuregcm.entities.PhoneVerificationRequest;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
@@ -65,7 +66,7 @@ class RegistrationLockVerificationManagerTest {
   @EnumSource
   void testErrors(RegistrationLockError error) throws Exception {
 
-    when(existingRegistrationLock.requiresClientRegistrationLock()).thenReturn(true);
+    when(existingRegistrationLock.getStatus()).thenReturn(StoredRegistrationLock.Status.REQUIRED);
 
     final String submittedRegistrationLock = "reglock";
 
@@ -89,29 +90,35 @@ class RegistrationLockVerificationManagerTest {
     };
 
     final Exception e = assertThrows(exceptionType.first(), () ->
-        registrationLockVerificationManager.verifyRegistrationLock(account, submittedRegistrationLock));
+        registrationLockVerificationManager.verifyRegistrationLock(account, submittedRegistrationLock,
+            "Signal-Android/4.68.3", RegistrationLockVerificationManager.Flow.REGISTRATION,
+            PhoneVerificationRequest.VerificationType.SESSION));
 
     exceptionType.second().accept(e);
   }
 
   @ParameterizedTest
   @MethodSource
-  void testSuccess(final boolean requiresClientRegistrationLock, @Nullable final String submittedRegistrationLock) {
+  void testSuccess(final StoredRegistrationLock.Status status, @Nullable final String submittedRegistrationLock) {
 
-    when(existingRegistrationLock.requiresClientRegistrationLock())
-        .thenReturn(requiresClientRegistrationLock);
+    when(existingRegistrationLock.getStatus())
+        .thenReturn(status);
     when(existingRegistrationLock.verify(submittedRegistrationLock)).thenReturn(true);
 
     assertDoesNotThrow(
-        () -> registrationLockVerificationManager.verifyRegistrationLock(account, submittedRegistrationLock));
+        () -> registrationLockVerificationManager.verifyRegistrationLock(account, submittedRegistrationLock,
+            "Signal-Android/4.68.3", RegistrationLockVerificationManager.Flow.REGISTRATION,
+            PhoneVerificationRequest.VerificationType.SESSION));
   }
 
   static Stream<Arguments> testSuccess() {
     return Stream.of(
-        Arguments.of(false, null),
-        Arguments.of(true, null),
-        Arguments.of(false, "reglock"),
-        Arguments.of(true, "reglock")
+        Arguments.of(StoredRegistrationLock.Status.ABSENT, null),
+        Arguments.of(StoredRegistrationLock.Status.EXPIRED, null),
+        Arguments.of(StoredRegistrationLock.Status.REQUIRED, null),
+        Arguments.of(StoredRegistrationLock.Status.ABSENT, "reglock"),
+        Arguments.of(StoredRegistrationLock.Status.EXPIRED, "reglock"),
+        Arguments.of(StoredRegistrationLock.Status.REQUIRED, "reglock")
     );
   }
 

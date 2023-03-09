@@ -78,6 +78,7 @@ import org.whispersystems.textsecuregcm.entities.ConfirmUsernameHashRequest;
 import org.whispersystems.textsecuregcm.entities.DeviceName;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
 import org.whispersystems.textsecuregcm.entities.MismatchedDevices;
+import org.whispersystems.textsecuregcm.entities.PhoneVerificationRequest;
 import org.whispersystems.textsecuregcm.entities.RegistrationLock;
 import org.whispersystems.textsecuregcm.entities.ReserveUsernameHashRequest;
 import org.whispersystems.textsecuregcm.entities.ReserveUsernameHashResponse;
@@ -409,7 +410,9 @@ public class AccountController {
 
     if (existingAccount.isPresent()) {
       registrationLockVerificationManager.verifyRegistrationLock(existingAccount.get(),
-          accountAttributes.getRegistrationLock());
+          accountAttributes.getRegistrationLock(),
+          userAgent, RegistrationLockVerificationManager.Flow.REGISTRATION,
+          PhoneVerificationRequest.VerificationType.SESSION);
     }
 
     if (availableForTransfer.orElse(false) && existingAccount.map(Account::isTransferSupported).orElse(false)) {
@@ -471,7 +474,8 @@ public class AccountController {
       final Optional<Account> existingAccount = accounts.getByE164(number);
 
       if (existingAccount.isPresent()) {
-        registrationLockVerificationManager.verifyRegistrationLock(existingAccount.get(), request.registrationLock());
+        registrationLockVerificationManager.verifyRegistrationLock(existingAccount.get(), request.registrationLock(),
+            userAgent, RegistrationLockVerificationManager.Flow.CHANGE_NUMBER, PhoneVerificationRequest.VerificationType.SESSION);
       }
 
       rateLimiters.getVerifyLimiter().clear(number);

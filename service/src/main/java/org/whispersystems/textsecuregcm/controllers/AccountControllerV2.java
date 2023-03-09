@@ -91,7 +91,8 @@ public class AccountControllerV2 {
       final Optional<Account> existingAccount = accountsManager.getByE164(number);
 
       if (existingAccount.isPresent()) {
-        registrationLockVerificationManager.verifyRegistrationLock(existingAccount.get(), request.registrationLock());
+        registrationLockVerificationManager.verifyRegistrationLock(existingAccount.get(), request.registrationLock(),
+            userAgent, RegistrationLockVerificationManager.Flow.CHANGE_NUMBER, verificationType);
       }
 
       Metrics.counter(CHANGE_NUMBER_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
