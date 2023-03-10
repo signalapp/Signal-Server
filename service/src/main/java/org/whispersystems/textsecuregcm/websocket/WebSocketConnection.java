@@ -210,7 +210,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
     client.close(1000, "OK");
   }
 
-  private CompletableFuture<?> sendMessage(final Envelope message, StoredMessageInfo storedMessageInfo) {
+  private CompletableFuture<Void> sendMessage(final Envelope message, StoredMessageInfo storedMessageInfo) {
     // clear ephemeral field from the envelope
     final Optional<byte[]> body = Optional.ofNullable(message.toBuilder().clearEphemeral().build().toByteArray());
 
@@ -227,11 +227,12 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
             sendFailuresMeter.mark();
           }
         }).thenCompose(response -> {
-          final CompletableFuture<?> result;
+          final CompletableFuture<Void> result;
           if (isSuccessResponse(response)) {
 
             result = messagesManager.delete(auth.getAccount().getUuid(), device.getId(),
-                storedMessageInfo.guid(), storedMessageInfo.serverTimestamp());
+                    storedMessageInfo.guid(), storedMessageInfo.serverTimestamp())
+                .thenApply(ignored -> null);
 
             if (message.getType() != Envelope.Type.SERVER_DELIVERY_RECEIPT) {
               recordMessageDeliveryDuration(message.getTimestamp(), device);
@@ -364,31 +365,37 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
         .limitRate(MESSAGE_PUBLISHER_LIMIT_RATE)
         .flatMapSequential(envelope ->
             Mono.fromFuture(sendMessage(envelope)
-                    .orTimeout(sendFuturesTimeoutMillis, TimeUnit.MILLISECONDS))
-                .doOnError(e -> {
-                  final String errorType;
-                  if (e instanceof TimeoutException) {
-                    errorType = "timeout";
-                  } else if (e instanceof java.nio.channels.ClosedChannelException) {
-                    errorType = "closedChannel";
-                  } else {
-                    logger.warn("Send message failed", e);
-                    errorType = "other";
-                  }
-                  final Tags tags = Tags.of(
-                      UserAgentTagUtil.getPlatformTag(client.getUserAgent()),
-                      Tag.of(ERROR_TYPE_TAG, errorType));
-                  Metrics.counter(SEND_MESSAGE_ERROR_COUNTER, tags).increment();
-                }))
-        .doOnError(queueCleared::completeExceptionally)
-        .doOnComplete(() -> queueCleared.complete(null))
+                .orTimeout(sendFuturesTimeoutMillis, TimeUnit.MILLISECONDS)))
         .subscribeOn(reactiveScheduler)
-        .subscribe();
+        .subscribe(
+            // no additional consumer of values - it is Flux<Void> by now
+            null,
+            // the first error will terminate the stream, but we may get multiple errors from in-flight messages
+            e -> {
+              queueCleared.completeExceptionally(e);
+
+              final String errorType;
+              if (e instanceof TimeoutException) {
+                errorType = "timeout";
+              } else if (e instanceof java.nio.channels.ClosedChannelException) {
+                errorType = "closedChannel";
+              } else {
+                logger.warn("Send message failed", e);
+                errorType = "other";
+              }
+              final Tags tags = Tags.of(
+                  UserAgentTagUtil.getPlatformTag(client.getUserAgent()),
+                  Tag.of(ERROR_TYPE_TAG, errorType));
+              Metrics.counter(SEND_MESSAGE_ERROR_COUNTER, tags).increment();
+            },
+            // completion
+            () -> queueCleared.complete(null)
+        );
 
     messageSubscription.set(subscription);
   }
 
-  private CompletableFuture<?> sendMessage(Envelope envelope) {
+  private CompletableFuture<Void> sendMessage(Envelope envelope) {
     final UUID messageGuid = UUID.fromString(envelope.getServerGuid());
 
     if (envelope.getStory() && !client.shouldDeliverStories()) {
