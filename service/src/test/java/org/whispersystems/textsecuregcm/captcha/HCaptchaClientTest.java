@@ -2,6 +2,7 @@ package org.whispersystems.textsecuregcm.captcha;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -10,6 +11,10 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.http.HttpClient;
 import java.net.http.HttpResponse;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -49,7 +54,7 @@ public class HCaptchaClientTest {
         success, 1 - score)); // hCaptcha scores are inverted compared to recaptcha scores. (low score is good)
 
     final AssessmentResult result = new HCaptchaClient("fake", client, mockConfig(true, 0.5))
-        .verify(SITE_KEY, "whatever", TOKEN, null);
+        .verify(SITE_KEY, Action.CHALLENGE, TOKEN, null);
     if (!success) {
       assertThat(result).isEqualTo(AssessmentResult.invalid());
     } else {
@@ -62,31 +67,40 @@ public class HCaptchaClientTest {
   public void errorResponse() throws IOException, InterruptedException {
     final HttpClient httpClient = mockResponder(503, "");
     final HCaptchaClient client = new HCaptchaClient("fake", httpClient, mockConfig(true, 0.5));
-    assertThrows(IOException.class, () -> client.verify(SITE_KEY, "whatever", TOKEN, null));
+    assertThrows(IOException.class, () -> client.verify(SITE_KEY, Action.CHALLENGE, TOKEN, null));
   }
 
   @Test
   public void invalidScore() throws IOException, InterruptedException {
     final HttpClient httpClient = mockResponder(200, """
-    {"success" : true, "score": 1.1}
-    """);
+        {"success" : true, "score": 1.1}
+        """);
     final HCaptchaClient client = new HCaptchaClient("fake", httpClient, mockConfig(true, 0.5));
-    assertThat(client.verify(SITE_KEY, "whatever", TOKEN, null)).isEqualTo(AssessmentResult.invalid());
+    assertThat(client.verify(SITE_KEY, Action.CHALLENGE, TOKEN, null)).isEqualTo(AssessmentResult.invalid());
   }
 
   @Test
   public void badBody() throws IOException, InterruptedException {
     final HttpClient httpClient = mockResponder(200, """
-    {"success" : true,
-    """);
+        {"success" : true,
+        """);
     final HCaptchaClient client = new HCaptchaClient("fake", httpClient, mockConfig(true, 0.5));
-    assertThrows(IOException.class, () -> client.verify(SITE_KEY, "whatever", TOKEN, null));
+    assertThrows(IOException.class, () -> client.verify(SITE_KEY, Action.CHALLENGE, TOKEN, null));
   }
 
   @Test
   public void disabled() throws IOException {
     final HCaptchaClient hc = new HCaptchaClient("fake", null, mockConfig(false, 0.5));
-    assertThat(hc.verify(SITE_KEY, null, TOKEN, null)).isEqualTo(AssessmentResult.invalid());
+    assertTrue(Arrays.stream(Action.values()).map(hc::validSiteKeys).allMatch(Set::isEmpty));
+  }
+
+  @Test
+  public void badSiteKey() throws IOException {
+    final HCaptchaClient hc = new HCaptchaClient("fake", null, mockConfig(true, 0.5));
+    for (Action action : Action.values()) {
+      assertThat(hc.validSiteKeys(action)).contains(SITE_KEY);
+      assertThat(hc.validSiteKeys(action)).doesNotContain("invalid");
+    }
   }
 
   private static HttpClient mockResponder(final int statusCode, final String jsonBody)
@@ -105,6 +119,10 @@ public class HCaptchaClientTest {
     final DynamicCaptchaConfiguration config = new DynamicCaptchaConfiguration();
     config.setAllowHCaptcha(enabled);
     config.setScoreFloor(BigDecimal.valueOf(scoreFloor));
+    config.setHCaptchaSiteKeys(Map.of(
+        Action.REGISTRATION, Collections.singleton(SITE_KEY),
+        Action.CHALLENGE, Collections.singleton(SITE_KEY)
+    ));
 
     @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> m = mock(
         DynamicConfigurationManager.class);

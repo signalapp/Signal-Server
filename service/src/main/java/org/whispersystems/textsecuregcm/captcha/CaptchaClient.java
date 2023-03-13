@@ -5,10 +5,12 @@
 
 package org.whispersystems.textsecuregcm.captcha;
 
-import javax.annotation.Nullable;
 import java.io.IOException;
+import java.util.Optional;
+import java.util.Set;
 
 public interface CaptchaClient {
+
 
   /**
    * @return the identifying captcha scheme that this CaptchaClient handles
@@ -16,18 +18,24 @@ public interface CaptchaClient {
   String scheme();
 
   /**
+   * @param action the action to retrieve site keys for
+   * @return siteKeys this client is willing to accept
+   */
+  Set<String> validSiteKeys(final Action action);
+
+  /**
    * Verify a provided captcha solution
    *
    * @param siteKey identifying string for the captcha service
-   * @param action  an optional action indicating the purpose of the captcha
+   * @param action  an action indicating the purpose of the captcha
    * @param token   the captcha solution that will be verified
-   * @param ip      the ip of the captcha solve
+   * @param ip      the ip of the captcha solver
    * @return An {@link AssessmentResult} indicating whether the solution should be accepted
    * @throws IOException if the underlying captcha provider returns an error
    */
   AssessmentResult verify(
       final String siteKey,
-      final @Nullable String action,
+      final Action action,
       final String token,
       final String ip) throws IOException;
 }

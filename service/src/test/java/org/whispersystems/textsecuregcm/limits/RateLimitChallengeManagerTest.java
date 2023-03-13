@@ -17,6 +17,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.whispersystems.textsecuregcm.captcha.Action;
 import org.whispersystems.textsecuregcm.captcha.AssessmentResult;
 import org.whispersystems.textsecuregcm.captcha.CaptchaChecker;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
@@ -75,7 +76,7 @@ class RateLimitChallengeManagerTest {
     when(account.getNumber()).thenReturn("+18005551234");
     when(account.getUuid()).thenReturn(UUID.randomUUID());
 
-    when(captchaChecker.verify(any(), any()))
+    when(captchaChecker.verify(eq(Action.CHALLENGE), any(), any()))
         .thenReturn(successfulChallenge
             ? new AssessmentResult(true, "")
             : AssessmentResult.invalid());

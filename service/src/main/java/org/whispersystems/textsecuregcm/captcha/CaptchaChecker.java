@@ -5,19 +5,26 @@
 
 package org.whispersystems.textsecuregcm.captcha;
 
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
+
 import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.instrument.Metrics;
 import java.io.IOException;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.ws.rs.BadRequestException;
-
-import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class CaptchaChecker {
+  private static final Logger logger = LoggerFactory.getLogger(CaptchaChecker.class);
+  private static final String INVALID_SITEKEY_COUNTER_NAME = name(CaptchaChecker.class, "invalidSiteKey");
   private static final String ASSESSMENTS_COUNTER_NAME = name(RecaptchaClient.class, "assessments");
+  private static final String INVALID_ACTION_COUNTER_NAME = name(CaptchaChecker.class, "invalidActions");
 
   @VisibleForTesting
   static final String SEPARATOR = ".";
@@ -29,44 +36,61 @@ public class CaptchaChecker {
         .collect(Collectors.toMap(CaptchaClient::scheme, Function.identity()));
   }
 
+
   /**
    * Check if a solved captcha should be accepted
-   * <p>
    *
-   * @param input expected to contain a prefix indicating the captcha scheme, sitekey, token, and action. The expected
-   *              format is {@code version-prefix.sitekey.[action.]token}
-   * @param ip    IP of the solver
+   * @param expectedAction the {@link Action} for which this captcha solution is intended
+   * @param input          expected to contain a prefix indicating the captcha scheme, sitekey, token, and action. The
+   *                       expected format is {@code version-prefix.sitekey.action.token}
+   * @param ip             IP of the solver
    * @return An {@link AssessmentResult} indicating whether the solution should be accepted, and a score that can be
    * used for metrics
    * @throws IOException         if there is an error validating the captcha with the underlying service
    * @throws BadRequestException if input is not in the expected format
    */
-  public AssessmentResult verify(final String input, final String ip) throws IOException {
-    /*
-     * For action to be optional, there is a strong assumption that the token will never contain a {@value  SEPARATOR}.
-     * Observation suggests {@code token} is base-64 encoded. In practice, an action should always be present, but we
-     * don’t need to be strict.
-     */
+  public AssessmentResult verify(
+      final Action expectedAction,
+      final String input,
+      final String ip) throws IOException {
     final String[] parts = input.split("\\" + SEPARATOR, 4);
 
     // we allow missing actions, if we're missing 1 part, assume it's the action
-    if (parts.length < 3) {
+    if (parts.length < 4) {
       throw new BadRequestException("too few parts");
     }
 
-    int idx = 0;
-    final String prefix = parts[idx++];
-    final String siteKey = parts[idx++];
-    final String action = parts.length == 3 ? null : parts[idx++];
-    final String token = parts[idx];
+    final String prefix = parts[0];
+    final String siteKey = parts[1].toLowerCase(Locale.ROOT).strip();
+    final String action = parts[2];
+    final String token = parts[3];
 
     final CaptchaClient client = this.captchaClientMap.get(prefix);
     if (client == null) {
       throw new BadRequestException("invalid captcha scheme");
     }
-    final AssessmentResult result = client.verify(siteKey, action, token, ip);
+
+    final Action parsedAction = Action.parse(action)
+        .orElseThrow(() -> {
+          Metrics.counter(INVALID_ACTION_COUNTER_NAME, "action", action).increment();
+          throw new BadRequestException("invalid captcha action");
+        });
+
+    if (!parsedAction.equals(expectedAction)) {
+      Metrics.counter(INVALID_ACTION_COUNTER_NAME, "action", action).increment();
+      throw new BadRequestException("invalid captcha action");
+    }
+
+    final Set<String> allowedSiteKeys = client.validSiteKeys(parsedAction);
+    if (!allowedSiteKeys.contains(siteKey)) {
+      logger.debug("invalid site-key {}, action={}, token={}", siteKey, action, token);
+      Metrics.counter(INVALID_SITEKEY_COUNTER_NAME, "action", action).increment();
+      throw new BadRequestException("invalid captcha site-key");
+    }
+
+    final AssessmentResult result = client.verify(siteKey, parsedAction, token, ip);
     Metrics.counter(ASSESSMENTS_COUNTER_NAME,
-            "action", String.valueOf(action),
+            "action", action,
             "valid", String.valueOf(result.valid()),
             "score", result.score(),
             "provider", prefix)

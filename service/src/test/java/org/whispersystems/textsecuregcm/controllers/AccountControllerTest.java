@@ -74,6 +74,7 @@ import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
+import org.whispersystems.textsecuregcm.captcha.Action;
 import org.whispersystems.textsecuregcm.captcha.AssessmentResult;
 import org.whispersystems.textsecuregcm.captcha.CaptchaChecker;
 import org.whispersystems.textsecuregcm.captcha.RegistrationCaptchaManager;
@@ -345,9 +346,9 @@ class AccountControllerTest {
 
       when(dynamicConfiguration.getCaptchaConfiguration()).thenReturn(signupCaptchaConfig);
     }
-    when(captchaChecker.verify(eq(INVALID_CAPTCHA_TOKEN), anyString()))
+    when(captchaChecker.verify(eq(Action.REGISTRATION), eq(INVALID_CAPTCHA_TOKEN), anyString()))
         .thenReturn(AssessmentResult.invalid());
-    when(captchaChecker.verify(eq(VALID_CAPTCHA_TOKEN), anyString()))
+    when(captchaChecker.verify(eq(Action.REGISTRATION), eq(VALID_CAPTCHA_TOKEN), anyString()))
         .thenReturn(new AssessmentResult(true, ""));
 
     doThrow(new RateLimitExceededException(Duration.ZERO, true)).when(pinLimiter).validate(eq(SENDER_OVER_PIN));
@@ -849,7 +850,7 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(200);
 
-    verify(captchaChecker).verify(eq(VALID_CAPTCHA_TOKEN), eq(NICE_HOST));
+    verify(captchaChecker).verify(eq(Action.REGISTRATION), eq(VALID_CAPTCHA_TOKEN), eq(NICE_HOST));
     verify(registrationServiceClient).sendRegistrationCode(sessionId, MessageTransport.SMS, ClientType.UNKNOWN, null, AccountController.REGISTRATION_RPC_TIMEOUT);
   }
 
@@ -866,7 +867,7 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(402);
 
-    verify(captchaChecker).verify(eq(INVALID_CAPTCHA_TOKEN), eq(NICE_HOST));
+    verify(captchaChecker).verify(eq(Action.REGISTRATION), eq(INVALID_CAPTCHA_TOKEN), eq(NICE_HOST));
     verifyNoInteractions(registrationServiceClient);
   }
 

@@ -7,8 +7,10 @@ package org.whispersystems.textsecuregcm.configuration.dynamic;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
+import org.whispersystems.textsecuregcm.captcha.Action;
 import java.math.BigDecimal;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.validation.constraints.DecimalMax;
@@ -29,10 +31,17 @@ public class DynamicCaptchaConfiguration {
   @JsonProperty
   private boolean allowRecaptcha = true;
 
+  @JsonProperty
+  @NotNull
+  private Map<Action, Set<String>> hCaptchaSiteKeys = Collections.emptyMap();
 
   @JsonProperty
   @NotNull
-  private Map<String, BigDecimal> scoreFloorByAction = Collections.emptyMap();
+  private Map<Action, Set<String>> recaptchaSiteKeys = Collections.emptyMap();
+
+  @JsonProperty
+  @NotNull
+  private Map<Action, BigDecimal> scoreFloorByAction = Collections.emptyMap();
 
   @JsonProperty
   @NotNull
@@ -72,7 +81,7 @@ public class DynamicCaptchaConfiguration {
     return allowRecaptcha;
   }
 
-  public Map<String, BigDecimal> getScoreFloorByAction() {
+  public Map<Action, BigDecimal> getScoreFloorByAction() {
     return scoreFloorByAction;
   }
 
@@ -85,4 +94,24 @@ public class DynamicCaptchaConfiguration {
   public void setScoreFloor(final BigDecimal scoreFloor) {
     this.scoreFloor = scoreFloor;
   }
+
+  public Map<Action, Set<String>> getHCaptchaSiteKeys() {
+    return hCaptchaSiteKeys;
+  }
+
+  @VisibleForTesting
+  public void setHCaptchaSiteKeys(final Map<Action, Set<String>> hCaptchaSiteKeys) {
+    this.hCaptchaSiteKeys = hCaptchaSiteKeys;
+  }
+
+  public Map<Action, Set<String>> getRecaptchaSiteKeys() {
+    return recaptchaSiteKeys;
+  }
+
+  @VisibleForTesting
+  public void setRecaptchaSiteKeys(final Map<Action, Set<String>> recaptchaSiteKeys) {
+    this.recaptchaSiteKeys = recaptchaSiteKeys;
+  }
+
+
 }

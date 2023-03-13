@@ -20,9 +20,11 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicCaptchaConfiguration;
@@ -35,7 +37,9 @@ public class RecaptchaClient implements CaptchaClient {
 
   private static final String V2_PREFIX = "signal-recaptcha-v2";
   private static final String INVALID_REASON_COUNTER_NAME = name(RecaptchaClient.class, "invalidReason");
+  private static final String INVALID_SITEKEY_COUNTER_NAME = name(RecaptchaClient.class, "invalidSiteKey");
   private static final String ASSESSMENT_REASON_COUNTER_NAME = name(RecaptchaClient.class, "assessmentReason");
+
 
   private final String projectPath;
   private final RecaptchaEnterpriseServiceClient client;
@@ -64,12 +68,28 @@ public class RecaptchaClient implements CaptchaClient {
   }
 
   @Override
-  public org.whispersystems.textsecuregcm.captcha.AssessmentResult verify(final String sitekey,
-      final @Nullable String expectedAction,
-      final String token, final String ip) throws IOException {
+  public Set<String> validSiteKeys(final Action action) {
     final DynamicCaptchaConfiguration config = dynamicConfigurationManager.getConfiguration().getCaptchaConfiguration();
     if (!config.isAllowRecaptcha()) {
       log.warn("Received request to verify a recaptcha, but recaptcha is not enabled");
+      return Collections.emptySet();
+    }
+    return Optional
+        .ofNullable(config.getRecaptchaSiteKeys().get(action))
+        .orElse(Collections.emptySet());
+  }
+
+  @Override
+  public org.whispersystems.textsecuregcm.captcha.AssessmentResult verify(
+      final String sitekey,
+      final Action action,
+      final String token,
+      final String ip) throws IOException {
+    final DynamicCaptchaConfiguration config = dynamicConfigurationManager.getConfiguration().getCaptchaConfiguration();
+    final Set<String> allowedSiteKeys = config.getRecaptchaSiteKeys().get(action);
+    if (allowedSiteKeys != null && !allowedSiteKeys.contains(sitekey)) {
+      log.info("invalid recaptcha sitekey {}, action={}, token={}", action, token);
+      Metrics.counter(INVALID_SITEKEY_COUNTER_NAME, "action", action.getActionName()).increment();
       return AssessmentResult.invalid();
     }
 
@@ -78,8 +98,8 @@ public class RecaptchaClient implements CaptchaClient {
         .setToken(token)
         .setUserIpAddress(ip);
 
-    if (expectedAction != null) {
-      eventBuilder.setExpectedAction(expectedAction);
+    if (action != null) {
+      eventBuilder.setExpectedAction(action.getActionName());
     }
 
     final Event event = eventBuilder.build();
@@ -92,21 +112,21 @@ public class RecaptchaClient implements CaptchaClient {
 
     if (assessment.getTokenProperties().getValid()) {
       final float score = assessment.getRiskAnalysis().getScore();
-      log.debug("assessment for {} was valid, score: {}", expectedAction, score);
+      log.debug("assessment for {} was valid, score: {}", action.getActionName(), score);
       for (RiskAnalysis.ClassificationReason reason : assessment.getRiskAnalysis().getReasonsList()) {
         Metrics.counter(ASSESSMENT_REASON_COUNTER_NAME,
-                "action", String.valueOf(expectedAction),
+                "action", action.getActionName(),
                 "score", AssessmentResult.scoreString(score),
                 "reason", reason.name())
             .increment();
       }
-      final BigDecimal threshold = config.getScoreFloorByAction().getOrDefault(expectedAction, config.getScoreFloor());
+      final BigDecimal threshold = config.getScoreFloorByAction().getOrDefault(action, config.getScoreFloor());
       return new AssessmentResult(
           score >= threshold.floatValue(),
           AssessmentResult.scoreString(score));
     } else {
       Metrics.counter(INVALID_REASON_COUNTER_NAME,
-              "action", String.valueOf(expectedAction),
+              "action", action.getActionName(),
               "reason", assessment.getTokenProperties().getInvalidReason().name())
           .increment();
       return AssessmentResult.invalid();
