@@ -224,7 +224,7 @@ public class DeviceController {
   @Timed
   @PUT
   @Path("/capabilities")
-  public void setCapabiltities(@Auth AuthenticatedAccount auth, @NotNull @Valid DeviceCapabilities capabilities) {
+  public void setCapabilities(@Auth AuthenticatedAccount auth, @NotNull @Valid DeviceCapabilities capabilities) {
     assert (auth.getAuthenticatedDevice() != null);
     final long deviceId = auth.getAuthenticatedDevice().getId();
     accounts.updateDevice(auth.getAccount(), deviceId, d -> d.setCapabilities(capabilities));
