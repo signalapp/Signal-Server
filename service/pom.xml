@@ -449,7 +449,7 @@
     <dependency>
       <groupId>com.amazonaws</groupId>
       <artifactId>DynamoDBLocal</artifactId>
-      <version>1.21.0</version>
+      <version>1.21.1</version>
       <scope>test</scope>
     </dependency>
     <dependency>
