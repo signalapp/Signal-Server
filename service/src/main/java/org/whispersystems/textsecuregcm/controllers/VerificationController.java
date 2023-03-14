@@ -76,6 +76,7 @@ import org.whispersystems.textsecuregcm.registration.RegistrationServiceExceptio
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceSenderException;
 import org.whispersystems.textsecuregcm.registration.VerificationSession;
 import org.whispersystems.textsecuregcm.spam.FilterSpam;
+import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.VerificationSessionManager;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
@@ -112,6 +113,7 @@ public class VerificationController {
   private final RegistrationCaptchaManager registrationCaptchaManager;
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
   private final RateLimiters rateLimiters;
+  private final AccountsManager accountsManager;
 
   private final Clock clock;
 
@@ -119,7 +121,9 @@ public class VerificationController {
       final VerificationSessionManager verificationSessionManager,
       final PushNotificationManager pushNotificationManager,
       final RegistrationCaptchaManager registrationCaptchaManager,
-      final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager, final RateLimiters rateLimiters,
+      final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
+      final RateLimiters rateLimiters,
+      final AccountsManager accountsManager,
       final Clock clock) {
     this.registrationServiceClient = registrationServiceClient;
     this.verificationSessionManager = verificationSessionManager;
@@ -127,6 +131,7 @@ public class VerificationController {
     this.registrationCaptchaManager = registrationCaptchaManager;
     this.registrationRecoveryPasswordsManager = registrationRecoveryPasswordsManager;
     this.rateLimiters = rateLimiters;
+    this.accountsManager = accountsManager;
     this.clock = clock;
   }
 
@@ -151,6 +156,7 @@ public class VerificationController {
     final RegistrationServiceSession registrationServiceSession;
     try {
       registrationServiceSession = registrationServiceClient.createRegistrationSessionSession(phoneNumber,
+          accountsManager.getByE164(request.getNumber()).isPresent(),
           REGISTRATION_RPC_TIMEOUT).join();
     } catch (final CancellationException e) {
 

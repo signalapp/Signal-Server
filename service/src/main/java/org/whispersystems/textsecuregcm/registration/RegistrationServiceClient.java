@@ -81,13 +81,14 @@ public class RegistrationServiceClient implements Managed {
   // The …Session suffix methods distinguish the new methods, which return Sessions, from the old.
   // Once the deprecated methods are removed, the names can be streamlined.
   public CompletableFuture<RegistrationServiceSession> createRegistrationSessionSession(
-      final Phonenumber.PhoneNumber phoneNumber, final Duration timeout) {
+      final Phonenumber.PhoneNumber phoneNumber, final boolean accountExistsWithPhoneNumber, final Duration timeout) {
     final long e164 = Long.parseLong(
         PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164).substring(1));
 
     return toCompletableFuture(stub.withDeadline(toDeadline(timeout))
         .createSession(CreateRegistrationSessionRequest.newBuilder()
             .setE164(e164)
+            .setAccountExistsWithE164(accountExistsWithPhoneNumber)
             .build()))
         .thenApply(response -> switch (response.getResponseCase()) {
           case SESSION_METADATA -> buildSessionResponseFromMetadata(response.getSessionMetadata());
@@ -111,8 +112,8 @@ public class RegistrationServiceClient implements Managed {
 
   @Deprecated
   public CompletableFuture<byte[]> createRegistrationSession(final Phonenumber.PhoneNumber phoneNumber,
-      final Duration timeout) {
-    return createRegistrationSessionSession(phoneNumber, timeout)
+      final boolean accountExistsWithPhoneNumber, final Duration timeout) {
+    return createRegistrationSessionSession(phoneNumber, accountExistsWithPhoneNumber, timeout)
         .thenApply(RegistrationServiceSession::id);
   }
 

@@ -238,7 +238,7 @@ public class AccountController {
           storedVerificationCode = existingStoredVerificationCode;
         }
       } else {
-        final byte[] sessionId = createRegistrationSession(phoneNumber);
+        final byte[] sessionId = createRegistrationSession(phoneNumber, accounts.getByE164(number).isPresent());
         storedVerificationCode = new StoredVerificationCode(null, clock.millis(), generatePushChallenge(), sessionId);
         new StoredVerificationCode(null, clock.millis(), generatePushChallenge(), sessionId);
       }
@@ -345,8 +345,9 @@ public class AccountController {
 
     // During the transition to explicit session creation, some previously-stored records may not have a session ID;
     // after the transition, we can assume that any existing record has an associated session ID.
-    final byte[] sessionId =  maybeStoredVerificationCode.isPresent() && maybeStoredVerificationCode.get().sessionId() != null ?
-        maybeStoredVerificationCode.get().sessionId() : createRegistrationSession(phoneNumber);
+    final byte[] sessionId =  maybeStoredVerificationCode.isPresent() && maybeStoredVerificationCode.get().sessionId() != null
+        ? maybeStoredVerificationCode.get().sessionId()
+        : createRegistrationSession(phoneNumber, accounts.getByE164(number).isPresent());
 
     sendVerificationCode(sessionId, messageTransport, clientType, acceptLanguage);
 
@@ -859,10 +860,11 @@ public class AccountController {
     return HexFormat.of().formatHex(challenge);
   }
 
-  private byte[] createRegistrationSession(final Phonenumber.PhoneNumber phoneNumber) throws RateLimitExceededException {
+  private byte[] createRegistrationSession(final Phonenumber.PhoneNumber phoneNumber,
+      final boolean accountExistsWithPhoneNumber) throws RateLimitExceededException {
 
     try {
-      return registrationServiceClient.createRegistrationSession(phoneNumber, REGISTRATION_RPC_TIMEOUT).join();
+      return registrationServiceClient.createRegistrationSession(phoneNumber, accountExistsWithPhoneNumber, REGISTRATION_RPC_TIMEOUT).join();
     } catch (final CompletionException e) {
       rethrowRateLimitException(e);
 

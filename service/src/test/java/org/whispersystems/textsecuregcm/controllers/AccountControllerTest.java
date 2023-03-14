@@ -9,6 +9,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -386,7 +387,7 @@ class AccountControllerTest {
 
   @Test
   void testGetFcmPreauth() throws NumberParseException {
-    when(registrationServiceClient.createRegistrationSession(any(), any()))
+    when(registrationServiceClient.createRegistrationSession(any(), anyBoolean(), any()))
         .thenReturn(CompletableFuture.completedFuture(new byte[16]));
 
     when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.empty());
@@ -401,7 +402,7 @@ class AccountControllerTest {
     final ArgumentCaptor<String> challengeTokenCaptor = ArgumentCaptor.forClass(String.class);
 
     verify(registrationServiceClient).createRegistrationSession(
-        eq(PhoneNumberUtil.getInstance().parse(SENDER, null)), any());
+        eq(PhoneNumberUtil.getInstance().parse(SENDER, null)), anyBoolean(), any());
 
     verify(pushNotificationManager).sendRegistrationChallengeNotification(
         eq("mytoken"), eq(PushNotification.TokenType.FCM), challengeTokenCaptor.capture());
@@ -411,7 +412,7 @@ class AccountControllerTest {
 
   @Test
   void testGetFcmPreauthIvoryCoast() throws NumberParseException {
-    when(registrationServiceClient.createRegistrationSession(any(), any()))
+    when(registrationServiceClient.createRegistrationSession(any(), anyBoolean(), any()))
         .thenReturn(CompletableFuture.completedFuture(new byte[16]));
 
     Response response = resources.getJerseyTest()
@@ -424,7 +425,7 @@ class AccountControllerTest {
     final ArgumentCaptor<String> challengeTokenCaptor = ArgumentCaptor.forClass(String.class);
 
     verify(registrationServiceClient).createRegistrationSession(
-        eq(PhoneNumberUtil.getInstance().parse("+2250707312345", null)), any());
+        eq(PhoneNumberUtil.getInstance().parse("+2250707312345", null)), anyBoolean(), any());
 
     verify(pushNotificationManager).sendRegistrationChallengeNotification(
         eq("mytoken"), eq(PushNotification.TokenType.FCM), challengeTokenCaptor.capture());
@@ -434,7 +435,7 @@ class AccountControllerTest {
 
   @Test
   void testGetApnPreauth() throws NumberParseException {
-    when(registrationServiceClient.createRegistrationSession(any(), any()))
+    when(registrationServiceClient.createRegistrationSession(any(), anyBoolean(), any()))
         .thenReturn(CompletableFuture.completedFuture(new byte[16]));
 
     when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.empty());
@@ -449,7 +450,7 @@ class AccountControllerTest {
     final ArgumentCaptor<String> challengeTokenCaptor = ArgumentCaptor.forClass(String.class);
 
     verify(registrationServiceClient).createRegistrationSession(
-        eq(PhoneNumberUtil.getInstance().parse(SENDER, null)), any());
+        eq(PhoneNumberUtil.getInstance().parse(SENDER, null)), anyBoolean(), any());
 
     verify(pushNotificationManager).sendRegistrationChallengeNotification(
         eq("mytoken"), eq(PushNotification.TokenType.APN_VOIP), challengeTokenCaptor.capture());
@@ -459,7 +460,7 @@ class AccountControllerTest {
 
   @Test
   void testGetApnPreauthExplicitVoip() throws NumberParseException {
-    when(registrationServiceClient.createRegistrationSession(any(), any()))
+    when(registrationServiceClient.createRegistrationSession(any(), anyBoolean(), any()))
         .thenReturn(CompletableFuture.completedFuture(new byte[16]));
 
     when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.empty());
@@ -475,7 +476,7 @@ class AccountControllerTest {
     final ArgumentCaptor<String> challengeTokenCaptor = ArgumentCaptor.forClass(String.class);
 
     verify(registrationServiceClient).createRegistrationSession(
-        eq(PhoneNumberUtil.getInstance().parse(SENDER, null)), any());
+        eq(PhoneNumberUtil.getInstance().parse(SENDER, null)), anyBoolean(), any());
 
     verify(pushNotificationManager).sendRegistrationChallengeNotification(
         eq("mytoken"), eq(PushNotification.TokenType.APN_VOIP), challengeTokenCaptor.capture());
@@ -485,7 +486,7 @@ class AccountControllerTest {
 
   @Test
   void testGetApnPreauthExplicitNoVoip() throws NumberParseException {
-    when(registrationServiceClient.createRegistrationSession(any(), any()))
+    when(registrationServiceClient.createRegistrationSession(any(), anyBoolean(), any()))
         .thenReturn(CompletableFuture.completedFuture(new byte[16]));
 
     when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.empty());
@@ -501,7 +502,7 @@ class AccountControllerTest {
     final ArgumentCaptor<String> challengeTokenCaptor = ArgumentCaptor.forClass(String.class);
 
     verify(registrationServiceClient).createRegistrationSession(
-        eq(PhoneNumberUtil.getInstance().parse(SENDER, null)), any());
+        eq(PhoneNumberUtil.getInstance().parse(SENDER, null)), anyBoolean(), any());
 
     verify(pushNotificationManager).sendRegistrationChallengeNotification(
         eq("mytoken"), eq(PushNotification.TokenType.APN), challengeTokenCaptor.capture());
@@ -546,7 +547,7 @@ class AccountControllerTest {
   void testGetPreauthExistingSession() throws NumberParseException {
     final String existingPushCode = "existing-push-code";
 
-    when(registrationServiceClient.createRegistrationSession(any(), any()))
+    when(registrationServiceClient.createRegistrationSession(any(), anyBoolean(), any()))
         .thenReturn(CompletableFuture.completedFuture(new byte[16]));
 
     when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(
@@ -561,7 +562,7 @@ class AccountControllerTest {
 
     final ArgumentCaptor<String> challengeTokenCaptor = ArgumentCaptor.forClass(String.class);
 
-    verify(registrationServiceClient, never()).createRegistrationSession(any(), any());
+    verify(registrationServiceClient, never()).createRegistrationSession(any(), anyBoolean(), any());
 
     verify(pushNotificationManager).sendRegistrationChallengeNotification(
         eq("mytoken"), eq(PushNotification.TokenType.APN_VOIP), challengeTokenCaptor.capture());
@@ -571,7 +572,7 @@ class AccountControllerTest {
 
   @Test
   void testGetPreauthExistingSessionWithoutPushCode() throws NumberParseException {
-    when(registrationServiceClient.createRegistrationSession(any(), any()))
+    when(registrationServiceClient.createRegistrationSession(any(), anyBoolean(), any()))
         .thenReturn(CompletableFuture.completedFuture(new byte[16]));
 
     when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(
@@ -586,7 +587,7 @@ class AccountControllerTest {
 
     final ArgumentCaptor<String> challengeTokenCaptor = ArgumentCaptor.forClass(String.class);
 
-    verify(registrationServiceClient, never()).createRegistrationSession(any(), any());
+    verify(registrationServiceClient, never()).createRegistrationSession(any(), anyBoolean(), any());
 
     verify(pushNotificationManager).sendRegistrationChallengeNotification(
         eq("mytoken"), eq(PushNotification.TokenType.APN_VOIP), challengeTokenCaptor.capture());
@@ -624,7 +625,7 @@ class AccountControllerTest {
   void testSendCode() {
     final byte[] sessionId = "session-id".getBytes(StandardCharsets.UTF_8);
 
-    when(registrationServiceClient.createRegistrationSession(any(), any()))
+    when(registrationServiceClient.createRegistrationSession(any(), anyBoolean(), any()))
         .thenReturn(CompletableFuture.completedFuture(sessionId));
 
     when(registrationServiceClient.sendRegistrationCode(any(), any(), any(), any(), any()))
@@ -648,7 +649,7 @@ class AccountControllerTest {
 
   @Test
   void testSendCodeRateLimited() {
-    when(registrationServiceClient.createRegistrationSession(any(), any()))
+    when(registrationServiceClient.createRegistrationSession(any(), anyBoolean(), any()))
         .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(Duration.ofMinutes(10), true)));
 
     Response response =
@@ -709,7 +710,7 @@ class AccountControllerTest {
     when(registrationServiceClient.sendRegistrationCode(any(), any(), any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(sessionId));
 
-    when(registrationServiceClient.createRegistrationSession(any(), any()))
+    when(registrationServiceClient.createRegistrationSession(any(), anyBoolean(), any()))
         .thenReturn(CompletableFuture.completedFuture(sessionId));
 
     Response response =
@@ -732,7 +733,7 @@ class AccountControllerTest {
     when(registrationServiceClient.sendRegistrationCode(any(), any(), any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(sessionId));
 
-    when(registrationServiceClient.createRegistrationSession(any(), any()))
+    when(registrationServiceClient.createRegistrationSession(any(), anyBoolean(), any()))
         .thenReturn(CompletableFuture.completedFuture(sessionId));
 
     Response response =
@@ -785,7 +786,7 @@ class AccountControllerTest {
     when(registrationServiceClient.sendRegistrationCode(any(), any(), any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(sessionId));
 
-    when(registrationServiceClient.createRegistrationSession(any(), any()))
+    when(registrationServiceClient.createRegistrationSession(any(), anyBoolean(), any()))
         .thenReturn(CompletableFuture.completedFuture(sessionId));
 
     Response response =
@@ -809,7 +810,7 @@ class AccountControllerTest {
     when(registrationServiceClient.sendRegistrationCode(any(), any(), any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(sessionId));
 
-    when(registrationServiceClient.createRegistrationSession(any(), any()))
+    when(registrationServiceClient.createRegistrationSession(any(), anyBoolean(), any()))
         .thenReturn(CompletableFuture.completedFuture(sessionId));
 
     Response response =
@@ -834,7 +835,7 @@ class AccountControllerTest {
     when(registrationServiceClient.sendRegistrationCode(any(), any(), any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(sessionId));
 
-    when(registrationServiceClient.createRegistrationSession(any(), any()))
+    when(registrationServiceClient.createRegistrationSession(any(), anyBoolean(), any()))
         .thenReturn(CompletableFuture.completedFuture(sessionId));
 
     Response response =
@@ -944,7 +945,7 @@ class AccountControllerTest {
     when(registrationServiceClient.sendRegistrationCode(any(), any(), any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(sessionId));
 
-    when(registrationServiceClient.createRegistrationSession(any(), any()))
+    when(registrationServiceClient.createRegistrationSession(any(), anyBoolean(), any()))
         .thenReturn(CompletableFuture.completedFuture(sessionId));
 
     Response response =
@@ -975,7 +976,7 @@ class AccountControllerTest {
     when(registrationServiceClient.sendRegistrationCode(any(), any(), any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(sessionId));
 
-    when(registrationServiceClient.createRegistrationSession(any(), any()))
+    when(registrationServiceClient.createRegistrationSession(any(), anyBoolean(), any()))
         .thenReturn(CompletableFuture.completedFuture(sessionId));
 
     Response response =
@@ -998,7 +999,7 @@ class AccountControllerTest {
     when(registrationServiceClient.sendRegistrationCode(any(), any(), any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(sessionId));
 
-    when(registrationServiceClient.createRegistrationSession(any(), any()))
+    when(registrationServiceClient.createRegistrationSession(any(), anyBoolean(), any()))
         .thenReturn(CompletableFuture.completedFuture(sessionId));
 
     Response response =
@@ -2092,7 +2093,7 @@ class AccountControllerTest {
     when(registrationServiceClient.sendRegistrationCode(any(), any(), any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(sessionId));
 
-    when(registrationServiceClient.createRegistrationSession(any(), any()))
+    when(registrationServiceClient.createRegistrationSession(any(), anyBoolean(), any()))
         .thenReturn(CompletableFuture.completedFuture(sessionId));
 
     Response response =

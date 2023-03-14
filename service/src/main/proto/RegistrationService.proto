@@ -35,6 +35,12 @@ message CreateRegistrationSessionRequest {
    * The phone number for which to create a new registration session.
    */
   uint64 e164 = 1;
+
+  /**
+   * Indicates whether an account already exists with the given e164 (i.e. this
+   * session represents a "re-registration" attempt).
+   */
+  bool account_exists_with_e164 = 2;
 }
 
 message CreateRegistrationSessionResponse {

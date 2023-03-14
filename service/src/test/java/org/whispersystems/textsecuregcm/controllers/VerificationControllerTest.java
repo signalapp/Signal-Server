@@ -11,7 +11,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -19,6 +21,8 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import com.google.common.net.HttpHeaders;
+import com.google.i18n.phonenumbers.NumberParseException;
+import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import java.io.IOException;
@@ -46,6 +50,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.captcha.AssessmentResult;
 import org.whispersystems.textsecuregcm.captcha.RegistrationCaptchaManager;
@@ -62,6 +67,8 @@ import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceException;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceSenderException;
 import org.whispersystems.textsecuregcm.registration.VerificationSession;
+import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.VerificationSessionManager;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -81,6 +88,7 @@ class VerificationControllerTest {
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager = mock(
       RegistrationRecoveryPasswordsManager.class);
   private final RateLimiters rateLimiters = mock(RateLimiters.class);
+  private final AccountsManager accountsManager = mock(AccountsManager.class);
   private final Clock clock = Clock.systemUTC();
 
   private final RateLimiter captchaLimiter = mock(RateLimiter.class);
@@ -96,7 +104,7 @@ class VerificationControllerTest {
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(
           new VerificationController(registrationServiceClient, verificationSessionManager, pushNotificationManager,
-              registrationCaptchaManager, registrationRecoveryPasswordsManager, rateLimiters, clock))
+              registrationCaptchaManager, registrationRecoveryPasswordsManager, rateLimiters, accountsManager, clock))
       .build();
 
   @BeforeEach
@@ -105,6 +113,8 @@ class VerificationControllerTest {
         .thenReturn(captchaLimiter);
     when(rateLimiters.getVerificationPushChallengeLimiter())
         .thenReturn(pushChallengeLimiter);
+
+    when(accountsManager.getByE164(any())).thenReturn(Optional.empty());
   }
 
   @ParameterizedTest
@@ -153,7 +163,7 @@ class VerificationControllerTest {
 
   @Test
   void createSessionRateLimited() {
-    when(registrationServiceClient.createRegistrationSessionSession(any(), any()))
+    when(registrationServiceClient.createRegistrationSessionSession(any(), anyBoolean(), any()))
         .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(null, true)));
 
     final Invocation.Builder request = resources.getJerseyTest()
@@ -167,7 +177,7 @@ class VerificationControllerTest {
 
   @Test
   void createSessionRegistrationServiceError() {
-    when(registrationServiceClient.createRegistrationSessionSession(any(), any()))
+    when(registrationServiceClient.createRegistrationSessionSession(any(), anyBoolean(), any()))
         .thenReturn(CompletableFuture.failedFuture(new RuntimeException("expected service error")));
 
     final Invocation.Builder request = resources.getJerseyTest()
@@ -183,7 +193,7 @@ class VerificationControllerTest {
   @MethodSource
   void createSessionSuccess(final String pushToken, final String pushTokenType,
       final List<VerificationSession.Information> expectedRequestedInformation) {
-    when(registrationServiceClient.createRegistrationSessionSession(any(), any()))
+    when(registrationServiceClient.createRegistrationSessionSession(any(), anyBoolean(), any()))
         .thenReturn(
             CompletableFuture.completedFuture(
                 new RegistrationServiceSession(SESSION_ID, NUMBER, false, null, null, null,
@@ -212,6 +222,37 @@ class VerificationControllerTest {
         Arguments.of("token", "fcm",
             List.of(VerificationSession.Information.PUSH_CHALLENGE, VerificationSession.Information.CAPTCHA))
     );
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void createSessionReregistration(final boolean isReregistration) throws NumberParseException {
+    when(registrationServiceClient.createRegistrationSessionSession(any(), anyBoolean(), any()))
+        .thenReturn(
+            CompletableFuture.completedFuture(
+                new RegistrationServiceSession(SESSION_ID, NUMBER, false, null, null, null,
+                    SESSION_EXPIRATION_SECONDS)));
+
+    when(verificationSessionManager.insert(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(null));
+
+    when(accountsManager.getByE164(NUMBER))
+        .thenReturn(isReregistration ? Optional.of(mock(Account.class)) : Optional.empty());
+
+    final Invocation.Builder request = resources.getJerseyTest()
+        .target("/v1/verification/session")
+        .request()
+        .header(HttpHeaders.X_FORWARDED_FOR, "127.0.0.1");
+
+    try (final Response response = request.post(Entity.json(createSessionJson(NUMBER, null, null)))) {
+      assertEquals(HttpStatus.SC_OK, response.getStatus());
+
+      verify(registrationServiceClient).createRegistrationSessionSession(
+          eq(PhoneNumberUtil.getInstance().parse(NUMBER, null)),
+          eq(isReregistration),
+          any()
+      );
+    }
   }
 
   @Test
