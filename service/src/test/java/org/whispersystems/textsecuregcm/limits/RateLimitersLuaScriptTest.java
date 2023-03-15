@@ -19,6 +19,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
@@ -60,7 +61,51 @@ public class RateLimitersLuaScriptTest {
     final RateLimiter rateLimiter = limiters.forDescriptor(descriptor);
     rateLimiter.validate("test", 25);
     rateLimiter.validate("test", 25);
-    assertThrows(Exception.class, () -> rateLimiter.validate("test", 25));
+    assertThrows(RateLimitExceededException.class, () -> rateLimiter.validate("test", 25));
+  }
+
+  @Test
+  public void testFormatMigration() throws Exception {
+    final RateLimiters.For descriptor = RateLimiters.For.REGISTRATION;
+    final FaultTolerantRedisCluster redisCluster = REDIS_CLUSTER_EXTENSION.getRedisCluster();
+    final RateLimiters limiters = new RateLimiters(
+        Map.of(descriptor.id(), new RateLimiterConfig(60, 60)),
+        dynamicConfig,
+        RateLimiters.defaultScript(redisCluster),
+        redisCluster,
+        Clock.systemUTC());
+
+    final RateLimiter rateLimiter = limiters.forDescriptor(descriptor);
+
+    // embedding an existing value in the old format
+    redisCluster.useCluster(c -> c.sync().set(
+        StaticRateLimiter.bucketName(descriptor.id(), "test"),
+        serializeToOldBucketValueFormat(new TokenBucket(60, 60, 30, System.currentTimeMillis() + 10000))
+    ));
+    assertThrows(RateLimitExceededException.class, () -> rateLimiter.validate("test", 40));
+
+    // embedding an existing value in the old format
+    redisCluster.useCluster(c -> c.sync().set(
+        StaticRateLimiter.bucketName(descriptor.id(), "test1"),
+        serializeToOldBucketValueFormat(new TokenBucket(60, 60, 30, System.currentTimeMillis() + 10000))
+    ));
+    rateLimiter.validate("test1", 20);
+    assertThrows(RateLimitExceededException.class, () -> rateLimiter.validate("test1", 20));
+
+    // embedding an existing value in the new format
+    redisCluster.useCluster(c -> c.sync().hset(
+        StaticRateLimiter.bucketName(descriptor.id(), "test2"),
+        Map.of("s", "30", "t", String.valueOf(System.currentTimeMillis() + 10000))
+    ));
+    assertThrows(RateLimitExceededException.class, () -> rateLimiter.validate("test2", 40));
+
+    // embedding an existing value in the new format
+    redisCluster.useCluster(c -> c.sync().hset(
+        StaticRateLimiter.bucketName(descriptor.id(), "test3"),
+        Map.of("s", "30", "t", String.valueOf(System.currentTimeMillis() + 10000))
+    ));
+    rateLimiter.validate("test3", 20);
+    assertThrows(RateLimitExceededException.class, () -> rateLimiter.validate("test3", 20));
   }
 
   @Test
@@ -115,6 +160,19 @@ public class RateLimitersLuaScriptTest {
     );
     assertEquals(0L, result);
     assertEquals(750L, decodeBucket(key).orElseThrow().spaceRemaining);
+  }
+
+  private String serializeToOldBucketValueFormat(final TokenBucket bucket) {
+    try {
+      return SystemMapper.jsonMapper().writeValueAsString(Map.of(
+          "bucketSize", bucket.bucketSize,
+          "leakRatePerMillis", bucket.leakRatePerMillis,
+          "spaceRemaining", bucket.spaceRemaining,
+          "lastUpdateTimeMillis", bucket.lastUpdateTimeMillis
+      ));
+    } catch (JsonProcessingException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   private Optional<TokenBucket> decodeBucket(final String key) {

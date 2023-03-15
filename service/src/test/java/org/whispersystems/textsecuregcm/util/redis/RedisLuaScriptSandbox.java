@@ -28,7 +28,12 @@ public class RedisLuaScriptSandbox {
       function redis_call(...)
         -- variable name needs to match the one used in the `L.setGlobal()` call
         -- method name needs to match method name of the Java class 
-        return proxy:redisCall(arg)
+        local result = proxy:redisCall(arg)
+        if type(result) == "userdata" then
+          return java.luaify(result)
+        else
+          return result
+        end
       end
       
       function json_encode(obj)

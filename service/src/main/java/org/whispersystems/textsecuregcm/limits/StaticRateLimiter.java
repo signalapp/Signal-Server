@@ -8,6 +8,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import java.time.Clock;
@@ -88,12 +89,12 @@ public class StaticRateLimiter implements RateLimiter {
 
   @Override
   public void clear(final String key) {
-    cacheCluster.useCluster(connection -> connection.sync().del(bucketName(key)));
+    cacheCluster.useCluster(connection -> connection.sync().del(bucketName(name, key)));
   }
 
   @Override
   public CompletionStage<Void> clearAsync(final String key) {
-    return cacheCluster.withCluster(connection -> connection.async().del(bucketName(key)))
+    return cacheCluster.withCluster(connection -> connection.async().del(bucketName(name, key)))
         .thenRun(Util.NOOP);
   }
 
@@ -103,7 +104,7 @@ public class StaticRateLimiter implements RateLimiter {
   }
 
   private long executeValidateScript(final String key, final int amount, final boolean applyChanges) {
-    final List<String> keys = List.of(bucketName(key));
+    final List<String> keys = List.of(bucketName(name, key));
     final List<String> arguments = List.of(
         String.valueOf(config.bucketSize()),
         String.valueOf(config.leakRatePerMillis()),
@@ -115,7 +116,7 @@ public class StaticRateLimiter implements RateLimiter {
   }
 
   private CompletionStage<Long> executeValidateScriptAsync(final String key, final int amount, final boolean applyChanges) {
-    final List<String> keys = List.of(bucketName(key));
+    final List<String> keys = List.of(bucketName(name, key));
     final List<String> arguments = List.of(
         String.valueOf(config.bucketSize()),
         String.valueOf(config.leakRatePerMillis()),
@@ -126,7 +127,8 @@ public class StaticRateLimiter implements RateLimiter {
     return validateScript.executeAsync(keys, arguments).thenApply(o -> (Long) o);
   }
 
-  private String bucketName(final String key) {
+  @VisibleForTesting
+  protected static String bucketName(final String name, final String key) {
     return "leaky_bucket::" + name + "::" + key;
   }
 }

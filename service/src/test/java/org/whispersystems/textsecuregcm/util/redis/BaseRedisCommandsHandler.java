@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.whispersystems.textsecuregcm.util.redis.RedisLuaScriptSandbox.tail;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * This class is to be extended with implementations of Redis commands as needed.
@@ -28,11 +29,68 @@ public class BaseRedisCommandsHandler implements RedisCommandsHandler {
         yield get(args.get(0).toString());
       }
       case "DEL" -> {
-        assertTrue(args.size() > 1);
-        yield del(args.get(0).toString());
+        assertTrue(args.size() >= 1);
+        yield del(args.stream().map(Object::toString).toList());
       }
+      case "HSET" -> {
+        assertTrue(args.size() >= 3);
+        yield hset(args.get(0).toString(), args.get(1).toString(), args.get(2).toString(), tail(args, 3));
+      }
+      case "HGET" -> {
+        assertEquals(2, args.size());
+        yield hget(args.get(0).toString(), args.get(1).toString());
+      }
+      case "PEXPIRE" -> {
+        assertEquals(2, args.size());
+        yield pexpire(args.get(0).toString(), Double.valueOf(args.get(1).toString()).longValue(), tail(args, 2));
+      }
+      case "TYPE" -> {
+        assertEquals(1, args.size());
+        yield type(args.get(0).toString());
+      }
+      case "RPUSH" -> {
+        assertTrue(args.size() > 1);
+        yield push(false, args.get(0).toString(), tail(args, 1));
+      }
+      case "LPUSH" -> {
+        assertTrue(args.size() > 1);
+        yield push(true, args.get(0).toString(), tail(args, 1));
+      }
+      case "RPOP" -> {
+        assertEquals(2, args.size());
+        yield pop(false, args.get(0).toString(), Double.valueOf(args.get(1).toString()).intValue());
+      }
+      case "LPOP" -> {
+        assertEquals(2, args.size());
+        yield pop(true, args.get(0).toString(), Double.valueOf(args.get(1).toString()).intValue());
+      }
+
       default -> other(command, args);
     };
+  }
+
+  public Object[] pop(final boolean left, final String key, final int count) {
+    return new Object[count];
+  }
+
+  public Object push(final boolean left, final String key, final List<Object> values) {
+    return 0;
+  }
+
+  public Object type(final String key) {
+    return Map.of("ok", "none");
+  }
+
+  public Object pexpire(final String key, final long ttlMillis, final List<Object> args) {
+    return 0;
+  }
+
+  public Object hset(final String key, final String field, final String value, final List<Object> other) {
+    return "OK";
+  }
+
+  public Object hget(final String key, final String field) {
+    return null;
   }
 
   public Object set(final String key, final String value, final List<Object> tail) {
@@ -41,10 +99,9 @@ public class BaseRedisCommandsHandler implements RedisCommandsHandler {
 
   public String get(final String key) {
     return null;
-
   }
 
-  public int del(final String key) {
+  public int del(final List<String> keys) {
     return 0;
   }
 
