@@ -28,7 +28,7 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
 
     SMS_VOICE_PREFIX("smsVoicePrefix", false, new RateLimiterConfig(1000, 1000)),
 
-    VERIFY("verify", false, new RateLimiterConfig(2, 2)),
+    VERIFY("verify", false, new RateLimiterConfig(6, 2)),
 
     PIN("pin", false, new RateLimiterConfig(10, 1 / (24.0 * 60.0))),
 
