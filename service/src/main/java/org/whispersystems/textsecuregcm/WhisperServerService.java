@@ -230,6 +230,7 @@ import org.whispersystems.textsecuregcm.workers.ServerVersionCommand;
 import org.whispersystems.textsecuregcm.workers.SetCrawlerAccelerationTask;
 import org.whispersystems.textsecuregcm.workers.SetRequestLoggingEnabledTask;
 import org.whispersystems.textsecuregcm.workers.SetUserDiscoverabilityCommand;
+import org.whispersystems.textsecuregcm.workers.UnlinkDeviceCommand;
 import org.whispersystems.textsecuregcm.workers.ZkParamsCommand;
 import org.whispersystems.websocket.WebSocketResourceProviderFactory;
 import org.whispersystems.websocket.setup.WebSocketEnvironment;
@@ -254,6 +255,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     bootstrap.addCommand(new SetUserDiscoverabilityCommand());
     bootstrap.addCommand(new ReserveUsernameCommand());
     bootstrap.addCommand(new AssignUsernameCommand());
+    bootstrap.addCommand(new UnlinkDeviceCommand());
   }
 
   @Override
