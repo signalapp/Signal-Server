@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.util.redis;
 
 import java.time.Clock;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -46,13 +47,18 @@ public class SimpleCacheCommandsHandler extends BaseRedisCommandsHandler {
 
   @SuppressWarnings("unchecked")
   @Override
-  public Object hset(final String key, final String field, final String value, final List<Object> other) {
+  public Object hset(final String key, final List<Object> fieldsAndValues) {
     Map<Object, Object> map = getIfNotExpired(key, Map.class);
     if (map == null) {
       map = new ConcurrentHashMap<>();
       cache.put(key, new Entry(map, Long.MAX_VALUE));
     }
-    map.put(field, value);
+    final Iterator<Object> iter = fieldsAndValues.iterator();
+    while (iter.hasNext()) {
+      final Object k = iter.next();
+      final Object v = iter.next();
+      map.put(k, v);
+    }
     return "OK";
   }
 
@@ -60,6 +66,15 @@ public class SimpleCacheCommandsHandler extends BaseRedisCommandsHandler {
   public Object hget(final String key, final String field) {
     final Map<?, ?> map = getIfNotExpired(key, Map.class);
     return map == null ? null : map.get(field);
+  }
+
+  @Override
+  public Object[] hmget(final String key, final List<Object> fields) {
+    final Object[] res = new Object[fields.size()];
+    for (int i = 0; i < fields.size(); i++) {
+      res[i] = hget(key, fields.get(i).toString());
+    }
+    return res;
   }
 
   @SuppressWarnings("unchecked")

@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.whispersystems.textsecuregcm.util.redis.RedisLuaScriptSandbox.tail;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -19,7 +20,7 @@ public class BaseRedisCommandsHandler implements RedisCommandsHandler {
 
   @Override
   public Object redisCommand(final String command, final List<Object> args) {
-    return switch (command) {
+    return switch (command.toUpperCase(Locale.ROOT)) {
       case "SET" -> {
         assertTrue(args.size() > 2);
         yield set(args.get(0).toString(), args.get(1).toString(), tail(args, 2));
@@ -33,12 +34,17 @@ public class BaseRedisCommandsHandler implements RedisCommandsHandler {
         yield del(args.stream().map(Object::toString).toList());
       }
       case "HSET" -> {
-        assertTrue(args.size() >= 3);
-        yield hset(args.get(0).toString(), args.get(1).toString(), args.get(2).toString(), tail(args, 3));
+        assertTrue(args.size() > 1);
+        assertTrue(args.size() % 2 == 1);
+        yield hset(args.get(0).toString(), tail(args, 1));
       }
       case "HGET" -> {
         assertEquals(2, args.size());
         yield hget(args.get(0).toString(), args.get(1).toString());
+      }
+      case "HMGET" -> {
+        assertTrue(args.size() > 1);
+        yield hmget(args.get(0).toString(), tail(args, 1));
       }
       case "PEXPIRE" -> {
         assertEquals(2, args.size());
@@ -85,12 +91,16 @@ public class BaseRedisCommandsHandler implements RedisCommandsHandler {
     return 0;
   }
 
-  public Object hset(final String key, final String field, final String value, final List<Object> other) {
+  public Object hset(final String key, final List<Object> fieldsAndValues) {
     return "OK";
   }
 
   public Object hget(final String key, final String field) {
     return null;
+  }
+
+  public Object[] hmget(final String key, final List<Object> fields) {
+    return new Object[fields.size()];
   }
 
   public Object set(final String key, final String value, final List<Object> tail) {

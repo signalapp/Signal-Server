@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.limits;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -80,14 +81,14 @@ public class RateLimitersLuaScriptTest {
     // embedding an existing value in the old format
     redisCluster.useCluster(c -> c.sync().set(
         StaticRateLimiter.bucketName(descriptor.id(), "test"),
-        serializeToOldBucketValueFormat(new TokenBucket(60, 60, 30, System.currentTimeMillis() + 10000))
+        serializeToOldBucketValueFormat(60, 60, 30, System.currentTimeMillis() + 10000)
     ));
     assertThrows(RateLimitExceededException.class, () -> rateLimiter.validate("test", 40));
 
     // embedding an existing value in the old format
     redisCluster.useCluster(c -> c.sync().set(
         StaticRateLimiter.bucketName(descriptor.id(), "test1"),
-        serializeToOldBucketValueFormat(new TokenBucket(60, 60, 30, System.currentTimeMillis() + 10000))
+        serializeToOldBucketValueFormat(60, 60, 30, System.currentTimeMillis() + 10000)
     ));
     rateLimiter.validate("test1", 20);
     assertThrows(RateLimitExceededException.class, () -> rateLimiter.validate("test1", 20));
@@ -109,25 +110,21 @@ public class RateLimitersLuaScriptTest {
   }
 
   @Test
-  public void testLuaBucketConfigurationUpdates() throws Exception {
-    final String key = "key1";
-    clock.setTimeMillis(0);
-    long result = (long) sandbox.execute(
-        List.of(key),
-        scriptArgs(1000, 1, 1, true),
-        redisCommandsHandler
-    );
-    assertEquals(0L, result);
-    assertEquals(1000L, decodeBucket(key).orElseThrow().bucketSize);
+  public void testTtl() throws Exception {
+    final RateLimiters.For descriptor = RateLimiters.For.REGISTRATION;
+    final FaultTolerantRedisCluster redisCluster = REDIS_CLUSTER_EXTENSION.getRedisCluster();
+    final RateLimiters limiters = new RateLimiters(
+        Map.of(descriptor.id(), new RateLimiterConfig(1000, 60)),
+        dynamicConfig,
+        RateLimiters.defaultScript(redisCluster),
+        redisCluster,
+        Clock.systemUTC());
 
-    // now making a check-only call, but changing the bucket size
-    result = (long) sandbox.execute(
-        List.of(key),
-        scriptArgs(2000, 1, 1, false),
-        redisCommandsHandler
-    );
-    assertEquals(0L, result);
-    assertEquals(2000L, decodeBucket(key).orElseThrow().bucketSize);
+    final RateLimiter rateLimiter = limiters.forDescriptor(descriptor);
+    rateLimiter.validate("test", 200);
+    // after using 200 tokens, we expect 200 seconds to refill, so the TTL should be under 200000
+    final long ttl = redisCluster.withCluster(c -> c.sync().ttl("test"));
+    assertTrue(ttl <= 200000);
   }
 
   @Test
@@ -140,7 +137,7 @@ public class RateLimitersLuaScriptTest {
         redisCommandsHandler
     );
     assertEquals(0L, result);
-    assertEquals(800L, decodeBucket(key).orElseThrow().spaceRemaining);
+    assertEquals(800L, decodeBucket(key).orElseThrow().tokensRemaining);
 
     // 50 tokens replenished, acquiring 100 more, should end up with 750 available
     clock.setTimeMillis(50);
@@ -150,7 +147,7 @@ public class RateLimitersLuaScriptTest {
         redisCommandsHandler
     );
     assertEquals(0L, result);
-    assertEquals(750L, decodeBucket(key).orElseThrow().spaceRemaining);
+    assertEquals(750L, decodeBucket(key).orElseThrow().tokensRemaining);
 
     // now checking without an update, should not affect the count
     result = (long) sandbox.execute(
@@ -159,16 +156,20 @@ public class RateLimitersLuaScriptTest {
         redisCommandsHandler
     );
     assertEquals(0L, result);
-    assertEquals(750L, decodeBucket(key).orElseThrow().spaceRemaining);
+    assertEquals(750L, decodeBucket(key).orElseThrow().tokensRemaining);
   }
 
-  private String serializeToOldBucketValueFormat(final TokenBucket bucket) {
+  private String serializeToOldBucketValueFormat(
+      final long bucketSize,
+      final long leakRatePerMillis,
+      final long spaceRemaining,
+      final long lastUpdateTimeMillis) {
     try {
       return SystemMapper.jsonMapper().writeValueAsString(Map.of(
-          "bucketSize", bucket.bucketSize,
-          "leakRatePerMillis", bucket.leakRatePerMillis,
-          "spaceRemaining", bucket.spaceRemaining,
-          "lastUpdateTimeMillis", bucket.lastUpdateTimeMillis
+          "bucketSize", bucketSize,
+          "leakRatePerMillis", leakRatePerMillis,
+          "spaceRemaining", spaceRemaining,
+          "lastUpdateTimeMillis", lastUpdateTimeMillis
       ));
     } catch (JsonProcessingException e) {
       throw new RuntimeException(e);
@@ -176,14 +177,11 @@ public class RateLimitersLuaScriptTest {
   }
 
   private Optional<TokenBucket> decodeBucket(final String key) {
-    try {
-      final String json = redisCommandsHandler.get(key);
-      return json == null
-          ? Optional.empty()
-          : Optional.of(SystemMapper.jsonMapper().readValue(json, TokenBucket.class));
-    } catch (JsonProcessingException e) {
-      throw new RuntimeException(e);
-    }
+    final Object[] fields = redisCommandsHandler.hmget(key, List.of("s", "t"));
+    return fields[0] == null
+        ? Optional.empty()
+        : Optional.of(new TokenBucket(
+            Double.valueOf(fields[0].toString()).longValue(), Double.valueOf(fields[1].toString()).longValue()));
   }
 
   private List<String> scriptArgs(
@@ -200,6 +198,6 @@ public class RateLimitersLuaScriptTest {
     );
   }
 
-  private record TokenBucket(long bucketSize, long leakRatePerMillis, long spaceRemaining, long lastUpdateTimeMillis) {
+  private record TokenBucket(long tokensRemaining, long lastUpdateTimeMillis) {
   }
 }

@@ -24,10 +24,6 @@ local lastUpdateTimeMillis
 -- while we're migrating from json to redis list key types, there are three possible options for the
 -- type of the `bucketId` key: "string" (legacy, json value), "list" (new format), "none" (key not set).
 --
--- In the phase 1 of migration, we prepare the script to deal with the phase 2 :) I.e. when phase 2 will be rolling out,
--- it will start writing data in the new format, and the still running instances of the previous version
--- need to be able to know how to read the new format before we start writing it.
---
 -- On a separate note -- the reason we're not using a different key is because Redis Lua requires to list all keys
 -- as a script input and we don't want to expose this migration to the script users.
 --
@@ -40,18 +36,15 @@ if keyType == "none" then
 elseif keyType == "string" then
     -- if the key is "string", we parse the value from json
     local fromJson = cjson.decode(redis.call("GET", bucketId))
-    if bucketSize ~= fromJson.bucketSize or refillRatePerMillis ~= fromJson.leakRatePerMillis then
-        changesMade = true
-    end
     tokensRemaining = fromJson.spaceRemaining
     lastUpdateTimeMillis = fromJson.lastUpdateTimeMillis
+    redis.call("DEL", bucketId)
+    changesMade = true
 elseif keyType == "hash" then
     -- finally, reading values from the new storage format
     local tokensRemainingStr, lastUpdateTimeMillisStr = unpack(redis.call("HMGET", bucketId, SIZE_FIELD, TIME_FIELD))
     tokensRemaining = tonumber(tokensRemainingStr)
     lastUpdateTimeMillis = tonumber(lastUpdateTimeMillisStr)
-    redis.call("DEL", bucketId)
-    changesMade = true
 end
 
 local elapsedTime = currentTimeMillis - lastUpdateTimeMillis
@@ -68,19 +61,14 @@ if availableAmount >= requestedAmount then
     end
     if changesMade then
         local tokensUsed = bucketSize - tokensRemaining
-        -- Storing a 'full' bucket is equivalent of not storing any state at all
+        -- Storing a 'full' bucket (i.e. tokensUsed == 0) is equivalent of not storing any state at all
         -- (in which case a bucket will be just initialized from the input configs as a 'full' one).
         -- For this reason, we either set an expiration time on the record (calculated to let the bucket fully replenish)
         -- or we just delete the key if the bucket is full.
         if tokensUsed > 0 then
             local ttlMillis = math.ceil(tokensUsed / refillRatePerMillis)
-            local tokenBucket = {
-                ["bucketSize"] = bucketSize,
-                ["leakRatePerMillis"] = refillRatePerMillis,
-                ["spaceRemaining"] = tokensRemaining,
-                ["lastUpdateTimeMillis"] = lastUpdateTimeMillis
-            }
-            redis.call("SET", bucketId, cjson.encode(tokenBucket), "PX", ttlMillis)
+            redis.call("HSET", bucketId, SIZE_FIELD, tokensRemaining, TIME_FIELD, lastUpdateTimeMillis)
+            redis.call("PEXPIRE", bucketId, ttlMillis)
         else
             redis.call("DEL", bucketId)
         end
