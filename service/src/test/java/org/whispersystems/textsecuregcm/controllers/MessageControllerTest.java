@@ -60,6 +60,7 @@ import javax.ws.rs.core.Response;
 import org.glassfish.jersey.server.ServerProperties;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.hamcrest.Matcher;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -104,6 +105,8 @@ import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.websocket.Stories;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class MessageControllerTest {
@@ -142,6 +145,7 @@ class MessageControllerTest {
   private static final PushNotificationManager pushNotificationManager = mock(PushNotificationManager.class);
   private static final ReportMessageManager reportMessageManager = mock(ReportMessageManager.class);
   private static final ExecutorService multiRecipientMessageExecutor = mock(ExecutorService.class);
+  private static final Scheduler messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
 
   private static final ResourceExtension resources = ResourceExtension.builder()
       .addProperty(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE)
@@ -154,7 +158,7 @@ class MessageControllerTest {
       .addResource(
           new MessageController(rateLimiters, messageSender, receiptSender, accountsManager, deletedAccountsManager,
               messagesManager, pushNotificationManager, reportMessageManager, multiRecipientMessageExecutor,
-              ReportSpamTokenProvider.noop()))
+              messageDeliveryScheduler, ReportSpamTokenProvider.noop()))
       .build();
 
   @BeforeEach
@@ -211,6 +215,11 @@ class MessageControllerTest {
         reportMessageManager,
         multiRecipientMessageExecutor
     );
+  }
+
+  @AfterAll
+  static void teardownAll() {
+    messageDeliveryScheduler.dispose();
   }
 
   @Test

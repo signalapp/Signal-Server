@@ -56,7 +56,6 @@ import reactor.core.observability.micrometer.Micrometer;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
-import reactor.core.scheduler.Schedulers;
 
 public class WebSocketConnection implements MessageAvailabilityListener, DisplacedPresenceListener {
 
@@ -127,7 +126,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   private final AtomicReference<Disposable> messageSubscription = new AtomicReference<>();
 
   private final Random random = new Random();
-  private final Scheduler reactiveScheduler;
+  private final Scheduler messageDeliveryScheduler;
 
   private enum StoredMessageState {
     EMPTY,
@@ -140,25 +139,8 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
       AuthenticatedAccount auth,
       Device device,
       WebSocketClient client,
-      ScheduledExecutorService scheduledExecutorService) {
-
-    this(receiptSender,
-        messagesManager,
-        auth,
-        device,
-        client,
-        scheduledExecutorService,
-        Schedulers.boundedElastic());
-  }
-
-  @VisibleForTesting
-  WebSocketConnection(ReceiptSender receiptSender,
-      MessagesManager messagesManager,
-      AuthenticatedAccount auth,
-      Device device,
-      WebSocketClient client,
       ScheduledExecutorService scheduledExecutorService,
-      Scheduler reactiveScheduler) {
+      Scheduler messageDeliveryScheduler) {
 
     this(receiptSender,
         messagesManager,
@@ -167,7 +149,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
         client,
         DEFAULT_SEND_FUTURES_TIMEOUT_MILLIS,
         scheduledExecutorService,
-        reactiveScheduler);
+        messageDeliveryScheduler);
   }
 
   @VisibleForTesting
@@ -178,7 +160,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
       WebSocketClient client,
       int sendFuturesTimeoutMillis,
       ScheduledExecutorService scheduledExecutorService,
-      Scheduler reactiveScheduler) {
+      Scheduler messageDeliveryScheduler) {
 
     this.receiptSender = receiptSender;
     this.messagesManager = messagesManager;
@@ -187,7 +169,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
     this.client = client;
     this.sendFuturesTimeoutMillis = sendFuturesTimeoutMillis;
     this.scheduledExecutorService = scheduledExecutorService;
-    this.reactiveScheduler = reactiveScheduler;
+    this.messageDeliveryScheduler = messageDeliveryScheduler;
   }
 
   public void start() {
@@ -366,7 +348,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
         .flatMapSequential(envelope ->
             Mono.fromFuture(sendMessage(envelope)
                 .orTimeout(sendFuturesTimeoutMillis, TimeUnit.MILLISECONDS)))
-        .subscribeOn(reactiveScheduler)
+        .subscribeOn(messageDeliveryScheduler)
         .subscribe(
             // no additional consumer of values - it is Flux<Void> by now
             null,

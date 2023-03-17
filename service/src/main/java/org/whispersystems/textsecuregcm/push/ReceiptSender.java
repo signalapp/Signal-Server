@@ -7,6 +7,8 @@ package org.whispersystems.textsecuregcm.push;
 
 import com.codahale.metrics.InstrumentedExecutorService;
 import com.codahale.metrics.SharedMetricRegistries;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.binder.jvm.ExecutorServiceMetrics;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import org.slf4j.Logger;
@@ -29,9 +31,13 @@ public class ReceiptSender {
       final ExecutorService executor) {
     this.accountManager = accountManager;
     this.messageSender = messageSender;
-    this.executor = new InstrumentedExecutorService(executor,
-        SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME),
-        MetricsUtil.name(ReceiptSender.class, "executor"));
+    this.executor = ExecutorServiceMetrics.monitor(
+        Metrics.globalRegistry,
+        new InstrumentedExecutorService(executor,
+            SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME),
+            MetricsUtil.name(ReceiptSender.class, "executor")),
+        MetricsUtil.name(ReceiptSender.class, "executor"))
+    ;
   }
 
   public void sendReceipt(UUID sourceUuid, long sourceDeviceId, UUID destinationUuid, long messageId) {

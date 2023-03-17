@@ -68,6 +68,7 @@ import org.whispersystems.websocket.messages.WebSocketResponseMessage;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
+import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 import reactor.test.StepVerifier;
 
@@ -90,6 +91,7 @@ class WebSocketConnectionTest {
   private MessagesManager messagesManager;
   private ReceiptSender receiptSender;
   private ScheduledExecutorService retrySchedulingExecutor;
+  private Scheduler messageDeliveryScheduler;
 
   @BeforeEach
   void setup() {
@@ -102,11 +104,13 @@ class WebSocketConnectionTest {
     messagesManager = mock(MessagesManager.class);
     receiptSender = mock(ReceiptSender.class);
     retrySchedulingExecutor = mock(ScheduledExecutorService.class);
+    messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
   }
 
   @AfterEach
   void teardown() {
     StepVerifier.resetDefaultTimeout();
+    messageDeliveryScheduler.dispose();
   }
 
   @Test
@@ -114,7 +118,7 @@ class WebSocketConnectionTest {
     WebSocketAccountAuthenticator webSocketAuthenticator = new WebSocketAccountAuthenticator(accountAuthenticator);
     AuthenticatedConnectListener connectListener = new AuthenticatedConnectListener(receiptSender, messagesManager,
         mock(PushNotificationManager.class), mock(ClientPresenceManager.class),
-        retrySchedulingExecutor);
+        retrySchedulingExecutor, messageDeliveryScheduler);
     WebSocketSessionContext sessionContext = mock(WebSocketSessionContext.class);
 
     when(accountAuthenticator.authenticate(eq(new BasicCredentials(VALID_USER, VALID_PASSWORD))))
@@ -773,7 +777,7 @@ class WebSocketConnectionTest {
         CompletableFuture.completedFuture(Optional.empty()));
 
     WebSocketConnection connection = new WebSocketConnection(receiptSender, messagesManager, auth, device, client,
-        retrySchedulingExecutor);
+        retrySchedulingExecutor, messageDeliveryScheduler);
 
     connection.start();
 

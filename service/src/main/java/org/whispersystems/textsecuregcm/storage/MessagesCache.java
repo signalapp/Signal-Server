@@ -63,6 +63,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
   private final Clock clock;
 
   private final ExecutorService notificationExecutorService;
+  private final Scheduler messageDeliveryScheduler;
   private final ExecutorService messageDeletionExecutorService;
   // messageDeletionExecutorService wrapped into a reactor Scheduler
   private final Scheduler messageDeletionScheduler;
@@ -103,7 +104,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
   private static final Logger logger = LoggerFactory.getLogger(MessagesCache.class);
 
   public MessagesCache(final FaultTolerantRedisCluster insertCluster, final FaultTolerantRedisCluster readDeleteCluster,
-      final Clock clock, final ExecutorService notificationExecutorService,
+      final Clock clock, final ExecutorService notificationExecutorService, final Scheduler messageDeliveryScheduler,
       final ExecutorService messageDeletionExecutorService) throws IOException {
 
     this.readDeleteCluster = readDeleteCluster;
@@ -111,6 +112,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
     this.clock = clock;
 
     this.notificationExecutorService = notificationExecutorService;
+    this.messageDeliveryScheduler = messageDeliveryScheduler;
     this.messageDeletionExecutorService = messageDeletionExecutorService;
     this.messageDeletionScheduler = Schedulers.fromExecutorService(messageDeletionExecutorService, "messageDeletion");
 
@@ -263,7 +265,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
         })
         .limitRate(1)
         // we want to ensure we don’t accidentally block the Lettuce/netty i/o executors
-        .publishOn(Schedulers.boundedElastic())
+        .publishOn(messageDeliveryScheduler)
         .map(Pair::first)
         .flatMapIterable(queueItems -> {
           final List<MessageProtos.Envelope> envelopes = new ArrayList<>(queueItems.size() / 2);

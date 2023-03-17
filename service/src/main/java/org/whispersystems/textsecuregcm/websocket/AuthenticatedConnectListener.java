@@ -11,6 +11,8 @@ import com.codahale.metrics.Counter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tags;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
@@ -18,8 +20,6 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Tags;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
@@ -38,6 +38,7 @@ import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
 import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
 import org.whispersystems.websocket.setup.WebSocketConnectListener;
+import reactor.core.scheduler.Scheduler;
 
 public class AuthenticatedConnectListener implements WebSocketConnectListener {
 
@@ -61,6 +62,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
   private final PushNotificationManager pushNotificationManager;
   private final ClientPresenceManager clientPresenceManager;
   private final ScheduledExecutorService scheduledExecutorService;
+  private final Scheduler messageDeliveryScheduler;
 
   private final Map<ClientPlatform, AtomicInteger> openWebsocketsByClientPlatform;
   private final AtomicInteger openWebsocketsFromUnknownPlatforms;
@@ -69,12 +71,14 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
       MessagesManager messagesManager,
       PushNotificationManager pushNotificationManager,
       ClientPresenceManager clientPresenceManager,
-      ScheduledExecutorService scheduledExecutorService) {
+      ScheduledExecutorService scheduledExecutorService,
+      Scheduler messageDeliveryScheduler) {
     this.receiptSender = receiptSender;
     this.messagesManager = messagesManager;
     this.pushNotificationManager = pushNotificationManager;
     this.clientPresenceManager = clientPresenceManager;
     this.scheduledExecutorService = scheduledExecutorService;
+    this.messageDeliveryScheduler = messageDeliveryScheduler;
 
     openWebsocketsByClientPlatform = new EnumMap<>(ClientPlatform.class);
 
@@ -100,7 +104,8 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
       final WebSocketConnection connection = new WebSocketConnection(receiptSender,
           messagesManager, auth, device,
           context.getClient(),
-          scheduledExecutorService);
+          scheduledExecutorService,
+          messageDeliveryScheduler);
 
       final AtomicInteger openWebsocketAtomicInteger = getOpenWebsocketCounter(context.getClient().getUserAgent());
 

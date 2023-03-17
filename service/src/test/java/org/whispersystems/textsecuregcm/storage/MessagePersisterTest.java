@@ -41,6 +41,8 @@ import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
+import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
 
 class MessagePersisterTest {
 
@@ -48,6 +50,7 @@ class MessagePersisterTest {
   static final RedisClusterExtension REDIS_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
 
   private ExecutorService sharedExecutorService;
+  private Scheduler messageDeliveryScheduler;
   private MessagesCache messagesCache;
   private MessagesDynamoDb messagesDynamoDb;
   private MessagePersister messagePersister;
@@ -76,8 +79,10 @@ class MessagePersisterTest {
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(new DynamicConfiguration());
 
     sharedExecutorService = Executors.newSingleThreadExecutor();
+    messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
     messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-        REDIS_CLUSTER_EXTENSION.getRedisCluster(), Clock.systemUTC(), sharedExecutorService, sharedExecutorService);
+        REDIS_CLUSTER_EXTENSION.getRedisCluster(), Clock.systemUTC(), sharedExecutorService, messageDeliveryScheduler,
+        sharedExecutorService);
     messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager,
         dynamicConfigurationManager, PERSIST_DELAY);
 
@@ -100,6 +105,8 @@ class MessagePersisterTest {
   void tearDown() throws Exception {
     sharedExecutorService.shutdown();
     sharedExecutorService.awaitTermination(1, TimeUnit.SECONDS);
+
+    messageDeliveryScheduler.dispose();
   }
 
   @Test

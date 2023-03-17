@@ -35,6 +35,8 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfigurati
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.tests.util.MessagesDynamoDbExtension;
+import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 
@@ -47,6 +49,7 @@ class MessagePersisterIntegrationTest {
   static final RedisClusterExtension REDIS_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
 
   private ExecutorService notificationExecutorService;
+  private Scheduler messageDeliveryScheduler;
   private ExecutorService messageDeletionExecutorService;
   private MessagesCache messagesCache;
   private MessagesManager messagesManager;
@@ -67,6 +70,7 @@ class MessagePersisterIntegrationTest {
 
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(new DynamicConfiguration());
 
+    messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
     messageDeletionExecutorService = Executors.newSingleThreadExecutor();
     final MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(dynamoDbExtension.getDynamoDbClient(),
         dynamoDbExtension.getDynamoDbAsyncClient(), MessagesDynamoDbExtension.TABLE_NAME, Duration.ofDays(14),
@@ -76,7 +80,7 @@ class MessagePersisterIntegrationTest {
     notificationExecutorService = Executors.newSingleThreadExecutor();
     messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
         REDIS_CLUSTER_EXTENSION.getRedisCluster(), Clock.systemUTC(), notificationExecutorService,
-        messageDeletionExecutorService);
+        messageDeliveryScheduler, messageDeletionExecutorService);
     messagesManager = new MessagesManager(messagesDynamoDb, messagesCache, mock(ReportMessageManager.class),
         messageDeletionExecutorService);
     messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager,
@@ -102,6 +106,8 @@ class MessagePersisterIntegrationTest {
 
     messageDeletionExecutorService.shutdown();
     messageDeletionExecutorService.awaitTermination(15, TimeUnit.SECONDS);
+
+    messageDeliveryScheduler.dispose();
   }
 
   @Test

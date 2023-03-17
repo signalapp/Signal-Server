@@ -59,6 +59,7 @@ import org.whispersystems.textsecuregcm.tests.util.MessagesDynamoDbExtension;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.websocket.WebSocketClient;
 import org.whispersystems.websocket.messages.WebSocketResponseMessage;
+import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
 class WebSocketConnectionIntegrationTest {
@@ -77,6 +78,7 @@ class WebSocketConnectionIntegrationTest {
   private Device device;
   private WebSocketClient webSocketClient;
   private ScheduledExecutorService retrySchedulingExecutor;
+  private Scheduler messageDeliveryScheduler;
 
   private long serialTimestamp = System.currentTimeMillis();
 
@@ -84,8 +86,10 @@ class WebSocketConnectionIntegrationTest {
   void setUp() throws Exception {
 
     sharedExecutorService = Executors.newSingleThreadExecutor();
+    messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
     messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-        REDIS_CLUSTER_EXTENSION.getRedisCluster(), Clock.systemUTC(), sharedExecutorService, sharedExecutorService);
+        REDIS_CLUSTER_EXTENSION.getRedisCluster(), Clock.systemUTC(), sharedExecutorService, messageDeliveryScheduler,
+        sharedExecutorService);
     messagesDynamoDb = new MessagesDynamoDb(dynamoDbExtension.getDynamoDbClient(),
         dynamoDbExtension.getDynamoDbAsyncClient(), MessagesDynamoDbExtension.TABLE_NAME, Duration.ofDays(7),
         sharedExecutorService);
@@ -122,7 +126,8 @@ class WebSocketConnectionIntegrationTest {
         new AuthenticatedAccount(() -> new Pair<>(account, device)),
         device,
         webSocketClient,
-        retrySchedulingExecutor);
+        retrySchedulingExecutor,
+        messageDeliveryScheduler);
 
     final List<MessageProtos.Envelope> expectedMessages = new ArrayList<>(persistedMessageCount + cachedMessageCount);
 
@@ -205,7 +210,8 @@ class WebSocketConnectionIntegrationTest {
         new AuthenticatedAccount(() -> new Pair<>(account, device)),
         device,
         webSocketClient,
-        retrySchedulingExecutor);
+        retrySchedulingExecutor,
+        messageDeliveryScheduler);
 
     final int persistedMessageCount = 207;
     final int cachedMessageCount = 173;
@@ -271,7 +277,7 @@ class WebSocketConnectionIntegrationTest {
         webSocketClient,
         100, // use a very short timeout, so that this test completes quickly
         retrySchedulingExecutor,
-        Schedulers.boundedElastic());
+        messageDeliveryScheduler);
 
     final int persistedMessageCount = 207;
     final int cachedMessageCount = 173;

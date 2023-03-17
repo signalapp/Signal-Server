@@ -49,6 +49,8 @@ import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.storage.VerificationCodeStore;
 import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
+import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 
@@ -78,6 +80,9 @@ record CommandDependencies(
     FaultTolerantRedisCluster cacheCluster = new FaultTolerantRedisCluster("main_cache_cluster",
         configuration.getCacheClusterConfiguration(), redisClusterClientResources);
 
+    Scheduler messageDeliveryScheduler = Schedulers.fromExecutorService(
+        environment.lifecycle().executorService("messageDelivery").maxThreads(4)
+            .build());
     ExecutorService keyspaceNotificationDispatchExecutor = environment.lifecycle()
         .executorService(name(name, "keyspaceNotification-%d")).maxThreads(4).build();
     ExecutorService messageDeletionExecutor = environment.lifecycle()
@@ -167,7 +172,7 @@ record CommandDependencies(
     ClientPresenceManager clientPresenceManager = new ClientPresenceManager(clientPresenceCluster,
         Executors.newSingleThreadScheduledExecutor(), keyspaceNotificationDispatchExecutor);
     MessagesCache messagesCache = new MessagesCache(messageInsertCacheCluster, messageReadDeleteCluster,
-        Clock.systemUTC(), keyspaceNotificationDispatchExecutor, messageDeletionExecutor);
+        Clock.systemUTC(), keyspaceNotificationDispatchExecutor, messageDeliveryScheduler, messageDeletionExecutor);
     DirectoryQueue directoryQueue = new DirectoryQueue(
         configuration.getDirectoryConfiguration().getSqsConfiguration());
     ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster);

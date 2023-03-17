@@ -104,7 +104,7 @@ import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
 import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 import org.whispersystems.textsecuregcm.websocket.WebSocketConnection;
 import org.whispersystems.websocket.Stories;
-import reactor.core.scheduler.Schedulers;
+import reactor.core.scheduler.Scheduler;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v1/messages")
@@ -122,6 +122,7 @@ public class MessageController {
   private final PushNotificationManager pushNotificationManager;
   private final ReportMessageManager reportMessageManager;
   private final ExecutorService multiRecipientMessageExecutor;
+  private final Scheduler messageDeliveryScheduler;
   private final ReportSpamTokenProvider reportSpamTokenProvider;
 
   private static final String REJECT_OVERSIZE_MESSAGE_COUNTER = name(MessageController.class, "rejectOversizeMessage");
@@ -154,6 +155,7 @@ public class MessageController {
       PushNotificationManager pushNotificationManager,
       ReportMessageManager reportMessageManager,
       @Nonnull ExecutorService multiRecipientMessageExecutor,
+      Scheduler messageDeliveryScheduler,
       @Nonnull ReportSpamTokenProvider reportSpamTokenProvider) {
     this.rateLimiters = rateLimiters;
     this.messageSender = messageSender;
@@ -164,6 +166,7 @@ public class MessageController {
     this.pushNotificationManager = pushNotificationManager;
     this.reportMessageManager = reportMessageManager;
     this.multiRecipientMessageExecutor = Objects.requireNonNull(multiRecipientMessageExecutor);
+    this.messageDeliveryScheduler = messageDeliveryScheduler;
     this.reportSpamTokenProvider = reportSpamTokenProvider;
   }
 
@@ -553,7 +556,7 @@ public class MessageController {
           return messages;
         })
         .timeout(Duration.ofSeconds(5))
-        .subscribeOn(Schedulers.boundedElastic())
+        .subscribeOn(messageDeliveryScheduler)
         .toFuture();
   }
 

@@ -64,6 +64,8 @@ import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
+import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
 import reactor.test.StepVerifier;
 
 class MessagesCacheTest {
@@ -78,6 +80,7 @@ class MessagesCacheTest {
     static final RedisClusterExtension REDIS_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
 
     private ExecutorService sharedExecutorService;
+    private Scheduler messageDeliveryScheduler;
     private MessagesCache messagesCache;
 
     private static final UUID DESTINATION_UUID = UUID.randomUUID();
@@ -92,9 +95,10 @@ class MessagesCacheTest {
       });
 
       sharedExecutorService = Executors.newSingleThreadExecutor();
+      messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
       messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
           REDIS_CLUSTER_EXTENSION.getRedisCluster(), Clock.systemUTC(), sharedExecutorService,
-          sharedExecutorService);
+          messageDeliveryScheduler, sharedExecutorService);
 
       messagesCache.start();
     }
@@ -105,6 +109,8 @@ class MessagesCacheTest {
 
       sharedExecutorService.shutdown();
       sharedExecutorService.awaitTermination(1, TimeUnit.SECONDS);
+
+      messageDeliveryScheduler.dispose();
     }
 
     @ParameterizedTest
@@ -266,6 +272,7 @@ class MessagesCacheTest {
           REDIS_CLUSTER_EXTENSION.getRedisCluster(),
           cacheClock,
           sharedExecutorService,
+          messageDeliveryScheduler,
           sharedExecutorService);
 
       final List<MessageProtos.Envelope> actualMessages = Flux.from(
@@ -547,6 +554,7 @@ class MessagesCacheTest {
     private MessagesCache messagesCache;
     private RedisAdvancedClusterReactiveCommands<byte[], byte[]> reactiveCommands;
     private RedisAdvancedClusterAsyncCommands<byte[], byte[]> asyncCommands;
+    private Scheduler messageDeliveryScheduler;
 
     @SuppressWarnings("unchecked")
     @BeforeEach
@@ -559,13 +567,16 @@ class MessagesCacheTest {
           .binaryAsyncCommands(asyncCommands)
           .build();
 
+      messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
+
       messagesCache = new MessagesCache(mockCluster, mockCluster, Clock.systemUTC(), mock(ExecutorService.class),
-          Executors.newSingleThreadExecutor());
+          messageDeliveryScheduler, Executors.newSingleThreadExecutor());
     }
 
     @AfterEach
     void teardown() {
       StepVerifier.resetDefaultTimeout();
+      messageDeliveryScheduler.dispose();
     }
 
     @Test

@@ -28,6 +28,7 @@ import io.lettuce.core.resource.ClientResources;
 import io.micrometer.core.instrument.Meter.Id;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
+import io.micrometer.core.instrument.binder.jvm.ExecutorServiceMetrics;
 import io.micrometer.core.instrument.config.MeterFilter;
 import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
 import io.micrometer.datadog.DatadogMeterRegistry;
@@ -137,6 +138,7 @@ import org.whispersystems.textsecuregcm.metrics.GarbageCollectionGauges;
 import org.whispersystems.textsecuregcm.metrics.MaxFileDescriptorGauge;
 import org.whispersystems.textsecuregcm.metrics.MetricsApplicationEventListener;
 import org.whispersystems.textsecuregcm.metrics.MetricsRequestEventListener;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.MicrometerRegistryManager;
 import org.whispersystems.textsecuregcm.metrics.NetworkReceivedGauge;
 import org.whispersystems.textsecuregcm.metrics.NetworkSentGauge;
@@ -234,6 +236,8 @@ import org.whispersystems.textsecuregcm.workers.UnlinkDeviceCommand;
 import org.whispersystems.textsecuregcm.workers.ZkParamsCommand;
 import org.whispersystems.websocket.WebSocketResourceProviderFactory;
 import org.whispersystems.websocket.setup.WebSocketEnvironment;
+import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
@@ -399,12 +403,15 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     FaultTolerantRedisCluster rateLimitersCluster      = new FaultTolerantRedisCluster("rate_limiters", config.getRateLimitersCluster(), redisClientResources);
 
     final BlockingQueue<Runnable> keyspaceNotificationDispatchQueue = new ArrayBlockingQueue<>(100_000);
-    Metrics.gaugeCollectionSize(name(getClass(), "keyspaceNotificationDispatchQueueSize"), Collections.emptyList(), keyspaceNotificationDispatchQueue);
+    Metrics.gaugeCollectionSize(name(getClass(), "keyspaceNotificationDispatchQueueSize"), Collections.emptyList(),
+        keyspaceNotificationDispatchQueue);
     final BlockingQueue<Runnable> receiptSenderQueue = new LinkedBlockingQueue<>();
     Metrics.gaugeCollectionSize(name(getClass(), "receiptSenderQueue"), Collections.emptyList(), receiptSenderQueue);
-
     final BlockingQueue<Runnable> fcmSenderQueue = new LinkedBlockingQueue<>();
     Metrics.gaugeCollectionSize(name(getClass(), "fcmSenderQueue"), Collections.emptyList(), fcmSenderQueue);
+    final BlockingQueue<Runnable> messageDeliveryQueue = new LinkedBlockingQueue<>();
+    Metrics.gaugeCollectionSize(MetricsUtil.name(getClass(), "messageDeliveryQueue"), Collections.emptyList(),
+        messageDeliveryQueue);
 
     ScheduledExecutorService recurringJobExecutor = environment.lifecycle()
         .scheduledExecutorService(name(getClass(), "recurringJob-%d")).threads(6).build();
@@ -416,6 +423,16 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ExecutorService          storageServiceExecutor               = environment.lifecycle().executorService(name(getClass(), "storageService-%d")).maxThreads(1).minThreads(1).build();
     ExecutorService          accountDeletionExecutor              = environment.lifecycle().executorService(name(getClass(), "accountCleaner-%d")).maxThreads(16).minThreads(16).build();
 
+    // using 80 threads to match Schedulers.boundedElastic() behavior
+    Scheduler messageDeliveryScheduler = Schedulers.fromExecutorService(
+        ExecutorServiceMetrics.monitor(Metrics.globalRegistry,
+            environment.lifecycle().executorService(name(getClass(), "messageDelivery-%d"))
+                .minThreads(80)
+                .maxThreads(80)
+                .workQueue(messageDeliveryQueue)
+                .build(),
+            MetricsUtil.name(getClass(), "messageDeliveryExecutor")),
+        "messageDelivery");
     // TODO: generally speaking this is a DynamoDB I/O executor for the accounts table; we should eventually have a general executor for speaking to the accounts table, but most of the server is still synchronous so this isn't widely useful yet
     ExecutorService batchIdentityCheckExecutor = environment.lifecycle().executorService(name(getClass(), "batchIdentityCheck-%d")).minThreads(32).maxThreads(32).build();
     ExecutorService multiRecipientMessageExecutor = environment.lifecycle()
@@ -485,7 +502,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     StoredVerificationCodeManager pendingDevicesManager   = new StoredVerificationCodeManager(pendingDevices);
     ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster);
     MessagesCache messagesCache = new MessagesCache(messagesCluster, messagesCluster, Clock.systemUTC(),
-        keyspaceNotificationDispatchExecutor, messageDeletionAsyncExecutor);
+        keyspaceNotificationDispatchExecutor, messageDeliveryScheduler, messageDeletionAsyncExecutor);
     PushLatencyManager pushLatencyManager = new PushLatencyManager(metricsCluster, dynamicConfigurationManager);
     ReportMessageManager reportMessageManager = new ReportMessageManager(reportMessageDynamoDb, rateLimitersCluster,
         config.getReportMessageConfiguration().getCounterTtl());
@@ -674,7 +691,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     webSocketEnvironment.setAuthenticator(new WebSocketAccountAuthenticator(accountAuthenticator));
     webSocketEnvironment.setConnectListener(
         new AuthenticatedConnectListener(receiptSender, messagesManager, pushNotificationManager,
-            clientPresenceManager, websocketScheduledExecutor));
+            clientPresenceManager, websocketScheduledExecutor, messageDeliveryScheduler));
     webSocketEnvironment.jersey()
         .register(new WebsocketRefreshApplicationEventListener(accountsManager, clientPresenceManager));
     webSocketEnvironment.jersey().register(new RequestStatisticsFilter(TrafficSource.WEBSOCKET));
@@ -750,8 +767,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new DirectoryV2Controller(directoryV2CredentialsGenerator),
         new DonationController(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager, config.getBadges(),
             ReceiptCredentialPresentation::new),
-        new MessageController(rateLimiters, messageSender, receiptSender, accountsManager, deletedAccountsManager, messagesManager, pushNotificationManager, reportMessageManager, multiRecipientMessageExecutor,
-            reportSpamTokenProvider),
+        new MessageController(rateLimiters, messageSender, receiptSender, accountsManager, deletedAccountsManager,
+            messagesManager, pushNotificationManager, reportMessageManager, multiRecipientMessageExecutor,
+            messageDeliveryScheduler, reportSpamTokenProvider),
         new PaymentsController(currencyManager, paymentsCredentialsGenerator),
         new ProfileController(clock, rateLimiters, accountsManager, profilesManager, dynamicConfigurationManager,
             profileBadgeConverter, config.getBadges(), cdnS3Client, profileCdnPolicyGenerator, profileCdnPolicySigner,
