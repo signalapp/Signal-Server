@@ -13,12 +13,17 @@ import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import java.time.Instant;
 import java.util.Optional;
+import java.util.UUID;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import javax.ws.rs.BadRequestException;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.ForbiddenException;
+import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
@@ -29,6 +34,7 @@ import javax.ws.rs.core.Response;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.PhoneVerificationTokenManager;
 import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager;
+import org.whispersystems.textsecuregcm.entities.AccountDataReportResponse;
 import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
 import org.whispersystems.textsecuregcm.entities.ChangeNumberRequest;
 import org.whispersystems.textsecuregcm.entities.MismatchedDevices;
@@ -143,5 +149,32 @@ public class AccountControllerV2 {
   ) {
     accountsManager.update(auth.getAccount(), a -> a.setDiscoverableByPhoneNumber(
         phoneNumberDiscoverability.discoverableByPhoneNumber()));
+  }
+
+  @Timed
+  @GET
+  @Path("/data_report")
+  @Produces(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Produces a report of non-ephemeral account data stored by the service")
+  @ApiResponse(responseCode = "200",
+      description = "Response with data report. A plain text representation is a field in the response.",
+      useReturnTypeSchema = true)
+  public AccountDataReportResponse getAccountDataReport(@Auth final AuthenticatedAccount auth) {
+
+    final Account account = auth.getAccount();
+
+    return new AccountDataReportResponse(UUID.randomUUID(), Instant.now(),
+        new AccountDataReportResponse.AccountAndDevicesDataReport(
+            new AccountDataReportResponse.AccountDataReport(
+                account.getNumber(),
+                account.getBadges().stream().map(AccountDataReportResponse.BadgeDataReport::new).toList(),
+                account.isUnrestrictedUnidentifiedAccess(),
+                account.isDiscoverableByPhoneNumber()),
+            account.getDevices().stream().map(device ->
+                new AccountDataReportResponse.DeviceDataReport(
+                    device.getId(),
+                    Instant.ofEpochMilli(device.getLastSeen()),
+                    Instant.ofEpochMilli(device.getCreated()),
+                    device.getUserAgent())).toList()));
   }
 }
