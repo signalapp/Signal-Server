@@ -181,8 +181,31 @@ public class RegistrationServiceClient implements Managed {
       final String verificationCode,
       final Duration timeout) {
 
-    return checkVerificationCodeSession(sessionId, verificationCode, timeout)
-        .thenApply(RegistrationServiceSession::verified);
+    return toCompletableFuture(stub.withDeadline(toDeadline(timeout))
+        .legacyCheckVerificationCode(CheckVerificationCodeRequest.newBuilder()
+            .setSessionId(ByteString.copyFrom(sessionId))
+            .setVerificationCode(verificationCode)
+            .build()))
+        .thenApply(response -> {
+          if (response.hasError()) {
+            switch (response.getError().getErrorType()) {
+              case CHECK_VERIFICATION_CODE_ERROR_TYPE_RATE_LIMITED ->
+                  throw new CompletionException(new RateLimitExceededException(response.getError().getMayRetry()
+                      ? Duration.ofSeconds(response.getError().getRetryAfterSeconds())
+                      : null, true));
+
+              case CHECK_VERIFICATION_CODE_ERROR_TYPE_NO_CODE_SENT,
+                  CHECK_VERIFICATION_CODE_ERROR_TYPE_ATTEMPT_EXPIRED,
+                  CHECK_VERIFICATION_CODE_ERROR_TYPE_SESSION_NOT_FOUND ->
+                  throw new CompletionException(new RegistrationServiceException(null));
+
+              default -> throw new CompletionException(
+                  new RuntimeException("Failed to check verification code: " + response.getError().getErrorType()));
+            }
+          } else {
+            return response.getVerified();
+          }
+        });
   }
 
   public CompletableFuture<RegistrationServiceSession> checkVerificationCodeSession(final byte[] sessionId,

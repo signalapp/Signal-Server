@@ -26,6 +26,8 @@ service RegistrationService {
    * session.
    */
   rpc check_verification_code (CheckVerificationCodeRequest) returns (CheckVerificationCodeResponse) {}
+
+  rpc legacy_check_verification_code (CheckVerificationCodeRequest) returns (LegacyCheckVerificationCodeResponse) {}
 }
 
 message CreateRegistrationSessionRequest {
@@ -341,6 +343,20 @@ message CheckVerificationCodeResponse {
    * "next attempt" times).
    */
   CheckVerificationCodeError error = 3;
+}
+
+message LegacyCheckVerificationCodeResponse {
+  /**
+   * Indicates whether the verification code given in the request that produced
+   * this response was correct.
+   */
+  bool verified = 1;
+
+  /**
+   * If a code could not be checked, explains the underlying error. Will be
+   * absent if no error occurred.
+   */
+  CheckVerificationCodeError error = 2;
 }
 
 message CheckVerificationCodeError {
