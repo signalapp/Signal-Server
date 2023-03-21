@@ -32,6 +32,7 @@ import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
+import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
 import software.amazon.awssdk.services.dynamodb.model.CreateTableRequest;
@@ -178,6 +179,9 @@ class AccountsManagerChangeNumberIntegrationTest {
       final SecureBackupClient secureBackupClient = mock(SecureBackupClient.class);
       when(secureBackupClient.deleteBackups(any())).thenReturn(CompletableFuture.completedFuture(null));
 
+      final SecureValueRecovery2Client svr2Client = mock(SecureValueRecovery2Client.class);
+      when(svr2Client.deleteBackups(any())).thenReturn(CompletableFuture.completedFuture(null));
+
       clientPresenceManager = mock(ClientPresenceManager.class);
 
       final PhoneNumberIdentifiers phoneNumberIdentifiers =
@@ -195,6 +199,7 @@ class AccountsManagerChangeNumberIntegrationTest {
           mock(StoredVerificationCodeManager.class),
           secureStorageClient,
           secureBackupClient,
+          svr2Client,
           clientPresenceManager,
           mock(ExperimentEnrollmentManager.class),
           mock(RegistrationRecoveryPasswordsManager.class),

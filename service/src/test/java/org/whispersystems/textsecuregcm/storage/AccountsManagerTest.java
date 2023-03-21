@@ -55,6 +55,7 @@ import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
+import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
@@ -121,6 +122,9 @@ class AccountsManagerTest {
     final SecureBackupClient backupClient = mock(SecureBackupClient.class);
     when(backupClient.deleteBackups(any())).thenReturn(CompletableFuture.completedFuture(null));
 
+    final SecureValueRecovery2Client svr2Client = mock(SecureValueRecovery2Client.class);
+    when(svr2Client.deleteBackups(any())).thenReturn(CompletableFuture.completedFuture(null));
+
     final PhoneNumberIdentifiers phoneNumberIdentifiers = mock(PhoneNumberIdentifiers.class);
     phoneNumberIdentifiersByE164 = new HashMap<>();
 
@@ -152,6 +156,7 @@ class AccountsManagerTest {
         mock(StoredVerificationCodeManager.class),
         storageClient,
         backupClient,
+        svr2Client,
         mock(ClientPresenceManager.class),
         enrollmentManager,
         mock(RegistrationRecoveryPasswordsManager.class),

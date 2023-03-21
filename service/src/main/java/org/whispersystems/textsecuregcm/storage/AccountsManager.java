@@ -47,6 +47,7 @@ import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
+import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.DestinationDeviceValidator;
@@ -91,6 +92,7 @@ public class AccountsManager {
   private final StoredVerificationCodeManager pendingAccounts;
   private final SecureStorageClient secureStorageClient;
   private final SecureBackupClient secureBackupClient;
+  private final SecureValueRecovery2Client secureValueRecovery2Client;
   private final ClientPresenceManager clientPresenceManager;
   private final ExperimentEnrollmentManager experimentEnrollmentManager;
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
@@ -134,6 +136,7 @@ public class AccountsManager {
       final StoredVerificationCodeManager pendingAccounts,
       final SecureStorageClient secureStorageClient,
       final SecureBackupClient secureBackupClient,
+      final SecureValueRecovery2Client secureValueRecovery2Client,
       final ClientPresenceManager clientPresenceManager,
       final ExperimentEnrollmentManager experimentEnrollmentManager,
       final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
@@ -148,7 +151,8 @@ public class AccountsManager {
     this.profilesManager = profilesManager;
     this.pendingAccounts = pendingAccounts;
     this.secureStorageClient = secureStorageClient;
-    this.secureBackupClient  = secureBackupClient;
+    this.secureBackupClient = secureBackupClient;
+    this.secureValueRecovery2Client = secureValueRecovery2Client;
     this.clientPresenceManager = clientPresenceManager;
     this.experimentEnrollmentManager = experimentEnrollmentManager;
     this.registrationRecoveryPasswordsManager = requireNonNull(registrationRecoveryPasswordsManager);
@@ -655,8 +659,11 @@ public class AccountsManager {
   }
 
   private void delete(final Account account) {
-    final CompletableFuture<Void> deleteStorageServiceDataFuture = secureStorageClient.deleteStoredData(account.getUuid());
+    final CompletableFuture<Void> deleteStorageServiceDataFuture = secureStorageClient.deleteStoredData(
+        account.getUuid());
     final CompletableFuture<Void> deleteBackupServiceDataFuture = secureBackupClient.deleteBackups(account.getUuid());
+    final CompletableFuture<Void> deleteSecureValueRecoveryServiceDataFuture = secureValueRecovery2Client.deleteBackups(
+        account.getUuid());
 
     profilesManager.deleteAll(account.getUuid());
     keys.delete(account.getUuid());
@@ -667,6 +674,7 @@ public class AccountsManager {
 
     deleteStorageServiceDataFuture.join();
     deleteBackupServiceDataFuture.join();
+    deleteSecureValueRecoveryServiceDataFuture.join();
 
     accounts.delete(account.getUuid());
     redisDelete(account);

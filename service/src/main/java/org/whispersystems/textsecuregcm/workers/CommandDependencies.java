@@ -24,11 +24,13 @@ import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.SecureBackupController;
 import org.whispersystems.textsecuregcm.controllers.SecureStorageController;
+import org.whispersystems.textsecuregcm.controllers.SecureValueRecovery2Controller;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
+import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -87,8 +89,8 @@ record CommandDependencies(
         .executorService(name(name, "keyspaceNotification-%d")).maxThreads(4).build();
     ExecutorService messageDeletionExecutor = environment.lifecycle()
         .executorService(name(name, "messageDeletion-%d")).maxThreads(4).build();
-    ExecutorService backupServiceExecutor = environment.lifecycle()
-        .executorService(name(name, "backupService-%d")).maxThreads(8).minThreads(1).build();
+    ExecutorService secureValueRecoveryServiceExecutor = environment.lifecycle()
+        .executorService(name(name, "secureValueRecoveryService-%d")).maxThreads(8).minThreads(1).build();
     ExecutorService storageServiceExecutor = environment.lifecycle()
         .executorService(name(name, "storageService-%d")).maxThreads(8).minThreads(1).build();
 
@@ -96,6 +98,8 @@ record CommandDependencies(
         configuration.getSecureBackupServiceConfiguration());
     ExternalServiceCredentialsGenerator storageCredentialsGenerator = SecureStorageController.credentialsGenerator(
         configuration.getSecureStorageServiceConfiguration());
+    ExternalServiceCredentialsGenerator secureValueRecoveryCredentialsGenerator = SecureValueRecovery2Controller.credentialsGenerator(
+        configuration.getSvr2Configuration());
 
     DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = new DynamicConfigurationManager<>(
         configuration.getAppConfig().getApplication(), configuration.getAppConfig().getEnvironment(),
@@ -165,8 +169,12 @@ record CommandDependencies(
         configuration.getClientPresenceClusterConfiguration(), redisClusterClientResources);
     FaultTolerantRedisCluster rateLimitersCluster = new FaultTolerantRedisCluster("rate_limiters",
         configuration.getRateLimitersCluster(), redisClusterClientResources);
-    SecureBackupClient secureBackupClient = new SecureBackupClient(backupCredentialsGenerator, backupServiceExecutor,
+    SecureBackupClient secureBackupClient = new SecureBackupClient(backupCredentialsGenerator,
+        secureValueRecoveryServiceExecutor,
         configuration.getSecureBackupServiceConfiguration());
+    SecureValueRecovery2Client secureValueRecovery2Client = new SecureValueRecovery2Client(
+        secureValueRecoveryCredentialsGenerator, secureValueRecoveryServiceExecutor,
+        configuration.getSvr2Configuration());
     SecureStorageClient secureStorageClient = new SecureStorageClient(storageCredentialsGenerator,
         storageServiceExecutor, configuration.getSecureStorageServiceConfiguration());
     ClientPresenceManager clientPresenceManager = new ClientPresenceManager(clientPresenceCluster,
@@ -189,7 +197,7 @@ record CommandDependencies(
     StoredVerificationCodeManager pendingAccountsManager = new StoredVerificationCodeManager(pendingAccounts);
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
         deletedAccountsManager, directoryQueue, keys, messagesManager, profilesManager,
-        pendingAccountsManager, secureStorageClient, secureBackupClient, clientPresenceManager,
+        pendingAccountsManager, secureStorageClient, secureBackupClient, secureValueRecovery2Client, clientPresenceManager,
         experimentEnrollmentManager, registrationRecoveryPasswordsManager, clock);
 
     return new CommandDependencies(

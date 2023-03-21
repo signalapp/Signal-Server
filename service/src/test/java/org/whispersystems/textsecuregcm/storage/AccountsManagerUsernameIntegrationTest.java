@@ -43,6 +43,7 @@ import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
+import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
@@ -183,6 +184,7 @@ class AccountsManagerUsernameIntegrationTest {
         mock(StoredVerificationCodeManager.class),
         mock(SecureStorageClient.class),
         mock(SecureBackupClient.class),
+        mock(SecureValueRecovery2Client.class),
         mock(ClientPresenceManager.class),
         experimentEnrollmentManager,
         mock(RegistrationRecoveryPasswordsManager.class),

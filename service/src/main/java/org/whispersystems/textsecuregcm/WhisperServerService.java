@@ -165,6 +165,7 @@ import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
+import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.spam.FilterSpam;
 import org.whispersystems.textsecuregcm.spam.RateLimitChallengeListener;
 import org.whispersystems.textsecuregcm.spam.ReportSpamTokenProvider;
@@ -418,9 +419,12 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ScheduledExecutorService websocketScheduledExecutor           = environment.lifecycle().scheduledExecutorService(name(getClass(), "websocket-%d")).threads(8).build();
     ExecutorService          keyspaceNotificationDispatchExecutor = environment.lifecycle().executorService(name(getClass(), "keyspaceNotification-%d")).maxThreads(16).workQueue(keyspaceNotificationDispatchQueue).build();
     ExecutorService          apnSenderExecutor                    = environment.lifecycle().executorService(name(getClass(), "apnSender-%d")).maxThreads(1).minThreads(1).build();
-    ExecutorService          fcmSenderExecutor                    = environment.lifecycle().executorService(name(getClass(), "fcmSender-%d")).maxThreads(32).minThreads(32).workQueue(fcmSenderQueue).build();
-    ExecutorService          backupServiceExecutor                = environment.lifecycle().executorService(name(getClass(), "backupService-%d")).maxThreads(1).minThreads(1).build();
-    ExecutorService          storageServiceExecutor               = environment.lifecycle().executorService(name(getClass(), "storageService-%d")).maxThreads(1).minThreads(1).build();
+    ExecutorService fcmSenderExecutor = environment.lifecycle().executorService(name(getClass(), "fcmSender-%d"))
+        .maxThreads(32).minThreads(32).workQueue(fcmSenderQueue).build();
+    ExecutorService secureValueRecoveryServiceExecutor = environment.lifecycle()
+        .executorService(name(getClass(), "secureValueRecoveryService-%d")).maxThreads(1).minThreads(1).build();
+    ExecutorService storageServiceExecutor = environment.lifecycle()
+        .executorService(name(getClass(), "storageService-%d")).maxThreads(1).minThreads(1).build();
     ExecutorService          accountDeletionExecutor              = environment.lifecycle().executorService(name(getClass(), "accountCleaner-%d")).maxThreads(16).minThreads(16).build();
 
     // using 80 threads to match Schedulers.boundedElastic() behavior
@@ -489,17 +493,27 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     dynamicConfigurationManager.start();
 
-    ExperimentEnrollmentManager experimentEnrollmentManager = new ExperimentEnrollmentManager(dynamicConfigurationManager);
-    RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager = new RegistrationRecoveryPasswordsManager(registrationRecoveryPasswords);
+    ExperimentEnrollmentManager experimentEnrollmentManager = new ExperimentEnrollmentManager(
+        dynamicConfigurationManager);
+    RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager = new RegistrationRecoveryPasswordsManager(
+        registrationRecoveryPasswords);
     UsernameHashZkProofVerifier usernameHashZkProofVerifier = new UsernameHashZkProofVerifier();
 
-    RegistrationServiceClient  registrationServiceClient  = new RegistrationServiceClient(config.getRegistrationServiceConfiguration().getHost(), config.getRegistrationServiceConfiguration().getPort(), config.getRegistrationServiceConfiguration().getApiKey(), config.getRegistrationServiceConfiguration().getRegistrationCaCertificate(), registrationCallbackExecutor);
-    SecureBackupClient         secureBackupClient         = new SecureBackupClient(backupCredentialsGenerator, backupServiceExecutor, config.getSecureBackupServiceConfiguration());
-    SecureStorageClient        secureStorageClient        = new SecureStorageClient(storageCredentialsGenerator, storageServiceExecutor, config.getSecureStorageServiceConfiguration());
-    ClientPresenceManager      clientPresenceManager      = new ClientPresenceManager(clientPresenceCluster, recurringJobExecutor, keyspaceNotificationDispatchExecutor);
-    DirectoryQueue             directoryQueue             = new DirectoryQueue(config.getDirectoryConfiguration().getSqsConfiguration());
-    StoredVerificationCodeManager pendingAccountsManager  = new StoredVerificationCodeManager(pendingAccounts);
-    StoredVerificationCodeManager pendingDevicesManager   = new StoredVerificationCodeManager(pendingDevices);
+    RegistrationServiceClient registrationServiceClient = new RegistrationServiceClient(
+        config.getRegistrationServiceConfiguration().getHost(), config.getRegistrationServiceConfiguration().getPort(),
+        config.getRegistrationServiceConfiguration().getApiKey(),
+        config.getRegistrationServiceConfiguration().getRegistrationCaCertificate(), registrationCallbackExecutor);
+    SecureBackupClient secureBackupClient = new SecureBackupClient(backupCredentialsGenerator,
+        secureValueRecoveryServiceExecutor, config.getSecureBackupServiceConfiguration());
+    SecureValueRecovery2Client secureValueRecovery2Client = new SecureValueRecovery2Client(svr2CredentialsGenerator,
+        secureValueRecoveryServiceExecutor, config.getSvr2Configuration());
+    SecureStorageClient secureStorageClient = new SecureStorageClient(storageCredentialsGenerator,
+        storageServiceExecutor, config.getSecureStorageServiceConfiguration());
+    ClientPresenceManager clientPresenceManager = new ClientPresenceManager(clientPresenceCluster, recurringJobExecutor,
+        keyspaceNotificationDispatchExecutor);
+    DirectoryQueue directoryQueue = new DirectoryQueue(config.getDirectoryConfiguration().getSqsConfiguration());
+    StoredVerificationCodeManager pendingAccountsManager = new StoredVerificationCodeManager(pendingAccounts);
+    StoredVerificationCodeManager pendingDevicesManager = new StoredVerificationCodeManager(pendingDevices);
     ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster);
     MessagesCache messagesCache = new MessagesCache(messagesCluster, messagesCluster, Clock.systemUTC(),
         keyspaceNotificationDispatchExecutor, messageDeliveryScheduler, messageDeletionAsyncExecutor);
@@ -512,7 +526,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         deletedAccountsLockDynamoDbClient, config.getDynamoDbTables().getDeletedAccountsLock().getTableName());
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
         deletedAccountsManager, directoryQueue, keys, messagesManager, profilesManager,
-        pendingAccountsManager, secureStorageClient, secureBackupClient, clientPresenceManager,
+        pendingAccountsManager, secureStorageClient, secureBackupClient, secureValueRecovery2Client, clientPresenceManager,
         experimentEnrollmentManager, registrationRecoveryPasswordsManager, clock);
     RemoteConfigsManager       remoteConfigsManager       = new RemoteConfigsManager(remoteConfigs);
     DispatchManager            dispatchManager            = new DispatchManager(pubSubClientFactory, Optional.empty());
