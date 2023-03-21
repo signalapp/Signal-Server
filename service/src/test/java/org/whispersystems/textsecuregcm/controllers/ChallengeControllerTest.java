@@ -14,6 +14,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
@@ -108,6 +109,9 @@ class ChallengeControllerTest {
         }
         """;
 
+    when(rateLimitChallengeManager.answerRecaptchaChallenge(any(), any(), any(), any()))
+        .thenReturn(true);
+
     final Response response = EXTENSION.target("/v1/challenge")
         .request()
         .header(HttpHeaders.X_FORWARDED_FOR, "10.0.0.1")
@@ -115,7 +119,30 @@ class ChallengeControllerTest {
         .put(Entity.json(recaptchaChallengeJson));
 
     assertEquals(200, response.getStatus());
+
     verify(rateLimitChallengeManager).answerRecaptchaChallenge(eq(AuthHelper.VALID_ACCOUNT), eq("The value of the solved captcha token"), eq("10.0.0.1"), anyString());
+  }
+
+  @Test
+  void testHandleInvalidCaptcha() throws RateLimitExceededException, IOException {
+    final String recaptchaChallengeJson = """
+        {
+          "type": "recaptcha",
+          "token": "A server-generated token",
+          "captcha": "The value of the solved captcha token"
+        }
+        """;
+
+    when(rateLimitChallengeManager.answerRecaptchaChallenge(eq(AuthHelper.VALID_ACCOUNT), eq("The value of the solved captcha token"), eq("10.0.0.1"), anyString()))
+        .thenReturn(false);
+
+    final Response response = EXTENSION.target("/v1/challenge")
+        .request()
+        .header(HttpHeaders.X_FORWARDED_FOR, "10.0.0.1")
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .put(Entity.json(recaptchaChallengeJson));
+
+    assertEquals(428, response.getStatus());
   }
 
   @Test

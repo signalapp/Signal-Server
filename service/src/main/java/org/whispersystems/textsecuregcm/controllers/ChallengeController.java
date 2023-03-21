@@ -20,8 +20,9 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.io.IOException;
-import java.util.NoSuchElementException;
+import java.util.Optional;
 import javax.validation.Valid;
+import javax.ws.rs.BadRequestException;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
@@ -85,19 +86,20 @@ public class ChallengeController {
         tags = tags.and(CHALLENGE_TYPE_TAG, "push");
 
         rateLimitChallengeManager.answerPushChallenge(auth.getAccount(), pushChallengeRequest.getChallenge());
-      } else if (answerRequest instanceof AnswerRecaptchaChallengeRequest) {
+      } else if (answerRequest instanceof AnswerRecaptchaChallengeRequest recaptchaChallengeRequest) {
         tags = tags.and(CHALLENGE_TYPE_TAG, "recaptcha");
 
-        try {
-          final AnswerRecaptchaChallengeRequest recaptchaChallengeRequest = (AnswerRecaptchaChallengeRequest) answerRequest;
-          final String mostRecentProxy = HeaderUtils.getMostRecentProxy(forwardedFor).orElseThrow();
+        final String mostRecentProxy = HeaderUtils.getMostRecentProxy(forwardedFor).orElseThrow(() -> new BadRequestException());
+        boolean success = rateLimitChallengeManager.answerRecaptchaChallenge(
+            auth.getAccount(),
+            recaptchaChallengeRequest.getCaptcha(),
+            mostRecentProxy,
+            userAgent);
 
-          rateLimitChallengeManager.answerRecaptchaChallenge(auth.getAccount(), recaptchaChallengeRequest.getCaptcha(),
-              mostRecentProxy, userAgent);
-
-        } catch (final NoSuchElementException e) {
-          return Response.status(400).build();
+        if (!success) {
+          return Response.status(428).build();
         }
+
       } else {
         tags = tags.and(CHALLENGE_TYPE_TAG, "unrecognized");
       }

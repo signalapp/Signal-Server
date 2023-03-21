@@ -63,7 +63,7 @@ public class RateLimitChallengeManager {
     }
   }
 
-  public void answerRecaptchaChallenge(final Account account, final String captcha, final String mostRecentProxyIp, final String userAgent)
+  public boolean answerRecaptchaChallenge(final Account account, final String captcha, final String mostRecentProxyIp, final String userAgent)
       throws RateLimitExceededException, IOException {
 
     rateLimiters.getRecaptchaChallengeAttemptLimiter().validate(account.getUuid());
@@ -82,6 +82,7 @@ public class RateLimitChallengeManager {
       rateLimiters.getRecaptchaChallengeSuccessLimiter().validate(account.getUuid());
       resetRateLimits(account);
     }
+    return challengeSuccess;
   }
 
   private void resetRateLimits(final Account account) throws RateLimitExceededException {
