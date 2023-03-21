@@ -27,6 +27,7 @@ public class SecureValueRecovery2Controller {
     return ExternalServiceCredentialsGenerator
         .builder(cfg.userAuthenticationTokenSharedSecret())
         .withUserDerivationKey(cfg.userIdTokenSharedSecret())
+        .prependUsername(false)
         .build();
   }
 
