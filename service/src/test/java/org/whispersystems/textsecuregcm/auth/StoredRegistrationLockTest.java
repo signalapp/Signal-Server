@@ -5,6 +5,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import javax.swing.text.html.Option;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -19,7 +20,7 @@ public class StoredRegistrationLockTest {
   @MethodSource
   void getStatus(final Optional<String> registrationLock, final Optional<String> salt, final long lastSeen,
       final StoredRegistrationLock.Status expectedStatus) {
-    final StoredRegistrationLock storedLock = new StoredRegistrationLock(registrationLock, salt, lastSeen);
+    final StoredRegistrationLock storedLock = new StoredRegistrationLock(registrationLock, salt, Instant.ofEpochMilli(lastSeen));
 
     assertEquals(expectedStatus, storedLock.getStatus());
   }

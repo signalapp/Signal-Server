@@ -36,6 +36,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
@@ -256,22 +257,22 @@ class AccountControllerTest {
 
     when(senderPinAccount.getLastSeen()).thenReturn(System.currentTimeMillis());
     when(senderPinAccount.getRegistrationLock()).thenReturn(
-        new StoredRegistrationLock(Optional.empty(), Optional.empty(), System.currentTimeMillis()));
+        new StoredRegistrationLock(Optional.empty(), Optional.empty(), Instant.ofEpochMilli(System.currentTimeMillis())));
 
     when(senderHasStorage.getUuid()).thenReturn(UUID.randomUUID());
     when(senderHasStorage.isStorageSupported()).thenReturn(true);
     when(senderHasStorage.getRegistrationLock()).thenReturn(
-        new StoredRegistrationLock(Optional.empty(), Optional.empty(), System.currentTimeMillis()));
+        new StoredRegistrationLock(Optional.empty(), Optional.empty(), Instant.ofEpochMilli(System.currentTimeMillis())));
 
     when(senderRegLockAccount.getRegistrationLock()).thenReturn(
         new StoredRegistrationLock(Optional.of(registrationLockCredentials.hash()),
-            Optional.of(registrationLockCredentials.salt()), System.currentTimeMillis()));
+            Optional.of(registrationLockCredentials.salt()), Instant.ofEpochMilli(System.currentTimeMillis())));
     when(senderRegLockAccount.getLastSeen()).thenReturn(System.currentTimeMillis());
     when(senderRegLockAccount.getUuid()).thenReturn(SENDER_REG_LOCK_UUID);
     when(senderRegLockAccount.getNumber()).thenReturn(SENDER_REG_LOCK);
 
     when(senderTransfer.getRegistrationLock()).thenReturn(
-        new StoredRegistrationLock(Optional.empty(), Optional.empty(), System.currentTimeMillis()));
+        new StoredRegistrationLock(Optional.empty(), Optional.empty(), Instant.ofEpochMilli(System.currentTimeMillis())));
     when(senderTransfer.getUuid()).thenReturn(SENDER_TRANSFER_UUID);
     when(senderTransfer.getNumber()).thenReturn(SENDER_TRANSFER);
 

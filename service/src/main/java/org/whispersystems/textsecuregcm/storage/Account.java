@@ -414,7 +414,7 @@ public class Account {
   public StoredRegistrationLock getRegistrationLock() {
     requireNotStale();
 
-    return new StoredRegistrationLock(Optional.ofNullable(registrationLock), Optional.ofNullable(registrationLockSalt), getLastSeen());
+    return new StoredRegistrationLock(Optional.ofNullable(registrationLock), Optional.ofNullable(registrationLockSalt), Instant.ofEpochMilli(getLastSeen()));
   }
 
   public Optional<byte[]> getUnidentifiedAccessKey() {

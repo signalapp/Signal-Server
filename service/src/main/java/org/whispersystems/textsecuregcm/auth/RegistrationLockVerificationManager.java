@@ -141,7 +141,7 @@ public class RegistrationLockVerificationManager {
           backupServiceCredentialGenerator.generateForUuid(account.getUuid());
 
       throw new WebApplicationException(Response.status(FAILURE_HTTP_STATUS)
-          .entity(new RegistrationLockFailure(existingRegistrationLock.getTimeRemaining(),
+          .entity(new RegistrationLockFailure(existingRegistrationLock.getTimeRemaining().toMillis(),
               existingRegistrationLock.needsFailureCredentials() ? existingBackupCredentials : null))
           .build());
     }

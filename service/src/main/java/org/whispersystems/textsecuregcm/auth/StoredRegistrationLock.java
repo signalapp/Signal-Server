@@ -7,8 +7,9 @@ package org.whispersystems.textsecuregcm.auth;
 
 import com.google.common.annotations.VisibleForTesting;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -27,13 +28,13 @@ public class StoredRegistrationLock {
 
   private final Optional<String> registrationLockSalt;
 
-  private final long             lastSeen;
+  private final Instant lastSeen;
 
   /**
    * @return milliseconds since the last time the account was seen.
    */
   private long timeSinceLastSeen() {
-    return System.currentTimeMillis() - lastSeen;
+    return System.currentTimeMillis() - lastSeen.toEpochMilli();
   }
 
   /**
@@ -47,21 +48,17 @@ public class StoredRegistrationLock {
     return hasLockAndSalt();
   }
 
-  public StoredRegistrationLock(Optional<String> registrationLock, Optional<String> registrationLockSalt, long lastSeen) {
+  public StoredRegistrationLock(Optional<String> registrationLock, Optional<String> registrationLockSalt, Instant lastSeen) {
     this.registrationLock     = registrationLock;
     this.registrationLockSalt = registrationLockSalt;
     this.lastSeen             = lastSeen;
-  }
-
-  private boolean hasTimeRemaining() {
-    return getTimeRemaining() >= 0;
   }
 
   public Status getStatus() {
     if (!isPresent()) {
       return Status.ABSENT;
     }
-    if (hasTimeRemaining()) {
+    if (getTimeRemaining().toMillis() > 0) {
       return Status.REQUIRED;
     }
     return Status.EXPIRED;
@@ -71,8 +68,8 @@ public class StoredRegistrationLock {
     return hasLockAndSalt();
   }
 
-  public long getTimeRemaining() {
-    return REGISTRATION_LOCK_EXPIRATION_DAYS.toMillis() - timeSinceLastSeen();
+  public Duration getTimeRemaining() {
+    return REGISTRATION_LOCK_EXPIRATION_DAYS.minus(timeSinceLastSeen(), ChronoUnit.MILLIS);
   }
 
   public boolean verify(@Nullable String clientRegistrationLock) {
@@ -86,6 +83,6 @@ public class StoredRegistrationLock {
 
   @VisibleForTesting
   public StoredRegistrationLock forTime(long timestamp) {
-    return new StoredRegistrationLock(registrationLock, registrationLockSalt, timestamp);
+    return new StoredRegistrationLock(registrationLock, registrationLockSalt, Instant.ofEpochMilli(timestamp));
   }
 }
