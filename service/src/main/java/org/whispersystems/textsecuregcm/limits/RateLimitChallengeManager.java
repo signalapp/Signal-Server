@@ -68,7 +68,7 @@ public class RateLimitChallengeManager {
 
     rateLimiters.getRecaptchaChallengeAttemptLimiter().validate(account.getUuid());
 
-    final boolean challengeSuccess = captchaChecker.verify(Action.CHALLENGE, captcha, mostRecentProxyIp).valid();
+    final boolean challengeSuccess = captchaChecker.verify(Action.CHALLENGE, captcha, mostRecentProxyIp).isValid();
 
     final Tags tags = Tags.of(
         Tag.of(SOURCE_COUNTRY_TAG_NAME, Util.getCountryCode(account.getNumber())),

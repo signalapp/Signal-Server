@@ -109,6 +109,8 @@ import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.registration.ClientType;
 import org.whispersystems.textsecuregcm.registration.MessageTransport;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
+import org.whispersystems.textsecuregcm.spam.Extract;
+import org.whispersystems.textsecuregcm.spam.ScoreThresholdProvider;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
@@ -215,6 +217,7 @@ class AccountControllerTest {
       .addProvider(new ImpossiblePhoneNumberExceptionMapper())
       .addProvider(new NonNormalizedPhoneNumberExceptionMapper())
       .addProvider(new RateLimitByIpFilter(rateLimiters))
+      .addProvider(ScoreThresholdProvider.ScoreThresholdFeature.class)
       .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(new AccountController(pendingAccountsManager,
@@ -349,7 +352,7 @@ class AccountControllerTest {
     when(captchaChecker.verify(eq(Action.REGISTRATION), eq(INVALID_CAPTCHA_TOKEN), anyString()))
         .thenReturn(AssessmentResult.invalid());
     when(captchaChecker.verify(eq(Action.REGISTRATION), eq(VALID_CAPTCHA_TOKEN), anyString()))
-        .thenReturn(new AssessmentResult(true, ""));
+        .thenReturn(AssessmentResult.alwaysValid());
 
     doThrow(new RateLimitExceededException(Duration.ZERO, true)).when(pinLimiter).validate(eq(SENDER_OVER_PIN));
 
@@ -690,6 +693,7 @@ class AccountControllerTest {
     final Response response =
         resources.getJerseyTest()
             .target(String.format("/v1/accounts/sms/code/%s", number))
+            .register(Extract.class)
             .queryParam("challenge", "1234-push")
             .request()
             .header(HttpHeaders.X_FORWARDED_FOR, NICE_HOST)

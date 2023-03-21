@@ -75,8 +75,10 @@ import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceException;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceSenderException;
 import org.whispersystems.textsecuregcm.registration.VerificationSession;
+import org.whispersystems.textsecuregcm.spam.Extract;
 import org.whispersystems.textsecuregcm.spam.FilterSpam;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.spam.ScoreThreshold;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.VerificationSessionManager;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
@@ -89,7 +91,6 @@ import org.whispersystems.textsecuregcm.util.Util;
 public class VerificationController {
 
   private static final Logger logger = LoggerFactory.getLogger(VerificationController.class);
-
   private static final Duration REGISTRATION_RPC_TIMEOUT = Duration.ofSeconds(15);
   private static final Duration DYNAMODB_TIMEOUT = Duration.ofSeconds(5);
 
@@ -195,7 +196,8 @@ public class VerificationController {
   public VerificationSessionResponse updateSession(@PathParam("sessionId") final String encodedSessionId,
       @HeaderParam(com.google.common.net.HttpHeaders.X_FORWARDED_FOR) String forwardedFor,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
-      @NotNull @Valid final UpdateVerificationSessionRequest updateVerificationSessionRequest) {
+      @NotNull @Valid final UpdateVerificationSessionRequest updateVerificationSessionRequest,
+      @NotNull @Extract final ScoreThreshold captchaScoreThreshold) {
 
     final String sourceHost = HeaderUtils.getMostRecentProxy(forwardedFor).orElseThrow();
 
@@ -213,7 +215,7 @@ public class VerificationController {
           verificationSession);
 
       verificationSession = handleCaptcha(sourceHost, updateVerificationSessionRequest, registrationServiceSession,
-          verificationSession, userAgent);
+          verificationSession, userAgent, captchaScoreThreshold.getScoreThreshold());
     } catch (final RateLimitExceededException e) {
 
       final Response response = buildResponseForRateLimitExceeded(verificationSession, registrationServiceSession,
@@ -351,11 +353,13 @@ public class VerificationController {
    * @throws ForbiddenException         if assessment is not valid.
    * @throws RateLimitExceededException if too many captchas have been submitted
    */
-  private VerificationSession handleCaptcha(final String sourceHost,
+  private VerificationSession handleCaptcha(
+      final String sourceHost,
       final UpdateVerificationSessionRequest updateVerificationSessionRequest,
       final RegistrationServiceSession registrationServiceSession,
       VerificationSession verificationSession,
-      final String userAgent) throws RateLimitExceededException {
+      final String userAgent,
+      final Optional<Float> captchaScoreThreshold) throws RateLimitExceededException {
 
     if (updateVerificationSessionRequest.captcha() == null) {
       return verificationSession;
@@ -366,23 +370,24 @@ public class VerificationController {
 
     final AssessmentResult assessmentResult;
     try {
+
       assessmentResult = registrationCaptchaManager.assessCaptcha(
               Optional.of(updateVerificationSessionRequest.captcha()), sourceHost)
           .orElseThrow(() -> new ServerErrorException(Response.Status.INTERNAL_SERVER_ERROR));
 
       Metrics.counter(CAPTCHA_ATTEMPT_COUNTER_NAME, Tags.of(
-              Tag.of(SUCCESS_TAG_NAME, String.valueOf(assessmentResult.valid())),
+              Tag.of(SUCCESS_TAG_NAME, String.valueOf(assessmentResult.isValid(captchaScoreThreshold))),
               UserAgentTagUtil.getPlatformTag(userAgent),
               Tag.of(COUNTRY_CODE_TAG_NAME, Util.getCountryCode(registrationServiceSession.number())),
               Tag.of(REGION_CODE_TAG_NAME, Util.getRegion(registrationServiceSession.number())),
-              Tag.of(SCORE_TAG_NAME, assessmentResult.score())))
+              Tag.of(SCORE_TAG_NAME, assessmentResult.getScoreString())))
           .increment();
 
     } catch (IOException e) {
       throw new ServerErrorException(Response.Status.SERVICE_UNAVAILABLE);
     }
 
-    if (assessmentResult.valid()) {
+    if (assessmentResult.isValid(captchaScoreThreshold)) {
       final List<VerificationSession.Information> submittedInformation = new ArrayList<>(
           verificationSession.submittedInformation());
       submittedInformation.add(VerificationSession.Information.CAPTCHA);

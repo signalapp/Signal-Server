@@ -84,7 +84,7 @@ public class CaptchaCheckerTest {
   @ParameterizedTest
   @MethodSource
   void scoreString(float score, String expected) {
-    assertThat(AssessmentResult.scoreString(score)).isEqualTo(expected);
+    assertThat(AssessmentResult.fromScore(score, 0.0f).getScoreString()).isEqualTo(expected);
   }
 
 

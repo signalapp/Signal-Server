@@ -78,7 +78,7 @@ class RateLimitChallengeManagerTest {
 
     when(captchaChecker.verify(eq(Action.CHALLENGE), any(), any()))
         .thenReturn(successfulChallenge
-            ? new AssessmentResult(true, "")
+            ? AssessmentResult.alwaysValid()
             : AssessmentResult.invalid());
 
     when(rateLimiters.getRecaptchaChallengeAttemptLimiter()).thenReturn(mock(RateLimiter.class));

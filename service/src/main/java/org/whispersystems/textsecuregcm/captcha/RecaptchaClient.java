@@ -113,17 +113,16 @@ public class RecaptchaClient implements CaptchaClient {
     if (assessment.getTokenProperties().getValid()) {
       final float score = assessment.getRiskAnalysis().getScore();
       log.debug("assessment for {} was valid, score: {}", action.getActionName(), score);
+      final BigDecimal threshold = config.getScoreFloorByAction().getOrDefault(action, config.getScoreFloor());
+      final AssessmentResult assessmentResult = AssessmentResult.fromScore(score, threshold.floatValue());
       for (RiskAnalysis.ClassificationReason reason : assessment.getRiskAnalysis().getReasonsList()) {
         Metrics.counter(ASSESSMENT_REASON_COUNTER_NAME,
                 "action", action.getActionName(),
-                "score", AssessmentResult.scoreString(score),
+                "score", assessmentResult.getScoreString(),
                 "reason", reason.name())
             .increment();
       }
-      final BigDecimal threshold = config.getScoreFloorByAction().getOrDefault(action, config.getScoreFloor());
-      return new AssessmentResult(
-          score >= threshold.floatValue(),
-          AssessmentResult.scoreString(score));
+      return assessmentResult;
     } else {
       Metrics.counter(INVALID_REASON_COUNTER_NAME,
               "action", action.getActionName(),

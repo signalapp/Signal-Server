@@ -166,6 +166,7 @@ import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.spam.FilterSpam;
 import org.whispersystems.textsecuregcm.spam.RateLimitChallengeListener;
 import org.whispersystems.textsecuregcm.spam.ReportSpamTokenProvider;
+import org.whispersystems.textsecuregcm.spam.ScoreThresholdProvider;
 import org.whispersystems.textsecuregcm.spam.SpamFilter;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.AccountCleaner;
@@ -780,6 +781,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
       webSocketEnvironment.jersey().register(controller);
     }
 
+
     WebSocketEnvironment<AuthenticatedAccount> provisioningEnvironment = new WebSocketEnvironment<>(environment,
         webSocketEnvironment.getRequestLog(), 60000);
     provisioningEnvironment.jersey().register(new WebsocketRefreshApplicationEventListener(accountsManager, clientPresenceManager));
@@ -789,6 +791,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     registerCorsFilter(environment);
     registerExceptionMappers(environment, webSocketEnvironment, provisioningEnvironment);
+    registerProviders(environment, webSocketEnvironment, provisioningEnvironment);
 
     environment.jersey().property(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE);
     webSocketEnvironment.jersey().property(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE);
@@ -828,6 +831,15 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     BufferPoolGauges.registerMetrics();
     GarbageCollectionGauges.registerMetrics();
+  }
+
+
+  private void registerProviders(Environment environment,
+      WebSocketEnvironment<AuthenticatedAccount> webSocketEnvironment,
+      WebSocketEnvironment<AuthenticatedAccount> provisioningEnvironment) {
+    environment.jersey().register(ScoreThresholdProvider.ScoreThresholdFeature.class);
+    webSocketEnvironment.jersey().register(ScoreThresholdProvider.ScoreThresholdFeature.class);
+    provisioningEnvironment.jersey().register(ScoreThresholdProvider.ScoreThresholdFeature.class);
   }
 
   private void registerExceptionMappers(Environment environment,

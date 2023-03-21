@@ -91,8 +91,7 @@ public class CaptchaChecker {
     final AssessmentResult result = client.verify(siteKey, parsedAction, token, ip);
     Metrics.counter(ASSESSMENTS_COUNTER_NAME,
             "action", action,
-            "valid", String.valueOf(result.valid()),
-            "score", result.score(),
+            "score", result.getScoreString(),
             "provider", prefix)
         .increment();
     return result;

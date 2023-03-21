@@ -69,6 +69,7 @@ import org.whispersystems.textsecuregcm.registration.RegistrationServiceSenderEx
 import org.whispersystems.textsecuregcm.registration.VerificationSession;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.spam.ScoreThresholdProvider;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.VerificationSessionManager;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -100,6 +101,7 @@ class VerificationControllerTest {
       .addProvider(new ImpossiblePhoneNumberExceptionMapper())
       .addProvider(new NonNormalizedPhoneNumberExceptionMapper())
       .addProvider(new RegistrationServiceSenderExceptionMapper())
+      .addProvider(ScoreThresholdProvider.ScoreThresholdFeature.class)
       .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(
@@ -621,7 +623,7 @@ class VerificationControllerTest {
                 registrationServiceSession.expiration()))));
 
     when(registrationCaptchaManager.assessCaptcha(any(), any()))
-        .thenReturn(Optional.of(new AssessmentResult(true, "1")));
+        .thenReturn(Optional.of(AssessmentResult.alwaysValid()));
 
     when(verificationSessionManager.update(any(), any()))
         .thenReturn(CompletableFuture.completedFuture(null));
@@ -669,7 +671,7 @@ class VerificationControllerTest {
                 registrationServiceSession.expiration()))));
 
     when(registrationCaptchaManager.assessCaptcha(any(), any()))
-        .thenReturn(Optional.of(new AssessmentResult(true, "1")));
+        .thenReturn(Optional.of(AssessmentResult.alwaysValid()));
 
     when(verificationSessionManager.update(any(), any()))
         .thenReturn(CompletableFuture.completedFuture(null));

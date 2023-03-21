@@ -33,7 +33,6 @@ public class HCaptchaClient implements CaptchaClient {
   private static final String PREFIX = "signal-hcaptcha";
   private static final String ASSESSMENT_REASON_COUNTER_NAME = name(HCaptchaClient.class, "assessmentReason");
   private static final String INVALID_REASON_COUNTER_NAME = name(HCaptchaClient.class, "invalidReason");
-  private static final String INVALID_SITEKEY_COUNTER_NAME = name(HCaptchaClient.class, "invalidSiteKey");
   private final String apiKey;
   private final HttpClient client;
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
@@ -115,16 +114,15 @@ public class HCaptchaClient implements CaptchaClient {
       logger.error("Invalid score {} from hcaptcha response {}", hCaptchaResponse.score, hCaptchaResponse);
       return AssessmentResult.invalid();
     }
-    final String scoreString = AssessmentResult.scoreString(score);
+    final BigDecimal threshold = config.getScoreFloorByAction().getOrDefault(action, config.getScoreFloor());
+    final AssessmentResult assessmentResult = AssessmentResult.fromScore(score, threshold.floatValue());
 
     for (String reason : hCaptchaResponse.scoreReasons) {
       Metrics.counter(ASSESSMENT_REASON_COUNTER_NAME,
           "action", action.getActionName(),
           "reason", reason,
-          "score", scoreString).increment();
+          "score", assessmentResult.getScoreString()).increment();
     }
-
-    final BigDecimal threshold = config.getScoreFloorByAction().getOrDefault(action, config.getScoreFloor());
-    return new AssessmentResult(score >= threshold.floatValue(), scoreString);
+    return assessmentResult;
   }
 }

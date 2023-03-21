@@ -58,8 +58,7 @@ public class HCaptchaClientTest {
     if (!success) {
       assertThat(result).isEqualTo(AssessmentResult.invalid());
     } else {
-      assertThat(result)
-          .isEqualTo(new AssessmentResult(expectedResult, AssessmentResult.scoreString(score)));
+      assertThat(result.isValid()).isEqualTo(expectedResult);
     }
   }
 

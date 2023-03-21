@@ -93,7 +93,9 @@ import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.registration.ClientType;
 import org.whispersystems.textsecuregcm.registration.MessageTransport;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
+import org.whispersystems.textsecuregcm.spam.Extract;
 import org.whispersystems.textsecuregcm.spam.FilterSpam;
+import org.whispersystems.textsecuregcm.spam.ScoreThreshold;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
@@ -255,14 +257,15 @@ public class AccountController {
   @Path("/{transport}/code/{number}")
   @FilterSpam
   @Produces(MediaType.APPLICATION_JSON)
-  public Response createAccount(@PathParam("transport")         String transport,
-                                @PathParam("number")            String number,
-                                @HeaderParam(HttpHeaders.X_FORWARDED_FOR) String forwardedFor,
-                                @HeaderParam(HttpHeaders.USER_AGENT)      String userAgent,
-                                @HeaderParam(HttpHeaders.ACCEPT_LANGUAGE) Optional<String> acceptLanguage,
-                                @QueryParam("client")           Optional<String> client,
-                                @QueryParam("captcha")          Optional<String> captcha,
-                                @QueryParam("challenge")        Optional<String> pushChallenge)
+  public Response createAccount(@PathParam("transport") String transport,
+      @PathParam("number") String number,
+      @HeaderParam(HttpHeaders.X_FORWARDED_FOR) String forwardedFor,
+      @HeaderParam(HttpHeaders.USER_AGENT) String userAgent,
+      @HeaderParam(HttpHeaders.ACCEPT_LANGUAGE) Optional<String> acceptLanguage,
+      @QueryParam("client") Optional<String> client,
+      @QueryParam("captcha") Optional<String> captcha,
+      @QueryParam("challenge") Optional<String> pushChallenge,
+      @Extract ScoreThreshold captchaScoreThreshold)
       throws RateLimitExceededException, ImpossiblePhoneNumberException, NonNormalizedPhoneNumberException, IOException {
 
     Util.requireNormalizedNumber(number);
@@ -278,12 +281,12 @@ public class AccountController {
 
     assessmentResult.ifPresent(result ->
         Metrics.counter(CAPTCHA_ATTEMPT_COUNTER_NAME, Tags.of(
-                Tag.of("success", String.valueOf(result.valid())),
+                Tag.of("success", String.valueOf(result.isValid(captchaScoreThreshold.getScoreThreshold()))),
                 UserAgentTagUtil.getPlatformTag(userAgent),
                 Tag.of(COUNTRY_CODE_TAG_NAME, countryCode),
                 Tag.of(REGION_TAG_NAME, region),
                 Tag.of(REGION_CODE_TAG_NAME, region),
-                Tag.of(SCORE_TAG_NAME, result.score())))
+                Tag.of(SCORE_TAG_NAME, result.getScoreString())))
             .increment());
 
     final boolean pushChallengeMatch = pushChallengeMatches(number, pushChallenge, maybeStoredVerificationCode);
@@ -293,7 +296,7 @@ public class AccountController {
     }
 
     final boolean requiresCaptcha = assessmentResult
-        .map(result -> !result.valid())
+        .map(result -> !result.isValid(captchaScoreThreshold.getScoreThreshold()))
         .orElseGet(
             () -> registrationCaptchaManager.requiresCaptcha(number, forwardedFor, sourceHost, pushChallengeMatch));
 
