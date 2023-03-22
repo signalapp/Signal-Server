@@ -117,6 +117,11 @@ paths:
         in: query
         schema:
           type: string
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              $ref: '#/components/schemas/ScoreThreshold'
       responses:
         default:
           description: default response
@@ -472,6 +477,22 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AccountIdentityResponse'
+      security:
+      - authenticatedAccount: []
+  /v2/accounts/data_report:
+    get:
+      tags:
+      - Account
+      summary: Produces a report of non-ephemeral account data stored by the service
+      operationId: getAccountDataReport
+      responses:
+        "200":
+          description: Response with data report. A plain text representation is a
+            field in the response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountDataReportResponse'
       security:
       - authenticatedAccount: []
   /v2/accounts/phone_number_discoverability:
@@ -2417,6 +2438,12 @@ components:
           items:
             type: string
             format: byte
+    ScoreThreshold:
+      type: object
+      properties:
+        scoreThreshold:
+          type: number
+          format: float
     TurnToken:
       type: object
       properties:
@@ -2600,6 +2627,66 @@ components:
             format: int32
         valid:
           type: boolean
+    AccountAndDevicesDataReport:
+      type: object
+      properties:
+        account:
+          $ref: '#/components/schemas/AccountDataReport'
+        devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviceDataReport'
+    AccountDataReport:
+      type: object
+      properties:
+        phoneNumber:
+          type: string
+        badges:
+          type: array
+          items:
+            $ref: '#/components/schemas/BadgeDataReport'
+        allowSealedSenderFromAnyone:
+          type: boolean
+        findAccountByPhoneNumber:
+          type: boolean
+    AccountDataReportResponse:
+      type: object
+      properties:
+        reportId:
+          type: string
+          format: uuid
+        reportTimestamp:
+          type: string
+          format: date-time
+        data:
+          $ref: '#/components/schemas/AccountAndDevicesDataReport'
+        text:
+          type: string
+          description: A plaintext representation of the data report
+    BadgeDataReport:
+      type: object
+      properties:
+        id:
+          type: string
+        expiration:
+          type: string
+          format: date-time
+        visible:
+          type: boolean
+    DeviceDataReport:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        lastSeen:
+          type: string
+          format: date-time
+        created:
+          type: string
+          format: date-time
+        userAgent:
+          type: string
     PhoneNumberDiscoverabilityRequest:
       required:
       - discoverableByPhoneNumber
