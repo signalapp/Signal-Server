@@ -180,7 +180,7 @@ record CommandDependencies(
     ClientPresenceManager clientPresenceManager = new ClientPresenceManager(clientPresenceCluster,
         Executors.newSingleThreadScheduledExecutor(), keyspaceNotificationDispatchExecutor);
     MessagesCache messagesCache = new MessagesCache(messageInsertCacheCluster, messageReadDeleteCluster,
-        Clock.systemUTC(), keyspaceNotificationDispatchExecutor, messageDeliveryScheduler, messageDeletionExecutor);
+        keyspaceNotificationDispatchExecutor, messageDeliveryScheduler, messageDeletionExecutor, Clock.systemUTC());
     DirectoryQueue directoryQueue = new DirectoryQueue(
         configuration.getDirectoryConfiguration().getSqsConfiguration());
     ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster);

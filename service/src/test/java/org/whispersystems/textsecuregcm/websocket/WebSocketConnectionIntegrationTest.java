@@ -71,13 +71,13 @@ class WebSocketConnectionIntegrationTest {
   static final RedisClusterExtension REDIS_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
 
   private ExecutorService sharedExecutorService;
+  private ScheduledExecutorService scheduledExecutorService;
   private MessagesDynamoDb messagesDynamoDb;
   private MessagesCache messagesCache;
   private ReportMessageManager reportMessageManager;
   private Account account;
   private Device device;
   private WebSocketClient webSocketClient;
-  private ScheduledExecutorService retrySchedulingExecutor;
   private Scheduler messageDeliveryScheduler;
 
   private long serialTimestamp = System.currentTimeMillis();
@@ -86,10 +86,10 @@ class WebSocketConnectionIntegrationTest {
   void setUp() throws Exception {
 
     sharedExecutorService = Executors.newSingleThreadExecutor();
+    scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
     messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
     messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-        REDIS_CLUSTER_EXTENSION.getRedisCluster(), Clock.systemUTC(), sharedExecutorService, messageDeliveryScheduler,
-        sharedExecutorService);
+        REDIS_CLUSTER_EXTENSION.getRedisCluster(), sharedExecutorService, messageDeliveryScheduler, sharedExecutorService, Clock.systemUTC());
     messagesDynamoDb = new MessagesDynamoDb(dynamoDbExtension.getDynamoDbClient(),
         dynamoDbExtension.getDynamoDbAsyncClient(), MessagesDynamoDbExtension.TABLE_NAME, Duration.ofDays(7),
         sharedExecutorService);
@@ -97,7 +97,6 @@ class WebSocketConnectionIntegrationTest {
     account = mock(Account.class);
     device = mock(Device.class);
     webSocketClient = mock(WebSocketClient.class);
-    retrySchedulingExecutor = Executors.newSingleThreadScheduledExecutor();
 
     when(account.getNumber()).thenReturn("+18005551234");
     when(account.getUuid()).thenReturn(UUID.randomUUID());
@@ -109,8 +108,8 @@ class WebSocketConnectionIntegrationTest {
     sharedExecutorService.shutdown();
     sharedExecutorService.awaitTermination(2, TimeUnit.SECONDS);
 
-    retrySchedulingExecutor.shutdown();
-    retrySchedulingExecutor.awaitTermination(2, TimeUnit.SECONDS);
+    scheduledExecutorService.shutdown();
+    scheduledExecutorService.awaitTermination(2, TimeUnit.SECONDS);
   }
 
   @ParameterizedTest
@@ -126,7 +125,7 @@ class WebSocketConnectionIntegrationTest {
         new AuthenticatedAccount(() -> new Pair<>(account, device)),
         device,
         webSocketClient,
-        retrySchedulingExecutor,
+        scheduledExecutorService,
         messageDeliveryScheduler);
 
     final List<MessageProtos.Envelope> expectedMessages = new ArrayList<>(persistedMessageCount + cachedMessageCount);
@@ -210,7 +209,7 @@ class WebSocketConnectionIntegrationTest {
         new AuthenticatedAccount(() -> new Pair<>(account, device)),
         device,
         webSocketClient,
-        retrySchedulingExecutor,
+        scheduledExecutorService,
         messageDeliveryScheduler);
 
     final int persistedMessageCount = 207;
@@ -276,7 +275,7 @@ class WebSocketConnectionIntegrationTest {
         device,
         webSocketClient,
         100, // use a very short timeout, so that this test completes quickly
-        retrySchedulingExecutor,
+        scheduledExecutorService,
         messageDeliveryScheduler);
 
     final int persistedMessageCount = 207;

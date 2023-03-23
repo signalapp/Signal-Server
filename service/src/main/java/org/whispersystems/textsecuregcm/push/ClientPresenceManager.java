@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -18,7 +18,6 @@ import io.lettuce.core.RedisFuture;
 import io.lettuce.core.ScriptOutputType;
 import io.lettuce.core.cluster.SlotHash;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
-import io.lettuce.core.cluster.event.ClusterTopologyChangedEvent;
 import io.lettuce.core.cluster.models.partitions.RedisClusterNode;
 import io.lettuce.core.cluster.pubsub.RedisClusterPubSubAdapter;
 import java.io.IOException;
@@ -86,8 +85,10 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
       final ExecutorService keyspaceNotificationExecutorService) throws IOException {
     this.presenceCluster = presenceCluster;
     this.pubSubConnection = this.presenceCluster.createPubSubConnection();
-    this.clearPresenceScript = ClusterLuaScript.fromResource(presenceCluster, "lua/clear_presence.lua", ScriptOutputType.INTEGER);
-    this.renewPresenceScript = ClusterLuaScript.fromResource(presenceCluster, "lua/renew_presence.lua", ScriptOutputType.VALUE);
+    this.clearPresenceScript = ClusterLuaScript.fromResource(presenceCluster, "lua/clear_presence.lua",
+        ScriptOutputType.INTEGER);
+    this.renewPresenceScript = ClusterLuaScript.fromResource(presenceCluster, "lua/renew_presence.lua",
+        ScriptOutputType.VALUE);
     this.scheduledExecutorService = scheduledExecutorService;
     this.keyspaceNotificationExecutorService = keyspaceNotificationExecutorService;
 
@@ -112,9 +113,6 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
   public void start() {
     pubSubConnection.usePubSubConnection(connection -> {
       connection.addListener(this);
-      connection.getResources().eventBus().get()
-          .filter(event -> event instanceof ClusterTopologyChangedEvent)
-          .subscribe(event -> resubscribeAll());
 
       final String presenceChannel = getManagerPresenceChannel(managerId);
       final int slot = SlotHash.getSlot(presenceChannel);
@@ -123,6 +121,8 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
           .commands()
           .subscribe(presenceChannel);
     });
+
+    pubSubConnection.subscribeToClusterTopologyChangedEvents(this::resubscribeAll);
 
     presenceCluster.useCluster(connection -> connection.sync().sadd(MANAGER_SET_KEY, managerId));
 

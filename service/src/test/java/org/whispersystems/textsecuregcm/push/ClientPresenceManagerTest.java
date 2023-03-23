@@ -42,6 +42,8 @@ class ClientPresenceManagerTest {
   private static final DisplacedPresenceListener NO_OP = connectedElsewhere -> {
   };
 
+  private boolean expectExceptionOnClientPresenceManagerStop = false;
+
   @BeforeEach
   void setUp() throws Exception {
 
@@ -61,7 +63,13 @@ class ClientPresenceManagerTest {
     presenceRenewalExecutorService.shutdown();
     presenceRenewalExecutorService.awaitTermination(1, TimeUnit.MINUTES);
 
-    clientPresenceManager.stop();
+    try {
+      clientPresenceManager.stop();
+    } catch (final Exception e) {
+      if (!expectExceptionOnClientPresenceManagerStop) {
+        throw e;
+      }
+    }
   }
 
   @Test
@@ -294,6 +302,8 @@ class ClientPresenceManagerTest {
     }
 
     assertTrue(clientPresenceManager.isPresent(displacedAccountUuid, displacedAccountDeviceId));
+
+    expectExceptionOnClientPresenceManagerStop = true;
   }
 
   @Nested

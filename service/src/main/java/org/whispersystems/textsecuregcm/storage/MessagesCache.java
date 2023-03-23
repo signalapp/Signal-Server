@@ -14,7 +14,6 @@ import io.lettuce.core.ScoredValue;
 import io.lettuce.core.ScriptOutputType;
 import io.lettuce.core.ZAddArgs;
 import io.lettuce.core.cluster.SlotHash;
-import io.lettuce.core.cluster.event.ClusterTopologyChangedEvent;
 import io.lettuce.core.cluster.models.partitions.RedisClusterNode;
 import io.lettuce.core.cluster.pubsub.RedisClusterPubSubAdapter;
 import io.micrometer.core.instrument.Counter;
@@ -104,8 +103,8 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
   private static final Logger logger = LoggerFactory.getLogger(MessagesCache.class);
 
   public MessagesCache(final FaultTolerantRedisCluster insertCluster, final FaultTolerantRedisCluster readDeleteCluster,
-      final Clock clock, final ExecutorService notificationExecutorService, final Scheduler messageDeliveryScheduler,
-      final ExecutorService messageDeletionExecutorService) throws IOException {
+      final ExecutorService notificationExecutorService, final Scheduler messageDeliveryScheduler,
+      final ExecutorService messageDeletionExecutorService, final Clock clock) throws IOException {
 
     this.readDeleteCluster = readDeleteCluster;
     this.pubSubConnection = readDeleteCluster.createPubSubConnection();
@@ -128,12 +127,8 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
 
   @Override
   public void start() {
-    pubSubConnection.usePubSubConnection(connection -> {
-      connection.addListener(this);
-      connection.getResources().eventBus().get()
-          .filter(event -> event instanceof ClusterTopologyChangedEvent)
-          .subscribe(event -> resubscribeAll());
-    });
+    pubSubConnection.usePubSubConnection(connection -> connection.addListener(this));
+    pubSubConnection.subscribeToClusterTopologyChangedEvents(this::resubscribeAll);
   }
 
   @Override
@@ -142,7 +137,6 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
   }
 
   private void resubscribeAll() {
-    logger.info("Got topology change event, resubscribing all keyspace notifications");
 
     final Set<String> queueNames;
 

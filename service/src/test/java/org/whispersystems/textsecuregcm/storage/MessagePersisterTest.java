@@ -30,6 +30,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -50,6 +51,7 @@ class MessagePersisterTest {
   static final RedisClusterExtension REDIS_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
 
   private ExecutorService sharedExecutorService;
+  private ScheduledExecutorService resubscribeRetryExecutorService;
   private Scheduler messageDeliveryScheduler;
   private MessagesCache messagesCache;
   private MessagesDynamoDb messagesDynamoDb;
@@ -79,10 +81,11 @@ class MessagePersisterTest {
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(new DynamicConfiguration());
 
     sharedExecutorService = Executors.newSingleThreadExecutor();
+    resubscribeRetryExecutorService = Executors.newSingleThreadScheduledExecutor();
     messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
     messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-        REDIS_CLUSTER_EXTENSION.getRedisCluster(), Clock.systemUTC(), sharedExecutorService, messageDeliveryScheduler,
-        sharedExecutorService);
+        REDIS_CLUSTER_EXTENSION.getRedisCluster(), sharedExecutorService, messageDeliveryScheduler,
+        sharedExecutorService, Clock.systemUTC());
     messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager,
         dynamicConfigurationManager, PERSIST_DELAY);
 
@@ -107,6 +110,8 @@ class MessagePersisterTest {
     sharedExecutorService.awaitTermination(1, TimeUnit.SECONDS);
 
     messageDeliveryScheduler.dispose();
+    resubscribeRetryExecutorService.shutdown();
+    resubscribeRetryExecutorService.awaitTermination(1, TimeUnit.SECONDS);
   }
 
   @Test

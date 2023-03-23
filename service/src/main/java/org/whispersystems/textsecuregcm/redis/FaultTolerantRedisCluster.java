@@ -7,9 +7,11 @@ package org.whispersystems.textsecuregcm.redis;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.core.IntervalFunction;
 import io.github.resilience4j.reactor.circuitbreaker.operator.CircuitBreakerOperator;
 import io.github.resilience4j.reactor.retry.RetryOperator;
 import io.github.resilience4j.retry.Retry;
+import io.github.resilience4j.retry.RetryConfig;
 import io.lettuce.core.ClientOptions.DisconnectedBehavior;
 import io.lettuce.core.RedisCommandTimeoutException;
 import io.lettuce.core.RedisException;
@@ -31,6 +33,7 @@ import org.whispersystems.textsecuregcm.configuration.RedisClusterConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
 import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 import reactor.core.publisher.Flux;
+import reactor.core.scheduler.Schedulers;
 
 /**
  * A fault-tolerant access manager for a Redis cluster. A fault-tolerant Redis cluster provides managed,
@@ -38,51 +41,61 @@ import reactor.core.publisher.Flux;
  */
 public class FaultTolerantRedisCluster {
 
-    private final String name;
+  private final String name;
 
-    private final RedisClusterClient clusterClient;
+  private final RedisClusterClient clusterClient;
 
-    private final StatefulRedisClusterConnection<String, String> stringConnection;
-    private final StatefulRedisClusterConnection<byte[], byte[]> binaryConnection;
+  private final StatefulRedisClusterConnection<String, String> stringConnection;
+  private final StatefulRedisClusterConnection<byte[], byte[]> binaryConnection;
 
-    private final List<StatefulRedisClusterPubSubConnection<?, ?>> pubSubConnections = new ArrayList<>();
+  private final List<StatefulRedisClusterPubSubConnection<?, ?>> pubSubConnections = new ArrayList<>();
 
-    private final CircuitBreaker circuitBreaker;
-    private final Retry          retry;
+  private final CircuitBreaker circuitBreaker;
+  private final Retry retry;
+  private final Retry topologyChangedEventRetry;
 
-    public FaultTolerantRedisCluster(final String name, final RedisClusterConfiguration clusterConfiguration, final ClientResources clientResources) {
-      this(name,
-          RedisClusterClient.create(clientResources, clusterConfiguration.getConfigurationUri()),
-          clusterConfiguration.getTimeout(),
-          clusterConfiguration.getCircuitBreakerConfiguration(),
-          clusterConfiguration.getRetryConfiguration());
-    }
+  public FaultTolerantRedisCluster(final String name, final RedisClusterConfiguration clusterConfiguration,
+      final ClientResources clientResources) {
+    this(name,
+        RedisClusterClient.create(clientResources, clusterConfiguration.getConfigurationUri()),
+        clusterConfiguration.getTimeout(),
+        clusterConfiguration.getCircuitBreakerConfiguration(),
+        clusterConfiguration.getRetryConfiguration());
+  }
 
-    @VisibleForTesting
-    FaultTolerantRedisCluster(final String name, final RedisClusterClient clusterClient, final Duration commandTimeout, final CircuitBreakerConfiguration circuitBreakerConfiguration, final RetryConfiguration retryConfiguration) {
-      this.name = name;
+  @VisibleForTesting
+  FaultTolerantRedisCluster(final String name, final RedisClusterClient clusterClient, final Duration commandTimeout,
+      final CircuitBreakerConfiguration circuitBreakerConfiguration, final RetryConfiguration retryConfiguration) {
+    this.name = name;
 
-      this.clusterClient = clusterClient;
-      this.clusterClient.setDefaultTimeout(commandTimeout);
-      this.clusterClient.setOptions(ClusterClientOptions.builder()
-          .disconnectedBehavior(DisconnectedBehavior.REJECT_COMMANDS)
-          .validateClusterNodeMembership(false)
-          .topologyRefreshOptions(ClusterTopologyRefreshOptions.builder()
-              .enableAllAdaptiveRefreshTriggers()
-              .build())
-          .publishOnScheduler(true)
-          .build());
+    this.clusterClient = clusterClient;
+    this.clusterClient.setDefaultTimeout(commandTimeout);
+    this.clusterClient.setOptions(ClusterClientOptions.builder()
+        .disconnectedBehavior(DisconnectedBehavior.REJECT_COMMANDS)
+        .validateClusterNodeMembership(false)
+        .topologyRefreshOptions(ClusterTopologyRefreshOptions.builder()
+            .enableAllAdaptiveRefreshTriggers()
+            .build())
+        .publishOnScheduler(true)
+        .build());
 
-      this.stringConnection = clusterClient.connect();
-      this.binaryConnection = clusterClient.connect(ByteArrayCodec.INSTANCE);
+    this.stringConnection = clusterClient.connect();
+    this.binaryConnection = clusterClient.connect(ByteArrayCodec.INSTANCE);
 
-      this.circuitBreaker = CircuitBreaker.of(name + "-breaker", circuitBreakerConfiguration.toCircuitBreakerConfig());
-      this.retry = Retry.of(name + "-retry", retryConfiguration.toRetryConfigBuilder()
-          .retryOnException(exception -> exception instanceof RedisCommandTimeoutException).build());
+    this.circuitBreaker = CircuitBreaker.of(name + "-breaker", circuitBreakerConfiguration.toCircuitBreakerConfig());
+    this.retry = Retry.of(name + "-retry", retryConfiguration.toRetryConfigBuilder()
+        .retryOnException(exception -> exception instanceof RedisCommandTimeoutException).build());
+    final RetryConfig topologyChangedEventRetryConfig = RetryConfig.custom()
+        .maxAttempts(Integer.MAX_VALUE)
+        .intervalFunction(
+            IntervalFunction.ofExponentialRandomBackoff(Duration.ofSeconds(1), 1.5, Duration.ofSeconds(30)))
+        .build();
+
+    this.topologyChangedEventRetry = Retry.of(name + "-topologyChangedRetry", topologyChangedEventRetryConfig);
 
       CircuitBreakerUtil.registerMetrics(circuitBreaker, FaultTolerantRedisCluster.class);
       CircuitBreakerUtil.registerMetrics(retry, FaultTolerantRedisCluster.class);
-    }
+  }
 
     void shutdown() {
       stringConnection.close();
@@ -158,6 +171,7 @@ public class FaultTolerantRedisCluster {
     final StatefulRedisClusterPubSubConnection<String, String> pubSubConnection = clusterClient.connectPubSub();
     pubSubConnections.add(pubSubConnection);
 
-    return new FaultTolerantPubSubConnection<>(name, pubSubConnection, circuitBreaker, retry);
+    return new FaultTolerantPubSubConnection<>(name, pubSubConnection, circuitBreaker, retry, topologyChangedEventRetry,
+        Schedulers.newSingle(name + "-redisPubSubEvents"));
   }
 }

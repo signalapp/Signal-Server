@@ -42,6 +42,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -80,10 +81,12 @@ class MessagesCacheTest {
     static final RedisClusterExtension REDIS_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
 
     private ExecutorService sharedExecutorService;
+    private ScheduledExecutorService resubscribeRetryExecutorService;
     private Scheduler messageDeliveryScheduler;
     private MessagesCache messagesCache;
 
     private static final UUID DESTINATION_UUID = UUID.randomUUID();
+
     private static final int DESTINATION_DEVICE_ID = 7;
 
     @BeforeEach
@@ -95,10 +98,10 @@ class MessagesCacheTest {
       });
 
       sharedExecutorService = Executors.newSingleThreadExecutor();
+      resubscribeRetryExecutorService = Executors.newSingleThreadScheduledExecutor();
       messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
       messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-          REDIS_CLUSTER_EXTENSION.getRedisCluster(), Clock.systemUTC(), sharedExecutorService,
-          messageDeliveryScheduler, sharedExecutorService);
+          REDIS_CLUSTER_EXTENSION.getRedisCluster(), sharedExecutorService, messageDeliveryScheduler, sharedExecutorService, Clock.systemUTC());
 
       messagesCache.start();
     }
@@ -111,6 +114,8 @@ class MessagesCacheTest {
       sharedExecutorService.awaitTermination(1, TimeUnit.SECONDS);
 
       messageDeliveryScheduler.dispose();
+      resubscribeRetryExecutorService.shutdown();
+      resubscribeRetryExecutorService.awaitTermination(1, TimeUnit.SECONDS);
     }
 
     @ParameterizedTest
@@ -269,11 +274,7 @@ class MessagesCacheTest {
       }
 
       final MessagesCache messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-          REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-          cacheClock,
-          sharedExecutorService,
-          messageDeliveryScheduler,
-          sharedExecutorService);
+          REDIS_CLUSTER_EXTENSION.getRedisCluster(), sharedExecutorService, messageDeliveryScheduler, sharedExecutorService, cacheClock);
 
       final List<MessageProtos.Envelope> actualMessages = Flux.from(
               messagesCache.get(DESTINATION_UUID, DESTINATION_DEVICE_ID))
@@ -561,7 +562,6 @@ class MessagesCacheTest {
     void setup() throws Exception {
       reactiveCommands = mock(RedisAdvancedClusterReactiveCommands.class);
       asyncCommands = mock(RedisAdvancedClusterAsyncCommands.class);
-
       final FaultTolerantRedisCluster mockCluster = RedisClusterHelper.builder()
           .binaryReactiveCommands(reactiveCommands)
           .binaryAsyncCommands(asyncCommands)
@@ -569,8 +569,8 @@ class MessagesCacheTest {
 
       messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
 
-      messagesCache = new MessagesCache(mockCluster, mockCluster, Clock.systemUTC(), mock(ExecutorService.class),
-          messageDeliveryScheduler, Executors.newSingleThreadExecutor());
+      messagesCache = new MessagesCache(mockCluster, mockCluster, mock(ExecutorService.class),
+          messageDeliveryScheduler, Executors.newSingleThreadExecutor(), Clock.systemUTC());
     }
 
     @AfterEach
