@@ -32,6 +32,7 @@ public class SecureValueRecovery2Client {
   private final ExternalServiceCredentialsGenerator secureValueRecoveryCredentialsGenerator;
   private final URI deleteUri;
   private final FaultTolerantHttpClient httpClient;
+  private final boolean enabled;
 
   @VisibleForTesting
   static final String DELETE_PATH = "/v1/delete";
@@ -52,9 +53,15 @@ public class SecureValueRecovery2Client {
         .withSecurityProtocol(FaultTolerantHttpClient.SECURITY_PROTOCOL_TLS_1_2)
         .withTrustedServerCertificates(configuration.svrCaCertificates().toArray(new String[0]))
         .build();
+    this.enabled = configuration.enabled();
   }
 
   public CompletableFuture<Void> deleteBackups(final UUID accountUuid) {
+
+    if (!enabled) {
+      return CompletableFuture.completedFuture(null);
+    }
+
     final ExternalServiceCredentials credentials = secureValueRecoveryCredentialsGenerator.generateForUuid(accountUuid);
 
     final HttpRequest request = HttpRequest.newBuilder()

@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import javax.ws.rs.GET;
+import javax.ws.rs.NotFoundException;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
@@ -32,9 +33,12 @@ public class SecureValueRecovery2Controller {
   }
 
   private final ExternalServiceCredentialsGenerator backupServiceCredentialGenerator;
+  private final boolean enabled;
 
-  public SecureValueRecovery2Controller(final ExternalServiceCredentialsGenerator backupServiceCredentialGenerator) {
+  public SecureValueRecovery2Controller(final ExternalServiceCredentialsGenerator backupServiceCredentialGenerator,
+      final SecureValueRecovery2Configuration cfg) {
     this.backupServiceCredentialGenerator = backupServiceCredentialGenerator;
+    this.enabled = cfg.enabled();
   }
 
   @Timed
@@ -51,6 +55,9 @@ public class SecureValueRecovery2Controller {
   @ApiResponse(responseCode = "200", description = "`JSON` with generated credentials.", useReturnTypeSchema = true)
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
   public ExternalServiceCredentials getAuth(@Auth final AuthenticatedAccount auth) {
+    if (!enabled) {
+      throw new NotFoundException();
+    }
     return backupServiceCredentialGenerator.generateFor(auth.getAccount().getUuid().toString());
   }
 }

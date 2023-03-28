@@ -146,6 +146,7 @@ directoryV2:
     userIdTokenSharedSecret: bbcdefghijklmnopqrstuvwxyz0123456789ABCDEFG= # base64-encoded secret shared with CDS to generate auth identity tokens for Signal users
 
 svr2:
+  enabled: false
   uri: svr2.example.com
   userAuthenticationTokenSharedSecret: abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG= # base64-encoded secret shared with SVR2 to generate auth tokens for Signal users
   userIdTokenSharedSecret: bbcdefghijklmnopqrstuvwxyz0123456789ABCDEFG= # base64-encoded secret shared with SVR2 to generate auth identity tokens for Signal users

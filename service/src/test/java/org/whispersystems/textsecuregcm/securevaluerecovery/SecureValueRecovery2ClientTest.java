@@ -9,6 +9,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.delete;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -50,8 +51,11 @@ class SecureValueRecovery2ClientTest {
     credentialsGenerator = mock(ExternalServiceCredentialsGenerator.class);
     httpExecutor = Executors.newSingleThreadExecutor();
 
-    final SecureValueRecovery2Configuration config = new SecureValueRecovery2Configuration(new byte[0], new byte[0],
-        "http://localhost:" + wireMock.getPort(), List.of("""
+    final SecureValueRecovery2Configuration config = new SecureValueRecovery2Configuration(true,
+        "http://localhost:" + wireMock.getPort(),
+        new byte[0], new byte[0],
+        // This is a randomly-generated, throwaway certificate that's not actually connected to anything
+        List.of("""
             -----BEGIN CERTIFICATE-----
             MIICZDCCAc2gAwIBAgIBADANBgkqhkiG9w0BAQ0FADBPMQswCQYDVQQGEwJ1czEL
             MAkGA1UECAwCVVMxHjAcBgNVBAoMFVNpZ25hbCBNZXNzZW5nZXIsIExMQzETMBEG
@@ -67,8 +71,7 @@ class SecureValueRecovery2ClientTest {
             y7MTM4NoBV1k0zb5LAk89SIDPr/maW5AsLtEomzjnEiomjoMBUdNe3YCgQReoLnr
             R/QaUNbrCjTGYfBsjGbIzmkWPUyTec2ZdRyJ8JiVl386+6CZkxnndQ==
             -----END CERTIFICATE-----
-            """,
-        """
+            """, """
             -----BEGIN CERTIFICATE-----
             MIIEpDCCAowCCQC43PUTWSADVjANBgkqhkiG9w0BAQsFADAUMRIwEAYDVQQDDAls
             b2NhbGhvc3QwHhcNMjIxMDE3MjA0NTM0WhcNMjMxMDE3MjA0NTM0WjAUMRIwEAYD
@@ -96,7 +99,8 @@ class SecureValueRecovery2ClientTest {
             WIOjZOKGW690ESKCKOnFjUHVO0HpuWnT81URTuY62FXsYdVc2wE4v0E04mEbqQ0P
             lY6ZKNA81Lm3YADYtObmK1IUrOPo9BeIaPy0UM08SmN880Vunqa91Q==
             -----END CERTIFICATE-----
-            """), null, null);
+            """),
+        null, null);
 
     secureValueRecovery2Client = new SecureValueRecovery2Client(credentialsGenerator, httpExecutor, config);
   }
@@ -119,8 +123,7 @@ class SecureValueRecovery2ClientTest {
         .withBasicAuth(username, password)
         .willReturn(aResponse().withStatus(202)));
 
-    // We're happy as long as this doesn't throw an exception
-    secureValueRecovery2Client.deleteBackups(accountUuid).join();
+    assertDoesNotThrow(() -> secureValueRecovery2Client.deleteBackups(accountUuid).join());
   }
 
   @Test
