@@ -114,7 +114,7 @@ class WebSocketConnectionTest {
   }
 
   @Test
-  void testCredentials() {
+  void testCredentials() throws Exception {
     WebSocketAccountAuthenticator webSocketAuthenticator = new WebSocketAccountAuthenticator(accountAuthenticator);
     AuthenticatedConnectListener connectListener = new AuthenticatedConnectListener(receiptSender, messagesManager,
         mock(PushNotificationManager.class), mock(ClientPresenceManager.class),

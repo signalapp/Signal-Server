@@ -12,6 +12,7 @@ import java.util.Optional;
 import org.eclipse.jetty.websocket.api.UpgradeRequest;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.websocket.auth.AuthenticationException;
 import org.whispersystems.websocket.auth.WebSocketAuthenticator;
 
 
@@ -24,7 +25,8 @@ public class WebSocketAccountAuthenticator implements WebSocketAuthenticator<Aut
   }
 
   @Override
-  public AuthenticationResult<AuthenticatedAccount> authenticate(UpgradeRequest request) {
+  public AuthenticationResult<AuthenticatedAccount> authenticate(UpgradeRequest request)
+      throws AuthenticationException {
     Map<String, List<String>> parameters = request.getParameterMap();
     List<String> usernames = parameters.get("login");
     List<String> passwords = parameters.get("password");
@@ -37,7 +39,13 @@ public class WebSocketAccountAuthenticator implements WebSocketAuthenticator<Aut
     BasicCredentials credentials = new BasicCredentials(usernames.get(0).replace(" ", "+"),
         passwords.get(0).replace(" ", "+"));
 
-    return new AuthenticationResult<>(accountAuthenticator.authenticate(credentials), true);
+    try {
+      return new AuthenticationResult<>(accountAuthenticator.authenticate(credentials), true);
+    } catch (final Exception e) {
+      // this will be handled and logged upstream
+      // the most likely exception is a transient error connecting to account storage
+      throw new AuthenticationException(e);
+    }
   }
 
 }
