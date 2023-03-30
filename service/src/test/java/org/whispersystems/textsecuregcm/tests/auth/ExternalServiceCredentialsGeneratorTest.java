@@ -112,4 +112,15 @@ class ExternalServiceCredentialsGeneratorTest {
     assertEquals(generator.validateAndGetTimestamp(credentials, elapsedSeconds + 1).orElseThrow(), TIME_SECONDS);
     assertTrue(generator.validateAndGetTimestamp(credentials, elapsedSeconds - 1).isEmpty());
   }
+
+  @Test
+  public void testTruncateLength() throws Exception {
+    final ExternalServiceCredentialsGenerator generator = ExternalServiceCredentialsGenerator.builder(new byte[32])
+            .withUserDerivationKey(new byte[32])
+            .withTruncateLength(14)
+            .build();
+    final ExternalServiceCredentials creds = generator.generateFor(E164);
+    assertEquals(14*2 /* 2 chars per byte, because hex */, creds.username().length());
+    assertEquals("805b84df7eff1e8fe1baf0c6e838", creds.username());
+  }
 }

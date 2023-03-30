@@ -18,8 +18,6 @@ import org.apache.commons.lang3.Validate;
 
 public class ExternalServiceCredentialsGenerator {
 
-  private static final int TRUNCATE_LENGTH = 10;
-
   private static final String DELIMITER = ":";
 
   private final byte[] key;
@@ -32,6 +30,7 @@ public class ExternalServiceCredentialsGenerator {
 
   private final Clock clock;
 
+  private final int truncateLength;
 
   public static ExternalServiceCredentialsGenerator.Builder builder(final byte[] key) {
     return new Builder(key);
@@ -42,12 +41,14 @@ public class ExternalServiceCredentialsGenerator {
       final byte[] userDerivationKey,
       final boolean prependUsername,
       final boolean truncateSignature,
-      final Clock clock) {
+      final Clock clock,
+      final int truncateLength) {
     this.key = requireNonNull(key);
     this.userDerivationKey = requireNonNull(userDerivationKey);
     this.prependUsername = prependUsername;
     this.truncateSignature = truncateSignature;
     this.clock = requireNonNull(clock);
+    this.truncateLength = truncateLength;
   }
 
   /**
@@ -66,7 +67,7 @@ public class ExternalServiceCredentialsGenerator {
    */
   public ExternalServiceCredentials generateFor(final String identity) {
     final String username = shouldDeriveUsername()
-        ? hmac256TruncatedToHexString(userDerivationKey, identity, TRUNCATE_LENGTH)
+        ? hmac256TruncatedToHexString(userDerivationKey, identity, truncateLength)
         : identity;
 
     final long currentTimeSeconds = currentTimeSeconds();
@@ -74,7 +75,7 @@ public class ExternalServiceCredentialsGenerator {
     final String dataToSign = username + DELIMITER + currentTimeSeconds;
 
     final String signature = truncateSignature
-        ? hmac256TruncatedToHexString(key, dataToSign, TRUNCATE_LENGTH)
+        ? hmac256TruncatedToHexString(key, dataToSign, truncateLength)
         : hmac256ToHexString(key, dataToSign);
 
     final String token = (prependUsername ? dataToSign : currentTimeSeconds) + DELIMITER + signature;
@@ -131,7 +132,7 @@ public class ExternalServiceCredentialsGenerator {
 
     final String signedData = credentials.username() + DELIMITER + timestampSeconds;
     final String expectedSignature = truncateSignature
-        ? hmac256TruncatedToHexString(key, signedData, TRUNCATE_LENGTH)
+        ? hmac256TruncatedToHexString(key, signedData, truncateLength)
         : hmac256ToHexString(key, signedData);
 
     // if the signature is valid it's safe to parse the `timestampSeconds` string into Long
@@ -171,6 +172,8 @@ public class ExternalServiceCredentialsGenerator {
 
     private boolean truncateSignature = true;
 
+    private int truncateLength = 10;
+
     private Clock clock = Clock.systemUTC();
 
 
@@ -189,6 +192,12 @@ public class ExternalServiceCredentialsGenerator {
       return this;
     }
 
+    public Builder withTruncateLength(int truncateLength) {
+      Validate.inclusiveBetween(10, 32, truncateLength);
+      this.truncateLength = truncateLength;
+      return this;
+    }
+
     public Builder prependUsername(final boolean prependUsername) {
       this.prependUsername = prependUsername;
       return this;
@@ -201,7 +210,7 @@ public class ExternalServiceCredentialsGenerator {
 
     public ExternalServiceCredentialsGenerator build() {
       return new ExternalServiceCredentialsGenerator(
-          key, userDerivationKey, prependUsername, truncateSignature, clock);
+          key, userDerivationKey, prependUsername, truncateSignature, clock, truncateLength);
     }
   }
 }

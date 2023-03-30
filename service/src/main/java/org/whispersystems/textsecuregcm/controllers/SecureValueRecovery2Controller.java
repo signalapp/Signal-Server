@@ -29,6 +29,7 @@ public class SecureValueRecovery2Controller {
         .builder(cfg.userAuthenticationTokenSharedSecret())
         .withUserDerivationKey(cfg.userIdTokenSharedSecret())
         .prependUsername(false)
+        .withTruncateLength(16)
         .build();
   }
 
