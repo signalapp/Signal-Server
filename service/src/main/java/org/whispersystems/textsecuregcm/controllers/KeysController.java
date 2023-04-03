@@ -79,10 +79,6 @@ public class KeysController {
 
     int count = keys.getCount(getIdentifier(auth.getAccount(), identityType), auth.getAuthenticatedDevice().getId());
 
-    if (count > 0) {
-      count = count - 1;
-    }
-
     return new PreKeyCount(count);
   }
 

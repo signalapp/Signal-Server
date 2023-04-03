@@ -199,7 +199,7 @@ class KeysControllerTest {
                                           AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                                   .get(PreKeyCount.class);
 
-    assertThat(result.getCount()).isEqualTo(4);
+    assertThat(result.getCount()).isEqualTo(5);
 
     verify(KEYS).getCount(AuthHelper.VALID_UUID, 1);
   }
