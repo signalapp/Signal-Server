@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,14 +40,17 @@ class SerializedExpireableJsonDynamoStoreTest {
     }
 
     @RegisterExtension
-    static final DynamoDbExtension DYNAMO_DB_EXTENSION = DynamoDbExtension.builder()
-        .tableName(TABLE_NAME)
-        .hashKey(SerializedExpireableJsonDynamoStore.KEY_KEY)
-        .attributeDefinition(AttributeDefinition.builder()
-            .attributeName(SerializedExpireableJsonDynamoStore.KEY_KEY)
-            .attributeType(ScalarAttributeType.S)
-            .build())
-        .build();
+    static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(
+        new DynamoDbExtension.RawSchema(
+            TABLE_NAME,
+            SerializedExpireableJsonDynamoStore.KEY_KEY,
+            null,
+            List.of(AttributeDefinition.builder()
+                .attributeName(SerializedExpireableJsonDynamoStore.KEY_KEY)
+                .attributeType(ScalarAttributeType.S)
+                .build()),
+            List.of(),
+            List.of()));
 
     private SerializedExpireableJsonDynamoStore<T> store;
 

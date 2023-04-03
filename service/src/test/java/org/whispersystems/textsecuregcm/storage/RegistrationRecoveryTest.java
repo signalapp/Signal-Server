@@ -21,16 +21,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
+import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.MutableClock;
-import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
-import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
 
 public class RegistrationRecoveryTest {
-
-  private static final String TABLE_NAME = "registration_recovery_passwords";
 
   private static final MutableClock CLOCK = MockUtils.mutableClock(0);
 
@@ -43,14 +40,8 @@ public class RegistrationRecoveryTest {
   private static final SaltedTokenHash ANOTHER_HASH = SaltedTokenHash.generateFor("pass2");
 
   @RegisterExtension
-  private static final DynamoDbExtension DB_EXTENSION = DynamoDbExtension.builder()
-      .tableName(TABLE_NAME)
-      .hashKey(RegistrationRecoveryPasswords.KEY_E164)
-      .attributeDefinition(AttributeDefinition.builder()
-          .attributeName(RegistrationRecoveryPasswords.KEY_E164)
-          .attributeType(ScalarAttributeType.S)
-          .build())
-      .build();
+  private static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(
+      Tables.REGISTRATION_RECOVERY_PASSWORDS);
 
   private RegistrationRecoveryPasswords store;
 
@@ -60,10 +51,10 @@ public class RegistrationRecoveryTest {
   public void before() throws Exception {
     CLOCK.setTimeMillis(Clock.systemUTC().millis());
     store = new RegistrationRecoveryPasswords(
-        DB_EXTENSION.getTableName(),
+        Tables.REGISTRATION_RECOVERY_PASSWORDS.tableName(),
         EXPIRATION,
-        DB_EXTENSION.getDynamoDbClient(),
-        DB_EXTENSION.getDynamoDbAsyncClient(),
+        DYNAMO_DB_EXTENSION.getDynamoDbClient(),
+        DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
         CLOCK
     );
     manager = new RegistrationRecoveryPasswordsManager(store);
@@ -147,8 +138,8 @@ public class RegistrationRecoveryTest {
   }
 
   private static long fetchTimestamp(final String number) throws ExecutionException, InterruptedException {
-    return DB_EXTENSION.getDynamoDbAsyncClient().getItem(GetItemRequest.builder()
-            .tableName(DB_EXTENSION.getTableName())
+    return DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient().getItem(GetItemRequest.builder()
+            .tableName(Tables.REGISTRATION_RECOVERY_PASSWORDS.tableName())
             .key(Map.of(RegistrationRecoveryPasswords.KEY_E164, AttributeValues.fromString(number)))
             .build())
         .thenApply(getItemResponse -> {

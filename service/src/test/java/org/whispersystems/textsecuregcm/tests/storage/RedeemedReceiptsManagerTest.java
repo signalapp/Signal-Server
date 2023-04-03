@@ -21,27 +21,18 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.receipts.ReceiptSerial;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtension;
+import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.storage.RedeemedReceiptsManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.TestClock;
-import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
-import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
 
 class RedeemedReceiptsManagerTest {
 
   private static final long NOW_EPOCH_SECONDS = 1_500_000_000L;
-  private static final String REDEEMED_RECEIPTS_TABLE_NAME = "redeemed_receipts";
   private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
   @RegisterExtension
-  static DynamoDbExtension dynamoDbExtension = DynamoDbExtension.builder()
-      .tableName(REDEEMED_RECEIPTS_TABLE_NAME)
-      .hashKey(RedeemedReceiptsManager.KEY_SERIAL)
-      .attributeDefinition(AttributeDefinition.builder()
-          .attributeName(RedeemedReceiptsManager.KEY_SERIAL)
-          .attributeType(ScalarAttributeType.B)
-          .build())
-      .build();
+  static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(Tables.REDEEMED_RECEIPTS);
 
   Clock clock = TestClock.pinned(Instant.ofEpochSecond(NOW_EPOCH_SECONDS));
   ReceiptSerial receiptSerial;
@@ -53,7 +44,10 @@ class RedeemedReceiptsManagerTest {
     SECURE_RANDOM.nextBytes(receiptSerialBytes);
     receiptSerial = new ReceiptSerial(receiptSerialBytes);
     redeemedReceiptsManager = new RedeemedReceiptsManager(
-        clock, REDEEMED_RECEIPTS_TABLE_NAME, dynamoDbExtension.getDynamoDbAsyncClient(), Duration.ofDays(90));
+        clock,
+        Tables.REDEEMED_RECEIPTS.tableName(),
+        DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
+        Duration.ofDays(90));
   }
 
   @Test

@@ -16,62 +16,22 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Indexes;
+import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.util.Pair;
-import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
-import software.amazon.awssdk.services.dynamodb.model.GlobalSecondaryIndex;
-import software.amazon.awssdk.services.dynamodb.model.KeySchemaElement;
-import software.amazon.awssdk.services.dynamodb.model.KeyType;
-import software.amazon.awssdk.services.dynamodb.model.Projection;
-import software.amazon.awssdk.services.dynamodb.model.ProjectionType;
-import software.amazon.awssdk.services.dynamodb.model.ProvisionedThroughput;
-import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
 
 class DeletedAccountsTest {
 
-  private static final String NEEDS_RECONCILIATION_INDEX_NAME = "needs_reconciliation_test";
-
   @RegisterExtension
-  static DynamoDbExtension dynamoDbExtension = DynamoDbExtension.builder()
-      .tableName("deleted_accounts_test")
-      .hashKey(DeletedAccounts.KEY_ACCOUNT_E164)
-      .attributeDefinition(AttributeDefinition.builder()
-          .attributeName(DeletedAccounts.KEY_ACCOUNT_E164)
-          .attributeType(ScalarAttributeType.S).build())
-      .attributeDefinition(AttributeDefinition.builder()
-          .attributeName(DeletedAccounts.ATTR_NEEDS_CDS_RECONCILIATION)
-          .attributeType(ScalarAttributeType.N)
-          .build())
-      .attributeDefinition(AttributeDefinition.builder()
-          .attributeName(DeletedAccounts.ATTR_ACCOUNT_UUID)
-          .attributeType(ScalarAttributeType.B)
-          .build())
-      .globalSecondaryIndex(GlobalSecondaryIndex.builder()
-          .indexName(NEEDS_RECONCILIATION_INDEX_NAME)
-          .keySchema(
-              KeySchemaElement.builder().attributeName(DeletedAccounts.KEY_ACCOUNT_E164).keyType(KeyType.HASH).build(),
-              KeySchemaElement.builder().attributeName(DeletedAccounts.ATTR_NEEDS_CDS_RECONCILIATION)
-                  .keyType(KeyType.RANGE).build())
-          .projection(Projection.builder().projectionType(ProjectionType.INCLUDE)
-              .nonKeyAttributes(DeletedAccounts.ATTR_ACCOUNT_UUID).build())
-          .provisionedThroughput(ProvisionedThroughput.builder().readCapacityUnits(10L).writeCapacityUnits(10L).build())
-          .build())
-      .globalSecondaryIndex(GlobalSecondaryIndex.builder()
-          .indexName(DeletedAccounts.UUID_TO_E164_INDEX_NAME)
-          .keySchema(
-              KeySchemaElement.builder().attributeName(DeletedAccounts.ATTR_ACCOUNT_UUID).keyType(KeyType.HASH).build()
-          )
-          .projection(Projection.builder().projectionType(ProjectionType.KEYS_ONLY).build())
-          .provisionedThroughput(ProvisionedThroughput.builder().readCapacityUnits(10L).writeCapacityUnits(10L).build())
-          .build())
-      .build();
+  static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(Tables.DELETED_ACCOUNTS);
 
   private DeletedAccounts deletedAccounts;
 
   @BeforeEach
   void setUp() {
-    deletedAccounts = new DeletedAccounts(dynamoDbExtension.getDynamoDbClient(),
-        dynamoDbExtension.getTableName(),
-        NEEDS_RECONCILIATION_INDEX_NAME);
+    deletedAccounts = new DeletedAccounts(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
+        Tables.DELETED_ACCOUNTS.tableName(),
+        Indexes.DELETED_ACCOUNTS_NEEDS_RECONCILIATION.indexName());
   }
 
   @Test

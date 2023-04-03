@@ -26,8 +26,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.reactivestreams.Publisher;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
+import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.tests.util.MessageHelper;
-import org.whispersystems.textsecuregcm.tests.util.MessagesDynamoDbExtension;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
@@ -77,13 +77,13 @@ class MessagesDynamoDbTest {
 
 
   @RegisterExtension
-  static DynamoDbExtension dynamoDbExtension = MessagesDynamoDbExtension.build();
+  static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(Tables.MESSAGES);
 
   @BeforeEach
   void setup() {
     messageDeletionExecutorService = Executors.newSingleThreadExecutor();
-    messagesDynamoDb = new MessagesDynamoDb(dynamoDbExtension.getDynamoDbClient(),
-        dynamoDbExtension.getDynamoDbAsyncClient(), MessagesDynamoDbExtension.TABLE_NAME, Duration.ofDays(14),
+    messagesDynamoDb = new MessagesDynamoDb(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
+        DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(), Tables.MESSAGES.tableName(), Duration.ofDays(14),
         messageDeletionExecutorService);
   }
 
@@ -170,7 +170,7 @@ class MessagesDynamoDbTest {
         .thenRequest(halfOfMessageLoadLimit)
         .expectNextCount(halfOfMessageLoadLimit)
         // the first 100 should be fetched and buffered, but further requests should fail
-        .then(() -> dynamoDbExtension.stopServer())
+        .then(() -> DYNAMO_DB_EXTENSION.stopServer())
         .thenRequest(halfOfMessageLoadLimit)
         .expectNextCount(halfOfMessageLoadLimit)
         // we’ve consumed all the buffered messages, so a single request will fail

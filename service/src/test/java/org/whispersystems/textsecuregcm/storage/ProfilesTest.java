@@ -12,9 +12,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
-import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
+import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
-import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -27,30 +26,16 @@ import java.util.stream.Stream;
 
 public abstract class ProfilesTest {
 
-  private static final String PROFILES_TABLE_NAME = "profiles_test";
-
   @RegisterExtension
-  static DynamoDbExtension dynamoDbExtension = DynamoDbExtension.builder()
-      .tableName(PROFILES_TABLE_NAME)
-      .hashKey(Profiles.KEY_ACCOUNT_UUID)
-      .rangeKey(Profiles.ATTR_VERSION)
-      .attributeDefinition(AttributeDefinition.builder()
-          .attributeName(Profiles.KEY_ACCOUNT_UUID)
-          .attributeType(ScalarAttributeType.B)
-          .build())
-      .attributeDefinition(AttributeDefinition.builder()
-          .attributeName(Profiles.ATTR_VERSION)
-          .attributeType(ScalarAttributeType.S)
-          .build())
-      .build();
+  static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(Tables.PROFILES);
 
   private Profiles profiles;
 
   @BeforeEach
   void setUp() {
-    profiles = new Profiles(dynamoDbExtension.getDynamoDbClient(),
-        dynamoDbExtension.getDynamoDbAsyncClient(),
-        PROFILES_TABLE_NAME);
+    profiles = new Profiles(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
+        DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
+        Tables.PROFILES.tableName());
   }
 
   @Test

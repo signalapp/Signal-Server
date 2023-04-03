@@ -28,49 +28,16 @@ import org.whispersystems.textsecuregcm.storage.SubscriptionManager.GetResult;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager.Record;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessor;
-import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
-import software.amazon.awssdk.services.dynamodb.model.GlobalSecondaryIndex;
-import software.amazon.awssdk.services.dynamodb.model.KeySchemaElement;
-import software.amazon.awssdk.services.dynamodb.model.KeyType;
-import software.amazon.awssdk.services.dynamodb.model.Projection;
-import software.amazon.awssdk.services.dynamodb.model.ProjectionType;
-import software.amazon.awssdk.services.dynamodb.model.ProvisionedThroughput;
-import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
+import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 
 class SubscriptionManagerTest {
 
   private static final long NOW_EPOCH_SECONDS = 1_500_000_000L;
   private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(3);
-  private static final String SUBSCRIPTIONS_TABLE_NAME = "subscriptions";
   private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
   @RegisterExtension
-  static DynamoDbExtension dynamoDbExtension = DynamoDbExtension.builder().
-      tableName(SUBSCRIPTIONS_TABLE_NAME).
-      hashKey(SubscriptionManager.KEY_USER).
-      attributeDefinition(AttributeDefinition.builder().
-          attributeName(SubscriptionManager.KEY_USER).
-          attributeType(ScalarAttributeType.B).
-          build()).
-      attributeDefinition(AttributeDefinition.builder().
-          attributeName(SubscriptionManager.KEY_PROCESSOR_ID_CUSTOMER_ID).
-          attributeType(ScalarAttributeType.B).
-          build()).
-      globalSecondaryIndex(GlobalSecondaryIndex.builder().
-          indexName(SubscriptionManager.INDEX_NAME).
-          keySchema(KeySchemaElement.builder().
-              attributeName(SubscriptionManager.KEY_PROCESSOR_ID_CUSTOMER_ID).
-              keyType(KeyType.HASH).
-              build()).
-          projection(Projection.builder().
-              projectionType(ProjectionType.KEYS_ONLY).
-              build()).
-          provisionedThroughput(ProvisionedThroughput.builder().
-              readCapacityUnits(20L).
-              writeCapacityUnits(20L).
-              build()).
-          build()).
-      build();
+  static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(Tables.SUBSCRIPTIONS);
 
   byte[] user;
   byte[] password;
@@ -85,7 +52,7 @@ class SubscriptionManagerTest {
     customer = Base64.getEncoder().encodeToString(getRandomBytes(16));
     created = Instant.ofEpochSecond(NOW_EPOCH_SECONDS);
     subscriptionManager = new SubscriptionManager(
-        SUBSCRIPTIONS_TABLE_NAME, dynamoDbExtension.getDynamoDbAsyncClient());
+        Tables.SUBSCRIPTIONS.tableName(), DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient());
   }
 
   @Test

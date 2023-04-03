@@ -45,11 +45,17 @@ import software.amazon.awssdk.services.dynamodb.model.WriteRequest;
 
 public class MessagesDynamoDb extends AbstractDynamoDbStore {
 
-  private static final String KEY_PARTITION = "H";
-  private static final String KEY_SORT = "S";
+  @VisibleForTesting
+  static final String KEY_PARTITION = "H";
 
-  private static final String LOCAL_INDEX_MESSAGE_UUID_NAME = "Message_UUID_Index";
-  private static final String LOCAL_INDEX_MESSAGE_UUID_KEY_SORT = "U";
+  @VisibleForTesting
+  static final String KEY_SORT = "S";
+
+  @VisibleForTesting
+  static final String LOCAL_INDEX_MESSAGE_UUID_NAME = "Message_UUID_Index";
+
+  @VisibleForTesting
+  static final String LOCAL_INDEX_MESSAGE_UUID_KEY_SORT = "U";
 
   private static final String KEY_TTL = "E";
   private static final String KEY_ENVELOPE_BYTES = "EB";

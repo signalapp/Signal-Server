@@ -15,38 +15,22 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.entities.PreKey;
-import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
+import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
-import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
 
 class KeysTest {
-
-  private static final String TABLE_NAME = "Signal_Keys_Test";
 
   private Keys keys;
 
   @RegisterExtension
-  static DynamoDbExtension dynamoDbExtension = DynamoDbExtension.builder()
-      .tableName(TABLE_NAME)
-      .hashKey(Keys.KEY_ACCOUNT_UUID)
-      .rangeKey(Keys.KEY_DEVICE_ID_KEY_ID)
-      .attributeDefinition(AttributeDefinition.builder()
-          .attributeName(Keys.KEY_ACCOUNT_UUID)
-          .attributeType(ScalarAttributeType.B)
-          .build())
-      .attributeDefinition(
-          AttributeDefinition.builder()
-              .attributeName(Keys.KEY_DEVICE_ID_KEY_ID)
-              .attributeType(ScalarAttributeType.B)
-              .build())
-      .build();
+  static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(Tables.KEYS);
 
   private static final UUID ACCOUNT_UUID = UUID.randomUUID();
   private static final long DEVICE_ID = 1L;
 
   @BeforeEach
   void setup() {
-    keys = new Keys(dynamoDbExtension.getDynamoDbClient(), TABLE_NAME);
+    keys = new Keys(DYNAMO_DB_EXTENSION.getDynamoDbClient(), Tables.KEYS.tableName());
   }
 
   @Test

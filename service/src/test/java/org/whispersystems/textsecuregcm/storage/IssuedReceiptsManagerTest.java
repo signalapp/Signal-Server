@@ -20,24 +20,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialRequest;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessor;
-import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
-import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
+import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 
 class IssuedReceiptsManagerTest {
 
   private static final long NOW_EPOCH_SECONDS = 1_500_000_000L;
-  private static final String ISSUED_RECEIPTS_TABLE_NAME = "issued_receipts";
   private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
   @RegisterExtension
-  static DynamoDbExtension dynamoDbExtension = DynamoDbExtension.builder()
-      .tableName(ISSUED_RECEIPTS_TABLE_NAME)
-      .hashKey(IssuedReceiptsManager.KEY_PROCESSOR_ITEM_ID)
-      .attributeDefinition(AttributeDefinition.builder()
-          .attributeName(IssuedReceiptsManager.KEY_PROCESSOR_ITEM_ID)
-          .attributeType(ScalarAttributeType.S)
-          .build())
-      .build();
+  static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(Tables.ISSUED_RECEIPTS);
 
   ReceiptCredentialRequest receiptCredentialRequest;
   IssuedReceiptsManager issuedReceiptsManager;
@@ -48,9 +39,9 @@ class IssuedReceiptsManagerTest {
     byte[] generator = new byte[16];
     SECURE_RANDOM.nextBytes(generator);
     issuedReceiptsManager = new IssuedReceiptsManager(
-        ISSUED_RECEIPTS_TABLE_NAME,
+        Tables.ISSUED_RECEIPTS.tableName(),
         Duration.ofDays(90),
-        dynamoDbExtension.getDynamoDbAsyncClient(),
+        DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
         generator);
   }
 

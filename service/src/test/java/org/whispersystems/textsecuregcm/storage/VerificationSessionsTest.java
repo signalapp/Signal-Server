@@ -21,32 +21,23 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.registration.VerificationSession;
+import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
-import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
-import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
 
 class VerificationSessionsTest {
-
-  private static final String TABLE_NAME = "verification_sessions_test";
 
   private static final Clock clock = Clock.systemUTC();
 
   @RegisterExtension
-  static final DynamoDbExtension DYNAMO_DB_EXTENSION = DynamoDbExtension.builder()
-      .tableName(TABLE_NAME)
-      .hashKey(VerificationSessions.KEY_KEY)
-      .attributeDefinition(AttributeDefinition.builder()
-          .attributeName(VerificationSessions.KEY_KEY)
-          .attributeType(ScalarAttributeType.S)
-          .build())
-      .build();
+  static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(Tables.VERIFICATION_SESSIONS);
 
   private VerificationSessions verificationSessions;
 
   @BeforeEach
   void setUp() {
-    verificationSessions = new VerificationSessions(DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(), TABLE_NAME, clock);
+    verificationSessions = new VerificationSessions(
+        DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(), Tables.VERIFICATION_SESSIONS.tableName(), clock);
   }
 
   @Test

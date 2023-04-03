@@ -38,6 +38,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
@@ -45,18 +46,13 @@ import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.TestClock;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
-import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
-import software.amazon.awssdk.services.dynamodb.model.CreateTableRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
-import software.amazon.awssdk.services.dynamodb.model.KeySchemaElement;
-import software.amazon.awssdk.services.dynamodb.model.KeyType;
 import software.amazon.awssdk.services.dynamodb.model.Put;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValuesOnConditionCheckFailure;
-import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItemsRequest;
 import software.amazon.awssdk.services.dynamodb.model.TransactionCanceledException;
@@ -65,10 +61,6 @@ import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 
 class AccountsTest {
 
-  private static final String ACCOUNTS_TABLE_NAME = "accounts_test";
-  private static final String NUMBER_CONSTRAINT_TABLE_NAME = "numbers_test";
-  private static final String PNI_CONSTRAINT_TABLE_NAME = "pni_test";
-  private static final String USERNAME_CONSTRAINT_TABLE_NAME = "username_test";
   private static final String BASE_64_URL_USERNAME_HASH_1 = "9p6Tip7BFefFOJzv4kv4GyXEYsBVfk_WbjNejdlOvQE";
   private static final String BASE_64_URL_USERNAME_HASH_2 = "NLUom-CHwtemcdvOTTXdmXmzRIV7F05leS8lwkVK_vc";
   private static final byte[] USERNAME_HASH_1 = Base64.getUrlDecoder().decode(BASE_64_URL_USERNAME_HASH_1);
@@ -77,16 +69,12 @@ class AccountsTest {
   private static final int SCAN_PAGE_SIZE = 1;
 
 
-
   @RegisterExtension
-  static DynamoDbExtension dynamoDbExtension = DynamoDbExtension.builder()
-      .tableName(ACCOUNTS_TABLE_NAME)
-      .hashKey(Accounts.KEY_ACCOUNT_UUID)
-      .attributeDefinition(AttributeDefinition.builder()
-          .attributeName(Accounts.KEY_ACCOUNT_UUID)
-          .attributeType(ScalarAttributeType.B)
-          .build())
-      .build();
+  static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(
+      Tables.ACCOUNTS,
+      Tables.NUMBERS,
+      Tables.PNI_ASSIGNMENTS,
+      Tables.USERNAMES);
 
   private final TestClock clock = TestClock.pinned(Instant.EPOCH);
   private DynamicConfigurationManager<DynamicConfiguration> mockDynamicConfigManager;
@@ -94,50 +82,6 @@ class AccountsTest {
 
   @BeforeEach
   void setupAccountsDao() {
-    CreateTableRequest createNumbersTableRequest = CreateTableRequest.builder()
-        .tableName(NUMBER_CONSTRAINT_TABLE_NAME)
-        .keySchema(KeySchemaElement.builder()
-            .attributeName(Accounts.ATTR_ACCOUNT_E164)
-            .keyType(KeyType.HASH)
-            .build())
-        .attributeDefinitions(AttributeDefinition.builder()
-            .attributeName(Accounts.ATTR_ACCOUNT_E164)
-            .attributeType(ScalarAttributeType.S)
-            .build())
-        .provisionedThroughput(DynamoDbExtension.DEFAULT_PROVISIONED_THROUGHPUT)
-        .build();
-
-    dynamoDbExtension.getDynamoDbClient().createTable(createNumbersTableRequest);
-
-    CreateTableRequest createPhoneNumberIdentifierTableRequest = CreateTableRequest.builder()
-        .tableName(PNI_CONSTRAINT_TABLE_NAME)
-        .keySchema(KeySchemaElement.builder()
-            .attributeName(Accounts.ATTR_PNI_UUID)
-            .keyType(KeyType.HASH)
-            .build())
-        .attributeDefinitions(AttributeDefinition.builder()
-            .attributeName(Accounts.ATTR_PNI_UUID)
-            .attributeType(ScalarAttributeType.B)
-            .build())
-        .provisionedThroughput(DynamoDbExtension.DEFAULT_PROVISIONED_THROUGHPUT)
-        .build();
-
-    dynamoDbExtension.getDynamoDbClient().createTable(createPhoneNumberIdentifierTableRequest);
-
-    CreateTableRequest createUsernamesTableRequest = CreateTableRequest.builder()
-        .tableName(USERNAME_CONSTRAINT_TABLE_NAME)
-        .keySchema(KeySchemaElement.builder()
-            .attributeName(Accounts.ATTR_USERNAME_HASH)
-            .keyType(KeyType.HASH)
-            .build())
-        .attributeDefinitions(AttributeDefinition.builder()
-            .attributeName(Accounts.ATTR_USERNAME_HASH)
-            .attributeType(ScalarAttributeType.B)
-            .build())
-        .provisionedThroughput(DynamoDbExtension.DEFAULT_PROVISIONED_THROUGHPUT)
-        .build();
-
-    dynamoDbExtension.getDynamoDbClient().createTable(createUsernamesTableRequest);
 
     @SuppressWarnings("unchecked") DynamicConfigurationManager<DynamicConfiguration> m = mock(DynamicConfigurationManager.class);
     mockDynamicConfigManager = m;
@@ -147,12 +91,12 @@ class AccountsTest {
 
     this.accounts = new Accounts(
         clock,
-        dynamoDbExtension.getDynamoDbClient(),
-        dynamoDbExtension.getDynamoDbAsyncClient(),
-        dynamoDbExtension.getTableName(),
-        NUMBER_CONSTRAINT_TABLE_NAME,
-        PNI_CONSTRAINT_TABLE_NAME,
-        USERNAME_CONSTRAINT_TABLE_NAME,
+        DYNAMO_DB_EXTENSION.getDynamoDbClient(),
+        DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
+        Tables.ACCOUNTS.tableName(),
+        Tables.NUMBERS.tableName(),
+        Tables.PNI_ASSIGNMENTS.tableName(),
+        Tables.USERNAMES.tableName(),
         SCAN_PAGE_SIZE);
   }
 
@@ -247,7 +191,7 @@ class AccountsTest {
       final TransactWriteItem phoneNumberConstraintPut = TransactWriteItem.builder()
           .put(
               Put.builder()
-                  .tableName(NUMBER_CONSTRAINT_TABLE_NAME)
+                  .tableName(Tables.NUMBERS.tableName())
                   .item(Map.of(
                       Accounts.ATTR_ACCOUNT_E164, AttributeValues.fromString(account.getNumber()),
                       Accounts.KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid())))
@@ -264,7 +208,7 @@ class AccountsTest {
 
       final TransactWriteItem accountPut = TransactWriteItem.builder()
           .put(Put.builder()
-              .tableName(ACCOUNTS_TABLE_NAME)
+              .tableName(Tables.ACCOUNTS.tableName())
               .conditionExpression("attribute_not_exists(#number) OR #number = :number")
               .expressionAttributeNames(Map.of("#number", Accounts.ATTR_ACCOUNT_E164))
               .expressionAttributeValues(Map.of(":number", AttributeValues.fromString(account.getNumber())))
@@ -277,7 +221,7 @@ class AccountsTest {
               .build())
           .build();
 
-      dynamoDbExtension.getDynamoDbClient().transactWriteItems(TransactWriteItemsRequest.builder()
+      DYNAMO_DB_EXTENSION.getDynamoDbClient().transactWriteItems(TransactWriteItemsRequest.builder()
           .transactItems(phoneNumberConstraintPut, accountPut)
           .build());
     }
@@ -389,8 +333,8 @@ class AccountsTest {
 
     final DynamoDbAsyncClient dynamoDbAsyncClient = mock(DynamoDbAsyncClient.class);
     accounts = new Accounts(mock(DynamoDbClient.class),
-        dynamoDbAsyncClient, dynamoDbExtension.getTableName(),
-        NUMBER_CONSTRAINT_TABLE_NAME, PNI_CONSTRAINT_TABLE_NAME, USERNAME_CONSTRAINT_TABLE_NAME, SCAN_PAGE_SIZE);
+        dynamoDbAsyncClient, Tables.ACCOUNTS.tableName(),
+        Tables.NUMBERS.tableName(), Tables.PNI_ASSIGNMENTS.tableName(), Tables.USERNAMES.tableName(), SCAN_PAGE_SIZE);
 
     Exception e = TransactionConflictException.builder().build();
     e = wrapException ? new CompletionException(e) : e;
@@ -612,8 +556,8 @@ class AccountsTest {
     final UUID existingPhoneNumberIdentifier = UUID.randomUUID();
 
     // Artificially inject a conflicting PNI entry
-    dynamoDbExtension.getDynamoDbClient().putItem(PutItemRequest.builder()
-        .tableName(PNI_CONSTRAINT_TABLE_NAME)
+    DYNAMO_DB_EXTENSION.getDynamoDbClient().putItem(PutItemRequest.builder()
+        .tableName(Tables.PNI_ASSIGNMENTS.tableName())
         .item(Map.of(
             Accounts.ATTR_PNI_UUID, AttributeValues.fromUUID(existingPhoneNumberIdentifier),
             Accounts.KEY_ACCOUNT_UUID, AttributeValues.fromUUID(existingAccountIdentifier)))
@@ -649,9 +593,9 @@ class AccountsTest {
     accounts.confirmUsernameHash(account, USERNAME_HASH_2);
 
     assertThat(accounts.getByUsernameHash(USERNAME_HASH_1)).isEmpty();
-    assertThat(dynamoDbExtension.getDynamoDbClient()
+    assertThat(DYNAMO_DB_EXTENSION.getDynamoDbClient()
         .getItem(GetItemRequest.builder()
-            .tableName(USERNAME_CONSTRAINT_TABLE_NAME)
+            .tableName(Tables.USERNAMES.tableName())
             .key(Map.of(Accounts.ATTR_USERNAME_HASH, AttributeValues.fromByteArray(USERNAME_HASH_1)))
             .build())
         .item()).isEmpty();
@@ -775,9 +719,9 @@ class AccountsTest {
     assertArrayEquals(account1.getUsernameHash().orElseThrow(), USERNAME_HASH_1);
     assertThat(accounts.getByUsernameHash(USERNAME_HASH_1).get().getUuid()).isEqualTo(account1.getUuid());
 
-    final Map<String, AttributeValue> usernameConstraintRecord = dynamoDbExtension.getDynamoDbClient()
+    final Map<String, AttributeValue> usernameConstraintRecord = DYNAMO_DB_EXTENSION.getDynamoDbClient()
         .getItem(GetItemRequest.builder()
-            .tableName(USERNAME_CONSTRAINT_TABLE_NAME)
+            .tableName(Tables.USERNAMES.tableName())
             .key(Map.of(Accounts.ATTR_USERNAME_HASH, AttributeValues.fromByteArray(USERNAME_HASH_1)))
             .build())
         .item();
@@ -892,9 +836,9 @@ class AccountsTest {
   }
 
   private void assertPhoneNumberConstraintExists(final String number, final UUID uuid) {
-    final GetItemResponse numberConstraintResponse = dynamoDbExtension.getDynamoDbClient().getItem(
+    final GetItemResponse numberConstraintResponse = DYNAMO_DB_EXTENSION.getDynamoDbClient().getItem(
         GetItemRequest.builder()
-            .tableName(NUMBER_CONSTRAINT_TABLE_NAME)
+            .tableName(Tables.NUMBERS.tableName())
             .key(Map.of(Accounts.ATTR_ACCOUNT_E164, AttributeValues.fromString(number)))
             .build());
 
@@ -903,9 +847,9 @@ class AccountsTest {
   }
 
   private void assertPhoneNumberConstraintDoesNotExist(final String number) {
-    final GetItemResponse numberConstraintResponse = dynamoDbExtension.getDynamoDbClient().getItem(
+    final GetItemResponse numberConstraintResponse = DYNAMO_DB_EXTENSION.getDynamoDbClient().getItem(
         GetItemRequest.builder()
-            .tableName(NUMBER_CONSTRAINT_TABLE_NAME)
+            .tableName(Tables.NUMBERS.tableName())
             .key(Map.of(Accounts.ATTR_ACCOUNT_E164, AttributeValues.fromString(number)))
             .build());
 
@@ -913,9 +857,9 @@ class AccountsTest {
   }
 
   private void assertPhoneNumberIdentifierConstraintExists(final UUID phoneNumberIdentifier, final UUID uuid) {
-    final GetItemResponse pniConstraintResponse = dynamoDbExtension.getDynamoDbClient().getItem(
+    final GetItemResponse pniConstraintResponse = DYNAMO_DB_EXTENSION.getDynamoDbClient().getItem(
         GetItemRequest.builder()
-            .tableName(PNI_CONSTRAINT_TABLE_NAME)
+            .tableName(Tables.PNI_ASSIGNMENTS.tableName())
             .key(Map.of(Accounts.ATTR_PNI_UUID, AttributeValues.fromUUID(phoneNumberIdentifier)))
             .build());
 
@@ -924,9 +868,9 @@ class AccountsTest {
   }
 
   private void assertPhoneNumberIdentifierConstraintDoesNotExist(final UUID phoneNumberIdentifier) {
-    final GetItemResponse pniConstraintResponse = dynamoDbExtension.getDynamoDbClient().getItem(
+    final GetItemResponse pniConstraintResponse = DYNAMO_DB_EXTENSION.getDynamoDbClient().getItem(
         GetItemRequest.builder()
-            .tableName(PNI_CONSTRAINT_TABLE_NAME)
+            .tableName(Tables.PNI_ASSIGNMENTS.tableName())
             .key(Map.of(Accounts.ATTR_PNI_UUID, AttributeValues.fromUUID(phoneNumberIdentifier)))
             .build());
 
@@ -934,10 +878,10 @@ class AccountsTest {
   }
 
   private void verifyStoredState(String number, UUID uuid, UUID pni, byte[] usernameHash, Account expecting, boolean canonicallyDiscoverable) {
-    final DynamoDbClient db = dynamoDbExtension.getDynamoDbClient();
+    final DynamoDbClient db = DYNAMO_DB_EXTENSION.getDynamoDbClient();
 
     final GetItemResponse get = db.getItem(GetItemRequest.builder()
-        .tableName(dynamoDbExtension.getTableName())
+        .tableName(Tables.ACCOUNTS.tableName())
         .key(Map.of(Accounts.KEY_ACCOUNT_UUID, AttributeValues.fromUUID(uuid)))
         .consistentRead(true)
         .build());

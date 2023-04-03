@@ -19,14 +19,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
-import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
-import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
+import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 
 class VerificationCodeStoreTest {
 
   private VerificationCodeStore verificationCodeStore;
-
-  private static final String TABLE_NAME = "verification_code_test";
 
   private static final String PHONE_NUMBER = "+14151112222";
 
@@ -35,18 +32,12 @@ class VerificationCodeStoreTest {
       Duration.ofHours(1)).toEpochMilli();
 
   @RegisterExtension
-  static final DynamoDbExtension DYNAMO_DB_EXTENSION = DynamoDbExtension.builder()
-      .tableName(TABLE_NAME)
-      .hashKey(VerificationCodeStore.KEY_E164)
-      .attributeDefinition(AttributeDefinition.builder()
-          .attributeName(VerificationCodeStore.KEY_E164)
-          .attributeType(ScalarAttributeType.S)
-          .build())
-      .build();
+  static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(Tables.VERIFICATION_CODES);
 
   @BeforeEach
   void setUp() {
-    verificationCodeStore = new VerificationCodeStore(DYNAMO_DB_EXTENSION.getDynamoDbClient(), TABLE_NAME);
+    verificationCodeStore = new VerificationCodeStore(
+        DYNAMO_DB_EXTENSION.getDynamoDbClient(), Tables.VERIFICATION_CODES.tableName());
   }
 
   @Test

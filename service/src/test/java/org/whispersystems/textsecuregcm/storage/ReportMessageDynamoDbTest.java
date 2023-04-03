@@ -14,30 +14,23 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
-import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
-import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
 
 class ReportMessageDynamoDbTest {
 
   private ReportMessageDynamoDb reportMessageDynamoDb;
 
-  private static final String TABLE_NAME = "report_message_test";
-
   @RegisterExtension
-  static DynamoDbExtension dynamoDbExtension = DynamoDbExtension.builder()
-      .tableName(TABLE_NAME)
-      .hashKey(ReportMessageDynamoDb.KEY_HASH)
-      .attributeDefinition(AttributeDefinition.builder()
-          .attributeName(ReportMessageDynamoDb.KEY_HASH)
-          .attributeType(ScalarAttributeType.B)
-          .build())
-      .build();
+  static DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(Tables.REPORT_MESSAGES);
 
 
   @BeforeEach
   void setUp() {
-    this.reportMessageDynamoDb = new ReportMessageDynamoDb(dynamoDbExtension.getDynamoDbClient(), TABLE_NAME, Duration.ofDays(1));
+    this.reportMessageDynamoDb = new ReportMessageDynamoDb(
+        DYNAMO_DB_EXTENSION.getDynamoDbClient(),
+        Tables.REPORT_MESSAGES.tableName(),
+        Duration.ofDays(1));
   }
 
   @Test

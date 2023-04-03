@@ -9,8 +9,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
-import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
-import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
+import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import java.util.List;
 import java.util.Set;
 
@@ -18,23 +17,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class RemoteConfigsTest {
 
-  private static final String REMOTE_CONFIGS_TABLE_NAME = "remote_configs_test";
-
   @RegisterExtension
-  static DynamoDbExtension dynamoDbExtension = DynamoDbExtension.builder()
-      .tableName(REMOTE_CONFIGS_TABLE_NAME)
-      .hashKey(RemoteConfigs.KEY_NAME)
-      .attributeDefinition(AttributeDefinition.builder()
-          .attributeName(RemoteConfigs.KEY_NAME)
-          .attributeType(ScalarAttributeType.S)
-          .build())
-      .build();
+  static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(Tables.REMOTE_CONFIGS);
 
   private RemoteConfigs remoteConfigs;
 
   @BeforeEach
   void setUp() {
-    remoteConfigs = new RemoteConfigs(dynamoDbExtension.getDynamoDbClient(), REMOTE_CONFIGS_TABLE_NAME);
+    remoteConfigs = new RemoteConfigs(DYNAMO_DB_EXTENSION.getDynamoDbClient(), Tables.REMOTE_CONFIGS.tableName());
   }
 
   @Test

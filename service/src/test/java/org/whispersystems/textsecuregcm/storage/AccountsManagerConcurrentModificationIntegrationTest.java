@@ -48,34 +48,23 @@ import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
+import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
 import org.whispersystems.textsecuregcm.tests.util.JsonHelpers;
 import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
 import org.whispersystems.textsecuregcm.util.Pair;
-import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
-import software.amazon.awssdk.services.dynamodb.model.CreateTableRequest;
-import software.amazon.awssdk.services.dynamodb.model.KeySchemaElement;
-import software.amazon.awssdk.services.dynamodb.model.KeyType;
-import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
+
 
 class AccountsManagerConcurrentModificationIntegrationTest {
-
-  private static final String ACCOUNTS_TABLE_NAME = "accounts_test";
-  private static final String NUMBERS_TABLE_NAME = "numbers_test";
-  private static final String PNI_TABLE_NAME = "pni_test";
-  private static final String USERNAMES_TABLE_NAME = "usernames_test";
 
   private static final int SCAN_PAGE_SIZE = 1;
 
   @RegisterExtension
-  static DynamoDbExtension dynamoDbExtension = DynamoDbExtension.builder()
-      .tableName(ACCOUNTS_TABLE_NAME)
-      .hashKey(Accounts.KEY_ACCOUNT_UUID)
-      .attributeDefinition(AttributeDefinition.builder()
-          .attributeName(Accounts.KEY_ACCOUNT_UUID)
-          .attributeType(ScalarAttributeType.B)
-          .build())
-      .build();
+  static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(
+      Tables.ACCOUNTS,
+      Tables.NUMBERS,
+      Tables.PNI_ASSIGNMENTS
+  );
 
   private Accounts accounts;
 
@@ -88,51 +77,17 @@ class AccountsManagerConcurrentModificationIntegrationTest {
   @BeforeEach
   void setup() throws InterruptedException {
 
-    {
-      CreateTableRequest createNumbersTableRequest = CreateTableRequest.builder()
-          .tableName(NUMBERS_TABLE_NAME)
-          .keySchema(KeySchemaElement.builder()
-              .attributeName(Accounts.ATTR_ACCOUNT_E164)
-              .keyType(KeyType.HASH)
-              .build())
-          .attributeDefinitions(AttributeDefinition.builder()
-              .attributeName(Accounts.ATTR_ACCOUNT_E164)
-              .attributeType(ScalarAttributeType.S)
-              .build())
-          .provisionedThroughput(DynamoDbExtension.DEFAULT_PROVISIONED_THROUGHPUT)
-          .build();
-
-      dynamoDbExtension.getDynamoDbClient().createTable(createNumbersTableRequest);
-    }
-
-    {
-      CreateTableRequest createPhoneNumberIdentifierTableRequest = CreateTableRequest.builder()
-          .tableName(PNI_TABLE_NAME)
-          .keySchema(KeySchemaElement.builder()
-              .attributeName(Accounts.ATTR_PNI_UUID)
-              .keyType(KeyType.HASH)
-              .build())
-          .attributeDefinitions(AttributeDefinition.builder()
-              .attributeName(Accounts.ATTR_PNI_UUID)
-              .attributeType(ScalarAttributeType.B)
-              .build())
-          .provisionedThroughput(DynamoDbExtension.DEFAULT_PROVISIONED_THROUGHPUT)
-          .build();
-
-      dynamoDbExtension.getDynamoDbClient().createTable(createPhoneNumberIdentifierTableRequest);
-    }
-
     @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
         mock(DynamicConfigurationManager.class);
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(new DynamicConfiguration());
 
     accounts = new Accounts(
-        dynamoDbExtension.getDynamoDbClient(),
-        dynamoDbExtension.getDynamoDbAsyncClient(),
-        dynamoDbExtension.getTableName(),
-        NUMBERS_TABLE_NAME,
-        PNI_TABLE_NAME,
-        USERNAMES_TABLE_NAME,
+        DYNAMO_DB_EXTENSION.getDynamoDbClient(),
+        DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
+        Tables.ACCOUNTS.tableName(),
+        Tables.NUMBERS.tableName(),
+        Tables.PNI_ASSIGNMENTS.tableName(),
+        Tables.USERNAMES.tableName(),
         SCAN_PAGE_SIZE);
 
     {

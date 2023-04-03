@@ -35,7 +35,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
-import org.whispersystems.textsecuregcm.tests.util.MessagesDynamoDbExtension;
+import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
@@ -44,7 +44,7 @@ import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 class MessagePersisterIntegrationTest {
 
   @RegisterExtension
-  static DynamoDbExtension dynamoDbExtension = MessagesDynamoDbExtension.build();
+  static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(Tables.MESSAGES);
 
   @RegisterExtension
   static final RedisClusterExtension REDIS_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
@@ -74,8 +74,8 @@ class MessagePersisterIntegrationTest {
 
     messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
     messageDeletionExecutorService = Executors.newSingleThreadExecutor();
-    final MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(dynamoDbExtension.getDynamoDbClient(),
-        dynamoDbExtension.getDynamoDbAsyncClient(), MessagesDynamoDbExtension.TABLE_NAME, Duration.ofDays(14),
+    final MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
+        DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(), Tables.MESSAGES.tableName(), Duration.ofDays(14),
         messageDeletionExecutorService);
     final AccountsManager accountsManager = mock(AccountsManager.class);
 
@@ -164,10 +164,10 @@ class MessagePersisterIntegrationTest {
 
       messagePersister.stop();
 
-      DynamoDbClient dynamoDB = dynamoDbExtension.getDynamoDbClient();
+      DynamoDbClient dynamoDB = DYNAMO_DB_EXTENSION.getDynamoDbClient();
 
       final List<MessageProtos.Envelope> persistedMessages =
-          dynamoDB.scan(ScanRequest.builder().tableName(MessagesDynamoDbExtension.TABLE_NAME).build()).items().stream()
+          dynamoDB.scan(ScanRequest.builder().tableName(Tables.MESSAGES.tableName()).build()).items().stream()
               .map(item -> {
                 try {
                   return MessagesDynamoDb.convertItemToEnvelope(item);

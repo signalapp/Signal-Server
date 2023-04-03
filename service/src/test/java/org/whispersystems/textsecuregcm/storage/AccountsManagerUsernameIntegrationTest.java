@@ -45,23 +45,14 @@ import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
+import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
-import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
-import software.amazon.awssdk.services.dynamodb.model.CreateTableRequest;
-import software.amazon.awssdk.services.dynamodb.model.KeySchemaElement;
-import software.amazon.awssdk.services.dynamodb.model.KeyType;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
-import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 
 class AccountsManagerUsernameIntegrationTest {
 
-  private static final String ACCOUNTS_TABLE_NAME = "accounts_test";
-  private static final String NUMBERS_TABLE_NAME = "numbers_test";
-  private static final String PNI_ASSIGNMENT_TABLE_NAME = "pni_assignment_test";
-  private static final String USERNAMES_TABLE_NAME = "usernames_test";
-  private static final String PNI_TABLE_NAME = "pni_test";
   private static final String BASE_64_URL_USERNAME_HASH_1 = "9p6Tip7BFefFOJzv4kv4GyXEYsBVfk_WbjNejdlOvQE";
   private static final String BASE_64_URL_USERNAME_HASH_2 = "NLUom-CHwtemcdvOTTXdmXmzRIV7F05leS8lwkVK_vc";
   private static final int SCAN_PAGE_SIZE = 1;
@@ -69,24 +60,12 @@ class AccountsManagerUsernameIntegrationTest {
   private static final byte[] USERNAME_HASH_2 = Base64.getUrlDecoder().decode(BASE_64_URL_USERNAME_HASH_2);
 
   @RegisterExtension
-  static DynamoDbExtension ACCOUNTS_DYNAMO_EXTENSION = DynamoDbExtension.builder()
-      .tableName(ACCOUNTS_TABLE_NAME)
-      .hashKey(Accounts.KEY_ACCOUNT_UUID)
-      .attributeDefinition(AttributeDefinition.builder()
-          .attributeName(Accounts.KEY_ACCOUNT_UUID)
-          .attributeType(ScalarAttributeType.B)
-          .build())
-      .build();
-
-  @RegisterExtension
-  static DynamoDbExtension PNI_DYNAMO_EXTENSION = DynamoDbExtension.builder()
-      .tableName(PNI_TABLE_NAME)
-      .hashKey(PhoneNumberIdentifiers.KEY_E164)
-      .attributeDefinition(AttributeDefinition.builder()
-          .attributeName(PhoneNumberIdentifiers.KEY_E164)
-          .attributeType(ScalarAttributeType.S)
-          .build())
-      .build();
+  static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(
+      Tables.ACCOUNTS,
+      Tables.NUMBERS,
+      Tables.USERNAMES,
+      Tables.PNI,
+      Tables.PNI_ASSIGNMENTS);
 
   @RegisterExtension
   static RedisClusterExtension CACHE_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
@@ -96,48 +75,6 @@ class AccountsManagerUsernameIntegrationTest {
 
   @BeforeEach
   void setup() throws InterruptedException {
-    CreateTableRequest createNumbersTableRequest = CreateTableRequest.builder()
-        .tableName(NUMBERS_TABLE_NAME)
-        .keySchema(KeySchemaElement.builder()
-            .attributeName(Accounts.ATTR_ACCOUNT_E164)
-            .keyType(KeyType.HASH)
-            .build())
-        .attributeDefinitions(AttributeDefinition.builder()
-            .attributeName(Accounts.ATTR_ACCOUNT_E164)
-            .attributeType(ScalarAttributeType.S)
-            .build())
-        .provisionedThroughput(DynamoDbExtension.DEFAULT_PROVISIONED_THROUGHPUT)
-        .build();
-
-    ACCOUNTS_DYNAMO_EXTENSION.getDynamoDbClient().createTable(createNumbersTableRequest);
-    CreateTableRequest createUsernamesTableRequest = CreateTableRequest.builder()
-        .tableName(USERNAMES_TABLE_NAME)
-        .keySchema(KeySchemaElement.builder()
-            .attributeName(Accounts.ATTR_USERNAME_HASH)
-            .keyType(KeyType.HASH)
-            .build())
-        .attributeDefinitions(AttributeDefinition.builder()
-            .attributeName(Accounts.ATTR_USERNAME_HASH)
-            .attributeType(ScalarAttributeType.B)
-            .build())
-        .provisionedThroughput(DynamoDbExtension.DEFAULT_PROVISIONED_THROUGHPUT)
-        .build();
-
-    ACCOUNTS_DYNAMO_EXTENSION.getDynamoDbClient().createTable(createUsernamesTableRequest);
-    CreateTableRequest createPhoneNumberIdentifierTableRequest = CreateTableRequest.builder()
-        .tableName(PNI_ASSIGNMENT_TABLE_NAME)
-        .keySchema(KeySchemaElement.builder()
-            .attributeName(Accounts.ATTR_PNI_UUID)
-            .keyType(KeyType.HASH)
-            .build())
-        .attributeDefinitions(AttributeDefinition.builder()
-            .attributeName(Accounts.ATTR_PNI_UUID)
-            .attributeType(ScalarAttributeType.B)
-            .build())
-        .provisionedThroughput(DynamoDbExtension.DEFAULT_PROVISIONED_THROUGHPUT)
-        .build();
-
-    ACCOUNTS_DYNAMO_EXTENSION.getDynamoDbClient().createTable(createPhoneNumberIdentifierTableRequest);
     buildAccountsManager(1, 2, 10);
   }
 
@@ -150,12 +87,12 @@ class AccountsManagerUsernameIntegrationTest {
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
 
     accounts = Mockito.spy(new Accounts(
-        ACCOUNTS_DYNAMO_EXTENSION.getDynamoDbClient(),
-        ACCOUNTS_DYNAMO_EXTENSION.getDynamoDbAsyncClient(),
-        ACCOUNTS_DYNAMO_EXTENSION.getTableName(),
-        NUMBERS_TABLE_NAME,
-        PNI_ASSIGNMENT_TABLE_NAME,
-        USERNAMES_TABLE_NAME,
+        DYNAMO_DB_EXTENSION.getDynamoDbClient(),
+        DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
+        Tables.ACCOUNTS.tableName(),
+        Tables.NUMBERS.tableName(),
+        Tables.PNI_ASSIGNMENTS.tableName(),
+        Tables.USERNAMES.tableName(),
         SCAN_PAGE_SIZE));
 
     final DeletedAccountsManager deletedAccountsManager = mock(DeletedAccountsManager.class);
@@ -167,7 +104,7 @@ class AccountsManagerUsernameIntegrationTest {
     }).when(deletedAccountsManager).lockAndTake(any(), any());
 
     final PhoneNumberIdentifiers phoneNumberIdentifiers =
-        new PhoneNumberIdentifiers(PNI_DYNAMO_EXTENSION.getDynamoDbClient(), PNI_TABLE_NAME);
+        new PhoneNumberIdentifiers(DYNAMO_DB_EXTENSION.getDynamoDbClient(), Tables.PNI.tableName());
 
     final ExperimentEnrollmentManager experimentEnrollmentManager = mock(ExperimentEnrollmentManager.class);
     when(experimentEnrollmentManager.isEnrolled(any(UUID.class), eq(AccountsManager.USERNAME_EXPERIMENT_NAME)))
@@ -207,8 +144,8 @@ class AccountsManagerUsernameIntegrationTest {
             AttributeValues.fromLong(Instant.now().plus(Duration.ofMinutes(1)).getEpochSecond()));
       }
       i++;
-      ACCOUNTS_DYNAMO_EXTENSION.getDynamoDbClient().putItem(PutItemRequest.builder()
-          .tableName(USERNAMES_TABLE_NAME)
+      DYNAMO_DB_EXTENSION.getDynamoDbClient().putItem(PutItemRequest.builder()
+          .tableName(Tables.USERNAMES.tableName())
           .item(item)
           .build());
     }
@@ -222,8 +159,8 @@ class AccountsManagerUsernameIntegrationTest {
         new ArrayList<>());
     ArrayList<byte[]> usernameHashes = new ArrayList<>(Arrays.asList(USERNAME_HASH_1, USERNAME_HASH_2));
     for (byte[] hash : usernameHashes) {
-      ACCOUNTS_DYNAMO_EXTENSION.getDynamoDbClient().putItem(PutItemRequest.builder()
-          .tableName(USERNAMES_TABLE_NAME)
+      DYNAMO_DB_EXTENSION.getDynamoDbClient().putItem(PutItemRequest.builder()
+          .tableName(Tables.USERNAMES.tableName())
           .item(Map.of(
               Accounts.KEY_ACCOUNT_UUID, AttributeValues.fromUUID(UUID.randomUUID()),
               Accounts.ATTR_USERNAME_HASH, AttributeValues.fromByteArray(hash)))
@@ -287,8 +224,8 @@ class AccountsManagerUsernameIntegrationTest {
 
     long past = Instant.now().minus(Duration.ofMinutes(1)).getEpochSecond();
     // force expiration
-    ACCOUNTS_DYNAMO_EXTENSION.getDynamoDbClient().updateItem(UpdateItemRequest.builder()
-        .tableName(USERNAMES_TABLE_NAME)
+    DYNAMO_DB_EXTENSION.getDynamoDbClient().updateItem(UpdateItemRequest.builder()
+        .tableName(Tables.USERNAMES.tableName())
         .key(Map.of(Accounts.ATTR_USERNAME_HASH, AttributeValues.fromByteArray(USERNAME_HASH_1)))
         .updateExpression("SET #ttl = :ttl")
         .expressionAttributeNames(Map.of("#ttl", Accounts.ATTR_TTL))

@@ -34,78 +34,28 @@ import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
-import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
-import software.amazon.awssdk.services.dynamodb.model.CreateTableRequest;
-import software.amazon.awssdk.services.dynamodb.model.GlobalSecondaryIndex;
-import software.amazon.awssdk.services.dynamodb.model.KeySchemaElement;
-import software.amazon.awssdk.services.dynamodb.model.KeyType;
-import software.amazon.awssdk.services.dynamodb.model.Projection;
-import software.amazon.awssdk.services.dynamodb.model.ProjectionType;
-import software.amazon.awssdk.services.dynamodb.model.ProvisionedThroughput;
-import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
+import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Indexes;
+import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 
 class AccountsManagerChangeNumberIntegrationTest {
 
-  private static final String ACCOUNTS_TABLE_NAME = "accounts_test";
   private static final String NUMBERS_TABLE_NAME = "numbers_test";
   private static final String PNI_ASSIGNMENT_TABLE_NAME = "pni_assignment_test";
   private static final String USERNAMES_TABLE_NAME = "usernames_test";
-  private static final String PNI_TABLE_NAME = "pni_test";
-  private static final String NEEDS_RECONCILIATION_INDEX_NAME = "needs_reconciliation_test";
-  private static final String DELETED_ACCOUNTS_LOCK_TABLE_NAME = "deleted_accounts_lock_test";
   private static final int SCAN_PAGE_SIZE = 1;
 
   @RegisterExtension
-  static DynamoDbExtension ACCOUNTS_DYNAMO_EXTENSION = DynamoDbExtension.builder()
-      .tableName(ACCOUNTS_TABLE_NAME)
-      .hashKey(Accounts.KEY_ACCOUNT_UUID)
-      .attributeDefinition(AttributeDefinition.builder()
-          .attributeName(Accounts.KEY_ACCOUNT_UUID)
-          .attributeType(ScalarAttributeType.B)
-          .build())
-      .build();
+  static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(
+      Tables.ACCOUNTS,
+      Tables.DELETED_ACCOUNTS,
+      Tables.DELETED_ACCOUNTS_LOCK,
+      Tables.NUMBERS,
+      Tables.PNI,
+      Tables.PNI_ASSIGNMENTS,
+      Tables.USERNAMES);
 
   @RegisterExtension
-  static DynamoDbExtension DELETED_ACCOUNTS_DYNAMO_EXTENSION = DynamoDbExtension.builder()
-      .tableName("deleted_accounts_test")
-      .hashKey(DeletedAccounts.KEY_ACCOUNT_E164)
-      .attributeDefinition(AttributeDefinition.builder()
-          .attributeName(DeletedAccounts.KEY_ACCOUNT_E164)
-          .attributeType(ScalarAttributeType.S).build())
-      .attributeDefinition(AttributeDefinition.builder()
-          .attributeName(DeletedAccounts.ATTR_NEEDS_CDS_RECONCILIATION)
-          .attributeType(ScalarAttributeType.N)
-          .build())
-      .globalSecondaryIndex(GlobalSecondaryIndex.builder()
-          .indexName(NEEDS_RECONCILIATION_INDEX_NAME)
-          .keySchema(KeySchemaElement.builder().attributeName(DeletedAccounts.KEY_ACCOUNT_E164).keyType(KeyType.HASH).build(),
-              KeySchemaElement.builder().attributeName(DeletedAccounts.ATTR_NEEDS_CDS_RECONCILIATION).keyType(KeyType.RANGE).build())
-          .projection(Projection.builder().projectionType(ProjectionType.INCLUDE).nonKeyAttributes(DeletedAccounts.ATTR_ACCOUNT_UUID).build())
-          .provisionedThroughput(ProvisionedThroughput.builder().readCapacityUnits(10L).writeCapacityUnits(10L).build())
-          .build())
-      .build();
-
-  @RegisterExtension
-  static DynamoDbExtension DELETED_ACCOUNTS_LOCK_DYNAMO_EXTENSION = DynamoDbExtension.builder()
-      .tableName(DELETED_ACCOUNTS_LOCK_TABLE_NAME)
-      .hashKey(DeletedAccounts.KEY_ACCOUNT_E164)
-      .attributeDefinition(AttributeDefinition.builder()
-          .attributeName(DeletedAccounts.KEY_ACCOUNT_E164)
-          .attributeType(ScalarAttributeType.S).build())
-      .build();
-
-  @RegisterExtension
-  static DynamoDbExtension PNI_DYNAMO_EXTENSION = DynamoDbExtension.builder()
-      .tableName(PNI_TABLE_NAME)
-      .hashKey(PhoneNumberIdentifiers.KEY_E164)
-      .attributeDefinition(AttributeDefinition.builder()
-          .attributeName(PhoneNumberIdentifiers.KEY_E164)
-          .attributeType(ScalarAttributeType.S)
-          .build())
-      .build();
-
-  @RegisterExtension
-  static RedisClusterExtension CACHE_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
+  static final RedisClusterExtension CACHE_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
 
   private ClientPresenceManager clientPresenceManager;
   private DeletedAccounts deletedAccounts;
@@ -116,40 +66,6 @@ class AccountsManagerChangeNumberIntegrationTest {
   void setup() throws InterruptedException {
 
     {
-      CreateTableRequest createNumbersTableRequest = CreateTableRequest.builder()
-          .tableName(NUMBERS_TABLE_NAME)
-          .keySchema(KeySchemaElement.builder()
-              .attributeName(Accounts.ATTR_ACCOUNT_E164)
-              .keyType(KeyType.HASH)
-              .build())
-          .attributeDefinitions(AttributeDefinition.builder()
-              .attributeName(Accounts.ATTR_ACCOUNT_E164)
-              .attributeType(ScalarAttributeType.S)
-              .build())
-          .provisionedThroughput(DynamoDbExtension.DEFAULT_PROVISIONED_THROUGHPUT)
-          .build();
-
-      ACCOUNTS_DYNAMO_EXTENSION.getDynamoDbClient().createTable(createNumbersTableRequest);
-    }
-
-    {
-      CreateTableRequest createPhoneNumberIdentifierTableRequest = CreateTableRequest.builder()
-          .tableName(PNI_ASSIGNMENT_TABLE_NAME)
-          .keySchema(KeySchemaElement.builder()
-              .attributeName(Accounts.ATTR_PNI_UUID)
-              .keyType(KeyType.HASH)
-              .build())
-          .attributeDefinitions(AttributeDefinition.builder()
-              .attributeName(Accounts.ATTR_PNI_UUID)
-              .attributeType(ScalarAttributeType.B)
-              .build())
-          .provisionedThroughput(DynamoDbExtension.DEFAULT_PROVISIONED_THROUGHPUT)
-          .build();
-
-      ACCOUNTS_DYNAMO_EXTENSION.getDynamoDbClient().createTable(createPhoneNumberIdentifierTableRequest);
-    }
-
-    {
       @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
           mock(DynamicConfigurationManager.class);
 
@@ -157,21 +73,21 @@ class AccountsManagerChangeNumberIntegrationTest {
       when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
 
       final Accounts accounts = new Accounts(
-          ACCOUNTS_DYNAMO_EXTENSION.getDynamoDbClient(),
-          ACCOUNTS_DYNAMO_EXTENSION.getDynamoDbAsyncClient(),
-          ACCOUNTS_DYNAMO_EXTENSION.getTableName(),
-          NUMBERS_TABLE_NAME,
-          PNI_ASSIGNMENT_TABLE_NAME,
-          USERNAMES_TABLE_NAME,
+          DYNAMO_DB_EXTENSION.getDynamoDbClient(),
+          DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
+          Tables.ACCOUNTS.tableName(),
+          Tables.NUMBERS.tableName(),
+          Tables.PNI_ASSIGNMENTS.tableName(),
+          Tables.USERNAMES.tableName(),
           SCAN_PAGE_SIZE);
 
-      deletedAccounts = new DeletedAccounts(DELETED_ACCOUNTS_DYNAMO_EXTENSION.getDynamoDbClient(),
-          DELETED_ACCOUNTS_DYNAMO_EXTENSION.getTableName(),
-          NEEDS_RECONCILIATION_INDEX_NAME);
+      deletedAccounts = new DeletedAccounts(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
+          Tables.DELETED_ACCOUNTS.tableName(),
+          Indexes.DELETED_ACCOUNTS_NEEDS_RECONCILIATION.indexName());
 
       final DeletedAccountsManager deletedAccountsManager = new DeletedAccountsManager(deletedAccounts,
-          DELETED_ACCOUNTS_LOCK_DYNAMO_EXTENSION.getLegacyDynamoClient(),
-          DELETED_ACCOUNTS_LOCK_DYNAMO_EXTENSION.getTableName());
+          DYNAMO_DB_EXTENSION.getLegacyDynamoClient(),
+          Tables.DELETED_ACCOUNTS_LOCK.tableName());
 
       final SecureStorageClient secureStorageClient = mock(SecureStorageClient.class);
       when(secureStorageClient.deleteStoredData(any())).thenReturn(CompletableFuture.completedFuture(null));
@@ -185,7 +101,7 @@ class AccountsManagerChangeNumberIntegrationTest {
       clientPresenceManager = mock(ClientPresenceManager.class);
 
       final PhoneNumberIdentifiers phoneNumberIdentifiers =
-          new PhoneNumberIdentifiers(PNI_DYNAMO_EXTENSION.getDynamoDbClient(), PNI_TABLE_NAME);
+          new PhoneNumberIdentifiers(DYNAMO_DB_EXTENSION.getDynamoDbClient(), Tables.PNI.tableName());
 
       accountsManager = new AccountsManager(
           accounts,

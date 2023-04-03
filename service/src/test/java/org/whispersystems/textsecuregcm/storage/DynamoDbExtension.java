@@ -1,3 +1,8 @@
+/*
+ * Copyright 2021-2023 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 package org.whispersystems.textsecuregcm.storage;
 
 import com.almworks.sqlite4java.SQLite;
@@ -31,7 +36,23 @@ import software.amazon.awssdk.services.dynamodb.model.ProvisionedThroughput;
 
 public class DynamoDbExtension implements BeforeEachCallback, AfterEachCallback {
 
-  static final String DEFAULT_TABLE_NAME = "test_table";
+  public interface TableSchema {
+    public String tableName();
+    public String hashKeyName();
+    public String rangeKeyName();
+    public List<AttributeDefinition> attributeDefinitions();
+    public List<GlobalSecondaryIndex> globalSecondaryIndexes();
+    public List<LocalSecondaryIndex> localSecondaryIndexes();
+  }
+
+  record RawSchema(
+    String tableName,
+    String hashKeyName,
+    String rangeKeyName,
+    List<AttributeDefinition> attributeDefinitions,
+    List<GlobalSecondaryIndex> globalSecondaryIndexes,
+    List<LocalSecondaryIndex> localSecondaryIndexes
+  ) implements TableSchema { }
 
   static final ProvisionedThroughput DEFAULT_PROVISIONED_THROUGHPUT = ProvisionedThroughput.builder()
       .readCapacityUnits(20L)
@@ -42,42 +63,14 @@ public class DynamoDbExtension implements BeforeEachCallback, AfterEachCallback 
 
   private DynamoDBProxyServer server;
   private int port;
-
-  private final String tableName;
-  private final String hashKeyName;
-  private final String rangeKeyName;
-
-  private final List<AttributeDefinition> attributeDefinitions;
-  private final List<GlobalSecondaryIndex> globalSecondaryIndexes;
-  private final List<LocalSecondaryIndex> localSecondaryIndexes;
-
-  private final long readCapacityUnits;
-  private final long writeCapacityUnits;
-
+  
+  private final List<TableSchema> schemas;
   private DynamoDbClient dynamoDB2;
   private DynamoDbAsyncClient dynamoAsyncDB2;
   private AmazonDynamoDB legacyDynamoClient;
 
-  private DynamoDbExtension(String tableName, String hashKey, String rangeKey,
-      List<AttributeDefinition> attributeDefinitions, List<GlobalSecondaryIndex> globalSecondaryIndexes,
-      final List<LocalSecondaryIndex> localSecondaryIndexes,
-      long readCapacityUnits,
-      long writeCapacityUnits) {
-
-    this.tableName = tableName;
-    this.hashKeyName = hashKey;
-    this.rangeKeyName = rangeKey;
-    this.localSecondaryIndexes = localSecondaryIndexes;
-
-    this.readCapacityUnits = readCapacityUnits;
-    this.writeCapacityUnits = writeCapacityUnits;
-
-    this.attributeDefinitions = attributeDefinitions;
-    this.globalSecondaryIndexes = globalSecondaryIndexes;
-  }
-
-  public static DynamoDbExtensionBuilder builder() {
-    return new DynamoDbExtensionBuilder();
+  public DynamoDbExtension(TableSchema... schemas) {
+    this.schemas = List.of(schemas);
   }
 
   private static void loadLibrary() {
@@ -114,32 +107,33 @@ public class DynamoDbExtension implements BeforeEachCallback, AfterEachCallback 
 
     initializeClient();
 
-    createTable();
+    createTables();
   }
 
-  private void createTable() {
+  private void createTables() {
+    schemas.stream().forEach(this::createTable);
+  }
+
+  private void createTable(TableSchema schema) {
     KeySchemaElement[] keySchemaElements;
-    if (rangeKeyName == null) {
+    if (schema.rangeKeyName() == null) {
       keySchemaElements = new KeySchemaElement[] {
-          KeySchemaElement.builder().attributeName(hashKeyName).keyType(KeyType.HASH).build(),
+          KeySchemaElement.builder().attributeName(schema.hashKeyName()).keyType(KeyType.HASH).build(),
       };
     } else {
       keySchemaElements = new KeySchemaElement[] {
-          KeySchemaElement.builder().attributeName(hashKeyName).keyType(KeyType.HASH).build(),
-          KeySchemaElement.builder().attributeName(rangeKeyName).keyType(KeyType.RANGE).build(),
+          KeySchemaElement.builder().attributeName(schema.hashKeyName()).keyType(KeyType.HASH).build(),
+          KeySchemaElement.builder().attributeName(schema.rangeKeyName()).keyType(KeyType.RANGE).build(),
       };
     }
 
     final CreateTableRequest createTableRequest = CreateTableRequest.builder()
-        .tableName(tableName)
+        .tableName(schema.tableName())
         .keySchema(keySchemaElements)
-        .attributeDefinitions(attributeDefinitions.isEmpty() ? null : attributeDefinitions)
-        .globalSecondaryIndexes(globalSecondaryIndexes.isEmpty() ? null : globalSecondaryIndexes)
-        .localSecondaryIndexes(localSecondaryIndexes.isEmpty() ? null : localSecondaryIndexes)
-        .provisionedThroughput(ProvisionedThroughput.builder()
-            .readCapacityUnits(readCapacityUnits)
-            .writeCapacityUnits(writeCapacityUnits)
-            .build())
+        .attributeDefinitions(schema.attributeDefinitions().isEmpty() ? null : schema.attributeDefinitions())
+        .globalSecondaryIndexes(schema.globalSecondaryIndexes().isEmpty() ? null : schema.globalSecondaryIndexes())
+        .localSecondaryIndexes(schema.localSecondaryIndexes().isEmpty() ? null : schema.localSecondaryIndexes())
+        .provisionedThroughput(DEFAULT_PROVISIONED_THROUGHPUT)
         .build();
 
     getDynamoDbClient().createTable(createTableRequest);
@@ -178,60 +172,6 @@ public class DynamoDbExtension implements BeforeEachCallback, AfterEachCallback 
         .build();
   }
 
-  public static class DynamoDbExtensionBuilder {
-
-    private String tableName = DEFAULT_TABLE_NAME;
-
-    private String hashKey;
-    private String rangeKey;
-
-    private final List<AttributeDefinition> attributeDefinitions = new ArrayList<>();
-    private final List<GlobalSecondaryIndex> globalSecondaryIndexes = new ArrayList<>();
-    private final List<LocalSecondaryIndex> localSecondaryIndexes = new ArrayList<>();
-
-    private final long readCapacityUnits = DEFAULT_PROVISIONED_THROUGHPUT.readCapacityUnits();
-    private final long writeCapacityUnits = DEFAULT_PROVISIONED_THROUGHPUT.writeCapacityUnits();
-
-    private DynamoDbExtensionBuilder() {
-
-    }
-
-    public DynamoDbExtensionBuilder tableName(String databaseName) {
-      this.tableName = databaseName;
-      return this;
-    }
-
-    public DynamoDbExtensionBuilder hashKey(String hashKey) {
-      this.hashKey = hashKey;
-      return this;
-    }
-
-    public DynamoDbExtensionBuilder rangeKey(String rangeKey) {
-      this.rangeKey = rangeKey;
-      return this;
-    }
-
-    public DynamoDbExtensionBuilder attributeDefinition(AttributeDefinition attributeDefinition) {
-      attributeDefinitions.add(attributeDefinition);
-      return this;
-    }
-
-    public DynamoDbExtensionBuilder globalSecondaryIndex(GlobalSecondaryIndex index) {
-      globalSecondaryIndexes.add(index);
-      return this;
-    }
-
-    public DynamoDbExtensionBuilder localSecondaryIndex(LocalSecondaryIndex index) {
-      localSecondaryIndexes.add(index);
-      return this;
-    }
-
-    public DynamoDbExtension build() {
-      return new DynamoDbExtension(tableName, hashKey, rangeKey,
-          attributeDefinitions, globalSecondaryIndexes, localSecondaryIndexes, readCapacityUnits, writeCapacityUnits);
-    }
-  }
-
   public DynamoDbClient getDynamoDbClient() {
     return dynamoDB2;
   }
@@ -242,9 +182,5 @@ public class DynamoDbExtension implements BeforeEachCallback, AfterEachCallback 
 
   public AmazonDynamoDB getLegacyDynamoClient() {
     return legacyDynamoClient;
-  }
-
-  public String getTableName() {
-    return tableName;
   }
 }
