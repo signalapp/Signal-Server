@@ -11,8 +11,10 @@ import static org.whispersystems.textsecuregcm.util.HmacUtils.hmac256TruncatedTo
 import static org.whispersystems.textsecuregcm.util.HmacUtils.hmacHexStringsEqual;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
 
@@ -28,6 +30,10 @@ public class ExternalServiceCredentialsGenerator {
 
   private final boolean truncateSignature;
 
+  private final String usernameTimestampPrefix;
+
+  private final Function<Instant, Instant> usernameTimestampTruncator;
+
   private final Clock clock;
 
   private final int truncateLength;
@@ -41,14 +47,22 @@ public class ExternalServiceCredentialsGenerator {
       final byte[] userDerivationKey,
       final boolean prependUsername,
       final boolean truncateSignature,
-      final Clock clock,
-      final int truncateLength) {
+      final int truncateLength,
+      final String usernameTimestampPrefix,
+      final Function<Instant, Instant> usernameTimestampTruncator,
+      final Clock clock) {
     this.key = requireNonNull(key);
     this.userDerivationKey = requireNonNull(userDerivationKey);
     this.prependUsername = prependUsername;
     this.truncateSignature = truncateSignature;
+    this.usernameTimestampPrefix = usernameTimestampPrefix;
+    this.usernameTimestampTruncator = usernameTimestampTruncator;
     this.clock = requireNonNull(clock);
     this.truncateLength = truncateLength;
+
+    if (hasUsernameTimestampPrefix() ^ hasUsernameTimestampTruncator()) {
+      throw new RuntimeException("Configured to have only one of (usernameTimestampPrefix, usernameTimestampTruncator)");
+    }
   }
 
   /**
@@ -66,13 +80,34 @@ public class ExternalServiceCredentialsGenerator {
    * @return an instance of {@link ExternalServiceCredentials}
    */
   public ExternalServiceCredentials generateFor(final String identity) {
+    if (usernameIsTimestamp()) {
+      throw new RuntimeException("Configured to use timestamp as username");
+    }
+
+    return generate(identity);
+  }
+
+  /**
+   * Generates `ExternalServiceCredentials` using a prefix concatenated with a truncated timestamp as the username, following this generator's configuration.
+   * @return an instance of {@link ExternalServiceCredentials}
+   */
+  public ExternalServiceCredentials generateWithTimestampAsUsername() {
+    if (!usernameIsTimestamp()) {
+      throw new RuntimeException("Not configured to use timestamp as username");
+    }
+
+    final String truncatedTimestampSeconds = String.valueOf(usernameTimestampTruncator.apply(clock.instant()).getEpochSecond());
+    return generate(usernameTimestampPrefix + DELIMITER + truncatedTimestampSeconds);
+  }
+
+  private ExternalServiceCredentials generate(final String identity) {
     final String username = shouldDeriveUsername()
         ? hmac256TruncatedToHexString(userDerivationKey, identity, truncateLength)
         : identity;
 
     final long currentTimeSeconds = currentTimeSeconds();
 
-    final String dataToSign = username + DELIMITER + currentTimeSeconds;
+    final String dataToSign = usernameIsTimestamp() ? username : username + DELIMITER + currentTimeSeconds;
 
     final String signature = truncateSignature
         ? hmac256TruncatedToHexString(key, dataToSign, truncateLength)
@@ -84,7 +119,7 @@ public class ExternalServiceCredentialsGenerator {
   }
 
   /**
-   * In certain cases, identity (as it was passed to `generateFor` method)
+   * In certain cases, identity (as it was passed to `generate` method)
    * is a part of the signature (`password`, in terms of `ExternalServiceCredentials`) string itself.
    * For such cases, this method returns the value of the identity string.
    * @param password `password` part of `ExternalServiceCredentials`
@@ -96,9 +131,15 @@ public class ExternalServiceCredentialsGenerator {
       return Optional.empty();
     }
     // checking for the case of unexpected format
-    return StringUtils.countMatches(password, DELIMITER) == 2
-        ? Optional.of(password.substring(0, password.indexOf(DELIMITER)))
-        : Optional.empty();
+    if (StringUtils.countMatches(password, DELIMITER) == 2) {
+      if (usernameIsTimestamp()) {
+        final int indexOfSecondDelimiter = password.indexOf(DELIMITER, password.indexOf(DELIMITER) + 1);
+        return Optional.of(password.substring(0, indexOfSecondDelimiter));
+      } else {
+        return Optional.of(password.substring(0, password.indexOf(DELIMITER)));
+      }
+    }
+    return Optional.empty();
   }
 
   /**
@@ -115,7 +156,7 @@ public class ExternalServiceCredentialsGenerator {
 
     // making sure password format matches our expectations based on the generator configuration
     if (parts.length == 3 && prependUsername) {
-      final String username = parts[0];
+      final String username = usernameIsTimestamp() ? parts[0] + DELIMITER + parts[1] : parts[0];
       // username has to match the one from `credentials`
       if (!credentials.username().equals(username)) {
         return Optional.empty();
@@ -130,7 +171,7 @@ public class ExternalServiceCredentialsGenerator {
       return Optional.empty();
     }
 
-    final String signedData = credentials.username() + DELIMITER + timestampSeconds;
+    final String signedData = usernameIsTimestamp() ? credentials.username() : credentials.username() + DELIMITER + timestampSeconds;
     final String expectedSignature = truncateSignature
         ? hmac256TruncatedToHexString(key, signedData, truncateLength)
         : hmac256ToHexString(key, signedData);
@@ -158,6 +199,18 @@ public class ExternalServiceCredentialsGenerator {
     return userDerivationKey.length > 0;
   }
 
+  private boolean hasUsernameTimestampPrefix() {
+    return usernameTimestampPrefix != null;
+  }
+
+  private boolean hasUsernameTimestampTruncator() {
+    return usernameTimestampTruncator != null;
+  }
+
+  private boolean usernameIsTimestamp() {
+    return hasUsernameTimestampPrefix() && hasUsernameTimestampTruncator();
+  }
+
   private long currentTimeSeconds() {
     return clock.instant().getEpochSecond();
   }
@@ -173,6 +226,10 @@ public class ExternalServiceCredentialsGenerator {
     private boolean truncateSignature = true;
 
     private int truncateLength = 10;
+
+    private String usernameTimestampPrefix = null;
+
+    private Function<Instant, Instant> usernameTimestampTruncator = null;
 
     private Clock clock = Clock.systemUTC();
 
@@ -208,9 +265,15 @@ public class ExternalServiceCredentialsGenerator {
       return this;
     }
 
+    public Builder withUsernameTimestampTruncatorAndPrefix(final Function<Instant, Instant> truncator, final String prefix) {
+      this.usernameTimestampTruncator = truncator;
+      this.usernameTimestampPrefix = prefix;
+      return this;
+    }
+
     public ExternalServiceCredentialsGenerator build() {
       return new ExternalServiceCredentialsGenerator(
-          key, userDerivationKey, prependUsername, truncateSignature, clock, truncateLength);
+          key, userDerivationKey, prependUsername, truncateSignature, truncateLength, usernameTimestampPrefix, usernameTimestampTruncator, clock);
     }
   }
 }
