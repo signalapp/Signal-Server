@@ -7,7 +7,7 @@ package org.whispersystems.textsecuregcm.metrics;
 
 public class MetricsUtil {
 
-  private static final String PREFIX = "chat";
+  public static final String PREFIX = "chat";
 
   /**
    * Returns a dot-separated ('.') name for the given class and name parts

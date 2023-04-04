@@ -430,14 +430,14 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     // using 80 threads to match Schedulers.boundedElastic() behavior
     Scheduler messageDeliveryScheduler = Schedulers.fromExecutorService(
-        ExecutorServiceMetrics.monitor(Metrics.globalRegistry,
-            environment.lifecycle().executorService(name(getClass(), "messageDelivery-%d"))
-                .minThreads(80)
-                .maxThreads(80)
-                .workQueue(messageDeliveryQueue)
-                .build(),
-            MetricsUtil.name(getClass(), "messageDeliveryExecutor")),
-        "messageDelivery");
+            ExecutorServiceMetrics.monitor(Metrics.globalRegistry,
+                    environment.lifecycle().executorService(name(getClass(), "messageDelivery-%d"))
+                            .minThreads(80)
+                            .maxThreads(80)
+                            .workQueue(messageDeliveryQueue)
+                            .build(),
+                    MetricsUtil.name(getClass(), "messageDeliveryExecutor"), MetricsUtil.PREFIX),
+            "messageDelivery");
     // TODO: generally speaking this is a DynamoDB I/O executor for the accounts table; we should eventually have a general executor for speaking to the accounts table, but most of the server is still synchronous so this isn't widely useful yet
     ExecutorService batchIdentityCheckExecutor = environment.lifecycle().executorService(name(getClass(), "batchIdentityCheck-%d")).minThreads(32).maxThreads(32).build();
     ExecutorService multiRecipientMessageExecutor = environment.lifecycle()

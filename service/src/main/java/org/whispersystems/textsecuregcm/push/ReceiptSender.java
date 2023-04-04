@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2022 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -32,11 +32,11 @@ public class ReceiptSender {
     this.accountManager = accountManager;
     this.messageSender = messageSender;
     this.executor = ExecutorServiceMetrics.monitor(
-        Metrics.globalRegistry,
-        new InstrumentedExecutorService(executor,
-            SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME),
-            MetricsUtil.name(ReceiptSender.class, "executor")),
-        MetricsUtil.name(ReceiptSender.class, "executor"))
+            Metrics.globalRegistry,
+            new InstrumentedExecutorService(executor,
+                    SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME),
+                    MetricsUtil.name(ReceiptSender.class, "executor")),
+            MetricsUtil.name(ReceiptSender.class, "executor"), MetricsUtil.PREFIX)
     ;
   }
 
