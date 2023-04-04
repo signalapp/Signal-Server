@@ -22,6 +22,8 @@ public class ExternalServiceCredentialsGenerator {
 
   private static final String DELIMITER = ":";
 
+  private static final int TRUNCATED_SIGNATURE_LENGTH = 10;
+
   private final byte[] key;
 
   private final byte[] userDerivationKey;
@@ -36,7 +38,7 @@ public class ExternalServiceCredentialsGenerator {
 
   private final Clock clock;
 
-  private final int truncateLength;
+  private final int derivedUsernameTruncateLength;
 
   public static ExternalServiceCredentialsGenerator.Builder builder(final byte[] key) {
     return new Builder(key);
@@ -47,7 +49,7 @@ public class ExternalServiceCredentialsGenerator {
       final byte[] userDerivationKey,
       final boolean prependUsername,
       final boolean truncateSignature,
-      final int truncateLength,
+      final int derivedUsernameTruncateLength,
       final String usernameTimestampPrefix,
       final Function<Instant, Instant> usernameTimestampTruncator,
       final Clock clock) {
@@ -58,7 +60,7 @@ public class ExternalServiceCredentialsGenerator {
     this.usernameTimestampPrefix = usernameTimestampPrefix;
     this.usernameTimestampTruncator = usernameTimestampTruncator;
     this.clock = requireNonNull(clock);
-    this.truncateLength = truncateLength;
+    this.derivedUsernameTruncateLength = derivedUsernameTruncateLength;
 
     if (hasUsernameTimestampPrefix() ^ hasUsernameTimestampTruncator()) {
       throw new RuntimeException("Configured to have only one of (usernameTimestampPrefix, usernameTimestampTruncator)");
@@ -102,7 +104,7 @@ public class ExternalServiceCredentialsGenerator {
 
   private ExternalServiceCredentials generate(final String identity) {
     final String username = shouldDeriveUsername()
-        ? hmac256TruncatedToHexString(userDerivationKey, identity, truncateLength)
+        ? hmac256TruncatedToHexString(userDerivationKey, identity, derivedUsernameTruncateLength)
         : identity;
 
     final long currentTimeSeconds = currentTimeSeconds();
@@ -110,7 +112,7 @@ public class ExternalServiceCredentialsGenerator {
     final String dataToSign = usernameIsTimestamp() ? username : username + DELIMITER + currentTimeSeconds;
 
     final String signature = truncateSignature
-        ? hmac256TruncatedToHexString(key, dataToSign, truncateLength)
+        ? hmac256TruncatedToHexString(key, dataToSign, TRUNCATED_SIGNATURE_LENGTH)
         : hmac256ToHexString(key, dataToSign);
 
     final String token = (prependUsername ? dataToSign : currentTimeSeconds) + DELIMITER + signature;
@@ -173,7 +175,7 @@ public class ExternalServiceCredentialsGenerator {
 
     final String signedData = usernameIsTimestamp() ? credentials.username() : credentials.username() + DELIMITER + timestampSeconds;
     final String expectedSignature = truncateSignature
-        ? hmac256TruncatedToHexString(key, signedData, truncateLength)
+        ? hmac256TruncatedToHexString(key, signedData, TRUNCATED_SIGNATURE_LENGTH)
         : hmac256ToHexString(key, signedData);
 
     // if the signature is valid it's safe to parse the `timestampSeconds` string into Long
@@ -225,7 +227,7 @@ public class ExternalServiceCredentialsGenerator {
 
     private boolean truncateSignature = true;
 
-    private int truncateLength = 10;
+    private int derivedUsernameTruncateLength = 10;
 
     private String usernameTimestampPrefix = null;
 
@@ -249,9 +251,9 @@ public class ExternalServiceCredentialsGenerator {
       return this;
     }
 
-    public Builder withTruncateLength(int truncateLength) {
+    public Builder withDerivedUsernameTruncateLength(int truncateLength) {
       Validate.inclusiveBetween(10, 32, truncateLength);
-      this.truncateLength = truncateLength;
+      this.derivedUsernameTruncateLength = truncateLength;
       return this;
     }
 
@@ -273,7 +275,7 @@ public class ExternalServiceCredentialsGenerator {
 
     public ExternalServiceCredentialsGenerator build() {
       return new ExternalServiceCredentialsGenerator(
-          key, userDerivationKey, prependUsername, truncateSignature, truncateLength, usernameTimestampPrefix, usernameTimestampTruncator, clock);
+          key, userDerivationKey, prependUsername, truncateSignature, derivedUsernameTruncateLength, usernameTimestampPrefix, usernameTimestampTruncator, clock);
     }
   }
 }
