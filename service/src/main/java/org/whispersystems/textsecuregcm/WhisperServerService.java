@@ -428,12 +428,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .executorService(name(getClass(), "storageService-%d")).maxThreads(1).minThreads(1).build();
     ExecutorService          accountDeletionExecutor              = environment.lifecycle().executorService(name(getClass(), "accountCleaner-%d")).maxThreads(16).minThreads(16).build();
 
-    // using 80 threads to match Schedulers.boundedElastic() behavior
     Scheduler messageDeliveryScheduler = Schedulers.fromExecutorService(
             ExecutorServiceMetrics.monitor(Metrics.globalRegistry,
                     environment.lifecycle().executorService(name(getClass(), "messageDelivery-%d"))
-                            .minThreads(80)
-                            .maxThreads(80)
+                            .minThreads(20)
+                            .maxThreads(20)
                             .workQueue(messageDeliveryQueue)
                             .build(),
                     MetricsUtil.name(getClass(), "messageDeliveryExecutor"), MetricsUtil.PREFIX),
