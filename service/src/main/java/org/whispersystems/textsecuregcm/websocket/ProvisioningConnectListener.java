@@ -25,7 +25,7 @@ public class ProvisioningConnectListener implements WebSocketConnectListener {
   @Override
   public void onWebSocketConnect(WebSocketSessionContext context) {
     final ProvisioningAddress provisioningAddress = ProvisioningAddress.generate();
-    context.addListener((context1, statusCode, reason) -> provisioningManager.removeListener(provisioningAddress));
+    context.addWebsocketClosedListener((context1, statusCode, reason) -> provisioningManager.removeListener(provisioningAddress));
 
     provisioningManager.addListener(provisioningAddress, message -> {
       assert message.getType() == PubSubProtos.PubSubMessage.Type.DELIVER;

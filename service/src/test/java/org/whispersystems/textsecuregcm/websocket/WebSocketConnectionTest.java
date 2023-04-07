@@ -136,7 +136,7 @@ class WebSocketConnectionTest {
 
     connectListener.onWebSocketConnect(sessionContext);
 
-    verify(sessionContext).addListener(any(WebSocketSessionContext.WebSocketEventListener.class));
+    verify(sessionContext).addWebsocketClosedListener(any(WebSocketSessionContext.WebSocketEventListener.class));
 
     when(upgradeRequest.getParameterMap()).thenReturn(Map.of(
         "login", List.of(INVALID_USER),

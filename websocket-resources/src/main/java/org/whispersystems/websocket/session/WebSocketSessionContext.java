@@ -38,7 +38,7 @@ public class WebSocketSessionContext {
     return authenticated;
   }
 
-  public synchronized void addListener(WebSocketEventListener listener) {
+  public synchronized void addWebsocketClosedListener(WebSocketEventListener listener) {
     if (!closed) this.closeListeners.add(listener);
     else         listener.onWebSocketClose(this, 1000, "Closed");
   }

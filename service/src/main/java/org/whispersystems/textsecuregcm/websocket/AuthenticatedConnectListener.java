@@ -116,7 +116,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
 
       final AtomicReference<ScheduledFuture<?>> renewPresenceFutureReference = new AtomicReference<>();
 
-      context.addListener((closingContext, statusCode, reason) -> {
+      context.addWebsocketClosedListener((closingContext, statusCode, reason) -> {
         openWebsocketAtomicInteger.decrementAndGet();
         openWebsocketCounter.dec();
 
@@ -160,7 +160,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
       }
     } else {
       final Timer.Context timer = unauthenticatedDurationTimer.time();
-      context.addListener((context1, statusCode, reason) -> timer.stop());
+      context.addWebsocketClosedListener((context1, statusCode, reason) -> timer.stop());
     }
   }
 
