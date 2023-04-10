@@ -176,6 +176,11 @@ class PushNotificationManagerTest {
     when(apnSender.sendNotification(pushNotification))
         .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(true, null, false)));
 
+    if (!urgent) {
+      when(apnPushNotificationScheduler.scheduleBackgroundNotification(account, device))
+          .thenReturn(CompletableFuture.completedFuture(null));
+    }
+
     pushNotificationManager.sendNotification(pushNotification);
 
     verifyNoInteractions(fcmSender);
@@ -252,6 +257,9 @@ class PushNotificationManagerTest {
     when(apnSender.sendNotification(pushNotification))
         .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(false, null, true)));
 
+    when(apnPushNotificationScheduler.cancelScheduledNotifications(account, device))
+        .thenReturn(CompletableFuture.completedFuture(null));
+
     pushNotificationManager.sendNotification(pushNotification);
 
     verifyNoInteractions(fcmSender);
@@ -269,6 +277,9 @@ class PushNotificationManagerTest {
 
     when(account.getUuid()).thenReturn(accountIdentifier);
     when(device.getId()).thenReturn(Device.MASTER_ID);
+
+    when(apnPushNotificationScheduler.cancelScheduledNotifications(account, device))
+        .thenReturn(CompletableFuture.completedFuture(null));
 
     pushNotificationManager.handleMessagesRetrieved(account, device, userAgent);
 

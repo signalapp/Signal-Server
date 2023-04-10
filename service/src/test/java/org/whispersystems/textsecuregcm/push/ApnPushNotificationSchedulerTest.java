@@ -21,6 +21,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -77,7 +78,7 @@ class ApnPushNotificationSchedulerTest {
   }
 
   @Test
-  void testClusterInsert() {
+  void testClusterInsert() throws ExecutionException, InterruptedException {
     final String endpoint = ApnPushNotificationScheduler.getEndpointKey(account, device);
     final long currentTimeMillis = System.currentTimeMillis();
 
@@ -85,7 +86,7 @@ class ApnPushNotificationSchedulerTest {
         apnPushNotificationScheduler.getPendingDestinationsForRecurringVoipNotifications(SlotHash.getSlot(endpoint), 1).isEmpty());
 
     clock.pin(Instant.ofEpochMilli(currentTimeMillis - 30_000));
-    apnPushNotificationScheduler.scheduleRecurringVoipNotification(account, device);
+    apnPushNotificationScheduler.scheduleRecurringVoipNotification(account, device).toCompletableFuture().get();
 
     clock.pin(Instant.ofEpochMilli(currentTimeMillis));
     final List<String> pendingDestinations = apnPushNotificationScheduler.getPendingDestinationsForRecurringVoipNotifications(SlotHash.getSlot(endpoint), 2);
@@ -103,12 +104,12 @@ class ApnPushNotificationSchedulerTest {
   }
 
   @Test
-  void testProcessRecurringVoipNotifications() {
+  void testProcessRecurringVoipNotifications() throws ExecutionException, InterruptedException {
     final ApnPushNotificationScheduler.NotificationWorker worker = apnPushNotificationScheduler.new NotificationWorker();
     final long currentTimeMillis = System.currentTimeMillis();
 
     clock.pin(Instant.ofEpochMilli(currentTimeMillis - 30_000));
-    apnPushNotificationScheduler.scheduleRecurringVoipNotification(account, device);
+    apnPushNotificationScheduler.scheduleRecurringVoipNotification(account, device).toCompletableFuture().get();
 
     clock.pin(Instant.ofEpochMilli(currentTimeMillis));
 
@@ -129,7 +130,7 @@ class ApnPushNotificationSchedulerTest {
   }
 
   @Test
-  void testScheduleBackgroundNotificationWithNoRecentNotification() {
+  void testScheduleBackgroundNotificationWithNoRecentNotification() throws ExecutionException, InterruptedException {
     final Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
     clock.pin(now);
 
@@ -139,14 +140,14 @@ class ApnPushNotificationSchedulerTest {
     assertEquals(Optional.empty(),
         apnPushNotificationScheduler.getNextScheduledBackgroundNotificationTimestamp(account, device));
 
-    apnPushNotificationScheduler.scheduleBackgroundNotification(account, device);
+    apnPushNotificationScheduler.scheduleBackgroundNotification(account, device).toCompletableFuture().get();
 
     assertEquals(Optional.of(now),
         apnPushNotificationScheduler.getNextScheduledBackgroundNotificationTimestamp(account, device));
   }
 
   @Test
-  void testScheduleBackgroundNotificationWithRecentNotification() {
+  void testScheduleBackgroundNotificationWithRecentNotification() throws ExecutionException, InterruptedException {
     final Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
     final Instant recentNotificationTimestamp =
         now.minus(ApnPushNotificationScheduler.BACKGROUND_NOTIFICATION_PERIOD.dividedBy(2));
@@ -156,7 +157,7 @@ class ApnPushNotificationSchedulerTest {
     apnPushNotificationScheduler.sendBackgroundNotification(account, device);
 
     clock.pin(now);
-    apnPushNotificationScheduler.scheduleBackgroundNotification(account, device);
+    apnPushNotificationScheduler.scheduleBackgroundNotification(account, device).toCompletableFuture().get();
 
     final Instant expectedScheduledTimestamp =
         recentNotificationTimestamp.plus(ApnPushNotificationScheduler.BACKGROUND_NOTIFICATION_PERIOD);
@@ -166,13 +167,13 @@ class ApnPushNotificationSchedulerTest {
   }
 
   @Test
-  void testProcessScheduledBackgroundNotifications() {
+  void testProcessScheduledBackgroundNotifications() throws ExecutionException, InterruptedException {
     final ApnPushNotificationScheduler.NotificationWorker worker = apnPushNotificationScheduler.new NotificationWorker();
 
     final Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
 
     clock.pin(Instant.ofEpochMilli(now.toEpochMilli()));
-    apnPushNotificationScheduler.scheduleBackgroundNotification(account, device);
+    apnPushNotificationScheduler.scheduleBackgroundNotification(account, device).toCompletableFuture().get();
 
     final int slot =
         SlotHash.getSlot(ApnPushNotificationScheduler.getPendingBackgroundNotificationQueueKey(account, device));
@@ -199,14 +200,14 @@ class ApnPushNotificationSchedulerTest {
   }
 
   @Test
-  void testProcessScheduledBackgroundNotificationsCancelled() {
+  void testProcessScheduledBackgroundNotificationsCancelled() throws ExecutionException, InterruptedException {
     final ApnPushNotificationScheduler.NotificationWorker worker = apnPushNotificationScheduler.new NotificationWorker();
 
     final Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
 
     clock.pin(now);
-    apnPushNotificationScheduler.scheduleBackgroundNotification(account, device);
-    apnPushNotificationScheduler.cancelScheduledNotifications(account, device);
+    apnPushNotificationScheduler.scheduleBackgroundNotification(account, device).toCompletableFuture().get();
+    apnPushNotificationScheduler.cancelScheduledNotifications(account, device).toCompletableFuture().get();
 
     final int slot =
         SlotHash.getSlot(ApnPushNotificationScheduler.getPendingBackgroundNotificationQueueKey(account, device));

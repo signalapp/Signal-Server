@@ -11,6 +11,7 @@ import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.lifecycle.Managed;
 import io.lettuce.core.Limit;
 import io.lettuce.core.Range;
+import io.lettuce.core.RedisException;
 import io.lettuce.core.ScriptOutputType;
 import io.lettuce.core.SetArgs;
 import io.lettuce.core.cluster.SlotHash;
@@ -24,8 +25,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -116,7 +121,7 @@ public class ApnPushNotificationScheduler implements Managed {
           try {
             getAccountAndDeviceFromPairString(destination).ifPresentOrElse(
                 accountAndDevice -> sendRecurringVoipNotification(accountAndDevice.first(), accountAndDevice.second()),
-                () -> removeRecurringVoipNotificationEntry(destination));
+                () -> removeRecurringVoipNotificationEntrySync(destination));
           } catch (final IllegalArgumentException e) {
             logger.warn("Failed to parse account/device pair: {}", destination, e);
           }
@@ -189,31 +194,53 @@ public class ApnPushNotificationScheduler implements Managed {
     }
   }
 
-  void scheduleRecurringVoipNotification(Account account, Device device) {
+  /**
+   * Schedule a recurring VOIP notification until {@link this#cancelScheduledNotifications} is called or the device is
+   * removed
+   *
+   * @return A CompletionStage that completes when the recurring notification has successfully been scheduled
+   */
+  public CompletionStage<Void> scheduleRecurringVoipNotification(Account account, Device device) {
     sent.increment();
-    insertRecurringVoipNotificationEntry(account, device, clock.millis() + (15 * 1000), (15 * 1000));
+    return insertRecurringVoipNotificationEntry(account, device, clock.millis() + (15 * 1000), (15 * 1000));
   }
 
-  void scheduleBackgroundNotification(final Account account, final Device device) {
+  /**
+   * Schedule a background notification to be sent some time in the future
+   *
+   * @return A CompletionStage that completes when the notification has successfully been scheduled
+   */
+  public CompletionStage<Void> scheduleBackgroundNotification(final Account account, final Device device) {
     backgroundNotificationScheduledCounter.increment();
 
-    scheduleBackgroundNotificationScript.execute(
+    return scheduleBackgroundNotificationScript.executeAsync(
         List.of(
             getLastBackgroundNotificationTimestampKey(account, device),
             getPendingBackgroundNotificationQueueKey(account, device)),
         List.of(
             getPairString(account, device),
             String.valueOf(clock.millis()),
-            String.valueOf(BACKGROUND_NOTIFICATION_PERIOD.toMillis())));
+            String.valueOf(BACKGROUND_NOTIFICATION_PERIOD.toMillis())))
+        .thenAccept(dropValue());
   }
 
-  public void cancelScheduledNotifications(Account account, Device device) {
-    if (removeRecurringVoipNotificationEntry(account, device)) {
-      delivered.increment();
-    }
-
-    pushSchedulingCluster.useCluster(connection ->
-        connection.sync().zrem(getPendingBackgroundNotificationQueueKey(account, device), getPairString(account, device)));
+  /**
+   * Cancel a scheduled recurring VOIP notification
+   *
+   * @return A CompletionStage that completes when the scheduled task has been cancelled.
+   */
+  public CompletionStage<Void> cancelScheduledNotifications(Account account, Device device) {
+    return removeRecurringVoipNotificationEntry(account, device)
+        .thenCompose(removed -> {
+          if (removed) {
+            delivered.increment();
+          }
+          return pushSchedulingCluster.withCluster(connection ->
+              connection.async().zrem(
+                  getPendingBackgroundNotificationQueueKey(account, device),
+                  getPairString(account, device)));
+        })
+        .thenAccept(dropValue());
   }
 
   @Override
@@ -238,15 +265,14 @@ public class ApnPushNotificationScheduler implements Managed {
     String apnId = device.getVoipApnId();
 
     if (apnId == null) {
-      removeRecurringVoipNotificationEntry(account, device);
+      removeRecurringVoipNotificationEntrySync(getEndpointKey(account, device));
       return;
     }
 
     long deviceLastSeen = device.getLastSeen();
-
     if (deviceLastSeen < clock.millis() - TimeUnit.DAYS.toMillis(7)) {
       evicted.increment();
-      removeRecurringVoipNotificationEntry(account, device);
+      removeRecurringVoipNotificationEntrySync(getEndpointKey(account, device));
       return;
     }
 
@@ -316,14 +342,28 @@ public class ApnPushNotificationScheduler implements Managed {
     }
   }
 
-  private boolean removeRecurringVoipNotificationEntry(Account account, Device device) {
+  private boolean removeRecurringVoipNotificationEntrySync(final String endpoint) {
+    try {
+      return removeRecurringVoipNotificationEntry(endpoint).toCompletableFuture().get();
+    } catch (ExecutionException e) {
+      if (e.getCause() instanceof RedisException re) {
+        throw re;
+      }
+      throw new RuntimeException(e);
+    } catch (InterruptedException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  private CompletionStage<Boolean> removeRecurringVoipNotificationEntry(Account account, Device device) {
     return removeRecurringVoipNotificationEntry(getEndpointKey(account, device));
   }
 
-  private boolean removeRecurringVoipNotificationEntry(final String endpoint) {
-    return (long) removePendingVoipDestinationScript.execute(
+  private CompletionStage<Boolean> removeRecurringVoipNotificationEntry(final String endpoint) {
+    return removePendingVoipDestinationScript.executeAsync(
         List.of(getPendingRecurringVoipNotificationQueueKey(endpoint), endpoint),
-        Collections.emptyList()) > 0;
+        Collections.emptyList())
+        .thenApply(result -> ((long) result) > 0);
   }
 
   @SuppressWarnings("unchecked")
@@ -334,15 +374,16 @@ public class ApnPushNotificationScheduler implements Managed {
         List.of(String.valueOf(clock.millis()), String.valueOf(limit)));
   }
 
-  private void insertRecurringVoipNotificationEntry(final Account account, final Device device, final long timestamp, final long interval) {
+  private CompletionStage<Void> insertRecurringVoipNotificationEntry(final Account account, final Device device, final long timestamp, final long interval) {
     final String endpoint = getEndpointKey(account, device);
 
-    insertPendingVoipDestinationScript.execute(
+    return insertPendingVoipDestinationScript.executeAsync(
         List.of(getPendingRecurringVoipNotificationQueueKey(endpoint), endpoint),
         List.of(String.valueOf(timestamp),
             String.valueOf(interval),
             account.getUuid().toString(),
-            String.valueOf(device.getId())));
+            String.valueOf(device.getId())))
+        .thenAccept(dropValue());
   }
 
   @VisibleForTesting
@@ -386,5 +427,9 @@ public class ApnPushNotificationScheduler implements Managed {
                 connection.sync().zscore(getPendingBackgroundNotificationQueueKey(account, device),
                     getPairString(account, device))))
         .map(timestamp -> Instant.ofEpochMilli(timestamp.longValue()));
+  }
+
+  private static <T> Consumer<T> dropValue() {
+    return ignored -> {};
   }
 }

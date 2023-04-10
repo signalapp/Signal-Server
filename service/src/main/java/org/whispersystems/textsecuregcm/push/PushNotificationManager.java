@@ -10,6 +10,7 @@ import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
+import java.util.function.BiConsumer;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,7 +35,7 @@ public class PushNotificationManager {
   private static final String SENT_NOTIFICATION_COUNTER_NAME = name(PushNotificationManager.class, "sentPushNotification");
   private static final String FAILED_NOTIFICATION_COUNTER_NAME = name(PushNotificationManager.class, "failedPushNotification");
 
-  private final Logger logger = LoggerFactory.getLogger(PushNotificationManager.class);
+  private static final Logger logger = LoggerFactory.getLogger(PushNotificationManager.class);
 
   public PushNotificationManager(final AccountsManager accountsManager,
       final APNSender apnSender,
@@ -79,7 +80,7 @@ public class PushNotificationManager {
 
   public void handleMessagesRetrieved(final Account account, final Device device, final String userAgent) {
     RedisOperation.unchecked(() -> pushLatencyManager.recordQueueRead(account.getUuid(), device.getId(), userAgent));
-    RedisOperation.unchecked(() -> apnPushNotificationScheduler.cancelScheduledNotifications(account, device));
+    apnPushNotificationScheduler.cancelScheduledNotifications(account, device).whenComplete(logErrors());
   }
 
   @VisibleForTesting
@@ -104,8 +105,10 @@ public class PushNotificationManager {
     if (pushNotification.tokenType() == PushNotification.TokenType.APN && !pushNotification.urgent()) {
       // APNs imposes a per-device limit on background push notifications; schedule a notification for some time in the
       // future (possibly even now!) rather than sending a notification directly
-      apnPushNotificationScheduler.scheduleBackgroundNotification(pushNotification.destination(),
-          pushNotification.destinationDevice());
+      apnPushNotificationScheduler
+          .scheduleBackgroundNotification(pushNotification.destination(), pushNotification.destinationDevice())
+          .whenComplete(logErrors());
+
     } else {
       final PushNotificationSender sender = switch (pushNotification.tokenType()) {
         case FCM -> fcmSender;
@@ -137,9 +140,10 @@ public class PushNotificationManager {
               pushNotification.destination() != null &&
               pushNotification.destinationDevice() != null) {
 
-            RedisOperation.unchecked(
-                () -> apnPushNotificationScheduler.scheduleRecurringVoipNotification(pushNotification.destination(),
-                    pushNotification.destinationDevice()));
+            apnPushNotificationScheduler.scheduleRecurringVoipNotification(
+                    pushNotification.destination(),
+                    pushNotification.destinationDevice())
+                .whenComplete(logErrors());
           }
         } else {
           logger.debug("Failed to deliver {} push notification to {} ({})",
@@ -152,6 +156,14 @@ public class PushNotificationManager {
     }
   }
 
+  private static <T> BiConsumer<T, Throwable> logErrors() {
+    return (ignored, throwable) -> {
+      if (throwable != null) {
+        logger.warn("Failed push scheduling operation", throwable);
+      }
+    };
+  }
+
   private void handleDeviceUnregistered(final Account account, final Device device) {
     if (StringUtils.isNotBlank(device.getGcmId())) {
       if (device.getUninstalledFeedbackTimestamp() == 0) {
@@ -159,7 +171,7 @@ public class PushNotificationManager {
             d.setUninstalledFeedbackTimestamp(Util.todayInMillis()));
       }
     } else {
-      RedisOperation.unchecked(() -> apnPushNotificationScheduler.cancelScheduledNotifications(account, device));
+      apnPushNotificationScheduler.cancelScheduledNotifications(account, device).whenComplete(logErrors());
     }
   }
 }
