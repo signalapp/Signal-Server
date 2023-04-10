@@ -79,8 +79,6 @@ dynamoDbTables:
     tableName: Example_RemoteConfig
   reportMessage:
     tableName: Example_ReportMessage
-  reservedUsernames:
-    tableName: Example_ReservedUsernames
   subscriptions:
     tableName: Example_Subscriptions
   verificationSessions:

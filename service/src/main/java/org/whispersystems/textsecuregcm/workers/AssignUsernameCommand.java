@@ -50,7 +50,6 @@ import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.Profiles;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
-import org.whispersystems.textsecuregcm.storage.ProhibitedUsernames;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswords;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageDynamoDb;
@@ -176,8 +175,6 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
         configuration.getDynamoDbTables().getPhoneNumberIdentifiers().getTableName());
     Profiles profiles = new Profiles(dynamoDbClient, dynamoDbAsyncClient,
         configuration.getDynamoDbTables().getProfiles().getTableName());
-    ProhibitedUsernames prohibitedUsernames = new ProhibitedUsernames(dynamoDbClient,
-        configuration.getDynamoDbTables().getReservedUsernames().getTableName());
     Keys keys = new Keys(dynamoDbClient,
         configuration.getDynamoDbTables().getKeys().getTableName());
     MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(dynamoDbClient, dynamoDbAsyncClient,

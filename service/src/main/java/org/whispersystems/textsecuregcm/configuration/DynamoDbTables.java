@@ -61,7 +61,6 @@ public class DynamoDbTables {
   private final TableWithExpiration registrationRecovery;
   private final Table remoteConfig;
   private final Table reportMessage;
-  private final Table reservedUsernames;
   private final Table subscriptions;
   private final Table verificationSessions;
 
@@ -81,7 +80,6 @@ public class DynamoDbTables {
       @JsonProperty("registrationRecovery") final TableWithExpiration registrationRecovery,
       @JsonProperty("remoteConfig") final Table remoteConfig,
       @JsonProperty("reportMessage") final Table reportMessage,
-      @JsonProperty("reservedUsernames") final Table reservedUsernames,
       @JsonProperty("subscriptions") final Table subscriptions,
       @JsonProperty("verificationSessions") final Table verificationSessions) {
 
@@ -100,7 +98,6 @@ public class DynamoDbTables {
     this.registrationRecovery = registrationRecovery;
     this.remoteConfig = remoteConfig;
     this.reportMessage = reportMessage;
-    this.reservedUsernames = reservedUsernames;
     this.subscriptions = subscriptions;
     this.verificationSessions = verificationSessions;
   }
@@ -193,12 +190,6 @@ public class DynamoDbTables {
   @Valid
   public Table getReportMessage() {
     return reportMessage;
-  }
-
-  @NotNull
-  @Valid
-  public Table getReservedUsernames() {
-    return reservedUsernames;
   }
 
   @NotNull

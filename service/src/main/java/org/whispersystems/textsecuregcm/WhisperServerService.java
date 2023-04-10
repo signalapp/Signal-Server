@@ -229,7 +229,6 @@ import org.whispersystems.textsecuregcm.workers.AssignUsernameCommand;
 import org.whispersystems.textsecuregcm.workers.CertificateCommand;
 import org.whispersystems.textsecuregcm.workers.CheckDynamicConfigurationCommand;
 import org.whispersystems.textsecuregcm.workers.DeleteUserCommand;
-import org.whispersystems.textsecuregcm.workers.ReserveUsernameCommand;
 import org.whispersystems.textsecuregcm.workers.ServerVersionCommand;
 import org.whispersystems.textsecuregcm.workers.SetCrawlerAccelerationTask;
 import org.whispersystems.textsecuregcm.workers.SetRequestLoggingEnabledTask;
@@ -259,7 +258,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     bootstrap.addCommand(new ServerVersionCommand());
     bootstrap.addCommand(new CheckDynamicConfigurationCommand());
     bootstrap.addCommand(new SetUserDiscoverabilityCommand());
-    bootstrap.addCommand(new ReserveUsernameCommand());
     bootstrap.addCommand(new AssignUsernameCommand());
     bootstrap.addCommand(new UnlinkDeviceCommand());
   }
