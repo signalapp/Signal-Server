@@ -555,6 +555,26 @@ paths:
                 $ref: '#/components/schemas/AttachmentDescriptorV3'
       security:
       - authenticatedAccount: []
+  /v1/call-link/auth:
+    get:
+      tags:
+      - CallLink
+      summary: Generate credentials for calling frontend
+      description: |
+        These credentials enable clients to prove to calling frontend that they were a Signal user within the last day.
+        For client privacy, timestamps are truncated to 1 day granularity and the token does not include or derive from an ACI.
+      operationId: getAuth_1
+      responses:
+        "200":
+          description: '`JSON` with generated credentials.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExternalServiceCredentials'
+        "401":
+          description: Account authentication check failed.
+      security:
+      - authenticatedAccount: []
   /v1/certificate/group/{startRedemptionTime}/{endRedemptionTime}:
     get:
       tags:
@@ -1258,7 +1278,7 @@ paths:
     get:
       tags:
       - Payments
-      operationId: getAuth_1
+      operationId: getAuth_2
       responses:
         default:
           description: default response
@@ -1580,7 +1600,7 @@ paths:
       description: |
         Generate SVR service credentials. Generated credentials have an expiration time of 30 days
         (however, the TTL is fully controlled by the server side and may change even for already generated credentials).
-      operationId: getAuth_2
+      operationId: getAuth_3
       responses:
         "200":
           description: '`JSON` with generated credentials.'
@@ -1596,7 +1616,7 @@ paths:
     get:
       tags:
       - Secure Storage
-      operationId: getAuth_3
+      operationId: getAuth_4
       responses:
         default:
           description: default response
@@ -1614,7 +1634,7 @@ paths:
       description: |
         Generate SVR2 service credentials. Generated credentials have an expiration time of 30 days
         (however, the TTL is fully controlled by the server side and may change even for already generated credentials).
-      operationId: getAuth_4
+      operationId: getAuth_5
       responses:
         "200":
           description: '`JSON` with generated credentials.'
@@ -2859,11 +2879,11 @@ components:
       properties:
         open:
           type: boolean
-        userAgent:
-          type: string
         createdTimestamp:
           type: integer
           format: int64
+        userAgent:
+          type: string
     WebSocketSessionContext:
       type: object
       properties:
