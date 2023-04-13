@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonUnwrapped;
+import com.google.common.annotations.VisibleForTesting;
 import javax.validation.Valid;
 import javax.validation.constraints.NotBlank;
 import org.whispersystems.textsecuregcm.util.E164;
@@ -23,6 +24,15 @@ public final class CreateVerificationSessionRequest {
   @Valid
   @JsonUnwrapped
   private UpdateVerificationSessionRequest updateVerificationSessionRequest;
+
+  public CreateVerificationSessionRequest() {
+  }
+
+  @VisibleForTesting
+  public CreateVerificationSessionRequest(final String number, final UpdateVerificationSessionRequest updateVerificationSessionRequest) {
+    this.number = number;
+    this.updateVerificationSessionRequest = updateVerificationSessionRequest;
+  }
 
   public String getNumber() {
     return number;
