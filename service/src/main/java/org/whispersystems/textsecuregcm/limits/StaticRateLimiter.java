@@ -9,16 +9,20 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 
 import com.google.common.annotations.VisibleForTesting;
+import io.lettuce.core.RedisException;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
+import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.Util;
 
 public class StaticRateLimiter implements RateLimiter {
@@ -28,6 +32,7 @@ public class StaticRateLimiter implements RateLimiter {
   private final RateLimiterConfig config;
 
   private final Counter counter;
+  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
 
   private final ClusterLuaScript validateScript;
 
@@ -41,23 +46,31 @@ public class StaticRateLimiter implements RateLimiter {
       final RateLimiterConfig config,
       final ClusterLuaScript validateScript,
       final FaultTolerantRedisCluster cacheCluster,
-      final Clock clock) {
+      final Clock clock,
+      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
     this.name = requireNonNull(name);
     this.config = requireNonNull(config);
     this.validateScript = requireNonNull(validateScript);
     this.cacheCluster = requireNonNull(cacheCluster);
     this.clock = requireNonNull(clock);
     this.counter = Metrics.counter(MetricsUtil.name(getClass(), "exceeded"), "name", name);
+    this.dynamicConfigurationManager = dynamicConfigurationManager;
   }
 
   @Override
   public void validate(final String key, final int amount) throws RateLimitExceededException {
-    final long deficitPermitsAmount = executeValidateScript(key, amount, true);
-    if (deficitPermitsAmount > 0) {
-      counter.increment();
-      final Duration retryAfter = Duration.ofMillis(
-          (long) Math.ceil((double) deficitPermitsAmount / config.leakRatePerMillis()));
-      throw new RateLimitExceededException(retryAfter, true);
+    try {
+      final long deficitPermitsAmount = executeValidateScript(key, amount, true);
+      if (deficitPermitsAmount > 0) {
+        counter.increment();
+        final Duration retryAfter = Duration.ofMillis(
+            (long) Math.ceil((double) deficitPermitsAmount / config.leakRatePerMillis()));
+        throw new RateLimitExceededException(retryAfter, true);
+      }
+    } catch (RedisException e) {
+      if (!failOpen()) {
+        throw e;
+      }
     }
   }
 
@@ -66,25 +79,45 @@ public class StaticRateLimiter implements RateLimiter {
     return executeValidateScriptAsync(key, amount, true)
         .thenCompose(deficitPermitsAmount -> {
           if (deficitPermitsAmount == 0) {
-            return completedFuture(null);
+            return completedFuture((Void) null);
           }
           counter.increment();
           final Duration retryAfter = Duration.ofMillis(
               (long) Math.ceil((double) deficitPermitsAmount / config.leakRatePerMillis()));
           return failedFuture(new RateLimitExceededException(retryAfter, true));
+        })
+        .exceptionally(throwable -> {
+          if (ExceptionUtils.unwrap(throwable) instanceof RedisException && failOpen()) {
+            return null;
+          }
+          throw ExceptionUtils.wrap(throwable);
         });
   }
 
   @Override
   public boolean hasAvailablePermits(final String key, final int amount) {
-    final long deficitPermitsAmount = executeValidateScript(key, amount, false);
-    return deficitPermitsAmount == 0;
+    try {
+      final long deficitPermitsAmount = executeValidateScript(key, amount, false);
+      return deficitPermitsAmount == 0;
+    } catch (RedisException e) {
+      if (failOpen()) {
+        return true;
+      } else {
+        throw e;
+      }
+    }
   }
 
   @Override
   public CompletionStage<Boolean> hasAvailablePermitsAsync(final String key, final int amount) {
     return executeValidateScriptAsync(key, amount, false)
-        .thenApply(deficitPermitsAmount -> deficitPermitsAmount == 0);
+        .thenApply(deficitPermitsAmount -> deficitPermitsAmount == 0)
+        .exceptionally(throwable -> {
+          if (ExceptionUtils.unwrap(throwable) instanceof RedisException && failOpen()) {
+            return true;
+          }
+          throw ExceptionUtils.wrap(throwable);
+        });
   }
 
   @Override
@@ -101,6 +134,10 @@ public class StaticRateLimiter implements RateLimiter {
   @Override
   public RateLimiterConfig config() {
     return config;
+  }
+
+  private boolean failOpen() {
+    return this.dynamicConfigurationManager.getConfiguration().getRateLimitPolicy().failOpen();
   }
 
   private long executeValidateScript(final String key, final int amount, final boolean applyChanges) {

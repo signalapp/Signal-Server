@@ -62,6 +62,11 @@ public class DynamicConfiguration {
   @Valid
   DynamicPushNotificationConfiguration pushNotifications = new DynamicPushNotificationConfiguration();
 
+
+  @JsonProperty
+  @Valid
+  DynamicRateLimitPolicy rateLimitPolicy = new DynamicRateLimitPolicy(false);
+
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(
       final String experimentName) {
     return Optional.ofNullable(experiments.get(experimentName));
@@ -110,5 +115,9 @@ public class DynamicConfiguration {
 
   public DynamicPushNotificationConfiguration getPushNotificationConfiguration() {
     return pushNotifications;
+  }
+
+  public DynamicRateLimitPolicy getRateLimitPolicy() {
+    return rateLimitPolicy;
   }
 }

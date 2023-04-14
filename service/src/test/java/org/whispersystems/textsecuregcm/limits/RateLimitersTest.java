@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.limits;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -18,6 +19,7 @@ import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicRateLimitPolicy;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
@@ -56,9 +58,13 @@ public class RateLimitersTest {
         attachmentCreate:
           bucketSize: 4
           leakRatePerMinute: 2
+      rateLimitPolicy:
+        failOpen: true
       """;
 
-  public record GenericHolder(@Valid @NotNull @JsonProperty Map<String, RateLimiterConfig> limits) {
+  public record GenericHolder(
+      @Valid @NotNull @JsonProperty Map<String, RateLimiterConfig> limits,
+      @Valid @JsonProperty DynamicRateLimitPolicy rateLimitPolicy) {
   }
 
   @Test
@@ -70,6 +76,7 @@ public class RateLimitersTest {
     });
 
     final GenericHolder cfg = DynamicConfigurationManager.parseConfiguration(GOOD_YAML, GenericHolder.class).orElseThrow();
+    assertTrue(cfg.rateLimitPolicy.failOpen());
     final RateLimiters rateLimiters = new RateLimiters(cfg.limits(), dynamicConfig, validateScript, redisCluster, clock);
     rateLimiters.validateValuesAndConfigs();
   }

@@ -8,10 +8,12 @@ package org.whispersystems.textsecuregcm.limits;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import io.lettuce.core.RedisException;
 import io.lettuce.core.ScriptOutputType;
 import java.time.Clock;
 import java.util.List;
@@ -20,6 +22,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicRateLimitPolicy;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
@@ -157,6 +160,22 @@ public class RateLimitersLuaScriptTest {
     );
     assertEquals(0L, result);
     assertEquals(750L, decodeBucket(key).orElseThrow().tokensRemaining);
+  }
+
+  @Test
+  public void testFailOpen() throws Exception {
+    when(configuration.getRateLimitPolicy()).thenReturn(new DynamicRateLimitPolicy(true));
+    final RateLimiters.For descriptor = RateLimiters.For.REGISTRATION;
+    final FaultTolerantRedisCluster redisCluster = mock(FaultTolerantRedisCluster.class);
+    final RateLimiters limiters = new RateLimiters(
+        Map.of(descriptor.id(), new RateLimiterConfig(1000, 60)),
+        dynamicConfig,
+        RateLimiters.defaultScript(redisCluster),
+        redisCluster,
+        Clock.systemUTC());
+    when(redisCluster.withCluster(any())).thenThrow(new RedisException("fail"));
+    final RateLimiter rateLimiter = limiters.forDescriptor(descriptor);
+    rateLimiter.validate("test", 200);
   }
 
   private String serializeToOldBucketValueFormat(

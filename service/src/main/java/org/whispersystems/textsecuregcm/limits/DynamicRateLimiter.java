@@ -12,14 +12,16 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.apache.commons.lang3.tuple.Pair;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 
 public class DynamicRateLimiter implements RateLimiter {
 
   private final String name;
-
+  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private final Supplier<RateLimiterConfig> configResolver;
 
   private final ClusterLuaScript validateScript;
@@ -33,11 +35,13 @@ public class DynamicRateLimiter implements RateLimiter {
 
   public DynamicRateLimiter(
       final String name,
+      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
       final Supplier<RateLimiterConfig> configResolver,
       final ClusterLuaScript validateScript,
       final FaultTolerantRedisCluster cluster,
       final Clock clock) {
     this.name = requireNonNull(name);
+    this.dynamicConfigurationManager = dynamicConfigurationManager;
     this.configResolver = requireNonNull(configResolver);
     this.validateScript = requireNonNull(validateScript);
     this.cluster = requireNonNull(cluster);
@@ -83,7 +87,7 @@ public class DynamicRateLimiter implements RateLimiter {
     final RateLimiterConfig cfg = configResolver.get();
     return currentHolder.updateAndGet(p -> p != null && p.getLeft().equals(cfg)
         ? p
-        : Pair.of(cfg, new StaticRateLimiter(name, cfg, validateScript, cluster, clock))
+        : Pair.of(cfg, new StaticRateLimiter(name, cfg, validateScript, cluster, clock, dynamicConfigurationManager))
     );
   }
 }
