@@ -5,9 +5,6 @@
 
 package org.whispersystems.textsecuregcm.tests.controllers;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
-import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -35,8 +32,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.zkgroup.ServerSecretParams;
-import org.signal.libsignal.zkgroup.VerificationFailedException;
-import org.signal.libsignal.zkgroup.auth.AuthCredentialResponse;
 import org.signal.libsignal.zkgroup.auth.AuthCredentialWithPniResponse;
 import org.signal.libsignal.zkgroup.auth.ClientZkAuthOperations;
 import org.signal.libsignal.zkgroup.auth.ServerZkAuthOperations;
@@ -51,7 +46,6 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos.SenderCertificate
 import org.whispersystems.textsecuregcm.entities.MessageProtos.ServerCertificate;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
-import org.whispersystems.textsecuregcm.util.Util;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class CertificateControllerTest {
@@ -223,102 +217,6 @@ class CertificateControllerTest {
   }
 
   @Test
-  void testGetSingleAuthCredential() {
-    GroupCredentials credentials = resources.getJerseyTest()
-        .target("/v1/certificate/group/" + currentDaysSinceEpoch() + "/" + currentDaysSinceEpoch())
-        .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .get(GroupCredentials.class);
-
-    assertThat(credentials.credentials().size()).isEqualTo(1);
-    assertThat(credentials.credentials().get(0).redemptionTime()).isEqualTo(currentDaysSinceEpoch());
-
-    ClientZkAuthOperations clientZkAuthOperations = new ClientZkAuthOperations(serverSecretParams.getPublicParams());
-
-    assertThatCode(() ->
-        clientZkAuthOperations.receiveAuthCredential(AuthHelper.VALID_UUID, currentDaysSinceEpoch(),
-            new AuthCredentialResponse(credentials.credentials().get(0).credential())))
-        .doesNotThrowAnyException();
-  }
-
-  @Test
-  void testGetSingleAuthCredentialByPni() {
-    GroupCredentials credentials = resources.getJerseyTest()
-        .target("/v1/certificate/group/" + currentDaysSinceEpoch() + "/" + currentDaysSinceEpoch())
-        .queryParam("identity", "pni")
-        .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .get(GroupCredentials.class);
-
-    assertThat(credentials.credentials().size()).isEqualTo(1);
-    assertThat(credentials.credentials().get(0).redemptionTime()).isEqualTo(currentDaysSinceEpoch());
-
-    ClientZkAuthOperations clientZkAuthOperations = new ClientZkAuthOperations(serverSecretParams.getPublicParams());
-
-    assertThatExceptionOfType(VerificationFailedException.class)
-        .isThrownBy(() ->
-            clientZkAuthOperations.receiveAuthCredential(AuthHelper.VALID_UUID, currentDaysSinceEpoch(),
-                new AuthCredentialResponse(credentials.credentials().get(0).credential())));
-  }
-
-  @Test
-  void testGetWeekLongAuthCredentials() {
-    GroupCredentials credentials = resources.getJerseyTest()
-        .target("/v1/certificate/group/" + currentDaysSinceEpoch() + "/" + (currentDaysSinceEpoch() + 7))
-        .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .get(GroupCredentials.class);
-
-    assertThat(credentials.credentials().size()).isEqualTo(8);
-
-    for (int i = 0; i <= 7; i++) {
-      assertThat(credentials.credentials().get(i).redemptionTime()).isEqualTo(currentDaysSinceEpoch() + i);
-
-      ClientZkAuthOperations clientZkAuthOperations = new ClientZkAuthOperations(serverSecretParams.getPublicParams());
-
-      final int time = i;
-
-      assertThatCode(() ->
-          clientZkAuthOperations.receiveAuthCredential(AuthHelper.VALID_UUID, currentDaysSinceEpoch() + time,
-              new AuthCredentialResponse(credentials.credentials().get(time).credential())))
-          .doesNotThrowAnyException();
-    }
-  }
-
-  @Test
-  void testTooManyDaysOut() {
-    Response response = resources.getJerseyTest()
-        .target("/v1/certificate/group/" + currentDaysSinceEpoch() + "/" + (currentDaysSinceEpoch() + 8))
-        .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .get();
-
-    assertThat(response.getStatus()).isEqualTo(400);
-  }
-
-  @Test
-  void testBackwardsInTime() {
-    Response response = resources.getJerseyTest()
-        .target("/v1/certificate/group/" + (currentDaysSinceEpoch() - 1) + "/" + (currentDaysSinceEpoch() + 7))
-        .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .get();
-
-    assertThat(response.getStatus()).isEqualTo(400);
-  }
-
-  @Test
-  void testBadAuth() {
-    Response response = resources.getJerseyTest()
-        .target("/v1/certificate/group/" + currentDaysSinceEpoch() + "/" + (currentDaysSinceEpoch() + 7))
-        .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.INVALID_PASSWORD))
-        .get();
-
-    assertThat(response.getStatus()).isEqualTo(401);
-  }
-
-  @Test
   void testGetSingleGroupCredential() {
     final Instant startOfDay = clock.instant().truncatedTo(ChronoUnit.DAYS);
 
@@ -412,9 +310,5 @@ class CertificateControllerTest {
         // End is not at a day boundary
         Arguments.of(clock.instant(), clock.instant().plusSeconds(17))
     );
-  }
-
-  private static int currentDaysSinceEpoch() {
-    return Util.currentDaysSinceEpoch(Clock.systemUTC());
   }
 }

@@ -18,17 +18,14 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.UUID;
 import javax.annotation.Nonnull;
 import javax.ws.rs.BadRequestException;
 import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
@@ -81,42 +78,6 @@ public class CertificateController {
 
     return new DeliveryCertificate(
         certificateGenerator.createFor(auth.getAccount(), auth.getAuthenticatedDevice(), includeE164));
-  }
-
-  @Timed
-  @GET
-  @Produces(MediaType.APPLICATION_JSON)
-  @Path("/group/{startRedemptionTime}/{endRedemptionTime}")
-  @Deprecated(forRemoval = true) // Clients should now use getGroupAuthenticationCredentials instead
-  // TODO Assess readiness for removal on or after 2022-11-01
-  public GroupCredentials getAuthenticationCredentials(@Auth AuthenticatedAccount auth,
-      @PathParam("startRedemptionTime") int startRedemptionTime,
-      @PathParam("endRedemptionTime") int endRedemptionTime,
-      @QueryParam("identity") Optional<String> identityType) {
-    if (startRedemptionTime > endRedemptionTime) {
-      throw new WebApplicationException(Response.Status.BAD_REQUEST);
-    }
-    final int currentDaysSinceEpoch = Util.currentDaysSinceEpoch(clock);
-    if (endRedemptionTime > currentDaysSinceEpoch + 7) {
-      throw new WebApplicationException(Response.Status.BAD_REQUEST);
-    }
-    if (startRedemptionTime < currentDaysSinceEpoch) {
-      throw new WebApplicationException(Response.Status.BAD_REQUEST);
-    }
-
-    List<GroupCredentials.GroupCredential> credentials = new LinkedList<>();
-
-    final UUID identifier = identityType.map(String::toLowerCase).orElse("aci").equals("pni") ?
-        auth.getAccount().getPhoneNumberIdentifier() :
-        auth.getAccount().getUuid();
-
-    for (int i = startRedemptionTime; i <= endRedemptionTime; i++) {
-      credentials.add(new GroupCredentials.GroupCredential(
-          serverZkAuthOperations.issueAuthCredential(identifier, i).serialize(),
-          i));
-    }
-
-    return new GroupCredentials(credentials, null);
   }
 
   @Timed
