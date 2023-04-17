@@ -151,6 +151,8 @@ class PushNotificationManagerTest {
       when(device.getApnId()).thenReturn(deviceToken);
       when(apnSender.sendNotification(any()))
           .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(true, null, false)));
+      when(apnPushNotificationScheduler.scheduleBackgroundNotification(account, device))
+          .thenReturn(CompletableFuture.completedFuture(null));
     } else {
       when(device.getGcmId()).thenReturn(deviceToken);
       when(fcmSender.sendNotification(any()))
