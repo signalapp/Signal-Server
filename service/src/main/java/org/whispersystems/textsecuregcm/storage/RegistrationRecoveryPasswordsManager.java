@@ -14,6 +14,7 @@ import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
+import software.amazon.awssdk.services.dynamodb.model.ResourceNotFoundException;
 
 public class RegistrationRecoveryPasswordsManager {
 
@@ -53,7 +54,10 @@ public class RegistrationRecoveryPasswordsManager {
     // there is no action to be taken on its completion
     return registrationRecoveryPasswords.removeEntry(number)
         .whenComplete((ignored, error) -> {
-          if (error != null) {
+          if (error instanceof ResourceNotFoundException) {
+            // These will naturally happen if a recovery password is already deleted. Since we can remove
+            // the recovery password through many flows, we avoid creating log messages for these exceptions
+          } else if (error != null) {
             logger.warn("Failed to remove Registration Recovery Password", error);
           }
         });

@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -135,6 +136,38 @@ class PushNotificationManagerTest {
 
     pushNotificationManager.sendRateLimitChallengeNotification(account, challengeToken);
     verify(apnSender).sendNotification(new PushNotification(deviceToken, PushNotification.TokenType.APN, PushNotification.NotificationType.RATE_LIMIT_CHALLENGE, challengeToken, account, device, true));
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void sendAttemptLoginNotification(final boolean isApn) throws NotPushRegisteredException {
+    final Account account = mock(Account.class);
+    final Device device = mock(Device.class);
+
+    final String deviceToken = "token";
+
+    when(device.getId()).thenReturn(Device.MASTER_ID);
+    if (isApn) {
+      when(device.getApnId()).thenReturn(deviceToken);
+      when(apnSender.sendNotification(any()))
+          .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(true, null, false)));
+    } else {
+      when(device.getGcmId()).thenReturn(deviceToken);
+      when(fcmSender.sendNotification(any()))
+          .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(true, null, false)));
+    }
+    when(account.getDevice(Device.MASTER_ID)).thenReturn(Optional.of(device));
+
+    pushNotificationManager.sendAttemptLoginNotification(account, "someContext");
+
+    if (isApn){
+      verify(apnSender).sendNotification(new PushNotification(deviceToken, PushNotification.TokenType.APN,
+          PushNotification.NotificationType.ATTEMPT_LOGIN_NOTIFICATION_HIGH_PRIORITY, "someContext", account, device, true));
+      verify(apnPushNotificationScheduler).scheduleBackgroundNotification(account, device);
+    } else {
+      verify(fcmSender, times(1)).sendNotification(new PushNotification(deviceToken, PushNotification.TokenType.FCM,
+          PushNotification.NotificationType.ATTEMPT_LOGIN_NOTIFICATION_HIGH_PRIORITY, "someContext", account, device, true));
+    }
   }
 
   @ParameterizedTest

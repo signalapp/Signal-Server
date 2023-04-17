@@ -89,6 +89,7 @@ public class FcmSender implements PushNotificationSender {
 
     final String key = switch (pushNotification.notificationType()) {
       case NOTIFICATION -> "notification";
+      case ATTEMPT_LOGIN_NOTIFICATION_HIGH_PRIORITY, ATTEMPT_LOGIN_NOTIFICATION_LOW_PRIORITY -> "attemptLoginContext";
       case CHALLENGE -> "challenge";
       case RATE_LIMIT_CHALLENGE -> "rateLimitChallenge";
     };

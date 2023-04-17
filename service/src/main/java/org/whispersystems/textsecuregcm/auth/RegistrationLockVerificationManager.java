@@ -21,11 +21,16 @@ import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
+import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
+import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.util.Util;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 
 public class RegistrationLockVerificationManager {
   public enum Flow {
@@ -40,23 +45,31 @@ public class RegistrationLockVerificationManager {
       name(RegistrationLockVerificationManager.class, "expiredRegistrationLock");
   private static final String REQUIRED_REGISTRATION_LOCK_COUNTER_NAME =
       name(RegistrationLockVerificationManager.class, "requiredRegistrationLock");
+  private static final String CHALLENGED_DEVICE_NOT_PUSH_REGISTERED_COUNTER_NAME =
+      name(RegistrationLockVerificationManager.class, "challengedDeviceNotPushRegistered");
   private static final String ALREADY_LOCKED_TAG_NAME = "alreadyLocked";
   private static final String REGISTRATION_LOCK_VERIFICATION_FLOW_TAG_NAME = "flow";
   private static final String REGISTRATION_LOCK_MATCHES_TAG_NAME = "registrationLockMatches";
   private static final String PHONE_VERIFICATION_TYPE_TAG_NAME = "phoneVerificationType";
 
-
   private final AccountsManager accounts;
   private final ClientPresenceManager clientPresenceManager;
   private final ExternalServiceCredentialsGenerator backupServiceCredentialGenerator;
   private final RateLimiters rateLimiters;
+  private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
+  private final PushNotificationManager pushNotificationManager;
 
   public RegistrationLockVerificationManager(
       final AccountsManager accounts, final ClientPresenceManager clientPresenceManager,
-      final ExternalServiceCredentialsGenerator backupServiceCredentialGenerator, final RateLimiters rateLimiters) {
+      final ExternalServiceCredentialsGenerator backupServiceCredentialGenerator,
+      final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
+      final PushNotificationManager pushNotificationManager,
+      final RateLimiters rateLimiters) {
     this.accounts = accounts;
     this.clientPresenceManager = clientPresenceManager;
     this.backupServiceCredentialGenerator = backupServiceCredentialGenerator;
+    this.registrationRecoveryPasswordsManager = registrationRecoveryPasswordsManager;
+    this.pushNotificationManager = pushNotificationManager;
     this.rateLimiters = rateLimiters;
   }
 
@@ -125,20 +138,29 @@ public class RegistrationLockVerificationManager {
       // Freezing the existing account credentials will definitively start the reglock timeout.
       // Until the timeout, the current reglock can still be supplied,
       // along with phone number verification, to restore access.
-      /*
+      final ExternalServiceCredentials existingBackupCredentials =
+          backupServiceCredentialGenerator.generateForUuid(account.getUuid());
 
       final Account updatedAccount;
       if (!alreadyLocked) {
-        updatedAccount = accounts.update(existingAccount, Account::lockAuthenticationCredentials);
+        updatedAccount = accounts.update(account, Account::lockAuthTokenHash);
       } else {
-        updatedAccount = existingAccount;
+        updatedAccount = account;
       }
 
-      List<Long> deviceIds = updatedAccount.getDevices().stream().map(Device::getId).toList();
+      // This will often be a no-op, since the recovery password is deleted when there's a verified session.
+      // However, this covers the case where a user re-registers with SMS bypass and then forgets their PIN.
+      registrationRecoveryPasswordsManager.removeForNumber(updatedAccount.getNumber());
+
+      final List<Long> deviceIds = updatedAccount.getDevices().stream().map(Device::getId).toList();
       clientPresenceManager.disconnectAllPresences(updatedAccount.getUuid(), deviceIds);
-      */
-      final ExternalServiceCredentials existingBackupCredentials =
-          backupServiceCredentialGenerator.generateForUuid(account.getUuid());
+
+      try {
+        // Send a push notification that prompts the client to attempt login and fail due to locked credentials
+        pushNotificationManager.sendAttemptLoginNotification(updatedAccount, "failedRegistrationLock");
+      } catch (final NotPushRegisteredException e) {
+        Metrics.counter(CHALLENGED_DEVICE_NOT_PUSH_REGISTERED_COUNTER_NAME).increment();
+      }
 
       throw new WebApplicationException(Response.status(FAILURE_HTTP_STATUS)
           .entity(new RegistrationLockFailure(existingRegistrationLock.getTimeRemaining().toMillis(),

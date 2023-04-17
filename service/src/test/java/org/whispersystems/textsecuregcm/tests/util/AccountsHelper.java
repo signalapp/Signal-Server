@@ -132,6 +132,7 @@ public class AccountsHelper {
           case "getIdentityKey" -> when(updatedAccount.getIdentityKey()).thenAnswer(stubbing);
           case "getBadges" -> when(updatedAccount.getBadges()).thenAnswer(stubbing);
           case "getLastSeen" -> when(updatedAccount.getLastSeen()).thenAnswer(stubbing);
+          case "hasLockedCredentials" -> when(updatedAccount.hasLockedCredentials()).thenAnswer(stubbing);
           default -> throw new IllegalArgumentException("unsupported method: Account#" + stubbing.getInvocation().getMethod().getName());
         }
       }

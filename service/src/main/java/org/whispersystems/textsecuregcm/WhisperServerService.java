@@ -552,7 +552,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getDynamoDbTables().getSubscriptions().getTableName(), dynamoDbAsyncClient);
 
     final RegistrationLockVerificationManager registrationLockVerificationManager = new RegistrationLockVerificationManager(
-        accountsManager, clientPresenceManager, backupCredentialsGenerator, rateLimiters);
+        accountsManager, clientPresenceManager, backupCredentialsGenerator, registrationRecoveryPasswordsManager, pushNotificationManager, rateLimiters);
     final PhoneVerificationTokenManager phoneVerificationTokenManager = new PhoneVerificationTokenManager(
         registrationServiceClient, registrationRecoveryPasswordsManager);
 

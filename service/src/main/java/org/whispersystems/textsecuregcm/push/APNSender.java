@@ -96,6 +96,17 @@ public class APNSender implements Managed, PushNotificationSender {
         }
       }
 
+      case ATTEMPT_LOGIN_NOTIFICATION_HIGH_PRIORITY -> new SimpleApnsPayloadBuilder()
+          .setMutableContent(true)
+          .setLocalizedAlertMessage("APN_Message")
+          .addCustomProperty("attemptLoginContext", notification.data())
+          .build();
+
+      case ATTEMPT_LOGIN_NOTIFICATION_LOW_PRIORITY -> new SimpleApnsPayloadBuilder()
+          .setContentAvailable(true)
+          .addCustomProperty("attemptLoginContext", notification.data())
+          .build();
+
       case CHALLENGE -> new SimpleApnsPayloadBuilder()
           .setSound("default")
           .setLocalizedAlertMessage("APN_Message")

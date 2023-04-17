@@ -202,7 +202,8 @@ class AccountControllerTest {
       BACKUP_CFG);
 
   private static final RegistrationLockVerificationManager registrationLockVerificationManager = new RegistrationLockVerificationManager(
-      accountsManager, clientPresenceManager, backupCredentialsGenerator, rateLimiters);
+      accountsManager, clientPresenceManager, backupCredentialsGenerator, registrationRecoveryPasswordsManager,
+      pushNotificationManager, rateLimiters);
   private static final RegistrationCaptchaManager registrationCaptchaManager = new RegistrationCaptchaManager(
       captchaChecker, rateLimiters, Map.of(TEST_NUMBER, 123456), dynamicConfigurationManager);
 

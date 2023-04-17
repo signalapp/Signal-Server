@@ -78,6 +78,22 @@ public class PushNotificationManager {
         PushNotification.NotificationType.RATE_LIMIT_CHALLENGE, challengeToken, destination, device, true));
   }
 
+  public void sendAttemptLoginNotification(final Account destination, final String context) throws NotPushRegisteredException {
+    final Device device = destination.getDevice(Device.MASTER_ID).orElseThrow(NotPushRegisteredException::new);
+    final Pair<String, PushNotification.TokenType> tokenAndType = getToken(device);
+
+    sendNotification(new PushNotification(tokenAndType.first(), tokenAndType.second(),
+        PushNotification.NotificationType.ATTEMPT_LOGIN_NOTIFICATION_HIGH_PRIORITY,
+        context, destination, device, true));
+
+    // This is a workaround for older iOS clients who need a low priority push to trigger the logout notification
+    if (tokenAndType.second() == PushNotification.TokenType.APN) {
+      sendNotification(new PushNotification(tokenAndType.first(), tokenAndType.second(),
+          PushNotification.NotificationType.ATTEMPT_LOGIN_NOTIFICATION_LOW_PRIORITY,
+          context, destination, device, false));
+    }
+  }
+
   public void handleMessagesRetrieved(final Account account, final Device device, final String userAgent) {
     RedisOperation.unchecked(() -> pushLatencyManager.recordQueueRead(account.getUuid(), device.getId(), userAgent));
     apnPushNotificationScheduler.cancelScheduledNotifications(account, device).whenComplete(logErrors());

@@ -18,7 +18,11 @@ public record PushNotification(String deviceToken,
                                boolean urgent) {
 
   public enum NotificationType {
-    NOTIFICATION, CHALLENGE, RATE_LIMIT_CHALLENGE
+    NOTIFICATION,
+    ATTEMPT_LOGIN_NOTIFICATION_HIGH_PRIORITY,
+    @Deprecated ATTEMPT_LOGIN_NOTIFICATION_LOW_PRIORITY, // Temporary support for iOS clients; can be removed after 2023-06-12
+    CHALLENGE,
+    RATE_LIMIT_CHALLENGE
   }
 
   public enum TokenType {
