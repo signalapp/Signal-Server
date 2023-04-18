@@ -95,15 +95,15 @@ class AttachmentControllerTest {
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
             .get(AttachmentDescriptorV3.class);
 
-    assertThat(descriptor.getKey()).isNotBlank();
-    assertThat(descriptor.getCdn()).isEqualTo(2);
-    assertThat(descriptor.getHeaders()).hasSize(3);
-    assertThat(descriptor.getHeaders()).extractingByKey("host").isEqualTo("some-cdn.signal.org");
-    assertThat(descriptor.getHeaders()).extractingByKey("x-goog-resumable").isEqualTo("start");
-    assertThat(descriptor.getHeaders()).extractingByKey("x-goog-content-length-range").isEqualTo("1,1000");
-    assertThat(descriptor.getSignedUploadLocation()).isNotEmpty();
-    assertThat(descriptor.getSignedUploadLocation()).contains("X-Goog-Signature");
-    assertThat(descriptor.getSignedUploadLocation()).is(new Condition<>(x -> {
+    assertThat(descriptor.key()).isNotBlank();
+    assertThat(descriptor.cdn()).isEqualTo(2);
+    assertThat(descriptor.headers()).hasSize(3);
+    assertThat(descriptor.headers()).extractingByKey("host").isEqualTo("some-cdn.signal.org");
+    assertThat(descriptor.headers()).extractingByKey("x-goog-resumable").isEqualTo("start");
+    assertThat(descriptor.headers()).extractingByKey("x-goog-content-length-range").isEqualTo("1,1000");
+    assertThat(descriptor.signedUploadLocation()).isNotEmpty();
+    assertThat(descriptor.signedUploadLocation()).contains("X-Goog-Signature");
+    assertThat(descriptor.signedUploadLocation()).is(new Condition<>(x -> {
       try {
         new URL(x);
       } catch (MalformedURLException e) {
@@ -114,7 +114,7 @@ class AttachmentControllerTest {
 
     final URL signedUploadLocation;
     try {
-      signedUploadLocation = new URL(descriptor.getSignedUploadLocation());
+      signedUploadLocation = new URL(descriptor.signedUploadLocation());
     } catch (MalformedURLException e) {
       throw new AssertionError(e);
     }
@@ -162,24 +162,24 @@ class AttachmentControllerTest {
                                                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                                                  .get(AttachmentDescriptorV2.class);
 
-    assertThat(descriptor.getKey()).isEqualTo(descriptor.getAttachmentIdString());
-    assertThat(descriptor.getAcl()).isEqualTo("private");
-    assertThat(descriptor.getAlgorithm()).isEqualTo("AWS4-HMAC-SHA256");
-    assertThat(descriptor.getAttachmentId()).isGreaterThan(0);
-    assertThat(String.valueOf(descriptor.getAttachmentId())).isEqualTo(descriptor.getAttachmentIdString());
+    assertThat(descriptor.key()).isEqualTo(descriptor.attachmentIdString());
+    assertThat(descriptor.acl()).isEqualTo("private");
+    assertThat(descriptor.algorithm()).isEqualTo("AWS4-HMAC-SHA256");
+    assertThat(descriptor.attachmentId()).isGreaterThan(0);
+    assertThat(String.valueOf(descriptor.attachmentId())).isEqualTo(descriptor.attachmentIdString());
 
-    String[] credentialParts = descriptor.getCredential().split("/");
+    String[] credentialParts = descriptor.credential().split("/");
 
     assertThat(credentialParts[0]).isEqualTo("accessKey");
     assertThat(credentialParts[2]).isEqualTo("us-east-1");
     assertThat(credentialParts[3]).isEqualTo("s3");
     assertThat(credentialParts[4]).isEqualTo("aws4_request");
 
-    assertThat(descriptor.getDate()).isNotBlank();
-    assertThat(descriptor.getPolicy()).isNotBlank();
-    assertThat(descriptor.getSignature()).isNotBlank();
+    assertThat(descriptor.date()).isNotBlank();
+    assertThat(descriptor.policy()).isNotBlank();
+    assertThat(descriptor.signature()).isNotBlank();
 
-    assertThat(new String(Base64.getDecoder().decode(descriptor.getPolicy()))).contains("[\"content-length-range\", 1, 104857600]");
+    assertThat(new String(Base64.getDecoder().decode(descriptor.policy()))).contains("[\"content-length-range\", 1, 104857600]");
   }
 
   @Test
