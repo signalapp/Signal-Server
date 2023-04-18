@@ -630,12 +630,6 @@ public class AccountController {
   }
 
   @Timed
-  @DELETE
-  @Path("/signaling_key")
-  public void removeSignalingKey(@Auth DisabledPermittedAuthenticatedAccount disabledPermittedAuth) {
-  }
-
-  @Timed
   @PUT
   @Path("/attributes/")
   @Consumes(MediaType.APPLICATION_JSON)
