@@ -573,8 +573,15 @@ public class AccountController {
   @ChangesDeviceEnabledState
   public void setApnRegistrationId(@Auth DisabledPermittedAuthenticatedAccount disabledPermittedAuth,
       @NotNull @Valid ApnRegistrationId registrationId) {
-    Account account = disabledPermittedAuth.getAccount();
-    Device device = disabledPermittedAuth.getAuthenticatedDevice();
+
+    final Account account = disabledPermittedAuth.getAccount();
+    final Device device = disabledPermittedAuth.getAuthenticatedDevice();
+
+    if (Objects.equals(device.getApnId(), registrationId.apnRegistrationId()) &&
+        Objects.equals(device.getVoipApnId(), registrationId.voipRegistrationId())) {
+
+      return;
+    }
 
     accounts.updateDevice(account, device.getId(), d -> {
       d.setApnId(registrationId.apnRegistrationId());
