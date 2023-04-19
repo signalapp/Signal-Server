@@ -4,32 +4,9 @@
  */
 package org.whispersystems.textsecuregcm.entities;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.annotations.VisibleForTesting;
+import javax.annotation.Nullable;
 import javax.validation.constraints.NotEmpty;
 
-public class ApnRegistrationId {
-
-  @JsonProperty
-  @NotEmpty
-  private String apnRegistrationId;
-
-  @JsonProperty
-  private String voipRegistrationId;
-
-  public ApnRegistrationId() {}
-
-  @VisibleForTesting
-  public ApnRegistrationId(String apnRegistrationId, String voipRegistrationId) {
-    this.apnRegistrationId  = apnRegistrationId;
-    this.voipRegistrationId = voipRegistrationId;
-  }
-
-  public String getApnRegistrationId() {
-    return apnRegistrationId;
-  }
-
-  public String getVoipRegistrationId() {
-    return voipRegistrationId;
-  }
+public record ApnRegistrationId(@NotEmpty String apnRegistrationId,
+                                @Nullable String voipRegistrationId) {
 }

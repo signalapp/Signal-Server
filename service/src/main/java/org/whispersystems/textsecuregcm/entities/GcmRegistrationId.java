@@ -4,27 +4,7 @@
  */
 package org.whispersystems.textsecuregcm.entities;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.annotations.VisibleForTesting;
 import javax.validation.constraints.NotEmpty;
 
-public class GcmRegistrationId {
-
-  @JsonProperty
-  @NotEmpty
-  private String gcmRegistrationId;
-
-  public GcmRegistrationId() {}
-
-  @VisibleForTesting
-  public GcmRegistrationId(String id) {
-    this.gcmRegistrationId = id;
-  }
-
-  public String getGcmRegistrationId() {
-    return gcmRegistrationId;
-  }
-
-
+public record GcmRegistrationId(@NotEmpty String gcmRegistrationId) {
 }
-

@@ -537,15 +537,14 @@ public class AccountController {
     Account account = disabledPermittedAuth.getAccount();
     Device device = disabledPermittedAuth.getAuthenticatedDevice();
 
-    if (device.getGcmId() != null &&
-        device.getGcmId().equals(registrationId.getGcmRegistrationId())) {
+    if (device.getGcmId() != null && device.getGcmId().equals(registrationId.gcmRegistrationId())) {
       return;
     }
 
     accounts.updateDevice(account, device.getId(), d -> {
       d.setApnId(null);
       d.setVoipApnId(null);
-      d.setGcmId(registrationId.getGcmRegistrationId());
+      d.setGcmId(registrationId.gcmRegistrationId());
       d.setFetchesMessages(false);
     });
   }
@@ -576,8 +575,8 @@ public class AccountController {
     Device device = disabledPermittedAuth.getAuthenticatedDevice();
 
     accounts.updateDevice(account, device.getId(), d -> {
-      d.setApnId(registrationId.getApnRegistrationId());
-      d.setVoipApnId(registrationId.getVoipRegistrationId());
+      d.setApnId(registrationId.apnRegistrationId());
+      d.setVoipApnId(registrationId.voipRegistrationId());
       d.setGcmId(null);
       d.setFetchesMessages(false);
     });
