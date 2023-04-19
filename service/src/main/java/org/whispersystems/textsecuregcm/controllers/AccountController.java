@@ -28,6 +28,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
@@ -534,10 +535,11 @@ public class AccountController {
   @ChangesDeviceEnabledState
   public void setGcmRegistrationId(@Auth DisabledPermittedAuthenticatedAccount disabledPermittedAuth,
       @NotNull @Valid GcmRegistrationId registrationId) {
-    Account account = disabledPermittedAuth.getAccount();
-    Device device = disabledPermittedAuth.getAuthenticatedDevice();
 
-    if (device.getGcmId() != null && device.getGcmId().equals(registrationId.gcmRegistrationId())) {
+    final Account account = disabledPermittedAuth.getAccount();
+    final Device device = disabledPermittedAuth.getAuthenticatedDevice();
+
+    if (Objects.equals(device.getGcmId(), registrationId.gcmRegistrationId())) {
       return;
     }
 
