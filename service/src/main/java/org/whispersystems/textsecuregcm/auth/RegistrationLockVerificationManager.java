@@ -148,9 +148,15 @@ public class RegistrationLockVerificationManager {
         updatedAccount = account;
       }
 
-      // This will often be a no-op, since the recovery password is deleted when there's a verified session.
-      // However, this covers the case where a user re-registers with SMS bypass and then forgets their PIN.
-      registrationRecoveryPasswordsManager.removeForNumber(updatedAccount.getNumber());
+      // The client often sends an empty registration lock token on the first request
+      // and sends an actual token if the server returns a 423 indicating that one is required.
+      // This logic accounts for that behavior by not deleting the registration recovery password
+      // if the user verified correctly via registration recovery password and sent an empty token.
+      // This allows users to re-register via registration recovery password
+      // instead of always being forced to fall back to SMS verification.
+      if (!phoneVerificationType.equals(PhoneVerificationRequest.VerificationType.RECOVERY_PASSWORD) || clientRegistrationLock != null) {
+        registrationRecoveryPasswordsManager.removeForNumber(updatedAccount.getNumber());
+      }
 
       final List<Long> deviceIds = updatedAccount.getDevices().stream().map(Device::getId).toList();
       clientPresenceManager.disconnectAllPresences(updatedAccount.getUuid(), deviceIds);

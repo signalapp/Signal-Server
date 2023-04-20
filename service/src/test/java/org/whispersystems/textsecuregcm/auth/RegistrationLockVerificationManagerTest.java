@@ -84,21 +84,26 @@ class RegistrationLockVerificationManagerTest {
 
   @ParameterizedTest
   @MethodSource
-  void testErrors(RegistrationLockError error, boolean alreadyLocked) throws Exception {
+  void testErrors(RegistrationLockError error,
+      PhoneVerificationRequest.VerificationType verificationType,
+      @Nullable String clientRegistrationLock,
+      boolean alreadyLocked) throws Exception {
 
     when(existingRegistrationLock.getStatus()).thenReturn(StoredRegistrationLock.Status.REQUIRED);
     when(account.hasLockedCredentials()).thenReturn(alreadyLocked);
     doThrow(new NotPushRegisteredException()).when(pushNotificationManager).sendAttemptLoginNotification(any(), any());
 
-    final String submittedRegistrationLock = "reglock";
-
     final Pair<Class<? extends Exception>, Consumer<Exception>> exceptionType = switch (error) {
       case MISMATCH -> {
-        when(existingRegistrationLock.verify(submittedRegistrationLock)).thenReturn(false);
+        when(existingRegistrationLock.verify(clientRegistrationLock)).thenReturn(false);
         yield new Pair<>(WebApplicationException.class, e -> {
           if (e instanceof WebApplicationException wae) {
             assertEquals(RegistrationLockVerificationManager.FAILURE_HTTP_STATUS, wae.getResponse().getStatus());
-            verify(registrationRecoveryPasswordsManager).removeForNumber(account.getNumber());
+            if (!verificationType.equals(PhoneVerificationRequest.VerificationType.RECOVERY_PASSWORD) || clientRegistrationLock != null) {
+              verify(registrationRecoveryPasswordsManager).removeForNumber(account.getNumber());
+            } else {
+              verify(registrationRecoveryPasswordsManager, never()).removeForNumber(account.getNumber());
+            }
             verify(clientPresenceManager).disconnectAllPresences(account.getUuid(), List.of(Device.MASTER_ID));
             try {
               verify(pushNotificationManager).sendAttemptLoginNotification(any(), eq("failedRegistrationLock"));
@@ -128,18 +133,20 @@ class RegistrationLockVerificationManagerTest {
     };
 
     final Exception e = assertThrows(exceptionType.first(), () ->
-        registrationLockVerificationManager.verifyRegistrationLock(account, submittedRegistrationLock,
+        registrationLockVerificationManager.verifyRegistrationLock(account, clientRegistrationLock,
             "Signal-Android/4.68.3", RegistrationLockVerificationManager.Flow.REGISTRATION,
-            PhoneVerificationRequest.VerificationType.SESSION));
+            verificationType));
 
     exceptionType.second().accept(e);
   }
 
   static Stream<Arguments> testErrors() {
     return Stream.of(
-        Arguments.of(RegistrationLockError.MISMATCH, true),
-        Arguments.of(RegistrationLockError.MISMATCH, false),
-        Arguments.of(RegistrationLockError.RATE_LIMITED, false)
+        Arguments.of(RegistrationLockError.MISMATCH, PhoneVerificationRequest.VerificationType.SESSION, "reglock", true),
+        Arguments.of(RegistrationLockError.MISMATCH, PhoneVerificationRequest.VerificationType.SESSION, "reglock", false),
+        Arguments.of(RegistrationLockError.MISMATCH, PhoneVerificationRequest.VerificationType.RECOVERY_PASSWORD, "reglock", false),
+        Arguments.of(RegistrationLockError.MISMATCH, PhoneVerificationRequest.VerificationType.RECOVERY_PASSWORD, null, false),
+        Arguments.of(RegistrationLockError.RATE_LIMITED, PhoneVerificationRequest.VerificationType.SESSION, "reglock", false)
     );
   }
 
