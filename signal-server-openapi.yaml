@@ -322,18 +322,6 @@ paths:
             '*/*': {}
       security:
       - authenticatedAccount: []
-  /v1/accounts/signaling_key:
-    delete:
-      tags:
-      - Account
-      operationId: removeSignalingKey
-      responses:
-        default:
-          description: default response
-          content:
-            '*/*': {}
-      security:
-      - authenticatedAccount: []
   /v1/accounts/username_hash/reserve:
     put:
       tags:
@@ -479,6 +467,28 @@ paths:
                 $ref: '#/components/schemas/AccountIdentityResponse'
       security:
       - authenticatedAccount: []
+  /v2/accounts/phone_number_identity_key_distribution:
+    put:
+      tags:
+      - Account
+      summary: Updates key material for the phone-number identity for all devices
+        and sends a synchronization message to companion devices
+      operationId: distributePhoneNumberIdentityKeys
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhoneNumberIdentityKeyDistributionRequest'
+        required: true
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountIdentityResponse'
+      security:
+      - authenticatedAccount: []
   /v2/accounts/data_report:
     get:
       tags:
@@ -573,38 +583,6 @@ paths:
                 $ref: '#/components/schemas/ExternalServiceCredentials'
         "401":
           description: Account authentication check failed.
-      security:
-      - authenticatedAccount: []
-  /v1/certificate/group/{startRedemptionTime}/{endRedemptionTime}:
-    get:
-      tags:
-      - Certificate
-      operationId: getAuthenticationCredentials
-      parameters:
-      - name: startRedemptionTime
-        in: path
-        required: true
-        schema:
-          type: integer
-          format: int32
-      - name: endRedemptionTime
-        in: path
-        required: true
-        schema:
-          type: integer
-          format: int32
-      - name: identity
-        in: query
-        schema:
-          type: string
-      responses:
-        default:
-          description: default response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GroupCredentials'
-      deprecated: true
       security:
       - authenticatedAccount: []
   /v1/certificate/delivery:
@@ -2369,19 +2347,25 @@ components:
       properties:
         uuid:
           type: string
+          description: the account identifier for this account
           format: uuid
         number:
           type: string
+          description: the phone number associated with this account
         pni:
           type: string
+          description: the account identifier for this account's phone-number identity
           format: uuid
         usernameHash:
           type: array
+          description: "a hash of this account's username, if set"
           items:
             type: string
+            description: "a hash of this account's username, if set"
             format: byte
         storageCapable:
           type: boolean
+          description: whether any of this account's devices support storage
     ChangePhoneNumberRequest:
       required:
       - code
@@ -2647,6 +2631,38 @@ components:
             format: int32
         valid:
           type: boolean
+    PhoneNumberIdentityKeyDistributionRequest:
+      required:
+      - deviceMessages
+      - devicePniSignedPrekeys
+      - pniIdentityKey
+      - pniRegistrationIds
+      type: object
+      properties:
+        pniIdentityKey:
+          type: string
+          description: the new identity key for this account's phone-number identity
+        deviceMessages:
+          type: array
+          description: A message for each companion device to pass its new private
+            keys
+          items:
+            $ref: '#/components/schemas/IncomingMessage'
+        devicePniSignedPrekeys:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/SignedPreKey'
+          description: The public key of a new signed elliptic-curve prekey pair for
+            each device
+        pniRegistrationIds:
+          type: object
+          additionalProperties:
+            type: integer
+            description: The new registration ID to use for the phone-number identity
+              of each device
+            format: int32
+          description: The new registration ID to use for the phone-number identity
+            of each device
     AccountAndDevicesDataReport:
       type: object
       properties:
@@ -2724,6 +2740,9 @@ components:
     AttachmentDescriptorV2:
       type: object
       properties:
+        attachmentId:
+          type: integer
+          format: int64
         key:
           type: string
         credential:
@@ -2738,9 +2757,6 @@ components:
           type: string
         signature:
           type: string
-        attachmentId:
-          type: integer
-          format: int64
         attachmentIdString:
           type: string
     AttachmentDescriptorV3:
@@ -2757,6 +2773,14 @@ components:
             type: string
         signedUploadLocation:
           type: string
+    DeliveryCertificate:
+      type: object
+      properties:
+        certificate:
+          type: array
+          items:
+            type: string
+            format: byte
     GroupCredential:
       type: object
       properties:
@@ -2778,14 +2802,6 @@ components:
         pni:
           type: string
           format: uuid
-    DeliveryCertificate:
-      type: object
-      properties:
-        certificate:
-          type: array
-          items:
-            type: string
-            format: byte
     AnswerPushChallengeRequest:
       required:
       - challenge
@@ -2879,11 +2895,11 @@ components:
       properties:
         open:
           type: boolean
+        userAgent:
+          type: string
         createdTimestamp:
           type: integer
           format: int64
-        userAgent:
-          type: string
     WebSocketSessionContext:
       type: object
       properties:
