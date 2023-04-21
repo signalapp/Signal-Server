@@ -28,13 +28,17 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+
+import org.apache.commons.lang3.ObjectUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
@@ -255,24 +259,13 @@ public class AccountsManager {
     final UUID originalPhoneNumberIdentifier = account.getPhoneNumberIdentifier();
 
     if (originalNumber.equals(number)) {
+      if (pniIdentityKey != null) {
+        throw new IllegalArgumentException("change number must supply a changed phone number; otherwise use updatePNIKeys");
+      }
       return account;
     }
 
-    if (pniSignedPreKeys != null && pniRegistrationIds != null) {
-      // Check that all including master ID are in signed pre-keys
-      DestinationDeviceValidator.validateCompleteDeviceList(
-          account,
-          pniSignedPreKeys.keySet(),
-          Collections.emptySet());
-
-      // Check that all devices are accounted for in the map of new PNI registration IDs
-      DestinationDeviceValidator.validateCompleteDeviceList(
-          account,
-          pniRegistrationIds.keySet(),
-          Collections.emptySet());
-    } else if (pniSignedPreKeys != null || pniRegistrationIds != null) {
-      throw new IllegalArgumentException("Signed pre-keys and registration IDs must both be null or both be non-null");
-    }
+    validateDevices(account, pniSignedPreKeys, pniRegistrationIds);
 
     final AtomicReference<Account> updatedAccount = new AtomicReference<>();
 
@@ -297,22 +290,7 @@ public class AccountsManager {
 
       numberChangedAccount = updateWithRetries(
           account,
-          a -> {
-            //noinspection ConstantConditions
-            if (pniSignedPreKeys != null && pniRegistrationIds != null) {
-              pniSignedPreKeys.forEach((deviceId, signedPreKey) ->
-                  a.getDevice(deviceId).ifPresent(device -> device.setPhoneNumberIdentitySignedPreKey(signedPreKey)));
-
-              pniRegistrationIds.forEach((deviceId, registrationId) ->
-                  a.getDevice(deviceId).ifPresent(device -> device.setPhoneNumberIdentityRegistrationId(registrationId)));
-            }
-
-            if (pniIdentityKey != null) {
-              a.setPhoneNumberIdentityKey(pniIdentityKey);
-            }
-
-            return true;
-          },
+          a -> setPNIKeys(account, pniIdentityKey, pniSignedPreKeys, pniRegistrationIds),
           a -> accounts.changeNumber(a, number, phoneNumberIdentifier),
           () -> accounts.getByAccountIdentifier(uuid).orElseThrow(),
           AccountChangeValidator.NUMBER_CHANGE_VALIDATOR);
@@ -327,6 +305,58 @@ public class AccountsManager {
     });
 
     return updatedAccount.get();
+  }
+
+  public Account updatePNIKeys(final Account account,
+      final String pniIdentityKey,
+      final Map<Long, SignedPreKey> pniSignedPreKeys,
+      final Map<Long, Integer> pniRegistrationIds) throws MismatchedDevicesException {
+    validateDevices(account, pniSignedPreKeys, pniRegistrationIds);
+
+    return update(account, a -> { return setPNIKeys(a, pniIdentityKey, pniSignedPreKeys, pniRegistrationIds); });
+  }
+
+  private boolean setPNIKeys(final Account account,
+      @Nullable final String pniIdentityKey,
+      @Nullable final Map<Long, SignedPreKey> pniSignedPreKeys,
+      @Nullable final Map<Long, Integer> pniRegistrationIds) {
+    if (ObjectUtils.allNull(pniIdentityKey, pniSignedPreKeys, pniRegistrationIds)) {
+      return true;
+    } else if (!ObjectUtils.allNotNull(pniIdentityKey, pniSignedPreKeys, pniRegistrationIds)) {
+      throw new IllegalArgumentException("PNI identity key, signed pre-keys, and registration IDs must be all null or all non-null");
+    }
+
+    pniSignedPreKeys.forEach((deviceId, signedPreKey) ->
+        account.getDevice(deviceId).ifPresent(device -> device.setPhoneNumberIdentitySignedPreKey(signedPreKey)));
+
+    pniRegistrationIds.forEach((deviceId, registrationId) ->
+        account.getDevice(deviceId).ifPresent(device -> device.setPhoneNumberIdentityRegistrationId(registrationId)));
+
+      account.setPhoneNumberIdentityKey(pniIdentityKey);
+
+    return true;
+  }
+
+  private void validateDevices(final Account account,
+      final Map<Long, SignedPreKey> pniSignedPreKeys,
+      final Map<Long, Integer> pniRegistrationIds) throws MismatchedDevicesException {
+    if (pniSignedPreKeys == null && pniRegistrationIds == null) {
+      return;
+    } else if (pniSignedPreKeys == null || pniRegistrationIds == null) {
+      throw new IllegalArgumentException("Signed pre-keys and registration IDs must both be null or both be non-null");
+    }
+
+    // Check that all including master ID are in signed pre-keys
+    DestinationDeviceValidator.validateCompleteDeviceList(
+        account,
+        pniSignedPreKeys.keySet(),
+        Collections.emptySet());
+
+    // Check that all devices are accounted for in the map of new PNI registration IDs
+    DestinationDeviceValidator.validateCompleteDeviceList(
+        account,
+        pniRegistrationIds.keySet(),
+        Collections.emptySet());
   }
 
   public record UsernameReservation(Account account, byte[] reservedUsernameHash){}

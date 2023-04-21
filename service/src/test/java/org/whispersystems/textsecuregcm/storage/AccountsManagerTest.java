@@ -5,6 +5,8 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
+import org.whispersystems.textsecuregcm.util.SystemMapper;
+
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -39,6 +41,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -59,6 +62,7 @@ import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
+import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
 import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
 
 class AccountsManagerTest {
@@ -695,6 +699,22 @@ class AccountsManagerTest {
   }
 
   @Test
+  void testChangePhoneNumberSameNumberWithPNIData() throws InterruptedException, MismatchedDevicesException {
+    final String number = "+14152222222";
+
+    Account account = AccountsHelper.generateTestAccount(number, UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
+    assertThrows(IllegalArgumentException.class,
+        () -> accountsManager.changeNumber(
+            account, number, "new-identity-key", Map.of(1L, new SignedPreKey()), Map.of(1L, 101)),
+        "AccountsManager should not allow use of changeNumber with new PNI keys but without changing number");
+
+    verify(accounts, never()).update(any());
+    verifyNoInteractions(deletedAccountsManager);
+    verifyNoInteractions(directoryQueue);
+    verifyNoInteractions(keys);
+  }
+
+  @Test
   void testChangePhoneNumberExistingAccount() throws InterruptedException, MismatchedDevicesException {
     doAnswer(invocation -> invocation.getArgument(2, BiFunction.class).apply(Optional.empty(), Optional.empty()))
         .when(deletedAccountsManager).lockAndPut(anyString(), anyString(), any());
@@ -731,6 +751,45 @@ class AccountsManagerTest {
     final Account account = AccountsHelper.generateTestAccount(originalNumber, uuid, UUID.randomUUID(), new ArrayList<>(), new byte[16]);
 
     assertThrows(AssertionError.class, () -> accountsManager.update(account, a -> a.setNumber(targetNumber, UUID.randomUUID())));
+  }
+
+  @Test
+  void testPNIUpdate() throws InterruptedException, MismatchedDevicesException {
+    final String number = "+14152222222";
+
+    List<Device> devices = List.of(DevicesHelper.createDevice(1L, 0L, 101), DevicesHelper.createDevice(2L, 0L, 102));
+    Account account = AccountsHelper.generateTestAccount(number, UUID.randomUUID(), UUID.randomUUID(), devices, new byte[16]);
+    Map<Long, SignedPreKey> newSignedKeys = Map.of(
+        1L, new SignedPreKey(1L, "pub1", "sig1"),
+        2L, new SignedPreKey(2L, "pub2", "sig2"));
+    Map<Long, Integer> newRegistrationIds = Map.of(1L, 201, 2L, 202);
+
+    UUID oldUuid = account.getUuid();
+    UUID oldPni = account.getPhoneNumberIdentifier();
+    Map<Long, SignedPreKey> oldSignedPreKeys = account.getDevices().stream().collect(Collectors.toMap(Device::getId, Device::getSignedPreKey));
+
+    final Account updatedAccount = accountsManager.updatePNIKeys(account, "new-pni-identity-key", newSignedKeys, newRegistrationIds);
+
+    // non-PNI stuff should not change
+    assertEquals(oldUuid, updatedAccount.getUuid());
+    assertEquals(number, updatedAccount.getNumber());
+    assertEquals(oldPni, updatedAccount.getPhoneNumberIdentifier());
+    assertEquals(null, updatedAccount.getIdentityKey());
+    assertEquals(oldSignedPreKeys, updatedAccount.getDevices().stream().collect(Collectors.toMap(Device::getId, Device::getSignedPreKey)));
+    assertEquals(Map.of(1L, 101, 2L, 102),
+        updatedAccount.getDevices().stream().collect(Collectors.toMap(Device::getId, Device::getRegistrationId)));
+
+    // PNI stuff should
+    assertEquals("new-pni-identity-key", updatedAccount.getPhoneNumberIdentityKey());
+    assertEquals(newSignedKeys,
+        updatedAccount.getDevices().stream().collect(Collectors.toMap(Device::getId, Device::getPhoneNumberIdentitySignedPreKey)));
+    assertEquals(newRegistrationIds,
+        updatedAccount.getDevices().stream().collect(Collectors.toMap(Device::getId, d -> d.getPhoneNumberIdentityRegistrationId().getAsInt())));
+
+    verify(accounts).update(any());
+    verifyNoInteractions(deletedAccountsManager);
+    verifyNoInteractions(directoryQueue);
+    verifyNoInteractions(keys);
   }
 
   @Test

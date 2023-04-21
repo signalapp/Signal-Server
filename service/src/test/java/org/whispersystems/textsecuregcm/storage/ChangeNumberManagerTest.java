@@ -5,6 +5,7 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -60,6 +61,25 @@ public class ChangeNumberManagerTest {
       when(updatedAccount.getUuid()).thenReturn(uuid);
       when(updatedAccount.getNumber()).thenReturn(number);
       when(updatedAccount.getPhoneNumberIdentifier()).thenReturn(updatedPni);
+      when(updatedAccount.getDevices()).thenReturn(devices);
+      for (long i = 1; i <= 3; i++) {
+        final Optional<Device> d = account.getDevice(i);
+        when(updatedAccount.getDevice(i)).thenReturn(d);
+      }
+
+      return updatedAccount;
+    });
+
+    when(accountsManager.updatePNIKeys(any(), any(), any(), any())).thenAnswer((Answer<Account>)invocation -> {
+      final Account account = invocation.getArgument(0, Account.class);
+
+      final UUID uuid = account.getUuid();
+      final UUID pni = account.getPhoneNumberIdentifier();
+      final List<Device> devices = account.getDevices();
+
+      final Account updatedAccount = mock(Account.class);
+      when(updatedAccount.getUuid()).thenReturn(uuid);
+      when(updatedAccount.getPhoneNumberIdentifier()).thenReturn(pni);
       when(updatedAccount.getDevices()).thenReturn(devices);
       for (long i = 1; i <= 3; i++) {
         final Optional<Device> d = account.getDevice(i);
@@ -135,6 +155,86 @@ public class ChangeNumberManagerTest {
   }
 
   @Test
+  void changeNumberSameNumberSetPrimaryDevicePrekeyAndSendMessages() throws Exception {
+    final String originalE164 = "+18005551234";
+    final UUID aci = UUID.randomUUID();
+    final UUID pni = UUID.randomUUID();
+
+    final Account account = mock(Account.class);
+    when(account.getNumber()).thenReturn(originalE164);
+    when(account.getUuid()).thenReturn(aci);
+    when(account.getPhoneNumberIdentifier()).thenReturn(pni);
+
+    final Device d2 = mock(Device.class);
+    when(d2.isEnabled()).thenReturn(true);
+    when(d2.getId()).thenReturn(2L);
+
+    when(account.getDevice(2L)).thenReturn(Optional.of(d2));
+    when(account.getDevices()).thenReturn(List.of(d2));
+
+    final String pniIdentityKey = "pni-identity-key";
+    final Map<Long, SignedPreKey> prekeys = Map.of(1L, new SignedPreKey(), 2L, new SignedPreKey());
+    final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 19);
+
+    final IncomingMessage msg = mock(IncomingMessage.class);
+    when(msg.destinationDeviceId()).thenReturn(2L);
+    when(msg.content()).thenReturn(Base64.getEncoder().encodeToString(new byte[]{1}));
+
+    changeNumberManager.changeNumber(account, originalE164, pniIdentityKey, prekeys, List.of(msg), registrationIds);
+
+    verify(accountsManager).updatePNIKeys(account, pniIdentityKey, prekeys, registrationIds);
+
+    final ArgumentCaptor<MessageProtos.Envelope> envelopeCaptor = ArgumentCaptor.forClass(MessageProtos.Envelope.class);
+    verify(messageSender).sendMessage(any(), eq(d2), envelopeCaptor.capture(), eq(false));
+
+    final MessageProtos.Envelope envelope = envelopeCaptor.getValue();
+
+    assertEquals(aci, UUID.fromString(envelope.getDestinationUuid()));
+    assertEquals(aci, UUID.fromString(envelope.getSourceUuid()));
+    assertEquals(Device.MASTER_ID, envelope.getSourceDevice());
+    assertFalse(updatedPhoneNumberIdentifiersByAccount.containsKey(account));
+  }
+
+  @Test
+  void updatePNIKeysSetPrimaryDevicePrekeyAndSendMessages() throws Exception {
+    final UUID aci = UUID.randomUUID();
+    final UUID pni = UUID.randomUUID();
+
+    final Account account = mock(Account.class);
+    when(account.getUuid()).thenReturn(aci);
+    when(account.getPhoneNumberIdentifier()).thenReturn(pni);
+
+    final Device d2 = mock(Device.class);
+    when(d2.isEnabled()).thenReturn(true);
+    when(d2.getId()).thenReturn(2L);
+
+    when(account.getDevice(2L)).thenReturn(Optional.of(d2));
+    when(account.getDevices()).thenReturn(List.of(d2));
+
+    final String pniIdentityKey = "pni-identity-key";
+    final Map<Long, SignedPreKey> prekeys = Map.of(1L, new SignedPreKey(), 2L, new SignedPreKey());
+    final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 19);
+
+    final IncomingMessage msg = mock(IncomingMessage.class);
+    when(msg.destinationDeviceId()).thenReturn(2L);
+    when(msg.content()).thenReturn(Base64.getEncoder().encodeToString(new byte[]{1}));
+
+    changeNumberManager.updatePNIKeys(account, pniIdentityKey, prekeys, List.of(msg), registrationIds);
+
+    verify(accountsManager).updatePNIKeys(account, pniIdentityKey, prekeys, registrationIds);
+
+    final ArgumentCaptor<MessageProtos.Envelope> envelopeCaptor = ArgumentCaptor.forClass(MessageProtos.Envelope.class);
+    verify(messageSender).sendMessage(any(), eq(d2), envelopeCaptor.capture(), eq(false));
+
+    final MessageProtos.Envelope envelope = envelopeCaptor.getValue();
+
+    assertEquals(aci, UUID.fromString(envelope.getDestinationUuid()));
+    assertEquals(aci, UUID.fromString(envelope.getSourceUuid()));
+    assertEquals(Device.MASTER_ID, envelope.getSourceDevice());
+    assertFalse(updatedPhoneNumberIdentifiersByAccount.containsKey(account));
+  }
+
+  @Test
   void changeNumberMismatchedRegistrationId() {
     final Account account = mock(Account.class);
     when(account.getNumber()).thenReturn("+18005551234");
@@ -162,6 +262,36 @@ public class ChangeNumberManagerTest {
 
     assertThrows(StaleDevicesException.class,
         () -> changeNumberManager.changeNumber(account, "+18005559876", "pni-identity-key", preKeys, messages, registrationIds));
+  }
+
+  @Test
+  void updatePNIKeysMismatchedRegistrationId() {
+    final Account account = mock(Account.class);
+    when(account.getNumber()).thenReturn("+18005551234");
+
+    final List<Device> devices = new ArrayList<>();
+
+    for (int i = 1; i <= 3; i++) {
+      final Device device = mock(Device.class);
+      when(device.getId()).thenReturn((long) i);
+      when(device.isEnabled()).thenReturn(true);
+      when(device.getRegistrationId()).thenReturn(i);
+
+      devices.add(device);
+      when(account.getDevice(i)).thenReturn(Optional.of(device));
+    }
+
+    when(account.getDevices()).thenReturn(devices);
+
+    final List<IncomingMessage> messages = List.of(
+        new IncomingMessage(1, 2, 1, "foo"),
+        new IncomingMessage(1, 3, 1, "foo"));
+
+    final Map<Long, SignedPreKey> preKeys = Map.of(1L, new SignedPreKey(), 2L, new SignedPreKey(), 3L, new SignedPreKey());
+    final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 47, 3L, 89);
+
+    assertThrows(StaleDevicesException.class,
+        () -> changeNumberManager.updatePNIKeys(account, "pni-identity-key", preKeys, messages, registrationIds));
   }
 
   @Test

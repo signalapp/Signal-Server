@@ -71,6 +71,7 @@ import org.whispersystems.textsecuregcm.entities.AccountDataReportResponse;
 import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
 import org.whispersystems.textsecuregcm.entities.ChangeNumberRequest;
 import org.whispersystems.textsecuregcm.entities.PhoneNumberDiscoverabilityRequest;
+import org.whispersystems.textsecuregcm.entities.PhoneNumberIdentityKeyDistributionRequest;
 import org.whispersystems.textsecuregcm.entities.RegistrationServiceSession;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
@@ -147,7 +148,11 @@ class AccountControllerV2Test {
             when(updatedAccount.getUuid()).thenReturn(uuid);
             when(updatedAccount.getNumber()).thenReturn(number);
             when(updatedAccount.getPhoneNumberIdentityKey()).thenReturn(pniIdentityKey);
-            when(updatedAccount.getPhoneNumberIdentifier()).thenReturn(UUID.randomUUID());
+            if (number.equals(account.getNumber())) {
+              when(updatedAccount.getPhoneNumberIdentifier()).thenReturn(AuthHelper.VALID_PNI);
+            } else {
+              when(updatedAccount.getPhoneNumberIdentifier()).thenReturn(UUID.randomUUID());
+            }
             when(updatedAccount.getDevices()).thenReturn(devices);
 
             for (long i = 1; i <= 3; i++) {
@@ -185,6 +190,29 @@ class AccountControllerV2Test {
       assertEquals(AuthHelper.VALID_UUID, accountIdentityResponse.uuid());
       assertEquals(NEW_NUMBER, accountIdentityResponse.number());
       assertNotEquals(AuthHelper.VALID_PNI, accountIdentityResponse.pni());
+    }
+
+    @Test
+    void changeNumberSameNumber() throws Exception {
+      final AccountIdentityResponse accountIdentityResponse =
+          resources.getJerseyTest()
+              .target("/v2/accounts/number")
+              .request()
+              .header(HttpHeaders.AUTHORIZATION,
+                  AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+              .put(Entity.entity(
+                  new ChangeNumberRequest(encodeSessionId("session"), null, AuthHelper.VALID_NUMBER, null, 
+                      "pni-identity-key",
+                      Collections.emptyList(),
+                      Collections.emptyMap(), Collections.emptyMap()),
+                  MediaType.APPLICATION_JSON_TYPE), AccountIdentityResponse.class);
+
+      verify(changeNumberManager).changeNumber(eq(AuthHelper.VALID_ACCOUNT), eq(AuthHelper.VALID_NUMBER), any(), any(), any(),
+          any());
+
+      assertEquals(AuthHelper.VALID_UUID, accountIdentityResponse.uuid());
+      assertEquals(AuthHelper.VALID_NUMBER, accountIdentityResponse.number());
+      assertEquals(AuthHelper.VALID_PNI, accountIdentityResponse.pni());
     }
 
     @Test
@@ -426,6 +454,144 @@ class AccountControllerV2Test {
     }
   }
 
+  @Nested
+  class PhoneNumberIdentityKeyDistribution {
+
+    @BeforeEach
+    void setUp() throws Exception {
+      when(changeNumberManager.updatePNIKeys(any(), any(), any(), any(), any())).thenAnswer(
+          (Answer<Account>) invocation -> {
+            final Account account = invocation.getArgument(0, Account.class);
+            final String pniIdentityKey = invocation.getArgument(1, String.class);
+
+            final UUID uuid = account.getUuid();
+            final UUID pni = account.getPhoneNumberIdentifier();
+            final String number = account.getNumber();
+            final List<Device> devices = account.getDevices();
+
+            final Account updatedAccount = mock(Account.class);
+            when(updatedAccount.getUuid()).thenReturn(uuid);
+            when(updatedAccount.getNumber()).thenReturn(number);
+            when(updatedAccount.getPhoneNumberIdentityKey()).thenReturn(pniIdentityKey);
+            when(updatedAccount.getPhoneNumberIdentifier()).thenReturn(pni);
+            when(updatedAccount.getDevices()).thenReturn(devices);
+
+            for (long i = 1; i <= 3; i++) {
+              final Optional<Device> d = account.getDevice(i);
+              when(updatedAccount.getDevice(i)).thenReturn(d);
+            }
+
+            return updatedAccount;
+          });
+    }    
+
+    @Test
+    void pniKeyDistributionSuccess() throws Exception {
+      when(AuthHelper.VALID_ACCOUNT.isPniSupported()).thenReturn(true);
+      
+      final AccountIdentityResponse accountIdentityResponse =
+          resources.getJerseyTest()
+          .target("/v2/accounts/phone_number_identity_key_distribution")
+          .request()
+          .header(HttpHeaders.AUTHORIZATION,
+              AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+          .put(Entity.json(requestJson()), AccountIdentityResponse.class);
+
+      verify(changeNumberManager).updatePNIKeys(eq(AuthHelper.VALID_ACCOUNT), eq("pni-identity-key"), any(), any(), any());
+
+      assertEquals(AuthHelper.VALID_UUID, accountIdentityResponse.uuid());
+      assertEquals(AuthHelper.VALID_NUMBER, accountIdentityResponse.number());
+      assertEquals(AuthHelper.VALID_PNI, accountIdentityResponse.pni());
+    }   
+    
+    @Test
+    void unprocessableRequestJson() {
+      final Invocation.Builder request = resources.getJerseyTest()
+          .target("/v2/accounts/phone_number_identity_key_distribution")
+          .request()
+          .header(HttpHeaders.AUTHORIZATION,
+              AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD));
+      try (Response response = request.put(Entity.json(unprocessableJson()))) {
+        assertEquals(400, response.getStatus());
+      }
+    }
+
+    @Test
+    void missingBasicAuthorization() {
+      final Invocation.Builder request = resources.getJerseyTest()
+          .target("/v2/accounts/phone_number_identity_key_distribution")
+          .request();
+      try (Response response = request.put(Entity.json(requestJson()))) {
+        assertEquals(401, response.getStatus());
+      }
+    }
+
+    @Test
+    void invalidBasicAuthorization() {
+      final Invocation.Builder request = resources.getJerseyTest()
+          .target("/v2/accounts/phone_number_identity_key_distribution")
+          .request()
+          .header(HttpHeaders.AUTHORIZATION, "Basic but-invalid");
+      try (Response response = request.put(Entity.json(requestJson()))) {
+        assertEquals(401, response.getStatus());
+      }
+    }
+
+    @Test
+    void invalidRequestBody() {
+      final Invocation.Builder request = resources.getJerseyTest()
+          .target("/v2/accounts/phone_number_identity_key_distribution")
+          .request()
+          .header(HttpHeaders.AUTHORIZATION,
+              AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD));
+      try (Response response = request.put(Entity.json(invalidRequestJson()))) {
+        assertEquals(422, response.getStatus());
+      }
+    }
+    
+    /**
+     * Valid request JSON for a {@link org.whispersystems.textsecuregcm.entities.PhoneNumberIdentityKeyDistributionRequest}
+     */
+    private static String requestJson() {
+      return """
+          {
+            "pniIdentityKey": "pni-identity-key",
+            "deviceMessages": [],
+            "devicePniSignedPrekeys": {},
+            "pniRegistrationIds": {}
+          }
+      """;
+    }
+
+    /**
+     * Request JSON in the shape of {@link org.whispersystems.textsecuregcm.entities.PhoneNumberIdentityKeyDistributionRequest}, but that
+     * fails validation
+     */
+    private static String invalidRequestJson() {
+      return """
+          {
+            "pniIdentityKey": null,
+            "deviceMessages": [],
+            "devicePniSignedPrekeys": {},
+            "pniRegistrationIds": {}
+          }
+          """;
+    }
+
+    /**
+     * Request JSON that cannot be marshalled into
+     * {@link org.whispersystems.textsecuregcm.entities.PhoneNumberIdentityKeyDistributionRequest}
+     */
+    private static String unprocessableJson() {
+      return """
+          {
+            "pniIdentityKey": []
+          }
+          """;
+    }
+
+  }
+    
   @Nested
   class PhoneNumberDiscoverability {
 

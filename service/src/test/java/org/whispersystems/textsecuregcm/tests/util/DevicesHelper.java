@@ -19,10 +19,15 @@ public class DevicesHelper {
   }
 
   public static Device createDevice(final long deviceId, final long lastSeen) {
+    return createDevice(deviceId, lastSeen, 0);
+  }
+
+  public static Device createDevice(final long deviceId, final long lastSeen, final int registrationId) {
     final Device device = new Device();
     device.setId(deviceId);
     device.setLastSeen(lastSeen);
     device.setUserAgent("OWT");
+    device.setRegistrationId(registrationId);
 
     setEnabled(device, true);
 

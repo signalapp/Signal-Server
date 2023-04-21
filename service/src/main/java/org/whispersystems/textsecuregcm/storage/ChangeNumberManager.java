@@ -5,6 +5,7 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
 import com.google.protobuf.ByteString;
 import org.apache.commons.lang3.ObjectUtils;
 import org.slf4j.Logger;
@@ -46,46 +47,68 @@ public class ChangeNumberManager {
       throws InterruptedException, MismatchedDevicesException, StaleDevicesException {
 
     if (ObjectUtils.allNotNull(pniIdentityKey, deviceSignedPreKeys, deviceMessages, pniRegistrationIds)) {
-      assert pniIdentityKey != null;
-      assert deviceSignedPreKeys != null;
-      assert deviceMessages != null;
-      assert pniRegistrationIds != null;
-
-      // Check that all except master ID are in device messages
-      DestinationDeviceValidator.validateCompleteDeviceList(
-          account,
-          deviceMessages.stream().map(IncomingMessage::destinationDeviceId).collect(Collectors.toSet()),
-          Set.of(Device.MASTER_ID));
-
-      DestinationDeviceValidator.validateRegistrationIds(
-          account,
-          deviceMessages,
-          IncomingMessage::destinationDeviceId,
-          IncomingMessage::destinationRegistrationId,
-          false);
+      // AccountsManager validates the device set on deviceSignedPreKeys and pniRegistrationIds
+      validateDeviceMessages(account, deviceMessages);
     } else if (!ObjectUtils.allNull(pniIdentityKey, deviceSignedPreKeys, deviceMessages, pniRegistrationIds)) {
       throw new IllegalArgumentException("PNI identity key, signed pre-keys, device messages, and registration IDs must be all null or all non-null");
     }
 
-    final Account updatedAccount;
 
     if (number.equals(account.getNumber())) {
-      // This may be a request that got repeated due to poor network conditions or other client error; take no action,
-      // but report success since the account is in the desired state
-      updatedAccount = account;
-    } else {
-      updatedAccount = accountsManager.changeNumber(account, number, pniIdentityKey, deviceSignedPreKeys, pniRegistrationIds);
+      // The client has gotten confused/desynchronized with us about their own phone number, most likely due to losing
+      // our OK response to an immediately preceding change-number request, and are sending a change they don't realize
+      // is a no-op change.
+      //
+      // We don't need to actually do a number-change operation in our DB, but we *do* need to accept their new key
+      // material and distribute the sync messages, to be sure all clients agree with us and each other about what their
+      // keys are. Pretend this change-number request was actually a PNI key distribution request.
+      return updatePNIKeys(account, pniIdentityKey, deviceSignedPreKeys, deviceMessages, pniRegistrationIds);
     }
 
-    // Whether the account already has this number or not, we resend messages. This makes it so the client can resend a
-    // request they didn't get a response for (timeout, etc) to make sure their messages sent even if the first time
-    // around the server crashed at/above this point.
+    final Account updatedAccount = accountsManager.changeNumber(account, number, pniIdentityKey, deviceSignedPreKeys, pniRegistrationIds);
+
     if (deviceMessages != null) {
-      deviceMessages.forEach(message ->
-          sendMessageToSelf(updatedAccount, updatedAccount.getDevice(message.destinationDeviceId()), message));
+      sendDeviceMessages(updatedAccount, deviceMessages);
     }
 
     return updatedAccount;
+  }
+
+  public Account updatePNIKeys(final Account account,
+      final String pniIdentityKey,
+      final Map<Long, SignedPreKey> deviceSignedPreKeys,
+      final List<IncomingMessage> deviceMessages,
+      final Map<Long, Integer> pniRegistrationIds) throws MismatchedDevicesException, StaleDevicesException {
+    validateDeviceMessages(account, deviceMessages);
+
+    // Don't try to be smart about ignoring unnecessary retries. If we make literally no change we will skip the ddb
+    // write anyway. Linked devices can handle some wasted extra key rotations.
+    final Account updatedAccount = accountsManager.updatePNIKeys(account, pniIdentityKey, deviceSignedPreKeys, pniRegistrationIds);
+
+    sendDeviceMessages(updatedAccount, deviceMessages);
+    return updatedAccount;
+  }
+
+  private void validateDeviceMessages(final Account account,
+      final List<IncomingMessage> deviceMessages) throws MismatchedDevicesException, StaleDevicesException {
+    // Check that all except master ID are in device messages
+    DestinationDeviceValidator.validateCompleteDeviceList(
+        account,
+        deviceMessages.stream().map(IncomingMessage::destinationDeviceId).collect(Collectors.toSet()),
+        Set.of(Device.MASTER_ID));
+
+    // check that all sync messages are to the current registration ID for the matching device
+    DestinationDeviceValidator.validateRegistrationIds(
+        account,
+        deviceMessages,
+        IncomingMessage::destinationDeviceId,
+        IncomingMessage::destinationRegistrationId,
+        false);
+  }
+
+  private void sendDeviceMessages(final Account account, final List<IncomingMessage> deviceMessages) {
+    deviceMessages.forEach(message ->
+        sendMessageToSelf(account, account.getDevice(message.destinationDeviceId()), message));
   }
 
   @VisibleForTesting

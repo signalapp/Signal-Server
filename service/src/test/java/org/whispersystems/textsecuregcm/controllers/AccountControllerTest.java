@@ -323,13 +323,38 @@ class AccountControllerTest {
       final String pniIdentityKey = invocation.getArgument(2, String.class);
 
       final UUID uuid = account.getUuid();
+      final UUID pni = number.equals(account.getNumber()) ? account.getPhoneNumberIdentifier() : UUID.randomUUID();
       final List<Device> devices = account.getDevices();
 
       final Account updatedAccount = mock(Account.class);
       when(updatedAccount.getUuid()).thenReturn(uuid);
       when(updatedAccount.getNumber()).thenReturn(number);
       when(updatedAccount.getPhoneNumberIdentityKey()).thenReturn(pniIdentityKey);
-      when(updatedAccount.getPhoneNumberIdentifier()).thenReturn(UUID.randomUUID());
+      when(updatedAccount.getPhoneNumberIdentifier()).thenReturn(pni);
+      when(updatedAccount.getDevices()).thenReturn(devices);
+
+      for (long i = 1; i <= 3; i++) {
+        final Optional<Device> d = account.getDevice(i);
+        when(updatedAccount.getDevice(i)).thenReturn(d);
+      }
+
+      return updatedAccount;
+    });
+
+    when(changeNumberManager.updatePNIKeys(any(), any(), any(), any(), any())).thenAnswer((Answer<Account>) invocation -> {
+      final Account account = invocation.getArgument(0, Account.class);
+      final String pniIdentityKey = invocation.getArgument(1, String.class);
+
+      final String number = account.getNumber();
+      final UUID uuid = account.getUuid();
+      final UUID pni = account.getPhoneNumberIdentifier();
+      final List<Device> devices = account.getDevices();
+
+      final Account updatedAccount = mock(Account.class);
+      when(updatedAccount.getNumber()).thenReturn(number);
+      when(updatedAccount.getUuid()).thenReturn(uuid);
+      when(updatedAccount.getPhoneNumberIdentityKey()).thenReturn(pniIdentityKey);
+      when(updatedAccount.getPhoneNumberIdentifier()).thenReturn(pni);
       when(updatedAccount.getDevices()).thenReturn(devices);
 
       for (long i = 1; i <= 3; i++) {
@@ -1644,6 +1669,61 @@ class AccountControllerTest {
     assertThat(accountIdentityResponse.uuid()).isEqualTo(AuthHelper.VALID_UUID);
     assertThat(accountIdentityResponse.number()).isEqualTo(number);
     assertThat(accountIdentityResponse.pni()).isNotEqualTo(AuthHelper.VALID_PNI);
+  }
+
+  @Test
+  void testChangePhoneNumberSameNumberChangePrekeys() throws Exception {
+    final String code = "987654";
+    final String pniIdentityKey = "changed-pni-identity-key";
+    final byte[] sessionId = "session-id".getBytes(StandardCharsets.UTF_8);
+
+    Device device2 = mock(Device.class);
+    when(device2.getId()).thenReturn(2L);
+    when(device2.isEnabled()).thenReturn(true);
+    when(device2.getRegistrationId()).thenReturn(2);
+
+    Device device3 = mock(Device.class);
+    when(device3.getId()).thenReturn(3L);
+    when(device3.isEnabled()).thenReturn(true);
+    when(device3.getRegistrationId()).thenReturn(3);
+
+    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(AuthHelper.VALID_DEVICE, device2, device3));
+    when(AuthHelper.VALID_ACCOUNT.getDevice(2L)).thenReturn(Optional.of(device2));
+    when(AuthHelper.VALID_ACCOUNT.getDevice(3L)).thenReturn(Optional.of(device3));
+
+    when(pendingAccountsManager.getCodeForNumber(AuthHelper.VALID_NUMBER)).thenReturn(
+        Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), "push", sessionId)));
+
+    when(registrationServiceClient.checkVerificationCode(any(), any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(true));
+
+    var deviceMessages = List.of(
+        new IncomingMessage(1, 2, 2, "content2"),
+        new IncomingMessage(1, 3, 3, "content3"));
+    var deviceKeys = Map.of(1L, new SignedPreKey(), 2L, new SignedPreKey(), 3L, new SignedPreKey());
+
+    final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 47, 3L, 89);
+
+    final AccountIdentityResponse accountIdentityResponse =
+        resources.getJerseyTest()
+            .target("/v1/accounts/number")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(Entity.entity(new ChangePhoneNumberRequest(
+                    AuthHelper.VALID_NUMBER, code, null,
+                    pniIdentityKey, deviceMessages,
+                    deviceKeys,
+                    registrationIds),
+                MediaType.APPLICATION_JSON_TYPE), AccountIdentityResponse.class);
+
+    verify(changeNumberManager).changeNumber(
+        eq(AuthHelper.VALID_ACCOUNT), eq(AuthHelper.VALID_NUMBER), any(), any(), any(), any());
+    verifyNoInteractions(rateLimiter);
+    verifyNoInteractions(pendingAccountsManager);
+
+    assertThat(accountIdentityResponse.uuid()).isEqualTo(AuthHelper.VALID_UUID);
+    assertThat(accountIdentityResponse.number()).isEqualTo(AuthHelper.VALID_NUMBER);
+    assertThat(accountIdentityResponse.pni()).isEqualTo(AuthHelper.VALID_PNI);
   }
 
   @Test

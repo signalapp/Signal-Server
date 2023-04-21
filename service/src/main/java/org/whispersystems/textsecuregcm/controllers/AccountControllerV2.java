@@ -40,6 +40,7 @@ import org.whispersystems.textsecuregcm.entities.ChangeNumberRequest;
 import org.whispersystems.textsecuregcm.entities.MismatchedDevices;
 import org.whispersystems.textsecuregcm.entities.PhoneNumberDiscoverabilityRequest;
 import org.whispersystems.textsecuregcm.entities.PhoneVerificationRequest;
+import org.whispersystems.textsecuregcm.entities.PhoneNumberIdentityKeyDistributionRequest;
 import org.whispersystems.textsecuregcm.entities.StaleDevices;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -127,6 +128,54 @@ public class AccountControllerV2 {
           .type(MediaType.APPLICATION_JSON_TYPE)
           .entity(new MismatchedDevices(e.getMissingDevices(),
               e.getExtraDevices()))
+          .build());
+    } catch (StaleDevicesException e) {
+      throw new WebApplicationException(Response.status(410)
+          .type(MediaType.APPLICATION_JSON)
+          .entity(new StaleDevices(e.getStaleDevices()))
+          .build());
+    } catch (IllegalArgumentException e) {
+      throw new BadRequestException(e);
+    }
+  }
+
+  @Timed
+  @PUT
+  @Path("/phone_number_identity_key_distribution")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Updates key material for the phone-number identity for all devices and sends a synchronization message to companion devices")
+  public AccountIdentityResponse distributePhoneNumberIdentityKeys(@Auth final AuthenticatedAccount authenticatedAccount,
+      @NotNull @Valid final PhoneNumberIdentityKeyDistributionRequest request) {
+
+    if (!authenticatedAccount.getAuthenticatedDevice().isMaster()) {
+      throw new ForbiddenException();
+    }
+
+    final Account account = authenticatedAccount.getAccount();
+    if (!account.isPniSupported()) {
+      throw new WebApplicationException(Response.status(425).build());
+    }
+
+    try {
+      final Account updatedAccount = changeNumberManager.updatePNIKeys(
+          authenticatedAccount.getAccount(),
+          request.pniIdentityKey(),
+          request.devicePniSignedPrekeys(),
+          request.deviceMessages(),
+          request.pniRegistrationIds());
+
+      return new AccountIdentityResponse(
+          updatedAccount.getUuid(),
+          updatedAccount.getNumber(),
+          updatedAccount.getPhoneNumberIdentifier(),
+          updatedAccount.getUsernameHash().orElse(null),
+          updatedAccount.isStorageSupported());
+    } catch (MismatchedDevicesException e) {
+      throw new WebApplicationException(Response.status(409)
+          .type(MediaType.APPLICATION_JSON_TYPE)
+          .entity(new MismatchedDevices(e.getMissingDevices(),
+                  e.getExtraDevices()))
           .build());
     } catch (StaleDevicesException e) {
       throw new WebApplicationException(Response.status(410)
