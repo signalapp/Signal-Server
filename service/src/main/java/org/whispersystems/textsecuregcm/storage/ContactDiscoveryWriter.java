@@ -5,18 +5,24 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
+
 import com.google.common.annotations.VisibleForTesting;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Metrics;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
 
 public class ContactDiscoveryWriter extends AccountDatabaseCrawlerListener {
-
   private final AccountsManager accounts;
+
+  private final Counter updatedAccountsCounter;
 
   public ContactDiscoveryWriter(final AccountsManager accounts) {
     this.accounts = accounts;
+    this.updatedAccountsCounter = Metrics.counter(name(ContactDiscoveryWriter.class, "updatedAccounts"));
   }
 
   @Override
@@ -44,6 +50,7 @@ public class ContactDiscoveryWriter extends AccountDatabaseCrawlerListener {
         // with the accounts from the chunk, because updates cause the account instance to become stale. Instead, they
         // must get a new copy, which they are free to update.
         accounts.getByAccountIdentifier(account.getUuid()).ifPresent(a -> accounts.update(a, NOOP_UPDATER));
+        updatedAccountsCounter.increment();
       }
     }
   }
