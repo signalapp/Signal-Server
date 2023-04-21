@@ -472,9 +472,13 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     UsernameHashZkProofVerifier usernameHashZkProofVerifier = new UsernameHashZkProofVerifier();
 
     RegistrationServiceClient registrationServiceClient = new RegistrationServiceClient(
-        config.getRegistrationServiceConfiguration().getHost(), config.getRegistrationServiceConfiguration().getPort(),
-        config.getRegistrationServiceConfiguration().getApiKey(),
-        config.getRegistrationServiceConfiguration().getRegistrationCaCertificate(), registrationCallbackExecutor);
+        config.getRegistrationServiceConfiguration().host(),
+        config.getRegistrationServiceConfiguration().port(),
+        config.getRegistrationServiceConfiguration().apiKey(),
+        config.getRegistrationServiceConfiguration().credentialConfigurationJson(),
+        config.getRegistrationServiceConfiguration().identityTokenAudience(),
+        config.getRegistrationServiceConfiguration().registrationCaCertificate(),
+        registrationCallbackExecutor);
     SecureBackupClient secureBackupClient = new SecureBackupClient(backupCredentialsGenerator,
         secureValueRecoveryServiceExecutor, config.getSecureBackupServiceConfiguration());
     SecureValueRecovery2Client secureValueRecovery2Client = new SecureValueRecovery2Client(svr2CredentialsGenerator,

@@ -55,12 +55,13 @@ public class RegistrationServiceClient implements Managed {
     } catch (final NumberParseException e) {
       throw new IllegalArgumentException("could not parse to phone number", e);
     }
-
   }
 
   public RegistrationServiceClient(final String host,
       final int port,
       final String apiKey,
+      final String credentialConfigJson,
+      final String identityTokenAudience,
       final String caCertificatePem,
       final Executor callbackExecutor) throws IOException {
 
@@ -73,7 +74,7 @@ public class RegistrationServiceClient implements Managed {
     }
 
     this.stub = RegistrationServiceGrpc.newFutureStub(channel)
-        .withCallCredentials(new ApiKeyCallCredentials(apiKey));
+        .withCallCredentials(IdentityTokenCallCredentials.fromApiKeyAndCredentialConfig(apiKey, credentialConfigJson, identityTokenAudience));
 
     this.callbackExecutor = callbackExecutor;
   }
