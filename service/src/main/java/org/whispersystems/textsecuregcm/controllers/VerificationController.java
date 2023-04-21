@@ -623,7 +623,7 @@ public class VerificationController {
     } catch (final CompletionException | CancellationException e) {
       final Throwable unwrapped = ExceptionUtils.unwrap(e);
 
-      if (unwrapped.getCause() instanceof StatusRuntimeException grpcRuntimeException) {
+      if (unwrapped instanceof StatusRuntimeException grpcRuntimeException) {
         if (grpcRuntimeException.getStatus().getCode() == Status.Code.INVALID_ARGUMENT) {
           throw new BadRequestException();
         }
