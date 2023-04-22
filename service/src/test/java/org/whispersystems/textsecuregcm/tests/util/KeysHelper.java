@@ -8,6 +8,8 @@ package org.whispersystems.textsecuregcm.tests.util;
 import java.util.Base64;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
+import org.signal.libsignal.protocol.kem.KEMKeyPair;
+import org.signal.libsignal.protocol.kem.KEMKeyType;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 
 public final class KeysHelper {
@@ -15,9 +17,15 @@ public final class KeysHelper {
     return Base64.getEncoder().encodeToString(keyPair.getPublicKey().serialize());
   }
   
-  public static SignedPreKey signedPreKey(long id, final ECKeyPair signingKey) {
+  public static SignedPreKey signedECPreKey(long id, final ECKeyPair identityKeyPair) {
     final byte[] pubKey = Curve.generateKeyPair().getPublicKey().serialize();
-    final byte[] sig = signingKey.getPrivateKey().calculateSignature(pubKey);
+    final byte[] sig = identityKeyPair.getPrivateKey().calculateSignature(pubKey);
+    return new SignedPreKey(id, Base64.getEncoder().encodeToString(pubKey), Base64.getEncoder().encodeToString(sig));
+  }
+
+  public static SignedPreKey signedKEMPreKey(long id, final ECKeyPair identityKeyPair) {
+    final byte[] pubKey = KEMKeyPair.generate(KEMKeyType.KYBER_1024).getPublicKey().serialize();
+    final byte[] sig = identityKeyPair.getPrivateKey().calculateSignature(pubKey);
     return new SignedPreKey(id, Base64.getEncoder().encodeToString(pubKey), Base64.getEncoder().encodeToString(sig));
   }
 }

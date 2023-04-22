@@ -9,8 +9,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
@@ -19,8 +22,11 @@ import io.dropwizard.testing.junit5.ResourceExtension;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Base64;
+import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.ws.rs.WebApplicationException;
@@ -39,12 +45,17 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.signal.libsignal.protocol.ecc.Curve;
+import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.auth.PhoneVerificationTokenManager;
 import org.whispersystems.textsecuregcm.auth.RegistrationLockError;
 import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
+import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
+import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
 import org.whispersystems.textsecuregcm.entities.RegistrationRequest;
 import org.whispersystems.textsecuregcm.entities.RegistrationServiceSession;
+import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.ImpossiblePhoneNumberExceptionMapper;
@@ -53,8 +64,12 @@ import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.Keys;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
+import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
+import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
@@ -73,6 +88,7 @@ class RegistrationControllerTest {
       RegistrationLockVerificationManager.class);
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager = mock(
       RegistrationRecoveryPasswordsManager.class);
+  private final Keys keys = mock(Keys.class);
   private final RateLimiters rateLimiters = mock(RateLimiters.class);
 
   private final RateLimiter registrationLimiter = mock(RateLimiter.class);
@@ -87,7 +103,7 @@ class RegistrationControllerTest {
       .addResource(
           new RegistrationController(accountsManager,
               new PhoneVerificationTokenManager(registrationServiceClient, registrationRecoveryPasswordsManager),
-              registrationLockVerificationManager, rateLimiters))
+              registrationLockVerificationManager, keys, rateLimiters))
       .build();
 
   @BeforeEach
@@ -97,10 +113,10 @@ class RegistrationControllerTest {
 
   @Test
   public void testRegistrationRequest() throws Exception {
-    assertFalse(new RegistrationRequest("", new byte[0], new AccountAttributes(), true).isValid());
-    assertFalse(new RegistrationRequest("some", new byte[32], new AccountAttributes(), true).isValid());
-    assertTrue(new RegistrationRequest("", new byte[32], new AccountAttributes(), true).isValid());
-    assertTrue(new RegistrationRequest("some", new byte[0], new AccountAttributes(), true).isValid());
+    assertFalse(new RegistrationRequest("", new byte[0], new AccountAttributes(), true, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()).isValid());
+    assertFalse(new RegistrationRequest("some", new byte[32], new AccountAttributes(), true, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()).isValid());
+    assertTrue(new RegistrationRequest("", new byte[32], new AccountAttributes(), true, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()).isValid());
+    assertTrue(new RegistrationRequest("some", new byte[0], new AccountAttributes(), true, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()).isValid());
   }
 
   @Test
@@ -330,6 +346,402 @@ class RegistrationControllerTest {
     try (Response response = request.post(Entity.json(requestJson("sessionId")))) {
       assertEquals(200, response.getStatus());
     }
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void atomicAccountCreationConflictingChannel(final RegistrationRequest conflictingChannelRequest) {
+    when(registrationServiceClient.getSession(any(), any()))
+        .thenReturn(
+            CompletableFuture.completedFuture(
+                Optional.of(new RegistrationServiceSession(new byte[16], NUMBER, true, null, null, null,
+                    SESSION_EXPIRATION_SECONDS))));
+
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/registration")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD))
+        .post(Entity.json(conflictingChannelRequest))) {
+
+      assertEquals(422, response.getStatus());
+    }
+  }
+
+  static Stream<Arguments> atomicAccountCreationConflictingChannel() {
+    final Optional<String> aciIdentityKey;
+    final Optional<String> pniIdentityKey;
+    final Optional<SignedPreKey> aciSignedPreKey;
+    final Optional<SignedPreKey> pniSignedPreKey;
+    final Optional<SignedPreKey> aciPqLastResortPreKey;
+    final Optional<SignedPreKey> pniPqLastResortPreKey;
+    {
+      final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
+      final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+
+      aciIdentityKey = Optional.of(KeysHelper.serializeIdentityKey(aciIdentityKeyPair));
+      pniIdentityKey = Optional.of(KeysHelper.serializeIdentityKey(pniIdentityKeyPair));
+      aciSignedPreKey = Optional.of(KeysHelper.signedECPreKey(1, aciIdentityKeyPair));
+      pniSignedPreKey = Optional.of(KeysHelper.signedECPreKey(2, pniIdentityKeyPair));
+      aciPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair));
+      pniPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair));
+    }
+
+    final AccountAttributes fetchesMessagesAccountAttributes =
+        new AccountAttributes(true, 1, "test", null, true, new Device.DeviceCapabilities());
+
+    final AccountAttributes pushAccountAttributes =
+        new AccountAttributes(false, 1, "test", null, true, new Device.DeviceCapabilities());
+
+    return Stream.of(
+        // "Fetches messages" is true, but an APNs token is provided
+        Arguments.of(new RegistrationRequest("session-id",
+            new byte[0],
+            fetchesMessagesAccountAttributes,
+            true,
+            aciIdentityKey,
+            pniIdentityKey,
+            aciSignedPreKey,
+            pniSignedPreKey,
+            aciPqLastResortPreKey,
+            pniPqLastResortPreKey,
+            Optional.of(new ApnRegistrationId("apns-token", null)),
+            Optional.empty())),
+
+        // "Fetches messages" is true, but an FCM (GCM) token is provided
+        Arguments.of(new RegistrationRequest("session-id",
+            new byte[0],
+            fetchesMessagesAccountAttributes,
+            true,
+            aciIdentityKey,
+            pniIdentityKey,
+            aciSignedPreKey,
+            pniSignedPreKey,
+            aciPqLastResortPreKey,
+            pniPqLastResortPreKey,
+            Optional.empty(),
+            Optional.of(new GcmRegistrationId("gcm-token")))),
+
+        // "Fetches messages" is false, but multiple types of push tokens are provided
+        Arguments.of(new RegistrationRequest("session-id",
+            new byte[0],
+            pushAccountAttributes,
+            true,
+            aciIdentityKey,
+            pniIdentityKey,
+            aciSignedPreKey,
+            pniSignedPreKey,
+            aciPqLastResortPreKey,
+            pniPqLastResortPreKey,
+            Optional.of(new ApnRegistrationId("apns-token", null)),
+            Optional.of(new GcmRegistrationId("gcm-token"))))
+    );
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void atomicAccountCreationPartialSignedPreKeys(final RegistrationRequest partialSignedPreKeyRequest) {
+    when(registrationServiceClient.getSession(any(), any()))
+        .thenReturn(
+            CompletableFuture.completedFuture(
+                Optional.of(new RegistrationServiceSession(new byte[16], NUMBER, true, null, null, null,
+                    SESSION_EXPIRATION_SECONDS))));
+
+    final Invocation.Builder request = resources.getJerseyTest()
+        .target("/v1/registration")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
+
+    try (final Response response = request.post(Entity.json(partialSignedPreKeyRequest))) {
+      assertEquals(422, response.getStatus());
+    }
+  }
+
+  static Stream<Arguments> atomicAccountCreationPartialSignedPreKeys() {
+    final Optional<String> aciIdentityKey;
+    final Optional<String> pniIdentityKey;
+    final Optional<SignedPreKey> aciSignedPreKey;
+    final Optional<SignedPreKey> pniSignedPreKey;
+    final Optional<SignedPreKey> aciPqLastResortPreKey;
+    final Optional<SignedPreKey> pniPqLastResortPreKey;
+    {
+      final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
+      final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+
+      aciIdentityKey = Optional.of(KeysHelper.serializeIdentityKey(aciIdentityKeyPair));
+      pniIdentityKey = Optional.of(KeysHelper.serializeIdentityKey(pniIdentityKeyPair));
+      aciSignedPreKey = Optional.of(KeysHelper.signedECPreKey(1, aciIdentityKeyPair));
+      pniSignedPreKey = Optional.of(KeysHelper.signedECPreKey(2, pniIdentityKeyPair));
+      aciPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair));
+      pniPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair));
+    }
+
+    final AccountAttributes accountAttributes =
+        new AccountAttributes(true, 1, "test", null, true, new Device.DeviceCapabilities());
+
+    return Stream.of(
+        // Signed PNI EC pre-key is missing
+        Arguments.of(new RegistrationRequest("session-id",
+            new byte[0],
+            accountAttributes,
+            true,
+            aciIdentityKey,
+            pniIdentityKey,
+            aciSignedPreKey,
+            Optional.empty(),
+            aciPqLastResortPreKey,
+            pniPqLastResortPreKey,
+            Optional.empty(),
+            Optional.empty())),
+
+        // Signed ACI EC pre-key is missing
+        Arguments.of(new RegistrationRequest("session-id",
+            new byte[0],
+            accountAttributes,
+            true,
+            aciIdentityKey,
+            pniIdentityKey,
+            Optional.empty(),
+            pniSignedPreKey,
+            aciPqLastResortPreKey,
+            pniPqLastResortPreKey,
+            Optional.empty(),
+            Optional.empty())),
+
+        // Signed PNI KEM pre-key is missing
+        Arguments.of(new RegistrationRequest("session-id",
+            new byte[0],
+            accountAttributes,
+            true,
+            aciIdentityKey,
+            pniIdentityKey,
+            aciSignedPreKey,
+            pniSignedPreKey,
+            aciPqLastResortPreKey,
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty())),
+
+        // Signed ACI KEM pre-key is missing
+        Arguments.of(new RegistrationRequest("session-id",
+            new byte[0],
+            accountAttributes,
+            true,
+            aciIdentityKey,
+            pniIdentityKey,
+            aciSignedPreKey,
+            pniSignedPreKey,
+            Optional.empty(),
+            pniPqLastResortPreKey,
+            Optional.empty(),
+            Optional.empty())),
+
+        // All signed pre-keys are present, but ACI identity key is missing
+        Arguments.of(new RegistrationRequest("session-id",
+            new byte[0],
+            accountAttributes,
+            true,
+            Optional.empty(),
+            pniIdentityKey,
+            aciSignedPreKey,
+            pniSignedPreKey,
+            aciPqLastResortPreKey,
+            pniPqLastResortPreKey,
+            Optional.empty(),
+            Optional.empty())),
+
+        // All signed pre-keys are present, but PNI identity key is missing
+        Arguments.of(new RegistrationRequest("session-id",
+            new byte[0],
+            accountAttributes,
+            true,
+            aciIdentityKey,
+            Optional.empty(),
+            aciSignedPreKey,
+            pniSignedPreKey,
+            aciPqLastResortPreKey,
+            pniPqLastResortPreKey,
+            Optional.empty(),
+            Optional.empty()))
+    );
+  }
+
+
+  @ParameterizedTest
+  @MethodSource
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+  void atomicAccountCreationSuccess(final RegistrationRequest registrationRequest,
+      final String expectedAciIdentityKey,
+      final String expectedPniIdentityKey,
+      final SignedPreKey expectedAciSignedPreKey,
+      final SignedPreKey expectedPniSignedPreKey,
+      final SignedPreKey expectedAciPqLastResortPreKey,
+      final SignedPreKey expectedPniPqLastResortPreKey,
+      final Optional<String> expectedApnsToken,
+      final Optional<String> expectedApnsVoipToken,
+      final Optional<String> expectedGcmToken) throws InterruptedException {
+
+    when(registrationServiceClient.getSession(any(), any()))
+        .thenReturn(
+            CompletableFuture.completedFuture(
+                Optional.of(new RegistrationServiceSession(new byte[16], NUMBER, true, null, null, null,
+                    SESSION_EXPIRATION_SECONDS))));
+
+    final UUID accountIdentifier = UUID.randomUUID();
+    final UUID phoneNumberIdentifier = UUID.randomUUID();
+
+    final Account account = MockUtils.buildMock(Account.class, a -> {
+      when(a.getUuid()).thenReturn(accountIdentifier);
+      when(a.getPhoneNumberIdentifier()).thenReturn(phoneNumberIdentifier);
+    });
+
+    final Device device = mock(Device.class);
+
+    when(accountsManager.create(any(), any(), any(), any(), any()))
+        .thenReturn(account);
+
+    when(accountsManager.update(eq(account), any())).thenAnswer(invocation -> {
+      final Consumer<Account> accountUpdater = invocation.getArgument(1);
+      accountUpdater.accept(account);
+
+      return invocation.getArgument(0);
+    });
+
+    when(accountsManager.updateDevice(eq(account), eq(Device.MASTER_ID), any())).thenAnswer(invocation -> {
+      final Consumer<Device> deviceUpdater = invocation.getArgument(2);
+      deviceUpdater.accept(device);
+
+      return invocation.getArgument(0);
+    });
+
+    final Invocation.Builder request = resources.getJerseyTest()
+        .target("/v1/registration")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
+
+    try (Response response = request.post(Entity.json(registrationRequest))) {
+      assertEquals(200, response.getStatus());
+    }
+
+    verify(accountsManager).create(any(), any(), any(), any(), any());
+    verify(accountsManager).updateDevice(eq(account), eq(Device.MASTER_ID), any());
+
+    verify(account).setIdentityKey(expectedAciIdentityKey);
+    verify(account).setPhoneNumberIdentityKey(expectedPniIdentityKey);
+
+    verify(device).setSignedPreKey(expectedAciSignedPreKey);
+    verify(device).setPhoneNumberIdentitySignedPreKey(expectedPniSignedPreKey);
+
+    verify(keys).storePqLastResort(accountIdentifier, Map.of(Device.MASTER_ID, expectedAciPqLastResortPreKey));
+    verify(keys).storePqLastResort(phoneNumberIdentifier, Map.of(Device.MASTER_ID, expectedPniPqLastResortPreKey));
+
+    expectedApnsToken.ifPresentOrElse(expectedToken -> verify(device).setApnId(expectedToken),
+        () -> verify(device, never()).setApnId(any()));
+
+    expectedApnsVoipToken.ifPresentOrElse(expectedToken -> verify(device).setVoipApnId(expectedToken),
+        () -> verify(device, never()).setVoipApnId(any()));
+
+    expectedGcmToken.ifPresentOrElse(expectedToken -> verify(device).setGcmId(expectedToken),
+        () -> verify(device, never()).setGcmId(any()));
+  }
+
+  private static Stream<Arguments> atomicAccountCreationSuccess() {
+    final Optional<String> aciIdentityKey;
+    final Optional<String> pniIdentityKey;
+    final Optional<SignedPreKey> aciSignedPreKey;
+    final Optional<SignedPreKey> pniSignedPreKey;
+    final Optional<SignedPreKey> aciPqLastResortPreKey;
+    final Optional<SignedPreKey> pniPqLastResortPreKey;
+    {
+      final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
+      final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+
+      aciIdentityKey = Optional.of(KeysHelper.serializeIdentityKey(aciIdentityKeyPair));
+      pniIdentityKey = Optional.of(KeysHelper.serializeIdentityKey(pniIdentityKeyPair));
+      aciSignedPreKey = Optional.of(KeysHelper.signedECPreKey(1, aciIdentityKeyPair));
+      pniSignedPreKey = Optional.of(KeysHelper.signedECPreKey(2, pniIdentityKeyPair));
+      aciPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair));
+      pniPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair));
+    }
+
+    final AccountAttributes fetchesMessagesAccountAttributes =
+        new AccountAttributes(true, 1, "test", null, true, new Device.DeviceCapabilities());
+
+    final AccountAttributes pushAccountAttributes =
+        new AccountAttributes(false, 1, "test", null, true, new Device.DeviceCapabilities());
+
+    final String apnsToken = "apns-token";
+    final String apnsVoipToken = "apns-voip-token";
+    final String gcmToken = "gcm-token";
+
+    return Stream.of(
+        // Fetches messages; no push tokens
+        Arguments.of(new RegistrationRequest("session-id",
+                new byte[0],
+                fetchesMessagesAccountAttributes,
+                true,
+                aciIdentityKey,
+                pniIdentityKey,
+                aciSignedPreKey,
+                pniSignedPreKey,
+                aciPqLastResortPreKey,
+                pniPqLastResortPreKey,
+                Optional.empty(),
+                Optional.empty()),
+            aciIdentityKey.get(),
+            pniIdentityKey.get(),
+            aciSignedPreKey.get(),
+            pniSignedPreKey.get(),
+            aciPqLastResortPreKey.get(),
+            pniPqLastResortPreKey.get(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty()),
+
+        // Has APNs tokens
+        Arguments.of(new RegistrationRequest("session-id",
+                new byte[0],
+                pushAccountAttributes,
+                true,
+                aciIdentityKey,
+                pniIdentityKey,
+                aciSignedPreKey,
+                pniSignedPreKey,
+                aciPqLastResortPreKey,
+                pniPqLastResortPreKey,
+                Optional.of(new ApnRegistrationId(apnsToken, apnsVoipToken)),
+                Optional.empty()),
+            aciIdentityKey.get(),
+            pniIdentityKey.get(),
+            aciSignedPreKey.get(),
+            pniSignedPreKey.get(),
+            aciPqLastResortPreKey.get(),
+            pniPqLastResortPreKey.get(),
+            Optional.of(apnsToken),
+            Optional.of(apnsVoipToken),
+            Optional.empty()),
+
+        // Fetches messages; no push tokens
+        Arguments.of(new RegistrationRequest("session-id",
+                new byte[0],
+                pushAccountAttributes,
+                true,
+                aciIdentityKey,
+                pniIdentityKey,
+                aciSignedPreKey,
+                pniSignedPreKey,
+                aciPqLastResortPreKey,
+                pniPqLastResortPreKey,
+                Optional.empty(),
+                Optional.of(new GcmRegistrationId(gcmToken))),
+            aciIdentityKey.get(),
+            pniIdentityKey.get(),
+            aciSignedPreKey.get(),
+            pniSignedPreKey.get(),
+            aciPqLastResortPreKey.get(),
+            pniPqLastResortPreKey.get(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.of(gcmToken)));
   }
 
   /**

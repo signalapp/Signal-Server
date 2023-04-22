@@ -14,6 +14,8 @@ import java.util.List;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
 import org.whispersystems.textsecuregcm.entities.CreateVerificationSessionRequest;
 import org.whispersystems.textsecuregcm.entities.IncomingMessage;
@@ -31,6 +33,19 @@ public class IntegrationTest {
   @Test
   public void testCreateAccount() throws Exception {
     final TestUser user = Operations.newRegisteredUser("+19995550101");
+    try {
+      final Pair<Integer, AccountIdentityResponse> execute = Operations.apiGet("/v1/accounts/whoami")
+          .authorized(user)
+          .execute(AccountIdentityResponse.class);
+      assertEquals(200, execute.getLeft());
+    } finally {
+      Operations.deleteUser(user);
+    }
+  }
+
+  @Test
+  public void testCreateAccountAtomic() throws Exception {
+    final TestUser user = Operations.newRegisteredUserAtomic("+19995550201");
     try {
       final Pair<Integer, AccountIdentityResponse> execute = Operations.apiGet("/v1/accounts/whoami")
           .authorized(user)
@@ -82,10 +97,19 @@ public class IntegrationTest {
     System.out.println("sms code supplied: " + codeVerified);
   }
 
-  @Test
-  public void testSendMessageUnsealed() throws Exception {
-    final TestUser userA = Operations.newRegisteredUser("+19995550102");
-    final TestUser userB = Operations.newRegisteredUser("+19995550103");
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  public void testSendMessageUnsealed(final boolean atomicAccountCreation) throws Exception {
+    final TestUser userA;
+    final TestUser userB;
+
+    if (atomicAccountCreation) {
+      userA = Operations.newRegisteredUserAtomic("+19995550102");
+      userB = Operations.newRegisteredUserAtomic("+19995550103");
+    } else {
+      userA = Operations.newRegisteredUser("+19995550102");
+      userB = Operations.newRegisteredUser("+19995550103");
+    }
 
     try {
       final byte[] expectedContent = "Hello, World!".getBytes(StandardCharsets.UTF_8);

@@ -148,7 +148,7 @@ class AccountsManagerChangeNumberIntegrationTest {
     final String secondNumber = "+18005552222";
     final int rotatedPniRegistrationId = 17;
     final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
-    final SignedPreKey rotatedSignedPreKey = KeysHelper.signedPreKey(1L, pniIdentityKeyPair);
+    final SignedPreKey rotatedSignedPreKey = KeysHelper.signedECPreKey(1L, pniIdentityKeyPair);
 
     final AccountAttributes accountAttributes = new AccountAttributes(true, rotatedPniRegistrationId + 1, "test", null, true, new Device.DeviceCapabilities());
     final Account account = accountsManager.create(originalNumber, "password", null, accountAttributes, new ArrayList<>());

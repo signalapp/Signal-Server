@@ -22,18 +22,24 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.Executors;
 import org.apache.commons.lang3.RandomUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
 import org.apache.commons.lang3.tuple.Pair;
 import org.signal.integration.config.Config;
+import org.signal.libsignal.protocol.ecc.Curve;
+import org.signal.libsignal.protocol.ecc.ECKeyPair;
+import org.signal.libsignal.protocol.kem.KEMKeyPair;
+import org.signal.libsignal.protocol.kem.KEMKeyType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
 import org.whispersystems.textsecuregcm.entities.RegistrationRequest;
+import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
@@ -67,7 +73,8 @@ public final class Operations {
 
     // register account
     final RegistrationRequest registrationRequest = new RegistrationRequest(
-        null, registrationPassword, accountAttributes, true);
+        null, registrationPassword, accountAttributes, true,
+        Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
 
     final AccountIdentityResponse registrationResponse = apiPost("/v1/registration", registrationRequest)
         .authorized(number, accountPassword)
@@ -81,6 +88,42 @@ public final class Operations {
     apiPut("/v2/keys", preKeySetPublicView)
         .authorized(user, Device.MASTER_ID)
         .executeExpectSuccess();
+
+    return user;
+  }
+
+  public static TestUser newRegisteredUserAtomic(final String number) {
+    final byte[] registrationPassword = RandomUtils.nextBytes(32);
+    final String accountPassword = Base64.getEncoder().encodeToString(RandomUtils.nextBytes(32));
+
+    final TestUser user = TestUser.create(number, accountPassword, registrationPassword);
+    final AccountAttributes accountAttributes = user.accountAttributes();
+
+    INTEGRATION_TOOLS.populateRecoveryPassword(number, registrationPassword).join();
+
+    final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+
+    // register account
+    final RegistrationRequest registrationRequest = new RegistrationRequest(null,
+        registrationPassword,
+        accountAttributes,
+        true,
+        Optional.of(Base64.getEncoder().encodeToString(aciIdentityKeyPair.getPublicKey().serialize())),
+        Optional.of(Base64.getEncoder().encodeToString(pniIdentityKeyPair.getPublicKey().serialize())),
+        Optional.of(generateSignedECPreKey(1, aciIdentityKeyPair)),
+        Optional.of(generateSignedECPreKey(2, pniIdentityKeyPair)),
+        Optional.of(generateSignedKEMPreKey(3, aciIdentityKeyPair)),
+        Optional.of(generateSignedKEMPreKey(4, pniIdentityKeyPair)),
+        Optional.empty(),
+        Optional.empty());
+
+    final AccountIdentityResponse registrationResponse = apiPost("/v1/registration", registrationRequest)
+        .authorized(number, accountPassword)
+        .executeExpectSuccess(AccountIdentityResponse.class);
+
+    user.setAciUuid(registrationResponse.uuid());
+    user.setPniUuid(registrationResponse.pni());
 
     return user;
   }
@@ -270,5 +313,17 @@ public final class Operations {
     } catch (final IOException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  private static SignedPreKey generateSignedECPreKey(long id, final ECKeyPair identityKeyPair) {
+    final byte[] pubKey = Curve.generateKeyPair().getPublicKey().serialize();
+    final byte[] sig = identityKeyPair.getPrivateKey().calculateSignature(pubKey);
+    return new SignedPreKey(id, Base64.getEncoder().encodeToString(pubKey), Base64.getEncoder().encodeToString(sig));
+  }
+
+  private static SignedPreKey generateSignedKEMPreKey(long id, final ECKeyPair identityKeyPair) {
+    final byte[] pubKey = KEMKeyPair.generate(KEMKeyType.KYBER_1024).getPublicKey().serialize();
+    final byte[] sig = identityKeyPair.getPrivateKey().calculateSignature(pubKey);
+    return new SignedPreKey(id, Base64.getEncoder().encodeToString(pubKey), Base64.getEncoder().encodeToString(sig));
   }
 }

@@ -21,6 +21,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Map;
 import java.util.Optional;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
@@ -46,6 +48,8 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.Keys;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -65,18 +69,23 @@ public class RegistrationController {
   private static final String COUNTRY_CODE_TAG_NAME = "countryCode";
   private static final String REGION_CODE_TAG_NAME = "regionCode";
   private static final String VERIFICATION_TYPE_TAG_NAME = "verification";
+  private static final String ACCOUNT_ACTIVATED_TAG_NAME = "accountActivated";
 
   private final AccountsManager accounts;
   private final PhoneVerificationTokenManager phoneVerificationTokenManager;
   private final RegistrationLockVerificationManager registrationLockVerificationManager;
+  private final Keys keys;
   private final RateLimiters rateLimiters;
 
   public RegistrationController(final AccountsManager accounts,
-      final PhoneVerificationTokenManager phoneVerificationTokenManager,
-      final RegistrationLockVerificationManager registrationLockVerificationManager, final RateLimiters rateLimiters) {
+                                final PhoneVerificationTokenManager phoneVerificationTokenManager,
+                                final RegistrationLockVerificationManager registrationLockVerificationManager,
+                                final Keys keys,
+                                final RateLimiters rateLimiters) {
     this.accounts = accounts;
     this.phoneVerificationTokenManager = phoneVerificationTokenManager;
     this.registrationLockVerificationManager = registrationLockVerificationManager;
+    this.keys = keys;
     this.rateLimiters = rateLimiters;
   }
 
@@ -134,13 +143,45 @@ public class RegistrationController {
       throw new WebApplicationException(Response.status(409, "device transfer available").build());
     }
 
-    final Account account = accounts.create(number, password, signalAgent, registrationRequest.accountAttributes(),
+    Account account = accounts.create(number, password, signalAgent, registrationRequest.accountAttributes(),
         existingAccount.map(Account::getBadges).orElseGet(ArrayList::new));
+
+    // If the request includes all the information we need to fully "activate" the account, we should do so
+    if (registrationRequest.supportsAtomicAccountCreation()) {
+      assert registrationRequest.aciIdentityKey().isPresent();
+      assert registrationRequest.pniIdentityKey().isPresent();
+      assert registrationRequest.aciSignedPreKey().isPresent();
+      assert registrationRequest.pniSignedPreKey().isPresent();
+      assert registrationRequest.aciPqLastResortPreKey().isPresent();
+      assert registrationRequest.pniPqLastResortPreKey().isPresent();
+
+      account = accounts.update(account, a -> {
+        a.setIdentityKey(registrationRequest.aciIdentityKey().get());
+        a.setPhoneNumberIdentityKey(registrationRequest.pniIdentityKey().get());
+      });
+
+      account = accounts.updateDevice(account, Device.MASTER_ID, device -> {
+        device.setSignedPreKey(registrationRequest.aciSignedPreKey().get());
+        device.setPhoneNumberIdentitySignedPreKey(registrationRequest.pniSignedPreKey().get());
+
+        registrationRequest.apnToken().ifPresent(apnRegistrationId -> {
+          device.setApnId(apnRegistrationId.apnRegistrationId());
+          device.setVoipApnId(apnRegistrationId.voipRegistrationId());
+        });
+
+        registrationRequest.gcmToken().ifPresent(gcmRegistrationId ->
+            device.setGcmId(gcmRegistrationId.gcmRegistrationId()));
+      });
+
+      keys.storePqLastResort(account.getUuid(), Map.of(Device.MASTER_ID, registrationRequest.aciPqLastResortPreKey().get()));
+      keys.storePqLastResort(account.getPhoneNumberIdentifier(), Map.of(Device.MASTER_ID, registrationRequest.pniPqLastResortPreKey().get()));
+    }
 
     Metrics.counter(ACCOUNT_CREATED_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
             Tag.of(COUNTRY_CODE_TAG_NAME, Util.getCountryCode(number)),
             Tag.of(REGION_CODE_TAG_NAME, Util.getRegion(number)),
-            Tag.of(VERIFICATION_TYPE_TAG_NAME, verificationType.name())))
+            Tag.of(VERIFICATION_TYPE_TAG_NAME, verificationType.name()),
+            Tag.of(ACCOUNT_ACTIVATED_TAG_NAME, String.valueOf(account.isEnabled()))))
         .increment();
 
     return new AccountIdentityResponse(account.getUuid(),

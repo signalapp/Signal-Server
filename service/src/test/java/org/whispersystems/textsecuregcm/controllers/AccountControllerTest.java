@@ -1667,7 +1667,7 @@ class AccountControllerTest {
     var deviceMessages = List.of(
         new IncomingMessage(1, 2, 2, "content2"),
         new IncomingMessage(1, 3, 3, "content3"));
-    var deviceKeys = List.of(1L, 2L, 3L).stream().collect(Collectors.toMap(Function.identity(), n -> KeysHelper.signedPreKey(n + 100, pniIdentityKeyPair)));
+    var deviceKeys = List.of(1L, 2L, 3L).stream().collect(Collectors.toMap(Function.identity(), n -> KeysHelper.signedECPreKey(n + 100, pniIdentityKeyPair)));
 
     final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 47, 3L, 89);
 
@@ -1721,7 +1721,7 @@ class AccountControllerTest {
     var deviceMessages = List.of(
         new IncomingMessage(1, 2, 2, "content2"),
         new IncomingMessage(1, 3, 3, "content3"));
-    var deviceKeys = List.of(1L, 2L, 3L).stream().collect(Collectors.toMap(Function.identity(), n -> KeysHelper.signedPreKey(n + 100, pniIdentityKeyPair)));
+    var deviceKeys = List.of(1L, 2L, 3L).stream().collect(Collectors.toMap(Function.identity(), n -> KeysHelper.signedECPreKey(n + 100, pniIdentityKeyPair)));
 
     final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 47, 3L, 89);
 
