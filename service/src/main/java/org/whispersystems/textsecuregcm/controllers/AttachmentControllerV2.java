@@ -5,13 +5,18 @@
 
 package org.whispersystems.textsecuregcm.controllers;
 
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
+
 import com.codahale.metrics.annotation.Timed;
+import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.Auth;
+import io.micrometer.core.instrument.Metrics;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.security.SecureRandom;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import javax.ws.rs.GET;
+import javax.ws.rs.HeaderParam;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
@@ -19,6 +24,7 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.entities.AttachmentDescriptorV2;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.util.Conversions;
@@ -32,6 +38,8 @@ public class AttachmentControllerV2 {
   private final PolicySigner policySigner;
   private final RateLimiter rateLimiter;
 
+  private static final String CREATE_UPLOAD_COUNTER_NAME = name(AttachmentControllerV2.class, "uploadForm");
+
   public AttachmentControllerV2(RateLimiters rateLimiters, String accessKey, String accessSecret, String region,
       String bucket) {
     this.rateLimiter = rateLimiters.getAttachmentLimiter();  
@@ -43,7 +51,9 @@ public class AttachmentControllerV2 {
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/form/upload")
-  public AttachmentDescriptorV2 getAttachmentUploadForm(@Auth AuthenticatedAccount auth)
+  public AttachmentDescriptorV2 getAttachmentUploadForm(
+      @Auth AuthenticatedAccount auth,
+      @HeaderParam(HttpHeaders.USER_AGENT) String userAgent)
       throws RateLimitExceededException {
     rateLimiter.validate(auth.getAccount().getUuid());
 
@@ -52,6 +62,8 @@ public class AttachmentControllerV2 {
     String objectName = String.valueOf(attachmentId);
     Pair<String, String> policy = policyGenerator.createFor(now, String.valueOf(objectName), 100 * 1024 * 1024);
     String signature = policySigner.getSignature(now, policy.second());
+
+    Metrics.counter(CREATE_UPLOAD_COUNTER_NAME, UserAgentTagUtil.getUserAgentTags(userAgent)).increment();
 
     return new AttachmentDescriptorV2(attachmentId, objectName, policy.first(),
         "private", "AWS4-HMAC-SHA256",
