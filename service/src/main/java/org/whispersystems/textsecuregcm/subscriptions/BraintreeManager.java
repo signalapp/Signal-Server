@@ -21,6 +21,7 @@ import com.braintreegateway.exceptions.NotFoundException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.List;
@@ -35,6 +36,7 @@ import javax.annotation.Nullable;
 import javax.ws.rs.ClientErrorException;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
+import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
@@ -61,18 +63,26 @@ public class BraintreeManager implements SubscriptionProcessorManager {
       final CircuitBreakerConfiguration circuitBreakerConfiguration,
       final Executor executor) {
 
-    this.braintreeGateway = new BraintreeGateway(braintreeEnvironment, braintreeMerchantId, braintreePublicKey,
-        braintreePrivateKey);
+    this(new BraintreeGateway(braintreeEnvironment, braintreeMerchantId, braintreePublicKey,
+            braintreePrivateKey),
+        supportedCurrencies,
+        currenciesToMerchantAccounts,
+        new BraintreeGraphqlClient(FaultTolerantHttpClient.newBuilder()
+            .withName("braintree-graphql")
+            .withCircuitBreaker(circuitBreakerConfiguration)
+            .withExecutor(executor)
+            .build(), graphqlUri, braintreePublicKey, braintreePrivateKey),
+        executor);
+  }
+
+  @VisibleForTesting
+  BraintreeManager(final BraintreeGateway braintreeGateway, final Set<String> supportedCurrencies,
+      final Map<String, String> currenciesToMerchantAccounts, final BraintreeGraphqlClient braintreeGraphqlClient,
+      final Executor executor) {
+    this.braintreeGateway = braintreeGateway;
     this.supportedCurrencies = supportedCurrencies;
     this.currenciesToMerchantAccounts = currenciesToMerchantAccounts;
-
-    final FaultTolerantHttpClient httpClient = FaultTolerantHttpClient.newBuilder()
-        .withName("braintree-graphql")
-        .withCircuitBreaker(circuitBreakerConfiguration)
-        .withExecutor(executor)
-        .build();
-    this.braintreeGraphqlClient = new BraintreeGraphqlClient(httpClient, graphqlUri, braintreePublicKey,
-        braintreePrivateKey);
+    this.braintreeGraphqlClient = braintreeGraphqlClient;
     this.executor = executor;
   }
 
@@ -95,7 +105,6 @@ public class BraintreeManager implements SubscriptionProcessorManager {
   public boolean supportsCurrency(final String currency) {
     return supportedCurrencies.contains(currency.toLowerCase(Locale.ROOT));
   }
-
 
   @Override
   public CompletableFuture<PaymentDetails> getPaymentDetails(final String paymentId) {
@@ -446,7 +455,10 @@ public class BraintreeManager implements SubscriptionProcessorManager {
 
     return CompletableFuture.supplyAsync(() -> braintreeGateway.customer().find(customerId), executor).thenCompose(customer -> {
 
-      final List<CompletableFuture<Void>> subscriptionCancelFutures = customer.getDefaultPaymentMethod().getSubscriptions().stream()
+      final List<CompletableFuture<Void>> subscriptionCancelFutures = Optional.ofNullable(customer.getDefaultPaymentMethod())
+              .map(com.braintreegateway.PaymentMethod::getSubscriptions)
+              .orElse(Collections.emptyList())
+              .stream()
               .map(this::cancelSubscriptionAtEndOfCurrentPeriod)
               .toList();
 
