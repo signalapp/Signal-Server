@@ -20,7 +20,6 @@ public class AccountDatabaseCrawlerCache {
   public static final String ACCOUNT_CLEANER_PREFIX = "account-cleaner";
 
   private static final String ACTIVE_WORKER_KEY = "account_database_crawler_cache_active_worker";
-  private static final String LAST_UUID_KEY = "account_database_crawler_cache_last_uuid";
   private static final String ACCELERATE_KEY = "account_database_crawler_cache_accelerate";
 
   private static final String LAST_UUID_DYNAMO_KEY = "account_database_crawler_cache_last_uuid_dynamo";
@@ -63,26 +62,6 @@ public class AccountDatabaseCrawlerCache {
 
   public Optional<UUID> getLastUuid() {
     final String lastUuidString = cacheCluster.withCluster(
-        connection -> connection.sync().get(getPrefixedKey(LAST_UUID_KEY)));
-
-    if (lastUuidString == null) {
-      return Optional.empty();
-    } else {
-      return Optional.of(UUID.fromString(lastUuidString));
-    }
-  }
-
-  public void setLastUuid(Optional<UUID> lastUuid) {
-    if (lastUuid.isPresent()) {
-      cacheCluster.useCluster(connection -> connection.sync()
-          .psetex(getPrefixedKey(LAST_UUID_KEY), LAST_NUMBER_TTL_MS, lastUuid.get().toString()));
-    } else {
-      cacheCluster.useCluster(connection -> connection.sync().del(getPrefixedKey(LAST_UUID_KEY)));
-    }
-  }
-
-  public Optional<UUID> getLastUuidDynamo() {
-    final String lastUuidString = cacheCluster.withCluster(
         connection -> connection.sync().get(getPrefixedKey(LAST_UUID_DYNAMO_KEY)));
 
     if (lastUuidString == null) {
@@ -92,7 +71,7 @@ public class AccountDatabaseCrawlerCache {
     }
   }
 
-  public void setLastUuidDynamo(Optional<UUID> lastUuid) {
+  public void setLastUuid(Optional<UUID> lastUuid) {
     if (lastUuid.isPresent()) {
       cacheCluster.useCluster(
           connection -> connection.sync()

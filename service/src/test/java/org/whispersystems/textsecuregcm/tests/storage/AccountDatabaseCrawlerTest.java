@@ -70,21 +70,18 @@ class AccountDatabaseCrawlerTest {
   @Test
   void testCrawlStart() throws AccountDatabaseCrawlerRestartException {
     when(cache.getLastUuid()).thenReturn(Optional.empty());
-    when(cache.getLastUuidDynamo()).thenReturn(Optional.empty());
 
     boolean accelerated = crawler.doPeriodicWork();
     assertThat(accelerated).isFalse();
 
     verify(cache, times(1)).claimActiveWork(any(String.class), anyLong());
-    verify(cache, times(0)).getLastUuid();
-    verify(cache, times(1)).getLastUuidDynamo();
+    verify(cache, times(1)).getLastUuid();
     verify(listener, times(1)).onCrawlStart();
     verify(accounts, times(1)).getAllFromDynamo(eq(CHUNK_SIZE));
     verify(accounts, times(0)).getAllFromDynamo(any(UUID.class), eq(CHUNK_SIZE));
     verify(account1, times(0)).getUuid();
     verify(listener, times(1)).timeAndProcessCrawlChunk(eq(Optional.empty()), eq(List.of(account1, account2)));
-    verify(cache, times(0)).setLastUuid(eq(Optional.of(ACCOUNT2)));
-    verify(cache, times(1)).setLastUuidDynamo(eq(Optional.of(ACCOUNT2)));
+    verify(cache, times(1)).setLastUuid(eq(Optional.of(ACCOUNT2)));
     verify(cache, times(1)).isAccelerated();
     verify(cache, times(1)).releaseActiveWork(any(String.class));
 
@@ -98,19 +95,16 @@ class AccountDatabaseCrawlerTest {
   @Test
   void testCrawlChunk() throws AccountDatabaseCrawlerRestartException {
     when(cache.getLastUuid()).thenReturn(Optional.of(ACCOUNT1));
-    when(cache.getLastUuidDynamo()).thenReturn(Optional.of(ACCOUNT1));
 
     boolean accelerated = crawler.doPeriodicWork();
     assertThat(accelerated).isFalse();
 
     verify(cache, times(1)).claimActiveWork(any(String.class), anyLong());
-    verify(cache, times(0)).getLastUuid();
-    verify(cache, times(1)).getLastUuidDynamo();
+    verify(cache, times(1)).getLastUuid();
     verify(accounts, times(0)).getAllFromDynamo(eq(CHUNK_SIZE));
     verify(accounts, times(1)).getAllFromDynamo(eq(ACCOUNT1), eq(CHUNK_SIZE));
     verify(listener, times(1)).timeAndProcessCrawlChunk(eq(Optional.of(ACCOUNT1)), eq(List.of(account2)));
-    verify(cache, times(0)).setLastUuid(eq(Optional.of(ACCOUNT2)));
-    verify(cache, times(1)).setLastUuidDynamo(eq(Optional.of(ACCOUNT2)));
+    verify(cache, times(1)).setLastUuid(eq(Optional.of(ACCOUNT2)));
     verify(cache, times(1)).isAccelerated();
     verify(cache, times(1)).releaseActiveWork(any(String.class));
 
@@ -126,19 +120,16 @@ class AccountDatabaseCrawlerTest {
   void testCrawlChunkAccelerated() throws AccountDatabaseCrawlerRestartException {
     when(cache.isAccelerated()).thenReturn(true);
     when(cache.getLastUuid()).thenReturn(Optional.of(ACCOUNT1));
-    when(cache.getLastUuidDynamo()).thenReturn(Optional.of(ACCOUNT1));
 
     boolean accelerated = crawler.doPeriodicWork();
     assertThat(accelerated).isTrue();
 
     verify(cache, times(1)).claimActiveWork(any(String.class), anyLong());
-    verify(cache, times(0)).getLastUuid();
-    verify(cache, times(1)).getLastUuidDynamo();
+    verify(cache, times(1)).getLastUuid();
     verify(accounts, times(0)).getAllFromDynamo(eq(CHUNK_SIZE));
     verify(accounts, times(1)).getAllFromDynamo(eq(ACCOUNT1), eq(CHUNK_SIZE));
     verify(listener, times(1)).timeAndProcessCrawlChunk(eq(Optional.of(ACCOUNT1)), eq(List.of(account2)));
-    verify(cache, times(0)).setLastUuid(eq(Optional.of(ACCOUNT2)));
-    verify(cache, times(1)).setLastUuidDynamo(eq(Optional.of(ACCOUNT2)));
+    verify(cache, times(1)).setLastUuid(eq(Optional.of(ACCOUNT2)));
     verify(cache, times(1)).isAccelerated();
     verify(cache, times(1)).releaseActiveWork(any(String.class));
 
@@ -153,7 +144,6 @@ class AccountDatabaseCrawlerTest {
   @Test
   void testCrawlChunkRestart() throws AccountDatabaseCrawlerRestartException {
     when(cache.getLastUuid()).thenReturn(Optional.of(ACCOUNT1));
-    when(cache.getLastUuidDynamo()).thenReturn(Optional.of(ACCOUNT1));
     doThrow(AccountDatabaseCrawlerRestartException.class).when(listener)
         .timeAndProcessCrawlChunk(eq(Optional.of(ACCOUNT1)), eq(List.of(account2)));
 
@@ -161,14 +151,12 @@ class AccountDatabaseCrawlerTest {
     assertThat(accelerated).isFalse();
 
     verify(cache, times(1)).claimActiveWork(any(String.class), anyLong());
-    verify(cache, times(0)).getLastUuid();
-    verify(cache, times(1)).getLastUuidDynamo();
+    verify(cache, times(1)).getLastUuid();
     verify(accounts, times(0)).getAllFromDynamo(eq(CHUNK_SIZE));
     verify(accounts, times(1)).getAllFromDynamo(eq(ACCOUNT1), eq(CHUNK_SIZE));
     verify(account2, times(0)).getNumber();
     verify(listener, times(1)).timeAndProcessCrawlChunk(eq(Optional.of(ACCOUNT1)), eq(List.of(account2)));
-    verify(cache, times(0)).setLastUuid(eq(Optional.empty()));
-    verify(cache, times(1)).setLastUuidDynamo(eq(Optional.empty()));
+    verify(cache, times(1)).setLastUuid(eq(Optional.empty()));
     verify(cache, times(1)).setAccelerated(false);
     verify(cache, times(1)).isAccelerated();
     verify(cache, times(1)).releaseActiveWork(any(String.class));
@@ -184,21 +172,18 @@ class AccountDatabaseCrawlerTest {
   @Test
   void testCrawlEnd() {
     when(cache.getLastUuid()).thenReturn(Optional.of(ACCOUNT2));
-    when(cache.getLastUuidDynamo()).thenReturn(Optional.of(ACCOUNT2));
 
     boolean accelerated = crawler.doPeriodicWork();
     assertThat(accelerated).isFalse();
 
     verify(cache, times(1)).claimActiveWork(any(String.class), anyLong());
-    verify(cache, times(0)).getLastUuid();
-    verify(cache, times(1)).getLastUuidDynamo();
+    verify(cache, times(1)).getLastUuid();
     verify(accounts, times(0)).getAllFromDynamo(eq(CHUNK_SIZE));
     verify(accounts, times(1)).getAllFromDynamo(eq(ACCOUNT2), eq(CHUNK_SIZE));
     verify(account1, times(0)).getNumber();
     verify(account2, times(0)).getNumber();
     verify(listener, times(1)).onCrawlEnd(eq(Optional.of(ACCOUNT2)));
-    verify(cache, times(0)).setLastUuid(eq(Optional.empty()));
-    verify(cache, times(1)).setLastUuidDynamo(eq(Optional.empty()));
+    verify(cache, times(1)).setLastUuid(eq(Optional.empty()));
     verify(cache, times(1)).setAccelerated(false);
     verify(cache, times(1)).isAccelerated();
     verify(cache, times(1)).releaseActiveWork(any(String.class));

@@ -166,11 +166,11 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
   }
 
   private Optional<UUID> getLastUuid() {
-    return cache.getLastUuidDynamo();
+    return cache.getLastUuid();
   }
 
   private void cacheLastUuid(final Optional<UUID> lastUuid) {
-    cache.setLastUuidDynamo(lastUuid);
+    cache.setLastUuid(lastUuid);
   }
 
   private synchronized void sleepWhileRunning(long delayMs) {
