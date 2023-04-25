@@ -184,7 +184,6 @@ gcpAttachments: # GCP Storage configuration
 
 accountDatabaseCrawler:
   chunkSize: 10           # accounts per run
-  chunkIntervalMs: 60000  # time per run
 
 apn: # Apple Push Notifications configuration
   sandbox: true

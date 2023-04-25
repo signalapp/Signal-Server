@@ -20,8 +20,6 @@ public class AccountDatabaseCrawlerCache {
   public static final String ACCOUNT_CLEANER_PREFIX = "account-cleaner";
 
   private static final String ACTIVE_WORKER_KEY = "account_database_crawler_cache_active_worker";
-  private static final String ACCELERATE_KEY = "account_database_crawler_cache_accelerate";
-
   private static final String LAST_UUID_DYNAMO_KEY = "account_database_crawler_cache_last_uuid_dynamo";
 
   private static final long LAST_NUMBER_TTL_MS = 86400_000L;
@@ -37,18 +35,6 @@ public class AccountDatabaseCrawlerCache {
         ScriptOutputType.INTEGER);
 
     this.prefix = prefix + "::";
-  }
-
-  public void setAccelerated(final boolean accelerated) {
-    if (accelerated) {
-      cacheCluster.useCluster(connection -> connection.sync().set(getPrefixedKey(ACCELERATE_KEY), "1"));
-    } else {
-      cacheCluster.useCluster(connection -> connection.sync().del(getPrefixedKey(ACCELERATE_KEY)));
-    }
-  }
-
-  public boolean isAccelerated() {
-    return "1".equals(cacheCluster.withCluster(connection -> connection.sync().get(ACCELERATE_KEY)));
   }
 
   public boolean claimActiveWork(String workerId, long ttlMs) {

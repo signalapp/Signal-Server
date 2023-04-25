@@ -5,7 +5,6 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
@@ -60,16 +59,17 @@ class AccountDatabaseCrawlerIntegrationTest {
         .thenReturn(new AccountCrawlChunk(List.of(secondAccount), SECOND_UUID))
         .thenReturn(new AccountCrawlChunk(Collections.emptyList(), null));
 
-    final AccountDatabaseCrawlerCache crawlerCache = new AccountDatabaseCrawlerCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(), "test");
-    accountDatabaseCrawler = new AccountDatabaseCrawler("test", accountsManager, crawlerCache, List.of(listener), CHUNK_SIZE,
-        CHUNK_INTERVAL_MS);
+    final AccountDatabaseCrawlerCache crawlerCache = new AccountDatabaseCrawlerCache(
+        REDIS_CLUSTER_EXTENSION.getRedisCluster(), "test");
+    accountDatabaseCrawler = new AccountDatabaseCrawler("test", accountsManager, crawlerCache, List.of(listener),
+        CHUNK_SIZE);
   }
 
   @Test
   void testCrawlUninterrupted() throws AccountDatabaseCrawlerRestartException {
-    assertFalse(accountDatabaseCrawler.doPeriodicWork());
-    assertFalse(accountDatabaseCrawler.doPeriodicWork());
-    assertFalse(accountDatabaseCrawler.doPeriodicWork());
+    accountDatabaseCrawler.doPeriodicWork();
+    accountDatabaseCrawler.doPeriodicWork();
+    accountDatabaseCrawler.doPeriodicWork();
 
     verify(accountsManager).getAllFromDynamo(CHUNK_SIZE);
     verify(accountsManager).getAllFromDynamo(FIRST_UUID, CHUNK_SIZE);
@@ -86,10 +86,10 @@ class AccountDatabaseCrawlerIntegrationTest {
     doThrow(new AccountDatabaseCrawlerRestartException("OH NO")).doNothing()
         .when(listener).timeAndProcessCrawlChunk(Optional.empty(), List.of(firstAccount));
 
-    assertFalse(accountDatabaseCrawler.doPeriodicWork());
-    assertFalse(accountDatabaseCrawler.doPeriodicWork());
-    assertFalse(accountDatabaseCrawler.doPeriodicWork());
-    assertFalse(accountDatabaseCrawler.doPeriodicWork());
+    accountDatabaseCrawler.doPeriodicWork();
+    accountDatabaseCrawler.doPeriodicWork();
+    accountDatabaseCrawler.doPeriodicWork();
+    accountDatabaseCrawler.doPeriodicWork();
 
     verify(accountsManager, times(2)).getAllFromDynamo(CHUNK_SIZE);
     verify(accountsManager).getAllFromDynamo(FIRST_UUID, CHUNK_SIZE);

@@ -11,6 +11,7 @@ import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.lifecycle.Managed;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -30,12 +31,11 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
       name(AccountDatabaseCrawler.class, "processChunk"));
 
   private static final long WORKER_TTL_MS = 120_000L;
-  private static final long ACCELERATED_CHUNK_INTERVAL = 10L;
+  private static final long CHUNK_INTERVAL_MILLIS = Duration.ofSeconds(2).toMillis();
 
   private final String name;
   private final AccountsManager accounts;
   private final int chunkSize;
-  private final long chunkIntervalMs;
   private final String workerId;
   private final AccountDatabaseCrawlerCache cache;
   private final List<AccountDatabaseCrawlerListener> listeners;
@@ -47,12 +47,10 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
       AccountsManager accounts,
       AccountDatabaseCrawlerCache cache,
       List<AccountDatabaseCrawlerListener> listeners,
-      int chunkSize,
-      long chunkIntervalMs) {
+      int chunkSize) {
     this.name = name;
     this.accounts = accounts;
     this.chunkSize = chunkSize;
-    this.chunkIntervalMs = chunkIntervalMs;
     this.workerId = UUID.randomUUID().toString();
     this.cache = cache;
     this.listeners = listeners;
@@ -76,12 +74,11 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
 
   @Override
   public void run() {
-    boolean accelerated = false;
 
     while (running.get()) {
       try {
-        accelerated = doPeriodicWork();
-        sleepWhileRunning(accelerated ? ACCELERATED_CHUNK_INTERVAL : chunkIntervalMs);
+        doPeriodicWork();
+        sleepWhileRunning(CHUNK_INTERVAL_MILLIS);
       } catch (Throwable t) {
         logger.warn("{}: error in database crawl: {}: {}", name, t.getClass().getSimpleName(), t.getMessage(), t);
         Util.sleep(10000);
@@ -95,26 +92,14 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
   }
 
   @VisibleForTesting
-  public boolean doPeriodicWork() {
+  public void doPeriodicWork() {
     if (cache.claimActiveWork(workerId, WORKER_TTL_MS)) {
-
       try {
-        final long startTimeMs = System.currentTimeMillis();
         processChunk();
-        if (cache.isAccelerated()) {
-          return true;
-        }
-        final long endTimeMs = System.currentTimeMillis();
-        final long sleepIntervalMs = chunkIntervalMs - (endTimeMs - startTimeMs);
-        if (sleepIntervalMs > 0) {
-          logger.debug("{}: Sleeping {}ms", name, sleepIntervalMs);
-          sleepWhileRunning(sleepIntervalMs);
-        }
       } finally {
         cache.releaseActiveWork(workerId);
       }
     }
-    return false;
   }
 
   private void processChunk() {
@@ -134,7 +119,6 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
         logger.info("{}: Finished crawl", name);
         listeners.forEach(listener -> listener.onCrawlEnd(fromUuid));
         cacheLastUuid(Optional.empty());
-        cache.setAccelerated(false);
       } else {
         logger.debug("{}: Processing chunk", name);
         try {
@@ -144,7 +128,6 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
           cacheLastUuid(chunkAccounts.getLastUuid());
         } catch (AccountDatabaseCrawlerRestartException e) {
           cacheLastUuid(Optional.empty());
-          cache.setAccelerated(false);
         }
       }
     }

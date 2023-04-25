@@ -11,14 +11,8 @@ public class AccountDatabaseCrawlerConfiguration {
   @JsonProperty
   private int chunkSize = 1000;
 
-  @JsonProperty
-  private long chunkIntervalMs = 8000L;
-
   public int getChunkSize() {
     return chunkSize;
   }
 
-  public long getChunkIntervalMs() {
-    return chunkIntervalMs;
-  }
 }
