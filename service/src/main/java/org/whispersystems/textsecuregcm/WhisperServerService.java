@@ -37,7 +37,6 @@ import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
@@ -80,7 +79,6 @@ import org.whispersystems.textsecuregcm.captcha.CaptchaChecker;
 import org.whispersystems.textsecuregcm.captcha.HCaptchaClient;
 import org.whispersystems.textsecuregcm.captcha.RecaptchaClient;
 import org.whispersystems.textsecuregcm.captcha.RegistrationCaptchaManager;
-import org.whispersystems.textsecuregcm.configuration.DirectoryServerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
 import org.whispersystems.textsecuregcm.controllers.AccountControllerV2;
@@ -91,7 +89,6 @@ import org.whispersystems.textsecuregcm.controllers.CallLinkController;
 import org.whispersystems.textsecuregcm.controllers.CertificateController;
 import org.whispersystems.textsecuregcm.controllers.ChallengeController;
 import org.whispersystems.textsecuregcm.controllers.DeviceController;
-import org.whispersystems.textsecuregcm.controllers.DirectoryController;
 import org.whispersystems.textsecuregcm.controllers.DirectoryV2Controller;
 import org.whispersystems.textsecuregcm.controllers.DonationController;
 import org.whispersystems.textsecuregcm.controllers.KeepAliveController;
@@ -168,7 +165,6 @@ import org.whispersystems.textsecuregcm.spam.RateLimitChallengeListener;
 import org.whispersystems.textsecuregcm.spam.ReportSpamTokenProvider;
 import org.whispersystems.textsecuregcm.spam.ScoreThresholdProvider;
 import org.whispersystems.textsecuregcm.spam.SpamFilter;
-import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.AccountCleaner;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawler;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerCache;
@@ -178,11 +174,7 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
 import org.whispersystems.textsecuregcm.storage.ContactDiscoveryWriter;
 import org.whispersystems.textsecuregcm.storage.DeletedAccounts;
-import org.whispersystems.textsecuregcm.storage.DeletedAccountsDirectoryReconciler;
 import org.whispersystems.textsecuregcm.storage.DeletedAccountsManager;
-import org.whispersystems.textsecuregcm.storage.DeletedAccountsTableCrawler;
-import org.whispersystems.textsecuregcm.storage.DirectoryReconciler;
-import org.whispersystems.textsecuregcm.storage.DirectoryReconciliationClient;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.Keys;
@@ -328,8 +320,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .build();
 
     DeletedAccounts deletedAccounts = new DeletedAccounts(dynamoDbClient,
-        config.getDynamoDbTables().getDeletedAccounts().getTableName(),
-        config.getDynamoDbTables().getDeletedAccounts().getNeedsReconciliationIndexName());
+        config.getDynamoDbTables().getDeletedAccounts().getTableName());
 
     DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
         new DynamicConfigurationManager<>(config.getAppConfig().getApplication(),
@@ -464,8 +455,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getBraintree().supportedCurrencies(), config.getBraintree().merchantAccounts(),
         config.getBraintree().graphqlUrl(), config.getBraintree().circuitBreaker(), subscriptionProcessorExecutor);
 
-    ExternalServiceCredentialsGenerator directoryCredentialsGenerator = DirectoryController.credentialsGenerator(
-        config.getDirectoryConfiguration().getDirectoryClientConfiguration());
     ExternalServiceCredentialsGenerator directoryV2CredentialsGenerator = DirectoryV2Controller.credentialsGenerator(
         config.getDirectoryV2Configuration().getDirectoryV2ClientConfiguration());
     ExternalServiceCredentialsGenerator storageCredentialsGenerator = SecureStorageController.credentialsGenerator(
@@ -502,7 +491,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         storageServiceExecutor, config.getSecureStorageServiceConfiguration());
     ClientPresenceManager clientPresenceManager = new ClientPresenceManager(clientPresenceCluster, recurringJobExecutor,
         keyspaceNotificationDispatchExecutor);
-    DirectoryQueue directoryQueue = new DirectoryQueue(config.getDirectoryConfiguration().getSqsConfiguration());
     StoredVerificationCodeManager pendingAccountsManager = new StoredVerificationCodeManager(pendingAccounts);
     StoredVerificationCodeManager pendingDevicesManager = new StoredVerificationCodeManager(pendingDevices);
     ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster);
@@ -516,7 +504,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     DeletedAccountsManager deletedAccountsManager = new DeletedAccountsManager(deletedAccounts,
         deletedAccountsLockDynamoDbClient, config.getDynamoDbTables().getDeletedAccountsLock().getTableName());
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
-        deletedAccountsManager, directoryQueue, keys, messagesManager, profilesManager,
+        deletedAccountsManager, keys, messagesManager, profilesManager,
         pendingAccountsManager, secureStorageClient, secureBackupClient, secureValueRecovery2Client, clientPresenceManager,
         experimentEnrollmentManager, registrationRecoveryPasswordsManager, clock);
     RemoteConfigsManager       remoteConfigsManager       = new RemoteConfigsManager(remoteConfigs);
@@ -573,33 +561,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     MessagePersister messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager, dynamicConfigurationManager, Duration.ofMinutes(config.getMessageCacheConfiguration().getPersistDelayMinutes()));
     ChangeNumberManager changeNumberManager = new ChangeNumberManager(messageSender, accountsManager);
 
-    final List<AccountDatabaseCrawlerListener> directoryReconciliationAccountDatabaseCrawlerListeners = new ArrayList<>();
-    final List<DeletedAccountsDirectoryReconciler> deletedAccountsDirectoryReconcilers = new ArrayList<>();
-    for (DirectoryServerConfiguration directoryServerConfiguration : config.getDirectoryConfiguration()
-        .getDirectoryServerConfiguration()) {
-      final DirectoryReconciliationClient directoryReconciliationClient = new DirectoryReconciliationClient(
-          directoryServerConfiguration);
-      final DirectoryReconciler directoryReconciler = new DirectoryReconciler(
-          directoryServerConfiguration.getReplicationName(), directoryReconciliationClient,
-          dynamicConfigurationManager);
-      // reconcilers are read-only
-      directoryReconciliationAccountDatabaseCrawlerListeners.add(directoryReconciler);
-
-      final DeletedAccountsDirectoryReconciler deletedAccountsDirectoryReconciler = new DeletedAccountsDirectoryReconciler(
-          directoryServerConfiguration.getReplicationName(), directoryReconciliationClient);
-      deletedAccountsDirectoryReconcilers.add(deletedAccountsDirectoryReconciler);
-    }
-
-    AccountDatabaseCrawlerCache directoryReconciliationAccountDatabaseCrawlerCache = new AccountDatabaseCrawlerCache(
-        cacheCluster, AccountDatabaseCrawlerCache.DIRECTORY_RECONCILER_PREFIX);
-    AccountDatabaseCrawler directoryReconciliationAccountDatabaseCrawler = new AccountDatabaseCrawler(
-        "Reconciliation crawler",
-        accountsManager,
-        directoryReconciliationAccountDatabaseCrawlerCache, directoryReconciliationAccountDatabaseCrawlerListeners,
-        config.getAccountDatabaseCrawlerConfiguration().getChunkSize(),
-        config.getAccountDatabaseCrawlerConfiguration().getChunkIntervalMs()
-    );
-
     AccountDatabaseCrawlerCache accountCleanerAccountDatabaseCrawlerCache =
         new AccountDatabaseCrawlerCache(cacheCluster, AccountDatabaseCrawlerCache.ACCOUNT_CLEANER_PREFIX);
     AccountDatabaseCrawler accountCleanerAccountDatabaseCrawler = new AccountDatabaseCrawler("Account cleaner crawler",
@@ -625,8 +586,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getAccountDatabaseCrawlerConfiguration().getChunkIntervalMs()
     );
 
-    DeletedAccountsTableCrawler deletedAccountsTableCrawler = new DeletedAccountsTableCrawler(deletedAccountsManager, deletedAccountsDirectoryReconcilers, cacheCluster, recurringJobExecutor);
-
     HttpClient currencyClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_2).connectTimeout(Duration.ofSeconds(10)).build();
     FixerClient fixerClient = new FixerClient(currencyClient, config.getPaymentsServiceConfiguration().getFixerApiKey());
     CoinMarketCapClient coinMarketCapClient = new CoinMarketCapClient(currencyClient, config.getPaymentsServiceConfiguration().getCoinMarketCapApiKey(), config.getPaymentsServiceConfiguration().getCoinMarketCapCurrencyIds());
@@ -637,14 +596,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.lifecycle().manage(apnPushNotificationScheduler);
     environment.lifecycle().manage(provisioningManager);
     environment.lifecycle().manage(accountDatabaseCrawler);
-    environment.lifecycle().manage(directoryReconciliationAccountDatabaseCrawler);
     environment.lifecycle().manage(accountCleanerAccountDatabaseCrawler);
-    environment.lifecycle().manage(deletedAccountsTableCrawler);
     environment.lifecycle().manage(messagesCache);
     environment.lifecycle().manage(messagePersister);
     environment.lifecycle().manage(clientPresenceManager);
     environment.lifecycle().manage(currencyManager);
-    environment.lifecycle().manage(directoryQueue);
     environment.lifecycle().manage(registrationServiceClient);
 
     final RegistrationCaptchaManager registrationCaptchaManager = new RegistrationCaptchaManager(captchaChecker,
@@ -767,7 +723,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new CertificateController(new CertificateGenerator(config.getDeliveryCertificate().getCertificate(), config.getDeliveryCertificate().getPrivateKey(), config.getDeliveryCertificate().getExpiresDays()), zkAuthOperations, clock),
         new ChallengeController(rateLimitChallengeManager),
         new DeviceController(pendingDevicesManager, accountsManager, messagesManager, keys, rateLimiters, config.getMaxDevices()),
-        new DirectoryController(directoryCredentialsGenerator),
         new DirectoryV2Controller(directoryV2CredentialsGenerator),
         new DonationController(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager, config.getBadges(),
             ReceiptCredentialPresentation::new),

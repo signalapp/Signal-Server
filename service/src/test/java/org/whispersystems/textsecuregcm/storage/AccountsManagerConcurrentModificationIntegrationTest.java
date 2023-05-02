@@ -47,7 +47,6 @@ import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
-import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
 import org.whispersystems.textsecuregcm.tests.util.JsonHelpers;
@@ -111,7 +110,6 @@ class AccountsManagerConcurrentModificationIntegrationTest {
           phoneNumberIdentifiers,
           RedisClusterHelper.builder().stringCommands(commands).build(),
           deletedAccountsManager,
-          mock(DirectoryQueue.class),
           mock(Keys.class),
           mock(MessagesManager.class),
           mock(ProfilesManager.class),

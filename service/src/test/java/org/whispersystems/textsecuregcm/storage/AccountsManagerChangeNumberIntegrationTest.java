@@ -33,15 +33,10 @@ import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
-import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
-import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Indexes;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 
 class AccountsManagerChangeNumberIntegrationTest {
 
-  private static final String NUMBERS_TABLE_NAME = "numbers_test";
-  private static final String PNI_ASSIGNMENT_TABLE_NAME = "pni_assignment_test";
-  private static final String USERNAMES_TABLE_NAME = "usernames_test";
   private static final int SCAN_PAGE_SIZE = 1;
 
   @RegisterExtension
@@ -82,8 +77,7 @@ class AccountsManagerChangeNumberIntegrationTest {
           SCAN_PAGE_SIZE);
 
       deletedAccounts = new DeletedAccounts(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
-          Tables.DELETED_ACCOUNTS.tableName(),
-          Indexes.DELETED_ACCOUNTS_NEEDS_RECONCILIATION.indexName());
+          Tables.DELETED_ACCOUNTS.tableName());
 
       final DeletedAccountsManager deletedAccountsManager = new DeletedAccountsManager(deletedAccounts,
           DYNAMO_DB_EXTENSION.getLegacyDynamoClient(),
@@ -108,7 +102,6 @@ class AccountsManagerChangeNumberIntegrationTest {
           phoneNumberIdentifiers,
           CACHE_CLUSTER_EXTENSION.getRedisCluster(),
           deletedAccountsManager,
-          mock(DirectoryQueue.class),
           mock(Keys.class),
           mock(MessagesManager.class),
           mock(ProfilesManager.class),

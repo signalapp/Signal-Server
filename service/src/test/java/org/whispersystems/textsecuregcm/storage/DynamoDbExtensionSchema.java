@@ -18,20 +18,6 @@ import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
 
 public final class DynamoDbExtensionSchema {
 
-  public enum Indexes {
-
-      DELETED_ACCOUNTS_NEEDS_RECONCILIATION("needs_reconciliation_test");
-
-      private final String name;
-
-      public String indexName() {
-        return name;
-      }
-
-      Indexes(final String name) { this.name = name; }
-
-  }
-
   public enum Tables implements DynamoDbExtension.TableSchema {
 
     ACCOUNTS("accounts_test",
@@ -51,21 +37,10 @@ public final class DynamoDbExtensionSchema {
                 .attributeName(DeletedAccounts.KEY_ACCOUNT_E164)
                 .attributeType(ScalarAttributeType.S).build(),
             AttributeDefinition.builder()
-                .attributeName(DeletedAccounts.ATTR_NEEDS_CDS_RECONCILIATION)
-                .attributeType(ScalarAttributeType.N)
-                .build(),
-            AttributeDefinition.builder()
                 .attributeName(DeletedAccounts.ATTR_ACCOUNT_UUID)
                 .attributeType(ScalarAttributeType.B)
                 .build()),
         List.of(
-            GlobalSecondaryIndex.builder()
-                .indexName(Indexes.DELETED_ACCOUNTS_NEEDS_RECONCILIATION.indexName())
-                .keySchema(KeySchemaElement.builder().attributeName(DeletedAccounts.KEY_ACCOUNT_E164).keyType(KeyType.HASH).build(),
-                    KeySchemaElement.builder().attributeName(DeletedAccounts.ATTR_NEEDS_CDS_RECONCILIATION).keyType(KeyType.RANGE).build())
-                .projection(Projection.builder().projectionType(ProjectionType.INCLUDE).nonKeyAttributes(DeletedAccounts.ATTR_ACCOUNT_UUID).build())
-                .provisionedThroughput(ProvisionedThroughput.builder().readCapacityUnits(10L).writeCapacityUnits(10L).build())
-                .build(),
             GlobalSecondaryIndex.builder()
                 .indexName(DeletedAccounts.UUID_TO_E164_INDEX_NAME)
                 .keySchema(

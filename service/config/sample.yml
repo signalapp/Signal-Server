@@ -47,7 +47,6 @@ dynamoDbTables:
     scanPageSize: 100
   deletedAccounts:
     tableName: Example_DeletedAccounts
-    needsReconciliationIndexName: NeedsReconciliation
   deletedAccountsLock:
     tableName: Example_DeletedAccountsLock
   issuedReceipts:
@@ -98,43 +97,6 @@ pushSchedulerCluster: # Redis server configuration for push scheduler cluster
 
 rateLimitersCluster: # Redis server configuration for rate limiters cluster
   configurationUri: redis://redis.example.com:6379/
-
-directory:
-  client: # Configuration for interfacing with Contact Discovery Service cluster
-    userAuthenticationTokenSharedSecret: 00000f # hex-encoded secret shared with CDS used to generate auth tokens for Signal users
-    userAuthenticationTokenUserIdSecret: 00000f # hex-encoded secret shared among Signal-Servers to obscure user phone numbers from CDS
-  sqs:
-    accessKey: test     # AWS SQS accessKey
-    accessSecret: test  # AWS SQS accessSecret
-    queueUrls: # AWS SQS queue urls
-      - https://sqs.example.com/directory.fifo
-  server: # One or more CDS servers
-    - replicationName: example           # CDS replication name
-      replicationUrl: cds.example.com    # CDS replication endpoint base url
-      replicationPassword: example       # CDS replication endpoint password
-      replicationCaCertificates:         # CDS replication endpoint TLS certificate trust root
-        - |
-          -----BEGIN CERTIFICATE-----
-          ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-          ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-          ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-          ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-          ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-          ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-          ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-          ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-          ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-          ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-          ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-          ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-          ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-          ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-          ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-          ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-          ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-          ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-          AAAAAAAAAAAAAAAAAAAA
-          -----END CERTIFICATE-----
 
 directoryV2:
   client: # Configuration for interfacing with Contact Discovery Service v2 cluster

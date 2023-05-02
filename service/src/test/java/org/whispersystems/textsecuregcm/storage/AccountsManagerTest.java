@@ -59,7 +59,6 @@ import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
-import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
@@ -73,7 +72,6 @@ class AccountsManagerTest {
 
   private Accounts accounts;
   private DeletedAccountsManager deletedAccountsManager;
-  private DirectoryQueue directoryQueue;
   private Keys keys;
   private MessagesManager messagesManager;
   private ProfilesManager profilesManager;
@@ -96,7 +94,6 @@ class AccountsManagerTest {
   void setup() throws InterruptedException {
     accounts = mock(Accounts.class);
     deletedAccountsManager = mock(DeletedAccountsManager.class);
-    directoryQueue = mock(DirectoryQueue.class);
     keys = mock(Keys.class);
     messagesManager = mock(MessagesManager.class);
     profilesManager = mock(ProfilesManager.class);
@@ -153,7 +150,6 @@ class AccountsManagerTest {
         phoneNumberIdentifiers,
         RedisClusterHelper.builder().stringCommands(commands).build(),
         deletedAccountsManager,
-        directoryQueue,
         keys,
         messagesManager,
         profilesManager,
@@ -598,10 +594,6 @@ class AccountsManagerTest {
     final Account account = accountsManager.create("+18005550123", "password", null, attributes, new ArrayList<>());
 
     assertEquals(discoverable, account.isDiscoverableByPhoneNumber());
-
-    if (!discoverable) {
-      verify(directoryQueue).deleteAccount(account);
-    }
   }
 
   @ParameterizedTest
@@ -613,32 +605,6 @@ class AccountsManagerTest {
     final Account account = accountsManager.create("+18005550123", "password", null, attributes, new ArrayList<>());
 
     assertEquals(hasStorage, account.isStorageSupported());
-  }
-
-  @ParameterizedTest
-  @MethodSource
-  void testUpdateDirectoryQueue(final boolean visibleBeforeUpdate, final boolean visibleAfterUpdate,
-      final boolean expectRefresh) {
-    final Account account = AccountsHelper.generateTestAccount("+14152222222", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
-
-    // this sets up the appropriate result for Account#shouldBeVisibleInDirectory
-    final Device device = generateTestDevice(0);
-    account.addDevice(device);
-    account.setDiscoverableByPhoneNumber(visibleBeforeUpdate);
-
-    final Account updatedAccount = accountsManager.update(account,
-        a -> a.setDiscoverableByPhoneNumber(visibleAfterUpdate));
-
-    verify(directoryQueue, times(expectRefresh ? 1 : 0)).refreshAccount(updatedAccount);
-  }
-
-  @SuppressWarnings("unused")
-  private static Stream<Arguments> testUpdateDirectoryQueue() {
-    return Stream.of(
-        Arguments.of(false, false, false),
-        Arguments.of(true, true, false),
-        Arguments.of(false, true, true),
-        Arguments.of(true, false, true));
   }
 
   @ParameterizedTest
@@ -680,7 +646,6 @@ class AccountsManagerTest {
 
     assertTrue(phoneNumberIdentifiersByE164.containsKey(targetNumber));
 
-    verify(directoryQueue).changePhoneNumber(argThat(a -> a.getUuid().equals(uuid)), eq(originalNumber), eq(targetNumber));
     verify(keys).delete(originalPni);
     verify(keys).delete(phoneNumberIdentifiersByE164.get(targetNumber));
   }
@@ -694,7 +659,6 @@ class AccountsManagerTest {
 
     assertEquals(number, account.getNumber());
     verify(deletedAccountsManager, never()).lockAndPut(anyString(), anyString(), any());
-    verify(directoryQueue, never()).changePhoneNumber(any(), any(), any());
     verify(keys, never()).delete(any());
   }
 
@@ -736,8 +700,6 @@ class AccountsManagerTest {
 
     assertTrue(phoneNumberIdentifiersByE164.containsKey(targetNumber));
 
-    verify(directoryQueue).changePhoneNumber(argThat(a -> a.getUuid().equals(uuid)), eq(originalNumber), eq(targetNumber));
-    verify(directoryQueue).deleteAccount(existingAccount);
     verify(keys).delete(originalPni);
     verify(keys).delete(targetPni);
   }

@@ -344,30 +344,6 @@ class DynamicConfigurationTest {
   }
 
   @Test
-  void testParseDirectoryReconciler() throws JsonProcessingException {
-    {
-      final String emptyConfigYaml = REQUIRED_CONFIG.concat("test: true");
-      final DynamicConfiguration emptyConfig =
-          DynamicConfigurationManager.parseConfiguration(emptyConfigYaml, DynamicConfiguration.class).orElseThrow();
-
-      assertThat(emptyConfig.getDirectoryReconcilerConfiguration().isEnabled()).isTrue();
-    }
-
-    {
-      final String directoryReconcilerConfig = REQUIRED_CONFIG.concat("""
-          directoryReconciler:
-            enabled: false
-          """);
-
-      DynamicDirectoryReconcilerConfiguration directoryReconcilerConfiguration =
-          DynamicConfigurationManager.parseConfiguration(directoryReconcilerConfig, DynamicConfiguration.class).orElseThrow()
-              .getDirectoryReconcilerConfiguration();
-
-      assertThat(directoryReconcilerConfiguration.isEnabled()).isFalse();
-    }
-  }
-
-  @Test
   void testParseTurnConfig() throws JsonProcessingException {
     {
       final String config = REQUIRED_CONFIG.concat("""

@@ -36,7 +36,6 @@ import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
-import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -150,8 +149,7 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
         .build();
 
     DeletedAccounts deletedAccounts = new DeletedAccounts(dynamoDbClient,
-        configuration.getDynamoDbTables().getDeletedAccounts().getTableName(),
-        configuration.getDynamoDbTables().getDeletedAccounts().getNeedsReconciliationIndexName());
+        configuration.getDynamoDbTables().getDeletedAccounts().getTableName());
     VerificationCodeStore pendingAccounts = new VerificationCodeStore(dynamoDbClient,
         configuration.getDynamoDbTables().getPendingAccounts().getTableName());
     RegistrationRecoveryPasswords registrationRecoveryPasswords = new RegistrationRecoveryPasswords(
@@ -199,8 +197,6 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
         Executors.newSingleThreadScheduledExecutor(), keyspaceNotificationDispatchExecutor);
     MessagesCache messagesCache = new MessagesCache(messageInsertCacheCluster, messageReadDeleteCluster,
         keyspaceNotificationDispatchExecutor, messageDeliveryScheduler, messageDeletionExecutor, Clock.systemUTC());
-    DirectoryQueue directoryQueue = new DirectoryQueue(
-        configuration.getDirectoryConfiguration().getSqsConfiguration());
     ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster);
     ReportMessageDynamoDb reportMessageDynamoDb = new ReportMessageDynamoDb(dynamoDbClient,
         configuration.getDynamoDbTables().getReportMessage().getTableName(),
@@ -214,7 +210,7 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
         configuration.getDynamoDbTables().getDeletedAccountsLock().getTableName());
     StoredVerificationCodeManager pendingAccountsManager = new StoredVerificationCodeManager(pendingAccounts);
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
-        deletedAccountsManager, directoryQueue, keys, messagesManager, profilesManager,
+        deletedAccountsManager, keys, messagesManager, profilesManager,
         pendingAccountsManager, secureStorageClient, secureBackupClient, secureValueRecovery2Client, clientPresenceManager,
         experimentEnrollmentManager, registrationRecoveryPasswordsManager, Clock.systemUTC());
 

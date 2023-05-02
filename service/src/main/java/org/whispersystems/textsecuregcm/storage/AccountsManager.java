@@ -52,7 +52,6 @@ import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
-import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.DestinationDeviceValidator;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -89,7 +88,6 @@ public class AccountsManager {
   private final PhoneNumberIdentifiers phoneNumberIdentifiers;
   private final FaultTolerantRedisCluster cacheCluster;
   private final DeletedAccountsManager deletedAccountsManager;
-  private final DirectoryQueue directoryQueue;
   private final Keys keys;
   private final MessagesManager messagesManager;
   private final ProfilesManager profilesManager;
@@ -133,7 +131,6 @@ public class AccountsManager {
       final PhoneNumberIdentifiers phoneNumberIdentifiers,
       final FaultTolerantRedisCluster cacheCluster,
       final DeletedAccountsManager deletedAccountsManager,
-      final DirectoryQueue directoryQueue,
       final Keys keys,
       final MessagesManager messagesManager,
       final ProfilesManager profilesManager,
@@ -149,7 +146,6 @@ public class AccountsManager {
     this.phoneNumberIdentifiers = phoneNumberIdentifiers;
     this.cacheCluster = cacheCluster;
     this.deletedAccountsManager = deletedAccountsManager;
-    this.directoryQueue = directoryQueue;
     this.keys = keys;
     this.messagesManager = messagesManager;
     this.profilesManager = profilesManager;
@@ -237,11 +233,6 @@ public class AccountsManager {
 
         Metrics.counter(CREATE_COUNTER_NAME, tags).increment();
 
-        if (!account.isDiscoverableByPhoneNumber()) {
-          // The newly-created account has explicitly opted out of discoverability
-          directoryQueue.deleteAccount(account);
-        }
-
         accountAttributes.recoveryPassword().ifPresent(registrationRecoveryPassword ->
             registrationRecoveryPasswordsManager.storeForCurrentNumber(account.getNumber(), registrationRecoveryPassword));
       });
@@ -277,7 +268,6 @@ public class AccountsManager {
 
       if (maybeExistingAccount.isPresent()) {
         delete(maybeExistingAccount.get());
-        directoryQueue.deleteAccount(maybeExistingAccount.get());
         displacedUuid = maybeExistingAccount.map(Account::getUuid);
       } else {
         displacedUuid = deletedAci;
@@ -296,7 +286,6 @@ public class AccountsManager {
           AccountChangeValidator.NUMBER_CHANGE_VALIDATOR);
 
       updatedAccount.set(numberChangedAccount);
-      directoryQueue.changePhoneNumber(numberChangedAccount, originalNumber, number);
 
       keys.delete(phoneNumberIdentifier);
       keys.delete(originalPhoneNumberIdentifier);
@@ -363,7 +352,7 @@ public class AccountsManager {
 
   /**
    * Reserve a username hash so that no other accounts may take it.
-   *
+   * <p>
    * The reserved hash can later be set with {@link #confirmReservedUsernameHash(Account, byte[])}. The reservation
    * will eventually expire, after which point confirmReservedUsernameHash may fail if another account has taken the
    * username hash.
@@ -409,7 +398,7 @@ public class AccountsManager {
   }
 
   /**
-   * Set a username hash previously reserved with {@link #reserveUsernameHash(Account, List<String>)}
+   * Set a username hash previously reserved with {@link #reserveUsernameHash(Account, List)}
    *
    * @param account the account to update
    * @param reservedUsernameHash the previously reserved username hash
@@ -500,8 +489,6 @@ public class AccountsManager {
    */
   private Account update(Account account, Function<Account, Boolean> updater) {
 
-    final boolean wasVisibleBeforeUpdate = account.shouldBeVisibleInDirectory();
-
     final Account updatedAccount;
 
     try (Timer.Context ignored = updateTimer.time()) {
@@ -517,12 +504,6 @@ public class AccountsManager {
           AccountChangeValidator.GENERAL_CHANGE_VALIDATOR);
 
       redisSet(updatedAccount);
-    }
-
-    final boolean isVisibleAfterUpdate = updatedAccount.shouldBeVisibleInDirectory();
-
-    if (wasVisibleBeforeUpdate != isVisibleAfterUpdate) {
-      directoryQueue.refreshAccount(updatedAccount);
     }
 
     return updatedAccount;
@@ -653,10 +634,6 @@ public class AccountsManager {
     }
   }
 
-  public Optional<String> getNumberForPhoneNumberIdentifier(UUID pni) {
-    return phoneNumberIdentifiers.getPhoneNumber(pni);
-  }
-
   public UUID getPhoneNumberIdentifier(String e164) {
     return phoneNumberIdentifiers.getPhoneNumberIdentifier(e164);
   }
@@ -673,7 +650,6 @@ public class AccountsManager {
     try (final Timer.Context ignored = deleteTimer.time()) {
       deletedAccountsManager.lockAndPut(account.getNumber(), () -> {
         delete(account);
-        directoryQueue.deleteAccount(account);
 
         return account.getUuid();
       });

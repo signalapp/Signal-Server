@@ -23,7 +23,6 @@ import org.whispersystems.textsecuregcm.configuration.BraintreeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.CallLinkConfiguration;
 import org.whispersystems.textsecuregcm.configuration.CdnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DatadogConfiguration;
-import org.whispersystems.textsecuregcm.configuration.DirectoryConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DirectoryV2Configuration;
 import org.whispersystems.textsecuregcm.configuration.DynamoDbClientConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DynamoDbTables;
@@ -114,11 +113,6 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @JsonProperty
   private RedisClusterConfiguration metricsCluster;
-
-  @NotNull
-  @Valid
-  @JsonProperty
-  private DirectoryConfiguration directory;
 
   @NotNull
   @Valid
@@ -319,10 +313,6 @@ public class WhisperServerConfiguration extends Configuration {
 
   public RedisClusterConfiguration getMetricsClusterConfiguration() {
     return metricsCluster;
-  }
-
-  public DirectoryConfiguration getDirectoryConfiguration() {
-    return directory;
   }
 
   public SecureValueRecovery2Configuration getSvr2Configuration() {

@@ -44,9 +44,6 @@ public class DynamicConfiguration {
   private DynamicRateLimitChallengeConfiguration rateLimitChallenge = new DynamicRateLimitChallengeConfiguration();
 
   @JsonProperty
-  private DynamicDirectoryReconcilerConfiguration directoryReconciler = new DynamicDirectoryReconcilerConfiguration();
-
-  @JsonProperty
   @Valid
   private DynamicPushLatencyConfiguration pushLatency = new DynamicPushLatencyConfiguration(Collections.emptyMap());
 
@@ -95,10 +92,6 @@ public class DynamicConfiguration {
 
   public DynamicRateLimitChallengeConfiguration getRateLimitChallengeConfiguration() {
     return rateLimitChallenge;
-  }
-
-  public DynamicDirectoryReconcilerConfiguration getDirectoryReconcilerConfiguration() {
-    return directoryReconciler;
   }
 
   public DynamicPushLatencyConfiguration getPushLatencyConfiguration() {

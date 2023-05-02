@@ -17,7 +17,6 @@ import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 public class AccountDatabaseCrawlerCache {
 
   public static final String GENERAL_PURPOSE_PREFIX = "";
-  public static final String DIRECTORY_RECONCILER_PREFIX = "directory-reconciler";
   public static final String ACCOUNT_CLEANER_PREFIX = "account-cleaner";
 
   private static final String ACTIVE_WORKER_KEY = "account_database_crawler_cache_active_worker";
