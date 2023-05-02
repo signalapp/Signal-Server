@@ -143,6 +143,8 @@ public class ProfileController {
 
   private static final Counter VERSION_NOT_FOUND_COUNTER = Metrics.counter(name(ProfileController.class, "versionNotFound"));
   private static final String INVALID_ACCEPT_LANGUAGE_COUNTER_NAME = name(ProfileController.class, "invalidAcceptLanguage");
+  private static final String GET_PROFILE_CREDENTIAL_COUNTER_NAME = name(ProfileController.class, "getProfileCredential");
+  private static final String CREDENTIAL_TYPE_TAG_NAME = "credentialType";
 
   public ProfileController(
       Clock clock,
@@ -277,36 +279,48 @@ public class ProfileController {
     final Account targetAccount = verifyPermissionToReceiveAccountIdentityProfile(maybeRequester, accessKey, uuid);
     final boolean isSelf = isSelfProfileRequest(maybeRequester, uuid);
 
-    switch (credentialType) {
-      case PROFILE_KEY_CREDENTIAL_TYPE -> {
-        return buildProfileKeyCredentialProfileResponse(targetAccount,
-            version,
-            credentialRequest,
-            isSelf,
-            containerRequestContext);
-      }
+    String credentialTypeTagValue = "unrecognized";
 
-      case PNI_CREDENTIAL_TYPE -> {
-        if (!isSelf) {
-          throw new ForbiddenException();
+    try {
+      switch (credentialType) {
+        case PROFILE_KEY_CREDENTIAL_TYPE -> {
+          credentialTypeTagValue = PROFILE_KEY_CREDENTIAL_TYPE;
+
+          return buildProfileKeyCredentialProfileResponse(targetAccount,
+              version,
+              credentialRequest,
+              isSelf,
+              containerRequestContext);
         }
 
-        return buildPniCredentialProfileResponse(targetAccount,
-            version,
-            credentialRequest,
-            containerRequestContext);
-      }
+        case PNI_CREDENTIAL_TYPE -> {
+          credentialTypeTagValue = PNI_CREDENTIAL_TYPE;
 
-      case EXPIRING_PROFILE_KEY_CREDENTIAL_TYPE -> {
-        return buildExpiringProfileKeyCredentialProfileResponse(targetAccount,
-            version,
-            credentialRequest,
-            isSelf,
-            Instant.now().plus(EXPIRING_PROFILE_KEY_CREDENTIAL_EXPIRATION).truncatedTo(ChronoUnit.DAYS),
-            containerRequestContext);
-      }
+          if (!isSelf) {
+            throw new ForbiddenException();
+          }
 
-      default -> throw new BadRequestException();
+          return buildPniCredentialProfileResponse(targetAccount,
+              version,
+              credentialRequest,
+              containerRequestContext);
+        }
+
+        case EXPIRING_PROFILE_KEY_CREDENTIAL_TYPE -> {
+          credentialTypeTagValue = EXPIRING_PROFILE_KEY_CREDENTIAL_TYPE;
+
+          return buildExpiringProfileKeyCredentialProfileResponse(targetAccount,
+              version,
+              credentialRequest,
+              isSelf,
+              Instant.now().plus(EXPIRING_PROFILE_KEY_CREDENTIAL_EXPIRATION).truncatedTo(ChronoUnit.DAYS),
+              containerRequestContext);
+        }
+
+        default -> throw new BadRequestException();
+      }
+    } finally {
+      Metrics.counter(GET_PROFILE_CREDENTIAL_COUNTER_NAME, CREDENTIAL_TYPE_TAG_NAME, credentialTypeTagValue).increment();
     }
   }
 
