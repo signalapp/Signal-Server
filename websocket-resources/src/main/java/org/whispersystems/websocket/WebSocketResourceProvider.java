@@ -5,6 +5,7 @@
 package org.whispersystems.websocket;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.protobuf.UninitializedMessageException;
 import org.eclipse.jetty.websocket.api.RemoteEndpoint;
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.WebSocketListener;
@@ -113,7 +114,7 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
           close(session, 1018, "Badly formatted");
           break;
       }
-    } catch (InvalidMessageException e) {
+    } catch (UninitializedMessageException | InvalidMessageException e) {
       logger.debug("Parsing", e);
       close(session, 1018, "Badly formatted");
     }
