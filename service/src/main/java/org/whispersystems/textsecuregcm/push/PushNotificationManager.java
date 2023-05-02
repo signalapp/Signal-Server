@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2022 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -14,12 +14,10 @@ import java.util.function.BiConsumer;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -30,7 +28,6 @@ public class PushNotificationManager {
   private final FcmSender fcmSender;
   private final ApnPushNotificationScheduler apnPushNotificationScheduler;
   private final PushLatencyManager pushLatencyManager;
-  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
 
   private static final String SENT_NOTIFICATION_COUNTER_NAME = name(PushNotificationManager.class, "sentPushNotification");
   private static final String FAILED_NOTIFICATION_COUNTER_NAME = name(PushNotificationManager.class, "failedPushNotification");
@@ -41,27 +38,21 @@ public class PushNotificationManager {
       final APNSender apnSender,
       final FcmSender fcmSender,
       final ApnPushNotificationScheduler apnPushNotificationScheduler,
-      final PushLatencyManager pushLatencyManager,
-      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
+      final PushLatencyManager pushLatencyManager) {
 
     this.accountsManager = accountsManager;
     this.apnSender = apnSender;
     this.fcmSender = fcmSender;
     this.apnPushNotificationScheduler = apnPushNotificationScheduler;
     this.pushLatencyManager = pushLatencyManager;
-    this.dynamicConfigurationManager = dynamicConfigurationManager;
   }
 
   public void sendNewMessageNotification(final Account destination, final long destinationDeviceId, final boolean urgent) throws NotPushRegisteredException {
     final Device device = destination.getDevice(destinationDeviceId).orElseThrow(NotPushRegisteredException::new);
     final Pair<String, PushNotification.TokenType> tokenAndType = getToken(device);
 
-    final boolean effectiveUrgent =
-        dynamicConfigurationManager.getConfiguration().getPushNotificationConfiguration().isLowUrgencyEnabled() ?
-            urgent : true;
-
     sendNotification(new PushNotification(tokenAndType.first(), tokenAndType.second(),
-        PushNotification.NotificationType.NOTIFICATION, null, destination, device, effectiveUrgent));
+        PushNotification.NotificationType.NOTIFICATION, null, destination, device, urgent));
   }
 
   public void sendRegistrationChallengeNotification(final String deviceToken, final PushNotification.TokenType tokenType, final String challengeToken) {

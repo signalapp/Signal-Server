@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2022 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -22,12 +22,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicPushNotificationConfiguration;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -38,7 +35,6 @@ class PushNotificationManagerTest {
   private FcmSender fcmSender;
   private ApnPushNotificationScheduler apnPushNotificationScheduler;
   private PushLatencyManager pushLatencyManager;
-  private DynamicPushNotificationConfiguration pushNotificationConfiguration;
 
   private PushNotificationManager pushNotificationManager;
 
@@ -49,21 +45,11 @@ class PushNotificationManagerTest {
     fcmSender = mock(FcmSender.class);
     apnPushNotificationScheduler = mock(ApnPushNotificationScheduler.class);
     pushLatencyManager = mock(PushLatencyManager.class);
-    pushNotificationConfiguration = mock(DynamicPushNotificationConfiguration.class);
-
-    @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
-        mock(DynamicConfigurationManager.class);
-
-    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
-
-    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
-    when(dynamicConfiguration.getPushNotificationConfiguration()).thenReturn(pushNotificationConfiguration);
-    when(pushNotificationConfiguration.isLowUrgencyEnabled()).thenReturn(true);
 
     AccountsHelper.setupMockUpdate(accountsManager);
 
     pushNotificationManager = new PushNotificationManager(accountsManager, apnSender, fcmSender,
-        apnPushNotificationScheduler, pushLatencyManager, dynamicConfigurationManager);
+        apnPushNotificationScheduler, pushLatencyManager);
   }
 
   @ParameterizedTest
@@ -83,28 +69,6 @@ class PushNotificationManagerTest {
 
     pushNotificationManager.sendNewMessageNotification(account, Device.MASTER_ID, urgent);
     verify(fcmSender).sendNotification(new PushNotification(deviceToken, PushNotification.TokenType.FCM, PushNotification.NotificationType.NOTIFICATION, null, account, device, urgent));
-  }
-
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void sendNewMessageNotificationLowUrgencyDisabled(final boolean urgent) throws NotPushRegisteredException {
-    final Account account = mock(Account.class);
-    final Device device = mock(Device.class);
-
-    final String deviceToken = "token";
-
-    when(device.getId()).thenReturn(Device.MASTER_ID);
-    when(device.getApnId()).thenReturn(deviceToken);
-    when(account.getDevice(Device.MASTER_ID)).thenReturn(Optional.of(device));
-
-    when(pushNotificationConfiguration.isLowUrgencyEnabled()).thenReturn(false);
-
-    when(apnSender.sendNotification(any()))
-        .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(true, null, false)));
-
-    pushNotificationManager.sendNewMessageNotification(account, Device.MASTER_ID, urgent);
-
-    verify(apnSender).sendNotification(new PushNotification(deviceToken, PushNotification.TokenType.APN, PushNotification.NotificationType.NOTIFICATION, null, account, device, true));
   }
 
   @Test

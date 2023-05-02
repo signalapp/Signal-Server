@@ -41,10 +41,6 @@ public class DynamicConfiguration {
 
   @JsonProperty
   @Valid
-  private DynamicRateLimitChallengeConfiguration rateLimitChallenge = new DynamicRateLimitChallengeConfiguration();
-
-  @JsonProperty
-  @Valid
   private DynamicPushLatencyConfiguration pushLatency = new DynamicPushLatencyConfiguration(Collections.emptyMap());
 
   @JsonProperty
@@ -54,10 +50,6 @@ public class DynamicConfiguration {
   @JsonProperty
   @Valid
   DynamicMessagePersisterConfiguration messagePersister = new DynamicMessagePersisterConfiguration();
-
-  @JsonProperty
-  @Valid
-  DynamicPushNotificationConfiguration pushNotifications = new DynamicPushNotificationConfiguration();
 
 
   @JsonProperty
@@ -90,10 +82,6 @@ public class DynamicConfiguration {
     return captcha;
   }
 
-  public DynamicRateLimitChallengeConfiguration getRateLimitChallengeConfiguration() {
-    return rateLimitChallenge;
-  }
-
   public DynamicPushLatencyConfiguration getPushLatencyConfiguration() {
     return pushLatency;
   }
@@ -104,10 +92,6 @@ public class DynamicConfiguration {
 
   public DynamicMessagePersisterConfiguration getMessagePersisterConfiguration() {
     return messagePersister;
-  }
-
-  public DynamicPushNotificationConfiguration getPushNotificationConfiguration() {
-    return pushNotifications;
   }
 
   public DynamicRateLimitPolicy getRateLimitPolicy() {

@@ -313,37 +313,6 @@ class DynamicConfigurationTest {
   }
 
   @Test
-  void testParseRateLimitReset() throws JsonProcessingException {
-    {
-      final String emptyConfigYaml = REQUIRED_CONFIG.concat("test: true");
-      final DynamicConfiguration emptyConfig =
-          DynamicConfigurationManager.parseConfiguration(emptyConfigYaml, DynamicConfiguration.class).orElseThrow();
-
-      assertThat(emptyConfig.getRateLimitChallengeConfiguration().getClientSupportedVersions()).isEmpty();
-    }
-
-    {
-      final String rateLimitChallengeConfig = REQUIRED_CONFIG.concat("""
-          rateLimitChallenge:
-            clientSupportedVersions:
-              IOS: 5.1.0
-              ANDROID: 5.2.0
-              DESKTOP: 5.0.0
-          """);
-
-      DynamicRateLimitChallengeConfiguration rateLimitChallengeConfiguration =
-          DynamicConfigurationManager.parseConfiguration(rateLimitChallengeConfig, DynamicConfiguration.class).orElseThrow()
-              .getRateLimitChallengeConfiguration();
-
-      final Map<ClientPlatform, Semver> clientSupportedVersions = rateLimitChallengeConfiguration.getClientSupportedVersions();
-
-      assertThat(clientSupportedVersions.get(ClientPlatform.IOS)).isEqualTo(new Semver("5.1.0"));
-      assertThat(clientSupportedVersions.get(ClientPlatform.ANDROID)).isEqualTo(new Semver("5.2.0"));
-      assertThat(clientSupportedVersions.get(ClientPlatform.DESKTOP)).isEqualTo(new Semver("5.0.0"));
-    }
-  }
-
-  @Test
   void testParseTurnConfig() throws JsonProcessingException {
     {
       final String config = REQUIRED_CONFIG.concat("""
