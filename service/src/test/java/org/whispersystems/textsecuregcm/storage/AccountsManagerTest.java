@@ -5,8 +5,6 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
-import org.whispersystems.textsecuregcm.util.SystemMapper;
-
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -663,7 +661,7 @@ class AccountsManagerTest {
   }
 
   @Test
-  void testChangePhoneNumberSameNumberWithPNIData() throws InterruptedException, MismatchedDevicesException {
+  void testChangePhoneNumberSameNumberWithPNIData() {
     final String number = "+14152222222";
 
     Account account = AccountsHelper.generateTestAccount(number, UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
@@ -674,7 +672,6 @@ class AccountsManagerTest {
 
     verify(accounts, never()).update(any());
     verifyNoInteractions(deletedAccountsManager);
-    verifyNoInteractions(directoryQueue);
     verifyNoInteractions(keys);
   }
 
@@ -716,7 +713,7 @@ class AccountsManagerTest {
   }
 
   @Test
-  void testPNIUpdate() throws InterruptedException, MismatchedDevicesException {
+  void testPNIUpdate() throws MismatchedDevicesException {
     final String number = "+14152222222";
 
     List<Device> devices = List.of(DevicesHelper.createDevice(1L, 0L, 101), DevicesHelper.createDevice(2L, 0L, 102));
@@ -750,7 +747,6 @@ class AccountsManagerTest {
 
     verify(accounts).update(any());
     verifyNoInteractions(deletedAccountsManager);
-    verifyNoInteractions(directoryQueue);
     verifyNoInteractions(keys);
   }
 
