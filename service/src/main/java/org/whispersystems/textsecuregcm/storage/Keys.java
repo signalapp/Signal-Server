@@ -9,6 +9,7 @@ import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
+import io.micrometer.core.instrument.Counter;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -46,6 +47,7 @@ public class Keys extends AbstractDynamoDbStore {
   private static final Timer DELETE_KEYS_FOR_ACCOUNT_TIMER = Metrics.timer(name(Keys.class, "deleteKeysForAccount"));
   private static final DistributionSummary CONTESTED_KEY_DISTRIBUTION = Metrics.summary(name(Keys.class, "contestedKeys"));
   private static final DistributionSummary KEY_COUNT_DISTRIBUTION = Metrics.summary(name(Keys.class, "keyCount"));
+  private static final Counter KEYS_EMPTY_TAKE_COUNTER = Metrics.counter(name(Keys.class, "takeKeyEmpty"));
 
   public Keys(final DynamoDbClient dynamoDB, final String tableName) {
     super(dynamoDB);
@@ -104,6 +106,7 @@ public class Keys extends AbstractDynamoDbStore {
           contestedKeys++;
         }
 
+        KEYS_EMPTY_TAKE_COUNTER.increment();
         return Optional.empty();
       } finally {
         CONTESTED_KEY_DISTRIBUTION.record(contestedKeys);
