@@ -838,59 +838,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DeviceResponse'
-  /v1/directory/auth:
-    get:
-      tags:
-      - Directory
-      operationId: getAuthToken
-      responses:
-        default:
-          description: default response
-          content:
-            application/json: {}
-      security:
-      - authenticatedAccount: []
-  /v1/directory/tokens:
-    put:
-      tags:
-      - Directory
-      operationId: getContactIntersection
-      responses:
-        default:
-          description: default response
-          content:
-            application/json: {}
-      security:
-      - authenticatedAccount: []
-  /v1/directory/{token}:
-    get:
-      tags:
-      - Directory
-      operationId: getTokenPresence
-      responses:
-        default:
-          description: default response
-          content:
-            application/json: {}
-      security:
-      - authenticatedAccount: []
-  /v1/directory/feedback-v3/{status}:
-    put:
-      tags:
-      - Directory
-      operationId: setFeedback
-      responses:
-        default:
-          description: default response
-          content:
-            application/json: {}
-      security:
-      - authenticatedAccount: []
   /v2/directory/auth:
     get:
       tags:
       - Directory
-      operationId: getAuthToken_1
+      operationId: getAuthToken
       responses:
         default:
           description: default response
