@@ -59,7 +59,6 @@ public class RegistrationServiceClient implements Managed {
 
   public RegistrationServiceClient(final String host,
       final int port,
-      final String apiKey,
       final String credentialConfigJson,
       final String identityTokenAudience,
       final String caCertificatePem,
@@ -74,7 +73,7 @@ public class RegistrationServiceClient implements Managed {
     }
 
     this.stub = RegistrationServiceGrpc.newFutureStub(channel)
-        .withCallCredentials(IdentityTokenCallCredentials.fromApiKeyAndCredentialConfig(apiKey, credentialConfigJson, identityTokenAudience));
+        .withCallCredentials(IdentityTokenCallCredentials.fromCredentialConfig(credentialConfigJson, identityTokenAudience));
 
     this.callbackExecutor = callbackExecutor;
   }

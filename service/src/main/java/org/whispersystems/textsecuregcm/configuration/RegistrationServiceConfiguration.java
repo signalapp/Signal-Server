@@ -4,7 +4,6 @@ import javax.validation.constraints.NotBlank;
 
 public record RegistrationServiceConfiguration(@NotBlank String host,
                                                int port,
-                                               @NotBlank String apiKey,
                                                @NotBlank String credentialConfigurationJson,
                                                @NotBlank String identityTokenAudience,
                                                @NotBlank String registrationCaCertificate) {

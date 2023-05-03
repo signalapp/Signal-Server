@@ -21,25 +21,21 @@ import org.slf4j.LoggerFactory;
 
 class IdentityTokenCallCredentials extends CallCredentials {
 
-  private final String apiKey;
   private final Supplier<String> identityTokenSupplier;
 
   private static final Duration IDENTITY_TOKEN_LIFETIME = Duration.ofHours(1);
   private static final Duration IDENTITY_TOKEN_REFRESH_BUFFER = Duration.ofMinutes(10);
 
-  private static final Metadata.Key<String> API_KEY_METADATA_KEY =
-      Metadata.Key.of("x-signal-api-key", Metadata.ASCII_STRING_MARSHALLER);
   private static final Metadata.Key<String> AUTHORIZATION_METADATA_KEY =
       Metadata.Key.of("Authorization", Metadata.ASCII_STRING_MARSHALLER);
 
   private static final Logger logger = LoggerFactory.getLogger(IdentityTokenCallCredentials.class);
 
-  IdentityTokenCallCredentials(final String apiKey, final Supplier<String> identityTokenSupplier) {
-    this.apiKey = apiKey;
+  IdentityTokenCallCredentials(final Supplier<String> identityTokenSupplier) {
     this.identityTokenSupplier = identityTokenSupplier;
   }
 
-  static IdentityTokenCallCredentials fromApiKeyAndCredentialConfig(final String apiKey, final String credentialConfigJson, final String audience) throws IOException {
+  static IdentityTokenCallCredentials fromCredentialConfig(final String credentialConfigJson, final String audience) throws IOException {
     try (final InputStream configInputStream = new ByteArrayInputStream(credentialConfigJson.getBytes(StandardCharsets.UTF_8))) {
       final ExternalAccountCredentials credentials = ExternalAccountCredentials.fromStream(configInputStream);
       final ImpersonatedCredentials impersonatedCredentials = ImpersonatedCredentials.create(credentials,
@@ -57,7 +53,7 @@ class IdentityTokenCallCredentials extends CallCredentials {
           IDENTITY_TOKEN_LIFETIME.minus(IDENTITY_TOKEN_REFRESH_BUFFER).toMillis(),
           TimeUnit.MILLISECONDS);
 
-      return new IdentityTokenCallCredentials(apiKey, idTokenSupplier);
+      return new IdentityTokenCallCredentials(idTokenSupplier);
     }
   }
 
@@ -70,7 +66,6 @@ class IdentityTokenCallCredentials extends CallCredentials {
 
     if (identityTokenValue != null) {
       final Metadata metadata = new Metadata();
-      metadata.put(API_KEY_METADATA_KEY, apiKey);
       metadata.put(AUTHORIZATION_METADATA_KEY, "Bearer " + identityTokenValue);
 
       applier.apply(metadata);

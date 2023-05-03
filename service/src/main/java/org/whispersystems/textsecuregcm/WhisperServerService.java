@@ -473,7 +473,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     RegistrationServiceClient registrationServiceClient = new RegistrationServiceClient(
         config.getRegistrationServiceConfiguration().host(),
         config.getRegistrationServiceConfiguration().port(),
-        config.getRegistrationServiceConfiguration().apiKey(),
         config.getRegistrationServiceConfiguration().credentialConfigurationJson(),
         config.getRegistrationServiceConfiguration().identityTokenAudience(),
         config.getRegistrationServiceConfiguration().registrationCaCertificate(),

@@ -371,7 +371,6 @@ oneTimeDonations:
 registrationService:
   host: registration.example.com
   port: 443
-  apiKey: EXAMPLE
   credentialConfigurationJson: |
     {
       "example": "example"
