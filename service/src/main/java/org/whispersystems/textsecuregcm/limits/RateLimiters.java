@@ -73,6 +73,8 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
     PUSH_CHALLENGE_ATTEMPT("pushChallengeAttempt", true, new RateLimiterConfig(10, 10.0 / (60 * 24))),
 
     PUSH_CHALLENGE_SUCCESS("pushChallengeSuccess", true, new RateLimiterConfig(2, 2.0 / (60 * 24))),
+
+    CREATE_CALL_LINK("createCallLink", false, new RateLimiterConfig(100, 100 / (60 * 24)));
     ;
 
     private final String id;
@@ -231,5 +233,9 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
 
   public RateLimiter getVerificationCaptchaLimiter() {
     return forDescriptor(For.VERIFICATION_CAPTCHA);
+  }
+
+  public RateLimiter getCreateCallLinkLimiter() {
+    return forDescriptor(For.CREATE_CALL_LINK);
   }
 }
