@@ -32,6 +32,8 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import org.signal.libsignal.zkgroup.auth.ServerZkAuthOperations;
+import org.signal.libsignal.zkgroup.calllinks.CallLinkAuthCredentialResponse;
+import org.signal.libsignal.zkgroup.GenericServerSecretParams;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.CertificateGenerator;
 import org.whispersystems.textsecuregcm.entities.DeliveryCertificate;
@@ -45,6 +47,7 @@ public class CertificateController {
 
   private final CertificateGenerator certificateGenerator;
   private final ServerZkAuthOperations serverZkAuthOperations;
+  private final GenericServerSecretParams genericServerSecretParams;
   private final Clock clock;
 
   @VisibleForTesting
@@ -55,9 +58,11 @@ public class CertificateController {
   public CertificateController(
       @Nonnull CertificateGenerator certificateGenerator,
       @Nonnull ServerZkAuthOperations serverZkAuthOperations,
+      @Nonnull GenericServerSecretParams genericServerSecretParams,
       @Nonnull Clock clock) {
     this.certificateGenerator = Objects.requireNonNull(certificateGenerator);
     this.serverZkAuthOperations = Objects.requireNonNull(serverZkAuthOperations);
+    this.genericServerSecretParams = genericServerSecretParams;
     this.clock = Objects.requireNonNull(clock);
   }
 
@@ -103,19 +108,26 @@ public class CertificateController {
     }
 
     final List<GroupCredentials.GroupCredential> credentials = new ArrayList<>();
+    final List<GroupCredentials.CallLinkAuthCredential> callLinkAuthCredentials = new ArrayList<>();
 
     Instant redemption = redemptionStart;
 
     UUID aci = auth.getAccount().getUuid();
     UUID pni = auth.getAccount().getPhoneNumberIdentifier();
+
     while (!redemption.isAfter(redemptionEnd)) {
       credentials.add(new GroupCredentials.GroupCredential(
           serverZkAuthOperations.issueAuthCredentialWithPni(aci, pni, redemption).serialize(),
           (int) redemption.getEpochSecond()));
 
+      callLinkAuthCredentials.add(new GroupCredentials.CallLinkAuthCredential(
+          CallLinkAuthCredentialResponse.issueCredential(aci, redemption, genericServerSecretParams).serialize(),
+          redemption.getEpochSecond()));
+
       redemption = redemption.plus(Duration.ofDays(1));
     }
 
-    return new GroupCredentials(credentials, pni);
+
+    return new GroupCredentials(credentials, callLinkAuthCredentials, pni);
   }
 }

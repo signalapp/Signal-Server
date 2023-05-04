@@ -32,10 +32,12 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.signal.libsignal.protocol.InvalidKeyException;
 import org.signal.libsignal.protocol.ecc.Curve;
+import org.signal.libsignal.zkgroup.GenericServerSecretParams;
 import org.signal.libsignal.zkgroup.ServerSecretParams;
 import org.signal.libsignal.zkgroup.auth.AuthCredentialWithPniResponse;
 import org.signal.libsignal.zkgroup.auth.ClientZkAuthOperations;
 import org.signal.libsignal.zkgroup.auth.ServerZkAuthOperations;
+import org.signal.libsignal.zkgroup.calllinks.CallLinkAuthCredentialResponse;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.CertificateGenerator;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
@@ -60,6 +62,8 @@ class CertificateControllerTest {
   private static final String signingKey = "ABOxG29xrfq4E7IrW11Eg7+HBbtba9iiS0500YoBjn4=";
 
   private static final ServerSecretParams serverSecretParams = ServerSecretParams.generate();
+
+  private static final GenericServerSecretParams genericServerSecretParams = GenericServerSecretParams.generate();
   private static final CertificateGenerator certificateGenerator;
   private static final ServerZkAuthOperations serverZkAuthOperations;
   private static final Clock clock = Clock.fixed(Instant.now(), ZoneId.systemDefault());
@@ -81,7 +85,7 @@ class CertificateControllerTest {
           ImmutableSet.of(AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)))
       .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-      .addResource(new CertificateController(certificateGenerator, serverZkAuthOperations, clock))
+      .addResource(new CertificateController(certificateGenerator, serverZkAuthOperations, genericServerSecretParams, clock))
       .build();
 
   @Test
@@ -230,8 +234,11 @@ class CertificateControllerTest {
         .get(GroupCredentials.class);
 
     assertEquals(1, credentials.credentials().size());
+    assertEquals(1, credentials.callLinkAuthCredentials().size());
+
     assertEquals(AuthHelper.VALID_PNI, credentials.pni());
     assertEquals(startOfDay.getEpochSecond(), credentials.credentials().get(0).redemptionTime());
+    assertEquals(startOfDay.getEpochSecond(), credentials.callLinkAuthCredentials().get(0).redemptionTime());
 
     final ClientZkAuthOperations clientZkAuthOperations =
         new ClientZkAuthOperations(serverSecretParams.getPublicParams());
@@ -242,6 +249,11 @@ class CertificateControllerTest {
           AuthHelper.VALID_PNI,
           (int) startOfDay.getEpochSecond(),
           new AuthCredentialWithPniResponse(credentials.credentials().get(0).credential()));
+    });
+
+    assertDoesNotThrow(() -> {
+      new CallLinkAuthCredentialResponse(credentials.callLinkAuthCredentials().get(0).credential())
+          .receive(AuthHelper.VALID_UUID, startOfDay, genericServerSecretParams.getPublicParams());
     });
   }
 
@@ -259,6 +271,7 @@ class CertificateControllerTest {
 
     assertEquals(AuthHelper.VALID_PNI, credentials.pni());
     assertEquals(8, credentials.credentials().size());
+    assertEquals(8, credentials.callLinkAuthCredentials().size());
 
     final ClientZkAuthOperations clientZkAuthOperations =
         new ClientZkAuthOperations(serverSecretParams.getPublicParams());
@@ -266,6 +279,7 @@ class CertificateControllerTest {
     for (int i = 0; i < 8; i++) {
       final Instant redemptionTime = startOfDay.plus(Duration.ofDays(i));
       assertEquals(redemptionTime.getEpochSecond(), credentials.credentials().get(i).redemptionTime());
+      assertEquals(redemptionTime.getEpochSecond(), credentials.callLinkAuthCredentials().get(i).redemptionTime());
 
       final int index = i;
 
@@ -275,6 +289,11 @@ class CertificateControllerTest {
             AuthHelper.VALID_PNI,
             redemptionTime.getEpochSecond(),
             new AuthCredentialWithPniResponse(credentials.credentials().get(index).credential()));
+      });
+
+      assertDoesNotThrow(() -> {
+        new CallLinkAuthCredentialResponse(credentials.callLinkAuthCredentials().get(index).credential())
+            .receive(AuthHelper.VALID_UUID, redemptionTime, genericServerSecretParams.getPublicParams());
       });
     }
   }

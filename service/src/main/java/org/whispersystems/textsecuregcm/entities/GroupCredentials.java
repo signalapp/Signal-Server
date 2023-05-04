@@ -9,8 +9,11 @@ import java.util.List;
 import java.util.UUID;
 import javax.annotation.Nullable;
 
-public record GroupCredentials(List<GroupCredential> credentials, @Nullable UUID pni) {
+public record GroupCredentials(List<GroupCredential> credentials, List<CallLinkAuthCredential> callLinkAuthCredentials, @Nullable UUID pni) {
 
   public record GroupCredential(byte[] credential, long redemptionTime) {
+  }
+
+  public record CallLinkAuthCredential(byte[] credential, long redemptionTime) {
   }
 }

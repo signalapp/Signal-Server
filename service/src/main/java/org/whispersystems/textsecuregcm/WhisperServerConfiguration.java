@@ -28,6 +28,7 @@ import org.whispersystems.textsecuregcm.configuration.DynamoDbClientConfiguratio
 import org.whispersystems.textsecuregcm.configuration.DynamoDbTables;
 import org.whispersystems.textsecuregcm.configuration.FcmConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GcpAttachmentsConfiguration;
+import org.whispersystems.textsecuregcm.configuration.GenericZkConfig;
 import org.whispersystems.textsecuregcm.configuration.HCaptchaConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MaxDeviceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MessageCacheConfiguration;
@@ -227,6 +228,11 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @NotNull
   @JsonProperty
+  private GenericZkConfig genericZkConfig;
+
+  @Valid
+  @NotNull
+  @JsonProperty
   private RemoteConfigConfiguration remoteConfig;
 
   @Valid
@@ -411,6 +417,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public ZkConfig getZkConfig() {
     return zkConfig;
+  }
+
+  public GenericZkConfig getGenericZkConfig() {
+    return genericZkConfig;
   }
 
   public RemoteConfigConfiguration getRemoteConfigConfiguration() {
