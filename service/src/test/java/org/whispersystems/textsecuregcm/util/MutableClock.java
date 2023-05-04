@@ -28,6 +28,11 @@ public class MutableClock extends Clock {
     this(Clock.systemUTC());
   }
 
+  public MutableClock setTimeInstant(final Instant instant) {
+    delegate.set(Clock.fixed(instant, ZoneId.of("Etc/UTC")));
+    return this;
+  }
+
   public MutableClock setTimeMillis(final long timeMillis) {
     delegate.set(fixedTimeMillis(timeMillis));
     return this;
