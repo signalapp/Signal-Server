@@ -67,12 +67,10 @@ import org.signal.libsignal.zkgroup.ServerSecretParams;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.signal.libsignal.zkgroup.profiles.ClientZkProfileOperations;
 import org.signal.libsignal.zkgroup.profiles.ExpiringProfileKeyCredentialResponse;
-import org.signal.libsignal.zkgroup.profiles.PniCredentialResponse;
 import org.signal.libsignal.zkgroup.profiles.ProfileKey;
 import org.signal.libsignal.zkgroup.profiles.ProfileKeyCommitment;
 import org.signal.libsignal.zkgroup.profiles.ProfileKeyCredentialRequest;
 import org.signal.libsignal.zkgroup.profiles.ProfileKeyCredentialRequestContext;
-import org.signal.libsignal.zkgroup.profiles.ProfileKeyCredentialResponse;
 import org.signal.libsignal.zkgroup.profiles.ServerZkProfileOperations;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
@@ -88,9 +86,7 @@ import org.whispersystems.textsecuregcm.entities.BatchIdentityCheckRequest;
 import org.whispersystems.textsecuregcm.entities.BatchIdentityCheckResponse;
 import org.whispersystems.textsecuregcm.entities.CreateProfileRequest;
 import org.whispersystems.textsecuregcm.entities.ExpiringProfileKeyCredentialProfileResponse;
-import org.whispersystems.textsecuregcm.entities.PniCredentialProfileResponse;
 import org.whispersystems.textsecuregcm.entities.ProfileAvatarUploadAttributes;
-import org.whispersystems.textsecuregcm.entities.ProfileKeyCredentialProfileResponse;
 import org.whispersystems.textsecuregcm.entities.VersionedProfileResponse;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -869,6 +865,29 @@ class ProfileControllerTest {
   }
 
   @Test
+  void testGetProfileWithExpiringProfileKeyCredentialVersionNotFound() throws VerificationFailedException {
+    final Account account = mock(Account.class);
+    when(account.getUuid()).thenReturn(AuthHelper.VALID_UUID);
+    when(account.getCurrentProfileVersion()).thenReturn(Optional.of("version"));
+    when(account.isEnabled()).thenReturn(true);
+
+    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
+    when(profilesManager.get(any(), any())).thenReturn(Optional.empty());
+
+    final ExpiringProfileKeyCredentialProfileResponse profile = resources.getJerseyTest()
+        .target(String.format("/v1/profile/%s/%s/%s", AuthHelper.VALID_UUID, "version-that-does-not-exist", "credential-request"))
+        .queryParam("credentialType", "expiringProfileKey")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .get(ExpiringProfileKeyCredentialProfileResponse.class);
+
+    assertThat(profile.getVersionedProfileResponse().getBaseProfileResponse().getUuid()).isEqualTo(AuthHelper.VALID_UUID);
+    assertThat(profile.getCredential()).isNull();
+
+    verify(zkProfileOperations, never()).issueExpiringProfileKeyCredential(any(), any(), any(), any());
+  }
+
+  @Test
   void testSetProfileBadges() throws InvalidInputException {
     ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(AuthHelper.VALID_UUID);
 
@@ -965,196 +984,6 @@ class ProfileControllerTest {
 
   @ParameterizedTest
   @MethodSource
-  void testGetProfileWithProfileKeyCredential(final MultivaluedMap<String, Object> authHeaders)
-      throws VerificationFailedException, InvalidInputException {
-    final String version = "version";
-    final byte[] unidentifiedAccessKey = "test-uak".getBytes(StandardCharsets.UTF_8);
-
-    final ServerSecretParams serverSecretParams = ServerSecretParams.generate();
-    final ServerPublicParams serverPublicParams = serverSecretParams.getPublicParams();
-
-    final ServerZkProfileOperations serverZkProfile = new ServerZkProfileOperations(serverSecretParams);
-    final ClientZkProfileOperations clientZkProfile = new ClientZkProfileOperations(serverPublicParams);
-
-    final byte[] profileKeyBytes = new byte[32];
-    new SecureRandom().nextBytes(profileKeyBytes);
-
-    final ProfileKey profileKey = new ProfileKey(profileKeyBytes);
-    final ProfileKeyCommitment profileKeyCommitment = profileKey.getCommitment(AuthHelper.VALID_UUID);
-
-    final VersionedProfile versionedProfile = mock(VersionedProfile.class);
-    when(versionedProfile.getCommitment()).thenReturn(profileKeyCommitment.serialize());
-
-    final ProfileKeyCredentialRequestContext profileKeyCredentialRequestContext =
-        clientZkProfile.createProfileKeyCredentialRequestContext(AuthHelper.VALID_UUID, profileKey);
-
-    final ProfileKeyCredentialRequest credentialRequest = profileKeyCredentialRequestContext.getRequest();
-
-    final Account account = mock(Account.class);
-    when(account.getUuid()).thenReturn(AuthHelper.VALID_UUID);
-    when(account.getCurrentProfileVersion()).thenReturn(Optional.of(version));
-    when(account.isEnabled()).thenReturn(true);
-    when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
-
-    final ProfileKeyCredentialResponse credentialResponse =
-        serverZkProfile.issueProfileKeyCredential(credentialRequest, AuthHelper.VALID_UUID, profileKeyCommitment);
-
-    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
-    when(profilesManager.get(AuthHelper.VALID_UUID, version)).thenReturn(Optional.of(versionedProfile));
-    when(zkProfileOperations.issueProfileKeyCredential(credentialRequest, AuthHelper.VALID_UUID, profileKeyCommitment))
-        .thenReturn(credentialResponse);
-
-    final ProfileKeyCredentialProfileResponse profile = resources.getJerseyTest()
-        .target(String.format("/v1/profile/%s/%s/%s", AuthHelper.VALID_UUID, version,
-            HexFormat.of().formatHex(credentialRequest.serialize())))
-        .request()
-        .headers(authHeaders)
-        .get(ProfileKeyCredentialProfileResponse.class);
-
-    assertThat(profile.getVersionedProfileResponse().getBaseProfileResponse().getUuid()).isEqualTo(AuthHelper.VALID_UUID);
-    assertThat(profile.getCredential()).isEqualTo(credentialResponse);
-
-    verify(zkProfileOperations).issueProfileKeyCredential(credentialRequest, AuthHelper.VALID_UUID, profileKeyCommitment);
-    verify(zkProfileOperations, never()).issuePniCredential(any(), any(), any(), any());
-
-    final ClientZkProfileOperations clientZkProfileCipher = new ClientZkProfileOperations(serverPublicParams);
-    assertThatNoException().isThrownBy(() ->
-        clientZkProfileCipher.receiveProfileKeyCredential(profileKeyCredentialRequestContext, profile.getCredential()));
-  }
-
-  private static Stream<Arguments> testGetProfileWithProfileKeyCredential() {
-    return Stream.of(
-        Arguments.of(new MultivaluedHashMap<>(Map.of(OptionalAccess.UNIDENTIFIED, Base64.getEncoder().encodeToString(UNIDENTIFIED_ACCESS_KEY)))),
-        Arguments.of(new MultivaluedHashMap<>(Map.of("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD)))),
-        Arguments.of(new MultivaluedHashMap<>(Map.of("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))))
-    );
-  }
-
-  @Test
-  void testGetProfileWithProfileKeyCredentialVersionNotFound() throws VerificationFailedException {
-    final Account account = mock(Account.class);
-    when(account.getUuid()).thenReturn(AuthHelper.VALID_UUID);
-    when(account.getCurrentProfileVersion()).thenReturn(Optional.of("version"));
-    when(account.isEnabled()).thenReturn(true);
-
-    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
-    when(profilesManager.get(any(), any())).thenReturn(Optional.empty());
-
-    final ProfileKeyCredentialProfileResponse profile = resources.getJerseyTest()
-        .target(String.format("/v1/profile/%s/%s/%s", AuthHelper.VALID_UUID, "version-that-does-not-exist", "credential-request"))
-        .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .get(ProfileKeyCredentialProfileResponse.class);
-
-    assertThat(profile.getVersionedProfileResponse().getBaseProfileResponse().getUuid()).isEqualTo(AuthHelper.VALID_UUID);
-    assertThat(profile.getCredential()).isNull();
-
-    verify(zkProfileOperations, never()).issueProfileKeyCredential(any(), any(), any());
-    verify(zkProfileOperations, never()).issuePniCredential(any(), any(), any(), any());
-  }
-
-  @Test
-  void testGetProfileWithPniCredential() throws InvalidInputException, VerificationFailedException {
-    final String version = "version";
-
-    final ServerSecretParams serverSecretParams = ServerSecretParams.generate();
-    final ServerPublicParams serverPublicParams = serverSecretParams.getPublicParams();
-    final ServerZkProfileOperations serverZkProfile = new ServerZkProfileOperations(serverSecretParams);
-    final ClientZkProfileOperations clientZkProfile = new ClientZkProfileOperations(serverPublicParams);
-
-    final byte[] profileKeyBytes = new byte[32];
-    new SecureRandom().nextBytes(profileKeyBytes);
-
-    final ProfileKey profileKey = new ProfileKey(profileKeyBytes);
-    final ProfileKeyCommitment profileKeyCommitment = profileKey.getCommitment(AuthHelper.VALID_UUID);
-
-    final VersionedProfile versionedProfile = mock(VersionedProfile.class);
-    when(versionedProfile.getCommitment()).thenReturn(profileKeyCommitment.serialize());
-
-    final ProfileKeyCredentialRequest credentialRequest =
-        clientZkProfile.createPniCredentialRequestContext(AuthHelper.VALID_UUID, AuthHelper.VALID_PNI, profileKey)
-            .getRequest();
-
-    final Account account = mock(Account.class);
-    when(account.getUuid()).thenReturn(AuthHelper.VALID_UUID);
-    when(account.getPhoneNumberIdentifier()).thenReturn(AuthHelper.VALID_PNI);
-    when(account.getCurrentProfileVersion()).thenReturn(Optional.of(version));
-    when(account.isEnabled()).thenReturn(true);
-
-    final PniCredentialResponse credentialResponse =
-        serverZkProfile.issuePniCredential(credentialRequest, AuthHelper.VALID_UUID, AuthHelper.VALID_PNI, profileKeyCommitment);
-
-    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
-    when(profilesManager.get(AuthHelper.VALID_UUID, version)).thenReturn(Optional.of(versionedProfile));
-    when(zkProfileOperations.issuePniCredential(credentialRequest, AuthHelper.VALID_UUID, AuthHelper.VALID_PNI, profileKeyCommitment))
-        .thenReturn(credentialResponse);
-
-    final PniCredentialProfileResponse profile = resources.getJerseyTest()
-        .target(String.format("/v1/profile/%s/%s/%s", AuthHelper.VALID_UUID, version,
-            HexFormat.of().formatHex(credentialRequest.serialize())))
-        .queryParam("credentialType", "pni")
-        .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .get(PniCredentialProfileResponse.class);
-
-    assertThat(profile.getVersionedProfileResponse().getBaseProfileResponse().getUuid()).isEqualTo(AuthHelper.VALID_UUID);
-    assertThat(profile.getPniCredential()).isEqualTo(credentialResponse);
-
-    verify(zkProfileOperations, never()).issueProfileKeyCredential(any(), any(), any());
-    verify(zkProfileOperations).issuePniCredential(credentialRequest, AuthHelper.VALID_UUID, AuthHelper.VALID_PNI, profileKeyCommitment);
-  }
-
-  @Test
-  void testGetProfileWithPniCredentialNotSelf() throws InvalidInputException, VerificationFailedException {
-    final String version = "version";
-
-    final ServerSecretParams serverSecretParams = ServerSecretParams.generate();
-    final ServerPublicParams serverPublicParams = serverSecretParams.getPublicParams();
-    final ServerZkProfileOperations serverZkProfile = new ServerZkProfileOperations(serverSecretParams);
-    final ClientZkProfileOperations clientZkProfile = new ClientZkProfileOperations(serverPublicParams);
-
-    final byte[] profileKeyBytes = new byte[32];
-    new SecureRandom().nextBytes(profileKeyBytes);
-
-    final ProfileKey profileKey = new ProfileKey(profileKeyBytes);
-    final ProfileKeyCommitment profileKeyCommitment = profileKey.getCommitment(AuthHelper.VALID_UUID);
-
-    final VersionedProfile versionedProfile = mock(VersionedProfile.class);
-    when(versionedProfile.getCommitment()).thenReturn(profileKeyCommitment.serialize());
-
-    final ProfileKeyCredentialRequest credentialRequest =
-        clientZkProfile.createProfileKeyCredentialRequestContext(AuthHelper.VALID_UUID, profileKey).getRequest();
-
-    final Account account = mock(Account.class);
-    when(account.getUuid()).thenReturn(AuthHelper.VALID_UUID);
-    when(account.getPhoneNumberIdentifier()).thenReturn(AuthHelper.VALID_PNI);
-    when(account.getCurrentProfileVersion()).thenReturn(Optional.of(version));
-    when(account.isEnabled()).thenReturn(true);
-
-    final PniCredentialResponse credentialResponse =
-        serverZkProfile.issuePniCredential(credentialRequest, AuthHelper.VALID_UUID, AuthHelper.VALID_PNI, profileKeyCommitment);
-
-    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
-    when(profilesManager.get(AuthHelper.VALID_UUID, version)).thenReturn(Optional.of(versionedProfile));
-    when(zkProfileOperations.issuePniCredential(credentialRequest, AuthHelper.VALID_UUID, AuthHelper.VALID_PNI, profileKeyCommitment))
-        .thenReturn(credentialResponse);
-
-    final Response response = resources.getJerseyTest()
-        .target(String.format("/v1/profile/%s/%s/%s", AuthHelper.VALID_UUID, version,
-            HexFormat.of().formatHex(credentialRequest.serialize())))
-        .queryParam("credentialType", "pni")
-        .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
-        .get();
-
-    assertThat(response.getStatus()).isEqualTo(403);
-
-    verify(zkProfileOperations, never()).issueProfileKeyCredential(any(), any(), any());
-    verify(zkProfileOperations, never()).issuePniCredential(any(), any(), any(), any());
-  }
-
-  @ParameterizedTest
-  @MethodSource
   void testGetProfileWithExpiringProfileKeyCredential(final MultivaluedMap<String, Object> authHeaders)
       throws VerificationFailedException, InvalidInputException {
     final String version = "version";
@@ -1209,7 +1038,6 @@ class ProfileControllerTest {
     assertThat(profile.getCredential()).isEqualTo(credentialResponse);
 
     verify(zkProfileOperations).issueExpiringProfileKeyCredential(credentialRequest, AuthHelper.VALID_UUID, profileKeyCommitment, expiration);
-    verify(zkProfileOperations, never()).issuePniCredential(any(), any(), any(), any());
 
     final ClientZkProfileOperations clientZkProfileCipher = new ClientZkProfileOperations(serverPublicParams);
     assertThatNoException().isThrownBy(() ->
@@ -1222,30 +1050,6 @@ class ProfileControllerTest {
         Arguments.of(new MultivaluedHashMap<>(Map.of("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD)))),
         Arguments.of(new MultivaluedHashMap<>(Map.of("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))))
     );
-  }
-
-  @Test
-  void testGetProfileWithPniCredentialVersionNotFound() throws VerificationFailedException {
-    final Account account = mock(Account.class);
-    when(account.getUuid()).thenReturn(AuthHelper.VALID_UUID);
-    when(account.getCurrentProfileVersion()).thenReturn(Optional.of("version"));
-    when(account.isEnabled()).thenReturn(true);
-
-    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
-    when(profilesManager.get(any(), any())).thenReturn(Optional.empty());
-
-    final PniCredentialProfileResponse profile = resources.getJerseyTest()
-        .target(String.format("/v1/profile/%s/%s/%s", AuthHelper.VALID_UUID, "version-that-does-not-exist", "credential-request"))
-        .queryParam("credentialType", "pni")
-        .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .get(PniCredentialProfileResponse.class);
-
-    assertThat(profile.getVersionedProfileResponse().getBaseProfileResponse().getUuid()).isEqualTo(AuthHelper.VALID_UUID);
-    assertThat(profile.getPniCredential()).isNull();
-
-    verify(zkProfileOperations, never()).issueProfileKeyCredential(any(), any(), any());
-    verify(zkProfileOperations, never()).issuePniCredential(any(), any(), any(), any());
   }
 
   @Test

@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.configuration;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import org.signal.libsignal.protocol.InvalidKeyException;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECPrivateKey;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
@@ -37,7 +38,7 @@ public class UnidentifiedDeliveryConfiguration {
     return certificate;
   }
 
-  public ECPrivateKey getPrivateKey() {
+  public ECPrivateKey getPrivateKey() throws InvalidKeyException {
     return Curve.decodePrivatePoint(privateKey);
   }
 

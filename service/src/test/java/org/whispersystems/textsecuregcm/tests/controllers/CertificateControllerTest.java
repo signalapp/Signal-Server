@@ -30,6 +30,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.signal.libsignal.protocol.InvalidKeyException;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.zkgroup.ServerSecretParams;
 import org.signal.libsignal.zkgroup.auth.AuthCredentialWithPniResponse;
@@ -68,7 +69,7 @@ class CertificateControllerTest {
       certificateGenerator = new CertificateGenerator(Base64.getDecoder().decode(signingCertificate),
           Curve.decodePrivatePoint(Base64.getDecoder().decode(signingKey)), 1);
       serverZkAuthOperations = new ServerZkAuthOperations(serverSecretParams);
-    } catch (IOException e) {
+    } catch (IOException | InvalidKeyException e) {
       throw new AssertionError(e);
     }
   }

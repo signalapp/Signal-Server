@@ -25,7 +25,7 @@ class CertificateGeneratorTest {
     private static final String IDENTITY_KEY        = "BcxxDU9FGMda70E7+Uvm7pnQcEdXQ64aJCpPUeRSfcFo";
 
     @Test
-    void testCreateFor() throws IOException, InvalidKeyException {
+    void testCreateFor() throws IOException, InvalidKeyException, org.signal.libsignal.protocol.InvalidKeyException {
         final Account account = mock(Account.class);
         final Device device = mock(Device.class);
         final CertificateGenerator certificateGenerator = new CertificateGenerator(Base64.getDecoder().decode(SIGNING_CERTIFICATE), Curve.decodePrivatePoint(Base64.getDecoder().decode(SIGNING_KEY)), 1);
