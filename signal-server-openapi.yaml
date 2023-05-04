@@ -542,6 +542,11 @@ paths:
       tags:
       - Attachments
       operationId: getAttachmentUploadForm
+      parameters:
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
       responses:
         default:
           description: default response
@@ -1501,7 +1506,7 @@ paths:
       summary: Check SVR credentials
       description: |
         Over time, clients may wind up with multiple sets of KBS authentication credentials in cloud storage.
-        To determine which set is most current and should be used to communicate with SVR to retrieve a master password
+        To determine which set is most current and should be used to communicate with SVR to retrieve a master key
         (from which a registration recovery password can be derived), clients should call this endpoint
         with a list of stored credentials. The response will identify which (if any) set of credentials are appropriate for communicating with SVR.
       operationId: authCheck
@@ -1556,6 +1561,34 @@ paths:
                 $ref: '#/components/schemas/ExternalServiceCredentials'
       security:
       - authenticatedAccount: []
+  /v2/backup/auth/check:
+    post:
+      tags:
+      - Secure Value Recovery
+      summary: Check SVR2 credentials
+      description: |
+        Over time, clients may wind up with multiple sets of SVR2 authentication credentials in cloud storage.
+        To determine which set is most current and should be used to communicate with SVR2 to retrieve a master key
+        (from which a registration recovery password can be derived), clients should call this endpoint
+        with a list of stored credentials. The response will identify which (if any) set of credentials are appropriate for communicating with SVR2.
+      operationId: authCheck_1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthCheckRequest'
+        required: true
+      responses:
+        "200":
+          description: '`JSON` with the check results.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthCheckResponse'
+        "422":
+          description: Provided list of SVR2 credentials could not be parsed
+        "400":
+          description: '`POST` request body is not a valid `JSON`'
   /v2/backup/auth:
     get:
       tags:
@@ -2847,11 +2880,11 @@ components:
       properties:
         open:
           type: boolean
+        userAgent:
+          type: string
         createdTimestamp:
           type: integer
           format: int64
-        userAgent:
-          type: string
     WebSocketSessionContext:
       type: object
       properties:
