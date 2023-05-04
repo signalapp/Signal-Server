@@ -48,6 +48,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.ws.rs.client.Entity;
@@ -65,6 +67,8 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
+import org.signal.libsignal.protocol.ecc.Curve;
+import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.usernames.BaseUsernameException;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
@@ -122,6 +126,7 @@ import org.whispersystems.textsecuregcm.storage.UsernameHashNotAvailableExceptio
 import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundException;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
+import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.TestClock;
@@ -1622,7 +1627,8 @@ class AccountControllerTest {
   void testChangePhoneNumberChangePrekeys() throws Exception {
     final String number = "+18005559876";
     final String code = "987654";
-    final String pniIdentityKey = "changed-pni-identity-key";
+    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+    final String pniIdentityKey = KeysHelper.serializeIdentityKey(pniIdentityKeyPair);
     final byte[] sessionId = "session-id".getBytes(StandardCharsets.UTF_8);
 
     Device device2 = mock(Device.class);
@@ -1648,7 +1654,7 @@ class AccountControllerTest {
     var deviceMessages = List.of(
         new IncomingMessage(1, 2, 2, "content2"),
         new IncomingMessage(1, 3, 3, "content3"));
-    var deviceKeys = Map.of(1L, new SignedPreKey(), 2L, new SignedPreKey(), 3L, new SignedPreKey());
+    var deviceKeys = List.of(1L, 2L, 3L).stream().collect(Collectors.toMap(Function.identity(), n -> KeysHelper.signedPreKey(n + 100, pniIdentityKeyPair)));
 
     final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 47, 3L, 89);
 
@@ -1674,7 +1680,8 @@ class AccountControllerTest {
   @Test
   void testChangePhoneNumberSameNumberChangePrekeys() throws Exception {
     final String code = "987654";
-    final String pniIdentityKey = "changed-pni-identity-key";
+    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+    final String pniIdentityKey = KeysHelper.serializeIdentityKey(pniIdentityKeyPair);
     final byte[] sessionId = "session-id".getBytes(StandardCharsets.UTF_8);
 
     Device device2 = mock(Device.class);
@@ -1700,7 +1707,7 @@ class AccountControllerTest {
     var deviceMessages = List.of(
         new IncomingMessage(1, 2, 2, "content2"),
         new IncomingMessage(1, 3, 3, "content3"));
-    var deviceKeys = Map.of(1L, new SignedPreKey(), 2L, new SignedPreKey(), 3L, new SignedPreKey());
+    var deviceKeys = List.of(1L, 2L, 3L).stream().collect(Collectors.toMap(Function.identity(), n -> KeysHelper.signedPreKey(n + 100, pniIdentityKeyPair)));
 
     final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 47, 3L, 89);
 

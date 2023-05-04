@@ -61,6 +61,7 @@ public class KeysController {
   private final Keys                        keys;
   private final AccountsManager             accounts;
 
+  private static final String IDENTITY_KEY_CHANGE_COUNTER_NAME = name(KeysController.class, "identityKeyChange");
   private static final String IDENTITY_KEY_CHANGE_FORBIDDEN_COUNTER_NAME = name(KeysController.class, "identityKeyChangeForbidden");
 
   private static final String IDENTITY_TYPE_TAG_NAME = "identityType";
@@ -85,6 +86,7 @@ public class KeysController {
   @Timed
   @PUT
   @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
   @ChangesDeviceEnabledState
   public void setKeys(@Auth final DisabledPermittedAuthenticatedAccount disabledPermittedAuth,
       @NotNull @Valid final PreKeyState preKeys,
@@ -100,21 +102,21 @@ public class KeysController {
       updateAccount = true;
     }
 
-    if (!preKeys.getIdentityKey().equals(usePhoneNumberIdentity ? account.getPhoneNumberIdentityKey() : account.getIdentityKey())) {
+    final String oldIdentityKey = usePhoneNumberIdentity ? account.getPhoneNumberIdentityKey() : account.getIdentityKey();
+    if (!preKeys.getIdentityKey().equals(oldIdentityKey)) {
       updateAccount = true;
+
+      final boolean hasIdentityKey = StringUtils.isNotBlank(oldIdentityKey);
+      final Tags tags = Tags.of(UserAgentTagUtil.getPlatformTag(userAgent))
+          .and(HAS_IDENTITY_KEY_TAG_NAME, String.valueOf(hasIdentityKey))
+          .and(IDENTITY_TYPE_TAG_NAME, usePhoneNumberIdentity ? "pni" : "aci");
+
       if (!device.isMaster()) {
-        final boolean hasIdentityKey = usePhoneNumberIdentity ?
-            StringUtils.isNotBlank(account.getPhoneNumberIdentityKey()) :
-            StringUtils.isNotBlank(account.getIdentityKey());
-
-        final Tags tags = Tags.of(UserAgentTagUtil.getPlatformTag(userAgent))
-            .and(HAS_IDENTITY_KEY_TAG_NAME, String.valueOf(hasIdentityKey))
-            .and(IDENTITY_TYPE_TAG_NAME, usePhoneNumberIdentity ? "pni" : "aci");
-
         Metrics.counter(IDENTITY_KEY_CHANGE_FORBIDDEN_COUNTER_NAME, tags).increment();
 
         throw new ForbiddenException();
       }
+      Metrics.counter(IDENTITY_KEY_CHANGE_COUNTER_NAME, tags).increment();
     }
 
     if (updateAccount) {

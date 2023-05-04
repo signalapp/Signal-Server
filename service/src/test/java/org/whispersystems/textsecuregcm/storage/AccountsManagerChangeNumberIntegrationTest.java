@@ -23,6 +23,8 @@ import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.signal.libsignal.protocol.ecc.Curve;
+import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
@@ -34,6 +36,7 @@ import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
+import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 
 class AccountsManagerChangeNumberIntegrationTest {
 
@@ -144,7 +147,8 @@ class AccountsManagerChangeNumberIntegrationTest {
     final String originalNumber = "+18005551111";
     final String secondNumber = "+18005552222";
     final int rotatedPniRegistrationId = 17;
-    final SignedPreKey rotatedSignedPreKey = new SignedPreKey(1, "test", "test");
+    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+    final SignedPreKey rotatedSignedPreKey = KeysHelper.signedPreKey(1L, pniIdentityKeyPair);
 
     final AccountAttributes accountAttributes = new AccountAttributes(true, rotatedPniRegistrationId + 1, "test", null, true, new Device.DeviceCapabilities());
     final Account account = accountsManager.create(originalNumber, "password", null, accountAttributes, new ArrayList<>());
@@ -153,7 +157,7 @@ class AccountsManagerChangeNumberIntegrationTest {
     final UUID originalUuid = account.getUuid();
     final UUID originalPni = account.getPhoneNumberIdentifier();
 
-    final String pniIdentityKey = "changed-pni-identity-key";
+    final String pniIdentityKey = KeysHelper.serializeIdentityKey(pniIdentityKeyPair);
     final Map<Long, SignedPreKey> preKeys = Map.of(Device.MASTER_ID, rotatedSignedPreKey);
     final Map<Long, Integer> registrationIds = Map.of(Device.MASTER_ID, rotatedPniRegistrationId);
 

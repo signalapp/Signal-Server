@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.entities;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 import java.util.Map;
+import javax.validation.constraints.AssertTrue;
 import javax.annotation.Nullable;
 import javax.validation.constraints.NotBlank;
 
@@ -18,4 +19,14 @@ public record ChangePhoneNumberRequest(@NotBlank String number,
                                        @Nullable List<IncomingMessage> deviceMessages,
                                        @Nullable Map<Long, SignedPreKey> devicePniSignedPrekeys,
                                        @Nullable Map<Long, Integer> pniRegistrationIds) {
+
+  @AssertTrue
+  public boolean isSignatureValidOnEachSignedPreKey() {
+    if (devicePniSignedPrekeys == null) {
+      return true;
+    }
+    return devicePniSignedPrekeys.values().parallelStream()
+        .allMatch(spk -> PreKeySignatureValidator.validatePreKeySignature(pniIdentityKey, spk));
+  }
+
 }

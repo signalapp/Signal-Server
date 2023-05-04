@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 import javax.validation.Valid;
+import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
@@ -34,4 +35,11 @@ public record PhoneNumberIdentityKeyDistributionRequest(
         @Valid
         @Schema(description="The new registration ID to use for the phone-number identity of each device")
         Map<Long, Integer> pniRegistrationIds) {
+
+  @AssertTrue
+  public boolean isSignatureValidOnEachSignedPreKey() {
+    return devicePniSignedPrekeys.values().parallelStream()
+        .allMatch(spk -> PreKeySignatureValidator.validatePreKeySignature(pniIdentityKey, spk));
+  }
+
 }

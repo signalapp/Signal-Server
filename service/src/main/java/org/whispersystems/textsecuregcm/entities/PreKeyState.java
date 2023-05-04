@@ -8,6 +8,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.List;
 import javax.validation.Valid;
+import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 
@@ -48,4 +49,8 @@ public class PreKeyState {
     return identityKey;
   }
 
+  @AssertTrue
+  public boolean isSignatureValid() {
+    return PreKeySignatureValidator.validatePreKeySignature(identityKey, signedPreKey);
+  }
 }

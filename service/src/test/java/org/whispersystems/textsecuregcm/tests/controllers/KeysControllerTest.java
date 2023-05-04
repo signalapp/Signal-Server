@@ -24,6 +24,7 @@ import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import java.time.Duration;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
@@ -39,6 +40,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.signal.libsignal.protocol.ecc.Curve;
+import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
@@ -59,6 +62,7 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.Keys;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
+import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class KeysControllerTest {
@@ -76,6 +80,12 @@ class KeysControllerTest {
 
   private static final int SAMPLE_PNI_REGISTRATION_ID = 1717;
 
+  private final ECKeyPair IDENTITY_KEY_PAIR = Curve.generateKeyPair();
+  private final String IDENTITY_KEY = KeysHelper.serializeIdentityKey(IDENTITY_KEY_PAIR);
+  
+  private final ECKeyPair PNI_IDENTITY_KEY_PAIR = Curve.generateKeyPair();
+  private final String PNI_IDENTITY_KEY = KeysHelper.serializeIdentityKey(PNI_IDENTITY_KEY_PAIR);
+  
   private final PreKey SAMPLE_KEY    = new PreKey(1234, "test1");
   private final PreKey SAMPLE_KEY2   = new PreKey(5667, "test3");
   private final PreKey SAMPLE_KEY3   = new PreKey(334, "test5");
@@ -83,14 +93,14 @@ class KeysControllerTest {
 
   private final PreKey SAMPLE_KEY_PNI = new PreKey(7777, "test7");
 
-  private final SignedPreKey SAMPLE_SIGNED_KEY       = new SignedPreKey( 1111, "foofoo", "sig11"    );
-  private final SignedPreKey SAMPLE_SIGNED_KEY2      = new SignedPreKey( 2222, "foobar", "sig22"    );
-  private final SignedPreKey SAMPLE_SIGNED_KEY3      = new SignedPreKey( 3333, "barfoo", "sig33"    );
-  private final SignedPreKey SAMPLE_SIGNED_PNI_KEY   = new SignedPreKey( 4444, "foofoopni", "sig44" );
-  private final SignedPreKey SAMPLE_SIGNED_PNI_KEY2  = new SignedPreKey( 5555, "foobarpni", "sig55" );
-  private final SignedPreKey SAMPLE_SIGNED_PNI_KEY3  = new SignedPreKey( 6666, "barfoopni", "sig66" );
-  private final SignedPreKey VALID_DEVICE_SIGNED_KEY = new SignedPreKey(89898, "zoofarb", "sigvalid");
-  private final SignedPreKey VALID_DEVICE_PNI_SIGNED_KEY = new SignedPreKey(7777, "zoofarber", "sigvalidest");
+  private final SignedPreKey SAMPLE_SIGNED_KEY       = KeysHelper.signedPreKey( 1111, IDENTITY_KEY_PAIR);
+  private final SignedPreKey SAMPLE_SIGNED_KEY2      = KeysHelper.signedPreKey( 2222, IDENTITY_KEY_PAIR);
+  private final SignedPreKey SAMPLE_SIGNED_KEY3      = KeysHelper.signedPreKey( 3333, IDENTITY_KEY_PAIR);
+  private final SignedPreKey SAMPLE_SIGNED_PNI_KEY   = KeysHelper.signedPreKey( 4444, PNI_IDENTITY_KEY_PAIR);
+  private final SignedPreKey SAMPLE_SIGNED_PNI_KEY2  = KeysHelper.signedPreKey( 5555, PNI_IDENTITY_KEY_PAIR);
+  private final SignedPreKey SAMPLE_SIGNED_PNI_KEY3  = KeysHelper.signedPreKey( 6666, PNI_IDENTITY_KEY_PAIR);
+  private final SignedPreKey VALID_DEVICE_SIGNED_KEY = KeysHelper.signedPreKey(89898, IDENTITY_KEY_PAIR);
+  private final SignedPreKey VALID_DEVICE_PNI_SIGNED_KEY = KeysHelper.signedPreKey(7777, PNI_IDENTITY_KEY_PAIR);
 
   private final static Keys KEYS = mock(Keys.class               );
   private final static AccountsManager             accounts                    = mock(AccountsManager.class            );
@@ -153,8 +163,8 @@ class KeysControllerTest {
     when(existsAccount.getDevice(22L)).thenReturn(Optional.empty());
     when(existsAccount.getDevices()).thenReturn(allDevices);
     when(existsAccount.isEnabled()).thenReturn(true);
-    when(existsAccount.getIdentityKey()).thenReturn("existsidentitykey");
-    when(existsAccount.getPhoneNumberIdentityKey()).thenReturn("existspniidentitykey");
+    when(existsAccount.getIdentityKey()).thenReturn(IDENTITY_KEY);
+    when(existsAccount.getPhoneNumberIdentityKey()).thenReturn(PNI_IDENTITY_KEY);
     when(existsAccount.getNumber()).thenReturn(EXISTS_NUMBER);
     when(existsAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of("1337".getBytes()));
 
@@ -234,7 +244,7 @@ class KeysControllerTest {
 
   @Test
   void putSignedPreKeyV2() {
-    SignedPreKey   test     = new SignedPreKey(9998, "fooozzz", "baaarzzz");
+    SignedPreKey   test     = KeysHelper.signedPreKey(9998, IDENTITY_KEY_PAIR);
     Response response = resources.getJerseyTest()
                                  .target("/v2/keys/signed")
                                  .request()
@@ -250,7 +260,7 @@ class KeysControllerTest {
 
   @Test
   void putPhoneNumberIdentitySignedPreKeyV2() {
-    final SignedPreKey replacementKey = new SignedPreKey(9998, "fooozzz", "baaarzzz");
+    final SignedPreKey replacementKey = KeysHelper.signedPreKey(9998, PNI_IDENTITY_KEY_PAIR);
 
     Response response = resources.getJerseyTest()
         .target("/v2/keys/signed")
@@ -268,7 +278,7 @@ class KeysControllerTest {
 
   @Test
   void disabledPutSignedPreKeyV2() {
-    SignedPreKey   test     = new SignedPreKey(9999, "fooozzz", "baaarzzz");
+    SignedPreKey   test     = KeysHelper.signedPreKey(9999, IDENTITY_KEY_PAIR);
     Response response = resources.getJerseyTest()
                                  .target("/v2/keys/signed")
                                  .request()
@@ -514,8 +524,9 @@ class KeysControllerTest {
   @Test
   void putKeysTestV2() {
     final PreKey       preKey       = new PreKey(31337, "foobar");
-    final SignedPreKey signedPreKey = new SignedPreKey(31338, "foobaz", "myvalidsig");
-    final String       identityKey  = "barbar";
+    final ECKeyPair identityKeyPair = Curve.generateKeyPair();
+    final SignedPreKey signedPreKey = KeysHelper.signedPreKey(31338, identityKeyPair);
+    final String       identityKey  = KeysHelper.serializeIdentityKey(identityKeyPair);
 
     List<PreKey> preKeys = new LinkedList<PreKey>() {{
       add(preKey);
@@ -540,15 +551,16 @@ class KeysControllerTest {
     assertThat(capturedList.get(0).getKeyId()).isEqualTo(31337);
     assertThat(capturedList.get(0).getPublicKey()).isEqualTo("foobar");
 
-    verify(AuthHelper.VALID_ACCOUNT).setIdentityKey(eq("barbar"));
+    verify(AuthHelper.VALID_ACCOUNT).setIdentityKey(eq(identityKey));
     verify(AuthHelper.VALID_DEVICE).setSignedPreKey(eq(signedPreKey));
     verify(accounts).update(eq(AuthHelper.VALID_ACCOUNT), any());
   }
 
   @Test
   void putKeysByPhoneNumberIdentifierTestV2() {
-    final SignedPreKey signedPreKey = new SignedPreKey(31338, "foobaz", "myvalidsig");
-    final String       identityKey  = "barbar";
+    final ECKeyPair identityKeyPair = Curve.generateKeyPair();
+    final SignedPreKey signedPreKey = KeysHelper.signedPreKey(31338, identityKeyPair);
+    final String       identityKey  = KeysHelper.serializeIdentityKey(identityKeyPair);
 
     List<PreKey> preKeys = List.of(new PreKey(31337, "foobar"));
 
@@ -572,16 +584,32 @@ class KeysControllerTest {
     assertThat(capturedList.get(0).getKeyId()).isEqualTo(31337);
     assertThat(capturedList.get(0).getPublicKey()).isEqualTo("foobar");
 
-    verify(AuthHelper.VALID_ACCOUNT).setPhoneNumberIdentityKey(eq("barbar"));
+    verify(AuthHelper.VALID_ACCOUNT).setPhoneNumberIdentityKey(eq(identityKey));
     verify(AuthHelper.VALID_DEVICE).setPhoneNumberIdentitySignedPreKey(eq(signedPreKey));
     verify(accounts).update(eq(AuthHelper.VALID_ACCOUNT), any());
   }
 
   @Test
+  void putPrekeyWithInvalidSignature() {
+    final SignedPreKey badSignedPreKey = new SignedPreKey(1L, "foo", "bar");
+    PreKeyState preKeyState = new PreKeyState(IDENTITY_KEY, badSignedPreKey, List.of());
+    Response response =
+        resources.getJerseyTest()
+            .target("/v2/keys")
+            .queryParam("identity", "aci")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(Entity.entity(preKeyState, MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat(response.getStatus()).isEqualTo(422);
+  }
+
+  @Test
   void disabledPutKeysTestV2() {
     final PreKey       preKey       = new PreKey(31337, "foobar");
-    final SignedPreKey signedPreKey = new SignedPreKey(31338, "foobaz", "myvalidsig");
-    final String       identityKey  = "barbar";
+    final ECKeyPair identityKeyPair = Curve.generateKeyPair();
+    final SignedPreKey signedPreKey = KeysHelper.signedPreKey(31338, identityKeyPair);
+    final String       identityKey  = KeysHelper.serializeIdentityKey(identityKeyPair);
 
     List<PreKey> preKeys = new LinkedList<PreKey>() {{
       add(preKey);
@@ -606,7 +634,7 @@ class KeysControllerTest {
     assertThat(capturedList.get(0).getKeyId()).isEqualTo(31337);
     assertThat(capturedList.get(0).getPublicKey()).isEqualTo("foobar");
 
-    verify(AuthHelper.DISABLED_ACCOUNT).setIdentityKey(eq("barbar"));
+    verify(AuthHelper.DISABLED_ACCOUNT).setIdentityKey(eq(identityKey));
     verify(AuthHelper.DISABLED_DEVICE).setSignedPreKey(eq(signedPreKey));
     verify(accounts).update(eq(AuthHelper.DISABLED_ACCOUNT), any());
   }
@@ -614,12 +642,11 @@ class KeysControllerTest {
   @Test
   void putIdentityKeyNonPrimary() {
     final PreKey       preKey       = new PreKey(31337, "foobar");
-    final SignedPreKey signedPreKey = new SignedPreKey(31338, "foobaz", "myvalidsig");
-    final String       identityKey  = "barbar";
+    final SignedPreKey signedPreKey = KeysHelper.signedPreKey(31338, IDENTITY_KEY_PAIR);
 
     List<PreKey> preKeys = List.of(preKey);
 
-    PreKeyState preKeyState = new PreKeyState(identityKey, signedPreKey, preKeys);
+    PreKeyState preKeyState = new PreKeyState(IDENTITY_KEY, signedPreKey, preKeys);
 
     Response response =
         resources.getJerseyTest()
