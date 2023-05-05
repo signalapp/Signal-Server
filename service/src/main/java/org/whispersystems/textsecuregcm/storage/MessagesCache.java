@@ -332,7 +332,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
   public void clear(final UUID destinationUuid) {
     // TODO Remove null check in a fully UUID-based world
     if (destinationUuid != null) {
-      for (int i = 1; i < 256; i++) {
+      for (int i = 1; i < Device.MAXIMUM_DEVICE_ID; i++) {
         clear(destinationUuid, i);
       }
     }

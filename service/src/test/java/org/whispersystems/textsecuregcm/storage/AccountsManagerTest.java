@@ -73,6 +73,7 @@ class AccountsManagerTest {
   private Keys keys;
   private MessagesManager messagesManager;
   private ProfilesManager profilesManager;
+  private ClientPresenceManager clientPresenceManager;
   private ExperimentEnrollmentManager enrollmentManager;
 
   private Map<String, UUID> phoneNumberIdentifiersByE164;
@@ -95,6 +96,7 @@ class AccountsManagerTest {
     keys = mock(Keys.class);
     messagesManager = mock(MessagesManager.class);
     profilesManager = mock(ProfilesManager.class);
+    clientPresenceManager = mock(ClientPresenceManager.class);
 
     //noinspection unchecked
     commands = mock(RedisAdvancedClusterCommands.class);
@@ -155,7 +157,7 @@ class AccountsManagerTest {
         storageClient,
         backupClient,
         svr2Client,
-        mock(ClientPresenceManager.class),
+        clientPresenceManager,
         enrollmentManager,
         mock(RegistrationRecoveryPasswordsManager.class),
         mock(Clock.class));
@@ -560,6 +562,7 @@ class AccountsManagerTest {
     verify(keys).delete(phoneNumberIdentifiersByE164.get(e164));
     verify(messagesManager).clear(existingUuid);
     verify(profilesManager).deleteAll(existingUuid);
+    verify(clientPresenceManager).disconnectAllPresencesForUuid(existingUuid);
   }
 
   @Test

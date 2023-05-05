@@ -219,6 +219,7 @@ public class AccountsManager {
           keys.delete(actualUuid);
           keys.delete(account.getPhoneNumberIdentifier());
           profilesManager.deleteAll(actualUuid);
+          clientPresenceManager.disconnectAllPresencesForUuid(actualUuid);
         }
 
         final Tags tags;

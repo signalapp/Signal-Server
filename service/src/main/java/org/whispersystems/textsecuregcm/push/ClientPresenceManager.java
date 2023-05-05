@@ -33,11 +33,14 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.LongStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantPubSubConnection;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.Constants;
 
 /**
@@ -196,6 +199,10 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
       List<RedisFuture<Long>> futures = presenceKeys.stream().map(key -> connection.async().del(key)).toList();
       LettuceFutures.awaitAll(connection.getTimeout(), futures.toArray(new RedisFuture[0]));
     });
+  }
+
+  public void disconnectAllPresencesForUuid(final UUID accountUuid) {
+    disconnectAllPresences(accountUuid, Device.ALL_POSSIBLE_DEVICE_IDS);
   }
 
   public void disconnectPresence(final UUID accountUuid, final long deviceId) {

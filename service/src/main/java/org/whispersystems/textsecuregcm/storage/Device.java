@@ -6,8 +6,11 @@ package org.whispersystems.textsecuregcm.storage;
 
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.List;
 import java.util.OptionalInt;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.LongStream;
 import javax.annotation.Nullable;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
@@ -16,6 +19,8 @@ import org.whispersystems.textsecuregcm.util.Util;
 public class Device {
 
   public static final long MASTER_ID = 1;
+  public static final int MAXIMUM_DEVICE_ID = 256;
+  public static final List<Long> ALL_POSSIBLE_DEVICE_IDS = LongStream.range(1, MAXIMUM_DEVICE_ID).boxed().collect(Collectors.toList());
 
   @JsonProperty
   private long    id;
