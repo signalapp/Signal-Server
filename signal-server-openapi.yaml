@@ -570,24 +570,36 @@ paths:
                 $ref: '#/components/schemas/AttachmentDescriptorV3'
       security:
       - authenticatedAccount: []
-  /v1/call-link/auth:
-    get:
+  /v1/call-link/create-auth:
+    post:
       tags:
       - CallLink
-      summary: Generate credentials for calling frontend
+      summary: Generate a credential for creating call links
       description: |
-        These credentials enable clients to prove to calling frontend that they were a Signal user within the last day.
-        For client privacy, timestamps are truncated to 1 day granularity and the token does not include or derive from an ACI.
-      operationId: getAuth_1
+        Generate a credential over a truncated timestamp, room ID, and account UUID. With zero knowledge
+        group infrastructure, the server does not know the room ID.
+      operationId: getCreateAuth
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              $ref: '#/components/schemas/GetCreateCallLinkCredentialsRequest'
+        required: true
       responses:
         "200":
           description: '`JSON` with generated credentials.'
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ExternalServiceCredentials'
+                $ref: '#/components/schemas/CreateCallLinkCredential'
+        "400":
+          description: Invalid create call link credential request.
         "401":
           description: Account authentication check failed.
+        "422":
+          description: Invalid request format.
+        "429":
+          description: Ratelimited.
       security:
       - authenticatedAccount: []
   /v1/certificate/delivery:
@@ -1020,7 +1032,7 @@ paths:
         default:
           description: default response
           content:
-            '*/*': {}
+            application/json: {}
       security:
       - authenticatedAccount: []
   /v1/messages:
@@ -1213,7 +1225,7 @@ paths:
     get:
       tags:
       - Payments
-      operationId: getAuth_2
+      operationId: getAuth_1
       responses:
         default:
           description: default response
@@ -1298,7 +1310,6 @@ paths:
         in: query
         schema:
           type: string
-          default: profileKey
       responses:
         default:
           description: default response
@@ -1535,7 +1546,7 @@ paths:
       description: |
         Generate SVR service credentials. Generated credentials have an expiration time of 30 days
         (however, the TTL is fully controlled by the server side and may change even for already generated credentials).
-      operationId: getAuth_3
+      operationId: getAuth_2
       responses:
         "200":
           description: '`JSON` with generated credentials.'
@@ -1551,7 +1562,7 @@ paths:
     get:
       tags:
       - Secure Storage
-      operationId: getAuth_4
+      operationId: getAuth_3
       responses:
         default:
           description: default response
@@ -1597,7 +1608,7 @@ paths:
       description: |
         Generate SVR2 service credentials. Generated credentials have an expiration time of 30 days
         (however, the TTL is fully controlled by the server side and may change even for already generated credentials).
-      operationId: getAuth_5
+      operationId: getAuth_4
       responses:
         "200":
           description: '`JSON` with generated credentials.'
@@ -2378,6 +2389,8 @@ components:
           additionalProperties:
             type: integer
             format: int32
+        signatureValidOnEachSignedPreKey:
+          type: boolean
     IncomingMessage:
       type: object
       properties:
@@ -2614,6 +2627,8 @@ components:
           additionalProperties:
             type: integer
             format: int32
+        signatureValidOnEachSignedPreKey:
+          type: boolean
         valid:
           type: boolean
     PhoneNumberIdentityKeyDistributionRequest:
@@ -2648,6 +2663,8 @@ components:
             format: int32
           description: The new registration ID to use for the phone-number identity
             of each device
+        signatureValidOnEachSignedPreKey:
+          type: boolean
     AccountAndDevicesDataReport:
       type: object
       properties:
@@ -2758,6 +2775,27 @@ components:
             type: string
         signedUploadLocation:
           type: string
+    CreateCallLinkCredential:
+      type: object
+      properties:
+        credential:
+          type: array
+          items:
+            type: string
+            format: byte
+        redemptionTime:
+          type: integer
+          format: int64
+    GetCreateCallLinkCredentialsRequest:
+      required:
+      - createCallLinkCredentialRequest
+      type: object
+      properties:
+        createCallLinkCredentialRequest:
+          type: array
+          items:
+            type: string
+            format: byte
     DeliveryCertificate:
       type: object
       properties:
@@ -2766,6 +2804,17 @@ components:
           items:
             type: string
             format: byte
+    CallLinkAuthCredential:
+      type: object
+      properties:
+        credential:
+          type: array
+          items:
+            type: string
+            format: byte
+        redemptionTime:
+          type: integer
+          format: int64
     GroupCredential:
       type: object
       properties:
@@ -2784,6 +2833,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/GroupCredential'
+        callLinkAuthCredentials:
+          type: array
+          items:
+            $ref: '#/components/schemas/CallLinkAuthCredential'
         pni:
           type: string
           format: uuid
@@ -2880,11 +2933,11 @@ components:
       properties:
         open:
           type: boolean
-        userAgent:
-          type: string
         createdTimestamp:
           type: integer
           format: int64
+        userAgent:
+          type: string
     WebSocketSessionContext:
       type: object
       properties:
@@ -2932,6 +2985,8 @@ components:
           $ref: '#/components/schemas/SignedPreKey'
         identityKey:
           type: string
+        signatureValid:
+          type: boolean
     SpamReport:
       type: object
       properties:
