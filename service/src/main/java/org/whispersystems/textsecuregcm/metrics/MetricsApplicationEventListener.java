@@ -15,18 +15,18 @@ import org.glassfish.jersey.server.monitoring.RequestEventListener;
  */
 public class MetricsApplicationEventListener implements ApplicationEventListener {
 
-    private final MetricsRequestEventListener metricsRequestEventListener;
+  private final MetricsRequestEventListener metricsRequestEventListener;
 
-    public MetricsApplicationEventListener(final TrafficSource trafficSource) {
-        this.metricsRequestEventListener = new MetricsRequestEventListener(trafficSource);
-    }
+  public MetricsApplicationEventListener(final TrafficSource trafficSource) {
+    this.metricsRequestEventListener = new MetricsRequestEventListener(trafficSource);
+  }
 
-    @Override
-    public void onEvent(final ApplicationEvent event) {
-    }
+  @Override
+  public void onEvent(final ApplicationEvent event) {
+  }
 
-    @Override
-    public RequestEventListener onRequest(final RequestEvent requestEvent) {
-        return metricsRequestEventListener;
-    }
+  @Override
+  public RequestEventListener onRequest(final RequestEvent requestEvent) {
+    return metricsRequestEventListener;
+  }
 }

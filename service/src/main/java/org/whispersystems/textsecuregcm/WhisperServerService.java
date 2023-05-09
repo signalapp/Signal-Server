@@ -134,7 +134,6 @@ import org.whispersystems.textsecuregcm.metrics.FreeMemoryGauge;
 import org.whispersystems.textsecuregcm.metrics.GarbageCollectionGauges;
 import org.whispersystems.textsecuregcm.metrics.MaxFileDescriptorGauge;
 import org.whispersystems.textsecuregcm.metrics.MetricsApplicationEventListener;
-import org.whispersystems.textsecuregcm.metrics.MetricsRequestEventListener;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.MicrometerRegistryManager;
 import org.whispersystems.textsecuregcm.metrics.NetworkReceivedGauge;
@@ -277,9 +276,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
                   "host", HostnameUtil.getLocalHostname(),
                   "version", WhisperServerVersion.getServerVersion(),
                   "env", config.getDatadogConfiguration().getEnvironment()))
-          .meterFilter(MeterFilter.denyNameStartsWith(MetricsRequestEventListener.ANDROID_REQUEST_COUNTER_NAME))
-          .meterFilter(MeterFilter.denyNameStartsWith(MetricsRequestEventListener.DESKTOP_REQUEST_COUNTER_NAME))
-          .meterFilter(MeterFilter.denyNameStartsWith(MetricsRequestEventListener.IOS_REQUEST_COUNTER_NAME))
           .meterFilter(new MeterFilter() {
             @Override
             public DistributionStatisticConfig configure(final Id id, final DistributionStatisticConfig config) {
