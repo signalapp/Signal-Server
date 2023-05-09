@@ -277,7 +277,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
                   "host", HostnameUtil.getLocalHostname(),
                   "version", WhisperServerVersion.getServerVersion(),
                   "env", config.getDatadogConfiguration().getEnvironment()))
-          .meterFilter(MeterFilter.denyNameStartsWith(MetricsRequestEventListener.REQUEST_COUNTER_NAME))
           .meterFilter(MeterFilter.denyNameStartsWith(MetricsRequestEventListener.ANDROID_REQUEST_COUNTER_NAME))
           .meterFilter(MeterFilter.denyNameStartsWith(MetricsRequestEventListener.DESKTOP_REQUEST_COUNTER_NAME))
           .meterFilter(MeterFilter.denyNameStartsWith(MetricsRequestEventListener.IOS_REQUEST_COUNTER_NAME))
