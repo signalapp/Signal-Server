@@ -12,6 +12,7 @@ import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.Optional;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.core.Response;
@@ -32,7 +33,8 @@ public class KeepAliveController {
 
   private final ClientPresenceManager clientPresenceManager;
 
-  private static final String NO_LOCAL_SUBSCRIPTION_COUNTER_NAME = name(KeepAliveController.class, "noLocalSubscription");
+  private static final String NO_LOCAL_SUBSCRIPTION_COUNTER_NAME = name(KeepAliveController.class,
+      "noLocalSubscription");
 
   public KeepAliveController(final ClientPresenceManager clientPresenceManager) {
     this.clientPresenceManager = clientPresenceManager;
@@ -40,9 +42,10 @@ public class KeepAliveController {
 
   @Timed
   @GET
-  public Response getKeepAlive(@Auth AuthenticatedAccount auth,
+  public Response getKeepAlive(@Auth Optional<AuthenticatedAccount> maybeAuth,
       @WebSocketSession WebSocketSessionContext context) {
-    if (auth != null) {
+
+    maybeAuth.ifPresent(auth -> {
       if (!clientPresenceManager.isLocallyPresent(auth.getAccount().getUuid(), auth.getAuthenticatedDevice().getId())) {
         logger.debug("***** No local subscription found for {}::{}; age = {}ms, User-Agent = {}",
             auth.getAccount().getUuid(), auth.getAuthenticatedDevice().getId(),
@@ -52,10 +55,10 @@ public class KeepAliveController {
         context.getClient().close(1000, "OK");
 
         Metrics.counter(NO_LOCAL_SUBSCRIPTION_COUNTER_NAME,
-            Tags.of(UserAgentTagUtil.getPlatformTag(context.getClient().getUserAgent())))
+                Tags.of(UserAgentTagUtil.getPlatformTag(context.getClient().getUserAgent())))
             .increment();
       }
-    }
+    });
 
     return Response.ok().build();
   }
