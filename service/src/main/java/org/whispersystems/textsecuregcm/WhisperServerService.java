@@ -56,8 +56,8 @@ import org.glassfish.jersey.server.ServerProperties;
 import org.signal.event.AdminEventLogger;
 import org.signal.event.GoogleCloudAdminEventLogger;
 import org.signal.i18n.HeaderControlledResourceBundleLookup;
-import org.signal.libsignal.zkgroup.ServerSecretParams;
 import org.signal.libsignal.zkgroup.GenericServerSecretParams;
+import org.signal.libsignal.zkgroup.ServerSecretParams;
 import org.signal.libsignal.zkgroup.auth.ServerZkAuthOperations;
 import org.signal.libsignal.zkgroup.profiles.ServerZkProfileOperations;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialPresentation;
@@ -172,7 +172,6 @@ import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerListener;
 import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
-import org.whispersystems.textsecuregcm.storage.ContactDiscoveryWriter;
 import org.whispersystems.textsecuregcm.storage.DeletedAccounts;
 import org.whispersystems.textsecuregcm.storage.DeletedAccountsManager;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
@@ -571,7 +570,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     // TODO listeners must be ordered so that ones that directly update accounts come last, so that read-only ones are not working with stale data
     final List<AccountDatabaseCrawlerListener> accountDatabaseCrawlerListeners = List.of(
         new NonNormalizedAccountCrawlerListener(accountsManager, metricsCluster),
-        new ContactDiscoveryWriter(accountsManager),
         // PushFeedbackProcessor may update device properties
         new PushFeedbackProcessor(accountsManager));
 
