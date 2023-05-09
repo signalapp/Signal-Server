@@ -30,6 +30,9 @@ public class MetricsRequestEventListener implements RequestEventListener {
   static final String PATH_TAG = "path";
 
   @VisibleForTesting
+  static final String METHOD_TAG = "method";
+
+  @VisibleForTesting
   static final String STATUS_CODE_TAG = "status";
 
   @VisibleForTesting
@@ -52,8 +55,9 @@ public class MetricsRequestEventListener implements RequestEventListener {
   public void onEvent(final RequestEvent event) {
     if (event.getType() == RequestEvent.Type.FINISHED) {
       if (!event.getUriInfo().getMatchedTemplates().isEmpty()) {
-        final List<Tag> tags = new ArrayList<>(4);
+        final List<Tag> tags = new ArrayList<>(5);
         tags.add(Tag.of(PATH_TAG, UriInfoUtil.getPathTemplate(event.getUriInfo())));
+        tags.add(Tag.of(METHOD_TAG, event.getContainerRequest().getMethod()));
         tags.add(Tag.of(STATUS_CODE_TAG, String.valueOf(event.getContainerResponse().getStatus())));
         tags.add(Tag.of(TRAFFIC_SOURCE_TAG, trafficSource.name().toLowerCase()));
 

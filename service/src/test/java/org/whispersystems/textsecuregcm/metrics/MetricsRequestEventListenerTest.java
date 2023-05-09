@@ -72,12 +72,14 @@ class MetricsRequestEventListenerTest {
   @SuppressWarnings("unchecked")
   void testOnEvent() {
     final String path = "/test";
+    final String method = "GET";
     final int statusCode = 200;
 
     final ExtendedUriInfo uriInfo = mock(ExtendedUriInfo.class);
     when(uriInfo.getMatchedTemplates()).thenReturn(Collections.singletonList(new UriTemplate(path)));
 
     final ContainerRequest request = mock(ContainerRequest.class);
+    when(request.getMethod()).thenReturn(method);
     when(request.getRequestHeader(HttpHeaders.USER_AGENT)).thenReturn(
         Collections.singletonList("Signal-Android/4.53.7 (Android 8.1)"));
 
@@ -105,8 +107,9 @@ class MetricsRequestEventListenerTest {
       tags.add(tag);
     }
 
-    assertEquals(4, tags.size());
+    assertEquals(5, tags.size());
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.PATH_TAG, path)));
+    assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.METHOD_TAG, method)));
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.STATUS_CODE_TAG, String.valueOf(statusCode))));
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.TRAFFIC_SOURCE_TAG, TRAFFIC_SOURCE.name().toLowerCase())));
     assertTrue(tags.contains(Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")));
@@ -170,8 +173,9 @@ class MetricsRequestEventListenerTest {
       tags.add(tag);
     }
 
-    assertEquals(4, tags.size());
+    assertEquals(5, tags.size());
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.PATH_TAG, "/v1/test/hello")));
+    assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.METHOD_TAG, "GET")));
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.STATUS_CODE_TAG, String.valueOf(200))));
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.TRAFFIC_SOURCE_TAG, TRAFFIC_SOURCE.name().toLowerCase())));
     assertTrue(tags.contains(Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")));
@@ -228,8 +232,9 @@ class MetricsRequestEventListenerTest {
       tags.add(tag);
     }
 
-    assertEquals(4, tags.size());
+    assertEquals(5, tags.size());
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.PATH_TAG, "/v1/test/hello")));
+    assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.METHOD_TAG, "GET")));
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.STATUS_CODE_TAG, String.valueOf(200))));
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.TRAFFIC_SOURCE_TAG, TRAFFIC_SOURCE.name().toLowerCase())));
     assertTrue(tags.contains(Tag.of(UserAgentTagUtil.PLATFORM_TAG, "unrecognized")));
