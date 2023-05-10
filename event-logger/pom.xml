@@ -80,6 +80,14 @@
           </dependency>
         </dependencies>
       </plugin>
+      <plugin>
+        <groupId>com.google.cloud.tools</groupId>
+        <artifactId>jib-maven-plugin</artifactId>
+        <configuration>
+          <!-- we don't want jib to execute on this module -->
+          <skip>true</skip>
+        </configuration>
+      </plugin>
     </plugins>
   </build>
 

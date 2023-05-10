@@ -69,6 +69,9 @@
     <stripe.version>21.2.0</stripe.version>
     <vavr.version>0.10.4</vavr.version>
 
+    <!-- 17.0.7_7-jre-jammy -->
+    <docker.image.sha256>ddf36656dc8920621fddf4928bdcb4b98c0d0e7bc9672f0cea8115c10ad5cbc6</docker.image.sha256>
+
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
 
@@ -381,6 +384,15 @@
         <version>1.7.0</version>
       </extension>
     </extensions>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>com.google.cloud.tools</groupId>
+          <artifactId>jib-maven-plugin</artifactId>
+          <version>3.3.1</version>
+        </plugin>
+      </plugins>
+    </pluginManagement>
     <plugins>
 
       <plugin>

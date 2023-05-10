@@ -577,6 +577,67 @@
               </execution>
             </executions>
           </plugin>
+
+          <plugin>
+            <groupId>com.google.cloud.tools</groupId>
+            <artifactId>jib-maven-plugin</artifactId>
+            <executions>
+              <execution>
+                <phase>deploy</phase>
+                <goals>
+                  <goal>build</goal>
+                </goals>
+              </execution>
+            </executions>
+            <configuration>
+              <from>
+                <image>eclipse-temurin@sha256:${docker.image.sha256}</image>
+              </from>
+              <to>
+                <image>${docker.repo}:${project.version}</image>
+              </to>
+              <container>
+                <mainClass>org.whispersystems.textsecuregcm.WhisperServerService</mainClass>
+                <jvmFlags>
+                  <jvmFlag>-server</jvmFlag>
+                  <jvmFlag>-Djava.awt.headless=true</jvmFlag>
+                  <jvmFlag>-Djdk.nio.maxCachedBufferSize=262144</jvmFlag>
+                  <jvmFlag>-Dlog4j2.formatMsgNoLookups=true</jvmFlag>
+                  <jvmFlag>-XX:MaxRAMPercentage=75</jvmFlag>
+                  <jvmFlag>-XX:+HeapDumpOnOutOfMemoryError</jvmFlag>
+                  <jvmFlag>-XX:HeapDumpPath=/tmp/heapdump.bin</jvmFlag>
+                </jvmFlags>
+                <ports>
+                  <port>8080</port>
+                </ports>
+                <creationTime>USE_CURRENT_TIMESTAMP</creationTime>
+              </container>
+              <extraDirectories>
+                <paths>
+                  <path>
+                    <from>${project.basedir}/config</from>
+                    <includes>*.yml</includes>
+                    <into>/usr/share/signal/</into>
+                  </path>
+                </paths>
+              </extraDirectories>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>include-spam-filter</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>com.google.cloud.tools</groupId>
+            <artifactId>jib-maven-plugin</artifactId>
+            <configuration>
+              <!-- we don't want jib to execute on this module -->
+              <skip>true</skip>
+            </configuration>
+          </plugin>
         </plugins>
       </build>
     </profile>
