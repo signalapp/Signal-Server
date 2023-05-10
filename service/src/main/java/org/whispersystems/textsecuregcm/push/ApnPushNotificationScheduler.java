@@ -30,15 +30,16 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.RedisClusterUtil;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -73,9 +74,11 @@ public class ApnPushNotificationScheduler implements Managed {
 
   private final ClusterLuaScript scheduleBackgroundNotificationScript;
 
-  private final Thread[] workerThreads = new Thread[WORKER_THREAD_COUNT];
+  private final Thread[] workerThreads;
+  private final boolean dedicatedProcess;
+  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
 
-  private static final int WORKER_THREAD_COUNT = 4;
+  private static final int DEFAULT_WORKER_THREAD_COUNT = 4;
 
   @VisibleForTesting
   static final Duration BACKGROUND_NOTIFICATION_PERIOD = Duration.ofMinutes(20);
@@ -102,6 +105,18 @@ public class ApnPushNotificationScheduler implements Managed {
     }
 
     private long processNextSlot() {
+      if (dedicatedProcess) {
+        if (!dynamicConfigurationManager.getConfiguration().getScheduledApnNotificationSendingConfiguration()
+            .enabledForDedicatedProcess()) {
+          return 0;
+        }
+      } else {
+        if (!dynamicConfigurationManager.getConfiguration().getScheduledApnNotificationSendingConfiguration()
+            .enabledForServer()) {
+          return 0;
+        }
+      }
+
       final int slot = (int) (pushSchedulingCluster.withCluster(connection ->
           connection.sync().incr(NEXT_SLOT_TO_PROCESS_KEY)) % SlotHash.SLOT_COUNT);
 
@@ -166,32 +181,44 @@ public class ApnPushNotificationScheduler implements Managed {
   }
 
   public ApnPushNotificationScheduler(FaultTolerantRedisCluster pushSchedulingCluster,
-      APNSender apnSender,
-      AccountsManager accountsManager) throws IOException {
+      APNSender apnSender, AccountsManager accountsManager, final Optional<Integer> dedicatedProcessWorkerThreadCount,
+      DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) throws IOException {
 
-    this(pushSchedulingCluster, apnSender, accountsManager, Clock.systemUTC());
+    this(pushSchedulingCluster, apnSender, accountsManager, Clock.systemUTC(), dedicatedProcessWorkerThreadCount,
+        dynamicConfigurationManager);
   }
 
   @VisibleForTesting
   ApnPushNotificationScheduler(FaultTolerantRedisCluster pushSchedulingCluster,
       APNSender apnSender,
       AccountsManager accountsManager,
-      Clock clock) throws IOException {
+      Clock clock,
+      Optional<Integer> dedicatedProcessThreadCount,
+      DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) throws IOException {
 
     this.apnSender = apnSender;
     this.accountsManager = accountsManager;
     this.pushSchedulingCluster = pushSchedulingCluster;
     this.clock = clock;
 
-    this.getPendingVoipDestinationsScript = ClusterLuaScript.fromResource(pushSchedulingCluster, "lua/apn/get.lua", ScriptOutputType.MULTI);
-    this.insertPendingVoipDestinationScript = ClusterLuaScript.fromResource(pushSchedulingCluster, "lua/apn/insert.lua", ScriptOutputType.VALUE);
-    this.removePendingVoipDestinationScript = ClusterLuaScript.fromResource(pushSchedulingCluster, "lua/apn/remove.lua", ScriptOutputType.INTEGER);
+    this.getPendingVoipDestinationsScript = ClusterLuaScript.fromResource(pushSchedulingCluster, "lua/apn/get.lua",
+        ScriptOutputType.MULTI);
+    this.insertPendingVoipDestinationScript = ClusterLuaScript.fromResource(pushSchedulingCluster, "lua/apn/insert.lua",
+        ScriptOutputType.VALUE);
+    this.removePendingVoipDestinationScript = ClusterLuaScript.fromResource(pushSchedulingCluster, "lua/apn/remove.lua",
+        ScriptOutputType.INTEGER);
 
-    this.scheduleBackgroundNotificationScript = ClusterLuaScript.fromResource(pushSchedulingCluster, "lua/apn/schedule_background_notification.lua", ScriptOutputType.VALUE);
+    this.scheduleBackgroundNotificationScript = ClusterLuaScript.fromResource(pushSchedulingCluster,
+        "lua/apn/schedule_background_notification.lua", ScriptOutputType.VALUE);
+
+    this.workerThreads = dedicatedProcessThreadCount.map(Thread[]::new)
+        .orElseGet(() -> new Thread[DEFAULT_WORKER_THREAD_COUNT]);
 
     for (int i = 0; i < this.workerThreads.length; i++) {
       this.workerThreads[i] = new Thread(new NotificationWorker(), "ApnFallbackManagerWorker-" + i);
     }
+    this.dedicatedProcess = dedicatedProcessThreadCount.isPresent();
+    this.dynamicConfigurationManager = dynamicConfigurationManager;
   }
 
   /**

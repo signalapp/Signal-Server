@@ -41,6 +41,7 @@ import java.time.Duration;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -219,6 +220,7 @@ import org.whispersystems.textsecuregcm.workers.CertificateCommand;
 import org.whispersystems.textsecuregcm.workers.CheckDynamicConfigurationCommand;
 import org.whispersystems.textsecuregcm.workers.CrawlAccountsCommand;
 import org.whispersystems.textsecuregcm.workers.DeleteUserCommand;
+import org.whispersystems.textsecuregcm.workers.ScheduledApnPushNotificationSenderServiceCommand;
 import org.whispersystems.textsecuregcm.workers.ServerVersionCommand;
 import org.whispersystems.textsecuregcm.workers.SetRequestLoggingEnabledTask;
 import org.whispersystems.textsecuregcm.workers.SetUserDiscoverabilityCommand;
@@ -266,6 +268,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     bootstrap.addCommand(new AssignUsernameCommand());
     bootstrap.addCommand(new UnlinkDeviceCommand());
     bootstrap.addCommand(new CrawlAccountsCommand());
+    bootstrap.addCommand(new ScheduledApnPushNotificationSenderServiceCommand());
   }
 
   @Override
@@ -521,25 +524,27 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         deletedAccountsLockDynamoDbClient, config.getDynamoDbTables().getDeletedAccountsLock().getTableName());
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
         deletedAccountsManager, keys, messagesManager, profilesManager,
-        pendingAccountsManager, secureStorageClient, secureBackupClient, secureValueRecovery2Client, clientPresenceManager,
+        pendingAccountsManager, secureStorageClient, secureBackupClient, secureValueRecovery2Client,
+        clientPresenceManager,
         experimentEnrollmentManager, registrationRecoveryPasswordsManager, clock);
     RemoteConfigsManager remoteConfigsManager = new RemoteConfigsManager(remoteConfigs);
     APNSender apnSender = new APNSender(apnSenderExecutor, config.getApnConfiguration());
     FcmSender fcmSender = new FcmSender(fcmSenderExecutor, config.getFcmConfiguration().credentials().value());
     ApnPushNotificationScheduler apnPushNotificationScheduler = new ApnPushNotificationScheduler(pushSchedulerCluster,
-        apnSender, accountsManager);
+        apnSender, accountsManager, Optional.empty(), dynamicConfigurationManager);
     PushNotificationManager pushNotificationManager = new PushNotificationManager(accountsManager, apnSender, fcmSender,
         apnPushNotificationScheduler, pushLatencyManager);
     RateLimiters rateLimiters = RateLimiters.createAndValidate(config.getLimitsConfiguration(),
         dynamicConfigurationManager, rateLimitersCluster);
-    ProvisioningManager        provisioningManager        = new ProvisioningManager(config.getPubsubCacheConfiguration().getUri(), redisClientResources, config.getPubsubCacheConfiguration().getTimeout(), config.getPubsubCacheConfiguration().getCircuitBreakerConfiguration());
+    ProvisioningManager provisioningManager = new ProvisioningManager(config.getPubsubCacheConfiguration().getUri(),
+        redisClientResources, config.getPubsubCacheConfiguration().getTimeout(),
+        config.getPubsubCacheConfiguration().getCircuitBreakerConfiguration());
     IssuedReceiptsManager issuedReceiptsManager = new IssuedReceiptsManager(
         config.getDynamoDbTables().getIssuedReceipts().getTableName(),
         config.getDynamoDbTables().getIssuedReceipts().getExpiration(),
         dynamoDbAsyncClient,
         config.getDynamoDbTables().getIssuedReceipts().getGenerator());
-    RedeemedReceiptsManager redeemedReceiptsManager = new RedeemedReceiptsManager(
-        clock,
+    RedeemedReceiptsManager redeemedReceiptsManager = new RedeemedReceiptsManager(clock,
         config.getDynamoDbTables().getRedeemedReceipts().getTableName(),
         dynamoDbAsyncClient,
         config.getDynamoDbTables().getRedeemedReceipts().getExpiration());
