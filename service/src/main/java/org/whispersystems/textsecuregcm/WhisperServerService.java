@@ -220,6 +220,7 @@ import org.whispersystems.textsecuregcm.workers.CertificateCommand;
 import org.whispersystems.textsecuregcm.workers.CheckDynamicConfigurationCommand;
 import org.whispersystems.textsecuregcm.workers.CrawlAccountsCommand;
 import org.whispersystems.textsecuregcm.workers.DeleteUserCommand;
+import org.whispersystems.textsecuregcm.workers.MessagePersisterServiceCommand;
 import org.whispersystems.textsecuregcm.workers.ScheduledApnPushNotificationSenderServiceCommand;
 import org.whispersystems.textsecuregcm.workers.ServerVersionCommand;
 import org.whispersystems.textsecuregcm.workers.SetRequestLoggingEnabledTask;
@@ -269,6 +270,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     bootstrap.addCommand(new UnlinkDeviceCommand());
     bootstrap.addCommand(new CrawlAccountsCommand());
     bootstrap.addCommand(new ScheduledApnPushNotificationSenderServiceCommand());
+    bootstrap.addCommand(new MessagePersisterServiceCommand());
   }
 
   @Override
@@ -574,15 +576,20 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getRecaptchaConfiguration().getProjectPath(),
         config.getRecaptchaConfiguration().getCredentialConfigurationJson(),
         dynamicConfigurationManager);
-    HttpClient hcaptchaHttpClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_2).connectTimeout(Duration.ofSeconds(10)).build();
-    HCaptchaClient hCaptchaClient = new HCaptchaClient(config.getHCaptchaConfiguration().apiKey().value(), hcaptchaHttpClient, dynamicConfigurationManager);
+    HttpClient hcaptchaHttpClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_2)
+        .connectTimeout(Duration.ofSeconds(10)).build();
+    HCaptchaClient hCaptchaClient = new HCaptchaClient(config.getHCaptchaConfiguration().apiKey().value(), hcaptchaHttpClient,
+        dynamicConfigurationManager);
     CaptchaChecker captchaChecker = new CaptchaChecker(List.of(recaptchaClient, hCaptchaClient));
 
-    PushChallengeManager pushChallengeManager = new PushChallengeManager(pushNotificationManager, pushChallengeDynamoDb);
+    PushChallengeManager pushChallengeManager = new PushChallengeManager(pushNotificationManager,
+        pushChallengeDynamoDb);
     RateLimitChallengeManager rateLimitChallengeManager = new RateLimitChallengeManager(pushChallengeManager,
         captchaChecker, rateLimiters);
 
-    MessagePersister messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager, dynamicConfigurationManager, Duration.ofMinutes(config.getMessageCacheConfiguration().getPersistDelayMinutes()));
+    MessagePersister messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager,
+        dynamicConfigurationManager, Duration.ofMinutes(config.getMessageCacheConfiguration().getPersistDelayMinutes()),
+        Optional.empty());
     ChangeNumberManager changeNumberManager = new ChangeNumberManager(messageSender, accountsManager);
 
     AccountDatabaseCrawlerCache accountCleanerAccountDatabaseCrawlerCache =

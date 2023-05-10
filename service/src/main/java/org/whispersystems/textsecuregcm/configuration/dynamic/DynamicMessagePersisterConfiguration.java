@@ -10,9 +10,16 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 public class DynamicMessagePersisterConfiguration {
 
   @JsonProperty
-  private boolean persistenceEnabled = true;
+  private boolean serverPersistenceEnabled = true;
 
-  public boolean isPersistenceEnabled() {
-    return persistenceEnabled;
+  @JsonProperty
+  private boolean dedicatedProcessEnabled = false;
+
+  public boolean isServerPersistenceEnabled() {
+    return serverPersistenceEnabled;
+  }
+
+  public boolean isDedicatedProcessEnabled() {
+    return dedicatedProcessEnabled;
   }
 }

@@ -14,7 +14,6 @@ import static org.mockito.Mockito.when;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.lettuce.core.cluster.SlotHash;
-import java.nio.ByteBuffer;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -24,7 +23,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -52,7 +50,6 @@ class MessagePersisterIntegrationTest {
   private ExecutorService notificationExecutorService;
   private Scheduler messageDeliveryScheduler;
   private ExecutorService messageDeletionExecutorService;
-  private ScheduledExecutorService resubscribeRetryExecutorService;
   private MessagesCache messagesCache;
   private MessagesManager messagesManager;
   private MessagePersister messagePersister;
@@ -80,14 +77,13 @@ class MessagePersisterIntegrationTest {
     final AccountsManager accountsManager = mock(AccountsManager.class);
 
     notificationExecutorService = Executors.newSingleThreadExecutor();
-    resubscribeRetryExecutorService = Executors.newSingleThreadScheduledExecutor();
     messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
         REDIS_CLUSTER_EXTENSION.getRedisCluster(), notificationExecutorService,
         messageDeliveryScheduler, messageDeletionExecutorService, Clock.systemUTC());
     messagesManager = new MessagesManager(messagesDynamoDb, messagesCache, mock(ReportMessageManager.class),
         messageDeletionExecutorService);
     messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager,
-        dynamicConfigurationManager, PERSIST_DELAY);
+        dynamicConfigurationManager, PERSIST_DELAY, Optional.empty());
 
     account = mock(Account.class);
 
@@ -180,12 +176,6 @@ class MessagePersisterIntegrationTest {
 
       assertEquals(expectedMessages, persistedMessages);
     });
-  }
-
-  private static long extractServerTimestamp(byte[] bytes) {
-    ByteBuffer bb = ByteBuffer.wrap(bytes);
-    bb.getLong();
-    return bb.getLong();
   }
 
   private MessageProtos.Envelope generateRandomMessage(final UUID messageGuid, final long serverTimestamp) {

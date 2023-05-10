@@ -360,33 +360,37 @@ class DynamicConfigurationTest {
       final DynamicConfiguration emptyConfig =
           DynamicConfigurationManager.parseConfiguration(emptyConfigYaml, DynamicConfiguration.class).orElseThrow();
 
-      assertTrue(emptyConfig.getMessagePersisterConfiguration().isPersistenceEnabled());
+      assertTrue(emptyConfig.getMessagePersisterConfiguration().isServerPersistenceEnabled());
+      assertFalse(emptyConfig.getMessagePersisterConfiguration().isDedicatedProcessEnabled());
     }
 
     {
       final String messagePersisterEnabledYaml = REQUIRED_CONFIG.concat("""
           messagePersister:
-            persistenceEnabled: true
+            serverPersistenceEnabled: true
+            dedicatedProcessEnabled: true
           """);
 
       final DynamicConfiguration config =
           DynamicConfigurationManager.parseConfiguration(messagePersisterEnabledYaml, DynamicConfiguration.class)
               .orElseThrow();
 
-      assertTrue(config.getMessagePersisterConfiguration().isPersistenceEnabled());
+      assertTrue(config.getMessagePersisterConfiguration().isServerPersistenceEnabled());
+      assertTrue(config.getMessagePersisterConfiguration().isDedicatedProcessEnabled());
     }
 
     {
       final String messagePersisterDisabledYaml = REQUIRED_CONFIG.concat("""
           messagePersister:
-            persistenceEnabled: false
+            serverPersistenceEnabled: false
           """);
 
       final DynamicConfiguration config =
           DynamicConfigurationManager.parseConfiguration(messagePersisterDisabledYaml, DynamicConfiguration.class)
               .orElseThrow();
 
-      assertFalse(config.getMessagePersisterConfiguration().isPersistenceEnabled());
+      assertFalse(config.getMessagePersisterConfiguration().isServerPersistenceEnabled());
+      assertFalse(config.getMessagePersisterConfiguration().isDedicatedProcessEnabled());
     }
   }
 

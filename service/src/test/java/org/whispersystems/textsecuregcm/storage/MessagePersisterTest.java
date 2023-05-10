@@ -37,9 +37,12 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicMessagePersisterConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import reactor.core.scheduler.Scheduler;
@@ -69,7 +72,8 @@ class MessagePersisterTest {
   void setUp() throws Exception {
 
     messagesManager = mock(MessagesManager.class);
-    final DynamicConfigurationManager dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
+    final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = mock(
+        DynamicConfigurationManager.class);
 
     messagesDynamoDb = mock(MessagesDynamoDb.class);
     accountsManager = mock(AccountsManager.class);
@@ -87,7 +91,7 @@ class MessagePersisterTest {
         REDIS_CLUSTER_EXTENSION.getRedisCluster(), sharedExecutorService, messageDeliveryScheduler,
         sharedExecutorService, Clock.systemUTC());
     messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager,
-        dynamicConfigurationManager, PERSIST_DELAY);
+        dynamicConfigurationManager, PERSIST_DELAY, Optional.empty());
 
     doAnswer(invocation -> {
       final UUID destinationUuid = invocation.getArgument(0);
@@ -225,6 +229,31 @@ class MessagePersisterTest {
             () -> messagePersister.persistQueue(DESTINATION_ACCOUNT_UUID, DESTINATION_DEVICE_ID)));
   }
 
+  @ParameterizedTest
+  @CsvSource({
+      "true, true, false, false",
+      "true, false, true, true",
+      "false, true, false, true",
+      "false, false, true, false",
+  })
+  void testEnabled(final boolean dedicatedProcess, final boolean serverPersistenceEnabled,
+      final boolean dedicatedProcessEnabled, final boolean expectEnabled) {
+    final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = mock(
+        DynamicConfigurationManager.class);
+    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
+    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
+
+    final DynamicMessagePersisterConfiguration dynamicMessagePersisterConfiguration = mock(
+        DynamicMessagePersisterConfiguration.class);
+    when(dynamicConfiguration.getMessagePersisterConfiguration()).thenReturn(dynamicMessagePersisterConfiguration);
+    when(dynamicMessagePersisterConfiguration.isDedicatedProcessEnabled()).thenReturn(dedicatedProcessEnabled);
+    when(dynamicMessagePersisterConfiguration.isServerPersistenceEnabled()).thenReturn(serverPersistenceEnabled);
+
+    messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager,
+        dynamicConfigurationManager, PERSIST_DELAY, dedicatedProcess ? Optional.of(4) : Optional.empty());
+    assertEquals(expectEnabled, messagePersister.enabled(dynamicConfigurationManager));
+  }
+
   @SuppressWarnings("SameParameterValue")
   private static String generateRandomQueueNameForSlot(final int slot) {
     final UUID uuid = UUID.randomUUID();
@@ -263,4 +292,5 @@ class MessagePersisterTest {
     REDIS_CLUSTER_EXTENSION.getRedisCluster().useCluster(
         connection -> connection.sync().set(MessagesCache.NEXT_SLOT_TO_PERSIST_KEY, String.valueOf(nextSlot - 1)));
   }
+
 }
