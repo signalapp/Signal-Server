@@ -20,7 +20,6 @@ import org.whispersystems.textsecuregcm.configuration.ArtServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AwsAttachmentsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BraintreeConfiguration;
-import org.whispersystems.textsecuregcm.configuration.CallLinkConfiguration;
 import org.whispersystems.textsecuregcm.configuration.CdnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DatadogConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DirectoryV2Configuration;
@@ -218,11 +217,6 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @NotNull
   @JsonProperty
-  private CallLinkConfiguration callLink;
-
-  @Valid
-  @NotNull
-  @JsonProperty
   private ZkConfig zkConfig;
 
   @Valid
@@ -371,10 +365,6 @@ public class WhisperServerConfiguration extends Configuration {
 
   public DatadogConfiguration getDatadogConfiguration() {
     return datadog;
-  }
-
-  public CallLinkConfiguration getCallLinkConfiguration() {
-    return callLink;
   }
 
   public UnidentifiedDeliveryConfiguration getDeliveryCertificate() {
