@@ -446,6 +446,8 @@ paths:
     put:
       tags:
       - Account
+      summary: Change number
+      description: Changes a phone number for an existing account.
       operationId: changeNumber_1
       parameters:
       - name: User-Agent
@@ -459,12 +461,43 @@ paths:
               $ref: '#/components/schemas/ChangeNumberRequest'
         required: true
       responses:
-        default:
-          description: default response
+        "200":
+          description: The phone number associated with the authenticated account
+            was changed successfully
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/AccountIdentityResponse'
+        "403":
+          description: Verification failed for the provided Registration Recovery
+            Password
+        "409":
+          description: Mismatched number of devices or device ids in 'devices to notify'
+            list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MismatchedDevices'
+        "410":
+          description: Mismatched registration ids in 'devices to notify' list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaleDevices'
+        "422":
+          description: The request did not pass validation
+        "423":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationLockFailure'
+        "429":
+          description: Too many attempts
+          headers:
+            Retry-After:
+              description: "If present, an positive integer indicating the number\
+                \ of seconds before a subsequent attempt could succeed"
+              style: simple
       security:
       - authenticatedAccount: []
   /v2/accounts/phone_number_identity_key_distribution:
@@ -1429,6 +1462,11 @@ paths:
     post:
       tags:
       - Registration
+      summary: Registers an account
+      description: "Registers a new account or attempts to “re-register” an existing\
+        \ account. It is expected that a well-behaved client\ncould make up to three\
+        \ consecutive calls to this API:\n1. gets 423 from existing registration lock\
+        \ \n\n2. gets 409 from device available for transfer \n\n3. success \n\n"
       operationId: register
       parameters:
       - name: Authorization
@@ -1451,12 +1489,33 @@ paths:
               $ref: '#/components/schemas/RegistrationRequest'
         required: true
       responses:
-        default:
-          description: default response
+        "200":
+          description: The phone number associated with the authenticated account
+            was changed successfully
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/AccountIdentityResponse'
+        "403":
+          description: Verification failed for the provided Registration Recovery
+            Password
+        "409":
+          description: "The caller has not explicitly elected to skip transferring\
+            \ data from another device, but a device transfer is technically possible"
+        "422":
+          description: The request did not pass validation
+        "423":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationLockFailure'
+        "429":
+          description: Too many attempts
+          headers:
+            Retry-After:
+              description: "If present, an positive integer indicating the number\
+                \ of seconds before a subsequent attempt could succeed"
+              style: simple
   /v1/config/{name}:
     delete:
       tags:
@@ -2593,6 +2652,53 @@ components:
           format: int64
         password:
           type: string
+    MismatchedDevices:
+      type: object
+      properties:
+        missingDevices:
+          type: array
+          description: Devices present on the account but absent in the request
+          items:
+            type: integer
+            description: Devices present on the account but absent in the request
+            format: int64
+        extraDevices:
+          type: array
+          description: Devices absent on the request but present in the account
+          items:
+            type: integer
+            description: Devices absent on the request but present in the account
+            format: int64
+    StaleDevices:
+      type: object
+      properties:
+        staleDevices:
+          type: array
+          description: Devices that are no longer active
+          items:
+            type: integer
+            description: Devices that are no longer active
+            format: int64
+    ExternalServiceCredentials:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+    RegistrationLockFailure:
+      type: object
+      properties:
+        timeRemaining:
+          type: integer
+          description: Time remaining in milliseconds before the existing registration
+            lock expires
+          format: int64
+        backupCredentials:
+          $ref: '#/components/schemas/ExternalServiceCredentials'
+        svr2Credentials:
+          $ref: '#/components/schemas/ExternalServiceCredentials'
+      description: A token provided to the client via a push payload
     ChangeNumberRequest:
       required:
       - deviceMessages
@@ -2733,13 +2839,6 @@ components:
       properties:
         discoverableByPhoneNumber:
           type: boolean
-    ExternalServiceCredentials:
-      type: object
-      properties:
-        username:
-          type: string
-        password:
-          type: string
     AttachmentDescriptorV2:
       type: object
       properties:
