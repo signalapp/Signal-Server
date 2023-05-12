@@ -8,13 +8,16 @@ package org.whispersystems.textsecuregcm.auth;
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import com.google.common.annotations.VisibleForTesting;
-import javax.annotation.Nullable;
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.core.Response;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import javax.annotation.Nullable;
+import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.Response;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.PhoneVerificationRequest;
 import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
@@ -28,9 +31,6 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.util.Util;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.List;
 
 public class RegistrationLockVerificationManager {
   public enum Flow {
@@ -54,20 +54,23 @@ public class RegistrationLockVerificationManager {
 
   private final AccountsManager accounts;
   private final ClientPresenceManager clientPresenceManager;
-  private final ExternalServiceCredentialsGenerator backupServiceCredentialGenerator;
+  private final ExternalServiceCredentialsGenerator svr1CredentialGenerator;
+  private final ExternalServiceCredentialsGenerator svr2CredentialGenerator;
   private final RateLimiters rateLimiters;
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
   private final PushNotificationManager pushNotificationManager;
 
   public RegistrationLockVerificationManager(
       final AccountsManager accounts, final ClientPresenceManager clientPresenceManager,
-      final ExternalServiceCredentialsGenerator backupServiceCredentialGenerator,
+      final ExternalServiceCredentialsGenerator svr1CredentialGenerator,
+      final ExternalServiceCredentialsGenerator svr2CredentialGenerator,
       final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
       final PushNotificationManager pushNotificationManager,
       final RateLimiters rateLimiters) {
     this.accounts = accounts;
     this.clientPresenceManager = clientPresenceManager;
-    this.backupServiceCredentialGenerator = backupServiceCredentialGenerator;
+    this.svr1CredentialGenerator = svr1CredentialGenerator;
+    this.svr2CredentialGenerator = svr2CredentialGenerator;
     this.registrationRecoveryPasswordsManager = registrationRecoveryPasswordsManager;
     this.pushNotificationManager = pushNotificationManager;
     this.rateLimiters = rateLimiters;
@@ -138,8 +141,8 @@ public class RegistrationLockVerificationManager {
       // Freezing the existing account credentials will definitively start the reglock timeout.
       // Until the timeout, the current reglock can still be supplied,
       // along with phone number verification, to restore access.
-      final ExternalServiceCredentials existingBackupCredentials =
-          backupServiceCredentialGenerator.generateForUuid(account.getUuid());
+      final ExternalServiceCredentials existingSvr1Credentials = svr1CredentialGenerator.generateForUuid(account.getUuid());
+      final ExternalServiceCredentials existingSvr2Credentials = svr2CredentialGenerator.generateForUuid(account.getUuid());
 
       final Account updatedAccount;
       if (!alreadyLocked) {
@@ -170,7 +173,8 @@ public class RegistrationLockVerificationManager {
 
       throw new WebApplicationException(Response.status(FAILURE_HTTP_STATUS)
           .entity(new RegistrationLockFailure(existingRegistrationLock.getTimeRemaining().toMillis(),
-              existingRegistrationLock.needsFailureCredentials() ? existingBackupCredentials : null))
+              existingRegistrationLock.needsFailureCredentials() ? existingSvr1Credentials : null,
+              existingRegistrationLock.needsFailureCredentials() ? existingSvr2Credentials : null))
           .build());
     }
 

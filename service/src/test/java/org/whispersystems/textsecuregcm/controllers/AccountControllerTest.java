@@ -72,6 +72,7 @@ import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.usernames.BaseUsernameException;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
@@ -83,6 +84,7 @@ import org.whispersystems.textsecuregcm.captcha.AssessmentResult;
 import org.whispersystems.textsecuregcm.captcha.CaptchaChecker;
 import org.whispersystems.textsecuregcm.captcha.RegistrationCaptchaManager;
 import org.whispersystems.textsecuregcm.configuration.SecureBackupServiceConfiguration;
+import org.whispersystems.textsecuregcm.configuration.SecureValueRecovery2Configuration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicCaptchaConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
@@ -199,15 +201,25 @@ class AccountControllerTest {
   private static DynamicConfigurationManager dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
   private byte[] registration_lock_key = new byte[32];
 
-  private static final SecureBackupServiceConfiguration BACKUP_CFG = MockUtils.buildMock(
+  private static final SecureBackupServiceConfiguration SVR1_CFG = MockUtils.buildMock(
       SecureBackupServiceConfiguration.class,
       cfg -> when(cfg.getUserAuthenticationTokenSharedSecret()).thenReturn(new byte[32]));
 
-  private static final ExternalServiceCredentialsGenerator backupCredentialsGenerator = SecureBackupController.credentialsGenerator(
-      BACKUP_CFG);
+  private static final SecureValueRecovery2Configuration SVR2_CFG = MockUtils.buildMock(
+      SecureValueRecovery2Configuration.class,
+      cfg -> {
+        when(cfg.userAuthenticationTokenSharedSecret()).thenReturn(new byte[32]);
+        when(cfg.userIdTokenSharedSecret()).thenReturn(new byte[32]);
+      });
+
+  private static final ExternalServiceCredentialsGenerator svr1CredentialsGenerator = SecureBackupController.credentialsGenerator(
+      SVR1_CFG);
+
+  private static final ExternalServiceCredentialsGenerator svr2CredentialsGenerator = SecureValueRecovery2Controller.credentialsGenerator(
+    SVR2_CFG);
 
   private static final RegistrationLockVerificationManager registrationLockVerificationManager = new RegistrationLockVerificationManager(
-      accountsManager, clientPresenceManager, backupCredentialsGenerator, registrationRecoveryPasswordsManager,
+      accountsManager, clientPresenceManager, svr1CredentialsGenerator, svr2CredentialsGenerator, registrationRecoveryPasswordsManager,
       pushNotificationManager, rateLimiters);
   private static final RegistrationCaptchaManager registrationCaptchaManager = new RegistrationCaptchaManager(
       captchaChecker, rateLimiters, Map.of(TEST_NUMBER, 123456), dynamicConfigurationManager);
@@ -1268,6 +1280,8 @@ class AccountControllerTest {
     assertThat(failure.backupCredentials().username()).isEqualTo(SENDER_REG_LOCK_UUID.toString());
     assertThat(failure.backupCredentials().password()).isNotEmpty();
     assertThat(failure.backupCredentials().password().startsWith(SENDER_REG_LOCK_UUID.toString())).isTrue();
+    assertThat(failure.svr2Credentials()).isNotNull();
+    assertThat(failure.svr2Credentials()).isEqualTo(svr2CredentialsGenerator.generateFor(SENDER_REG_LOCK_UUID.toString()));
     assertThat(failure.timeRemaining()).isGreaterThan(0);
 
     // verify(senderRegLockAccount).lockAuthenticationCredentials();

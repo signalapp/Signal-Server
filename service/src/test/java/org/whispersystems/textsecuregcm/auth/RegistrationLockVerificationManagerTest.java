@@ -47,14 +47,16 @@ class RegistrationLockVerificationManagerTest {
 
   private final AccountsManager accountsManager = mock(AccountsManager.class);
   private final ClientPresenceManager clientPresenceManager = mock(ClientPresenceManager.class);
-  private final ExternalServiceCredentialsGenerator backupServiceCredentialsGeneraor = mock(
+  private final ExternalServiceCredentialsGenerator svr1CredentialsGenerator = mock(
+      ExternalServiceCredentialsGenerator.class);
+  private final ExternalServiceCredentialsGenerator svr2CredentialsGenerator = mock(
       ExternalServiceCredentialsGenerator.class);
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager = mock(
       RegistrationRecoveryPasswordsManager.class);
   private static PushNotificationManager pushNotificationManager = mock(PushNotificationManager.class);
   private final RateLimiters rateLimiters = mock(RateLimiters.class);
   private final RegistrationLockVerificationManager registrationLockVerificationManager = new RegistrationLockVerificationManager(
-      accountsManager, clientPresenceManager, backupServiceCredentialsGeneraor, registrationRecoveryPasswordsManager, pushNotificationManager, rateLimiters);
+      accountsManager, clientPresenceManager, svr1CredentialsGenerator, svr2CredentialsGenerator, registrationRecoveryPasswordsManager, pushNotificationManager, rateLimiters);
 
   private final RateLimiter pinLimiter = mock(RateLimiter.class);
 
@@ -65,7 +67,9 @@ class RegistrationLockVerificationManagerTest {
   void setUp() {
     clearInvocations(pushNotificationManager);
     when(rateLimiters.getPinLimiter()).thenReturn(pinLimiter);
-    when(backupServiceCredentialsGeneraor.generateForUuid(any()))
+    when(svr1CredentialsGenerator.generateForUuid(any()))
+        .thenReturn(mock(ExternalServiceCredentials.class));
+    when(svr2CredentialsGenerator.generateForUuid(any()))
         .thenReturn(mock(ExternalServiceCredentials.class));
 
     final Device device = mock(Device.class);

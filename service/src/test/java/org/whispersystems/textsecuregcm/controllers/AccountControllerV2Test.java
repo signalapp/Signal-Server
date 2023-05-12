@@ -71,7 +71,6 @@ import org.whispersystems.textsecuregcm.entities.AccountDataReportResponse;
 import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
 import org.whispersystems.textsecuregcm.entities.ChangeNumberRequest;
 import org.whispersystems.textsecuregcm.entities.PhoneNumberDiscoverabilityRequest;
-import org.whispersystems.textsecuregcm.entities.PhoneNumberIdentityKeyDistributionRequest;
 import org.whispersystems.textsecuregcm.entities.RegistrationServiceSession;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
