@@ -47,7 +47,7 @@ public class ChangeNumberManagerTest {
 
     updatedPhoneNumberIdentifiersByAccount = new HashMap<>();
 
-    when(accountsManager.changeNumber(any(), any(), any(), any(), any())).thenAnswer((Answer<Account>)invocation -> {
+    when(accountsManager.changeNumber(any(), any(), any(), any(), any(), any())).thenAnswer((Answer<Account>)invocation -> {
       final Account account = invocation.getArgument(0, Account.class);
       final String number = invocation.getArgument(1, String.class);
 
@@ -70,7 +70,7 @@ public class ChangeNumberManagerTest {
       return updatedAccount;
     });
 
-    when(accountsManager.updatePNIKeys(any(), any(), any(), any())).thenAnswer((Answer<Account>)invocation -> {
+    when(accountsManager.updatePniKeys(any(), any(), any(), any(), any())).thenAnswer((Answer<Account>)invocation -> {
       final Account account = invocation.getArgument(0, Account.class);
 
       final UUID uuid = account.getUuid();
@@ -94,8 +94,8 @@ public class ChangeNumberManagerTest {
   void changeNumberNoMessages() throws Exception {
     Account account = mock(Account.class);
     when(account.getNumber()).thenReturn("+18005551234");
-    changeNumberManager.changeNumber(account, "+18025551234", null, null, null, null);
-    verify(accountsManager).changeNumber(account, "+18025551234", null, null, null);
+    changeNumberManager.changeNumber(account, "+18025551234", null, null, null, null, null);
+    verify(accountsManager).changeNumber(account, "+18025551234", null, null, null, null);
     verify(accountsManager, never()).updateDevice(any(), eq(1L), any());
     verify(messageSender, never()).sendMessage(eq(account), any(), any(), eq(false));
   }
@@ -107,8 +107,8 @@ public class ChangeNumberManagerTest {
     var prekeys = Map.of(1L, new SignedPreKey());
     final String pniIdentityKey = "pni-identity-key";
 
-    changeNumberManager.changeNumber(account, "+18025551234", pniIdentityKey, prekeys, Collections.emptyList(), Collections.emptyMap());
-    verify(accountsManager).changeNumber(account, "+18025551234", pniIdentityKey, prekeys, Collections.emptyMap());
+    changeNumberManager.changeNumber(account, "+18025551234", pniIdentityKey, prekeys, null, Collections.emptyList(), Collections.emptyMap());
+    verify(accountsManager).changeNumber(account, "+18025551234", pniIdentityKey, prekeys, null, Collections.emptyMap());
     verify(messageSender, never()).sendMessage(eq(account), any(), any(), eq(false));
   }
 
@@ -139,9 +139,53 @@ public class ChangeNumberManagerTest {
     when(msg.destinationDeviceId()).thenReturn(2L);
     when(msg.content()).thenReturn(Base64.getEncoder().encodeToString(new byte[]{1}));
 
-    changeNumberManager.changeNumber(account, changedE164, pniIdentityKey, prekeys, List.of(msg), registrationIds);
+    changeNumberManager.changeNumber(account, changedE164, pniIdentityKey, prekeys, null, List.of(msg), registrationIds);
 
-    verify(accountsManager).changeNumber(account, changedE164, pniIdentityKey, prekeys, registrationIds);
+    verify(accountsManager).changeNumber(account, changedE164, pniIdentityKey, prekeys, null, registrationIds);
+
+    final ArgumentCaptor<MessageProtos.Envelope> envelopeCaptor = ArgumentCaptor.forClass(MessageProtos.Envelope.class);
+    verify(messageSender).sendMessage(any(), eq(d2), envelopeCaptor.capture(), eq(false));
+
+    final MessageProtos.Envelope envelope = envelopeCaptor.getValue();
+
+    assertEquals(aci, UUID.fromString(envelope.getDestinationUuid()));
+    assertEquals(aci, UUID.fromString(envelope.getSourceUuid()));
+    assertEquals(Device.MASTER_ID, envelope.getSourceDevice());
+    assertEquals(updatedPhoneNumberIdentifiersByAccount.get(account), UUID.fromString(envelope.getUpdatedPni()));
+  }
+
+
+  @Test
+  void changeNumberSetPrimaryDevicePrekeyPqAndSendMessages() throws Exception {
+    final String originalE164 = "+18005551234";
+    final String changedE164 = "+18025551234";
+    final UUID aci = UUID.randomUUID();
+    final UUID pni = UUID.randomUUID();
+
+    final Account account = mock(Account.class);
+    when(account.getNumber()).thenReturn(originalE164);
+    when(account.getUuid()).thenReturn(aci);
+    when(account.getPhoneNumberIdentifier()).thenReturn(pni);
+
+    final Device d2 = mock(Device.class);
+    when(d2.isEnabled()).thenReturn(true);
+    when(d2.getId()).thenReturn(2L);
+
+    when(account.getDevice(2L)).thenReturn(Optional.of(d2));
+    when(account.getDevices()).thenReturn(List.of(d2));
+
+    final String pniIdentityKey = "pni-identity-key";
+    final Map<Long, SignedPreKey> prekeys = Map.of(1L, new SignedPreKey(), 2L, new SignedPreKey());
+    final Map<Long, SignedPreKey> pqPrekeys = Map.of(3L, new SignedPreKey(), 4L, new SignedPreKey());
+    final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 19);
+
+    final IncomingMessage msg = mock(IncomingMessage.class);
+    when(msg.destinationDeviceId()).thenReturn(2L);
+    when(msg.content()).thenReturn(Base64.getEncoder().encodeToString(new byte[]{1}));
+
+    changeNumberManager.changeNumber(account, changedE164, pniIdentityKey, prekeys, pqPrekeys, List.of(msg), registrationIds);
+
+    verify(accountsManager).changeNumber(account, changedE164, pniIdentityKey, prekeys, pqPrekeys, registrationIds);
 
     final ArgumentCaptor<MessageProtos.Envelope> envelopeCaptor = ArgumentCaptor.forClass(MessageProtos.Envelope.class);
     verify(messageSender).sendMessage(any(), eq(d2), envelopeCaptor.capture(), eq(false));
@@ -174,15 +218,16 @@ public class ChangeNumberManagerTest {
 
     final String pniIdentityKey = "pni-identity-key";
     final Map<Long, SignedPreKey> prekeys = Map.of(1L, new SignedPreKey(), 2L, new SignedPreKey());
+    final Map<Long, SignedPreKey> pqPrekeys = Map.of(3L, new SignedPreKey(), 4L, new SignedPreKey());
     final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 19);
 
     final IncomingMessage msg = mock(IncomingMessage.class);
     when(msg.destinationDeviceId()).thenReturn(2L);
     when(msg.content()).thenReturn(Base64.getEncoder().encodeToString(new byte[]{1}));
 
-    changeNumberManager.changeNumber(account, originalE164, pniIdentityKey, prekeys, List.of(msg), registrationIds);
+    changeNumberManager.changeNumber(account, originalE164, pniIdentityKey, prekeys, pqPrekeys, List.of(msg), registrationIds);
 
-    verify(accountsManager).updatePNIKeys(account, pniIdentityKey, prekeys, registrationIds);
+    verify(accountsManager).updatePniKeys(account, pniIdentityKey, prekeys, pqPrekeys, registrationIds);
 
     final ArgumentCaptor<MessageProtos.Envelope> envelopeCaptor = ArgumentCaptor.forClass(MessageProtos.Envelope.class);
     verify(messageSender).sendMessage(any(), eq(d2), envelopeCaptor.capture(), eq(false));
@@ -196,7 +241,7 @@ public class ChangeNumberManagerTest {
   }
 
   @Test
-  void updatePNIKeysSetPrimaryDevicePrekeyAndSendMessages() throws Exception {
+  void updatePniKeysSetPrimaryDevicePrekeyAndSendMessages() throws Exception {
     final UUID aci = UUID.randomUUID();
     final UUID pni = UUID.randomUUID();
 
@@ -219,9 +264,49 @@ public class ChangeNumberManagerTest {
     when(msg.destinationDeviceId()).thenReturn(2L);
     when(msg.content()).thenReturn(Base64.getEncoder().encodeToString(new byte[]{1}));
 
-    changeNumberManager.updatePNIKeys(account, pniIdentityKey, prekeys, List.of(msg), registrationIds);
+    changeNumberManager.updatePniKeys(account, pniIdentityKey, prekeys, null, List.of(msg), registrationIds);
 
-    verify(accountsManager).updatePNIKeys(account, pniIdentityKey, prekeys, registrationIds);
+    verify(accountsManager).updatePniKeys(account, pniIdentityKey, prekeys, null, registrationIds);
+
+    final ArgumentCaptor<MessageProtos.Envelope> envelopeCaptor = ArgumentCaptor.forClass(MessageProtos.Envelope.class);
+    verify(messageSender).sendMessage(any(), eq(d2), envelopeCaptor.capture(), eq(false));
+
+    final MessageProtos.Envelope envelope = envelopeCaptor.getValue();
+
+    assertEquals(aci, UUID.fromString(envelope.getDestinationUuid()));
+    assertEquals(aci, UUID.fromString(envelope.getSourceUuid()));
+    assertEquals(Device.MASTER_ID, envelope.getSourceDevice());
+    assertFalse(updatedPhoneNumberIdentifiersByAccount.containsKey(account));
+  }
+
+  @Test
+  void updatePniKeysSetPrimaryDevicePrekeyPqAndSendMessages() throws Exception {
+    final UUID aci = UUID.randomUUID();
+    final UUID pni = UUID.randomUUID();
+
+    final Account account = mock(Account.class);
+    when(account.getUuid()).thenReturn(aci);
+    when(account.getPhoneNumberIdentifier()).thenReturn(pni);
+
+    final Device d2 = mock(Device.class);
+    when(d2.isEnabled()).thenReturn(true);
+    when(d2.getId()).thenReturn(2L);
+
+    when(account.getDevice(2L)).thenReturn(Optional.of(d2));
+    when(account.getDevices()).thenReturn(List.of(d2));
+
+    final String pniIdentityKey = "pni-identity-key";
+    final Map<Long, SignedPreKey> prekeys = Map.of(1L, new SignedPreKey(), 2L, new SignedPreKey());
+    final Map<Long, SignedPreKey> pqPrekeys = Map.of(3L, new SignedPreKey(), 4L, new SignedPreKey());
+    final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 19);
+
+    final IncomingMessage msg = mock(IncomingMessage.class);
+    when(msg.destinationDeviceId()).thenReturn(2L);
+    when(msg.content()).thenReturn(Base64.getEncoder().encodeToString(new byte[]{1}));
+
+    changeNumberManager.updatePniKeys(account, pniIdentityKey, prekeys, pqPrekeys, List.of(msg), registrationIds);
+
+    verify(accountsManager).updatePniKeys(account, pniIdentityKey, prekeys, pqPrekeys, registrationIds);
 
     final ArgumentCaptor<MessageProtos.Envelope> envelopeCaptor = ArgumentCaptor.forClass(MessageProtos.Envelope.class);
     verify(messageSender).sendMessage(any(), eq(d2), envelopeCaptor.capture(), eq(false));
@@ -261,11 +346,11 @@ public class ChangeNumberManagerTest {
     final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 47, 3L, 89);
 
     assertThrows(StaleDevicesException.class,
-        () -> changeNumberManager.changeNumber(account, "+18005559876", "pni-identity-key", preKeys, messages, registrationIds));
+        () -> changeNumberManager.changeNumber(account, "+18005559876", "pni-identity-key", preKeys, null, messages, registrationIds));
   }
 
   @Test
-  void updatePNIKeysMismatchedRegistrationId() {
+  void updatePniKeysMismatchedRegistrationId() {
     final Account account = mock(Account.class);
     when(account.getNumber()).thenReturn("+18005551234");
 
@@ -291,7 +376,7 @@ public class ChangeNumberManagerTest {
     final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 47, 3L, 89);
 
     assertThrows(StaleDevicesException.class,
-        () -> changeNumberManager.updatePNIKeys(account, "pni-identity-key", preKeys, messages, registrationIds));
+        () -> changeNumberManager.updatePniKeys(account, "pni-identity-key", preKeys, null, messages, registrationIds));
   }
 
   @Test
@@ -320,6 +405,6 @@ public class ChangeNumberManagerTest {
     final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 47, 3L, 89);
 
     assertThrows(IllegalArgumentException.class,
-        () -> changeNumberManager.changeNumber(account, "+18005559876", "pni-identity-key", null, messages, registrationIds));
+        () -> changeNumberManager.changeNumber(account, "+18005559876", "pni-identity-key", null, null, messages, registrationIds));
   }
 }

@@ -134,7 +134,7 @@ class AccountControllerV2Test {
     void setUp() throws Exception {
       when(rateLimiters.getRegistrationLimiter()).thenReturn(registrationLimiter);
 
-      when(changeNumberManager.changeNumber(any(), any(), any(), any(), any(), any())).thenAnswer(
+      when(changeNumberManager.changeNumber(any(), any(), any(), any(), any(), any(), any())).thenAnswer(
           (Answer<Account>) invocation -> {
             final Account account = invocation.getArgument(0, Account.class);
             final String number = invocation.getArgument(1, String.class);
@@ -180,11 +180,11 @@ class AccountControllerV2Test {
               .put(Entity.entity(
                   new ChangeNumberRequest(encodeSessionId("session"), null, NEW_NUMBER, "123", "123",
                       Collections.emptyList(),
-                      Collections.emptyMap(), Collections.emptyMap()),
+                      Collections.emptyMap(), null, Collections.emptyMap()),
                   MediaType.APPLICATION_JSON_TYPE), AccountIdentityResponse.class);
 
       verify(changeNumberManager).changeNumber(eq(AuthHelper.VALID_ACCOUNT), eq(NEW_NUMBER), any(), any(), any(),
-          any());
+          any(), any());
 
       assertEquals(AuthHelper.VALID_UUID, accountIdentityResponse.uuid());
       assertEquals(NEW_NUMBER, accountIdentityResponse.number());
@@ -203,11 +203,11 @@ class AccountControllerV2Test {
                   new ChangeNumberRequest(encodeSessionId("session"), null, AuthHelper.VALID_NUMBER, null, 
                       "pni-identity-key",
                       Collections.emptyList(),
-                      Collections.emptyMap(), Collections.emptyMap()),
+                      Collections.emptyMap(), null, Collections.emptyMap()),
                   MediaType.APPLICATION_JSON_TYPE), AccountIdentityResponse.class);
 
       verify(changeNumberManager).changeNumber(eq(AuthHelper.VALID_ACCOUNT), eq(AuthHelper.VALID_NUMBER), any(), any(), any(),
-          any());
+          any(), any());
 
       assertEquals(AuthHelper.VALID_UUID, accountIdentityResponse.uuid());
       assertEquals(AuthHelper.VALID_NUMBER, accountIdentityResponse.number());
@@ -365,7 +365,7 @@ class AccountControllerV2Test {
         final AccountIdentityResponse accountIdentityResponse = response.readEntity(AccountIdentityResponse.class);
 
         verify(changeNumberManager).changeNumber(eq(AuthHelper.VALID_ACCOUNT), eq(NEW_NUMBER), any(), any(), any(),
-            any());
+            any(), any());
 
         assertEquals(AuthHelper.VALID_UUID, accountIdentityResponse.uuid());
         assertEquals(NEW_NUMBER, accountIdentityResponse.number());
@@ -458,7 +458,7 @@ class AccountControllerV2Test {
 
     @BeforeEach
     void setUp() throws Exception {
-      when(changeNumberManager.updatePNIKeys(any(), any(), any(), any(), any())).thenAnswer(
+      when(changeNumberManager.updatePniKeys(any(), any(), any(), any(), any(), any())).thenAnswer(
           (Answer<Account>) invocation -> {
             final Account account = invocation.getArgument(0, Account.class);
             final String pniIdentityKey = invocation.getArgument(1, String.class);
@@ -496,7 +496,7 @@ class AccountControllerV2Test {
               AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
           .put(Entity.json(requestJson()), AccountIdentityResponse.class);
 
-      verify(changeNumberManager).updatePNIKeys(eq(AuthHelper.VALID_ACCOUNT), eq("pni-identity-key"), any(), any(), any());
+      verify(changeNumberManager).updatePniKeys(eq(AuthHelper.VALID_ACCOUNT), eq("pni-identity-key"), any(), any(), any(), any());
 
       assertEquals(AuthHelper.VALID_UUID, accountIdentityResponse.uuid());
       assertEquals(AuthHelper.VALID_NUMBER, accountIdentityResponse.number());
@@ -557,6 +557,7 @@ class AccountControllerV2Test {
             "pniIdentityKey": "pni-identity-key",
             "deviceMessages": [],
             "devicePniSignedPrekeys": {},
+            "devicePniSignedPqPrekeys": {},
             "pniRegistrationIds": {}
           }
       """;

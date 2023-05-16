@@ -493,6 +493,7 @@ public class AccountController {
           request.number(),
           request.pniIdentityKey(),
           request.devicePniSignedPrekeys(),
+          request.devicePniPqLastResortPrekeys(),
           request.deviceMessages(),
           request.pniRegistrationIds());
 

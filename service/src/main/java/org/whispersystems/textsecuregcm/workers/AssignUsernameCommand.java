@@ -174,7 +174,9 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
     Profiles profiles = new Profiles(dynamoDbClient, dynamoDbAsyncClient,
         configuration.getDynamoDbTables().getProfiles().getTableName());
     Keys keys = new Keys(dynamoDbClient,
-        configuration.getDynamoDbTables().getKeys().getTableName());
+        configuration.getDynamoDbTables().getEcKeys().getTableName(),
+        configuration.getDynamoDbTables().getPqKeys().getTableName(),
+        configuration.getDynamoDbTables().getPqLastResortKeys().getTableName());
     MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(dynamoDbClient, dynamoDbAsyncClient,
         configuration.getDynamoDbTables().getMessages().getTableName(),
         configuration.getDynamoDbTables().getMessages().getExpiration(),

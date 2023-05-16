@@ -53,8 +53,12 @@ dynamoDbTables:
     tableName: Example_IssuedReceipts
     expiration: P30D # Duration of time until rows expire
     generator: abcdefg12345678= # random base64-encoded binary sequence
-  keys:
+  ecKeys:
     tableName: Example_Keys
+  pqKeys:
+    tableName: Example_PQ_Keys
+  pqLastResortKeys:
+    tableName: Example_PQ_Last_Resort_Keys
   messages:
     tableName: Example_Messages
     expiration: P30D # Duration of time until rows expire

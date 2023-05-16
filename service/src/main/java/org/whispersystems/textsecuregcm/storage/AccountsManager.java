@@ -245,6 +245,7 @@ public class AccountsManager {
   public Account changeNumber(final Account account, final String number,
       @Nullable final String pniIdentityKey,
       @Nullable final Map<Long, SignedPreKey> pniSignedPreKeys,
+      @Nullable final Map<Long, SignedPreKey> pniPqLastResortPreKeys,
       @Nullable final Map<Long, Integer> pniRegistrationIds) throws InterruptedException, MismatchedDevicesException {
 
     final String originalNumber = account.getNumber();
@@ -252,12 +253,12 @@ public class AccountsManager {
 
     if (originalNumber.equals(number)) {
       if (pniIdentityKey != null) {
-        throw new IllegalArgumentException("change number must supply a changed phone number; otherwise use updatePNIKeys");
+        throw new IllegalArgumentException("change number must supply a changed phone number; otherwise use updatePniKeys");
       }
       return account;
     }
 
-    validateDevices(account, pniSignedPreKeys, pniRegistrationIds);
+    validateDevices(account, pniSignedPreKeys, pniPqLastResortPreKeys, pniRegistrationIds);
 
     final AtomicReference<Account> updatedAccount = new AtomicReference<>();
 
@@ -281,7 +282,7 @@ public class AccountsManager {
 
       numberChangedAccount = updateWithRetries(
           account,
-          a -> setPNIKeys(account, pniIdentityKey, pniSignedPreKeys, pniRegistrationIds),
+          a -> { setPniKeys(account, pniIdentityKey, pniSignedPreKeys, pniRegistrationIds); return true; },
           a -> accounts.changeNumber(a, number, phoneNumberIdentifier),
           () -> accounts.getByAccountIdentifier(uuid).orElseThrow(),
           AccountChangeValidator.NUMBER_CHANGE_VALIDATOR);
@@ -291,45 +292,74 @@ public class AccountsManager {
       keys.delete(phoneNumberIdentifier);
       keys.delete(originalPhoneNumberIdentifier);
 
+      if (pniPqLastResortPreKeys != null) {
+        keys.storePqLastResort(
+            phoneNumberIdentifier,
+            keys.getPqEnabledDevices(uuid).stream().collect(
+                Collectors.toMap(
+                    Function.identity(),
+                    pniPqLastResortPreKeys::get)));
+      }
+      
       return displacedUuid;
     });
 
     return updatedAccount.get();
   }
 
-  public Account updatePNIKeys(final Account account,
+  public Account updatePniKeys(final Account account,
       final String pniIdentityKey,
       final Map<Long, SignedPreKey> pniSignedPreKeys,
+      @Nullable final Map<Long, SignedPreKey> pniPqLastResortPreKeys,
       final Map<Long, Integer> pniRegistrationIds) throws MismatchedDevicesException {
-    validateDevices(account, pniSignedPreKeys, pniRegistrationIds);
+    validateDevices(account, pniSignedPreKeys, pniPqLastResortPreKeys, pniRegistrationIds);
 
-    return update(account, a -> { return setPNIKeys(a, pniIdentityKey, pniSignedPreKeys, pniRegistrationIds); });
+    final UUID pni = account.getPhoneNumberIdentifier();
+    final Account updatedAccount = update(account, a -> { return setPniKeys(a, pniIdentityKey, pniSignedPreKeys, pniRegistrationIds); });
+
+    final List<Long> pqEnabledDeviceIDs = keys.getPqEnabledDevices(pni);
+    keys.delete(pni);
+    if (pniPqLastResortPreKeys != null) {
+      keys.storePqLastResort(pni, pqEnabledDeviceIDs.stream().collect(Collectors.toMap(Function.identity(), pniPqLastResortPreKeys::get)));
+    }
+
+    return updatedAccount;
   }
 
-  private boolean setPNIKeys(final Account account,
+  private boolean setPniKeys(final Account account,
       @Nullable final String pniIdentityKey,
       @Nullable final Map<Long, SignedPreKey> pniSignedPreKeys,
       @Nullable final Map<Long, Integer> pniRegistrationIds) {
     if (ObjectUtils.allNull(pniIdentityKey, pniSignedPreKeys, pniRegistrationIds)) {
-      return true;
+      return false;
     } else if (!ObjectUtils.allNotNull(pniIdentityKey, pniSignedPreKeys, pniRegistrationIds)) {
       throw new IllegalArgumentException("PNI identity key, signed pre-keys, and registration IDs must be all null or all non-null");
     }
 
-    pniSignedPreKeys.forEach((deviceId, signedPreKey) ->
-        account.getDevice(deviceId).ifPresent(device -> device.setPhoneNumberIdentitySignedPreKey(signedPreKey)));
+    boolean changed = !pniIdentityKey.equals(account.getPhoneNumberIdentityKey());
+    
+    for (Device device : account.getDevices()) {
+        if (!device.isEnabled()) {
+            continue;
+        }
+        SignedPreKey signedPreKey = pniSignedPreKeys.get(device.getId());
+        int registrationId = pniRegistrationIds.get(device.getId());
+        changed = changed ||
+            !signedPreKey.equals(device.getPhoneNumberIdentitySignedPreKey()) ||
+            device.getRegistrationId() != registrationId;
+        device.setPhoneNumberIdentitySignedPreKey(signedPreKey);
+        device.setPhoneNumberIdentityRegistrationId(registrationId);
+    }   
 
-    pniRegistrationIds.forEach((deviceId, registrationId) ->
-        account.getDevice(deviceId).ifPresent(device -> device.setPhoneNumberIdentityRegistrationId(registrationId)));
+    account.setPhoneNumberIdentityKey(pniIdentityKey);
 
-      account.setPhoneNumberIdentityKey(pniIdentityKey);
-
-    return true;
+    return changed;
   }
 
   private void validateDevices(final Account account,
-      final Map<Long, SignedPreKey> pniSignedPreKeys,
-      final Map<Long, Integer> pniRegistrationIds) throws MismatchedDevicesException {
+      @Nullable final Map<Long, SignedPreKey> pniSignedPreKeys,
+      @Nullable final Map<Long, SignedPreKey> pniPqLastResortPreKeys,
+      @Nullable final Map<Long, Integer> pniRegistrationIds) throws MismatchedDevicesException {
     if (pniSignedPreKeys == null && pniRegistrationIds == null) {
       return;
     } else if (pniSignedPreKeys == null || pniRegistrationIds == null) {
@@ -337,6 +367,12 @@ public class AccountsManager {
     }
 
     // Check that all including master ID are in signed pre-keys
+    DestinationDeviceValidator.validateCompleteDeviceList(
+        account,
+        pniSignedPreKeys.keySet(),
+        Collections.emptySet());
+
+    // Check that all including master ID are in Pq pre-keys
     DestinationDeviceValidator.validateCompleteDeviceList(
         account,
         pniSignedPreKeys.keySet(),

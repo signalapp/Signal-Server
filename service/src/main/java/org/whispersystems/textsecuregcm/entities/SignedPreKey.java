@@ -45,5 +45,4 @@ public class SignedPreKey extends PreKey {
       return super.hashCode() ^ signature.hashCode();
     }
   }
-
 }

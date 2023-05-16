@@ -128,6 +128,7 @@ public class AccountControllerV2 {
           request.number(),
           request.pniIdentityKey(),
           request.devicePniSignedPrekeys(),
+          request.devicePniPqLastResortPrekeys(),
           request.deviceMessages(),
           request.pniRegistrationIds());
 
@@ -172,10 +173,11 @@ public class AccountControllerV2 {
     }
 
     try {
-      final Account updatedAccount = changeNumberManager.updatePNIKeys(
+      final Account updatedAccount = changeNumberManager.updatePniKeys(
           authenticatedAccount.getAccount(),
           request.pniIdentityKey(),
           request.devicePniSignedPrekeys(),
+          request.devicePniPqLastResortPrekeys(),
           request.deviceMessages(),
           request.pniRegistrationIds());
 

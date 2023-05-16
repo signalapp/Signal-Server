@@ -42,6 +42,7 @@ public class ChangeNumberManager {
   public Account changeNumber(final Account account, final String number,
       @Nullable final String pniIdentityKey,
       @Nullable final Map<Long, SignedPreKey> deviceSignedPreKeys,
+      @Nullable final Map<Long, SignedPreKey> devicePqLastResortPreKeys,
       @Nullable final List<IncomingMessage> deviceMessages,
       @Nullable final Map<Long, Integer> pniRegistrationIds)
       throws InterruptedException, MismatchedDevicesException, StaleDevicesException {
@@ -62,10 +63,14 @@ public class ChangeNumberManager {
       // We don't need to actually do a number-change operation in our DB, but we *do* need to accept their new key
       // material and distribute the sync messages, to be sure all clients agree with us and each other about what their
       // keys are. Pretend this change-number request was actually a PNI key distribution request.
-      return updatePNIKeys(account, pniIdentityKey, deviceSignedPreKeys, deviceMessages, pniRegistrationIds);
+      if (pniIdentityKey == null) {
+        return account;
+      }
+      return updatePniKeys(account, pniIdentityKey, deviceSignedPreKeys, devicePqLastResortPreKeys, deviceMessages, pniRegistrationIds);
     }
 
-    final Account updatedAccount = accountsManager.changeNumber(account, number, pniIdentityKey, deviceSignedPreKeys, pniRegistrationIds);
+    final Account updatedAccount = accountsManager.changeNumber(
+        account, number, pniIdentityKey, deviceSignedPreKeys, devicePqLastResortPreKeys, pniRegistrationIds);
 
     if (deviceMessages != null) {
       sendDeviceMessages(updatedAccount, deviceMessages);
@@ -74,16 +79,18 @@ public class ChangeNumberManager {
     return updatedAccount;
   }
 
-  public Account updatePNIKeys(final Account account,
+  public Account updatePniKeys(final Account account,
       final String pniIdentityKey,
       final Map<Long, SignedPreKey> deviceSignedPreKeys,
+      @Nullable final Map<Long, SignedPreKey> devicePqLastResortPreKeys,
       final List<IncomingMessage> deviceMessages,
       final Map<Long, Integer> pniRegistrationIds) throws MismatchedDevicesException, StaleDevicesException {
     validateDeviceMessages(account, deviceMessages);
 
     // Don't try to be smart about ignoring unnecessary retries. If we make literally no change we will skip the ddb
     // write anyway. Linked devices can handle some wasted extra key rotations.
-    final Account updatedAccount = accountsManager.updatePNIKeys(account, pniIdentityKey, deviceSignedPreKeys, pniRegistrationIds);
+    final Account updatedAccount = accountsManager.updatePniKeys(
+        account, pniIdentityKey, deviceSignedPreKeys, devicePqLastResortPreKeys, pniRegistrationIds);
 
     sendDeviceMessages(updatedAccount, deviceMessages);
     return updatedAccount;

@@ -12,6 +12,7 @@ import static io.micrometer.core.instrument.Metrics.timer;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Timer;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
@@ -53,7 +54,7 @@ public abstract class AbstractDynamoDbStore {
     return dynamoDbClient;
   }
 
-  protected void executeTableWriteItemsUntilComplete(final Map<String, List<WriteRequest>> items) {
+  protected void executeTableWriteItemsUntilComplete(final Map<String, ? extends Collection<WriteRequest>> items) {
     final AtomicReference<BatchWriteItemResponse> outcome = new AtomicReference<>();
     writeAndStoreOutcome(items, batchWriteItemsFirstPass, outcome);
     int attemptCount = 0;
@@ -80,7 +81,7 @@ public abstract class AbstractDynamoDbStore {
   }
 
   private void writeAndStoreOutcome(
-      final Map<String, List<WriteRequest>> items,
+      final Map<String, ? extends Collection<WriteRequest>> items,
       final Timer timer,
       final AtomicReference<BatchWriteItemResponse> outcome) {
     timer.record(

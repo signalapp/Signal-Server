@@ -341,7 +341,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getDynamoDbTables().getPhoneNumberIdentifiers().getTableName());
     Profiles profiles = new Profiles(dynamoDbClient, dynamoDbAsyncClient,
         config.getDynamoDbTables().getProfiles().getTableName());
-    Keys keys = new Keys(dynamoDbClient, config.getDynamoDbTables().getKeys().getTableName());
+    Keys keys = new Keys(dynamoDbClient,
+        config.getDynamoDbTables().getEcKeys().getTableName(),
+        config.getDynamoDbTables().getPqKeys().getTableName(),
+        config.getDynamoDbTables().getPqLastResortKeys().getTableName());
     MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(dynamoDbClient, dynamoDbAsyncClient,
         config.getDynamoDbTables().getMessages().getTableName(),
         config.getDynamoDbTables().getMessages().getExpiration(),

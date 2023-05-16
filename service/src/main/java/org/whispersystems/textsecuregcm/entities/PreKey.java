@@ -13,17 +13,17 @@ public class PreKey {
 
   @JsonProperty
   @NotNull
-  private long    keyId;
+  private long keyId;
 
   @JsonProperty
   @NotEmpty
-  private String  publicKey;
+  private String publicKey;
 
   public PreKey() {}
 
   public PreKey(long keyId, String publicKey)
   {
-    this.keyId     = keyId;
+    this.keyId = keyId;
     this.publicKey = publicKey;
   }
 
@@ -63,5 +63,4 @@ public class PreKey {
       return ((int)this.keyId) ^ publicKey.hashCode();
     }
   }
-
 }

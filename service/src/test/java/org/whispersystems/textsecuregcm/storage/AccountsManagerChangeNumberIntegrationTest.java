@@ -128,7 +128,7 @@ class AccountsManagerChangeNumberIntegrationTest {
     final UUID originalUuid = account.getUuid();
     final UUID originalPni = account.getPhoneNumberIdentifier();
 
-    accountsManager.changeNumber(account, secondNumber, null, null, null);
+    accountsManager.changeNumber(account, secondNumber, null, null, null, null);
 
     assertTrue(accountsManager.getByE164(originalNumber).isEmpty());
 
@@ -161,7 +161,7 @@ class AccountsManagerChangeNumberIntegrationTest {
     final Map<Long, SignedPreKey> preKeys = Map.of(Device.MASTER_ID, rotatedSignedPreKey);
     final Map<Long, Integer> registrationIds = Map.of(Device.MASTER_ID, rotatedPniRegistrationId);
 
-    final Account updatedAccount = accountsManager.changeNumber(account, secondNumber, pniIdentityKey, preKeys, registrationIds);
+    final Account updatedAccount = accountsManager.changeNumber(account, secondNumber, pniIdentityKey, preKeys, null, registrationIds);
 
     assertTrue(accountsManager.getByE164(originalNumber).isEmpty());
 
@@ -191,8 +191,8 @@ class AccountsManagerChangeNumberIntegrationTest {
     final UUID originalUuid = account.getUuid();
     final UUID originalPni = account.getPhoneNumberIdentifier();
 
-    account = accountsManager.changeNumber(account, secondNumber, null, null, null);
-    accountsManager.changeNumber(account, originalNumber, null, null, null);
+    account = accountsManager.changeNumber(account, secondNumber, null, null, null, null);
+    accountsManager.changeNumber(account, originalNumber, null, null, null, null);
 
     assertTrue(accountsManager.getByE164(originalNumber).isPresent());
     assertEquals(originalUuid, accountsManager.getByE164(originalNumber).map(Account::getUuid).orElseThrow());
@@ -217,7 +217,7 @@ class AccountsManagerChangeNumberIntegrationTest {
     final Account existingAccount = accountsManager.create(secondNumber, "password", null, new AccountAttributes(), new ArrayList<>());
     final UUID existingAccountUuid = existingAccount.getUuid();
 
-    accountsManager.changeNumber(account, secondNumber, null, null, null);
+    accountsManager.changeNumber(account, secondNumber, null, null, null, null);
 
     assertTrue(accountsManager.getByE164(originalNumber).isEmpty());
 
@@ -231,7 +231,7 @@ class AccountsManagerChangeNumberIntegrationTest {
     assertEquals(Optional.of(existingAccountUuid), deletedAccounts.findUuid(originalNumber));
     assertEquals(Optional.empty(), deletedAccounts.findUuid(secondNumber));
 
-    accountsManager.changeNumber(accountsManager.getByAccountIdentifier(originalUuid).orElseThrow(), originalNumber, null, null, null);
+    accountsManager.changeNumber(accountsManager.getByAccountIdentifier(originalUuid).orElseThrow(), originalNumber, null, null, null, null);
 
     final Account existingAccount2 = accountsManager.create(secondNumber, "password", null, new AccountAttributes(),
         new ArrayList<>());
@@ -251,7 +251,7 @@ class AccountsManagerChangeNumberIntegrationTest {
     final Account existingAccount = accountsManager.create(secondNumber, "password", null, new AccountAttributes(), new ArrayList<>());
     final UUID existingAccountUuid = existingAccount.getUuid();
 
-    final Account changedNumberAccount = accountsManager.changeNumber(account, secondNumber, null, null, null);
+    final Account changedNumberAccount = accountsManager.changeNumber(account, secondNumber, null, null, null, null);
     final UUID secondPni = changedNumberAccount.getPhoneNumberIdentifier();
 
     final Account reRegisteredAccount = accountsManager.create(originalNumber, "password", null, new AccountAttributes(), new ArrayList<>());
@@ -262,7 +262,7 @@ class AccountsManagerChangeNumberIntegrationTest {
     assertEquals(Optional.empty(), deletedAccounts.findUuid(originalNumber));
     assertEquals(Optional.empty(), deletedAccounts.findUuid(secondNumber));
 
-    final Account changedNumberReRegisteredAccount = accountsManager.changeNumber(reRegisteredAccount, secondNumber, null, null, null);
+    final Account changedNumberReRegisteredAccount = accountsManager.changeNumber(reRegisteredAccount, secondNumber, null, null, null, null);
 
     assertEquals(Optional.of(originalUuid), deletedAccounts.findUuid(originalNumber));
     assertEquals(Optional.empty(), deletedAccounts.findUuid(secondNumber));

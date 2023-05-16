@@ -69,7 +69,35 @@ public final class DynamoDbExtensionSchema {
             .build()),
         List.of(), List.of()),
 
-    KEYS("keys_test",
+    EC_KEYS("keys_test",
+        Keys.KEY_ACCOUNT_UUID,
+        Keys.KEY_DEVICE_ID_KEY_ID,
+        List.of(
+            AttributeDefinition.builder()
+                .attributeName(Keys.KEY_ACCOUNT_UUID)
+                .attributeType(ScalarAttributeType.B)
+                .build(),
+            AttributeDefinition.builder()
+                .attributeName(Keys.KEY_DEVICE_ID_KEY_ID)
+                .attributeType(ScalarAttributeType.B)
+                .build()),
+        List.of(), List.of()),
+
+    PQ_KEYS("pq_keys_test",
+        Keys.KEY_ACCOUNT_UUID,
+        Keys.KEY_DEVICE_ID_KEY_ID,
+        List.of(
+            AttributeDefinition.builder()
+                .attributeName(Keys.KEY_ACCOUNT_UUID)
+                .attributeType(ScalarAttributeType.B)
+                .build(),
+            AttributeDefinition.builder()
+                .attributeName(Keys.KEY_DEVICE_ID_KEY_ID)
+                .attributeType(ScalarAttributeType.B)
+                .build()),
+        List.of(), List.of()),
+
+    PQ_LAST_RESORT_KEYS("pq_last_resort_keys_test",
         Keys.KEY_ACCOUNT_UUID,
         Keys.KEY_DEVICE_ID_KEY_ID,
         List.of(
