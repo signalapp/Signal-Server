@@ -68,6 +68,7 @@ import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceException;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceSenderException;
+import org.whispersystems.textsecuregcm.registration.TransportNotAllowedException;
 import org.whispersystems.textsecuregcm.registration.VerificationSession;
 import org.whispersystems.textsecuregcm.spam.ScoreThresholdProvider;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -977,6 +978,38 @@ class VerificationControllerTest {
 
       final VerificationSessionResponse verificationSessionResponse = response.readEntity(
           VerificationSessionResponse.class);
+
+      assertTrue(verificationSessionResponse.allowedToRequestCode());
+      assertTrue(verificationSessionResponse.requestedInformation().isEmpty());
+    }
+  }
+
+  @Test
+  void requestVerificationCodeTransportNotAllowed() {
+    final String encodedSessionId = encodeSessionId(SESSION_ID);
+    final RegistrationServiceSession registrationServiceSession = new RegistrationServiceSession(SESSION_ID, NUMBER,
+        false, null, null,
+        null, SESSION_EXPIRATION_SECONDS);
+    when(registrationServiceClient.getSession(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(registrationServiceSession)));
+    when(verificationSessionManager.findForId(any()))
+        .thenReturn(CompletableFuture.completedFuture(
+            Optional.of(new VerificationSession(null, Collections.emptyList(), Collections.emptyList(), true,
+                clock.millis(), clock.millis(), registrationServiceSession.expiration()))));
+    when(registrationServiceClient.sendVerificationCode(any(), any(), any(), any(), any()))
+        .thenReturn(CompletableFuture.failedFuture(
+            new CompletionException(new TransportNotAllowedException(registrationServiceSession))));
+
+    final Invocation.Builder request = resources.getJerseyTest()
+        .target("/v1/verification/session/" + encodedSessionId + "/code")
+        .request()
+        .header(HttpHeaders.X_FORWARDED_FOR, "127.0.0.1");
+
+    try (final Response response = request.post(Entity.json(requestVerificationCodeJson("sms", "android")))) {
+      assertEquals(418, response.getStatus());
+
+      final VerificationSessionResponse verificationSessionResponse =
+          response.readEntity(VerificationSessionResponse.class);
 
       assertTrue(verificationSessionResponse.allowedToRequestCode());
       assertTrue(verificationSessionResponse.requestedInformation().isEmpty());

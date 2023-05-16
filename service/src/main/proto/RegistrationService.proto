@@ -318,6 +318,13 @@ enum SendVerificationCodeErrorType {
    * been verified.
    */
   SEND_VERIFICATION_CODE_ERROR_TYPE_SESSION_ALREADY_VERIFIED = 5;
+
+  /**
+   * A verification code could not be sent via the requested transport because
+   * the destination phone number (or the sender) does not support the requested
+   * transport.
+   */
+  SEND_VERIFICATION_CODE_ERROR_TYPE_TRANSPORT_NOT_ALLOWED = 6;
 }
 
 message CheckVerificationCodeRequest {

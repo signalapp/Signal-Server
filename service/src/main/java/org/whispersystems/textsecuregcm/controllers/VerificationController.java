@@ -74,6 +74,7 @@ import org.whispersystems.textsecuregcm.registration.MessageTransport;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceException;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceSenderException;
+import org.whispersystems.textsecuregcm.registration.TransportNotAllowedException;
 import org.whispersystems.textsecuregcm.registration.VerificationSession;
 import org.whispersystems.textsecuregcm.spam.Extract;
 import org.whispersystems.textsecuregcm.spam.FilterSpam;
@@ -488,8 +489,13 @@ public class VerificationController {
 
         throw registrationServiceException.getRegistrationSession()
             .map(s -> buildResponse(s, verificationSession))
-            .map(verificationSessionResponse -> new ClientErrorException(
-                Response.status(Response.Status.CONFLICT).entity(verificationSessionResponse).build()))
+            .map(verificationSessionResponse -> {
+              final Response response = registrationServiceException instanceof TransportNotAllowedException
+                  ? Response.status(418).entity(verificationSessionResponse).build()
+                  : Response.status(Response.Status.CONFLICT).entity(verificationSessionResponse).build();
+
+              return new ClientErrorException(response);
+            })
             .orElseGet(NotFoundException::new);
 
       } else if (unwrappedException instanceof RegistrationServiceSenderException) {
