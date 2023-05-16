@@ -6,6 +6,8 @@
 package org.whispersystems.textsecuregcm.tests.controllers;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
@@ -13,12 +15,15 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
 import com.google.common.collect.ImmutableSet;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -26,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import java.util.stream.Stream;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -34,6 +40,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.signal.event.NoOpAdminEventLogger;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
@@ -50,7 +59,19 @@ import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 class RemoteConfigControllerTest {
 
   private static final RemoteConfigsManager remoteConfigsManager = mock(RemoteConfigsManager.class);
-  private static final List<String>         remoteConfigsAuth    = List.of("foo", "bar");
+  private static final List<String> remoteConfigsAuth = List.of("foo", "bar");
+
+  private static final Set<String> remoteConfigsUsers = Set.of("user1@example.com", "user2@example.com");
+
+  private static final String requiredHostedDomain = "example.com";
+  private static final GoogleIdTokenVerifier.Builder googleIdVerificationTokenBuilder = mock(
+      GoogleIdTokenVerifier.Builder.class);
+  private static final GoogleIdTokenVerifier googleIdTokenVerifier = mock(GoogleIdTokenVerifier.class);
+
+  static {
+    when(googleIdVerificationTokenBuilder.setAudience(any())).thenReturn(googleIdVerificationTokenBuilder);
+    when(googleIdVerificationTokenBuilder.build()).thenReturn(googleIdTokenVerifier);
+  }
 
   private static final ResourceExtension resources = ResourceExtension.builder()
       .addProvider(AuthHelper.getAuthFilter())
@@ -58,14 +79,17 @@ class RemoteConfigControllerTest {
           ImmutableSet.of(AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)))
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addProvider(new DeviceLimitExceededExceptionMapper())
-      .addResource(new RemoteConfigController(remoteConfigsManager, new NoOpAdminEventLogger(), remoteConfigsAuth, Map.of("maxGroupSize", "42")))
+      .addResource(new RemoteConfigController(remoteConfigsManager, new NoOpAdminEventLogger(), remoteConfigsAuth,
+          remoteConfigsUsers, requiredHostedDomain, Collections.singletonList("aud.example.com"),
+          googleIdVerificationTokenBuilder, Map.of("maxGroupSize", "42")))
       .build();
 
 
   @BeforeEach
-  void setup() {
+  void setup() throws Exception {
     when(remoteConfigsManager.getAll()).thenReturn(new LinkedList<>() {{
-      add(new RemoteConfig("android.stickers", 25, Set.of(AuthHelper.DISABLED_UUID, AuthHelper.INVALID_UUID), null, null, null));
+      add(new RemoteConfig("android.stickers", 25, Set.of(AuthHelper.DISABLED_UUID, AuthHelper.INVALID_UUID), null,
+          null, null));
       add(new RemoteConfig("ios.stickers", 50, Set.of(), null, null, null));
       add(new RemoteConfig("always.true", 100, Set.of(), null, null, null));
       add(new RemoteConfig("only.special", 0, Set.of(AuthHelper.VALID_UUID), null, null, null));
@@ -76,6 +100,24 @@ class RemoteConfigControllerTest {
       add(new RemoteConfig("linked.config.1", 50, Set.of(), null, null, "linked.config.0"));
       add(new RemoteConfig("unlinked.config", 50, Set.of(), null, null, null));
     }});
+
+    final Map<String, GoogleIdToken> googleIdTokens = new HashMap<>();
+
+    for (int i = 1; i <= 3; i++) {
+      final String user = "user" + i;
+      final GoogleIdToken googleIdToken = mock(GoogleIdToken.class);
+      final GoogleIdToken.Payload payload = mock(GoogleIdToken.Payload.class);
+      when(googleIdToken.getPayload()).thenReturn(payload);
+
+      when(payload.getEmail()).thenReturn(user + "@" + requiredHostedDomain);
+      when(payload.getEmailVerified()).thenReturn(true);
+      when(payload.getHostedDomain()).thenReturn(requiredHostedDomain);
+
+      googleIdTokens.put(user + ".valid", googleIdToken);
+    }
+
+    when(googleIdTokenVerifier.verify(anyString()))
+        .thenAnswer(answer -> googleIdTokens.get(answer.getArgument(0, String.class)));
   }
 
   @AfterEach
@@ -173,28 +215,28 @@ class RemoteConfigControllerTest {
     assertThat(allUnlinkedConfigsMatched).isFalse();
   }
 
-
   @Test
   void testRetrieveConfigUnauthorized() {
     Response response = resources.getJerseyTest()
-                                 .target("/v1/config/")
-                                 .request()
-                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.INVALID_PASSWORD))
-                                 .get();
+        .target("/v1/config/")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.INVALID_PASSWORD))
+        .get();
 
     assertThat(response.getStatus()).isEqualTo(401);
 
     verifyNoMoreInteractions(remoteConfigsManager);
   }
 
-
-  @Test
-  void testSetConfig() {
+  @ParameterizedTest
+  @MethodSource("authorizedTokens")
+  void testSetConfig(final String configToken) {
     Response response = resources.getJerseyTest()
-                                 .target("/v1/config")
-                                 .request()
-                                 .header("Config-Token", "foo")
-                                 .put(Entity.entity(new RemoteConfig("android.stickers", 88, Set.of(), "FALSE", "TRUE", null), MediaType.APPLICATION_JSON_TYPE));
+        .target("/v1/config")
+        .request()
+        .header("Config-Token", configToken)
+        .put(Entity.entity(new RemoteConfig("android.stickers", 88, Set.of(), "FALSE", "TRUE", null),
+            MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(204);
 
@@ -207,13 +249,15 @@ class RemoteConfigControllerTest {
     assertThat(captor.getValue().getUuids()).isEmpty();
   }
 
-  @Test
-  void testSetConfigValued() {
+  @ParameterizedTest
+  @MethodSource("authorizedTokens")
+  void testSetConfigValued(final String configToken) {
     Response response = resources.getJerseyTest()
-                                 .target("/v1/config")
-                                 .request()
-                                 .header("Config-Token", "foo")
-                                 .put(Entity.entity(new RemoteConfig("value.sometimes", 50, Set.of(), "a", "b", null), MediaType.APPLICATION_JSON_TYPE));
+        .target("/v1/config")
+        .request()
+        .header("Config-Token", configToken)
+        .put(Entity.entity(new RemoteConfig("value.sometimes", 50, Set.of(), "a", "b", null),
+            MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(204);
 
@@ -226,19 +270,21 @@ class RemoteConfigControllerTest {
     assertThat(captor.getValue().getUuids()).isEmpty();
   }
 
-  @Test
-  void testSetConfigWithHashKey() {
+  @ParameterizedTest
+  @MethodSource("authorizedTokens")
+  void testSetConfigWithHashKey(final String configToken) {
     Response response1 = resources.getJerseyTest()
-                                  .target("/v1/config")
-                                  .request()
-                                  .header("Config-Token", "foo")
-                                  .put(Entity.entity(new RemoteConfig("linked.config.0", 50, Set.of(), "FALSE", "TRUE", null), MediaType.APPLICATION_JSON_TYPE));
+        .target("/v1/config")
+        .request()
+        .header("Config-Token", configToken)
+        .put(Entity.entity(new RemoteConfig("linked.config.0", 50, Set.of(), "FALSE", "TRUE", null),
+            MediaType.APPLICATION_JSON_TYPE));
     assertThat(response1.getStatus()).isEqualTo(204);
 
     Response response2 = resources.getJerseyTest()
-                                  .target("/v1/config")
-                                  .request()
-                                  .header("Config-Token", "foo")
+        .target("/v1/config")
+        .request()
+        .header("Config-Token", configToken)
                                   .put(Entity.entity(new RemoteConfig("linked.config.1", 50, Set.of(), "FALSE", "TRUE", "linked.config.0"), MediaType.APPLICATION_JSON_TYPE));
     assertThat(response2.getStatus()).isEqualTo(204);
 
@@ -262,13 +308,15 @@ class RemoteConfigControllerTest {
     assertThat(capture2.getHashKey()).isEqualTo("linked.config.0");
   }
 
-  @Test
-  void testSetConfigUnauthorized() {
+  @ParameterizedTest
+  @MethodSource("unauthorizedTokens")
+  void testSetConfigUnauthorized(final String configToken) {
     Response response = resources.getJerseyTest()
-                                 .target("/v1/config")
-                                 .request()
-                                 .header("Config-Token", "baz")
-                                 .put(Entity.entity(new RemoteConfig("android.stickers", 88, Set.of(), "FALSE", "TRUE", null), MediaType.APPLICATION_JSON_TYPE));
+        .target("/v1/config")
+        .request()
+        .header("Config-Token", configToken)
+        .put(Entity.entity(new RemoteConfig("android.stickers", 88, Set.of(), "FALSE", "TRUE", null),
+            MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(401);
 
@@ -278,59 +326,66 @@ class RemoteConfigControllerTest {
   @Test
   void testSetConfigMissingUnauthorized() {
     Response response = resources.getJerseyTest()
-                                 .target("/v1/config")
-                                 .request()
-                                 .put(Entity.entity(new RemoteConfig("android.stickers", 88, Set.of(), "FALSE", "TRUE", null), MediaType.APPLICATION_JSON_TYPE));
+        .target("/v1/config")
+        .request()
+        .put(Entity.entity(new RemoteConfig("android.stickers", 88, Set.of(), "FALSE", "TRUE", null),
+            MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(401);
 
     verifyNoMoreInteractions(remoteConfigsManager);
   }
 
-  @Test
-  void testSetConfigBadName() {
+  @ParameterizedTest
+  @MethodSource("authorizedTokens")
+  void testSetConfigBadName(final String configToken) {
     Response response = resources.getJerseyTest()
-                                 .target("/v1/config")
-                                 .request()
-                                 .header("Config-Token", "foo")
-                                 .put(Entity.entity(new RemoteConfig("android-stickers", 88, Set.of(), "FALSE", "TRUE", null), MediaType.APPLICATION_JSON_TYPE));
+        .target("/v1/config")
+        .request()
+        .header("Config-Token", configToken)
+        .put(Entity.entity(new RemoteConfig("android-stickers", 88, Set.of(), "FALSE", "TRUE", null),
+            MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(422);
 
     verifyNoMoreInteractions(remoteConfigsManager);
   }
 
-  @Test
-  void testSetConfigEmptyName() {
+  @ParameterizedTest
+  @MethodSource("authorizedTokens")
+  void testSetConfigEmptyName(final String configToken) {
     Response response = resources.getJerseyTest()
-                                 .target("/v1/config")
-                                 .request()
-                                 .header("Config-Token", "foo")
-                                 .put(Entity.entity(new RemoteConfig("", 88, Set.of(), "FALSE", "TRUE", null), MediaType.APPLICATION_JSON_TYPE));
+        .target("/v1/config")
+        .request()
+        .header("Config-Token", configToken)
+        .put(Entity.entity(new RemoteConfig("", 88, Set.of(), "FALSE", "TRUE", null), MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(422);
 
     verifyNoMoreInteractions(remoteConfigsManager);
   }
 
-  @Test
-  void testSetGlobalConfig() {
+  @ParameterizedTest
+  @MethodSource("authorizedTokens")
+  void testSetGlobalConfig(final String configToken) {
     Response response = resources.getJerseyTest()
-                                 .target("/v1/config")
-                                 .request()
-                                 .header("Config-Token", "foo")
-                                 .put(Entity.entity(new RemoteConfig("global.maxGroupSize", 88, Set.of(), "FALSE", "TRUE", null), MediaType.APPLICATION_JSON_TYPE));
+        .target("/v1/config")
+        .request()
+        .header("Config-Token", configToken)
+        .put(Entity.entity(new RemoteConfig("global.maxGroupSize", 88, Set.of(), "FALSE", "TRUE", null),
+            MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatus()).isEqualTo(403);
     verifyNoMoreInteractions(remoteConfigsManager);
   }
 
-  @Test
-  void testDelete() {
+  @ParameterizedTest
+  @MethodSource("authorizedTokens")
+  void testDelete(final String configToken) {
     Response response = resources.getJerseyTest()
-                                 .target("/v1/config/android.stickers")
-                                 .request()
-                                 .header("Config-Token", "foo")
-                                 .delete();
+        .target("/v1/config/android.stickers")
+        .request()
+        .header("Config-Token", configToken)
+        .delete();
 
     assertThat(response.getStatus()).isEqualTo(204);
 
@@ -341,23 +396,24 @@ class RemoteConfigControllerTest {
   @Test
   void testDeleteUnauthorized() {
     Response response = resources.getJerseyTest()
-                                 .target("/v1/config/android.stickers")
-                                 .request()
-                                 .header("Config-Token", "baz")
-                                 .delete();
+        .target("/v1/config/android.stickers")
+        .request()
+        .header("Config-Token", "baz")
+        .delete();
 
     assertThat(response.getStatus()).isEqualTo(401);
 
     verifyNoMoreInteractions(remoteConfigsManager);
   }
 
-  @Test
-  void testDeleteGlobalConfig() {
+  @ParameterizedTest
+  @MethodSource("authorizedTokens")
+  void testDeleteGlobalConfig(final String configToken) {
     Response response = resources.getJerseyTest()
-                                 .target("/v1/config/global.maxGroupSize")
-                                 .request()
-                                 .header("Config-Token", "foo")
-                                 .delete();
+        .target("/v1/config/global.maxGroupSize")
+        .request()
+        .header("Config-Token", configToken)
+        .delete();
     assertThat(response.getStatus()).isEqualTo(403);
     verifyNoMoreInteractions(remoteConfigsManager);
   }
@@ -383,11 +439,25 @@ class RemoteConfigControllerTest {
     }
 
     for (RemoteConfig config : remoteConfigList) {
-      double targetNumber = iterations   * (config.getPercentage() / 100.0);
-      double variance     = targetNumber * 0.01;
+      double targetNumber = iterations * (config.getPercentage() / 100.0);
+      double variance = targetNumber * 0.01;
 
-      assertThat(enabledMap.get(config.getName())).isBetween((int)(targetNumber - variance), (int)(targetNumber + variance));
+      assertThat(enabledMap.get(config.getName())).isBetween((int) (targetNumber - variance),
+          (int) (targetNumber + variance));
     }
+  }
 
+  static Stream<Arguments> authorizedTokens() {
+    return Stream.of(
+        Arguments.of("foo"),
+        Arguments.of("user1.valid")
+    );
+  }
+
+  static Stream<Arguments> unauthorizedTokens() {
+    return Stream.of(
+        Arguments.of("baz"),
+        Arguments.of("user3.valid")
+    );
   }
 }

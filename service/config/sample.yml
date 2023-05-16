@@ -302,6 +302,17 @@ appConfig:
 
 remoteConfig:
   authorizedTokens: secret://remoteConfig.authorizedTokens
+  authorizedUsers:
+    - # 1st authorized user
+    - # 2nd authorized user
+    - # ...
+    - # Nth authorized user
+  requiredHostedDomain: example.com
+  audiences:
+    - # 1st audience
+    - # 2nd audience
+    - # ...
+    - # Nth audience
   globalConfig: # keys and values that are given to clients on GET /v1/config
     EXAMPLE_KEY: VALUE
 

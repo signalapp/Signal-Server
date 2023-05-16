@@ -24,7 +24,7 @@ sealed interface Event
 
 @Serializable
 data class RemoteConfigSetEvent(
-        val token: String,
+        val identity: String,
         val name: String,
         val percentage: Int,
         val defaultValue: String? = null,
@@ -35,6 +35,6 @@ data class RemoteConfigSetEvent(
 
 @Serializable
 data class RemoteConfigDeleteEvent(
-        val token: String,
+        val identity: String,
         val name: String,
 ) : Event

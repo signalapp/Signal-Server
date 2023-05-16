@@ -11,6 +11,9 @@ import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentialsProviderChain;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
+import com.google.api.client.http.apache.v2.ApacheHttpTransport;
+import com.google.api.client.json.gson.GsonFactory;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.logging.LoggingOptions;
 import com.google.common.collect.ImmutableMap;
@@ -753,6 +756,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             keys, rateLimiters),
         new RemoteConfigController(remoteConfigsManager, adminEventLogger,
             config.getRemoteConfigConfiguration().authorizedTokens().value(),
+            config.getRemoteConfigConfiguration().authorizedUsers(),
+            config.getRemoteConfigConfiguration().requiredHostedDomain(),
+            config.getRemoteConfigConfiguration().audiences(),
+            new GoogleIdTokenVerifier.Builder(new ApacheHttpTransport(), new GsonFactory()),
             config.getRemoteConfigConfiguration().globalConfig()),
         new SecureBackupController(backupCredentialsGenerator, accountsManager),
         new SecureStorageController(storageCredentialsGenerator),
