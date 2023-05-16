@@ -74,7 +74,7 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
 
     PUSH_CHALLENGE_SUCCESS("pushChallengeSuccess", true, new RateLimiterConfig(2, 2.0 / (60 * 24))),
 
-    CREATE_CALL_LINK("createCallLink", false, new RateLimiterConfig(100, 100 / (60 * 24)));
+    CREATE_CALL_LINK("createCallLink", false, new RateLimiterConfig(100, 100.0 / (60 * 24)));
     ;
 
     private final String id;
