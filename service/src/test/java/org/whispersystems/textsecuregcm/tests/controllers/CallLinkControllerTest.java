@@ -101,6 +101,28 @@ public class CallLinkControllerTest {
   }
 
   @Test
+  void testGetCreateAuthInvalidInputEmptyRequestBody() {
+    try (Response response = resources.getJerseyTest()
+        .target("/v1/call-link/create-auth")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .post(Entity.json("{}"))) {
+      assertThat(response.getStatus()).isEqualTo(422);
+    }
+  }
+
+  @Test
+  void testGetCreateAuthInvalidInputEmptyField() {
+    try (Response response = resources.getJerseyTest()
+        .target("/v1/call-link/create-auth")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .post(Entity.json("{\"createCallLinkCredentialRequest\": \"\"}"))) {
+      assertThat(response.getStatus()).isEqualTo(422);
+    }
+  }
+
+  @Test
   void testGetCreateAuthRatelimited() throws RateLimitExceededException{
     doThrow(new RateLimitExceededException(null, false))
         .when(createCallLinkLimiter).validate(AuthHelper.VALID_UUID);

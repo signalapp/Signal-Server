@@ -11,6 +11,7 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.entities.CreateCallLinkCredential;
 import org.whispersystems.textsecuregcm.entities.GetCreateCallLinkCredentialsRequest;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import javax.ws.rs.BadRequestException;
 import javax.ws.rs.POST;
@@ -52,7 +53,7 @@ public class CallLinkController {
   @ApiResponse(responseCode = "429", description = "Ratelimited.")
   public CreateCallLinkCredential getCreateAuth(
       final @Auth AuthenticatedAccount auth,
-      final @NotNull GetCreateCallLinkCredentialsRequest request
+      final @NotNull @Valid GetCreateCallLinkCredentialsRequest request
   ) throws RateLimitExceededException {
 
     rateLimiters.getCreateCallLinkLimiter().validate(auth.getAccount().getUuid());
