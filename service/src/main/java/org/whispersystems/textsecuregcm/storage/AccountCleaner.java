@@ -37,7 +37,7 @@ public class AccountCleaner extends AccountDatabaseCrawlerListener {
   }
 
   @Override
-  public void onCrawlEnd(Optional<UUID> fromUuid) {
+  public void onCrawlEnd() {
   }
 
   @Override

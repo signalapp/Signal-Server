@@ -33,7 +33,8 @@ public class PushFeedbackProcessor extends AccountDatabaseCrawlerListener {
   public void onCrawlStart() {}
 
   @Override
-  public void onCrawlEnd(Optional<UUID> toUuid) {}
+  public void onCrawlEnd() {
+  }
 
   @Override
   protected void onCrawlChunk(Optional<UUID> fromUuid, List<Account> chunkAccounts) {

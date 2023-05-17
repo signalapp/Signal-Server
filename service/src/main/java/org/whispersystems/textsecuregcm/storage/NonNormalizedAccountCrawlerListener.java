@@ -88,7 +88,7 @@ public class NonNormalizedAccountCrawlerListener extends AccountDatabaseCrawlerL
   }
 
   @Override
-  public void onCrawlEnd(final Optional<UUID> fromUuid) {
+  public void onCrawlEnd() {
     final int normalizedNumbers = metricsCluster.withCluster(connection ->
         Integer.parseInt(connection.sync().get(NORMALIZED_NUMBER_COUNT_KEY)));
 

@@ -214,6 +214,7 @@ import org.whispersystems.textsecuregcm.websocket.WebSocketAccountAuthenticator;
 import org.whispersystems.textsecuregcm.workers.AssignUsernameCommand;
 import org.whispersystems.textsecuregcm.workers.CertificateCommand;
 import org.whispersystems.textsecuregcm.workers.CheckDynamicConfigurationCommand;
+import org.whispersystems.textsecuregcm.workers.CrawlAccountsCommand;
 import org.whispersystems.textsecuregcm.workers.DeleteUserCommand;
 import org.whispersystems.textsecuregcm.workers.ServerVersionCommand;
 import org.whispersystems.textsecuregcm.workers.SetRequestLoggingEnabledTask;
@@ -245,6 +246,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     bootstrap.addCommand(new SetUserDiscoverabilityCommand());
     bootstrap.addCommand(new AssignUsernameCommand());
     bootstrap.addCommand(new UnlinkDeviceCommand());
+    bootstrap.addCommand(new CrawlAccountsCommand());
   }
 
   @Override
@@ -565,8 +567,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new AccountDatabaseCrawlerCache(cacheCluster, AccountDatabaseCrawlerCache.ACCOUNT_CLEANER_PREFIX);
     AccountDatabaseCrawler accountCleanerAccountDatabaseCrawler = new AccountDatabaseCrawler("Account cleaner crawler",
         accountsManager,
-        accountCleanerAccountDatabaseCrawlerCache, List.of(new AccountCleaner(accountsManager, accountDeletionExecutor)),
-        config.getAccountDatabaseCrawlerConfiguration().getChunkSize()
+        accountCleanerAccountDatabaseCrawlerCache,
+        List.of(new AccountCleaner(accountsManager, accountDeletionExecutor)),
+        config.getAccountDatabaseCrawlerConfiguration().getChunkSize(),
+        dynamicConfigurationManager
     );
 
     // TODO listeners must be ordered so that ones that directly update accounts come last, so that read-only ones are not working with stale data
@@ -580,7 +584,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     AccountDatabaseCrawler accountDatabaseCrawler = new AccountDatabaseCrawler("General-purpose account crawler",
         accountsManager,
         accountDatabaseCrawlerCache, accountDatabaseCrawlerListeners,
-        config.getAccountDatabaseCrawlerConfiguration().getChunkSize()
+        config.getAccountDatabaseCrawlerConfiguration().getChunkSize(),
+        dynamicConfigurationManager
     );
 
     HttpClient currencyClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_2).connectTimeout(Duration.ofSeconds(10)).build();

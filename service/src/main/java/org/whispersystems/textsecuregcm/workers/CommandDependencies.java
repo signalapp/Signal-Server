@@ -66,7 +66,9 @@ record CommandDependencies(
     DeletedAccountsManager deletedAccountsManager,
     StoredVerificationCodeManager pendingAccountsManager,
     ClientPresenceManager clientPresenceManager,
-    Keys keys) {
+    Keys keys,
+    FaultTolerantRedisCluster cacheCluster,
+    ClientResources redisClusterClientResources) {
 
   static CommandDependencies build(
       final String name,
@@ -206,7 +208,9 @@ record CommandDependencies(
         deletedAccountsManager,
         pendingAccountsManager,
         clientPresenceManager,
-        keys
+        keys,
+        cacheCluster,
+        redisClusterClientResources
     );
   }
 

@@ -4,16 +4,14 @@
  */
 package org.whispersystems.textsecuregcm.storage;
 
+import static com.codahale.metrics.MetricRegistry.name;
+
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
-
-import org.whispersystems.textsecuregcm.util.Constants;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-
-import static com.codahale.metrics.MetricRegistry.name;
+import org.whispersystems.textsecuregcm.util.Constants;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public abstract class AccountDatabaseCrawlerListener {
@@ -22,7 +20,7 @@ public abstract class AccountDatabaseCrawlerListener {
 
   abstract public void onCrawlStart();
 
-  abstract public void onCrawlEnd(Optional<UUID> fromUuid);
+  abstract public void onCrawlEnd();
 
   abstract protected void onCrawlChunk(Optional<UUID> fromUuid, List<Account> chunkAccounts) throws AccountDatabaseCrawlerRestartException;
 

@@ -56,6 +56,11 @@ public class DynamicConfiguration {
   @Valid
   DynamicRateLimitPolicy rateLimitPolicy = new DynamicRateLimitPolicy(false);
 
+  @JsonProperty
+  @Valid
+  DynamicAccountDatabaseCrawlerConfiguration accountDatabaseCrawler = new DynamicAccountDatabaseCrawlerConfiguration(
+      true, false);
+
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(
       final String experimentName) {
     return Optional.ofNullable(experiments.get(experimentName));
@@ -96,5 +101,9 @@ public class DynamicConfiguration {
 
   public DynamicRateLimitPolicy getRateLimitPolicy() {
     return rateLimitPolicy;
+  }
+
+  public DynamicAccountDatabaseCrawlerConfiguration getAccountDatabaseCrawlerConfiguration() {
+    return accountDatabaseCrawler;
   }
 }

@@ -80,8 +80,9 @@ class AccountCleanerTest {
   void testAccounts() throws AccountDatabaseCrawlerRestartException, InterruptedException {
     AccountCleaner accountCleaner = new AccountCleaner(accountsManager, deletionExecutor);
     accountCleaner.onCrawlStart();
-    accountCleaner.timeAndProcessCrawlChunk(Optional.empty(), Arrays.asList(deletedDisabledAccount, undeletedDisabledAccount, undeletedEnabledAccount));
-    accountCleaner.onCrawlEnd(Optional.empty());
+    accountCleaner.timeAndProcessCrawlChunk(Optional.empty(),
+        Arrays.asList(deletedDisabledAccount, undeletedDisabledAccount, undeletedEnabledAccount));
+    accountCleaner.onCrawlEnd();
 
     verify(accountsManager).delete(deletedDisabledAccount, DeletionReason.EXPIRED);
     verify(accountsManager).delete(undeletedDisabledAccount, DeletionReason.EXPIRED);

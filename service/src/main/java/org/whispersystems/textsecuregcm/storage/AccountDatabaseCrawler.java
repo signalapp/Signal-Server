@@ -18,6 +18,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -40,6 +41,8 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
   private final AccountDatabaseCrawlerCache cache;
   private final List<AccountDatabaseCrawlerListener> listeners;
 
+  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
+
   private AtomicBoolean running = new AtomicBoolean(false);
   private boolean finished;
 
@@ -47,14 +50,15 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
       AccountsManager accounts,
       AccountDatabaseCrawlerCache cache,
       List<AccountDatabaseCrawlerListener> listeners,
-      int chunkSize) {
+      int chunkSize,
+      DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
     this.name = name;
     this.accounts = accounts;
     this.chunkSize = chunkSize;
     this.workerId = UUID.randomUUID().toString();
     this.cache = cache;
     this.listeners = listeners;
-
+    this.dynamicConfigurationManager = dynamicConfigurationManager;
   }
 
   @Override
@@ -91,8 +95,61 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
     }
   }
 
+  public void crawlAllAccounts() {
+    if (!cache.claimActiveWork(workerId, WORKER_TTL_MS)) {
+      logger.info("Did not claim active work");
+      return;
+    }
+    try {
+      Optional<UUID> fromUuid = cache.getLastUuid();
+
+      if (fromUuid.isEmpty()) {
+        logger.info("{}: Started crawl", name);
+        listeners.forEach(AccountDatabaseCrawlerListener::onCrawlStart);
+      } else {
+        logger.info("{}: Resuming crawl", name);
+      }
+
+      try {
+        AccountCrawlChunk chunkAccounts;
+        do {
+          if (!dynamicConfigurationManager.getConfiguration().getAccountDatabaseCrawlerConfiguration()
+              .crawlAllEnabled()) {
+            logger.warn("Exiting crawl - not enabled by dynamic configuration");
+            return;
+          }
+          try (Timer.Context timer = processChunkTimer.time()) {
+            logger.debug("{}: Processing chunk", name);
+            chunkAccounts = readChunk(fromUuid, chunkSize);
+
+            for (AccountDatabaseCrawlerListener listener : listeners) {
+              listener.timeAndProcessCrawlChunk(fromUuid, chunkAccounts.getAccounts());
+            }
+            fromUuid = chunkAccounts.getLastUuid();
+            cacheLastUuid(fromUuid);
+          }
+
+        } while (!chunkAccounts.getAccounts().isEmpty());
+
+        logger.info("{}: Finished crawl", name);
+        listeners.forEach(AccountDatabaseCrawlerListener::onCrawlEnd);
+
+      } catch (AccountDatabaseCrawlerRestartException e) {
+        logger.warn("Crawl stopped", e);
+      }
+
+    } finally {
+      cache.releaseActiveWork(workerId);
+    }
+  }
+
   @VisibleForTesting
   public void doPeriodicWork() {
+    if (!dynamicConfigurationManager.getConfiguration().getAccountDatabaseCrawlerConfiguration()
+        .periodicWorkEnabled()) {
+      return;
+    }
+
     if (cache.claimActiveWork(workerId, WORKER_TTL_MS)) {
       try {
         processChunk();
@@ -117,7 +174,7 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
 
       if (chunkAccounts.getAccounts().isEmpty()) {
         logger.info("{}: Finished crawl", name);
-        listeners.forEach(listener -> listener.onCrawlEnd(fromUuid));
+        listeners.forEach(AccountDatabaseCrawlerListener::onCrawlEnd);
         cacheLastUuid(Optional.empty());
       } else {
         logger.debug("{}: Processing chunk", name);
