@@ -15,6 +15,7 @@ import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.Counter;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -22,6 +23,8 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+
+import org.apache.commons.lang3.StringUtils;
 import org.whispersystems.textsecuregcm.entities.PreKey;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
@@ -380,11 +383,32 @@ public class Keys extends AbstractDynamoDbStore {
 
   private PreKey getPreKeyFromItem(Map<String, AttributeValue> item) {
     final long keyId = item.get(KEY_DEVICE_ID_KEY_ID).b().asByteBuffer().getLong(8);
+    final String publicKey = Base64.getEncoder().encodeToString(extractByteArray(item.get(KEY_PUBLIC_KEY)));
+
     if (item.containsKey(KEY_SIGNATURE)) {
       // All PQ prekeys are signed, and therefore have this attribute. Signed EC prekeys are stored
       // in the Accounts table, so EC prekeys retrieved by this class are never SignedPreKeys.
-      return new SignedPreKey(keyId, item.get(KEY_PUBLIC_KEY).s(), item.get(KEY_SIGNATURE).s());
+      final String signature = Base64.getEncoder().encodeToString(extractByteArray(item.get(KEY_SIGNATURE)));
+      return new SignedPreKey(keyId, publicKey, signature);
     }
-    return new PreKey(keyId, item.get(KEY_PUBLIC_KEY).s());
+    return new PreKey(keyId, publicKey);
+  }
+
+  /**
+   * Extracts a byte array from an {@link AttributeValue} that may be either a byte array or a base64-encoded string.
+   *
+   * @param attributeValue the {@code AttributeValue} from which to extract a byte array
+   *
+   * @return the byte array represented by the given {@code AttributeValue}
+   */
+  @VisibleForTesting
+  static byte[] extractByteArray(final AttributeValue attributeValue) {
+    if (attributeValue.b() != null) {
+      return attributeValue.b().asByteArray();
+    } else if (StringUtils.isNotBlank(attributeValue.s())) {
+      return Base64.getDecoder().decode(attributeValue.s());
+    }
+
+    throw new IllegalArgumentException("Attribute value has neither a byte array nor a string value");
   }
 }
