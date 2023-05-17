@@ -955,6 +955,8 @@ paths:
     get:
       tags:
       - Keys
+      summary: Retrieves the public identity key and available device prekeys for
+        a specified account or phone-number identity
       operationId: getDeviceKeys
       parameters:
       - name: Unidentified-Access-Key
@@ -963,15 +965,25 @@ paths:
           $ref: '#/components/schemas/Anonymous'
       - name: identifier
         in: path
+        description: the account or phone-number identifier to retrieve keys for
         required: true
         schema:
           type: string
           format: uuid
       - name: device_id
         in: path
+        description: "the device id of a single device to retrieve prekeys for, or\
+          \ `*` for all enabled devices"
         required: true
         schema:
           type: string
+      - name: pq
+        in: query
+        description: whether to retrieve post-quantum prekeys
+        allowEmptyValue: true
+        schema:
+          type: boolean
+          default: false
       - name: User-Agent
         in: header
         schema:
@@ -1028,6 +1040,7 @@ paths:
     get:
       tags:
       - Keys
+      summary: Returns the number of available one-time prekeys for this device
       operationId: getStatus
       parameters:
       - name: identity
@@ -1046,22 +1059,25 @@ paths:
     put:
       tags:
       - Keys
+      summary: Sets the identity key for the account or phone-number identity and/or
+        prekeys for this device
       operationId: setKeys
       parameters:
       - name: identity
         in: query
+        allowEmptyValue: true
         schema:
           type: string
+          description: whether this operation applies to the account (aci) or phone-number
+            (pni) identity
+          default: aci
+          enum:
+          - aci
+          - pni
       - name: User-Agent
         in: header
         schema:
           type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PreKeyState'
-        required: true
       responses:
         default:
           description: default response
@@ -2430,25 +2446,52 @@ components:
       properties:
         reglock:
           type: string
+          description: "the registration lock password for the new phone number, if\
+            \ necessary"
         number:
           type: string
+          description: the new phone number for this account
         code:
           type: string
+          description: the registration verification code to authenticate this request
         pniIdentityKey:
           type: string
+          description: the new public identity key to use for the phone-number identity
+            associated with the new phone number
         deviceMessages:
           type: array
+          description: |-
+            A list of synchronization messages to send to companion devices to supply the private keys
+            associated with the new identity key and their new prekeys.
+            Exactly one message must be supplied for each enabled device other than the sending (primary) device.
           items:
             $ref: '#/components/schemas/IncomingMessage'
         devicePniSignedPrekeys:
           type: object
           additionalProperties:
             $ref: '#/components/schemas/SignedPreKey'
+          description: |-
+            A new signed elliptic-curve prekey for each enabled device on the account, including this one.
+            Each must be accompanied by a valid signature from the new identity key in this request.
+        devicePniPqLastResortPrekeys:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/SignedPreKey'
+          description: |-
+            A new signed post-quantum last-resort prekey for each enabled device on the account, including this one.
+            May be absent, in which case the last resort PQ prekeys for each device will be deleted if any had been stored.
+            If present, must contain one prekey per enabled device including this one.
+            Prekeys for devices that did not previously have any post-quantum prekeys stored will be silently dropped.
+            Each must be accompanied by a valid signature from the new identity key in this request.
         pniRegistrationIds:
           type: object
           additionalProperties:
             type: integer
+            description: "the new phone-number-identity registration ID for each enabled\
+              \ device on the account, including this one"
             format: int32
+          description: "the new phone-number-identity registration ID for each enabled\
+            \ device on the account, including this one"
         signatureValidOnEachSignedPreKey:
           type: boolean
     IncomingMessage:
@@ -2710,30 +2753,65 @@ components:
       properties:
         reglock:
           type: string
+          description: "the registration lock password for the new phone number, if\
+            \ necessary"
         sessionId:
           type: string
+          description: |-
+            A session ID from registration service, if using session id to authenticate this request.
+            Must not be combined with `recoveryPassword`.
         recoveryPassword:
           type: array
+          description: |-
+            The recovery password for the new phone number, if using a recovery password to authenticate this request.
+            Must not be combined with `sessionId`.
           items:
             type: string
+            description: |-
+              The recovery password for the new phone number, if using a recovery password to authenticate this request.
+              Must not be combined with `sessionId`.
             format: byte
         number:
           type: string
+          description: the new phone number for this account
         pniIdentityKey:
           type: string
+          description: the new public identity key to use for the phone-number identity
+            associated with the new phone number
         deviceMessages:
           type: array
+          description: |-
+            A list of synchronization messages to send to companion devices to supply the private keys
+            associated with the new identity key and their new prekeys.
+            Exactly one message must be supplied for each enabled device other than the sending (primary) device.
           items:
             $ref: '#/components/schemas/IncomingMessage'
         devicePniSignedPrekeys:
           type: object
           additionalProperties:
             $ref: '#/components/schemas/SignedPreKey'
+          description: |-
+            A new signed elliptic-curve prekey for each enabled device on the account, including this one.
+            Each must be accompanied by a valid signature from the new identity key in this request.
+        devicePniPqLastResortPrekeys:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/SignedPreKey'
+          description: |-
+            A new signed post-quantum last-resort prekey for each enabled device on the account, including this one.
+            May be absent, in which case the last resort PQ prekeys for each device will be deleted if any had been stored.
+            If present, must contain one prekey per enabled device including this one.
+            Prekeys for devices that did not previously have any post-quantum prekeys stored will be silently dropped.
+            Each must be accompanied by a valid signature from the new identity key in this request.
         pniRegistrationIds:
           type: object
           additionalProperties:
             type: integer
+            description: "the new phone-number-identity registration ID for each enabled\
+              \ device on the account, including this one"
             format: int32
+          description: "the new phone-number-identity registration ID for each enabled\
+            \ device on the account, including this one"
         signatureValidOnEachSignedPreKey:
           type: boolean
         valid:
@@ -2751,16 +2829,29 @@ components:
           description: the new identity key for this account's phone-number identity
         deviceMessages:
           type: array
-          description: A message for each companion device to pass its new private
-            keys
+          description: |-
+            A list of synchronization messages to send to companion devices to supply the private keys
+            associated with the new identity key and their new prekeys.
+            Exactly one message must be supplied for each enabled device other than the sending (primary) device.
           items:
             $ref: '#/components/schemas/IncomingMessage'
         devicePniSignedPrekeys:
           type: object
           additionalProperties:
             $ref: '#/components/schemas/SignedPreKey'
-          description: The public key of a new signed elliptic-curve prekey pair for
-            each device
+          description: |-
+            A new signed elliptic-curve prekey for each enabled device on the account, including this one.
+            Each must be accompanied by a valid signature from the new identity key in this request.
+        devicePniPqLastResortPrekeys:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/SignedPreKey'
+          description: |-
+            A new signed post-quantum last-resort prekey for each enabled device on the account, including this one.
+            May be absent, in which case the last resort PQ prekeys for each device will be deleted if any had been stored.
+            If present, must contain one prekey per enabled device including this one.
+            Prekeys for devices that did not previously have any post-quantum prekeys stored will be silently dropped.
+            Each must be accompanied by a valid signature from the new identity key in this request.
         pniRegistrationIds:
           type: object
           additionalProperties:
@@ -3033,11 +3124,11 @@ components:
       properties:
         open:
           type: boolean
-        userAgent:
-          type: string
         createdTimestamp:
           type: integer
           format: int64
+        userAgent:
+          type: string
     WebSocketSessionContext:
       type: object
       properties:
@@ -3058,6 +3149,13 @@ components:
       properties:
         count:
           type: integer
+          description: the number of stored unsigned elliptic-curve prekeys for this
+            device
+          format: int32
+        pqCount:
+          type: integer
+          description: the number of stored one-time post-quantum prekeys for this
+            device
           format: int32
     PreKey:
       required:
@@ -3070,22 +3168,43 @@ components:
           format: int64
         publicKey:
           type: string
+      description: "A list of unsigned elliptic-curve prekeys to use for this device.\
+        \ If present and not empty, replaces all stored unsigned EC prekeys for the\
+        \ device; if absent or empty, any stored unsigned EC prekeys for the device\
+        \ are not deleted."
     PreKeyState:
       required:
       - identityKey
-      - preKeys
-      - signedPreKey
       type: object
       properties:
         preKeys:
           type: array
+          description: "A list of unsigned elliptic-curve prekeys to use for this\
+            \ device. If present and not empty, replaces all stored unsigned EC prekeys\
+            \ for the device; if absent or empty, any stored unsigned EC prekeys for\
+            \ the device are not deleted."
           items:
             $ref: '#/components/schemas/PreKey'
         signedPreKey:
           $ref: '#/components/schemas/SignedPreKey'
+        pqPreKeys:
+          type: array
+          description: "A list of signed post-quantum one-time prekeys to use for\
+            \ this device. Each key must have a valid signature from the identity\
+            \ key in this request. If present and not empty, replaces all stored unsigned\
+            \ PQ prekeys for the device; if absent or empty, any stored unsigned PQ\
+            \ prekeys for the device are not deleted."
+          items:
+            $ref: '#/components/schemas/SignedPreKey'
+        pqLastResortPreKey:
+          $ref: '#/components/schemas/SignedPreKey'
         identityKey:
           type: string
-        signatureValid:
+          description: "Required. The public identity key for this identity (account\
+            \ or phone-number identity). If this device is not the primary device\
+            \ for the account, must match the existing stored identity key for this\
+            \ identity."
+        signatureValidOnEachSignedKey:
           type: boolean
     SpamReport:
       type: object
@@ -3361,16 +3480,16 @@ components:
             type: string
         commitment:
           $ref: '#/components/schemas/ProfileKeyCommitment'
+        badges:
+          type: array
+          items:
+            type: string
         avatarChange:
           type: string
           enum:
           - UNCHANGED
           - CLEAR
           - UPDATE
-        badges:
-          type: array
-          items:
-            type: string
     ProfileKeyCommitment:
       type: object
       properties:
