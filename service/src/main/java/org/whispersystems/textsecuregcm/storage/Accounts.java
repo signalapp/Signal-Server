@@ -10,6 +10,7 @@ import static java.util.Objects.requireNonNull;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
+import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
 import java.io.IOException;
@@ -17,6 +18,7 @@ import java.nio.ByteBuffer;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +32,8 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
@@ -73,6 +77,9 @@ public class Accounts extends AbstractDynamoDbStore {
   private static final Timer GET_ALL_FROM_START_TIMER = Metrics.timer(name(Accounts.class, "getAllFrom"));
   private static final Timer GET_ALL_FROM_OFFSET_TIMER = Metrics.timer(name(Accounts.class, "getAllFromOffset"));
   private static final Timer DELETE_TIMER = Metrics.timer(name(Accounts.class, "delete"));
+
+  private static final Counter INVALID_ACI_IDENTITY_KEY_COUNTER = Metrics.counter(name(Accounts.class, "invalidIdentityKey"), "identity", "aci");
+  private static final Counter INVALID_PNI_IDENTITY_KEY_COUNTER = Metrics.counter(name(Accounts.class, "invalidIdentityKey"), "identity", "pni");
 
   private static final String CONDITIONAL_CHECK_FAILED = "ConditionalCheckFailed";
 
@@ -859,10 +866,23 @@ public class Accounts extends AbstractDynamoDbStore {
           .map(AttributeValue::bool)
           .orElse(false));
 
+      checkIdentityKey(account.getIdentityKey(), INVALID_ACI_IDENTITY_KEY_COUNTER);
+      checkIdentityKey(account.getPhoneNumberIdentityKey(), INVALID_PNI_IDENTITY_KEY_COUNTER);
+
       return account;
 
     } catch (final IOException e) {
       throw new RuntimeException("Could not read stored account data", e);
+    }
+  }
+
+  private static void checkIdentityKey(final String identityKey, final Counter invalidIdentityKeyCounter) {
+    if (StringUtils.isNotBlank(identityKey)) {
+      try {
+        Base64.getDecoder().decode(identityKey);
+      } catch (final IllegalArgumentException e) {
+        invalidIdentityKeyCounter.increment();
+      }
     }
   }
 
