@@ -24,6 +24,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.whispersystems.textsecuregcm.util.MockUtils.randomSecretBytes;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HttpHeaders;
@@ -72,7 +73,6 @@ import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.usernames.BaseUsernameException;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
-import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
@@ -99,7 +99,6 @@ import org.whispersystems.textsecuregcm.entities.RegistrationLock;
 import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
 import org.whispersystems.textsecuregcm.entities.ReserveUsernameHashRequest;
 import org.whispersystems.textsecuregcm.entities.ReserveUsernameHashResponse;
-import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.entities.UsernameHashResponse;
 import org.whispersystems.textsecuregcm.limits.RateLimitByIpFilter;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
@@ -203,13 +202,13 @@ class AccountControllerTest {
 
   private static final SecureBackupServiceConfiguration SVR1_CFG = MockUtils.buildMock(
       SecureBackupServiceConfiguration.class,
-      cfg -> when(cfg.getUserAuthenticationTokenSharedSecret()).thenReturn(new byte[32]));
+      cfg -> when(cfg.userAuthenticationTokenSharedSecret()).thenReturn(randomSecretBytes(32)));
 
   private static final SecureValueRecovery2Configuration SVR2_CFG = MockUtils.buildMock(
       SecureValueRecovery2Configuration.class,
       cfg -> {
-        when(cfg.userAuthenticationTokenSharedSecret()).thenReturn(new byte[32]);
-        when(cfg.userIdTokenSharedSecret()).thenReturn(new byte[32]);
+        when(cfg.userAuthenticationTokenSharedSecret()).thenReturn(randomSecretBytes(32));
+        when(cfg.userIdTokenSharedSecret()).thenReturn(randomSecretBytes(32));
       });
 
   private static final ExternalServiceCredentialsGenerator svr1CredentialsGenerator = SecureBackupController.credentialsGenerator(

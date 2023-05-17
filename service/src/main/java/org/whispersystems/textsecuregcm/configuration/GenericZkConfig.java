@@ -1,15 +1,12 @@
+/*
+ * Copyright 2023 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 package org.whispersystems.textsecuregcm.configuration;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
 import javax.validation.constraints.NotNull;
+import org.whispersystems.textsecuregcm.configuration.secrets.SecretBytes;
 
-public record GenericZkConfig (
-  @JsonProperty
-  @JsonSerialize(using = ByteArrayAdapter.Serializing.class)
-  @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
-  @NotNull
-  byte[] serverSecret
-) {}
+public record GenericZkConfig(@NotNull SecretBytes serverSecret) {
+}

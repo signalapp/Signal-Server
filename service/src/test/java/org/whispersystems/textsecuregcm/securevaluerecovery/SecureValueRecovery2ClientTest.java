@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.whispersystems.textsecuregcm.util.MockUtils.randomSecretBytes;
 
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import java.security.cert.CertificateException;
@@ -53,7 +54,8 @@ class SecureValueRecovery2ClientTest {
 
     final SecureValueRecovery2Configuration config = new SecureValueRecovery2Configuration(true,
         "http://localhost:" + wireMock.getPort(),
-        new byte[0], new byte[0],
+        randomSecretBytes(32),
+        randomSecretBytes(32),
         // This is a randomly-generated, throwaway certificate that's not actually connected to anything
         List.of("""
             -----BEGIN CERTIFICATE-----

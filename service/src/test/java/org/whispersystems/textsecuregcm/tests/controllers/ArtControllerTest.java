@@ -8,15 +8,16 @@ package org.whispersystems.textsecuregcm.tests.controllers;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.whispersystems.textsecuregcm.util.MockUtils.randomSecretBytes;
 
 import com.google.common.collect.ImmutableSet;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
+import java.time.Duration;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mockito;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
@@ -26,18 +27,12 @@ import org.whispersystems.textsecuregcm.controllers.ArtController;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
-import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class ArtControllerTest {
-
-  private static final ArtServiceConfiguration ART_SERVICE_CONFIGURATION = MockUtils.buildMock(
-      ArtServiceConfiguration.class,
-      cfg -> {
-        Mockito.when(cfg.getUserAuthenticationTokenSharedSecret()).thenReturn(new byte[32]);
-        Mockito.when(cfg.getUserAuthenticationTokenUserIdSecret()).thenReturn(new byte[32]);
-      });
+  private static final ArtServiceConfiguration ART_SERVICE_CONFIGURATION = new ArtServiceConfiguration(
+      randomSecretBytes(32), randomSecretBytes(32), Duration.ofDays(1));
   private static final ExternalServiceCredentialsGenerator artCredentialsGenerator = ArtController.credentialsGenerator(ART_SERVICE_CONFIGURATION);
   private static final RateLimiter  rateLimiter  = mock(RateLimiter.class);
   private static final RateLimiters rateLimiters = mock(RateLimiters.class);

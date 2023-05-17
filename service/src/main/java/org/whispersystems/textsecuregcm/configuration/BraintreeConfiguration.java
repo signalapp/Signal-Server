@@ -11,6 +11,7 @@ import javax.validation.Valid;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
+import org.whispersystems.textsecuregcm.configuration.secrets.SecretString;
 
 /**
  * @param merchantId          the Braintree merchant ID
@@ -24,7 +25,7 @@ import javax.validation.constraints.NotNull;
  */
 public record BraintreeConfiguration(@NotBlank String merchantId,
                                      @NotBlank String publicKey,
-                                     @NotBlank String privateKey,
+                                     @NotNull SecretString privateKey,
                                      @NotBlank String environment,
                                      @NotEmpty Set<@NotBlank String> supportedCurrencies,
                                      @NotBlank String graphqlUrl,

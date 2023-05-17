@@ -27,15 +27,15 @@ public class ArtController {
 
   public static ExternalServiceCredentialsGenerator credentialsGenerator(final ArtServiceConfiguration cfg) {
     return ExternalServiceCredentialsGenerator
-        .builder(cfg.getUserAuthenticationTokenSharedSecret())
-        .withUserDerivationKey(cfg.getUserAuthenticationTokenUserIdSecret())
+        .builder(cfg.userAuthenticationTokenSharedSecret())
+        .withUserDerivationKey(cfg.userAuthenticationTokenUserIdSecret())
         .prependUsername(false)
         .truncateSignature(false)
         .build();
   }
 
-  public ArtController(RateLimiters rateLimiters,
-      ExternalServiceCredentialsGenerator artServiceCredentialsGenerator) {
+  public ArtController(final RateLimiters rateLimiters,
+                       final ExternalServiceCredentialsGenerator artServiceCredentialsGenerator) {
     this.artServiceCredentialsGenerator = artServiceCredentialsGenerator;
     this.rateLimiters = rateLimiters;
   }
@@ -44,7 +44,7 @@ public class ArtController {
   @GET
   @Path("/auth")
   @Produces(MediaType.APPLICATION_JSON)
-  public ExternalServiceCredentials getAuth(@Auth AuthenticatedAccount auth)
+  public ExternalServiceCredentials getAuth(final @Auth AuthenticatedAccount auth)
     throws RateLimitExceededException {
     final UUID uuid = auth.getAccount().getUuid();
     rateLimiters.getArtPackLimiter().validate(uuid);

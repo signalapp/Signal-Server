@@ -1,4 +1,9 @@
 /*
+ * Copyright 2023 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
+/*
  * This is derived from Coursera's dropwizard datadog reporter.
  * https://github.com/coursera/metrics-datadog
  */
@@ -10,6 +15,7 @@ import com.codahale.metrics.ScheduledReporter;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import io.dropwizard.metrics.BaseReporterFactory;
+import io.dropwizard.util.Duration;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
@@ -20,8 +26,9 @@ import org.coursera.metrics.datadog.DatadogReporter.Expansion;
 import org.coursera.metrics.datadog.DefaultMetricNameFormatterFactory;
 import org.coursera.metrics.datadog.DynamicTagsCallbackFactory;
 import org.coursera.metrics.datadog.MetricNameFormatterFactory;
-import org.coursera.metrics.datadog.transport.AbstractTransportFactory;
+import org.coursera.metrics.datadog.transport.HttpTransport;
 import org.whispersystems.textsecuregcm.WhisperServerVersion;
+import org.whispersystems.textsecuregcm.configuration.secrets.SecretString;
 import org.whispersystems.textsecuregcm.util.HostnameUtil;
 
 @JsonTypeName("signal-datadog")
@@ -44,8 +51,8 @@ public class SignalDatadogReporterFactory extends BaseReporterFactory {
 
   @Valid
   @NotNull
-  @JsonProperty
-  private AbstractTransportFactory transport = null;
+  @JsonProperty("transport")
+  private HttpTransportConfig httpTransportConfig;
 
   private static final EnumSet<Expansion> EXPANSIONS = EnumSet.of(
       Expansion.COUNT,
@@ -59,7 +66,7 @@ public class SignalDatadogReporterFactory extends BaseReporterFactory {
       Expansion.P999
   );
 
-  public ScheduledReporter build(MetricRegistry registry) {
+  public ScheduledReporter build(final MetricRegistry registry) {
     final List<String> tagsWithVersion;
 
     {
@@ -74,7 +81,7 @@ public class SignalDatadogReporterFactory extends BaseReporterFactory {
     }
 
     return DatadogReporter.forRegistry(registry)
-        .withTransport(transport.build())
+        .withTransport(httpTransportConfig.httpTransport())
         .withHost(HostnameUtil.getLocalHostname())
         .withTags(tagsWithVersion)
         .withPrefix(prefix)
@@ -85,5 +92,27 @@ public class SignalDatadogReporterFactory extends BaseReporterFactory {
         .convertDurationsTo(getDurationUnit())
         .convertRatesTo(getRateUnit())
         .build();
+  }
+
+  public static class HttpTransportConfig {
+
+    @JsonProperty
+    @NotNull
+    private SecretString apiKey;
+
+    @JsonProperty
+    private Duration connectTimeout = Duration.seconds(5);
+
+    @JsonProperty
+    private Duration socketTimeout = Duration.seconds(5);
+
+
+    public HttpTransport httpTransport() {
+      return new HttpTransport.Builder()
+          .withApiKey(apiKey.value())
+          .withConnectTimeout((int) connectTimeout.toMilliseconds())
+          .withSocketTimeout((int) socketTimeout.toMilliseconds())
+          .build();
+    }
   }
 }

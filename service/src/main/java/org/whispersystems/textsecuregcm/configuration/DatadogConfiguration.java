@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2021 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -7,16 +7,17 @@ package org.whispersystems.textsecuregcm.configuration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.micrometer.datadog.DatadogConfig;
+import java.time.Duration;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
-import java.time.Duration;
+import org.whispersystems.textsecuregcm.configuration.secrets.SecretString;
 
 public class DatadogConfiguration implements DatadogConfig {
 
   @JsonProperty
-  @NotBlank
-  private String apiKey;
+  @NotNull
+  private SecretString apiKey;
 
   @JsonProperty
   @NotNull
@@ -32,7 +33,7 @@ public class DatadogConfiguration implements DatadogConfig {
 
   @Override
   public String apiKey() {
-    return apiKey;
+    return apiKey.value();
   }
 
   @Override

@@ -1,8 +1,10 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.push;
+
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import com.eatthepath.pushy.apns.ApnsClient;
 import com.eatthepath.pushy.apns.ApnsClientBuilder;
@@ -13,6 +15,8 @@ import com.eatthepath.pushy.apns.util.SimpleApnsPayloadBuilder;
 import com.eatthepath.pushy.apns.util.SimpleApnsPushNotification;
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.lifecycle.Managed;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Timer;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.security.InvalidKeyException;
@@ -21,11 +25,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Timer;
 import org.whispersystems.textsecuregcm.configuration.ApnConfiguration;
-
-import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 public class APNSender implements Managed, PushNotificationSender {
 
@@ -61,12 +61,12 @@ public class APNSender implements Managed, PushNotificationSender {
       throws IOException, NoSuchAlgorithmException, InvalidKeyException
   {
     this.executor = executor;
-    this.bundleId = configuration.getBundleId();
+    this.bundleId = configuration.bundleId();
     this.apnsClient = new ApnsClientBuilder().setSigningKey(
-            ApnsSigningKey.loadFromInputStream(new ByteArrayInputStream(configuration.getSigningKey().getBytes()),
-                configuration.getTeamId(), configuration.getKeyId()))
+            ApnsSigningKey.loadFromInputStream(new ByteArrayInputStream(configuration.signingKey().value().getBytes()),
+                configuration.teamId(), configuration.keyId()))
         .setTrustedServerCertificateChain(getClass().getResourceAsStream(APNS_CA_FILENAME))
-        .setApnsServer(configuration.isSandboxEnabled() ? ApnsClientBuilder.DEVELOPMENT_APNS_HOST : ApnsClientBuilder.PRODUCTION_APNS_HOST)
+        .setApnsServer(configuration.sandbox() ? ApnsClientBuilder.DEVELOPMENT_APNS_HOST : ApnsClientBuilder.PRODUCTION_APNS_HOST)
         .build();
   }
 

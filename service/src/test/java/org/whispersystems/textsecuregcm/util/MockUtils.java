@@ -12,7 +12,9 @@ import static org.mockito.Mockito.doThrow;
 
 import java.time.Duration;
 import java.util.Optional;
+import org.apache.commons.lang3.RandomUtils;
 import org.mockito.Mockito;
+import org.whispersystems.textsecuregcm.configuration.secrets.SecretBytes;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -69,5 +71,17 @@ public final class MockUtils {
     } catch (final RateLimitExceededException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  public static SecretBytes randomSecretBytes(final int size) {
+    return new SecretBytes(RandomUtils.nextBytes(size));
+  }
+
+  public static SecretBytes secretBytesOf(final int... byteVals) {
+    final byte[] bytes = new byte[byteVals.length];
+    for (int i = 0; i < byteVals.length; i++) {
+      bytes[i] = (byte) byteVals[i];
+    }
+    return new SecretBytes(bytes);
   }
 }

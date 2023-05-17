@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -7,18 +7,18 @@ package org.whispersystems.textsecuregcm.configuration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
-import java.util.HexFormat;
 import java.util.List;
 import javax.validation.Valid;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
+import org.whispersystems.textsecuregcm.configuration.secrets.SecretBytes;
 
 public class SecureBackupServiceConfiguration {
 
-  @NotEmpty
+  @NotNull
   @JsonProperty
-  private String userAuthenticationTokenSharedSecret;
+  private SecretBytes userAuthenticationTokenSharedSecret;
 
   @NotBlank
   @JsonProperty
@@ -38,8 +38,8 @@ public class SecureBackupServiceConfiguration {
   @JsonProperty
   private RetryConfiguration retry = new RetryConfiguration();
 
-  public byte[] getUserAuthenticationTokenSharedSecret() {
-    return HexFormat.of().parseHex(userAuthenticationTokenSharedSecret);
+  public SecretBytes userAuthenticationTokenSharedSecret() {
+    return userAuthenticationTokenSharedSecret;
   }
 
   @VisibleForTesting

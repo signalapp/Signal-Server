@@ -29,7 +29,7 @@ public class PaymentsController {
 
   public static ExternalServiceCredentialsGenerator credentialsGenerator(final PaymentsServiceConfiguration cfg) {
     return ExternalServiceCredentialsGenerator
-        .builder(cfg.getUserAuthenticationTokenSharedSecret())
+        .builder(cfg.userAuthenticationTokenSharedSecret())
         .prependUsername(true)
         .build();
   }

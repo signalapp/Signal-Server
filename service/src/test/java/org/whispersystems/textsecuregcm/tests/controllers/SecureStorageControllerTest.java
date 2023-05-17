@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.tests.controllers;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.mockito.Mockito.when;
+import static org.whispersystems.textsecuregcm.util.MockUtils.randomSecretBytes;
 
 import com.google.common.collect.ImmutableSet;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
@@ -31,7 +32,7 @@ class SecureStorageControllerTest {
 
   private static final SecureStorageServiceConfiguration STORAGE_CFG = MockUtils.buildMock(
       SecureStorageServiceConfiguration.class,
-      cfg -> when(cfg.decodeUserAuthenticationTokenSharedSecret()).thenReturn(new byte[32]));
+      cfg -> when(cfg.userAuthenticationTokenSharedSecret()).thenReturn(randomSecretBytes(32)));
 
   private static final ExternalServiceCredentialsGenerator STORAGE_CREDENTIAL_GENERATOR = SecureStorageController
       .credentialsGenerator(STORAGE_CFG);

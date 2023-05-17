@@ -22,17 +22,27 @@ import io.dropwizard.logging.filter.LevelFilterFactory;
 import io.dropwizard.logging.layout.LayoutFactory;
 import java.time.Duration;
 import javax.validation.constraints.NotEmpty;
+import javax.validation.constraints.NotNull;
 import net.logstash.logback.appender.LogstashTcpSocketAppender;
 import net.logstash.logback.encoder.LogstashEncoder;
 import org.whispersystems.textsecuregcm.WhisperServerVersion;
+import org.whispersystems.textsecuregcm.configuration.secrets.SecretString;
 import org.whispersystems.textsecuregcm.util.HostnameUtil;
 
 @JsonTypeName("logstashtcpsocket")
 public class LogstashTcpSocketAppenderFactory extends AbstractAppenderFactory<ILoggingEvent> {
 
+  @JsonProperty
   private String destination;
+
+  @JsonProperty
   private Duration keepAlive = Duration.ofSeconds(20);
-  private String apiKey;
+
+  @JsonProperty
+  @NotNull
+  private SecretString apiKey;
+
+  @JsonProperty
   private String environment;
 
   @JsonProperty
@@ -47,8 +57,7 @@ public class LogstashTcpSocketAppenderFactory extends AbstractAppenderFactory<IL
   }
 
   @JsonProperty
-  @NotEmpty
-  public String getApiKey() {
+  public SecretString getApiKey() {
     return apiKey;
   }
 
@@ -84,7 +93,7 @@ public class LogstashTcpSocketAppenderFactory extends AbstractAppenderFactory<IL
     encoder.setCustomFields(customFieldsNode.toString());
     final LayoutWrappingEncoder<ILoggingEvent> prefix = new LayoutWrappingEncoder<>();
     final PatternLayout layout = new PatternLayout();
-    layout.setPattern(String.format("%s ", apiKey));
+    layout.setPattern(String.format("%s ", apiKey.value()));
     prefix.setLayout(layout);
     encoder.setPrefix(prefix);
     appender.setEncoder(encoder);

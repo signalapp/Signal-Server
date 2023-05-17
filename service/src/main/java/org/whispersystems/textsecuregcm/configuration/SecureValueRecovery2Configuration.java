@@ -9,13 +9,14 @@ import javax.validation.Valid;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
+import org.whispersystems.textsecuregcm.configuration.secrets.SecretBytes;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
 
 public record SecureValueRecovery2Configuration(
     boolean enabled,
     @NotBlank String uri,
-    @ExactlySize({32}) byte[] userAuthenticationTokenSharedSecret,
-    @ExactlySize({32}) byte[] userIdTokenSharedSecret,
+    @ExactlySize(32) SecretBytes userAuthenticationTokenSharedSecret,
+    @ExactlySize(32) SecretBytes userIdTokenSharedSecret,
     @NotEmpty List<@NotBlank String> svrCaCertificates,
     @NotNull @Valid CircuitBreakerConfiguration circuitBreaker,
     @NotNull @Valid RetryConfiguration retry) {

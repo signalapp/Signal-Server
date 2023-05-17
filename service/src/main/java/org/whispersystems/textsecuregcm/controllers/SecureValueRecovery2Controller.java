@@ -10,6 +10,11 @@ import io.dropwizard.auth.Auth;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.time.Clock;
+import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import javax.ws.rs.Consumes;
@@ -31,14 +36,6 @@ import org.whispersystems.textsecuregcm.limits.RateLimitedByIp;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.util.UUIDUtil;
-import java.time.Clock;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 @Path("/v2/backup")
 @Tag(name = "Secure Value Recovery")
@@ -54,7 +51,7 @@ public class SecureValueRecovery2Controller {
   public static ExternalServiceCredentialsGenerator credentialsGenerator(final SecureValueRecovery2Configuration cfg, final Clock clock) {
     return ExternalServiceCredentialsGenerator
         .builder(cfg.userAuthenticationTokenSharedSecret())
-        .withUserDerivationKey(cfg.userIdTokenSharedSecret())
+        .withUserDerivationKey(cfg.userIdTokenSharedSecret().value())
         .prependUsername(false)
         .withDerivedUsernameTruncateLength(16)
         .withClock(clock)

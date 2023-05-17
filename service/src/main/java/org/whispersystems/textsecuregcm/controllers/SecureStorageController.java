@@ -25,7 +25,7 @@ public class SecureStorageController {
 
   public static ExternalServiceCredentialsGenerator credentialsGenerator(final SecureStorageServiceConfiguration cfg) {
     return ExternalServiceCredentialsGenerator
-        .builder(cfg.decodeUserAuthenticationTokenSharedSecret())
+        .builder(cfg.userAuthenticationTokenSharedSecret())
         .prependUsername(true)
         .build();
   }

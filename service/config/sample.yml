@@ -3,16 +3,53 @@
 # `unset` values will need to be set to work properly.
 # Most other values are technically valid for a local/demonstration environment, but are probably not production-ready.
 
+logging:
+  level: INFO
+  appenders:
+    - type: console
+      threshold: ALL
+      timeZone: UTC
+      target: stdout
+    - type: logstashtcpsocket
+      destination: example.com:10516
+      apiKey: secret://datadog.apiKey
+      environment: staging
+
+metrics:
+  reporters:
+    - type: signal-datadog
+      frequency: 10 seconds
+      tags:
+        - "env:staging"
+        - "service:chat"
+      transport:
+        apiKey: secret://datadog.apiKey
+      excludesAttributes:
+        - m1_rate
+        - m5_rate
+        - m15_rate
+        - mean_rate
+        - stddev
+      useRegexFilters: true
+      excludes:
+        - ^.+\.total$
+        - ^.+\.request\.filtering$
+        - ^.+\.response\.filtering$
+        - ^executor\..+$
+        - ^lettuce\..+$
+  reportOnStop: true
+
 adminEventLoggingConfiguration:
   credentials: |
-    Some credentials text
-    blah blah blah
+    {
+      "key": "value"
+    }
   projectId: some-project-id
   logName: some-log-name
 
 stripe:
-  apiKey: unset
-  idempotencyKeyGenerator: abcdefg12345678= # base64 for creating request idempotency hash
+  apiKey: secret://stripe.apiKey
+  idempotencyKeyGenerator: secret://stripe.idempotencyKeyGenerator
   boostDescription: >
     Example
   supportedCurrencies:
@@ -24,7 +61,7 @@ stripe:
 braintree:
   merchantId: unset
   publicKey: unset
-  privateKey: unset
+  privateKey: secret://braintree.privateKey
   environment: unset
   graphqlUrl: unset
   merchantAccounts:
@@ -104,14 +141,14 @@ rateLimitersCluster: # Redis server configuration for rate limiters cluster
 
 directoryV2:
   client: # Configuration for interfacing with Contact Discovery Service v2 cluster
-    userAuthenticationTokenSharedSecret: abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG= # base64-encoded secret shared with CDS to generate auth tokens for Signal users
-    userIdTokenSharedSecret: bbcdefghijklmnopqrstuvwxyz0123456789ABCDEFG= # base64-encoded secret shared with CDS to generate auth identity tokens for Signal users
+    userAuthenticationTokenSharedSecret: secret://directoryV2.client.userAuthenticationTokenSharedSecret
+    userIdTokenSharedSecret: secret://directoryV2.client.userIdTokenSharedSecret
 
 svr2:
   enabled: false
   uri: svr2.example.com
-  userAuthenticationTokenSharedSecret: abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG= # base64-encoded secret shared with SVR2 to generate auth tokens for Signal users
-  userIdTokenSharedSecret: bbcdefghijklmnopqrstuvwxyz0123456789ABCDEFG= # base64-encoded secret shared with SVR2 to generate auth identity tokens for Signal users
+  userAuthenticationTokenSharedSecret: secret://svr2.userAuthenticationTokenSharedSecret
+  userIdTokenSharedSecret: secret://svr2.userIdTokenSharedSecret
   svrCaCertificates:
     - |
       -----BEGIN CERTIFICATE-----
@@ -146,8 +183,8 @@ metricsCluster:
   configurationUri: redis://redis.example.com:6379/
 
 awsAttachments: # AWS S3 configuration
-  accessKey: test
-  accessSecret: test
+  accessKey: secret://awsAttachments.accessKey
+  accessSecret: secret://awsAttachments.accessSecret
   bucket: aws-attachments
   region: us-west-2
 
@@ -156,35 +193,7 @@ gcpAttachments: # GCP Storage configuration
   email: user@example.cocm
   maxSizeInBytes: 1024
   pathPrefix:
-  rsaSigningKey: |
-    -----BEGIN PRIVATE KEY-----
-    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-    AAAAAAAA
-    -----END PRIVATE KEY-----
+  rsaSigningKey: secret://gcpAttachments.rsaSigningKey
 
 accountDatabaseCrawler:
   chunkSize: 10           # accounts per run
@@ -194,31 +203,24 @@ apn: # Apple Push Notifications configuration
   bundleId: com.example.textsecuregcm
   keyId: unset
   teamId: unset
-  signingKey: |
-    -----BEGIN PRIVATE KEY-----
-    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-    AAAAAAAA
-    -----END PRIVATE KEY-----
+  signingKey: secret://apn.signingKey
 
 fcm: # FCM configuration
-  credentials: |
-    { "json": true }
+  credentials: secret://fcm.credentials
 
 cdn:
-  accessKey: test    # AWS Access Key ID
-  accessSecret: test # AWS Access Secret
+  accessKey: secret://cdn.accessKey
+  accessSecret: secret://cdn.accessSecret
   bucket: cdn        # S3 Bucket name
   region: us-west-2  # AWS region
 
 datadog:
-  apiKey: unset
+  apiKey: secret://datadog.apiKey
   environment: dev
 
 unidentifiedDelivery:
-  certificate: ABCD1234
-  privateKey: ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789AAAAAAA
+  certificate: secret://unidentifiedDelivery.certificate
+  privateKey: secret://unidentifiedDelivery.privateKey
   expiresDays: 7
 
 recaptcha:
@@ -226,11 +228,11 @@ recaptcha:
   credentialConfigurationJson: "{ }" # service account configuration for backend authentication
 
 hCaptcha:
-  apiKey: unset
+  apiKey: secret://hCaptcha.apiKey
 
 storageService:
   uri: storage.example.com
-  userAuthenticationTokenSharedSecret: 00000f
+  userAuthenticationTokenSharedSecret: secret://storageService.userAuthenticationTokenSharedSecret
   storageCaCertificates:
     - |
       -----BEGIN CERTIFICATE-----
@@ -257,7 +259,7 @@ storageService:
 
 backupService:
   uri: backup.example.com
-  userAuthenticationTokenSharedSecret: 00000f
+  userAuthenticationTokenSharedSecret: secret://backupService.userAuthenticationTokenSharedSecret
   backupCaCertificates:
     - |
       -----BEGIN CERTIFICATE-----
@@ -284,10 +286,10 @@ backupService:
 
 zkConfig:
   serverPublic: ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-  serverSecret: ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzAA==
+  serverSecret: secret://zkConfig.serverSecret
 
 genericZkConfig:
-  serverSecret: ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzAA==
+  serverSecret: secret://genericZkConfig.serverSecret
 
 appConfig:
   application: example
@@ -295,18 +297,14 @@ appConfig:
   configuration: example
 
 remoteConfig:
-  authorizedTokens:
-    - # 1st authorized token
-    - # 2nd authorized token
-    - # ...
-    - # Nth authorized token
+  authorizedTokens: secret://remoteConfig.authorizedTokens
   globalConfig: # keys and values that are given to clients on GET /v1/config
     EXAMPLE_KEY: VALUE
 
 paymentsService:
-  userAuthenticationTokenSharedSecret: 0000000f0000000f0000000f0000000f0000000f0000000f0000000f0000000f # hex-encoded 32-byte secret shared with MobileCoin services used to generate auth tokens for Signal users
-  fixerApiKey: unset
-  coinMarketCapApiKey: unset
+  userAuthenticationTokenSharedSecret: secret://paymentsService.userAuthenticationTokenSharedSecret
+  fixerApiKey: secret://paymentsService.fixerApiKey
+  coinMarketCapApiKey: secret://paymentsService.coinMarketCapApiKey
   coinMarketCapCurrencyIds:
     MOB: 7878
   paymentCurrencies:
@@ -314,8 +312,8 @@ paymentsService:
     - MOB
 
 artService:
-  userAuthenticationTokenSharedSecret: 0000000f0000000f0000000f0000000f0000000f0000000f0000000f0000000f # hex-encoded 32-byte secret not shared with any external service, but used in ArtController
-  userAuthenticationTokenUserIdSecret: 00000f # hex-encoded secret to obscure user phone numbers from Sticker Creator
+  userAuthenticationTokenSharedSecret: secret://artService.userAuthenticationTokenSharedSecret
+  userAuthenticationTokenUserIdSecret: secret://artService.userAuthenticationTokenUserIdSecret
 
 badges:
   badges:

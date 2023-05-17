@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.whispersystems.textsecuregcm.util.MockUtils.randomSecretBytes;
 
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import java.security.cert.CertificateException;
@@ -53,7 +54,7 @@ class SecureStorageClientTest {
         httpExecutor        = Executors.newSingleThreadExecutor();
 
         final SecureStorageServiceConfiguration config = new SecureStorageServiceConfiguration(
-            "not_used",
+            randomSecretBytes(32),
             "http://localhost:" + wireMock.getPort(),
             List.of("""  
                 -----BEGIN CERTIFICATE-----

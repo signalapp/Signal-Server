@@ -28,8 +28,8 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
-import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsSelector;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
+import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsSelector;
 import org.whispersystems.textsecuregcm.configuration.SecureBackupServiceConfiguration;
 import org.whispersystems.textsecuregcm.entities.AuthCheckRequest;
 import org.whispersystems.textsecuregcm.entities.AuthCheckResponse;
@@ -56,7 +56,7 @@ public class SecureBackupController {
       final SecureBackupServiceConfiguration cfg,
       final Clock clock) {
     return ExternalServiceCredentialsGenerator
-        .builder(cfg.getUserAuthenticationTokenSharedSecret())
+        .builder(cfg.userAuthenticationTokenSharedSecret())
         .prependUsername(true)
         .withClock(clock)
         .build();

@@ -7,10 +7,10 @@ package org.whispersystems.textsecuregcm.controllers;
 
 
 import static org.mockito.Mockito.mock;
+import static org.whispersystems.textsecuregcm.util.MockUtils.randomSecretBytes;
 
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
-import org.apache.commons.lang3.RandomUtils;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
@@ -26,8 +26,8 @@ public class SecureValueRecovery2ControllerTest extends SecureValueRecoveryContr
   private static final SecureValueRecovery2Configuration CFG = new SecureValueRecovery2Configuration(
       true,
       "",
-      RandomUtils.nextBytes(32),
-      RandomUtils.nextBytes(32),
+      randomSecretBytes(32),
+      randomSecretBytes(32),
       null,
       null,
       null

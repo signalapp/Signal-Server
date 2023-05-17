@@ -5,18 +5,18 @@
 
 package org.whispersystems.textsecuregcm.configuration;
 
-import java.util.HexFormat;
 import java.util.List;
 import javax.validation.Valid;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotEmpty;
+import javax.validation.constraints.NotNull;
+import org.whispersystems.textsecuregcm.configuration.secrets.SecretBytes;
 
-public record SecureStorageServiceConfiguration(@NotEmpty String userAuthenticationTokenSharedSecret,
+public record SecureStorageServiceConfiguration(@NotNull SecretBytes userAuthenticationTokenSharedSecret,
                                                 @NotBlank String uri,
                                                 @NotEmpty List<@NotBlank String> storageCaCertificates,
                                                 @Valid CircuitBreakerConfiguration circuitBreaker,
                                                 @Valid RetryConfiguration retry) {
-
   public SecureStorageServiceConfiguration {
     if (circuitBreaker == null) {
       circuitBreaker = new CircuitBreakerConfiguration();
@@ -24,9 +24,5 @@ public record SecureStorageServiceConfiguration(@NotEmpty String userAuthenticat
     if (retry == null) {
       retry = new RetryConfiguration();
     }
-  }
-
-  public byte[] decodeUserAuthenticationTokenSharedSecret() {
-    return HexFormat.of().parseHex(userAuthenticationTokenSharedSecret);
   }
 }

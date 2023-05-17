@@ -15,19 +15,27 @@ import java.util.Arrays;
  */
 public class CheckServiceConfigurations {
 
+  private static final String SECRETS_BUNDLE_FILENAME = "sample-secrets-bundle.yml";
+
   private void checkConfiguration(final File configDirectory) {
 
     final File[] configFiles = configDirectory.listFiles(f ->
         !f.isDirectory()
-            && f.getPath().endsWith(".yml"));
+            && f.getPath().endsWith(".yml")
+            && !f.getPath().endsWith(SECRETS_BUNDLE_FILENAME));
 
     if (configFiles == null || configFiles.length == 0) {
       throw new IllegalArgumentException("No .yml configuration files found at " + configDirectory.getPath());
     }
 
-    for (File configFile : configFiles) {
-      String[] args = new String[]{"check", configFile.getAbsolutePath()};
+    final File[] secretsBundle = configDirectory.listFiles(f -> !f.isDirectory() && f.getName().equals(SECRETS_BUNDLE_FILENAME));
+    if (secretsBundle == null || secretsBundle.length != 1) {
+      throw new IllegalArgumentException("No [%s] file found at %s".formatted(SECRETS_BUNDLE_FILENAME, configDirectory.getPath()));
+    }
+    System.setProperty(WhisperServerService.SECRETS_BUNDLE_FILE_NAME_PROPERTY, secretsBundle[0].getAbsolutePath());
 
+    for (final File configFile : configFiles) {
+      final String[] args = new String[]{"check", configFile.getAbsolutePath()};
       try {
         new WhisperServerService().run(args);
       } catch (final Exception e) {
@@ -38,8 +46,7 @@ public class CheckServiceConfigurations {
     }
   }
 
-  public static void main(String[] args) {
-
+  public static void main(final String[] args) {
     if (args.length != 1) {
       throw new IllegalArgumentException("Expected single argument with config directory: " + Arrays.toString(args));
     }
@@ -52,5 +59,4 @@ public class CheckServiceConfigurations {
 
     new CheckServiceConfigurations().checkConfiguration(configDirectory);
   }
-
 }

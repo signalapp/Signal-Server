@@ -10,6 +10,7 @@ import static org.whispersystems.textsecuregcm.util.HmacUtils.hmac256ToHexString
 import static org.whispersystems.textsecuregcm.util.HmacUtils.hmac256TruncatedToHexString;
 import static org.whispersystems.textsecuregcm.util.HmacUtils.hmacHexStringsEqual;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Optional;
@@ -17,6 +18,7 @@ import java.util.UUID;
 import java.util.function.Function;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
+import org.whispersystems.textsecuregcm.configuration.secrets.SecretBytes;
 
 public class ExternalServiceCredentialsGenerator {
 
@@ -40,6 +42,12 @@ public class ExternalServiceCredentialsGenerator {
 
   private final int derivedUsernameTruncateLength;
 
+
+  public static ExternalServiceCredentialsGenerator.Builder builder(final SecretBytes key) {
+    return builder(key.value());
+  }
+
+  @VisibleForTesting
   public static ExternalServiceCredentialsGenerator.Builder builder(final byte[] key) {
     return new Builder(key);
   }
@@ -238,6 +246,10 @@ public class ExternalServiceCredentialsGenerator {
 
     private Builder(final byte[] key) {
       this.key = requireNonNull(key);
+    }
+
+    public Builder withUserDerivationKey(final SecretBytes userDerivationKey) {
+      return withUserDerivationKey(userDerivationKey.value());
     }
 
     public Builder withUserDerivationKey(final byte[] userDerivationKey) {

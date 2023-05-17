@@ -5,10 +5,11 @@
 
 package org.whispersystems.textsecuregcm.configuration;
 
+import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotEmpty;
 
 public record AdminEventLoggingConfiguration(
-    @NotEmpty String credentials,
+    @NotBlank String credentials,
     @NotEmpty String projectId,
     @NotEmpty String logName) {
 }

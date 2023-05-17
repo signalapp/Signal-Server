@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -25,12 +25,12 @@ import javax.validation.Payload;
     ExactlySizeValidatorForString.class,
     ExactlySizeValidatorForArraysOfByte.class,
     ExactlySizeValidatorForCollection.class,
+    ExactlySizeValidatorForSecretBytes.class,
 })
 @Documented
 public @interface ExactlySize {
 
-  String message() default "{org.whispersystems.textsecuregcm.util.ExactlySize." +
-      "message}";
+  String message() default "{org.whispersystems.textsecuregcm.util.ExactlySize.message}";
 
   Class<?>[] groups() default { };
 

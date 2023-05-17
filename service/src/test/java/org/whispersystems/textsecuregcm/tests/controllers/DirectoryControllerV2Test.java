@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.tests.controllers;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.whispersystems.textsecuregcm.util.MockUtils.secretBytesOf;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -28,7 +29,7 @@ class DirectoryControllerV2Test {
   @Test
   void testAuthToken() {
     final ExternalServiceCredentialsGenerator credentialsGenerator = DirectoryV2Controller.credentialsGenerator(
-        new DirectoryV2ClientConfiguration(new byte[]{0x1}, new byte[]{0x2}),
+        new DirectoryV2ClientConfiguration(secretBytesOf(0x01), secretBytesOf(0x02)),
         Clock.fixed(Instant.ofEpochSecond(1633738643L), ZoneId.of("Etc/UTC"))
     );
 

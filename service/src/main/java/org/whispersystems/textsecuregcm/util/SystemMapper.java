@@ -13,6 +13,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import javax.annotation.Nonnull;
+import org.whispersystems.textsecuregcm.configuration.secrets.SecretsModule;
 
 public class SystemMapper {
 
@@ -37,6 +38,7 @@ public class SystemMapper {
         .setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY)
         .setVisibility(PropertyAccessor.CREATOR, JsonAutoDetect.Visibility.PUBLIC_ONLY)
         .registerModules(
+            SecretsModule.INSTANCE,
             new JavaTimeModule(),
             new Jdk8Module());
   }
