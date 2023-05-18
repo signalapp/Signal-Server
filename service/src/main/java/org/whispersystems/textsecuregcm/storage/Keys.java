@@ -374,13 +374,13 @@ public class Keys extends AbstractDynamoDbStore {
       return Map.of(
           KEY_ACCOUNT_UUID, getPartitionKey(accountUuid),
           KEY_DEVICE_ID_KEY_ID, getSortKey(deviceId, spk.getKeyId()),
-          KEY_PUBLIC_KEY, AttributeValues.fromString(spk.getPublicKey()),
-          KEY_SIGNATURE, AttributeValues.fromString(spk.getSignature()));
+          KEY_PUBLIC_KEY, AttributeValues.fromByteArray(Base64.getDecoder().decode(spk.getPublicKey())),
+          KEY_SIGNATURE, AttributeValues.fromByteArray(Base64.getDecoder().decode(spk.getSignature())));
     }
     return Map.of(
         KEY_ACCOUNT_UUID, getPartitionKey(accountUuid),
         KEY_DEVICE_ID_KEY_ID, getSortKey(deviceId, preKey.getKeyId()),
-        KEY_PUBLIC_KEY, AttributeValues.fromString(preKey.getPublicKey()));
+        KEY_PUBLIC_KEY, AttributeValues.fromByteArray(Base64.getDecoder().decode(preKey.getPublicKey())));
   }
 
   private PreKey getPreKeyFromItem(Map<String, AttributeValue> item) {
