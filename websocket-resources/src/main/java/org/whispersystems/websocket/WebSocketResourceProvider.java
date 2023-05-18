@@ -6,6 +6,7 @@ package org.whispersystems.websocket;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.UninitializedMessageException;
+import org.eclipse.jetty.websocket.api.MessageTooLargeException;
 import org.eclipse.jetty.websocket.api.RemoteEndpoint;
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.WebSocketListener;
@@ -95,7 +96,18 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
   @Override
   public void onWebSocketError(Throwable cause) {
     logger.debug("onWebSocketError", cause);
-    close(session, 1011, "Server error");
+
+    final int closeCode;
+    final String message;
+    if (cause instanceof MessageTooLargeException) {
+      closeCode = 1009;
+      message = "Frame too large";
+    } else {
+      closeCode = 1011;
+      message = "Server error";
+    }
+
+    close(session, closeCode, message);
   }
 
   @Override
