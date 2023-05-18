@@ -130,6 +130,7 @@ public class AccountsHelper {
           case "getEnabledDeviceCount" -> when(updatedAccount.getEnabledDeviceCount()).thenAnswer(stubbing);
           case "getRegistrationLock" -> when(updatedAccount.getRegistrationLock()).thenAnswer(stubbing);
           case "getIdentityKey" -> when(updatedAccount.getIdentityKey()).thenAnswer(stubbing);
+          case "getPhoneNumberIdentityKey" -> when(updatedAccount.getPhoneNumberIdentityKey()).thenAnswer(stubbing);
           case "getBadges" -> when(updatedAccount.getBadges()).thenAnswer(stubbing);
           case "getLastSeen" -> when(updatedAccount.getLastSeen()).thenAnswer(stubbing);
           case "hasLockedCredentials" -> when(updatedAccount.hasLockedCredentials()).thenAnswer(stubbing);
