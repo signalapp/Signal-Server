@@ -5,6 +5,9 @@
 
 package org.whispersystems.textsecuregcm.entities;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonUnwrapped;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.google.common.annotations.VisibleForTesting;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -59,58 +62,38 @@ public record RegistrationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT
                                   """)
                                   Optional<String> pniIdentityKey,
 
-                                  @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, description = """
-                                  A signed EC pre-key to be associated with this account's ACI. If provided, an account
-                                  will be created "atomically," and all other properties needed for atomic account
-                                  creation must also be present.
-                                  """)
-                                  Optional<@Valid SignedPreKey> aciSignedPreKey,
+                                  @JsonUnwrapped
+                                  @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+                                  DeviceActivationRequest deviceActivationRequest) implements PhoneVerificationRequest {
 
-                                  @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, description = """
-                                  A signed EC pre-key to be associated with this account's PNI. If provided, an account
-                                  will be created "atomically," and all other properties needed for atomic account
-                                  creation must also be present.
-                                  """)
-                                  Optional<@Valid SignedPreKey> pniSignedPreKey,
+  @JsonCreator
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+  public RegistrationRequest(@JsonProperty("sessionId") String sessionId,
+                             @JsonProperty("recoveryPassword") byte[] recoveryPassword,
+                             @JsonProperty("accountAttributes") AccountAttributes accountAttributes,
+                             @JsonProperty("skipDeviceTransfer") boolean skipDeviceTransfer,
+                             @JsonProperty("aciIdentityKey") Optional<String> aciIdentityKey,
+                             @JsonProperty("pniIdentityKey") Optional<String> pniIdentityKey,
+                             @JsonProperty("aciSignedPreKey") Optional<@Valid SignedPreKey> aciSignedPreKey,
+                             @JsonProperty("pniSignedPreKey") Optional<@Valid SignedPreKey> pniSignedPreKey,
+                             @JsonProperty("aciPqLastResortPreKey") Optional<@Valid SignedPreKey> aciPqLastResortPreKey,
+                             @JsonProperty("pniPqLastResortPreKey") Optional<@Valid SignedPreKey> pniPqLastResortPreKey,
+                             @JsonProperty("apnToken") Optional<@Valid ApnRegistrationId> apnToken,
+                             @JsonProperty("gcmToken") Optional<@Valid GcmRegistrationId> gcmToken) {
 
-                                  @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, description = """
-                                  A signed Kyber-1024 "last resort" pre-key to be associated with this account's ACI. If
-                                  provided, an account will be created "atomically," and all other properties needed for
-                                  atomic account creation must also be present.
-                                  """)
-                                  Optional<@Valid SignedPreKey> aciPqLastResortPreKey,
-
-                                  @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, description = """
-                                  A signed Kyber-1024 "last resort" pre-key to be associated with this account's PNI. If
-                                  provided, an account will be created "atomically," and all other properties needed for
-                                  atomic account creation must also be present.
-                                  """)
-                                  Optional<@Valid SignedPreKey> pniPqLastResortPreKey,
-
-                                  @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, description = """
-                                  An APNs token set for the account's primary device. If provided, the account's primary
-                                  device will be notified of new messages via push notifications to the given token. If
-                                  creating an account "atomically," callers must provide exactly one of an APNs token
-                                  set, an FCM token, or an `AccountAttributes` entity with `fetchesMessages` set to
-                                  `true`.
-                                  """)
-                                  Optional<@Valid ApnRegistrationId> apnToken,
-
-                                  @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, description = """
-                                  An FCM/GCM token for the account's primary device. If provided, the account's primary
-                                  device will be notified of new messages via push notifications to the given token. If
-                                  creating an account "atomically," callers must provide exactly one of an APNs token
-                                  set, an FCM token, or an `AccountAttributes` entity with `fetchesMessages` set to
-                                  `true`.
-                                  """)
-                                  Optional<@Valid GcmRegistrationId> gcmToken) implements PhoneVerificationRequest {
+    // This may seem a little verbose, but at the time of writing, Jackson struggles with `@JsonUnwrapped` members in
+    // records, and this is a workaround. Please see
+    // https://github.com/FasterXML/jackson-databind/issues/3726#issuecomment-1525396869 for additional context.
+    this(sessionId, recoveryPassword, accountAttributes, skipDeviceTransfer, aciIdentityKey, pniIdentityKey,
+        new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, apnToken, gcmToken));
+  }
 
   @AssertTrue
   public boolean isEverySignedKeyValid() {
-    return validatePreKeySignature(aciIdentityKey(), aciSignedPreKey())
-        && validatePreKeySignature(pniIdentityKey(), pniSignedPreKey())
-        && validatePreKeySignature(aciIdentityKey(), aciPqLastResortPreKey())
-        && validatePreKeySignature(pniIdentityKey(), pniPqLastResortPreKey());
+    return validatePreKeySignature(aciIdentityKey(), deviceActivationRequest().aciSignedPreKey())
+        && validatePreKeySignature(pniIdentityKey(), deviceActivationRequest().pniSignedPreKey())
+        && validatePreKeySignature(aciIdentityKey(), deviceActivationRequest().aciPqLastResortPreKey())
+        && validatePreKeySignature(pniIdentityKey(), deviceActivationRequest().pniPqLastResortPreKey());
   }
 
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
@@ -128,10 +111,10 @@ public record RegistrationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT
     final boolean hasNoAtomicAccountCreationParameters =
         aciIdentityKey().isEmpty()
             && pniIdentityKey().isEmpty()
-            && aciSignedPreKey().isEmpty()
-            && pniSignedPreKey().isEmpty()
-            && aciPqLastResortPreKey().isEmpty()
-            && pniPqLastResortPreKey().isEmpty();
+            && deviceActivationRequest().aciSignedPreKey().isEmpty()
+            && deviceActivationRequest().pniSignedPreKey().isEmpty()
+            && deviceActivationRequest().aciPqLastResortPreKey().isEmpty()
+            && deviceActivationRequest().pniPqLastResortPreKey().isEmpty();
 
     return supportsAtomicAccountCreation() || hasNoAtomicAccountCreationParameters;
   }
@@ -140,18 +123,18 @@ public record RegistrationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT
     return hasExactlyOneMessageDeliveryChannel()
         && aciIdentityKey().isPresent()
         && pniIdentityKey().isPresent()
-        && aciSignedPreKey().isPresent()
-        && pniSignedPreKey().isPresent()
-        && aciPqLastResortPreKey().isPresent()
-        && pniPqLastResortPreKey().isPresent();
+        && deviceActivationRequest().aciSignedPreKey().isPresent()
+        && deviceActivationRequest().pniSignedPreKey().isPresent()
+        && deviceActivationRequest().aciPqLastResortPreKey().isPresent()
+        && deviceActivationRequest().pniPqLastResortPreKey().isPresent();
   }
 
   @VisibleForTesting
   boolean hasExactlyOneMessageDeliveryChannel() {
     if (accountAttributes.getFetchesMessages()) {
-      return apnToken.isEmpty() && gcmToken.isEmpty();
+      return deviceActivationRequest().apnToken().isEmpty() && deviceActivationRequest().gcmToken().isEmpty();
     } else {
-      return apnToken.isPresent() ^ gcmToken.isPresent();
+      return deviceActivationRequest().apnToken().isPresent() ^ deviceActivationRequest().gcmToken().isPresent();
     }
   }
 }

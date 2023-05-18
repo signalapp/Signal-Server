@@ -21,7 +21,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import javax.validation.Valid;
@@ -95,7 +94,7 @@ public class RegistrationController {
   @Produces(MediaType.APPLICATION_JSON)
   @Operation(summary = "Registers an account",
   description = """
-      Registers a new account or attempts to “re-register” an existing account. It is expected that a well-behaved client 
+      Registers a new account or attempts to “re-register” an existing account. It is expected that a well-behaved client
       could make up to three consecutive calls to this API:
       1. gets 423 from existing registration lock \n
       2. gets 409 from device available for transfer \n
@@ -150,10 +149,10 @@ public class RegistrationController {
     if (registrationRequest.supportsAtomicAccountCreation()) {
       assert registrationRequest.aciIdentityKey().isPresent();
       assert registrationRequest.pniIdentityKey().isPresent();
-      assert registrationRequest.aciSignedPreKey().isPresent();
-      assert registrationRequest.pniSignedPreKey().isPresent();
-      assert registrationRequest.aciPqLastResortPreKey().isPresent();
-      assert registrationRequest.pniPqLastResortPreKey().isPresent();
+      assert registrationRequest.deviceActivationRequest().aciSignedPreKey().isPresent();
+      assert registrationRequest.deviceActivationRequest().pniSignedPreKey().isPresent();
+      assert registrationRequest.deviceActivationRequest().aciPqLastResortPreKey().isPresent();
+      assert registrationRequest.deviceActivationRequest().pniPqLastResortPreKey().isPresent();
 
       account = accounts.update(account, a -> {
         a.setIdentityKey(registrationRequest.aciIdentityKey().get());
@@ -161,19 +160,19 @@ public class RegistrationController {
 
         final Device device = a.getMasterDevice().orElseThrow();
 
-        device.setSignedPreKey(registrationRequest.aciSignedPreKey().get());
-        device.setPhoneNumberIdentitySignedPreKey(registrationRequest.pniSignedPreKey().get());
+        device.setSignedPreKey(registrationRequest.deviceActivationRequest().aciSignedPreKey().get());
+        device.setPhoneNumberIdentitySignedPreKey(registrationRequest.deviceActivationRequest().pniSignedPreKey().get());
 
-        registrationRequest.apnToken().ifPresent(apnRegistrationId -> {
+        registrationRequest.deviceActivationRequest().apnToken().ifPresent(apnRegistrationId -> {
           device.setApnId(apnRegistrationId.apnRegistrationId());
           device.setVoipApnId(apnRegistrationId.voipRegistrationId());
         });
 
-        registrationRequest.gcmToken().ifPresent(gcmRegistrationId ->
+        registrationRequest.deviceActivationRequest().gcmToken().ifPresent(gcmRegistrationId ->
             device.setGcmId(gcmRegistrationId.gcmRegistrationId()));
 
-        keys.storePqLastResort(a.getUuid(), Map.of(Device.MASTER_ID, registrationRequest.aciPqLastResortPreKey().get()));
-        keys.storePqLastResort(a.getPhoneNumberIdentifier(), Map.of(Device.MASTER_ID, registrationRequest.pniPqLastResortPreKey().get()));
+        keys.storePqLastResort(a.getUuid(), Map.of(Device.MASTER_ID, registrationRequest.deviceActivationRequest().aciPqLastResortPreKey().get()));
+        keys.storePqLastResort(a.getPhoneNumberIdentifier(), Map.of(Device.MASTER_ID, registrationRequest.deviceActivationRequest().pniPqLastResortPreKey().get()));
       });
     }
 
