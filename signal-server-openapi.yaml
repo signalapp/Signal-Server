@@ -2522,6 +2522,10 @@ components:
           type: string
         signature:
           type: string
+      description: |
+        A signed Kyber-1024 "last resort" pre-key to be associated with this account's PNI. If
+        provided, an account will be created "atomically," and all other properties needed for
+        atomic account creation must also be present.
     UsernameHashResponse:
       type: object
       properties:
@@ -2660,6 +2664,12 @@ components:
           type: string
         voipRegistrationId:
           type: string
+      description: |
+        An APNs token set for the account's primary device. If provided, the account's primary
+        device will be notified of new messages via push notifications to the given token. If
+        creating an account "atomically," callers must provide exactly one of an APNs token
+        set, an FCM token, or an `AccountAttributes` entity with `fetchesMessages` set to
+        `true`.
     GcmRegistrationId:
       required:
       - gcmRegistrationId
@@ -2667,6 +2677,12 @@ components:
       properties:
         gcmRegistrationId:
           type: string
+      description: |
+        An FCM/GCM token for the account's primary device. If provided, the account's primary
+        device will be notified of new messages via push notifications to the given token. If
+        creating an account "atomically," callers must provide exactly one of an APNs token
+        set, an FCM token, or an `AccountAttributes` entity with `fetchesMessages` set to
+        `true`.
     DeviceName:
       required:
       - deviceName
@@ -3508,18 +3524,64 @@ components:
     RegistrationRequest:
       required:
       - accountAttributes
+      - skipDeviceTransfer
       type: object
       properties:
         sessionId:
           type: string
+          description: |
+            The ID of an existing verification session as it appears in a verification session
+            metadata object. Must be provided if `recoveryPassword` is not provided; must not be
+            provided if `recoveryPassword` is provided.
         recoveryPassword:
           type: array
+          description: |
+            A base64-encoded registration recovery password. Must be provided if `sessionId` is
+            not provided; must not be provided if `sessionId` is provided
           items:
             type: string
+            description: |
+              A base64-encoded registration recovery password. Must be provided if `sessionId` is
+              not provided; must not be provided if `sessionId` is provided
             format: byte
         accountAttributes:
           $ref: '#/components/schemas/AccountAttributes'
         skipDeviceTransfer:
+          type: boolean
+          description: |
+            If true, indicates that the end user has elected not to transfer data from another
+            device even though a device transfer is technically possible given the capabilities of
+            the calling device and the device associated with the existing account (if any). If
+            false and if a device transfer is technically possible, the registration request will
+            fail with an HTTP/409 response indicating that the client should prompt the user to
+            transfer data from an existing device.
+        aciIdentityKey:
+          type: string
+          description: |
+            The ACI-associated identity key for the account, encoded as a base64 string. If
+            provided, an account will be created "atomically," and all other properties needed for
+            atomic account creation must also be present.
+        pniIdentityKey:
+          type: string
+          description: |
+            The PNI-associated identity key for the account, encoded as a base64 string. If
+            provided, an account will be created "atomically," and all other properties needed for
+            atomic account creation must also be present.
+        aciSignedPreKey:
+          $ref: '#/components/schemas/SignedPreKey'
+        pniSignedPreKey:
+          $ref: '#/components/schemas/SignedPreKey'
+        aciPqLastResortPreKey:
+          $ref: '#/components/schemas/SignedPreKey'
+        pniPqLastResortPreKey:
+          $ref: '#/components/schemas/SignedPreKey'
+        apnToken:
+          $ref: '#/components/schemas/ApnRegistrationId'
+        gcmToken:
+          $ref: '#/components/schemas/GcmRegistrationId'
+        everySignedKeyValid:
+          type: boolean
+        completeRequest:
           type: boolean
         valid:
           type: boolean
