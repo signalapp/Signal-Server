@@ -49,6 +49,8 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.stubbing.Answer;
+import org.signal.libsignal.protocol.ecc.Curve;
+import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
@@ -61,6 +63,7 @@ import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
+import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
 
 class AccountsManagerTest {
@@ -506,7 +509,7 @@ class AccountsManagerTest {
 
     Device enabledDevice = new Device();
     enabledDevice.setFetchesMessages(true);
-    enabledDevice.setSignedPreKey(new SignedPreKey(1L, "key", "signature"));
+    enabledDevice.setSignedPreKey(KeysHelper.signedECPreKey(1, Curve.generateKeyPair()));
     enabledDevice.setLastSeen(System.currentTimeMillis());
     final long deviceId = account.getNextDeviceId();
     enabledDevice.setId(deviceId);
@@ -720,12 +723,13 @@ class AccountsManagerTest {
     final UUID uuid = UUID.randomUUID();
     final UUID originalPni = UUID.randomUUID();
     final UUID targetPni = UUID.randomUUID();
+    final ECKeyPair identityKeyPair = Curve.generateKeyPair();
     final Map<Long, SignedPreKey> newSignedKeys = Map.of(
-        1L, new SignedPreKey(1L, "pub1", "sig1"),
-        2L, new SignedPreKey(2L, "pub2", "sig2"));
+        1L, KeysHelper.signedECPreKey(1, identityKeyPair),
+        2L, KeysHelper.signedECPreKey(2, identityKeyPair));
     final Map<Long, SignedPreKey> newSignedPqKeys = Map.of(
-        1L, new SignedPreKey(3L, "pub3", "sig3"),
-        2L, new SignedPreKey(4L, "pub4", "sig4"));
+        1L, KeysHelper.signedKEMPreKey(3, identityKeyPair),
+        2L, KeysHelper.signedKEMPreKey(4, identityKeyPair));
     final Map<Long, Integer> newRegistrationIds = Map.of(1L, 201, 2L, 202);
 
     final Account existingAccount = AccountsHelper.generateTestAccount(targetNumber, existingAccountUuid, targetPni, new ArrayList<>(), new byte[16]);
@@ -747,7 +751,7 @@ class AccountsManagerTest {
     verify(keys).delete(newPni);
     verify(keys).delete(originalPni);
     verify(keys).getPqEnabledDevices(uuid);
-    verify(keys).storePqLastResort(eq(newPni), eq(Map.of(1L, new SignedPreKey(3L, "pub3", "sig3"))));
+    verify(keys).storePqLastResort(eq(newPni), eq(Map.of(1L, newSignedPqKeys.get(1L))));
     verifyNoMoreInteractions(keys);
   }
 
@@ -768,9 +772,10 @@ class AccountsManagerTest {
 
     List<Device> devices = List.of(DevicesHelper.createDevice(1L, 0L, 101), DevicesHelper.createDevice(2L, 0L, 102));
     Account account = AccountsHelper.generateTestAccount(number, UUID.randomUUID(), UUID.randomUUID(), devices, new byte[16]);
+    final ECKeyPair identityKeyPair = Curve.generateKeyPair();
     Map<Long, SignedPreKey> newSignedKeys = Map.of(
-        1L, new SignedPreKey(1L, "pub1", "sig1"),
-        2L, new SignedPreKey(2L, "pub2", "sig2"));
+        1L, KeysHelper.signedECPreKey(1, identityKeyPair),
+        2L, KeysHelper.signedECPreKey(2, identityKeyPair));
     Map<Long, Integer> newRegistrationIds = Map.of(1L, 201, 2L, 202);
 
     UUID oldUuid = account.getUuid();
@@ -807,12 +812,13 @@ class AccountsManagerTest {
 
     List<Device> devices = List.of(DevicesHelper.createDevice(1L, 0L, 101), DevicesHelper.createDevice(2L, 0L, 102));
     Account account = AccountsHelper.generateTestAccount(number, UUID.randomUUID(), UUID.randomUUID(), devices, new byte[16]);
-    Map<Long, SignedPreKey> newSignedKeys = Map.of(
-        1L, new SignedPreKey(1L, "pub1", "sig1"),
-        2L, new SignedPreKey(2L, "pub2", "sig2"));
-    Map<Long, SignedPreKey> newSignedPqKeys = Map.of(
-        1L, new SignedPreKey(3L, "pub3", "sig3"),
-        2L, new SignedPreKey(4L, "pub4", "sig4"));
+    final ECKeyPair identityKeyPair = Curve.generateKeyPair();
+    final Map<Long, SignedPreKey> newSignedKeys = Map.of(
+        1L, KeysHelper.signedECPreKey(1, identityKeyPair),
+        2L, KeysHelper.signedECPreKey(2, identityKeyPair));
+    final Map<Long, SignedPreKey> newSignedPqKeys = Map.of(
+        1L, KeysHelper.signedKEMPreKey(3, identityKeyPair),
+        2L, KeysHelper.signedKEMPreKey(4, identityKeyPair));
     Map<Long, Integer> newRegistrationIds = Map.of(1L, 201, 2L, 202);
 
     UUID oldUuid = account.getUuid();
@@ -947,7 +953,7 @@ class AccountsManagerTest {
     final Device device = new Device();
     device.setId(Device.MASTER_ID);
     device.setFetchesMessages(true);
-    device.setSignedPreKey(new SignedPreKey(1, "key", "sig"));
+    device.setSignedPreKey(KeysHelper.signedECPreKey(1, Curve.generateKeyPair()));
     device.setLastSeen(lastSeen);
 
     return device;

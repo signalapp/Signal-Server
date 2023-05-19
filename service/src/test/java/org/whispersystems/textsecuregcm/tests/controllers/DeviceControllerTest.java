@@ -514,7 +514,7 @@ class DeviceControllerTest {
   private static SignedPreKey signedPreKeyWithBadSignature(final SignedPreKey signedPreKey) {
     return new SignedPreKey(signedPreKey.getKeyId(),
         signedPreKey.getPublicKey(),
-        Base64.getEncoder().encodeToString("incorrect-signature".getBytes(StandardCharsets.UTF_8)));
+        "incorrect-signature".getBytes(StandardCharsets.UTF_8));
   }
 
   @Test

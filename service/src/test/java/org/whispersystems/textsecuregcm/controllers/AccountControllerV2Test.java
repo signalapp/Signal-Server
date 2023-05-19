@@ -61,6 +61,8 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
+import org.signal.libsignal.protocol.ecc.Curve;
+import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.PhoneVerificationTokenManager;
@@ -72,7 +74,6 @@ import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
 import org.whispersystems.textsecuregcm.entities.ChangeNumberRequest;
 import org.whispersystems.textsecuregcm.entities.PhoneNumberDiscoverabilityRequest;
 import org.whispersystems.textsecuregcm.entities.RegistrationServiceSession;
-import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.ImpossiblePhoneNumberExceptionMapper;
@@ -87,6 +88,7 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
+import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -786,12 +788,18 @@ class AccountControllerV2Test {
     static Account buildTestAccountForDataReport(final UUID aci, final String number,
         final boolean unrestrictedUnidentifiedAccess, final boolean discoverableByPhoneNumber,
         List<AccountBadge> badges, List<DeviceData> devices) {
+
+      final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
+      final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+
       final Account account = new Account();
       account.setUuid(aci);
       account.setNumber(number, UUID.randomUUID());
       account.setUnrestrictedUnidentifiedAccess(unrestrictedUnidentifiedAccess);
       account.setDiscoverableByPhoneNumber(discoverableByPhoneNumber);
       account.setBadges(Clock.systemUTC(), new ArrayList<>(badges));
+      account.setIdentityKey(KeysHelper.serializeIdentityKey(aciIdentityKeyPair));
+      account.setPhoneNumberIdentityKey(KeysHelper.serializeIdentityKey(pniIdentityKeyPair));
 
       assert !devices.isEmpty();
 
@@ -802,7 +810,8 @@ class AccountControllerV2Test {
         device.setId(deviceData.id);
         device.setAuthTokenHash(passwordTokenHash);
         device.setFetchesMessages(true);
-        device.setSignedPreKey(new SignedPreKey(1, "publicKey", "signature"));
+        device.setSignedPreKey(KeysHelper.signedECPreKey(1, aciIdentityKeyPair));
+        device.setPhoneNumberIdentitySignedPreKey(KeysHelper.signedECPreKey(2, pniIdentityKeyPair));
         device.setLastSeen(deviceData.lastSeen().toEpochMilli());
         device.setCreated(deviceData.created().toEpochMilli());
         device.setUserAgent(deviceData.userAgent());

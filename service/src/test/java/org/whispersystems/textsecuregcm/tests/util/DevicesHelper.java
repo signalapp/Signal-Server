@@ -6,6 +6,8 @@
 package org.whispersystems.textsecuregcm.tests.util;
 
 import java.util.Random;
+
+import org.signal.libsignal.protocol.ecc.Curve;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -36,8 +38,8 @@ public class DevicesHelper {
 
   public static void setEnabled(Device device, boolean enabled) {
     if (enabled) {
-      device.setSignedPreKey(new SignedPreKey(RANDOM.nextLong(), "testPublicKey-" + RANDOM.nextLong(),
-          "testSignature-" + RANDOM.nextLong()));
+      device.setSignedPreKey(KeysHelper.signedECPreKey(RANDOM.nextLong(), Curve.generateKeyPair()));
+      device.setPhoneNumberIdentitySignedPreKey(KeysHelper.signedECPreKey(RANDOM.nextLong(), Curve.generateKeyPair()));
       device.setGcmId("testGcmId" + RANDOM.nextLong());
       device.setLastSeen(Util.todayInMillis());
     } else {

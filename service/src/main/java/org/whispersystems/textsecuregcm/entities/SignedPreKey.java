@@ -6,43 +6,45 @@
 package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
+
 import javax.validation.constraints.NotEmpty;
+import java.util.Arrays;
 
 public class SignedPreKey extends PreKey {
 
   @JsonProperty
+  @JsonSerialize(using = ByteArrayAdapter.Serializing.class)
+  @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
   @NotEmpty
-  private String signature;
+  private byte[] signature;
 
   public SignedPreKey() {}
 
-  public SignedPreKey(long keyId, String publicKey, String signature) {
+  public SignedPreKey(long keyId, byte[] publicKey, byte[] signature) {
     super(keyId, publicKey);
     this.signature = signature;
   }
 
-  public String getSignature() {
+  public byte[] getSignature() {
     return signature;
   }
 
   @Override
-  public boolean equals(Object object) {
-    if (object == null || !(object instanceof SignedPreKey)) return false;
-    SignedPreKey that = (SignedPreKey) object;
-
-    if (signature == null) {
-      return super.equals(object) && that.signature == null;
-    } else {
-      return super.equals(object) && this.signature.equals(that.signature);
-    }
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    if (!super.equals(o)) return false;
+    SignedPreKey that = (SignedPreKey) o;
+    return Arrays.equals(signature, that.signature);
   }
 
   @Override
   public int hashCode() {
-    if (signature == null) {
-      return super.hashCode();
-    } else {
-      return super.hashCode() ^ signature.hashCode();
-    }
+    int result = super.hashCode();
+    result = 31 * result + Arrays.hashCode(signature);
+    return result;
   }
 }

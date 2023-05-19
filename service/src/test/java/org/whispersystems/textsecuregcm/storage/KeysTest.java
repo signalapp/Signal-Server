@@ -20,9 +20,12 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.signal.libsignal.protocol.ecc.Curve;
+import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.entities.PreKey;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
+import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
@@ -211,9 +214,11 @@ class KeysTest {
   void testStorePqLastResort() {
     assertEquals(0, getLastResortCount(ACCOUNT_UUID));
 
+    final ECKeyPair identityKeyPair = Curve.generateKeyPair();
+
     keys.storePqLastResort(
         ACCOUNT_UUID,
-        Map.of(1L, new SignedPreKey(1L, "pub1", "sig1"), 2L, new SignedPreKey(2L, "pub2", "sig2")));
+        Map.of(1L, KeysHelper.signedKEMPreKey(1, identityKeyPair), 2L, KeysHelper.signedKEMPreKey(2, identityKeyPair)));
     assertEquals(2, getLastResortCount(ACCOUNT_UUID));
     assertEquals(1L, keys.getLastResort(ACCOUNT_UUID, 1L).get().getKeyId());
     assertEquals(2L, keys.getLastResort(ACCOUNT_UUID, 2L).get().getKeyId());
@@ -221,7 +226,7 @@ class KeysTest {
 
     keys.storePqLastResort(
         ACCOUNT_UUID,
-        Map.of(1L, new SignedPreKey(3L, "pub3", "sig3"), 3L, new SignedPreKey(4L, "pub4", "sig4")));
+        Map.of(1L, KeysHelper.signedKEMPreKey(3, identityKeyPair), 3L, KeysHelper.signedKEMPreKey(4, identityKeyPair)));
     assertEquals(3, getLastResortCount(ACCOUNT_UUID), "storing new last-resort keys should not create duplicates");
     assertEquals(3L, keys.getLastResort(ACCOUNT_UUID, 1L).get().getKeyId(), "storing new last-resort keys should overwrite old ones");
     assertEquals(2L, keys.getLastResort(ACCOUNT_UUID, 2L).get().getKeyId(), "storing new last-resort keys should leave untouched ones alone");
@@ -242,9 +247,11 @@ class KeysTest {
 
   @Test
   void testGetPqEnabledDevices() {
-    keys.store(ACCOUNT_UUID, DEVICE_ID, null, List.of(new SignedPreKey(1L, "pub1", "sig1")), null);
-    keys.store(ACCOUNT_UUID, DEVICE_ID + 1, null, null, new SignedPreKey(2L, "pub2", "sig2"));
-    keys.store(ACCOUNT_UUID, DEVICE_ID + 2, null, List.of(new SignedPreKey(3L, "pub3", "sig3")), new SignedPreKey(4L, "pub4", "sig4"));
+    final ECKeyPair identityKeyPair = Curve.generateKeyPair();
+
+    keys.store(ACCOUNT_UUID, DEVICE_ID, null, List.of(KeysHelper.signedKEMPreKey(1, identityKeyPair)), null);
+    keys.store(ACCOUNT_UUID, DEVICE_ID + 1, null, null, KeysHelper.signedKEMPreKey(2, identityKeyPair));
+    keys.store(ACCOUNT_UUID, DEVICE_ID + 2, null, List.of(KeysHelper.signedKEMPreKey(3, identityKeyPair)), KeysHelper.signedKEMPreKey(4, identityKeyPair));
     keys.store(ACCOUNT_UUID, DEVICE_ID + 3, null, null, null);
     assertIterableEquals(
         Set.of(DEVICE_ID + 1, DEVICE_ID + 2),
@@ -291,7 +298,7 @@ class KeysTest {
     final byte[] key = new byte[32];
     new SecureRandom().nextBytes(key);
 
-    return new PreKey(keyId, Base64.getEncoder().encodeToString(key));
+    return new PreKey(keyId, key);
   }
 
   private static SignedPreKey generateTestSignedPreKey(final long keyId) {
@@ -302,6 +309,6 @@ class KeysTest {
     secureRandom.nextBytes(key);
     secureRandom.nextBytes(signature);
 
-    return new SignedPreKey(keyId, Base64.getEncoder().encodeToString(key), Base64.getEncoder().encodeToString(signature));
+    return new SignedPreKey(keyId, key, signature);
   }
 }

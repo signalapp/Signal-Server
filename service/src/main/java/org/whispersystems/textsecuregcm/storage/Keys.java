@@ -374,24 +374,23 @@ public class Keys extends AbstractDynamoDbStore {
       return Map.of(
           KEY_ACCOUNT_UUID, getPartitionKey(accountUuid),
           KEY_DEVICE_ID_KEY_ID, getSortKey(deviceId, spk.getKeyId()),
-          KEY_PUBLIC_KEY, AttributeValues.fromByteArray(Base64.getDecoder().decode(spk.getPublicKey())),
-          KEY_SIGNATURE, AttributeValues.fromByteArray(Base64.getDecoder().decode(spk.getSignature())));
+          KEY_PUBLIC_KEY, AttributeValues.fromByteArray(spk.getPublicKey()),
+          KEY_SIGNATURE, AttributeValues.fromByteArray(spk.getSignature()));
     }
     return Map.of(
         KEY_ACCOUNT_UUID, getPartitionKey(accountUuid),
         KEY_DEVICE_ID_KEY_ID, getSortKey(deviceId, preKey.getKeyId()),
-        KEY_PUBLIC_KEY, AttributeValues.fromByteArray(Base64.getDecoder().decode(preKey.getPublicKey())));
+        KEY_PUBLIC_KEY, AttributeValues.fromByteArray(preKey.getPublicKey()));
   }
 
   private PreKey getPreKeyFromItem(Map<String, AttributeValue> item) {
     final long keyId = item.get(KEY_DEVICE_ID_KEY_ID).b().asByteBuffer().getLong(8);
-    final String publicKey = Base64.getEncoder().encodeToString(extractByteArray(item.get(KEY_PUBLIC_KEY)));
+    final byte[] publicKey = extractByteArray(item.get(KEY_PUBLIC_KEY));
 
     if (item.containsKey(KEY_SIGNATURE)) {
       // All PQ prekeys are signed, and therefore have this attribute. Signed EC prekeys are stored
       // in the Accounts table, so EC prekeys retrieved by this class are never SignedPreKeys.
-      final String signature = Base64.getEncoder().encodeToString(extractByteArray(item.get(KEY_SIGNATURE)));
-      return new SignedPreKey(keyId, publicKey, signature);
+      return new SignedPreKey(keyId, publicKey, extractByteArray(item.get(KEY_SIGNATURE)));
     }
     return new PreKey(keyId, publicKey);
   }

@@ -14,11 +14,15 @@ import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.jsonFixtur
 import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.entities.PreKey;
 
+import java.util.Base64;
+
 class PreKeyTest {
+
+  private static final byte[] PUBLIC_KEY = Base64.getDecoder().decode("BQ+NbroQtVKyFaCSfqzSw8Wy72Ff22RSa5ERKTv5DIk2");
 
   @Test
   void serializeToJSONV2() throws Exception {
-    PreKey preKey = new PreKey(1234, "test");
+    PreKey preKey = new PreKey(1234, PUBLIC_KEY);
 
     assertThat("PreKeyV2 Serialization works",
                asJson(preKey),

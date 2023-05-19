@@ -318,12 +318,12 @@ public final class Operations {
   private static SignedPreKey generateSignedECPreKey(long id, final ECKeyPair identityKeyPair) {
     final byte[] pubKey = Curve.generateKeyPair().getPublicKey().serialize();
     final byte[] sig = identityKeyPair.getPrivateKey().calculateSignature(pubKey);
-    return new SignedPreKey(id, Base64.getEncoder().encodeToString(pubKey), Base64.getEncoder().encodeToString(sig));
+    return new SignedPreKey(id, pubKey, sig);
   }
 
   private static SignedPreKey generateSignedKEMPreKey(long id, final ECKeyPair identityKeyPair) {
     final byte[] pubKey = KEMKeyPair.generate(KEMKeyType.KYBER_1024).getPublicKey().serialize();
     final byte[] sig = identityKeyPair.getPrivateKey().calculateSignature(pubKey);
-    return new SignedPreKey(id, Base64.getEncoder().encodeToString(pubKey), Base64.getEncoder().encodeToString(sig));
+    return new SignedPreKey(id, pubKey, sig);
   }
 }

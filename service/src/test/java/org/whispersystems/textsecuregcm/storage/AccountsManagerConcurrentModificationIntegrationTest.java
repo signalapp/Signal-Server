@@ -134,11 +134,6 @@ class AccountsManagerConcurrentModificationIntegrationTest {
           accountsManager.create("+14155551212", "password", null, new AccountAttributes(), new ArrayList<>()),
           a -> {
             a.setUnidentifiedAccessKey(new byte[16]);
-
-            final Random random = new Random();
-            final SignedPreKey signedPreKey = new SignedPreKey(random.nextInt(), "testPublicKey-" + random.nextInt(),
-                "testSignature-" + random.nextInt());
-
             a.removeDevice(1);
             a.addDevice(DevicesHelper.createDevice(1));
           });

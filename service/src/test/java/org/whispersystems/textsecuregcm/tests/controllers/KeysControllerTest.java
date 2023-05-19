@@ -26,7 +26,6 @@ import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import java.time.Duration;
 import java.util.Collections;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -86,18 +85,18 @@ class KeysControllerTest {
   private final ECKeyPair PNI_IDENTITY_KEY_PAIR = Curve.generateKeyPair();
   private final String PNI_IDENTITY_KEY = KeysHelper.serializeIdentityKey(PNI_IDENTITY_KEY_PAIR);
   
-  private final PreKey SAMPLE_KEY = new PreKey(1234, "test1");
-  private final PreKey SAMPLE_KEY2 = new PreKey(5667, "test3");
-  private final PreKey SAMPLE_KEY3 = new PreKey(334, "test5");
-  private final PreKey SAMPLE_KEY4 = new PreKey(336, "test6");
+  private final PreKey SAMPLE_KEY = KeysHelper.ecPreKey(1234);
+  private final PreKey SAMPLE_KEY2 = KeysHelper.ecPreKey(5667);
+  private final PreKey SAMPLE_KEY3 = KeysHelper.ecPreKey(334);
+  private final PreKey SAMPLE_KEY4 = KeysHelper.ecPreKey(336);
 
-  private final PreKey SAMPLE_KEY_PNI = new PreKey(7777, "test7");
+  private final PreKey SAMPLE_KEY_PNI = KeysHelper.ecPreKey(7777);
 
-  private final SignedPreKey SAMPLE_PQ_KEY = new SignedPreKey(2424, "test1", "sig");
-  private final SignedPreKey SAMPLE_PQ_KEY2 = new SignedPreKey(6868, "test3", "sig");
-  private final SignedPreKey SAMPLE_PQ_KEY3 = new SignedPreKey(1313, "test5", "sig");
+  private final SignedPreKey SAMPLE_PQ_KEY = KeysHelper.signedKEMPreKey(2424, Curve.generateKeyPair());
+  private final SignedPreKey SAMPLE_PQ_KEY2 = KeysHelper.signedKEMPreKey(6868, Curve.generateKeyPair());
+  private final SignedPreKey SAMPLE_PQ_KEY3 = KeysHelper.signedKEMPreKey(1313, Curve.generateKeyPair());
 
-  private final SignedPreKey SAMPLE_PQ_KEY_PNI = new SignedPreKey(8888, "test7", "sig");
+  private final SignedPreKey SAMPLE_PQ_KEY_PNI = KeysHelper.signedKEMPreKey(8888, Curve.generateKeyPair());
 
   private final SignedPreKey SAMPLE_SIGNED_KEY = KeysHelper.signedECPreKey(1111, IDENTITY_KEY_PAIR);
   private final SignedPreKey SAMPLE_SIGNED_KEY2 = KeysHelper.signedECPreKey(2222, IDENTITY_KEY_PAIR);
@@ -656,7 +655,7 @@ class KeysControllerTest {
 
   @Test
   void putKeysTestV2() {
-    final PreKey preKey = new PreKey(31337, "foobar");
+    final PreKey preKey = KeysHelper.ecPreKey(31337);
     final ECKeyPair identityKeyPair = Curve.generateKeyPair();
     final SignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, identityKeyPair);
     final String identityKey = KeysHelper.serializeIdentityKey(identityKeyPair);
@@ -684,7 +683,7 @@ class KeysControllerTest {
 
   @Test
   void putKeysPqTestV2() {
-    final PreKey preKey = new PreKey(31337, "foobar");
+    final PreKey preKey = KeysHelper.ecPreKey(31337);
     final ECKeyPair identityKeyPair = Curve.generateKeyPair();
     final SignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, identityKeyPair);
     final SignedPreKey pqPreKey = KeysHelper.signedECPreKey(31339, identityKeyPair);
@@ -716,7 +715,7 @@ class KeysControllerTest {
 
   @Test
   void putKeysByPhoneNumberIdentifierTestV2() {
-    final PreKey preKey = new PreKey(31337, "foobar");
+    final PreKey preKey = KeysHelper.ecPreKey(31337);
     final ECKeyPair identityKeyPair = Curve.generateKeyPair();
     final SignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, identityKeyPair);
     final String identityKey = KeysHelper.serializeIdentityKey(identityKeyPair);
@@ -745,7 +744,7 @@ class KeysControllerTest {
 
   @Test
   void putKeysByPhoneNumberIdentifierPqTestV2() {
-    final PreKey preKey = new PreKey(31337, "foobar");
+    final PreKey preKey = KeysHelper.ecPreKey(31337);
     final ECKeyPair identityKeyPair = Curve.generateKeyPair();
     final SignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, identityKeyPair);
     final SignedPreKey pqPreKey = KeysHelper.signedECPreKey(31339, identityKeyPair);
@@ -778,7 +777,7 @@ class KeysControllerTest {
 
   @Test
   void putPrekeyWithInvalidSignature() {
-    final SignedPreKey badSignedPreKey = new SignedPreKey(1L, "foo", "bar");
+    final SignedPreKey badSignedPreKey = KeysHelper.signedECPreKey(1, Curve.generateKeyPair());
     PreKeyState preKeyState = new PreKeyState(IDENTITY_KEY, badSignedPreKey, List.of());
     Response response =
         resources.getJerseyTest()
@@ -793,16 +792,12 @@ class KeysControllerTest {
 
   @Test
   void disabledPutKeysTestV2() {
-    final PreKey       preKey       = new PreKey(31337, "foobar");
+    final PreKey       preKey       = KeysHelper.ecPreKey(31337);
     final ECKeyPair identityKeyPair = Curve.generateKeyPair();
     final SignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, identityKeyPair);
     final String       identityKey  = KeysHelper.serializeIdentityKey(identityKeyPair);
 
-    List<PreKey> preKeys = new LinkedList<PreKey>() {{
-      add(preKey);
-    }};
-
-    PreKeyState preKeyState = new PreKeyState(identityKey, signedPreKey, preKeys);
+    PreKeyState preKeyState = new PreKeyState(identityKey, signedPreKey, List.of(preKey));
 
     Response response =
         resources.getJerseyTest()
@@ -819,7 +814,7 @@ class KeysControllerTest {
     List<PreKey> capturedList = listCaptor.getValue();
     assertThat(capturedList.size()).isEqualTo(1);
     assertThat(capturedList.get(0).getKeyId()).isEqualTo(31337);
-    assertThat(capturedList.get(0).getPublicKey()).isEqualTo("foobar");
+    assertThat(capturedList.get(0).getPublicKey()).isEqualTo(preKey.getPublicKey());
 
     verify(AuthHelper.DISABLED_ACCOUNT).setIdentityKey(eq(identityKey));
     verify(AuthHelper.DISABLED_DEVICE).setSignedPreKey(eq(signedPreKey));
@@ -828,7 +823,7 @@ class KeysControllerTest {
 
   @Test
   void putIdentityKeyNonPrimary() {
-    final PreKey       preKey       = new PreKey(31337, "foobar");
+    final PreKey       preKey       = KeysHelper.ecPreKey(31337);
     final SignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, IDENTITY_KEY_PAIR);
 
     List<PreKey> preKeys = List.of(preKey);

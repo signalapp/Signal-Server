@@ -6,8 +6,14 @@
 package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
+
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
+import java.util.Arrays;
+import java.util.Objects;
 
 public class PreKey {
 
@@ -16,22 +22,24 @@ public class PreKey {
   private long keyId;
 
   @JsonProperty
+  @JsonSerialize(using = ByteArrayAdapter.Serializing.class)
+  @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
   @NotEmpty
-  private String publicKey;
+  private byte[] publicKey;
 
   public PreKey() {}
 
-  public PreKey(long keyId, String publicKey)
+  public PreKey(long keyId, byte[] publicKey)
   {
     this.keyId = keyId;
     this.publicKey = publicKey;
   }
 
-  public String getPublicKey() {
+  public byte[] getPublicKey() {
     return publicKey;
   }
 
-  public void setPublicKey(String publicKey) {
+  public void setPublicKey(byte[] publicKey) {
     this.publicKey = publicKey;
   }
 
@@ -44,23 +52,17 @@ public class PreKey {
   }
 
   @Override
-  public boolean equals(Object object) {
-    if (object == null || !(object instanceof PreKey)) return false;
-    PreKey that = (PreKey)object;
-
-    if (publicKey == null) {
-      return this.keyId == that.keyId && that.publicKey == null;
-    } else {
-      return this.keyId == that.keyId && this.publicKey.equals(that.publicKey);
-    }
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    PreKey preKey = (PreKey) o;
+    return keyId == preKey.keyId && Arrays.equals(publicKey, preKey.publicKey);
   }
 
   @Override
   public int hashCode() {
-    if (publicKey == null) {
-      return (int)this.keyId;
-    } else {
-      return ((int)this.keyId) ^ publicKey.hashCode();
-    }
+    int result = Objects.hash(keyId);
+    result = 31 * result + Arrays.hashCode(publicKey);
+    return result;
   }
 }

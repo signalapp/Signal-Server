@@ -18,17 +18,13 @@ public abstract class PreKeySignatureValidator {
   public static final Counter INVALID_SIGNATURE_COUNTER =
       Metrics.counter(name(PreKeySignatureValidator.class, "invalidPreKeySignature"));
 
-  public static final boolean validatePreKeySignatures(final String identityKeyB64, final Collection<SignedPreKey> spks) {
+  public static boolean validatePreKeySignatures(final String identityKeyB64, final Collection<SignedPreKey> spks) {
     try {
       final byte[] identityKeyBytes = Base64.getDecoder().decode(identityKeyB64);
       final ECPublicKey identityKey = Curve.decodePoint(identityKeyBytes, 0);
 
-      final boolean success = spks.stream().allMatch(spk -> {
-        final byte[] prekeyBytes = Base64.getDecoder().decode(spk.getPublicKey());
-        final byte[] prekeySignatureBytes = Base64.getDecoder().decode(spk.getSignature());
-
-        return identityKey.verifySignature(prekeyBytes, prekeySignatureBytes);
-      });
+      final boolean success = spks.stream()
+          .allMatch(spk -> identityKey.verifySignature(spk.getPublicKey(), spk.getSignature()));
 
       if (!success) {
         INVALID_SIGNATURE_COUNTER.increment();
