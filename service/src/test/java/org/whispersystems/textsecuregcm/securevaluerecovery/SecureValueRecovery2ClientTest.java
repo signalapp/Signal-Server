@@ -52,7 +52,7 @@ class SecureValueRecovery2ClientTest {
     credentialsGenerator = mock(ExternalServiceCredentialsGenerator.class);
     httpExecutor = Executors.newSingleThreadExecutor();
 
-    final SecureValueRecovery2Configuration config = new SecureValueRecovery2Configuration(true,
+    final SecureValueRecovery2Configuration config = new SecureValueRecovery2Configuration(
         "http://localhost:" + wireMock.getPort(),
         randomSecretBytes(32),
         randomSecretBytes(32),

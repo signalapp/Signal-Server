@@ -145,7 +145,6 @@ directoryV2:
     userIdTokenSharedSecret: secret://directoryV2.client.userIdTokenSharedSecret
 
 svr2:
-  enabled: false
   uri: svr2.example.com
   userAuthenticationTokenSharedSecret: secret://svr2.userAuthenticationTokenSharedSecret
   userIdTokenSharedSecret: secret://svr2.userIdTokenSharedSecret

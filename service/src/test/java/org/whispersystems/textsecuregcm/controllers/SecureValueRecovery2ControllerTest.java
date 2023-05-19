@@ -24,7 +24,6 @@ import org.whispersystems.textsecuregcm.util.SystemMapper;
 public class SecureValueRecovery2ControllerTest extends SecureValueRecoveryControllerBaseTest {
 
   private static final SecureValueRecovery2Configuration CFG = new SecureValueRecovery2Configuration(
-      true,
       "",
       randomSecretBytes(32),
       randomSecretBytes(32),
@@ -40,7 +39,7 @@ public class SecureValueRecovery2ControllerTest extends SecureValueRecoveryContr
 
   private static final AccountsManager ACCOUNTS_MANAGER = mock(AccountsManager.class);
   private static final SecureValueRecovery2Controller CONTROLLER =
-      new SecureValueRecovery2Controller(CREDENTIAL_GENERATOR, ACCOUNTS_MANAGER, CFG);
+      new SecureValueRecovery2Controller(CREDENTIAL_GENERATOR, ACCOUNTS_MANAGER);
 
   private static final ResourceExtension RESOURCES = ResourceExtension.builder()
       .addProvider(AuthHelper.getAuthFilter())

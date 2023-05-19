@@ -13,7 +13,6 @@ import org.whispersystems.textsecuregcm.configuration.secrets.SecretBytes;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
 
 public record SecureValueRecovery2Configuration(
-    boolean enabled,
     @NotBlank String uri,
     @ExactlySize(32) SecretBytes userAuthenticationTokenSharedSecret,
     @ExactlySize(32) SecretBytes userIdTokenSharedSecret,

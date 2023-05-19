@@ -19,7 +19,6 @@ import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
-import javax.ws.rs.NotFoundException;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
@@ -60,14 +59,11 @@ public class SecureValueRecovery2Controller {
 
   private final ExternalServiceCredentialsGenerator backupServiceCredentialGenerator;
   private final AccountsManager accountsManager;
-  private final boolean enabled;
 
   public SecureValueRecovery2Controller(final ExternalServiceCredentialsGenerator backupServiceCredentialGenerator,
-      final AccountsManager accountsManager,
-      final SecureValueRecovery2Configuration cfg) {
+      final AccountsManager accountsManager) {
     this.backupServiceCredentialGenerator = backupServiceCredentialGenerator;
     this.accountsManager = accountsManager;
-    this.enabled = cfg.enabled();
   }
 
   @Timed
@@ -84,9 +80,6 @@ public class SecureValueRecovery2Controller {
   @ApiResponse(responseCode = "200", description = "`JSON` with generated credentials.", useReturnTypeSchema = true)
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
   public ExternalServiceCredentials getAuth(@Auth final AuthenticatedAccount auth) {
-    if (!enabled) {
-      throw new NotFoundException();
-    }
     return backupServiceCredentialGenerator.generateFor(auth.getAccount().getUuid().toString());
   }
 
