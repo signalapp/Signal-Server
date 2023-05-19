@@ -221,7 +221,7 @@ class AccountControllerTest {
       accountsManager, clientPresenceManager, svr1CredentialsGenerator, svr2CredentialsGenerator, registrationRecoveryPasswordsManager,
       pushNotificationManager, rateLimiters);
   private static final RegistrationCaptchaManager registrationCaptchaManager = new RegistrationCaptchaManager(
-      captchaChecker, rateLimiters, Map.of(TEST_NUMBER, 123456), dynamicConfigurationManager);
+      captchaChecker, rateLimiters, Set.of(TEST_NUMBER), dynamicConfigurationManager);
 
   private static final ResourceExtension resources = ResourceExtension.builder()
       .addProvider(AuthHelper.getAuthFilter())

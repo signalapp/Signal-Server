@@ -11,8 +11,9 @@ import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import java.io.IOException;
-import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicCaptchaConfiguration;
@@ -37,12 +38,12 @@ public class RegistrationCaptchaManager {
 
   private final CaptchaChecker captchaChecker;
   private final RateLimiters rateLimiters;
-  private final Map<String, Integer> testDevices;
+  private final Set<String> testDevices;
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
 
 
   public RegistrationCaptchaManager(final CaptchaChecker captchaChecker, final RateLimiters rateLimiters,
-      final Map<String, Integer> testDevices,
+      final Set<String> testDevices,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
     this.captchaChecker = captchaChecker;
     this.rateLimiters = rateLimiters;
@@ -60,7 +61,7 @@ public class RegistrationCaptchaManager {
 
   public boolean requiresCaptcha(final String number, final String forwardedFor, String sourceHost,
       final boolean pushChallengeMatch) {
-    if (testDevices.containsKey(number)) {
+    if (testDevices.contains(number)) {
       return false;
     }
 

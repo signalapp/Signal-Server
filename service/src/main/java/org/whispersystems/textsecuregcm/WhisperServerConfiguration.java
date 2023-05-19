@@ -7,9 +7,11 @@ package org.whispersystems.textsecuregcm;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.dropwizard.Configuration;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import org.whispersystems.textsecuregcm.configuration.AccountDatabaseCrawlerConfiguration;
@@ -45,7 +47,6 @@ import org.whispersystems.textsecuregcm.configuration.SecureValueRecovery2Config
 import org.whispersystems.textsecuregcm.configuration.SpamFilterConfiguration;
 import org.whispersystems.textsecuregcm.configuration.StripeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
-import org.whispersystems.textsecuregcm.configuration.TestDeviceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.UnidentifiedDeliveryConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ZkConfig;
 import org.whispersystems.textsecuregcm.limits.RateLimiterConfig;
@@ -152,7 +153,7 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @NotNull
   @JsonProperty
-  private List<TestDeviceConfiguration> testDevices = new LinkedList<>();
+  private Set<String> testDevices = new HashSet<>();
 
   @Valid
   @NotNull
@@ -371,15 +372,8 @@ public class WhisperServerConfiguration extends Configuration {
     return unidentifiedDelivery;
   }
 
-  public Map<String, Integer> getTestDevices() {
-    Map<String, Integer> results = new HashMap<>();
-
-    for (TestDeviceConfiguration testDeviceConfiguration : testDevices) {
-      results.put(testDeviceConfiguration.getNumber(),
-                  testDeviceConfiguration.getCode());
-    }
-
-    return results;
+  public Set<String> getTestDevices() {
+    return testDevices;
   }
 
   public Map<String, Integer> getMaxDevices() {
