@@ -63,7 +63,7 @@ public class AuthHelper {
   public static final UUID   UNDISCOVERABLE_UUID     = UUID.randomUUID();
   public static final String UNDISCOVERABLE_PASSWORD = "IT'S A SECRET TO EVERYBODY.";
 
-  public static final String VALID_IDENTITY = "BcxxDU9FGMda70E7+Uvm7pnQcEdXQ64aJCpPUeRSfcFo";
+  public static final byte[] VALID_IDENTITY = Base64.getDecoder().decode("BcxxDU9FGMda70E7+Uvm7pnQcEdXQ64aJCpPUeRSfcFo");
 
   public static AccountsManager ACCOUNTS_MANAGER       = mock(AccountsManager.class);
   public static Account         VALID_ACCOUNT          = mock(Account.class        );

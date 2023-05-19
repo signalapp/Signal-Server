@@ -15,6 +15,7 @@ import javax.annotation.Nullable;
 import javax.validation.Valid;
 import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
 
@@ -36,7 +37,8 @@ public record ChangeNumberRequest(
     @JsonProperty("reglock") @Nullable String registrationLock,
 
     @Schema(description="the new public identity key to use for the phone-number identity associated with the new phone number")
-    @NotBlank String pniIdentityKey,
+    @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
+    @NotEmpty byte[] pniIdentityKey,
 
     @Schema(description="""
         A list of synchronization messages to send to companion devices to supply the private keys

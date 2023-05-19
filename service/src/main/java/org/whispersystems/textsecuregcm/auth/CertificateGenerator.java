@@ -8,7 +8,6 @@ package org.whispersystems.textsecuregcm.auth;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import java.security.InvalidKeyException;
-import java.util.Base64;
 import java.util.concurrent.TimeUnit;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECPrivateKey;
@@ -35,7 +34,7 @@ public class CertificateGenerator {
     SenderCertificate.Certificate.Builder builder = SenderCertificate.Certificate.newBuilder()
                                                                                  .setSenderDevice(Math.toIntExact(device.getId()))
                                                                                  .setExpires(System.currentTimeMillis() + TimeUnit.DAYS.toMillis(expiresDays))
-                                                                                 .setIdentityKey(ByteString.copyFrom(Base64.getDecoder().decode(account.getIdentityKey())))
+                                                                                 .setIdentityKey(ByteString.copyFrom(account.getIdentityKey()))
                                                                                  .setSigner(serverCertificate)
                                                                                  .setSenderUuid(account.getUuid().toString());
 

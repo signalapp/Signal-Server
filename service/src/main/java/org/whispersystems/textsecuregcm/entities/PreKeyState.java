@@ -5,8 +5,11 @@
 package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.google.common.annotations.VisibleForTesting;
 import io.swagger.v3.oas.annotations.media.Schema;
+import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
+
 import java.util.ArrayList;
 import java.util.List;
 import javax.validation.Valid;
@@ -48,23 +51,24 @@ public class PreKeyState {
   private SignedPreKey pqLastResortPreKey;
 
   @JsonProperty
+  @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
   @NotEmpty
   @NotNull
   @Schema(description="Required. " +
       "The public identity key for this identity (account or phone-number identity). " +
       "If this device is not the primary device for the account, " +
       "must match the existing stored identity key for this identity.")
-  private String identityKey;
+  private byte[] identityKey;
 
   public PreKeyState() {}
 
   @VisibleForTesting
-  public PreKeyState(String identityKey, SignedPreKey signedPreKey, List<PreKey> keys) {
+  public PreKeyState(byte[] identityKey, SignedPreKey signedPreKey, List<PreKey> keys) {
     this(identityKey, signedPreKey, keys, null, null);
   }
 
   @VisibleForTesting
-  public PreKeyState(String identityKey, SignedPreKey signedPreKey, List<PreKey> keys, List<SignedPreKey> pqKeys, SignedPreKey pqLastResortKey) {
+  public PreKeyState(byte[] identityKey, SignedPreKey signedPreKey, List<PreKey> keys, List<SignedPreKey> pqKeys, SignedPreKey pqLastResortKey) {
     this.identityKey = identityKey;
     this.signedPreKey = signedPreKey;
     this.preKeys = keys;
@@ -88,7 +92,7 @@ public class PreKeyState {
     return pqLastResortPreKey;
   }
 
-  public String getIdentityKey() {
+  public byte[] getIdentityKey() {
     return identityKey;
   }
 

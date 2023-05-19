@@ -13,19 +13,14 @@ import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
+import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import javax.ws.rs.Consumes;
@@ -40,7 +35,8 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import org.apache.commons.lang3.StringUtils;
+
+import org.apache.commons.lang3.ArrayUtils;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.ChangesDeviceEnabledState;
@@ -120,11 +116,11 @@ public class KeysController {
       updateAccount = true;
     }
 
-    final String oldIdentityKey = usePhoneNumberIdentity ? account.getPhoneNumberIdentityKey() : account.getIdentityKey();
-    if (!preKeys.getIdentityKey().equals(oldIdentityKey)) {
+    final byte[] oldIdentityKey = usePhoneNumberIdentity ? account.getPhoneNumberIdentityKey() : account.getIdentityKey();
+    if (!Arrays.equals(preKeys.getIdentityKey(), oldIdentityKey)) {
       updateAccount = true;
 
-      final boolean hasIdentityKey = StringUtils.isNotBlank(oldIdentityKey);
+      final boolean hasIdentityKey = ArrayUtils.isNotEmpty(oldIdentityKey);
       final Tags tags = Tags.of(UserAgentTagUtil.getPlatformTag(userAgent))
           .and(HAS_IDENTITY_KEY_TAG_NAME, String.valueOf(hasIdentityKey))
           .and(IDENTITY_TYPE_TAG_NAME, usePhoneNumberIdentity ? "pni" : "aci");
@@ -183,7 +179,7 @@ public class KeysController {
       @HeaderParam(HttpHeaders.USER_AGENT) String userAgent)
       throws RateLimitExceededException {
 
-    if (!auth.isPresent() && !accessKey.isPresent()) {
+    if (auth.isEmpty() && accessKey.isEmpty()) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 
@@ -225,7 +221,7 @@ public class KeysController {
       }
     }
 
-    final String identityKey = usePhoneNumberIdentity ? target.getPhoneNumberIdentityKey() : target.getIdentityKey();
+    final byte[] identityKey = usePhoneNumberIdentity ? target.getPhoneNumberIdentityKey() : target.getIdentityKey();
 
     if (responseItems.isEmpty()) {
       return Response.status(404).build();

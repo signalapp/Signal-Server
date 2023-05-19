@@ -6,16 +6,19 @@ package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.annotations.VisibleForTesting;
 import io.swagger.v3.oas.annotations.media.Schema;
+import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
 
 import java.util.List;
 
 public class PreKeyResponse {
 
   @JsonProperty
+  @JsonSerialize(using = ByteArrayAdapter.Serializing.class)
   @Schema(description="the public identity key for the requested identity")
-  private String identityKey;
+  private byte[] identityKey;
 
   @JsonProperty
   @Schema(description="information about each requested device")
@@ -23,13 +26,13 @@ public class PreKeyResponse {
 
   public PreKeyResponse() {}
 
-  public PreKeyResponse(String identityKey, List<PreKeyResponseItem> devices) {
+  public PreKeyResponse(byte[] identityKey, List<PreKeyResponseItem> devices) {
     this.identityKey = identityKey;
     this.devices     = devices;
   }
 
   @VisibleForTesting
-  public String getIdentityKey() {
+  public byte[] getIdentityKey() {
     return identityKey;
   }
 

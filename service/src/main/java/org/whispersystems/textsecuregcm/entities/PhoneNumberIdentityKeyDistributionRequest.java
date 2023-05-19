@@ -10,17 +10,18 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import javax.annotation.Nullable;
 import javax.validation.Valid;
 import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
 
 public record PhoneNumberIdentityKeyDistributionRequest(
-    @NotBlank
+    @NotEmpty
+    @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
     @Schema(description="the new identity key for this account's phone-number identity")
-    String pniIdentityKey,
+    byte[] pniIdentityKey,
     
     @NotNull
     @Valid

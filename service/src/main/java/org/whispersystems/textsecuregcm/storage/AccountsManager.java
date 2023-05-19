@@ -28,7 +28,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
@@ -242,11 +241,12 @@ public class AccountsManager {
     }
   }
 
-  public Account changeNumber(final Account account, final String number,
-      @Nullable final String pniIdentityKey,
-      @Nullable final Map<Long, SignedPreKey> pniSignedPreKeys,
-      @Nullable final Map<Long, SignedPreKey> pniPqLastResortPreKeys,
-      @Nullable final Map<Long, Integer> pniRegistrationIds) throws InterruptedException, MismatchedDevicesException {
+  public Account changeNumber(final Account account,
+                              final String number,
+                              @Nullable final byte[] pniIdentityKey,
+                              @Nullable final Map<Long, SignedPreKey> pniSignedPreKeys,
+                              @Nullable final Map<Long, SignedPreKey> pniPqLastResortPreKeys,
+                              @Nullable final Map<Long, Integer> pniRegistrationIds) throws InterruptedException, MismatchedDevicesException {
 
     final String originalNumber = account.getNumber();
     final UUID originalPhoneNumberIdentifier = account.getPhoneNumberIdentifier();
@@ -308,7 +308,7 @@ public class AccountsManager {
   }
 
   public Account updatePniKeys(final Account account,
-      final String pniIdentityKey,
+      final byte[] pniIdentityKey,
       final Map<Long, SignedPreKey> pniSignedPreKeys,
       @Nullable final Map<Long, SignedPreKey> pniPqLastResortPreKeys,
       final Map<Long, Integer> pniRegistrationIds) throws MismatchedDevicesException {
@@ -327,7 +327,7 @@ public class AccountsManager {
   }
 
   private boolean setPniKeys(final Account account,
-      @Nullable final String pniIdentityKey,
+      @Nullable final byte[] pniIdentityKey,
       @Nullable final Map<Long, SignedPreKey> pniSignedPreKeys,
       @Nullable final Map<Long, Integer> pniRegistrationIds) {
     if (ObjectUtils.allNull(pniIdentityKey, pniSignedPreKeys, pniRegistrationIds)) {
@@ -336,7 +336,7 @@ public class AccountsManager {
       throw new IllegalArgumentException("PNI identity key, signed pre-keys, and registration IDs must be all null or all non-null");
     }
 
-    boolean changed = !pniIdentityKey.equals(account.getPhoneNumberIdentityKey());
+    boolean changed = !Arrays.equals(pniIdentityKey, account.getPhoneNumberIdentityKey());
     
     for (Device device : account.getDevices()) {
         if (!device.isEnabled()) {

@@ -124,10 +124,10 @@ class ProfileControllerTest {
   private static final ServerZkProfileOperations zkProfileOperations = mock(ServerZkProfileOperations.class);
 
   private static final byte[] UNIDENTIFIED_ACCESS_KEY = "test-uak".getBytes(StandardCharsets.UTF_8);
-  private static final String ACCOUNT_IDENTITY_KEY = "barz";
-  private static final String ACCOUNT_PHONE_NUMBER_IDENTITY_KEY = "bazz";
-  private static final String ACCOUNT_TWO_IDENTITY_KEY = "bar";
-  private static final String ACCOUNT_TWO_PHONE_NUMBER_IDENTITY_KEY = "baz";
+  private static final byte[] ACCOUNT_IDENTITY_KEY = "barz".getBytes(StandardCharsets.UTF_8);
+  private static final byte[] ACCOUNT_PHONE_NUMBER_IDENTITY_KEY = "bazz".getBytes(StandardCharsets.UTF_8);
+  private static final byte[] ACCOUNT_TWO_IDENTITY_KEY = "bar".getBytes(StandardCharsets.UTF_8);
+  private static final byte[] ACCOUNT_TWO_PHONE_NUMBER_IDENTITY_KEY = "baz".getBytes(StandardCharsets.UTF_8);
   private static final String BASE_64_URL_USERNAME_HASH = "9p6Tip7BFefFOJzv4kv4GyXEYsBVfk_WbjNejdlOvQE";
   private static final byte[] USERNAME_HASH = Base64.getUrlDecoder().decode(BASE_64_URL_USERNAME_HASH);
   @SuppressWarnings("unchecked")
@@ -1153,13 +1153,13 @@ class ProfileControllerTest {
     try (final Response response = resources.getJerseyTest().target("/v1/profile/identity_check/batch").request()
         .post(Entity.json(new BatchIdentityCheckRequest(List.of(
             new BatchIdentityCheckRequest.Element(AuthHelper.VALID_UUID, null,
-                convertStringToFingerprint(ACCOUNT_IDENTITY_KEY)),
+                convertKeyToFingerprint(ACCOUNT_IDENTITY_KEY)),
             new BatchIdentityCheckRequest.Element(null, AuthHelper.VALID_PNI_TWO,
-                convertStringToFingerprint(ACCOUNT_TWO_PHONE_NUMBER_IDENTITY_KEY)),
+                convertKeyToFingerprint(ACCOUNT_TWO_PHONE_NUMBER_IDENTITY_KEY)),
             new BatchIdentityCheckRequest.Element(null, AuthHelper.VALID_UUID_TWO,
-                convertStringToFingerprint(ACCOUNT_TWO_IDENTITY_KEY)),
+                convertKeyToFingerprint(ACCOUNT_TWO_IDENTITY_KEY)),
             new BatchIdentityCheckRequest.Element(AuthHelper.INVALID_UUID, null,
-                convertStringToFingerprint(ACCOUNT_TWO_PHONE_NUMBER_IDENTITY_KEY))
+                convertKeyToFingerprint(ACCOUNT_TWO_PHONE_NUMBER_IDENTITY_KEY))
         ))))) {
       assertThat(response).isNotNull();
       assertThat(response.getStatus()).isEqualTo(200);
@@ -1170,11 +1170,11 @@ class ProfileControllerTest {
 
     final Condition<BatchIdentityCheckResponse.Element> isAnExpectedUuid = new Condition<>(element -> {
       if (AuthHelper.VALID_UUID.equals(element.aci())) {
-        return Arrays.equals(Base64.getDecoder().decode(ACCOUNT_IDENTITY_KEY), element.identityKey());
+        return Arrays.equals(ACCOUNT_IDENTITY_KEY, element.identityKey());
       } else if (AuthHelper.VALID_PNI_TWO.equals(element.uuid())) {
-        return Arrays.equals(Base64.getDecoder().decode(ACCOUNT_TWO_PHONE_NUMBER_IDENTITY_KEY), element.identityKey());
+        return Arrays.equals(ACCOUNT_TWO_PHONE_NUMBER_IDENTITY_KEY, element.identityKey());
       } else if (AuthHelper.VALID_UUID_TWO.equals(element.uuid())) {
-        return Arrays.equals(Base64.getDecoder().decode(ACCOUNT_TWO_IDENTITY_KEY), element.identityKey());
+        return Arrays.equals(ACCOUNT_TWO_IDENTITY_KEY, element.identityKey());
       } else {
         return false;
       }
@@ -1182,12 +1182,14 @@ class ProfileControllerTest {
 
     try (final Response response = resources.getJerseyTest().target("/v1/profile/identity_check/batch").request()
         .post(Entity.json(new BatchIdentityCheckRequest(List.of(
-            new BatchIdentityCheckRequest.Element(AuthHelper.VALID_UUID, null, convertStringToFingerprint("else1234")),
+            new BatchIdentityCheckRequest.Element(AuthHelper.VALID_UUID, null,
+                convertKeyToFingerprint("else1234".getBytes(StandardCharsets.UTF_8))),
             new BatchIdentityCheckRequest.Element(null, AuthHelper.VALID_PNI_TWO,
-                convertStringToFingerprint("another1")),
+                convertKeyToFingerprint("another1".getBytes(StandardCharsets.UTF_8))),
             new BatchIdentityCheckRequest.Element(null, AuthHelper.VALID_UUID_TWO,
-                convertStringToFingerprint("another2")),
-            new BatchIdentityCheckRequest.Element(AuthHelper.INVALID_UUID, null, convertStringToFingerprint("456"))
+                convertKeyToFingerprint("another2".getBytes(StandardCharsets.UTF_8))),
+            new BatchIdentityCheckRequest.Element(AuthHelper.INVALID_UUID, null,
+                convertKeyToFingerprint("456".getBytes(StandardCharsets.UTF_8)))
         ))))) {
       assertThat(response).isNotNull();
       assertThat(response.getStatus()).isEqualTo(200);
@@ -1200,13 +1202,13 @@ class ProfileControllerTest {
     }
 
     final List<BatchIdentityCheckRequest.Element> largeElementList = new ArrayList<>(List.of(
-        new BatchIdentityCheckRequest.Element(AuthHelper.VALID_UUID, null, convertStringToFingerprint("else1234")),
-        new BatchIdentityCheckRequest.Element(null, AuthHelper.VALID_PNI_TWO, convertStringToFingerprint("another1")),
-        new BatchIdentityCheckRequest.Element(AuthHelper.INVALID_UUID, null, convertStringToFingerprint("456"))));
+        new BatchIdentityCheckRequest.Element(AuthHelper.VALID_UUID, null, convertKeyToFingerprint("else1234".getBytes(StandardCharsets.UTF_8))),
+        new BatchIdentityCheckRequest.Element(null, AuthHelper.VALID_PNI_TWO, convertKeyToFingerprint("another1".getBytes(StandardCharsets.UTF_8))),
+        new BatchIdentityCheckRequest.Element(AuthHelper.INVALID_UUID, null, convertKeyToFingerprint("456".getBytes(StandardCharsets.UTF_8)))));
 
     for (int i = 0; i < 900; i++) {
       largeElementList.add(
-          new BatchIdentityCheckRequest.Element(UUID.randomUUID(), null, convertStringToFingerprint("abcd")));
+          new BatchIdentityCheckRequest.Element(UUID.randomUUID(), null, convertKeyToFingerprint("abcd".getBytes(StandardCharsets.UTF_8))));
     }
 
     try (final Response response = resources.getJerseyTest().target("/v1/profile/identity_check/batch").request()
@@ -1226,9 +1228,9 @@ class ProfileControllerTest {
 
     final Condition<BatchIdentityCheckResponse.Element> isAnExpectedUuid = new Condition<>(element -> {
       if (AuthHelper.VALID_UUID.equals(element.aci())) {
-        return Arrays.equals(Base64.getDecoder().decode(ACCOUNT_IDENTITY_KEY), element.identityKey());
+        return Arrays.equals(ACCOUNT_IDENTITY_KEY, element.identityKey());
       } else if (AuthHelper.VALID_PNI_TWO.equals(element.uuid())) {
-        return Arrays.equals(Base64.getDecoder().decode(ACCOUNT_TWO_PHONE_NUMBER_IDENTITY_KEY), element.identityKey());
+        return Arrays.equals(ACCOUNT_TWO_PHONE_NUMBER_IDENTITY_KEY, element.identityKey());
       } else {
         return false;
       }
@@ -1243,9 +1245,9 @@ class ProfileControllerTest {
                 { "aci": "%s", "fingerprint": "%s" }
               ]
             }
-            """, AuthHelper.VALID_UUID, Base64.getEncoder().encodeToString(convertStringToFingerprint("else1234")),
-        AuthHelper.VALID_PNI_TWO, Base64.getEncoder().encodeToString(convertStringToFingerprint("another1")),
-        AuthHelper.INVALID_UUID, Base64.getEncoder().encodeToString(convertStringToFingerprint("456")));
+            """, AuthHelper.VALID_UUID, Base64.getEncoder().encodeToString(convertKeyToFingerprint("else1234".getBytes(StandardCharsets.UTF_8))),
+        AuthHelper.VALID_PNI_TWO, Base64.getEncoder().encodeToString(convertKeyToFingerprint("another1".getBytes(StandardCharsets.UTF_8))),
+        AuthHelper.INVALID_UUID, Base64.getEncoder().encodeToString(convertKeyToFingerprint("456".getBytes(StandardCharsets.UTF_8))));
 
     try (final Response response = resources.getJerseyTest().target("/v1/profile/identity_check/batch").request()
         .post(Entity.entity(json, "application/json"))) {
@@ -1311,13 +1313,13 @@ class ProfileControllerTest {
                       ]
                     }
                     """, AuthHelper.VALID_UUID, AuthHelper.VALID_PNI,
-                Base64.getEncoder().encodeToString(convertStringToFingerprint("else1234"))))
+                Base64.getEncoder().encodeToString(convertKeyToFingerprint("else1234".getBytes(StandardCharsets.UTF_8)))))
     );
   }
 
-  private static byte[] convertStringToFingerprint(String base64) {
+  private static byte[] convertKeyToFingerprint(byte[] key) {
     try {
-      return Util.truncate(MessageDigest.getInstance("SHA-256").digest(Base64.getDecoder().decode(base64)), 4);
+      return Util.truncate(MessageDigest.getInstance("SHA-256").digest(key), 4);
     } catch (NoSuchAlgorithmException e) {
       throw new AssertionError(e);
     }

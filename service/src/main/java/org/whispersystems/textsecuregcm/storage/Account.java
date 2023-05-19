@@ -24,6 +24,7 @@ import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
+import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
 import org.whispersystems.textsecuregcm.util.ByteArrayBase64UrlAdapter;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -57,10 +58,14 @@ public class Account {
   private List<Device> devices = new ArrayList<>();
 
   @JsonProperty
-  private String identityKey;
+  @JsonSerialize(using = ByteArrayAdapter.Serializing.class)
+  @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
+  private byte[] identityKey;
 
   @JsonProperty("pniIdentityKey")
-  private String phoneNumberIdentityKey;
+  @JsonSerialize(using = ByteArrayAdapter.Serializing.class)
+  @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
+  private byte[] phoneNumberIdentityKey;
 
   @JsonProperty("cpv")
   private String currentProfileVersion;
@@ -282,23 +287,23 @@ public class Account {
     this.canonicallyDiscoverable = canonicallyDiscoverable;
   }
 
-  public void setIdentityKey(String identityKey) {
+  public void setIdentityKey(byte[] identityKey) {
     requireNotStale();
 
     this.identityKey = identityKey;
   }
 
-  public String getIdentityKey() {
+  public byte[] getIdentityKey() {
     requireNotStale();
 
     return identityKey;
   }
 
-  public String getPhoneNumberIdentityKey() {
+  public byte[] getPhoneNumberIdentityKey() {
     return phoneNumberIdentityKey;
   }
 
-  public void setPhoneNumberIdentityKey(final String phoneNumberIdentityKey) {
+  public void setPhoneNumberIdentityKey(final byte[] phoneNumberIdentityKey) {
     this.phoneNumberIdentityKey = phoneNumberIdentityKey;
   }
 

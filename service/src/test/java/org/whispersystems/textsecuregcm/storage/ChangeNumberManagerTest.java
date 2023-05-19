@@ -14,6 +14,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
@@ -105,7 +106,7 @@ public class ChangeNumberManagerTest {
     Account account = mock(Account.class);
     when(account.getNumber()).thenReturn("+18005551234");
     var prekeys = Map.of(1L, new SignedPreKey());
-    final String pniIdentityKey = "pni-identity-key";
+    final byte[] pniIdentityKey = "pni-identity-key".getBytes(StandardCharsets.UTF_8);
 
     changeNumberManager.changeNumber(account, "+18025551234", pniIdentityKey, prekeys, null, Collections.emptyList(), Collections.emptyMap());
     verify(accountsManager).changeNumber(account, "+18025551234", pniIdentityKey, prekeys, null, Collections.emptyMap());
@@ -131,7 +132,7 @@ public class ChangeNumberManagerTest {
     when(account.getDevice(2L)).thenReturn(Optional.of(d2));
     when(account.getDevices()).thenReturn(List.of(d2));
 
-    final String pniIdentityKey = "pni-identity-key";
+    final byte[] pniIdentityKey = "pni-identity-key".getBytes();
     final Map<Long, SignedPreKey> prekeys = Map.of(1L, new SignedPreKey(), 2L, new SignedPreKey());
     final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 19);
 
@@ -174,7 +175,7 @@ public class ChangeNumberManagerTest {
     when(account.getDevice(2L)).thenReturn(Optional.of(d2));
     when(account.getDevices()).thenReturn(List.of(d2));
 
-    final String pniIdentityKey = "pni-identity-key";
+    final byte[] pniIdentityKey = "pni-identity-key".getBytes(StandardCharsets.UTF_8);
     final Map<Long, SignedPreKey> prekeys = Map.of(1L, new SignedPreKey(), 2L, new SignedPreKey());
     final Map<Long, SignedPreKey> pqPrekeys = Map.of(3L, new SignedPreKey(), 4L, new SignedPreKey());
     final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 19);
@@ -216,7 +217,7 @@ public class ChangeNumberManagerTest {
     when(account.getDevice(2L)).thenReturn(Optional.of(d2));
     when(account.getDevices()).thenReturn(List.of(d2));
 
-    final String pniIdentityKey = "pni-identity-key";
+    final byte[] pniIdentityKey = "pni-identity-key".getBytes();
     final Map<Long, SignedPreKey> prekeys = Map.of(1L, new SignedPreKey(), 2L, new SignedPreKey());
     final Map<Long, SignedPreKey> pqPrekeys = Map.of(3L, new SignedPreKey(), 4L, new SignedPreKey());
     final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 19);
@@ -256,7 +257,7 @@ public class ChangeNumberManagerTest {
     when(account.getDevice(2L)).thenReturn(Optional.of(d2));
     when(account.getDevices()).thenReturn(List.of(d2));
 
-    final String pniIdentityKey = "pni-identity-key";
+    final byte[] pniIdentityKey = "pni-identity-key".getBytes();
     final Map<Long, SignedPreKey> prekeys = Map.of(1L, new SignedPreKey(), 2L, new SignedPreKey());
     final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 19);
 
@@ -295,7 +296,7 @@ public class ChangeNumberManagerTest {
     when(account.getDevice(2L)).thenReturn(Optional.of(d2));
     when(account.getDevices()).thenReturn(List.of(d2));
 
-    final String pniIdentityKey = "pni-identity-key";
+    final byte[] pniIdentityKey = "pni-identity-key".getBytes();
     final Map<Long, SignedPreKey> prekeys = Map.of(1L, new SignedPreKey(), 2L, new SignedPreKey());
     final Map<Long, SignedPreKey> pqPrekeys = Map.of(3L, new SignedPreKey(), 4L, new SignedPreKey());
     final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 19);
@@ -346,7 +347,7 @@ public class ChangeNumberManagerTest {
     final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 47, 3L, 89);
 
     assertThrows(StaleDevicesException.class,
-        () -> changeNumberManager.changeNumber(account, "+18005559876", "pni-identity-key", preKeys, null, messages, registrationIds));
+        () -> changeNumberManager.changeNumber(account, "+18005559876", "pni-identity-key".getBytes(StandardCharsets.UTF_8), preKeys, null, messages, registrationIds));
   }
 
   @Test
@@ -376,7 +377,7 @@ public class ChangeNumberManagerTest {
     final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 47, 3L, 89);
 
     assertThrows(StaleDevicesException.class,
-        () -> changeNumberManager.updatePniKeys(account, "pni-identity-key", preKeys, null, messages, registrationIds));
+        () -> changeNumberManager.updatePniKeys(account, "pni-identity-key".getBytes(StandardCharsets.UTF_8), preKeys, null, messages, registrationIds));
   }
 
   @Test
@@ -405,6 +406,6 @@ public class ChangeNumberManagerTest {
     final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 47, 3L, 89);
 
     assertThrows(IllegalArgumentException.class,
-        () -> changeNumberManager.changeNumber(account, "+18005559876", "pni-identity-key", null, null, messages, registrationIds));
+        () -> changeNumberManager.changeNumber(account, "+18005559876", "pni-identity-key".getBytes(StandardCharsets.UTF_8), null, null, messages, registrationIds));
   }
 }

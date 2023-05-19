@@ -138,9 +138,9 @@ class AccountControllerV2Test {
 
       when(changeNumberManager.changeNumber(any(), any(), any(), any(), any(), any(), any())).thenAnswer(
           (Answer<Account>) invocation -> {
-            final Account account = invocation.getArgument(0, Account.class);
-            final String number = invocation.getArgument(1, String.class);
-            final String pniIdentityKey = invocation.getArgument(2, String.class);
+            final Account account = invocation.getArgument(0);
+            final String number = invocation.getArgument(1);
+            final byte[] pniIdentityKey = invocation.getArgument(2);
 
             final UUID uuid = account.getUuid();
             final List<Device> devices = account.getDevices();
@@ -180,7 +180,7 @@ class AccountControllerV2Test {
               .header(HttpHeaders.AUTHORIZATION,
                   AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
               .put(Entity.entity(
-                  new ChangeNumberRequest(encodeSessionId("session"), null, NEW_NUMBER, "123", "123",
+                  new ChangeNumberRequest(encodeSessionId("session"), null, NEW_NUMBER, "123", "123".getBytes(StandardCharsets.UTF_8),
                       Collections.emptyList(),
                       Collections.emptyMap(), null, Collections.emptyMap()),
                   MediaType.APPLICATION_JSON_TYPE), AccountIdentityResponse.class);
@@ -203,7 +203,7 @@ class AccountControllerV2Test {
                   AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
               .put(Entity.entity(
                   new ChangeNumberRequest(encodeSessionId("session"), null, AuthHelper.VALID_NUMBER, null, 
-                      "pni-identity-key",
+                      "pni-identity-key".getBytes(StandardCharsets.UTF_8),
                       Collections.emptyList(),
                       Collections.emptyMap(), null, Collections.emptyMap()),
                   MediaType.APPLICATION_JSON_TYPE), AccountIdentityResponse.class);
@@ -462,8 +462,8 @@ class AccountControllerV2Test {
     void setUp() throws Exception {
       when(changeNumberManager.updatePniKeys(any(), any(), any(), any(), any(), any())).thenAnswer(
           (Answer<Account>) invocation -> {
-            final Account account = invocation.getArgument(0, Account.class);
-            final String pniIdentityKey = invocation.getArgument(1, String.class);
+            final Account account = invocation.getArgument(0);
+            final byte[] pniIdentityKey = invocation.getArgument(1);
 
             final UUID uuid = account.getUuid();
             final UUID pni = account.getPhoneNumberIdentifier();
@@ -498,7 +498,7 @@ class AccountControllerV2Test {
               AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
           .put(Entity.json(requestJson()), AccountIdentityResponse.class);
 
-      verify(changeNumberManager).updatePniKeys(eq(AuthHelper.VALID_ACCOUNT), eq("pni-identity-key"), any(), any(), any(), any());
+      verify(changeNumberManager).updatePniKeys(eq(AuthHelper.VALID_ACCOUNT), eq("pni-identity-key".getBytes(StandardCharsets.UTF_8)), any(), any(), any(), any());
 
       assertEquals(AuthHelper.VALID_UUID, accountIdentityResponse.uuid());
       assertEquals(AuthHelper.VALID_NUMBER, accountIdentityResponse.number());
@@ -554,15 +554,15 @@ class AccountControllerV2Test {
      * Valid request JSON for a {@link org.whispersystems.textsecuregcm.entities.PhoneNumberIdentityKeyDistributionRequest}
      */
     private static String requestJson() {
-      return """
+      return String.format("""
           {
-            "pniIdentityKey": "pni-identity-key",
+            "pniIdentityKey": "%s",
             "deviceMessages": [],
             "devicePniSignedPrekeys": {},
             "devicePniSignedPqPrekeys": {},
             "pniRegistrationIds": {}
           }
-      """;
+      """, Base64.getEncoder().encodeToString("pni-identity-key".getBytes(StandardCharsets.UTF_8)));
     }
 
     /**
@@ -798,8 +798,8 @@ class AccountControllerV2Test {
       account.setUnrestrictedUnidentifiedAccess(unrestrictedUnidentifiedAccess);
       account.setDiscoverableByPhoneNumber(discoverableByPhoneNumber);
       account.setBadges(Clock.systemUTC(), new ArrayList<>(badges));
-      account.setIdentityKey(KeysHelper.serializeIdentityKey(aciIdentityKeyPair));
-      account.setPhoneNumberIdentityKey(KeysHelper.serializeIdentityKey(pniIdentityKeyPair));
+      account.setIdentityKey(aciIdentityKeyPair.getPublicKey().serialize());
+      account.setPhoneNumberIdentityKey(pniIdentityKeyPair.getPublicKey().serialize());
 
       assert !devices.isEmpty();
 

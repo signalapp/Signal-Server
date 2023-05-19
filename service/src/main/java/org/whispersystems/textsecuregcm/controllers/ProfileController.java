@@ -383,13 +383,8 @@ public class ProfileController {
       if (account.getIdentityKey() == null || account.getPhoneNumberIdentityKey() == null) {
         return;
       }
-      byte[] identityKeyBytes;
-      try {
-        identityKeyBytes = Base64.getDecoder().decode(usePhoneNumberIdentity ? account.getPhoneNumberIdentityKey()
-            : account.getIdentityKey());
-      } catch (IllegalArgumentException ignored) {
-        return;
-      }
+      final byte[] identityKeyBytes =
+          usePhoneNumberIdentity ? account.getPhoneNumberIdentityKey() : account.getIdentityKey();
       md.reset();
       byte[] digest = md.digest(identityKeyBytes);
       byte[] fingerprint = Util.truncate(digest, 4);

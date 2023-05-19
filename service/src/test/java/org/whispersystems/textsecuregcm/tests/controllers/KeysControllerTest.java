@@ -80,10 +80,10 @@ class KeysControllerTest {
   private static final int SAMPLE_PNI_REGISTRATION_ID = 1717;
 
   private final ECKeyPair IDENTITY_KEY_PAIR = Curve.generateKeyPair();
-  private final String IDENTITY_KEY = KeysHelper.serializeIdentityKey(IDENTITY_KEY_PAIR);
+  private final byte[] IDENTITY_KEY = IDENTITY_KEY_PAIR.getPublicKey().serialize();
   
   private final ECKeyPair PNI_IDENTITY_KEY_PAIR = Curve.generateKeyPair();
-  private final String PNI_IDENTITY_KEY = KeysHelper.serializeIdentityKey(PNI_IDENTITY_KEY_PAIR);
+  private final byte[] PNI_IDENTITY_KEY = PNI_IDENTITY_KEY_PAIR.getPublicKey().serialize();
   
   private final PreKey SAMPLE_KEY = KeysHelper.ecPreKey(1234);
   private final PreKey SAMPLE_KEY2 = KeysHelper.ecPreKey(5667);
@@ -658,7 +658,7 @@ class KeysControllerTest {
     final PreKey preKey = KeysHelper.ecPreKey(31337);
     final ECKeyPair identityKeyPair = Curve.generateKeyPair();
     final SignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, identityKeyPair);
-    final String identityKey = KeysHelper.serializeIdentityKey(identityKeyPair);
+    final byte[] identityKey = identityKeyPair.getPublicKey().serialize();
 
     PreKeyState preKeyState = new PreKeyState(identityKey, signedPreKey, List.of(preKey));
 
@@ -688,7 +688,7 @@ class KeysControllerTest {
     final SignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, identityKeyPair);
     final SignedPreKey pqPreKey = KeysHelper.signedECPreKey(31339, identityKeyPair);
     final SignedPreKey pqLastResortPreKey = KeysHelper.signedECPreKey(31340, identityKeyPair);
-    final String identityKey = KeysHelper.serializeIdentityKey(identityKeyPair);
+    final byte[] identityKey = identityKeyPair.getPublicKey().serialize();
 
     PreKeyState preKeyState = new PreKeyState(identityKey, signedPreKey, List.of(preKey), List.of(pqPreKey), pqLastResortPreKey);
 
@@ -718,7 +718,7 @@ class KeysControllerTest {
     final PreKey preKey = KeysHelper.ecPreKey(31337);
     final ECKeyPair identityKeyPair = Curve.generateKeyPair();
     final SignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, identityKeyPair);
-    final String identityKey = KeysHelper.serializeIdentityKey(identityKeyPair);
+    final byte[] identityKey = identityKeyPair.getPublicKey().serialize();
 
     PreKeyState preKeyState = new PreKeyState(identityKey, signedPreKey, List.of(preKey));
 
@@ -749,7 +749,7 @@ class KeysControllerTest {
     final SignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, identityKeyPair);
     final SignedPreKey pqPreKey = KeysHelper.signedECPreKey(31339, identityKeyPair);
     final SignedPreKey pqLastResortPreKey = KeysHelper.signedECPreKey(31340, identityKeyPair);
-    final String identityKey = KeysHelper.serializeIdentityKey(identityKeyPair);
+    final byte[] identityKey = identityKeyPair.getPublicKey().serialize();
 
     PreKeyState preKeyState = new PreKeyState(identityKey, signedPreKey, List.of(preKey), List.of(pqPreKey), pqLastResortPreKey);
 
@@ -795,7 +795,7 @@ class KeysControllerTest {
     final PreKey       preKey       = KeysHelper.ecPreKey(31337);
     final ECKeyPair identityKeyPair = Curve.generateKeyPair();
     final SignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, identityKeyPair);
-    final String       identityKey  = KeysHelper.serializeIdentityKey(identityKeyPair);
+    final byte[]       identityKey  = identityKeyPair.getPublicKey().serialize();
 
     PreKeyState preKeyState = new PreKeyState(identityKey, signedPreKey, List.of(preKey));
 

@@ -5,7 +5,6 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Strings;
 import com.google.protobuf.ByteString;
 import org.apache.commons.lang3.ObjectUtils;
 import org.slf4j.Logger;
@@ -40,7 +39,7 @@ public class ChangeNumberManager {
   }
 
   public Account changeNumber(final Account account, final String number,
-      @Nullable final String pniIdentityKey,
+      @Nullable final byte[] pniIdentityKey,
       @Nullable final Map<Long, SignedPreKey> deviceSignedPreKeys,
       @Nullable final Map<Long, SignedPreKey> devicePqLastResortPreKeys,
       @Nullable final List<IncomingMessage> deviceMessages,
@@ -80,7 +79,7 @@ public class ChangeNumberManager {
   }
 
   public Account updatePniKeys(final Account account,
-      final String pniIdentityKey,
+      final byte[] pniIdentityKey,
       final Map<Long, SignedPreKey> deviceSignedPreKeys,
       @Nullable final Map<Long, SignedPreKey> devicePqLastResortPreKeys,
       final List<IncomingMessage> deviceMessages,

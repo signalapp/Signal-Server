@@ -6,7 +6,10 @@
 package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import io.swagger.v3.oas.annotations.media.Schema;
+import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -27,7 +30,8 @@ public record ChangePhoneNumberRequest(
     @JsonProperty("reglock") @Nullable String registrationLock,
 
     @Schema(description="the new public identity key to use for the phone-number identity associated with the new phone number")
-    @Nullable String pniIdentityKey,
+    @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
+    @Nullable byte[] pniIdentityKey,
 
     @Schema(description="""
         A list of synchronization messages to send to companion devices to supply the private keys

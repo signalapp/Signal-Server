@@ -9,9 +9,11 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonUnwrapped;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.annotations.VisibleForTesting;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
+import org.whispersystems.textsecuregcm.util.OptionalBase64ByteArrayDeserializer;
 
 import javax.validation.Valid;
 import javax.validation.constraints.AssertTrue;
@@ -53,14 +55,16 @@ public record RegistrationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT
                                   provided, an account will be created "atomically," and all other properties needed for
                                   atomic account creation must also be present.
                                   """)
-                                  Optional<String> aciIdentityKey,
+                                  @JsonDeserialize(using = OptionalBase64ByteArrayDeserializer.class)
+                                  Optional<byte[]> aciIdentityKey,
 
                                   @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, description = """
                                   The PNI-associated identity key for the account, encoded as a base64 string. If
                                   provided, an account will be created "atomically," and all other properties needed for
                                   atomic account creation must also be present.
                                   """)
-                                  Optional<String> pniIdentityKey,
+                                  @JsonDeserialize(using = OptionalBase64ByteArrayDeserializer.class)
+                                  Optional<byte[]> pniIdentityKey,
 
                                   @JsonUnwrapped
                                   @JsonProperty(access = JsonProperty.Access.READ_ONLY)
@@ -72,8 +76,8 @@ public record RegistrationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT
                              @JsonProperty("recoveryPassword") byte[] recoveryPassword,
                              @JsonProperty("accountAttributes") AccountAttributes accountAttributes,
                              @JsonProperty("skipDeviceTransfer") boolean skipDeviceTransfer,
-                             @JsonProperty("aciIdentityKey") Optional<String> aciIdentityKey,
-                             @JsonProperty("pniIdentityKey") Optional<String> pniIdentityKey,
+                             @JsonProperty("aciIdentityKey") Optional<byte[]> aciIdentityKey,
+                             @JsonProperty("pniIdentityKey") Optional<byte[]> pniIdentityKey,
                              @JsonProperty("aciSignedPreKey") Optional<@Valid SignedPreKey> aciSignedPreKey,
                              @JsonProperty("pniSignedPreKey") Optional<@Valid SignedPreKey> pniSignedPreKey,
                              @JsonProperty("aciPqLastResortPreKey") Optional<@Valid SignedPreKey> aciPqLastResortPreKey,
@@ -97,7 +101,7 @@ public record RegistrationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT
   }
 
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-  private static boolean validatePreKeySignature(final Optional<String> maybeIdentityKey,
+  private static boolean validatePreKeySignature(final Optional<byte[]> maybeIdentityKey,
       final Optional<SignedPreKey> maybeSignedPreKey) {
 
     return maybeSignedPreKey.map(signedPreKey -> maybeIdentityKey

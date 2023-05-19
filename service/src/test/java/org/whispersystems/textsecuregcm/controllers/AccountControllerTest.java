@@ -334,9 +334,9 @@ class AccountControllerTest {
     });
 
     when(changeNumberManager.changeNumber(any(), any(), any(), any(), any(), any(), any())).thenAnswer((Answer<Account>) invocation -> {
-      final Account account = invocation.getArgument(0, Account.class);
-      final String number = invocation.getArgument(1, String.class);
-      final String pniIdentityKey = invocation.getArgument(2, String.class);
+      final Account account = invocation.getArgument(0);
+      final String number = invocation.getArgument(1);
+      final byte[] pniIdentityKey = invocation.getArgument(2);
 
       final UUID uuid = account.getUuid();
       final UUID pni = number.equals(account.getNumber()) ? account.getPhoneNumberIdentifier() : UUID.randomUUID();
@@ -358,8 +358,8 @@ class AccountControllerTest {
     });
 
     when(changeNumberManager.updatePniKeys(any(), any(), any(), any(), any(), any())).thenAnswer((Answer<Account>) invocation -> {
-      final Account account = invocation.getArgument(0, Account.class);
-      final String pniIdentityKey = invocation.getArgument(1, String.class);
+      final Account account = invocation.getArgument(0);
+      final byte[] pniIdentityKey = invocation.getArgument(1);
 
       final String number = account.getNumber();
       final UUID uuid = account.getUuid();
@@ -1641,7 +1641,7 @@ class AccountControllerTest {
     final String number = "+18005559876";
     final String code = "987654";
     final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
-    final String pniIdentityKey = KeysHelper.serializeIdentityKey(pniIdentityKeyPair);
+    final byte[] pniIdentityKey = pniIdentityKeyPair.getPublicKey().serialize();
     final byte[] sessionId = "session-id".getBytes(StandardCharsets.UTF_8);
 
     Device device2 = mock(Device.class);
@@ -1695,7 +1695,7 @@ class AccountControllerTest {
   void testChangePhoneNumberSameNumberChangePrekeys() throws Exception {
     final String code = "987654";
     final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
-    final String pniIdentityKey = KeysHelper.serializeIdentityKey(pniIdentityKeyPair);
+    final byte[] pniIdentityKey = pniIdentityKeyPair.getPublicKey().serialize();
     final byte[] sessionId = "session-id".getBytes(StandardCharsets.UTF_8);
 
     Device device2 = mock(Device.class);

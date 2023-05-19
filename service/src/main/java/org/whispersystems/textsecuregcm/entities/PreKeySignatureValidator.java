@@ -8,7 +8,6 @@ import static com.codahale.metrics.MetricRegistry.name;
 
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
-import java.util.Base64;
 import java.util.Collection;
 import org.signal.libsignal.protocol.InvalidKeyException;
 import org.signal.libsignal.protocol.ecc.Curve;
@@ -18,9 +17,8 @@ public abstract class PreKeySignatureValidator {
   public static final Counter INVALID_SIGNATURE_COUNTER =
       Metrics.counter(name(PreKeySignatureValidator.class, "invalidPreKeySignature"));
 
-  public static boolean validatePreKeySignatures(final String identityKeyB64, final Collection<SignedPreKey> spks) {
+  public static boolean validatePreKeySignatures(final byte[] identityKeyBytes, final Collection<SignedPreKey> spks) {
     try {
-      final byte[] identityKeyBytes = Base64.getDecoder().decode(identityKeyB64);
       final ECPublicKey identityKey = Curve.decodePoint(identityKeyBytes, 0);
 
       final boolean success = spks.stream()

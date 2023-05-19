@@ -5,9 +5,7 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -157,7 +155,7 @@ class AccountsManagerChangeNumberIntegrationTest {
     final UUID originalUuid = account.getUuid();
     final UUID originalPni = account.getPhoneNumberIdentifier();
 
-    final String pniIdentityKey = KeysHelper.serializeIdentityKey(pniIdentityKeyPair);
+    final byte[] pniIdentityKey = pniIdentityKeyPair.getPublicKey().serialize();
     final Map<Long, SignedPreKey> preKeys = Map.of(Device.MASTER_ID, rotatedSignedPreKey);
     final Map<Long, Integer> registrationIds = Map.of(Device.MASTER_ID, rotatedPniRegistrationId);
 
@@ -174,7 +172,7 @@ class AccountsManagerChangeNumberIntegrationTest {
     assertEquals(Optional.empty(), deletedAccounts.findUuid(originalNumber));
     assertEquals(Optional.empty(), deletedAccounts.findUuid(secondNumber));
 
-    assertEquals(pniIdentityKey, updatedAccount.getPhoneNumberIdentityKey());
+    assertArrayEquals(pniIdentityKey, updatedAccount.getPhoneNumberIdentityKey());
 
     assertEquals(OptionalInt.of(rotatedPniRegistrationId),
         updatedAccount.getMasterDevice().orElseThrow().getPhoneNumberIdentityRegistrationId());

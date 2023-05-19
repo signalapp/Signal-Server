@@ -278,8 +278,8 @@ class DeviceControllerTest {
     aciPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair));
     pniPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair));
 
-    when(account.getIdentityKey()).thenReturn(KeysHelper.serializeIdentityKey(aciIdentityKeyPair));
-    when(account.getPhoneNumberIdentityKey()).thenReturn(KeysHelper.serializeIdentityKey(pniIdentityKeyPair));
+    when(account.getIdentityKey()).thenReturn(aciIdentityKeyPair.getPublicKey().serialize());
+    when(account.getPhoneNumberIdentityKey()).thenReturn(pniIdentityKeyPair.getPublicKey().serialize());
 
     final LinkDeviceRequest request = new LinkDeviceRequest("5678901",
         new AccountAttributes(fetchesMessages, 1234, null, null, true, null),
@@ -364,8 +364,8 @@ class DeviceControllerTest {
     aciPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair));
     pniPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair));
 
-    when(account.getIdentityKey()).thenReturn(KeysHelper.serializeIdentityKey(aciIdentityKeyPair));
-    when(account.getPhoneNumberIdentityKey()).thenReturn(KeysHelper.serializeIdentityKey(pniIdentityKeyPair));
+    when(account.getIdentityKey()).thenReturn(aciIdentityKeyPair.getPublicKey().serialize());
+    when(account.getPhoneNumberIdentityKey()).thenReturn(pniIdentityKeyPair.getPublicKey().serialize());
 
     final LinkDeviceRequest request = new LinkDeviceRequest("5678901",
         new AccountAttributes(fetchesMessages, 1234, null, null, true, null),
@@ -393,8 +393,8 @@ class DeviceControllerTest {
   @ParameterizedTest
   @MethodSource
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-  void linkDeviceAtomicMissingProperty(final String aciIdentityKey,
-                                       final String pniIdentityKey,
+  void linkDeviceAtomicMissingProperty(final byte[] aciIdentityKey,
+                                       final byte[] pniIdentityKey,
                                        final Optional<SignedPreKey> aciSignedPreKey,
                                        final Optional<SignedPreKey> pniSignedPreKey,
                                        final Optional<SignedPreKey> aciPqLastResortPreKey,
@@ -440,8 +440,8 @@ class DeviceControllerTest {
     final Optional<SignedPreKey> aciPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair));
     final Optional<SignedPreKey> pniPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair));
 
-    final String aciIdentityKey = KeysHelper.serializeIdentityKey(aciIdentityKeyPair);
-    final String pniIdentityKey = KeysHelper.serializeIdentityKey(pniIdentityKeyPair);
+    final byte[] aciIdentityKey = aciIdentityKeyPair.getPublicKey().serialize();
+    final byte[] pniIdentityKey = pniIdentityKeyPair.getPublicKey().serialize();
 
     return Stream.of(
         Arguments.of(aciIdentityKey, pniIdentityKey, Optional.empty(), pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey),
@@ -453,8 +453,8 @@ class DeviceControllerTest {
 
   @ParameterizedTest
   @MethodSource
-  void linkDeviceAtomicInvalidSignature(final String aciIdentityKey,
-                                        final String pniIdentityKey,
+  void linkDeviceAtomicInvalidSignature(final byte[] aciIdentityKey,
+                                        final byte[] pniIdentityKey,
                                         final SignedPreKey aciSignedPreKey,
                                         final SignedPreKey pniSignedPreKey,
                                         final SignedPreKey aciPqLastResortPreKey,
@@ -500,8 +500,8 @@ class DeviceControllerTest {
     final SignedPreKey aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair);
     final SignedPreKey pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair);
 
-    final String aciIdentityKey = KeysHelper.serializeIdentityKey(aciIdentityKeyPair);
-    final String pniIdentityKey = KeysHelper.serializeIdentityKey(pniIdentityKeyPair);
+    final byte[] aciIdentityKey = aciIdentityKeyPair.getPublicKey().serialize();
+    final byte[] pniIdentityKey = pniIdentityKeyPair.getPublicKey().serialize();
 
     return Stream.of(
         Arguments.of(aciIdentityKey, pniIdentityKey, signedPreKeyWithBadSignature(aciSignedPreKey), pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey),
