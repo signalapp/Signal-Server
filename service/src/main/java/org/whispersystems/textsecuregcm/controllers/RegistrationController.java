@@ -158,9 +158,9 @@ public class RegistrationController {
       account = accounts.update(account, a -> {
         a.setIdentityKey(registrationRequest.aciIdentityKey().get());
         a.setPhoneNumberIdentityKey(registrationRequest.pniIdentityKey().get());
-      });
 
-      account = accounts.updateDevice(account, Device.MASTER_ID, device -> {
+        final Device device = a.getMasterDevice().orElseThrow();
+
         device.setSignedPreKey(registrationRequest.aciSignedPreKey().get());
         device.setPhoneNumberIdentitySignedPreKey(registrationRequest.pniSignedPreKey().get());
 
@@ -171,10 +171,10 @@ public class RegistrationController {
 
         registrationRequest.gcmToken().ifPresent(gcmRegistrationId ->
             device.setGcmId(gcmRegistrationId.gcmRegistrationId()));
-      });
 
-      keys.storePqLastResort(account.getUuid(), Map.of(Device.MASTER_ID, registrationRequest.aciPqLastResortPreKey().get()));
-      keys.storePqLastResort(account.getPhoneNumberIdentifier(), Map.of(Device.MASTER_ID, registrationRequest.pniPqLastResortPreKey().get()));
+        keys.storePqLastResort(a.getUuid(), Map.of(Device.MASTER_ID, registrationRequest.aciPqLastResortPreKey().get()));
+        keys.storePqLastResort(a.getPhoneNumberIdentifier(), Map.of(Device.MASTER_ID, registrationRequest.pniPqLastResortPreKey().get()));
+      });
     }
 
     Metrics.counter(ACCOUNT_CREATED_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),

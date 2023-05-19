@@ -588,27 +588,19 @@ class RegistrationControllerTest {
 
     final UUID accountIdentifier = UUID.randomUUID();
     final UUID phoneNumberIdentifier = UUID.randomUUID();
+    final Device device = mock(Device.class);
 
     final Account account = MockUtils.buildMock(Account.class, a -> {
       when(a.getUuid()).thenReturn(accountIdentifier);
       when(a.getPhoneNumberIdentifier()).thenReturn(phoneNumberIdentifier);
+      when(a.getMasterDevice()).thenReturn(Optional.of(device));
     });
 
-    final Device device = mock(Device.class);
-
-    when(accountsManager.create(any(), any(), any(), any(), any()))
-        .thenReturn(account);
+    when(accountsManager.create(any(), any(), any(), any(), any())).thenReturn(account);
 
     when(accountsManager.update(eq(account), any())).thenAnswer(invocation -> {
       final Consumer<Account> accountUpdater = invocation.getArgument(1);
       accountUpdater.accept(account);
-
-      return invocation.getArgument(0);
-    });
-
-    when(accountsManager.updateDevice(eq(account), eq(Device.MASTER_ID), any())).thenAnswer(invocation -> {
-      final Consumer<Device> deviceUpdater = invocation.getArgument(2);
-      deviceUpdater.accept(device);
 
       return invocation.getArgument(0);
     });
@@ -623,7 +615,6 @@ class RegistrationControllerTest {
     }
 
     verify(accountsManager).create(any(), any(), any(), any(), any());
-    verify(accountsManager).updateDevice(eq(account), eq(Device.MASTER_ID), any());
 
     verify(account).setIdentityKey(expectedAciIdentityKey);
     verify(account).setPhoneNumberIdentityKey(expectedPniIdentityKey);
