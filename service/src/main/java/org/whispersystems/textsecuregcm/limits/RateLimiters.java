@@ -8,6 +8,8 @@ package org.whispersystems.textsecuregcm.limits;
 import com.google.common.annotations.VisibleForTesting;
 import java.time.Clock;
 import java.util.Map;
+import java.util.Optional;
+import java.util.OptionalDouble;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
@@ -16,65 +18,68 @@ import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
 
   public enum For implements RateLimiterDescriptor {
-    BACKUP_AUTH_CHECK("backupAuthCheck", false, new RateLimiterConfig(100, 100 / (24.0 * 60.0))),
+    BACKUP_AUTH_CHECK("backupAuthCheck", false, new RateLimiterConfig(100, OptionalDouble.of(100 / (24.0 * 60.0)), Optional.empty())),
 
-    SMS_DESTINATION("smsDestination", false, new RateLimiterConfig(2, 2)),
+    SMS_DESTINATION("smsDestination", false, new RateLimiterConfig(2, OptionalDouble.of(2), Optional.empty())),
 
-    VOICE_DESTINATION("voxDestination", false, new RateLimiterConfig(2, 1.0 / 2.0)),
+    VOICE_DESTINATION("voxDestination", false, new RateLimiterConfig(2, OptionalDouble.of(1.0 / 2.0), Optional.empty())),
 
-    VOICE_DESTINATION_DAILY("voxDestinationDaily", false, new RateLimiterConfig(10, 10.0 / (24.0 * 60.0))),
+    VOICE_DESTINATION_DAILY("voxDestinationDaily", false, new RateLimiterConfig(10, OptionalDouble.of(10.0 / (24.0 * 60.0)),
+        Optional.empty())),
 
-    SMS_VOICE_IP("smsVoiceIp", false, new RateLimiterConfig(1000, 1000)),
+    SMS_VOICE_IP("smsVoiceIp", false, new RateLimiterConfig(1000, OptionalDouble.of(1000), Optional.empty())),
 
-    SMS_VOICE_PREFIX("smsVoicePrefix", false, new RateLimiterConfig(1000, 1000)),
+    SMS_VOICE_PREFIX("smsVoicePrefix", false, new RateLimiterConfig(1000, OptionalDouble.of(1000), Optional.empty())),
 
-    VERIFY("verify", false, new RateLimiterConfig(6, 2)),
+    VERIFY("verify", false, new RateLimiterConfig(6, OptionalDouble.of(2), Optional.empty())),
 
-    PIN("pin", false, new RateLimiterConfig(10, 1 / (24.0 * 60.0))),
+    PIN("pin", false, new RateLimiterConfig(10, OptionalDouble.of(1 / (24.0 * 60.0)), Optional.empty())),
 
-    ATTACHMENT("attachmentCreate", false, new RateLimiterConfig(50, 50)),
+    ATTACHMENT("attachmentCreate", false, new RateLimiterConfig(50, OptionalDouble.of(50), Optional.empty())),
 
-    PRE_KEYS("prekeys", false, new RateLimiterConfig(6, 1.0 / 10.0)),
+    PRE_KEYS("prekeys", false, new RateLimiterConfig(6, OptionalDouble.of(1.0 / 10.0), Optional.empty())),
 
-    MESSAGES("messages", false, new RateLimiterConfig(60, 60)),
+    MESSAGES("messages", false, new RateLimiterConfig(60, OptionalDouble.of(60), Optional.empty())),
 
-    ALLOCATE_DEVICE("allocateDevice", false, new RateLimiterConfig(2, 1.0 / 2.0)),
+    ALLOCATE_DEVICE("allocateDevice", false, new RateLimiterConfig(2, OptionalDouble.of(1.0 / 2.0), Optional.empty())),
 
-    VERIFY_DEVICE("verifyDevice", false, new RateLimiterConfig(6, 1.0 / 10.0)),
+    VERIFY_DEVICE("verifyDevice", false, new RateLimiterConfig(6, OptionalDouble.of(1.0 / 10.0), Optional.empty())),
 
-    TURN("turnAllocate", false, new RateLimiterConfig(60, 60)),
+    TURN("turnAllocate", false, new RateLimiterConfig(60, OptionalDouble.of(60), Optional.empty())),
 
-    PROFILE("profile", false, new RateLimiterConfig(4320, 3)),
+    PROFILE("profile", false, new RateLimiterConfig(4320, OptionalDouble.of(3), Optional.empty())),
 
-    STICKER_PACK("stickerPack", false, new RateLimiterConfig(50, 20 / (24.0 * 60.0))),
+    STICKER_PACK("stickerPack", false, new RateLimiterConfig(50, OptionalDouble.of(20 / (24.0 * 60.0)), Optional.empty())),
 
-    ART_PACK("artPack", false, new RateLimiterConfig(50, 20 / (24.0 * 60.0))),
+    ART_PACK("artPack", false, new RateLimiterConfig(50, OptionalDouble.of(20 / (24.0 * 60.0)), Optional.empty())),
 
-    USERNAME_LOOKUP("usernameLookup", false, new RateLimiterConfig(100, 100 / (24.0 * 60.0))),
+    USERNAME_LOOKUP("usernameLookup", false, new RateLimiterConfig(100, OptionalDouble.of(100 / (24.0 * 60.0)), Optional.empty())),
 
-    USERNAME_SET("usernameSet", false, new RateLimiterConfig(100, 100 / (24.0 * 60.0))),
+    USERNAME_SET("usernameSet", false, new RateLimiterConfig(100, OptionalDouble.of(100 / (24.0 * 60.0)), Optional.empty())),
 
-    USERNAME_RESERVE("usernameReserve", false, new RateLimiterConfig(100, 100 / (24.0 * 60.0))),
+    USERNAME_RESERVE("usernameReserve", false, new RateLimiterConfig(100, OptionalDouble.of(100 / (24.0 * 60.0)), Optional.empty())),
 
-    CHECK_ACCOUNT_EXISTENCE("checkAccountExistence", false, new RateLimiterConfig(1_000, 1_000 / 60.0)),
+    CHECK_ACCOUNT_EXISTENCE("checkAccountExistence", false, new RateLimiterConfig(1_000, OptionalDouble.of(1_000 / 60.0), Optional.empty())),
 
-    REGISTRATION("registration", false, new RateLimiterConfig(6, 2)),
+    REGISTRATION("registration", false, new RateLimiterConfig(6, OptionalDouble.of(2), Optional.empty())),
 
-    VERIFICATION_PUSH_CHALLENGE("verificationPushChallenge", false, new RateLimiterConfig(5, 2)),
+    VERIFICATION_PUSH_CHALLENGE("verificationPushChallenge", false, new RateLimiterConfig(5, OptionalDouble.of(2), Optional.empty())),
 
-    VERIFICATION_CAPTCHA("verificationCaptcha", false, new RateLimiterConfig(10, 2)),
+    VERIFICATION_CAPTCHA("verificationCaptcha", false, new RateLimiterConfig(10, OptionalDouble.of(2), Optional.empty())),
 
-    RATE_LIMIT_RESET("rateLimitReset", true, new RateLimiterConfig(2, 2.0 / (60 * 24))),
+    RATE_LIMIT_RESET("rateLimitReset", true, new RateLimiterConfig(2, OptionalDouble.of(2.0 / (60 * 24)), Optional.empty())),
 
-    RECAPTCHA_CHALLENGE_ATTEMPT("recaptchaChallengeAttempt", true, new RateLimiterConfig(10, 10.0 / (60 * 24))),
+    RECAPTCHA_CHALLENGE_ATTEMPT("recaptchaChallengeAttempt", true, new RateLimiterConfig(10, OptionalDouble.of(10.0 / (60 * 24)),
+        Optional.empty())),
 
-    RECAPTCHA_CHALLENGE_SUCCESS("recaptchaChallengeSuccess", true, new RateLimiterConfig(2, 2.0 / (60 * 24))),
+    RECAPTCHA_CHALLENGE_SUCCESS("recaptchaChallengeSuccess", true, new RateLimiterConfig(2, OptionalDouble.of(2.0 / (60 * 24)),
+        Optional.empty())),
 
-    PUSH_CHALLENGE_ATTEMPT("pushChallengeAttempt", true, new RateLimiterConfig(10, 10.0 / (60 * 24))),
+    PUSH_CHALLENGE_ATTEMPT("pushChallengeAttempt", true, new RateLimiterConfig(10, OptionalDouble.of(10.0 / (60 * 24)), Optional.empty())),
 
-    PUSH_CHALLENGE_SUCCESS("pushChallengeSuccess", true, new RateLimiterConfig(2, 2.0 / (60 * 24))),
+    PUSH_CHALLENGE_SUCCESS("pushChallengeSuccess", true, new RateLimiterConfig(2, OptionalDouble.of(2.0 / (60 * 24)), Optional.empty())),
 
-    CREATE_CALL_LINK("createCallLink", false, new RateLimiterConfig(100, 100.0 / (60 * 24)));
+    CREATE_CALL_LINK("createCallLink", false, new RateLimiterConfig(100, OptionalDouble.of(100.0 / (60 * 24)), Optional.empty()));
     ;
 
     private final String id;

@@ -19,6 +19,7 @@ import java.time.Clock;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
@@ -56,7 +57,7 @@ public class RateLimitersLuaScriptTest {
     final RateLimiters.For descriptor = RateLimiters.For.REGISTRATION;
     final FaultTolerantRedisCluster redisCluster = REDIS_CLUSTER_EXTENSION.getRedisCluster();
     final RateLimiters limiters = new RateLimiters(
-        Map.of(descriptor.id(), new RateLimiterConfig(60, 60)),
+        Map.of(descriptor.id(), new RateLimiterConfig(60, OptionalDouble.of(60), Optional.empty())),
         dynamicConfig,
         RateLimiters.defaultScript(redisCluster),
         redisCluster,
@@ -73,7 +74,7 @@ public class RateLimitersLuaScriptTest {
     final RateLimiters.For descriptor = RateLimiters.For.REGISTRATION;
     final FaultTolerantRedisCluster redisCluster = REDIS_CLUSTER_EXTENSION.getRedisCluster();
     final RateLimiters limiters = new RateLimiters(
-        Map.of(descriptor.id(), new RateLimiterConfig(60, 60)),
+        Map.of(descriptor.id(), new RateLimiterConfig(60, OptionalDouble.of(60), Optional.empty())),
         dynamicConfig,
         RateLimiters.defaultScript(redisCluster),
         redisCluster,
@@ -117,7 +118,7 @@ public class RateLimitersLuaScriptTest {
     final RateLimiters.For descriptor = RateLimiters.For.REGISTRATION;
     final FaultTolerantRedisCluster redisCluster = REDIS_CLUSTER_EXTENSION.getRedisCluster();
     final RateLimiters limiters = new RateLimiters(
-        Map.of(descriptor.id(), new RateLimiterConfig(1000, 60)),
+        Map.of(descriptor.id(), new RateLimiterConfig(1000, OptionalDouble.of(60), Optional.empty())),
         dynamicConfig,
         RateLimiters.defaultScript(redisCluster),
         redisCluster,
@@ -168,7 +169,7 @@ public class RateLimitersLuaScriptTest {
     final RateLimiters.For descriptor = RateLimiters.For.REGISTRATION;
     final FaultTolerantRedisCluster redisCluster = mock(FaultTolerantRedisCluster.class);
     final RateLimiters limiters = new RateLimiters(
-        Map.of(descriptor.id(), new RateLimiterConfig(1000, 60)),
+        Map.of(descriptor.id(), new RateLimiterConfig(1000, OptionalDouble.of(60), Optional.empty())),
         dynamicConfig,
         RateLimiters.defaultScript(redisCluster),
         redisCluster,

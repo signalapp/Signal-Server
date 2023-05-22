@@ -13,10 +13,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.vdurmont.semver4j.Semver;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -297,19 +299,39 @@ class DynamicConfigurationTest {
 
   @Test
   void testParseLimits() throws JsonProcessingException {
-    final String limitsConfig = REQUIRED_CONFIG.concat("""
+    {
+      final String limitsConfig = REQUIRED_CONFIG.concat("""
           limits:
             rateLimitReset:
               bucketSize: 17
               leakRatePerMinute: 44
           """);
 
-    final RateLimiterConfig resetRateLimiterConfig =
-        DynamicConfigurationManager.parseConfiguration(limitsConfig, DynamicConfiguration.class).orElseThrow()
-            .getLimits().get(RateLimiters.For.RATE_LIMIT_RESET.id());
+      final RateLimiterConfig resetRateLimiterConfig =
+          DynamicConfigurationManager.parseConfiguration(limitsConfig, DynamicConfiguration.class).orElseThrow()
+              .getLimits().get(RateLimiters.For.RATE_LIMIT_RESET.id());
 
-    assertThat(resetRateLimiterConfig.bucketSize()).isEqualTo(17);
-    assertThat(resetRateLimiterConfig.leakRatePerMinute()).isEqualTo(44);
+      assertThat(resetRateLimiterConfig.bucketSize()).isEqualTo(17);
+      assertThat(resetRateLimiterConfig.leakRatePerMinute()).isEqualTo(OptionalDouble.of(44));
+      assertThat(resetRateLimiterConfig.permitRegenerationDuration()).isEmpty();
+    }
+
+    {
+      final String limitsConfig = REQUIRED_CONFIG.concat("""
+          limits:
+            rateLimitReset:
+              bucketSize: 17
+              permitRegenerationDuration: PT4S
+          """);
+
+      final RateLimiterConfig resetRateLimiterConfig =
+          DynamicConfigurationManager.parseConfiguration(limitsConfig, DynamicConfiguration.class).orElseThrow()
+              .getLimits().get(RateLimiters.For.RATE_LIMIT_RESET.id());
+
+      assertThat(resetRateLimiterConfig.bucketSize()).isEqualTo(17);
+      assertThat(resetRateLimiterConfig.leakRatePerMinute()).isEmpty();
+      assertThat(resetRateLimiterConfig.permitRegenerationDuration()).isEqualTo(Optional.of(Duration.ofSeconds(4)));
+    }
   }
 
   @Test
