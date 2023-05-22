@@ -12,11 +12,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
-import java.util.OptionalDouble;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import org.junit.jupiter.api.Test;
@@ -46,20 +45,20 @@ public class RateLimitersTest {
       limits:
         smsVoicePrefix:
           bucketSize: 150
-          leakRatePerMinute: 10
+          permitRegenerationDuration: PT6S
         unexpected:
           bucketSize: 4
-          leakRatePerMinute: 2
+          permitRegenerationDuration: PT30S
       """;
 
   private static final String GOOD_YAML = """
       limits:
         smsVoicePrefix:
           bucketSize: 150
-          leakRatePerMinute: 10
+          permitRegenerationDuration: PT6S
         attachmentCreate:
           bucketSize: 4
-          leakRatePerMinute: 2
+          permitRegenerationDuration: PT30S
       rateLimitPolicy:
         failOpen: true
       """;
@@ -117,9 +116,9 @@ public class RateLimitersTest {
 
   @Test
   void testChangingConfiguration() {
-    final RateLimiterConfig initialRateLimiterConfig = new RateLimiterConfig(4, OptionalDouble.of(1), Optional.empty());
-    final RateLimiterConfig updatedRateLimiterCongig = new RateLimiterConfig(17, OptionalDouble.of(19), Optional.empty());
-    final RateLimiterConfig baseConfig = new RateLimiterConfig(1, OptionalDouble.of(1), Optional.empty());
+    final RateLimiterConfig initialRateLimiterConfig = new RateLimiterConfig(4, Duration.ofMinutes(1));
+    final RateLimiterConfig updatedRateLimiterCongig = new RateLimiterConfig(17, Duration.ofSeconds(3));
+    final RateLimiterConfig baseConfig = new RateLimiterConfig(1, Duration.ofMinutes(1));
 
     final Map<String, RateLimiterConfig> limitsConfigMap = new HashMap<>();
 
@@ -147,8 +146,8 @@ public class RateLimitersTest {
   @Test
   public void testRateLimiterHasItsPrioritiesStraight() throws Exception {
     final RateLimiters.For descriptor = RateLimiters.For.RECAPTCHA_CHALLENGE_ATTEMPT;
-    final RateLimiterConfig configForDynamic = new RateLimiterConfig(1, OptionalDouble.of(1), Optional.empty());
-    final RateLimiterConfig configForStatic = new RateLimiterConfig(2, OptionalDouble.of(2), Optional.empty());
+    final RateLimiterConfig configForDynamic = new RateLimiterConfig(1, Duration.ofMinutes(1));
+    final RateLimiterConfig configForStatic = new RateLimiterConfig(2, Duration.ofSeconds(30));
     final RateLimiterConfig defaultConfig = descriptor.defaultConfig();
 
     final Map<String, RateLimiterConfig> mapForDynamic = new HashMap<>();
@@ -189,7 +188,7 @@ public class RateLimitersTest {
 
     @Override
     public RateLimiterConfig defaultConfig() {
-      return new RateLimiterConfig(1, OptionalDouble.of(1), Optional.empty());
+      return new RateLimiterConfig(1, Duration.ofMinutes(1));
     }
   }
 }

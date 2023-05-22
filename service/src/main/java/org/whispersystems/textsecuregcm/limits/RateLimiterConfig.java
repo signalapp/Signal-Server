@@ -7,27 +7,15 @@ package org.whispersystems.textsecuregcm.limits;
 
 import javax.validation.constraints.AssertTrue;
 import java.time.Duration;
-import java.util.Optional;
-import java.util.OptionalDouble;
 
-public record RateLimiterConfig(int bucketSize, OptionalDouble leakRatePerMinute, Optional<Duration> permitRegenerationDuration) {
+public record RateLimiterConfig(int bucketSize, Duration permitRegenerationDuration) {
 
   public double leakRatePerMillis() {
-    if (leakRatePerMinute.isPresent()) {
-      return leakRatePerMinute.getAsDouble() / (60.0 * 1000.0);
-    } else {
-      return permitRegenerationDuration.map(duration -> 1.0 / duration.toMillis())
-          .orElseThrow(() -> new AssertionError("Configuration must have leak rate per minute or permit regeneration duration"));
-    }
-  }
-
-  @AssertTrue
-  public boolean hasExactlyOneRegenerationRate() {
-    return leakRatePerMinute.isPresent() ^ permitRegenerationDuration().isPresent();
+    return 1.0 / permitRegenerationDuration.toMillis();
   }
 
   @AssertTrue
   public boolean hasPositiveRegenerationRate() {
-    return leakRatePerMillis() > 0;
+    return permitRegenerationDuration.toMillis() > 0;
   }
 }
