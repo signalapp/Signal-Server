@@ -53,7 +53,9 @@ public class MessagePersisterServiceCommand extends EnvironmentCommand<WhisperSe
         configuration.getAppConfig().getConfigurationName(),
         DynamicConfiguration.class);
 
-    MessagePersister messagePersister = new MessagePersister(deps.messagesCache(), deps.messagesManager(),
+    dynamicConfigurationManager.start();
+
+    final MessagePersister messagePersister = new MessagePersister(deps.messagesCache(), deps.messagesManager(),
         deps.accountsManager(),
         dynamicConfigurationManager,
         Duration.ofMinutes(configuration.getMessageCacheConfiguration().getPersistDelayMinutes()),

@@ -63,6 +63,8 @@ public class ScheduledApnPushNotificationSenderServiceCommand extends Environmen
         configuration.getAppConfig().getConfigurationName(),
         DynamicConfiguration.class);
 
+    dynamicConfigurationManager.start();
+
     final APNSender apnSender = new APNSender(apnSenderExecutor, configuration.getApnConfiguration());
     final ApnPushNotificationScheduler apnPushNotificationScheduler = new ApnPushNotificationScheduler(
         pushSchedulerCluster, apnSender, deps.accountsManager(), Optional.of(namespace.getInt(WORKER_COUNT)),

@@ -90,6 +90,8 @@ public class CrawlAccountsCommand extends EnvironmentCommand<WhisperServerConfig
             configuration.getAppConfig().getConfigurationName(),
             DynamicConfiguration.class);
 
+    dynamicConfigurationManager.start();
+
     final AccountDatabaseCrawler crawler =
 
         switch ((CrawlType) namespace.get(CRAWL_TYPE)) {
