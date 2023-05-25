@@ -68,7 +68,7 @@ public class AccountCleaner extends AccountDatabaseCrawlerListener {
   }
 
   private static boolean isExpired(Account account) {
-    return account.getLastSeen() + TimeUnit.DAYS.toMillis(365) < System.currentTimeMillis();
+    return account.getLastSeen() + TimeUnit.DAYS.toMillis(180) < System.currentTimeMillis();
   }
 
 }

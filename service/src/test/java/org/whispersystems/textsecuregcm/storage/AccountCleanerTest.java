@@ -54,7 +54,7 @@ class AccountCleanerTest {
     when(undeletedDisabledDevice.isEnabled()).thenReturn(false);
     when(undeletedDisabledDevice.getGcmId()).thenReturn("foo");
     when(undeletedDisabledAccount.isEnabled()).thenReturn(false);
-    when(undeletedDisabledAccount.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(366));
+    when(undeletedDisabledAccount.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(181));
     when(undeletedDisabledAccount.getMasterDevice()).thenReturn(Optional.of(undeletedDisabledDevice));
     when(undeletedDisabledAccount.getNumber()).thenReturn("+14152222222");
     when(undeletedDisabledAccount.getUuid()).thenReturn(UUID.randomUUID());
@@ -64,7 +64,7 @@ class AccountCleanerTest {
     when(undeletedEnabledAccount.isEnabled()).thenReturn(true);
     when(undeletedEnabledAccount.getMasterDevice()).thenReturn(Optional.of(undeletedEnabledDevice));
     when(undeletedEnabledAccount.getNumber()).thenReturn("+14153333333");
-    when(undeletedEnabledAccount.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(364));
+    when(undeletedEnabledAccount.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(179));
     when(undeletedEnabledAccount.getUuid()).thenReturn(UUID.randomUUID());
 
     deletionExecutor = Executors.newFixedThreadPool(2);
