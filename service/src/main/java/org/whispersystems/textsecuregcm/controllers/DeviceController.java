@@ -101,6 +101,7 @@ public class DeviceController {
 
   @Timed
   @DELETE
+  @Produces(MediaType.APPLICATION_JSON)
   @Path("/{device_id}")
   @ChangesDeviceEnabledState
   public void removeDevice(@Auth AuthenticatedAccount auth, @PathParam("device_id") long deviceId) {
@@ -217,6 +218,7 @@ public class DeviceController {
 
   @Timed
   @PUT
+  @Produces(MediaType.APPLICATION_JSON)
   @Path("/unauthenticated_delivery")
   public void setUnauthenticatedDelivery(@Auth AuthenticatedAccount auth) {
     assert (auth.getAuthenticatedDevice() != null);
@@ -225,6 +227,7 @@ public class DeviceController {
 
   @Timed
   @PUT
+  @Produces(MediaType.APPLICATION_JSON)
   @Path("/capabilities")
   public void setCapabilities(@Auth AuthenticatedAccount auth, @NotNull @Valid DeviceCapabilities capabilities) {
     assert (auth.getAuthenticatedDevice() != null);

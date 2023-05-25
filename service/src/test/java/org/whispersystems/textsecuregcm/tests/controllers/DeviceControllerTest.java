@@ -758,6 +758,32 @@ class DeviceControllerTest {
     assertThat(response.getStatus()).isEqualTo(200);
   }
 
+  @Test
+  void putCapabilitiesSuccessTest() {
+    final DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, true, true);
+    final Response response = resources
+        .getJerseyTest()
+        .target("/v1/devices/capabilities")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
+        .put(Entity.entity(deviceCapabilities, MediaType.APPLICATION_JSON_TYPE));
+    assertThat(response.getStatus()).isEqualTo(204);
+    assertThat(response.hasEntity()).isFalse();
+  }
+
+  @Test
+  void putCapabilitiesFailureTest() {
+    final Response response = resources
+        .getJerseyTest()
+        .target("/v1/devices/capabilities")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
+        .put(Entity.json(""));
+    assertThat(response.getStatus()).isEqualTo(422);
+  }
+
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
   void deviceDowngradePaymentActivationTest(boolean paymentActivation) {
@@ -791,6 +817,7 @@ class DeviceControllerTest {
         .delete();
 
     assertThat(response.getStatus()).isEqualTo(204);
+    assertThat(response.hasEntity()).isFalse();
 
     verify(messagesManager, times(2)).clear(AuthHelper.VALID_UUID, deviceId);
     verify(accountsManager, times(1)).update(eq(AuthHelper.VALID_ACCOUNT), any());
