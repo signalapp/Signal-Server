@@ -807,6 +807,47 @@ paths:
                 $ref: '#/components/schemas/DeviceInfoList'
       security:
       - authenticatedAccount: []
+  /v1/devices/link:
+    put:
+      tags:
+      - Devices
+      summary: Link a device to an account
+      description: |
+        Links a device to an account identified by a given phone number.
+      operationId: linkDevice
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          $ref: '#/components/schemas/BasicAuthorizationHeader'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkDeviceRequest'
+        required: true
+      responses:
+        "200":
+          description: The new device was linked to the calling account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceResponse'
+        "403":
+          description: The given account was not found or the given verification code
+            was incorrect
+        "411":
+          description: The given account already has its maximum number of linked
+            devices
+        "422":
+          description: The request did not pass validation
+        "429":
+          description: Too many attempts
+          headers:
+            Retry-After:
+              description: "If present, an positive integer indicating the number\
+                \ of seconds before a subsequent attempt could succeed"
+              style: simple
   /v1/devices/{device_id}:
     delete:
       tags:
@@ -823,7 +864,7 @@ paths:
         default:
           description: default response
           content:
-            '*/*': {}
+            application/json: {}
       security:
       - authenticatedAccount: []
   /v1/devices/capabilities:
@@ -841,7 +882,7 @@ paths:
         default:
           description: default response
           content:
-            '*/*': {}
+            application/json: {}
       security:
       - authenticatedAccount: []
   /v1/devices/unauthenticated_delivery:
@@ -853,7 +894,7 @@ paths:
         default:
           description: default response
           content:
-            '*/*': {}
+            application/json: {}
       security:
       - authenticatedAccount: []
   /v1/devices/{verification_code}:
@@ -871,10 +912,6 @@ paths:
         in: header
         schema:
           $ref: '#/components/schemas/BasicAuthorizationHeader'
-      - name: User-Agent
-        in: header
-        schema:
-          type: string
       requestBody:
         content:
           application/json:
@@ -888,6 +925,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DeviceResponse'
+      deprecated: true
   /v2/directory/auth:
     get:
       tags:
@@ -3121,6 +3159,45 @@ components:
         deviceId:
           type: integer
           format: int64
+    DeviceActivationRequest:
+      type: object
+      properties:
+        aciSignedPreKey:
+          $ref: '#/components/schemas/SignedPreKey'
+        pniSignedPreKey:
+          $ref: '#/components/schemas/SignedPreKey'
+        aciPqLastResortPreKey:
+          $ref: '#/components/schemas/SignedPreKey'
+        pniPqLastResortPreKey:
+          $ref: '#/components/schemas/SignedPreKey'
+        apnToken:
+          $ref: '#/components/schemas/ApnRegistrationId'
+        gcmToken:
+          $ref: '#/components/schemas/GcmRegistrationId'
+    LinkDeviceRequest:
+      required:
+      - verificationCode
+      type: object
+      properties:
+        verificationCode:
+          type: string
+          description: |
+            The verification code associated with this device. Must match the verification code
+            provided by the server when provisioning this device.
+        accountAttributes:
+          $ref: '#/components/schemas/AccountAttributes'
+        aciSignedPreKey:
+          $ref: '#/components/schemas/SignedPreKey'
+        pniSignedPreKey:
+          $ref: '#/components/schemas/SignedPreKey'
+        aciPqLastResortPreKey:
+          $ref: '#/components/schemas/SignedPreKey'
+        pniPqLastResortPreKey:
+          $ref: '#/components/schemas/SignedPreKey'
+        apnToken:
+          $ref: '#/components/schemas/ApnRegistrationId'
+        gcmToken:
+          $ref: '#/components/schemas/GcmRegistrationId'
     RedeemReceiptRequest:
       required:
       - receiptCredentialPresentation
