@@ -7,18 +7,7 @@ package org.whispersystems.textsecuregcm.configuration;
 
 import javax.validation.constraints.NotEmpty;
 
-public class RecaptchaConfiguration {
+public record RecaptchaConfiguration(@NotEmpty String projectPath, @NotEmpty String credentialConfigurationJson,
+                                     @NotEmpty String secondaryCredentialConfigurationJson) {
 
-  private String projectPath;
-  private String credentialConfigurationJson;
-
-  @NotEmpty
-  public String getProjectPath() {
-    return projectPath;
-  }
-
-  @NotEmpty
-  public String getCredentialConfigurationJson() {
-    return credentialConfigurationJson;
-  }
 }

@@ -311,6 +311,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
       Metrics.addRegistry(datadogMeterRegistry);
     }
 
+    final boolean useSecondaryCredentialsJson = Optional.ofNullable(
+            System.getenv("SIGNAL_USE_SECONDARY_CREDENTIALS_JSON"))
+        .isPresent();
+
     environment.lifecycle().manage(new MicrometerRegistryManager(Metrics.globalRegistry));
 
     HeaderControlledResourceBundleLookup headerControlledResourceBundleLookup =
@@ -463,7 +467,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final AdminEventLogger adminEventLogger = new GoogleCloudAdminEventLogger(
         LoggingOptions.newBuilder().setProjectId(config.getAdminEventLoggingConfiguration().projectId())
             .setCredentials(GoogleCredentials.fromStream(new ByteArrayInputStream(
-                config.getAdminEventLoggingConfiguration().credentials().getBytes(StandardCharsets.UTF_8))))
+                useSecondaryCredentialsJson
+                    ? config.getAdminEventLoggingConfiguration().secondaryCredentials().getBytes(StandardCharsets.UTF_8)
+                    : config.getAdminEventLoggingConfiguration().credentials().getBytes(StandardCharsets.UTF_8))))
             .build().getService(),
         config.getAdminEventLoggingConfiguration().projectId(),
         config.getAdminEventLoggingConfiguration().logName());
@@ -500,7 +506,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     RegistrationServiceClient registrationServiceClient = new RegistrationServiceClient(
         config.getRegistrationServiceConfiguration().host(),
         config.getRegistrationServiceConfiguration().port(),
-        config.getRegistrationServiceConfiguration().credentialConfigurationJson(),
+        useSecondaryCredentialsJson
+            ? config.getRegistrationServiceConfiguration().secondaryCredentialConfigurationJson()
+            : config.getRegistrationServiceConfiguration().credentialConfigurationJson(),
         config.getRegistrationServiceConfiguration().identityTokenAudience(),
         config.getRegistrationServiceConfiguration().registrationCaCertificate(),
         registrationCallbackExecutor);
@@ -573,8 +581,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final TurnTokenGenerator turnTokenGenerator = new TurnTokenGenerator(dynamicConfigurationManager);
 
     RecaptchaClient recaptchaClient = new RecaptchaClient(
-        config.getRecaptchaConfiguration().getProjectPath(),
-        config.getRecaptchaConfiguration().getCredentialConfigurationJson(),
+        config.getRecaptchaConfiguration().projectPath(),
+        useSecondaryCredentialsJson
+            ? config.getRecaptchaConfiguration().secondaryCredentialConfigurationJson()
+            : config.getRecaptchaConfiguration().credentialConfigurationJson(),
         dynamicConfigurationManager);
     HttpClient hcaptchaHttpClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_2)
         .connectTimeout(Duration.ofSeconds(10)).build();
