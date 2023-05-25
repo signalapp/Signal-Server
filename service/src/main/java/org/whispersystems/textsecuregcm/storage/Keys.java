@@ -62,6 +62,8 @@ public class Keys extends AbstractDynamoDbStore {
   private static final DistributionSummary KEY_COUNT_DISTRIBUTION = Metrics.summary(name(Keys.class, "keyCount"));
   private static final Counter KEYS_EMPTY_TAKE_COUNTER = Metrics.counter(name(Keys.class, "takeKeyEmpty"));
   private static final Counter TOO_MANY_LAST_RESORT_KEYS_COUNTER = Metrics.counter(name(Keys.class, "tooManyLastResortKeys"));
+  private static final Counter PARSE_BYTES_FROM_STRING_COUNTER = Metrics.counter(name(Keys.class, "parseByteArray"), "format", "string");
+  private static final Counter READ_BYTES_FROM_BYTE_ARRAY_COUNTER = Metrics.counter(name(Keys.class, "parseByteArray"), "format", "bytes");
 
   public Keys(
       final DynamoDbClient dynamoDB,
@@ -404,8 +406,10 @@ public class Keys extends AbstractDynamoDbStore {
   @VisibleForTesting
   static byte[] extractByteArray(final AttributeValue attributeValue) {
     if (attributeValue.b() != null) {
+      READ_BYTES_FROM_BYTE_ARRAY_COUNTER.increment();
       return attributeValue.b().asByteArray();
     } else if (StringUtils.isNotBlank(attributeValue.s())) {
+      PARSE_BYTES_FROM_STRING_COUNTER.increment();
       return Base64.getDecoder().decode(attributeValue.s());
     }
 
