@@ -232,6 +232,7 @@ import org.whispersystems.websocket.setup.WebSocketEnvironment;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProviderChain;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
@@ -244,8 +245,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
   public static final String SECRETS_BUNDLE_FILE_NAME_PROPERTY = "secrets.bundle.filename";
 
-  private static final software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider AWSSDK_INSTANCE_PROFILE_CREDENTIALS_PROVIDER =
-      software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create();
+  private static final software.amazon.awssdk.auth.credentials.AwsCredentialsProvider AWSSDK_CREDENTIALS_PROVIDER =
+      AwsCredentialsProviderChain.of(
+          software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create(),
+          software.amazon.awssdk.auth.credentials.WebIdentityTokenFileCredentialsProvider.create());
 
 
   @Override
@@ -326,11 +329,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     DynamoDbAsyncClient dynamoDbAsyncClient = DynamoDbFromConfig.asyncClient(
         config.getDynamoDbClientConfiguration(),
-        AWSSDK_INSTANCE_PROFILE_CREDENTIALS_PROVIDER);
+        AWSSDK_CREDENTIALS_PROVIDER);
 
     DynamoDbClient dynamoDbClient = DynamoDbFromConfig.client(
         config.getDynamoDbClientConfiguration(),
-        AWSSDK_INSTANCE_PROFILE_CREDENTIALS_PROVIDER);
+        AWSSDK_CREDENTIALS_PROVIDER);
 
     AmazonDynamoDB deletedAccountsLockDynamoDbClient = AmazonDynamoDBClientBuilder.standard()
         .withRegion(config.getDynamoDbClientConfiguration().getRegion())
