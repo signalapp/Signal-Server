@@ -11,7 +11,6 @@ import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentialsProviderChain;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
-import com.codahale.metrics.SharedMetricRegistries;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.logging.LoggingOptions;
 import com.google.common.collect.ImmutableMap;
@@ -26,13 +25,8 @@ import io.dropwizard.auth.basic.BasicCredentials;
 import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
 import io.lettuce.core.resource.ClientResources;
-import io.micrometer.core.instrument.Meter.Id;
 import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.binder.jvm.ExecutorServiceMetrics;
-import io.micrometer.core.instrument.config.MeterFilter;
-import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
-import io.micrometer.datadog.DatadogMeterRegistry;
 import java.io.ByteArrayInputStream;
 import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
@@ -205,9 +199,7 @@ import org.whispersystems.textsecuregcm.storage.VerificationSessionManager;
 import org.whispersystems.textsecuregcm.storage.VerificationSessions;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
-import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
-import org.whispersystems.textsecuregcm.util.HostnameUtil;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.UsernameHashZkProofVerifier;
 import org.whispersystems.textsecuregcm.util.logging.LoggingUnhandledExceptionMapper;
@@ -295,31 +287,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     UncaughtExceptionHandler.register();
 
-    SharedMetricRegistries.add(Constants.METRICS_NAME, environment.metrics());
-
-    final DistributionStatisticConfig defaultDistributionStatisticConfig = DistributionStatisticConfig.builder()
-        .percentiles(.75, .95, .99, .999)
-        .build();
-
-    {
-      final DatadogMeterRegistry datadogMeterRegistry = new DatadogMeterRegistry(
-          config.getDatadogConfiguration(), io.micrometer.core.instrument.Clock.SYSTEM);
-
-      datadogMeterRegistry.config().commonTags(
-              Tags.of(
-                  "service", "chat",
-                  "host", HostnameUtil.getLocalHostname(),
-                  "version", WhisperServerVersion.getServerVersion(),
-                  "env", config.getDatadogConfiguration().getEnvironment()))
-          .meterFilter(new MeterFilter() {
-            @Override
-            public DistributionStatisticConfig configure(final Id id, final DistributionStatisticConfig config) {
-              return defaultDistributionStatisticConfig.merge(config);
-            }
-          });
-
-      Metrics.addRegistry(datadogMeterRegistry);
-    }
+    MetricsUtil.configureRegistries(config, environment);
 
     final boolean useSecondaryCredentialsJson = Optional.ofNullable(
             System.getenv("SIGNAL_USE_SECONDARY_CREDENTIALS_JSON"))
