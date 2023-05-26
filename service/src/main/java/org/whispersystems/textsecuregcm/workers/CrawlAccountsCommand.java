@@ -21,6 +21,7 @@ import net.sourceforge.argparse4j.inf.Subparser;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.storage.AccountCleaner;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawler;
@@ -30,6 +31,7 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.NonNormalizedAccountCrawlerListener;
 import org.whispersystems.textsecuregcm.storage.PushFeedbackProcessor;
+import org.whispersystems.textsecuregcm.util.logging.UncaughtExceptionHandler;
 
 public class CrawlAccountsCommand extends EnvironmentCommand<WhisperServerConfiguration> {
 
@@ -70,6 +72,10 @@ public class CrawlAccountsCommand extends EnvironmentCommand<WhisperServerConfig
   @Override
   protected void run(final Environment environment, final Namespace namespace,
       final WhisperServerConfiguration configuration) throws Exception {
+
+    UncaughtExceptionHandler.register();
+
+    MetricsUtil.configureRegistries(configuration, environment);
 
     final CommandDependencies deps = CommandDependencies.build("account-crawler", environment, configuration);
     final AccountsManager accountsManager = deps.accountsManager();
