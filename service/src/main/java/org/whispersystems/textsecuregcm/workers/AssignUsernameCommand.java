@@ -8,7 +8,6 @@ package org.whispersystems.textsecuregcm.workers;
 import static com.codahale.metrics.MetricRegistry.name;
 
 import com.amazonaws.ClientConfiguration;
-import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -25,6 +24,7 @@ import java.util.concurrent.Executors;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
+import org.whispersystems.textsecuregcm.WhisperServerService;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.SecureBackupController;
@@ -130,12 +130,10 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
         dynamicConfigurationManager);
 
     DynamoDbAsyncClient dynamoDbAsyncClient = DynamoDbFromConfig.asyncClient(
-        configuration.getDynamoDbClientConfiguration(),
-        software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
+        configuration.getDynamoDbClientConfiguration(), WhisperServerService.AWSSDK_CREDENTIALS_PROVIDER);
 
-    DynamoDbClient dynamoDbClient = DynamoDbFromConfig.client(
-        configuration.getDynamoDbClientConfiguration(),
-        software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
+    DynamoDbClient dynamoDbClient = DynamoDbFromConfig.client(configuration.getDynamoDbClientConfiguration(),
+        WhisperServerService.AWSSDK_CREDENTIALS_PROVIDER);
 
     AmazonDynamoDB deletedAccountsLockDynamoDbClient = AmazonDynamoDBClientBuilder.standard()
         .withRegion(configuration.getDynamoDbClientConfiguration().getRegion())
@@ -145,7 +143,7 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
             .withRequestTimeout(
                 (int) configuration.getDynamoDbClientConfiguration().getClientRequestTimeout()
                     .toMillis()))
-        .withCredentials(InstanceProfileCredentialsProvider.getInstance())
+        .withCredentials(WhisperServerService.AWSSDK_V1_CREDENTIALS_PROVIDER_CHAIN)
         .build();
 
     DeletedAccounts deletedAccounts = new DeletedAccounts(dynamoDbClient,

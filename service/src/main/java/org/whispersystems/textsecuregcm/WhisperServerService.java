@@ -8,7 +8,7 @@ import static com.codahale.metrics.MetricRegistry.name;
 import static java.util.Objects.requireNonNull;
 
 import com.amazonaws.ClientConfiguration;
-import com.amazonaws.auth.InstanceProfileCredentialsProvider;
+import com.amazonaws.auth.AWSCredentialsProviderChain;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
 import com.codahale.metrics.SharedMetricRegistries;
@@ -233,7 +233,9 @@ import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProviderChain;
+import software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.WebIdentityTokenFileCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
@@ -245,10 +247,15 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
   public static final String SECRETS_BUNDLE_FILE_NAME_PROPERTY = "secrets.bundle.filename";
 
-  private static final software.amazon.awssdk.auth.credentials.AwsCredentialsProvider AWSSDK_CREDENTIALS_PROVIDER =
+  public static final software.amazon.awssdk.auth.credentials.AwsCredentialsProvider AWSSDK_CREDENTIALS_PROVIDER =
       AwsCredentialsProviderChain.of(
-          software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create(),
-          software.amazon.awssdk.auth.credentials.WebIdentityTokenFileCredentialsProvider.create());
+          InstanceProfileCredentialsProvider.create(),
+          WebIdentityTokenFileCredentialsProvider.create());
+
+  public static final AWSCredentialsProviderChain AWSSDK_V1_CREDENTIALS_PROVIDER_CHAIN = new AWSCredentialsProviderChain(
+      com.amazonaws.auth.InstanceProfileCredentialsProvider.getInstance(),
+      com.amazonaws.auth.WebIdentityTokenCredentialsProvider.create()
+  );
 
 
   @Override
@@ -327,12 +334,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ResourceBundleLevelTranslator resourceBundleLevelTranslator = new ResourceBundleLevelTranslator(
         headerControlledResourceBundleLookup);
 
-    DynamoDbAsyncClient dynamoDbAsyncClient = DynamoDbFromConfig.asyncClient(
-        config.getDynamoDbClientConfiguration(),
+    DynamoDbAsyncClient dynamoDbAsyncClient = DynamoDbFromConfig.asyncClient(config.getDynamoDbClientConfiguration(),
         AWSSDK_CREDENTIALS_PROVIDER);
 
-    DynamoDbClient dynamoDbClient = DynamoDbFromConfig.client(
-        config.getDynamoDbClientConfiguration(),
+    DynamoDbClient dynamoDbClient = DynamoDbFromConfig.client(config.getDynamoDbClientConfiguration(),
         AWSSDK_CREDENTIALS_PROVIDER);
 
     AmazonDynamoDB deletedAccountsLockDynamoDbClient = AmazonDynamoDBClientBuilder.standard()
@@ -341,7 +346,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
                 ((int) config.getDynamoDbClientConfiguration().getClientExecutionTimeout().toMillis()))
             .withRequestTimeout(
                 (int) config.getDynamoDbClientConfiguration().getClientRequestTimeout().toMillis()))
-        .withCredentials(InstanceProfileCredentialsProvider.getInstance())
+        .withCredentials(AWSSDK_V1_CREDENTIALS_PROVIDER_CHAIN)
         .build();
 
     DeletedAccounts deletedAccounts = new DeletedAccounts(dynamoDbClient,

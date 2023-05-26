@@ -8,7 +8,6 @@ package org.whispersystems.textsecuregcm.workers;
 import static com.codahale.metrics.MetricRegistry.name;
 
 import com.amazonaws.ClientConfiguration;
-import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -20,6 +19,7 @@ import java.time.Clock;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
+import org.whispersystems.textsecuregcm.WhisperServerService;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.SecureBackupController;
@@ -112,12 +112,10 @@ record CommandDependencies(
         dynamicConfigurationManager);
 
     DynamoDbAsyncClient dynamoDbAsyncClient = DynamoDbFromConfig.asyncClient(
-        configuration.getDynamoDbClientConfiguration(),
-        software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
+        configuration.getDynamoDbClientConfiguration(), WhisperServerService.AWSSDK_CREDENTIALS_PROVIDER);
 
     DynamoDbClient dynamoDbClient = DynamoDbFromConfig.client(
-        configuration.getDynamoDbClientConfiguration(),
-        software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
+        configuration.getDynamoDbClientConfiguration(), WhisperServerService.AWSSDK_CREDENTIALS_PROVIDER);
 
     AmazonDynamoDB deletedAccountsLockDynamoDbClient = AmazonDynamoDBClientBuilder.standard()
         .withRegion(configuration.getDynamoDbClientConfiguration().getRegion())
@@ -127,7 +125,7 @@ record CommandDependencies(
             .withRequestTimeout(
                 (int) configuration.getDynamoDbClientConfiguration().getClientRequestTimeout()
                     .toMillis()))
-        .withCredentials(InstanceProfileCredentialsProvider.getInstance())
+        .withCredentials(WhisperServerService.AWSSDK_V1_CREDENTIALS_PROVIDER_CHAIN)
         .build();
 
     DeletedAccounts deletedAccounts = new DeletedAccounts(dynamoDbClient,
