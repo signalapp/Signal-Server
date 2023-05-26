@@ -2493,9 +2493,14 @@ components:
           type: string
           description: the registration verification code to authenticate this request
         pniIdentityKey:
-          type: string
+          type: array
           description: the new public identity key to use for the phone-number identity
             associated with the new phone number
+          items:
+            type: string
+            description: the new public identity key to use for the phone-number identity
+              associated with the new phone number
+            format: byte
         deviceMessages:
           type: array
           description: |-
@@ -2557,9 +2562,15 @@ components:
           type: integer
           format: int64
         publicKey:
-          type: string
+          type: array
+          items:
+            type: string
+            format: byte
         signature:
-          type: string
+          type: array
+          items:
+            type: string
+            format: byte
       description: |
         A signed Kyber-1024 "last resort" pre-key to be associated with this account's PNI. If
         provided, an account will be created "atomically," and all other properties needed for
@@ -2829,9 +2840,14 @@ components:
           type: string
           description: the new phone number for this account
         pniIdentityKey:
-          type: string
+          type: array
           description: the new public identity key to use for the phone-number identity
             associated with the new phone number
+          items:
+            type: string
+            description: the new public identity key to use for the phone-number identity
+              associated with the new phone number
+            format: byte
         deviceMessages:
           type: array
           description: |-
@@ -2879,8 +2895,12 @@ components:
       type: object
       properties:
         pniIdentityKey:
-          type: string
+          type: array
           description: the new identity key for this account's phone-number identity
+          items:
+            type: string
+            description: the new identity key for this account's phone-number identity
+            format: byte
         deviceMessages:
           type: array
           description: |-
@@ -3217,11 +3237,11 @@ components:
       properties:
         open:
           type: boolean
-        userAgent:
-          type: string
         createdTimestamp:
           type: integer
           format: int64
+        userAgent:
+          type: string
     WebSocketSessionContext:
       type: object
       properties:
@@ -3260,7 +3280,10 @@ components:
           type: integer
           format: int64
         publicKey:
-          type: string
+          type: array
+          items:
+            type: string
+            format: byte
       description: "A list of unsigned elliptic-curve prekeys to use for this device.\
         \ If present and not empty, replaces all stored unsigned EC prekeys for the\
         \ device; if absent or empty, any stored unsigned EC prekeys for the device\
@@ -3292,11 +3315,18 @@ components:
         pqLastResortPreKey:
           $ref: '#/components/schemas/SignedPreKey'
         identityKey:
-          type: string
+          type: array
           description: "Required. The public identity key for this identity (account\
             \ or phone-number identity). If this device is not the primary device\
             \ for the account, must match the existing stored identity key for this\
             \ identity."
+          items:
+            type: string
+            description: "Required. The public identity key for this identity (account\
+              \ or phone-number identity). If this device is not the primary device\
+              \ for the account, must match the existing stored identity key for this\
+              \ identity."
+            format: byte
         signatureValidOnEachSignedKey:
           type: boolean
     SpamReport:
@@ -3431,7 +3461,10 @@ components:
       type: object
       properties:
         identityKey:
-          type: string
+          type: array
+          items:
+            type: string
+            format: byte
         unidentifiedAccess:
           type: string
         unrestrictedUnidentifiedAccess:
@@ -3468,7 +3501,10 @@ components:
       type: object
       properties:
         identityKey:
-          type: string
+          type: array
+          items:
+            type: string
+            format: byte
         unidentifiedAccess:
           type: string
         unrestrictedUnidentifiedAccess:
@@ -3496,7 +3532,10 @@ components:
       type: object
       properties:
         identityKey:
-          type: string
+          type: array
+          items:
+            type: string
+            format: byte
         unidentifiedAccess:
           type: string
         unrestrictedUnidentifiedAccess:
@@ -3633,17 +3672,31 @@ components:
             fail with an HTTP/409 response indicating that the client should prompt the user to
             transfer data from an existing device.
         aciIdentityKey:
-          type: string
+          type: array
           description: |
             The ACI-associated identity key for the account, encoded as a base64 string. If
             provided, an account will be created "atomically," and all other properties needed for
             atomic account creation must also be present.
+          items:
+            type: string
+            description: |
+              The ACI-associated identity key for the account, encoded as a base64 string. If
+              provided, an account will be created "atomically," and all other properties needed for
+              atomic account creation must also be present.
+            format: byte
         pniIdentityKey:
-          type: string
+          type: array
           description: |
             The PNI-associated identity key for the account, encoded as a base64 string. If
             provided, an account will be created "atomically," and all other properties needed for
             atomic account creation must also be present.
+          items:
+            type: string
+            description: |
+              The PNI-associated identity key for the account, encoded as a base64 string. If
+              provided, an account will be created "atomically," and all other properties needed for
+              atomic account creation must also be present.
+            format: byte
         aciSignedPreKey:
           $ref: '#/components/schemas/SignedPreKey'
         pniSignedPreKey:
