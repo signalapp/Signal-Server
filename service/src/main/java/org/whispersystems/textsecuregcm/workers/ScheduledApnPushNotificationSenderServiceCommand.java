@@ -16,10 +16,12 @@ import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.push.APNSender;
 import org.whispersystems.textsecuregcm.push.ApnPushNotificationScheduler;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
+import org.whispersystems.textsecuregcm.util.logging.UncaughtExceptionHandler;
 
 public class ScheduledApnPushNotificationSenderServiceCommand extends EnvironmentCommand<WhisperServerConfiguration> {
 
@@ -48,6 +50,10 @@ public class ScheduledApnPushNotificationSenderServiceCommand extends Environmen
   @Override
   protected void run(Environment environment, Namespace namespace, WhisperServerConfiguration configuration)
       throws Exception {
+
+    UncaughtExceptionHandler.register();
+
+    MetricsUtil.configureRegistries(configuration, environment);
 
     final CommandDependencies deps = CommandDependencies.build("scheduled-apn-sender", environment, configuration);
 
