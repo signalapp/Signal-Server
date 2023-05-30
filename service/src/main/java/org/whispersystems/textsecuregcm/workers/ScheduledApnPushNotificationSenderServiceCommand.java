@@ -8,7 +8,7 @@ package org.whispersystems.textsecuregcm.workers;
 import static com.codahale.metrics.MetricRegistry.name;
 
 import io.dropwizard.Application;
-import io.dropwizard.cli.EnvironmentCommand;
+import io.dropwizard.cli.ServerCommand;
 import io.dropwizard.setup.Environment;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -23,7 +23,7 @@ import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.util.logging.UncaughtExceptionHandler;
 
-public class ScheduledApnPushNotificationSenderServiceCommand extends EnvironmentCommand<WhisperServerConfiguration> {
+public class ScheduledApnPushNotificationSenderServiceCommand extends ServerCommand<WhisperServerConfiguration> {
 
   private static final String WORKER_COUNT = "workers";
 
@@ -78,6 +78,8 @@ public class ScheduledApnPushNotificationSenderServiceCommand extends Environmen
 
     environment.lifecycle().manage(apnSender);
     environment.lifecycle().manage(apnPushNotificationScheduler);
+
+    super.run(environment, namespace, configuration);
   }
 
 }
