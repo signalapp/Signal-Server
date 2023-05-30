@@ -6,7 +6,7 @@
 package org.whispersystems.textsecuregcm.workers;
 
 import io.dropwizard.Application;
-import io.dropwizard.cli.EnvironmentCommand;
+import io.dropwizard.cli.ServerCommand;
 import io.dropwizard.setup.Environment;
 import java.time.Duration;
 import java.util.Optional;
@@ -19,7 +19,7 @@ import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.MessagePersister;
 import org.whispersystems.textsecuregcm.util.logging.UncaughtExceptionHandler;
 
-public class MessagePersisterServiceCommand extends EnvironmentCommand<WhisperServerConfiguration> {
+public class MessagePersisterServiceCommand extends ServerCommand<WhisperServerConfiguration> {
 
   private static final String WORKER_COUNT = "workers";
 
@@ -69,6 +69,8 @@ public class MessagePersisterServiceCommand extends EnvironmentCommand<WhisperSe
 
     environment.lifecycle().manage(deps.messagesCache());
     environment.lifecycle().manage(messagePersister);
+
+    super.run(environment, namespace, configuration);
   }
 
 }
