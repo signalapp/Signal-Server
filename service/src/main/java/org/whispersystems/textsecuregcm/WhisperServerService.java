@@ -133,7 +133,6 @@ import org.whispersystems.textsecuregcm.metrics.GarbageCollectionGauges;
 import org.whispersystems.textsecuregcm.metrics.MaxFileDescriptorGauge;
 import org.whispersystems.textsecuregcm.metrics.MetricsApplicationEventListener;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
-import org.whispersystems.textsecuregcm.metrics.MicrometerRegistryManager;
 import org.whispersystems.textsecuregcm.metrics.NetworkReceivedGauge;
 import org.whispersystems.textsecuregcm.metrics.NetworkSentGauge;
 import org.whispersystems.textsecuregcm.metrics.OperatingSystemMemoryGauge;
@@ -292,8 +291,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final boolean useSecondaryCredentialsJson = Optional.ofNullable(
             System.getenv("SIGNAL_USE_SECONDARY_CREDENTIALS_JSON"))
         .isPresent();
-
-    environment.lifecycle().manage(new MicrometerRegistryManager(Metrics.globalRegistry));
 
     HeaderControlledResourceBundleLookup headerControlledResourceBundleLookup =
         new HeaderControlledResourceBundleLookup();

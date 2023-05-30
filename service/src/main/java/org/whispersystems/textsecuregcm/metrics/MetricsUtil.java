@@ -64,5 +64,7 @@ public class MetricsUtil {
 
       Metrics.addRegistry(datadogMeterRegistry);
     }
+
+    environment.lifecycle().manage(new MicrometerRegistryManager(Metrics.globalRegistry));
   }
 }
