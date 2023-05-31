@@ -686,8 +686,8 @@ class KeysControllerTest {
     final PreKey preKey = KeysHelper.ecPreKey(31337);
     final ECKeyPair identityKeyPair = Curve.generateKeyPair();
     final SignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, identityKeyPair);
-    final SignedPreKey pqPreKey = KeysHelper.signedECPreKey(31339, identityKeyPair);
-    final SignedPreKey pqLastResortPreKey = KeysHelper.signedECPreKey(31340, identityKeyPair);
+    final SignedPreKey pqPreKey = KeysHelper.signedKEMPreKey(31339, identityKeyPair);
+    final SignedPreKey pqLastResortPreKey = KeysHelper.signedKEMPreKey(31340, identityKeyPair);
     final byte[] identityKey = identityKeyPair.getPublicKey().serialize();
 
     PreKeyState preKeyState = new PreKeyState(identityKey, signedPreKey, List.of(preKey), List.of(pqPreKey), pqLastResortPreKey);
@@ -713,6 +713,74 @@ class KeysControllerTest {
     verify(accounts).update(eq(AuthHelper.VALID_ACCOUNT), any());
   }
 
+  @Test
+  void putKeysStructurallyInvalidSignedECKey() {
+    final ECKeyPair identityKeyPair = Curve.generateKeyPair();
+    final byte[] identityKey = identityKeyPair.getPublicKey().serialize();
+    final SignedPreKey wrongPreKey = KeysHelper.signedKEMPreKey(1, identityKeyPair);
+    final PreKeyState preKeyState = new PreKeyState(identityKey, wrongPreKey, null, null, null);
+
+    Response response =
+        resources.getJerseyTest()
+                 .target("/v2/keys")
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+                 .put(Entity.entity(preKeyState, MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat(response.getStatus()).isEqualTo(422);
+  }
+  
+  @Test
+  void putKeysStructurallyInvalidUnsignedECKey() {
+    final ECKeyPair identityKeyPair = Curve.generateKeyPair();
+    final byte[] identityKey = identityKeyPair.getPublicKey().serialize();
+    final PreKey wrongPreKey = new PreKey(1, "cluck cluck i'm a parrot".getBytes());
+    final PreKeyState preKeyState = new PreKeyState(identityKey, null, List.of(wrongPreKey), null, null);
+
+    Response response =
+        resources.getJerseyTest()
+                 .target("/v2/keys")
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+                 .put(Entity.entity(preKeyState, MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat(response.getStatus()).isEqualTo(422);
+  }
+  
+  @Test
+  void putKeysStructurallyInvalidPQOneTimeKey() {
+    final ECKeyPair identityKeyPair = Curve.generateKeyPair();
+    final byte[] identityKey = identityKeyPair.getPublicKey().serialize();
+    final SignedPreKey wrongPreKey = KeysHelper.signedECPreKey(1, identityKeyPair);
+    final PreKeyState preKeyState = new PreKeyState(identityKey, null, null, List.of(wrongPreKey), null);
+
+    Response response =
+        resources.getJerseyTest()
+                 .target("/v2/keys")
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+                 .put(Entity.entity(preKeyState, MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat(response.getStatus()).isEqualTo(422);
+  }
+  
+  @Test
+  void putKeysStructurallyInvalidPQLastResortKey() {
+    final ECKeyPair identityKeyPair = Curve.generateKeyPair();
+    final byte[] identityKey = identityKeyPair.getPublicKey().serialize();
+    final SignedPreKey wrongPreKey = KeysHelper.signedECPreKey(1, identityKeyPair);
+    final PreKeyState preKeyState = new PreKeyState(identityKey, null, null, null, wrongPreKey);
+
+    Response response =
+        resources.getJerseyTest()
+                 .target("/v2/keys")
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+                 .put(Entity.entity(preKeyState, MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat(response.getStatus()).isEqualTo(422);
+  }
+  
   @Test
   void putKeysByPhoneNumberIdentifierTestV2() {
     final PreKey preKey = KeysHelper.ecPreKey(31337);
@@ -747,8 +815,8 @@ class KeysControllerTest {
     final PreKey preKey = KeysHelper.ecPreKey(31337);
     final ECKeyPair identityKeyPair = Curve.generateKeyPair();
     final SignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, identityKeyPair);
-    final SignedPreKey pqPreKey = KeysHelper.signedECPreKey(31339, identityKeyPair);
-    final SignedPreKey pqLastResortPreKey = KeysHelper.signedECPreKey(31340, identityKeyPair);
+    final SignedPreKey pqPreKey = KeysHelper.signedKEMPreKey(31339, identityKeyPair);
+    final SignedPreKey pqLastResortPreKey = KeysHelper.signedKEMPreKey(31340, identityKeyPair);
     final byte[] identityKey = identityKeyPair.getPublicKey().serialize();
 
     PreKeyState preKeyState = new PreKeyState(identityKey, signedPreKey, List.of(preKey), List.of(pqPreKey), pqLastResortPreKey);
@@ -823,7 +891,7 @@ class KeysControllerTest {
 
   @Test
   void putIdentityKeyNonPrimary() {
-    final PreKey       preKey       = KeysHelper.ecPreKey(31337);
+    final PreKey preKey = KeysHelper.ecPreKey(31337);
     final SignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, IDENTITY_KEY_PAIR);
 
     List<PreKey> preKeys = List.of(preKey);

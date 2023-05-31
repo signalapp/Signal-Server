@@ -14,6 +14,8 @@ import com.google.common.annotations.VisibleForTesting;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
 import org.whispersystems.textsecuregcm.util.OptionalBase64ByteArrayDeserializer;
+import org.whispersystems.textsecuregcm.util.ValidPreKey;
+import org.whispersystems.textsecuregcm.util.ValidPreKey.PreKeyType;
 
 import javax.validation.Valid;
 import javax.validation.constraints.AssertTrue;
@@ -73,17 +75,17 @@ public record RegistrationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT
   @JsonCreator
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   public RegistrationRequest(@JsonProperty("sessionId") String sessionId,
-                             @JsonProperty("recoveryPassword") byte[] recoveryPassword,
-                             @JsonProperty("accountAttributes") AccountAttributes accountAttributes,
-                             @JsonProperty("skipDeviceTransfer") boolean skipDeviceTransfer,
-                             @JsonProperty("aciIdentityKey") Optional<byte[]> aciIdentityKey,
-                             @JsonProperty("pniIdentityKey") Optional<byte[]> pniIdentityKey,
-                             @JsonProperty("aciSignedPreKey") Optional<@Valid SignedPreKey> aciSignedPreKey,
-                             @JsonProperty("pniSignedPreKey") Optional<@Valid SignedPreKey> pniSignedPreKey,
-                             @JsonProperty("aciPqLastResortPreKey") Optional<@Valid SignedPreKey> aciPqLastResortPreKey,
-                             @JsonProperty("pniPqLastResortPreKey") Optional<@Valid SignedPreKey> pniPqLastResortPreKey,
-                             @JsonProperty("apnToken") Optional<@Valid ApnRegistrationId> apnToken,
-                             @JsonProperty("gcmToken") Optional<@Valid GcmRegistrationId> gcmToken) {
+      @JsonProperty("recoveryPassword") byte[] recoveryPassword,
+      @JsonProperty("accountAttributes") AccountAttributes accountAttributes,
+      @JsonProperty("skipDeviceTransfer") boolean skipDeviceTransfer,
+      @JsonProperty("aciIdentityKey") Optional<byte[]> aciIdentityKey,
+      @JsonProperty("pniIdentityKey") Optional<byte[]> pniIdentityKey,
+      @JsonProperty("aciSignedPreKey") Optional<@Valid @ValidPreKey(type=PreKeyType.ECC) SignedPreKey> aciSignedPreKey,
+      @JsonProperty("pniSignedPreKey") Optional<@Valid @ValidPreKey(type=PreKeyType.ECC) SignedPreKey> pniSignedPreKey,
+      @JsonProperty("aciPqLastResortPreKey") Optional<@Valid @ValidPreKey(type=PreKeyType.KYBER) SignedPreKey> aciPqLastResortPreKey,
+      @JsonProperty("pniPqLastResortPreKey") Optional<@Valid @ValidPreKey(type=PreKeyType.KYBER) SignedPreKey> pniPqLastResortPreKey,
+      @JsonProperty("apnToken") Optional<@Valid ApnRegistrationId> apnToken,
+      @JsonProperty("gcmToken") Optional<@Valid GcmRegistrationId> gcmToken) {
 
     // This may seem a little verbose, but at the time of writing, Jackson struggles with `@JsonUnwrapped` members in
     // records, and this is a workaround. Please see

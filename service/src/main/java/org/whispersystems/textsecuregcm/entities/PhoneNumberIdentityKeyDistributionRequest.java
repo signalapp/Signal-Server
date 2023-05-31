@@ -5,7 +5,6 @@
 
 package org.whispersystems.textsecuregcm.entities;
 
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,7 +14,12 @@ import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
+
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
+import org.whispersystems.textsecuregcm.util.ValidPreKey;
+import org.whispersystems.textsecuregcm.util.ValidPreKey.PreKeyType;
 
 public record PhoneNumberIdentityKeyDistributionRequest(
     @NotEmpty
@@ -36,7 +40,7 @@ public record PhoneNumberIdentityKeyDistributionRequest(
     @Schema(description="""
         A new signed elliptic-curve prekey for each enabled device on the account, including this one.
         Each must be accompanied by a valid signature from the new identity key in this request.""")
-    Map<Long, @NotNull @Valid SignedPreKey> devicePniSignedPrekeys,
+    Map<Long, @NotNull @Valid @ValidPreKey(type=PreKeyType.ECC) SignedPreKey> devicePniSignedPrekeys,
     
     @Schema(description="""
         A new signed post-quantum last-resort prekey for each enabled device on the account, including this one.
@@ -44,7 +48,7 @@ public record PhoneNumberIdentityKeyDistributionRequest(
         If present, must contain one prekey per enabled device including this one.
         Prekeys for devices that did not previously have any post-quantum prekeys stored will be silently dropped.
         Each must be accompanied by a valid signature from the new identity key in this request.""")
-    @Valid Map<Long, @NotNull @Valid SignedPreKey> devicePniPqLastResortPrekeys,
+    @Valid Map<Long, @NotNull @Valid @ValidPreKey(type=PreKeyType.KYBER) SignedPreKey> devicePniPqLastResortPrekeys,
 
     @NotNull
     @Valid

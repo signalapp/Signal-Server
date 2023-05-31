@@ -16,6 +16,8 @@ import javax.validation.Valid;
 import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
+import org.whispersystems.textsecuregcm.util.ValidPreKey;
+import org.whispersystems.textsecuregcm.util.ValidPreKey.PreKeyType;
 
 public class PreKeyState {
 
@@ -24,10 +26,11 @@ public class PreKeyState {
   @Schema(description="A list of unsigned elliptic-curve prekeys to use for this device. " +
       "If present and not empty, replaces all stored unsigned EC prekeys for the device; " +
       "if absent or empty, any stored unsigned EC prekeys for the device are not deleted.")
-  private List<PreKey> preKeys;
+  private List<@ValidPreKey(type=PreKeyType.ECC) PreKey> preKeys;
 
   @JsonProperty
   @Valid
+  @ValidPreKey(type=PreKeyType.ECC)
   @Schema(description="An optional signed elliptic-curve prekey to use for this device. " +
       "If present, replaces the stored signed elliptic-curve prekey for the device; " +
       "if absent, the stored signed prekey is not deleted. " +
@@ -40,10 +43,11 @@ public class PreKeyState {
       "Each key must have a valid signature from the identity key in this request. " +
       "If present and not empty, replaces all stored unsigned PQ prekeys for the device; " +
       "if absent or empty, any stored unsigned PQ prekeys for the device are not deleted.")
-  private List<SignedPreKey> pqPreKeys;
+  private List<@ValidPreKey(type=PreKeyType.KYBER) SignedPreKey> pqPreKeys;
 
   @JsonProperty
   @Valid
+  @ValidPreKey(type=PreKeyType.KYBER)
   @Schema(description="An optional signed last-resort post-quantum prekey to use for this device. " +
       "If present, replaces the stored signed post-quantum last-resort prekey for the device; " +
       "if absent, a stored last-resort prekey will *not* be deleted. " +
@@ -110,4 +114,5 @@ public class PreKeyState {
     }
     return spks.isEmpty() || PreKeySignatureValidator.validatePreKeySignatures(identityKey, spks);
   }
+
 }
