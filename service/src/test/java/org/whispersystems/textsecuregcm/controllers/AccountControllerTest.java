@@ -1988,7 +1988,7 @@ class AccountControllerTest {
 
   static Stream<Arguments> testLookupUsernameLink() {
     return Stream.of(
-        Arguments.of(false, true, true, true, 403),
+        Arguments.of(false, true, true, true, 400),
         Arguments.of(true, false, true, true, 429),
         Arguments.of(true, true, false, true, 404),
         Arguments.of(true, true, true, false, 404),

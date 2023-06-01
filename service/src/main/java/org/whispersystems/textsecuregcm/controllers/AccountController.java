@@ -35,7 +35,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import javax.annotation.Nullable;
-import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import javax.ws.rs.BadRequestException;
@@ -52,7 +51,6 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
@@ -91,7 +89,6 @@ import org.whispersystems.textsecuregcm.entities.StaleDevices;
 import org.whispersystems.textsecuregcm.entities.UsernameHashResponse;
 import org.whispersystems.textsecuregcm.entities.UsernameLinkHandle;
 import org.whispersystems.textsecuregcm.limits.RateLimitedByIp;
-import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.PushNotification;
@@ -704,7 +701,15 @@ public class AccountController {
   @DELETE
   @Path("/username_hash")
   @Produces(MediaType.APPLICATION_JSON)
-  public void deleteUsernameHash(final @Auth AuthenticatedAccount auth) {
+  @Operation(
+      summary = "Delete username hash",
+      description = """
+          Authenticated endpoint. Deletes previously stored username for the account.   
+          """
+  )
+  @ApiResponse(responseCode = "204", description = "Username successfully deleted.", useReturnTypeSchema = true)
+  @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
+  public void deleteUsernameHash(@Auth final AuthenticatedAccount auth) {
     clearUsernameLink(auth.getAccount());
     accounts.clearUsernameHash(auth.getAccount());
   }
@@ -714,13 +719,25 @@ public class AccountController {
   @Path("/username_hash/reserve")
   @Produces(MediaType.APPLICATION_JSON)
   @Consumes(MediaType.APPLICATION_JSON)
-  public ReserveUsernameHashResponse reserveUsernameHash(@Auth AuthenticatedAccount auth,
-      @HeaderParam(HeaderUtils.X_SIGNAL_AGENT) String userAgent,
-      @NotNull @Valid ReserveUsernameHashRequest usernameRequest) throws RateLimitExceededException {
+  @Operation(
+      summary = "Reserve username hash",
+      description = """
+          Authenticated endpoint. Takes in a list of hashes of potential username hashes, finds one that is not taken,
+          and reserves it for the current account.   
+          """
+  )
+  @ApiResponse(responseCode = "200", description = "Username hash reserved successfully.", useReturnTypeSchema = true)
+  @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
+  @ApiResponse(responseCode = "409", description = "All username hashes from the list are taken.")
+  @ApiResponse(responseCode = "422", description = "Invalid request format.")
+  @ApiResponse(responseCode = "429", description = "Ratelimited.")
+  public ReserveUsernameHashResponse reserveUsernameHash(
+      @Auth final AuthenticatedAccount auth,
+      @NotNull @Valid final ReserveUsernameHashRequest usernameRequest) throws RateLimitExceededException {
 
     rateLimiters.getUsernameReserveLimiter().validate(auth.getAccount().getUuid());
 
-    for (byte[] hash : usernameRequest.usernameHashes()) {
+    for (final byte[] hash : usernameRequest.usernameHashes()) {
       if (hash.length != USERNAME_HASH_LENGTH) {
         throw new WebApplicationException(Response.status(422).build());
       }
@@ -742,9 +759,21 @@ public class AccountController {
   @Path("/username_hash/confirm")
   @Produces(MediaType.APPLICATION_JSON)
   @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(
+      summary = "Confirm username hash",
+      description = """
+          Authenticated endpoint. For a previously reserved username hash, confirm that this username hash is now taken 
+          by this account.    
+          """
+  )
+  @ApiResponse(responseCode = "200", description = "Username hash confirmed successfully.", useReturnTypeSchema = true)
+  @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
+  @ApiResponse(responseCode = "409", description = "Given username hash doesn't match the reserved one or no reservation found.")
+  @ApiResponse(responseCode = "410", description = "Username hash not available (username can't be used).")
+  @ApiResponse(responseCode = "422", description = "Invalid request format.")
+  @ApiResponse(responseCode = "429", description = "Ratelimited.")
   public UsernameHashResponse confirmUsernameHash(
       @Auth final AuthenticatedAccount auth,
-      @HeaderParam(HeaderUtils.X_SIGNAL_AGENT) final String userAgent,
       @NotNull @Valid final ConfirmUsernameHashRequest confirmRequest) throws RateLimitExceededException {
     rateLimiters.getUsernameSetLimiter().validate(auth.getAccount().getUuid());
 
@@ -777,19 +806,20 @@ public class AccountController {
   @Path("/username_hash/{usernameHash}")
   @Produces(MediaType.APPLICATION_JSON)
   @RateLimitedByIp(RateLimiters.For.USERNAME_LOOKUP)
+  @Operation(
+      summary = "Lookup username hash",
+      description = """
+          Forced unauthenticated endpoint. For the given username hash, look up a user ID. 
+          """
+  )
+  @ApiResponse(responseCode = "200", description = "Account found for the given username.", useReturnTypeSchema = true)
+  @ApiResponse(responseCode = "400", description = "Request must not be authenticated.")
+  @ApiResponse(responseCode = "404", description = "Account not fount for the given username.")
   public AccountIdentifierResponse lookupUsernameHash(
-      @HeaderParam(HeaderUtils.X_SIGNAL_AGENT) final String userAgent,
-      @HeaderParam(HttpHeaders.X_FORWARDED_FOR) final String forwardedFor,
-      @PathParam("usernameHash") final String usernameHash,
-      @Context final HttpServletRequest request) throws RateLimitExceededException {
+      @Auth final Optional<AuthenticatedAccount> maybeAuthenticatedAccount,
+      @PathParam("usernameHash") final String usernameHash) throws RateLimitExceededException {
 
-    // Disallow clients from making authenticated requests to this endpoint
-    if (StringUtils.isNotBlank(request.getHeader("Authorization"))) {
-      throw new BadRequestException();
-    }
-
-    rateLimitByClientIp(rateLimiters.getUsernameLookupLimiter(), forwardedFor);
-
+    requireNotAuthenticated(maybeAuthenticatedAccount);
     final byte[] hash;
     try {
       hash = Base64.getUrlDecoder().decode(usernameHash);
@@ -879,13 +909,11 @@ public class AccountController {
   @ApiResponse(responseCode = "422", description = "Invalid request format.")
   @ApiResponse(responseCode = "429", description = "Ratelimited.")
   public EncryptedUsername lookupUsernameLink(
-      @Auth Optional<AuthenticatedAccount> authenticatedAccount,
+      @Auth final Optional<AuthenticatedAccount> maybeAuthenticatedAccount,
       @PathParam("uuid") final UUID usernameLinkHandle) {
     final Optional<byte[]> maybeEncryptedUsername = accounts.getByUsernameLinkHandle(usernameLinkHandle)
         .flatMap(Account::getEncryptedUsername);
-    if (authenticatedAccount.isPresent()) {
-      throw new ForbiddenException("must not use authenticated connection for connection graph revealing operations");
-    }
+    requireNotAuthenticated(maybeAuthenticatedAccount);
     if (maybeEncryptedUsername.isEmpty()) {
       throw new WebApplicationException(Status.NOT_FOUND);
     }
@@ -896,32 +924,17 @@ public class AccountController {
   @Path("/account/{uuid}")
   @RateLimitedByIp(RateLimiters.For.CHECK_ACCOUNT_EXISTENCE)
   public Response accountExists(
-      @PathParam("uuid") final UUID uuid,
-      @Context HttpServletRequest request) throws RateLimitExceededException {
+      @Auth final Optional<AuthenticatedAccount> authenticatedAccount,
+      @PathParam("uuid") final UUID uuid) throws RateLimitExceededException {
 
     // Disallow clients from making authenticated requests to this endpoint
-    if (StringUtils.isNotBlank(request.getHeader("Authorization"))) {
-      throw new BadRequestException();
-    }
+    requireNotAuthenticated(authenticatedAccount);
 
     final Status status = accounts.getByAccountIdentifier(uuid)
         .or(() -> accounts.getByPhoneNumberIdentifier(uuid))
         .isPresent() ? Status.OK : Status.NOT_FOUND;
 
     return Response.status(status).build();
-  }
-
-  private void rateLimitByClientIp(final RateLimiter rateLimiter, final String forwardedFor) throws RateLimitExceededException {
-    final String mostRecentProxy = HeaderUtils.getMostRecentProxy(forwardedFor)
-        .orElseThrow(() -> {
-          // Missing/malformed Forwarded-For, so we cannot check for a rate-limit.
-          // This shouldn't happen, so conservatively assume we're over the rate-limit
-          // and indicate that the client should retry
-          logger.error("Missing/bad Forwarded-For: {}", forwardedFor);
-          return new RateLimitExceededException(Duration.ofHours(1), true);
-        });
-
-    rateLimiter.validate(mostRecentProxy);
   }
 
   @VisibleForTesting
@@ -1036,6 +1049,12 @@ public class AccountController {
 
     if (cause instanceof RateLimitExceededException rateLimitExceededException) {
       throw rateLimitExceededException;
+    }
+  }
+
+  private void requireNotAuthenticated(final Optional<AuthenticatedAccount> authenticatedAccount) {
+    if (authenticatedAccount.isPresent()) {
+      throw new BadRequestException("Operation requires unauthenticated access");
     }
   }
 }

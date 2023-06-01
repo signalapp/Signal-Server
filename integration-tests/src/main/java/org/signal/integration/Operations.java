@@ -269,6 +269,15 @@ public final class Operations {
       return requireNonNull(execute.getRight());
     }
 
+    public void executeExpectStatusCode(final int expectedStatusCode) {
+      final Pair<Integer, Void> execute = execute(Void.class);
+      Validate.isTrue(
+          execute.getLeft() == expectedStatusCode,
+          "Unexpected response code: %d",
+          execute.getLeft()
+      );
+    }
+
     public <T> Pair<Integer, T> execute(final Class<T> expectedType) {
       builder.uri(serverUri(endpoint, queryParams))
           .header(HttpHeaders.USER_AGENT, USER_AGENT);
