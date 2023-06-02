@@ -91,7 +91,7 @@ public class ApnPushNotificationScheduler implements Managed {
 
     @Override
     public void run() {
-      while (running.get()) {
+      do {
         try {
           final long entriesProcessed = processNextSlot();
 
@@ -101,7 +101,7 @@ public class ApnPushNotificationScheduler implements Managed {
         } catch (Exception e) {
           logger.warn("Exception while operating", e);
         }
-      }
+      } while (running.get());
     }
 
     private long processNextSlot() {
