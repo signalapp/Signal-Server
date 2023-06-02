@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2021 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.storage;
@@ -45,6 +45,8 @@ import software.amazon.awssdk.services.dynamodb.model.Delete;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.Put;
+import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
+import software.amazon.awssdk.services.dynamodb.model.QueryResponse;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValuesOnConditionCheckFailure;
 import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
@@ -68,6 +70,7 @@ public class Accounts extends AbstractDynamoDbStore {
   private static final Timer UPDATE_TIMER = Metrics.timer(name(Accounts.class, "update"));
   private static final Timer GET_BY_NUMBER_TIMER = Metrics.timer(name(Accounts.class, "getByNumber"));
   private static final Timer GET_BY_USERNAME_HASH_TIMER = Metrics.timer(name(Accounts.class, "getByUsernameHash"));
+  private static final Timer GET_BY_USERNAME_LINK_HANDLE_TIMER = Metrics.timer(name(Accounts.class, "getByUsernameLinkHandle"));
   private static final Timer GET_BY_PNI_TIMER = Metrics.timer(name(Accounts.class, "getByPni"));
   private static final Timer GET_BY_UUID_TIMER = Metrics.timer(name(Accounts.class, "getByUuid"));
   private static final Timer GET_ALL_FROM_START_TIMER = Metrics.timer(name(Accounts.class, "getAllFrom"));
@@ -82,6 +85,8 @@ public class Accounts extends AbstractDynamoDbStore {
   static final String KEY_ACCOUNT_UUID = "U";
   // uuid, attribute on account table, primary key for PNI table
   static final String ATTR_PNI_UUID = "PNI";
+  // uuid of the current username link or null
+  static final String ATTR_USERNAME_LINK_UUID = "UL";
   // phone number
   static final String ATTR_ACCOUNT_E164 = "P";
   // account, serialized to JSON
@@ -98,6 +103,8 @@ public class Accounts extends AbstractDynamoDbStore {
   static final String ATTR_UAK = "UAK";
   // time to live; number
   static final String ATTR_TTL = "TTL";
+
+  static final String USERNAME_LINK_TO_UUID_INDEX = "ul_to_u";
 
   private final Clock clock;
 
@@ -525,20 +532,28 @@ public class Accounts extends AbstractDynamoDbStore {
             ":version", AttributeValues.fromInt(account.getVersion()),
             ":version_increment", AttributeValues.fromInt(1)));
 
-        final String updateExpression;
+        final StringBuilder updateExpressionBuilder = new StringBuilder("SET #data = :data, #cds = :cds");
         if (account.getUnidentifiedAccessKey().isPresent()) {
           // if it's present in the account, also set the uak
           attrNames.put("#uak", ATTR_UAK);
           attrValues.put(":uak", AttributeValues.fromByteArray(account.getUnidentifiedAccessKey().get()));
-          updateExpression = "SET #data = :data, #cds = :cds, #uak = :uak ADD #version :version_increment";
-        } else {
-          updateExpression = "SET #data = :data, #cds = :cds ADD #version :version_increment";
+          updateExpressionBuilder.append(", #uak = :uak");
+        }
+        if (account.getEncryptedUsername().isPresent() && account.getUsernameLinkHandle() != null) {
+          attrNames.put("#ul", ATTR_USERNAME_LINK_UUID);
+          attrValues.put(":ul", AttributeValues.fromUUID(account.getUsernameLinkHandle()));
+          updateExpressionBuilder.append(", #ul = :ul");
+        }
+        updateExpressionBuilder.append(" ADD #version :version_increment");
+        if (account.getEncryptedUsername().isEmpty() || account.getUsernameLinkHandle() == null) {
+          attrNames.put("#ul", ATTR_USERNAME_LINK_UUID);
+          updateExpressionBuilder.append(" REMOVE #ul");
         }
 
         updateItemRequest = UpdateItemRequest.builder()
             .tableName(accountsTableName)
             .key(Map.of(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid())))
-            .updateExpression(updateExpression)
+            .updateExpression(updateExpressionBuilder.toString())
             .conditionExpression("attribute_exists(#number) AND #version = :version")
             .expressionAttributeNames(attrNames)
             .expressionAttributeValues(attrValues)
@@ -631,10 +646,17 @@ public class Accounts extends AbstractDynamoDbStore {
   }
 
   @Nonnull
+  public Optional<Account> getByUsernameLinkHandle(final UUID usernameLinkHandle) {
+    return requireNonNull(GET_BY_USERNAME_LINK_HANDLE_TIMER.record(() ->
+        itemByGsiKey(accountsTableName, USERNAME_LINK_TO_UUID_INDEX, ATTR_USERNAME_LINK_UUID, AttributeValues.fromUUID(usernameLinkHandle))
+            .map(Accounts::fromItem)));
+  }
+
+  @Nonnull
   public Optional<Account> getByAccountIdentifier(final UUID uuid) {
     return requireNonNull(GET_BY_UUID_TIMER.record(() ->
-            itemByKey(accountsTableName, KEY_ACCOUNT_UUID, AttributeValues.fromUUID(uuid))
-                .map(Accounts::fromItem)));
+        itemByKey(accountsTableName, KEY_ACCOUNT_UUID, AttributeValues.fromUUID(uuid))
+            .map(Accounts::fromItem)));
   }
 
   public void delete(final UUID uuid) {
@@ -704,6 +726,33 @@ public class Accounts extends AbstractDynamoDbStore {
         .consistentRead(true)
         .build());
     return Optional.ofNullable(response.item()).filter(m -> !m.isEmpty());
+  }
+
+  @Nonnull
+  private Optional<Map<String, AttributeValue>> itemByGsiKey(final String table, final String indexName, final String keyName, final AttributeValue keyValue) {
+    final QueryResponse response = db().query(QueryRequest.builder()
+        .tableName(table)
+        .indexName(indexName)
+        .keyConditionExpression("#gsiKey = :gsiValue")
+        .projectionExpression("#uuid")
+        .expressionAttributeNames(Map.of(
+            "#gsiKey", keyName,
+            "#uuid", KEY_ACCOUNT_UUID))
+        .expressionAttributeValues(Map.of(
+            ":gsiValue", keyValue))
+        .build());
+
+    if (response.count() == 0) {
+      return Optional.empty();
+    }
+
+    if (response.count() > 1) {
+      throw new IllegalStateException("More than one row located for GSI [%s], key-value pair [%s, %s]"
+          .formatted(indexName, keyName, keyValue));
+    }
+
+    final AttributeValue primaryKeyValue = response.items().get(0).get(KEY_ACCOUNT_UUID);
+    return itemByKey(table, KEY_ACCOUNT_UUID, primaryKeyValue);
   }
 
   @Nonnull
@@ -854,6 +903,7 @@ public class Accounts extends AbstractDynamoDbStore {
       account.setNumber(item.get(ATTR_ACCOUNT_E164).s(), phoneNumberIdentifierFromAttribute);
       account.setUuid(accountIdentifier);
       account.setUsernameHash(AttributeValues.getByteArray(item, ATTR_USERNAME_HASH, null));
+      account.setUsernameLinkHandle(AttributeValues.getUUID(item, ATTR_USERNAME_LINK_UUID, null));
       account.setVersion(Integer.parseInt(item.get(ATTR_VERSION).n()));
       account.setCanonicallyDiscoverable(Optional.ofNullable(item.get(ATTR_CANONICALLY_DISCOVERABLE))
           .map(AttributeValue::bool)

@@ -114,6 +114,7 @@ public class AccountsHelper {
           case "getPhoneNumberIdentifier" -> when(updatedAccount.getPhoneNumberIdentifier()).thenAnswer(stubbing);
           case "getNumber" -> when(updatedAccount.getNumber()).thenAnswer(stubbing);
           case "getUsername" -> when(updatedAccount.getUsernameHash()).thenAnswer(stubbing);
+          case "getUsernameHash" -> when(updatedAccount.getUsernameHash()).thenAnswer(stubbing);
           case "getDevices" -> when(updatedAccount.getDevices()).thenAnswer(stubbing);
           case "getDevice" -> when(updatedAccount.getDevice(stubbing.getInvocation().getArgument(0))).thenAnswer(stubbing);
           case "getMasterDevice" -> when(updatedAccount.getMasterDevice()).thenAnswer(stubbing);

@@ -11,7 +11,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 
 import java.time.Duration;
-import java.util.Optional;
+import java.util.UUID;
 import org.apache.commons.lang3.RandomUtils;
 import org.mockito.Mockito;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretBytes;
@@ -50,7 +50,20 @@ public final class MockUtils {
       final RateLimiters.For handle,
       final String input) {
     final RateLimiter mockRateLimiter = Mockito.mock(RateLimiter.class);
-    doReturn(Optional.of(mockRateLimiter)).when(rateLimitersMock).forDescriptor(eq(handle));
+    doReturn(mockRateLimiter).when(rateLimitersMock).forDescriptor(eq(handle));
+    try {
+      doNothing().when(mockRateLimiter).validate(eq(input));
+    } catch (final RateLimitExceededException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  public static void updateRateLimiterResponseToAllow(
+      final RateLimiters rateLimitersMock,
+      final RateLimiters.For handle,
+      final UUID input) {
+    final RateLimiter mockRateLimiter = Mockito.mock(RateLimiter.class);
+    doReturn(mockRateLimiter).when(rateLimitersMock).forDescriptor(eq(handle));
     try {
       doNothing().when(mockRateLimiter).validate(eq(input));
     } catch (final RateLimitExceededException e) {
@@ -62,6 +75,21 @@ public final class MockUtils {
       final RateLimiters rateLimitersMock,
       final RateLimiters.For handle,
       final String input,
+      final Duration retryAfter,
+      final boolean legacyStatusCode) {
+    final RateLimiter mockRateLimiter = Mockito.mock(RateLimiter.class);
+    doReturn(mockRateLimiter).when(rateLimitersMock).forDescriptor(eq(handle));
+    try {
+      doThrow(new RateLimitExceededException(retryAfter, legacyStatusCode)).when(mockRateLimiter).validate(eq(input));
+    } catch (final RateLimitExceededException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  public static void updateRateLimiterResponseToFail(
+      final RateLimiters rateLimitersMock,
+      final RateLimiters.For handle,
+      final UUID input,
       final Duration retryAfter,
       final boolean legacyStatusCode) {
     final RateLimiter mockRateLimiter = Mockito.mock(RateLimiter.class);

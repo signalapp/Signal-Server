@@ -7,6 +7,8 @@ package org.whispersystems.textsecuregcm.storage;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -16,8 +18,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
@@ -53,6 +53,14 @@ public class Account {
   @JsonDeserialize(using = ByteArrayBase64UrlAdapter.Deserializing.class)
   @Nullable
   private byte[] reservedUsernameHash;
+
+  @JsonIgnore
+  @Nullable
+  private UUID usernameLinkHandle;
+
+  @JsonProperty("eu")
+  @Nullable
+  private byte[] encryptedUsername;
 
   @JsonProperty
   private List<Device> devices = new ArrayList<>();
@@ -160,6 +168,38 @@ public class Account {
     requireNotStale();
 
     this.reservedUsernameHash = reservedUsernameHash;
+  }
+
+  @Nullable
+  public UUID getUsernameLinkHandle() {
+    requireNotStale();
+    return usernameLinkHandle;
+  }
+
+  public Optional<byte[]> getEncryptedUsername() {
+    requireNotStale();
+    return Optional.ofNullable(encryptedUsername);
+  }
+
+  public void setUsernameLinkDetails(@Nullable final UUID usernameLinkHandle, @Nullable final byte[] encryptedUsername) {
+    requireNotStale();
+    if ((usernameLinkHandle == null) ^ (encryptedUsername == null)) {
+      throw new IllegalArgumentException("Both or neither arguments must be null");
+    }
+    if (usernameHash == null && encryptedUsername != null) {
+      throw new IllegalArgumentException("usernameHash field must be set to store username link");
+    }
+    this.encryptedUsername = encryptedUsername;
+    this.usernameLinkHandle = usernameLinkHandle;
+  }
+
+  /*
+   * This method is intentionally left package-private so that it's only used
+   * when Account is read from DB
+   */
+  void setUsernameLinkHandle(@Nullable final UUID usernameLinkHandle) {
+    requireNotStale();
+    this.usernameLinkHandle = usernameLinkHandle;
   }
 
   public void addDevice(Device device) {

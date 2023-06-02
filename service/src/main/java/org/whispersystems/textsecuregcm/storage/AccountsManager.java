@@ -36,7 +36,6 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
-
 import org.apache.commons.lang3.ObjectUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,12 +62,14 @@ public class AccountsManager {
   private static final Timer updateTimer = metricRegistry.timer(name(AccountsManager.class, "update"));
   private static final Timer getByNumberTimer = metricRegistry.timer(name(AccountsManager.class, "getByNumber"));
   private static final Timer getByUsernameHashTimer = metricRegistry.timer(name(AccountsManager.class, "getByUsernameHash"));
+  private static final Timer getByUsernameLinkHandleTimer = metricRegistry.timer(name(AccountsManager.class, "getByUsernameLinkHandle"));
   private static final Timer getByUuidTimer = metricRegistry.timer(name(AccountsManager.class, "getByUuid"));
   private static final Timer deleteTimer = metricRegistry.timer(name(AccountsManager.class, "delete"));
 
   private static final Timer redisSetTimer = metricRegistry.timer(name(AccountsManager.class, "redisSet"));
   private static final Timer redisNumberGetTimer = metricRegistry.timer(name(AccountsManager.class, "redisNumberGet"));
   private static final Timer redisUsernameHashGetTimer = metricRegistry.timer(name(AccountsManager.class, "redisUsernameHashGet"));
+  private static final Timer redisUsernameLinkHandleGetTimer = metricRegistry.timer(name(AccountsManager.class, "redisUsernameLinkHandleGet"));
   private static final Timer redisPniGetTimer = metricRegistry.timer(name(AccountsManager.class, "redisPniGet"));
   private static final Timer redisUuidGetTimer = metricRegistry.timer(name(AccountsManager.class, "redisUuidGet"));
   private static final Timer redisDeleteTimer = metricRegistry.timer(name(AccountsManager.class, "redisDelete"));
@@ -620,55 +621,44 @@ public class AccountsManager {
     });
   }
 
-  public Optional<Account> getByE164(String number) {
-    try (Timer.Context ignored = getByNumberTimer.time()) {
-      Optional<Account> account = redisGetByE164(number);
-
-      if (account.isEmpty()) {
-        account = accounts.getByE164(number);
-        account.ifPresent(this::redisSet);
-      }
-
-      return account;
-    }
+  public Optional<Account> getByE164(final String number) {
+    return checkRedisThenAccounts(
+        getByNumberTimer,
+        () -> redisGetBySecondaryKey(getAccountMapKey(number), redisNumberGetTimer),
+        () -> accounts.getByE164(number)
+    );
   }
 
-  public Optional<Account> getByPhoneNumberIdentifier(UUID pni) {
-    try (Timer.Context ignored = getByNumberTimer.time()) {
-      Optional<Account> account = redisGetByPhoneNumberIdentifier(pni);
+  public Optional<Account> getByPhoneNumberIdentifier(final UUID pni) {
+    return checkRedisThenAccounts(
+        getByNumberTimer,
+        () -> redisGetBySecondaryKey(getAccountMapKey(pni.toString()), redisPniGetTimer),
+        () -> accounts.getByPhoneNumberIdentifier(pni)
+    );
+  }
 
-      if (account.isEmpty()) {
-        account = accounts.getByPhoneNumberIdentifier(pni);
-        account.ifPresent(this::redisSet);
-      }
-
-      return account;
-    }
+  public Optional<Account> getByUsernameLinkHandle(final UUID usernameLinkHandle) {
+    return checkRedisThenAccounts(
+        getByUsernameLinkHandleTimer,
+        () -> redisGetBySecondaryKey(getAccountMapKey(usernameLinkHandle.toString()), redisUsernameLinkHandleGetTimer),
+        () -> accounts.getByUsernameLinkHandle(usernameLinkHandle)
+    );
   }
 
   public Optional<Account> getByUsernameHash(final byte[] usernameHash) {
-    try (final Timer.Context ignored = getByUsernameHashTimer.time()) {
-      Optional<Account> account = redisGetByUsernameHash(usernameHash);
-      if (account.isEmpty()) {
-        account = accounts.getByUsernameHash(usernameHash);
-        account.ifPresent(this::redisSet);
-      }
-
-      return account;
-    }
+    return checkRedisThenAccounts(
+        getByUsernameHashTimer,
+        () -> redisGetBySecondaryKey(getUsernameHashAccountMapKey(usernameHash), redisUsernameHashGetTimer),
+        () -> accounts.getByUsernameHash(usernameHash)
+    );
   }
 
-  public Optional<Account> getByAccountIdentifier(UUID uuid) {
-    try (Timer.Context ignored = getByUuidTimer.time()) {
-      Optional<Account> account = redisGetByAccountIdentifier(uuid);
-
-      if (account.isEmpty()) {
-        account = accounts.getByAccountIdentifier(uuid);
-        account.ifPresent(this::redisSet);
-      }
-
-      return account;
-    }
+  public Optional<Account> getByAccountIdentifier(final UUID uuid) {
+    return checkRedisThenAccounts(
+        getByUuidTimer,
+        () -> redisGetByAccountIdentifier(uuid),
+        () -> accounts.getByAccountIdentifier(uuid)
+    );
   }
 
   public UUID getPhoneNumberIdentifier(String e164) {
@@ -758,24 +748,25 @@ public class AccountsManager {
     }
   }
 
-  private Optional<Account> redisGetByPhoneNumberIdentifier(UUID uuid) {
-    return redisGetBySecondaryKey(getAccountMapKey(uuid.toString()), redisPniGetTimer);
+  private Optional<Account> checkRedisThenAccounts(
+      final Timer overallTimer,
+      final Supplier<Optional<Account>> resolveFromRedis,
+      final Supplier<Optional<Account>> resolveFromAccounts) {
+    try (final Timer.Context ignored = overallTimer.time()) {
+      Optional<Account> account = resolveFromRedis.get();
+      if (account.isEmpty()) {
+        account = resolveFromAccounts.get();
+        account.ifPresent(this::redisSet);
+      }
+      return account;
+    }
   }
 
-  private Optional<Account> redisGetByE164(String e164) {
-    return redisGetBySecondaryKey(getAccountMapKey(e164), redisNumberGetTimer);
-  }
-
-  private Optional<Account> redisGetByUsernameHash(byte[] usernameHash) {
-    return redisGetBySecondaryKey(getUsernameHashAccountMapKey(usernameHash), redisUsernameHashGetTimer);
-  }
-
-  private Optional<Account> redisGetBySecondaryKey(String secondaryKey, Timer timer) {
-    try (Timer.Context ignored = timer.time()) {
-      final String uuid = cacheCluster.withCluster(connection -> connection.sync().get(secondaryKey));
-
-      if (uuid != null) return redisGetByAccountIdentifier(UUID.fromString(uuid));
-      else              return Optional.empty();
+  private Optional<Account> redisGetBySecondaryKey(final String secondaryKey, final Timer timer) {
+    try (final Timer.Context ignored = timer.time()) {
+      return Optional.ofNullable(cacheCluster.withCluster(connection -> connection.sync().get(secondaryKey)))
+          .map(UUID::fromString)
+          .flatMap(this::getByAccountIdentifier);
     } catch (IllegalArgumentException e) {
       logger.warn("Deserialization error", e);
       return Optional.empty();

@@ -37,6 +37,8 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
     USERNAME_LOOKUP("usernameLookup", false, new RateLimiterConfig(100, Duration.ofSeconds(15))),
     USERNAME_SET("usernameSet", false, new RateLimiterConfig(100, Duration.ofSeconds(15))),
     USERNAME_RESERVE("usernameReserve", false, new RateLimiterConfig(100, Duration.ofSeconds(15))),
+    USERNAME_LINK_OPERATION("usernameLinkOperation", false, new RateLimiterConfig(10, Duration.ofMinutes(1))),
+    USERNAME_LINK_LOOKUP_PER_IP("usernameLinkLookupPerIp", false, new RateLimiterConfig(100, Duration.ofSeconds(15))),
     CHECK_ACCOUNT_EXISTENCE("checkAccountExistence", false, new RateLimiterConfig(1000, Duration.ofMillis(60))),
     REGISTRATION("registration", false, new RateLimiterConfig(6, Duration.ofMillis(500))),
     VERIFICATION_PUSH_CHALLENGE("verificationPushChallenge", false, new RateLimiterConfig(5, Duration.ofMillis(500))),

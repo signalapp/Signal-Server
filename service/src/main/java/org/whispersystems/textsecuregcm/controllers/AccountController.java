@@ -20,6 +20,8 @@ import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import java.io.IOException;
 import java.security.SecureRandom;
 import java.time.Clock;
@@ -32,6 +34,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
+import javax.annotation.Nullable;
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
@@ -77,6 +80,7 @@ import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
 import org.whispersystems.textsecuregcm.entities.ChangePhoneNumberRequest;
 import org.whispersystems.textsecuregcm.entities.ConfirmUsernameHashRequest;
 import org.whispersystems.textsecuregcm.entities.DeviceName;
+import org.whispersystems.textsecuregcm.entities.EncryptedUsername;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
 import org.whispersystems.textsecuregcm.entities.MismatchedDevices;
 import org.whispersystems.textsecuregcm.entities.PhoneVerificationRequest;
@@ -85,6 +89,7 @@ import org.whispersystems.textsecuregcm.entities.ReserveUsernameHashRequest;
 import org.whispersystems.textsecuregcm.entities.ReserveUsernameHashResponse;
 import org.whispersystems.textsecuregcm.entities.StaleDevices;
 import org.whispersystems.textsecuregcm.entities.UsernameHashResponse;
+import org.whispersystems.textsecuregcm.entities.UsernameLinkHandle;
 import org.whispersystems.textsecuregcm.limits.RateLimitedByIp;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -421,7 +426,7 @@ public class AccountController {
     }
 
     if (availableForTransfer.orElse(false) && existingAccount.map(Account::isTransferSupported).orElse(false)) {
-      throw new WebApplicationException(Response.status(409).build());
+      throw new WebApplicationException(Status.CONFLICT);
     }
 
     rateLimiters.getVerifyLimiter().clear(number);
@@ -699,7 +704,8 @@ public class AccountController {
   @DELETE
   @Path("/username_hash")
   @Produces(MediaType.APPLICATION_JSON)
-  public void deleteUsernameHash(@Auth AuthenticatedAccount auth) {
+  public void deleteUsernameHash(final @Auth AuthenticatedAccount auth) {
+    clearUsernameLink(auth.getAccount());
     accounts.clearUsernameHash(auth.getAccount());
   }
 
@@ -736,9 +742,10 @@ public class AccountController {
   @Path("/username_hash/confirm")
   @Produces(MediaType.APPLICATION_JSON)
   @Consumes(MediaType.APPLICATION_JSON)
-  public UsernameHashResponse confirmUsernameHash(@Auth AuthenticatedAccount auth,
-      @HeaderParam(HeaderUtils.X_SIGNAL_AGENT) String userAgent,
-      @NotNull @Valid ConfirmUsernameHashRequest confirmRequest) throws RateLimitExceededException {
+  public UsernameHashResponse confirmUsernameHash(
+      @Auth final AuthenticatedAccount auth,
+      @HeaderParam(HeaderUtils.X_SIGNAL_AGENT) final String userAgent,
+      @NotNull @Valid final ConfirmUsernameHashRequest confirmRequest) throws RateLimitExceededException {
     rateLimiters.getUsernameSetLimiter().validate(auth.getAccount().getUuid());
 
     try {
@@ -746,6 +753,11 @@ public class AccountController {
     } catch (final BaseUsernameException e) {
       throw new WebApplicationException(Response.status(422).build());
     }
+
+    // Whenever a valid request for a username change arrives,
+    // we're making sure to clear username link. This may happen before and username changes are written to the db
+    // but verifying zk proof means that request itself is valid from the client's perspective
+    clearUsernameLink(auth.getAccount());
 
     try {
       final Account account = accounts.confirmReservedUsernameHash(auth.getAccount(), confirmRequest.usernameHash());
@@ -794,6 +806,90 @@ public class AccountController {
         .map(Account::getUuid)
         .map(AccountIdentifierResponse::new)
         .orElseThrow(() -> new WebApplicationException(Status.NOT_FOUND));
+  }
+
+  @Timed
+  @PUT
+  @Path("/username_link")
+  @Produces(MediaType.APPLICATION_JSON)
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(
+      summary = "Set username link",
+      description = """
+          Authenticated endpoint. For the given encrypted username generates a username link handle.
+          Username link handle could be used to lookup the encrypted username.
+          An account can only have one username link at a time. Calling this endpoint will reset previously stored
+          encrypted username and deactivate previous link handle.   
+          """
+  )
+  @ApiResponse(responseCode = "200", description = "Username Link updated successfully.", useReturnTypeSchema = true)
+  @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
+  @ApiResponse(responseCode = "409", description = "Username is not set for the account.")
+  @ApiResponse(responseCode = "422", description = "Invalid request format.")
+  @ApiResponse(responseCode = "429", description = "Ratelimited.")
+  public UsernameLinkHandle updateUsernameLink(
+      @Auth final AuthenticatedAccount auth,
+      @NotNull @Valid final EncryptedUsername encryptedUsername) throws RateLimitExceededException {
+    // check ratelimiter for username link operations
+    rateLimiters.forDescriptor(RateLimiters.For.USERNAME_LINK_OPERATION).validate(auth.getAccount().getUuid());
+
+    // check if username hash is set for the account
+    if (auth.getAccount().getUsernameHash().isEmpty()) {
+      throw new WebApplicationException(Status.CONFLICT);
+    }
+
+    final UUID usernameLinkHandle = UUID.randomUUID();
+    updateUsernameLink(auth.getAccount(), usernameLinkHandle, encryptedUsername.usernameLinkEncryptedValue());
+    return new UsernameLinkHandle(usernameLinkHandle);
+  }
+
+  @Timed
+  @DELETE
+  @Path("/username_link")
+  @Operation(
+      summary = "Delete username link",
+      description = """
+          Authenticated endpoint. Deletes username link for the given account: previously store encrypted username is deleted
+          and username link handle is deactivated. 
+          """
+  )
+  @ApiResponse(responseCode = "204", description = "Username Link successfully deleted.", useReturnTypeSchema = true)
+  @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
+  @ApiResponse(responseCode = "429", description = "Ratelimited.")
+  public void deleteUsernameLink(@Auth final AuthenticatedAccount auth) throws RateLimitExceededException {
+    // check ratelimiter for username link operations
+    rateLimiters.forDescriptor(RateLimiters.For.USERNAME_LINK_OPERATION).validate(auth.getAccount().getUuid());
+    clearUsernameLink(auth.getAccount());
+  }
+
+  @Timed
+  @GET
+  @Path("/username_link/{uuid}")
+  @Produces(MediaType.APPLICATION_JSON)
+  @RateLimitedByIp(RateLimiters.For.USERNAME_LINK_LOOKUP_PER_IP)
+  @Operation(
+      summary = "Lookup username link",
+      description = """
+          Enforced unauthenticated endpoint. For the given username link handle, looks up the database for an associated encrypted username.
+          If found, encrypted username is returned, otherwise responds with 404 Not Found.
+          """
+  )
+  @ApiResponse(responseCode = "200", description = "Username link with the given handle was found.", useReturnTypeSchema = true)
+  @ApiResponse(responseCode = "404", description = "Username link was not found for the given handle.")
+  @ApiResponse(responseCode = "422", description = "Invalid request format.")
+  @ApiResponse(responseCode = "429", description = "Ratelimited.")
+  public EncryptedUsername lookupUsernameLink(
+      @Auth Optional<AuthenticatedAccount> authenticatedAccount,
+      @PathParam("uuid") final UUID usernameLinkHandle) {
+    final Optional<byte[]> maybeEncryptedUsername = accounts.getByUsernameLinkHandle(usernameLinkHandle)
+        .flatMap(Account::getEncryptedUsername);
+    if (authenticatedAccount.isPresent()) {
+      throw new ForbiddenException("must not use authenticated connection for connection graph revealing operations");
+    }
+    if (maybeEncryptedUsername.isEmpty()) {
+      throw new WebApplicationException(Status.NOT_FOUND);
+    }
+    return new EncryptedUsername(maybeEncryptedUsername.get());
   }
 
   @HEAD
@@ -913,6 +1009,20 @@ public class AccountController {
       // For legacy API compatibility, funnel all errors into the same return value
       return false;
     }
+  }
+
+  private void clearUsernameLink(final Account account) {
+    updateUsernameLink(account, null, null);
+  }
+
+  private void updateUsernameLink(
+      final Account account,
+      @Nullable final UUID usernameLinkHandle,
+      @Nullable final byte[] encryptedUsername) {
+    if ((encryptedUsername == null) ^ (usernameLinkHandle == null)) {
+      throw new IllegalStateException("Both or neither arguments must be null");
+    }
+    accounts.update(account, a -> a.setUsernameLinkDetails(usernameLinkHandle, encryptedUsername));
   }
 
   private void rethrowRateLimitException(final CompletionException completionException)

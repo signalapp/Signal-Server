@@ -12,6 +12,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -20,6 +21,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.uuid.UUIDComparator;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -32,12 +34,21 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiConsumer;
+import org.apache.commons.lang3.RandomUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
+import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
+import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
+import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
@@ -67,6 +78,8 @@ class AccountsTest {
   private static final byte[] USERNAME_HASH_2 = Base64.getUrlDecoder().decode(BASE_64_URL_USERNAME_HASH_2);
 
   private static final int SCAN_PAGE_SIZE = 1;
+
+  private static final AtomicInteger ACCOUNT_COUNTER = new AtomicInteger(1);
 
 
   @RegisterExtension
@@ -98,6 +111,88 @@ class AccountsTest {
         Tables.PNI_ASSIGNMENTS.tableName(),
         Tables.USERNAMES.tableName(),
         SCAN_PAGE_SIZE);
+  }
+
+  @Test
+  public void testStoreAndLookupUsernameLink() throws Exception {
+    final Account account = nextRandomAccount();
+    account.setUsernameHash(RandomUtils.nextBytes(16));
+    accounts.create(account);
+
+    final BiConsumer<Optional<Account>, byte[]> validator = (maybeAccount, expectedEncryptedUsername) -> {
+      assertTrue(maybeAccount.isPresent());
+      assertTrue(maybeAccount.get().getEncryptedUsername().isPresent());
+      assertEquals(account.getUuid(), maybeAccount.get().getUuid());
+      assertArrayEquals(expectedEncryptedUsername, maybeAccount.get().getEncryptedUsername().get());
+    };
+
+    // creating a username link, storing it, checking that it can be looked up
+    final UUID linkHandle1 = UUID.randomUUID();
+    final byte[] encruptedUsername1 = RandomUtils.nextBytes(32);
+    account.setUsernameLinkDetails(linkHandle1, encruptedUsername1);
+    accounts.update(account);
+    validator.accept(accounts.getByUsernameLinkHandle(linkHandle1), encruptedUsername1);
+
+    // updating username link, storing new one, checking that it can be looked up, checking that old one can't be looked up
+    final UUID linkHandle2 = UUID.randomUUID();
+    final byte[] encruptedUsername2 = RandomUtils.nextBytes(32);
+    account.setUsernameLinkDetails(linkHandle2, encruptedUsername2);
+    accounts.update(account);
+    validator.accept(accounts.getByUsernameLinkHandle(linkHandle2), encruptedUsername2);
+    assertTrue(accounts.getByUsernameLinkHandle(linkHandle1).isEmpty());
+
+    // deleting username link, checking it can't be looked up by either handle
+    account.setUsernameLinkDetails(null, null);
+    accounts.update(account);
+    assertTrue(accounts.getByUsernameLinkHandle(linkHandle1).isEmpty());
+    assertTrue(accounts.getByUsernameLinkHandle(linkHandle2).isEmpty());
+  }
+
+  @Test
+  public void testUsernameLinksViaAccountsManager() throws Exception {
+    final AccountsManager accountsManager = new AccountsManager(
+        accounts,
+        mock(PhoneNumberIdentifiers.class),
+        mock(FaultTolerantRedisCluster.class),
+        mock(DeletedAccountsManager.class),
+        mock(Keys.class),
+        mock(MessagesManager.class),
+        mock(ProfilesManager.class),
+        mock(StoredVerificationCodeManager.class),
+        mock(SecureStorageClient.class),
+        mock(SecureBackupClient.class),
+        mock(SecureValueRecovery2Client.class),
+        mock(ClientPresenceManager.class),
+        mock(ExperimentEnrollmentManager.class),
+        mock(RegistrationRecoveryPasswordsManager.class),
+        mock(Clock.class));
+
+    final Account account = nextRandomAccount();
+    account.setUsernameHash(RandomUtils.nextBytes(16));
+    accounts.create(account);
+
+    final UUID linkHandle = UUID.randomUUID();
+    final byte[] encruptedUsername = RandomUtils.nextBytes(32);
+    accountsManager.update(account, a -> a.setUsernameLinkDetails(linkHandle, encruptedUsername));
+
+    final Optional<Account> maybeAccount = accountsManager.getByUsernameLinkHandle(linkHandle);
+    assertTrue(maybeAccount.isPresent());
+    assertTrue(maybeAccount.get().getEncryptedUsername().isPresent());
+    assertArrayEquals(encruptedUsername, maybeAccount.get().getEncryptedUsername().get());
+
+    // making some unrelated change and updating account to check that username link data is still there
+    final Optional<Account> accountToChange = accountsManager.getByAccountIdentifier(account.getUuid());
+    assertTrue(accountToChange.isPresent());
+    accountsManager.update(accountToChange.get(), a -> a.setDiscoverableByPhoneNumber(!a.isDiscoverableByPhoneNumber()));
+    final Optional<Account> accountAfterChange = accountsManager.getByUsernameLinkHandle(linkHandle);
+    assertTrue(accountAfterChange.isPresent());
+    assertTrue(accountAfterChange.get().getEncryptedUsername().isPresent());
+    assertArrayEquals(encruptedUsername, accountAfterChange.get().getEncryptedUsername().get());
+
+    // now deleting the link
+    final Optional<Account> accountToDeleteLink = accountsManager.getByAccountIdentifier(account.getUuid());
+    accountsManager.update(accountToDeleteLink.get(), a -> a.setUsernameLinkDetails(null, null));
+    assertTrue(accounts.getByUsernameLinkHandle(linkHandle).isEmpty());
   }
 
   @Test
@@ -818,19 +913,24 @@ class AccountsTest {
     assertThat(account.getUsernameHash()).isEmpty();
   }
 
-  private Device generateDevice(long id) {
+  private static Device generateDevice(long id) {
     return DevicesHelper.createDevice(id);
   }
 
-  private Account generateAccount(String number, UUID uuid, final UUID pni) {
+  private static Account nextRandomAccount() {
+    final String nextNumber = "+1800%07d".formatted(ACCOUNT_COUNTER.getAndIncrement());
+    return generateAccount(nextNumber, UUID.randomUUID(), UUID.randomUUID());
+  }
+
+  private static Account generateAccount(String number, UUID uuid, final UUID pni) {
     Device device = generateDevice(1);
     return generateAccount(number, uuid, pni, List.of(device));
   }
 
-  private Account generateAccount(String number, UUID uuid, final UUID pni, List<Device> devices) {
-    byte[]       unidentifiedAccessKey = new byte[16];
-    Random random = new Random(System.currentTimeMillis());
-    Arrays.fill(unidentifiedAccessKey, (byte)random.nextInt(255));
+  private static Account generateAccount(String number, UUID uuid, final UUID pni, List<Device> devices) {
+    final byte[] unidentifiedAccessKey = new byte[16];
+    final Random random = new Random(System.currentTimeMillis());
+    Arrays.fill(unidentifiedAccessKey, (byte) random.nextInt(255));
 
     return AccountsHelper.generateTestAccount(number, uuid, pni, devices, unidentifiedAccessKey);
   }

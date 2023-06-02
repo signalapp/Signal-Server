@@ -23,11 +23,29 @@ public final class DynamoDbExtensionSchema {
     ACCOUNTS("accounts_test",
         Accounts.KEY_ACCOUNT_UUID,
         null,
-        List.of(AttributeDefinition.builder()
-            .attributeName(Accounts.KEY_ACCOUNT_UUID)
-            .attributeType(ScalarAttributeType.B)
-            .build()),
-        List.of(), List.of()),
+        List.of(
+            AttributeDefinition.builder()
+                .attributeName(Accounts.KEY_ACCOUNT_UUID)
+                .attributeType(ScalarAttributeType.B)
+                .build(),
+            AttributeDefinition.builder()
+                .attributeName(Accounts.ATTR_USERNAME_LINK_UUID)
+                .attributeType(ScalarAttributeType.B)
+                .build()),
+        List.of(
+            GlobalSecondaryIndex.builder()
+                .indexName(Accounts.USERNAME_LINK_TO_UUID_INDEX)
+                .keySchema(
+                    KeySchemaElement.builder()
+                        .attributeName(Accounts.ATTR_USERNAME_LINK_UUID)
+                        .keyType(KeyType.HASH)
+                        .build()
+                )
+                .projection(Projection.builder().projectionType(ProjectionType.KEYS_ONLY).build())
+                .provisionedThroughput(ProvisionedThroughput.builder().readCapacityUnits(10L).writeCapacityUnits(10L).build())
+                .build()
+        ),
+        List.of()),
 
     DELETED_ACCOUNTS("deleted_accounts_test",
         DeletedAccounts.KEY_ACCOUNT_E164,
