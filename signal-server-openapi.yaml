@@ -3740,16 +3740,16 @@ components:
             type: string
         commitment:
           $ref: '#/components/schemas/ProfileKeyCommitment'
-        badges:
-          type: array
-          items:
-            type: string
         avatarChange:
           type: string
           enum:
           - UNCHANGED
           - CLEAR
           - UPDATE
+        badges:
+          type: array
+          items:
+            type: string
     ProfileKeyCommitment:
       type: object
       properties:
