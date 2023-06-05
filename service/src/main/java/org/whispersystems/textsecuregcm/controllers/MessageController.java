@@ -93,7 +93,7 @@ import org.whispersystems.textsecuregcm.spam.FilterSpam;
 import org.whispersystems.textsecuregcm.spam.ReportSpamTokenProvider;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.storage.DeletedAccountsManager;
+import org.whispersystems.textsecuregcm.storage.DeletedAccounts;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
@@ -117,7 +117,7 @@ public class MessageController {
   private final MessageSender messageSender;
   private final ReceiptSender receiptSender;
   private final AccountsManager accountsManager;
-  private final DeletedAccountsManager deletedAccountsManager;
+  private final DeletedAccounts deletedAccounts;
   private final MessagesManager messagesManager;
   private final PushNotificationManager pushNotificationManager;
   private final ReportMessageManager reportMessageManager;
@@ -150,7 +150,7 @@ public class MessageController {
       MessageSender messageSender,
       ReceiptSender receiptSender,
       AccountsManager accountsManager,
-      DeletedAccountsManager deletedAccountsManager,
+      DeletedAccounts deletedAccounts,
       MessagesManager messagesManager,
       PushNotificationManager pushNotificationManager,
       ReportMessageManager reportMessageManager,
@@ -161,7 +161,7 @@ public class MessageController {
     this.messageSender = messageSender;
     this.receiptSender = receiptSender;
     this.accountsManager = accountsManager;
-    this.deletedAccountsManager = deletedAccountsManager;
+    this.deletedAccounts = deletedAccounts;
     this.messagesManager = messagesManager;
     this.pushNotificationManager = pushNotificationManager;
     this.reportMessageManager = reportMessageManager;
@@ -621,7 +621,7 @@ public class MessageController {
         sourceAci = maybeAccount.map(Account::getUuid);
         sourcePni = maybeAccount.map(Account::getPhoneNumberIdentifier);
       } else {
-        sourceAci = deletedAccountsManager.findDeletedAccountAci(source);
+        sourceAci = deletedAccounts.findUuid(source);
         sourcePni = Optional.ofNullable(accountsManager.getPhoneNumberIdentifier(source));
       }
     } else {
@@ -631,7 +631,7 @@ public class MessageController {
 
       if (sourceAccount.isEmpty()) {
         logger.warn("Could not find source: {}", sourceAci.get());
-        sourceNumber = deletedAccountsManager.findDeletedAccountE164(sourceAci.get());
+        sourceNumber = deletedAccounts.findE164(sourceAci.get());
         sourcePni = sourceNumber.map(accountsManager::getPhoneNumberIdentifier);
       } else {
         sourceNumber = sourceAccount.map(Account::getNumber);

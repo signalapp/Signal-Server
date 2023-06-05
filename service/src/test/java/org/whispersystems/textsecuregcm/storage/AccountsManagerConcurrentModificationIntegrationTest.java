@@ -92,13 +92,17 @@ class AccountsManagerConcurrentModificationIntegrationTest {
       //noinspection unchecked
       commands = mock(RedisAdvancedClusterCommands.class);
 
-      final DeletedAccountsManager deletedAccountsManager = mock(DeletedAccountsManager.class);
+      final AccountLockManager accountLockManager = mock(AccountLockManager.class);
 
       doAnswer(invocation -> {
-        //noinspection unchecked
-        invocation.getArgument(1, Consumer.class).accept(Optional.empty());
+        final Runnable task = invocation.getArgument(1);
+        task.run();
+
         return null;
-      }).when(deletedAccountsManager).lockAndTake(anyString(), any());
+      }).when(accountLockManager).withLock(any(), any());
+
+      final DeletedAccounts deletedAccounts = mock(DeletedAccounts.class);
+      when(deletedAccounts.findUuid(any())).thenReturn(Optional.empty());
 
       final PhoneNumberIdentifiers phoneNumberIdentifiers = mock(PhoneNumberIdentifiers.class);
       when(phoneNumberIdentifiers.getPhoneNumberIdentifier(anyString()))
@@ -108,8 +112,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
           accounts,
           phoneNumberIdentifiers,
           RedisClusterHelper.builder().stringCommands(commands).build(),
-          deletedAccountsManager,
-          mock(Keys.class),
+          accountLockManager, deletedAccounts, mock(Keys.class),
           mock(MessagesManager.class),
           mock(ProfilesManager.class),
           mock(StoredVerificationCodeManager.class),

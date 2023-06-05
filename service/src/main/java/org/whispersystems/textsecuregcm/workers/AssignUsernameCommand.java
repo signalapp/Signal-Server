@@ -37,10 +37,10 @@ import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.AccountLockManager;
 import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DeletedAccounts;
-import org.whispersystems.textsecuregcm.storage.DeletedAccountsManager;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.Keys;
 import org.whispersystems.textsecuregcm.storage.MessagesCache;
@@ -205,12 +205,10 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
         configuration.getReportMessageConfiguration().getCounterTtl());
     MessagesManager messagesManager = new MessagesManager(messagesDynamoDb, messagesCache,
         reportMessageManager, messageDeletionExecutor);
-    DeletedAccountsManager deletedAccountsManager = new DeletedAccountsManager(deletedAccounts,
-        deletedAccountsLockDynamoDbClient,
-        configuration.getDynamoDbTables().getDeletedAccountsLock().getTableName());
+    AccountLockManager accountLockManager = new AccountLockManager(deletedAccountsLockDynamoDbClient, configuration.getDynamoDbTables().getDeletedAccountsLock().getTableName());
     StoredVerificationCodeManager pendingAccountsManager = new StoredVerificationCodeManager(pendingAccounts);
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
-        deletedAccountsManager, keys, messagesManager, profilesManager,
+        accountLockManager, deletedAccounts, keys, messagesManager, profilesManager,
         pendingAccountsManager, secureStorageClient, secureBackupClient, secureValueRecovery2Client, clientPresenceManager,
         experimentEnrollmentManager, registrationRecoveryPasswordsManager, Clock.systemUTC());
 

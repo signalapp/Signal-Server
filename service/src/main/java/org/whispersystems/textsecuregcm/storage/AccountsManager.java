@@ -87,7 +87,8 @@ public class AccountsManager {
   private final Accounts accounts;
   private final PhoneNumberIdentifiers phoneNumberIdentifiers;
   private final FaultTolerantRedisCluster cacheCluster;
-  private final DeletedAccountsManager deletedAccountsManager;
+  private final AccountLockManager accountLockManager;
+  private final DeletedAccounts deletedAccounts;
   private final Keys keys;
   private final MessagesManager messagesManager;
   private final ProfilesManager profilesManager;
@@ -130,7 +131,8 @@ public class AccountsManager {
   public AccountsManager(final Accounts accounts,
       final PhoneNumberIdentifiers phoneNumberIdentifiers,
       final FaultTolerantRedisCluster cacheCluster,
-      final DeletedAccountsManager deletedAccountsManager,
+      final AccountLockManager accountLockManager,
+      final DeletedAccounts deletedAccounts,
       final Keys keys,
       final MessagesManager messagesManager,
       final ProfilesManager profilesManager,
@@ -145,7 +147,8 @@ public class AccountsManager {
     this.accounts = accounts;
     this.phoneNumberIdentifiers = phoneNumberIdentifiers;
     this.cacheCluster = cacheCluster;
-    this.deletedAccountsManager = deletedAccountsManager;
+    this.accountLockManager = accountLockManager;
+    this.deletedAccounts = deletedAccounts;
     this.keys = keys;
     this.messagesManager = messagesManager;
     this.profilesManager = profilesManager;
@@ -168,7 +171,7 @@ public class AccountsManager {
     try (Timer.Context ignored = createTimer.time()) {
       final Account account = new Account();
 
-      deletedAccountsManager.lockAndTake(number, maybeRecentlyDeletedUuid -> {
+      accountLockManager.withLock(List.of(number), () -> {
         Device device = new Device();
         device.setId(Device.MASTER_ID);
         device.setAuthTokenHash(SaltedTokenHash.generateFor(password));
@@ -182,7 +185,10 @@ public class AccountsManager {
         device.setUserAgent(signalAgent);
 
         account.setNumber(number, phoneNumberIdentifiers.getPhoneNumberIdentifier(number));
-        account.setUuid(maybeRecentlyDeletedUuid.orElseGet(UUID::randomUUID));
+
+        // Reuse the ACI from any recently-deleted account with this number to cover cases where somebody is
+        // re-registering.
+        account.setUuid(deletedAccounts.findUuid(number).orElseGet(UUID::randomUUID));
         account.addDevice(device);
         account.setRegistrationLockFromAttributes(accountAttributes);
         account.setUnidentifiedAccessKey(accountAttributes.getUnidentifiedAccessKey());
@@ -236,6 +242,10 @@ public class AccountsManager {
 
         accountAttributes.recoveryPassword().ifPresent(registrationRecoveryPassword ->
             registrationRecoveryPasswordsManager.storeForCurrentNumber(account.getNumber(), registrationRecoveryPassword));
+
+        // Clear any "recently deleted account" record for this number since, if it existed, we've used its old ACI for
+        // the newly-created account.
+        deletedAccounts.remove(number);
       });
 
       return account;
@@ -243,7 +253,7 @@ public class AccountsManager {
   }
 
   public Account changeNumber(final Account account,
-                              final String number,
+                              final String targetNumber,
                               @Nullable final byte[] pniIdentityKey,
                               @Nullable final Map<Long, SignedPreKey> pniSignedPreKeys,
                               @Nullable final Map<Long, SignedPreKey> pniPqLastResortPreKeys,
@@ -252,7 +262,7 @@ public class AccountsManager {
     final String originalNumber = account.getNumber();
     final UUID originalPhoneNumberIdentifier = account.getPhoneNumberIdentifier();
 
-    if (originalNumber.equals(number)) {
+    if (originalNumber.equals(targetNumber)) {
       if (pniIdentityKey != null) {
         throw new IllegalArgumentException("change number must supply a changed phone number; otherwise use updatePniKeys");
       }
@@ -263,28 +273,42 @@ public class AccountsManager {
 
     final AtomicReference<Account> updatedAccount = new AtomicReference<>();
 
-    deletedAccountsManager.lockAndPut(account.getNumber(), number, (originalAci, deletedAci) -> {
+    accountLockManager.withLock(List.of(account.getNumber(), targetNumber), () -> {
       redisDelete(account);
 
-      final Optional<Account> maybeExistingAccount = getByE164(number);
-      final Optional<UUID> displacedUuid;
+      // There are three possible states for accounts associated with the target phone number:
+      //
+      // 1. An account exists with the target number; the caller has proved ownership of the number, so delete the
+      //    account with the target number. This will leave a "deleted account" record for the deleted account mapping
+      //    the UUID of the deleted account to the target phone number. We'll then overwrite that so it points to the
+      //    original number to facilitate switching back and forth between numbers.
+      // 2. No account with the target number exists, but one has recently been deleted. In that case, add a "deleted
+      //    account" record that maps the ACI of the recently-deleted account to the now-abandoned original phone number
+      //    of the account changing its number (which facilitates ACI consistency in cases that a party is switching
+      //    back and forth between numbers).
+      // 3. No account with the target number exists at all, in which case no additional action is needed.
+      final Optional<UUID> recentlyDeletedAci = deletedAccounts.findUuid(targetNumber);
+      final Optional<Account> maybeExistingAccount = getByE164(targetNumber);
+      final Optional<UUID> maybeDisplacedUuid;
 
       if (maybeExistingAccount.isPresent()) {
         delete(maybeExistingAccount.get());
-        displacedUuid = maybeExistingAccount.map(Account::getUuid);
+        maybeDisplacedUuid = maybeExistingAccount.map(Account::getUuid);
       } else {
-        displacedUuid = deletedAci;
+        maybeDisplacedUuid = recentlyDeletedAci;
       }
 
+      maybeDisplacedUuid.ifPresent(displacedUuid -> deletedAccounts.put(displacedUuid, originalNumber));
+
       final UUID uuid = account.getUuid();
-      final UUID phoneNumberIdentifier = phoneNumberIdentifiers.getPhoneNumberIdentifier(number);
+      final UUID phoneNumberIdentifier = phoneNumberIdentifiers.getPhoneNumberIdentifier(targetNumber);
 
       final Account numberChangedAccount;
 
       numberChangedAccount = updateWithRetries(
           account,
           a -> { setPniKeys(account, pniIdentityKey, pniSignedPreKeys, pniRegistrationIds); return true; },
-          a -> accounts.changeNumber(a, number, phoneNumberIdentifier),
+          a -> accounts.changeNumber(a, targetNumber, phoneNumberIdentifier),
           () -> accounts.getByAccountIdentifier(uuid).orElseThrow(),
           AccountChangeValidator.NUMBER_CHANGE_VALIDATOR);
 
@@ -301,8 +325,6 @@ public class AccountsManager {
                     Function.identity(),
                     pniPqLastResortPreKeys::get)));
       }
-      
-      return displacedUuid;
     });
 
     return updatedAccount.get();
@@ -675,10 +697,13 @@ public class AccountsManager {
 
   public void delete(final Account account, final DeletionReason deletionReason) throws InterruptedException {
     try (final Timer.Context ignored = deleteTimer.time()) {
-      deletedAccountsManager.lockAndPut(account.getNumber(), () -> {
+      accountLockManager.withLock(List.of(account.getNumber()), () -> {
+        final UUID accountIdentifier = account.getUuid();
+        final String e164 = account.getNumber();
+
         delete(account);
 
-        return account.getUuid();
+        deletedAccounts.put(accountIdentifier, e164);
       });
     } catch (final RuntimeException | InterruptedException e) {
       logger.warn("Failed to delete account", e);

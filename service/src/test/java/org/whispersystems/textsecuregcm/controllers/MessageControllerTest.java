@@ -97,7 +97,7 @@ import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.spam.ReportSpamTokenProvider;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.storage.DeletedAccountsManager;
+import org.whispersystems.textsecuregcm.storage.DeletedAccounts;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
@@ -141,7 +141,7 @@ class MessageControllerTest {
   private static final MessageSender messageSender = mock(MessageSender.class);
   private static final ReceiptSender receiptSender = mock(ReceiptSender.class);
   private static final AccountsManager accountsManager = mock(AccountsManager.class);
-  private static final DeletedAccountsManager deletedAccountsManager = mock(DeletedAccountsManager.class);
+  private static final DeletedAccounts deletedAccounts = mock(DeletedAccounts.class);
   private static final MessagesManager messagesManager = mock(MessagesManager.class);
   private static final RateLimiters rateLimiters = mock(RateLimiters.class);
   private static final RateLimiter rateLimiter = mock(RateLimiter.class);
@@ -159,7 +159,7 @@ class MessageControllerTest {
       .addProvider(MultiRecipientMessageProvider.class)
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(
-          new MessageController(rateLimiters, messageSender, receiptSender, accountsManager, deletedAccountsManager,
+          new MessageController(rateLimiters, messageSender, receiptSender, accountsManager, deletedAccounts,
               messagesManager, pushNotificationManager, reportMessageManager, multiRecipientMessageExecutor,
               messageDeliveryScheduler, ReportSpamTokenProvider.noop()))
       .build();
@@ -214,7 +214,7 @@ class MessageControllerTest {
         messageSender,
         receiptSender,
         accountsManager,
-        deletedAccountsManager,
+        deletedAccounts,
         messagesManager,
         rateLimiters,
         rateLimiter,
@@ -634,7 +634,7 @@ class MessageControllerTest {
     when(account.getPhoneNumberIdentifier()).thenReturn(senderPni);
 
     when(accountsManager.getByE164(senderNumber)).thenReturn(Optional.of(account));
-    when(deletedAccountsManager.findDeletedAccountAci(senderNumber)).thenReturn(Optional.of(senderAci));
+    when(deletedAccounts.findUuid(senderNumber)).thenReturn(Optional.of(senderAci));
     when(accountsManager.getPhoneNumberIdentifier(senderNumber)).thenReturn(senderPni);
 
     Response response =
@@ -649,7 +649,7 @@ class MessageControllerTest {
 
     verify(reportMessageManager).report(Optional.of(senderNumber), Optional.of(senderAci), Optional.of(senderPni),
         messageGuid, AuthHelper.VALID_UUID, Optional.empty(), userAgent);
-    verify(deletedAccountsManager, never()).findDeletedAccountE164(any(UUID.class));
+    verify(deletedAccounts, never()).findE164(any(UUID.class));
     verify(accountsManager, never()).getPhoneNumberIdentifier(anyString());
 
     when(accountsManager.getByE164(senderNumber)).thenReturn(Optional.empty());
@@ -684,7 +684,7 @@ class MessageControllerTest {
     when(account.getPhoneNumberIdentifier()).thenReturn(senderPni);
 
     when(accountsManager.getByAccountIdentifier(senderAci)).thenReturn(Optional.of(account));
-    when(deletedAccountsManager.findDeletedAccountE164(senderAci)).thenReturn(Optional.of(senderNumber));
+    when(deletedAccounts.findE164(senderAci)).thenReturn(Optional.of(senderNumber));
     when(accountsManager.getPhoneNumberIdentifier(senderNumber)).thenReturn(senderPni);
 
     Response response =
@@ -699,7 +699,7 @@ class MessageControllerTest {
 
     verify(reportMessageManager).report(Optional.of(senderNumber), Optional.of(senderAci), Optional.of(senderPni),
         messageGuid, AuthHelper.VALID_UUID, Optional.empty(), userAgent);
-    verify(deletedAccountsManager, never()).findDeletedAccountE164(any(UUID.class));
+    verify(deletedAccounts, never()).findE164(any(UUID.class));
     verify(accountsManager, never()).getPhoneNumberIdentifier(anyString());
 
     when(accountsManager.getByAccountIdentifier(senderAci)).thenReturn(Optional.empty());
@@ -734,7 +734,7 @@ class MessageControllerTest {
     when(account.getPhoneNumberIdentifier()).thenReturn(senderPni);
 
     when(accountsManager.getByAccountIdentifier(senderAci)).thenReturn(Optional.of(account));
-    when(deletedAccountsManager.findDeletedAccountE164(senderAci)).thenReturn(Optional.of(senderNumber));
+    when(deletedAccounts.findE164(senderAci)).thenReturn(Optional.of(senderNumber));
     when(accountsManager.getPhoneNumberIdentifier(senderNumber)).thenReturn(senderPni);
 
     Entity<SpamReport> entity = Entity.entity(new SpamReport(new byte[3]), "application/json");
@@ -753,7 +753,7 @@ class MessageControllerTest {
         eq(AuthHelper.VALID_UUID),
         argThat(maybeBytes -> maybeBytes.map(bytes -> Arrays.equals(bytes, new byte[3])).orElse(false)),
         any());
-    verify(deletedAccountsManager, never()).findDeletedAccountE164(any(UUID.class));
+    verify(deletedAccounts, never()).findE164(any(UUID.class));
     verify(accountsManager, never()).getPhoneNumberIdentifier(anyString());
     when(accountsManager.getByAccountIdentifier(senderAci)).thenReturn(Optional.empty());
 
@@ -792,7 +792,7 @@ class MessageControllerTest {
     when(account.getPhoneNumberIdentifier()).thenReturn(senderPni);
 
     when(accountsManager.getByAccountIdentifier(senderAci)).thenReturn(Optional.of(account));
-    when(deletedAccountsManager.findDeletedAccountE164(senderAci)).thenReturn(Optional.of(senderNumber));
+    when(deletedAccounts.findE164(senderAci)).thenReturn(Optional.of(senderNumber));
     when(accountsManager.getPhoneNumberIdentifier(senderNumber)).thenReturn(senderPni);
 
     Response response =

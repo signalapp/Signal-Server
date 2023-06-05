@@ -80,8 +80,7 @@ class AccountsManagerChangeNumberIntegrationTest {
       deletedAccounts = new DeletedAccounts(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
           Tables.DELETED_ACCOUNTS.tableName());
 
-      final DeletedAccountsManager deletedAccountsManager = new DeletedAccountsManager(deletedAccounts,
-          DYNAMO_DB_EXTENSION.getLegacyDynamoClient(),
+      final AccountLockManager accountLockManager = new AccountLockManager(DYNAMO_DB_EXTENSION.getLegacyDynamoClient(),
           Tables.DELETED_ACCOUNTS_LOCK.tableName());
 
       final SecureStorageClient secureStorageClient = mock(SecureStorageClient.class);
@@ -102,8 +101,7 @@ class AccountsManagerChangeNumberIntegrationTest {
           accounts,
           phoneNumberIdentifiers,
           CACHE_CLUSTER_EXTENSION.getRedisCluster(),
-          deletedAccountsManager,
-          mock(Keys.class),
+          accountLockManager, deletedAccounts, mock(Keys.class),
           mock(MessagesManager.class),
           mock(ProfilesManager.class),
           mock(StoredVerificationCodeManager.class),

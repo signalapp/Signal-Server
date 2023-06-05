@@ -169,11 +169,11 @@ import org.whispersystems.textsecuregcm.storage.AccountCleaner;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawler;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerCache;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerListener;
+import org.whispersystems.textsecuregcm.storage.AccountLockManager;
 import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
 import org.whispersystems.textsecuregcm.storage.DeletedAccounts;
-import org.whispersystems.textsecuregcm.storage.DeletedAccountsManager;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.Keys;
@@ -506,10 +506,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getReportMessageConfiguration().getCounterTtl());
     MessagesManager messagesManager = new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager,
         messageDeletionAsyncExecutor);
-    DeletedAccountsManager deletedAccountsManager = new DeletedAccountsManager(deletedAccounts,
-        deletedAccountsLockDynamoDbClient, config.getDynamoDbTables().getDeletedAccountsLock().getTableName());
+    AccountLockManager accountLockManager = new AccountLockManager(deletedAccountsLockDynamoDbClient, config.getDynamoDbTables().getDeletedAccountsLock().getTableName());
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
-        deletedAccountsManager, keys, messagesManager, profilesManager,
+        accountLockManager, deletedAccounts, keys, messagesManager, profilesManager,
         pendingAccountsManager, secureStorageClient, secureBackupClient, secureValueRecovery2Client,
         clientPresenceManager,
         experimentEnrollmentManager, registrationRecoveryPasswordsManager, clock);
@@ -744,7 +743,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new DirectoryV2Controller(directoryV2CredentialsGenerator),
         new DonationController(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager, config.getBadges(),
             ReceiptCredentialPresentation::new),
-        new MessageController(rateLimiters, messageSender, receiptSender, accountsManager, deletedAccountsManager,
+        new MessageController(rateLimiters, messageSender, receiptSender, accountsManager, deletedAccounts,
             messagesManager, pushNotificationManager, reportMessageManager, multiRecipientMessageExecutor,
             messageDeliveryScheduler, reportSpamTokenProvider),
         new PaymentsController(currencyManager, paymentsCredentialsGenerator),

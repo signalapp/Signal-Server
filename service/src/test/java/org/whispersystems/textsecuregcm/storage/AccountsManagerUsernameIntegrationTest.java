@@ -30,12 +30,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.function.Consumer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.Mockito;
-import org.mockito.invocation.InvocationOnMock;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
@@ -94,13 +92,17 @@ class AccountsManagerUsernameIntegrationTest {
         Tables.USERNAMES.tableName(),
         SCAN_PAGE_SIZE));
 
-    final DeletedAccountsManager deletedAccountsManager = mock(DeletedAccountsManager.class);
-    doAnswer((final InvocationOnMock invocationOnMock) -> {
-      @SuppressWarnings("unchecked")
-      Consumer<Optional<UUID>> consumer = invocationOnMock.getArgument(1, Consumer.class);
-      consumer.accept(Optional.empty());
+    final AccountLockManager accountLockManager = mock(AccountLockManager.class);
+
+    doAnswer(invocation -> {
+      final Runnable task = invocation.getArgument(1);
+      task.run();
+
       return null;
-    }).when(deletedAccountsManager).lockAndTake(any(), any());
+    }).when(accountLockManager).withLock(any(), any());
+
+    final DeletedAccounts deletedAccounts = mock(DeletedAccounts.class);
+    when(deletedAccounts.findUuid(any())).thenReturn(Optional.empty());
 
     final PhoneNumberIdentifiers phoneNumberIdentifiers =
         new PhoneNumberIdentifiers(DYNAMO_DB_EXTENSION.getDynamoDbClient(), Tables.PNI.tableName());
@@ -112,7 +114,8 @@ class AccountsManagerUsernameIntegrationTest {
         accounts,
         phoneNumberIdentifiers,
         CACHE_CLUSTER_EXTENSION.getRedisCluster(),
-        deletedAccountsManager,
+        accountLockManager,
+        deletedAccounts,
         mock(Keys.class),
         mock(MessagesManager.class),
         mock(ProfilesManager.class),

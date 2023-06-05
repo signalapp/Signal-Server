@@ -36,7 +36,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -71,7 +70,7 @@ class AccountsManagerTest {
   private static final byte[] USERNAME_HASH_2 = Base64.getUrlDecoder().decode(BASE_64_URL_USERNAME_HASH_2);
 
   private Accounts accounts;
-  private DeletedAccountsManager deletedAccountsManager;
+  private DeletedAccounts deletedAccounts;
   private Keys keys;
   private MessagesManager messagesManager;
   private ProfilesManager profilesManager;
@@ -94,7 +93,7 @@ class AccountsManagerTest {
   @BeforeEach
   void setup() throws InterruptedException {
     accounts = mock(Accounts.class);
-    deletedAccountsManager = mock(DeletedAccountsManager.class);
+    deletedAccounts = mock(DeletedAccounts.class);
     keys = mock(Keys.class);
     messagesManager = mock(MessagesManager.class);
     profilesManager = mock(ProfilesManager.class);
@@ -113,11 +112,7 @@ class AccountsManagerTest {
       return null;
     }).when(accounts).changeNumber(any(), anyString(), any());
 
-    doAnswer(invocation -> {
-      //noinspection unchecked
-      invocation.getArgument(1, Consumer.class).accept(Optional.empty());
-      return null;
-    }).when(deletedAccountsManager).lockAndTake(anyString(), any());
+    when(deletedAccounts.findUuid(anyString())).thenReturn(Optional.empty());
 
     final SecureStorageClient storageClient = mock(SecureStorageClient.class);
     when(storageClient.deleteStoredData(any())).thenReturn(CompletableFuture.completedFuture(null));
@@ -147,11 +142,21 @@ class AccountsManagerTest {
     when(enrollmentManager.isEnrolled(any(UUID.class), eq(AccountsManager.USERNAME_EXPERIMENT_NAME))).thenReturn(true);
     when(accounts.usernameHashAvailable(any())).thenReturn(true);
 
+    final AccountLockManager accountLockManager = mock(AccountLockManager.class);
+
+    doAnswer(invocation -> {
+      final Runnable task = invocation.getArgument(1);
+      task.run();
+
+      return null;
+    }).when(accountLockManager).withLock(any(), any());
+
     accountsManager = new AccountsManager(
         accounts,
         phoneNumberIdentifiers,
         RedisClusterHelper.builder().stringCommands(commands).build(),
-        deletedAccountsManager,
+        accountLockManager,
+        deletedAccounts,
         keys,
         messagesManager,
         profilesManager,
@@ -571,12 +576,7 @@ class AccountsManagerTest {
   void testCreateAccountRecentlyDeleted() throws InterruptedException {
     final UUID recentlyDeletedUuid = UUID.randomUUID();
 
-    doAnswer(invocation -> {
-      //noinspection unchecked
-      invocation.getArgument(1, Consumer.class).accept(Optional.of(recentlyDeletedUuid));
-      return null;
-    }).when(deletedAccountsManager).lockAndTake(anyString(), any());
-
+    when(deletedAccounts.findUuid(anyString())).thenReturn(Optional.of(recentlyDeletedUuid));
     when(accounts.create(any())).thenReturn(true);
 
     final String e164 = "+18005550123";
@@ -634,9 +634,6 @@ class AccountsManagerTest {
 
   @Test
   void testChangePhoneNumber() throws InterruptedException, MismatchedDevicesException {
-    doAnswer(invocation -> invocation.getArgument(2, BiFunction.class).apply(Optional.empty(), Optional.empty()))
-        .when(deletedAccountsManager).lockAndPut(anyString(), anyString(), any());
-
     final String originalNumber = "+14152222222";
     final String targetNumber = "+14153333333";
     final UUID uuid = UUID.randomUUID();
@@ -661,7 +658,7 @@ class AccountsManagerTest {
     account = accountsManager.changeNumber(account, number, null, null, null, null);
 
     assertEquals(number, account.getNumber());
-    verify(deletedAccountsManager, never()).lockAndPut(anyString(), anyString(), any());
+    verify(deletedAccounts, never()).put(any(), any());
     verify(keys, never()).delete(any());
   }
 
@@ -676,15 +673,12 @@ class AccountsManagerTest {
         "AccountsManager should not allow use of changeNumber with new PNI keys but without changing number");
 
     verify(accounts, never()).update(any());
-    verifyNoInteractions(deletedAccountsManager);
+    verifyNoInteractions(deletedAccounts);
     verifyNoInteractions(keys);
   }
 
   @Test
   void testChangePhoneNumberExistingAccount() throws InterruptedException, MismatchedDevicesException {
-    doAnswer(invocation -> invocation.getArgument(2, BiFunction.class).apply(Optional.empty(), Optional.empty()))
-        .when(deletedAccountsManager).lockAndPut(anyString(), anyString(), any());
-
     final String originalNumber = "+14152222222";
     final String targetNumber = "+14153333333";
     final UUID existingAccountUuid = UUID.randomUUID();
@@ -712,9 +706,6 @@ class AccountsManagerTest {
 
   @Test
   void testChangePhoneNumberWithPqKeysExistingAccount() throws InterruptedException, MismatchedDevicesException {
-    doAnswer(invocation -> invocation.getArgument(2, BiFunction.class).apply(Optional.empty(), Optional.empty()))
-        .when(deletedAccountsManager).lockAndPut(anyString(), anyString(), any());
-
     final String originalNumber = "+14152222222";
     final String targetNumber = "+14153333333";
     final UUID existingAccountUuid = UUID.randomUUID();
@@ -799,7 +790,7 @@ class AccountsManagerTest {
         updatedAccount.getDevices().stream().collect(Collectors.toMap(Device::getId, d -> d.getPhoneNumberIdentityRegistrationId().getAsInt())));
 
     verify(accounts).update(any());
-    verifyNoInteractions(deletedAccountsManager);
+    verifyNoInteractions(deletedAccounts);
 
     verify(keys).delete(oldPni);
   }
@@ -846,7 +837,7 @@ class AccountsManagerTest {
         updatedAccount.getDevices().stream().collect(Collectors.toMap(Device::getId, d -> d.getPhoneNumberIdentityRegistrationId().getAsInt())));
 
     verify(accounts).update(any());
-    verifyNoInteractions(deletedAccountsManager);
+    verifyNoInteractions(deletedAccounts);
 
     verify(keys).delete(oldPni);
 
