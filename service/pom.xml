@@ -562,6 +562,7 @@
               <bucketName>${deploy.bucketName}</bucketName>
               <region>${deploy.bucketRegion}</region>
               <destination>${project.build.finalName}-bin.tar.gz</destination>
+              <doNotUpload>${deploy.skip.s3.upload}</doNotUpload>
             </configuration>
             <executions>
               <execution>

@@ -72,6 +72,8 @@
     <docker.image.sha256>ddf36656dc8920621fddf4928bdcb4b98c0d0e7bc9672f0cea8115c10ad5cbc6</docker.image.sha256>
 
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+    <deploy.skip.s3.upload>false</deploy.skip.s3.upload>
   </properties>
 
   <groupId>org.whispersystems.textsecure</groupId>
