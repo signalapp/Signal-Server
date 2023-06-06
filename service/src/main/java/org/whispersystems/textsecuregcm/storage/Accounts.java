@@ -80,7 +80,8 @@ public class Accounts extends AbstractDynamoDbStore {
   private static final Timer GET_ALL_FROM_OFFSET_TIMER = Metrics.timer(name(Accounts.class, "getAllFromOffset"));
   private static final Timer DELETE_TIMER = Metrics.timer(name(Accounts.class, "delete"));
 
-  private static final Counter INVALID_IDENTITY_KEY_COUNTER = Metrics.counter(name(Accounts.class, "invalidIdentityKey"));
+  private static final Counter INVALID_ACI_IDENTITY_KEY_COUNTER = Metrics.counter(name(Accounts.class, "invalidIdentityKey"), "type", "aci");
+  private static final Counter INVALID_PNI_IDENTITY_KEY_COUNTER = Metrics.counter(name(Accounts.class, "invalidIdentityKey"), "type", "pni");
 
   private static final String CONDITIONAL_CHECK_FAILED = "ConditionalCheckFailed";
 
@@ -918,7 +919,17 @@ public class Accounts extends AbstractDynamoDbStore {
         try {
           new IdentityKey(account.getIdentityKey());
         } catch (final InvalidKeyException e) {
-          INVALID_IDENTITY_KEY_COUNTER.increment();
+          log.debug("Account {} has an invalid ACI identity key", account.getUuid());
+          INVALID_ACI_IDENTITY_KEY_COUNTER.increment();
+        }
+      }
+
+      if (account.getPhoneNumberIdentityKey() != null && account.getPhoneNumberIdentityKey().length > 0) {
+        try {
+          new IdentityKey(account.getPhoneNumberIdentityKey());
+        } catch (final InvalidKeyException e) {
+          log.debug("Account {} has an invalid PNI identity key", account.getUuid());
+          INVALID_PNI_IDENTITY_KEY_COUNTER.increment();
         }
       }
 
