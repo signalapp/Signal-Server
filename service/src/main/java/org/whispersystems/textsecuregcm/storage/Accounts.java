@@ -10,6 +10,7 @@ import static java.util.Objects.requireNonNull;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
+import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
 import java.io.IOException;
@@ -30,6 +31,8 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import org.signal.libsignal.protocol.IdentityKey;
+import org.signal.libsignal.protocol.InvalidKeyException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
@@ -76,6 +79,8 @@ public class Accounts extends AbstractDynamoDbStore {
   private static final Timer GET_ALL_FROM_START_TIMER = Metrics.timer(name(Accounts.class, "getAllFrom"));
   private static final Timer GET_ALL_FROM_OFFSET_TIMER = Metrics.timer(name(Accounts.class, "getAllFromOffset"));
   private static final Timer DELETE_TIMER = Metrics.timer(name(Accounts.class, "delete"));
+
+  private static final Counter INVALID_IDENTITY_KEY_COUNTER = Metrics.counter(name(Accounts.class, "invalidIdentityKey"));
 
   private static final String CONDITIONAL_CHECK_FAILED = "ConditionalCheckFailed";
 
@@ -908,6 +913,14 @@ public class Accounts extends AbstractDynamoDbStore {
       account.setCanonicallyDiscoverable(Optional.ofNullable(item.get(ATTR_CANONICALLY_DISCOVERABLE))
           .map(AttributeValue::bool)
           .orElse(false));
+
+      if (account.getIdentityKey() != null && account.getIdentityKey().length > 0) {
+        try {
+          new IdentityKey(account.getIdentityKey());
+        } catch (final InvalidKeyException e) {
+          INVALID_IDENTITY_KEY_COUNTER.increment();
+        }
+      }
 
       return account;
 
