@@ -156,7 +156,7 @@ class AccountsTest {
         mock(FaultTolerantRedisCluster.class),
         mock(AccountLockManager.class),
         mock(DeletedAccounts.class),
-        mock(Keys.class),
+        mock(KeysManager.class),
         mock(MessagesManager.class),
         mock(ProfilesManager.class),
         mock(StoredVerificationCodeManager.class),

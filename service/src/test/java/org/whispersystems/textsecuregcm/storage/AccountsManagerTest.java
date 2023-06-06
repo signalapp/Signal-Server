@@ -71,7 +71,7 @@ class AccountsManagerTest {
 
   private Accounts accounts;
   private DeletedAccounts deletedAccounts;
-  private Keys keys;
+  private KeysManager keysManager;
   private MessagesManager messagesManager;
   private ProfilesManager profilesManager;
   private ClientPresenceManager clientPresenceManager;
@@ -94,7 +94,7 @@ class AccountsManagerTest {
   void setup() throws InterruptedException {
     accounts = mock(Accounts.class);
     deletedAccounts = mock(DeletedAccounts.class);
-    keys = mock(Keys.class);
+    keysManager = mock(KeysManager.class);
     messagesManager = mock(MessagesManager.class);
     profilesManager = mock(ProfilesManager.class);
     clientPresenceManager = mock(ClientPresenceManager.class);
@@ -157,7 +157,7 @@ class AccountsManagerTest {
         RedisClusterHelper.builder().stringCommands(commands).build(),
         accountLockManager,
         deletedAccounts,
-        keys,
+        keysManager,
         messagesManager,
         profilesManager,
         mock(StoredVerificationCodeManager.class),
@@ -542,7 +542,7 @@ class AccountsManagerTest {
     accountsManager.create(e164, "password", null, attributes, new ArrayList<>());
 
     verify(accounts).create(argThat(account -> e164.equals(account.getNumber())));
-    verifyNoInteractions(keys);
+    verifyNoInteractions(keysManager);
     verifyNoInteractions(messagesManager);
     verifyNoInteractions(profilesManager);
   }
@@ -565,8 +565,8 @@ class AccountsManagerTest {
     verify(accounts)
         .create(argThat(account -> e164.equals(account.getNumber()) && existingUuid.equals(account.getUuid())));
 
-    verify(keys).delete(existingUuid);
-    verify(keys).delete(phoneNumberIdentifiersByE164.get(e164));
+    verify(keysManager).delete(existingUuid);
+    verify(keysManager).delete(phoneNumberIdentifiersByE164.get(e164));
     verify(messagesManager).clear(existingUuid);
     verify(profilesManager).deleteAll(existingUuid);
     verify(clientPresenceManager).disconnectAllPresencesForUuid(existingUuid);
@@ -585,7 +585,7 @@ class AccountsManagerTest {
 
     verify(accounts).create(
         argThat(account -> e164.equals(account.getNumber()) && recentlyDeletedUuid.equals(account.getUuid())));
-    verifyNoInteractions(keys);
+    verifyNoInteractions(keysManager);
     verifyNoInteractions(messagesManager);
     verifyNoInteractions(profilesManager);
   }
@@ -646,8 +646,8 @@ class AccountsManagerTest {
 
     assertTrue(phoneNumberIdentifiersByE164.containsKey(targetNumber));
 
-    verify(keys).delete(originalPni);
-    verify(keys).delete(phoneNumberIdentifiersByE164.get(targetNumber));
+    verify(keysManager).delete(originalPni);
+    verify(keysManager).delete(phoneNumberIdentifiersByE164.get(targetNumber));
   }
 
   @Test
@@ -659,7 +659,7 @@ class AccountsManagerTest {
 
     assertEquals(number, account.getNumber());
     verify(deletedAccounts, never()).put(any(), any());
-    verify(keys, never()).delete(any());
+    verify(keysManager, never()).delete(any());
   }
 
   @Test
@@ -674,7 +674,7 @@ class AccountsManagerTest {
 
     verify(accounts, never()).update(any());
     verifyNoInteractions(deletedAccounts);
-    verifyNoInteractions(keys);
+    verifyNoInteractions(keysManager);
   }
 
   @Test
@@ -697,11 +697,11 @@ class AccountsManagerTest {
     assertTrue(phoneNumberIdentifiersByE164.containsKey(targetNumber));
     final UUID newPni = phoneNumberIdentifiersByE164.get(targetNumber);
 
-    verify(keys).delete(existingAccountUuid);
-    verify(keys).delete(originalPni);
-    verify(keys, atLeastOnce()).delete(targetPni);
-    verify(keys).delete(newPni);
-    verifyNoMoreInteractions(keys);
+    verify(keysManager).delete(existingAccountUuid);
+    verify(keysManager).delete(originalPni);
+    verify(keysManager, atLeastOnce()).delete(targetPni);
+    verify(keysManager).delete(newPni);
+    verifyNoMoreInteractions(keysManager);
   }
 
   @Test
@@ -723,7 +723,7 @@ class AccountsManagerTest {
 
     final Account existingAccount = AccountsHelper.generateTestAccount(targetNumber, existingAccountUuid, targetPni, new ArrayList<>(), new byte[16]);
     when(accounts.getByE164(targetNumber)).thenReturn(Optional.of(existingAccount));
-    when(keys.getPqEnabledDevices(uuid)).thenReturn(List.of(1L));
+    when(keysManager.getPqEnabledDevices(uuid)).thenReturn(List.of(1L));
 
     final List<Device> devices = List.of(DevicesHelper.createDevice(1L, 0L, 101), DevicesHelper.createDevice(2L, 0L, 102));
     final Account account = AccountsHelper.generateTestAccount(originalNumber, uuid, originalPni, devices, new byte[16]);
@@ -735,13 +735,13 @@ class AccountsManagerTest {
     assertTrue(phoneNumberIdentifiersByE164.containsKey(targetNumber));
 
     final UUID newPni = phoneNumberIdentifiersByE164.get(targetNumber);
-    verify(keys).delete(existingAccountUuid);
-    verify(keys, atLeastOnce()).delete(targetPni);
-    verify(keys).delete(newPni);
-    verify(keys).delete(originalPni);
-    verify(keys).getPqEnabledDevices(uuid);
-    verify(keys).storePqLastResort(eq(newPni), eq(Map.of(1L, newSignedPqKeys.get(1L))));
-    verifyNoMoreInteractions(keys);
+    verify(keysManager).delete(existingAccountUuid);
+    verify(keysManager, atLeastOnce()).delete(targetPni);
+    verify(keysManager).delete(newPni);
+    verify(keysManager).delete(originalPni);
+    verify(keysManager).getPqEnabledDevices(uuid);
+    verify(keysManager).storePqLastResort(eq(newPni), eq(Map.of(1L, newSignedPqKeys.get(1L))));
+    verifyNoMoreInteractions(keysManager);
   }
 
   @Test
@@ -792,7 +792,7 @@ class AccountsManagerTest {
     verify(accounts).update(any());
     verifyNoInteractions(deletedAccounts);
 
-    verify(keys).delete(oldPni);
+    verify(keysManager).delete(oldPni);
   }
 
   @Test
@@ -813,7 +813,7 @@ class AccountsManagerTest {
     UUID oldUuid = account.getUuid();
     UUID oldPni = account.getPhoneNumberIdentifier();
 
-    when(keys.getPqEnabledDevices(oldPni)).thenReturn(List.of(1L));
+    when(keysManager.getPqEnabledDevices(oldPni)).thenReturn(List.of(1L));
 
     Map<Long, SignedPreKey> oldSignedPreKeys = account.getDevices().stream().collect(Collectors.toMap(Device::getId, Device::getSignedPreKey));
 
@@ -839,10 +839,10 @@ class AccountsManagerTest {
     verify(accounts).update(any());
     verifyNoInteractions(deletedAccounts);
 
-    verify(keys).delete(oldPni);
+    verify(keysManager).delete(oldPni);
 
     // only the pq key for the already-pq-enabled device should be saved
-    verify(keys).storePqLastResort(eq(oldPni), eq(Map.of(1L, newSignedPqKeys.get(1L))));
+    verify(keysManager).storePqLastResort(eq(oldPni), eq(Map.of(1L, newSignedPqKeys.get(1L))));
   }
 
   @Test

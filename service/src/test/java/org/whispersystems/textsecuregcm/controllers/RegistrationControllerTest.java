@@ -67,7 +67,7 @@ import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.Keys;
+import org.whispersystems.textsecuregcm.storage.KeysManager;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
@@ -90,7 +90,7 @@ class RegistrationControllerTest {
       RegistrationLockVerificationManager.class);
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager = mock(
       RegistrationRecoveryPasswordsManager.class);
-  private final Keys keys = mock(Keys.class);
+  private final KeysManager keysManager = mock(KeysManager.class);
   private final RateLimiters rateLimiters = mock(RateLimiters.class);
 
   private final RateLimiter registrationLimiter = mock(RateLimiter.class);
@@ -105,7 +105,7 @@ class RegistrationControllerTest {
       .addResource(
           new RegistrationController(accountsManager,
               new PhoneVerificationTokenManager(registrationServiceClient, registrationRecoveryPasswordsManager),
-              registrationLockVerificationManager, keys, rateLimiters))
+              registrationLockVerificationManager, keysManager, rateLimiters))
       .build();
 
   @BeforeEach
@@ -669,8 +669,8 @@ class RegistrationControllerTest {
     verify(device).setSignedPreKey(expectedAciSignedPreKey);
     verify(device).setPhoneNumberIdentitySignedPreKey(expectedPniSignedPreKey);
 
-    verify(keys).storePqLastResort(accountIdentifier, Map.of(Device.MASTER_ID, expectedAciPqLastResortPreKey));
-    verify(keys).storePqLastResort(phoneNumberIdentifier, Map.of(Device.MASTER_ID, expectedPniPqLastResortPreKey));
+    verify(keysManager).storePqLastResort(accountIdentifier, Map.of(Device.MASTER_ID, expectedAciPqLastResortPreKey));
+    verify(keysManager).storePqLastResort(phoneNumberIdentifier, Map.of(Device.MASTER_ID, expectedPniPqLastResortPreKey));
 
     expectedApnsToken.ifPresentOrElse(expectedToken -> verify(device).setApnId(expectedToken),
         () -> verify(device, never()).setApnId(any()));

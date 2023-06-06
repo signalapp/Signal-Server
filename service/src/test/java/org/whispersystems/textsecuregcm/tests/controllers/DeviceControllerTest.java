@@ -23,7 +23,6 @@ import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -65,7 +64,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
-import org.whispersystems.textsecuregcm.storage.Keys;
+import org.whispersystems.textsecuregcm.storage.KeysManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
@@ -82,7 +81,7 @@ class DeviceControllerTest {
     public DumbVerificationDeviceController(StoredVerificationCodeManager pendingDevices,
         AccountsManager accounts,
         MessagesManager messages,
-        Keys keys,
+        KeysManager keys,
         RateLimiters rateLimiters,
         Map<String, Integer> deviceConfiguration) {
       super(pendingDevices, accounts, messages, keys, rateLimiters, deviceConfiguration);
@@ -97,7 +96,7 @@ class DeviceControllerTest {
   private static StoredVerificationCodeManager pendingDevicesManager = mock(StoredVerificationCodeManager.class);
   private static AccountsManager accountsManager = mock(AccountsManager.class);
   private static MessagesManager messagesManager = mock(MessagesManager.class);
-  private static Keys keys = mock(Keys.class);
+  private static KeysManager keysManager = mock(KeysManager.class);
   private static RateLimiters rateLimiters = mock(RateLimiters.class);
   private static RateLimiter rateLimiter = mock(RateLimiter.class);
   private static Account account = mock(Account.class);
@@ -117,7 +116,7 @@ class DeviceControllerTest {
       .addResource(new DumbVerificationDeviceController(pendingDevicesManager,
           accountsManager,
           messagesManager,
-          keys,
+          keysManager,
           rateLimiters,
           deviceConfiguration))
       .build();
@@ -161,7 +160,7 @@ class DeviceControllerTest {
         pendingDevicesManager,
         accountsManager,
         messagesManager,
-        keys,
+        keysManager,
         rateLimiters,
         rateLimiter,
         account,
@@ -314,8 +313,8 @@ class DeviceControllerTest {
     verify(pendingDevicesManager).remove(AuthHelper.VALID_NUMBER);
     verify(messagesManager).clear(eq(AuthHelper.VALID_UUID), eq(42L));
     verify(clientPresenceManager).disconnectPresence(AuthHelper.VALID_UUID, Device.MASTER_ID);
-    verify(keys).storePqLastResort(AuthHelper.VALID_UUID, Map.of(response.getDeviceId(), aciPqLastResortPreKey.get()));
-    verify(keys).storePqLastResort(AuthHelper.VALID_PNI, Map.of(response.getDeviceId(), pniPqLastResortPreKey.get()));
+    verify(keysManager).storePqLastResort(AuthHelper.VALID_UUID, Map.of(response.getDeviceId(), aciPqLastResortPreKey.get()));
+    verify(keysManager).storePqLastResort(AuthHelper.VALID_PNI, Map.of(response.getDeviceId(), pniPqLastResortPreKey.get()));
   }
 
   private static Stream<Arguments> linkDeviceAtomic() {
@@ -822,7 +821,7 @@ class DeviceControllerTest {
     verify(messagesManager, times(2)).clear(AuthHelper.VALID_UUID, deviceId);
     verify(accountsManager, times(1)).update(eq(AuthHelper.VALID_ACCOUNT), any());
     verify(AuthHelper.VALID_ACCOUNT).removeDevice(deviceId);
-    verify(keys).delete(AuthHelper.VALID_UUID, deviceId);
+    verify(keysManager).delete(AuthHelper.VALID_UUID, deviceId);
   }
 
 }

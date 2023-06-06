@@ -43,7 +43,7 @@ public record ChangeNumberRequest(
     @NotEmpty byte[] pniIdentityKey,
 
     @Schema(description="""
-        A list of synchronization messages to send to companion devices to supply the private keys
+        A list of synchronization messages to send to companion devices to supply the private keysManager
         associated with the new identity key and their new prekeys.
         Exactly one message must be supplied for each enabled device other than the sending (primary) device.""")
     @NotNull @Valid List<@NotNull @Valid IncomingMessage> deviceMessages,

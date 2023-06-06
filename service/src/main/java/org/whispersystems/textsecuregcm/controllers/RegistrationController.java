@@ -48,7 +48,7 @@ import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.Keys;
+import org.whispersystems.textsecuregcm.storage.KeysManager;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -74,18 +74,18 @@ public class RegistrationController {
   private final AccountsManager accounts;
   private final PhoneVerificationTokenManager phoneVerificationTokenManager;
   private final RegistrationLockVerificationManager registrationLockVerificationManager;
-  private final Keys keys;
+  private final KeysManager keysManager;
   private final RateLimiters rateLimiters;
 
   public RegistrationController(final AccountsManager accounts,
                                 final PhoneVerificationTokenManager phoneVerificationTokenManager,
                                 final RegistrationLockVerificationManager registrationLockVerificationManager,
-                                final Keys keys,
+                                final KeysManager keysManager,
                                 final RateLimiters rateLimiters) {
     this.accounts = accounts;
     this.phoneVerificationTokenManager = phoneVerificationTokenManager;
     this.registrationLockVerificationManager = registrationLockVerificationManager;
-    this.keys = keys;
+    this.keysManager = keysManager;
     this.rateLimiters = rateLimiters;
   }
 
@@ -176,8 +176,8 @@ public class RegistrationController {
         registrationRequest.deviceActivationRequest().gcmToken().ifPresent(gcmRegistrationId ->
             device.setGcmId(gcmRegistrationId.gcmRegistrationId()));
 
-        keys.storePqLastResort(a.getUuid(), Map.of(Device.MASTER_ID, registrationRequest.deviceActivationRequest().aciPqLastResortPreKey().get()));
-        keys.storePqLastResort(a.getPhoneNumberIdentifier(), Map.of(Device.MASTER_ID, registrationRequest.deviceActivationRequest().pniPqLastResortPreKey().get()));
+        keysManager.storePqLastResort(a.getUuid(), Map.of(Device.MASTER_ID, registrationRequest.deviceActivationRequest().aciPqLastResortPreKey().get()));
+        keysManager.storePqLastResort(a.getPhoneNumberIdentifier(), Map.of(Device.MASTER_ID, registrationRequest.deviceActivationRequest().pniPqLastResortPreKey().get()));
       });
     }
 

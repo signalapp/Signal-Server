@@ -53,7 +53,7 @@ import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.Keys;
+import org.whispersystems.textsecuregcm.storage.KeysManager;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v2/keys")
@@ -61,7 +61,7 @@ import org.whispersystems.textsecuregcm.storage.Keys;
 public class KeysController {
 
   private final RateLimiters                rateLimiters;
-  private final Keys                        keys;
+  private final KeysManager keys;
   private final AccountsManager             accounts;
 
   private static final String IDENTITY_KEY_CHANGE_COUNTER_NAME = name(KeysController.class, "identityKeyChange");
@@ -70,7 +70,7 @@ public class KeysController {
   private static final String IDENTITY_TYPE_TAG_NAME = "identityType";
   private static final String HAS_IDENTITY_KEY_TAG_NAME = "hasIdentityKey";
 
-  public KeysController(RateLimiters rateLimiters, Keys keys, AccountsManager accounts) {
+  public KeysController(RateLimiters rateLimiters, KeysManager keys, AccountsManager accounts) {
     this.rateLimiters = rateLimiters;
     this.keys = keys;
     this.accounts = accounts;

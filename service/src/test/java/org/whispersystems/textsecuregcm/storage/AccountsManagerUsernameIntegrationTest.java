@@ -116,7 +116,7 @@ class AccountsManagerUsernameIntegrationTest {
         CACHE_CLUSTER_EXTENSION.getRedisCluster(),
         accountLockManager,
         deletedAccounts,
-        mock(Keys.class),
+        mock(KeysManager.class),
         mock(MessagesManager.class),
         mock(ProfilesManager.class),
         mock(StoredVerificationCodeManager.class),

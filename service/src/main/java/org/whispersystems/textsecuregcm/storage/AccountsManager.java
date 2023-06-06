@@ -90,7 +90,7 @@ public class AccountsManager {
   private final FaultTolerantRedisCluster cacheCluster;
   private final AccountLockManager accountLockManager;
   private final DeletedAccounts deletedAccounts;
-  private final Keys keys;
+  private final KeysManager keysManager;
   private final MessagesManager messagesManager;
   private final ProfilesManager profilesManager;
   private final StoredVerificationCodeManager pendingAccounts;
@@ -134,7 +134,7 @@ public class AccountsManager {
       final FaultTolerantRedisCluster cacheCluster,
       final AccountLockManager accountLockManager,
       final DeletedAccounts deletedAccounts,
-      final Keys keys,
+      final KeysManager keysManager,
       final MessagesManager messagesManager,
       final ProfilesManager profilesManager,
       final StoredVerificationCodeManager pendingAccounts,
@@ -150,7 +150,7 @@ public class AccountsManager {
     this.cacheCluster = cacheCluster;
     this.accountLockManager = accountLockManager;
     this.deletedAccounts = deletedAccounts;
-    this.keys = keys;
+    this.keysManager = keysManager;
     this.messagesManager = messagesManager;
     this.profilesManager = profilesManager;
     this.pendingAccounts = pendingAccounts;
@@ -223,8 +223,8 @@ public class AccountsManager {
         // account and need to clear out messages and keys that may have been stored for the old account.
         if (!originalUuid.equals(actualUuid)) {
           messagesManager.clear(actualUuid);
-          keys.delete(actualUuid);
-          keys.delete(account.getPhoneNumberIdentifier());
+          keysManager.delete(actualUuid);
+          keysManager.delete(account.getPhoneNumberIdentifier());
           profilesManager.deleteAll(actualUuid);
           clientPresenceManager.disconnectAllPresencesForUuid(actualUuid);
         }
@@ -315,13 +315,13 @@ public class AccountsManager {
 
       updatedAccount.set(numberChangedAccount);
 
-      keys.delete(phoneNumberIdentifier);
-      keys.delete(originalPhoneNumberIdentifier);
+      keysManager.delete(phoneNumberIdentifier);
+      keysManager.delete(originalPhoneNumberIdentifier);
 
       if (pniPqLastResortPreKeys != null) {
-        keys.storePqLastResort(
+        keysManager.storePqLastResort(
             phoneNumberIdentifier,
-            keys.getPqEnabledDevices(uuid).stream().collect(
+            keysManager.getPqEnabledDevices(uuid).stream().collect(
                 Collectors.toMap(
                     Function.identity(),
                     pniPqLastResortPreKeys::get)));
@@ -356,10 +356,10 @@ public class AccountsManager {
     final UUID pni = account.getPhoneNumberIdentifier();
     final Account updatedAccount = update(account, a -> { return setPniKeys(a, pniIdentityKey, pniSignedPreKeys, pniRegistrationIds); });
 
-    final List<Long> pqEnabledDeviceIDs = keys.getPqEnabledDevices(pni);
-    keys.delete(pni);
+    final List<Long> pqEnabledDeviceIDs = keysManager.getPqEnabledDevices(pni);
+    keysManager.delete(pni);
     if (pniPqLastResortPreKeys != null) {
-      keys.storePqLastResort(pni, pqEnabledDeviceIDs.stream().collect(Collectors.toMap(Function.identity(), pniPqLastResortPreKeys::get)));
+      keysManager.storePqLastResort(pni, pqEnabledDeviceIDs.stream().collect(Collectors.toMap(Function.identity(), pniPqLastResortPreKeys::get)));
     }
 
     return updatedAccount;
@@ -740,8 +740,8 @@ public class AccountsManager {
         account.getUuid());
 
     profilesManager.deleteAll(account.getUuid());
-    keys.delete(account.getUuid());
-    keys.delete(account.getPhoneNumberIdentifier());
+    keysManager.delete(account.getUuid());
+    keysManager.delete(account.getPhoneNumberIdentifier());
     messagesManager.clear(account.getUuid());
     messagesManager.clear(account.getPhoneNumberIdentifier());
     registrationRecoveryPasswordsManager.removeForNumber(account.getNumber());

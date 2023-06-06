@@ -51,7 +51,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
-import org.whispersystems.textsecuregcm.storage.Keys;
+import org.whispersystems.textsecuregcm.storage.KeysManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.util.Pair;
@@ -67,14 +67,14 @@ public class DeviceController {
   private final StoredVerificationCodeManager pendingDevices;
   private final AccountsManager       accounts;
   private final MessagesManager       messages;
-  private final Keys keys;
+  private final KeysManager keys;
   private final RateLimiters          rateLimiters;
   private final Map<String, Integer>  maxDeviceConfiguration;
 
   public DeviceController(StoredVerificationCodeManager pendingDevices,
       AccountsManager accounts,
       MessagesManager messages,
-      Keys keys,
+      KeysManager keys,
       RateLimiters rateLimiters,
       Map<String, Integer> maxDeviceConfiguration) {
     this.pendingDevices = pendingDevices;

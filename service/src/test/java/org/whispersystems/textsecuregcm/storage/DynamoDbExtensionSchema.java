@@ -88,44 +88,44 @@ public final class DynamoDbExtensionSchema {
         List.of(), List.of()),
 
     EC_KEYS("keys_test",
-        Keys.KEY_ACCOUNT_UUID,
-        Keys.KEY_DEVICE_ID_KEY_ID,
+        SingleUsePreKeyStore.KEY_ACCOUNT_UUID,
+        SingleUsePreKeyStore.KEY_DEVICE_ID_KEY_ID,
         List.of(
             AttributeDefinition.builder()
-                .attributeName(Keys.KEY_ACCOUNT_UUID)
+                .attributeName(SingleUsePreKeyStore.KEY_ACCOUNT_UUID)
                 .attributeType(ScalarAttributeType.B)
                 .build(),
             AttributeDefinition.builder()
-                .attributeName(Keys.KEY_DEVICE_ID_KEY_ID)
+                .attributeName(SingleUsePreKeyStore.KEY_DEVICE_ID_KEY_ID)
                 .attributeType(ScalarAttributeType.B)
                 .build()),
         List.of(), List.of()),
 
     PQ_KEYS("pq_keys_test",
-        Keys.KEY_ACCOUNT_UUID,
-        Keys.KEY_DEVICE_ID_KEY_ID,
+        SingleUsePreKeyStore.KEY_ACCOUNT_UUID,
+        SingleUsePreKeyStore.KEY_DEVICE_ID_KEY_ID,
         List.of(
             AttributeDefinition.builder()
-                .attributeName(Keys.KEY_ACCOUNT_UUID)
+                .attributeName(SingleUsePreKeyStore.KEY_ACCOUNT_UUID)
                 .attributeType(ScalarAttributeType.B)
                 .build(),
             AttributeDefinition.builder()
-                .attributeName(Keys.KEY_DEVICE_ID_KEY_ID)
+                .attributeName(SingleUsePreKeyStore.KEY_DEVICE_ID_KEY_ID)
                 .attributeType(ScalarAttributeType.B)
                 .build()),
         List.of(), List.of()),
 
-    PQ_LAST_RESORT_KEYS("pq_last_resort_keys_test",
-        Keys.KEY_ACCOUNT_UUID,
-        Keys.KEY_DEVICE_ID_KEY_ID,
+    REPEATED_USE_SIGNED_PRE_KEYS("repeated_use_signed_pre_keys_test",
+        RepeatedUseSignedPreKeyStore.KEY_ACCOUNT_UUID,
+        RepeatedUseSignedPreKeyStore.KEY_DEVICE_ID,
         List.of(
             AttributeDefinition.builder()
-                .attributeName(Keys.KEY_ACCOUNT_UUID)
+                .attributeName(RepeatedUseSignedPreKeyStore.KEY_ACCOUNT_UUID)
                 .attributeType(ScalarAttributeType.B)
                 .build(),
             AttributeDefinition.builder()
-                .attributeName(Keys.KEY_DEVICE_ID_KEY_ID)
-                .attributeType(ScalarAttributeType.B)
+                .attributeName(RepeatedUseSignedPreKeyStore.KEY_DEVICE_ID)
+                .attributeType(ScalarAttributeType.N)
                 .build()),
         List.of(), List.of()),
 

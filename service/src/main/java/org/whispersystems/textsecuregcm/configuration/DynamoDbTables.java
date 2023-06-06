@@ -51,8 +51,8 @@ public class DynamoDbTables {
   private final Table deletedAccountsLock;
   private final IssuedReceiptsTableConfiguration issuedReceipts;
   private final Table ecKeys;
-  private final Table pqKeys;
-  private final Table pqLastResortKeys;
+  private final Table kemKeys;
+  private final Table kemLastResortKeys;
   private final TableWithExpiration messages;
   private final Table pendingAccounts;
   private final Table pendingDevices;
@@ -72,8 +72,8 @@ public class DynamoDbTables {
       @JsonProperty("deletedAccountsLock") final Table deletedAccountsLock,
       @JsonProperty("issuedReceipts") final IssuedReceiptsTableConfiguration issuedReceipts,
       @JsonProperty("ecKeys") final Table ecKeys,
-      @JsonProperty("pqKeys") final Table pqKeys,
-      @JsonProperty("pqLastResortKeys") final Table pqLastResortKeys,
+      @JsonProperty("pqKeys") final Table kemKeys,
+      @JsonProperty("pqLastResortKeys") final Table kemLastResortKeys,
       @JsonProperty("messages") final TableWithExpiration messages,
       @JsonProperty("pendingAccounts") final Table pendingAccounts,
       @JsonProperty("pendingDevices") final Table pendingDevices,
@@ -92,8 +92,8 @@ public class DynamoDbTables {
     this.deletedAccountsLock = deletedAccountsLock;
     this.issuedReceipts = issuedReceipts;
     this.ecKeys = ecKeys;
-    this.pqKeys = pqKeys;
-    this.pqLastResortKeys = pqLastResortKeys;
+    this.kemKeys = kemKeys;
+    this.kemLastResortKeys = kemLastResortKeys;
     this.messages = messages;
     this.pendingAccounts = pendingAccounts;
     this.pendingDevices = pendingDevices;
@@ -140,14 +140,14 @@ public class DynamoDbTables {
 
   @NotNull
   @Valid
-  public Table getPqKeys() {
-    return pqKeys;
+  public Table getKemKeys() {
+    return kemKeys;
   }
 
   @NotNull
   @Valid
-  public Table getPqLastResortKeys() {
-    return pqLastResortKeys;
+  public Table getKemLastResortKeys() {
+    return kemLastResortKeys;
   }
 
   @NotNull
