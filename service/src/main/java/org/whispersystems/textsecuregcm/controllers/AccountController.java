@@ -131,6 +131,7 @@ public class AccountController {
   private static final String ACCOUNT_VERIFY_COUNTER_NAME = name(AccountController.class, "verify");
   private static final String CAPTCHA_ATTEMPT_COUNTER_NAME = name(AccountController.class, "captcha");
   private static final String CHALLENGE_ISSUED_COUNTER_NAME = name(AccountController.class, "challengeIssued");
+  private static final String INVALID_ACCOUNT_ATTRS_COUNTER_NAME = name(AccountController.class, "invalidAccountAttrs");
 
   private static final DistributionSummary REREGISTRATION_IDLE_DAYS_DISTRIBUTION = DistributionSummary
       .builder(name(AccountController.class, "reregistrationIdleDays"))
@@ -390,6 +391,11 @@ public class AccountController {
     String password = authorizationHeader.getPassword();
 
     rateLimiters.getVerifyLimiter().validate(number);
+
+    if (!AccountsManager.validNewAccountAttributes(accountAttributes)) {
+      Metrics.counter(INVALID_ACCOUNT_ATTRS_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent))).increment();
+      throw new WebApplicationException(Response.status(422, "account attributes invalid").build());
+    }
 
     // Note that successful verification depends on being able to find a stored verification code for the given number.
     // We check that numbers are normalized before we store verification codes, and so don't need to re-assert

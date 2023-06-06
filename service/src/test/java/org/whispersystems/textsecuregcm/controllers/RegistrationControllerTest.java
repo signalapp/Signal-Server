@@ -16,12 +16,14 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -126,6 +128,51 @@ class RegistrationControllerTest {
         .request();
     try (Response response = request.post(Entity.json(unprocessableJson()))) {
       assertEquals(400, response.getStatus());
+    }
+  }
+
+  static Stream<Arguments> invalidRegistrationId() {
+    return Stream.of(
+        Arguments.of(Optional.of(1), Optional.of(1), 200),
+        Arguments.of(Optional.of(1), Optional.empty(), 200),
+        Arguments.of(Optional.of(0x3FFF), Optional.empty(), 200),
+        Arguments.of(Optional.empty(), Optional.of(1), 422),
+        Arguments.of(Optional.of(Integer.MAX_VALUE), Optional.empty(), 422),
+        Arguments.of(Optional.of(0x3FFF + 1), Optional.empty(), 422),
+        Arguments.of(Optional.of(1), Optional.of(0x3FFF + 1), 422)
+    );
+  }
+
+  @ParameterizedTest
+  @MethodSource()
+  void invalidRegistrationId(Optional<Integer> registrationId, Optional<Integer> pniRegistrationId, int statusCode) throws InterruptedException, JsonProcessingException {
+    final Invocation.Builder request = resources.getJerseyTest()
+        .target("/v1/registration")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
+    when(registrationServiceClient.getSession(any(), any()))
+        .thenReturn(
+            CompletableFuture.completedFuture(
+                Optional.of(new RegistrationServiceSession(new byte[16], NUMBER, true, null, null, null,
+                    SESSION_EXPIRATION_SECONDS))));
+    when(accountsManager.create(any(), any(), any(), any(), any()))
+        .thenReturn(mock(Account.class));
+
+    final String recoveryPassword = encodeRecoveryPassword(new byte[0]);
+
+    final Map<String, Object> accountAttrs = new HashMap<>();
+    accountAttrs.put("recoveryPassword", recoveryPassword);
+    registrationId.ifPresent(id -> accountAttrs.put("registrationId", id));
+    pniRegistrationId.ifPresent(id -> accountAttrs.put("pniRegistrationId", id));
+    final String json = SystemMapper.jsonMapper().writeValueAsString(Map.of(
+        "sessionId", encodeSessionId("sessionId"),
+        "recoveryPassword", recoveryPassword,
+        "accountAttributes", accountAttrs,
+        "skipDeviceTransfer", true
+    ));
+
+    try (Response response = request.post(Entity.json(json))) {
+      assertEquals(statusCode, response.getStatus());
     }
   }
 
@@ -745,7 +792,8 @@ class RegistrationControllerTest {
           "sessionId": "%s",
           "recoveryPassword": "%s",
           "accountAttributes": {
-            "recoveryPassword": "%s"
+            "recoveryPassword": "%s",
+            "registrationId": 1
           },
           "skipDeviceTransfer": %s
         }

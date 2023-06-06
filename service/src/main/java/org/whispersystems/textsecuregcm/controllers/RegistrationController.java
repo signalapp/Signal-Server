@@ -69,6 +69,7 @@ public class RegistrationController {
   private static final String REGION_CODE_TAG_NAME = "regionCode";
   private static final String VERIFICATION_TYPE_TAG_NAME = "verification";
   private static final String ACCOUNT_ACTIVATED_TAG_NAME = "accountActivated";
+  private static final String INVALID_ACCOUNT_ATTRS_COUNTER_NAME = name(RegistrationController.class, "invalidAccountAttrs");
 
   private final AccountsManager accounts;
   private final PhoneVerificationTokenManager phoneVerificationTokenManager;
@@ -118,6 +119,10 @@ public class RegistrationController {
     final String password = authorizationHeader.getPassword();
 
     RateLimiter.adaptLegacyException(() -> rateLimiters.getRegistrationLimiter().validate(number));
+    if (!AccountsManager.validNewAccountAttributes(registrationRequest.accountAttributes())) {
+      Metrics.counter(INVALID_ACCOUNT_ATTRS_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent))).increment();
+      throw new WebApplicationException(Response.status(422, "account attributes invalid").build());
+    }
 
     final PhoneVerificationRequest.VerificationType verificationType = phoneVerificationTokenManager.verify(number,
         registrationRequest);

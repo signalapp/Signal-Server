@@ -1081,11 +1081,13 @@ class AccountControllerTest {
     when(registrationServiceClient.checkVerificationCode(sessionId, "1234", AccountController.REGISTRATION_RPC_TIMEOUT))
         .thenReturn(CompletableFuture.completedFuture(true));
 
+    final AccountAttributes attrs = new AccountAttributes(true, 1, "test", "", true, new Device.DeviceCapabilities());
+
     resources.getJerseyTest()
         .target("/v1/accounts/code/1234")
         .request()
         .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(SENDER, "bar"))
-        .put(Entity.entity(new AccountAttributes(), MediaType.APPLICATION_JSON_TYPE), AccountIdentityResponse.class);
+        .put(Entity.entity(attrs, MediaType.APPLICATION_JSON_TYPE), AccountIdentityResponse.class);
 
     verify(accountsManager).create(eq(SENDER), eq("bar"), any(), any(), anyList());
 

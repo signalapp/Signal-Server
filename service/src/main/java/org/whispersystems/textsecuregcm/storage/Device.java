@@ -20,6 +20,7 @@ public class Device {
 
   public static final long MASTER_ID = 1;
   public static final int MAXIMUM_DEVICE_ID = 256;
+  public static final int MAX_REGISTRATION_ID = 0x3FFF;
   public static final List<Long> ALL_POSSIBLE_DEVICE_IDS = LongStream.range(1, MAXIMUM_DEVICE_ID).boxed().collect(Collectors.toList());
 
   @JsonProperty
