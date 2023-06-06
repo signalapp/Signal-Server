@@ -2612,7 +2612,7 @@ components:
         deviceMessages:
           type: array
           description: |-
-            A list of synchronization messages to send to companion devices to supply the private keys
+            A list of synchronization messages to send to companion devices to supply the private keysManager
             associated with the new identity key and their new prekeys.
             Exactly one message must be supplied for each enabled device other than the sending (primary) device.
           items:
@@ -2979,7 +2979,7 @@ components:
         deviceMessages:
           type: array
           description: |-
-            A list of synchronization messages to send to companion devices to supply the private keys
+            A list of synchronization messages to send to companion devices to supply the private keysManager
             associated with the new identity key and their new prekeys.
             Exactly one message must be supplied for each enabled device other than the sending (primary) device.
           items:
@@ -3032,7 +3032,7 @@ components:
         deviceMessages:
           type: array
           description: |-
-            A list of synchronization messages to send to companion devices to supply the private keys
+            A list of synchronization messages to send to companion devices to supply the private keysManager
             associated with the new identity key and their new prekeys.
             Exactly one message must be supplied for each enabled device other than the sending (primary) device.
           items:
@@ -3365,11 +3365,11 @@ components:
       properties:
         open:
           type: boolean
-        userAgent:
-          type: string
         createdTimestamp:
           type: integer
           format: int64
+        userAgent:
+          type: string
     WebSocketSessionContext:
       type: object
       properties:
@@ -3740,16 +3740,16 @@ components:
             type: string
         commitment:
           $ref: '#/components/schemas/ProfileKeyCommitment'
+        badges:
+          type: array
+          items:
+            type: string
         avatarChange:
           type: string
           enum:
           - UNCHANGED
           - CLEAR
           - UPDATE
-        badges:
-          type: array
-          items:
-            type: string
     ProfileKeyCommitment:
       type: object
       properties:
