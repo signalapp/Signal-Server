@@ -10,7 +10,6 @@ import static java.util.Objects.requireNonNull;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
-import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
 import java.io.IOException;
@@ -31,8 +30,10 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.InvalidKeyException;
+import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
@@ -80,8 +81,7 @@ public class Accounts extends AbstractDynamoDbStore {
   private static final Timer GET_ALL_FROM_OFFSET_TIMER = Metrics.timer(name(Accounts.class, "getAllFromOffset"));
   private static final Timer DELETE_TIMER = Metrics.timer(name(Accounts.class, "delete"));
 
-  private static final Counter INVALID_ACI_IDENTITY_KEY_COUNTER = Metrics.counter(name(Accounts.class, "invalidIdentityKey"), "type", "aci");
-  private static final Counter INVALID_PNI_IDENTITY_KEY_COUNTER = Metrics.counter(name(Accounts.class, "invalidIdentityKey"), "type", "pni");
+  private static final String INVALID_IDENTITY_KEY_COUNTER_NAME = name(Accounts.class, "invalidIdentityKey");
 
   private static final String CONDITIONAL_CHECK_FAILED = "ConditionalCheckFailed";
 
@@ -915,28 +915,26 @@ public class Accounts extends AbstractDynamoDbStore {
           .map(AttributeValue::bool)
           .orElse(false));
 
-      if (account.getIdentityKey() != null && account.getIdentityKey().length > 0) {
-        try {
-          new IdentityKey(account.getIdentityKey());
-        } catch (final InvalidKeyException e) {
-          log.debug("Account {} has an invalid ACI identity key", account.getUuid());
-          INVALID_ACI_IDENTITY_KEY_COUNTER.increment();
-        }
-      }
-
-      if (account.getPhoneNumberIdentityKey() != null && account.getPhoneNumberIdentityKey().length > 0) {
-        try {
-          new IdentityKey(account.getPhoneNumberIdentityKey());
-        } catch (final InvalidKeyException e) {
-          log.debug("Account {} has an invalid PNI identity key", account.getUuid());
-          INVALID_PNI_IDENTITY_KEY_COUNTER.increment();
-        }
-      }
+      checkIdentityKey(account.getUuid(), account.getIdentityKey(), "aci");
+      checkIdentityKey(account.getUuid(), account.getPhoneNumberIdentityKey(), "pni");
 
       return account;
 
     } catch (final IOException e) {
       throw new RuntimeException("Could not read stored account data", e);
+    }
+  }
+
+  private static void checkIdentityKey(final UUID accountIdentifier, @Nullable final byte[] identityKey, final String keyType) {
+    if (identityKey != null && identityKey.length > 0) {
+      try {
+        new IdentityKey(identityKey);
+      } catch (final InvalidKeyException e) {
+        if (identityKey.length != ECPublicKey.KEY_SIZE - 1) {
+          log.warn("Account {} has an invalid {} identity key; length = {}", accountIdentifier, keyType, identityKey.length);
+          Metrics.counter(INVALID_IDENTITY_KEY_COUNTER_NAME, "type", keyType).increment();
+        }
+      }
     }
   }
 
