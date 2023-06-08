@@ -6,16 +6,16 @@ package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.annotations.VisibleForTesting;
 import io.swagger.v3.oas.annotations.media.Schema;
-import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
-
 import java.util.ArrayList;
 import java.util.List;
 import javax.validation.Valid;
 import javax.validation.constraints.AssertTrue;
-import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
+import org.signal.libsignal.protocol.IdentityKey;
+import org.whispersystems.textsecuregcm.util.IdentityKeyAdapter;
 import org.whispersystems.textsecuregcm.util.ValidPreKey;
 import org.whispersystems.textsecuregcm.util.ValidPreKey.PreKeyType;
 
@@ -55,24 +55,24 @@ public class PreKeyState {
   private SignedPreKey pqLastResortPreKey;
 
   @JsonProperty
-  @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
-  @NotEmpty
+  @JsonSerialize(using = IdentityKeyAdapter.Serializer.class)
+  @JsonDeserialize(using = IdentityKeyAdapter.Deserializer.class)
   @NotNull
   @Schema(description="Required. " +
       "The public identity key for this identity (account or phone-number identity). " +
       "If this device is not the primary device for the account, " +
       "must match the existing stored identity key for this identity.")
-  private byte[] identityKey;
+  private IdentityKey identityKey;
 
   public PreKeyState() {}
 
   @VisibleForTesting
-  public PreKeyState(byte[] identityKey, SignedPreKey signedPreKey, List<PreKey> keys) {
+  public PreKeyState(IdentityKey identityKey, SignedPreKey signedPreKey, List<PreKey> keys) {
     this(identityKey, signedPreKey, keys, null, null);
   }
 
   @VisibleForTesting
-  public PreKeyState(byte[] identityKey, SignedPreKey signedPreKey, List<PreKey> keys, List<SignedPreKey> pqKeys, SignedPreKey pqLastResortKey) {
+  public PreKeyState(IdentityKey identityKey, SignedPreKey signedPreKey, List<PreKey> keys, List<SignedPreKey> pqKeys, SignedPreKey pqLastResortKey) {
     this.identityKey = identityKey;
     this.signedPreKey = signedPreKey;
     this.preKeys = keys;
@@ -96,7 +96,7 @@ public class PreKeyState {
     return pqLastResortPreKey;
   }
 
-  public byte[] getIdentityKey() {
+  public IdentityKey getIdentityKey() {
     return identityKey;
   }
 

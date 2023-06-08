@@ -29,6 +29,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
 import org.apache.commons.lang3.tuple.Pair;
 import org.signal.integration.config.Config;
+import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.protocol.kem.KEMKeyPair;
@@ -109,8 +110,8 @@ public final class Operations {
         registrationPassword,
         accountAttributes,
         true,
-        Optional.of(aciIdentityKeyPair.getPublicKey().serialize()),
-        Optional.of(pniIdentityKeyPair.getPublicKey().serialize()),
+        Optional.of(new IdentityKey(aciIdentityKeyPair.getPublicKey())),
+        Optional.of(new IdentityKey(pniIdentityKeyPair.getPublicKey())),
         Optional.of(generateSignedECPreKey(1, aciIdentityKeyPair)),
         Optional.of(generateSignedECPreKey(2, pniIdentityKeyPair)),
         Optional.of(generateSignedKEMPreKey(3, aciIdentityKeyPair)),

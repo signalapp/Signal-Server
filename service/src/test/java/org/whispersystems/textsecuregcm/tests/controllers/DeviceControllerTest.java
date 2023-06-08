@@ -42,6 +42,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
+import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
@@ -277,8 +278,8 @@ class DeviceControllerTest {
     aciPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair));
     pniPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair));
 
-    when(account.getIdentityKey()).thenReturn(aciIdentityKeyPair.getPublicKey().serialize());
-    when(account.getPhoneNumberIdentityKey()).thenReturn(pniIdentityKeyPair.getPublicKey().serialize());
+    when(account.getIdentityKey()).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
+    when(account.getPhoneNumberIdentityKey()).thenReturn(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
 
     final LinkDeviceRequest request = new LinkDeviceRequest("5678901",
         new AccountAttributes(fetchesMessages, 1234, null, null, true, null),
@@ -363,8 +364,8 @@ class DeviceControllerTest {
     aciPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair));
     pniPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair));
 
-    when(account.getIdentityKey()).thenReturn(aciIdentityKeyPair.getPublicKey().serialize());
-    when(account.getPhoneNumberIdentityKey()).thenReturn(pniIdentityKeyPair.getPublicKey().serialize());
+    when(account.getIdentityKey()).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
+    when(account.getPhoneNumberIdentityKey()).thenReturn(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
 
     final LinkDeviceRequest request = new LinkDeviceRequest("5678901",
         new AccountAttributes(fetchesMessages, 1234, null, null, true, null),
@@ -392,8 +393,8 @@ class DeviceControllerTest {
   @ParameterizedTest
   @MethodSource
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-  void linkDeviceAtomicMissingProperty(final byte[] aciIdentityKey,
-                                       final byte[] pniIdentityKey,
+  void linkDeviceAtomicMissingProperty(final IdentityKey aciIdentityKey,
+                                       final IdentityKey pniIdentityKey,
                                        final Optional<SignedPreKey> aciSignedPreKey,
                                        final Optional<SignedPreKey> pniSignedPreKey,
                                        final Optional<SignedPreKey> aciPqLastResortPreKey,
@@ -439,8 +440,8 @@ class DeviceControllerTest {
     final Optional<SignedPreKey> aciPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair));
     final Optional<SignedPreKey> pniPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair));
 
-    final byte[] aciIdentityKey = aciIdentityKeyPair.getPublicKey().serialize();
-    final byte[] pniIdentityKey = pniIdentityKeyPair.getPublicKey().serialize();
+    final IdentityKey aciIdentityKey = new IdentityKey(aciIdentityKeyPair.getPublicKey());
+    final IdentityKey pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());
 
     return Stream.of(
         Arguments.of(aciIdentityKey, pniIdentityKey, Optional.empty(), pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey),
@@ -452,8 +453,8 @@ class DeviceControllerTest {
 
   @ParameterizedTest
   @MethodSource
-  void linkDeviceAtomicInvalidSignature(final byte[] aciIdentityKey,
-                                        final byte[] pniIdentityKey,
+  void linkDeviceAtomicInvalidSignature(final IdentityKey aciIdentityKey,
+                                        final IdentityKey pniIdentityKey,
                                         final SignedPreKey aciSignedPreKey,
                                         final SignedPreKey pniSignedPreKey,
                                         final SignedPreKey aciPqLastResortPreKey,
@@ -499,8 +500,8 @@ class DeviceControllerTest {
     final SignedPreKey aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair);
     final SignedPreKey pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair);
 
-    final byte[] aciIdentityKey = aciIdentityKeyPair.getPublicKey().serialize();
-    final byte[] pniIdentityKey = pniIdentityKeyPair.getPublicKey().serialize();
+    final IdentityKey aciIdentityKey = new IdentityKey(aciIdentityKeyPair.getPublicKey());
+    final IdentityKey pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());
 
     return Stream.of(
         Arguments.of(aciIdentityKey, pniIdentityKey, signedPreKeyWithBadSignature(aciSignedPreKey), pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey),

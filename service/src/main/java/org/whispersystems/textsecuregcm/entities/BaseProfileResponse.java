@@ -8,7 +8,9 @@ package org.whispersystems.textsecuregcm.entities;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
+import org.signal.libsignal.protocol.IdentityKey;
+import org.signal.libsignal.protocol.ecc.ECPublicKey;
+import org.whispersystems.textsecuregcm.util.IdentityKeyAdapter;
 
 import java.util.List;
 import java.util.UUID;
@@ -16,9 +18,9 @@ import java.util.UUID;
 public class BaseProfileResponse {
 
   @JsonProperty
-  @JsonSerialize(using = ByteArrayAdapter.Serializing.class)
-  @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
-  private byte[] identityKey;
+  @JsonSerialize(using = IdentityKeyAdapter.Serializer.class)
+  @JsonDeserialize(using = IdentityKeyAdapter.Deserializer.class)
+  private IdentityKey identityKey;
 
   @JsonProperty
   private String unidentifiedAccess;
@@ -38,7 +40,7 @@ public class BaseProfileResponse {
   public BaseProfileResponse() {
   }
 
-  public BaseProfileResponse(final byte[] identityKey,
+  public BaseProfileResponse(final IdentityKey identityKey,
       final String unidentifiedAccess,
       final boolean unrestrictedUnidentifiedAccess,
       final UserCapabilities capabilities,
@@ -53,7 +55,7 @@ public class BaseProfileResponse {
     this.uuid = uuid;
   }
 
-  public byte[] getIdentityKey() {
+  public IdentityKey getIdentityKey() {
     return identityKey;
   }
 

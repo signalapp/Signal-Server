@@ -7,17 +7,18 @@ package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import io.swagger.v3.oas.annotations.media.Schema;
-import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import javax.validation.constraints.AssertTrue;
 import javax.annotation.Nullable;
 import javax.validation.Valid;
+import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
+import org.signal.libsignal.protocol.IdentityKey;
+import org.whispersystems.textsecuregcm.util.IdentityKeyAdapter;
 import org.whispersystems.textsecuregcm.util.ValidPreKey;
 import org.whispersystems.textsecuregcm.util.ValidPreKey.PreKeyType;
 
@@ -32,8 +33,9 @@ public record ChangePhoneNumberRequest(
     @JsonProperty("reglock") @Nullable String registrationLock,
 
     @Schema(description="the new public identity key to use for the phone-number identity associated with the new phone number")
-    @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
-    @Nullable byte[] pniIdentityKey,
+    @JsonSerialize(using = IdentityKeyAdapter.Serializer.class)
+    @JsonDeserialize(using = IdentityKeyAdapter.Deserializer.class)
+    @Nullable IdentityKey pniIdentityKey,
 
     @Schema(description="""
         A list of synchronization messages to send to companion devices to supply the private keysManager

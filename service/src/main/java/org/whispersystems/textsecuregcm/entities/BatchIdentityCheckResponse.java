@@ -11,13 +11,25 @@ import java.util.UUID;
 import javax.annotation.Nullable;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
-import org.whispersystems.textsecuregcm.util.ExactlySize;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import org.signal.libsignal.protocol.IdentityKey;
+import org.signal.libsignal.protocol.ecc.ECPublicKey;
+import org.whispersystems.textsecuregcm.util.IdentityKeyAdapter;
 
 public record BatchIdentityCheckResponse(@Valid List<Element> elements) {
 
-  public record Element(@Deprecated @JsonInclude(JsonInclude.Include.NON_EMPTY) @Nullable UUID aci,
-                        @JsonInclude(JsonInclude.Include.NON_EMPTY) @Nullable UUID uuid,
-                        @NotNull @ExactlySize(33) byte[] identityKey) {
+  public record Element(@Deprecated
+                        @JsonInclude(JsonInclude.Include.NON_EMPTY)
+                        @Nullable UUID aci,
+
+                        @JsonInclude(JsonInclude.Include.NON_EMPTY)
+                        @Nullable UUID uuid,
+
+                        @NotNull
+                        @JsonSerialize(using = IdentityKeyAdapter.Serializer.class)
+                        @JsonDeserialize(using = IdentityKeyAdapter.Deserializer.class)
+                        IdentityKey identityKey) {
 
     public Element {
       if (aci == null && uuid == null) {

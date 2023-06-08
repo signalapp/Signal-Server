@@ -14,7 +14,9 @@ import java.security.InvalidKeyException;
 import java.util.Base64;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.Curve;
+import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 
@@ -22,7 +24,7 @@ class CertificateGeneratorTest {
 
     private static final String SIGNING_CERTIFICATE = "CiUIDBIhBbTz4h1My+tt+vw+TVscgUe/DeHS0W02tPWAWbTO2xc3EkD+go4bJnU0AcnFfbOLKoiBfCzouZtDYMOVi69rE7r4U9cXREEqOkUmU2WJBjykAxWPCcSTmVTYHDw7hkSp/puG";
     private static final String SIGNING_KEY = "ABOxG29xrfq4E7IrW11Eg7+HBbtba9iiS0500YoBjn4=";
-    private static final byte[] IDENTITY_KEY = Base64.getDecoder().decode("BcxxDU9FGMda70E7+Uvm7pnQcEdXQ64aJCpPUeRSfcFo");
+    private static final IdentityKey IDENTITY_KEY = new IdentityKey(ECPublicKey.fromPublicKeyBytes(Base64.getDecoder().decode("BcxxDU9FGMda70E7+Uvm7pnQcEdXQ64aJCpPUeRSfcFo")));
 
     @Test
     void testCreateFor() throws IOException, InvalidKeyException, org.signal.libsignal.protocol.InvalidKeyException {

@@ -6,19 +6,21 @@ package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.annotations.VisibleForTesting;
 import io.swagger.v3.oas.annotations.media.Schema;
-import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
-
 import java.util.List;
+import org.signal.libsignal.protocol.IdentityKey;
+import org.whispersystems.textsecuregcm.util.IdentityKeyAdapter;
 
 public class PreKeyResponse {
 
   @JsonProperty
-  @JsonSerialize(using = ByteArrayAdapter.Serializing.class)
+  @JsonSerialize(using = IdentityKeyAdapter.Serializer.class)
+  @JsonDeserialize(using = IdentityKeyAdapter.Deserializer.class)
   @Schema(description="the public identity key for the requested identity")
-  private byte[] identityKey;
+  private IdentityKey identityKey;
 
   @JsonProperty
   @Schema(description="information about each requested device")
@@ -26,13 +28,13 @@ public class PreKeyResponse {
 
   public PreKeyResponse() {}
 
-  public PreKeyResponse(byte[] identityKey, List<PreKeyResponseItem> devices) {
+  public PreKeyResponse(IdentityKey identityKey, List<PreKeyResponseItem> devices) {
     this.identityKey = identityKey;
-    this.devices     = devices;
+    this.devices = devices;
   }
 
   @VisibleForTesting
-  public byte[] getIdentityKey() {
+  public IdentityKey getIdentityKey() {
     return identityKey;
   }
 

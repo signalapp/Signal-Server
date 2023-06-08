@@ -34,7 +34,7 @@ public class CertificateGenerator {
     SenderCertificate.Certificate.Builder builder = SenderCertificate.Certificate.newBuilder()
                                                                                  .setSenderDevice(Math.toIntExact(device.getId()))
                                                                                  .setExpires(System.currentTimeMillis() + TimeUnit.DAYS.toMillis(expiresDays))
-                                                                                 .setIdentityKey(ByteString.copyFrom(account.getIdentityKey()))
+                                                                                 .setIdentityKey(ByteString.copyFrom(account.getIdentityKey().serialize()))
                                                                                  .setSigner(serverCertificate)
                                                                                  .setSenderUuid(account.getUuid().toString());
 

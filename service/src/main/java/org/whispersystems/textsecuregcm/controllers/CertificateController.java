@@ -32,7 +32,6 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
-import org.apache.commons.lang3.ArrayUtils;
 import org.signal.libsignal.zkgroup.auth.ServerZkAuthOperations;
 import org.signal.libsignal.zkgroup.calllinks.CallLinkAuthCredentialResponse;
 import org.signal.libsignal.zkgroup.GenericServerSecretParams;
@@ -75,7 +74,7 @@ public class CertificateController {
       @QueryParam("includeE164") @DefaultValue("true") boolean includeE164)
       throws InvalidKeyException {
 
-    if (ArrayUtils.isEmpty(auth.getAccount().getIdentityKey())) {
+    if (auth.getAccount().getIdentityKey() == null) {
       throw new WebApplicationException(Response.Status.BAD_REQUEST);
     }
 

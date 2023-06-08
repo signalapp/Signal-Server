@@ -5,27 +5,24 @@
 
 package org.whispersystems.textsecuregcm.entities;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import javax.validation.Valid;
 import javax.validation.constraints.AssertTrue;
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
-
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-
-import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
+import org.signal.libsignal.protocol.IdentityKey;
+import org.whispersystems.textsecuregcm.util.IdentityKeyAdapter;
 import org.whispersystems.textsecuregcm.util.ValidPreKey;
 import org.whispersystems.textsecuregcm.util.ValidPreKey.PreKeyType;
 
 public record PhoneNumberIdentityKeyDistributionRequest(
-    @NotEmpty
-    @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
+    @NotNull
+    @JsonDeserialize(using = IdentityKeyAdapter.Deserializer.class)
     @Schema(description="the new identity key for this account's phone-number identity")
-    byte[] pniIdentityKey,
+    IdentityKey pniIdentityKey,
     
     @NotNull
     @Valid

@@ -27,6 +27,7 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.UUID;
@@ -38,6 +39,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.ObjectUtils;
+import org.signal.libsignal.protocol.IdentityKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
@@ -255,7 +257,7 @@ public class AccountsManager {
 
   public Account changeNumber(final Account account,
                               final String targetNumber,
-                              @Nullable final byte[] pniIdentityKey,
+                              @Nullable final IdentityKey pniIdentityKey,
                               @Nullable final Map<Long, SignedPreKey> pniSignedPreKeys,
                               @Nullable final Map<Long, SignedPreKey> pniPqLastResortPreKeys,
                               @Nullable final Map<Long, Integer> pniRegistrationIds) throws InterruptedException, MismatchedDevicesException {
@@ -347,7 +349,7 @@ public class AccountsManager {
   }
 
   public Account updatePniKeys(final Account account,
-      final byte[] pniIdentityKey,
+      final IdentityKey pniIdentityKey,
       final Map<Long, SignedPreKey> pniSignedPreKeys,
       @Nullable final Map<Long, SignedPreKey> pniPqLastResortPreKeys,
       final Map<Long, Integer> pniRegistrationIds) throws MismatchedDevicesException {
@@ -366,7 +368,7 @@ public class AccountsManager {
   }
 
   private boolean setPniKeys(final Account account,
-      @Nullable final byte[] pniIdentityKey,
+      @Nullable final IdentityKey pniIdentityKey,
       @Nullable final Map<Long, SignedPreKey> pniSignedPreKeys,
       @Nullable final Map<Long, Integer> pniRegistrationIds) {
     if (ObjectUtils.allNull(pniIdentityKey, pniSignedPreKeys, pniRegistrationIds)) {
@@ -375,7 +377,7 @@ public class AccountsManager {
       throw new IllegalArgumentException("PNI identity key, signed pre-keys, and registration IDs must be all null or all non-null");
     }
 
-    boolean changed = !Arrays.equals(pniIdentityKey, account.getPhoneNumberIdentityKey());
+    boolean changed = !Objects.equals(pniIdentityKey, account.getPhoneNumberIdentityKey());
     
     for (Device device : account.getDevices()) {
         if (!device.isEnabled()) {

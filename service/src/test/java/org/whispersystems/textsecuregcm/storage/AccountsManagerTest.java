@@ -5,7 +5,12 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -24,8 +29,6 @@ import static org.mockito.Mockito.when;
 
 import io.lettuce.core.RedisException;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
-
-import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -46,6 +49,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.stubbing.Answer;
+import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
@@ -473,10 +477,12 @@ class AccountsManagerTest {
         .doAnswer(ACCOUNT_UPDATE_ANSWER)
         .when(accounts).update(any());
 
-    account = accountsManager.update(account, a -> a.setIdentityKey("identity-key".getBytes(StandardCharsets.UTF_8)));
+    final IdentityKey identityKey = new IdentityKey(Curve.generateKeyPair().getPublicKey());
+
+    account = accountsManager.update(account, a -> a.setIdentityKey(identityKey));
 
     assertEquals(1, account.getVersion());
-    assertArrayEquals("identity-key".getBytes(StandardCharsets.UTF_8), account.getIdentityKey());
+    assertEquals(identityKey, account.getIdentityKey());
 
     verify(accounts, times(1)).getByAccountIdentifier(uuid);
     verify(accounts, times(2)).update(any());
@@ -669,7 +675,7 @@ class AccountsManagerTest {
     Account account = AccountsHelper.generateTestAccount(number, UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
     assertThrows(IllegalArgumentException.class,
         () -> accountsManager.changeNumber(
-            account, number, "new-identity-key".getBytes(StandardCharsets.UTF_8), Map.of(1L, new SignedPreKey()), null, Map.of(1L, 101)),
+            account, number, new IdentityKey(Curve.generateKeyPair().getPublicKey()), Map.of(1L, new SignedPreKey()), null, Map.of(1L, 101)),
         "AccountsManager should not allow use of changeNumber with new PNI keys but without changing number");
 
     verify(accounts, never()).update(any());
@@ -728,7 +734,7 @@ class AccountsManagerTest {
     final List<Device> devices = List.of(DevicesHelper.createDevice(1L, 0L, 101), DevicesHelper.createDevice(2L, 0L, 102));
     final Account account = AccountsHelper.generateTestAccount(originalNumber, uuid, originalPni, devices, new byte[16]);
     final Account updatedAccount = accountsManager.changeNumber(
-        account, targetNumber, "new-pni-identity-key".getBytes(StandardCharsets.UTF_8), newSignedKeys, newSignedPqKeys, newRegistrationIds);
+        account, targetNumber, new IdentityKey(Curve.generateKeyPair().getPublicKey()), newSignedKeys, newSignedPqKeys, newRegistrationIds);
 
     assertEquals(targetNumber, updatedAccount.getNumber());
 
@@ -771,7 +777,9 @@ class AccountsManagerTest {
     UUID oldPni = account.getPhoneNumberIdentifier();
     Map<Long, SignedPreKey> oldSignedPreKeys = account.getDevices().stream().collect(Collectors.toMap(Device::getId, Device::getSignedPreKey));
 
-    final Account updatedAccount = accountsManager.updatePniKeys(account, "new-pni-identity-key".getBytes(StandardCharsets.UTF_8), newSignedKeys, null, newRegistrationIds);
+    final IdentityKey pniIdentityKey = new IdentityKey(Curve.generateKeyPair().getPublicKey());
+
+    final Account updatedAccount = accountsManager.updatePniKeys(account, pniIdentityKey, newSignedKeys, null, newRegistrationIds);
 
     // non-PNI stuff should not change
     assertEquals(oldUuid, updatedAccount.getUuid());
@@ -783,7 +791,7 @@ class AccountsManagerTest {
         updatedAccount.getDevices().stream().collect(Collectors.toMap(Device::getId, Device::getRegistrationId)));
 
     // PNI stuff should
-    assertArrayEquals("new-pni-identity-key".getBytes(StandardCharsets.UTF_8), updatedAccount.getPhoneNumberIdentityKey());
+    assertEquals(pniIdentityKey, updatedAccount.getPhoneNumberIdentityKey());
     assertEquals(newSignedKeys,
         updatedAccount.getDevices().stream().collect(Collectors.toMap(Device::getId, Device::getPhoneNumberIdentitySignedPreKey)));
     assertEquals(newRegistrationIds,
@@ -817,8 +825,10 @@ class AccountsManagerTest {
 
     Map<Long, SignedPreKey> oldSignedPreKeys = account.getDevices().stream().collect(Collectors.toMap(Device::getId, Device::getSignedPreKey));
 
+    final IdentityKey pniIdentityKey = new IdentityKey(Curve.generateKeyPair().getPublicKey());
+
     final Account updatedAccount =
-        accountsManager.updatePniKeys(account, "new-pni-identity-key".getBytes(StandardCharsets.UTF_8), newSignedKeys, newSignedPqKeys, newRegistrationIds);
+        accountsManager.updatePniKeys(account, pniIdentityKey, newSignedKeys, newSignedPqKeys, newRegistrationIds);
 
     // non-PNI-keys stuff should not change
     assertEquals(oldUuid, updatedAccount.getUuid());
@@ -830,7 +840,7 @@ class AccountsManagerTest {
         updatedAccount.getDevices().stream().collect(Collectors.toMap(Device::getId, Device::getRegistrationId)));
 
     // PNI keys should
-    assertArrayEquals("new-pni-identity-key".getBytes(StandardCharsets.UTF_8), updatedAccount.getPhoneNumberIdentityKey());
+    assertEquals(pniIdentityKey, updatedAccount.getPhoneNumberIdentityKey());
     assertEquals(newSignedKeys,
         updatedAccount.getDevices().stream().collect(Collectors.toMap(Device::getId, Device::getPhoneNumberIdentitySignedPreKey)));
     assertEquals(newRegistrationIds,

@@ -64,6 +64,7 @@ import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import org.apache.commons.lang3.StringUtils;
+import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.signal.libsignal.zkgroup.profiles.ExpiringProfileKeyCredentialResponse;
@@ -383,14 +384,14 @@ public class ProfileController {
       if (account.getIdentityKey() == null || account.getPhoneNumberIdentityKey() == null) {
         return;
       }
-      final byte[] identityKeyBytes =
+      final IdentityKey identityKey =
           usePhoneNumberIdentity ? account.getPhoneNumberIdentityKey() : account.getIdentityKey();
       md.reset();
-      byte[] digest = md.digest(identityKeyBytes);
+      byte[] digest = md.digest(identityKey.serialize());
       byte[] fingerprint = Util.truncate(digest, 4);
 
       if (!Arrays.equals(fingerprint, element.fingerprint())) {
-        responseElements.add(new BatchIdentityCheckResponse.Element(element.aci(), element.uuid(), identityKeyBytes));
+        responseElements.add(new BatchIdentityCheckResponse.Element(element.aci(), element.uuid(), identityKey));
       }
     });
   }

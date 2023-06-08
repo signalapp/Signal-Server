@@ -12,16 +12,16 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.annotations.VisibleForTesting;
 import io.swagger.v3.oas.annotations.media.Schema;
-import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
-import org.whispersystems.textsecuregcm.util.OptionalBase64ByteArrayDeserializer;
-import org.whispersystems.textsecuregcm.util.ValidPreKey;
-import org.whispersystems.textsecuregcm.util.ValidPreKey.PreKeyType;
-
+import java.util.List;
+import java.util.Optional;
 import javax.validation.Valid;
 import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.NotNull;
-import java.util.List;
-import java.util.Optional;
+import org.signal.libsignal.protocol.IdentityKey;
+import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
+import org.whispersystems.textsecuregcm.util.OptionalIdentityKeyAdapter;
+import org.whispersystems.textsecuregcm.util.ValidPreKey;
+import org.whispersystems.textsecuregcm.util.ValidPreKey.PreKeyType;
 
 public record RegistrationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, description = """
                                   The ID of an existing verification session as it appears in a verification session
@@ -57,16 +57,18 @@ public record RegistrationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT
                                   provided, an account will be created "atomically," and all other properties needed for
                                   atomic account creation must also be present.
                                   """)
-                                  @JsonDeserialize(using = OptionalBase64ByteArrayDeserializer.class)
-                                  Optional<byte[]> aciIdentityKey,
+                                  @JsonSerialize(using = OptionalIdentityKeyAdapter.Serializer.class)
+                                  @JsonDeserialize(using = OptionalIdentityKeyAdapter.Deserializer.class)
+                                  Optional<IdentityKey> aciIdentityKey,
 
                                   @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, description = """
                                   The PNI-associated identity key for the account, encoded as a base64 string. If
                                   provided, an account will be created "atomically," and all other properties needed for
                                   atomic account creation must also be present.
                                   """)
-                                  @JsonDeserialize(using = OptionalBase64ByteArrayDeserializer.class)
-                                  Optional<byte[]> pniIdentityKey,
+                                  @JsonSerialize(using = OptionalIdentityKeyAdapter.Serializer.class)
+                                  @JsonDeserialize(using = OptionalIdentityKeyAdapter.Deserializer.class)
+                                  Optional<IdentityKey> pniIdentityKey,
 
                                   @JsonUnwrapped
                                   @JsonProperty(access = JsonProperty.Access.READ_ONLY)
@@ -78,8 +80,8 @@ public record RegistrationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT
       @JsonProperty("recoveryPassword") byte[] recoveryPassword,
       @JsonProperty("accountAttributes") AccountAttributes accountAttributes,
       @JsonProperty("skipDeviceTransfer") boolean skipDeviceTransfer,
-      @JsonProperty("aciIdentityKey") Optional<byte[]> aciIdentityKey,
-      @JsonProperty("pniIdentityKey") Optional<byte[]> pniIdentityKey,
+      @JsonProperty("aciIdentityKey") Optional<IdentityKey> aciIdentityKey,
+      @JsonProperty("pniIdentityKey") Optional<IdentityKey> pniIdentityKey,
       @JsonProperty("aciSignedPreKey") Optional<@Valid @ValidPreKey(type=PreKeyType.ECC) SignedPreKey> aciSignedPreKey,
       @JsonProperty("pniSignedPreKey") Optional<@Valid @ValidPreKey(type=PreKeyType.ECC) SignedPreKey> pniSignedPreKey,
       @JsonProperty("aciPqLastResortPreKey") Optional<@Valid @ValidPreKey(type=PreKeyType.KYBER) SignedPreKey> aciPqLastResortPreKey,
@@ -103,7 +105,7 @@ public record RegistrationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT
   }
 
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-  private static boolean validatePreKeySignature(final Optional<byte[]> maybeIdentityKey,
+  private static boolean validatePreKeySignature(final Optional<IdentityKey> maybeIdentityKey,
       final Optional<SignedPreKey> maybeSignedPreKey) {
 
     return maybeSignedPreKey.map(signedPreKey -> maybeIdentityKey

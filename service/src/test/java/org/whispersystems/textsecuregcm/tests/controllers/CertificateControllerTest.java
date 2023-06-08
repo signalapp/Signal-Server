@@ -113,7 +113,7 @@ class CertificateControllerTest {
     assertEquals(certificate.getSenderDevice(), 1L);
     assertTrue(certificate.hasSenderUuid());
     assertEquals(AuthHelper.VALID_UUID.toString(), certificate.getSenderUuid());
-    assertArrayEquals(certificate.getIdentityKey().toByteArray(), AuthHelper.VALID_IDENTITY);
+    assertArrayEquals(certificate.getIdentityKey().toByteArray(), AuthHelper.VALID_IDENTITY.serialize());
   }
 
   @Test
@@ -141,7 +141,7 @@ class CertificateControllerTest {
     assertEquals(certificate.getSender(), AuthHelper.VALID_NUMBER);
     assertEquals(certificate.getSenderDevice(), 1L);
     assertEquals(certificate.getSenderUuid(), AuthHelper.VALID_UUID.toString());
-    assertArrayEquals(certificate.getIdentityKey().toByteArray(), AuthHelper.VALID_IDENTITY);
+    assertArrayEquals(certificate.getIdentityKey().toByteArray(), AuthHelper.VALID_IDENTITY.serialize());
   }
 
   @Test
@@ -170,7 +170,7 @@ class CertificateControllerTest {
     assertTrue(StringUtils.isBlank(certificate.getSender()));
     assertEquals(certificate.getSenderDevice(), 1L);
     assertEquals(certificate.getSenderUuid(), AuthHelper.VALID_UUID.toString());
-    assertArrayEquals(certificate.getIdentityKey().toByteArray(), AuthHelper.VALID_IDENTITY);
+    assertArrayEquals(certificate.getIdentityKey().toByteArray(), AuthHelper.VALID_IDENTITY.serialize());
   }
 
   @Test

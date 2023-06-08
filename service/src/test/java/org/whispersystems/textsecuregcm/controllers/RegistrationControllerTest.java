@@ -47,6 +47,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.auth.PhoneVerificationTokenManager;
@@ -415,8 +416,8 @@ class RegistrationControllerTest {
   }
 
   static Stream<Arguments> atomicAccountCreationConflictingChannel() {
-    final Optional<byte[]> aciIdentityKey;
-    final Optional<byte[]> pniIdentityKey;
+    final Optional<IdentityKey> aciIdentityKey;
+    final Optional<IdentityKey> pniIdentityKey;
     final Optional<SignedPreKey> aciSignedPreKey;
     final Optional<SignedPreKey> pniSignedPreKey;
     final Optional<SignedPreKey> aciPqLastResortPreKey;
@@ -425,8 +426,8 @@ class RegistrationControllerTest {
       final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
       final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
 
-      aciIdentityKey = Optional.of(aciIdentityKeyPair.getPublicKey().serialize());
-      pniIdentityKey = Optional.of(pniIdentityKeyPair.getPublicKey().serialize());
+      aciIdentityKey = Optional.of(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
+      pniIdentityKey = Optional.of(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
       aciSignedPreKey = Optional.of(KeysHelper.signedECPreKey(1, aciIdentityKeyPair));
       pniSignedPreKey = Optional.of(KeysHelper.signedECPreKey(2, pniIdentityKeyPair));
       aciPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair));
@@ -504,8 +505,8 @@ class RegistrationControllerTest {
   }
 
   static Stream<Arguments> atomicAccountCreationPartialSignedPreKeys() {
-    final Optional<byte[]> aciIdentityKey;
-    final Optional<byte[]> pniIdentityKey;
+    final Optional<IdentityKey> aciIdentityKey;
+    final Optional<IdentityKey> pniIdentityKey;
     final Optional<SignedPreKey> aciSignedPreKey;
     final Optional<SignedPreKey> pniSignedPreKey;
     final Optional<SignedPreKey> aciPqLastResortPreKey;
@@ -514,8 +515,8 @@ class RegistrationControllerTest {
       final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
       final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
 
-      aciIdentityKey = Optional.of(aciIdentityKeyPair.getPublicKey().serialize());
-      pniIdentityKey = Optional.of(pniIdentityKeyPair.getPublicKey().serialize());
+      aciIdentityKey = Optional.of(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
+      pniIdentityKey = Optional.of(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
       aciSignedPreKey = Optional.of(KeysHelper.signedECPreKey(1, aciIdentityKeyPair));
       pniSignedPreKey = Optional.of(KeysHelper.signedECPreKey(2, pniIdentityKeyPair));
       aciPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair));
@@ -617,8 +618,8 @@ class RegistrationControllerTest {
   @MethodSource
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   void atomicAccountCreationSuccess(final RegistrationRequest registrationRequest,
-      final byte[] expectedAciIdentityKey,
-      final byte[] expectedPniIdentityKey,
+      final IdentityKey expectedAciIdentityKey,
+      final IdentityKey expectedPniIdentityKey,
       final SignedPreKey expectedAciSignedPreKey,
       final SignedPreKey expectedPniSignedPreKey,
       final SignedPreKey expectedAciPqLastResortPreKey,
@@ -683,8 +684,8 @@ class RegistrationControllerTest {
   }
 
   private static Stream<Arguments> atomicAccountCreationSuccess() {
-    final Optional<byte[]> aciIdentityKey;
-    final Optional<byte[]> pniIdentityKey;
+    final Optional<IdentityKey> aciIdentityKey;
+    final Optional<IdentityKey> pniIdentityKey;
     final Optional<SignedPreKey> aciSignedPreKey;
     final Optional<SignedPreKey> pniSignedPreKey;
     final Optional<SignedPreKey> aciPqLastResortPreKey;
@@ -693,8 +694,8 @@ class RegistrationControllerTest {
       final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
       final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
 
-      aciIdentityKey = Optional.of(aciIdentityKeyPair.getPublicKey().serialize());
-      pniIdentityKey = Optional.of(pniIdentityKeyPair.getPublicKey().serialize());
+      aciIdentityKey = Optional.of(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
+      pniIdentityKey = Optional.of(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
       aciSignedPreKey = Optional.of(KeysHelper.signedECPreKey(1, aciIdentityKeyPair));
       pniSignedPreKey = Optional.of(KeysHelper.signedECPreKey(2, pniIdentityKeyPair));
       aciPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair));

@@ -20,7 +20,6 @@ import static org.mockito.Mockito.when;
 
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -38,6 +37,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
+import org.signal.libsignal.protocol.IdentityKey;
+import org.signal.libsignal.protocol.ecc.Curve;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
@@ -147,7 +148,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
 
     final boolean discoverableByPhoneNumber = false;
     final String currentProfileVersion = "cpv";
-    final byte[] identityKey = "ikey".getBytes(StandardCharsets.UTF_8);
+    final IdentityKey identityKey = new IdentityKey(Curve.generateKeyPair().getPublicKey());
     final byte[] unidentifiedAccessKey = new byte[]{1};
     final String pin = "1234";
     final String registrationLock = "reglock";
@@ -189,12 +190,12 @@ class AccountsManagerConcurrentModificationIntegrationTest {
     return JsonHelpers.fromJson(redisSetArgumentCapture.getValue(), Account.class);
   }
 
-  private void verifyAccount(final String name, final Account account, final boolean discoverableByPhoneNumber, final String currentProfileVersion, final byte[] identityKey, final byte[] unidentifiedAccessKey, final String pin, final String clientRegistrationLock, final boolean unrestrictedUnidentifiedAccess, final long lastSeen) {
+  private void verifyAccount(final String name, final Account account, final boolean discoverableByPhoneNumber, final String currentProfileVersion, final IdentityKey identityKey, final byte[] unidentifiedAccessKey, final String pin, final String clientRegistrationLock, final boolean unrestrictedUnidentifiedAccess, final long lastSeen) {
 
     assertAll(name,
         () -> assertEquals(discoverableByPhoneNumber, account.isDiscoverableByPhoneNumber()),
         () -> assertEquals(currentProfileVersion, account.getCurrentProfileVersion().orElseThrow()),
-        () -> assertArrayEquals(identityKey, account.getIdentityKey()),
+        () -> assertEquals(identityKey, account.getIdentityKey()),
         () -> assertArrayEquals(unidentifiedAccessKey, account.getUnidentifiedAccessKey().orElseThrow()),
         () -> assertTrue(account.getRegistrationLock().verify(clientRegistrationLock)),
         () -> assertEquals(unrestrictedUnidentifiedAccess, account.isUnrestrictedUnidentifiedAccess())

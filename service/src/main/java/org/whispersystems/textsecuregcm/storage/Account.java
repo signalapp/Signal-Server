@@ -18,14 +18,15 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
+import org.signal.libsignal.protocol.IdentityKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
-import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
 import org.whispersystems.textsecuregcm.util.ByteArrayBase64UrlAdapter;
+import org.whispersystems.textsecuregcm.util.IdentityKeyAdapter;
 import org.whispersystems.textsecuregcm.util.Util;
 
 public class Account {
@@ -66,14 +67,14 @@ public class Account {
   private List<Device> devices = new ArrayList<>();
 
   @JsonProperty
-  @JsonSerialize(using = ByteArrayAdapter.Serializing.class)
-  @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
-  private byte[] identityKey;
+  @JsonSerialize(using = IdentityKeyAdapter.Serializer.class)
+  @JsonDeserialize(using = IdentityKeyAdapter.Deserializer.class)
+  private IdentityKey identityKey;
 
   @JsonProperty("pniIdentityKey")
-  @JsonSerialize(using = ByteArrayAdapter.Serializing.class)
-  @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
-  private byte[] phoneNumberIdentityKey;
+  @JsonSerialize(using = IdentityKeyAdapter.Serializer.class)
+  @JsonDeserialize(using = IdentityKeyAdapter.Deserializer.class)
+  private IdentityKey phoneNumberIdentityKey;
 
   @JsonProperty("cpv")
   private String currentProfileVersion;
@@ -327,23 +328,23 @@ public class Account {
     this.canonicallyDiscoverable = canonicallyDiscoverable;
   }
 
-  public void setIdentityKey(byte[] identityKey) {
+  public void setIdentityKey(final IdentityKey identityKey) {
     requireNotStale();
 
     this.identityKey = identityKey;
   }
 
-  public byte[] getIdentityKey() {
+  public IdentityKey getIdentityKey() {
     requireNotStale();
 
     return identityKey;
   }
 
-  public byte[] getPhoneNumberIdentityKey() {
+  public IdentityKey getPhoneNumberIdentityKey() {
     return phoneNumberIdentityKey;
   }
 
-  public void setPhoneNumberIdentityKey(final byte[] phoneNumberIdentityKey) {
+  public void setPhoneNumberIdentityKey(final IdentityKey phoneNumberIdentityKey) {
     this.phoneNumberIdentityKey = phoneNumberIdentityKey;
   }
 

@@ -6,7 +6,14 @@ package org.whispersystems.textsecuregcm.storage;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import org.apache.commons.lang3.ObjectUtils;
+import org.signal.libsignal.protocol.IdentityKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
@@ -19,12 +26,6 @@ import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.util.DestinationDeviceValidator;
-import javax.annotation.Nullable;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 public class ChangeNumberManager {
   private static final Logger logger = LoggerFactory.getLogger(AccountController.class);
@@ -39,7 +40,7 @@ public class ChangeNumberManager {
   }
 
   public Account changeNumber(final Account account, final String number,
-      @Nullable final byte[] pniIdentityKey,
+      @Nullable final IdentityKey pniIdentityKey,
       @Nullable final Map<Long, SignedPreKey> deviceSignedPreKeys,
       @Nullable final Map<Long, SignedPreKey> devicePqLastResortPreKeys,
       @Nullable final List<IncomingMessage> deviceMessages,
@@ -79,7 +80,7 @@ public class ChangeNumberManager {
   }
 
   public Account updatePniKeys(final Account account,
-      final byte[] pniIdentityKey,
+      final IdentityKey pniIdentityKey,
       final Map<Long, SignedPreKey> deviceSignedPreKeys,
       @Nullable final Map<Long, SignedPreKey> devicePqLastResortPreKeys,
       final List<IncomingMessage> deviceMessages,

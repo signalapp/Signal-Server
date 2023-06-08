@@ -11,14 +11,14 @@ import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import javax.validation.Valid;
@@ -35,8 +35,7 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-
-import org.apache.commons.lang3.ArrayUtils;
+import org.signal.libsignal.protocol.IdentityKey;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.ChangesDeviceEnabledState;
@@ -116,11 +115,11 @@ public class KeysController {
       updateAccount = true;
     }
 
-    final byte[] oldIdentityKey = usePhoneNumberIdentity ? account.getPhoneNumberIdentityKey() : account.getIdentityKey();
-    if (!Arrays.equals(preKeys.getIdentityKey(), oldIdentityKey)) {
+    final IdentityKey oldIdentityKey = usePhoneNumberIdentity ? account.getPhoneNumberIdentityKey() : account.getIdentityKey();
+    if (!Objects.equals(preKeys.getIdentityKey(), oldIdentityKey)) {
       updateAccount = true;
 
-      final boolean hasIdentityKey = ArrayUtils.isNotEmpty(oldIdentityKey);
+      final boolean hasIdentityKey = oldIdentityKey != null;
       final Tags tags = Tags.of(UserAgentTagUtil.getPlatformTag(userAgent))
           .and(HAS_IDENTITY_KEY_TAG_NAME, String.valueOf(hasIdentityKey))
           .and(IDENTITY_TYPE_TAG_NAME, usePhoneNumberIdentity ? "pni" : "aci");
@@ -221,7 +220,7 @@ public class KeysController {
       }
     }
 
-    final byte[] identityKey = usePhoneNumberIdentity ? target.getPhoneNumberIdentityKey() : target.getIdentityKey();
+    final IdentityKey identityKey = usePhoneNumberIdentity ? target.getPhoneNumberIdentityKey() : target.getIdentityKey();
 
     if (responseItems.isEmpty()) {
       return Response.status(404).build();
