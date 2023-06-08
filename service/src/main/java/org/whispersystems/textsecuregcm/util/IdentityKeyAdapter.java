@@ -24,7 +24,7 @@ import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 public class IdentityKeyAdapter {
 
   private static final Counter IDENTITY_KEY_WITHOUT_VERSION_BYTE_COUNTER =
-      Metrics.counter(MetricsUtil.name(IdentityKeyAdapter.class), "identityKeyWithoutVersionByte");
+      Metrics.counter(MetricsUtil.name(IdentityKeyAdapter.class, "identityKeyWithoutVersionByte"));
 
   public static class Serializer extends JsonSerializer<IdentityKey> {
 
