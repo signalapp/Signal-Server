@@ -2601,14 +2601,7 @@ components:
           type: string
           description: the registration verification code to authenticate this request
         pniIdentityKey:
-          type: array
-          description: the new public identity key to use for the phone-number identity
-            associated with the new phone number
-          items:
-            type: string
-            description: the new public identity key to use for the phone-number identity
-              associated with the new phone number
-            format: byte
+          $ref: '#/components/schemas/IdentityKey'
         deviceMessages:
           type: array
           description: |-
@@ -2645,6 +2638,28 @@ components:
             \ device on the account, including this one"
         signatureValidOnEachSignedPreKey:
           type: boolean
+    ECPublicKey:
+      type: object
+      properties:
+        type:
+          type: integer
+          format: int32
+        publicKeyBytes:
+          type: array
+          items:
+            type: string
+            format: byte
+    IdentityKey:
+      type: object
+      properties:
+        publicKey:
+          $ref: '#/components/schemas/ECPublicKey'
+        fingerprint:
+          type: string
+      description: |
+        The PNI-associated identity key for the account, encoded as a base64 string. If
+        provided, an account will be created "atomically," and all other properties needed for
+        atomic account creation must also be present.
     IncomingMessage:
       type: object
       properties:
@@ -2968,14 +2983,7 @@ components:
           type: string
           description: the new phone number for this account
         pniIdentityKey:
-          type: array
-          description: the new public identity key to use for the phone-number identity
-            associated with the new phone number
-          items:
-            type: string
-            description: the new public identity key to use for the phone-number identity
-              associated with the new phone number
-            format: byte
+          $ref: '#/components/schemas/IdentityKey'
         deviceMessages:
           type: array
           description: |-
@@ -3023,12 +3031,7 @@ components:
       type: object
       properties:
         pniIdentityKey:
-          type: array
-          description: the new identity key for this account's phone-number identity
-          items:
-            type: string
-            description: the new identity key for this account's phone-number identity
-            format: byte
+          $ref: '#/components/schemas/IdentityKey'
         deviceMessages:
           type: array
           description: |-
@@ -3443,18 +3446,7 @@ components:
         pqLastResortPreKey:
           $ref: '#/components/schemas/SignedPreKey'
         identityKey:
-          type: array
-          description: "Required. The public identity key for this identity (account\
-            \ or phone-number identity). If this device is not the primary device\
-            \ for the account, must match the existing stored identity key for this\
-            \ identity."
-          items:
-            type: string
-            description: "Required. The public identity key for this identity (account\
-              \ or phone-number identity). If this device is not the primary device\
-              \ for the account, must match the existing stored identity key for this\
-              \ identity."
-            format: byte
+          $ref: '#/components/schemas/IdentityKey'
         signatureValidOnEachSignedKey:
           type: boolean
     SpamReport:
@@ -3589,10 +3581,7 @@ components:
       type: object
       properties:
         identityKey:
-          type: array
-          items:
-            type: string
-            format: byte
+          $ref: '#/components/schemas/IdentityKey'
         unidentifiedAccess:
           type: string
         unrestrictedUnidentifiedAccess:
@@ -3629,10 +3618,7 @@ components:
       type: object
       properties:
         identityKey:
-          type: array
-          items:
-            type: string
-            format: byte
+          $ref: '#/components/schemas/IdentityKey'
         unidentifiedAccess:
           type: string
         unrestrictedUnidentifiedAccess:
@@ -3660,10 +3646,7 @@ components:
       type: object
       properties:
         identityKey:
-          type: array
-          items:
-            type: string
-            format: byte
+          $ref: '#/components/schemas/IdentityKey'
         unidentifiedAccess:
           type: string
         unrestrictedUnidentifiedAccess:
@@ -3800,31 +3783,9 @@ components:
             fail with an HTTP/409 response indicating that the client should prompt the user to
             transfer data from an existing device.
         aciIdentityKey:
-          type: array
-          description: |
-            The ACI-associated identity key for the account, encoded as a base64 string. If
-            provided, an account will be created "atomically," and all other properties needed for
-            atomic account creation must also be present.
-          items:
-            type: string
-            description: |
-              The ACI-associated identity key for the account, encoded as a base64 string. If
-              provided, an account will be created "atomically," and all other properties needed for
-              atomic account creation must also be present.
-            format: byte
+          $ref: '#/components/schemas/IdentityKey'
         pniIdentityKey:
-          type: array
-          description: |
-            The PNI-associated identity key for the account, encoded as a base64 string. If
-            provided, an account will be created "atomically," and all other properties needed for
-            atomic account creation must also be present.
-          items:
-            type: string
-            description: |
-              The PNI-associated identity key for the account, encoded as a base64 string. If
-              provided, an account will be created "atomically," and all other properties needed for
-              atomic account creation must also be present.
-            format: byte
+          $ref: '#/components/schemas/IdentityKey'
         aciSignedPreKey:
           $ref: '#/components/schemas/SignedPreKey'
         pniSignedPreKey:
