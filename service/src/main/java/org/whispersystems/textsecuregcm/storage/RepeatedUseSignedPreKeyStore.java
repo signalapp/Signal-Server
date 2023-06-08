@@ -5,12 +5,15 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
+import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.signal.libsignal.protocol.InvalidKeyException;
+import org.signal.libsignal.protocol.kem.KEMPublicKey;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
@@ -59,6 +62,9 @@ public class RepeatedUseSignedPreKeyStore {
 
   private static final String FIND_KEY_TIMER_NAME = MetricsUtil.name(RepeatedUseSignedPreKeyStore.class, "findKey");
   private static final String KEY_PRESENT_TAG_NAME = "keyPresent";
+
+  private static final Counter INVALID_KEY_COUNTER =
+      Metrics.counter(MetricsUtil.name(RepeatedUseSignedPreKeyStore.class, "invalidKey"));
 
   public RepeatedUseSignedPreKeyStore(final DynamoDbAsyncClient dynamoDbAsyncClient, final String tableName) {
     this.dynamoDbAsyncClient = dynamoDbAsyncClient;
@@ -220,9 +226,17 @@ public class RepeatedUseSignedPreKeyStore {
   }
 
   private static SignedPreKey getPreKeyFromItem(final Map<String, AttributeValue> item) {
+    final byte[] publicKeyBytes = item.get(ATTR_PUBLIC_KEY).b().asByteArray();
+
+    try {
+      new KEMPublicKey(publicKeyBytes);
+    } catch (final InvalidKeyException e) {
+      INVALID_KEY_COUNTER.increment();
+    }
+
     return new SignedPreKey(
         Long.parseLong(item.get(ATTR_KEY_ID).n()),
-        item.get(ATTR_PUBLIC_KEY).b().asByteArray(),
+        publicKeyBytes,
         item.get(ATTR_SIGNATURE).b().asByteArray());
   }
 }

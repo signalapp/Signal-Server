@@ -5,7 +5,12 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Metrics;
+import org.signal.libsignal.protocol.InvalidKeyException;
+import org.signal.libsignal.protocol.kem.KEMPublicKey;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
@@ -13,6 +18,9 @@ import java.util.Map;
 import java.util.UUID;
 
 public class SingleUseKEMPreKeyStore extends SingleUsePreKeyStore<SignedPreKey> {
+
+  private static final Counter INVALID_KEY_COUNTER =
+      Metrics.counter(MetricsUtil.name(SingleUseKEMPreKeyStore.class, "invalidKey"));
 
   protected SingleUseKEMPreKeyStore(final DynamoDbAsyncClient dynamoDbAsyncClient, final String tableName) {
     super(dynamoDbAsyncClient, tableName);
@@ -32,6 +40,12 @@ public class SingleUseKEMPreKeyStore extends SingleUsePreKeyStore<SignedPreKey> 
     final long keyId = item.get(KEY_DEVICE_ID_KEY_ID).b().asByteBuffer().getLong(8);
     final byte[] publicKey = extractByteArray(item.get(ATTR_PUBLIC_KEY));
     final byte[] signature = extractByteArray(item.get(ATTR_SIGNATURE));
+
+    try {
+      new KEMPublicKey(publicKey);
+    } catch (final InvalidKeyException e) {
+      INVALID_KEY_COUNTER.increment();
+    }
 
     return new SignedPreKey(keyId, publicKey, signature);
   }
