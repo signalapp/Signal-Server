@@ -9,10 +9,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
-import org.whispersystems.textsecuregcm.entities.SignedPreKey;
+import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 
-class SingleUseKEMPreKeyStoreTest extends SingleUsePreKeyStoreTest<SignedPreKey> {
+class SingleUseKEMPreKeyStoreTest extends SingleUsePreKeyStoreTest<KEMSignedPreKey> {
 
   private SingleUseKEMPreKeyStore preKeyStore;
 
@@ -28,12 +28,12 @@ class SingleUseKEMPreKeyStoreTest extends SingleUsePreKeyStoreTest<SignedPreKey>
   }
 
   @Override
-  protected SingleUsePreKeyStore<SignedPreKey> getPreKeyStore() {
+  protected SingleUsePreKeyStore<KEMSignedPreKey> getPreKeyStore() {
     return preKeyStore;
   }
 
   @Override
-  protected SignedPreKey generatePreKey(final long keyId) {
+  protected KEMSignedPreKey generatePreKey(final long keyId) {
     return KeysHelper.signedKEMPreKey(keyId, IDENTITY_KEY_PAIR);
   }
 }

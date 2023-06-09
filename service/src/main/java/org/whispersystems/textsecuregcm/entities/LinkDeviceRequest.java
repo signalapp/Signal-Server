@@ -25,10 +25,10 @@ public record LinkDeviceRequest(@Schema(requiredMode = Schema.RequiredMode.REQUI
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   public LinkDeviceRequest(@JsonProperty("verificationCode") String verificationCode,
                            @JsonProperty("accountAttributes") AccountAttributes accountAttributes,
-                           @JsonProperty("aciSignedPreKey") Optional<@Valid SignedPreKey> aciSignedPreKey,
-                           @JsonProperty("pniSignedPreKey") Optional<@Valid SignedPreKey> pniSignedPreKey,
-                           @JsonProperty("aciPqLastResortPreKey") Optional<@Valid SignedPreKey> aciPqLastResortPreKey,
-                           @JsonProperty("pniPqLastResortPreKey") Optional<@Valid SignedPreKey> pniPqLastResortPreKey,
+                           @JsonProperty("aciSignedPreKey") Optional<@Valid ECSignedPreKey> aciSignedPreKey,
+                           @JsonProperty("pniSignedPreKey") Optional<@Valid ECSignedPreKey> pniSignedPreKey,
+                           @JsonProperty("aciPqLastResortPreKey") Optional<@Valid KEMSignedPreKey> aciPqLastResortPreKey,
+                           @JsonProperty("pniPqLastResortPreKey") Optional<@Valid KEMSignedPreKey> pniPqLastResortPreKey,
                            @JsonProperty("apnToken") Optional<@Valid ApnRegistrationId> apnToken,
                            @JsonProperty("gcmToken") Optional<@Valid GcmRegistrationId> gcmToken) {
 

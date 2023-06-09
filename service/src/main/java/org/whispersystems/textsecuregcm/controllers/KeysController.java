@@ -41,7 +41,9 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.ChangesDeviceEnabledState;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
-import org.whispersystems.textsecuregcm.entities.PreKey;
+import org.whispersystems.textsecuregcm.entities.ECPreKey;
+import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
+import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.PreKeyCount;
 import org.whispersystems.textsecuregcm.entities.PreKeyResponse;
 import org.whispersystems.textsecuregcm.entities.PreKeyResponseItem;
@@ -207,9 +209,9 @@ public class KeysController {
 
     for (Device device : devices) {
       UUID identifier = usePhoneNumberIdentity ? target.getPhoneNumberIdentifier() : targetUuid;
-      SignedPreKey signedECPreKey = usePhoneNumberIdentity ? device.getPhoneNumberIdentitySignedPreKey() : device.getSignedPreKey();
-      PreKey unsignedECPreKey = keys.takeEC(identifier, device.getId()).orElse(null);
-      SignedPreKey pqPreKey = returnPqKey ? keys.takePQ(identifier, device.getId()).orElse(null) : null;
+      ECSignedPreKey signedECPreKey = usePhoneNumberIdentity ? device.getPhoneNumberIdentitySignedPreKey() : device.getSignedPreKey();
+      ECPreKey unsignedECPreKey = keys.takeEC(identifier, device.getId()).orElse(null);
+      KEMSignedPreKey pqPreKey = returnPqKey ? keys.takePQ(identifier, device.getId()).orElse(null) : null;
 
       if (signedECPreKey != null || unsignedECPreKey != null || pqPreKey != null) {
         final int registrationId = usePhoneNumberIdentity ?
@@ -234,7 +236,7 @@ public class KeysController {
   @Consumes(MediaType.APPLICATION_JSON)
   @ChangesDeviceEnabledState
   public void setSignedKey(@Auth final AuthenticatedAccount auth,
-      @Valid final SignedPreKey signedPreKey,
+      @Valid final ECSignedPreKey signedPreKey,
       @QueryParam("identity") final Optional<String> identityType) {
 
     Device device = auth.getAuthenticatedDevice();
@@ -252,11 +254,11 @@ public class KeysController {
   @GET
   @Path("/signed")
   @Produces(MediaType.APPLICATION_JSON)
-  public Optional<SignedPreKey> getSignedKey(@Auth final AuthenticatedAccount auth,
+  public Optional<ECSignedPreKey> getSignedKey(@Auth final AuthenticatedAccount auth,
       @QueryParam("identity") final Optional<String> identityType) {
 
     Device device = auth.getAuthenticatedDevice();
-    SignedPreKey signedPreKey = usePhoneNumberIdentity(identityType) ?
+    ECSignedPreKey signedPreKey = usePhoneNumberIdentity(identityType) ?
         device.getPhoneNumberIdentitySignedPreKey() : device.getSignedPreKey();
 
     return Optional.ofNullable(signedPreKey);

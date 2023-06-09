@@ -20,20 +20,20 @@ public class PreKeyResponseItem {
 
   @JsonProperty
   @Schema(description="the signed elliptic-curve prekey for the device, if one has been set")
-  private SignedPreKey signedPreKey;
+  private ECSignedPreKey signedPreKey;
 
   @JsonProperty
   @Schema(description="an unsigned elliptic-curve prekey for the device, if any remain")
-  private PreKey preKey;
+  private ECPreKey preKey;
 
   @JsonProperty
   @Schema(description="a signed post-quantum prekey for the device " +
       "(a one-time prekey if any remain, otherwise the last-resort prekey if one has been set)")
-  private SignedPreKey pqPreKey;
+  private KEMSignedPreKey pqPreKey;
 
   public PreKeyResponseItem() {}
 
-  public PreKeyResponseItem(long deviceId, int registrationId, SignedPreKey signedPreKey, PreKey preKey, SignedPreKey pqPreKey) {
+  public PreKeyResponseItem(long deviceId, int registrationId, ECSignedPreKey signedPreKey, ECPreKey preKey, KEMSignedPreKey pqPreKey) {
     this.deviceId = deviceId;
     this.registrationId = registrationId;
     this.signedPreKey = signedPreKey;
@@ -42,17 +42,17 @@ public class PreKeyResponseItem {
   }
 
   @VisibleForTesting
-  public SignedPreKey getSignedPreKey() {
+  public ECSignedPreKey getSignedPreKey() {
     return signedPreKey;
   }
 
   @VisibleForTesting
-  public PreKey getPreKey() {
+  public ECPreKey getPreKey() {
     return preKey;
   }
 
   @VisibleForTesting
-  public SignedPreKey getPqPreKey() {
+  public KEMSignedPreKey getPqPreKey() {
     return pqPreKey;
   }
 

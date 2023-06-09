@@ -13,14 +13,14 @@ import java.util.stream.Stream;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.whispersystems.textsecuregcm.entities.SignedPreKey;
+import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 
 class DeviceTest {
 
   @ParameterizedTest
   @MethodSource
   void testIsEnabled(final boolean master, final boolean fetchesMessages, final String apnId, final String gcmId,
-      final SignedPreKey signedPreKey, final Duration timeSinceLastSeen, final boolean expectEnabled) {
+      final ECSignedPreKey signedPreKey, final Duration timeSinceLastSeen, final boolean expectEnabled) {
 
     final long lastSeen = System.currentTimeMillis() - timeSinceLastSeen.toMillis();
 
@@ -41,36 +41,36 @@ class DeviceTest {
         //             master fetchesMessages apnId     gcmId     signedPreKey              lastSeen             expectEnabled
         Arguments.of(true, false, null, null, null, Duration.ofDays(60), false),
         Arguments.of(true, false, null, null, null, Duration.ofDays(1), false),
-        Arguments.of(true, false, null, null, mock(SignedPreKey.class), Duration.ofDays(60), false),
-        Arguments.of(true, false, null, null, mock(SignedPreKey.class), Duration.ofDays(1), false),
+        Arguments.of(true, false, null, null, mock(ECSignedPreKey.class), Duration.ofDays(60), false),
+        Arguments.of(true, false, null, null, mock(ECSignedPreKey.class), Duration.ofDays(1), false),
         Arguments.of(true, false, null, "gcm-id", null, Duration.ofDays(60), false),
         Arguments.of(true, false, null, "gcm-id", null, Duration.ofDays(1), false),
-        Arguments.of(true, false, null, "gcm-id", mock(SignedPreKey.class), Duration.ofDays(60), true),
-        Arguments.of(true, false, null, "gcm-id", mock(SignedPreKey.class), Duration.ofDays(1), true),
+        Arguments.of(true, false, null, "gcm-id", mock(ECSignedPreKey.class), Duration.ofDays(60), true),
+        Arguments.of(true, false, null, "gcm-id", mock(ECSignedPreKey.class), Duration.ofDays(1), true),
         Arguments.of(true, false, "apn-id", null, null, Duration.ofDays(60), false),
         Arguments.of(true, false, "apn-id", null, null, Duration.ofDays(1), false),
-        Arguments.of(true, false, "apn-id", null, mock(SignedPreKey.class), Duration.ofDays(60), true),
-        Arguments.of(true, false, "apn-id", null, mock(SignedPreKey.class), Duration.ofDays(1), true),
+        Arguments.of(true, false, "apn-id", null, mock(ECSignedPreKey.class), Duration.ofDays(60), true),
+        Arguments.of(true, false, "apn-id", null, mock(ECSignedPreKey.class), Duration.ofDays(1), true),
         Arguments.of(true, true, null, null, null, Duration.ofDays(60), false),
         Arguments.of(true, true, null, null, null, Duration.ofDays(1), false),
-        Arguments.of(true, true, null, null, mock(SignedPreKey.class), Duration.ofDays(60), true),
-        Arguments.of(true, true, null, null, mock(SignedPreKey.class), Duration.ofDays(1), true),
+        Arguments.of(true, true, null, null, mock(ECSignedPreKey.class), Duration.ofDays(60), true),
+        Arguments.of(true, true, null, null, mock(ECSignedPreKey.class), Duration.ofDays(1), true),
         Arguments.of(false, false, null, null, null, Duration.ofDays(60), false),
         Arguments.of(false, false, null, null, null, Duration.ofDays(1), false),
-        Arguments.of(false, false, null, null, mock(SignedPreKey.class), Duration.ofDays(60), false),
-        Arguments.of(false, false, null, null, mock(SignedPreKey.class), Duration.ofDays(1), false),
+        Arguments.of(false, false, null, null, mock(ECSignedPreKey.class), Duration.ofDays(60), false),
+        Arguments.of(false, false, null, null, mock(ECSignedPreKey.class), Duration.ofDays(1), false),
         Arguments.of(false, false, null, "gcm-id", null, Duration.ofDays(60), false),
         Arguments.of(false, false, null, "gcm-id", null, Duration.ofDays(1), false),
-        Arguments.of(false, false, null, "gcm-id", mock(SignedPreKey.class), Duration.ofDays(60), false),
-        Arguments.of(false, false, null, "gcm-id", mock(SignedPreKey.class), Duration.ofDays(1), true),
+        Arguments.of(false, false, null, "gcm-id", mock(ECSignedPreKey.class), Duration.ofDays(60), false),
+        Arguments.of(false, false, null, "gcm-id", mock(ECSignedPreKey.class), Duration.ofDays(1), true),
         Arguments.of(false, false, "apn-id", null, null, Duration.ofDays(60), false),
         Arguments.of(false, false, "apn-id", null, null, Duration.ofDays(1), false),
-        Arguments.of(false, false, "apn-id", null, mock(SignedPreKey.class), Duration.ofDays(60), false),
-        Arguments.of(false, false, "apn-id", null, mock(SignedPreKey.class), Duration.ofDays(1), true),
+        Arguments.of(false, false, "apn-id", null, mock(ECSignedPreKey.class), Duration.ofDays(60), false),
+        Arguments.of(false, false, "apn-id", null, mock(ECSignedPreKey.class), Duration.ofDays(1), true),
         Arguments.of(false, true, null, null, null, Duration.ofDays(60), false),
         Arguments.of(false, true, null, null, null, Duration.ofDays(1), false),
-        Arguments.of(false, true, null, null, mock(SignedPreKey.class), Duration.ofDays(60), false),
-        Arguments.of(false, true, null, null, mock(SignedPreKey.class), Duration.ofDays(1), true)
+        Arguments.of(false, true, null, null, mock(ECSignedPreKey.class), Duration.ofDays(60), false),
+        Arguments.of(false, true, null, null, mock(ECSignedPreKey.class), Duration.ofDays(1), true)
     );
   }
 }

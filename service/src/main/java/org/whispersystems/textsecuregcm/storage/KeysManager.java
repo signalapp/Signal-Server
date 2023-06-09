@@ -13,15 +13,15 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nullable;
-import org.whispersystems.textsecuregcm.entities.PreKey;
-import org.whispersystems.textsecuregcm.entities.SignedPreKey;
+import org.whispersystems.textsecuregcm.entities.ECPreKey;
+import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 
 public class KeysManager {
 
   private final SingleUseECPreKeyStore ecPreKeys;
   private final SingleUseKEMPreKeyStore pqPreKeys;
-  private final RepeatedUseSignedPreKeyStore pqLastResortKeys;
+  private final RepeatedUseKEMSignedPreKeyStore pqLastResortKeys;
 
   public KeysManager(
       final DynamoDbAsyncClient dynamoDbAsyncClient,
@@ -30,18 +30,18 @@ public class KeysManager {
       final String pqLastResortTableName) {
     this.ecPreKeys = new SingleUseECPreKeyStore(dynamoDbAsyncClient, ecTableName);
     this.pqPreKeys = new SingleUseKEMPreKeyStore(dynamoDbAsyncClient, pqTableName);
-    this.pqLastResortKeys = new RepeatedUseSignedPreKeyStore(dynamoDbAsyncClient, pqLastResortTableName);
+    this.pqLastResortKeys = new RepeatedUseKEMSignedPreKeyStore(dynamoDbAsyncClient, pqLastResortTableName);
   }
 
-  public void store(final UUID identifier, final long deviceId, final List<PreKey> keys) {
+  public void store(final UUID identifier, final long deviceId, final List<ECPreKey> keys) {
     store(identifier, deviceId, keys, null, null);
   }
 
   public void store(
       final UUID identifier, final long deviceId,
-      @Nullable final List<PreKey> ecKeys,
-      @Nullable final List<SignedPreKey> pqKeys,
-      @Nullable final SignedPreKey pqLastResortKey) {
+      @Nullable final List<ECPreKey> ecKeys,
+      @Nullable final List<KEMSignedPreKey> pqKeys,
+      @Nullable final KEMSignedPreKey pqLastResortKey) {
 
     final List<CompletableFuture<Void>> storeFutures = new ArrayList<>();
 
@@ -60,15 +60,15 @@ public class KeysManager {
     CompletableFuture.allOf(storeFutures.toArray(new CompletableFuture[0])).join();
   }
 
-  public void storePqLastResort(final UUID identifier, final Map<Long, SignedPreKey> keys) {
+  public void storePqLastResort(final UUID identifier, final Map<Long, KEMSignedPreKey> keys) {
     pqLastResortKeys.store(identifier, keys).join();
   }
 
-  public Optional<PreKey> takeEC(final UUID identifier, final long deviceId) {
+  public Optional<ECPreKey> takeEC(final UUID identifier, final long deviceId) {
     return ecPreKeys.take(identifier, deviceId).join();
   }
 
-  public Optional<SignedPreKey> takePQ(final UUID identifier, final long deviceId) {
+  public Optional<KEMSignedPreKey> takePQ(final UUID identifier, final long deviceId) {
     return pqPreKeys.take(identifier, deviceId)
         .thenCompose(maybeSingleUsePreKey -> maybeSingleUsePreKey
             .map(singleUsePreKey -> CompletableFuture.completedFuture(maybeSingleUsePreKey))
@@ -76,9 +76,8 @@ public class KeysManager {
   }
 
   @VisibleForTesting
-  Optional<PreKey> getLastResort(final UUID identifier, final long deviceId) {
-    return pqLastResortKeys.find(identifier, deviceId).join()
-        .map(signedPreKey -> signedPreKey);
+  Optional<KEMSignedPreKey> getLastResort(final UUID identifier, final long deviceId) {
+    return pqLastResortKeys.find(identifier, deviceId).join();
   }
 
   public List<Long> getPqEnabledDevices(final UUID identifier) {

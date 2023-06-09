@@ -20,8 +20,6 @@ import javax.validation.constraints.NotNull;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
 import org.whispersystems.textsecuregcm.util.IdentityKeyAdapter;
-import org.whispersystems.textsecuregcm.util.ValidPreKey;
-import org.whispersystems.textsecuregcm.util.ValidPreKey.PreKeyType;
 
 public record ChangeNumberRequest(
     @Schema(description="""
@@ -54,7 +52,7 @@ public record ChangeNumberRequest(
     @Schema(description="""
         A new signed elliptic-curve prekey for each enabled device on the account, including this one.
         Each must be accompanied by a valid signature from the new identity key in this request.""")
-    @NotNull @Valid Map<Long, @NotNull @Valid @ValidPreKey(type=PreKeyType.ECC) SignedPreKey> devicePniSignedPrekeys,
+    @NotNull @Valid Map<Long, @NotNull @Valid ECSignedPreKey> devicePniSignedPrekeys,
 
     @Schema(description="""
         A new signed post-quantum last-resort prekey for each enabled device on the account, including this one.
@@ -62,14 +60,14 @@ public record ChangeNumberRequest(
         If present, must contain one prekey per enabled device including this one.
         Prekeys for devices that did not previously have any post-quantum prekeys stored will be silently dropped.
         Each must be accompanied by a valid signature from the new identity key in this request.""")
-    @Valid Map<Long, @NotNull @Valid @ValidPreKey(type=PreKeyType.KYBER) SignedPreKey> devicePniPqLastResortPrekeys,
+    @Valid Map<Long, @NotNull @Valid KEMSignedPreKey> devicePniPqLastResortPrekeys,
 
     @Schema(description="the new phone-number-identity registration ID for each enabled device on the account, including this one")
     @NotNull Map<Long, Integer> pniRegistrationIds) implements PhoneVerificationRequest {
 
   @AssertTrue
   public boolean isSignatureValidOnEachSignedPreKey() {
-    List<SignedPreKey> spks = new ArrayList<>();
+    List<SignedPreKey<?>> spks = new ArrayList<>();
     if (devicePniSignedPrekeys != null) {
       spks.addAll(devicePniSignedPrekeys.values());
     }

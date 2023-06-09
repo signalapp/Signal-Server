@@ -55,7 +55,8 @@ import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
-import org.whispersystems.textsecuregcm.entities.SignedPreKey;
+import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
+import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
@@ -673,9 +674,10 @@ class AccountsManagerTest {
     final String number = "+14152222222";
 
     Account account = AccountsHelper.generateTestAccount(number, UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
+    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
     assertThrows(IllegalArgumentException.class,
         () -> accountsManager.changeNumber(
-            account, number, new IdentityKey(Curve.generateKeyPair().getPublicKey()), Map.of(1L, new SignedPreKey()), null, Map.of(1L, 101)),
+            account, number, new IdentityKey(Curve.generateKeyPair().getPublicKey()), Map.of(1L, KeysHelper.signedECPreKey(1, pniIdentityKeyPair)), null, Map.of(1L, 101)),
         "AccountsManager should not allow use of changeNumber with new PNI keys but without changing number");
 
     verify(accounts, never()).update(any());
@@ -719,10 +721,10 @@ class AccountsManagerTest {
     final UUID originalPni = UUID.randomUUID();
     final UUID targetPni = UUID.randomUUID();
     final ECKeyPair identityKeyPair = Curve.generateKeyPair();
-    final Map<Long, SignedPreKey> newSignedKeys = Map.of(
+    final Map<Long, ECSignedPreKey> newSignedKeys = Map.of(
         1L, KeysHelper.signedECPreKey(1, identityKeyPair),
         2L, KeysHelper.signedECPreKey(2, identityKeyPair));
-    final Map<Long, SignedPreKey> newSignedPqKeys = Map.of(
+    final Map<Long, KEMSignedPreKey> newSignedPqKeys = Map.of(
         1L, KeysHelper.signedKEMPreKey(3, identityKeyPair),
         2L, KeysHelper.signedKEMPreKey(4, identityKeyPair));
     final Map<Long, Integer> newRegistrationIds = Map.of(1L, 201, 2L, 202);
@@ -768,14 +770,14 @@ class AccountsManagerTest {
     List<Device> devices = List.of(DevicesHelper.createDevice(1L, 0L, 101), DevicesHelper.createDevice(2L, 0L, 102));
     Account account = AccountsHelper.generateTestAccount(number, UUID.randomUUID(), UUID.randomUUID(), devices, new byte[16]);
     final ECKeyPair identityKeyPair = Curve.generateKeyPair();
-    Map<Long, SignedPreKey> newSignedKeys = Map.of(
+    Map<Long, ECSignedPreKey> newSignedKeys = Map.of(
         1L, KeysHelper.signedECPreKey(1, identityKeyPair),
         2L, KeysHelper.signedECPreKey(2, identityKeyPair));
     Map<Long, Integer> newRegistrationIds = Map.of(1L, 201, 2L, 202);
 
     UUID oldUuid = account.getUuid();
     UUID oldPni = account.getPhoneNumberIdentifier();
-    Map<Long, SignedPreKey> oldSignedPreKeys = account.getDevices().stream().collect(Collectors.toMap(Device::getId, Device::getSignedPreKey));
+    Map<Long, ECSignedPreKey> oldSignedPreKeys = account.getDevices().stream().collect(Collectors.toMap(Device::getId, Device::getSignedPreKey));
 
     final IdentityKey pniIdentityKey = new IdentityKey(Curve.generateKeyPair().getPublicKey());
 
@@ -810,10 +812,10 @@ class AccountsManagerTest {
     List<Device> devices = List.of(DevicesHelper.createDevice(1L, 0L, 101), DevicesHelper.createDevice(2L, 0L, 102));
     Account account = AccountsHelper.generateTestAccount(number, UUID.randomUUID(), UUID.randomUUID(), devices, new byte[16]);
     final ECKeyPair identityKeyPair = Curve.generateKeyPair();
-    final Map<Long, SignedPreKey> newSignedKeys = Map.of(
+    final Map<Long, ECSignedPreKey> newSignedKeys = Map.of(
         1L, KeysHelper.signedECPreKey(1, identityKeyPair),
         2L, KeysHelper.signedECPreKey(2, identityKeyPair));
-    final Map<Long, SignedPreKey> newSignedPqKeys = Map.of(
+    final Map<Long, KEMSignedPreKey> newSignedPqKeys = Map.of(
         1L, KeysHelper.signedKEMPreKey(3, identityKeyPair),
         2L, KeysHelper.signedKEMPreKey(4, identityKeyPair));
     Map<Long, Integer> newRegistrationIds = Map.of(1L, 201, 2L, 202);
@@ -823,7 +825,7 @@ class AccountsManagerTest {
 
     when(keysManager.getPqEnabledDevices(oldPni)).thenReturn(List.of(1L));
 
-    Map<Long, SignedPreKey> oldSignedPreKeys = account.getDevices().stream().collect(Collectors.toMap(Device::getId, Device::getSignedPreKey));
+    Map<Long, ECSignedPreKey> oldSignedPreKeys = account.getDevices().stream().collect(Collectors.toMap(Device::getId, Device::getSignedPreKey));
 
     final IdentityKey pniIdentityKey = new IdentityKey(Curve.generateKeyPair().getPublicKey());
 

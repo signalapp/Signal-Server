@@ -8,9 +8,9 @@ package org.whispersystems.textsecuregcm.storage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.signal.libsignal.protocol.ecc.Curve;
-import org.whispersystems.textsecuregcm.entities.PreKey;
+import org.whispersystems.textsecuregcm.entities.ECPreKey;
 
-class SingleUseECPreKeyStoreTest extends SingleUsePreKeyStoreTest<PreKey> {
+class SingleUseECPreKeyStoreTest extends SingleUsePreKeyStoreTest<ECPreKey> {
 
   private SingleUseECPreKeyStore preKeyStore;
 
@@ -24,12 +24,12 @@ class SingleUseECPreKeyStoreTest extends SingleUsePreKeyStoreTest<PreKey> {
   }
 
   @Override
-  protected SingleUsePreKeyStore<PreKey> getPreKeyStore() {
+  protected SingleUsePreKeyStore<ECPreKey> getPreKeyStore() {
     return preKeyStore;
   }
 
   @Override
-  protected PreKey generatePreKey(final long keyId) {
-    return new PreKey(keyId, Curve.generateKeyPair().getPublicKey().serialize());
+  protected ECPreKey generatePreKey(final long keyId) {
+    return new ECPreKey(keyId, Curve.generateKeyPair().getPublicKey());
   }
 }

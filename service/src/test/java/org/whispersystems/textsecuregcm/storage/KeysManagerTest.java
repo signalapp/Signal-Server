@@ -10,7 +10,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.security.SecureRandom;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -21,8 +20,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
-import org.whispersystems.textsecuregcm.entities.PreKey;
-import org.whispersystems.textsecuregcm.entities.SignedPreKey;
+import org.whispersystems.textsecuregcm.entities.ECPreKey;
+import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
+import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 
@@ -36,6 +36,8 @@ class KeysManagerTest {
 
   private static final UUID ACCOUNT_UUID = UUID.randomUUID();
   private static final long DEVICE_ID = 1L;
+
+  private static final ECKeyPair IDENTITY_KEY_PAIR = Curve.generateKeyPair();
 
   @BeforeEach
   void setup() {
@@ -62,17 +64,17 @@ class KeysManagerTest {
     assertEquals(1, keysManager.getEcCount(ACCOUNT_UUID, DEVICE_ID),
         "Repeatedly storing same key should have no effect");
 
-    keysManager.store(ACCOUNT_UUID, DEVICE_ID, null, List.of(generateTestSignedPreKey(1)), null);
+    keysManager.store(ACCOUNT_UUID, DEVICE_ID, null, List.of(generateTestKEMSignedPreKey(1)), null);
     assertEquals(1, keysManager.getEcCount(ACCOUNT_UUID, DEVICE_ID),
         "Uploading new PQ prekeys should have no effect on EC prekeys");
     assertEquals(1, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID));
 
-    keysManager.store(ACCOUNT_UUID, DEVICE_ID, null, null, generateTestSignedPreKey(1001));
+    keysManager.store(ACCOUNT_UUID, DEVICE_ID, null, null, generateTestKEMSignedPreKey(1001));
     assertEquals(1, keysManager.getEcCount(ACCOUNT_UUID, DEVICE_ID),
         "Uploading new PQ last-resort prekey should have no effect on EC prekeys");
     assertEquals(1, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID),
         "Uploading new PQ last-resort prekey should have no effect on one-time PQ prekeys");
-    assertEquals(1001, keysManager.getLastResort(ACCOUNT_UUID, DEVICE_ID).get().getKeyId());
+    assertEquals(1001, keysManager.getLastResort(ACCOUNT_UUID, DEVICE_ID).get().keyId());
 
     keysManager.store(ACCOUNT_UUID, DEVICE_ID, List.of(generateTestPreKey(2)), null, null);
     assertEquals(1, keysManager.getEcCount(ACCOUNT_UUID, DEVICE_ID),
@@ -80,7 +82,7 @@ class KeysManagerTest {
     assertEquals(1, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID),
         "Uploading new EC prekeys should have no effect on PQ prekeys");
 
-    keysManager.store(ACCOUNT_UUID, DEVICE_ID, List.of(generateTestPreKey(3)), List.of(generateTestSignedPreKey(2)), null);
+    keysManager.store(ACCOUNT_UUID, DEVICE_ID, List.of(generateTestPreKey(3)), List.of(generateTestKEMSignedPreKey(2)), null);
     assertEquals(1, keysManager.getEcCount(ACCOUNT_UUID, DEVICE_ID),
         "Inserting a new key should overwrite all prior keys of the same type for the given account/device");
     assertEquals(1, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID),
@@ -88,13 +90,12 @@ class KeysManagerTest {
 
     keysManager.store(ACCOUNT_UUID, DEVICE_ID,
         List.of(generateTestPreKey(4), generateTestPreKey(5)),
-        List.of(generateTestSignedPreKey(6), generateTestSignedPreKey(7)),
-        generateTestSignedPreKey(1002));
+        List.of(generateTestKEMSignedPreKey(6), generateTestKEMSignedPreKey(7)), generateTestKEMSignedPreKey(1002));
     assertEquals(2, keysManager.getEcCount(ACCOUNT_UUID, DEVICE_ID),
         "Inserting multiple new keys should overwrite all prior keys for the given account/device");
     assertEquals(2, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID),
         "Inserting multiple new keys should overwrite all prior keys for the given account/device");
-    assertEquals(1002, keysManager.getLastResort(ACCOUNT_UUID, DEVICE_ID).get().getKeyId(),
+    assertEquals(1002, keysManager.getLastResort(ACCOUNT_UUID, DEVICE_ID).get().keyId(),
         "Uploading new last-resort key should overwrite prior last-resort key for the account/device");
   }
 
@@ -102,10 +103,10 @@ class KeysManagerTest {
   void testTakeAccountAndDeviceId() {
     assertEquals(Optional.empty(), keysManager.takeEC(ACCOUNT_UUID, DEVICE_ID));
 
-    final PreKey preKey = generateTestPreKey(1);
+    final ECPreKey preKey = generateTestPreKey(1);
 
     keysManager.store(ACCOUNT_UUID, DEVICE_ID, List.of(preKey, generateTestPreKey(2)));
-    final Optional<PreKey> takenKey = keysManager.takeEC(ACCOUNT_UUID, DEVICE_ID);
+    final Optional<ECPreKey> takenKey = keysManager.takeEC(ACCOUNT_UUID, DEVICE_ID);
     assertEquals(Optional.of(preKey), takenKey);
     assertEquals(1, keysManager.getEcCount(ACCOUNT_UUID, DEVICE_ID));
   }
@@ -114,9 +115,9 @@ class KeysManagerTest {
   void testTakePQ() {
     assertEquals(Optional.empty(), keysManager.takeEC(ACCOUNT_UUID, DEVICE_ID));
 
-    final SignedPreKey preKey1 = generateTestSignedPreKey(1);
-    final SignedPreKey preKey2 = generateTestSignedPreKey(2);
-    final SignedPreKey preKeyLast = generateTestSignedPreKey(1001);
+    final KEMSignedPreKey preKey1 = generateTestKEMSignedPreKey(1);
+    final KEMSignedPreKey preKey2 = generateTestKEMSignedPreKey(2);
+    final KEMSignedPreKey preKeyLast = generateTestKEMSignedPreKey(1001);
 
     keysManager.store(ACCOUNT_UUID, DEVICE_ID, null, List.of(preKey1, preKey2), preKeyLast);
 
@@ -138,7 +139,7 @@ class KeysManagerTest {
     assertEquals(0, keysManager.getEcCount(ACCOUNT_UUID, DEVICE_ID));
     assertEquals(0, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID));
 
-    keysManager.store(ACCOUNT_UUID, DEVICE_ID, List.of(generateTestPreKey(1)), List.of(generateTestSignedPreKey(1)), null);
+    keysManager.store(ACCOUNT_UUID, DEVICE_ID, List.of(generateTestPreKey(1)), List.of(generateTestKEMSignedPreKey(1)), null);
     assertEquals(1, keysManager.getEcCount(ACCOUNT_UUID, DEVICE_ID));
     assertEquals(1, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID));
   }
@@ -147,13 +148,11 @@ class KeysManagerTest {
   void testDeleteByAccount() {
     keysManager.store(ACCOUNT_UUID, DEVICE_ID,
         List.of(generateTestPreKey(1), generateTestPreKey(2)),
-        List.of(generateTestSignedPreKey(3), generateTestSignedPreKey(4)),
-        generateTestSignedPreKey(5));
+        List.of(generateTestKEMSignedPreKey(3), generateTestKEMSignedPreKey(4)), generateTestKEMSignedPreKey(5));
 
     keysManager.store(ACCOUNT_UUID, DEVICE_ID + 1,
         List.of(generateTestPreKey(6)),
-        List.of(generateTestSignedPreKey(7)),
-        generateTestSignedPreKey(8));
+        List.of(generateTestKEMSignedPreKey(7)), generateTestKEMSignedPreKey(8));
 
     assertEquals(2, keysManager.getEcCount(ACCOUNT_UUID, DEVICE_ID));
     assertEquals(2, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID));
@@ -176,13 +175,11 @@ class KeysManagerTest {
   void testDeleteByAccountAndDevice() {
     keysManager.store(ACCOUNT_UUID, DEVICE_ID,
         List.of(generateTestPreKey(1), generateTestPreKey(2)),
-        List.of(generateTestSignedPreKey(3), generateTestSignedPreKey(4)),
-        generateTestSignedPreKey(5));
+        List.of(generateTestKEMSignedPreKey(3), generateTestKEMSignedPreKey(4)), generateTestKEMSignedPreKey(5));
 
     keysManager.store(ACCOUNT_UUID, DEVICE_ID + 1,
         List.of(generateTestPreKey(6)),
-        List.of(generateTestSignedPreKey(7)),
-        generateTestSignedPreKey(8));
+        List.of(generateTestKEMSignedPreKey(7)), generateTestKEMSignedPreKey(8));
 
     assertEquals(2, keysManager.getEcCount(ACCOUNT_UUID, DEVICE_ID));
     assertEquals(2, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID));
@@ -211,17 +208,17 @@ class KeysManagerTest {
         ACCOUNT_UUID,
         Map.of(1L, KeysHelper.signedKEMPreKey(1, identityKeyPair), 2L, KeysHelper.signedKEMPreKey(2, identityKeyPair)));
     assertEquals(2, keysManager.getPqEnabledDevices(ACCOUNT_UUID).size());
-    assertEquals(1L, keysManager.getLastResort(ACCOUNT_UUID, 1L).get().getKeyId());
-    assertEquals(2L, keysManager.getLastResort(ACCOUNT_UUID, 2L).get().getKeyId());
+    assertEquals(1L, keysManager.getLastResort(ACCOUNT_UUID, 1L).get().keyId());
+    assertEquals(2L, keysManager.getLastResort(ACCOUNT_UUID, 2L).get().keyId());
     assertFalse(keysManager.getLastResort(ACCOUNT_UUID, 3L).isPresent());
 
     keysManager.storePqLastResort(
         ACCOUNT_UUID,
         Map.of(1L, KeysHelper.signedKEMPreKey(3, identityKeyPair), 3L, KeysHelper.signedKEMPreKey(4, identityKeyPair)));
     assertEquals(3, keysManager.getPqEnabledDevices(ACCOUNT_UUID).size(), "storing new last-resort keys should not create duplicates");
-    assertEquals(3L, keysManager.getLastResort(ACCOUNT_UUID, 1L).get().getKeyId(), "storing new last-resort keys should overwrite old ones");
-    assertEquals(2L, keysManager.getLastResort(ACCOUNT_UUID, 2L).get().getKeyId(), "storing new last-resort keys should leave untouched ones alone");
-    assertEquals(4L, keysManager.getLastResort(ACCOUNT_UUID, 3L).get().getKeyId(), "storing new last-resort keys should overwrite old ones");
+    assertEquals(3L, keysManager.getLastResort(ACCOUNT_UUID, 1L).get().keyId(), "storing new last-resort keys should overwrite old ones");
+    assertEquals(2L, keysManager.getLastResort(ACCOUNT_UUID, 2L).get().keyId(), "storing new last-resort keys should leave untouched ones alone");
+    assertEquals(4L, keysManager.getLastResort(ACCOUNT_UUID, 3L).get().keyId(), "storing new last-resort keys should overwrite old ones");
   }
 
   @Test
@@ -237,21 +234,15 @@ class KeysManagerTest {
         Set.copyOf(keysManager.getPqEnabledDevices(ACCOUNT_UUID)));
   }
 
-  private static PreKey generateTestPreKey(final long keyId) {
-    final byte[] key = new byte[32];
-    new SecureRandom().nextBytes(key);
-
-    return new PreKey(keyId, key);
+  private static ECPreKey generateTestPreKey(final long keyId) {
+    return new ECPreKey(keyId, Curve.generateKeyPair().getPublicKey());
   }
 
-  private static SignedPreKey generateTestSignedPreKey(final long keyId) {
-    final byte[] key = new byte[32];
-    final byte[] signature = new byte[32];
+  private static ECSignedPreKey generateTestECSignedPreKey(final long keyId) {
+    return KeysHelper.signedECPreKey(keyId, IDENTITY_KEY_PAIR);
+  }
 
-    final SecureRandom secureRandom = new SecureRandom();
-    secureRandom.nextBytes(key);
-    secureRandom.nextBytes(signature);
-
-    return new SignedPreKey(keyId, key, signature);
+  private static KEMSignedPreKey generateTestKEMSignedPreKey(final long keyId) {
+    return KeysHelper.signedKEMPreKey(keyId, IDENTITY_KEY_PAIR);
   }
 }

@@ -45,7 +45,8 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
-import org.whispersystems.textsecuregcm.entities.SignedPreKey;
+import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
+import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
@@ -258,8 +259,8 @@ public class AccountsManager {
   public Account changeNumber(final Account account,
                               final String targetNumber,
                               @Nullable final IdentityKey pniIdentityKey,
-                              @Nullable final Map<Long, SignedPreKey> pniSignedPreKeys,
-                              @Nullable final Map<Long, SignedPreKey> pniPqLastResortPreKeys,
+                              @Nullable final Map<Long, ECSignedPreKey> pniSignedPreKeys,
+                              @Nullable final Map<Long, KEMSignedPreKey> pniPqLastResortPreKeys,
                               @Nullable final Map<Long, Integer> pniRegistrationIds) throws InterruptedException, MismatchedDevicesException {
 
     final String originalNumber = account.getNumber();
@@ -350,8 +351,8 @@ public class AccountsManager {
 
   public Account updatePniKeys(final Account account,
       final IdentityKey pniIdentityKey,
-      final Map<Long, SignedPreKey> pniSignedPreKeys,
-      @Nullable final Map<Long, SignedPreKey> pniPqLastResortPreKeys,
+      final Map<Long, ECSignedPreKey> pniSignedPreKeys,
+      @Nullable final Map<Long, KEMSignedPreKey> pniPqLastResortPreKeys,
       final Map<Long, Integer> pniRegistrationIds) throws MismatchedDevicesException {
     validateDevices(account, pniSignedPreKeys, pniPqLastResortPreKeys, pniRegistrationIds);
 
@@ -369,7 +370,7 @@ public class AccountsManager {
 
   private boolean setPniKeys(final Account account,
       @Nullable final IdentityKey pniIdentityKey,
-      @Nullable final Map<Long, SignedPreKey> pniSignedPreKeys,
+      @Nullable final Map<Long, ECSignedPreKey> pniSignedPreKeys,
       @Nullable final Map<Long, Integer> pniRegistrationIds) {
     if (ObjectUtils.allNull(pniIdentityKey, pniSignedPreKeys, pniRegistrationIds)) {
       return false;
@@ -383,7 +384,7 @@ public class AccountsManager {
         if (!device.isEnabled()) {
             continue;
         }
-        SignedPreKey signedPreKey = pniSignedPreKeys.get(device.getId());
+        ECSignedPreKey signedPreKey = pniSignedPreKeys.get(device.getId());
         int registrationId = pniRegistrationIds.get(device.getId());
         changed = changed ||
             !signedPreKey.equals(device.getPhoneNumberIdentitySignedPreKey()) ||
@@ -398,8 +399,8 @@ public class AccountsManager {
   }
 
   private void validateDevices(final Account account,
-      @Nullable final Map<Long, SignedPreKey> pniSignedPreKeys,
-      @Nullable final Map<Long, SignedPreKey> pniPqLastResortPreKeys,
+      @Nullable final Map<Long, ECSignedPreKey> pniSignedPreKeys,
+      @Nullable final Map<Long, KEMSignedPreKey> pniPqLastResortPreKeys,
       @Nullable final Map<Long, Integer> pniRegistrationIds) throws MismatchedDevicesException {
     if (pniSignedPreKeys == null && pniRegistrationIds == null) {
       return;

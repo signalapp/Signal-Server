@@ -28,11 +28,15 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.Curve;
+import org.signal.libsignal.protocol.ecc.ECKeyPair;
+import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import org.whispersystems.textsecuregcm.controllers.StaleDevicesException;
+import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.IncomingMessage;
+import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
-import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.push.MessageSender;
+import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 
 public class ChangeNumberManagerTest {
   private AccountsManager accountsManager;
@@ -106,8 +110,9 @@ public class ChangeNumberManagerTest {
   void changeNumberSetPrimaryDevicePrekey() throws Exception {
     Account account = mock(Account.class);
     when(account.getNumber()).thenReturn("+18005551234");
-    var prekeys = Map.of(1L, new SignedPreKey());
+    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
     final IdentityKey pniIdentityKey = new IdentityKey(Curve.generateKeyPair().getPublicKey());
+    final Map<Long, ECSignedPreKey> prekeys = Map.of(1L, KeysHelper.signedECPreKey(1, pniIdentityKeyPair));
 
     changeNumberManager.changeNumber(account, "+18025551234", pniIdentityKey, prekeys, null, Collections.emptyList(), Collections.emptyMap());
     verify(accountsManager).changeNumber(account, "+18025551234", pniIdentityKey, prekeys, null, Collections.emptyMap());
@@ -133,8 +138,9 @@ public class ChangeNumberManagerTest {
     when(account.getDevice(2L)).thenReturn(Optional.of(d2));
     when(account.getDevices()).thenReturn(List.of(d2));
 
-    final IdentityKey pniIdentityKey = new IdentityKey(Curve.generateKeyPair().getPublicKey());
-    final Map<Long, SignedPreKey> prekeys = Map.of(1L, new SignedPreKey(), 2L, new SignedPreKey());
+    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+    final IdentityKey pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());
+    final Map<Long, ECSignedPreKey> prekeys = Map.of(1L, KeysHelper.signedECPreKey(1, pniIdentityKeyPair), 2L, KeysHelper.signedECPreKey(2, pniIdentityKeyPair));
     final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 19);
 
     final IncomingMessage msg = mock(IncomingMessage.class);
@@ -176,9 +182,10 @@ public class ChangeNumberManagerTest {
     when(account.getDevice(2L)).thenReturn(Optional.of(d2));
     when(account.getDevices()).thenReturn(List.of(d2));
 
-    final IdentityKey pniIdentityKey = new IdentityKey(Curve.generateKeyPair().getPublicKey());
-    final Map<Long, SignedPreKey> prekeys = Map.of(1L, new SignedPreKey(), 2L, new SignedPreKey());
-    final Map<Long, SignedPreKey> pqPrekeys = Map.of(3L, new SignedPreKey(), 4L, new SignedPreKey());
+    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+    final IdentityKey pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());
+    final Map<Long, ECSignedPreKey> prekeys = Map.of(1L, KeysHelper.signedECPreKey(1, pniIdentityKeyPair), 2L, KeysHelper.signedECPreKey(2, pniIdentityKeyPair));
+    final Map<Long, KEMSignedPreKey> pqPrekeys = Map.of(3L, KeysHelper.signedKEMPreKey(3, pniIdentityKeyPair), 4L, KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair));
     final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 19);
 
     final IncomingMessage msg = mock(IncomingMessage.class);
@@ -218,9 +225,10 @@ public class ChangeNumberManagerTest {
     when(account.getDevice(2L)).thenReturn(Optional.of(d2));
     when(account.getDevices()).thenReturn(List.of(d2));
 
-    final IdentityKey pniIdentityKey = new IdentityKey(Curve.generateKeyPair().getPublicKey());
-    final Map<Long, SignedPreKey> prekeys = Map.of(1L, new SignedPreKey(), 2L, new SignedPreKey());
-    final Map<Long, SignedPreKey> pqPrekeys = Map.of(3L, new SignedPreKey(), 4L, new SignedPreKey());
+    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+    final IdentityKey pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());
+    final Map<Long, ECSignedPreKey> prekeys = Map.of(1L, KeysHelper.signedECPreKey(1, pniIdentityKeyPair), 2L, KeysHelper.signedECPreKey(2, pniIdentityKeyPair));
+    final Map<Long, KEMSignedPreKey> pqPrekeys = Map.of(3L, KeysHelper.signedKEMPreKey(3, pniIdentityKeyPair), 4L, KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair));
     final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 19);
 
     final IncomingMessage msg = mock(IncomingMessage.class);
@@ -258,8 +266,9 @@ public class ChangeNumberManagerTest {
     when(account.getDevice(2L)).thenReturn(Optional.of(d2));
     when(account.getDevices()).thenReturn(List.of(d2));
 
-    final IdentityKey pniIdentityKey = new IdentityKey(Curve.generateKeyPair().getPublicKey());
-    final Map<Long, SignedPreKey> prekeys = Map.of(1L, new SignedPreKey(), 2L, new SignedPreKey());
+    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+    final IdentityKey pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());
+    final Map<Long, ECSignedPreKey> prekeys = Map.of(1L, KeysHelper.signedECPreKey(1, pniIdentityKeyPair), 2L, KeysHelper.signedECPreKey(2, pniIdentityKeyPair));
     final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 19);
 
     final IncomingMessage msg = mock(IncomingMessage.class);
@@ -297,9 +306,10 @@ public class ChangeNumberManagerTest {
     when(account.getDevice(2L)).thenReturn(Optional.of(d2));
     when(account.getDevices()).thenReturn(List.of(d2));
 
-    final IdentityKey pniIdentityKey = new IdentityKey(Curve.generateKeyPair().getPublicKey());
-    final Map<Long, SignedPreKey> prekeys = Map.of(1L, new SignedPreKey(), 2L, new SignedPreKey());
-    final Map<Long, SignedPreKey> pqPrekeys = Map.of(3L, new SignedPreKey(), 4L, new SignedPreKey());
+    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+    final IdentityKey pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());
+    final Map<Long, ECSignedPreKey> prekeys = Map.of(1L, KeysHelper.signedECPreKey(1, pniIdentityKeyPair), 2L, KeysHelper.signedECPreKey(2, pniIdentityKeyPair));
+    final Map<Long, KEMSignedPreKey> pqPrekeys = Map.of(3L, KeysHelper.signedKEMPreKey(3, pniIdentityKeyPair), 4L, KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair));
     final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 19);
 
     final IncomingMessage msg = mock(IncomingMessage.class);
@@ -344,7 +354,10 @@ public class ChangeNumberManagerTest {
         new IncomingMessage(1, 2, 1, "foo"),
         new IncomingMessage(1, 3, 1, "foo"));
 
-    final Map<Long, SignedPreKey> preKeys = Map.of(1L, new SignedPreKey(), 2L, new SignedPreKey(), 3L, new SignedPreKey());
+    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+    final ECPublicKey pniIdentityKey = pniIdentityKeyPair.getPublicKey();
+
+    final Map<Long, ECSignedPreKey> preKeys = Map.of(1L, KeysHelper.signedECPreKey(1, pniIdentityKeyPair), 2L, KeysHelper.signedECPreKey(2, pniIdentityKeyPair), 3L, KeysHelper.signedECPreKey(3, pniIdentityKeyPair));
     final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 47, 3L, 89);
 
     assertThrows(StaleDevicesException.class,
@@ -374,7 +387,10 @@ public class ChangeNumberManagerTest {
         new IncomingMessage(1, 2, 1, "foo"),
         new IncomingMessage(1, 3, 1, "foo"));
 
-    final Map<Long, SignedPreKey> preKeys = Map.of(1L, new SignedPreKey(), 2L, new SignedPreKey(), 3L, new SignedPreKey());
+    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+    final ECPublicKey pniIdentityKey = pniIdentityKeyPair.getPublicKey();
+
+    final Map<Long, ECSignedPreKey> preKeys = Map.of(1L, KeysHelper.signedECPreKey(1, pniIdentityKeyPair), 2L, KeysHelper.signedECPreKey(2, pniIdentityKeyPair), 3L, KeysHelper.signedECPreKey(3, pniIdentityKeyPair));
     final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 47, 3L, 89);
 
     assertThrows(StaleDevicesException.class,

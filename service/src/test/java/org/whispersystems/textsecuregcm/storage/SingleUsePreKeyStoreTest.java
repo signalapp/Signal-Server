@@ -24,7 +24,7 @@ import org.whispersystems.textsecuregcm.entities.PreKey;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
-abstract class SingleUsePreKeyStoreTest<K extends PreKey> {
+abstract class SingleUsePreKeyStoreTest<K extends PreKey<?>> {
 
   private static final int KEY_COUNT = 100;
 

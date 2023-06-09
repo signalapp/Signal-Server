@@ -32,15 +32,18 @@ import org.signal.integration.config.Config;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
+import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import org.signal.libsignal.protocol.kem.KEMKeyPair;
 import org.signal.libsignal.protocol.kem.KEMKeyType;
+import org.signal.libsignal.protocol.kem.KEMPublicKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
+import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
+import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.RegistrationRequest;
-import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
@@ -325,15 +328,15 @@ public final class Operations {
     }
   }
 
-  private static SignedPreKey generateSignedECPreKey(long id, final ECKeyPair identityKeyPair) {
-    final byte[] pubKey = Curve.generateKeyPair().getPublicKey().serialize();
-    final byte[] sig = identityKeyPair.getPrivateKey().calculateSignature(pubKey);
-    return new SignedPreKey(id, pubKey, sig);
+  private static ECSignedPreKey generateSignedECPreKey(long id, final ECKeyPair identityKeyPair) {
+    final ECPublicKey pubKey = Curve.generateKeyPair().getPublicKey();
+    final byte[] sig = identityKeyPair.getPrivateKey().calculateSignature(pubKey.serialize());
+    return new ECSignedPreKey(id, pubKey, sig);
   }
 
-  private static SignedPreKey generateSignedKEMPreKey(long id, final ECKeyPair identityKeyPair) {
-    final byte[] pubKey = KEMKeyPair.generate(KEMKeyType.KYBER_1024).getPublicKey().serialize();
-    final byte[] sig = identityKeyPair.getPrivateKey().calculateSignature(pubKey);
-    return new SignedPreKey(id, pubKey, sig);
+  private static KEMSignedPreKey generateSignedKEMPreKey(long id, final ECKeyPair identityKeyPair) {
+    final KEMPublicKey pubKey = KEMKeyPair.generate(KEMKeyType.KYBER_1024).getPublicKey();
+    final byte[] sig = identityKeyPair.getPrivateKey().calculateSignature(pubKey.serialize());
+    return new KEMSignedPreKey(id, pubKey, sig);
   }
 }

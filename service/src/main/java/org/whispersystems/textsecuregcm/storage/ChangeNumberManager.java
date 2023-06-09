@@ -20,9 +20,10 @@ import org.whispersystems.textsecuregcm.controllers.AccountController;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.controllers.StaleDevicesException;
+import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.IncomingMessage;
+import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
-import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.util.DestinationDeviceValidator;
@@ -41,8 +42,8 @@ public class ChangeNumberManager {
 
   public Account changeNumber(final Account account, final String number,
       @Nullable final IdentityKey pniIdentityKey,
-      @Nullable final Map<Long, SignedPreKey> deviceSignedPreKeys,
-      @Nullable final Map<Long, SignedPreKey> devicePqLastResortPreKeys,
+      @Nullable final Map<Long, ECSignedPreKey> deviceSignedPreKeys,
+      @Nullable final Map<Long, KEMSignedPreKey> devicePqLastResortPreKeys,
       @Nullable final List<IncomingMessage> deviceMessages,
       @Nullable final Map<Long, Integer> pniRegistrationIds)
       throws InterruptedException, MismatchedDevicesException, StaleDevicesException {
@@ -81,8 +82,8 @@ public class ChangeNumberManager {
 
   public Account updatePniKeys(final Account account,
       final IdentityKey pniIdentityKey,
-      final Map<Long, SignedPreKey> deviceSignedPreKeys,
-      @Nullable final Map<Long, SignedPreKey> devicePqLastResortPreKeys,
+      final Map<Long, ECSignedPreKey> deviceSignedPreKeys,
+      @Nullable final Map<Long, KEMSignedPreKey> devicePqLastResortPreKeys,
       final List<IncomingMessage> deviceMessages,
       final Map<Long, Integer> pniRegistrationIds) throws MismatchedDevicesException, StaleDevicesException {
     validateDeviceMessages(account, deviceMessages);

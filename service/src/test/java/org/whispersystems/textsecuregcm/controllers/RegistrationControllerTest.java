@@ -55,10 +55,11 @@ import org.whispersystems.textsecuregcm.auth.RegistrationLockError;
 import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
+import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
+import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.RegistrationRequest;
 import org.whispersystems.textsecuregcm.entities.RegistrationServiceSession;
-import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.ImpossiblePhoneNumberExceptionMapper;
@@ -418,10 +419,10 @@ class RegistrationControllerTest {
   static Stream<Arguments> atomicAccountCreationConflictingChannel() {
     final Optional<IdentityKey> aciIdentityKey;
     final Optional<IdentityKey> pniIdentityKey;
-    final Optional<SignedPreKey> aciSignedPreKey;
-    final Optional<SignedPreKey> pniSignedPreKey;
-    final Optional<SignedPreKey> aciPqLastResortPreKey;
-    final Optional<SignedPreKey> pniPqLastResortPreKey;
+    final Optional<ECSignedPreKey> aciSignedPreKey;
+    final Optional<ECSignedPreKey> pniSignedPreKey;
+    final Optional<KEMSignedPreKey> aciPqLastResortPreKey;
+    final Optional<KEMSignedPreKey> pniPqLastResortPreKey;
     {
       final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
       final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
@@ -507,10 +508,10 @@ class RegistrationControllerTest {
   static Stream<Arguments> atomicAccountCreationPartialSignedPreKeys() {
     final Optional<IdentityKey> aciIdentityKey;
     final Optional<IdentityKey> pniIdentityKey;
-    final Optional<SignedPreKey> aciSignedPreKey;
-    final Optional<SignedPreKey> pniSignedPreKey;
-    final Optional<SignedPreKey> aciPqLastResortPreKey;
-    final Optional<SignedPreKey> pniPqLastResortPreKey;
+    final Optional<ECSignedPreKey> aciSignedPreKey;
+    final Optional<ECSignedPreKey> pniSignedPreKey;
+    final Optional<KEMSignedPreKey> aciPqLastResortPreKey;
+    final Optional<KEMSignedPreKey> pniPqLastResortPreKey;
     {
       final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
       final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
@@ -620,10 +621,10 @@ class RegistrationControllerTest {
   void atomicAccountCreationSuccess(final RegistrationRequest registrationRequest,
       final IdentityKey expectedAciIdentityKey,
       final IdentityKey expectedPniIdentityKey,
-      final SignedPreKey expectedAciSignedPreKey,
-      final SignedPreKey expectedPniSignedPreKey,
-      final SignedPreKey expectedAciPqLastResortPreKey,
-      final SignedPreKey expectedPniPqLastResortPreKey,
+      final ECSignedPreKey expectedAciSignedPreKey,
+      final ECSignedPreKey expectedPniSignedPreKey,
+      final KEMSignedPreKey expectedAciPqLastResortPreKey,
+      final KEMSignedPreKey expectedPniPqLastResortPreKey,
       final Optional<String> expectedApnsToken,
       final Optional<String> expectedApnsVoipToken,
       final Optional<String> expectedGcmToken) throws InterruptedException {
@@ -686,10 +687,10 @@ class RegistrationControllerTest {
   private static Stream<Arguments> atomicAccountCreationSuccess() {
     final Optional<IdentityKey> aciIdentityKey;
     final Optional<IdentityKey> pniIdentityKey;
-    final Optional<SignedPreKey> aciSignedPreKey;
-    final Optional<SignedPreKey> pniSignedPreKey;
-    final Optional<SignedPreKey> aciPqLastResortPreKey;
-    final Optional<SignedPreKey> pniPqLastResortPreKey;
+    final Optional<ECSignedPreKey> aciSignedPreKey;
+    final Optional<ECSignedPreKey> pniSignedPreKey;
+    final Optional<KEMSignedPreKey> aciPqLastResortPreKey;
+    final Optional<KEMSignedPreKey> pniPqLastResortPreKey;
     {
       final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
       final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();

@@ -12,7 +12,8 @@ import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.asJson;
 import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.jsonFixture;
 
 import org.junit.jupiter.api.Test;
-import org.whispersystems.textsecuregcm.entities.PreKey;
+import org.signal.libsignal.protocol.ecc.ECPublicKey;
+import org.whispersystems.textsecuregcm.entities.ECPreKey;
 
 import java.util.Base64;
 
@@ -22,7 +23,7 @@ class PreKeyTest {
 
   @Test
   void serializeToJSONV2() throws Exception {
-    PreKey preKey = new PreKey(1234, PUBLIC_KEY);
+    ECPreKey preKey = new ECPreKey(1234, new ECPublicKey(PUBLIC_KEY));
 
     assertThat("PreKeyV2 Serialization works",
                asJson(preKey),

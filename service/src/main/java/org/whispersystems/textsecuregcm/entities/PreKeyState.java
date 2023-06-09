@@ -16,8 +16,6 @@ import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.NotNull;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.whispersystems.textsecuregcm.util.IdentityKeyAdapter;
-import org.whispersystems.textsecuregcm.util.ValidPreKey;
-import org.whispersystems.textsecuregcm.util.ValidPreKey.PreKeyType;
 
 public class PreKeyState {
 
@@ -26,16 +24,15 @@ public class PreKeyState {
   @Schema(description="A list of unsigned elliptic-curve prekeys to use for this device. " +
       "If present and not empty, replaces all stored unsigned EC prekeys for the device; " +
       "if absent or empty, any stored unsigned EC prekeys for the device are not deleted.")
-  private List<@ValidPreKey(type=PreKeyType.ECC) PreKey> preKeys;
+  private List<@Valid ECPreKey> preKeys;
 
   @JsonProperty
   @Valid
-  @ValidPreKey(type=PreKeyType.ECC)
   @Schema(description="An optional signed elliptic-curve prekey to use for this device. " +
       "If present, replaces the stored signed elliptic-curve prekey for the device; " +
       "if absent, the stored signed prekey is not deleted. " +
       "If present, must have a valid signature from the identity key in this request.")
-  private SignedPreKey signedPreKey;
+  private ECSignedPreKey signedPreKey;
 
   @JsonProperty
   @Valid
@@ -43,16 +40,15 @@ public class PreKeyState {
       "Each key must have a valid signature from the identity key in this request. " +
       "If present and not empty, replaces all stored unsigned PQ prekeys for the device; " +
       "if absent or empty, any stored unsigned PQ prekeys for the device are not deleted.")
-  private List<@ValidPreKey(type=PreKeyType.KYBER) SignedPreKey> pqPreKeys;
+  private List<@Valid KEMSignedPreKey> pqPreKeys;
 
   @JsonProperty
   @Valid
-  @ValidPreKey(type=PreKeyType.KYBER)
   @Schema(description="An optional signed last-resort post-quantum prekey to use for this device. " +
       "If present, replaces the stored signed post-quantum last-resort prekey for the device; " +
       "if absent, a stored last-resort prekey will *not* be deleted. " +
       "If present, must have a valid signature from the identity key in this request.")
-  private SignedPreKey pqLastResortPreKey;
+  private KEMSignedPreKey pqLastResortPreKey;
 
   @JsonProperty
   @JsonSerialize(using = IdentityKeyAdapter.Serializer.class)
@@ -67,12 +63,12 @@ public class PreKeyState {
   public PreKeyState() {}
 
   @VisibleForTesting
-  public PreKeyState(IdentityKey identityKey, SignedPreKey signedPreKey, List<PreKey> keys) {
+  public PreKeyState(IdentityKey identityKey, ECSignedPreKey signedPreKey, List<ECPreKey> keys) {
     this(identityKey, signedPreKey, keys, null, null);
   }
 
   @VisibleForTesting
-  public PreKeyState(IdentityKey identityKey, SignedPreKey signedPreKey, List<PreKey> keys, List<SignedPreKey> pqKeys, SignedPreKey pqLastResortKey) {
+  public PreKeyState(IdentityKey identityKey, ECSignedPreKey signedPreKey, List<ECPreKey> keys, List<KEMSignedPreKey> pqKeys, KEMSignedPreKey pqLastResortKey) {
     this.identityKey = identityKey;
     this.signedPreKey = signedPreKey;
     this.preKeys = keys;
@@ -80,19 +76,19 @@ public class PreKeyState {
     this.pqLastResortPreKey = pqLastResortKey;
   }
 
-  public List<PreKey> getPreKeys() {
+  public List<ECPreKey> getPreKeys() {
     return preKeys;
   }
 
-  public SignedPreKey getSignedPreKey() {
+  public ECSignedPreKey getSignedPreKey() {
     return signedPreKey;
   }
 
-  public List<SignedPreKey> getPqPreKeys() {
+  public List<KEMSignedPreKey> getPqPreKeys() {
     return pqPreKeys;
   }
 
-  public SignedPreKey getPqLastResortPreKey() {
+  public KEMSignedPreKey getPqLastResortPreKey() {
     return pqLastResortPreKey;
   }
 
@@ -102,7 +98,7 @@ public class PreKeyState {
 
   @AssertTrue
   public boolean isSignatureValidOnEachSignedKey() {
-    List<SignedPreKey> spks = new ArrayList<>();
+    List<SignedPreKey<?>> spks = new ArrayList<>();
     if (pqPreKeys != null) {
       spks.addAll(pqPreKeys);
     }

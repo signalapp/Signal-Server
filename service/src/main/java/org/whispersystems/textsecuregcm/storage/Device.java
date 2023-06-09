@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 import javax.annotation.Nullable;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
-import org.whispersystems.textsecuregcm.entities.SignedPreKey;
+import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.util.Util;
 
 public class Device {
@@ -61,10 +61,10 @@ public class Device {
   private Integer phoneNumberIdentityRegistrationId;
 
   @JsonProperty
-  private SignedPreKey signedPreKey;
+  private ECSignedPreKey signedPreKey;
 
   @JsonProperty("pniSignedPreKey")
-  private SignedPreKey phoneNumberIdentitySignedPreKey;
+  private ECSignedPreKey phoneNumberIdentitySignedPreKey;
 
   @JsonProperty
   private long lastSeen;
@@ -230,19 +230,19 @@ public class Device {
     this.phoneNumberIdentityRegistrationId = phoneNumberIdentityRegistrationId;
   }
 
-  public SignedPreKey getSignedPreKey() {
+  public ECSignedPreKey getSignedPreKey() {
     return signedPreKey;
   }
 
-  public void setSignedPreKey(SignedPreKey signedPreKey) {
+  public void setSignedPreKey(ECSignedPreKey signedPreKey) {
     this.signedPreKey = signedPreKey;
   }
 
-  public SignedPreKey getPhoneNumberIdentitySignedPreKey() {
+  public ECSignedPreKey getPhoneNumberIdentitySignedPreKey() {
     return phoneNumberIdentitySignedPreKey;
   }
 
-  public void setPhoneNumberIdentitySignedPreKey(final SignedPreKey phoneNumberIdentitySignedPreKey) {
+  public void setPhoneNumberIdentitySignedPreKey(final ECSignedPreKey phoneNumberIdentitySignedPreKey) {
     this.phoneNumberIdentitySignedPreKey = phoneNumberIdentitySignedPreKey;
   }
 

@@ -15,19 +15,13 @@ public abstract class PreKeySignatureValidator {
   public static final Counter INVALID_SIGNATURE_COUNTER =
       Metrics.counter(name(PreKeySignatureValidator.class, "invalidPreKeySignature"));
 
-  public static boolean validatePreKeySignatures(final IdentityKey identityKey, final Collection<SignedPreKey> spks) {
-    try {
-      final boolean success = spks.stream()
-          .allMatch(spk -> identityKey.getPublicKey().verifySignature(spk.getPublicKey(), spk.getSignature()));
+  public static boolean validatePreKeySignatures(final IdentityKey identityKey, final Collection<SignedPreKey<?>> spks) {
+    final boolean success = spks.stream().allMatch(spk -> spk.signatureValid(identityKey));
 
-      if (!success) {
-        INVALID_SIGNATURE_COUNTER.increment();
-      }
-
-      return success;
-    } catch (final IllegalArgumentException e) {
+    if (!success) {
       INVALID_SIGNATURE_COUNTER.increment();
-      return false;
     }
+
+    return success;
   }
 }

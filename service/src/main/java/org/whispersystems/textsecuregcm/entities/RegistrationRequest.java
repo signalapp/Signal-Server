@@ -20,8 +20,6 @@ import javax.validation.constraints.NotNull;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
 import org.whispersystems.textsecuregcm.util.OptionalIdentityKeyAdapter;
-import org.whispersystems.textsecuregcm.util.ValidPreKey;
-import org.whispersystems.textsecuregcm.util.ValidPreKey.PreKeyType;
 
 public record RegistrationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, description = """
                                   The ID of an existing verification session as it appears in a verification session
@@ -82,10 +80,10 @@ public record RegistrationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT
       @JsonProperty("skipDeviceTransfer") boolean skipDeviceTransfer,
       @JsonProperty("aciIdentityKey") Optional<IdentityKey> aciIdentityKey,
       @JsonProperty("pniIdentityKey") Optional<IdentityKey> pniIdentityKey,
-      @JsonProperty("aciSignedPreKey") Optional<@Valid @ValidPreKey(type=PreKeyType.ECC) SignedPreKey> aciSignedPreKey,
-      @JsonProperty("pniSignedPreKey") Optional<@Valid @ValidPreKey(type=PreKeyType.ECC) SignedPreKey> pniSignedPreKey,
-      @JsonProperty("aciPqLastResortPreKey") Optional<@Valid @ValidPreKey(type=PreKeyType.KYBER) SignedPreKey> aciPqLastResortPreKey,
-      @JsonProperty("pniPqLastResortPreKey") Optional<@Valid @ValidPreKey(type=PreKeyType.KYBER) SignedPreKey> pniPqLastResortPreKey,
+      @JsonProperty("aciSignedPreKey") Optional<@Valid ECSignedPreKey> aciSignedPreKey,
+      @JsonProperty("pniSignedPreKey") Optional<@Valid ECSignedPreKey> pniSignedPreKey,
+      @JsonProperty("aciPqLastResortPreKey") Optional<@Valid KEMSignedPreKey> aciPqLastResortPreKey,
+      @JsonProperty("pniPqLastResortPreKey") Optional<@Valid KEMSignedPreKey> pniPqLastResortPreKey,
       @JsonProperty("apnToken") Optional<@Valid ApnRegistrationId> apnToken,
       @JsonProperty("gcmToken") Optional<@Valid GcmRegistrationId> gcmToken) {
 
@@ -106,7 +104,7 @@ public record RegistrationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT
 
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   private static boolean validatePreKeySignature(final Optional<IdentityKey> maybeIdentityKey,
-      final Optional<SignedPreKey> maybeSignedPreKey) {
+      final Optional<? extends SignedPreKey<?>> maybeSignedPreKey) {
 
     return maybeSignedPreKey.map(signedPreKey -> maybeIdentityKey
             .map(identityKey -> PreKeySignatureValidator.validatePreKeySignatures(identityKey, List.of(signedPreKey)))

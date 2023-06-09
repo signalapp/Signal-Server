@@ -54,9 +54,10 @@ import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
 import org.whispersystems.textsecuregcm.entities.DeviceActivationRequest;
 import org.whispersystems.textsecuregcm.entities.DeviceResponse;
+import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
+import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.LinkDeviceRequest;
-import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.DeviceLimitExceededExceptionMapper;
@@ -265,10 +266,10 @@ class DeviceControllerTest {
 
     assertThat(deviceCode).isEqualTo(new VerificationCode(5678901));
 
-    final Optional<SignedPreKey> aciSignedPreKey;
-    final Optional<SignedPreKey> pniSignedPreKey;
-    final Optional<SignedPreKey> aciPqLastResortPreKey;
-    final Optional<SignedPreKey> pniPqLastResortPreKey;
+    final Optional<ECSignedPreKey> aciSignedPreKey;
+    final Optional<ECSignedPreKey> pniSignedPreKey;
+    final Optional<KEMSignedPreKey> aciPqLastResortPreKey;
+    final Optional<KEMSignedPreKey> pniPqLastResortPreKey;
 
     final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
     final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
@@ -351,10 +352,10 @@ class DeviceControllerTest {
 
     assertThat(deviceCode).isEqualTo(new VerificationCode(5678901));
 
-    final Optional<SignedPreKey> aciSignedPreKey;
-    final Optional<SignedPreKey> pniSignedPreKey;
-    final Optional<SignedPreKey> aciPqLastResortPreKey;
-    final Optional<SignedPreKey> pniPqLastResortPreKey;
+    final Optional<ECSignedPreKey> aciSignedPreKey;
+    final Optional<ECSignedPreKey> pniSignedPreKey;
+    final Optional<KEMSignedPreKey> aciPqLastResortPreKey;
+    final Optional<KEMSignedPreKey> pniPqLastResortPreKey;
 
     final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
     final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
@@ -395,10 +396,10 @@ class DeviceControllerTest {
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   void linkDeviceAtomicMissingProperty(final IdentityKey aciIdentityKey,
                                        final IdentityKey pniIdentityKey,
-                                       final Optional<SignedPreKey> aciSignedPreKey,
-                                       final Optional<SignedPreKey> pniSignedPreKey,
-                                       final Optional<SignedPreKey> aciPqLastResortPreKey,
-                                       final Optional<SignedPreKey> pniPqLastResortPreKey) {
+                                       final Optional<ECSignedPreKey> aciSignedPreKey,
+                                       final Optional<ECSignedPreKey> pniSignedPreKey,
+                                       final Optional<KEMSignedPreKey> aciPqLastResortPreKey,
+                                       final Optional<KEMSignedPreKey> pniPqLastResortPreKey) {
 
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
 
@@ -435,10 +436,10 @@ class DeviceControllerTest {
     final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
     final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
 
-    final Optional<SignedPreKey> aciSignedPreKey = Optional.of(KeysHelper.signedECPreKey(1, aciIdentityKeyPair));
-    final Optional<SignedPreKey> pniSignedPreKey = Optional.of(KeysHelper.signedECPreKey(2, pniIdentityKeyPair));
-    final Optional<SignedPreKey> aciPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair));
-    final Optional<SignedPreKey> pniPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair));
+    final Optional<ECSignedPreKey> aciSignedPreKey = Optional.of(KeysHelper.signedECPreKey(1, aciIdentityKeyPair));
+    final Optional<ECSignedPreKey> pniSignedPreKey = Optional.of(KeysHelper.signedECPreKey(2, pniIdentityKeyPair));
+    final Optional<KEMSignedPreKey> aciPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair));
+    final Optional<KEMSignedPreKey> pniPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair));
 
     final IdentityKey aciIdentityKey = new IdentityKey(aciIdentityKeyPair.getPublicKey());
     final IdentityKey pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());
@@ -455,10 +456,10 @@ class DeviceControllerTest {
   @MethodSource
   void linkDeviceAtomicInvalidSignature(final IdentityKey aciIdentityKey,
                                         final IdentityKey pniIdentityKey,
-                                        final SignedPreKey aciSignedPreKey,
-                                        final SignedPreKey pniSignedPreKey,
-                                        final SignedPreKey aciPqLastResortPreKey,
-                                        final SignedPreKey pniPqLastResortPreKey) {
+                                        final ECSignedPreKey aciSignedPreKey,
+                                        final ECSignedPreKey pniSignedPreKey,
+                                        final KEMSignedPreKey aciPqLastResortPreKey,
+                                        final KEMSignedPreKey pniPqLastResortPreKey) {
 
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
 
@@ -495,25 +496,31 @@ class DeviceControllerTest {
     final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
     final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
 
-    final SignedPreKey aciSignedPreKey = KeysHelper.signedECPreKey(1, aciIdentityKeyPair);
-    final SignedPreKey pniSignedPreKey = KeysHelper.signedECPreKey(2, pniIdentityKeyPair);
-    final SignedPreKey aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair);
-    final SignedPreKey pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair);
+    final ECSignedPreKey aciSignedPreKey = KeysHelper.signedECPreKey(1, aciIdentityKeyPair);
+    final ECSignedPreKey pniSignedPreKey = KeysHelper.signedECPreKey(2, pniIdentityKeyPair);
+    final KEMSignedPreKey aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair);
+    final KEMSignedPreKey pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair);
 
     final IdentityKey aciIdentityKey = new IdentityKey(aciIdentityKeyPair.getPublicKey());
     final IdentityKey pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());
 
     return Stream.of(
-        Arguments.of(aciIdentityKey, pniIdentityKey, signedPreKeyWithBadSignature(aciSignedPreKey), pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey),
-        Arguments.of(aciIdentityKey, pniIdentityKey, aciSignedPreKey, signedPreKeyWithBadSignature(pniSignedPreKey), aciPqLastResortPreKey, pniPqLastResortPreKey),
-        Arguments.of(aciIdentityKey, pniIdentityKey, aciSignedPreKey, pniSignedPreKey, signedPreKeyWithBadSignature(aciPqLastResortPreKey), pniPqLastResortPreKey),
-        Arguments.of(aciIdentityKey, pniIdentityKey, aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, signedPreKeyWithBadSignature(pniPqLastResortPreKey))
+        Arguments.of(aciIdentityKey, pniIdentityKey, ecSignedPreKeyWithBadSignature(aciSignedPreKey), pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey),
+        Arguments.of(aciIdentityKey, pniIdentityKey, aciSignedPreKey, ecSignedPreKeyWithBadSignature(pniSignedPreKey), aciPqLastResortPreKey, pniPqLastResortPreKey),
+        Arguments.of(aciIdentityKey, pniIdentityKey, aciSignedPreKey, pniSignedPreKey, kemSignedPreKeyWithBadSignature(aciPqLastResortPreKey), pniPqLastResortPreKey),
+        Arguments.of(aciIdentityKey, pniIdentityKey, aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, kemSignedPreKeyWithBadSignature(pniPqLastResortPreKey))
     );
   }
 
-  private static SignedPreKey signedPreKeyWithBadSignature(final SignedPreKey signedPreKey) {
-    return new SignedPreKey(signedPreKey.getKeyId(),
-        signedPreKey.getPublicKey(),
+  private static ECSignedPreKey ecSignedPreKeyWithBadSignature(final ECSignedPreKey signedPreKey) {
+    return new ECSignedPreKey(signedPreKey.keyId(),
+        signedPreKey.publicKey(),
+        "incorrect-signature".getBytes(StandardCharsets.UTF_8));
+  }
+
+  private static KEMSignedPreKey kemSignedPreKeyWithBadSignature(final KEMSignedPreKey signedPreKey) {
+    return new KEMSignedPreKey(signedPreKey.keyId(),
+        signedPreKey.publicKey(),
         "incorrect-signature".getBytes(StandardCharsets.UTF_8));
   }
 
