@@ -49,6 +49,10 @@ public class IdentityKeyAdapter {
         throw new JsonParseException(parser, "Could not parse identity key as a base64-encoded value", e);
       }
 
+      if (identityKeyBytes.length == 0) {
+        return null;
+      }
+
       try {
         return new IdentityKey(identityKeyBytes);
       } catch (final InvalidKeyException e) {
