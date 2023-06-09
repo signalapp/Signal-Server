@@ -49,7 +49,8 @@ class IdentityKeyAdapterTest {
     return Stream.of(
         Arguments.of(String.format(template, "null"), null),
         Arguments.of(String.format(template, "\"\""), null),
-        Arguments.of(String.format(template, "\"" + Base64.getEncoder().encodeToString(IDENTITY_KEY.serialize()) + "\""), IDENTITY_KEY)
+        Arguments.of(String.format(template, "\"" + Base64.getEncoder().encodeToString(IDENTITY_KEY.serialize()) + "\""), IDENTITY_KEY),
+        Arguments.of(String.format(template, "\"" + Base64.getEncoder().encodeToString(IDENTITY_KEY.getPublicKey().getPublicKeyBytes()) + "\""), IDENTITY_KEY)
     );
   }
 }
