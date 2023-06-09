@@ -1158,7 +1158,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SignedPreKey'
+                $ref: '#/components/schemas/ECSignedPreKey'
       security:
       - authenticatedAccount: []
     put:
@@ -1174,7 +1174,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SignedPreKey'
+              $ref: '#/components/schemas/ECSignedPreKey'
       responses:
         default:
           description: default response
@@ -2613,14 +2613,14 @@ components:
         devicePniSignedPrekeys:
           type: object
           additionalProperties:
-            $ref: '#/components/schemas/SignedPreKey'
+            $ref: '#/components/schemas/ECSignedPreKey'
           description: |-
             A new signed elliptic-curve prekey for each enabled device on the account, including this one.
             Each must be accompanied by a valid signature from the new identity key in this request.
         devicePniPqLastResortPrekeys:
           type: object
           additionalProperties:
-            $ref: '#/components/schemas/SignedPreKey'
+            $ref: '#/components/schemas/KEMSignedPreKey'
           description: |-
             A new signed post-quantum last-resort prekey for each enabled device on the account, including this one.
             May be absent, in which case the last resort PQ prekeys for each device will be deleted if any had been stored.
@@ -2649,6 +2649,23 @@ components:
           items:
             type: string
             format: byte
+    ECSignedPreKey:
+      type: object
+      properties:
+        keyId:
+          type: integer
+          format: int64
+        publicKey:
+          $ref: '#/components/schemas/ECPublicKey'
+        signature:
+          type: array
+          items:
+            type: string
+            format: byte
+      description: |
+        A signed EC pre-key to be associated with this account's PNI. If provided, an account
+        will be created "atomically," and all other properties needed for atomic account
+        creation must also be present.
     IdentityKey:
       type: object
       properties:
@@ -2674,21 +2691,16 @@ components:
           format: int32
         content:
           type: string
-    SignedPreKey:
-      required:
-      - keyId
-      - publicKey
-      - signature
+    KEMPublicKey:
+      type: object
+    KEMSignedPreKey:
       type: object
       properties:
         keyId:
           type: integer
           format: int64
         publicKey:
-          type: array
-          items:
-            type: string
-            format: byte
+          $ref: '#/components/schemas/KEMPublicKey'
         signature:
           type: array
           items:
@@ -2995,14 +3007,14 @@ components:
         devicePniSignedPrekeys:
           type: object
           additionalProperties:
-            $ref: '#/components/schemas/SignedPreKey'
+            $ref: '#/components/schemas/ECSignedPreKey'
           description: |-
             A new signed elliptic-curve prekey for each enabled device on the account, including this one.
             Each must be accompanied by a valid signature from the new identity key in this request.
         devicePniPqLastResortPrekeys:
           type: object
           additionalProperties:
-            $ref: '#/components/schemas/SignedPreKey'
+            $ref: '#/components/schemas/KEMSignedPreKey'
           description: |-
             A new signed post-quantum last-resort prekey for each enabled device on the account, including this one.
             May be absent, in which case the last resort PQ prekeys for each device will be deleted if any had been stored.
@@ -3043,14 +3055,14 @@ components:
         devicePniSignedPrekeys:
           type: object
           additionalProperties:
-            $ref: '#/components/schemas/SignedPreKey'
+            $ref: '#/components/schemas/ECSignedPreKey'
           description: |-
             A new signed elliptic-curve prekey for each enabled device on the account, including this one.
             Each must be accompanied by a valid signature from the new identity key in this request.
         devicePniPqLastResortPrekeys:
           type: object
           additionalProperties:
-            $ref: '#/components/schemas/SignedPreKey'
+            $ref: '#/components/schemas/KEMSignedPreKey'
           description: |-
             A new signed post-quantum last-resort prekey for each enabled device on the account, including this one.
             May be absent, in which case the last resort PQ prekeys for each device will be deleted if any had been stored.
@@ -3314,13 +3326,13 @@ components:
       type: object
       properties:
         aciSignedPreKey:
-          $ref: '#/components/schemas/SignedPreKey'
+          $ref: '#/components/schemas/ECSignedPreKey'
         pniSignedPreKey:
-          $ref: '#/components/schemas/SignedPreKey'
+          $ref: '#/components/schemas/ECSignedPreKey'
         aciPqLastResortPreKey:
-          $ref: '#/components/schemas/SignedPreKey'
+          $ref: '#/components/schemas/KEMSignedPreKey'
         pniPqLastResortPreKey:
-          $ref: '#/components/schemas/SignedPreKey'
+          $ref: '#/components/schemas/KEMSignedPreKey'
         apnToken:
           $ref: '#/components/schemas/ApnRegistrationId'
         gcmToken:
@@ -3338,13 +3350,13 @@ components:
         accountAttributes:
           $ref: '#/components/schemas/AccountAttributes'
         aciSignedPreKey:
-          $ref: '#/components/schemas/SignedPreKey'
+          $ref: '#/components/schemas/ECSignedPreKey'
         pniSignedPreKey:
-          $ref: '#/components/schemas/SignedPreKey'
+          $ref: '#/components/schemas/ECSignedPreKey'
         aciPqLastResortPreKey:
-          $ref: '#/components/schemas/SignedPreKey'
+          $ref: '#/components/schemas/KEMSignedPreKey'
         pniPqLastResortPreKey:
-          $ref: '#/components/schemas/SignedPreKey'
+          $ref: '#/components/schemas/KEMSignedPreKey'
         apnToken:
           $ref: '#/components/schemas/ApnRegistrationId'
         gcmToken:
@@ -3401,20 +3413,14 @@ components:
           description: the number of stored one-time post-quantum prekeys for this
             device
           format: int32
-    PreKey:
-      required:
-      - keyId
-      - publicKey
+    ECPreKey:
       type: object
       properties:
         keyId:
           type: integer
           format: int64
         publicKey:
-          type: array
-          items:
-            type: string
-            format: byte
+          $ref: '#/components/schemas/ECPublicKey'
       description: "A list of unsigned elliptic-curve prekeys to use for this device.\
         \ If present and not empty, replaces all stored unsigned EC prekeys for the\
         \ device; if absent or empty, any stored unsigned EC prekeys for the device\
@@ -3431,9 +3437,9 @@ components:
             \ for the device; if absent or empty, any stored unsigned EC prekeys for\
             \ the device are not deleted."
           items:
-            $ref: '#/components/schemas/PreKey'
+            $ref: '#/components/schemas/ECPreKey'
         signedPreKey:
-          $ref: '#/components/schemas/SignedPreKey'
+          $ref: '#/components/schemas/ECSignedPreKey'
         pqPreKeys:
           type: array
           description: "A list of signed post-quantum one-time prekeys to use for\
@@ -3442,9 +3448,9 @@ components:
             \ PQ prekeys for the device; if absent or empty, any stored unsigned PQ\
             \ prekeys for the device are not deleted."
           items:
-            $ref: '#/components/schemas/SignedPreKey'
+            $ref: '#/components/schemas/KEMSignedPreKey'
         pqLastResortPreKey:
-          $ref: '#/components/schemas/SignedPreKey'
+          $ref: '#/components/schemas/KEMSignedPreKey'
         identityKey:
           $ref: '#/components/schemas/IdentityKey'
         signatureValidOnEachSignedKey:
@@ -3787,13 +3793,13 @@ components:
         pniIdentityKey:
           $ref: '#/components/schemas/IdentityKey'
         aciSignedPreKey:
-          $ref: '#/components/schemas/SignedPreKey'
+          $ref: '#/components/schemas/ECSignedPreKey'
         pniSignedPreKey:
-          $ref: '#/components/schemas/SignedPreKey'
+          $ref: '#/components/schemas/ECSignedPreKey'
         aciPqLastResortPreKey:
-          $ref: '#/components/schemas/SignedPreKey'
+          $ref: '#/components/schemas/KEMSignedPreKey'
         pniPqLastResortPreKey:
-          $ref: '#/components/schemas/SignedPreKey'
+          $ref: '#/components/schemas/KEMSignedPreKey'
         apnToken:
           $ref: '#/components/schemas/ApnRegistrationId'
         gcmToken:
