@@ -42,6 +42,10 @@ public class ECPublicKeyAdapter {
         throw new JsonParseException(parser, "Could not parse EC public key as a base64-encoded value", e);
       }
 
+      if (ecPublicKeyBytes.length == 0) {
+        return null;
+      }
+
       try {
         return new ECPublicKey(ecPublicKeyBytes);
       } catch (final InvalidKeyException e) {

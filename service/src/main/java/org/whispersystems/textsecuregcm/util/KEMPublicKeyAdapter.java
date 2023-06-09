@@ -42,6 +42,10 @@ public class KEMPublicKeyAdapter {
         throw new JsonParseException(parser, "Could not parse KEM public key as a base64-encoded value", e);
       }
 
+      if (kemPublicKeyBytes.length == 0) {
+        return null;
+      }
+
       try {
         return new KEMPublicKey(kemPublicKeyBytes);
       } catch (final InvalidKeyException e) {
