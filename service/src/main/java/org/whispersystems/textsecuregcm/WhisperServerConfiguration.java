@@ -47,6 +47,7 @@ import org.whispersystems.textsecuregcm.configuration.SecureValueRecovery2Config
 import org.whispersystems.textsecuregcm.configuration.SpamFilterConfiguration;
 import org.whispersystems.textsecuregcm.configuration.StripeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
+import org.whispersystems.textsecuregcm.configuration.TurnSecretConfiguration;
 import org.whispersystems.textsecuregcm.configuration.UnidentifiedDeliveryConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ZkConfig;
 import org.whispersystems.textsecuregcm.limits.RateLimiterConfig;
@@ -264,6 +265,11 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private RegistrationServiceConfiguration registrationService;
 
+  @Valid
+  @NotNull
+  @JsonProperty
+  private TurnSecretConfiguration turn;
+
   public AdminEventLoggingConfiguration getAdminEventLoggingConfiguration() {
     return adminEventLoggingConfiguration;
   }
@@ -437,5 +443,9 @@ public class WhisperServerConfiguration extends Configuration {
 
   public RegistrationServiceConfiguration getRegistrationServiceConfiguration() {
     return registrationService;
+  }
+
+  public TurnSecretConfiguration getTurnSecretConfiguration() {
+    return turn;
   }
 }

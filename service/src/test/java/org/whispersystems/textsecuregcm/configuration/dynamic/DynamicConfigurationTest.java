@@ -329,7 +329,6 @@ class DynamicConfigurationTest {
     {
       final String config = REQUIRED_CONFIG.concat("""
           turn:
-            secret: bloop
             uriConfigs:
                 - uris:
                     - turn:test0.org
@@ -344,7 +343,6 @@ class DynamicConfigurationTest {
           .parseConfiguration(config, DynamicConfiguration.class)
           .orElseThrow()
           .getTurnConfiguration();
-      assertThat(turnConfiguration.getSecret()).isEqualTo("bloop");
       assertThat(turnConfiguration.getUriConfigs().get(0).getUris()).hasSize(2);
       assertThat(turnConfiguration.getUriConfigs().get(1).getUris()).hasSize(1);
       assertThat(turnConfiguration.getUriConfigs().get(0).getWeight()).isEqualTo(1);

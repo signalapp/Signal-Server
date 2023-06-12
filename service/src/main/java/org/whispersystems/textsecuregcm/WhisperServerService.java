@@ -554,7 +554,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         pushNotificationManager,
         pushLatencyManager);
     final ReceiptSender receiptSender = new ReceiptSender(accountsManager, messageSender, receiptSenderExecutor);
-    final TurnTokenGenerator turnTokenGenerator = new TurnTokenGenerator(dynamicConfigurationManager);
+    final TurnTokenGenerator turnTokenGenerator = new TurnTokenGenerator(dynamicConfigurationManager,
+        config.getTurnSecretConfiguration().secret().value());
 
     RecaptchaClient recaptchaClient = new RecaptchaClient(
         config.getRecaptchaConfiguration().projectPath(),

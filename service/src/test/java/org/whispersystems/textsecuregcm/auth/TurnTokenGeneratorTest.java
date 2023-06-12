@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -21,7 +22,6 @@ public class TurnTokenGeneratorTest {
         captcha:
           scoreFloor: 1.0
         turn:
-          secret: bloop
           uriConfigs:
             - uris:
                 - always1.org
@@ -39,7 +39,9 @@ public class TurnTokenGeneratorTest {
         DynamicConfigurationManager.class);
 
     when(mockDynamicConfigManager.getConfiguration()).thenReturn(config);
-    final TurnTokenGenerator turnTokenGenerator = new TurnTokenGenerator(mockDynamicConfigManager);
+
+    final TurnTokenGenerator turnTokenGenerator =
+        new TurnTokenGenerator(mockDynamicConfigManager, "bloop".getBytes(StandardCharsets.UTF_8));
 
     final long COUNT = 1000;
 
@@ -60,7 +62,6 @@ public class TurnTokenGeneratorTest {
         captcha:
           scoreFloor: 1.0
         turn:
-          secret: bloop
           uriConfigs:
             - uris:
                 - always.org
@@ -80,7 +81,8 @@ public class TurnTokenGeneratorTest {
         DynamicConfigurationManager.class);
 
     when(mockDynamicConfigManager.getConfiguration()).thenReturn(config);
-    final TurnTokenGenerator turnTokenGenerator = new TurnTokenGenerator(mockDynamicConfigManager);
+    final TurnTokenGenerator turnTokenGenerator =
+        new TurnTokenGenerator(mockDynamicConfigManager, "bloop".getBytes(StandardCharsets.UTF_8));
 
     final long COUNT = 1000;
 
@@ -122,7 +124,9 @@ public class TurnTokenGeneratorTest {
 
     when(mockDynamicConfigManager.getConfiguration()).thenReturn(config);
 
-    final TurnTokenGenerator turnTokenGenerator = new TurnTokenGenerator(mockDynamicConfigManager);
+    final TurnTokenGenerator turnTokenGenerator =
+        new TurnTokenGenerator(mockDynamicConfigManager, "bloop".getBytes(StandardCharsets.UTF_8));
+
     TurnToken token = turnTokenGenerator.generate("+15555555555");
     assertThat(token.getUrls().get(0)).isEqualTo("enrolled.org");
     token = turnTokenGenerator.generate("+15555555556");

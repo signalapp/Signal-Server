@@ -26,39 +26,44 @@ import java.util.Optional;
 
 public class TurnTokenGenerator {
 
-  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfiguration;
+  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
+
+  private final byte[] turnSecret;
 
   private static final String ALGORITHM = "HmacSHA1";
 
-  public TurnTokenGenerator(final DynamicConfigurationManager<DynamicConfiguration> config) {
-    this.dynamicConfiguration = config;
+  public TurnTokenGenerator(final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
+      final byte[] turnSecret) {
+
+    this.dynamicConfigurationManager = dynamicConfigurationManager;
+    this.turnSecret = turnSecret;
   }
 
   public TurnToken generate(final String e164) {
     try {
-      final byte[] key = dynamicConfiguration.getConfiguration().getTurnConfiguration().getSecret().getBytes();
       final List<String> urls = urls(e164);
       final Mac mac = Mac.getInstance(ALGORITHM);
       final long validUntilSeconds = Instant.now().plus(Duration.ofDays(1)).getEpochSecond();
       final long user = Util.ensureNonNegativeInt(new SecureRandom().nextInt());
       final String userTime = validUntilSeconds + ":" + user;
 
-      mac.init(new SecretKeySpec(key, ALGORITHM));
+      mac.init(new SecretKeySpec(turnSecret, ALGORITHM));
       final String password = Base64.getEncoder().encodeToString(mac.doFinal(userTime.getBytes()));
 
       return new TurnToken(userTime, password, urls);
-    } catch (NoSuchAlgorithmException | InvalidKeyException e) {
+    } catch (final NoSuchAlgorithmException | InvalidKeyException e) {
       throw new AssertionError(e);
     }
   }
 
   private List<String> urls(final String e164) {
-    final DynamicTurnConfiguration turnConfig = dynamicConfiguration.getConfiguration().getTurnConfiguration();
+    final DynamicTurnConfiguration turnConfig = dynamicConfigurationManager.getConfiguration().getTurnConfiguration();
 
     // Check if number is enrolled to test out specific turn servers
     final Optional<TurnUriConfiguration> enrolled = turnConfig.getUriConfigs().stream()
         .filter(config -> config.getEnrolledNumbers().contains(e164))
         .findFirst();
+
     if (enrolled.isPresent()) {
       return enrolled.get().getUris();
     }

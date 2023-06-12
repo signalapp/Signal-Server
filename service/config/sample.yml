@@ -419,3 +419,6 @@ registrationService:
     ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
     AAAAAAAAAAAAAAAAAAAA
     -----END CERTIFICATE-----
+
+turn:
+  secret: secret://turn.secret
