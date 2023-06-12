@@ -18,10 +18,11 @@ import javax.crypto.spec.SecretKeySpec;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 public class TurnTokenGenerator {
 
@@ -38,7 +39,7 @@ public class TurnTokenGenerator {
       final byte[] key = dynamicConfiguration.getConfiguration().getTurnConfiguration().getSecret().getBytes();
       final List<String> urls = urls(e164);
       final Mac mac = Mac.getInstance(ALGORITHM);
-      final long validUntilSeconds = (System.currentTimeMillis() + TimeUnit.DAYS.toMillis(1)) / 1000;
+      final long validUntilSeconds = Instant.now().plus(Duration.ofDays(1)).getEpochSecond();
       final long user = Util.ensureNonNegativeInt(new SecureRandom().nextInt());
       final String userTime = validUntilSeconds + ":" + user;
 
