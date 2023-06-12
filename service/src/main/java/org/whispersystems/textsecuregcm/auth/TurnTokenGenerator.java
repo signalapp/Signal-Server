@@ -27,21 +27,23 @@ public class TurnTokenGenerator {
 
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfiguration;
 
+  private static final String ALGORITHM = "HmacSHA1";
+
   public TurnTokenGenerator(final DynamicConfigurationManager<DynamicConfiguration> config) {
     this.dynamicConfiguration = config;
   }
 
   public TurnToken generate(final String e164) {
     try {
-      byte[] key                = dynamicConfiguration.getConfiguration().getTurnConfiguration().getSecret().getBytes();
-      List<String> urls         = urls(e164);
-      Mac    mac                = Mac.getInstance("HmacSHA1");
-      long   validUntilSeconds  = (System.currentTimeMillis() + TimeUnit.DAYS.toMillis(1)) / 1000;
-      long   user               = Util.ensureNonNegativeInt(new SecureRandom().nextInt());
-      String userTime           = validUntilSeconds + ":"  + user;
+      final byte[] key = dynamicConfiguration.getConfiguration().getTurnConfiguration().getSecret().getBytes();
+      final List<String> urls = urls(e164);
+      final Mac mac = Mac.getInstance(ALGORITHM);
+      final long validUntilSeconds = (System.currentTimeMillis() + TimeUnit.DAYS.toMillis(1)) / 1000;
+      final long user = Util.ensureNonNegativeInt(new SecureRandom().nextInt());
+      final String userTime = validUntilSeconds + ":" + user;
 
-      mac.init(new SecretKeySpec(key, "HmacSHA1"));
-      String password = Base64.getEncoder().encodeToString(mac.doFinal(userTime.getBytes()));
+      mac.init(new SecretKeySpec(key, ALGORITHM));
+      final String password = Base64.getEncoder().encodeToString(mac.doFinal(userTime.getBytes()));
 
       return new TurnToken(userTime, password, urls);
     } catch (NoSuchAlgorithmException | InvalidKeyException e) {
@@ -64,6 +66,6 @@ public class TurnTokenGenerator {
     return WeightedRandomSelect.select(turnConfig
         .getUriConfigs()
         .stream()
-        .map(c -> new Pair<List<String>, Long>(c.getUris(), c.getWeight())).toList());
+        .map(c -> new Pair<>(c.getUris(), c.getWeight())).toList());
   }
 }
