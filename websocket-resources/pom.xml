@@ -41,8 +41,8 @@
       <artifactId>dropwizard-logging</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.glassfish.hk2.external</groupId>
-      <artifactId>jakarta.inject</artifactId>
+      <groupId>jakarta.inject</groupId>
+      <artifactId>jakarta.inject-api</artifactId>
     </dependency>
     <dependency>
       <groupId>jakarta.validation</groupId>
