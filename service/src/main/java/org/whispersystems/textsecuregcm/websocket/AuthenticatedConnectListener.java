@@ -52,6 +52,10 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
 
   private static final String OPEN_WEBSOCKET_COUNTER_NAME =
       MetricsUtil.name(WebSocketConnection.class, "openWebsockets");
+  private static final String CONNECTED_DURATION_TIMER_NAME = MetricsUtil.name(AuthenticatedConnectListener.class,
+      "connectedDuration");
+
+  private static final String AUTHENTICATED_TAG_NAME = "authenticated";
 
   private static final long RENEW_PRESENCE_INTERVAL_MINUTES = 5;
 
@@ -64,8 +68,15 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
   private final ScheduledExecutorService scheduledExecutorService;
   private final Scheduler messageDeliveryScheduler;
 
-  private final Map<ClientPlatform, AtomicInteger> openWebsocketsByClientPlatform;
-  private final AtomicInteger openWebsocketsFromUnknownPlatforms;
+  private final Map<ClientPlatform, AtomicInteger> openAuthenticatedWebsocketsByClientPlatform;
+  private final Map<ClientPlatform, AtomicInteger> openUnauthenticatedWebsocketsByClientPlatform;
+  private final Map<ClientPlatform, io.micrometer.core.instrument.Timer> durationTimersByClientPlatform;
+  private final Map<ClientPlatform, io.micrometer.core.instrument.Timer> unauthenticatedDurationTimersByClientPlatform;
+
+  private final AtomicInteger openAuthenticatedWebsocketsFromUnknownPlatforms;
+  private final AtomicInteger openUnauthenticatedWebsocketsFromUnknownPlatforms;
+  private final io.micrometer.core.instrument.Timer durationTimerForUnknownPlatforms;
+  private final io.micrometer.core.instrument.Timer unauthenticatedDurationTimerForUnknownPlatforms;
 
   public AuthenticatedConnectListener(ReceiptSender receiptSender,
       MessagesManager messagesManager,
@@ -80,39 +91,72 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
     this.scheduledExecutorService = scheduledExecutorService;
     this.messageDeliveryScheduler = messageDeliveryScheduler;
 
-    openWebsocketsByClientPlatform = new EnumMap<>(ClientPlatform.class);
+    openAuthenticatedWebsocketsByClientPlatform = new EnumMap<>(ClientPlatform.class);
+    openUnauthenticatedWebsocketsByClientPlatform = new EnumMap<>(ClientPlatform.class);
+    durationTimersByClientPlatform = new EnumMap<>(ClientPlatform.class);
+    unauthenticatedDurationTimersByClientPlatform = new EnumMap<>(ClientPlatform.class);
+
+    final Tags authenticatedTag = Tags.of(AUTHENTICATED_TAG_NAME, "true");
+    final Tags unauthenticatedTag = Tags.of(AUTHENTICATED_TAG_NAME, "false");
 
     for (final ClientPlatform clientPlatform : ClientPlatform.values()) {
-      openWebsocketsByClientPlatform.put(clientPlatform, new AtomicInteger(0));
+      openAuthenticatedWebsocketsByClientPlatform.put(clientPlatform, new AtomicInteger(0));
+      openUnauthenticatedWebsocketsByClientPlatform.put(clientPlatform, new AtomicInteger(0));
 
-      Metrics.gauge(OPEN_WEBSOCKET_COUNTER_NAME, Tags.of(UserAgentTagUtil.PLATFORM_TAG, clientPlatform.name().toLowerCase()),
-          openWebsocketsByClientPlatform.get(clientPlatform));
+      final Tags clientPlatformTag = Tags.of(UserAgentTagUtil.PLATFORM_TAG, clientPlatform.name().toLowerCase());
+      Metrics.gauge(OPEN_WEBSOCKET_COUNTER_NAME, clientPlatformTag.and(authenticatedTag),
+          openAuthenticatedWebsocketsByClientPlatform.get(clientPlatform));
+
+      Metrics.gauge(OPEN_WEBSOCKET_COUNTER_NAME, clientPlatformTag.and(unauthenticatedTag),
+          openUnauthenticatedWebsocketsByClientPlatform.get(clientPlatform));
+
+      durationTimersByClientPlatform.put(clientPlatform,
+          Metrics.timer(CONNECTED_DURATION_TIMER_NAME, clientPlatformTag.and(authenticatedTag)));
+
+      unauthenticatedDurationTimersByClientPlatform.put(clientPlatform,
+          Metrics.timer(CONNECTED_DURATION_TIMER_NAME, clientPlatformTag.and(unauthenticatedTag)));
     }
 
-    openWebsocketsFromUnknownPlatforms = new AtomicInteger(0);
+    openAuthenticatedWebsocketsFromUnknownPlatforms = new AtomicInteger(0);
+    openUnauthenticatedWebsocketsFromUnknownPlatforms = new AtomicInteger(0);
 
-    Metrics.gauge(OPEN_WEBSOCKET_COUNTER_NAME, Tags.of(UserAgentTagUtil.PLATFORM_TAG, "unrecognized"),
-        openWebsocketsFromUnknownPlatforms);
+    final Tags unrecognizedPlatform = Tags.of(UserAgentTagUtil.PLATFORM_TAG, "unrecognized");
+    Metrics.gauge(OPEN_WEBSOCKET_COUNTER_NAME, unrecognizedPlatform.and(authenticatedTag),
+        openAuthenticatedWebsocketsFromUnknownPlatforms);
+
+    Metrics.gauge(OPEN_WEBSOCKET_COUNTER_NAME, unrecognizedPlatform.and(unauthenticatedTag),
+        openUnauthenticatedWebsocketsFromUnknownPlatforms);
+
+    durationTimerForUnknownPlatforms = Metrics.timer(CONNECTED_DURATION_TIMER_NAME,
+        unrecognizedPlatform.and(authenticatedTag));
+
+    unauthenticatedDurationTimerForUnknownPlatforms = Metrics.timer(CONNECTED_DURATION_TIMER_NAME,
+        unrecognizedPlatform.and(unauthenticatedTag));
   }
 
   @Override
   public void onWebSocketConnect(WebSocketSessionContext context) {
-    if (context.getAuthenticated() != null) {
+
+    final boolean authenticated = (context.getAuthenticated() != null);
+    final String userAgent = context.getClient().getUserAgent();
+    final AtomicInteger openWebsocketAtomicInteger = getOpenWebsocketCounter(userAgent, authenticated);
+    final io.micrometer.core.instrument.Timer connectionTimer = getConnectionTimer(userAgent, authenticated);
+
+    if (authenticated) {
       final AuthenticatedAccount auth = context.getAuthenticated(AuthenticatedAccount.class);
       final Device device = auth.getAuthenticatedDevice();
       final Timer.Context timer = durationTimer.time();
+      final io.micrometer.core.instrument.Timer.Sample sample = io.micrometer.core.instrument.Timer.start();
       final WebSocketConnection connection = new WebSocketConnection(receiptSender,
           messagesManager, auth, device,
           context.getClient(),
           scheduledExecutorService,
           messageDeliveryScheduler);
 
-      final AtomicInteger openWebsocketAtomicInteger = getOpenWebsocketCounter(context.getClient().getUserAgent());
-
       openWebsocketAtomicInteger.incrementAndGet();
       openWebsocketCounter.inc();
 
-      pushNotificationManager.handleMessagesRetrieved(auth.getAccount(), device, context.getClient().getUserAgent());
+      pushNotificationManager.handleMessagesRetrieved(auth.getAccount(), device, userAgent);
 
       final AtomicReference<ScheduledFuture<?>> renewPresenceFutureReference = new AtomicReference<>();
 
@@ -121,6 +165,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
         openWebsocketCounter.dec();
 
         timer.stop();
+        sample.stop(connectionTimer);
 
         final ScheduledFuture<?> renewPresenceFuture = renewPresenceFutureReference.get();
 
@@ -159,16 +204,45 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
         context.getClient().close(1011, "Unexpected error initializing connection");
       }
     } else {
+
+      openWebsocketAtomicInteger.incrementAndGet();
+      openWebsocketCounter.inc();
+
       final Timer.Context timer = unauthenticatedDurationTimer.time();
-      context.addWebsocketClosedListener((context1, statusCode, reason) -> timer.stop());
+      final io.micrometer.core.instrument.Timer.Sample sample = io.micrometer.core.instrument.Timer.start();
+      context.addWebsocketClosedListener((context1, statusCode, reason) -> {
+        openWebsocketAtomicInteger.decrementAndGet();
+        openWebsocketCounter.dec();
+        timer.stop();
+        sample.stop(connectionTimer);
+      });
     }
   }
 
-  private AtomicInteger getOpenWebsocketCounter(final String userAgentString) {
+  private AtomicInteger getOpenWebsocketCounter(final String userAgentString, final boolean authenticated) {
     try {
-      return openWebsocketsByClientPlatform.get(UserAgentUtil.parseUserAgentString(userAgentString).getPlatform());
+      final ClientPlatform platform = UserAgentUtil.parseUserAgentString(userAgentString).getPlatform();
+      return authenticated
+          ? openAuthenticatedWebsocketsByClientPlatform.get(platform)
+          : openUnauthenticatedWebsocketsByClientPlatform.get(platform);
     } catch (final UnrecognizedUserAgentException e) {
-      return openWebsocketsFromUnknownPlatforms;
+      return authenticated
+          ? openAuthenticatedWebsocketsFromUnknownPlatforms
+          : openUnauthenticatedWebsocketsFromUnknownPlatforms;
+    }
+  }
+
+  private io.micrometer.core.instrument.Timer getConnectionTimer(final String userAgentString,
+      final boolean authenticated) {
+    try {
+      final ClientPlatform platform = UserAgentUtil.parseUserAgentString(userAgentString).getPlatform();
+      return authenticated
+          ? durationTimersByClientPlatform.get(platform)
+          : unauthenticatedDurationTimersByClientPlatform.get(platform);
+    } catch (final UnrecognizedUserAgentException e) {
+      return authenticated
+          ? durationTimerForUnknownPlatforms
+          : unauthenticatedDurationTimerForUnknownPlatforms;
     }
   }
 }

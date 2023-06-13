@@ -21,6 +21,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 import static org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 
@@ -75,12 +76,10 @@ import reactor.test.StepVerifier;
 class WebSocketConnectionTest {
 
   private static final String VALID_USER = "+14152222222";
-  private static final String INVALID_USER = "+14151111111";
 
   private static final int SOURCE_DEVICE_ID = 1;
 
   private static final String VALID_PASSWORD = "secure";
-  private static final String INVALID_PASSWORD = "insecure";
 
   private AccountAuthenticator accountAuthenticator;
   private AccountsManager accountsManager;
@@ -124,28 +123,31 @@ class WebSocketConnectionTest {
     when(accountAuthenticator.authenticate(eq(new BasicCredentials(VALID_USER, VALID_PASSWORD))))
         .thenReturn(Optional.of(new AuthenticatedAccount(() -> new Pair<>(account, device))));
 
-    when(accountAuthenticator.authenticate(eq(new BasicCredentials(INVALID_USER, INVALID_PASSWORD))))
-        .thenReturn(Optional.empty());
-
-    when(upgradeRequest.getParameterMap()).thenReturn(Map.of(
-        "login", List.of(VALID_USER),
-        "password", List.of(VALID_PASSWORD)));
-
     AuthenticationResult<AuthenticatedAccount> account = webSocketAuthenticator.authenticate(upgradeRequest);
+    when(sessionContext.getAuthenticated()).thenReturn(account.getUser().orElse(null));
     when(sessionContext.getAuthenticated(AuthenticatedAccount.class)).thenReturn(account.getUser().orElse(null));
 
+    final WebSocketClient webSocketClient = mock(WebSocketClient.class);
+    when(webSocketClient.getUserAgent()).thenReturn("Signal-Android/6.22.8");
+    when(sessionContext.getClient()).thenReturn(webSocketClient);
+
+    // authenticated - valid user
     connectListener.onWebSocketConnect(sessionContext);
 
-    verify(sessionContext).addWebsocketClosedListener(any(WebSocketSessionContext.WebSocketEventListener.class));
+    verify(sessionContext, times(1)).addWebsocketClosedListener(
+        any(WebSocketSessionContext.WebSocketEventListener.class));
 
-    when(upgradeRequest.getParameterMap()).thenReturn(Map.of(
-        "login", List.of(INVALID_USER),
-        "password", List.of(INVALID_PASSWORD)
-    ));
-
+    // unauthenticated
+    when(upgradeRequest.getParameterMap()).thenReturn(Map.of());
     account = webSocketAuthenticator.authenticate(upgradeRequest);
     assertFalse(account.getUser().isPresent());
-    assertTrue(account.isRequired());
+    assertFalse(account.isRequired());
+
+    connectListener.onWebSocketConnect(sessionContext);
+    verify(sessionContext, times(2)).addWebsocketClosedListener(
+        any(WebSocketSessionContext.WebSocketEventListener.class));
+
+    verifyNoMoreInteractions(messagesManager);
   }
 
   @Test

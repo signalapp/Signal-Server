@@ -4,10 +4,10 @@
  */
 package org.whispersystems.websocket.session;
 
-import org.whispersystems.websocket.WebSocketClient;
-
 import java.util.LinkedList;
 import java.util.List;
+import javax.annotation.Nullable;
+import org.whispersystems.websocket.WebSocketClient;
 
 public class WebSocketSessionContext {
 
@@ -34,6 +34,7 @@ public class WebSocketSessionContext {
     throw new IllegalArgumentException("No authenticated type for: " + clazz + ", we have: " + authenticated);
   }
 
+  @Nullable
   public Object getAuthenticated() {
     return authenticated;
   }
