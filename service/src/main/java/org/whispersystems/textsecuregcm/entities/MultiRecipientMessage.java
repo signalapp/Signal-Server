@@ -5,16 +5,30 @@
 
 package org.whispersystems.textsecuregcm.entities;
 
+import static com.codahale.metrics.MetricRegistry.name;
+
 import java.util.Arrays;
 import java.util.UUID;
 import javax.validation.Valid;
+import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
+
+import org.whispersystems.textsecuregcm.controllers.MessageController;
 import org.whispersystems.textsecuregcm.providers.MultiRecipientMessageProvider;
+import org.whispersystems.textsecuregcm.util.Pair;
+
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Metrics;
 
 public class MultiRecipientMessage {
+
+  private static final Counter REJECT_DUPLICATE_RECIPIENT_COUNTER =
+      Metrics.counter(
+          name(MessageController.class, "rejectDuplicateRecipients"),
+          "multiRecipient", "false");
 
   public static class Recipient {
 
@@ -107,5 +121,14 @@ public class MultiRecipientMessage {
 
   public byte[] getCommonPayload() {
     return commonPayload;
+  }
+
+  @AssertTrue
+  public boolean hasNoDuplicateRecipients() {
+    boolean valid = Arrays.stream(recipients).map(r -> new Pair<>(r.getUuid(), r.getDeviceId())).distinct().count() == recipients.length;
+    if (!valid) {
+      REJECT_DUPLICATE_RECIPIENT_COUNTER.increment();
+    }
+    return valid;
   }
 }

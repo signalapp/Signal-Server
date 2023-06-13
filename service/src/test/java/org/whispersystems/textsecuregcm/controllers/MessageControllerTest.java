@@ -392,6 +392,21 @@ class MessageControllerTest {
   }
 
   @Test
+  void testMultiDeviceDuplicate() throws Exception {
+    Response response = resources.getJerseyTest()
+        .target(String.format("/v1/messages/%s", MULTI_DEVICE_UUID))
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .put(Entity.entity(SystemMapper.jsonMapper().readValue(jsonFixture("fixtures/current_message_duplicate_device.json"),
+                    IncomingMessageList.class),
+                MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat("Good Response Code", response.getStatus(), is(equalTo(422)));
+
+    verifyNoMoreInteractions(messageSender);
+  }
+
+  @Test
   void testMultiDevice() throws Exception {
     Response response =
         resources.getJerseyTest()
@@ -1039,6 +1054,28 @@ class MessageControllerTest {
         Arguments.of(SINGLE_DEVICE_UUID, true, true, false),
         Arguments.of(SINGLE_DEVICE_UUID, true, false, false)
     );
+  }
+
+  @Test
+  void testMultiRecipientRedisBombProtection() throws Exception {
+    final List<Recipient> recipients = List.of(
+        new Recipient(MULTI_DEVICE_UUID, MULTI_DEVICE_ID1, MULTI_DEVICE_REG_ID1, new byte[48]),
+        new Recipient(MULTI_DEVICE_UUID, MULTI_DEVICE_ID2, MULTI_DEVICE_REG_ID1, new byte[48]),
+        new Recipient(MULTI_DEVICE_UUID, MULTI_DEVICE_ID1, MULTI_DEVICE_REG_ID1, new byte[48]));
+
+    Response response = resources
+        .getJerseyTest()
+        .target("/v1/messages/multi_recipient")
+        .queryParam("online", true)
+        .queryParam("ts", 1663798405641L)
+        .queryParam("story", false)
+        .queryParam("urgent", false)
+        .request()
+        .header(HttpHeaders.USER_AGENT, "cluck cluck, i'm a parrot")
+        .header(OptionalAccess.UNIDENTIFIED, Base64.getEncoder().encodeToString(UNIDENTIFIED_ACCESS_BYTES))
+        .put(Entity.entity(initializeMultiPayload(recipients, new byte[2048]), MultiRecipientMessageProvider.MEDIA_TYPE));
+
+    checkBadMultiRecipientResponse(response, 422);
   }
 
   @Test
