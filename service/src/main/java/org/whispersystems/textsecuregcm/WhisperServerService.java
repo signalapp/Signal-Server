@@ -46,7 +46,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import javax.servlet.DispatcherType;
 import javax.servlet.FilterRegistration;
 import javax.servlet.ServletRegistration;
@@ -127,18 +126,8 @@ import org.whispersystems.textsecuregcm.mappers.NonNormalizedPhoneNumberExceptio
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RegistrationServiceSenderExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.ServerRejectedExceptionMapper;
-import org.whispersystems.textsecuregcm.metrics.ApplicationShutdownMonitor;
-import org.whispersystems.textsecuregcm.metrics.BufferPoolGauges;
-import org.whispersystems.textsecuregcm.metrics.CpuUsageGauge;
-import org.whispersystems.textsecuregcm.metrics.FileDescriptorGauge;
-import org.whispersystems.textsecuregcm.metrics.FreeMemoryGauge;
-import org.whispersystems.textsecuregcm.metrics.GarbageCollectionGauges;
-import org.whispersystems.textsecuregcm.metrics.MaxFileDescriptorGauge;
 import org.whispersystems.textsecuregcm.metrics.MetricsApplicationEventListener;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
-import org.whispersystems.textsecuregcm.metrics.NetworkReceivedGauge;
-import org.whispersystems.textsecuregcm.metrics.NetworkSentGauge;
-import org.whispersystems.textsecuregcm.metrics.OperatingSystemMemoryGauge;
 import org.whispersystems.textsecuregcm.metrics.ReportedMessageMetricsListener;
 import org.whispersystems.textsecuregcm.metrics.TrafficSource;
 import org.whispersystems.textsecuregcm.providers.MultiRecipientMessageProvider;
@@ -783,7 +772,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
       webSocketEnvironment.jersey().register(controller);
     }
 
-
     WebSocketEnvironment<AuthenticatedAccount> provisioningEnvironment = new WebSocketEnvironment<>(environment,
         webSocketEnvironment.getRequestLog(), 60000);
     provisioningEnvironment.jersey().register(new WebsocketRefreshApplicationEventListener(accountsManager, clientPresenceManager));
@@ -817,21 +805,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     environment.healthChecks().register("cacheCluster", new RedisClusterHealthCheck(cacheCluster));
 
-    environment.lifecycle().manage(new ApplicationShutdownMonitor(Metrics.globalRegistry));
-
-    environment.metrics().register(name(CpuUsageGauge.class, "cpu"), new CpuUsageGauge(3, TimeUnit.SECONDS));
-    environment.metrics().register(name(FreeMemoryGauge.class, "free_memory"), new FreeMemoryGauge());
-    environment.metrics().register(name(NetworkSentGauge.class, "bytes_sent"), new NetworkSentGauge());
-    environment.metrics().register(name(NetworkReceivedGauge.class, "bytes_received"), new NetworkReceivedGauge());
-    environment.metrics().register(name(FileDescriptorGauge.class, "fd_count"), new FileDescriptorGauge());
-    environment.metrics().register(name(MaxFileDescriptorGauge.class, "max_fd_count"), new MaxFileDescriptorGauge());
-    environment.metrics()
-        .register(name(OperatingSystemMemoryGauge.class, "buffers"), new OperatingSystemMemoryGauge("Buffers"));
-    environment.metrics()
-        .register(name(OperatingSystemMemoryGauge.class, "cached"), new OperatingSystemMemoryGauge("Cached"));
-
-    BufferPoolGauges.registerMetrics();
-    GarbageCollectionGauges.registerMetrics();
+    MetricsUtil.registerSystemResourceMetrics(environment);
   }
 
 

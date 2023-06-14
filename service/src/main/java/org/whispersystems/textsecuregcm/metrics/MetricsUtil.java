@@ -5,7 +5,11 @@
 
 package org.whispersystems.textsecuregcm.metrics;
 
+import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
+import io.dropwizard.lifecycle.JettyManaged;
+import io.dropwizard.lifecycle.setup.LifecycleEnvironment;
+import io.dropwizard.metrics.ScheduledReporterManager;
 import io.dropwizard.setup.Environment;
 import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.Metrics;
@@ -13,6 +17,7 @@ import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.config.MeterFilter;
 import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
 import io.micrometer.datadog.DatadogMeterRegistry;
+import java.util.concurrent.TimeUnit;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.WhisperServerVersion;
 import org.whispersystems.textsecuregcm.util.Constants;
@@ -66,5 +71,60 @@ public class MetricsUtil {
     }
 
     environment.lifecycle().manage(new MicrometerRegistryManager(Metrics.globalRegistry));
+    environment.lifecycle().manage(new ApplicationShutdownMonitor(Metrics.globalRegistry));
+  }
+
+  public static void registerSystemResourceMetrics(final Environment environment) {
+    environment.metrics().register(name(CpuUsageGauge.class, "cpu"), new CpuUsageGauge(3, TimeUnit.SECONDS));
+    environment.metrics().register(name(FreeMemoryGauge.class, "free_memory"), new FreeMemoryGauge());
+    environment.metrics().register(name(NetworkSentGauge.class, "bytes_sent"), new NetworkSentGauge());
+    environment.metrics().register(name(NetworkReceivedGauge.class, "bytes_received"), new NetworkReceivedGauge());
+    environment.metrics().register(name(FileDescriptorGauge.class, "fd_count"), new FileDescriptorGauge());
+    environment.metrics().register(name(MaxFileDescriptorGauge.class, "max_fd_count"), new MaxFileDescriptorGauge());
+    environment.metrics()
+        .register(name(OperatingSystemMemoryGauge.class, "buffers"), new OperatingSystemMemoryGauge("Buffers"));
+    environment.metrics()
+        .register(name(OperatingSystemMemoryGauge.class, "cached"), new OperatingSystemMemoryGauge("Cached"));
+
+    BufferPoolGauges.registerMetrics();
+    GarbageCollectionGauges.registerMetrics();
+  }
+
+  /**
+   * For use in commands where {@link JettyManaged} doesn't apply
+   *
+   * @see io.dropwizard.metrics.MetricsFactory#configure(LifecycleEnvironment, MetricRegistry)
+   */
+  public static void startManagedReporters(Environment environment) {
+    environment.lifecycle().getManagedObjects().forEach(managedObject -> {
+      if (managedObject instanceof JettyManaged jettyManaged) {
+        if (jettyManaged.getManaged() instanceof ScheduledReporterManager scheduledReporterManager) {
+          try {
+            scheduledReporterManager.start();
+          } catch (final Exception e) {
+            throw new RuntimeException(e);
+          }
+        }
+      }
+    });
+  }
+
+  /**
+   * For use in commands where {@link JettyManaged} doesn't apply
+   *
+   * @see io.dropwizard.metrics.MetricsFactory#configure(LifecycleEnvironment, MetricRegistry)
+   */
+  public static void stopManagedReporters(final Environment environment) {
+    environment.lifecycle().getManagedObjects().forEach(lifeCycle -> {
+      if (lifeCycle instanceof JettyManaged jettyManaged) {
+        if (jettyManaged.getManaged() instanceof ScheduledReporterManager scheduledReporterManager) {
+          try {
+            scheduledReporterManager.stop();
+          } catch (final Exception e) {
+            throw new RuntimeException(e);
+          }
+        }
+      }
+    });
   }
 }

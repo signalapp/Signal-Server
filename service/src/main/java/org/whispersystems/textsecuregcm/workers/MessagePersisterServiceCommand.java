@@ -70,6 +70,8 @@ public class MessagePersisterServiceCommand extends ServerCommand<WhisperServerC
     environment.lifecycle().manage(deps.messagesCache());
     environment.lifecycle().manage(messagePersister);
 
+    MetricsUtil.registerSystemResourceMetrics(environment);
+
     super.run(environment, namespace, configuration);
   }
 

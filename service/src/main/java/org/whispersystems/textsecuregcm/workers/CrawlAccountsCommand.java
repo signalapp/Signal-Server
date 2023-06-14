@@ -97,38 +97,39 @@ public class CrawlAccountsCommand extends EnvironmentCommand<WhisperServerConfig
             DynamicConfiguration.class);
 
     dynamicConfigurationManager.start();
+    MetricsUtil.registerSystemResourceMetrics(environment);
 
-    final AccountDatabaseCrawler crawler =
+    final AccountDatabaseCrawler crawler = switch ((CrawlType) namespace.get(CRAWL_TYPE)) {
+      case GENERAL_PURPOSE -> {
+        final AccountDatabaseCrawlerCache accountDatabaseCrawlerCache = new AccountDatabaseCrawlerCache(
+            cacheCluster,
+            AccountDatabaseCrawlerCache.GENERAL_PURPOSE_PREFIX);
 
-        switch ((CrawlType) namespace.get(CRAWL_TYPE)) {
-          case GENERAL_PURPOSE -> {
-            final AccountDatabaseCrawlerCache accountDatabaseCrawlerCache = new AccountDatabaseCrawlerCache(
-                cacheCluster,
-                AccountDatabaseCrawlerCache.GENERAL_PURPOSE_PREFIX);
+        yield new AccountDatabaseCrawler("General-purpose account crawler",
+            accountsManager,
+            accountDatabaseCrawlerCache, accountDatabaseCrawlerListeners,
+            configuration.getAccountDatabaseCrawlerConfiguration().getChunkSize(),
+            dynamicConfigurationManager
+        );
+      }
+      case ACCOUNT_CLEANER -> {
+        final ExecutorService accountDeletionExecutor = environment.lifecycle()
+            .executorService(name(getClass(), "accountCleaner-%d")).maxThreads(16).minThreads(16).build();
 
-            yield new AccountDatabaseCrawler("General-purpose account crawler",
-                accountsManager,
-                accountDatabaseCrawlerCache, accountDatabaseCrawlerListeners,
-                configuration.getAccountDatabaseCrawlerConfiguration().getChunkSize(),
-                dynamicConfigurationManager
-            );
-          }
-          case ACCOUNT_CLEANER -> {
-            final ExecutorService accountDeletionExecutor = environment.lifecycle()
-                .executorService(name(getClass(), "accountCleaner-%d")).maxThreads(16).minThreads(16).build();
+        final AccountDatabaseCrawlerCache accountDatabaseCrawlerCache = new AccountDatabaseCrawlerCache(
+            cacheCluster, AccountDatabaseCrawlerCache.ACCOUNT_CLEANER_PREFIX);
 
-            final AccountDatabaseCrawlerCache accountDatabaseCrawlerCache = new AccountDatabaseCrawlerCache(
-                cacheCluster, AccountDatabaseCrawlerCache.ACCOUNT_CLEANER_PREFIX);
+        yield new AccountDatabaseCrawler("Account cleaner crawler",
+            accountsManager,
+            accountDatabaseCrawlerCache,
+            List.of(new AccountCleaner(accountsManager, accountDeletionExecutor)),
+            configuration.getAccountDatabaseCrawlerConfiguration().getChunkSize(),
+            dynamicConfigurationManager
+        );
+      }
+    };
 
-            yield new AccountDatabaseCrawler("Account cleaner crawler",
-                accountsManager,
-                accountDatabaseCrawlerCache,
-                List.of(new AccountCleaner(accountsManager, accountDeletionExecutor)),
-                configuration.getAccountDatabaseCrawlerConfiguration().getChunkSize(),
-                dynamicConfigurationManager
-            );
-          }
-        };
+    MetricsUtil.startManagedReporters(environment);
 
     try {
       crawler.crawlAllAccounts();
@@ -136,5 +137,6 @@ public class CrawlAccountsCommand extends EnvironmentCommand<WhisperServerConfig
       LoggerFactory.getLogger(CrawlAccountsCommand.class).error("Error crawling accounts", e);
     }
 
+    MetricsUtil.stopManagedReporters(environment);
   }
 }
