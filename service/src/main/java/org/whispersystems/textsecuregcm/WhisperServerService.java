@@ -745,7 +745,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new RegistrationController(accountsManager, phoneVerificationTokenManager, registrationLockVerificationManager,
             keys, rateLimiters),
         new RemoteConfigController(remoteConfigsManager, adminEventLogger,
-            config.getRemoteConfigConfiguration().authorizedTokens().value(),
             config.getRemoteConfigConfiguration().authorizedUsers(),
             config.getRemoteConfigConfiguration().requiredHostedDomain(),
             config.getRemoteConfigConfiguration().audiences(),

@@ -54,7 +54,6 @@ public class RemoteConfigController {
 
   private final RemoteConfigsManager remoteConfigsManager;
   private final AdminEventLogger adminEventLogger;
-  private final List<String> configAuthTokens;
   private final Set<String> configAuthUsers;
   private final Map<String, String> globalConfig;
 
@@ -65,11 +64,10 @@ public class RemoteConfigController {
   private static final String GLOBAL_CONFIG_PREFIX = "global.";
 
   public RemoteConfigController(RemoteConfigsManager remoteConfigsManager, AdminEventLogger adminEventLogger,
-      List<String> configAuthTokens, Set<String> configAuthUsers, String requiredHostedDomain, List<String> audience,
+      Set<String> configAuthUsers, String requiredHostedDomain, List<String> audience,
       final GoogleIdTokenVerifier.Builder googleIdTokenVerifierBuilder, Map<String, String> globalConfig) {
     this.remoteConfigsManager = remoteConfigsManager;
     this.adminEventLogger = Objects.requireNonNull(adminEventLogger);
-    this.configAuthTokens = configAuthTokens;
     this.configAuthUsers = configAuthUsers;
     this.globalConfig = globalConfig;
 
@@ -141,8 +139,7 @@ public class RemoteConfigController {
 
   private Optional<String> getAuthIdentity(String token) {
     return getAuthorizedGoogleIdentity(token)
-        .map(googleIdToken -> googleIdToken.getPayload().getEmail())
-        .or(() -> Optional.ofNullable(isAuthorized(token) ? token : null));
+        .map(googleIdToken -> googleIdToken.getPayload().getEmail());
   }
 
   private Optional<GoogleIdToken> getAuthorizedGoogleIdentity(String token) {
@@ -183,8 +180,4 @@ public class RemoteConfigController {
     return bucket < configPercentage;
   }
 
-  @SuppressWarnings("BooleanMethodIsAlwaysInverted")
-  private boolean isAuthorized(String configToken) {
-    return configToken != null && configAuthTokens.stream().anyMatch(authorized -> MessageDigest.isEqual(authorized.getBytes(), configToken.getBytes()));
-  }
 }

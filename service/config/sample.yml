@@ -301,7 +301,6 @@ appConfig:
   configuration: example
 
 remoteConfig:
-  authorizedTokens: secret://remoteConfig.authorizedTokens
   authorizedUsers:
     - # 1st authorized user
     - # 2nd authorized user
