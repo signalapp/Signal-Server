@@ -110,9 +110,9 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
     ExecutorService messageDeletionExecutor = environment.lifecycle()
         .executorService(name(getClass(), "messageDeletion-%d")).maxThreads(4).build();
     ExecutorService secureValueRecoveryExecutor = environment.lifecycle()
-        .executorService(name(getClass(), "secureValueRecoveryService-%d")).maxThreads(8).minThreads(1).build();
+        .executorService(name(getClass(), "secureValueRecoveryService-%d")).maxThreads(1).minThreads(1).build();
     ExecutorService storageServiceExecutor = environment.lifecycle()
-        .executorService(name(getClass(), "storageService-%d")).maxThreads(8).minThreads(1).build();
+        .executorService(name(getClass(), "storageService-%d")).maxThreads(1).minThreads(1).build();
 
     ExternalServiceCredentialsGenerator backupCredentialsGenerator = SecureBackupController.credentialsGenerator(
         configuration.getSecureBackupServiceConfiguration());

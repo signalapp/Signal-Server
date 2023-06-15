@@ -91,9 +91,9 @@ record CommandDependencies(
     ExecutorService messageDeletionExecutor = environment.lifecycle()
         .executorService(name(name, "messageDeletion-%d")).maxThreads(4).build();
     ExecutorService secureValueRecoveryServiceExecutor = environment.lifecycle()
-        .executorService(name(name, "secureValueRecoveryService-%d")).maxThreads(8).minThreads(1).build();
+        .executorService(name(name, "secureValueRecoveryService-%d")).maxThreads(8).minThreads(8).build();
     ExecutorService storageServiceExecutor = environment.lifecycle()
-        .executorService(name(name, "storageService-%d")).maxThreads(8).minThreads(1).build();
+        .executorService(name(name, "storageService-%d")).maxThreads(8).minThreads(8).build();
 
     ExternalServiceCredentialsGenerator backupCredentialsGenerator = SecureBackupController.credentialsGenerator(
         configuration.getSecureBackupServiceConfiguration());
