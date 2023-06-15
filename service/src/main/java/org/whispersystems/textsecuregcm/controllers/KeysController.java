@@ -16,6 +16,8 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -36,6 +38,8 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import org.signal.libsignal.protocol.IdentityKey;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.ChangesDeviceEnabledState;
@@ -48,7 +52,6 @@ import org.whispersystems.textsecuregcm.entities.PreKeyCount;
 import org.whispersystems.textsecuregcm.entities.PreKeyResponse;
 import org.whispersystems.textsecuregcm.entities.PreKeyResponseItem;
 import org.whispersystems.textsecuregcm.entities.PreKeyState;
-import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -70,6 +73,8 @@ public class KeysController {
 
   private static final String IDENTITY_TYPE_TAG_NAME = "identityType";
   private static final String HAS_IDENTITY_KEY_TAG_NAME = "hasIdentityKey";
+
+  private static final Logger logger = LoggerFactory.getLogger(KeysController.class);
 
   public KeysController(RateLimiters rateLimiters, KeysManager keys, AccountsManager accounts) {
     this.rateLimiters = rateLimiters;
@@ -132,6 +137,12 @@ public class KeysController {
         throw new ForbiddenException();
       }
       Metrics.counter(IDENTITY_KEY_CHANGE_COUNTER_NAME, tags).increment();
+
+      if (hasIdentityKey) {
+        logger.warn("Existing {} identity key changed; account age is {} days",
+            identityType.orElse("aci"),
+            Duration.between(Instant.ofEpochMilli(device.getCreated()), Instant.now()).toDays());
+      }
     }
 
     if (updateAccount) {
