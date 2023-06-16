@@ -11,6 +11,7 @@ import io.dropwizard.Application;
 import io.dropwizard.cli.EnvironmentCommand;
 import io.dropwizard.setup.Environment;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import net.sourceforge.argparse4j.inf.Argument;
 import net.sourceforge.argparse4j.inf.ArgumentParser;
@@ -36,6 +37,7 @@ import org.whispersystems.textsecuregcm.util.logging.UncaughtExceptionHandler;
 public class CrawlAccountsCommand extends EnvironmentCommand<WhisperServerConfiguration> {
 
   private static final String CRAWL_TYPE = "crawlType";
+  private static final String WORKER_COUNT = "workers";
 
   public enum CrawlType implements ArgumentType<CrawlType> {
     GENERAL_PURPOSE,
@@ -67,6 +69,12 @@ public class CrawlAccountsCommand extends EnvironmentCommand<WhisperServerConfig
         .dest(CRAWL_TYPE)
         .required(true)
         .help("The type of crawl to perform");
+
+    subparser.addArgument("--workers")
+        .type(Integer.class)
+        .dest(WORKER_COUNT)
+        .required(true)
+        .help("The number of worker threads");
   }
 
   @Override
@@ -99,6 +107,8 @@ public class CrawlAccountsCommand extends EnvironmentCommand<WhisperServerConfig
     dynamicConfigurationManager.start();
     MetricsUtil.registerSystemResourceMetrics(environment);
 
+    final int workers = Objects.requireNonNull(namespace.getInt(WORKER_COUNT));
+
     final AccountDatabaseCrawler crawler = switch ((CrawlType) namespace.get(CRAWL_TYPE)) {
       case GENERAL_PURPOSE -> {
         final AccountDatabaseCrawlerCache accountDatabaseCrawlerCache = new AccountDatabaseCrawlerCache(
@@ -114,7 +124,7 @@ public class CrawlAccountsCommand extends EnvironmentCommand<WhisperServerConfig
       }
       case ACCOUNT_CLEANER -> {
         final ExecutorService accountDeletionExecutor = environment.lifecycle()
-            .executorService(name(getClass(), "accountCleaner-%d")).maxThreads(16).minThreads(16).build();
+            .executorService(name(getClass(), "accountCleaner-%d")).maxThreads(workers).minThreads(workers).build();
 
         final AccountDatabaseCrawlerCache accountDatabaseCrawlerCache = new AccountDatabaseCrawlerCache(
             cacheCluster, AccountDatabaseCrawlerCache.ACCOUNT_CLEANER_PREFIX);
