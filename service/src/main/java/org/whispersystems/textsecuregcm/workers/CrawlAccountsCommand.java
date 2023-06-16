@@ -92,12 +92,6 @@ public class CrawlAccountsCommand extends EnvironmentCommand<WhisperServerConfig
     final FaultTolerantRedisCluster metricsCluster = new FaultTolerantRedisCluster("metrics_cluster",
         configuration.getMetricsClusterConfiguration(), deps.redisClusterClientResources());
 
-    // TODO listeners must be ordered so that ones that directly update accounts come last, so that read-only ones are not working with stale data
-    final List<AccountDatabaseCrawlerListener> accountDatabaseCrawlerListeners = List.of(
-        new NonNormalizedAccountCrawlerListener(accountsManager, metricsCluster),
-        // PushFeedbackProcessor may update device properties
-        new PushFeedbackProcessor(accountsManager));
-
     final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
         new DynamicConfigurationManager<>(configuration.getAppConfig().getApplication(),
             configuration.getAppConfig().getEnvironment(),
@@ -111,6 +105,15 @@ public class CrawlAccountsCommand extends EnvironmentCommand<WhisperServerConfig
 
     final AccountDatabaseCrawler crawler = switch ((CrawlType) namespace.get(CRAWL_TYPE)) {
       case GENERAL_PURPOSE -> {
+        final ExecutorService pushFeedbackUpdateExecutor = environment.lifecycle()
+            .executorService(name(getClass(), "pushFeedback-%d")).maxThreads(workers).minThreads(workers).build();
+
+        // TODO listeners must be ordered so that ones that directly update accounts come last, so that read-only ones are not working with stale data
+        final List<AccountDatabaseCrawlerListener> accountDatabaseCrawlerListeners = List.of(
+            new NonNormalizedAccountCrawlerListener(accountsManager, metricsCluster),
+            // PushFeedbackProcessor may update device properties
+            new PushFeedbackProcessor(accountsManager, pushFeedbackUpdateExecutor));
+
         final AccountDatabaseCrawlerCache accountDatabaseCrawlerCache = new AccountDatabaseCrawlerCache(
             cacheCluster,
             AccountDatabaseCrawlerCache.GENERAL_PURPOSE_PREFIX);

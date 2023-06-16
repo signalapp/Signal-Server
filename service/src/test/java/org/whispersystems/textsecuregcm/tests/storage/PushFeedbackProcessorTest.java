@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -101,7 +102,7 @@ class PushFeedbackProcessorTest {
 
   @Test
   void testEmpty() throws AccountDatabaseCrawlerRestartException {
-    PushFeedbackProcessor processor = new PushFeedbackProcessor(accountsManager);
+    PushFeedbackProcessor processor = new PushFeedbackProcessor(accountsManager, Executors.newSingleThreadExecutor());
     processor.timeAndProcessCrawlChunk(Optional.of(UUID.randomUUID()), Collections.emptyList());
 
     verifyNoInteractions(accountsManager);
@@ -109,7 +110,7 @@ class PushFeedbackProcessorTest {
 
   @Test
   void testUpdate() throws AccountDatabaseCrawlerRestartException {
-    PushFeedbackProcessor processor = new PushFeedbackProcessor(accountsManager);
+    PushFeedbackProcessor processor = new PushFeedbackProcessor(accountsManager, Executors.newSingleThreadExecutor());
     processor.timeAndProcessCrawlChunk(Optional.of(UUID.randomUUID()),
         List.of(uninstalledAccount, mixedAccount, stillActiveAccount, freshAccount, cleanAccount));
 

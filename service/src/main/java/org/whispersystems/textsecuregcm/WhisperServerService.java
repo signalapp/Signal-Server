@@ -387,26 +387,33 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     ScheduledExecutorService recurringJobExecutor = environment.lifecycle()
         .scheduledExecutorService(name(getClass(), "recurringJob-%d")).threads(6).build();
-    ScheduledExecutorService websocketScheduledExecutor           = environment.lifecycle().scheduledExecutorService(name(getClass(), "websocket-%d")).threads(8).build();
-    ExecutorService          keyspaceNotificationDispatchExecutor = environment.lifecycle().executorService(name(getClass(), "keyspaceNotification-%d")).maxThreads(16).workQueue(keyspaceNotificationDispatchQueue).build();
-    ExecutorService          apnSenderExecutor                    = environment.lifecycle().executorService(name(getClass(), "apnSender-%d")).maxThreads(1).minThreads(1).build();
+    ScheduledExecutorService websocketScheduledExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(getClass(), "websocket-%d")).threads(8).build();
+    ExecutorService keyspaceNotificationDispatchExecutor = environment.lifecycle()
+        .executorService(name(getClass(), "keyspaceNotification-%d")).maxThreads(16)
+        .workQueue(keyspaceNotificationDispatchQueue).build();
+    ExecutorService apnSenderExecutor = environment.lifecycle().executorService(name(getClass(), "apnSender-%d"))
+        .maxThreads(1).minThreads(1).build();
     ExecutorService fcmSenderExecutor = environment.lifecycle().executorService(name(getClass(), "fcmSender-%d"))
         .maxThreads(32).minThreads(32).workQueue(fcmSenderQueue).build();
     ExecutorService secureValueRecoveryServiceExecutor = environment.lifecycle()
         .executorService(name(getClass(), "secureValueRecoveryService-%d")).maxThreads(1).minThreads(1).build();
     ExecutorService storageServiceExecutor = environment.lifecycle()
         .executorService(name(getClass(), "storageService-%d")).maxThreads(1).minThreads(1).build();
-    ExecutorService          accountDeletionExecutor              = environment.lifecycle().executorService(name(getClass(), "accountCleaner-%d")).maxThreads(16).minThreads(16).build();
+    ExecutorService accountDeletionExecutor = environment.lifecycle()
+        .executorService(name(getClass(), "accountCleaner-%d")).maxThreads(16).minThreads(16).build();
+    ExecutorService pushFeedbackUpdateExecutor = environment.lifecycle()
+        .executorService(name(getClass(), "pushFeedback-%d")).maxThreads(4).minThreads(4).build();
 
     Scheduler messageDeliveryScheduler = Schedulers.fromExecutorService(
-            ExecutorServiceMetrics.monitor(Metrics.globalRegistry,
-                    environment.lifecycle().executorService(name(getClass(), "messageDelivery-%d"))
-                            .minThreads(20)
-                            .maxThreads(20)
-                            .workQueue(messageDeliveryQueue)
-                            .build(),
-                    MetricsUtil.name(getClass(), "messageDeliveryExecutor"), MetricsUtil.PREFIX),
-            "messageDelivery");
+        ExecutorServiceMetrics.monitor(Metrics.globalRegistry,
+            environment.lifecycle().executorService(name(getClass(), "messageDelivery-%d"))
+                .minThreads(20)
+                .maxThreads(20)
+                .workQueue(messageDeliveryQueue)
+                .build(),
+            MetricsUtil.name(getClass(), "messageDeliveryExecutor"), MetricsUtil.PREFIX),
+        "messageDelivery");
     // TODO: generally speaking this is a DynamoDB I/O executor for the accounts table; we should eventually have a general executor for speaking to the accounts table, but most of the server is still synchronous so this isn't widely useful yet
     ExecutorService batchIdentityCheckExecutor = environment.lifecycle().executorService(name(getClass(), "batchIdentityCheck-%d")).minThreads(32).maxThreads(32).build();
     ExecutorService multiRecipientMessageExecutor = environment.lifecycle()
@@ -582,7 +589,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final List<AccountDatabaseCrawlerListener> accountDatabaseCrawlerListeners = List.of(
         new NonNormalizedAccountCrawlerListener(accountsManager, metricsCluster),
         // PushFeedbackProcessor may update device properties
-        new PushFeedbackProcessor(accountsManager));
+        new PushFeedbackProcessor(accountsManager, pushFeedbackUpdateExecutor));
 
     AccountDatabaseCrawlerCache accountDatabaseCrawlerCache = new AccountDatabaseCrawlerCache(cacheCluster,
         AccountDatabaseCrawlerCache.GENERAL_PURPOSE_PREFIX);
