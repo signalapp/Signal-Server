@@ -261,20 +261,6 @@ public class KeysController {
     });
   }
 
-  @Timed
-  @GET
-  @Path("/signed")
-  @Produces(MediaType.APPLICATION_JSON)
-  public Optional<ECSignedPreKey> getSignedKey(@Auth final AuthenticatedAccount auth,
-      @QueryParam("identity") final Optional<String> identityType) {
-
-    Device device = auth.getAuthenticatedDevice();
-    ECSignedPreKey signedPreKey = usePhoneNumberIdentity(identityType) ?
-        device.getPhoneNumberIdentitySignedPreKey() : device.getSignedPreKey();
-
-    return Optional.ofNullable(signedPreKey);
-  }
-
   private static boolean usePhoneNumberIdentity(final Optional<String> identityType) {
     return "pni".equals(identityType.map(String::toLowerCase).orElse("aci"));
   }

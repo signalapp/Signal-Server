@@ -53,7 +53,6 @@ import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.ECPreKey;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
-import org.whispersystems.textsecuregcm.entities.PreKey;
 import org.whispersystems.textsecuregcm.entities.PreKeyCount;
 import org.whispersystems.textsecuregcm.entities.PreKeyResponse;
 import org.whispersystems.textsecuregcm.entities.PreKeyState;
@@ -139,10 +138,6 @@ class KeysControllerTest {
                                    @JsonSerialize(using = ByteArrayAdapter.Serializing.class)
                                    @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
                                    byte[] publicKey) {
-
-    static WeaklyTypedPreKey fromPreKey(final PreKey<?> preKey) {
-      return new WeaklyTypedPreKey(preKey.keyId(), preKey.serializedPublicKey());
-    }
   }
 
   private record WeaklyTypedSignedPreKey(long keyId,
@@ -266,30 +261,6 @@ class KeysControllerTest {
 
     verify(KEYS).getEcCount(AuthHelper.VALID_UUID, 1);
     verify(KEYS).getPqCount(AuthHelper.VALID_UUID, 1);
-  }
-
-
-  @Test
-  void getSignedPreKeyV2() {
-    ECSignedPreKey result = resources.getJerseyTest()
-                                   .target("/v2/keys/signed")
-                                   .request()
-                                   .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                                   .get(ECSignedPreKey.class);
-
-    assertEquals(VALID_DEVICE_SIGNED_KEY, result);
-  }
-
-  @Test
-  void getPhoneNumberIdentifierSignedPreKeyV2() {
-    ECSignedPreKey result = resources.getJerseyTest()
-        .target("/v2/keys/signed")
-        .queryParam("identity", "pni")
-        .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .get(ECSignedPreKey.class);
-
-    assertEquals(VALID_DEVICE_PNI_SIGNED_KEY, result);
   }
 
   @Test
