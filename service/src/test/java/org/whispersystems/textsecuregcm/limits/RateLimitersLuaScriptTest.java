@@ -70,50 +70,6 @@ public class RateLimitersLuaScriptTest {
   }
 
   @Test
-  public void testFormatMigration() throws Exception {
-    final RateLimiters.For descriptor = RateLimiters.For.REGISTRATION;
-    final FaultTolerantRedisCluster redisCluster = REDIS_CLUSTER_EXTENSION.getRedisCluster();
-    final RateLimiters limiters = new RateLimiters(
-        Map.of(descriptor.id(), new RateLimiterConfig(60, Duration.ofSeconds(1))),
-        dynamicConfig,
-        RateLimiters.defaultScript(redisCluster),
-        redisCluster,
-        Clock.systemUTC());
-
-    final RateLimiter rateLimiter = limiters.forDescriptor(descriptor);
-
-    // embedding an existing value in the old format
-    redisCluster.useCluster(c -> c.sync().set(
-        StaticRateLimiter.bucketName(descriptor.id(), "test"),
-        serializeToOldBucketValueFormat(60, 60, 30, System.currentTimeMillis() + 10000)
-    ));
-    assertThrows(RateLimitExceededException.class, () -> rateLimiter.validate("test", 40));
-
-    // embedding an existing value in the old format
-    redisCluster.useCluster(c -> c.sync().set(
-        StaticRateLimiter.bucketName(descriptor.id(), "test1"),
-        serializeToOldBucketValueFormat(60, 60, 30, System.currentTimeMillis() + 10000)
-    ));
-    rateLimiter.validate("test1", 20);
-    assertThrows(RateLimitExceededException.class, () -> rateLimiter.validate("test1", 20));
-
-    // embedding an existing value in the new format
-    redisCluster.useCluster(c -> c.sync().hset(
-        StaticRateLimiter.bucketName(descriptor.id(), "test2"),
-        Map.of("s", "30", "t", String.valueOf(System.currentTimeMillis() + 10000))
-    ));
-    assertThrows(RateLimitExceededException.class, () -> rateLimiter.validate("test2", 40));
-
-    // embedding an existing value in the new format
-    redisCluster.useCluster(c -> c.sync().hset(
-        StaticRateLimiter.bucketName(descriptor.id(), "test3"),
-        Map.of("s", "30", "t", String.valueOf(System.currentTimeMillis() + 10000))
-    ));
-    rateLimiter.validate("test3", 20);
-    assertThrows(RateLimitExceededException.class, () -> rateLimiter.validate("test3", 20));
-  }
-
-  @Test
   public void testTtl() throws Exception {
     final RateLimiters.For descriptor = RateLimiters.For.REGISTRATION;
     final FaultTolerantRedisCluster redisCluster = REDIS_CLUSTER_EXTENSION.getRedisCluster();

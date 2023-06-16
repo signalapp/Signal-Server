@@ -21,30 +21,13 @@ local changesMade = false
 local tokensRemaining
 local lastUpdateTimeMillis
 
--- while we're migrating from json to redis list key types, there are three possible options for the
--- type of the `bucketId` key: "string" (legacy, json value), "list" (new format), "none" (key not set).
---
--- On a separate note -- the reason we're not using a different key is because Redis Lua requires to list all keys
--- as a script input and we don't want to expose this migration to the script users.
---
--- Finally, it's okay to read the "ok" key of the return here because "TYPE" command always succeeds.
-local keyType = redis.call("TYPE", bucketId)["ok"]
-if keyType == "none" then
-    -- if the key is not set, building the object from the configuration
-    tokensRemaining = bucketSize
-    lastUpdateTimeMillis = currentTimeMillis
-elseif keyType == "string" then
-    -- if the key is "string", we parse the value from json
-    local fromJson = cjson.decode(redis.call("GET", bucketId))
-    tokensRemaining = fromJson.spaceRemaining
-    lastUpdateTimeMillis = fromJson.lastUpdateTimeMillis
-    redis.call("DEL", bucketId)
-    changesMade = true
-elseif keyType == "hash" then
-    -- finally, reading values from the new storage format
-    local tokensRemainingStr, lastUpdateTimeMillisStr = unpack(redis.call("HMGET", bucketId, SIZE_FIELD, TIME_FIELD))
+local tokensRemainingStr, lastUpdateTimeMillisStr = unpack(redis.call("HMGET", bucketId, SIZE_FIELD, TIME_FIELD))
+if tokensRemainingStr and lastUpdateTimeMillisStr then
     tokensRemaining = tonumber(tokensRemainingStr)
     lastUpdateTimeMillis = tonumber(lastUpdateTimeMillisStr)
+else
+    tokensRemaining = bucketSize
+    lastUpdateTimeMillis = currentTimeMillis
 end
 
 local elapsedTime = currentTimeMillis - lastUpdateTimeMillis
