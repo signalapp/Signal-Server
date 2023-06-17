@@ -5,11 +5,7 @@
 
 package org.whispersystems.textsecuregcm.metrics;
 
-import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
-import io.dropwizard.lifecycle.JettyManaged;
-import io.dropwizard.lifecycle.setup.LifecycleEnvironment;
-import io.dropwizard.metrics.ScheduledReporterManager;
 import io.dropwizard.setup.Environment;
 import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.Metrics;
@@ -90,41 +86,4 @@ public class MetricsUtil {
     GarbageCollectionGauges.registerMetrics();
   }
 
-  /**
-   * For use in commands where {@link JettyManaged} doesn't apply
-   *
-   * @see io.dropwizard.metrics.MetricsFactory#configure(LifecycleEnvironment, MetricRegistry)
-   */
-  public static void startManagedReporters(Environment environment) {
-    environment.lifecycle().getManagedObjects().forEach(managedObject -> {
-      if (managedObject instanceof JettyManaged jettyManaged) {
-        if (jettyManaged.getManaged() instanceof ScheduledReporterManager scheduledReporterManager) {
-          try {
-            scheduledReporterManager.start();
-          } catch (final Exception e) {
-            throw new RuntimeException(e);
-          }
-        }
-      }
-    });
-  }
-
-  /**
-   * For use in commands where {@link JettyManaged} doesn't apply
-   *
-   * @see io.dropwizard.metrics.MetricsFactory#configure(LifecycleEnvironment, MetricRegistry)
-   */
-  public static void stopManagedReporters(final Environment environment) {
-    environment.lifecycle().getManagedObjects().forEach(lifeCycle -> {
-      if (lifeCycle instanceof JettyManaged jettyManaged) {
-        if (jettyManaged.getManaged() instanceof ScheduledReporterManager scheduledReporterManager) {
-          try {
-            scheduledReporterManager.stop();
-          } catch (final Exception e) {
-            throw new RuntimeException(e);
-          }
-        }
-      }
-    });
-  }
 }

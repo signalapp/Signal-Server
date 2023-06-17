@@ -19,6 +19,7 @@ import net.sourceforge.argparse4j.inf.ArgumentParserException;
 import net.sourceforge.argparse4j.inf.ArgumentType;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
@@ -39,11 +40,12 @@ public class CrawlAccountsCommand extends EnvironmentCommand<WhisperServerConfig
   private static final String CRAWL_TYPE = "crawlType";
   private static final String WORKER_COUNT = "workers";
 
+  private static final Logger logger = LoggerFactory.getLogger(CrawlAccountsCommand.class);
+
   public enum CrawlType implements ArgumentType<CrawlType> {
     GENERAL_PURPOSE,
     ACCOUNT_CLEANER,
     ;
-
 
     @Override
     public CrawlType convert(final ArgumentParser parser, final Argument arg, final String value)
@@ -142,7 +144,14 @@ public class CrawlAccountsCommand extends EnvironmentCommand<WhisperServerConfig
       }
     };
 
-    MetricsUtil.startManagedReporters(environment);
+    environment.lifecycle().getManagedObjects().forEach(managedObject -> {
+      try {
+        managedObject.start();
+      } catch (final Exception e) {
+        logger.error("Failed to start managed object", e);
+        throw new RuntimeException(e);
+      }
+    });
 
     try {
       crawler.crawlAllAccounts();
@@ -150,6 +159,12 @@ public class CrawlAccountsCommand extends EnvironmentCommand<WhisperServerConfig
       LoggerFactory.getLogger(CrawlAccountsCommand.class).error("Error crawling accounts", e);
     }
 
-    MetricsUtil.stopManagedReporters(environment);
+    environment.lifecycle().getManagedObjects().forEach(managedObject -> {
+      try {
+        managedObject.stop();
+      } catch (final Exception e) {
+        logger.error("Failed to stop managed object", e);
+      }
+    });
   }
 }
