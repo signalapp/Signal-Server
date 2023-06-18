@@ -5,15 +5,14 @@
 
 package org.whispersystems.textsecuregcm.s3;
 
-import com.amazonaws.util.Base16Lower;
-
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
 import java.io.UnsupportedEncodingException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HexFormat;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 
 public class PolicySigner {
 
@@ -43,7 +42,7 @@ public class PolicySigner {
 
       mac.init(new SecretKeySpec(signingKey, "HmacSHA256"));
 
-      return Base16Lower.encodeAsString(mac.doFinal(policy.getBytes("UTF-8")));
+      return HexFormat.of().formatHex(mac.doFinal(policy.getBytes("UTF-8")));
     } catch (NoSuchAlgorithmException | InvalidKeyException | UnsupportedEncodingException e) {
       throw new AssertionError(e);
     }

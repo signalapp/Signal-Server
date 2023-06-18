@@ -83,7 +83,7 @@ class AccountsManagerChangeNumberIntegrationTest {
       deletedAccounts = new DeletedAccounts(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
           Tables.DELETED_ACCOUNTS.tableName());
 
-      final AccountLockManager accountLockManager = new AccountLockManager(DYNAMO_DB_EXTENSION.getLegacyDynamoClient(),
+      final AccountLockManager accountLockManager = new AccountLockManager(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
           Tables.DELETED_ACCOUNTS_LOCK.tableName());
 
       final SecureStorageClient secureStorageClient = mock(SecureStorageClient.class);

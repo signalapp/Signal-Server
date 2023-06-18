@@ -6,16 +6,10 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import com.almworks.sqlite4java.SQLite;
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.client.builder.AwsClientBuilder;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
 import com.amazonaws.services.dynamodbv2.local.main.ServerRunner;
 import com.amazonaws.services.dynamodbv2.local.server.DynamoDBProxyServer;
 import java.net.ServerSocket;
 import java.net.URI;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.extension.AfterEachCallback;
@@ -63,11 +57,10 @@ public class DynamoDbExtension implements BeforeEachCallback, AfterEachCallback 
 
   private DynamoDBProxyServer server;
   private int port;
-  
+
   private final List<TableSchema> schemas;
   private DynamoDbClient dynamoDB2;
   private DynamoDbAsyncClient dynamoAsyncDB2;
-  private AmazonDynamoDB legacyDynamoClient;
 
   public DynamoDbExtension(TableSchema... schemas) {
     this.schemas = List.of(schemas);
@@ -165,11 +158,6 @@ public class DynamoDbExtension implements BeforeEachCallback, AfterEachCallback 
         .credentialsProvider(StaticCredentialsProvider.create(
             AwsBasicCredentials.create("accessKey", "secretKey")))
         .build();
-    legacyDynamoClient = AmazonDynamoDBClientBuilder.standard()
-        .withEndpointConfiguration(
-            new AwsClientBuilder.EndpointConfiguration("http://localhost:" + port, "local-test-region"))
-        .withCredentials(new AWSStaticCredentialsProvider(new BasicAWSCredentials("accessKey", "secretKey")))
-        .build();
   }
 
   public DynamoDbClient getDynamoDbClient() {
@@ -180,7 +168,4 @@ public class DynamoDbExtension implements BeforeEachCallback, AfterEachCallback 
     return dynamoAsyncDB2;
   }
 
-  public AmazonDynamoDB getLegacyDynamoClient() {
-    return legacyDynamoClient;
-  }
 }

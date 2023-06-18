@@ -1,7 +1,6 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import com.amazonaws.services.dynamodbv2.AcquireLockOptions;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBLockClient;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBLockClientOptions;
 import com.amazonaws.services.dynamodbv2.LockItem;
@@ -10,12 +9,13 @@ import com.google.common.annotations.VisibleForTesting;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 
 public class AccountLockManager {
 
   private final AmazonDynamoDBLockClient lockClient;
 
-  public AccountLockManager(final AmazonDynamoDB lockDynamoDb, final String lockTableName) {
+  public AccountLockManager(final DynamoDbClient lockDynamoDb, final String lockTableName) {
     this(new AmazonDynamoDBLockClient(
         AmazonDynamoDBLockClientOptions.builder(lockDynamoDb, lockTableName)
             .withPartitionKeyName(DeletedAccounts.KEY_ACCOUNT_E164)

@@ -7,10 +7,6 @@ package org.whispersystems.textsecuregcm;
 import static com.codahale.metrics.MetricRegistry.name;
 import static java.util.Objects.requireNonNull;
 
-import com.amazonaws.ClientConfiguration;
-import com.amazonaws.auth.AWSCredentialsProviderChain;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
 import com.google.api.client.http.apache.v2.ApacheHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
@@ -235,12 +231,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
           InstanceProfileCredentialsProvider.create(),
           WebIdentityTokenFileCredentialsProvider.create());
 
-  public static final AWSCredentialsProviderChain AWSSDK_V1_CREDENTIALS_PROVIDER_CHAIN = new AWSCredentialsProviderChain(
-      com.amazonaws.auth.InstanceProfileCredentialsProvider.getInstance(),
-      com.amazonaws.auth.WebIdentityTokenCredentialsProvider.create()
-  );
-
-
   @Override
   public void initialize(final Bootstrap<WhisperServerConfiguration> bootstrap) {
     // `SecretStore` needs to be initialized before Dropwizard reads the main application config file.
@@ -296,15 +286,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     DynamoDbClient dynamoDbClient = DynamoDbFromConfig.client(config.getDynamoDbClientConfiguration(),
         AWSSDK_CREDENTIALS_PROVIDER);
-
-    AmazonDynamoDB deletedAccountsLockDynamoDbClient = AmazonDynamoDBClientBuilder.standard()
-        .withRegion(config.getDynamoDbClientConfiguration().getRegion())
-        .withClientConfiguration(new ClientConfiguration().withClientExecutionTimeout(
-                ((int) config.getDynamoDbClientConfiguration().getClientExecutionTimeout().toMillis()))
-            .withRequestTimeout(
-                (int) config.getDynamoDbClientConfiguration().getClientRequestTimeout().toMillis()))
-        .withCredentials(AWSSDK_V1_CREDENTIALS_PROVIDER_CHAIN)
-        .build();
 
     DeletedAccounts deletedAccounts = new DeletedAccounts(dynamoDbClient,
         config.getDynamoDbTables().getDeletedAccounts().getTableName());
@@ -503,7 +484,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getReportMessageConfiguration().getCounterTtl());
     MessagesManager messagesManager = new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager,
         messageDeletionAsyncExecutor);
-    AccountLockManager accountLockManager = new AccountLockManager(deletedAccountsLockDynamoDbClient, config.getDynamoDbTables().getDeletedAccountsLock().getTableName());
+    AccountLockManager accountLockManager = new AccountLockManager(dynamoDbClient,
+        config.getDynamoDbTables().getDeletedAccountsLock().getTableName());
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
         accountLockManager, deletedAccounts, keys, messagesManager, profilesManager,
         pendingAccountsManager, secureStorageClient, secureBackupClient, secureValueRecovery2Client,

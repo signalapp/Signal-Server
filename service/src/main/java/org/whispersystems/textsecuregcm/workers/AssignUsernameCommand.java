@@ -7,9 +7,6 @@ package org.whispersystems.textsecuregcm.workers;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
-import com.amazonaws.ClientConfiguration;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import io.dropwizard.Application;
 import io.dropwizard.cli.EnvironmentCommand;
@@ -135,17 +132,6 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
     DynamoDbClient dynamoDbClient = DynamoDbFromConfig.client(configuration.getDynamoDbClientConfiguration(),
         WhisperServerService.AWSSDK_CREDENTIALS_PROVIDER);
 
-    AmazonDynamoDB deletedAccountsLockDynamoDbClient = AmazonDynamoDBClientBuilder.standard()
-        .withRegion(configuration.getDynamoDbClientConfiguration().getRegion())
-        .withClientConfiguration(new ClientConfiguration().withClientExecutionTimeout(
-                ((int) configuration.getDynamoDbClientConfiguration().getClientExecutionTimeout()
-                    .toMillis()))
-            .withRequestTimeout(
-                (int) configuration.getDynamoDbClientConfiguration().getClientRequestTimeout()
-                    .toMillis()))
-        .withCredentials(WhisperServerService.AWSSDK_V1_CREDENTIALS_PROVIDER_CHAIN)
-        .build();
-
     DeletedAccounts deletedAccounts = new DeletedAccounts(dynamoDbClient,
         configuration.getDynamoDbTables().getDeletedAccounts().getTableName());
     VerificationCodeStore pendingAccounts = new VerificationCodeStore(dynamoDbClient,
@@ -206,7 +192,8 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
         configuration.getReportMessageConfiguration().getCounterTtl());
     MessagesManager messagesManager = new MessagesManager(messagesDynamoDb, messagesCache,
         reportMessageManager, messageDeletionExecutor);
-    AccountLockManager accountLockManager = new AccountLockManager(deletedAccountsLockDynamoDbClient, configuration.getDynamoDbTables().getDeletedAccountsLock().getTableName());
+    AccountLockManager accountLockManager = new AccountLockManager(dynamoDbClient,
+        configuration.getDynamoDbTables().getDeletedAccountsLock().getTableName());
     StoredVerificationCodeManager pendingAccountsManager = new StoredVerificationCodeManager(pendingAccounts);
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
         accountLockManager, deletedAccounts, keys, messagesManager, profilesManager,
