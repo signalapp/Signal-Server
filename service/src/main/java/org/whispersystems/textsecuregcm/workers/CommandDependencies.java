@@ -14,7 +14,7 @@ import java.io.IOException;
 import java.security.cert.CertificateException;
 import java.time.Clock;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.WhisperServerService;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
@@ -80,6 +80,8 @@ record CommandDependencies(
     FaultTolerantRedisCluster cacheCluster = new FaultTolerantRedisCluster("main_cache_cluster",
         configuration.getCacheClusterConfiguration(), redisClusterClientResources);
 
+    ScheduledExecutorService recurringJobExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(name, "recurringJob-%d")).threads(2).build();
     Scheduler messageDeliveryScheduler = Schedulers.fromExecutorService(
         environment.lifecycle().executorService("messageDelivery").maxThreads(4)
             .build());
@@ -165,7 +167,7 @@ record CommandDependencies(
     SecureStorageClient secureStorageClient = new SecureStorageClient(storageCredentialsGenerator,
         storageServiceExecutor, configuration.getSecureStorageServiceConfiguration());
     ClientPresenceManager clientPresenceManager = new ClientPresenceManager(clientPresenceCluster,
-        Executors.newSingleThreadScheduledExecutor(), keyspaceNotificationDispatchExecutor);
+        recurringJobExecutor, keyspaceNotificationDispatchExecutor);
     MessagesCache messagesCache = new MessagesCache(messageInsertCacheCluster, messageReadDeleteCluster,
         keyspaceNotificationDispatchExecutor, messageDeliveryScheduler, messageDeletionExecutor, Clock.systemUTC());
     ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster);
@@ -181,8 +183,12 @@ record CommandDependencies(
     StoredVerificationCodeManager pendingAccountsManager = new StoredVerificationCodeManager(pendingAccounts);
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
         accountLockManager, deletedAccounts, keys, messagesManager, profilesManager,
-        pendingAccountsManager, secureStorageClient, secureBackupClient, secureValueRecovery2Client, clientPresenceManager,
+        pendingAccountsManager, secureStorageClient, secureBackupClient, secureValueRecovery2Client,
+        clientPresenceManager,
         experimentEnrollmentManager, registrationRecoveryPasswordsManager, clock);
+
+    environment.lifecycle().manage(messagesCache);
+    environment.lifecycle().manage(clientPresenceManager);
 
     return new CommandDependencies(
         accountsManager,
