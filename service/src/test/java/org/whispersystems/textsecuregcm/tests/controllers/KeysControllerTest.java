@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -221,6 +222,8 @@ class KeysControllerTest {
 
     when(rateLimiters.getPreKeysLimiter()).thenReturn(rateLimiter);
 
+    when(KEYS.getEcSignedPreKey(any(), anyLong())).thenReturn(CompletableFuture.completedFuture(Optional.empty()));
+
     when(KEYS.takeEC(EXISTS_UUID, 1)).thenReturn(Optional.of(SAMPLE_KEY));
     when(KEYS.takePQ(EXISTS_UUID, 1)).thenReturn(Optional.of(SAMPLE_PQ_KEY));
     when(KEYS.takeEC(EXISTS_PNI, 1)).thenReturn(Optional.of(SAMPLE_KEY_PNI));
@@ -325,6 +328,7 @@ class KeysControllerTest {
     assertEquals(existsAccount.getDevice(1).get().getSignedPreKey(), result.getDevice(1).getSignedPreKey());
 
     verify(KEYS).takeEC(EXISTS_UUID, 1);
+    verify(KEYS).getEcSignedPreKey(EXISTS_UUID, 1);
     verifyNoMoreInteractions(KEYS);
   }
 
@@ -348,6 +352,7 @@ class KeysControllerTest {
 
     verify(KEYS).takeEC(EXISTS_UUID, 1);
     verify(KEYS).takePQ(EXISTS_UUID, 1);
+    verify(KEYS).getEcSignedPreKey(EXISTS_UUID, 1);
     verifyNoMoreInteractions(KEYS);
   }
 
@@ -369,6 +374,7 @@ class KeysControllerTest {
 
     verify(KEYS).takeEC(EXISTS_UUID, 1);
     verify(KEYS).takePQ(EXISTS_UUID, 1);
+    verify(KEYS).getEcSignedPreKey(EXISTS_UUID, 1);
     verifyNoMoreInteractions(KEYS);
   }
 
@@ -388,6 +394,7 @@ class KeysControllerTest {
     assertEquals(existsAccount.getDevice(1).get().getPhoneNumberIdentitySignedPreKey(), result.getDevice(1).getSignedPreKey());
 
     verify(KEYS).takeEC(EXISTS_PNI, 1);
+    verify(KEYS).getEcSignedPreKey(EXISTS_PNI, 1);
     verifyNoMoreInteractions(KEYS);
   }
 
@@ -409,6 +416,7 @@ class KeysControllerTest {
 
     verify(KEYS).takeEC(EXISTS_PNI, 1);
     verify(KEYS).takePQ(EXISTS_PNI, 1);
+    verify(KEYS).getEcSignedPreKey(EXISTS_PNI, 1);
     verifyNoMoreInteractions(KEYS);
   }
 
@@ -430,6 +438,7 @@ class KeysControllerTest {
     assertEquals(existsAccount.getDevice(1).get().getPhoneNumberIdentitySignedPreKey(), result.getDevice(1).getSignedPreKey());
 
     verify(KEYS).takeEC(EXISTS_PNI, 1);
+    verify(KEYS).getEcSignedPreKey(EXISTS_PNI, 1);
     verifyNoMoreInteractions(KEYS);
   }
 
@@ -465,6 +474,7 @@ class KeysControllerTest {
 
     verify(KEYS).takeEC(EXISTS_UUID, 1);
     verify(KEYS).takePQ(EXISTS_UUID, 1);
+    verify(KEYS).getEcSignedPreKey(EXISTS_UUID, 1);
     verifyNoMoreInteractions(KEYS);
   }
 
@@ -557,6 +567,9 @@ class KeysControllerTest {
     verify(KEYS).takeEC(EXISTS_UUID, 1);
     verify(KEYS).takeEC(EXISTS_UUID, 2);
     verify(KEYS).takeEC(EXISTS_UUID, 4);
+    verify(KEYS).getEcSignedPreKey(EXISTS_UUID, 1);
+    verify(KEYS).getEcSignedPreKey(EXISTS_UUID, 2);
+    verify(KEYS).getEcSignedPreKey(EXISTS_UUID, 4);
     verifyNoMoreInteractions(KEYS);
   }
 
@@ -622,6 +635,9 @@ class KeysControllerTest {
     verify(KEYS).takePQ(EXISTS_UUID, 2);
     verify(KEYS).takeEC(EXISTS_UUID, 4);
     verify(KEYS).takePQ(EXISTS_UUID, 4);
+    verify(KEYS).getEcSignedPreKey(EXISTS_UUID, 1);
+    verify(KEYS).getEcSignedPreKey(EXISTS_UUID, 2);
+    verify(KEYS).getEcSignedPreKey(EXISTS_UUID, 4);
     verifyNoMoreInteractions(KEYS);
   }
 

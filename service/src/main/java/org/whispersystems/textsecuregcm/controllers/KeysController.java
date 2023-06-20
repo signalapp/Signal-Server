@@ -52,6 +52,7 @@ import org.whispersystems.textsecuregcm.entities.PreKeyCount;
 import org.whispersystems.textsecuregcm.entities.PreKeyResponse;
 import org.whispersystems.textsecuregcm.entities.PreKeyResponseItem;
 import org.whispersystems.textsecuregcm.entities.PreKeyState;
+import org.whispersystems.textsecuregcm.experiment.Experiment;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -64,9 +65,10 @@ import org.whispersystems.textsecuregcm.storage.KeysManager;
 @Tag(name = "Keys")
 public class KeysController {
 
-  private final RateLimiters                rateLimiters;
+  private final RateLimiters rateLimiters;
   private final KeysManager keys;
-  private final AccountsManager             accounts;
+  private final AccountsManager accounts;
+  private final Experiment compareSignedEcPreKeysExperiment = new Experiment("compareSignedEcPreKeys");
 
   private static final String IDENTITY_KEY_CHANGE_COUNTER_NAME = name(KeysController.class, "identityKeyChange");
   private static final String IDENTITY_KEY_CHANGE_FORBIDDEN_COUNTER_NAME = name(KeysController.class, "identityKeyChangeForbidden");
@@ -223,6 +225,9 @@ public class KeysController {
       ECSignedPreKey signedECPreKey = usePhoneNumberIdentity ? device.getPhoneNumberIdentitySignedPreKey() : device.getSignedPreKey();
       ECPreKey unsignedECPreKey = keys.takeEC(identifier, device.getId()).orElse(null);
       KEMSignedPreKey pqPreKey = returnPqKey ? keys.takePQ(identifier, device.getId()).orElse(null) : null;
+
+      compareSignedEcPreKeysExperiment.compareFutureResult(Optional.ofNullable(signedECPreKey),
+          keys.getEcSignedPreKey(identifier, device.getId()));
 
       if (signedECPreKey != null || unsignedECPreKey != null || pqPreKey != null) {
         final int registrationId = usePhoneNumberIdentity ?
