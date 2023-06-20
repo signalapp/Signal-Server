@@ -11,6 +11,7 @@ import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -36,6 +37,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
+import java.util.stream.Collectors;
 import org.apache.commons.lang3.RandomUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -490,6 +492,23 @@ class AccountsTest {
     }
 
     assertThat(users).isEmpty();
+  }
+
+  @Test
+  void testGetAll() {
+    final List<Account> expectedAccounts = new ArrayList<>();
+
+    for (int i = 1; i <= 100; i++) {
+      final Account account = generateAccount("+1" + String.format("%03d", i), UUID.randomUUID(), UUID.randomUUID());
+      expectedAccounts.add(account);
+      accounts.create(account);
+    }
+
+    final List<Account> retrievedAccounts = accounts.getAll(2).collectList().block();
+
+    assertNotNull(retrievedAccounts);
+    assertEquals(expectedAccounts.stream().map(Account::getUuid).collect(Collectors.toSet()),
+        retrievedAccounts.stream().map(Account::getUuid).collect(Collectors.toSet()));
   }
 
   @Test

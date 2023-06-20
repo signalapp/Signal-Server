@@ -36,6 +36,7 @@ import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
+import reactor.core.publisher.Flux;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
@@ -675,6 +676,23 @@ public class Accounts extends AbstractDynamoDbStore {
           .transactItems(transactWriteItems).build();
       db().transactWriteItems(request);
     }));
+  }
+
+  Flux<Account> getAll(final int segments) {
+    if (segments < 1) {
+      throw new IllegalArgumentException("Total number of segments must be positive");
+    }
+
+    return Flux.merge(
+        Flux.range(0, segments)
+            .map(segment -> asyncClient.scanPaginator(ScanRequest.builder()
+                    .tableName(accountsTableName)
+                    .consistentRead(true)
+                    .segment(segment)
+                    .totalSegments(segments)
+                    .build())
+                .items()
+                .map(Accounts::fromItem)));
   }
 
   @Nonnull

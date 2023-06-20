@@ -58,6 +58,7 @@ import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.DestinationDeviceValidator;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.Util;
+import reactor.core.publisher.Flux;
 
 public class AccountsManager {
 
@@ -712,6 +713,10 @@ public class AccountsManager {
 
   public AccountCrawlChunk getAllFromDynamo(UUID uuid, int length) {
     return accounts.getAllFrom(uuid, length);
+  }
+
+  public Flux<Account> streamAllFromDynamo(final int segments) {
+    return accounts.getAll(segments);
   }
 
   public void delete(final Account account, final DeletionReason deletionReason) throws InterruptedException {
