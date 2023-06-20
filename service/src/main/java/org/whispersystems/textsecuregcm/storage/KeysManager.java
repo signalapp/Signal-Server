@@ -13,12 +13,15 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nullable;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.ECPreKey;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 
 public class KeysManager {
+
+  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
 
   private final SingleUseECPreKeyStore ecPreKeys;
   private final SingleUseKEMPreKeyStore pqPreKeys;
@@ -30,11 +33,13 @@ public class KeysManager {
       final String ecTableName,
       final String pqTableName,
       final String ecSignedPreKeysTableName,
-      final String pqLastResortTableName) {
+      final String pqLastResortTableName,
+      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
     this.ecPreKeys = new SingleUseECPreKeyStore(dynamoDbAsyncClient, ecTableName);
     this.pqPreKeys = new SingleUseKEMPreKeyStore(dynamoDbAsyncClient, pqTableName);
     this.ecSignedPreKeys = new RepeatedUseECSignedPreKeyStore(dynamoDbAsyncClient, ecSignedPreKeysTableName);
     this.pqLastResortKeys = new RepeatedUseKEMSignedPreKeyStore(dynamoDbAsyncClient, pqLastResortTableName);
+    this.dynamicConfigurationManager = dynamicConfigurationManager;
   }
 
   public void store(final UUID identifier, final long deviceId, final List<ECPreKey> keys) {
@@ -58,7 +63,7 @@ public class KeysManager {
       storeFutures.add(pqPreKeys.store(identifier, deviceId, pqKeys));
     }
 
-    if (ecSignedPreKey != null) {
+    if (ecSignedPreKey != null && dynamicConfigurationManager.getConfiguration().getEcPreKeyMigrationConfiguration().storeEcSignedPreKeys()) {
       storeFutures.add(ecSignedPreKeys.store(identifier, deviceId, ecSignedPreKey));
     }
 
@@ -70,7 +75,13 @@ public class KeysManager {
   }
 
   public void storeEcSignedPreKeys(final UUID identifier, final Map<Long, ECSignedPreKey> keys) {
-    ecSignedPreKeys.store(identifier, keys).join();
+    if (dynamicConfigurationManager.getConfiguration().getEcPreKeyMigrationConfiguration().storeEcSignedPreKeys()) {
+      ecSignedPreKeys.store(identifier, keys).join();
+    }
+  }
+
+  public CompletableFuture<Boolean> storeEcSignedPreKeyIfAbsent(final UUID identifier, final long deviceId, final ECSignedPreKey signedPreKey) {
+    return ecSignedPreKeys.storeIfAbsent(identifier, deviceId, signedPreKey);
   }
 
   public void storePqLastResort(final UUID identifier, final Map<Long, KEMSignedPreKey> keys) {

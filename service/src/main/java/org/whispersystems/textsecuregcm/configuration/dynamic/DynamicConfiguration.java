@@ -55,6 +55,10 @@ public class DynamicConfiguration {
   @Valid
   DynamicRateLimitPolicy rateLimitPolicy = new DynamicRateLimitPolicy(false);
 
+  @JsonProperty
+  @Valid
+  DynamicECPreKeyMigrationConfiguration ecPreKeyMigration = new DynamicECPreKeyMigrationConfiguration(false);
+
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(
       final String experimentName) {
     return Optional.ofNullable(experiments.get(experimentName));
@@ -97,4 +101,7 @@ public class DynamicConfiguration {
     return rateLimitPolicy;
   }
 
+  public DynamicECPreKeyMigrationConfiguration getEcPreKeyMigrationConfiguration() {
+    return ecPreKeyMigration;
+  }
 }

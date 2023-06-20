@@ -9,6 +9,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Map;
@@ -20,6 +22,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicECPreKeyMigrationConfiguration;
 import org.whispersystems.textsecuregcm.entities.ECPreKey;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
@@ -28,6 +32,7 @@ import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 
 class KeysManagerTest {
 
+  private DynamicECPreKeyMigrationConfiguration ecPreKeyMigrationConfiguration;
   private KeysManager keysManager;
 
   @RegisterExtension
@@ -41,12 +46,21 @@ class KeysManagerTest {
 
   @BeforeEach
   void setup() {
+    final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
+    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
+    ecPreKeyMigrationConfiguration = mock(DynamicECPreKeyMigrationConfiguration.class);
+
+    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
+    when(dynamicConfiguration.getEcPreKeyMigrationConfiguration()).thenReturn(ecPreKeyMigrationConfiguration);
+    when(ecPreKeyMigrationConfiguration.storeEcSignedPreKeys()).thenReturn(true);
+
     keysManager = new KeysManager(
         DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
         Tables.EC_KEYS.tableName(),
         Tables.PQ_KEYS.tableName(),
         Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS.tableName(),
-        Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS.tableName());
+        Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS.tableName(),
+        dynamicConfigurationManager);
   }
 
   @Test
@@ -249,6 +263,24 @@ class KeysManagerTest {
     assertIterableEquals(
         Set.of(DEVICE_ID + 1, DEVICE_ID + 2),
         Set.copyOf(keysManager.getPqEnabledDevices(ACCOUNT_UUID)));
+  }
+
+  @Test
+  void testStoreEcSignedPreKeyDisabled() {
+    when(ecPreKeyMigrationConfiguration.storeEcSignedPreKeys()).thenReturn(false);
+
+    final ECKeyPair identityKeyPair = Curve.generateKeyPair();
+
+    keysManager.store(ACCOUNT_UUID, DEVICE_ID,
+        List.of(generateTestPreKey(1)),
+        List.of(KeysHelper.signedKEMPreKey(2, identityKeyPair)),
+        KeysHelper.signedECPreKey(3, identityKeyPair),
+        KeysHelper.signedKEMPreKey(4, identityKeyPair));
+
+    assertEquals(1, keysManager.getEcCount(ACCOUNT_UUID, DEVICE_ID));
+    assertEquals(1, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID));
+    assertTrue(keysManager.getLastResort(ACCOUNT_UUID, DEVICE_ID).isPresent());
+    assertFalse(keysManager.getEcSignedPreKey(ACCOUNT_UUID, DEVICE_ID).join().isPresent());
   }
 
   private static ECPreKey generateTestPreKey(final long keyId) {

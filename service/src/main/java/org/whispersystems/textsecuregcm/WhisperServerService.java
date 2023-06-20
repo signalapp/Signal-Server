@@ -198,6 +198,7 @@ import org.whispersystems.textsecuregcm.workers.CheckDynamicConfigurationCommand
 import org.whispersystems.textsecuregcm.workers.CrawlAccountsCommand;
 import org.whispersystems.textsecuregcm.workers.DeleteUserCommand;
 import org.whispersystems.textsecuregcm.workers.MessagePersisterServiceCommand;
+import org.whispersystems.textsecuregcm.workers.MigrateSignedECPreKeysCommand;
 import org.whispersystems.textsecuregcm.workers.ScheduledApnPushNotificationSenderServiceCommand;
 import org.whispersystems.textsecuregcm.workers.ServerVersionCommand;
 import org.whispersystems.textsecuregcm.workers.SetRequestLoggingEnabledTask;
@@ -252,6 +253,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     bootstrap.addCommand(new CrawlAccountsCommand());
     bootstrap.addCommand(new ScheduledApnPushNotificationSenderServiceCommand());
     bootstrap.addCommand(new MessagePersisterServiceCommand());
+    bootstrap.addCommand(new MigrateSignedECPreKeysCommand());
   }
 
   @Override
@@ -318,7 +320,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getDynamoDbTables().getEcKeys().getTableName(),
         config.getDynamoDbTables().getEcSignedPreKeys().getTableName(),
         config.getDynamoDbTables().getKemKeys().getTableName(),
-        config.getDynamoDbTables().getKemLastResortKeys().getTableName());
+        config.getDynamoDbTables().getKemLastResortKeys().getTableName(),
+        dynamicConfigurationManager);
     MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(dynamoDbClient, dynamoDbAsyncClient,
         config.getDynamoDbTables().getMessages().getTableName(),
         config.getDynamoDbTables().getMessages().getExpiration(),
