@@ -15,7 +15,6 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -72,65 +71,62 @@ public class Experiment {
   }
 
   public <T> void compareFutureResult(final T expected, final CompletionStage<T> experimentStage) {
-    final long startNanos = System.nanoTime();
+    final Timer.Sample sample = Timer.start();
 
     experimentStage.whenComplete((actual, cause) -> {
-      final long durationNanos = System.nanoTime() - startNanos;
-
       if (cause != null) {
-        recordError(cause, durationNanos);
+        recordError(cause, sample);
       } else {
-        recordResult(expected, actual, durationNanos);
+        recordResult(expected, actual, sample);
       }
     });
   }
 
   public <T> void compareSupplierResult(final T expected, final Supplier<T> experimentSupplier) {
-    final long startNanos = System.nanoTime();
+    final Timer.Sample sample = Timer.start();
 
     try {
       final T result = experimentSupplier.get();
 
-      recordResult(expected, result, System.nanoTime() - startNanos);
+      recordResult(expected, result, sample);
     } catch (final Exception e) {
-      recordError(e, System.nanoTime() - startNanos);
+      recordError(e, sample);
     }
   }
 
-  public <T> void compareSupplierResultAsync(final T expected, final Supplier<T> experimentSupplier,
-      final Executor executor) {
-    final long startNanos = System.nanoTime();
+  public <T> void compareSupplierResultAsync(final T expected, final Supplier<T> experimentSupplier, final Executor executor) {
+    final Timer.Sample sample = Timer.start();
 
     try {
       compareFutureResult(expected, CompletableFuture.supplyAsync(experimentSupplier, executor));
     } catch (final Exception e) {
-      recordError(e, System.nanoTime() - startNanos);
+      recordError(e, sample);
     }
   }
 
-  private void recordError(final Throwable cause, final long durationNanos) {
+  private void recordError(final Throwable cause, final Timer.Sample sample) {
     log.warn("Experiment {} threw an exception.", name, cause);
-    errorTimer.record(durationNanos, TimeUnit.NANOSECONDS);
+    sample.stop(errorTimer);
   }
 
   @VisibleForTesting
-  <T> void recordResult(final T expected, final T actual, final long durationNanos) {
+  <T> void recordResult(final T expected, final T actual, final Timer.Sample sample) {
     if (expected instanceof Optional && actual instanceof Optional) {
-      recordResult(((Optional) expected).orElse(null), ((Optional) actual).orElse(null), durationNanos);
+      recordResult(((Optional) expected).orElse(null), ((Optional) actual).orElse(null), sample);
     } else {
-      final Timer Timer;
+      final Timer timer;
 
       if (Objects.equals(expected, actual)) {
-        Timer = matchTimer;
+        timer = matchTimer;
       } else if (expected == null) {
-        Timer = controlNullMismatchTimer;
+        timer = controlNullMismatchTimer;
       } else if (actual == null) {
-        Timer = experimentNullMismatchTimer;
+        timer = experimentNullMismatchTimer;
       } else {
-        Timer = bothPresentMismatchTimer;
+        timer = bothPresentMismatchTimer;
       }
 
-      Timer.record(durationNanos, TimeUnit.NANOSECONDS);
+      sample.stop(timer);
     }
   }
 }

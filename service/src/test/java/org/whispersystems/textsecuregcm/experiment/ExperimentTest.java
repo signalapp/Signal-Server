@@ -13,6 +13,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 
+import io.micrometer.core.instrument.MockClock;
 import io.micrometer.core.instrument.Timer;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -104,13 +105,16 @@ class ExperimentTest {
 
   @ParameterizedTest
   @MethodSource
-  public void testRecordResult(final Object expected, final Object actual, final Experiment experiment,
-      final Timer expectedTimer) {
+  public void testRecordResult(final Object expected, final Object actual, final Experiment experiment, final Timer expectedTimer) {
     reset(expectedTimer);
 
-    final long durationNanos = 123;
+    final MockClock clock = new MockClock();
+    final Timer.Sample sample = Timer.start(clock);
 
-    experiment.recordResult(expected, actual, durationNanos);
+    final long durationNanos = 123;
+    clock.add(durationNanos, TimeUnit.NANOSECONDS);
+
+    experiment.recordResult(expected, actual, sample);
     verify(expectedTimer).record(durationNanos, TimeUnit.NANOSECONDS);
   }
 
