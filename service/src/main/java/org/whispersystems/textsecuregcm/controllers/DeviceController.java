@@ -341,7 +341,9 @@ public class DeviceController {
       keys.delete(a.getPhoneNumberIdentifier(), device.getId());
 
       maybeDeviceActivationRequest.ifPresent(deviceActivationRequest -> {
+        keys.storeEcSignedPreKeys(a.getUuid(), Map.of(device.getId(), deviceActivationRequest.aciSignedPreKey().get()));
         keys.storePqLastResort(a.getUuid(), Map.of(device.getId(), deviceActivationRequest.aciPqLastResortPreKey().get()));
+        keys.storeEcSignedPreKeys(a.getPhoneNumberIdentifier(), Map.of(device.getId(), deviceActivationRequest.pniSignedPreKey().get()));
         keys.storePqLastResort(a.getPhoneNumberIdentifier(), Map.of(device.getId(), deviceActivationRequest.pniPqLastResortPreKey().get()));
       });
 

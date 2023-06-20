@@ -165,6 +165,7 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
     KeysManager keys = new KeysManager(
             dynamoDbAsyncClient,
         configuration.getDynamoDbTables().getEcKeys().getTableName(),
+        configuration.getDynamoDbTables().getEcSignedPreKeys().getTableName(),
         configuration.getDynamoDbTables().getKemKeys().getTableName(),
         configuration.getDynamoDbTables().getKemLastResortKeys().getTableName());
     MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(dynamoDbClient, dynamoDbAsyncClient,

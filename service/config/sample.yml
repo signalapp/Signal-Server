@@ -98,6 +98,8 @@ dynamoDbTables:
     generator: abcdefg12345678= # random base64-encoded binary sequence
   ecKeys:
     tableName: Example_Keys
+  ecSignedPreKeys:
+    tableName: Example_EC_Signed_Pre_Keys
   pqKeys:
     tableName: Example_PQ_Keys
   pqLastResortKeys:

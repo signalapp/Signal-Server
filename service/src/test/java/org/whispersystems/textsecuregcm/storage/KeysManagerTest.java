@@ -32,7 +32,7 @@ class KeysManagerTest {
 
   @RegisterExtension
   static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(
-      Tables.EC_KEYS, Tables.PQ_KEYS, Tables.REPEATED_USE_SIGNED_PRE_KEYS);
+      Tables.EC_KEYS, Tables.PQ_KEYS, Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS, Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS);
 
   private static final UUID ACCOUNT_UUID = UUID.randomUUID();
   private static final long DEVICE_ID = 1L;
@@ -45,7 +45,8 @@ class KeysManagerTest {
         DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
         Tables.EC_KEYS.tableName(),
         Tables.PQ_KEYS.tableName(),
-        Tables.REPEATED_USE_SIGNED_PRE_KEYS.tableName());
+        Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS.tableName(),
+        Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS.tableName());
   }
 
   @Test
@@ -64,25 +65,25 @@ class KeysManagerTest {
     assertEquals(1, keysManager.getEcCount(ACCOUNT_UUID, DEVICE_ID),
         "Repeatedly storing same key should have no effect");
 
-    keysManager.store(ACCOUNT_UUID, DEVICE_ID, null, List.of(generateTestKEMSignedPreKey(1)), null);
+    keysManager.store(ACCOUNT_UUID, DEVICE_ID, null, List.of(generateTestKEMSignedPreKey(1)), null, null);
     assertEquals(1, keysManager.getEcCount(ACCOUNT_UUID, DEVICE_ID),
         "Uploading new PQ prekeys should have no effect on EC prekeys");
     assertEquals(1, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID));
 
-    keysManager.store(ACCOUNT_UUID, DEVICE_ID, null, null, generateTestKEMSignedPreKey(1001));
+    keysManager.store(ACCOUNT_UUID, DEVICE_ID, null, null, null, generateTestKEMSignedPreKey(1001));
     assertEquals(1, keysManager.getEcCount(ACCOUNT_UUID, DEVICE_ID),
         "Uploading new PQ last-resort prekey should have no effect on EC prekeys");
     assertEquals(1, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID),
         "Uploading new PQ last-resort prekey should have no effect on one-time PQ prekeys");
     assertEquals(1001, keysManager.getLastResort(ACCOUNT_UUID, DEVICE_ID).get().keyId());
 
-    keysManager.store(ACCOUNT_UUID, DEVICE_ID, List.of(generateTestPreKey(2)), null, null);
+    keysManager.store(ACCOUNT_UUID, DEVICE_ID, List.of(generateTestPreKey(2)), null, null, null);
     assertEquals(1, keysManager.getEcCount(ACCOUNT_UUID, DEVICE_ID),
         "Inserting a new key should overwrite all prior keys of the same type for the given account/device");
     assertEquals(1, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID),
         "Uploading new EC prekeys should have no effect on PQ prekeys");
 
-    keysManager.store(ACCOUNT_UUID, DEVICE_ID, List.of(generateTestPreKey(3)), List.of(generateTestKEMSignedPreKey(2)), null);
+    keysManager.store(ACCOUNT_UUID, DEVICE_ID, List.of(generateTestPreKey(3)), List.of(generateTestKEMSignedPreKey(2)), null, null);
     assertEquals(1, keysManager.getEcCount(ACCOUNT_UUID, DEVICE_ID),
         "Inserting a new key should overwrite all prior keys of the same type for the given account/device");
     assertEquals(1, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID),
@@ -90,7 +91,7 @@ class KeysManagerTest {
 
     keysManager.store(ACCOUNT_UUID, DEVICE_ID,
         List.of(generateTestPreKey(4), generateTestPreKey(5)),
-        List.of(generateTestKEMSignedPreKey(6), generateTestKEMSignedPreKey(7)), generateTestKEMSignedPreKey(1002));
+        List.of(generateTestKEMSignedPreKey(6), generateTestKEMSignedPreKey(7)), null, generateTestKEMSignedPreKey(1002));
     assertEquals(2, keysManager.getEcCount(ACCOUNT_UUID, DEVICE_ID),
         "Inserting multiple new keys should overwrite all prior keys for the given account/device");
     assertEquals(2, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID),
@@ -119,7 +120,7 @@ class KeysManagerTest {
     final KEMSignedPreKey preKey2 = generateTestKEMSignedPreKey(2);
     final KEMSignedPreKey preKeyLast = generateTestKEMSignedPreKey(1001);
 
-    keysManager.store(ACCOUNT_UUID, DEVICE_ID, null, List.of(preKey1, preKey2), preKeyLast);
+    keysManager.store(ACCOUNT_UUID, DEVICE_ID, null, List.of(preKey1, preKey2), null, preKeyLast);
 
     assertEquals(Optional.of(preKey1), keysManager.takePQ(ACCOUNT_UUID, DEVICE_ID));
     assertEquals(1, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID));
@@ -139,7 +140,7 @@ class KeysManagerTest {
     assertEquals(0, keysManager.getEcCount(ACCOUNT_UUID, DEVICE_ID));
     assertEquals(0, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID));
 
-    keysManager.store(ACCOUNT_UUID, DEVICE_ID, List.of(generateTestPreKey(1)), List.of(generateTestKEMSignedPreKey(1)), null);
+    keysManager.store(ACCOUNT_UUID, DEVICE_ID, List.of(generateTestPreKey(1)), List.of(generateTestKEMSignedPreKey(1)), null, null);
     assertEquals(1, keysManager.getEcCount(ACCOUNT_UUID, DEVICE_ID));
     assertEquals(1, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID));
   }
@@ -148,53 +149,69 @@ class KeysManagerTest {
   void testDeleteByAccount() {
     keysManager.store(ACCOUNT_UUID, DEVICE_ID,
         List.of(generateTestPreKey(1), generateTestPreKey(2)),
-        List.of(generateTestKEMSignedPreKey(3), generateTestKEMSignedPreKey(4)), generateTestKEMSignedPreKey(5));
+        List.of(generateTestKEMSignedPreKey(3), generateTestKEMSignedPreKey(4)),
+        generateTestECSignedPreKey(5),
+        generateTestKEMSignedPreKey(6));
 
     keysManager.store(ACCOUNT_UUID, DEVICE_ID + 1,
-        List.of(generateTestPreKey(6)),
-        List.of(generateTestKEMSignedPreKey(7)), generateTestKEMSignedPreKey(8));
+        List.of(generateTestPreKey(7)),
+        List.of(generateTestKEMSignedPreKey(8)),
+        generateTestECSignedPreKey(9),
+        generateTestKEMSignedPreKey(10));
 
     assertEquals(2, keysManager.getEcCount(ACCOUNT_UUID, DEVICE_ID));
     assertEquals(2, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID));
+    assertTrue(keysManager.getEcSignedPreKey(ACCOUNT_UUID, DEVICE_ID).join().isPresent());
     assertTrue(keysManager.getLastResort(ACCOUNT_UUID, DEVICE_ID).isPresent());
     assertEquals(1, keysManager.getEcCount(ACCOUNT_UUID, DEVICE_ID + 1));
     assertEquals(1, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID + 1));
+    assertTrue(keysManager.getEcSignedPreKey(ACCOUNT_UUID, DEVICE_ID + 1).join().isPresent());
     assertTrue(keysManager.getLastResort(ACCOUNT_UUID, DEVICE_ID + 1).isPresent());
 
     keysManager.delete(ACCOUNT_UUID);
 
     assertEquals(0, keysManager.getEcCount(ACCOUNT_UUID, DEVICE_ID));
     assertEquals(0, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID));
+    assertFalse(keysManager.getEcSignedPreKey(ACCOUNT_UUID, DEVICE_ID).join().isPresent());
     assertFalse(keysManager.getLastResort(ACCOUNT_UUID, DEVICE_ID).isPresent());
     assertEquals(0, keysManager.getEcCount(ACCOUNT_UUID, DEVICE_ID + 1));
     assertEquals(0, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID + 1));
+    assertFalse(keysManager.getEcSignedPreKey(ACCOUNT_UUID, DEVICE_ID + 1).join().isPresent());
     assertFalse(keysManager.getLastResort(ACCOUNT_UUID, DEVICE_ID + 1).isPresent());
   }
 
   @Test
   void testDeleteByAccountAndDevice() {
     keysManager.store(ACCOUNT_UUID, DEVICE_ID,
-        List.of(generateTestPreKey(1), generateTestPreKey(2)),
-        List.of(generateTestKEMSignedPreKey(3), generateTestKEMSignedPreKey(4)), generateTestKEMSignedPreKey(5));
+        List.of(generateTestPreKey(1),generateTestPreKey(2)),
+        List.of(generateTestKEMSignedPreKey(3), generateTestKEMSignedPreKey(4)),
+        generateTestECSignedPreKey(5),
+        generateTestKEMSignedPreKey(6));
 
     keysManager.store(ACCOUNT_UUID, DEVICE_ID + 1,
-        List.of(generateTestPreKey(6)),
-        List.of(generateTestKEMSignedPreKey(7)), generateTestKEMSignedPreKey(8));
+        List.of(generateTestPreKey(7)),
+        List.of(generateTestKEMSignedPreKey(8)),
+        generateTestECSignedPreKey(9),
+        generateTestKEMSignedPreKey(10));
 
     assertEquals(2, keysManager.getEcCount(ACCOUNT_UUID, DEVICE_ID));
     assertEquals(2, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID));
+    assertTrue(keysManager.getEcSignedPreKey(ACCOUNT_UUID, DEVICE_ID).join().isPresent());
     assertTrue(keysManager.getLastResort(ACCOUNT_UUID, DEVICE_ID).isPresent());
     assertEquals(1, keysManager.getEcCount(ACCOUNT_UUID, DEVICE_ID + 1));
     assertEquals(1, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID + 1));
+    assertTrue(keysManager.getEcSignedPreKey(ACCOUNT_UUID, DEVICE_ID + 1).join().isPresent());
     assertTrue(keysManager.getLastResort(ACCOUNT_UUID, DEVICE_ID + 1).isPresent());
 
     keysManager.delete(ACCOUNT_UUID, DEVICE_ID);
 
     assertEquals(0, keysManager.getEcCount(ACCOUNT_UUID, DEVICE_ID));
     assertEquals(0, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID));
+    assertFalse(keysManager.getEcSignedPreKey(ACCOUNT_UUID, DEVICE_ID).join().isPresent());
     assertFalse(keysManager.getLastResort(ACCOUNT_UUID, DEVICE_ID).isPresent());
     assertEquals(1, keysManager.getEcCount(ACCOUNT_UUID, DEVICE_ID + 1));
     assertEquals(1, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID + 1));
+    assertTrue(keysManager.getEcSignedPreKey(ACCOUNT_UUID, DEVICE_ID + 1).join().isPresent());
     assertTrue(keysManager.getLastResort(ACCOUNT_UUID, DEVICE_ID + 1).isPresent());
   }
 
@@ -225,10 +242,10 @@ class KeysManagerTest {
   void testGetPqEnabledDevices() {
     final ECKeyPair identityKeyPair = Curve.generateKeyPair();
 
-    keysManager.store(ACCOUNT_UUID, DEVICE_ID, null, List.of(KeysHelper.signedKEMPreKey(1, identityKeyPair)), null);
-    keysManager.store(ACCOUNT_UUID, DEVICE_ID + 1, null, null, KeysHelper.signedKEMPreKey(2, identityKeyPair));
-    keysManager.store(ACCOUNT_UUID, DEVICE_ID + 2, null, List.of(KeysHelper.signedKEMPreKey(3, identityKeyPair)), KeysHelper.signedKEMPreKey(4, identityKeyPair));
-    keysManager.store(ACCOUNT_UUID, DEVICE_ID + 3, null, null, null);
+    keysManager.store(ACCOUNT_UUID, DEVICE_ID, null, List.of(KeysHelper.signedKEMPreKey(1, identityKeyPair)), null, null);
+    keysManager.store(ACCOUNT_UUID, DEVICE_ID + 1, null, null, null, KeysHelper.signedKEMPreKey(2, identityKeyPair));
+    keysManager.store(ACCOUNT_UUID, DEVICE_ID + 2, null, List.of(KeysHelper.signedKEMPreKey(3, identityKeyPair)), null, KeysHelper.signedKEMPreKey(4, identityKeyPair));
+    keysManager.store(ACCOUNT_UUID, DEVICE_ID + 3, null, null, null, null);
     assertIterableEquals(
         Set.of(DEVICE_ID + 1, DEVICE_ID + 2),
         Set.copyOf(keysManager.getPqEnabledDevices(ACCOUNT_UUID)));

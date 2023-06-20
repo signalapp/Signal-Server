@@ -167,7 +167,7 @@ public class KeysController {
 
     keys.store(
         getIdentifier(account, identityType), device.getId(),
-        preKeys.getPreKeys(), preKeys.getPqPreKeys(), preKeys.getPqLastResortPreKey());
+        preKeys.getPreKeys(), preKeys.getPqPreKeys(), preKeys.getSignedPreKey(), preKeys.getPqLastResortPreKey());
   }
 
   @Timed

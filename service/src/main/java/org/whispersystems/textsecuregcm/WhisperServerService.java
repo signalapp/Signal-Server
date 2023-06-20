@@ -316,6 +316,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     KeysManager keys = new KeysManager(
             dynamoDbAsyncClient,
         config.getDynamoDbTables().getEcKeys().getTableName(),
+        config.getDynamoDbTables().getEcSignedPreKeys().getTableName(),
         config.getDynamoDbTables().getKemKeys().getTableName(),
         config.getDynamoDbTables().getKemLastResortKeys().getTableName());
     MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(dynamoDbClient, dynamoDbAsyncClient,

@@ -687,7 +687,7 @@ class KeysControllerTest {
     assertThat(response.getStatus()).isEqualTo(204);
 
     ArgumentCaptor<List<ECPreKey>> listCaptor = ArgumentCaptor.forClass(List.class);
-    verify(KEYS).store(eq(AuthHelper.VALID_UUID), eq(1L), listCaptor.capture(), isNull(), isNull());
+    verify(KEYS).store(eq(AuthHelper.VALID_UUID), eq(1L), listCaptor.capture(), isNull(), eq(signedPreKey), isNull());
 
     assertThat(listCaptor.getValue()).containsExactly(preKey);
 
@@ -718,7 +718,7 @@ class KeysControllerTest {
 
     ArgumentCaptor<List<ECPreKey>> ecCaptor = ArgumentCaptor.forClass(List.class);
     ArgumentCaptor<List<KEMSignedPreKey>> pqCaptor = ArgumentCaptor.forClass(List.class);
-    verify(KEYS).store(eq(AuthHelper.VALID_UUID), eq(1L), ecCaptor.capture(), pqCaptor.capture(), eq(pqLastResortPreKey));
+    verify(KEYS).store(eq(AuthHelper.VALID_UUID), eq(1L), ecCaptor.capture(), pqCaptor.capture(), eq(signedPreKey), eq(pqLastResortPreKey));
 
     assertThat(ecCaptor.getValue()).containsExactly(preKey);
     assertThat(pqCaptor.getValue()).containsExactly(pqPreKey);
@@ -820,7 +820,7 @@ class KeysControllerTest {
     assertThat(response.getStatus()).isEqualTo(204);
 
     ArgumentCaptor<List<ECPreKey>> listCaptor = ArgumentCaptor.forClass(List.class);
-    verify(KEYS).store(eq(AuthHelper.VALID_PNI), eq(1L), listCaptor.capture(), isNull(), isNull());
+    verify(KEYS).store(eq(AuthHelper.VALID_PNI), eq(1L), listCaptor.capture(), isNull(), eq(signedPreKey), isNull());
 
     assertThat(listCaptor.getValue()).containsExactly(preKey);
 
@@ -852,7 +852,7 @@ class KeysControllerTest {
 
     ArgumentCaptor<List<ECPreKey>> ecCaptor = ArgumentCaptor.forClass(List.class);
     ArgumentCaptor<List<KEMSignedPreKey>> pqCaptor = ArgumentCaptor.forClass(List.class);
-    verify(KEYS).store(eq(AuthHelper.VALID_PNI), eq(1L), ecCaptor.capture(), pqCaptor.capture(), eq(pqLastResortPreKey));
+    verify(KEYS).store(eq(AuthHelper.VALID_PNI), eq(1L), ecCaptor.capture(), pqCaptor.capture(), eq(signedPreKey), eq(pqLastResortPreKey));
 
     assertThat(ecCaptor.getValue()).containsExactly(preKey);
     assertThat(pqCaptor.getValue()).containsExactly(pqPreKey);
@@ -896,7 +896,7 @@ class KeysControllerTest {
     assertThat(response.getStatus()).isEqualTo(204);
 
     ArgumentCaptor<List<ECPreKey>> listCaptor = ArgumentCaptor.forClass(List.class);
-    verify(KEYS).store(eq(AuthHelper.DISABLED_UUID), eq(1L), listCaptor.capture(), isNull(), isNull());
+    verify(KEYS).store(eq(AuthHelper.DISABLED_UUID), eq(1L), listCaptor.capture(), isNull(), eq(signedPreKey), isNull());
 
     List<ECPreKey> capturedList = listCaptor.getValue();
     assertThat(capturedList.size()).isEqualTo(1);

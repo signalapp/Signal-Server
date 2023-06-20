@@ -51,6 +51,7 @@ public class DynamoDbTables {
   private final Table deletedAccountsLock;
   private final IssuedReceiptsTableConfiguration issuedReceipts;
   private final Table ecKeys;
+  private final Table ecSignedPreKeys;
   private final Table kemKeys;
   private final Table kemLastResortKeys;
   private final TableWithExpiration messages;
@@ -72,6 +73,7 @@ public class DynamoDbTables {
       @JsonProperty("deletedAccountsLock") final Table deletedAccountsLock,
       @JsonProperty("issuedReceipts") final IssuedReceiptsTableConfiguration issuedReceipts,
       @JsonProperty("ecKeys") final Table ecKeys,
+      @JsonProperty("ecSignedPreKeys") final Table ecSignedPreKeys,
       @JsonProperty("pqKeys") final Table kemKeys,
       @JsonProperty("pqLastResortKeys") final Table kemLastResortKeys,
       @JsonProperty("messages") final TableWithExpiration messages,
@@ -92,6 +94,7 @@ public class DynamoDbTables {
     this.deletedAccountsLock = deletedAccountsLock;
     this.issuedReceipts = issuedReceipts;
     this.ecKeys = ecKeys;
+    this.ecSignedPreKeys = ecSignedPreKeys;
     this.kemKeys = kemKeys;
     this.kemLastResortKeys = kemLastResortKeys;
     this.messages = messages;
@@ -136,6 +139,12 @@ public class DynamoDbTables {
   @Valid
   public Table getEcKeys() {
     return ecKeys;
+  }
+
+  @NotNull
+  @Valid
+  public Table getEcSignedPreKeys() {
+    return ecSignedPreKeys;
   }
 
   @NotNull

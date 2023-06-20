@@ -12,8 +12,6 @@ import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 
-import static org.junit.jupiter.api.Assertions.*;
-
 class RepeatedUseKEMSignedPreKeyStoreTest extends RepeatedUseSignedPreKeyStoreTest<KEMSignedPreKey> {
 
   private RepeatedUseKEMSignedPreKeyStore keyStore;
@@ -22,14 +20,14 @@ class RepeatedUseKEMSignedPreKeyStoreTest extends RepeatedUseSignedPreKeyStoreTe
 
   @RegisterExtension
   static final DynamoDbExtension DYNAMO_DB_EXTENSION =
-      new DynamoDbExtension(DynamoDbExtensionSchema.Tables.REPEATED_USE_SIGNED_PRE_KEYS);
+      new DynamoDbExtension(DynamoDbExtensionSchema.Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS);
 
   private static final ECKeyPair IDENTITY_KEY_PAIR = Curve.generateKeyPair();
 
   @BeforeEach
   void setUp() {
     keyStore = new RepeatedUseKEMSignedPreKeyStore(DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
-        DynamoDbExtensionSchema.Tables.REPEATED_USE_SIGNED_PRE_KEYS.tableName());
+        DynamoDbExtensionSchema.Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS.tableName());
   }
 
   @Override

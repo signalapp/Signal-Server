@@ -312,7 +312,10 @@ public class AccountsManager {
 
       numberChangedAccount = updateWithRetries(
           account,
-          a -> { setPniKeys(account, pniIdentityKey, pniSignedPreKeys, pniRegistrationIds); return true; },
+          a -> {
+            setPniKeys(account, pniIdentityKey, pniSignedPreKeys, pniRegistrationIds);
+            return true;
+          },
           a -> accounts.changeNumber(a, targetNumber, phoneNumberIdentifier),
           () -> accounts.getByAccountIdentifier(uuid).orElseThrow(),
           AccountChangeValidator.NUMBER_CHANGE_VALIDATOR);
@@ -321,6 +324,8 @@ public class AccountsManager {
 
       keysManager.delete(phoneNumberIdentifier);
       keysManager.delete(originalPhoneNumberIdentifier);
+
+      keysManager.storeEcSignedPreKeys(phoneNumberIdentifier, pniSignedPreKeys);
 
       if (pniPqLastResortPreKeys != null) {
         keysManager.storePqLastResort(
@@ -362,6 +367,7 @@ public class AccountsManager {
 
     final List<Long> pqEnabledDeviceIDs = keysManager.getPqEnabledDevices(pni);
     keysManager.delete(pni);
+    keysManager.storeEcSignedPreKeys(pni, pniSignedPreKeys);
     if (pniPqLastResortPreKeys != null) {
       keysManager.storePqLastResort(pni, pqEnabledDeviceIDs.stream().collect(Collectors.toMap(Function.identity(), pniPqLastResortPreKeys::get)));
     }

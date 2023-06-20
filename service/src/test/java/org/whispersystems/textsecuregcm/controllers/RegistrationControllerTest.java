@@ -671,6 +671,8 @@ class RegistrationControllerTest {
     verify(device).setSignedPreKey(expectedAciSignedPreKey);
     verify(device).setPhoneNumberIdentitySignedPreKey(expectedPniSignedPreKey);
 
+    verify(keysManager).storeEcSignedPreKeys(accountIdentifier, Map.of(Device.MASTER_ID, expectedAciSignedPreKey));
+    verify(keysManager).storeEcSignedPreKeys(phoneNumberIdentifier, Map.of(Device.MASTER_ID, expectedPniSignedPreKey));
     verify(keysManager).storePqLastResort(accountIdentifier, Map.of(Device.MASTER_ID, expectedAciPqLastResortPreKey));
     verify(keysManager).storePqLastResort(phoneNumberIdentifier, Map.of(Device.MASTER_ID, expectedPniPqLastResortPreKey));
 

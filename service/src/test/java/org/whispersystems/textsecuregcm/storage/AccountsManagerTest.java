@@ -709,6 +709,7 @@ class AccountsManagerTest {
     verify(keysManager).delete(originalPni);
     verify(keysManager, atLeastOnce()).delete(targetPni);
     verify(keysManager).delete(newPni);
+    verify(keysManager).storeEcSignedPreKeys(eq(newPni), any());
     verifyNoMoreInteractions(keysManager);
   }
 
@@ -748,6 +749,7 @@ class AccountsManagerTest {
     verify(keysManager).delete(newPni);
     verify(keysManager).delete(originalPni);
     verify(keysManager).getPqEnabledDevices(uuid);
+    verify(keysManager).storeEcSignedPreKeys(newPni, newSignedKeys);
     verify(keysManager).storePqLastResort(eq(newPni), eq(Map.of(1L, newSignedPqKeys.get(1L))));
     verifyNoMoreInteractions(keysManager);
   }
@@ -852,6 +854,7 @@ class AccountsManagerTest {
     verifyNoInteractions(deletedAccounts);
 
     verify(keysManager).delete(oldPni);
+    verify(keysManager).storeEcSignedPreKeys(oldPni, newSignedKeys);
 
     // only the pq key for the already-pq-enabled device should be saved
     verify(keysManager).storePqLastResort(eq(oldPni), eq(Map.of(1L, newSignedPqKeys.get(1L))));

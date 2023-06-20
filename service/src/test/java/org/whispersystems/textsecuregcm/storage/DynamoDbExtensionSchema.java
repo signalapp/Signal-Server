@@ -115,7 +115,21 @@ public final class DynamoDbExtensionSchema {
                 .build()),
         List.of(), List.of()),
 
-    REPEATED_USE_SIGNED_PRE_KEYS("repeated_use_signed_pre_keys_test",
+    REPEATED_USE_EC_SIGNED_PRE_KEYS("repeated_use_signed_ec_pre_keys_test",
+        RepeatedUseSignedPreKeyStore.KEY_ACCOUNT_UUID,
+        RepeatedUseSignedPreKeyStore.KEY_DEVICE_ID,
+        List.of(
+            AttributeDefinition.builder()
+                .attributeName(RepeatedUseSignedPreKeyStore.KEY_ACCOUNT_UUID)
+                .attributeType(ScalarAttributeType.B)
+                .build(),
+            AttributeDefinition.builder()
+                .attributeName(RepeatedUseSignedPreKeyStore.KEY_DEVICE_ID)
+                .attributeType(ScalarAttributeType.N)
+                .build()),
+        List.of(), List.of()),
+
+    REPEATED_USE_KEM_SIGNED_PRE_KEYS("repeated_use_signed_kem_pre_keys_test",
         RepeatedUseSignedPreKeyStore.KEY_ACCOUNT_UUID,
         RepeatedUseSignedPreKeyStore.KEY_DEVICE_ID,
         List.of(

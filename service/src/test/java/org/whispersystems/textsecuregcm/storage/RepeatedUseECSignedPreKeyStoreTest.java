@@ -20,14 +20,14 @@ class RepeatedUseECSignedPreKeyStoreTest extends RepeatedUseSignedPreKeyStoreTes
 
   @RegisterExtension
   static final DynamoDbExtension DYNAMO_DB_EXTENSION =
-      new DynamoDbExtension(DynamoDbExtensionSchema.Tables.REPEATED_USE_SIGNED_PRE_KEYS);
+      new DynamoDbExtension(DynamoDbExtensionSchema.Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS);
 
   private static final ECKeyPair IDENTITY_KEY_PAIR = Curve.generateKeyPair();
 
   @BeforeEach
   void setUp() {
     keyStore = new RepeatedUseECSignedPreKeyStore(DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
-        DynamoDbExtensionSchema.Tables.REPEATED_USE_SIGNED_PRE_KEYS.tableName());
+        DynamoDbExtensionSchema.Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS.tableName());
   }
 
   @Override
