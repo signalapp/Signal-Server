@@ -8,7 +8,11 @@ package org.whispersystems.textsecuregcm.metrics;
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import io.micrometer.core.instrument.Metrics;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.UUID;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
@@ -21,6 +25,8 @@ public final class MessageMetrics {
 
   private static final String MISMATCHED_ACCOUNT_ENVELOPE_UUID_COUNTER_NAME = name(MessageMetrics.class,
       "mismatchedAccountEnvelopeUuid");
+
+  private static final String DELIVERY_LATENCY_TIMER_NAME = name(MessageMetrics.class, "deliveryLatency");
 
   public static void measureAccountOutgoingMessageUuidMismatches(final Account account,
       final OutgoingMessageEntity outgoingMessage) {
@@ -48,4 +54,10 @@ public final class MessageMetrics {
     }
   }
 
+  public static void measureOutgoingMessageLatency(final long serverTimestamp, final String channel, final String userAgent) {
+    Metrics.timer(DELIVERY_LATENCY_TIMER_NAME, Tags.of(
+            UserAgentTagUtil.getPlatformTag(userAgent),
+            Tag.of("channel", channel)))
+        .record(Duration.between(Instant.ofEpochMilli(serverTimestamp), Instant.now()));
+  }
 }

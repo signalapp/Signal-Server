@@ -207,6 +207,8 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
         .whenComplete((ignored, throwable) -> {
           if (throwable != null) {
             sendFailuresMeter.mark();
+          } else {
+            MessageMetrics.measureOutgoingMessageLatency(message.getServerTimestamp(), "websocket", client.getUserAgent());
           }
         }).thenCompose(response -> {
           final CompletableFuture<Void> result;

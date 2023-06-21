@@ -100,8 +100,6 @@ import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.util.DestinationDeviceValidator;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.Util;
-import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
-import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 import org.whispersystems.textsecuregcm.websocket.WebSocketConnection;
 import org.whispersystems.websocket.Stories;
 import reactor.core.scheduler.Scheduler;
@@ -536,21 +534,14 @@ public class MessageController {
 
           final OutgoingMessageEntityList messages = new OutgoingMessageEntityList(envelopes
               .map(OutgoingMessageEntity::fromEnvelope)
-              .peek(
-                  outgoingMessageEntity -> MessageMetrics.measureAccountOutgoingMessageUuidMismatches(auth.getAccount(),
-                      outgoingMessageEntity))
+              .peek(outgoingMessageEntity -> {
+                MessageMetrics.measureAccountOutgoingMessageUuidMismatches(auth.getAccount(), outgoingMessageEntity);
+                MessageMetrics.measureOutgoingMessageLatency(outgoingMessageEntity.serverTimestamp(), "rest", userAgent);
+              })
               .collect(Collectors.toList()),
               messagesAndHasMore.second());
 
-          String platform;
-
-          try {
-            platform = UserAgentUtil.parseUserAgentString(userAgent).getPlatform().name().toLowerCase();
-          } catch (final UnrecognizedUserAgentException ignored) {
-            platform = "unrecognized";
-          }
-
-          Metrics.summary(OUTGOING_MESSAGE_LIST_SIZE_BYTES_DISTRIBUTION_NAME, "platform", platform)
+          Metrics.summary(OUTGOING_MESSAGE_LIST_SIZE_BYTES_DISTRIBUTION_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent)))
               .record(estimateMessageListSizeBytes(messages));
 
           return messages;
