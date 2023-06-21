@@ -15,15 +15,17 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Collections;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicPushLatencyConfiguration;
-import org.whispersystems.textsecuregcm.push.PushLatencyManager;
 import org.whispersystems.textsecuregcm.push.PushLatencyManager.PushRecord;
 import org.whispersystems.textsecuregcm.push.PushLatencyManager.PushType;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
@@ -49,8 +51,8 @@ class PushLatencyManagerTest {
   }
 
   @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void testTakeRecord(final boolean isVoip) throws ExecutionException, InterruptedException {
+  @MethodSource
+  void testTakeRecord(final boolean isVoip, final boolean isUrgent) throws ExecutionException, InterruptedException {
     final UUID accountUuid = UUID.randomUUID();
     final long deviceId = 1;
 
@@ -61,14 +63,24 @@ class PushLatencyManagerTest {
 
     assertNull(pushLatencyManager.takePushRecord(accountUuid, deviceId).get());
 
-    pushLatencyManager.recordPushSent(accountUuid, deviceId, isVoip);
+    pushLatencyManager.recordPushSent(accountUuid, deviceId, isVoip, isUrgent);
 
     final PushRecord pushRecord = pushLatencyManager.takePushRecord(accountUuid, deviceId).get();
 
     assertNotNull(pushRecord);
-    assertEquals(pushTimestamp, pushRecord.getTimestamp());
-    assertEquals(isVoip ? PushType.VOIP : PushType.STANDARD, pushRecord.getPushType());
+    assertEquals(pushTimestamp, pushRecord.timestamp());
+    assertEquals(isVoip ? PushType.VOIP : PushType.STANDARD, pushRecord.pushType());
+    assertEquals(Optional.of(isUrgent), pushRecord.urgent());
 
     assertNull(pushLatencyManager.takePushRecord(accountUuid, deviceId).get());
+  }
+
+  private static Stream<Arguments> testTakeRecord() {
+    return Stream.of(
+        Arguments.of(true, true),
+        Arguments.of(true, false),
+        Arguments.of(false, true),
+        Arguments.of(false, false)
+    );
   }
 }

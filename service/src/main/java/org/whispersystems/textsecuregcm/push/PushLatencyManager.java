@@ -18,6 +18,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -60,7 +61,7 @@ public class PushLatencyManager {
     VOIP
   }
 
-  record PushRecord(Instant timestamp, PushType pushType) {
+  record PushRecord(Instant timestamp, PushType pushType, Optional<Boolean> urgent) {
   }
 
   public PushLatencyManager(final FaultTolerantRedisCluster redisCluster,
@@ -79,10 +80,10 @@ public class PushLatencyManager {
     this.clock = clock;
   }
 
-  void recordPushSent(final UUID accountUuid, final long deviceId, final boolean isVoip) {
+  void recordPushSent(final UUID accountUuid, final long deviceId, final boolean isVoip, final boolean isUrgent) {
     try {
       final String recordJson = SystemMapper.jsonMapper().writeValueAsString(
-          new PushRecord(Instant.now(clock), isVoip ? PushType.VOIP : PushType.STANDARD));
+          new PushRecord(Instant.now(clock), isVoip ? PushType.VOIP : PushType.STANDARD, Optional.of(isUrgent)));
 
       redisCluster.useCluster(connection ->
           connection.async().set(getFirstUnacknowledgedPushKey(accountUuid, deviceId),
@@ -99,10 +100,12 @@ public class PushLatencyManager {
       if (pushRecord != null) {
         final Duration latency = Duration.between(pushRecord.timestamp(), Instant.now());
 
-        final List<Tag> tags = new ArrayList<>(2);
+        final List<Tag> tags = new ArrayList<>(3);
 
         tags.add(UserAgentTagUtil.getPlatformTag(userAgentString));
         tags.add(Tag.of("pushType", pushRecord.pushType().name().toLowerCase()));
+
+        pushRecord.urgent().ifPresent(urgent -> tags.add(Tag.of("urgent", String.valueOf(urgent))));
 
         try {
           final UserAgent userAgent = UserAgentUtil.parseUserAgentString(userAgentString);

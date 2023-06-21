@@ -89,7 +89,7 @@ public class MessageSender {
           pushNotificationManager.sendNewMessageNotification(account, device.getId(), message.getUrgent());
 
           final boolean useVoip = StringUtils.isNotBlank(device.getVoipApnId());
-          RedisOperation.unchecked(() -> pushLatencyManager.recordPushSent(account.getUuid(), device.getId(), useVoip));
+          RedisOperation.unchecked(() -> pushLatencyManager.recordPushSent(account.getUuid(), device.getId(), useVoip, message.getUrgent()));
         } catch (final NotPushRegisteredException e) {
           if (!device.getFetchesMessages()) {
             throw e;
