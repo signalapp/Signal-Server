@@ -5,8 +5,10 @@
 
 package org.whispersystems.textsecuregcm.entities;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.time.Instant;
 import java.util.List;
 
 public class UserRemoteConfigList {
@@ -14,13 +16,22 @@ public class UserRemoteConfigList {
   @JsonProperty
   private List<UserRemoteConfig> config;
 
+  @JsonProperty
+  @JsonFormat(shape = JsonFormat.Shape.NUMBER_INT)
+  private Instant serverEpochTime;
+
   public UserRemoteConfigList() {}
 
-  public UserRemoteConfigList(List<UserRemoteConfig> config) {
+  public UserRemoteConfigList(List<UserRemoteConfig> config, Instant serverEpochTime) {
     this.config = config;
+    this.serverEpochTime = serverEpochTime;
   }
 
   public List<UserRemoteConfig> getConfig() {
     return config;
+  }
+
+  public Instant getServerEpochTime() {
+    return serverEpochTime;
   }
 }

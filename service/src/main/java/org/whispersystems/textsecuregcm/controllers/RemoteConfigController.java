@@ -15,6 +15,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Clock;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -91,7 +92,7 @@ public class RemoteConfigController {
             config.getUuids());
         return new UserRemoteConfig(config.getName(), inBucket,
             inBucket ? config.getValue() : config.getDefaultValue());
-      }), globalConfigStream).collect(Collectors.toList()));
+      }), globalConfigStream).collect(Collectors.toList()), Clock.systemUTC().instant());
     } catch (NoSuchAlgorithmException e) {
       throw new AssertionError(e);
     }
