@@ -6,8 +6,6 @@
 package org.whispersystems.textsecuregcm.push;
 
 import com.codahale.metrics.MetricRegistry;
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.annotations.VisibleForTesting;
 import com.vdurmont.semver4j.Semver;
@@ -23,7 +21,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,29 +60,7 @@ public class PushLatencyManager {
     VOIP
   }
 
-  @VisibleForTesting
-  static class PushRecord {
-    private final Instant timestamp;
-
-    @Nullable
-    private final PushType pushType;
-
-    @JsonCreator
-    PushRecord(@JsonProperty("timestamp") final Instant timestamp,
-        @JsonProperty("pushType") @Nullable final PushType pushType) {
-
-      this.timestamp = timestamp;
-      this.pushType = pushType;
-    }
-
-    public Instant getTimestamp() {
-      return timestamp;
-    }
-
-    @Nullable
-    public PushType getPushType() {
-      return pushType;
-    }
+  record PushRecord(Instant timestamp, PushType pushType) {
   }
 
   public PushLatencyManager(final FaultTolerantRedisCluster redisCluster,
@@ -122,15 +97,12 @@ public class PushLatencyManager {
   void recordQueueRead(final UUID accountUuid, final long deviceId, final String userAgentString) {
     takePushRecord(accountUuid, deviceId).thenAccept(pushRecord -> {
       if (pushRecord != null) {
-        final Duration latency = Duration.between(pushRecord.getTimestamp(), Instant.now());
+        final Duration latency = Duration.between(pushRecord.timestamp(), Instant.now());
 
         final List<Tag> tags = new ArrayList<>(2);
 
         tags.add(UserAgentTagUtil.getPlatformTag(userAgentString));
-
-        if (pushRecord.getPushType() != null) {
-          tags.add(Tag.of("pushType", pushRecord.getPushType().name().toLowerCase()));
-        }
+        tags.add(Tag.of("pushType", pushRecord.pushType().name().toLowerCase()));
 
         try {
           final UserAgent userAgent = UserAgentUtil.parseUserAgentString(userAgentString);
