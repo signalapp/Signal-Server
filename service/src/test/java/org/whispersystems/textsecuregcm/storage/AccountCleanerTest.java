@@ -77,7 +77,7 @@ class AccountCleanerTest {
   }
 
   @Test
-  void testAccounts() throws AccountDatabaseCrawlerRestartException, InterruptedException {
+  void testAccounts() throws InterruptedException {
     AccountCleaner accountCleaner = new AccountCleaner(accountsManager, deletionExecutor);
     accountCleaner.onCrawlStart();
     accountCleaner.timeAndProcessCrawlChunk(Optional.empty(),

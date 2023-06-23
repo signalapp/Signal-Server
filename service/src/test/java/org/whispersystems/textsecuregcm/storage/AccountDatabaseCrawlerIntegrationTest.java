@@ -7,9 +7,7 @@ package org.whispersystems.textsecuregcm.storage;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -20,8 +18,6 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicAccountDatabaseCrawlerConfiguration;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 
 class AccountDatabaseCrawlerIntegrationTest {
@@ -60,54 +56,10 @@ class AccountDatabaseCrawlerIntegrationTest {
         .thenReturn(new AccountCrawlChunk(List.of(secondAccount), SECOND_UUID))
         .thenReturn(new AccountCrawlChunk(Collections.emptyList(), null));
 
-    DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = mock(
-        DynamicConfigurationManager.class);
-    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
-    DynamicAccountDatabaseCrawlerConfiguration accountDatabaseCrawlerConfiguration = new DynamicAccountDatabaseCrawlerConfiguration(
-        true, true);
-    when(dynamicConfiguration.getAccountDatabaseCrawlerConfiguration()).thenReturn(accountDatabaseCrawlerConfiguration);
-    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
-
     final AccountDatabaseCrawlerCache crawlerCache = new AccountDatabaseCrawlerCache(
         REDIS_CLUSTER_EXTENSION.getRedisCluster(), "test");
     accountDatabaseCrawler = new AccountDatabaseCrawler("test", accountsManager, crawlerCache, List.of(listener),
-        CHUNK_SIZE, dynamicConfigurationManager);
-  }
-
-  @Test
-  void testCrawlUninterrupted() throws AccountDatabaseCrawlerRestartException {
-    accountDatabaseCrawler.doPeriodicWork();
-    accountDatabaseCrawler.doPeriodicWork();
-    accountDatabaseCrawler.doPeriodicWork();
-
-    verify(accountsManager).getAllFromDynamo(CHUNK_SIZE);
-    verify(accountsManager).getAllFromDynamo(FIRST_UUID, CHUNK_SIZE);
-    verify(accountsManager).getAllFromDynamo(SECOND_UUID, CHUNK_SIZE);
-
-    verify(listener).onCrawlStart();
-    verify(listener).timeAndProcessCrawlChunk(Optional.empty(), List.of(firstAccount));
-    verify(listener).timeAndProcessCrawlChunk(Optional.of(FIRST_UUID), List.of(secondAccount));
-    verify(listener).onCrawlEnd();
-  }
-
-  @Test
-  void testCrawlWithReset() throws AccountDatabaseCrawlerRestartException {
-    doThrow(new AccountDatabaseCrawlerRestartException("OH NO")).doNothing()
-        .when(listener).timeAndProcessCrawlChunk(Optional.empty(), List.of(firstAccount));
-
-    accountDatabaseCrawler.doPeriodicWork();
-    accountDatabaseCrawler.doPeriodicWork();
-    accountDatabaseCrawler.doPeriodicWork();
-    accountDatabaseCrawler.doPeriodicWork();
-
-    verify(accountsManager, times(2)).getAllFromDynamo(CHUNK_SIZE);
-    verify(accountsManager).getAllFromDynamo(FIRST_UUID, CHUNK_SIZE);
-    verify(accountsManager).getAllFromDynamo(SECOND_UUID, CHUNK_SIZE);
-
-    verify(listener, times(2)).onCrawlStart();
-    verify(listener, times(2)).timeAndProcessCrawlChunk(Optional.empty(), List.of(firstAccount));
-    verify(listener).timeAndProcessCrawlChunk(Optional.of(FIRST_UUID), List.of(secondAccount));
-    verify(listener).onCrawlEnd();
+        CHUNK_SIZE);
   }
 
   @Test

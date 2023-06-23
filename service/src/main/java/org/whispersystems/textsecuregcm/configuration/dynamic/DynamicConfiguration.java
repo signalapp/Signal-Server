@@ -56,15 +56,9 @@ public class DynamicConfiguration {
   @Valid
   DynamicMessagePersisterConfiguration messagePersister = new DynamicMessagePersisterConfiguration();
 
-
   @JsonProperty
   @Valid
   DynamicRateLimitPolicy rateLimitPolicy = new DynamicRateLimitPolicy(false);
-
-  @JsonProperty
-  @Valid
-  DynamicAccountDatabaseCrawlerConfiguration accountDatabaseCrawler = new DynamicAccountDatabaseCrawlerConfiguration(
-      true, false);
 
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(
       final String experimentName) {
@@ -112,7 +106,4 @@ public class DynamicConfiguration {
     return rateLimitPolicy;
   }
 
-  public DynamicAccountDatabaseCrawlerConfiguration getAccountDatabaseCrawlerConfiguration() {
-    return accountDatabaseCrawler;
-  }
 }

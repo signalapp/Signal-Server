@@ -27,7 +27,6 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.storage.Account;
-import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerRestartException;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.PushFeedbackProcessor;
@@ -36,7 +35,7 @@ import org.whispersystems.textsecuregcm.util.Util;
 
 class PushFeedbackProcessorTest {
 
-  private AccountsManager accountsManager = mock(AccountsManager.class);
+  private final AccountsManager accountsManager = mock(AccountsManager.class);
 
   private Account uninstalledAccount    = mock(Account.class);
   private Account mixedAccount          = mock(Account.class);
@@ -99,9 +98,8 @@ class PushFeedbackProcessorTest {
         Set.of(uninstalledAccount, mixedAccount, freshAccount, cleanAccount, stillActiveAccount));
   }
 
-
   @Test
-  void testEmpty() throws AccountDatabaseCrawlerRestartException {
+  void testEmpty() {
     PushFeedbackProcessor processor = new PushFeedbackProcessor(accountsManager, Executors.newSingleThreadExecutor());
     processor.timeAndProcessCrawlChunk(Optional.of(UUID.randomUUID()), Collections.emptyList());
 
@@ -109,7 +107,7 @@ class PushFeedbackProcessorTest {
   }
 
   @Test
-  void testUpdate() throws AccountDatabaseCrawlerRestartException {
+  void testUpdate() {
     PushFeedbackProcessor processor = new PushFeedbackProcessor(accountsManager, Executors.newSingleThreadExecutor());
     processor.timeAndProcessCrawlChunk(Optional.of(UUID.randomUUID()),
         List.of(uninstalledAccount, mixedAccount, stillActiveAccount, freshAccount, cleanAccount));

@@ -123,8 +123,7 @@ public class CrawlAccountsCommand extends EnvironmentCommand<WhisperServerConfig
         yield new AccountDatabaseCrawler("General-purpose account crawler",
             accountsManager,
             accountDatabaseCrawlerCache, accountDatabaseCrawlerListeners,
-            configuration.getAccountDatabaseCrawlerConfiguration().getChunkSize(),
-            dynamicConfigurationManager
+            configuration.getAccountDatabaseCrawlerConfiguration().getChunkSize()
         );
       }
       case ACCOUNT_CLEANER -> {
@@ -138,8 +137,7 @@ public class CrawlAccountsCommand extends EnvironmentCommand<WhisperServerConfig
             accountsManager,
             accountDatabaseCrawlerCache,
             List.of(new AccountCleaner(accountsManager, accountDeletionExecutor)),
-            configuration.getAccountDatabaseCrawlerConfiguration().getChunkSize(),
-            dynamicConfigurationManager
+            configuration.getAccountDatabaseCrawlerConfiguration().getChunkSize()
         );
       }
     };

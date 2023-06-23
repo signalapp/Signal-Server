@@ -155,10 +155,6 @@ import org.whispersystems.textsecuregcm.spam.RateLimitChallengeListener;
 import org.whispersystems.textsecuregcm.spam.ReportSpamTokenProvider;
 import org.whispersystems.textsecuregcm.spam.ScoreThresholdProvider;
 import org.whispersystems.textsecuregcm.spam.SpamFilter;
-import org.whispersystems.textsecuregcm.storage.AccountCleaner;
-import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawler;
-import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerCache;
-import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerListener;
 import org.whispersystems.textsecuregcm.storage.AccountLockManager;
 import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -171,12 +167,10 @@ import org.whispersystems.textsecuregcm.storage.MessagePersister;
 import org.whispersystems.textsecuregcm.storage.MessagesCache;
 import org.whispersystems.textsecuregcm.storage.MessagesDynamoDb;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
-import org.whispersystems.textsecuregcm.storage.NonNormalizedAccountCrawlerListener;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.Profiles;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.PushChallengeDynamoDb;
-import org.whispersystems.textsecuregcm.storage.PushFeedbackProcessor;
 import org.whispersystems.textsecuregcm.storage.RedeemedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswords;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
@@ -386,10 +380,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .executorService(name(getClass(), "secureValueRecoveryService-%d")).maxThreads(1).minThreads(1).build();
     ExecutorService storageServiceExecutor = environment.lifecycle()
         .executorService(name(getClass(), "storageService-%d")).maxThreads(1).minThreads(1).build();
-    ExecutorService accountDeletionExecutor = environment.lifecycle()
-        .executorService(name(getClass(), "accountCleaner-%d")).maxThreads(16).minThreads(16).build();
-    ExecutorService pushFeedbackUpdateExecutor = environment.lifecycle()
-        .executorService(name(getClass(), "pushFeedback-%d")).maxThreads(4).minThreads(4).build();
 
     Scheduler messageDeliveryScheduler = Schedulers.fromExecutorService(
         ExecutorServiceMetrics.monitor(Metrics.globalRegistry,
@@ -562,31 +552,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         Optional.empty());
     ChangeNumberManager changeNumberManager = new ChangeNumberManager(messageSender, accountsManager);
 
-    AccountDatabaseCrawlerCache accountCleanerAccountDatabaseCrawlerCache =
-        new AccountDatabaseCrawlerCache(cacheCluster, AccountDatabaseCrawlerCache.ACCOUNT_CLEANER_PREFIX);
-    AccountDatabaseCrawler accountCleanerAccountDatabaseCrawler = new AccountDatabaseCrawler("Account cleaner crawler",
-        accountsManager,
-        accountCleanerAccountDatabaseCrawlerCache,
-        List.of(new AccountCleaner(accountsManager, accountDeletionExecutor)),
-        config.getAccountDatabaseCrawlerConfiguration().getChunkSize(),
-        dynamicConfigurationManager
-    );
-
-    // TODO listeners must be ordered so that ones that directly update accounts come last, so that read-only ones are not working with stale data
-    final List<AccountDatabaseCrawlerListener> accountDatabaseCrawlerListeners = List.of(
-        new NonNormalizedAccountCrawlerListener(accountsManager, metricsCluster),
-        // PushFeedbackProcessor may update device properties
-        new PushFeedbackProcessor(accountsManager, pushFeedbackUpdateExecutor));
-
-    AccountDatabaseCrawlerCache accountDatabaseCrawlerCache = new AccountDatabaseCrawlerCache(cacheCluster,
-        AccountDatabaseCrawlerCache.GENERAL_PURPOSE_PREFIX);
-    AccountDatabaseCrawler accountDatabaseCrawler = new AccountDatabaseCrawler("General-purpose account crawler",
-        accountsManager,
-        accountDatabaseCrawlerCache, accountDatabaseCrawlerListeners,
-        config.getAccountDatabaseCrawlerConfiguration().getChunkSize(),
-        dynamicConfigurationManager
-    );
-
     HttpClient currencyClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_2).connectTimeout(Duration.ofSeconds(10)).build();
     FixerClient fixerClient = new FixerClient(currencyClient, config.getPaymentsServiceConfiguration().fixerApiKey().value());
     CoinMarketCapClient coinMarketCapClient = new CoinMarketCapClient(currencyClient, config.getPaymentsServiceConfiguration().coinMarketCapApiKey().value(), config.getPaymentsServiceConfiguration().coinMarketCapCurrencyIds());
@@ -596,8 +561,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.lifecycle().manage(apnSender);
     environment.lifecycle().manage(apnPushNotificationScheduler);
     environment.lifecycle().manage(provisioningManager);
-    environment.lifecycle().manage(accountDatabaseCrawler);
-    environment.lifecycle().manage(accountCleanerAccountDatabaseCrawler);
     environment.lifecycle().manage(messagesCache);
     environment.lifecycle().manage(messagePersister);
     environment.lifecycle().manage(clientPresenceManager);
