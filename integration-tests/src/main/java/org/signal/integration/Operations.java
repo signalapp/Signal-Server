@@ -311,6 +311,7 @@ public final class Operations {
       return FaultTolerantHttpClient.newBuilder()
           .withName("integration-test")
           .withExecutor(Executors.newFixedThreadPool(16))
+          .withRetryExecutor(Executors.newSingleThreadScheduledExecutor())
           .withCircuitBreaker(new CircuitBreakerConfiguration())
           .withTrustedServerCertificates(CONFIG.rootCert())
           .build();

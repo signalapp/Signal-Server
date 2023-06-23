@@ -17,7 +17,6 @@ import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
 import org.glassfish.jersey.SslConfigurator;
@@ -28,10 +27,10 @@ import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 
 public class FaultTolerantHttpClient {
 
-  private final HttpClient               httpClient;
+  private final HttpClient httpClient;
   private final ScheduledExecutorService retryExecutor;
-  private final Retry                    retry;
-  private final CircuitBreaker           breaker;
+  private final Retry retry;
+  private final CircuitBreaker breaker;
 
   public static final String SECURITY_PROTOCOL_TLS_1_2 = "TLSv1.2";
   public static final String SECURITY_PROTOCOL_TLS_1_3 = "TLSv1.3";
@@ -40,15 +39,20 @@ public class FaultTolerantHttpClient {
     return new Builder();
   }
 
-  private FaultTolerantHttpClient(String name, HttpClient httpClient, RetryConfiguration retryConfiguration, CircuitBreakerConfiguration circuitBreakerConfiguration) {
-    this.httpClient    = httpClient;
-    this.retryExecutor = Executors.newSingleThreadScheduledExecutor();
-    this.breaker       = CircuitBreaker.of(name + "-breaker", circuitBreakerConfiguration.toCircuitBreakerConfig());
+  private FaultTolerantHttpClient(String name, HttpClient httpClient, ScheduledExecutorService retryExecutor,
+      RetryConfiguration retryConfiguration, CircuitBreakerConfiguration circuitBreakerConfiguration) {
+    this.httpClient = httpClient;
+    this.retryExecutor = retryExecutor;
+    this.breaker = CircuitBreaker.of(name + "-breaker", circuitBreakerConfiguration.toCircuitBreakerConfig());
 
     CircuitBreakerUtil.registerMetrics(breaker, FaultTolerantHttpClient.class);
 
     if (retryConfiguration != null) {
-      RetryConfig retryConfig = retryConfiguration.<HttpResponse>toRetryConfigBuilder().retryOnResult(o -> o.statusCode() >= 500).build();
+      if (this.retryExecutor == null) {
+        throw new IllegalArgumentException("retryExecutor must be specified with retryConfiguration");
+      }
+      RetryConfig retryConfig = retryConfiguration.<HttpResponse>toRetryConfigBuilder()
+          .retryOnResult(o -> o.statusCode() >= 500).build();
       this.retry = Retry.of(name + "-retry", retryConfig);
       CircuitBreakerUtil.registerMetrics(retry, FaultTolerantHttpClient.class);
     } else {
@@ -76,19 +80,20 @@ public class FaultTolerantHttpClient {
 
   public static class Builder {
 
+    private HttpClient.Version version = HttpClient.Version.HTTP_2;
+    private HttpClient.Redirect redirect = HttpClient.Redirect.NEVER;
+    private Duration connectTimeout = Duration.ofSeconds(10);
 
-    private HttpClient.Version  version       = HttpClient.Version.HTTP_2;
-    private HttpClient.Redirect redirect      = HttpClient.Redirect.NEVER;
-    private Duration            connectTimeout = Duration.ofSeconds(10);
-
-    private String                      name;
-    private Executor                    executor;
-    private KeyStore                    trustStore;
-    private String                      securityProtocol = SECURITY_PROTOCOL_TLS_1_2;
-    private RetryConfiguration          retryConfiguration;
+    private String name;
+    private Executor executor;
+    private ScheduledExecutorService retryExecutor;
+    private KeyStore trustStore;
+    private String securityProtocol = SECURITY_PROTOCOL_TLS_1_2;
+    private RetryConfiguration retryConfiguration;
     private CircuitBreakerConfiguration circuitBreakerConfiguration;
 
-    private Builder() {}
+    private Builder() {
+    }
 
     public Builder withName(String name) {
       this.name = name;
@@ -120,6 +125,11 @@ public class FaultTolerantHttpClient {
       return this;
     }
 
+    public Builder withRetryExecutor(ScheduledExecutorService retryExecutor) {
+      this.retryExecutor = retryExecutor;
+      return this;
+    }
+
     public Builder withCircuitBreaker(CircuitBreakerConfiguration circuitBreakerConfiguration) {
       this.circuitBreakerConfiguration = circuitBreakerConfiguration;
       return this;
@@ -141,10 +151,10 @@ public class FaultTolerantHttpClient {
       }
 
       final HttpClient.Builder builder = HttpClient.newBuilder()
-                                                   .connectTimeout(connectTimeout)
-                                                   .followRedirects(redirect)
-                                                   .version(version)
-                                                   .executor(executor);
+          .connectTimeout(connectTimeout)
+          .followRedirects(redirect)
+          .version(version)
+          .executor(executor);
 
       final SslConfigurator sslConfigurator = SslConfigurator.newInstance().securityProtocol(securityProtocol);
 
@@ -154,9 +164,9 @@ public class FaultTolerantHttpClient {
 
       builder.sslContext(sslConfigurator.createSSLContext());
 
-      return new FaultTolerantHttpClient(name, builder.build(), retryConfiguration, circuitBreakerConfiguration);
+      return new FaultTolerantHttpClient(name, builder.build(), retryExecutor, retryConfiguration,
+          circuitBreakerConfiguration);
     }
-
   }
 
 }

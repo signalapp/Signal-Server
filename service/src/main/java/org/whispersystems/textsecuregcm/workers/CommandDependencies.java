@@ -94,6 +94,11 @@ record CommandDependencies(
     ExecutorService storageServiceExecutor = environment.lifecycle()
         .executorService(name(name, "storageService-%d")).maxThreads(8).minThreads(8).build();
 
+    ScheduledExecutorService secureValueRecoveryServiceRetryExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(name, "secureValueRecoveryServiceRetry-%d")).threads(1).build();
+    ScheduledExecutorService storageServiceRetryExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(name, "storageServiceRetry-%d")).threads(1).build();
+
     ExternalServiceCredentialsGenerator backupCredentialsGenerator = SecureBackupController.credentialsGenerator(
         configuration.getSecureBackupServiceConfiguration());
     ExternalServiceCredentialsGenerator storageCredentialsGenerator = SecureStorageController.credentialsGenerator(
@@ -159,13 +164,14 @@ record CommandDependencies(
     FaultTolerantRedisCluster rateLimitersCluster = new FaultTolerantRedisCluster("rate_limiters",
         configuration.getRateLimitersCluster(), redisClusterClientResources);
     SecureBackupClient secureBackupClient = new SecureBackupClient(backupCredentialsGenerator,
-        secureValueRecoveryServiceExecutor,
+        secureValueRecoveryServiceExecutor, secureValueRecoveryServiceRetryExecutor,
         configuration.getSecureBackupServiceConfiguration());
     SecureValueRecovery2Client secureValueRecovery2Client = new SecureValueRecovery2Client(
         secureValueRecoveryCredentialsGenerator, secureValueRecoveryServiceExecutor,
+        secureValueRecoveryServiceRetryExecutor,
         configuration.getSvr2Configuration());
     SecureStorageClient secureStorageClient = new SecureStorageClient(storageCredentialsGenerator,
-        storageServiceExecutor, configuration.getSecureStorageServiceConfiguration());
+        storageServiceExecutor, storageServiceRetryExecutor, configuration.getSecureStorageServiceConfiguration());
     ClientPresenceManager clientPresenceManager = new ClientPresenceManager(clientPresenceCluster,
         recurringJobExecutor, keyspaceNotificationDispatchExecutor);
     MessagesCache messagesCache = new MessagesCache(messageInsertCacheCluster, messageReadDeleteCluster,

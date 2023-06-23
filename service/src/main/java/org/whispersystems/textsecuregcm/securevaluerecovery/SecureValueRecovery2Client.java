@@ -18,6 +18,7 @@ import java.time.Duration;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.configuration.SecureValueRecovery2Configuration;
@@ -37,13 +38,15 @@ public class SecureValueRecovery2Client {
   static final String DELETE_PATH = "/v1/delete";
 
   public SecureValueRecovery2Client(final ExternalServiceCredentialsGenerator secureValueRecoveryCredentialsGenerator,
-      final Executor executor, final SecureValueRecovery2Configuration configuration)
+      final Executor executor, final ScheduledExecutorService retryExecutor,
+      final SecureValueRecovery2Configuration configuration)
       throws CertificateException {
     this.secureValueRecoveryCredentialsGenerator = secureValueRecoveryCredentialsGenerator;
     this.deleteUri = URI.create(configuration.uri()).resolve(DELETE_PATH);
     this.httpClient = FaultTolerantHttpClient.newBuilder()
         .withCircuitBreaker(configuration.circuitBreaker())
         .withRetry(configuration.retry())
+        .withRetryExecutor(retryExecutor)
         .withVersion(HttpClient.Version.HTTP_1_1)
         .withConnectTimeout(Duration.ofSeconds(10))
         .withRedirect(HttpClient.Redirect.NEVER)

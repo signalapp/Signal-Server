@@ -18,6 +18,7 @@ import java.time.Duration;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.configuration.SecureBackupServiceConfiguration;
@@ -29,37 +30,41 @@ import org.whispersystems.textsecuregcm.util.HttpUtils;
  */
 public class SecureBackupClient {
 
-    private final ExternalServiceCredentialsGenerator secureBackupCredentialsGenerator;
-    private final URI                                deleteUri;
-    private final FaultTolerantHttpClient            httpClient;
+  private final ExternalServiceCredentialsGenerator secureBackupCredentialsGenerator;
+  private final URI deleteUri;
+  private final FaultTolerantHttpClient httpClient;
 
-    @VisibleForTesting
-    static final String DELETE_PATH = "/v1/backup";
+  @VisibleForTesting
+  static final String DELETE_PATH = "/v1/backup";
 
-    public SecureBackupClient(final ExternalServiceCredentialsGenerator secureBackupCredentialsGenerator, final Executor executor, final SecureBackupServiceConfiguration configuration) throws CertificateException {
-        this.secureBackupCredentialsGenerator   = secureBackupCredentialsGenerator;
-        this.deleteUri                         = URI.create(configuration.getUri()).resolve(DELETE_PATH);
-        this.httpClient                        = FaultTolerantHttpClient.newBuilder()
-                                                                        .withCircuitBreaker(configuration.getCircuitBreakerConfiguration())
-                                                                        .withRetry(configuration.getRetryConfiguration())
-                                                                        .withVersion(HttpClient.Version.HTTP_1_1)
-                                                                        .withConnectTimeout(Duration.ofSeconds(10))
-                                                                        .withRedirect(HttpClient.Redirect.NEVER)
-                                                                        .withExecutor(executor)
-                                                                        .withName("secure-backup")
-                                                                        .withSecurityProtocol(FaultTolerantHttpClient.SECURITY_PROTOCOL_TLS_1_2)
-                                                                        .withTrustedServerCertificates(configuration.getBackupCaCertificates().toArray(new String[0]))
-                                                                        .build();
-    }
+  public SecureBackupClient(final ExternalServiceCredentialsGenerator secureBackupCredentialsGenerator,
+      final Executor executor, final
+  ScheduledExecutorService retryExecutor, final SecureBackupServiceConfiguration configuration)
+      throws CertificateException {
+    this.secureBackupCredentialsGenerator = secureBackupCredentialsGenerator;
+    this.deleteUri = URI.create(configuration.getUri()).resolve(DELETE_PATH);
+    this.httpClient = FaultTolerantHttpClient.newBuilder()
+        .withCircuitBreaker(configuration.getCircuitBreakerConfiguration())
+        .withRetry(configuration.getRetryConfiguration())
+        .withRetryExecutor(retryExecutor)
+        .withVersion(HttpClient.Version.HTTP_1_1)
+        .withConnectTimeout(Duration.ofSeconds(10))
+        .withRedirect(HttpClient.Redirect.NEVER)
+        .withExecutor(executor)
+        .withName("secure-backup")
+        .withSecurityProtocol(FaultTolerantHttpClient.SECURITY_PROTOCOL_TLS_1_2)
+        .withTrustedServerCertificates(configuration.getBackupCaCertificates().toArray(new String[0]))
+        .build();
+  }
 
-    public CompletableFuture<Void> deleteBackups(final UUID accountUuid) {
-        final ExternalServiceCredentials credentials = secureBackupCredentialsGenerator.generateForUuid(accountUuid);
+  public CompletableFuture<Void> deleteBackups(final UUID accountUuid) {
+    final ExternalServiceCredentials credentials = secureBackupCredentialsGenerator.generateForUuid(accountUuid);
 
-        final HttpRequest request = HttpRequest.newBuilder()
-                .uri(deleteUri)
-                .DELETE()
-                .header(HttpHeaders.AUTHORIZATION, basicAuthHeader(credentials))
-                .build();
+    final HttpRequest request = HttpRequest.newBuilder()
+        .uri(deleteUri)
+        .DELETE()
+        .header(HttpHeaders.AUTHORIZATION, basicAuthHeader(credentials))
+        .build();
 
         return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString()).thenApply(response -> {
             if (HttpUtils.isSuccessfulResponse(response.statusCode())) {

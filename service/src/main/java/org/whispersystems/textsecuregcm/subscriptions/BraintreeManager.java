@@ -32,6 +32,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
 import javax.annotation.Nullable;
 import javax.ws.rs.ClientErrorException;
 import javax.ws.rs.WebApplicationException;
@@ -61,7 +62,8 @@ public class BraintreeManager implements SubscriptionProcessorManager {
       final Map<String, String> currenciesToMerchantAccounts,
       final String graphqlUri,
       final CircuitBreakerConfiguration circuitBreakerConfiguration,
-      final Executor executor) {
+      final Executor executor,
+      final ScheduledExecutorService retryExecutor) {
 
     this(new BraintreeGateway(braintreeEnvironment, braintreeMerchantId, braintreePublicKey,
             braintreePrivateKey),
@@ -71,6 +73,7 @@ public class BraintreeManager implements SubscriptionProcessorManager {
             .withName("braintree-graphql")
             .withCircuitBreaker(circuitBreakerConfiguration)
             .withExecutor(executor)
+            .withRetryExecutor(retryExecutor)
             .build(), graphqlUri, braintreePublicKey, braintreePrivateKey),
         executor);
   }

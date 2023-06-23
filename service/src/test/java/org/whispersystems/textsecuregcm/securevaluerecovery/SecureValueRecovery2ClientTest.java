@@ -23,6 +23,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -38,6 +39,7 @@ class SecureValueRecovery2ClientTest {
   private UUID accountUuid;
   private ExternalServiceCredentialsGenerator credentialsGenerator;
   private ExecutorService httpExecutor;
+  private ScheduledExecutorService retryExecutor;
 
   private SecureValueRecovery2Client secureValueRecovery2Client;
 
@@ -51,6 +53,7 @@ class SecureValueRecovery2ClientTest {
     accountUuid = UUID.randomUUID();
     credentialsGenerator = mock(ExternalServiceCredentialsGenerator.class);
     httpExecutor = Executors.newSingleThreadExecutor();
+    retryExecutor = Executors.newSingleThreadScheduledExecutor();
 
     final SecureValueRecovery2Configuration config = new SecureValueRecovery2Configuration(
         "http://localhost:" + wireMock.getPort(),
@@ -104,13 +107,16 @@ class SecureValueRecovery2ClientTest {
             """),
         null, null);
 
-    secureValueRecovery2Client = new SecureValueRecovery2Client(credentialsGenerator, httpExecutor, config);
+    secureValueRecovery2Client = new SecureValueRecovery2Client(credentialsGenerator, httpExecutor, retryExecutor,
+        config);
   }
 
   @AfterEach
   void tearDown() throws InterruptedException {
     httpExecutor.shutdown();
     httpExecutor.awaitTermination(1, TimeUnit.SECONDS);
+    retryExecutor.shutdown();
+    retryExecutor.awaitTermination(1, TimeUnit.SECONDS);
   }
 
   @Test

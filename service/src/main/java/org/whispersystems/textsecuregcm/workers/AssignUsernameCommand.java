@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
@@ -110,6 +111,10 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
         .executorService(name(getClass(), "secureValueRecoveryService-%d")).maxThreads(1).minThreads(1).build();
     ExecutorService storageServiceExecutor = environment.lifecycle()
         .executorService(name(getClass(), "storageService-%d")).maxThreads(1).minThreads(1).build();
+    ScheduledExecutorService secureValueRecoveryServiceRetryExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(getClass(), "secureValueRecoveryServiceRetry-%d")).threads(1).build();
+    ScheduledExecutorService storageServiceRetryExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(getClass(), "storageServiceRetry-%d")).threads(1).build();
 
     ExternalServiceCredentialsGenerator backupCredentialsGenerator = SecureBackupController.credentialsGenerator(
         configuration.getSecureBackupServiceConfiguration());
@@ -174,12 +179,14 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
         configuration.getClientPresenceClusterConfiguration(), redisClusterClientResources);
     FaultTolerantRedisCluster rateLimitersCluster = new FaultTolerantRedisCluster("rate_limiters",
         configuration.getRateLimitersCluster(), redisClusterClientResources);
-    SecureBackupClient secureBackupClient = new SecureBackupClient(backupCredentialsGenerator, secureValueRecoveryExecutor,
-        configuration.getSecureBackupServiceConfiguration());
+    SecureBackupClient secureBackupClient = new SecureBackupClient(backupCredentialsGenerator,
+        secureValueRecoveryExecutor,
+        secureValueRecoveryServiceRetryExecutor, configuration.getSecureBackupServiceConfiguration());
     SecureValueRecovery2Client secureValueRecovery2Client = new SecureValueRecovery2Client(
-        secureValueRecoveryCredentialsGenerator, secureValueRecoveryExecutor, configuration.getSvr2Configuration());
+        secureValueRecoveryCredentialsGenerator, secureValueRecoveryExecutor, secureValueRecoveryServiceRetryExecutor,
+        configuration.getSvr2Configuration());
     SecureStorageClient secureStorageClient = new SecureStorageClient(storageCredentialsGenerator,
-        storageServiceExecutor, configuration.getSecureStorageServiceConfiguration());
+        storageServiceExecutor, storageServiceRetryExecutor, configuration.getSecureStorageServiceConfiguration());
     ClientPresenceManager clientPresenceManager = new ClientPresenceManager(clientPresenceCluster,
         Executors.newSingleThreadScheduledExecutor(), keyspaceNotificationDispatchExecutor);
     MessagesCache messagesCache = new MessagesCache(messageInsertCacheCluster, messageReadDeleteCluster,

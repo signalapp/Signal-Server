@@ -379,6 +379,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .executorService(name(getClass(), "secureValueRecoveryService-%d")).maxThreads(1).minThreads(1).build();
     ExecutorService storageServiceExecutor = environment.lifecycle()
         .executorService(name(getClass(), "storageService-%d")).maxThreads(1).minThreads(1).build();
+    ScheduledExecutorService secureValueRecoveryServiceRetryExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(getClass(), "secureValueRecoveryServiceRetry-%d")).threads(1).build();
+    ScheduledExecutorService storageServiceRetryExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(getClass(), "storageServiceRetry-%d")).threads(1).build();
 
     Scheduler messageDeliveryScheduler = Schedulers.fromExecutorService(
         ExecutorServiceMetrics.monitor(Metrics.globalRegistry,
@@ -411,6 +415,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .maxThreads(2)
         .minThreads(2)
         .build();
+    ScheduledExecutorService subscriptionProcessorRetryExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(getClass(), "subscriptionProcessorRetry-%d")).threads(1).build();
 
     final AdminEventLogger adminEventLogger = new GoogleCloudAdminEventLogger(
         LoggingOptions.newBuilder().setProjectId(config.getAdminEventLoggingConfiguration().projectId())
@@ -426,9 +432,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getStripe().idempotencyKeyGenerator().value(), config.getStripe().boostDescription(), config.getStripe()
         .supportedCurrencies());
     BraintreeManager braintreeManager = new BraintreeManager(config.getBraintree().merchantId(),
-        config.getBraintree().publicKey(), config.getBraintree().privateKey().value(), config.getBraintree().environment(),
+        config.getBraintree().publicKey(), config.getBraintree().privateKey().value(),
+        config.getBraintree().environment(),
         config.getBraintree().supportedCurrencies(), config.getBraintree().merchantAccounts(),
-        config.getBraintree().graphqlUrl(), config.getBraintree().circuitBreaker(), subscriptionProcessorExecutor);
+        config.getBraintree().graphqlUrl(), config.getBraintree().circuitBreaker(), subscriptionProcessorExecutor,
+        subscriptionProcessorRetryExecutor);
 
     ExternalServiceCredentialsGenerator directoryV2CredentialsGenerator = DirectoryV2Controller.credentialsGenerator(
         config.getDirectoryV2Configuration().getDirectoryV2ClientConfiguration());
@@ -461,11 +469,12 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getRegistrationServiceConfiguration().registrationCaCertificate(),
         registrationCallbackExecutor);
     SecureBackupClient secureBackupClient = new SecureBackupClient(backupCredentialsGenerator,
-        secureValueRecoveryServiceExecutor, config.getSecureBackupServiceConfiguration());
+        secureValueRecoveryServiceExecutor, secureValueRecoveryServiceRetryExecutor,
+        config.getSecureBackupServiceConfiguration());
     SecureValueRecovery2Client secureValueRecovery2Client = new SecureValueRecovery2Client(svr2CredentialsGenerator,
-        secureValueRecoveryServiceExecutor, config.getSvr2Configuration());
+        secureValueRecoveryServiceExecutor, secureValueRecoveryServiceRetryExecutor, config.getSvr2Configuration());
     SecureStorageClient secureStorageClient = new SecureStorageClient(storageCredentialsGenerator,
-        storageServiceExecutor, config.getSecureStorageServiceConfiguration());
+        storageServiceExecutor, storageServiceRetryExecutor, config.getSecureStorageServiceConfiguration());
     ClientPresenceManager clientPresenceManager = new ClientPresenceManager(clientPresenceCluster, recurringJobExecutor,
         keyspaceNotificationDispatchExecutor);
     StoredVerificationCodeManager pendingAccountsManager = new StoredVerificationCodeManager(pendingAccounts);

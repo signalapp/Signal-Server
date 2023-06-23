@@ -18,6 +18,7 @@ import java.time.Duration;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.configuration.SecureStorageServiceConfiguration;
@@ -29,37 +30,41 @@ import org.whispersystems.textsecuregcm.util.HttpUtils;
  */
 public class SecureStorageClient {
 
-    private final ExternalServiceCredentialsGenerator storageServiceCredentialsGenerator;
-    private final URI                                deleteUri;
-    private final FaultTolerantHttpClient            httpClient;
+  private final ExternalServiceCredentialsGenerator storageServiceCredentialsGenerator;
+  private final URI deleteUri;
+  private final FaultTolerantHttpClient httpClient;
 
-    @VisibleForTesting
-    static final String DELETE_PATH = "/v1/storage";
+  @VisibleForTesting
+  static final String DELETE_PATH = "/v1/storage";
 
-    public SecureStorageClient(final ExternalServiceCredentialsGenerator storageServiceCredentialsGenerator, final Executor executor, final SecureStorageServiceConfiguration configuration) throws CertificateException {
-        this.storageServiceCredentialsGenerator = storageServiceCredentialsGenerator;
-        this.deleteUri                         = URI.create(configuration.uri()).resolve(DELETE_PATH);
-        this.httpClient                        = FaultTolerantHttpClient.newBuilder()
-                                                                        .withCircuitBreaker(configuration.circuitBreaker())
-                                                                        .withRetry(configuration.retry())
-                                                                        .withVersion(HttpClient.Version.HTTP_1_1)
-                                                                        .withConnectTimeout(Duration.ofSeconds(10))
-                                                                        .withRedirect(HttpClient.Redirect.NEVER)
-                                                                        .withExecutor(executor)
-                                                                        .withName("secure-storage")
-                                                                        .withSecurityProtocol(FaultTolerantHttpClient.SECURITY_PROTOCOL_TLS_1_3)
-                                                                        .withTrustedServerCertificates(configuration.storageCaCertificates().toArray(new String[0]))
-                                                                        .build();
-    }
+  public SecureStorageClient(final ExternalServiceCredentialsGenerator storageServiceCredentialsGenerator,
+      final Executor executor, final
+  ScheduledExecutorService retryExecutor, final SecureStorageServiceConfiguration configuration)
+      throws CertificateException {
+    this.storageServiceCredentialsGenerator = storageServiceCredentialsGenerator;
+    this.deleteUri = URI.create(configuration.uri()).resolve(DELETE_PATH);
+    this.httpClient = FaultTolerantHttpClient.newBuilder()
+        .withCircuitBreaker(configuration.circuitBreaker())
+        .withRetry(configuration.retry())
+        .withRetryExecutor(retryExecutor)
+        .withVersion(HttpClient.Version.HTTP_1_1)
+        .withConnectTimeout(Duration.ofSeconds(10))
+        .withRedirect(HttpClient.Redirect.NEVER)
+        .withExecutor(executor)
+        .withName("secure-storage")
+        .withSecurityProtocol(FaultTolerantHttpClient.SECURITY_PROTOCOL_TLS_1_3)
+        .withTrustedServerCertificates(configuration.storageCaCertificates().toArray(new String[0]))
+        .build();
+  }
 
-    public CompletableFuture<Void> deleteStoredData(final UUID accountUuid) {
-        final ExternalServiceCredentials credentials = storageServiceCredentialsGenerator.generateForUuid(accountUuid);
+  public CompletableFuture<Void> deleteStoredData(final UUID accountUuid) {
+    final ExternalServiceCredentials credentials = storageServiceCredentialsGenerator.generateForUuid(accountUuid);
 
-        final HttpRequest request = HttpRequest.newBuilder()
-                .uri(deleteUri)
-                .DELETE()
-                .header(HttpHeaders.AUTHORIZATION, basicAuthHeader(credentials))
-                .build();
+    final HttpRequest request = HttpRequest.newBuilder()
+        .uri(deleteUri)
+        .DELETE()
+        .header(HttpHeaders.AUTHORIZATION, basicAuthHeader(credentials))
+        .build();
 
         return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString()).thenApply(response -> {
             if (HttpUtils.isSuccessfulResponse(response.statusCode())) {

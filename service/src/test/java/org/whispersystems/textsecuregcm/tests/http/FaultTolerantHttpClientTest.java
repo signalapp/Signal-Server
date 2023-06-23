@@ -20,7 +20,12 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
@@ -34,21 +39,38 @@ class FaultTolerantHttpClientTest {
       .options(wireMockConfig().dynamicPort().dynamicHttpsPort())
       .build();
 
+  private ExecutorService httpExecutor;
+  private ScheduledExecutorService retryExecutor;
+
+  @BeforeEach
+  void setUp() {
+    httpExecutor = Executors.newSingleThreadExecutor();
+    retryExecutor = Executors.newSingleThreadScheduledExecutor();
+  }
+
+  @AfterEach
+  void tearDown() throws InterruptedException {
+    httpExecutor.shutdown();
+    httpExecutor.awaitTermination(1, TimeUnit.SECONDS);
+    retryExecutor.shutdown();
+    retryExecutor.awaitTermination(1, TimeUnit.SECONDS);
+  }
+
   @Test
   void testSimpleGet() {
     wireMock.stubFor(get(urlEqualTo("/ping"))
-                             .willReturn(aResponse()
-                                             .withHeader("Content-Type", "text/plain")
-                                             .withBody("Pong!")));
-
+        .willReturn(aResponse()
+            .withHeader("Content-Type", "text/plain")
+            .withBody("Pong!")));
 
     FaultTolerantHttpClient client = FaultTolerantHttpClient.newBuilder()
-                                                            .withCircuitBreaker(new CircuitBreakerConfiguration())
-                                                            .withRetry(new RetryConfiguration())
-                                                            .withExecutor(Executors.newSingleThreadExecutor())
-                                                            .withName("test")
-                                                            .withVersion(HttpClient.Version.HTTP_2)
-                                                            .build();
+        .withCircuitBreaker(new CircuitBreakerConfiguration())
+        .withRetry(new RetryConfiguration())
+        .withExecutor(httpExecutor)
+        .withRetryExecutor(retryExecutor)
+        .withName("test")
+        .withVersion(HttpClient.Version.HTTP_2)
+        .build();
 
     HttpRequest request = HttpRequest.newBuilder()
                                      .uri(URI.create("http://localhost:" + wireMock.getPort() + "/ping"))
@@ -72,12 +94,13 @@ class FaultTolerantHttpClientTest {
                                              .withBody("Pong!")));
 
     FaultTolerantHttpClient client = FaultTolerantHttpClient.newBuilder()
-                                                            .withCircuitBreaker(new CircuitBreakerConfiguration())
-                                                            .withRetry(new RetryConfiguration())
-                                                            .withExecutor(Executors.newSingleThreadExecutor())
-                                                            .withName("test")
-                                                            .withVersion(HttpClient.Version.HTTP_2)
-                                                            .build();
+        .withCircuitBreaker(new CircuitBreakerConfiguration())
+        .withRetry(new RetryConfiguration())
+        .withExecutor(httpExecutor)
+        .withRetryExecutor(retryExecutor)
+        .withName("test")
+        .withVersion(HttpClient.Version.HTTP_2)
+        .build();
 
     HttpRequest request = HttpRequest.newBuilder()
                                      .uri(URI.create("http://localhost:" + wireMock.getPort() + "/failure"))
@@ -104,7 +127,8 @@ class FaultTolerantHttpClientTest {
     FaultTolerantHttpClient client = FaultTolerantHttpClient.newBuilder()
         .withCircuitBreaker(circuitBreakerConfiguration)
         .withRetry(new RetryConfiguration())
-        .withExecutor(Executors.newSingleThreadExecutor())
+        .withRetryExecutor(retryExecutor)
+        .withExecutor(httpExecutor)
         .withName("test")
         .withVersion(HttpClient.Version.HTTP_2)
         .build();
