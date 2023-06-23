@@ -9,7 +9,6 @@ import io.dropwizard.Application;
 import io.dropwizard.cli.ServerCommand;
 import io.dropwizard.setup.Environment;
 import java.time.Duration;
-import java.util.Optional;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
@@ -65,7 +64,7 @@ public class MessagePersisterServiceCommand extends ServerCommand<WhisperServerC
         deps.accountsManager(),
         dynamicConfigurationManager,
         Duration.ofMinutes(configuration.getMessageCacheConfiguration().getPersistDelayMinutes()),
-        Optional.of(namespace.getInt(WORKER_COUNT)));
+        namespace.getInt(WORKER_COUNT));
 
     environment.lifecycle().manage(deps.messagesCache());
     environment.lifecycle().manage(messagePersister);

@@ -83,7 +83,7 @@ class MessagePersisterIntegrationTest {
     messagesManager = new MessagesManager(messagesDynamoDb, messagesCache, mock(ReportMessageManager.class),
         messageDeletionExecutorService);
     messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager,
-        dynamicConfigurationManager, PERSIST_DELAY, Optional.empty());
+        dynamicConfigurationManager, PERSIST_DELAY, 1);
 
     account = mock(Account.class);
 

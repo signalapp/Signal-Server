@@ -22,7 +22,6 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicMessagePersisterConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -52,8 +51,6 @@ public class MessagePersister implements Managed {
 
   private static final long EXCEPTION_PAUSE_MILLIS = Duration.ofSeconds(3).toMillis();
 
-  private static final int DEFAULT_WORKER_THREAD_COUNT = 4;
-
   private static final int CONSECUTIVE_EMPTY_CACHE_REMOVAL_LIMIT = 3;
 
   private static final Logger logger = LoggerFactory.getLogger(MessagePersister.class);
@@ -62,19 +59,19 @@ public class MessagePersister implements Managed {
       final AccountsManager accountsManager,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
       final Duration persistDelay,
-      final Optional<Integer> dedicatedProcessWorkerThreadCount) {
+      final int dedicatedProcessWorkerThreadCount) {
     this.messagesCache = messagesCache;
     this.messagesManager = messagesManager;
     this.accountsManager = accountsManager;
     this.persistDelay = persistDelay;
-    this.workerThreads = dedicatedProcessWorkerThreadCount.map(Thread[]::new)
-        .orElseGet(() -> new Thread[DEFAULT_WORKER_THREAD_COUNT]);
-    this.dedicatedProcess = dedicatedProcessWorkerThreadCount.isPresent();
+    this.workerThreads = new Thread[dedicatedProcessWorkerThreadCount];
+    this.dedicatedProcess = true;
 
     for (int i = 0; i < workerThreads.length; i++) {
       workerThreads[i] = new Thread(() -> {
         while (running) {
-          if (enabled(dynamicConfigurationManager)) {
+          if (dynamicConfigurationManager.getConfiguration().getMessagePersisterConfiguration()
+              .isPersistenceEnabled()) {
             try {
               final int queuesPersisted = persistNextQueues(Instant.now());
               queueCountHistogram.update(queuesPersisted);
@@ -92,17 +89,6 @@ public class MessagePersister implements Managed {
         }
       }, "MessagePersisterWorker-" + i);
     }
-  }
-
-  @VisibleForTesting
-  boolean enabled(final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
-    final DynamicMessagePersisterConfiguration messagePersisterConfiguration = dynamicConfigurationManager.getConfiguration()
-        .getMessagePersisterConfiguration();
-    if (dedicatedProcess) {
-      return messagePersisterConfiguration.isDedicatedProcessEnabled();
-    }
-
-    return messagePersisterConfiguration.isServerPersistenceEnabled();
   }
 
   @VisibleForTesting
