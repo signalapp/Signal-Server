@@ -33,13 +33,11 @@ import java.util.function.Consumer;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.RedisClusterUtil;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -75,10 +73,6 @@ public class ApnPushNotificationScheduler implements Managed {
   private final ClusterLuaScript scheduleBackgroundNotificationScript;
 
   private final Thread[] workerThreads;
-  private final boolean dedicatedProcess;
-  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
-
-  private static final int DEFAULT_WORKER_THREAD_COUNT = 4;
 
   @VisibleForTesting
   static final Duration BACKGROUND_NOTIFICATION_PERIOD = Duration.ofMinutes(20);
@@ -105,18 +99,6 @@ public class ApnPushNotificationScheduler implements Managed {
     }
 
     private long processNextSlot() {
-      if (dedicatedProcess) {
-        if (!dynamicConfigurationManager.getConfiguration().getScheduledApnNotificationSendingConfiguration()
-            .enabledForDedicatedProcess()) {
-          return 0;
-        }
-      } else {
-        if (!dynamicConfigurationManager.getConfiguration().getScheduledApnNotificationSendingConfiguration()
-            .enabledForServer()) {
-          return 0;
-        }
-      }
-
       final int slot = (int) (pushSchedulingCluster.withCluster(connection ->
           connection.sync().incr(NEXT_SLOT_TO_PROCESS_KEY)) % SlotHash.SLOT_COUNT);
 
@@ -181,11 +163,10 @@ public class ApnPushNotificationScheduler implements Managed {
   }
 
   public ApnPushNotificationScheduler(FaultTolerantRedisCluster pushSchedulingCluster,
-      APNSender apnSender, AccountsManager accountsManager, final Optional<Integer> dedicatedProcessWorkerThreadCount,
-      DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) throws IOException {
+      APNSender apnSender, AccountsManager accountsManager, final int dedicatedProcessWorkerThreadCount)
+      throws IOException {
 
-    this(pushSchedulingCluster, apnSender, accountsManager, Clock.systemUTC(), dedicatedProcessWorkerThreadCount,
-        dynamicConfigurationManager);
+    this(pushSchedulingCluster, apnSender, accountsManager, Clock.systemUTC(), dedicatedProcessWorkerThreadCount);
   }
 
   @VisibleForTesting
@@ -193,8 +174,7 @@ public class ApnPushNotificationScheduler implements Managed {
       APNSender apnSender,
       AccountsManager accountsManager,
       Clock clock,
-      Optional<Integer> dedicatedProcessThreadCount,
-      DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) throws IOException {
+      int dedicatedProcessThreadCount) throws IOException {
 
     this.apnSender = apnSender;
     this.accountsManager = accountsManager;
@@ -211,14 +191,11 @@ public class ApnPushNotificationScheduler implements Managed {
     this.scheduleBackgroundNotificationScript = ClusterLuaScript.fromResource(pushSchedulingCluster,
         "lua/apn/schedule_background_notification.lua", ScriptOutputType.VALUE);
 
-    this.workerThreads = dedicatedProcessThreadCount.map(Thread[]::new)
-        .orElseGet(() -> new Thread[DEFAULT_WORKER_THREAD_COUNT]);
+    this.workerThreads = new Thread[dedicatedProcessThreadCount];
 
     for (int i = 0; i < this.workerThreads.length; i++) {
       this.workerThreads[i] = new Thread(new NotificationWorker(), "ApnFallbackManagerWorker-" + i);
     }
-    this.dedicatedProcess = dedicatedProcessThreadCount.isPresent();
-    this.dynamicConfigurationManager = dynamicConfigurationManager;
   }
 
   /**

@@ -49,11 +49,6 @@ public class DynamicConfiguration {
 
   @JsonProperty
   @Valid
-  DynamicScheduledApnNotificationSendingConfiguration scheduledApnNotificationSending = new DynamicScheduledApnNotificationSendingConfiguration(
-      true, false);
-
-  @JsonProperty
-  @Valid
   DynamicMessagePersisterConfiguration messagePersister = new DynamicMessagePersisterConfiguration();
 
   @JsonProperty
@@ -92,10 +87,6 @@ public class DynamicConfiguration {
 
   public DynamicTurnConfiguration getTurnConfiguration() {
     return turn;
-  }
-
-  public DynamicScheduledApnNotificationSendingConfiguration getScheduledApnNotificationSendingConfiguration() {
-    return scheduledApnNotificationSending;
   }
 
   public DynamicMessagePersisterConfiguration getMessagePersisterConfiguration() {

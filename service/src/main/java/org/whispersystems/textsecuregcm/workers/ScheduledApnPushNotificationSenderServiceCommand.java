@@ -10,17 +10,14 @@ import static com.codahale.metrics.MetricRegistry.name;
 import io.dropwizard.Application;
 import io.dropwizard.cli.ServerCommand;
 import io.dropwizard.setup.Environment;
-import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.push.APNSender;
 import org.whispersystems.textsecuregcm.push.ApnPushNotificationScheduler;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
-import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.util.logging.UncaughtExceptionHandler;
 
 public class ScheduledApnPushNotificationSenderServiceCommand extends ServerCommand<WhisperServerConfiguration> {
@@ -63,18 +60,9 @@ public class ScheduledApnPushNotificationSenderServiceCommand extends ServerComm
     final ExecutorService apnSenderExecutor = environment.lifecycle().executorService(name(getClass(), "apnSender-%d"))
         .maxThreads(1).minThreads(1).build();
 
-    final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = new DynamicConfigurationManager<>(
-        configuration.getAppConfig().getApplication(),
-        configuration.getAppConfig().getEnvironment(),
-        configuration.getAppConfig().getConfigurationName(),
-        DynamicConfiguration.class);
-
-    dynamicConfigurationManager.start();
-
     final APNSender apnSender = new APNSender(apnSenderExecutor, configuration.getApnConfiguration());
     final ApnPushNotificationScheduler apnPushNotificationScheduler = new ApnPushNotificationScheduler(
-        pushSchedulerCluster, apnSender, deps.accountsManager(), Optional.of(namespace.getInt(WORKER_COUNT)),
-        dynamicConfigurationManager);
+        pushSchedulerCluster, apnSender, deps.accountsManager(), namespace.getInt(WORKER_COUNT));
 
     environment.lifecycle().manage(apnSender);
     environment.lifecycle().manage(apnPushNotificationScheduler);

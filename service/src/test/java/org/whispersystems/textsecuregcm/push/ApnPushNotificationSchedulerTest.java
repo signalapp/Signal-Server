@@ -31,13 +31,11 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicScheduledApnNotificationSendingConfiguration;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.TestClock;
 
@@ -81,17 +79,8 @@ class ApnPushNotificationSchedulerTest {
     apnSender = mock(APNSender.class);
     clock = TestClock.now();
 
-    final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = mock(
-        DynamicConfigurationManager.class);
-    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
-    final DynamicScheduledApnNotificationSendingConfiguration scheduledApnNotificationSendingConfiguration = new DynamicScheduledApnNotificationSendingConfiguration(
-        true, true);
-    when(dynamicConfiguration.getScheduledApnNotificationSendingConfiguration()).thenReturn(
-        scheduledApnNotificationSendingConfiguration);
-    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
-
     apnPushNotificationScheduler = new ApnPushNotificationScheduler(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-        apnSender, accountsManager, clock, Optional.empty(), dynamicConfigurationManager);
+        apnSender, accountsManager, clock, 1);
   }
 
   @Test
@@ -236,30 +225,21 @@ class ApnPushNotificationSchedulerTest {
 
   @ParameterizedTest
   @CsvSource({
-      "true, false, true, true",
-      "true, true, false, false",
-      "false, true, false, true",
-      "false, false, true, false"
+      "1, true",
+      "0, false",
   })
-  void testDedicatedProcessDynamicConfiguration(final boolean dedicatedProcess, final boolean enabledForServer,
-      final boolean enabledForDedicatedProcess, final boolean expectActivity) throws Exception {
+  void testDedicatedProcessDynamicConfiguration(final int dedicatedThreadCount, final boolean expectActivity)
+      throws Exception {
 
     final FaultTolerantRedisCluster redisCluster = mock(FaultTolerantRedisCluster.class);
     when(redisCluster.withCluster(any())).thenReturn(0L);
 
     final AccountsManager accountsManager = mock(AccountsManager.class);
 
-    final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = mock(
-        DynamicConfigurationManager.class);
     final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
-    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
-    final DynamicScheduledApnNotificationSendingConfiguration scheduledApnNotificationSendingConfiguration = new DynamicScheduledApnNotificationSendingConfiguration(
-        enabledForServer, enabledForDedicatedProcess);
-    when(dynamicConfiguration.getScheduledApnNotificationSendingConfiguration()).thenReturn(
-        scheduledApnNotificationSendingConfiguration);
 
     apnPushNotificationScheduler = new ApnPushNotificationScheduler(redisCluster, apnSender,
-        accountsManager, dedicatedProcess ? Optional.of(4) : Optional.empty(), dynamicConfigurationManager);
+        accountsManager, dedicatedThreadCount);
 
     apnPushNotificationScheduler.start();
     apnPushNotificationScheduler.stop();
