@@ -65,7 +65,7 @@ public class UnlinkDeviceCommand extends EnvironmentCommand<WhisperServerConfigu
     account = deps.accountsManager().update(account, a -> a.removeDevice(deviceId));
 
     System.out.format("Removing keys for device %s::%d\n", aci, deviceId);
-    deps.keysManager().delete(account.getUuid(), deviceId);
+    deps.keysManager().delete(account.getUuid(), deviceId).join();
 
     System.out.format("Clearing additional messages for %s::%d\n", aci, deviceId);
     deps.messagesManager().clear(account.getUuid(), deviceId);

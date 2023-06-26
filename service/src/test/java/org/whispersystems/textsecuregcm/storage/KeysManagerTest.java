@@ -185,7 +185,7 @@ class KeysManagerTest {
     assertTrue(keysManager.getEcSignedPreKey(ACCOUNT_UUID, DEVICE_ID + 1).join().isPresent());
     assertTrue(keysManager.getLastResort(ACCOUNT_UUID, DEVICE_ID + 1).join().isPresent());
 
-    keysManager.delete(ACCOUNT_UUID);
+    keysManager.delete(ACCOUNT_UUID).join();
 
     assertEquals(0, keysManager.getEcCount(ACCOUNT_UUID, DEVICE_ID).join());
     assertEquals(0, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID).join());
@@ -222,7 +222,7 @@ class KeysManagerTest {
     assertTrue(keysManager.getEcSignedPreKey(ACCOUNT_UUID, DEVICE_ID + 1).join().isPresent());
     assertTrue(keysManager.getLastResort(ACCOUNT_UUID, DEVICE_ID + 1).join().isPresent());
 
-    keysManager.delete(ACCOUNT_UUID, DEVICE_ID);
+    keysManager.delete(ACCOUNT_UUID, DEVICE_ID).join();
 
     assertEquals(0, keysManager.getEcCount(ACCOUNT_UUID, DEVICE_ID).join());
     assertEquals(0, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID).join());

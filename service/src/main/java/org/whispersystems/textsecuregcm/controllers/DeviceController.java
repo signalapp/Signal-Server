@@ -111,11 +111,14 @@ public class DeviceController {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 
+    final CompletableFuture<Void> deleteKeysFuture = keys.delete(account.getUuid(), deviceId);
+
     messages.clear(account.getUuid(), deviceId);
     account = accounts.update(account, a -> a.removeDevice(deviceId));
-    keys.delete(account.getUuid(), deviceId);
     // ensure any messages that came in after the first clear() are also removed
     messages.clear(account.getUuid(), deviceId);
+
+    deleteKeysFuture.join();
   }
 
   @Timed
@@ -336,10 +339,13 @@ public class DeviceController {
     final Account updatedAccount = accounts.update(account, a -> {
       device.setId(a.getNextDeviceId());
 
+      final CompletableFuture<Void> deleteKeysFuture = CompletableFuture.allOf(
+          keys.delete(a.getUuid(), device.getId()),
+          keys.delete(a.getPhoneNumberIdentifier(), device.getId()));
+
       messages.clear(a.getUuid(), device.getId());
 
-      keys.delete(a.getUuid(), device.getId());
-      keys.delete(a.getPhoneNumberIdentifier(), device.getId());
+      deleteKeysFuture.join();
 
       maybeDeviceActivationRequest.ifPresent(deviceActivationRequest -> CompletableFuture.allOf(
               keys.storeEcSignedPreKeys(a.getUuid(),

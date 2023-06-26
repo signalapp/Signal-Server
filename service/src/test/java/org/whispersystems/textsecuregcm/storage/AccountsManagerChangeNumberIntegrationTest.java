@@ -100,13 +100,16 @@ class AccountsManagerChangeNumberIntegrationTest {
       final PhoneNumberIdentifiers phoneNumberIdentifiers =
           new PhoneNumberIdentifiers(DYNAMO_DB_EXTENSION.getDynamoDbClient(), Tables.PNI.tableName());
 
+      final KeysManager keysManager = mock(KeysManager.class);
+      when(keysManager.delete(any())).thenReturn(CompletableFuture.completedFuture(null));
+
       accountsManager = new AccountsManager(
           accounts,
           phoneNumberIdentifiers,
           CACHE_CLUSTER_EXTENSION.getRedisCluster(),
           accountLockManager,
           deletedAccounts,
-          mock(KeysManager.class),
+          keysManager,
           mock(MessagesManager.class),
           mock(ProfilesManager.class),
           mock(StoredVerificationCodeManager.class),

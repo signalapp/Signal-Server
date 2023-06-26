@@ -157,6 +157,8 @@ class AccountsManagerTest {
       return null;
     }).when(accountLockManager).withLock(any(), any());
 
+    when(keysManager.delete(any())).thenReturn(CompletableFuture.completedFuture(null));
+
     accountsManager = new AccountsManager(
         accounts,
         phoneNumberIdentifiers,
@@ -785,6 +787,7 @@ class AccountsManagerTest {
     final IdentityKey pniIdentityKey = new IdentityKey(Curve.generateKeyPair().getPublicKey());
 
     when(keysManager.getPqEnabledDevices(any())).thenReturn(CompletableFuture.completedFuture(Collections.emptyList()));
+    when(keysManager.storeEcSignedPreKeys(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
     final Account updatedAccount = accountsManager.updatePniKeys(account, pniIdentityKey, newSignedKeys, null, newRegistrationIds);
 
@@ -829,6 +832,8 @@ class AccountsManagerTest {
     UUID oldPni = account.getPhoneNumberIdentifier();
 
     when(keysManager.getPqEnabledDevices(oldPni)).thenReturn(CompletableFuture.completedFuture(List.of(1L)));
+    when(keysManager.storeEcSignedPreKeys(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(keysManager.storePqLastResort(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
     Map<Long, ECSignedPreKey> oldSignedPreKeys = account.getDevices().stream().collect(Collectors.toMap(Device::getId, Device::getSignedPreKey));
 

@@ -228,10 +228,15 @@ public class AccountsManager {
         // confident that everything has already been deleted. In the second case, though, we're taking over an existing
         // account and need to clear out messages and keys that may have been stored for the old account.
         if (!originalUuid.equals(actualUuid)) {
+          final CompletableFuture<Void> deleteKeysFuture = CompletableFuture.allOf(
+              keysManager.delete(actualUuid),
+              keysManager.delete(account.getPhoneNumberIdentifier()));
+
           messagesManager.clear(actualUuid);
-          keysManager.delete(actualUuid);
-          keysManager.delete(account.getPhoneNumberIdentifier());
           profilesManager.deleteAll(actualUuid);
+
+          deleteKeysFuture.join();
+
           clientPresenceManager.disconnectAllPresencesForUuid(actualUuid);
         }
 
@@ -324,8 +329,10 @@ public class AccountsManager {
 
       updatedAccount.set(numberChangedAccount);
 
-      keysManager.delete(phoneNumberIdentifier);
-      keysManager.delete(originalPhoneNumberIdentifier);
+      CompletableFuture.allOf(
+              keysManager.delete(phoneNumberIdentifier),
+              keysManager.delete(originalPhoneNumberIdentifier))
+          .join();
 
       keysManager.storeEcSignedPreKeys(phoneNumberIdentifier, pniSignedPreKeys);
 
@@ -369,9 +376,9 @@ public class AccountsManager {
 
     final List<Long> pqEnabledDeviceIDs = keysManager.getPqEnabledDevices(pni).join();
     keysManager.delete(pni);
-    keysManager.storeEcSignedPreKeys(pni, pniSignedPreKeys);
+    keysManager.storeEcSignedPreKeys(pni, pniSignedPreKeys).join();
     if (pniPqLastResortPreKeys != null) {
-      keysManager.storePqLastResort(pni, pqEnabledDeviceIDs.stream().collect(Collectors.toMap(Function.identity(), pniPqLastResortPreKeys::get)));
+      keysManager.storePqLastResort(pni, pqEnabledDeviceIDs.stream().collect(Collectors.toMap(Function.identity(), pniPqLastResortPreKeys::get))).join();
     }
 
     return updatedAccount;
@@ -755,13 +762,16 @@ public class AccountsManager {
     final CompletableFuture<Void> deleteSecureValueRecoveryServiceDataFuture = secureValueRecovery2Client.deleteBackups(
         account.getUuid());
 
+    final CompletableFuture<Void> deleteKeysFuture = CompletableFuture.allOf(
+        keysManager.delete(account.getUuid()),
+        keysManager.delete(account.getPhoneNumberIdentifier()));
+
     profilesManager.deleteAll(account.getUuid());
-    keysManager.delete(account.getUuid());
-    keysManager.delete(account.getPhoneNumberIdentifier());
     messagesManager.clear(account.getUuid());
     messagesManager.clear(account.getPhoneNumberIdentifier());
     registrationRecoveryPasswordsManager.removeForNumber(account.getNumber());
 
+    deleteKeysFuture.join();
     deleteStorageServiceDataFuture.join();
     deleteBackupServiceDataFuture.join();
     deleteSecureValueRecoveryServiceDataFuture.join();

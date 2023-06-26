@@ -122,25 +122,23 @@ public class KeysManager {
     return pqPreKeys.getCount(identifier, deviceId);
   }
   
-  public void delete(final UUID accountUuid) {
-    CompletableFuture.allOf(
+  public CompletableFuture<Void> delete(final UUID accountUuid) {
+    return CompletableFuture.allOf(
             ecPreKeys.delete(accountUuid),
             pqPreKeys.delete(accountUuid),
             dynamicConfigurationManager.getConfiguration().getEcPreKeyMigrationConfiguration().deleteEcSignedPreKeys()
                 ? ecSignedPreKeys.delete(accountUuid)
                 : CompletableFuture.completedFuture(null),
-            pqLastResortKeys.delete(accountUuid))
-        .join();
+            pqLastResortKeys.delete(accountUuid));
   }
 
-  public void delete(final UUID accountUuid, final long deviceId) {
-    CompletableFuture.allOf(
+  public CompletableFuture<Void> delete(final UUID accountUuid, final long deviceId) {
+    return CompletableFuture.allOf(
             ecPreKeys.delete(accountUuid, deviceId),
             pqPreKeys.delete(accountUuid, deviceId),
             dynamicConfigurationManager.getConfiguration().getEcPreKeyMigrationConfiguration().deleteEcSignedPreKeys()
                 ? ecSignedPreKeys.delete(accountUuid, deviceId)
                 : CompletableFuture.completedFuture(null),
-            pqLastResortKeys.delete(accountUuid, deviceId))
-        .join();
+            pqLastResortKeys.delete(accountUuid, deviceId));
   }
 }
