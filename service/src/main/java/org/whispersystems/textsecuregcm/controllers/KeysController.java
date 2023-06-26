@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import javax.ws.rs.Consumes;
@@ -95,10 +96,13 @@ public class KeysController {
   public PreKeyCount getStatus(@Auth final AuthenticatedAccount auth,
       @QueryParam("identity") final Optional<String> identityType) {
 
-    int ecCount = keys.getEcCount(getIdentifier(auth.getAccount(), identityType), auth.getAuthenticatedDevice().getId());
-    int pqCount = keys.getPqCount(getIdentifier(auth.getAccount(), identityType), auth.getAuthenticatedDevice().getId());
+    final CompletableFuture<Integer> ecCountFuture =
+        keys.getEcCount(getIdentifier(auth.getAccount(), identityType), auth.getAuthenticatedDevice().getId());
 
-    return new PreKeyCount(ecCount, pqCount);
+    final CompletableFuture<Integer> pqCountFuture =
+        keys.getPqCount(getIdentifier(auth.getAccount(), identityType), auth.getAuthenticatedDevice().getId());
+
+    return new PreKeyCount(ecCountFuture.join(), pqCountFuture.join());
   }
 
   @Timed
@@ -181,8 +185,9 @@ public class KeysController {
     }
 
     keys.store(
-        getIdentifier(account, identityType), device.getId(),
-        preKeys.getPreKeys(), preKeys.getPqPreKeys(), preKeys.getSignedPreKey(), preKeys.getPqLastResortPreKey());
+            getIdentifier(account, identityType), device.getId(),
+            preKeys.getPreKeys(), preKeys.getPqPreKeys(), preKeys.getSignedPreKey(), preKeys.getPqLastResortPreKey())
+        .join();
   }
 
   @Timed
@@ -243,8 +248,8 @@ public class KeysController {
     for (Device device : devices) {
       UUID identifier = usePhoneNumberIdentity ? target.getPhoneNumberIdentifier() : targetUuid;
       ECSignedPreKey signedECPreKey = usePhoneNumberIdentity ? device.getPhoneNumberIdentitySignedPreKey() : device.getSignedPreKey();
-      ECPreKey unsignedECPreKey = keys.takeEC(identifier, device.getId()).orElse(null);
-      KEMSignedPreKey pqPreKey = returnPqKey ? keys.takePQ(identifier, device.getId()).orElse(null) : null;
+      ECPreKey unsignedECPreKey = keys.takeEC(identifier, device.getId()).join().orElse(null);
+      KEMSignedPreKey pqPreKey = returnPqKey ? keys.takePQ(identifier, device.getId()).join().orElse(null) : null;
 
       compareSignedEcPreKeysExperiment.compareFutureResult(Optional.ofNullable(signedECPreKey),
           keys.getEcSignedPreKey(identifier, device.getId()));

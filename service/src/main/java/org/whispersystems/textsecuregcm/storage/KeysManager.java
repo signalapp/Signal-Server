@@ -42,11 +42,11 @@ public class KeysManager {
     this.dynamicConfigurationManager = dynamicConfigurationManager;
   }
 
-  public void store(final UUID identifier, final long deviceId, final List<ECPreKey> keys) {
-    store(identifier, deviceId, keys, null, null, null);
+  public CompletableFuture<Void> store(final UUID identifier, final long deviceId, final List<ECPreKey> keys) {
+    return store(identifier, deviceId, keys, null, null, null);
   }
 
-  public void store(
+  public CompletableFuture<Void> store(
       final UUID identifier, final long deviceId,
       @Nullable final List<ECPreKey> ecKeys,
       @Nullable final List<KEMSignedPreKey> pqKeys,
@@ -71,12 +71,14 @@ public class KeysManager {
       storeFutures.add(pqLastResortKeys.store(identifier, deviceId, pqLastResortKey));
     }
 
-    CompletableFuture.allOf(storeFutures.toArray(new CompletableFuture[0])).join();
+    return CompletableFuture.allOf(storeFutures.toArray(new CompletableFuture[0]));
   }
 
-  public void storeEcSignedPreKeys(final UUID identifier, final Map<Long, ECSignedPreKey> keys) {
+  public CompletableFuture<Void> storeEcSignedPreKeys(final UUID identifier, final Map<Long, ECSignedPreKey> keys) {
     if (dynamicConfigurationManager.getConfiguration().getEcPreKeyMigrationConfiguration().storeEcSignedPreKeys()) {
-      ecSignedPreKeys.store(identifier, keys).join();
+      return ecSignedPreKeys.store(identifier, keys);
+    } else {
+      return CompletableFuture.completedFuture(null);
     }
   }
 
@@ -84,40 +86,40 @@ public class KeysManager {
     return ecSignedPreKeys.storeIfAbsent(identifier, deviceId, signedPreKey);
   }
 
-  public void storePqLastResort(final UUID identifier, final Map<Long, KEMSignedPreKey> keys) {
-    pqLastResortKeys.store(identifier, keys).join();
+  public CompletableFuture<Void> storePqLastResort(final UUID identifier, final Map<Long, KEMSignedPreKey> keys) {
+    return pqLastResortKeys.store(identifier, keys);
   }
 
-  public Optional<ECPreKey> takeEC(final UUID identifier, final long deviceId) {
-    return ecPreKeys.take(identifier, deviceId).join();
+  public CompletableFuture<Optional<ECPreKey>> takeEC(final UUID identifier, final long deviceId) {
+    return ecPreKeys.take(identifier, deviceId);
   }
 
-  public Optional<KEMSignedPreKey> takePQ(final UUID identifier, final long deviceId) {
+  public CompletableFuture<Optional<KEMSignedPreKey>> takePQ(final UUID identifier, final long deviceId) {
     return pqPreKeys.take(identifier, deviceId)
         .thenCompose(maybeSingleUsePreKey -> maybeSingleUsePreKey
             .map(singleUsePreKey -> CompletableFuture.completedFuture(maybeSingleUsePreKey))
-            .orElseGet(() -> pqLastResortKeys.find(identifier, deviceId))).join();
+            .orElseGet(() -> pqLastResortKeys.find(identifier, deviceId)));
   }
 
   @VisibleForTesting
-  Optional<KEMSignedPreKey> getLastResort(final UUID identifier, final long deviceId) {
-    return pqLastResortKeys.find(identifier, deviceId).join();
+  CompletableFuture<Optional<KEMSignedPreKey>> getLastResort(final UUID identifier, final long deviceId) {
+    return pqLastResortKeys.find(identifier, deviceId);
   }
 
   public CompletableFuture<Optional<ECSignedPreKey>> getEcSignedPreKey(final UUID identifier, final long deviceId) {
     return ecSignedPreKeys.find(identifier, deviceId);
   }
 
-  public List<Long> getPqEnabledDevices(final UUID identifier) {
-    return pqLastResortKeys.getDeviceIdsWithKeys(identifier).collectList().block();
+  public CompletableFuture<List<Long>> getPqEnabledDevices(final UUID identifier) {
+    return pqLastResortKeys.getDeviceIdsWithKeys(identifier).collectList().toFuture();
   }
 
-  public int getEcCount(final UUID identifier, final long deviceId) {
-    return ecPreKeys.getCount(identifier, deviceId).join();
+  public CompletableFuture<Integer> getEcCount(final UUID identifier, final long deviceId) {
+    return ecPreKeys.getCount(identifier, deviceId);
   }
 
-  public int getPqCount(final UUID identifier, final long deviceId) {
-    return pqPreKeys.getCount(identifier, deviceId).join();
+  public CompletableFuture<Integer> getPqCount(final UUID identifier, final long deviceId) {
+    return pqPreKeys.getCount(identifier, deviceId);
   }
   
   public void delete(final UUID accountUuid) {

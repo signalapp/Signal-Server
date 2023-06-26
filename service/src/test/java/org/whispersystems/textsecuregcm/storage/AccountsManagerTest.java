@@ -33,6 +33,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -732,7 +733,7 @@ class AccountsManagerTest {
 
     final Account existingAccount = AccountsHelper.generateTestAccount(targetNumber, existingAccountUuid, targetPni, new ArrayList<>(), new byte[16]);
     when(accounts.getByE164(targetNumber)).thenReturn(Optional.of(existingAccount));
-    when(keysManager.getPqEnabledDevices(uuid)).thenReturn(List.of(1L));
+    when(keysManager.getPqEnabledDevices(uuid)).thenReturn(CompletableFuture.completedFuture(List.of(1L)));
 
     final List<Device> devices = List.of(DevicesHelper.createDevice(1L, 0L, 101), DevicesHelper.createDevice(2L, 0L, 102));
     final Account account = AccountsHelper.generateTestAccount(originalNumber, uuid, originalPni, devices, new byte[16]);
@@ -783,6 +784,8 @@ class AccountsManagerTest {
 
     final IdentityKey pniIdentityKey = new IdentityKey(Curve.generateKeyPair().getPublicKey());
 
+    when(keysManager.getPqEnabledDevices(any())).thenReturn(CompletableFuture.completedFuture(Collections.emptyList()));
+
     final Account updatedAccount = accountsManager.updatePniKeys(account, pniIdentityKey, newSignedKeys, null, newRegistrationIds);
 
     // non-PNI stuff should not change
@@ -825,7 +828,7 @@ class AccountsManagerTest {
     UUID oldUuid = account.getUuid();
     UUID oldPni = account.getPhoneNumberIdentifier();
 
-    when(keysManager.getPqEnabledDevices(oldPni)).thenReturn(List.of(1L));
+    when(keysManager.getPqEnabledDevices(oldPni)).thenReturn(CompletableFuture.completedFuture(List.of(1L)));
 
     Map<Long, ECSignedPreKey> oldSignedPreKeys = account.getDevices().stream().collect(Collectors.toMap(Device::getId, Device::getSignedPreKey));
 

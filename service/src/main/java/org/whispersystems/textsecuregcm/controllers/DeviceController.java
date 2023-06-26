@@ -17,6 +17,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import javax.ws.rs.Consumes;
@@ -340,12 +341,16 @@ public class DeviceController {
       keys.delete(a.getUuid(), device.getId());
       keys.delete(a.getPhoneNumberIdentifier(), device.getId());
 
-      maybeDeviceActivationRequest.ifPresent(deviceActivationRequest -> {
-        keys.storeEcSignedPreKeys(a.getUuid(), Map.of(device.getId(), deviceActivationRequest.aciSignedPreKey().get()));
-        keys.storePqLastResort(a.getUuid(), Map.of(device.getId(), deviceActivationRequest.aciPqLastResortPreKey().get()));
-        keys.storeEcSignedPreKeys(a.getPhoneNumberIdentifier(), Map.of(device.getId(), deviceActivationRequest.pniSignedPreKey().get()));
-        keys.storePqLastResort(a.getPhoneNumberIdentifier(), Map.of(device.getId(), deviceActivationRequest.pniPqLastResortPreKey().get()));
-      });
+      maybeDeviceActivationRequest.ifPresent(deviceActivationRequest -> CompletableFuture.allOf(
+              keys.storeEcSignedPreKeys(a.getUuid(),
+                  Map.of(device.getId(), deviceActivationRequest.aciSignedPreKey().get())),
+              keys.storePqLastResort(a.getUuid(),
+                  Map.of(device.getId(), deviceActivationRequest.aciPqLastResortPreKey().get())),
+              keys.storeEcSignedPreKeys(a.getPhoneNumberIdentifier(),
+                  Map.of(device.getId(), deviceActivationRequest.pniSignedPreKey().get())),
+              keys.storePqLastResort(a.getPhoneNumberIdentifier(),
+                  Map.of(device.getId(), deviceActivationRequest.pniPqLastResortPreKey().get())))
+          .join());
 
       a.addDevice(device);
     });

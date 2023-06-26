@@ -645,6 +645,9 @@ class RegistrationControllerTest {
                 Optional.of(new RegistrationServiceSession(new byte[16], NUMBER, true, null, null, null,
                     SESSION_EXPIRATION_SECONDS))));
 
+    when(keysManager.storeEcSignedPreKeys(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(keysManager.storePqLastResort(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+
     final UUID accountIdentifier = UUID.randomUUID();
     final UUID phoneNumberIdentifier = UUID.randomUUID();
     final Device device = mock(Device.class);
@@ -663,6 +666,8 @@ class RegistrationControllerTest {
 
       return invocation.getArgument(0);
     });
+
+    when(keysManager.storePqLastResort(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/registration")

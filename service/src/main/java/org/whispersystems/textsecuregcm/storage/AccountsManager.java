@@ -332,7 +332,7 @@ public class AccountsManager {
       if (pniPqLastResortPreKeys != null) {
         keysManager.storePqLastResort(
             phoneNumberIdentifier,
-            keysManager.getPqEnabledDevices(uuid).stream().collect(
+            keysManager.getPqEnabledDevices(uuid).join().stream().collect(
                 Collectors.toMap(
                     Function.identity(),
                     pniPqLastResortPreKeys::get)));
@@ -367,7 +367,7 @@ public class AccountsManager {
     final UUID pni = account.getPhoneNumberIdentifier();
     final Account updatedAccount = update(account, a -> { return setPniKeys(a, pniIdentityKey, pniSignedPreKeys, pniRegistrationIds); });
 
-    final List<Long> pqEnabledDeviceIDs = keysManager.getPqEnabledDevices(pni);
+    final List<Long> pqEnabledDeviceIDs = keysManager.getPqEnabledDevices(pni).join();
     keysManager.delete(pni);
     keysManager.storeEcSignedPreKeys(pni, pniSignedPreKeys);
     if (pniPqLastResortPreKeys != null) {

@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import javax.ws.rs.Path;
 import javax.ws.rs.client.Entity;
@@ -281,6 +282,9 @@ class DeviceControllerTest {
 
     when(account.getIdentityKey()).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
     when(account.getPhoneNumberIdentityKey()).thenReturn(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
+
+    when(keysManager.storeEcSignedPreKeys(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(keysManager.storePqLastResort(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
     final LinkDeviceRequest request = new LinkDeviceRequest("5678901",
         new AccountAttributes(fetchesMessages, 1234, null, null, true, null),

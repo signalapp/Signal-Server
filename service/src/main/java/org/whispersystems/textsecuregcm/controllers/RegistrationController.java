@@ -23,6 +23,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import javax.ws.rs.Consumes;
@@ -176,10 +177,16 @@ public class RegistrationController {
         registrationRequest.deviceActivationRequest().gcmToken().ifPresent(gcmRegistrationId ->
             device.setGcmId(gcmRegistrationId.gcmRegistrationId()));
 
-        keysManager.storeEcSignedPreKeys(a.getUuid(), Map.of(Device.MASTER_ID, registrationRequest.deviceActivationRequest().aciSignedPreKey().get()));
-        keysManager.storePqLastResort(a.getUuid(), Map.of(Device.MASTER_ID, registrationRequest.deviceActivationRequest().aciPqLastResortPreKey().get()));
-        keysManager.storeEcSignedPreKeys(a.getPhoneNumberIdentifier(), Map.of(Device.MASTER_ID, registrationRequest.deviceActivationRequest().pniSignedPreKey().get()));
-        keysManager.storePqLastResort(a.getPhoneNumberIdentifier(), Map.of(Device.MASTER_ID, registrationRequest.deviceActivationRequest().pniPqLastResortPreKey().get()));
+        CompletableFuture.allOf(
+                keysManager.storeEcSignedPreKeys(a.getUuid(),
+                    Map.of(Device.MASTER_ID, registrationRequest.deviceActivationRequest().aciSignedPreKey().get())),
+                keysManager.storePqLastResort(a.getUuid(),
+                    Map.of(Device.MASTER_ID, registrationRequest.deviceActivationRequest().aciPqLastResortPreKey().get())),
+                keysManager.storeEcSignedPreKeys(a.getPhoneNumberIdentifier(),
+                    Map.of(Device.MASTER_ID, registrationRequest.deviceActivationRequest().pniSignedPreKey().get())),
+                keysManager.storePqLastResort(a.getPhoneNumberIdentifier(),
+                    Map.of(Device.MASTER_ID, registrationRequest.deviceActivationRequest().pniPqLastResortPreKey().get())))
+            .join();
       });
     }
 
