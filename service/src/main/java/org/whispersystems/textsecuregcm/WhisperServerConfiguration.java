@@ -270,6 +270,11 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private TurnSecretConfiguration turn;
 
+  @Valid
+  @NotNull
+  @JsonProperty
+  private int grpcPort;
+
   public AdminEventLoggingConfiguration getAdminEventLoggingConfiguration() {
     return adminEventLoggingConfiguration;
   }
@@ -448,4 +453,9 @@ public class WhisperServerConfiguration extends Configuration {
   public TurnSecretConfiguration getTurnSecretConfiguration() {
     return turn;
   }
+
+  public int getGrpcPort() {
+    return grpcPort;
+  }
+
 }

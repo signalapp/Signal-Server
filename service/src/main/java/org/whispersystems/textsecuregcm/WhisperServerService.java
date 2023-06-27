@@ -23,8 +23,11 @@ import io.dropwizard.auth.basic.BasicCredentialAuthFilter;
 import io.dropwizard.auth.basic.BasicCredentials;
 import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
+import io.grpc.Server;
+import io.grpc.ServerBuilder;
 import io.lettuce.core.resource.ClientResources;
 import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.binder.grpc.MetricCollectingServerInterceptor;
 import io.micrometer.core.instrument.binder.jvm.ExecutorServiceMetrics;
 import java.io.ByteArrayInputStream;
 import java.net.http.HttpClient;
@@ -105,6 +108,8 @@ import org.whispersystems.textsecuregcm.controllers.VerificationController;
 import org.whispersystems.textsecuregcm.currency.CoinMarketCapClient;
 import org.whispersystems.textsecuregcm.currency.CurrencyConversionManager;
 import org.whispersystems.textsecuregcm.currency.FixerClient;
+import org.whispersystems.textsecuregcm.grpc.GrpcServerManagedWrapper;
+import org.whispersystems.textsecuregcm.grpc.UserAgentInterceptor;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.filters.RemoteDeprecationFilter;
 import org.whispersystems.textsecuregcm.filters.RequestStatisticsFilter;
@@ -626,9 +631,21 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     AuthFilter<BasicCredentials, DisabledPermittedAuthenticatedAccount> disabledPermittedAccountAuthFilter = new BasicCredentialAuthFilter.Builder<DisabledPermittedAuthenticatedAccount>().setAuthenticator(
         disabledPermittedAccountAuthenticator).buildAuthFilter();
 
+    final ServerBuilder<?> grpcServer = ServerBuilder.forPort(config.getGrpcPort())
+        .intercept(new MetricCollectingServerInterceptor(Metrics.globalRegistry)); /* TODO: specialize metrics with user-agent platform */
+
+    RemoteDeprecationFilter remoteDeprecationFilter = new RemoteDeprecationFilter(dynamicConfigurationManager);
     environment.servlets()
-        .addFilter("RemoteDeprecationFilter", new RemoteDeprecationFilter(dynamicConfigurationManager))
+        .addFilter("RemoteDeprecationFilter", remoteDeprecationFilter)
         .addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST), false, "/*");
+
+    // Note: interceptors run in the reverse order they are added; the remote deprecation filter
+    // depends on the user-agent context so it has to come first here!
+    // http://grpc.github.io/grpc-java/javadoc/io/grpc/ServerBuilder.html#intercept-io.grpc.ServerInterceptor-
+    grpcServer.intercept(remoteDeprecationFilter);
+    grpcServer.intercept(new UserAgentInterceptor());
+
+    environment.lifecycle().manage(new GrpcServerManagedWrapper(grpcServer.build()));
 
     environment.jersey().register(new RequestStatisticsFilter(TrafficSource.HTTP));
     environment.jersey().register(MultiRecipientMessageProvider.class);

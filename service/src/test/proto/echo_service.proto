@@ -1,0 +1,23 @@
+/*
+ * Copyright 2023 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
+syntax = "proto3";
+
+option java_multiple_files = true;
+
+package org.signal.chat.rpc;
+
+// A simple service for testing gRPC interceptors
+service EchoService {
+  rpc echo (EchoRequest) returns (EchoResponse) {}
+}
+
+message EchoRequest {
+  bytes payload = 1;
+}
+
+message EchoResponse {
+  bytes payload = 1;
+}

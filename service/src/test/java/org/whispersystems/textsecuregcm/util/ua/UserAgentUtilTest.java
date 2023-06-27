@@ -53,7 +53,10 @@ class UserAgentUtilTest {
         Arguments.of("Signal-iOS/3.9.0 (iPhone; iOS 12.2; Scale/3.00)",
             new UserAgent(ClientPlatform.IOS, new Semver("3.9.0"), "(iPhone; iOS 12.2; Scale/3.00)")),
         Arguments.of("Signal-iOS/3.9.0 iOS/14.2", new UserAgent(ClientPlatform.IOS, new Semver("3.9.0"), "iOS/14.2")),
-        Arguments.of("Signal-iOS/3.9.0", new UserAgent(ClientPlatform.IOS, new Semver("3.9.0")))
-    );
+        Arguments.of("Signal-iOS/3.9.0", new UserAgent(ClientPlatform.IOS, new Semver("3.9.0"))),
+        Arguments.of("Signal-Android/7.11.23-nightly-1982-06-28-07-07-07 tonic/0.31",
+            new UserAgent(ClientPlatform.ANDROID, new Semver("7.11.23-nightly-1982-06-28-07-07-07"), "tonic/0.31")),
+        Arguments.of("Signal-Android/7.11.23-nightly-1982-06-28-07-07-07 Android/42 tonic/0.31",
+            new UserAgent(ClientPlatform.ANDROID, new Semver("7.11.23-nightly-1982-06-28-07-07-07"), "Android/42 tonic/0.31")));
   }
 }

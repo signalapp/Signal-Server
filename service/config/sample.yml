@@ -51,6 +51,8 @@ adminEventLoggingConfiguration:
   projectId: some-project-id
   logName: some-log-name
 
+grpcPort: 8080
+
 stripe:
   apiKey: secret://stripe.apiKey
   idempotencyKeyGenerator: secret://stripe.idempotencyKeyGenerator
