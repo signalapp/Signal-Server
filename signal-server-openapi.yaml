@@ -3826,6 +3826,9 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/UserRemoteConfig'
+        serverEpochTime:
+          type: string
+          format: date-time
     RemoteConfig:
       required:
       - percentage
