@@ -45,20 +45,12 @@ public abstract class RepeatedUseSignedPreKeyStore<K extends SignedPreKey<?>> {
   static final String ATTR_PUBLIC_KEY = "P";
   static final String ATTR_SIGNATURE = "S";
 
-  private static final Timer STORE_SINGLE_KEY_TIMER =
-      Metrics.timer(MetricsUtil.name(RepeatedUseSignedPreKeyStore.class, "storeSingleKey"));
+  private final Timer storeSingleKeyTimer = Metrics.timer(MetricsUtil.name(getClass(), "storeSingleKey"));
+  private final Timer storeKeyBatchTimer = Metrics.timer(MetricsUtil.name(getClass(), "storeKeyBatch"));
+  private final Timer deleteForDeviceTimer = Metrics.timer(MetricsUtil.name(getClass(), "deleteForDevice"));
+  private final Timer deleteForAccountTimer = Metrics.timer(MetricsUtil.name(getClass(), "deleteForAccount"));
 
-  private static final Timer STORE_KEY_BATCH_TIMER =
-      Metrics.timer(MetricsUtil.name(RepeatedUseSignedPreKeyStore.class, "storeKeyBatch"));
-
-  private static final Timer DELETE_FOR_DEVICE_TIMER =
-      Metrics.timer(MetricsUtil.name(RepeatedUseSignedPreKeyStore.class, "deleteForDevice"));
-
-  private static final Timer DELETE_FOR_ACCOUNT_TIMER =
-      Metrics.timer(MetricsUtil.name(RepeatedUseSignedPreKeyStore.class, "deleteForAccount"));
-
-  private static final String FIND_KEY_TIMER_NAME = MetricsUtil.name(RepeatedUseSignedPreKeyStore.class, "findKey");
-  private static final String KEY_PRESENT_TAG_NAME = "keyPresent";
+  private final String findKeyTimerName = MetricsUtil.name(getClass(), "findKey");
 
   public RepeatedUseSignedPreKeyStore(final DynamoDbAsyncClient dynamoDbAsyncClient, final String tableName) {
     this.dynamoDbAsyncClient = dynamoDbAsyncClient;
@@ -82,7 +74,7 @@ public abstract class RepeatedUseSignedPreKeyStore<K extends SignedPreKey<?>> {
             .tableName(tableName)
             .item(getItemFromPreKey(identifier, deviceId, signedPreKey))
             .build())
-        .thenRun(() -> sample.stop(STORE_SINGLE_KEY_TIMER));
+        .thenRun(() -> sample.stop(storeSingleKeyTimer));
   }
 
   /**
@@ -113,7 +105,7 @@ public abstract class RepeatedUseSignedPreKeyStore<K extends SignedPreKey<?>> {
                 })
                 .toList())
         .build())
-        .thenRun(() -> sample.stop(STORE_KEY_BATCH_TIMER));
+        .thenRun(() -> sample.stop(storeKeyBatchTimer));
   }
 
   /**
@@ -136,7 +128,8 @@ public abstract class RepeatedUseSignedPreKeyStore<K extends SignedPreKey<?>> {
         .thenApply(response -> response.hasItem() ? Optional.of(getPreKeyFromItem(response.item())) : Optional.empty());
 
     findFuture.whenComplete((maybeSignedPreKey, throwable) ->
-        sample.stop(Metrics.timer(FIND_KEY_TIMER_NAME, KEY_PRESENT_TAG_NAME, String.valueOf(maybeSignedPreKey != null && maybeSignedPreKey.isPresent()))));
+        sample.stop(Metrics.timer(findKeyTimerName,
+            "keyPresent", String.valueOf(maybeSignedPreKey != null && maybeSignedPreKey.isPresent()))));
 
     return findFuture;
   }
@@ -161,7 +154,7 @@ public abstract class RepeatedUseSignedPreKeyStore<K extends SignedPreKey<?>> {
         // Idiom: wait for everything to finish, but discard the results
         .reduce(0, (a, b) -> 0)
         .toFuture()
-        .thenRun(() -> sample.stop(DELETE_FOR_ACCOUNT_TIMER));
+        .thenRun(() -> sample.stop(deleteForAccountTimer));
   }
 
   /**
@@ -179,7 +172,7 @@ public abstract class RepeatedUseSignedPreKeyStore<K extends SignedPreKey<?>> {
             .tableName(tableName)
             .key(getPrimaryKey(identifier, deviceId))
         .build())
-        .thenRun(() -> sample.stop(DELETE_FOR_DEVICE_TIMER));
+        .thenRun(() -> sample.stop(deleteForDeviceTimer));
   }
 
   public Flux<Long> getDeviceIdsWithKeys(final UUID identifier) {
