@@ -1142,46 +1142,6 @@ paths:
       security:
       - authenticatedAccount: []
       - {}
-  /v2/keys/signed:
-    get:
-      tags:
-      - Keys
-      operationId: getSignedKey
-      parameters:
-      - name: identity
-        in: query
-        schema:
-          type: string
-      responses:
-        default:
-          description: default response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ECSignedPreKey'
-      security:
-      - authenticatedAccount: []
-    put:
-      tags:
-      - Keys
-      operationId: setSignedKey
-      parameters:
-      - name: identity
-        in: query
-        schema:
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ECSignedPreKey'
-      responses:
-        default:
-          description: default response
-          content:
-            '*/*': {}
-      security:
-      - authenticatedAccount: []
   /v2/keys:
     get:
       tags:
@@ -1229,6 +1189,28 @@ paths:
           description: default response
           content:
             application/json: {}
+      security:
+      - authenticatedAccount: []
+  /v2/keys/signed:
+    put:
+      tags:
+      - Keys
+      operationId: setSignedKey
+      parameters:
+      - name: identity
+        in: query
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ECSignedPreKey'
+      responses:
+        default:
+          description: default response
+          content:
+            '*/*': {}
       security:
       - authenticatedAccount: []
   /v1/messages:
