@@ -10,6 +10,7 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonFormat.Shape;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Objects;
 
@@ -27,7 +28,7 @@ public class PurchasableBadge extends Badge {
       @JsonProperty("svgs") final List<BadgeSvg> svgs,
       @JsonProperty("duration") final Duration duration) {
     super(id, category, name, description, sprites6, svg, svgs);
-    this.duration = duration;
+    this.duration = duration != null ? duration.truncatedTo(ChronoUnit.SECONDS) : null;
   }
 
   public PurchasableBadge(final Badge badge, final Duration duration) {
@@ -39,7 +40,7 @@ public class PurchasableBadge extends Badge {
         badge.getSprites6(),
         badge.getSvg(),
         badge.getSvgs());
-    this.duration = duration;
+    this.duration = duration != null ? duration.truncatedTo(ChronoUnit.SECONDS) : null;
   }
 
   @JsonFormat(shape = Shape.NUMBER_INT)
