@@ -44,13 +44,10 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 import org.eclipse.jetty.websocket.api.UpgradeRequest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
@@ -68,10 +65,10 @@ import org.whispersystems.websocket.auth.WebSocketAuthenticator.AuthenticationRe
 import org.whispersystems.websocket.messages.WebSocketResponseMessage;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.FluxSink;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 import reactor.test.StepVerifier;
+import reactor.test.publisher.TestPublisher;
 
 class WebSocketConnectionTest {
 
@@ -744,7 +741,6 @@ class WebSocketConnectionTest {
   }
 
   @Test
-  @Disabled("This test is flaky")
   void testReactivePublisherLimitRate() {
     final UUID accountUuid = UUID.randomUUID();
 
@@ -754,18 +750,10 @@ class WebSocketConnectionTest {
     when(account.getNumber()).thenReturn("+14152222222");
     when(account.getUuid()).thenReturn(accountUuid);
 
-    final int totalMessages = 10;
-    final AtomicReference<FluxSink<Envelope>> sink = new AtomicReference<>();
+    final int totalMessages = 1000;
 
-    final AtomicLong maxRequest = new AtomicLong(-1);
-    final Flux<Envelope> flux = Flux.create(s -> {
-      sink.set(s);
-      s.onRequest(n -> {
-        if (maxRequest.get() < n) {
-          maxRequest.set(n);
-        }
-      });
-    });
+    final TestPublisher<Envelope> testPublisher = TestPublisher.createCold();
+    final Flux<Envelope> flux = Flux.from(testPublisher);
 
     when(messagesManager.getMessagesForDeviceReactive(eq(accountUuid), eq(deviceId), anyBoolean()))
         .thenReturn(flux);
@@ -790,16 +778,16 @@ class WebSocketConnectionTest {
         .thenRequest(totalMessages * 2)
         .then(() -> {
           for (long i = 0; i < totalMessages; i++) {
-            sink.get().next(createMessage(UUID.randomUUID(), accountUuid, 1111 * i + 1, "message " + i));
+            testPublisher.next(createMessage(UUID.randomUUID(), accountUuid, 1111 * i + 1, "message " + i));
           }
-          sink.get().complete();
+          testPublisher.complete();
         })
         .expectNextCount(totalMessages)
         .expectComplete()
         .log()
         .verify();
 
-    assertEquals(WebSocketConnection.MESSAGE_PUBLISHER_LIMIT_RATE, maxRequest.get());
+    testPublisher.assertMaxRequested(WebSocketConnection.MESSAGE_PUBLISHER_LIMIT_RATE);
   }
 
   @Test
