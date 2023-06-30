@@ -19,12 +19,12 @@ import io.lettuce.core.pubsub.RedisPubSubAdapter;
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection;
 import io.lettuce.core.resource.ClientResources;
 import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tags;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
-import io.micrometer.core.instrument.Tags;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
@@ -71,6 +71,7 @@ public class ProvisioningManager extends RedisPubSubAdapter<byte[], byte[]> impl
       final CircuitBreakerConfiguration circuitBreakerConfiguration) {
 
     this.redisClient = redisClient;
+    this.redisClient.setDefaultTimeout(timeout);
 
     this.subscriptionConnection = redisClient.connectPubSub(new ByteArrayCodec());
     this.publicationConnection = redisClient.connect(new ByteArrayCodec());
