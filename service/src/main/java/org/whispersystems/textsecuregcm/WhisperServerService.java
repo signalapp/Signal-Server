@@ -25,6 +25,8 @@ import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
+import io.lettuce.core.metrics.MicrometerCommandLatencyRecorder;
+import io.lettuce.core.metrics.MicrometerOptions;
 import io.lettuce.core.resource.ClientResources;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.binder.grpc.MetricCollectingServerInterceptor;
@@ -347,7 +349,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final VerificationSessions verificationSessions = new VerificationSessions(dynamoDbAsyncClient,
         config.getDynamoDbTables().getVerificationSessions().getTableName(), clock);
 
-    ClientResources redisClientResources = ClientResources.builder().build();
+    final ClientResources redisClientResources = ClientResources.builder()
+        .commandLatencyRecorder(new MicrometerCommandLatencyRecorder(Metrics.globalRegistry, MicrometerOptions.builder().build()))
+        .build();
+
     ConnectionEventLogger.logConnectionEvents(redisClientResources);
 
     FaultTolerantRedisCluster cacheCluster             = new FaultTolerantRedisCluster("main_cache_cluster", config.getCacheClusterConfiguration(), redisClientResources);
