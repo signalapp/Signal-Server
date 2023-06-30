@@ -15,6 +15,7 @@ import io.github.resilience4j.retry.RetryConfig;
 import io.lettuce.core.ClientOptions.DisconnectedBehavior;
 import io.lettuce.core.RedisCommandTimeoutException;
 import io.lettuce.core.RedisException;
+import io.lettuce.core.TimeoutOptions;
 import io.lettuce.core.cluster.ClusterClientOptions;
 import io.lettuce.core.cluster.ClusterTopologyRefreshOptions;
 import io.lettuce.core.cluster.RedisClusterClient;
@@ -57,7 +58,9 @@ public class FaultTolerantRedisCluster {
   public FaultTolerantRedisCluster(final String name, final RedisClusterConfiguration clusterConfiguration,
       final ClientResources clientResources) {
     this(name,
-        RedisClusterClient.create(clientResources, clusterConfiguration.getConfigurationUri()),
+        RedisClusterClient.create(clientResources,
+            RedisUriUtil.createRedisUriWithTimeout(clusterConfiguration.getConfigurationUri(),
+                clusterConfiguration.getTimeout())),
         clusterConfiguration.getTimeout(),
         clusterConfiguration.getCircuitBreakerConfiguration(),
         clusterConfiguration.getRetryConfiguration());
@@ -69,12 +72,15 @@ public class FaultTolerantRedisCluster {
     this.name = name;
 
     this.clusterClient = clusterClient;
-    this.clusterClient.setDefaultTimeout(commandTimeout);
     this.clusterClient.setOptions(ClusterClientOptions.builder()
         .disconnectedBehavior(DisconnectedBehavior.REJECT_COMMANDS)
         .validateClusterNodeMembership(false)
         .topologyRefreshOptions(ClusterTopologyRefreshOptions.builder()
             .enableAllAdaptiveRefreshTriggers()
+            .build())
+        // for asynchronous commands
+        .timeoutOptions(TimeoutOptions.builder()
+            .fixedTimeout(commandTimeout)
             .build())
         .publishOnScheduler(true)
         .build());

@@ -29,6 +29,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.redis.RedisOperation;
+import org.whispersystems.textsecuregcm.redis.RedisUriUtil;
 import org.whispersystems.textsecuregcm.storage.PubSubProtos;
 import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 import org.whispersystems.textsecuregcm.websocket.InvalidWebsocketAddressException;
@@ -60,7 +61,8 @@ public class ProvisioningManager extends RedisPubSubAdapter<byte[], byte[]> impl
       final Duration timeout,
       final CircuitBreakerConfiguration circuitBreakerConfiguration) {
 
-    this(RedisClient.create(clientResources, redisUri), timeout, circuitBreakerConfiguration);
+    this(RedisClient.create(clientResources, RedisUriUtil.createRedisUriWithTimeout(redisUri, timeout)), timeout,
+        circuitBreakerConfiguration);
   }
 
   @VisibleForTesting
@@ -69,7 +71,6 @@ public class ProvisioningManager extends RedisPubSubAdapter<byte[], byte[]> impl
       final CircuitBreakerConfiguration circuitBreakerConfiguration) {
 
     this.redisClient = redisClient;
-    this.redisClient.setDefaultTimeout(timeout);
 
     this.subscriptionConnection = redisClient.connectPubSub(new ByteArrayCodec());
     this.publicationConnection = redisClient.connect(new ByteArrayCodec());
