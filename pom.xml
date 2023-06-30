@@ -52,7 +52,7 @@
     <jedis.version>2.9.0</jedis.version>
     <kotlin.version>1.8.0</kotlin.version>
     <kotlinx-serialization.version>1.4.1</kotlinx-serialization.version>
-    <lettuce.version>6.2.1.RELEASE</lettuce.version>
+    <lettuce.version>6.2.4.RELEASE</lettuce.version>
     <libphonenumber.version>8.12.54</libphonenumber.version>
     <logstash.logback.version>7.2</logstash.logback.version>
     <luajava.version>3.4.0</luajava.version>
