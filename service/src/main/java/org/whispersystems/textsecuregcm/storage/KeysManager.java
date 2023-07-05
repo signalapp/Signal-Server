@@ -124,7 +124,9 @@ public class KeysManager {
     CompletableFuture.allOf(
             ecPreKeys.delete(accountUuid),
             pqPreKeys.delete(accountUuid),
-            ecSignedPreKeys.delete(accountUuid),
+            dynamicConfigurationManager.getConfiguration().getEcPreKeyMigrationConfiguration().deleteEcSignedPreKeys()
+                ? ecSignedPreKeys.delete(accountUuid)
+                : CompletableFuture.completedFuture(null),
             pqLastResortKeys.delete(accountUuid))
         .join();
   }
@@ -133,7 +135,9 @@ public class KeysManager {
     CompletableFuture.allOf(
             ecPreKeys.delete(accountUuid, deviceId),
             pqPreKeys.delete(accountUuid, deviceId),
-            ecSignedPreKeys.delete(accountUuid, deviceId),
+            dynamicConfigurationManager.getConfiguration().getEcPreKeyMigrationConfiguration().deleteEcSignedPreKeys()
+                ? ecSignedPreKeys.delete(accountUuid, deviceId)
+                : CompletableFuture.completedFuture(null),
             pqLastResortKeys.delete(accountUuid, deviceId))
         .join();
   }

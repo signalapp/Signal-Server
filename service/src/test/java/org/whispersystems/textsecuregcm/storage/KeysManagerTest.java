@@ -53,6 +53,7 @@ class KeysManagerTest {
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
     when(dynamicConfiguration.getEcPreKeyMigrationConfiguration()).thenReturn(ecPreKeyMigrationConfiguration);
     when(ecPreKeyMigrationConfiguration.storeEcSignedPreKeys()).thenReturn(true);
+    when(ecPreKeyMigrationConfiguration.deleteEcSignedPreKeys()).thenReturn(true);
 
     keysManager = new KeysManager(
         DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),

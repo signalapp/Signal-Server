@@ -5,5 +5,5 @@
 
 package org.whispersystems.textsecuregcm.configuration.dynamic;
 
-public record DynamicECPreKeyMigrationConfiguration(boolean storeEcSignedPreKeys) {
+public record DynamicECPreKeyMigrationConfiguration(boolean deleteEcSignedPreKeys, boolean storeEcSignedPreKeys) {
 }
