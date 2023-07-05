@@ -3770,6 +3770,12 @@ components:
             false and if a device transfer is technically possible, the registration request will
             fail with an HTTP/409 response indicating that the client should prompt the user to
             transfer data from an existing device.
+        requireAtomic:
+          type: boolean
+          description: |
+            If true, indicates that this is a request for "atomic" registration. If any properties
+            needed for atomic account creation are not present, the request will fail. If false,
+            atomic account creation can still occur, but only if all required fields are present.
         aciIdentityKey:
           $ref: '#/components/schemas/IdentityKey'
         pniIdentityKey:
@@ -3786,9 +3792,9 @@ components:
           $ref: '#/components/schemas/ApnRegistrationId'
         gcmToken:
           $ref: '#/components/schemas/GcmRegistrationId'
-        everySignedKeyValid:
-          type: boolean
         completeRequest:
+          type: boolean
+        everySignedKeyValid:
           type: boolean
         valid:
           type: boolean
