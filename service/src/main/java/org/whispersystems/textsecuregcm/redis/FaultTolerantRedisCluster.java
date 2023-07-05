@@ -178,6 +178,6 @@ public class FaultTolerantRedisCluster {
     pubSubConnections.add(pubSubConnection);
 
     return new FaultTolerantPubSubConnection<>(name, pubSubConnection, circuitBreaker, retry, topologyChangedEventRetry,
-        Schedulers.newSingle(name + "-redisPubSubEvents"));
+        Schedulers.newSingle(name + "-redisPubSubEvents", true));
   }
 }
