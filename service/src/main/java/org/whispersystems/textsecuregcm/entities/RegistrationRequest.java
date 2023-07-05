@@ -51,6 +51,13 @@ public record RegistrationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT
                                   boolean skipDeviceTransfer,
 
                                   @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, description = """
+                                  If true, indicates that this is a request for "atomic" registration. If any properties
+                                  needed for atomic account creation are not present, the request will fail. If false,
+                                  atomic account creation can still occur, but only if all required fields are present.
+                                  """)
+                                  boolean requireAtomic,
+
+                                  @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, description = """
                                   The ACI-associated identity key for the account, encoded as a base64 string. If
                                   provided, an account will be created "atomically," and all other properties needed for
                                   atomic account creation must also be present.
@@ -78,6 +85,7 @@ public record RegistrationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT
       @JsonProperty("recoveryPassword") byte[] recoveryPassword,
       @JsonProperty("accountAttributes") AccountAttributes accountAttributes,
       @JsonProperty("skipDeviceTransfer") boolean skipDeviceTransfer,
+      @JsonProperty("requireAtomic") boolean requireAtomic,
       @JsonProperty("aciIdentityKey") Optional<IdentityKey> aciIdentityKey,
       @JsonProperty("pniIdentityKey") Optional<IdentityKey> pniIdentityKey,
       @JsonProperty("aciSignedPreKey") Optional<@Valid ECSignedPreKey> aciSignedPreKey,
@@ -90,7 +98,7 @@ public record RegistrationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT
     // This may seem a little verbose, but at the time of writing, Jackson struggles with `@JsonUnwrapped` members in
     // records, and this is a workaround. Please see
     // https://github.com/FasterXML/jackson-databind/issues/3726#issuecomment-1525396869 for additional context.
-    this(sessionId, recoveryPassword, accountAttributes, skipDeviceTransfer, aciIdentityKey, pniIdentityKey,
+    this(sessionId, recoveryPassword, accountAttributes, skipDeviceTransfer, requireAtomic, aciIdentityKey, pniIdentityKey,
         new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, apnToken, gcmToken));
   }
 
@@ -122,7 +130,7 @@ public record RegistrationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT
             && deviceActivationRequest().aciPqLastResortPreKey().isEmpty()
             && deviceActivationRequest().pniPqLastResortPreKey().isEmpty();
 
-    return supportsAtomicAccountCreation() || hasNoAtomicAccountCreationParameters;
+    return supportsAtomicAccountCreation() || (!requireAtomic() && hasNoAtomicAccountCreationParameters);
   }
 
   public boolean supportsAtomicAccountCreation() {

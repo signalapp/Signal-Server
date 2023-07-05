@@ -47,6 +47,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
@@ -117,10 +118,10 @@ class RegistrationControllerTest {
 
   @Test
   public void testRegistrationRequest() throws Exception {
-    assertFalse(new RegistrationRequest("", new byte[0], new AccountAttributes(), true, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()).isValid());
-    assertFalse(new RegistrationRequest("some", new byte[32], new AccountAttributes(), true, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()).isValid());
-    assertTrue(new RegistrationRequest("", new byte[32], new AccountAttributes(), true, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()).isValid());
-    assertTrue(new RegistrationRequest("some", new byte[0], new AccountAttributes(), true, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()).isValid());
+    assertFalse(new RegistrationRequest("", new byte[0], new AccountAttributes(), true, false, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()).isValid());
+    assertFalse(new RegistrationRequest("some", new byte[32], new AccountAttributes(), true, false, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()).isValid());
+    assertTrue(new RegistrationRequest("", new byte[32], new AccountAttributes(), true, false, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()).isValid());
+    assertTrue(new RegistrationRequest("some", new byte[0], new AccountAttributes(), true, false, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()).isValid());
   }
 
   @Test
@@ -447,6 +448,7 @@ class RegistrationControllerTest {
             new byte[0],
             fetchesMessagesAccountAttributes,
             true,
+            false,
             aciIdentityKey,
             pniIdentityKey,
             aciSignedPreKey,
@@ -461,6 +463,7 @@ class RegistrationControllerTest {
             new byte[0],
             fetchesMessagesAccountAttributes,
             true,
+            false,
             aciIdentityKey,
             pniIdentityKey,
             aciSignedPreKey,
@@ -475,6 +478,7 @@ class RegistrationControllerTest {
             new byte[0],
             pushAccountAttributes,
             true,
+            false,
             aciIdentityKey,
             pniIdentityKey,
             aciSignedPreKey,
@@ -533,6 +537,7 @@ class RegistrationControllerTest {
             new byte[0],
             accountAttributes,
             true,
+            false,
             aciIdentityKey,
             pniIdentityKey,
             aciSignedPreKey,
@@ -547,6 +552,7 @@ class RegistrationControllerTest {
             new byte[0],
             accountAttributes,
             true,
+            false,
             aciIdentityKey,
             pniIdentityKey,
             Optional.empty(),
@@ -561,6 +567,7 @@ class RegistrationControllerTest {
             new byte[0],
             accountAttributes,
             true,
+            false,
             aciIdentityKey,
             pniIdentityKey,
             aciSignedPreKey,
@@ -575,6 +582,7 @@ class RegistrationControllerTest {
             new byte[0],
             accountAttributes,
             true,
+            false,
             aciIdentityKey,
             pniIdentityKey,
             aciSignedPreKey,
@@ -589,6 +597,7 @@ class RegistrationControllerTest {
             new byte[0],
             accountAttributes,
             true,
+            false,
             Optional.empty(),
             pniIdentityKey,
             aciSignedPreKey,
@@ -603,6 +612,7 @@ class RegistrationControllerTest {
             new byte[0],
             accountAttributes,
             true,
+            false,
             aciIdentityKey,
             Optional.empty(),
             aciSignedPreKey,
@@ -686,6 +696,43 @@ class RegistrationControllerTest {
         () -> verify(device, never()).setGcmId(any()));
   }
 
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void nonAtomicAccountCreationWithNoAtomicFields(boolean requireAtomic) throws InterruptedException {
+    when(registrationServiceClient.getSession(any(), any()))
+        .thenReturn(
+            CompletableFuture.completedFuture(
+                Optional.of(new RegistrationServiceSession(new byte[16], NUMBER, true, null, null, null,
+                    SESSION_EXPIRATION_SECONDS))));
+
+    final Invocation.Builder request = resources.getJerseyTest()
+        .target("/v1/registration")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
+
+    when(accountsManager.create(any(), any(), any(), any(), any()))
+        .thenReturn(mock(Account.class));
+
+    RegistrationRequest reg = new RegistrationRequest("session-id",
+        new byte[0],
+        new AccountAttributes(true, 1, "test", null, true, new Device.DeviceCapabilities()),
+        true,
+        requireAtomic,
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty());
+
+    try (final Response response = request.post(Entity.json(reg))) {
+      int expected = requireAtomic ? 422 : 200;
+      assertEquals(expected, response.getStatus());
+    }
+  }
+
   private static Stream<Arguments> atomicAccountCreationSuccess() {
     final Optional<IdentityKey> aciIdentityKey;
     final Optional<IdentityKey> pniIdentityKey;
@@ -715,75 +762,105 @@ class RegistrationControllerTest {
     final String apnsVoipToken = "apns-voip-token";
     final String gcmToken = "gcm-token";
 
-    return Stream.of(
-        // Fetches messages; no push tokens
-        Arguments.of(new RegistrationRequest("session-id",
-                new byte[0],
-                fetchesMessagesAccountAttributes,
-                true,
-                aciIdentityKey,
-                pniIdentityKey,
-                aciSignedPreKey,
-                pniSignedPreKey,
-                aciPqLastResortPreKey,
-                pniPqLastResortPreKey,
-                Optional.empty(),
-                Optional.empty()),
-            aciIdentityKey.get(),
-            pniIdentityKey.get(),
-            aciSignedPreKey.get(),
-            pniSignedPreKey.get(),
-            aciPqLastResortPreKey.get(),
-            pniPqLastResortPreKey.get(),
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty()),
+    return Stream.of(false, true)
+        // try with and without strict atomic checking
+        .flatMap(requireAtomic ->
+            Stream.of(
+                // Fetches messages; no push tokens
+                Arguments.of(new RegistrationRequest("session-id",
+                        new byte[0],
+                        fetchesMessagesAccountAttributes,
+                        true,
+                        requireAtomic,
+                        aciIdentityKey,
+                        pniIdentityKey,
+                        aciSignedPreKey,
+                        pniSignedPreKey,
+                        aciPqLastResortPreKey,
+                        pniPqLastResortPreKey,
+                        Optional.empty(),
+                        Optional.empty()),
+                    aciIdentityKey.get(),
+                    pniIdentityKey.get(),
+                    aciSignedPreKey.get(),
+                    pniSignedPreKey.get(),
+                    aciPqLastResortPreKey.get(),
+                    pniPqLastResortPreKey.get(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty()),
 
-        // Has APNs tokens
-        Arguments.of(new RegistrationRequest("session-id",
-                new byte[0],
-                pushAccountAttributes,
-                true,
-                aciIdentityKey,
-                pniIdentityKey,
-                aciSignedPreKey,
-                pniSignedPreKey,
-                aciPqLastResortPreKey,
-                pniPqLastResortPreKey,
-                Optional.of(new ApnRegistrationId(apnsToken, apnsVoipToken)),
-                Optional.empty()),
-            aciIdentityKey.get(),
-            pniIdentityKey.get(),
-            aciSignedPreKey.get(),
-            pniSignedPreKey.get(),
-            aciPqLastResortPreKey.get(),
-            pniPqLastResortPreKey.get(),
-            Optional.of(apnsToken),
-            Optional.of(apnsVoipToken),
-            Optional.empty()),
+                // Has APNs tokens
+                Arguments.of(new RegistrationRequest("session-id",
+                        new byte[0],
+                        pushAccountAttributes,
+                        true,
+                        requireAtomic,
+                        aciIdentityKey,
+                        pniIdentityKey,
+                        aciSignedPreKey,
+                        pniSignedPreKey,
+                        aciPqLastResortPreKey,
+                        pniPqLastResortPreKey,
+                        Optional.of(new ApnRegistrationId(apnsToken, apnsVoipToken)),
+                        Optional.empty()),
+                    aciIdentityKey.get(),
+                    pniIdentityKey.get(),
+                    aciSignedPreKey.get(),
+                    pniSignedPreKey.get(),
+                    aciPqLastResortPreKey.get(),
+                    pniPqLastResortPreKey.get(),
+                    Optional.of(apnsToken),
+                    Optional.of(apnsVoipToken),
+                    Optional.empty()),
 
-        // Fetches messages; no push tokens
-        Arguments.of(new RegistrationRequest("session-id",
-                new byte[0],
-                pushAccountAttributes,
-                true,
-                aciIdentityKey,
-                pniIdentityKey,
-                aciSignedPreKey,
-                pniSignedPreKey,
-                aciPqLastResortPreKey,
-                pniPqLastResortPreKey,
-                Optional.empty(),
-                Optional.of(new GcmRegistrationId(gcmToken))),
-            aciIdentityKey.get(),
-            pniIdentityKey.get(),
-            aciSignedPreKey.get(),
-            pniSignedPreKey.get(),
-            aciPqLastResortPreKey.get(),
-            pniPqLastResortPreKey.get(),
-            Optional.empty(),
-            Optional.empty(),
-            Optional.of(gcmToken)));
+                // requires the request to be atomic
+                Arguments.of(new RegistrationRequest("session-id",
+                        new byte[0],
+                        pushAccountAttributes,
+                        true,
+                        requireAtomic,
+                        aciIdentityKey,
+                        pniIdentityKey,
+                        aciSignedPreKey,
+                        pniSignedPreKey,
+                        aciPqLastResortPreKey,
+                        pniPqLastResortPreKey,
+                        Optional.of(new ApnRegistrationId(apnsToken, apnsVoipToken)),
+                        Optional.empty()),
+                    aciIdentityKey.get(),
+                    pniIdentityKey.get(),
+                    aciSignedPreKey.get(),
+                    pniSignedPreKey.get(),
+                    aciPqLastResortPreKey.get(),
+                    pniPqLastResortPreKey.get(),
+                    Optional.of(apnsToken),
+                    Optional.of(apnsVoipToken),
+                    Optional.empty()),
+
+                // Fetches messages; no push tokens
+                Arguments.of(new RegistrationRequest("session-id",
+                        new byte[0],
+                        pushAccountAttributes,
+                        true,
+                        requireAtomic,
+                        aciIdentityKey,
+                        pniIdentityKey,
+                        aciSignedPreKey,
+                        pniSignedPreKey,
+                        aciPqLastResortPreKey,
+                        pniPqLastResortPreKey,
+                        Optional.empty(),
+                        Optional.of(new GcmRegistrationId(gcmToken))),
+                    aciIdentityKey.get(),
+                    pniIdentityKey.get(),
+                    aciSignedPreKey.get(),
+                    pniSignedPreKey.get(),
+                    aciPqLastResortPreKey.get(),
+                    pniPqLastResortPreKey.get(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.of(gcmToken))));
   }
 
   /**
