@@ -4,44 +4,20 @@
  */
 package org.whispersystems.textsecuregcm.controllers;
 
-import static com.codahale.metrics.MetricRegistry.name;
-
-import com.codahale.metrics.Meter;
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.annotation.Timed;
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.net.HttpHeaders;
-import com.google.i18n.phonenumbers.NumberParseException;
-import com.google.i18n.phonenumbers.PhoneNumberUtil;
-import com.google.i18n.phonenumbers.Phonenumber;
 import io.dropwizard.auth.Auth;
-import io.micrometer.core.instrument.DistributionSummary;
-import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Tag;
-import io.micrometer.core.instrument.Tags;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import java.io.IOException;
-import java.security.SecureRandom;
-import java.time.Clock;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Base64;
-import java.util.HexFormat;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletionException;
 import javax.annotation.Nullable;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import javax.ws.rs.BadRequestException;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
-import javax.ws.rs.DefaultValue;
-import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.GET;
 import javax.ws.rs.HEAD;
 import javax.ws.rs.HeaderParam;
@@ -49,70 +25,40 @@ import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
-import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.usernames.BaseUsernameException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AccountAndAuthenticatedDeviceHolder;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
-import org.whispersystems.textsecuregcm.auth.BasicAuthorizationHeader;
 import org.whispersystems.textsecuregcm.auth.ChangesDeviceEnabledState;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
-import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
-import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.auth.TurnToken;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
-import org.whispersystems.textsecuregcm.captcha.AssessmentResult;
-import org.whispersystems.textsecuregcm.captcha.RegistrationCaptchaManager;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.AccountIdentifierResponse;
 import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
-import org.whispersystems.textsecuregcm.entities.ChangePhoneNumberRequest;
 import org.whispersystems.textsecuregcm.entities.ConfirmUsernameHashRequest;
 import org.whispersystems.textsecuregcm.entities.DeviceName;
 import org.whispersystems.textsecuregcm.entities.EncryptedUsername;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
-import org.whispersystems.textsecuregcm.entities.MismatchedDevices;
-import org.whispersystems.textsecuregcm.entities.PhoneVerificationRequest;
 import org.whispersystems.textsecuregcm.entities.RegistrationLock;
 import org.whispersystems.textsecuregcm.entities.ReserveUsernameHashRequest;
 import org.whispersystems.textsecuregcm.entities.ReserveUsernameHashResponse;
-import org.whispersystems.textsecuregcm.entities.StaleDevices;
 import org.whispersystems.textsecuregcm.entities.UsernameHashResponse;
 import org.whispersystems.textsecuregcm.entities.UsernameLinkHandle;
 import org.whispersystems.textsecuregcm.limits.RateLimitedByIp;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
-import org.whispersystems.textsecuregcm.push.PushNotification;
-import org.whispersystems.textsecuregcm.push.PushNotificationManager;
-import org.whispersystems.textsecuregcm.registration.ClientType;
-import org.whispersystems.textsecuregcm.registration.MessageTransport;
-import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
-import org.whispersystems.textsecuregcm.spam.Extract;
-import org.whispersystems.textsecuregcm.spam.FilterSpam;
-import org.whispersystems.textsecuregcm.spam.ScoreThreshold;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
-import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.storage.UsernameHashNotAvailableException;
 import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundException;
-import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
-import org.whispersystems.textsecuregcm.util.ImpossiblePhoneNumberException;
-import org.whispersystems.textsecuregcm.util.NonNormalizedPhoneNumberException;
-import org.whispersystems.textsecuregcm.util.Optionals;
 import org.whispersystems.textsecuregcm.util.UsernameHashZkProofVerifier;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -122,409 +68,24 @@ import org.whispersystems.textsecuregcm.util.Util;
 public class AccountController {
   public static final int MAXIMUM_USERNAME_HASHES_LIST_LENGTH = 20;
   public static final int USERNAME_HASH_LENGTH = 32;
-  private final Logger         logger                   = LoggerFactory.getLogger(AccountController.class);
-  private final MetricRegistry metricRegistry           = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  private final Meter          captchaRequiredMeter     = metricRegistry.meter(name(AccountController.class, "captcha_required"         ));
 
-  private static final String PUSH_CHALLENGE_COUNTER_NAME = name(AccountController.class, "pushChallenge");
-  private static final String ACCOUNT_CREATE_COUNTER_NAME = name(AccountController.class, "create");
-  private static final String ACCOUNT_VERIFY_COUNTER_NAME = name(AccountController.class, "verify");
-  private static final String CAPTCHA_ATTEMPT_COUNTER_NAME = name(AccountController.class, "captcha");
-  private static final String CHALLENGE_ISSUED_COUNTER_NAME = name(AccountController.class, "challengeIssued");
-  private static final String INVALID_ACCOUNT_ATTRS_COUNTER_NAME = name(AccountController.class, "invalidAccountAttrs");
-
-  private static final DistributionSummary REREGISTRATION_IDLE_DAYS_DISTRIBUTION = DistributionSummary
-      .builder(name(AccountController.class, "reregistrationIdleDays"))
-      .publishPercentiles(0.75, 0.95, 0.99, 0.999)
-      .distributionStatisticExpiry(Duration.ofHours(2))
-      .register(Metrics.globalRegistry);
-
-  private static final String CHALLENGE_PRESENT_TAG_NAME = "present";
-  private static final String CHALLENGE_MATCH_TAG_NAME = "matches";
-  private static final String COUNTRY_CODE_TAG_NAME = "countryCode";
-
-  /**
-   * @deprecated "region" conflicts with cloud provider region tags; prefer "regionCode" instead
-   */
-  @Deprecated
-  private static final String REGION_TAG_NAME = "region";
-  private static final String REGION_CODE_TAG_NAME = "regionCode";
-  private static final String VERIFICATION_TRANSPORT_TAG_NAME = "transport";
-  private static final String SCORE_TAG_NAME = "score";
-
-
-  private final StoredVerificationCodeManager pendingAccounts;
   private final AccountsManager accounts;
   private final RateLimiters rateLimiters;
-  private final RegistrationServiceClient registrationServiceClient;
-  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private final TurnTokenGenerator turnTokenGenerator;
-  private final RegistrationCaptchaManager registrationCaptchaManager;
-  private final PushNotificationManager pushNotificationManager;
-  private final RegistrationLockVerificationManager registrationLockVerificationManager;
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
-  private final ChangeNumberManager changeNumberManager;
-  private final Clock clock;
   private final UsernameHashZkProofVerifier usernameHashZkProofVerifier;
 
-
-  @VisibleForTesting
-  static final Duration REGISTRATION_RPC_TIMEOUT = Duration.ofSeconds(15);
-
   public AccountController(
-      StoredVerificationCodeManager pendingAccounts,
       AccountsManager accounts,
       RateLimiters rateLimiters,
-      RegistrationServiceClient registrationServiceClient,
-      DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
       TurnTokenGenerator turnTokenGenerator,
-      RegistrationCaptchaManager registrationCaptchaManager,
-      PushNotificationManager pushNotificationManager,
-      ChangeNumberManager changeNumberManager,
-      RegistrationLockVerificationManager registrationLockVerificationManager,
       RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
-      UsernameHashZkProofVerifier usernameHashZkProofVerifier,
-      Clock clock
-  ) {
-    this.pendingAccounts = pendingAccounts;
+      UsernameHashZkProofVerifier usernameHashZkProofVerifier) {
     this.accounts = accounts;
     this.rateLimiters = rateLimiters;
-    this.registrationServiceClient = registrationServiceClient;
-    this.dynamicConfigurationManager = dynamicConfigurationManager;
     this.turnTokenGenerator = turnTokenGenerator;
-    this.registrationCaptchaManager = registrationCaptchaManager;
-    this.pushNotificationManager = pushNotificationManager;
-    this.registrationLockVerificationManager = registrationLockVerificationManager;
-    this.changeNumberManager = changeNumberManager;
     this.registrationRecoveryPasswordsManager = registrationRecoveryPasswordsManager;
     this.usernameHashZkProofVerifier = usernameHashZkProofVerifier;
-    this.clock = clock;
-  }
-
-  @Timed
-  @GET
-  @Path("/{type}/preauth/{token}/{number}")
-  @Produces(MediaType.APPLICATION_JSON)
-  public Response getPreAuth(@PathParam("type") String pushType,
-                             @PathParam("token") String pushToken,
-                             @PathParam("number") String number,
-                             @QueryParam("voip") @DefaultValue("true") boolean useVoip)
-      throws ImpossiblePhoneNumberException, NonNormalizedPhoneNumberException, RateLimitExceededException {
-
-    final PushNotification.TokenType tokenType = switch(pushType) {
-      case "apn" -> useVoip ? PushNotification.TokenType.APN_VOIP : PushNotification.TokenType.APN;
-      case "fcm" -> PushNotification.TokenType.FCM;
-      default -> throw new BadRequestException();
-    };
-
-    Util.requireNormalizedNumber(number);
-
-    final Phonenumber.PhoneNumber phoneNumber;
-    try {
-      phoneNumber = PhoneNumberUtil.getInstance().parse(number, null);
-    } catch (final NumberParseException e) {
-      // This should never happen since we just verified that the number is already normalized
-      throw new BadRequestException("Bad phone number");
-    }
-
-    final StoredVerificationCode storedVerificationCode;
-    {
-      final Optional<StoredVerificationCode> maybeStoredVerificationCode = pendingAccounts.getCodeForNumber(number);
-
-      if (maybeStoredVerificationCode.isPresent()) {
-        final StoredVerificationCode existingStoredVerificationCode = maybeStoredVerificationCode.get();
-
-        if (StringUtils.isBlank(existingStoredVerificationCode.pushCode())) {
-          storedVerificationCode = new StoredVerificationCode(
-              existingStoredVerificationCode.code(),
-              existingStoredVerificationCode.timestamp(),
-              generatePushChallenge(),
-              existingStoredVerificationCode.sessionId());
-        } else {
-          storedVerificationCode = existingStoredVerificationCode;
-        }
-      } else {
-        final byte[] sessionId = createRegistrationSession(phoneNumber, accounts.getByE164(number).isPresent());
-        storedVerificationCode = new StoredVerificationCode(null, clock.millis(), generatePushChallenge(), sessionId);
-        new StoredVerificationCode(null, clock.millis(), generatePushChallenge(), sessionId);
-      }
-    }
-
-    pendingAccounts.store(number, storedVerificationCode);
-    pushNotificationManager.sendRegistrationChallengeNotification(pushToken, tokenType, storedVerificationCode.pushCode());
-
-    return Response.ok().build();
-  }
-
-  @Timed
-  @GET
-  @Path("/{transport}/code/{number}")
-  @FilterSpam
-  @Produces(MediaType.APPLICATION_JSON)
-  public Response createAccount(@PathParam("transport") String transport,
-      @PathParam("number") String number,
-      @HeaderParam(HttpHeaders.X_FORWARDED_FOR) String forwardedFor,
-      @HeaderParam(HttpHeaders.USER_AGENT) String userAgent,
-      @HeaderParam(HttpHeaders.ACCEPT_LANGUAGE) Optional<String> acceptLanguage,
-      @QueryParam("client") Optional<String> client,
-      @QueryParam("captcha") Optional<String> captcha,
-      @QueryParam("challenge") Optional<String> pushChallenge,
-      @Extract ScoreThreshold captchaScoreThreshold)
-      throws RateLimitExceededException, ImpossiblePhoneNumberException, NonNormalizedPhoneNumberException, IOException {
-
-    Util.requireNormalizedNumber(number);
-
-    final String sourceHost = HeaderUtils.getMostRecentProxy(forwardedFor).orElseThrow();
-    final Optional<StoredVerificationCode> maybeStoredVerificationCode = pendingAccounts.getCodeForNumber(number);
-
-    final String countryCode = Util.getCountryCode(number);
-    final String region = Util.getRegion(number);
-
-    // if there's a captcha, assess it, otherwise check if we need a captcha
-    final Optional<AssessmentResult> assessmentResult = registrationCaptchaManager.assessCaptcha(captcha, sourceHost);
-
-    assessmentResult.ifPresent(result ->
-        Metrics.counter(CAPTCHA_ATTEMPT_COUNTER_NAME, Tags.of(
-                Tag.of("success", String.valueOf(result.isValid(captchaScoreThreshold.getScoreThreshold()))),
-                UserAgentTagUtil.getPlatformTag(userAgent),
-                Tag.of(COUNTRY_CODE_TAG_NAME, countryCode),
-                Tag.of(REGION_TAG_NAME, region),
-                Tag.of(REGION_CODE_TAG_NAME, region),
-                Tag.of(SCORE_TAG_NAME, result.getScoreString())))
-            .increment());
-
-    final boolean pushChallengeMatch = pushChallengeMatches(number, pushChallenge, maybeStoredVerificationCode);
-
-    if (pushChallenge.isPresent() && !pushChallengeMatch) {
-      throw new WebApplicationException(Response.status(403).build());
-    }
-
-    final boolean requiresCaptcha = assessmentResult
-        .map(result -> !result.isValid(captchaScoreThreshold.getScoreThreshold()))
-        .orElseGet(
-            () -> registrationCaptchaManager.requiresCaptcha(number, forwardedFor, sourceHost, pushChallengeMatch));
-
-    if (requiresCaptcha) {
-      captchaRequiredMeter.mark();
-      Metrics.counter(CHALLENGE_ISSUED_COUNTER_NAME, Tags.of(
-              UserAgentTagUtil.getPlatformTag(userAgent),
-              Tag.of(COUNTRY_CODE_TAG_NAME, Util.getCountryCode(number)),
-              Tag.of(REGION_TAG_NAME, Util.getRegion(number)),
-              Tag.of(REGION_CODE_TAG_NAME, region)))
-          .increment();
-      return Response.status(402).build();
-    }
-
-    switch (transport) {
-      case "sms" -> rateLimiters.getSmsDestinationLimiter().validate(number);
-      case "voice" -> {
-        rateLimiters.getVoiceDestinationLimiter().validate(number);
-        rateLimiters.getVoiceDestinationDailyLimiter().validate(number);
-      }
-      default -> throw new WebApplicationException(Response.status(422).build());
-    }
-
-    final Phonenumber.PhoneNumber phoneNumber;
-
-    try {
-      phoneNumber = PhoneNumberUtil.getInstance().parse(number, null);
-    } catch (final NumberParseException e) {
-      throw new WebApplicationException(Response.status(422).build());
-    }
-
-    final MessageTransport messageTransport = switch (transport) {
-      case "sms" -> MessageTransport.SMS;
-      case "voice" -> MessageTransport.VOICE;
-      default -> throw new WebApplicationException(Response.status(422).build());
-    };
-
-    final ClientType clientType = client.map(clientTypeString -> {
-      if ("ios".equalsIgnoreCase(clientTypeString)) {
-        return ClientType.IOS;
-      } else if ("android-2021-03".equalsIgnoreCase(clientTypeString)) {
-        return ClientType.ANDROID_WITH_FCM;
-      } else if (StringUtils.startsWithIgnoreCase(clientTypeString, "android")) {
-        return ClientType.ANDROID_WITHOUT_FCM;
-      } else {
-        return ClientType.UNKNOWN;
-      }
-    }).orElse(ClientType.UNKNOWN);
-
-    // During the transition to explicit session creation, some previously-stored records may not have a session ID;
-    // after the transition, we can assume that any existing record has an associated session ID.
-    final byte[] sessionId =  maybeStoredVerificationCode.isPresent() && maybeStoredVerificationCode.get().sessionId() != null
-        ? maybeStoredVerificationCode.get().sessionId()
-        : createRegistrationSession(phoneNumber, accounts.getByE164(number).isPresent());
-
-    sendVerificationCode(sessionId, messageTransport, clientType, acceptLanguage);
-
-    final StoredVerificationCode storedVerificationCode = new StoredVerificationCode(null,
-        clock.millis(),
-        maybeStoredVerificationCode.map(StoredVerificationCode::pushCode).orElse(null), sessionId);
-
-    pendingAccounts.store(number, storedVerificationCode);
-
-    Metrics.counter(ACCOUNT_CREATE_COUNTER_NAME, Tags.of(
-            UserAgentTagUtil.getPlatformTag(userAgent),
-            Tag.of(COUNTRY_CODE_TAG_NAME, Util.getCountryCode(number)),
-            Tag.of(REGION_TAG_NAME, Util.getRegion(number)),
-            Tag.of(VERIFICATION_TRANSPORT_TAG_NAME, transport)))
-        .increment();
-
-    return Response.ok().build();
-  }
-
-  @Timed
-  @PUT
-  @Consumes(MediaType.APPLICATION_JSON)
-  @Produces(MediaType.APPLICATION_JSON)
-  @Path("/code/{verification_code}")
-  public AccountIdentityResponse verifyAccount(@PathParam("verification_code") String verificationCode,
-                                             @HeaderParam(HttpHeaders.AUTHORIZATION) BasicAuthorizationHeader authorizationHeader,
-                                             @HeaderParam(HeaderUtils.X_SIGNAL_AGENT) String signalAgent,
-                                             @HeaderParam(HttpHeaders.USER_AGENT) String userAgent,
-                                             @QueryParam("transfer") Optional<Boolean> availableForTransfer,
-                                             @NotNull @Valid AccountAttributes accountAttributes)
-      throws RateLimitExceededException, InterruptedException {
-
-    String number = authorizationHeader.getUsername();
-    String password = authorizationHeader.getPassword();
-
-    rateLimiters.getVerifyLimiter().validate(number);
-
-    if (!AccountsManager.validNewAccountAttributes(accountAttributes)) {
-      Metrics.counter(INVALID_ACCOUNT_ATTRS_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent))).increment();
-      throw new WebApplicationException(Response.status(422, "account attributes invalid").build());
-    }
-
-    // Note that successful verification depends on being able to find a stored verification code for the given number.
-    // We check that numbers are normalized before we store verification codes, and so don't need to re-assert
-    // normalization here.
-    final boolean codeVerified;
-    final Optional<StoredVerificationCode> maybeStoredVerificationCode = pendingAccounts.getCodeForNumber(number);
-
-    if (maybeStoredVerificationCode.isPresent()) {
-      codeVerified = checkVerificationCode(maybeStoredVerificationCode.get().sessionId(), verificationCode);
-    } else {
-      codeVerified = false;
-    }
-
-    if (!codeVerified) {
-      throw new WebApplicationException(Response.status(403).build());
-    }
-
-    Optional<Account> existingAccount = accounts.getByE164(number);
-
-    existingAccount.ifPresent(account -> {
-      Instant accountLastSeen = Instant.ofEpochMilli(account.getLastSeen());
-      Duration timeSinceLastSeen = Duration.between(accountLastSeen, Instant.now());
-      REREGISTRATION_IDLE_DAYS_DISTRIBUTION.record(timeSinceLastSeen.toDays());
-    });
-
-    if (existingAccount.isPresent()) {
-      registrationLockVerificationManager.verifyRegistrationLock(existingAccount.get(),
-          accountAttributes.getRegistrationLock(),
-          userAgent, RegistrationLockVerificationManager.Flow.REGISTRATION,
-          PhoneVerificationRequest.VerificationType.SESSION);
-    }
-
-    if (availableForTransfer.orElse(false) && existingAccount.map(Account::isTransferSupported).orElse(false)) {
-      throw new WebApplicationException(Status.CONFLICT);
-    }
-
-    rateLimiters.getVerifyLimiter().clear(number);
-
-    Account account = accounts.create(number, password, signalAgent, accountAttributes,
-        existingAccount.map(Account::getBadges).orElseGet(ArrayList::new));
-
-    Metrics.counter(ACCOUNT_VERIFY_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
-            Tag.of(COUNTRY_CODE_TAG_NAME, Util.getCountryCode(number)),
-            Tag.of(REGION_TAG_NAME, Util.getRegion(number)),
-            Tag.of(REGION_CODE_TAG_NAME, Util.getRegion(number))))
-        .increment();
-
-    return new AccountIdentityResponse(account.getUuid(),
-        account.getNumber(),
-        account.getPhoneNumberIdentifier(),
-        account.getUsernameHash().orElse(null),
-        existingAccount.map(Account::isStorageSupported).orElse(false));
-  }
-
-  @Timed
-  @PUT
-  @Path("/number")
-  @Produces(MediaType.APPLICATION_JSON)
-  public AccountIdentityResponse changeNumber(@Auth final AuthenticatedAccount authenticatedAccount,
-      @NotNull @Valid final ChangePhoneNumberRequest request,
-      @HeaderParam(HttpHeaders.USER_AGENT) String userAgent)
-      throws RateLimitExceededException, InterruptedException, ImpossiblePhoneNumberException, NonNormalizedPhoneNumberException {
-
-    if (!authenticatedAccount.getAuthenticatedDevice().isMaster()) {
-      throw new ForbiddenException();
-    }
-
-    final String number = request.number();
-
-    // Only "bill" for rate limiting if we think there's a change to be made...
-    if (!authenticatedAccount.getAccount().getNumber().equals(number)) {
-      Util.requireNormalizedNumber(number);
-
-      rateLimiters.getVerifyLimiter().validate(number);
-
-      final boolean codeVerified;
-      final Optional<StoredVerificationCode> maybeStoredVerificationCode = pendingAccounts.getCodeForNumber(number);
-
-      if (maybeStoredVerificationCode.isPresent()) {
-        codeVerified = checkVerificationCode(maybeStoredVerificationCode.get().sessionId(), request.code());
-      } else {
-        codeVerified = false;
-      }
-
-      if (!codeVerified) {
-        throw new ForbiddenException();
-      }
-
-      final Optional<Account> existingAccount = accounts.getByE164(number);
-
-      if (existingAccount.isPresent()) {
-        registrationLockVerificationManager.verifyRegistrationLock(existingAccount.get(), request.registrationLock(),
-            userAgent, RegistrationLockVerificationManager.Flow.CHANGE_NUMBER, PhoneVerificationRequest.VerificationType.SESSION);
-      }
-
-      rateLimiters.getVerifyLimiter().clear(number);
-    }
-
-    // ...but always attempt to make the change in case a client retries and needs to re-send messages
-    try {
-      final Account updatedAccount = changeNumberManager.changeNumber(
-          authenticatedAccount.getAccount(),
-          request.number(),
-          request.pniIdentityKey(),
-          request.devicePniSignedPrekeys(),
-          request.devicePniPqLastResortPrekeys(),
-          request.deviceMessages(),
-          request.pniRegistrationIds());
-
-      return new AccountIdentityResponse(
-          updatedAccount.getUuid(),
-          updatedAccount.getNumber(),
-          updatedAccount.getPhoneNumberIdentifier(),
-          updatedAccount.getUsernameHash().orElse(null),
-          updatedAccount.isStorageSupported());
-    } catch (MismatchedDevicesException e) {
-      throw new WebApplicationException(Response.status(409)
-          .type(MediaType.APPLICATION_JSON_TYPE)
-          .entity(new MismatchedDevices(e.getMissingDevices(),
-              e.getExtraDevices()))
-          .build());
-    } catch (StaleDevicesException e) {
-      throw new WebApplicationException(Response.status(410)
-          .type(MediaType.APPLICATION_JSON)
-          .entity(new StaleDevices(e.getStaleDevices()))
-          .build());
-    } catch (IllegalArgumentException e) {
-      throw new BadRequestException(e);
-    }
   }
 
   @Timed
@@ -710,7 +271,7 @@ public class AccountController {
   @Operation(
       summary = "Delete username hash",
       description = """
-          Authenticated endpoint. Deletes previously stored username for the account.   
+          Authenticated endpoint. Deletes previously stored username for the account.
           """
   )
   @ApiResponse(responseCode = "204", description = "Username successfully deleted.", useReturnTypeSchema = true)
@@ -729,7 +290,7 @@ public class AccountController {
       summary = "Reserve username hash",
       description = """
           Authenticated endpoint. Takes in a list of hashes of potential username hashes, finds one that is not taken,
-          and reserves it for the current account.   
+          and reserves it for the current account.
           """
   )
   @ApiResponse(responseCode = "200", description = "Username hash reserved successfully.", useReturnTypeSchema = true)
@@ -768,8 +329,8 @@ public class AccountController {
   @Operation(
       summary = "Confirm username hash",
       description = """
-          Authenticated endpoint. For a previously reserved username hash, confirm that this username hash is now taken 
-          by this account.    
+          Authenticated endpoint. For a previously reserved username hash, confirm that this username hash is now taken
+          by this account.
           """
   )
   @ApiResponse(responseCode = "200", description = "Username hash confirmed successfully.", useReturnTypeSchema = true)
@@ -815,7 +376,7 @@ public class AccountController {
   @Operation(
       summary = "Lookup username hash",
       description = """
-          Forced unauthenticated endpoint. For the given username hash, look up a user ID. 
+          Forced unauthenticated endpoint. For the given username hash, look up a user ID.
           """
   )
   @ApiResponse(responseCode = "200", description = "Account found for the given username.", useReturnTypeSchema = true)
@@ -855,7 +416,7 @@ public class AccountController {
           Authenticated endpoint. For the given encrypted username generates a username link handle.
           Username link handle could be used to lookup the encrypted username.
           An account can only have one username link at a time. Calling this endpoint will reset previously stored
-          encrypted username and deactivate previous link handle.   
+          encrypted username and deactivate previous link handle.
           """
   )
   @ApiResponse(responseCode = "200", description = "Username Link updated successfully.", useReturnTypeSchema = true)
@@ -886,7 +447,7 @@ public class AccountController {
       summary = "Delete username link",
       description = """
           Authenticated endpoint. Deletes username link for the given account: previously store encrypted username is deleted
-          and username link handle is deactivated. 
+          and username link handle is deactivated.
           """
   )
   @ApiResponse(responseCode = "204", description = "Username Link successfully deleted.", useReturnTypeSchema = true)
@@ -943,91 +504,11 @@ public class AccountController {
     return Response.status(status).build();
   }
 
-  @VisibleForTesting
-  static boolean pushChallengeMatches(
-      final String number,
-      final Optional<String> pushChallenge,
-      final Optional<StoredVerificationCode> storedVerificationCode) {
-
-    final String countryCode = Util.getCountryCode(number);
-    final String region = Util.getRegion(number);
-    final Optional<String> storedPushChallenge = storedVerificationCode.map(StoredVerificationCode::pushCode);
-
-    final boolean match = Optionals.zipWith(pushChallenge, storedPushChallenge, String::equals).orElse(false);
-
-    Metrics.counter(PUSH_CHALLENGE_COUNTER_NAME,
-            COUNTRY_CODE_TAG_NAME, countryCode,
-            REGION_TAG_NAME, region,
-            REGION_CODE_TAG_NAME, region,
-            CHALLENGE_PRESENT_TAG_NAME, Boolean.toString(pushChallenge.isPresent()),
-            CHALLENGE_MATCH_TAG_NAME, Boolean.toString(match))
-        .increment();
-
-    return match;
-  }
-
   @Timed
   @DELETE
   @Path("/me")
   public void deleteAccount(@Auth DisabledPermittedAuthenticatedAccount auth) throws InterruptedException {
     accounts.delete(auth.getAccount(), AccountsManager.DeletionReason.USER_REQUEST);
-  }
-
-  private String generatePushChallenge() {
-    SecureRandom random    = new SecureRandom();
-    byte[]       challenge = new byte[16];
-    random.nextBytes(challenge);
-
-    return HexFormat.of().formatHex(challenge);
-  }
-
-  private byte[] createRegistrationSession(final Phonenumber.PhoneNumber phoneNumber,
-      final boolean accountExistsWithPhoneNumber) throws RateLimitExceededException {
-
-    try {
-      return registrationServiceClient.createRegistrationSession(phoneNumber, accountExistsWithPhoneNumber, REGISTRATION_RPC_TIMEOUT).join();
-    } catch (final CompletionException e) {
-      rethrowRateLimitException(e);
-
-      logger.debug("Failed to create session", e);
-
-      // Meet legacy client expectations by "swallowing" session creation exceptions and proceeding as if we had created
-      // a new session. Future operations on this "session" will always fail, but that's the legacy behavior.
-      return new byte[16];
-    }
-  }
-
-  private void sendVerificationCode(final byte[] sessionId,
-      final MessageTransport messageTransport,
-      final ClientType clientType,
-      final Optional<String> acceptLanguage) throws RateLimitExceededException {
-
-    try {
-      registrationServiceClient.sendRegistrationCode(sessionId,
-          messageTransport,
-          clientType,
-          acceptLanguage.orElse(null),
-          REGISTRATION_RPC_TIMEOUT).join();
-    } catch (final CompletionException e) {
-      // Note that, to meet legacy client expectations, we'll ONLY rethrow rate limit exceptions. All others will be
-      // swallowed silently.
-      rethrowRateLimitException(e);
-
-      logger.debug("Failed to send verification code", e);
-    }
-  }
-
-  private boolean checkVerificationCode(final byte[] sessionId, final String verificationCode)
-      throws RateLimitExceededException {
-
-    try {
-      return registrationServiceClient.checkVerificationCode(sessionId, verificationCode, REGISTRATION_RPC_TIMEOUT).join();
-    } catch (final CompletionException e) {
-      rethrowRateLimitException(e);
-
-      // For legacy API compatibility, funnel all errors into the same return value
-      return false;
-    }
   }
 
   private void clearUsernameLink(final Account account) {
@@ -1042,20 +523,6 @@ public class AccountController {
       throw new IllegalStateException("Both or neither arguments must be null");
     }
     accounts.update(account, a -> a.setUsernameLinkDetails(usernameLinkHandle, encryptedUsername));
-  }
-
-  private void rethrowRateLimitException(final CompletionException completionException)
-      throws RateLimitExceededException {
-
-    Throwable cause = completionException;
-
-    while (cause instanceof CompletionException) {
-      cause = cause.getCause();
-    }
-
-    if (cause instanceof RateLimitExceededException rateLimitExceededException) {
-      throw rateLimitExceededException;
-    }
   }
 
   private void requireNotAuthenticated(final Optional<AuthenticatedAccount> authenticatedAccount) {

@@ -23,7 +23,6 @@ import io.dropwizard.auth.basic.BasicCredentialAuthFilter;
 import io.dropwizard.auth.basic.BasicCredentials;
 import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
-import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import io.lettuce.core.metrics.MicrometerCommandLatencyRecorder;
 import io.lettuce.core.metrics.MicrometerOptions;
@@ -650,10 +649,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     // these should be common, but use @Auth DisabledPermittedAccount, which isn’t supported yet on websocket
     environment.jersey().register(
-        new AccountController(pendingAccountsManager, accountsManager, rateLimiters,
-            registrationServiceClient, dynamicConfigurationManager, turnTokenGenerator,
-            registrationCaptchaManager, pushNotificationManager, changeNumberManager,
-            registrationLockVerificationManager, registrationRecoveryPasswordsManager, usernameHashZkProofVerifier, clock));
+        new AccountController(accountsManager, rateLimiters,
+            turnTokenGenerator,
+            registrationRecoveryPasswordsManager, usernameHashZkProofVerifier));
 
     environment.jersey().register(new KeysController(rateLimiters, keys, accountsManager));
 
