@@ -157,7 +157,7 @@ public class VerificationController {
 
     final RegistrationServiceSession registrationServiceSession;
     try {
-      registrationServiceSession = registrationServiceClient.createRegistrationSessionSession(phoneNumber,
+      registrationServiceSession = registrationServiceClient.createRegistrationSession(phoneNumber,
           accountsManager.getByE164(request.getNumber()).isPresent(),
           REGISTRATION_RPC_TIMEOUT).join();
     } catch (final CancellationException e) {
@@ -541,7 +541,7 @@ public class VerificationController {
 
     final RegistrationServiceSession resultSession;
     try {
-      resultSession = registrationServiceClient.checkVerificationCodeSession(registrationServiceSession.id(),
+      resultSession = registrationServiceClient.checkVerificationCode(registrationServiceSession.id(),
               submitVerificationCodeRequest.code(),
               REGISTRATION_RPC_TIMEOUT)
           .join();

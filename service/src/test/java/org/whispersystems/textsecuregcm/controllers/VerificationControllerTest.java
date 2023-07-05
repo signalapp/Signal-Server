@@ -168,7 +168,7 @@ class VerificationControllerTest {
 
   @Test
   void createSessionRateLimited() {
-    when(registrationServiceClient.createRegistrationSessionSession(any(), anyBoolean(), any()))
+    when(registrationServiceClient.createRegistrationSession(any(), anyBoolean(), any()))
         .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(null, true)));
 
     final Invocation.Builder request = resources.getJerseyTest()
@@ -182,7 +182,7 @@ class VerificationControllerTest {
 
   @Test
   void createSessionRegistrationServiceError() {
-    when(registrationServiceClient.createRegistrationSessionSession(any(), anyBoolean(), any()))
+    when(registrationServiceClient.createRegistrationSession(any(), anyBoolean(), any()))
         .thenReturn(CompletableFuture.failedFuture(new RuntimeException("expected service error")));
 
     final Invocation.Builder request = resources.getJerseyTest()
@@ -198,7 +198,7 @@ class VerificationControllerTest {
   @MethodSource
   void createSessionSuccess(final String pushToken, final String pushTokenType,
       final List<VerificationSession.Information> expectedRequestedInformation) {
-    when(registrationServiceClient.createRegistrationSessionSession(any(), anyBoolean(), any()))
+    when(registrationServiceClient.createRegistrationSession(any(), anyBoolean(), any()))
         .thenReturn(
             CompletableFuture.completedFuture(
                 new RegistrationServiceSession(SESSION_ID, NUMBER, false, null, null, null,
@@ -232,7 +232,7 @@ class VerificationControllerTest {
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
   void createSessionReregistration(final boolean isReregistration) throws NumberParseException {
-    when(registrationServiceClient.createRegistrationSessionSession(any(), anyBoolean(), any()))
+    when(registrationServiceClient.createRegistrationSession(any(), anyBoolean(), any()))
         .thenReturn(
             CompletableFuture.completedFuture(
                 new RegistrationServiceSession(SESSION_ID, NUMBER, false, null, null, null,
@@ -252,7 +252,7 @@ class VerificationControllerTest {
     try (final Response response = request.post(Entity.json(createSessionJson(NUMBER, null, null)))) {
       assertEquals(HttpStatus.SC_OK, response.getStatus());
 
-      verify(registrationServiceClient).createRegistrationSessionSession(
+      verify(registrationServiceClient).createRegistrationSession(
           eq(PhoneNumberUtil.getInstance().parse(NUMBER, null)),
           eq(isReregistration),
           any()
@@ -1102,7 +1102,7 @@ class VerificationControllerTest {
             Optional.of(new VerificationSession(null, Collections.emptyList(), Collections.emptyList(), true,
                 clock.millis(), clock.millis(), registrationServiceSession.expiration()))));
 
-    when(registrationServiceClient.checkVerificationCodeSession(any(), any(), any()))
+    when(registrationServiceClient.checkVerificationCode(any(), any(), any()))
         .thenReturn(CompletableFuture.failedFuture(new CompletionException(new RuntimeException())));
 
     final Invocation.Builder request = resources.getJerseyTest()
@@ -1166,7 +1166,7 @@ class VerificationControllerTest {
 
     // There is no explicit indication in the exception that no code has been sent, but we treat all RegistrationServiceExceptions
     // in which the response has a session object as conflicted state
-    when(registrationServiceClient.checkVerificationCodeSession(any(), any(), any()))
+    when(registrationServiceClient.checkVerificationCode(any(), any(), any()))
         .thenReturn(CompletableFuture.failedFuture(new CompletionException(
             new RegistrationServiceException(new RegistrationServiceSession(SESSION_ID, NUMBER, false, 0L, null, null,
                 SESSION_EXPIRATION_SECONDS)))));
@@ -1201,7 +1201,7 @@ class VerificationControllerTest {
             Optional.of(new VerificationSession(null, Collections.emptyList(), Collections.emptyList(), true,
                 clock.millis(), clock.millis(), registrationServiceSession.expiration()))));
 
-    when(registrationServiceClient.checkVerificationCodeSession(any(), any(), any()))
+    when(registrationServiceClient.checkVerificationCode(any(), any(), any()))
         .thenReturn(CompletableFuture.failedFuture(new CompletionException(new RegistrationServiceException(null))));
 
     final Invocation.Builder request = resources.getJerseyTest()
@@ -1226,7 +1226,7 @@ class VerificationControllerTest {
         .thenReturn(CompletableFuture.completedFuture(
             Optional.of(new VerificationSession(null, Collections.emptyList(), Collections.emptyList(), true,
                 clock.millis(), clock.millis(), registrationServiceSession.expiration()))));
-    when(registrationServiceClient.checkVerificationCodeSession(any(), any(), any()))
+    when(registrationServiceClient.checkVerificationCode(any(), any(), any()))
         .thenReturn(CompletableFuture.failedFuture(
             new CompletionException(new VerificationSessionRateLimitExceededException(registrationServiceSession,
                 Duration.ofMinutes(1), true))));
@@ -1262,7 +1262,7 @@ class VerificationControllerTest {
     final RegistrationServiceSession verifiedSession = new RegistrationServiceSession(SESSION_ID, NUMBER, true, null,
         null, 0L,
         SESSION_EXPIRATION_SECONDS);
-    when(registrationServiceClient.checkVerificationCodeSession(any(), any(), any()))
+    when(registrationServiceClient.checkVerificationCode(any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(verifiedSession));
 
     final Invocation.Builder request = resources.getJerseyTest()

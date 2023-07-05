@@ -78,9 +78,7 @@ public class RegistrationServiceClient implements Managed {
     this.callbackExecutor = callbackExecutor;
   }
 
-  // The …Session suffix methods distinguish the new methods, which return Sessions, from the old.
-  // Once the deprecated methods are removed, the names can be streamlined.
-  public CompletableFuture<RegistrationServiceSession> createRegistrationSessionSession(
+  public CompletableFuture<RegistrationServiceSession> createRegistrationSession(
       final Phonenumber.PhoneNumber phoneNumber, final boolean accountExistsWithPhoneNumber, final Duration timeout) {
     final long e164 = Long.parseLong(
         PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164).substring(1));
@@ -108,13 +106,6 @@ public class RegistrationServiceClient implements Managed {
 
           case RESPONSE_NOT_SET -> throw new RuntimeException("No response from registration service");
         });
-  }
-
-  @Deprecated
-  public CompletableFuture<byte[]> createRegistrationSession(final Phonenumber.PhoneNumber phoneNumber,
-      final boolean accountExistsWithPhoneNumber, final Duration timeout) {
-    return createRegistrationSessionSession(phoneNumber, accountExistsWithPhoneNumber, timeout)
-        .thenApply(RegistrationServiceSession::id);
   }
 
   public CompletableFuture<RegistrationServiceSession> sendVerificationCode(final byte[] sessionId,
@@ -169,49 +160,7 @@ public class RegistrationServiceClient implements Managed {
         });
   }
 
-  @Deprecated
-  public CompletableFuture<byte[]> sendRegistrationCode(final byte[] sessionId,
-      final MessageTransport messageTransport,
-      final ClientType clientType,
-      @Nullable final String acceptLanguage,
-      final Duration timeout) {
-    return sendVerificationCode(sessionId, messageTransport, clientType, acceptLanguage, timeout)
-        .thenApply(RegistrationServiceSession::id);
-  }
-
-  @Deprecated
-  public CompletableFuture<Boolean> checkVerificationCode(final byte[] sessionId,
-      final String verificationCode,
-      final Duration timeout) {
-
-    return toCompletableFuture(stub.withDeadline(toDeadline(timeout))
-        .legacyCheckVerificationCode(CheckVerificationCodeRequest.newBuilder()
-            .setSessionId(ByteString.copyFrom(sessionId))
-            .setVerificationCode(verificationCode)
-            .build()))
-        .thenApply(response -> {
-          if (response.hasError()) {
-            switch (response.getError().getErrorType()) {
-              case CHECK_VERIFICATION_CODE_ERROR_TYPE_RATE_LIMITED ->
-                  throw new CompletionException(new RateLimitExceededException(response.getError().getMayRetry()
-                      ? Duration.ofSeconds(response.getError().getRetryAfterSeconds())
-                      : null, true));
-
-              case CHECK_VERIFICATION_CODE_ERROR_TYPE_NO_CODE_SENT,
-                  CHECK_VERIFICATION_CODE_ERROR_TYPE_ATTEMPT_EXPIRED,
-                  CHECK_VERIFICATION_CODE_ERROR_TYPE_SESSION_NOT_FOUND ->
-                  throw new CompletionException(new RegistrationServiceException(null));
-
-              default -> throw new CompletionException(
-                  new RuntimeException("Failed to check verification code: " + response.getError().getErrorType()));
-            }
-          } else {
-            return response.getVerified();
-          }
-        });
-  }
-
-  public CompletableFuture<RegistrationServiceSession> checkVerificationCodeSession(final byte[] sessionId,
+  public CompletableFuture<RegistrationServiceSession> checkVerificationCode(final byte[] sessionId,
       final String verificationCode,
       final Duration timeout) {
     return toCompletableFuture(stub.withDeadline(toDeadline(timeout))
