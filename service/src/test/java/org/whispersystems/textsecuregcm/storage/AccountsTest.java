@@ -57,6 +57,7 @@ import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.TestClock;
+import reactor.core.scheduler.Schedulers;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
@@ -504,7 +505,8 @@ class AccountsTest {
       accounts.create(account);
     }
 
-    final List<Account> retrievedAccounts = accounts.getAll(2).collectList().block();
+    final List<Account> retrievedAccounts =
+        accounts.getAll(2, Schedulers.parallel()).sequential().collectList().block();
 
     assertNotNull(retrievedAccounts);
     assertEquals(expectedAccounts.stream().map(Account::getUuid).collect(Collectors.toSet()),

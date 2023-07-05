@@ -59,6 +59,8 @@ import org.whispersystems.textsecuregcm.util.DestinationDeviceValidator;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.Util;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.ParallelFlux;
+import reactor.core.scheduler.Scheduler;
 
 public class AccountsManager {
 
@@ -721,8 +723,8 @@ public class AccountsManager {
     return accounts.getAllFrom(uuid, length);
   }
 
-  public Flux<Account> streamAllFromDynamo(final int segments) {
-    return accounts.getAll(segments);
+  public ParallelFlux<Account> streamAllFromDynamo(final int segments, final Scheduler scheduler) {
+    return accounts.getAll(segments, scheduler);
   }
 
   public void delete(final Account account, final DeletionReason deletionReason) throws InterruptedException {

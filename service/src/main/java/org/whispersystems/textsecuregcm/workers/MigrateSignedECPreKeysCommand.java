@@ -15,6 +15,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.KeysManager;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.ParallelFlux;
 import reactor.util.function.Tuple3;
 import reactor.util.function.Tuples;
 
@@ -28,7 +29,7 @@ public class MigrateSignedECPreKeysCommand extends AbstractSinglePassCrawlAccoun
   }
 
   @Override
-  protected void crawlAccounts(final Flux<Account> accounts) {
+  protected void crawlAccounts(final ParallelFlux<Account> accounts) {
     final KeysManager keysManager = getCommandDependencies().keysManager();
 
     accounts.flatMap(account -> Flux.fromIterable(account.getDevices())
@@ -48,6 +49,7 @@ public class MigrateSignedECPreKeysCommand extends AbstractSinglePassCrawlAccoun
         .flatMap(keyTuple -> Mono.fromFuture(
             keysManager.storeEcSignedPreKeyIfAbsent(keyTuple.getT1(), keyTuple.getT2(), keyTuple.getT3())))
         .doOnNext(keyStored -> Metrics.counter(STORE_KEY_ATTEMPT_COUNTER_NAME, "stored", String.valueOf(keyStored)).increment())
-        .blockLast();
+        .then()
+        .block();
   }
 }
