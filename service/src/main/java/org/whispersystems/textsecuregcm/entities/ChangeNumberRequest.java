@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.entities;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.ArrayList;
 import java.util.List;
@@ -27,8 +28,8 @@ public record ChangeNumberRequest(
         Must not be combined with `recoveryPassword`.""")
     String sessionId,
 
-    @Schema(description="""
-        The recovery password for the new phone number, if using a recovery password to authenticate this request.
+    @Schema(type="string", description="""
+        The base64-encoded recovery password for the new phone number, if using a recovery password to authenticate this request.
         Must not be combined with `sessionId`.""")
     @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class) byte[] recoveryPassword,
 
@@ -43,10 +44,11 @@ public record ChangeNumberRequest(
     @JsonDeserialize(using = IdentityKeyAdapter.Deserializer.class)
     @NotNull IdentityKey pniIdentityKey,
 
-    @Schema(description="""
+    @ArraySchema(
+        arraySchema=@Schema(description="""
         A list of synchronization messages to send to companion devices to supply the private keysManager
         associated with the new identity key and their new prekeys.
-        Exactly one message must be supplied for each enabled device other than the sending (primary) device.""")
+        Exactly one message must be supplied for each enabled device other than the sending (primary) device."""))
     @NotNull @Valid List<@NotNull @Valid IncomingMessage> deviceMessages,
 
     @Schema(description="""

@@ -83,6 +83,7 @@ public class AccountControllerV2 {
   @Produces(MediaType.APPLICATION_JSON)
   @Operation(summary = "Change number", description = "Changes a phone number for an existing account.")
   @ApiResponse(responseCode = "200", description = "The phone number associated with the authenticated account was changed successfully", useReturnTypeSchema = true)
+  @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
   @ApiResponse(responseCode = "403", description = "Verification failed for the provided Registration Recovery Password")
   @ApiResponse(responseCode = "409", description = "Mismatched number of devices or device ids in 'devices to notify' list", content = @Content(schema = @Schema(implementation = MismatchedDevices.class)))
   @ApiResponse(responseCode = "410", description = "Mismatched registration ids in 'devices to notify' list", content = @Content(schema = @Schema(implementation = StaleDevices.class)))
@@ -159,7 +160,17 @@ public class AccountControllerV2 {
   @Path("/phone_number_identity_key_distribution")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  @Operation(summary = "Updates key material for the phone-number identity for all devices and sends a synchronization message to companion devices")
+  @Operation(summary = "Set phone-number identity keys",
+      description = "Updates key material for the phone-number identity for all devices and sends a synchronization message to companion devices")
+  @ApiResponse(responseCode = "200", description = "Indicates the transaction was successful and returns basic information about this account.", useReturnTypeSchema = true)
+  @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
+  @ApiResponse(responseCode = "403", description = "This endpoint can only be invoked from the account's primary device.")
+  @ApiResponse(responseCode = "422", description = "The request body failed validation.")
+  @ApiResponse(responseCode = "425", description = "Not all of this account's devices support phone-number identities yet.")
+  @ApiResponse(responseCode = "409", description = "The set of devices specified in the request does not match the set of devices active on the account.",
+      content = @Content(schema = @Schema(implementation = MismatchedDevices.class)))
+  @ApiResponse(responseCode = "410", description = "The registration IDs provided for some devices do not match those stored on the server.",
+      content = @Content(schema = @Schema(implementation = StaleDevices.class)))
   public AccountIdentityResponse distributePhoneNumberIdentityKeys(@Auth final AuthenticatedAccount authenticatedAccount,
       @NotNull @Valid final PhoneNumberIdentityKeyDistributionRequest request) {
 

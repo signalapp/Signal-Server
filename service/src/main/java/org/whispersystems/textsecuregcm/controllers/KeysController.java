@@ -13,8 +13,10 @@ import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.Duration;
 import java.time.Instant;
@@ -86,7 +88,10 @@ public class KeysController {
 
   @GET
   @Produces(MediaType.APPLICATION_JSON)
-  @Operation(summary = "Returns the number of available one-time prekeys for this device")
+  @Operation(summary = "Get prekey count",
+      description = "Gets the number of one-time prekeys uploaded for this device and still available")
+  @ApiResponse(responseCode = "200", description = "Body contains the number of available one-time prekeys for the device.", useReturnTypeSchema = true)
+  @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
   public PreKeyCount getStatus(@Auth final AuthenticatedAccount auth,
       @QueryParam("identity") final Optional<String> identityType) {
 
@@ -101,7 +106,15 @@ public class KeysController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   @ChangesDeviceEnabledState
-  @Operation(summary = "Sets the identity key for the account or phone-number identity and/or prekeys for this device")
+  @Operation(summary = "Upload new prekeys",
+      description = """
+          Upload new prekeys for this device. Can also be used, from the primary device only, to set the account's identity
+          key, but this is deprecated now that accounts can be created atomically.
+      """)
+  @ApiResponse(responseCode = "200", description = "Indicates that new keys were successfully stored.")
+  @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
+  @ApiResponse(responseCode = "403", description = "Attempt to change identity key from a non-primary device.")
+  @ApiResponse(responseCode = "422", description = "Invalid request format.")
   public void setKeys(@Auth final DisabledPermittedAuthenticatedAccount disabledPermittedAuth,
       @RequestBody @NotNull @Valid final PreKeyState preKeys,
 
@@ -176,8 +189,15 @@ public class KeysController {
   @GET
   @Path("/{identifier}/{device_id}")
   @Produces(MediaType.APPLICATION_JSON)
-  @Operation(summary = "Retrieves the public identity key and available device prekeys for a specified account or phone-number identity")
-  public Response getDeviceKeys(@Auth Optional<AuthenticatedAccount> auth,
+  @Operation(summary = "Fetch public keys for another user",
+      description = "Retrieves the public identity key and available device prekeys for a specified account or phone-number identity")
+  @ApiResponse(responseCode = "200", description = "Indicates at least one prekey was available for at least one requested device.", useReturnTypeSchema = true)
+  @ApiResponse(responseCode = "401", description = "Account authentication check failed and unidentified-access key was not supplied or invalid.")
+  @ApiResponse(responseCode = "404", description = "Requested identity or device does not exist, is not active, or has no available prekeys.")
+  @ApiResponse(responseCode = "429", description = "Rate limit exceeded.", headers = @Header(
+      name = "Retry-After",
+      description = "If present, a positive integer indicating the number of seconds before a subsequent attempt could succeed"))
+  public PreKeyResponse getDeviceKeys(@Auth Optional<AuthenticatedAccount> auth,
       @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
 
       @Parameter(description="the account or phone-number identifier to retrieve keys for")
@@ -241,9 +261,9 @@ public class KeysController {
     final IdentityKey identityKey = usePhoneNumberIdentity ? target.getPhoneNumberIdentityKey() : target.getIdentityKey();
 
     if (responseItems.isEmpty()) {
-      return Response.status(404).build();
+      throw new WebApplicationException(Response.Status.NOT_FOUND);
     }
-    return Response.ok().entity(new PreKeyResponse(identityKey, responseItems)).build();
+    return new PreKeyResponse(identityKey, responseItems);
   }
 
   @Timed
@@ -251,6 +271,13 @@ public class KeysController {
   @Path("/signed")
   @Consumes(MediaType.APPLICATION_JSON)
   @ChangesDeviceEnabledState
+  @Operation(summary = "Upload a new signed prekey",
+      description = """
+          Upload a new signed elliptic-curve prekey for this device. Deprecated; use PUT /v2/keys with instead.
+      """)
+  @ApiResponse(responseCode = "200", description = "Indicates that new prekey was successfully stored.")
+  @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
+  @ApiResponse(responseCode = "422", description = "Invalid request format.")
   public void setSignedKey(@Auth final AuthenticatedAccount auth,
       @Valid final ECSignedPreKey signedPreKey,
       @QueryParam("identity") final Optional<String> identityType) {
