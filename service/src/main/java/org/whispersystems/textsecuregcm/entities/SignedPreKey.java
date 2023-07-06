@@ -12,6 +12,10 @@ public interface SignedPreKey<K> extends PreKey<K> {
   byte[] signature();
 
   default boolean signatureValid(final IdentityKey identityKey) {
-    return identityKey.getPublicKey().verifySignature(serializedPublicKey(), signature());
+    try {
+      return identityKey.getPublicKey().verifySignature(serializedPublicKey(), signature());
+    } catch (final Exception e) {
+      return false;
+    }
   }
 }
