@@ -60,9 +60,9 @@ public class RegistrationRecoveryPasswords extends AbstractDynamoDbStore {
 
   public CompletableFuture<Optional<SaltedTokenHash>> lookup(final String number) {
     return asyncClient.getItem(GetItemRequest.builder()
-        .tableName(tableName)
-        .key(Map.of(
-            KEY_E164, AttributeValues.fromString(number)))
+            .tableName(tableName)
+            .key(Map.of(KEY_E164, AttributeValues.fromString(number)))
+            .consistentRead(true)
         .build())
         .thenApply(getItemResponse -> {
           final Map<String, AttributeValue> item = getItemResponse.item();

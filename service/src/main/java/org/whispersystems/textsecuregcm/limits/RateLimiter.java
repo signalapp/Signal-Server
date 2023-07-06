@@ -67,7 +67,7 @@ public interface RateLimiter {
 
   /**
    * If the wrapped {@code validate()} call throws a {@link RateLimitExceededException}, it will adapt it to ensure that
-   * {@link RateLimitExceededException#isLegacy()} returns {@code true}
+   * {@link RateLimitExceededException#isLegacy()} returns {@code false}
    */
   static void adaptLegacyException(final RateLimitValidator validator) throws RateLimitExceededException {
     try {
