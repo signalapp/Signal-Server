@@ -84,7 +84,7 @@ public class RegistrationServiceClient implements Managed {
         PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164).substring(1));
 
     return toCompletableFuture(stub.withDeadline(toDeadline(timeout))
-        .createSession(CreateRegistrationSessionRequest.newBuilder()
+        .createSessionTemp(CreateRegistrationSessionRequest.newBuilder()
             .setE164(e164)
             .setAccountExistsWithE164(accountExistsWithPhoneNumber)
             .build()))
@@ -124,7 +124,7 @@ public class RegistrationServiceClient implements Managed {
     }
 
     return toCompletableFuture(stub.withDeadline(toDeadline(timeout))
-        .sendVerificationCode(requestBuilder.build()))
+        .sendVerificationCodeTemp(requestBuilder.build()))
         .thenApply(response -> {
           if (response.hasError()) {
             switch (response.getError().getErrorType()) {
@@ -164,7 +164,7 @@ public class RegistrationServiceClient implements Managed {
       final String verificationCode,
       final Duration timeout) {
     return toCompletableFuture(stub.withDeadline(toDeadline(timeout))
-        .checkVerificationCode(CheckVerificationCodeRequest.newBuilder()
+        .checkVerificationCodeTemp(CheckVerificationCodeRequest.newBuilder()
             .setSessionId(ByteString.copyFrom(sessionId))
             .setVerificationCode(verificationCode)
             .build()))
@@ -199,7 +199,7 @@ public class RegistrationServiceClient implements Managed {
 
   public CompletableFuture<Optional<RegistrationServiceSession>> getSession(final byte[] sessionId,
       final Duration timeout) {
-    return toCompletableFuture(stub.withDeadline(toDeadline(timeout)).getSessionMetadata(
+    return toCompletableFuture(stub.withDeadline(toDeadline(timeout)).getSessionMetadataTemp(
         GetRegistrationSessionMetadataRequest.newBuilder()
             .setSessionId(ByteString.copyFrom(sessionId)).build()))
         .thenApply(response -> {

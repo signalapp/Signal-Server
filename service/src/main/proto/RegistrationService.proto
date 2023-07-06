@@ -8,24 +8,24 @@ service RegistrationService {
   /**
    * Create a new registration session for a given destination phone number.
    */
-  rpc create_session (CreateRegistrationSessionRequest) returns (CreateRegistrationSessionResponse) {}
+  rpc create_session_temp (CreateRegistrationSessionRequest) returns (CreateRegistrationSessionResponse) {}
 
   /**
    * Retrieves session metadata for a given session.
    */
-  rpc get_session_metadata (GetRegistrationSessionMetadataRequest) returns (GetRegistrationSessionMetadataResponse) {}
+  rpc get_session_metadata_temp (GetRegistrationSessionMetadataRequest) returns (GetRegistrationSessionMetadataResponse) {}
 
   /**
    * Sends a verification code to a destination phone number within the context
    * of a previously-created registration session.
    */
-  rpc send_verification_code (SendVerificationCodeRequest) returns (SendVerificationCodeResponse) {}
+  rpc send_verification_code_temp (SendVerificationCodeRequest) returns (SendVerificationCodeResponse) {}
 
   /**
    * Checks a client-provided verification code for a given registration
    * session.
    */
-  rpc check_verification_code (CheckVerificationCodeRequest) returns (CheckVerificationCodeResponse) {}
+  rpc check_verification_code_temp (CheckVerificationCodeRequest) returns (CheckVerificationCodeResponse) {}
 }
 
 message CreateRegistrationSessionRequest {
