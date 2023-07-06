@@ -185,6 +185,7 @@ import org.whispersystems.textsecuregcm.storage.VerificationSessionManager;
 import org.whispersystems.textsecuregcm.storage.VerificationSessions;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
+import org.whispersystems.textsecuregcm.util.ChallengeTokenBlinder;
 import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.UsernameHashZkProofVerifier;
@@ -561,7 +562,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     PushChallengeManager pushChallengeManager = new PushChallengeManager(pushNotificationManager,
         pushChallengeDynamoDb);
     RateLimitChallengeManager rateLimitChallengeManager = new RateLimitChallengeManager(pushChallengeManager,
-        captchaChecker, rateLimiters);
+        captchaChecker,
+        rateLimiters);
+    final ChallengeTokenBlinder challengeTokenBlinder = new ChallengeTokenBlinder(config.getChallengeConfiguration(), Clock.systemUTC());
 
     ChangeNumberManager changeNumberManager = new ChangeNumberManager(messageSender, accountsManager);
 
@@ -709,7 +712,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new AttachmentControllerV3(rateLimiters, config.getGcpAttachmentsConfiguration().domain(), config.getGcpAttachmentsConfiguration().email(), config.getGcpAttachmentsConfiguration().maxSizeInBytes(), config.getGcpAttachmentsConfiguration().pathPrefix(), config.getGcpAttachmentsConfiguration().rsaSigningKey().value()),
         new CallLinkController(rateLimiters, genericZkSecretParams),
         new CertificateController(new CertificateGenerator(config.getDeliveryCertificate().certificate().value(), config.getDeliveryCertificate().ecPrivateKey(), config.getDeliveryCertificate().expiresDays()), zkAuthOperations, genericZkSecretParams, clock),
-        new ChallengeController(rateLimitChallengeManager),
+        new ChallengeController(accounts, challengeTokenBlinder, rateLimitChallengeManager),
         new DeviceController(pendingDevicesManager, accountsManager, messagesManager, keys, rateLimiters, config.getMaxDevices()),
         new DirectoryV2Controller(directoryV2CredentialsGenerator),
         new DonationController(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager, config.getBadges(),

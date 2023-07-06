@@ -29,6 +29,7 @@ import javax.ws.rs.POST;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
+import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
@@ -38,18 +39,27 @@ import org.whispersystems.textsecuregcm.entities.AnswerRecaptchaChallengeRequest
 import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
+import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.Accounts;
+import org.whispersystems.textsecuregcm.util.ChallengeTokenBlinder;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 
 @Path("/v1/challenge")
 @Tag(name = "Challenge")
 public class ChallengeController {
 
+  private final Accounts accounts;
+  private final ChallengeTokenBlinder tokenBlinder;
   private final RateLimitChallengeManager rateLimitChallengeManager;
 
   private static final String CHALLENGE_RESPONSE_COUNTER_NAME = name(ChallengeController.class, "challengeResponse");
   private static final String CHALLENGE_TYPE_TAG = "type";
 
-  public ChallengeController(final RateLimitChallengeManager rateLimitChallengeManager) {
+  public ChallengeController(final Accounts accounts,
+      final ChallengeTokenBlinder tokenBlinder,
+      final RateLimitChallengeManager rateLimitChallengeManager) {
+    this.accounts = accounts;
+    this.tokenBlinder = tokenBlinder;
     this.rateLimitChallengeManager = rateLimitChallengeManager;
   }
 
@@ -63,18 +73,20 @@ public class ChallengeController {
           Some server endpoints (the "send message" endpoint, for example) may return a 428 response indicating the client must complete a challenge before continuing.
           Clients may use this endpoint to provide proof of a completed challenge. If successful, the client may then 
           continue their original operation.
+          This endpoint permits unauthenticated calls if the `token` that was provided by the server with the original 428 response is supplied in the request body.
           """,
       requestBody = @RequestBody(content = {@Content(schema = @Schema(oneOf = {AnswerPushChallengeRequest.class,
           AnswerRecaptchaChallengeRequest.class}))})
   )
   @ApiResponse(responseCode = "200", description = "Indicates the challenge proof was accepted")
+  @ApiResponse(responseCode = "401", description = "Indicates authentication or token from original challenge are required")
   @ApiResponse(responseCode = "413", description = "Too many attempts", headers = @Header(
       name = "Retry-After",
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
   @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
       name = "Retry-After",
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
-  public Response handleChallengeResponse(@Auth final AuthenticatedAccount auth,
+  public Response handleChallengeResponse(@Auth final Optional<AuthenticatedAccount> maybeAuth,
       @Valid final AnswerChallengeRequest answerRequest,
       @HeaderParam(HttpHeaders.X_FORWARDED_FOR) final String forwardedFor,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) throws RateLimitExceededException, IOException {
@@ -85,13 +97,20 @@ public class ChallengeController {
       if (answerRequest instanceof final AnswerPushChallengeRequest pushChallengeRequest) {
         tags = tags.and(CHALLENGE_TYPE_TAG, "push");
 
-        rateLimitChallengeManager.answerPushChallenge(auth.getAccount(), pushChallengeRequest.getChallenge());
+        rateLimitChallengeManager.answerPushChallenge(
+            maybeAuth.orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED)).getAccount(),
+            pushChallengeRequest.getChallenge());
       } else if (answerRequest instanceof AnswerRecaptchaChallengeRequest recaptchaChallengeRequest) {
         tags = tags.and(CHALLENGE_TYPE_TAG, "recaptcha");
 
+        final Account account = maybeAuth
+            .map(AuthenticatedAccount::getAccount)
+            .or(() -> tokenBlinder.unblindAccountToken(recaptchaChallengeRequest.getToken()).flatMap(accounts::getByAccountIdentifier))
+            .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
+
         final String mostRecentProxy = HeaderUtils.getMostRecentProxy(forwardedFor).orElseThrow(() -> new BadRequestException());
         boolean success = rateLimitChallengeManager.answerRecaptchaChallenge(
-            auth.getAccount(),
+            account,
             recaptchaChallengeRequest.getCaptcha(),
             mostRecentProxy,
             userAgent);
