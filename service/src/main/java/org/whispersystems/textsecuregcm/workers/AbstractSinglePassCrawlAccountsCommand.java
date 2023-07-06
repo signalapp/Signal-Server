@@ -6,10 +6,13 @@
 package org.whispersystems.textsecuregcm.workers;
 
 import io.dropwizard.Application;
+import io.dropwizard.cli.Cli;
 import io.dropwizard.cli.EnvironmentCommand;
 import io.dropwizard.setup.Environment;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -22,6 +25,8 @@ import java.util.Objects;
 public abstract class AbstractSinglePassCrawlAccountsCommand extends EnvironmentCommand<WhisperServerConfiguration> {
 
   private CommandDependencies commandDependencies;
+
+  private final Logger logger = LoggerFactory.getLogger(getClass());
 
   private static final String SEGMENT_COUNT = "segments";
 
@@ -59,7 +64,17 @@ public abstract class AbstractSinglePassCrawlAccountsCommand extends Environment
     commandDependencies = CommandDependencies.build(getName(), environment, configuration);
 
     final int segments = Objects.requireNonNull(namespace.getInt(SEGMENT_COUNT));
+
+    logger.info("Crawling accounts with {} segments and {} processors",
+        segments,
+        Runtime.getRuntime().availableProcessors());
+
     crawlAccounts(commandDependencies.accountsManager().streamAllFromDynamo(segments, Schedulers.parallel()));
+  }
+
+  @Override
+  public void onError(final Cli cli, final Namespace namespace, final Throwable throwable) {
+    logger.error("Unhandled error", throwable);
   }
 
   protected abstract void crawlAccounts(final ParallelFlux<Account> accounts);
