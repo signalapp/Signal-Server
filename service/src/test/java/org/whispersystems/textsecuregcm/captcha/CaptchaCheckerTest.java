@@ -18,6 +18,7 @@ import static org.whispersystems.textsecuregcm.captcha.CaptchaChecker.SEPARATOR;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 import javax.ws.rs.BadRequestException;
 import org.junit.jupiter.api.Test;
@@ -77,7 +78,7 @@ public class CaptchaCheckerTest {
       final String siteKey,
       final Action expectedAction) throws IOException {
     final CaptchaClient captchaClient = mockClient(PREFIX);
-    new CaptchaChecker(List.of(captchaClient)).verify(expectedAction, input, null);
+    new CaptchaChecker(null, List.of(captchaClient)).verify(expectedAction, input, null);
     verify(captchaClient, times(1)).verify(eq(siteKey), eq(expectedAction), eq(expectedToken), any());
   }
 
@@ -105,10 +106,10 @@ public class CaptchaCheckerTest {
     final CaptchaClient a = mockClient(PREFIX_A);
     final CaptchaClient b = mockClient(PREFIX_B);
 
-    new CaptchaChecker(List.of(a, b)).verify(Action.CHALLENGE, ainput, null);
+    new CaptchaChecker(null, List.of(a, b)).verify(Action.CHALLENGE, ainput, null);
     verify(a, times(1)).verify(any(), any(), any(), any());
 
-    new CaptchaChecker(List.of(a, b)).verify(Action.CHALLENGE, binput, null);
+    new CaptchaChecker(null, List.of(a, b)).verify(Action.CHALLENGE, binput, null);
     verify(b, times(1)).verify(any(), any(), any(), any());
   }
 
@@ -130,7 +131,18 @@ public class CaptchaCheckerTest {
   public void badArgs(final String input) throws IOException {
     final CaptchaClient cc = mockClient(PREFIX);
     assertThrows(BadRequestException.class,
-        () -> new CaptchaChecker(List.of(cc)).verify(Action.CHALLENGE, input, null));
+        () -> new CaptchaChecker(null, List.of(cc)).verify(Action.CHALLENGE, input, null));
+
+  }
+
+  @Test
+  public void testShortened() throws IOException {
+    final CaptchaClient captchaClient = mockClient(PREFIX);
+    final ShortCodeExpander retriever = mock(ShortCodeExpander.class);
+    when(retriever.retrieve("abc")).thenReturn(Optional.of(TOKEN));
+    final String input = String.join(SEPARATOR, PREFIX + "-short", REG_SITE_KEY, "registration", "abc");
+    new CaptchaChecker(retriever, List.of(captchaClient)).verify(Action.REGISTRATION, input, null);
+    verify(captchaClient, times(1)).verify(eq(REG_SITE_KEY), eq(Action.REGISTRATION), eq(TOKEN), any());
 
   }
 }

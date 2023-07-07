@@ -29,9 +29,15 @@ public class CaptchaChecker {
   @VisibleForTesting
   static final String SEPARATOR = ".";
 
+  private static final String SHORT_SUFFIX = "-short";
+
+  private final ShortCodeExpander shortCodeExpander;
   private final Map<String, CaptchaClient> captchaClientMap;
 
-  public CaptchaChecker(final List<CaptchaClient> captchaClients) {
+  public CaptchaChecker(
+      final ShortCodeExpander shortCodeRetriever,
+      final List<CaptchaClient> captchaClients) {
+    this.shortCodeExpander = shortCodeRetriever;
     this.captchaClientMap = captchaClients.stream()
         .collect(Collectors.toMap(CaptchaClient::scheme, Function.identity()));
   }
@@ -63,9 +69,17 @@ public class CaptchaChecker {
     final String prefix = parts[0];
     final String siteKey = parts[1].toLowerCase(Locale.ROOT).strip();
     final String action = parts[2];
-    final String token = parts[3];
+    String token = parts[3];
 
-    final CaptchaClient client = this.captchaClientMap.get(prefix);
+    String provider = prefix;
+    if (prefix.endsWith(SHORT_SUFFIX)) {
+      // This is a "short" solution that points to the actual solution. We need to fetch the
+      // full solution before proceeding
+      provider = prefix.substring(0, prefix.length() - SHORT_SUFFIX.length());
+      token = shortCodeExpander.retrieve(token).orElseThrow(() -> new BadRequestException("invalid shortcode"));
+    }
+
+    final CaptchaClient client = this.captchaClientMap.get(provider);
     if (client == null) {
       throw new BadRequestException("invalid captcha scheme");
     }
@@ -92,7 +106,7 @@ public class CaptchaChecker {
     Metrics.counter(ASSESSMENTS_COUNTER_NAME,
             "action", action,
             "score", result.getScoreString(),
-            "provider", prefix)
+            "provider", provider)
         .increment();
     return result;
   }

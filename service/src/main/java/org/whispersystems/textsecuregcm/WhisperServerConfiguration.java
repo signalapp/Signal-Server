@@ -50,6 +50,7 @@ import org.whispersystems.textsecuregcm.configuration.ReportMessageConfiguration
 import org.whispersystems.textsecuregcm.configuration.SecureBackupServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SecureStorageServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SecureValueRecovery2Configuration;
+import org.whispersystems.textsecuregcm.configuration.ShortCodeExpanderConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SpamFilterConfiguration;
 import org.whispersystems.textsecuregcm.configuration.StripeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
@@ -205,6 +206,11 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @NotNull
   @JsonProperty
+  private ShortCodeExpanderConfiguration shortCode;
+
+  @Valid
+  @NotNull
+  @JsonProperty
   private SecureStorageServiceConfiguration storageService;
 
   @Valid
@@ -332,6 +338,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public HCaptchaConfiguration getHCaptchaConfiguration() {
     return hCaptcha;
+  }
+
+  public ShortCodeExpanderConfiguration getShortCodeRetrieverConfiguration() {
+    return shortCode;
   }
 
   public WebSocketConfiguration getWebSocketConfiguration() {

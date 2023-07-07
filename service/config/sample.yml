@@ -243,6 +243,9 @@ recaptcha:
 hCaptcha:
   apiKey: secret://hCaptcha.apiKey
 
+shortCode:
+  baseUrl: https://example.com/shortcodes/
+
 storageService:
   uri: storage.example.com
   userAuthenticationTokenSharedSecret: secret://storageService.userAuthenticationTokenSharedSecret
