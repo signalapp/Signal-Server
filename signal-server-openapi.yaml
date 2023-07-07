@@ -30,31 +30,6 @@ paths:
       security:
       - authenticatedAccount: []
       - {}
-  /v1/accounts/number:
-    put:
-      tags:
-      - Account
-      operationId: changeNumber
-      parameters:
-      - name: User-Agent
-        in: header
-        schema:
-          type: string
-      requestBody:
-        content:
-          '*/*':
-            schema:
-              $ref: '#/components/schemas/ChangePhoneNumberRequest'
-        required: true
-      responses:
-        default:
-          description: default response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AccountIdentityResponse'
-      security:
-      - authenticatedAccount: []
   /v1/accounts/username_hash/confirm:
     put:
       tags:
@@ -90,56 +65,6 @@ paths:
           description: Ratelimited.
       security:
       - authenticatedAccount: []
-  /v1/accounts/{transport}/code/{number}:
-    get:
-      tags:
-      - Account
-      operationId: createAccount
-      parameters:
-      - name: transport
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: number
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: X-Forwarded-For
-        in: header
-        schema:
-          type: string
-      - name: User-Agent
-        in: header
-        schema:
-          type: string
-      - name: Accept-Language
-        in: header
-        schema:
-          type: string
-      - name: client
-        in: query
-        schema:
-          type: string
-      - name: captcha
-        in: query
-        schema:
-          type: string
-      - name: challenge
-        in: query
-        schema:
-          type: string
-      requestBody:
-        content:
-          '*/*':
-            schema:
-              $ref: '#/components/schemas/ScoreThreshold'
-      responses:
-        default:
-          description: default response
-          content:
-            application/json: {}
   /v1/accounts/me:
     get:
       tags:
@@ -289,37 +214,6 @@ paths:
           description: Ratelimited.
       security:
       - authenticatedAccount: []
-  /v1/accounts/{type}/preauth/{token}/{number}:
-    get:
-      tags:
-      - Account
-      operationId: getPreAuth
-      parameters:
-      - name: type
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: token
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: number
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: voip
-        in: query
-        schema:
-          type: boolean
-          default: true
-      responses:
-        default:
-          description: default response
-          content:
-            application/json: {}
   /v1/accounts/turn:
     get:
       tags:
@@ -496,46 +390,6 @@ paths:
             '*/*': {}
       security:
       - authenticatedAccount: []
-  /v1/accounts/code/{verification_code}:
-    put:
-      tags:
-      - Account
-      operationId: verifyAccount
-      parameters:
-      - name: verification_code
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: Authorization
-        in: header
-        schema:
-          $ref: '#/components/schemas/BasicAuthorizationHeader'
-      - name: X-Signal-Agent
-        in: header
-        schema:
-          type: string
-      - name: User-Agent
-        in: header
-        schema:
-          type: string
-      - name: transfer
-        in: query
-        schema:
-          type: boolean
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AccountAttributes'
-        required: true
-      responses:
-        default:
-          description: default response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AccountIdentityResponse'
   /v1/accounts/whoami:
     get:
       tags:
@@ -556,7 +410,7 @@ paths:
       - Account
       summary: Change number
       description: Changes a phone number for an existing account.
-      operationId: changeNumber_1
+      operationId: changeNumber
       parameters:
       - name: User-Agent
         in: header
@@ -576,6 +430,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AccountIdentityResponse'
+        "401":
+          description: Account authentication check failed.
         "403":
           description: Verification failed for the provided Registration Recovery
             Password
@@ -612,7 +468,8 @@ paths:
     put:
       tags:
       - Account
-      summary: Updates key material for the phone-number identity for all devices
+      summary: Set phone-number identity keys
+      description: Updates key material for the phone-number identity for all devices
         and sends a synchronization message to companion devices
       operationId: distributePhoneNumberIdentityKeys
       requestBody:
@@ -622,12 +479,37 @@ paths:
               $ref: '#/components/schemas/PhoneNumberIdentityKeyDistributionRequest'
         required: true
       responses:
-        default:
-          description: default response
+        "200":
+          description: Indicates the transaction was successful and returns basic
+            information about this account.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/AccountIdentityResponse'
+        "401":
+          description: Account authentication check failed.
+        "403":
+          description: This endpoint can only be invoked from the account's primary
+            device.
+        "422":
+          description: The request body failed validation.
+        "425":
+          description: Not all of this account's devices support phone-number identities
+            yet.
+        "409":
+          description: The set of devices specified in the request does not match
+            the set of devices active on the account.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MismatchedDevices'
+        "410":
+          description: The registration IDs provided for some devices do not match
+            those stored on the server.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaleDevices'
       security:
       - authenticatedAccount: []
   /v2/accounts/data_report:
@@ -797,6 +679,7 @@ paths:
         Some server endpoints (the "send message" endpoint, for example) may return a 428 response indicating the client must complete a challenge before continuing.
         Clients may use this endpoint to provide proof of a completed challenge. If successful, the client may then
         continue their original operation.
+        This endpoint permits unauthenticated calls if the `token` that was provided by the server with the original 428 response is supplied in the request body.
       operationId: handleChallengeResponse
       parameters:
       - name: X-Forwarded-For
@@ -817,6 +700,9 @@ paths:
       responses:
         "200":
           description: Indicates the challenge proof was accepted
+        "401":
+          description: Indicates authentication or token from original challenge are
+            required
         "413":
           description: Too many attempts
           headers:
@@ -833,6 +719,7 @@ paths:
               style: simple
       security:
       - authenticatedAccount: []
+      - {}
   /v1/challenge/push:
     post:
       tags:
@@ -1101,8 +988,9 @@ paths:
     get:
       tags:
       - Keys
-      summary: Retrieves the public identity key and available device prekeys for
-        a specified account or phone-number identity
+      summary: Fetch public keys for another user
+      description: Retrieves the public identity key and available device prekeys
+        for a specified account or phone-number identity
       operationId: getDeviceKeys
       parameters:
       - name: Unidentified-Access-Key
@@ -1135,10 +1023,26 @@ paths:
         schema:
           type: string
       responses:
-        default:
-          description: default response
+        "200":
+          description: Indicates at least one prekey was available for at least one
+            requested device.
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreKeyResponse'
+        "401":
+          description: Account authentication check failed and unidentified-access
+            key was not supplied or invalid.
+        "404":
+          description: "Requested identity or device does not exist, is not active,\
+            \ or has no available prekeys."
+        "429":
+          description: Rate limit exceeded.
+          headers:
+            Retry-After:
+              description: "If present, a positive integer indicating the number of\
+                \ seconds before a subsequent attempt could succeed"
+              style: simple
       security:
       - authenticatedAccount: []
       - {}
@@ -1146,7 +1050,9 @@ paths:
     get:
       tags:
       - Keys
-      summary: Returns the number of available one-time prekeys for this device
+      summary: Get prekey count
+      description: Gets the number of one-time prekeys uploaded for this device and
+        still available
       operationId: getStatus
       parameters:
       - name: identity
@@ -1154,19 +1060,24 @@ paths:
         schema:
           type: string
       responses:
-        default:
-          description: default response
+        "200":
+          description: Body contains the number of available one-time prekeys for
+            the device.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PreKeyCount'
+        "401":
+          description: Account authentication check failed.
       security:
       - authenticatedAccount: []
     put:
       tags:
       - Keys
-      summary: Sets the identity key for the account or phone-number identity and/or
-        prekeys for this device
+      summary: Upload new prekeys
+      description: |2
+            Upload new prekeys for this device. Can also be used, from the primary device only, to set the account's identity
+            key, but this is deprecated now that accounts can be created atomically.
       operationId: setKeys
       parameters:
       - name: identity
@@ -1185,16 +1096,23 @@ paths:
         schema:
           type: string
       responses:
-        default:
-          description: default response
-          content:
-            application/json: {}
+        "200":
+          description: Indicates that new keys were successfully stored.
+        "401":
+          description: Account authentication check failed.
+        "403":
+          description: Attempt to change identity key from a non-primary device.
+        "422":
+          description: Invalid request format.
       security:
       - authenticatedAccount: []
   /v2/keys/signed:
     put:
       tags:
       - Keys
+      summary: Upload a new signed prekey
+      description: |2
+            Upload a new signed elliptic-curve prekey for this device. Deprecated; use PUT /v2/keys with instead.
       operationId: setSignedKey
       parameters:
       - name: identity
@@ -1207,10 +1125,12 @@ paths:
             schema:
               $ref: '#/components/schemas/ECSignedPreKey'
       responses:
-        default:
-          description: default response
-          content:
-            '*/*': {}
+        "200":
+          description: Indicates that new prekey was successfully stored.
+        "401":
+          description: Account authentication check failed.
+        "422":
+          description: Invalid request format.
       security:
       - authenticatedAccount: []
   /v1/messages:
@@ -2542,6 +2462,27 @@ paths:
                 $ref: '#/components/schemas/VerificationSessionResponse'
 components:
   schemas:
+    UsernameHashResponse:
+      type: object
+      properties:
+        usernameHash:
+          type: array
+          items:
+            type: string
+            format: byte
+    ConfirmUsernameHashRequest:
+      type: object
+      properties:
+        usernameHash:
+          type: array
+          items:
+            type: string
+            format: byte
+        zkProof:
+          type: array
+          items:
+            type: string
+            format: byte
     AccountIdentityResponse:
       type: object
       properties:
@@ -2566,159 +2507,6 @@ components:
         storageCapable:
           type: boolean
           description: whether any of this account's devices support storage
-    ChangePhoneNumberRequest:
-      required:
-      - code
-      - number
-      type: object
-      properties:
-        reglock:
-          type: string
-          description: "the registration lock password for the new phone number, if\
-            \ necessary"
-        number:
-          type: string
-          description: the new phone number for this account
-        code:
-          type: string
-          description: the registration verification code to authenticate this request
-        pniIdentityKey:
-          $ref: '#/components/schemas/IdentityKey'
-        deviceMessages:
-          type: array
-          description: |-
-            A list of synchronization messages to send to companion devices to supply the private keysManager
-            associated with the new identity key and their new prekeys.
-            Exactly one message must be supplied for each enabled device other than the sending (primary) device.
-          items:
-            $ref: '#/components/schemas/IncomingMessage'
-        devicePniSignedPrekeys:
-          type: object
-          additionalProperties:
-            $ref: '#/components/schemas/ECSignedPreKey'
-          description: |-
-            A new signed elliptic-curve prekey for each enabled device on the account, including this one.
-            Each must be accompanied by a valid signature from the new identity key in this request.
-        devicePniPqLastResortPrekeys:
-          type: object
-          additionalProperties:
-            $ref: '#/components/schemas/KEMSignedPreKey'
-          description: |-
-            A new signed post-quantum last-resort prekey for each enabled device on the account, including this one.
-            May be absent, in which case the last resort PQ prekeys for each device will be deleted if any had been stored.
-            If present, must contain one prekey per enabled device including this one.
-            Prekeys for devices that did not previously have any post-quantum prekeys stored will be silently dropped.
-            Each must be accompanied by a valid signature from the new identity key in this request.
-        pniRegistrationIds:
-          type: object
-          additionalProperties:
-            type: integer
-            description: "the new phone-number-identity registration ID for each enabled\
-              \ device on the account, including this one"
-            format: int32
-          description: "the new phone-number-identity registration ID for each enabled\
-            \ device on the account, including this one"
-        signatureValidOnEachSignedPreKey:
-          type: boolean
-    ECPublicKey:
-      type: object
-      properties:
-        type:
-          type: integer
-          format: int32
-        publicKeyBytes:
-          type: array
-          items:
-            type: string
-            format: byte
-    ECSignedPreKey:
-      type: object
-      properties:
-        keyId:
-          type: integer
-          format: int64
-        publicKey:
-          $ref: '#/components/schemas/ECPublicKey'
-        signature:
-          type: array
-          items:
-            type: string
-            format: byte
-      description: |
-        A signed EC pre-key to be associated with this account's PNI. If provided, an account
-        will be created "atomically," and all other properties needed for atomic account
-        creation must also be present.
-    IdentityKey:
-      type: object
-      properties:
-        publicKey:
-          $ref: '#/components/schemas/ECPublicKey'
-        fingerprint:
-          type: string
-      description: |
-        The PNI-associated identity key for the account, encoded as a base64 string. If
-        provided, an account will be created "atomically," and all other properties needed for
-        atomic account creation must also be present.
-    IncomingMessage:
-      type: object
-      properties:
-        type:
-          type: integer
-          format: int32
-        destinationDeviceId:
-          type: integer
-          format: int64
-        destinationRegistrationId:
-          type: integer
-          format: int32
-        content:
-          type: string
-    KEMPublicKey:
-      type: object
-    KEMSignedPreKey:
-      type: object
-      properties:
-        keyId:
-          type: integer
-          format: int64
-        publicKey:
-          $ref: '#/components/schemas/KEMPublicKey'
-        signature:
-          type: array
-          items:
-            type: string
-            format: byte
-      description: |
-        A signed Kyber-1024 "last resort" pre-key to be associated with this account's PNI. If
-        provided, an account will be created "atomically," and all other properties needed for
-        atomic account creation must also be present.
-    UsernameHashResponse:
-      type: object
-      properties:
-        usernameHash:
-          type: array
-          items:
-            type: string
-            format: byte
-    ConfirmUsernameHashRequest:
-      type: object
-      properties:
-        usernameHash:
-          type: array
-          items:
-            type: string
-            format: byte
-        zkProof:
-          type: array
-          items:
-            type: string
-            format: byte
-    ScoreThreshold:
-      type: object
-      properties:
-        scoreThreshold:
-          type: number
-          format: float
     TurnToken:
       type: object
       properties:
@@ -2887,16 +2675,6 @@ components:
         usernameLinkHandle:
           type: string
           format: uuid
-    BasicAuthorizationHeader:
-      type: object
-      properties:
-        username:
-          type: string
-        deviceId:
-          type: integer
-          format: int64
-        password:
-          type: string
     MismatchedDevices:
       type: object
       properties:
@@ -2963,16 +2741,10 @@ components:
             A session ID from registration service, if using session id to authenticate this request.
             Must not be combined with `recoveryPassword`.
         recoveryPassword:
-          type: array
+          type: string
           description: |-
-            The recovery password for the new phone number, if using a recovery password to authenticate this request.
+            The base64-encoded recovery password for the new phone number, if using a recovery password to authenticate this request.
             Must not be combined with `sessionId`.
-          items:
-            type: string
-            description: |-
-              The recovery password for the new phone number, if using a recovery password to authenticate this request.
-              Must not be combined with `sessionId`.
-            format: byte
         number:
           type: string
           description: the new phone number for this account
@@ -3016,6 +2788,85 @@ components:
           type: boolean
         valid:
           type: boolean
+    ECPublicKey:
+      type: object
+      properties:
+        type:
+          type: integer
+          format: int32
+        publicKeyBytes:
+          type: array
+          items:
+            type: string
+            format: byte
+    ECSignedPreKey:
+      type: object
+      properties:
+        keyId:
+          type: integer
+          description: |
+            An arbitrary ID for this key, which will be provided by peers using this key to encrypt messages so the private key can be looked up.
+            Should not be zero. Should be less than 2^24.
+          format: int64
+        publicKey:
+          type: string
+          description: |
+            The public key, serialized in libsignal's elliptic-curve public key format and then base64-encoded.
+        signature:
+          type: string
+          description: |
+            The signature of the serialized `publicKey` with the account (or phone-number identity)'s identity key, base64-encoded.
+      description: |
+        A signed EC pre-key to be associated with this account's PNI. If provided, an account
+        will be created "atomically," and all other properties needed for atomic account
+        creation must also be present.
+    IdentityKey:
+      type: object
+      properties:
+        publicKey:
+          $ref: '#/components/schemas/ECPublicKey'
+        fingerprint:
+          type: string
+      description: |
+        The PNI-associated identity key for the account, encoded as a base64 string. If
+        provided, an account will be created "atomically," and all other properties needed for
+        atomic account creation must also be present.
+    IncomingMessage:
+      type: object
+      properties:
+        type:
+          type: integer
+          format: int32
+        destinationDeviceId:
+          type: integer
+          format: int64
+        destinationRegistrationId:
+          type: integer
+          format: int32
+        content:
+          type: string
+    KEMSignedPreKey:
+      type: object
+      properties:
+        keyId:
+          type: integer
+          description: |
+            An arbitrary ID for this key, which will be provided by peers using this key to encrypt messages so the private key can be looked up.
+            Should not be zero. Should be less than 2^24. The owner of this key must be able to determine from the key ID whether this represents
+            a single-use or last-resort key, but another party should *not* be able to tell.
+          format: int64
+        publicKey:
+          type: string
+          description: |
+            The public key, serialized in libsignal's Kyber1024 public key format and then base64-encoded.
+        signature:
+          type: string
+          description: |
+            The signature of the serialized `publicKey` with the account (or phone-number identity)'s identity key, base64-encoded.
+      description: |
+        A signed Kyber-1024 "last resort" pre-key to be associated with this account's PNI. If
+        provided, an account will be created "atomically," and all other properties needed for
+        atomic account creation must also be present.
     PhoneNumberIdentityKeyDistributionRequest:
       required:
       - deviceMessages
@@ -3028,8 +2879,8 @@ components:
           $ref: '#/components/schemas/IdentityKey'
         deviceMessages:
           type: array
-          description: |-
-            A list of synchronization messages to send to companion devices to supply the private keysManager
+          description: |
+            A list of synchronization messages to send to companion devices to supply the private keys
             associated with the new identity key and their new prekeys.
             Exactly one message must be supplied for each enabled device other than the sending (primary) device.
           items:
@@ -3055,11 +2906,11 @@ components:
           type: object
           additionalProperties:
             type: integer
-            description: The new registration ID to use for the phone-number identity
-              of each device
+            description: "The new registration ID to use for the phone-number identity\
+              \ of each device, including this one."
             format: int32
-          description: The new registration ID to use for the phone-number identity
-            of each device
+          description: "The new registration ID to use for the phone-number identity\
+            \ of each device, including this one."
         signatureValidOnEachSignedPreKey:
           type: boolean
     AccountAndDevicesDataReport:
@@ -3304,6 +3155,16 @@ components:
         deviceId:
           type: integer
           format: int64
+    BasicAuthorizationHeader:
+      type: object
+      properties:
+        username:
+          type: string
+        deviceId:
+          type: integer
+          format: int64
+        password:
+          type: string
     DeviceActivationRequest:
       type: object
       properties:
@@ -3374,6 +3235,51 @@ components:
           type: object
         client:
           $ref: '#/components/schemas/WebSocketClient'
+    ECPreKey:
+      type: object
+      properties:
+        keyId:
+          type: integer
+          description: |
+            An arbitrary ID for this key, which will be provided by peers using this key to encrypt messages so the private key can be looked up.
+            Should not be zero. Should be less than 2^24.
+          format: int64
+        publicKey:
+          type: string
+          description: |
+            The public key, serialized in libsignal's elliptic-curve public key format and then base64-encoded.
+      description: "A list of unsigned elliptic-curve prekeys to use for this device.\
+        \ If present and not empty, replaces all stored unsigned EC prekeys for the\
+        \ device; if absent or empty, any stored unsigned EC prekeys for the device\
+        \ are not deleted."
+    PreKeyResponse:
+      type: object
+      properties:
+        identityKey:
+          $ref: '#/components/schemas/IdentityKey'
+        devices:
+          type: array
+          description: information about each requested device
+          items:
+            $ref: '#/components/schemas/PreKeyResponseItem'
+    PreKeyResponseItem:
+      type: object
+      properties:
+        deviceId:
+          type: integer
+          description: the device ID of the device to which this item pertains
+          format: int64
+        registrationId:
+          type: integer
+          description: the registration ID for the device
+          format: int32
+        signedPreKey:
+          $ref: '#/components/schemas/ECSignedPreKey'
+        preKey:
+          $ref: '#/components/schemas/ECPreKey'
+        pqPreKey:
+          $ref: '#/components/schemas/KEMSignedPreKey'
+      description: information about each requested device
     Anonymous:
       type: object
       properties:
@@ -3395,18 +3301,6 @@ components:
           description: the number of stored one-time post-quantum prekeys for this
             device
           format: int32
-    ECPreKey:
-      type: object
-      properties:
-        keyId:
-          type: integer
-          format: int64
-        publicKey:
-          $ref: '#/components/schemas/ECPublicKey'
-      description: "A list of unsigned elliptic-curve prekeys to use for this device.\
-        \ If present and not empty, replaces all stored unsigned EC prekeys for the\
-        \ device; if absent or empty, any stored unsigned EC prekeys for the device\
-        \ are not deleted."
     PreKeyState:
       required:
       - identityKey
@@ -3792,9 +3686,9 @@ components:
           $ref: '#/components/schemas/ApnRegistrationId'
         gcmToken:
           $ref: '#/components/schemas/GcmRegistrationId'
-        completeRequest:
-          type: boolean
         everySignedKeyValid:
+          type: boolean
+        completeRequest:
           type: boolean
         valid:
           type: boolean
@@ -4084,6 +3978,12 @@ components:
           - voice
         client:
           type: string
+    ScoreThreshold:
+      type: object
+      properties:
+        scoreThreshold:
+          type: number
+          format: float
     SubmitVerificationCodeRequest:
       required:
       - code
