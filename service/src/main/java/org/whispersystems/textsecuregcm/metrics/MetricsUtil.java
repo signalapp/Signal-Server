@@ -63,6 +63,21 @@ public class MetricsUtil {
             }
           });
 
+      // Remove high-cardinality `command` tags from Lettuce metrics and prepend "chat." to meter names
+      datadogMeterRegistry.config().meterFilter(new MeterFilter() {
+        @Override
+        public Meter.Id map(final Meter.Id id) {
+          if (id.getName().startsWith("lettuce")) {
+            return id.withName(PREFIX + "." + id.getName())
+                .replaceTags(id.getTags().stream()
+                    .filter(tag -> !"command".equals(tag.getKey()))
+                    .toList());
+          }
+
+          return MeterFilter.super.map(id);
+        }
+      });
+
       Metrics.addRegistry(datadogMeterRegistry);
     }
 
