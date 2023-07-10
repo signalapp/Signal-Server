@@ -41,6 +41,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -74,6 +75,8 @@ import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicDeliveryLatencyConfiguration;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.IncomingMessage;
 import org.whispersystems.textsecuregcm.entities.IncomingMessageList;
@@ -99,6 +102,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DeletedAccounts;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
@@ -149,6 +153,7 @@ class MessageControllerTest {
   private static final ReportMessageManager reportMessageManager = mock(ReportMessageManager.class);
   private static final ExecutorService multiRecipientMessageExecutor = mock(ExecutorService.class);
   private static final Scheduler messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
+  private static final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
 
   private static final ResourceExtension resources = ResourceExtension.builder()
       .addProperty(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE)
@@ -161,7 +166,7 @@ class MessageControllerTest {
       .addResource(
           new MessageController(rateLimiters, messageSender, receiptSender, accountsManager, deletedAccounts,
               messagesManager, pushNotificationManager, reportMessageManager, multiRecipientMessageExecutor,
-              messageDeliveryScheduler, ReportSpamTokenProvider.noop()))
+              messageDeliveryScheduler, ReportSpamTokenProvider.noop(), dynamicConfigurationManager))
       .build();
 
   @BeforeEach
@@ -190,6 +195,14 @@ class MessageControllerTest {
     when(accountsManager.getByAccountIdentifier(eq(MULTI_DEVICE_UUID))).thenReturn(Optional.of(multiDeviceAccount));
     when(accountsManager.getByPhoneNumberIdentifier(MULTI_DEVICE_PNI)).thenReturn(Optional.of(multiDeviceAccount));
     when(accountsManager.getByAccountIdentifier(INTERNATIONAL_UUID)).thenReturn(Optional.of(internationalAccount));
+
+    final DynamicDeliveryLatencyConfiguration deliveryLatencyConfiguration = mock(DynamicDeliveryLatencyConfiguration.class);
+    when(deliveryLatencyConfiguration.instrumentedVersions()).thenReturn(Collections.emptyMap());
+
+    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
+    when(dynamicConfiguration.getDeliveryLatencyConfiguration()).thenReturn(deliveryLatencyConfiguration);
+
+    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
 
     when(rateLimiters.getMessagesLimiter()).thenReturn(rateLimiter);
   }

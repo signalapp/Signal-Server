@@ -7,13 +7,14 @@ package org.whispersystems.textsecuregcm.metrics;
 
 import com.vdurmont.semver4j.Semver;
 import io.micrometer.core.instrument.Tag;
-import org.whispersystems.textsecuregcm.util.Pair;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
 import org.whispersystems.textsecuregcm.util.ua.UserAgent;
 import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
-
-import java.util.*;
 
 /**
  * Utility class for extracting platform/version metrics tags from User-Agent strings.

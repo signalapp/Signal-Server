@@ -8,7 +8,6 @@ package org.whispersystems.textsecuregcm.push;
 import com.codahale.metrics.MetricRegistry;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.annotations.VisibleForTesting;
-import com.vdurmont.semver4j.Semver;
 import io.lettuce.core.SetArgs;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
@@ -16,10 +15,8 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.commons.lang3.StringUtils;
@@ -30,9 +27,6 @@ import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
-import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
-import org.whispersystems.textsecuregcm.util.ua.UserAgent;
-import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 
 /**
  * Measures and records the latency between sending a push notification to a device and that device draining its queue
@@ -105,20 +99,11 @@ public class PushLatencyManager {
         tags.add(UserAgentTagUtil.getPlatformTag(userAgentString));
         tags.add(Tag.of("pushType", pushRecord.pushType().name().toLowerCase()));
 
+        UserAgentTagUtil.getClientVersionTag(userAgentString,
+                dynamicConfigurationManager.getConfiguration().getPushLatencyConfiguration().instrumentedVersions())
+            .ifPresent(tags::add);
+
         pushRecord.urgent().ifPresent(urgent -> tags.add(Tag.of("urgent", String.valueOf(urgent))));
-
-        try {
-          final UserAgent userAgent = UserAgentUtil.parseUserAgentString(userAgentString);
-
-          final Set<Semver> instrumentedVersions =
-              dynamicConfigurationManager.getConfiguration().getPushLatencyConfiguration().getInstrumentedVersions()
-                  .getOrDefault(userAgent.getPlatform(), Collections.emptySet());
-
-          if (instrumentedVersions.contains(userAgent.getVersion())) {
-            tags.add(Tag.of("clientVersion", userAgent.getVersion().toString()));
-          }
-        } catch (UnrecognizedUserAgentException ignored) {
-        }
 
         Metrics.timer(TIMER_NAME, tags).record(latency);
       }

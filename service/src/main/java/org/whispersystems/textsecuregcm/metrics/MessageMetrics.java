@@ -7,9 +7,14 @@ package org.whispersystems.textsecuregcm.metrics;
 
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
+import com.vdurmont.semver4j.Semver;
 import io.micrometer.core.instrument.Metrics;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
@@ -18,6 +23,8 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
 import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
+import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 
 public final class MessageMetrics {
 
@@ -54,10 +61,18 @@ public final class MessageMetrics {
     }
   }
 
-  public static void measureOutgoingMessageLatency(final long serverTimestamp, final String channel, final String userAgent) {
-    Metrics.timer(DELIVERY_LATENCY_TIMER_NAME, Tags.of(
-            UserAgentTagUtil.getPlatformTag(userAgent),
-            Tag.of("channel", channel)))
+  public static void measureOutgoingMessageLatency(final long serverTimestamp,
+      final String channel,
+      final String userAgent,
+      final Map<ClientPlatform, Set<Semver>> taggedVersions) {
+
+    final List<Tag> tags = new ArrayList<>(3);
+    tags.add(UserAgentTagUtil.getPlatformTag(userAgent));
+    tags.add(Tag.of("channel", channel));
+
+    UserAgentTagUtil.getClientVersionTag(userAgent, taggedVersions).ifPresent(tags::add);
+
+    Metrics.timer(DELIVERY_LATENCY_TIMER_NAME, tags)
         .record(Duration.between(Instant.ofEpochMilli(serverTimestamp), Instant.now()));
   }
 }

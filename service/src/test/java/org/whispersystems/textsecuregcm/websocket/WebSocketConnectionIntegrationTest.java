@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -44,12 +45,15 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicDeliveryLatencyConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtension;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.storage.MessagesCache;
@@ -79,6 +83,7 @@ class WebSocketConnectionIntegrationTest {
   private Device device;
   private WebSocketClient webSocketClient;
   private Scheduler messageDeliveryScheduler;
+  private DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
 
   private long serialTimestamp = System.currentTimeMillis();
 
@@ -97,6 +102,15 @@ class WebSocketConnectionIntegrationTest {
     account = mock(Account.class);
     device = mock(Device.class);
     webSocketClient = mock(WebSocketClient.class);
+
+    final DynamicDeliveryLatencyConfiguration deliveryLatencyConfiguration = mock(DynamicDeliveryLatencyConfiguration.class);
+    when(deliveryLatencyConfiguration.instrumentedVersions()).thenReturn(Collections.emptyMap());
+
+    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
+    when(dynamicConfiguration.getDeliveryLatencyConfiguration()).thenReturn(deliveryLatencyConfiguration);
+
+    dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
+    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
 
     when(account.getNumber()).thenReturn("+18005551234");
     when(account.getUuid()).thenReturn(UUID.randomUUID());
@@ -126,7 +140,7 @@ class WebSocketConnectionIntegrationTest {
         device,
         webSocketClient,
         scheduledExecutorService,
-        messageDeliveryScheduler);
+        messageDeliveryScheduler, dynamicConfigurationManager);
 
     final List<MessageProtos.Envelope> expectedMessages = new ArrayList<>(persistedMessageCount + cachedMessageCount);
 
@@ -210,7 +224,7 @@ class WebSocketConnectionIntegrationTest {
         device,
         webSocketClient,
         scheduledExecutorService,
-        messageDeliveryScheduler);
+        messageDeliveryScheduler, dynamicConfigurationManager);
 
     final int persistedMessageCount = 207;
     final int cachedMessageCount = 173;
@@ -276,7 +290,8 @@ class WebSocketConnectionIntegrationTest {
         webSocketClient,
         100, // use a very short timeout, so that this test completes quickly
         scheduledExecutorService,
-        messageDeliveryScheduler);
+        messageDeliveryScheduler,
+        dynamicConfigurationManager);
 
     final int persistedMessageCount = 207;
     final int cachedMessageCount = 173;

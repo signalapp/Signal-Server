@@ -66,6 +66,7 @@ import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.CombinedUnidentifiedSenderAccessKeys;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountMismatchedDevices;
 import org.whispersystems.textsecuregcm.entities.AccountStaleDevices;
 import org.whispersystems.textsecuregcm.entities.IncomingMessage;
@@ -95,6 +96,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DeletedAccounts;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.util.DestinationDeviceValidator;
@@ -122,6 +124,7 @@ public class MessageController {
   private final ExecutorService multiRecipientMessageExecutor;
   private final Scheduler messageDeliveryScheduler;
   private final ReportSpamTokenProvider reportSpamTokenProvider;
+  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
 
   private static final String REJECT_OVERSIZE_MESSAGE_COUNTER = name(MessageController.class, "rejectOversizeMessage");
   private static final String SENT_MESSAGE_COUNTER_NAME = name(MessageController.class, "sentMessages");
@@ -154,7 +157,8 @@ public class MessageController {
       ReportMessageManager reportMessageManager,
       @Nonnull ExecutorService multiRecipientMessageExecutor,
       Scheduler messageDeliveryScheduler,
-      @Nonnull ReportSpamTokenProvider reportSpamTokenProvider) {
+      @Nonnull ReportSpamTokenProvider reportSpamTokenProvider,
+      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
     this.rateLimiters = rateLimiters;
     this.messageSender = messageSender;
     this.receiptSender = receiptSender;
@@ -166,6 +170,7 @@ public class MessageController {
     this.multiRecipientMessageExecutor = Objects.requireNonNull(multiRecipientMessageExecutor);
     this.messageDeliveryScheduler = messageDeliveryScheduler;
     this.reportSpamTokenProvider = reportSpamTokenProvider;
+    this.dynamicConfigurationManager = dynamicConfigurationManager;
   }
 
   @Timed
@@ -536,7 +541,8 @@ public class MessageController {
               .map(OutgoingMessageEntity::fromEnvelope)
               .peek(outgoingMessageEntity -> {
                 MessageMetrics.measureAccountOutgoingMessageUuidMismatches(auth.getAccount(), outgoingMessageEntity);
-                MessageMetrics.measureOutgoingMessageLatency(outgoingMessageEntity.serverTimestamp(), "rest", userAgent);
+                MessageMetrics.measureOutgoingMessageLatency(outgoingMessageEntity.serverTimestamp(), "rest", userAgent,
+                    dynamicConfigurationManager.getConfiguration().getDeliveryLatencyConfiguration().instrumentedVersions());
               })
               .collect(Collectors.toList()),
               messagesAndHasMore.second());

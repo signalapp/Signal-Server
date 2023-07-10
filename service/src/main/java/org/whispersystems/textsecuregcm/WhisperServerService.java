@@ -642,7 +642,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     webSocketEnvironment.setAuthenticator(new WebSocketAccountAuthenticator(accountAuthenticator));
     webSocketEnvironment.setConnectListener(
         new AuthenticatedConnectListener(receiptSender, messagesManager, pushNotificationManager,
-            clientPresenceManager, websocketScheduledExecutor, messageDeliveryScheduler));
+            clientPresenceManager, websocketScheduledExecutor, messageDeliveryScheduler, dynamicConfigurationManager));
     webSocketEnvironment.jersey()
         .register(new WebsocketRefreshApplicationEventListener(accountsManager, clientPresenceManager));
     webSocketEnvironment.jersey().register(new RequestStatisticsFilter(TrafficSource.WEBSOCKET));
@@ -719,7 +719,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             ReceiptCredentialPresentation::new),
         new MessageController(rateLimiters, messageSender, receiptSender, accountsManager, deletedAccounts,
             messagesManager, pushNotificationManager, reportMessageManager, multiRecipientMessageExecutor,
-            messageDeliveryScheduler, reportSpamTokenProvider),
+            messageDeliveryScheduler, reportSpamTokenProvider, dynamicConfigurationManager),
         new PaymentsController(currencyManager, paymentsCredentialsGenerator),
         new ProfileController(clock, rateLimiters, accountsManager, profilesManager, dynamicConfigurationManager,
             profileBadgeConverter, config.getBadges(), cdnS3Client, profileCdnPolicyGenerator, profileCdnPolicySigner,

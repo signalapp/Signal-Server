@@ -47,7 +47,7 @@ class PushLatencyManagerTest {
 
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
     when(dynamicConfiguration.getPushLatencyConfiguration()).thenReturn(dynamicPushLatencyConfiguration);
-    when(dynamicPushLatencyConfiguration.getInstrumentedVersions()).thenReturn(Collections.emptyMap());
+    when(dynamicPushLatencyConfiguration.instrumentedVersions()).thenReturn(Collections.emptyMap());
   }
 
   @ParameterizedTest

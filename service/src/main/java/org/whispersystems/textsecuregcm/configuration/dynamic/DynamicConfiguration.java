@@ -59,6 +59,10 @@ public class DynamicConfiguration {
   @Valid
   DynamicECPreKeyMigrationConfiguration ecPreKeyMigration = new DynamicECPreKeyMigrationConfiguration(true, false);
 
+  @JsonProperty
+  @Valid
+  DynamicDeliveryLatencyConfiguration deliveryLatency = new DynamicDeliveryLatencyConfiguration(Collections.emptyMap());
+
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(
       final String experimentName) {
     return Optional.ofNullable(experiments.get(experimentName));
@@ -103,5 +107,9 @@ public class DynamicConfiguration {
 
   public DynamicECPreKeyMigrationConfiguration getEcPreKeyMigrationConfiguration() {
     return ecPreKeyMigration;
+  }
+
+  public DynamicDeliveryLatencyConfiguration getDeliveryLatencyConfiguration() {
+    return deliveryLatency;
   }
 }
