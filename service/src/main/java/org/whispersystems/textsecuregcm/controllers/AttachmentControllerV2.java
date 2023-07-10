@@ -11,6 +11,7 @@ import com.codahale.metrics.annotation.Timed;
 import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tags;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.security.SecureRandom;
 import java.time.ZoneOffset;
@@ -60,10 +61,10 @@ public class AttachmentControllerV2 {
     ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
     long attachmentId = generateAttachmentId();
     String objectName = String.valueOf(attachmentId);
-    Pair<String, String> policy = policyGenerator.createFor(now, String.valueOf(objectName), 100 * 1024 * 1024);
+    Pair<String, String> policy = policyGenerator.createFor(now, objectName, 100 * 1024 * 1024);
     String signature = policySigner.getSignature(now, policy.second());
 
-    Metrics.counter(CREATE_UPLOAD_COUNTER_NAME, UserAgentTagUtil.getUserAgentTags(userAgent)).increment();
+    Metrics.counter(CREATE_UPLOAD_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent))).increment();
 
     return new AttachmentDescriptorV2(attachmentId, objectName, policy.first(),
         "private", "AWS4-HMAC-SHA256",
