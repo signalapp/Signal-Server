@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
@@ -632,9 +633,20 @@ public class Accounts extends AbstractDynamoDbStore {
   }
 
   @Nonnull
+  public CompletableFuture<Optional<Account>> getByE164Async(final String number) {
+    return getByIndirectLookupAsync(
+        GET_BY_NUMBER_TIMER, phoneNumberConstraintTableName, ATTR_ACCOUNT_E164, AttributeValues.fromString(number));
+  }
+
+  @Nonnull
   public Optional<Account> getByPhoneNumberIdentifier(final UUID phoneNumberIdentifier) {
     return getByIndirectLookup(
         GET_BY_PNI_TIMER, phoneNumberIdentifierConstraintTableName, ATTR_PNI_UUID, AttributeValues.fromUUID(phoneNumberIdentifier));
+  }
+
+  @Nonnull
+  public CompletableFuture<Optional<Account>> getByPhoneNumberIdentifierAsync(final UUID phoneNumberIdentifier) {
+    return getByIndirectLookupAsync(GET_BY_PNI_TIMER, phoneNumberIdentifierConstraintTableName, ATTR_PNI_UUID, AttributeValues.fromUUID(phoneNumberIdentifier));
   }
 
   @Nonnull
@@ -660,6 +672,13 @@ public class Accounts extends AbstractDynamoDbStore {
     return requireNonNull(GET_BY_UUID_TIMER.record(() ->
         itemByKey(accountsTableName, KEY_ACCOUNT_UUID, AttributeValues.fromUUID(uuid))
             .map(Accounts::fromItem)));
+  }
+
+  @Nonnull
+  public CompletableFuture<Optional<Account>> getByAccountIdentifierAsync(final UUID uuid) {
+    return record(GET_BY_UUID_TIMER, () -> itemByKeyAsync(accountsTableName, KEY_ACCOUNT_UUID, AttributeValues.fromUUID(uuid))
+        .thenApply(maybeItem -> maybeItem.map(Accounts::fromItem)))
+        .toCompletableFuture();
   }
 
   public void delete(final UUID uuid) {
@@ -725,6 +744,16 @@ public class Accounts extends AbstractDynamoDbStore {
   }
 
   @Nonnull
+  private CompletableFuture<Optional<Account>> getByIndirectLookupAsync(
+      final Timer timer,
+      final String tableName,
+      final String keyName,
+      final AttributeValue keyValue) {
+
+    return getByIndirectLookupAsync(timer, tableName, keyName, keyValue, i -> true);
+  }
+
+  @Nonnull
   private Optional<Account> getByIndirectLookup(
       final Timer timer,
       final String tableName,
@@ -740,6 +769,24 @@ public class Accounts extends AbstractDynamoDbStore {
   }
 
   @Nonnull
+  private CompletableFuture<Optional<Account>> getByIndirectLookupAsync(
+      final Timer timer,
+      final String tableName,
+      final String keyName,
+      final AttributeValue keyValue,
+      final Predicate<? super Map<String, AttributeValue>> predicate) {
+
+    return record(timer, () -> itemByKeyAsync(tableName, keyName, keyValue)
+        .thenCompose(maybeItem -> maybeItem
+            .filter(predicate)
+            .map(item -> item.get(KEY_ACCOUNT_UUID))
+            .map(uuid -> itemByKeyAsync(accountsTableName, KEY_ACCOUNT_UUID, uuid)
+                .thenApply(maybeAccountItem -> maybeAccountItem.map(Accounts::fromItem)))
+            .orElse(CompletableFuture.completedFuture(Optional.empty()))))
+        .toCompletableFuture();
+  }
+
+  @Nonnull
   private Optional<Map<String, AttributeValue>> itemByKey(final String table, final String keyName, final AttributeValue keyValue) {
     final GetItemResponse response = db().getItem(GetItemRequest.builder()
         .tableName(table)
@@ -747,6 +794,16 @@ public class Accounts extends AbstractDynamoDbStore {
         .consistentRead(true)
         .build());
     return Optional.ofNullable(response.item()).filter(m -> !m.isEmpty());
+  }
+
+  @Nonnull
+  private CompletableFuture<Optional<Map<String, AttributeValue>>> itemByKeyAsync(final String table, final String keyName, final AttributeValue keyValue) {
+    return asyncClient.getItem(GetItemRequest.builder()
+            .tableName(table)
+            .key(Map.of(keyName, keyValue))
+            .consistentRead(true)
+            .build())
+        .thenApply(response -> Optional.ofNullable(response.item()).filter(item -> !item.isEmpty()));
   }
 
   @Nonnull

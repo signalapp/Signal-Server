@@ -41,6 +41,7 @@ import java.util.stream.Collectors;
 import org.apache.commons.lang3.RandomUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -73,6 +74,7 @@ import software.amazon.awssdk.services.dynamodb.model.TransactionCanceledExcepti
 import software.amazon.awssdk.services.dynamodb.model.TransactionConflictException;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 
+@Timeout(value = 10, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
 class AccountsTest {
 
   private static final String BASE_64_URL_USERNAME_HASH_1 = "9p6Tip7BFefFOJzv4kv4GyXEYsBVfk_WbjNejdlOvQE";
@@ -571,6 +573,44 @@ class AccountsTest {
 
     retrieved = accounts.getByAccountIdentifier(UUID.randomUUID());
     assertThat(retrieved.isPresent()).isFalse();
+  }
+
+  @Test
+  void getByAccountIdentifierAsync() {
+    assertThat(accounts.getByAccountIdentifierAsync(UUID.randomUUID()).join()).isEmpty();
+
+    final Account account =
+        generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID(), List.of(generateDevice(1)));
+
+    accounts.create(account);
+
+    assertThat(accounts.getByAccountIdentifierAsync(account.getUuid()).join()).isPresent();
+  }
+
+  @Test
+  void getByPhoneNumberIdentifierAsync() {
+    assertThat(accounts.getByPhoneNumberIdentifierAsync(UUID.randomUUID()).join()).isEmpty();
+
+    final Account account =
+        generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID(), List.of(generateDevice(1)));
+
+    accounts.create(account);
+
+    assertThat(accounts.getByPhoneNumberIdentifierAsync(account.getPhoneNumberIdentifier()).join()).isPresent();
+  }
+
+  @Test
+  void getByE164Async() {
+    final String e164 = "+14151112222";
+
+    assertThat(accounts.getByE164Async(e164).join()).isEmpty();
+
+    final Account account =
+        generateAccount(e164, UUID.randomUUID(), UUID.randomUUID(), List.of(generateDevice(1)));
+
+    accounts.create(account);
+
+    assertThat(accounts.getByE164Async(e164).join()).isPresent();
   }
 
   @Test
