@@ -230,10 +230,6 @@ unidentifiedDelivery:
   privateKey: secret://unidentifiedDelivery.privateKey
   expiresDays: 7
 
-challenge:
-  blindingSecret: secret://challengeToken.blindingSecret
-  tokenTtl: PT10M
-
 recaptcha:
   projectPath: projects/example
   credentialConfigurationJson: "{ }" # service account configuration for backend authentication

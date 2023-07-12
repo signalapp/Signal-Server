@@ -21,13 +21,8 @@ import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import java.io.IOException;
-import java.time.Clock;
 import java.time.Duration;
-import java.time.Instant;
-import java.time.ZoneId;
-import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.Response;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
@@ -36,30 +31,18 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
-import org.whispersystems.textsecuregcm.configuration.ChallengeConfiguration;
-import org.whispersystems.textsecuregcm.configuration.secrets.SecretBytes;
 import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
-import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
-import org.whispersystems.textsecuregcm.util.ChallengeTokenBlinder;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
-import org.whispersystems.textsecuregcm.util.TestClock;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class ChallengeControllerTest {
+
   private static final RateLimitChallengeManager rateLimitChallengeManager = mock(RateLimitChallengeManager.class);
 
-  private static final Accounts accounts = mock(Accounts.class);
-
-  private static final TestClock clock = TestClock.now();
-  
-  private static final ChallengeTokenBlinder tokenBlinder = new ChallengeTokenBlinder(
-      new ChallengeConfiguration(new SecretBytes("super secret key".getBytes()), Duration.ofMinutes(10)),
-      clock);
-
-  private static final ChallengeController challengeController = new ChallengeController(accounts, tokenBlinder, rateLimitChallengeManager);
+  private static final ChallengeController challengeController = new ChallengeController(rateLimitChallengeManager);
 
   private static final ResourceExtension EXTENSION = ResourceExtension.builder()
       .addProvider(AuthHelper.getAuthFilter())
@@ -73,9 +56,7 @@ class ChallengeControllerTest {
 
   @AfterEach
   void teardown() {
-    reset(accounts);
     reset(rateLimitChallengeManager);
-    clock.unpin();
   }
 
   @Test
@@ -207,181 +188,6 @@ class ChallengeControllerTest {
     verifyNoInteractions(rateLimitChallengeManager);
   }
 
-  @Test
-  void testHandleRecaptchaWithTokenAuth() throws Exception {
-    final String recaptchaChallengeJson = """
-        {
-          "type": "recaptcha",
-          "token": "%s",
-          "captcha": "The value of the solved captcha token"
-        }
-    """.formatted(tokenBlinder.generateBlindedAccountToken(AuthHelper.VALID_UUID));
-
-    when(accounts.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
-    when(rateLimitChallengeManager.answerRecaptchaChallenge(any(), any(), any(), any()))
-        .thenReturn(true);
-
-    final Response response = EXTENSION.target("/v1/challenge")
-        .request()
-        .header(HttpHeaders.X_FORWARDED_FOR, "10.0.0.1")
-        .put(Entity.json(recaptchaChallengeJson));
-
-    assertEquals(200, response.getStatus());
-
-    verify(rateLimitChallengeManager).answerRecaptchaChallenge(eq(AuthHelper.VALID_ACCOUNT), eq("The value of the solved captcha token"), eq("10.0.0.1"), anyString());
-  }
-
-  @Test
-  void testHandleRecaptchaWithExpiredToken() throws Exception {
-    final String recaptchaChallengeJson = """
-        {
-          "type": "recaptcha",
-          "token": "%s",
-          "captcha": "The value of the solved captcha token"
-        }
-    """.formatted(tokenBlinder.generateBlindedAccountToken(AuthHelper.VALID_UUID));
-
-    clock.pin(clock.instant().plus(Duration.ofMinutes(20)));
-    when(accounts.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
-    when(rateLimitChallengeManager.answerRecaptchaChallenge(any(), any(), any(), any()))
-        .thenReturn(true);
-
-    final Response response = EXTENSION.target("/v1/challenge")
-        .request()
-        .header(HttpHeaders.X_FORWARDED_FOR, "10.0.0.1")
-        .put(Entity.json(recaptchaChallengeJson));
-
-    assertEquals(401, response.getStatus());
-
-    verifyNoInteractions(rateLimitChallengeManager);
-  }
-
-  @Test
-  void testHandleRecaptchaWithPostdatedToken() throws Exception {
-    clock.pin(clock.instant());
-    final String recaptchaChallengeJson = """
-        {
-          "type": "recaptcha",
-          "token": "%s",
-          "captcha": "The value of the solved captcha token"
-        }
-    """.formatted(tokenBlinder.generateBlindedAccountToken(AuthHelper.VALID_UUID));
-
-    clock.pin(clock.instant().minus(Duration.ofMinutes(1)));
-    when(accounts.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
-    when(rateLimitChallengeManager.answerRecaptchaChallenge(any(), any(), any(), any()))
-        .thenReturn(true);
-
-    final Response response = EXTENSION.target("/v1/challenge")
-        .request()
-        .header(HttpHeaders.X_FORWARDED_FOR, "10.0.0.1")
-        .put(Entity.json(recaptchaChallengeJson));
-
-    assertEquals(401, response.getStatus());
-
-    verifyNoInteractions(rateLimitChallengeManager);
-  }
-
-  @Test
-  void testHandleRecaptchaNoAuthNonBase64Token() throws Exception {
-    final String recaptchaChallengeJson = """
-        {
-          "type": "recaptcha",
-          "token": "This is not a valid auth token",
-          "captcha": "The value of the solved captcha token"
-        }
-        """;
-
-    when(rateLimitChallengeManager.answerRecaptchaChallenge(any(), any(), any(), any()))
-        .thenReturn(true);
-
-    final Response response = EXTENSION.target("/v1/challenge")
-        .request()
-        .header(HttpHeaders.X_FORWARDED_FOR, "10.0.0.1")
-        .put(Entity.json(recaptchaChallengeJson));
-
-    assertEquals(401, response.getStatus());
-
-    verifyNoInteractions(rateLimitChallengeManager);
-  }
-
-  @Test
-  void testHandleRecaptchaNoAuthValidBase64Token() throws Exception {
-    final String recaptchaChallengeJson = """
-        {
-          "type": "recaptcha",
-          "token": "Y2x1Y2sgY2x1Y2ssIGknbSBhIHBhcnJvdAo=",
-          "captcha": "The value of the solved captcha token"
-        }
-        """;
-
-    when(rateLimitChallengeManager.answerRecaptchaChallenge(any(), any(), any(), any()))
-        .thenReturn(true);
-
-    final Response response = EXTENSION.target("/v1/challenge")
-        .request()
-        .header(HttpHeaders.X_FORWARDED_FOR, "10.0.0.1")
-        .put(Entity.json(recaptchaChallengeJson));
-
-    assertEquals(401, response.getStatus());
-
-    verifyNoInteractions(rateLimitChallengeManager);
-  }
-
-  @Test
-  void testHandleRecaptchaNoAuthTokenEncryptedWithWrongKey() throws Exception {
-    final String badToken =
-        new ChallengeTokenBlinder(
-            new ChallengeConfiguration(new SecretBytes("oh no, wrong key".getBytes()), Duration.ofMinutes(10)),
-            clock)
-        .generateBlindedAccountToken(AuthHelper.VALID_UUID);
-
-    final String recaptchaChallengeJson = """
-        {
-          "type": "recaptcha",
-          "token": "%s",
-          "captcha": "The value of the solved captcha token"
-        }
-        """.formatted(badToken);
-
-    when(rateLimitChallengeManager.answerRecaptchaChallenge(any(), any(), any(), any()))
-        .thenReturn(true);
-
-    final Response response = EXTENSION.target("/v1/challenge")
-        .request()
-        .header(HttpHeaders.X_FORWARDED_FOR, "10.0.0.1")
-        .put(Entity.json(recaptchaChallengeJson));
-
-    assertEquals(401, response.getStatus());
-
-    verifyNoInteractions(rateLimitChallengeManager);
-  }
-
-  @Test
-  void testHandleRecaptchaWithTokenForBadAccount() throws Exception {
-    final UUID badUUID = UUID.randomUUID();
-    final String recaptchaChallengeJson = """
-        {
-          "type": "recaptcha",
-          "token": "%s",
-          "captcha": "The value of the solved captcha token"
-        }
-    """.formatted(tokenBlinder.generateBlindedAccountToken(badUUID));
-
-    when(accounts.getByAccountIdentifier(badUUID)).thenReturn(Optional.empty());
-    when(rateLimitChallengeManager.answerRecaptchaChallenge(any(), any(), any(), any()))
-        .thenReturn(true);
-
-    final Response response = EXTENSION.target("/v1/challenge")
-        .request()
-        .header(HttpHeaders.X_FORWARDED_FOR, "10.0.0.1")
-        .put(Entity.json(recaptchaChallengeJson));
-
-    assertEquals(401, response.getStatus());
-
-    verifyNoInteractions(rateLimitChallengeManager);
-  }
-  
   @Test
   void testHandleUnrecognizedAnswer() {
     final String unrecognizedJson = """

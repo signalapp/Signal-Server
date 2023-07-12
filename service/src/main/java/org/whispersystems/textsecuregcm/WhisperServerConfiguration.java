@@ -23,7 +23,6 @@ import org.whispersystems.textsecuregcm.configuration.AwsAttachmentsConfiguratio
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BraintreeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.CdnConfiguration;
-import org.whispersystems.textsecuregcm.configuration.ChallengeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DatadogConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DirectoryV2Configuration;
 import org.whispersystems.textsecuregcm.configuration.DynamoDbClientConfiguration;
@@ -190,11 +189,6 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @NotNull
   @JsonProperty
-  private ChallengeConfiguration challenge;
-  
-  @Valid
-  @NotNull
-  @JsonProperty
   private RecaptchaConfiguration recaptcha;
 
   @Valid
@@ -299,10 +293,6 @@ public class WhisperServerConfiguration extends Configuration {
 
   public DynamoDbTables getDynamoDbTables() {
     return dynamoDbTables;
-  }
-
-  public ChallengeConfiguration getChallengeConfiguration() {
-    return challenge;
   }
 
   public RecaptchaConfiguration getRecaptchaConfiguration() {

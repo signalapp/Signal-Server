@@ -2,7 +2,6 @@ package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 import javax.validation.constraints.NotNull;
 
@@ -10,7 +9,6 @@ public class RateLimitChallenge {
 
   @JsonProperty
   @NotNull
-  @Schema(description="An opaque token to be included along with the challenge result in the verification request")
   private final String token;
 
   @JsonProperty
