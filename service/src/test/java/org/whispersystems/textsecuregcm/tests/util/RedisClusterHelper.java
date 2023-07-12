@@ -27,6 +27,7 @@ public class RedisClusterHelper {
   @SuppressWarnings("unchecked")
   private static FaultTolerantRedisCluster buildMockRedisCluster(
       final RedisAdvancedClusterCommands<String, String> stringCommands,
+      final RedisAdvancedClusterAsyncCommands<String, String> stringAsyncCommands,
       final RedisAdvancedClusterCommands<byte[], byte[]> binaryCommands,
       final RedisAdvancedClusterAsyncCommands<byte[], byte[]> binaryAsyncCommands,
       final RedisAdvancedClusterReactiveCommands<byte[], byte[]> binaryReactiveCommands) {
@@ -35,6 +36,7 @@ public class RedisClusterHelper {
     final StatefulRedisClusterConnection<byte[], byte[]> binaryConnection = mock(StatefulRedisClusterConnection.class);
 
     when(stringConnection.sync()).thenReturn(stringCommands);
+    when(stringConnection.async()).thenReturn(stringAsyncCommands);
     when(binaryConnection.sync()).thenReturn(binaryCommands);
     when(binaryConnection.async()).thenReturn(binaryAsyncCommands);
     when(binaryConnection.reactive()).thenReturn(binaryReactiveCommands);
@@ -82,11 +84,16 @@ public class RedisClusterHelper {
   public static class Builder {
 
     private RedisAdvancedClusterCommands<String, String> stringCommands = mock(RedisAdvancedClusterCommands.class);
+    private RedisAdvancedClusterAsyncCommands<String, String> stringAsyncCommands =
+        mock(RedisAdvancedClusterAsyncCommands.class);
+
     private RedisAdvancedClusterCommands<byte[], byte[]> binaryCommands = mock(RedisAdvancedClusterCommands.class);
-    private RedisAdvancedClusterAsyncCommands<byte[], byte[]> binaryAsyncCommands = mock(
-        RedisAdvancedClusterAsyncCommands.class);
-    private RedisAdvancedClusterReactiveCommands<byte[], byte[]> binaryReactiveCommands = mock(
-        RedisAdvancedClusterReactiveCommands.class);
+
+    private RedisAdvancedClusterAsyncCommands<byte[], byte[]> binaryAsyncCommands =
+        mock(RedisAdvancedClusterAsyncCommands.class);
+
+    private RedisAdvancedClusterReactiveCommands<byte[], byte[]> binaryReactiveCommands =
+        mock(RedisAdvancedClusterReactiveCommands.class);
 
     private Builder() {
 
@@ -94,6 +101,11 @@ public class RedisClusterHelper {
 
     public Builder stringCommands(final RedisAdvancedClusterCommands<String, String> stringCommands) {
       this.stringCommands = stringCommands;
+      return this;
+    }
+
+    public Builder stringAsyncCommands(final RedisAdvancedClusterAsyncCommands<String, String> stringAsyncCommands) {
+      this.stringAsyncCommands = stringAsyncCommands;
       return this;
     }
 
@@ -114,7 +126,7 @@ public class RedisClusterHelper {
     }
 
     public FaultTolerantRedisCluster build() {
-      return RedisClusterHelper.buildMockRedisCluster(stringCommands, binaryCommands, binaryAsyncCommands,
+      return RedisClusterHelper.buildMockRedisCluster(stringCommands, stringAsyncCommands, binaryCommands, binaryAsyncCommands,
           binaryReactiveCommands);
     }
   }
