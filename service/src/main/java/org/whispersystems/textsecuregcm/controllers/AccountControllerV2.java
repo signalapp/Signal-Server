@@ -166,7 +166,6 @@ public class AccountControllerV2 {
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
   @ApiResponse(responseCode = "403", description = "This endpoint can only be invoked from the account's primary device.")
   @ApiResponse(responseCode = "422", description = "The request body failed validation.")
-  @ApiResponse(responseCode = "425", description = "Not all of this account's devices support phone-number identities yet.")
   @ApiResponse(responseCode = "409", description = "The set of devices specified in the request does not match the set of devices active on the account.",
       content = @Content(schema = @Schema(implementation = MismatchedDevices.class)))
   @ApiResponse(responseCode = "410", description = "The registration IDs provided for some devices do not match those stored on the server.",
@@ -176,11 +175,6 @@ public class AccountControllerV2 {
 
     if (!authenticatedAccount.getAuthenticatedDevice().isMaster()) {
       throw new ForbiddenException();
-    }
-
-    final Account account = authenticatedAccount.getAccount();
-    if (!account.isPniSupported()) {
-      throw new WebApplicationException(Response.status(425).build());
     }
 
     try {
