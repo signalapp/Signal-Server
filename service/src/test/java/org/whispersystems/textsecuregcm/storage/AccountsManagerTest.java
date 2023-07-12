@@ -28,6 +28,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import io.lettuce.core.RedisException;
+import io.lettuce.core.cluster.api.async.RedisAdvancedClusterAsyncCommands;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import java.time.Clock;
 import java.time.Duration;
@@ -45,6 +46,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -67,8 +69,10 @@ import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
+import org.whispersystems.textsecuregcm.tests.util.MockRedisFuture;
 import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
 
+@Timeout(value = 10, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
 class AccountsManagerTest {
   private static final String BASE_64_URL_USERNAME_HASH_1 = "9p6Tip7BFefFOJzv4kv4GyXEYsBVfk_WbjNejdlOvQE";
   private static final String BASE_64_URL_USERNAME_HASH_2 = "NLUom-CHwtemcdvOTTXdmXmzRIV7F05leS8lwkVK_vc";
@@ -86,6 +90,7 @@ class AccountsManagerTest {
   private Map<String, UUID> phoneNumberIdentifiersByE164;
 
   private RedisAdvancedClusterCommands<String, String> commands;
+  private RedisAdvancedClusterAsyncCommands<String, String> asyncCommands;
   private AccountsManager accountsManager;
 
   private static final Answer<?> ACCOUNT_UPDATE_ANSWER = (answer) -> {
@@ -107,6 +112,9 @@ class AccountsManagerTest {
 
     //noinspection unchecked
     commands = mock(RedisAdvancedClusterCommands.class);
+
+    //noinspection unchecked
+    asyncCommands = mock(RedisAdvancedClusterAsyncCommands.class);
 
     doAnswer((Answer<Void>) invocation -> {
       final Account account = invocation.getArgument(0, Account.class);
@@ -162,7 +170,10 @@ class AccountsManagerTest {
     accountsManager = new AccountsManager(
         accounts,
         phoneNumberIdentifiers,
-        RedisClusterHelper.builder().stringCommands(commands).build(),
+        RedisClusterHelper.builder()
+            .stringCommands(commands)
+            .stringAsyncCommands(asyncCommands)
+            .build(),
         accountLockManager,
         deletedAccounts,
         keysManager,
@@ -200,6 +211,31 @@ class AccountsManagerTest {
   }
 
   @Test
+  void testGetAccountByNumberAsyncInCache() {
+    UUID uuid = UUID.randomUUID();
+
+    when(asyncCommands.get(eq("AccountMap::+14152222222")))
+        .thenReturn(MockRedisFuture.completedFuture(uuid.toString()));
+
+    when(asyncCommands.get(eq("Account3::" + uuid))).thenReturn(MockRedisFuture.completedFuture(
+        "{\"number\": \"+14152222222\", \"pni\": \"de24dc73-fbd8-41be-a7d5-764c70d9da7e\"}"));
+
+    when(asyncCommands.setex(any(), anyLong(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
+
+    Optional<Account> account = accountsManager.getByE164Async("+14152222222").join();
+
+    assertTrue(account.isPresent());
+    assertEquals(account.get().getNumber(), "+14152222222");
+    assertEquals(UUID.fromString("de24dc73-fbd8-41be-a7d5-764c70d9da7e"), account.get().getPhoneNumberIdentifier());
+
+    verify(asyncCommands).get(eq("AccountMap::+14152222222"));
+    verify(asyncCommands).get(eq("Account3::" + uuid));
+    verifyNoMoreInteractions(asyncCommands);
+
+    verifyNoInteractions(accounts);
+  }
+
+  @Test
   void testGetAccountByUuidInCache() {
     UUID uuid = UUID.randomUUID();
 
@@ -215,6 +251,28 @@ class AccountsManagerTest {
 
     verify(commands, times(1)).get(eq("Account3::" + uuid));
     verifyNoMoreInteractions(commands);
+
+    verifyNoInteractions(accounts);
+  }
+
+  @Test
+  void testGetAccountByUuidInCacheAsync() {
+    UUID uuid = UUID.randomUUID();
+
+    when(asyncCommands.get(eq("Account3::" + uuid))).thenReturn(MockRedisFuture.completedFuture(
+        "{\"number\": \"+14152222222\", \"pni\": \"de24dc73-fbd8-41be-a7d5-764c70d9da7e\"}"));
+
+    when(asyncCommands.setex(any(), anyLong(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
+
+    Optional<Account> account = accountsManager.getByAccountIdentifierAsync(uuid).join();
+
+    assertTrue(account.isPresent());
+    assertEquals(account.get().getNumber(), "+14152222222");
+    assertEquals(account.get().getUuid(), uuid);
+    assertEquals(UUID.fromString("de24dc73-fbd8-41be-a7d5-764c70d9da7e"), account.get().getPhoneNumberIdentifier());
+
+    verify(asyncCommands, times(1)).get(eq("Account3::" + uuid));
+    verifyNoMoreInteractions(asyncCommands);
 
     verifyNoInteractions(accounts);
   }
@@ -237,6 +295,32 @@ class AccountsManagerTest {
     verify(commands).get(eq("AccountMap::" + pni));
     verify(commands).get(eq("Account3::" + uuid));
     verifyNoMoreInteractions(commands);
+
+    verifyNoInteractions(accounts);
+  }
+
+  @Test
+  void testGetByPniInCacheAsync() {
+    UUID uuid = UUID.randomUUID();
+    UUID pni = UUID.randomUUID();
+
+    when(asyncCommands.get(eq("AccountMap::" + pni)))
+        .thenReturn(MockRedisFuture.completedFuture(uuid.toString()));
+
+    when(asyncCommands.get(eq("Account3::" + uuid))).thenReturn(MockRedisFuture.completedFuture(
+        "{\"number\": \"+14152222222\", \"pni\": \"de24dc73-fbd8-41be-a7d5-764c70d9da7e\"}"));
+
+    when(asyncCommands.setex(any(), anyLong(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
+
+    Optional<Account> account = accountsManager.getByPhoneNumberIdentifierAsync(pni).join();
+
+    assertTrue(account.isPresent());
+    assertEquals(account.get().getNumber(), "+14152222222");
+    assertEquals(UUID.fromString("de24dc73-fbd8-41be-a7d5-764c70d9da7e"), account.get().getPhoneNumberIdentifier());
+
+    verify(asyncCommands).get(eq("AccountMap::" + pni));
+    verify(asyncCommands).get(eq("Account3::" + uuid));
+    verifyNoMoreInteractions(asyncCommands);
 
     verifyNoInteractions(accounts);
   }
@@ -288,6 +372,32 @@ class AccountsManagerTest {
   }
 
   @Test
+  void testGetAccountByNumberNotInCacheAsync() {
+    UUID uuid = UUID.randomUUID();
+    UUID pni = UUID.randomUUID();
+    Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, pni, new ArrayList<>(), new byte[16]);
+
+    when(asyncCommands.get(eq("AccountMap::+14152222222"))).thenReturn(MockRedisFuture.completedFuture(null));
+    when(asyncCommands.setex(any(), anyLong(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
+    when(accounts.getByE164Async(eq("+14152222222")))
+        .thenReturn(MockRedisFuture.completedFuture(Optional.of(account)));
+
+    Optional<Account> retrieved = accountsManager.getByE164Async("+14152222222").join();
+
+    assertTrue(retrieved.isPresent());
+    assertSame(retrieved.get(), account);
+
+    verify(asyncCommands).get(eq("AccountMap::+14152222222"));
+    verify(asyncCommands).setex(eq("AccountMap::+14152222222"), anyLong(), eq(uuid.toString()));
+    verify(asyncCommands).setex(eq("AccountMap::" + pni), anyLong(), eq(uuid.toString()));
+    verify(asyncCommands).setex(eq("Account3::" + uuid), anyLong(), anyString());
+    verifyNoMoreInteractions(asyncCommands);
+
+    verify(accounts).getByE164Async(eq("+14152222222"));
+    verifyNoMoreInteractions(accounts);
+  }
+
+  @Test
   void testGetAccountByUuidNotInCache() {
     UUID uuid = UUID.randomUUID();
     UUID pni = UUID.randomUUID();
@@ -308,6 +418,32 @@ class AccountsManagerTest {
     verifyNoMoreInteractions(commands);
 
     verify(accounts, times(1)).getByAccountIdentifier(eq(uuid));
+    verifyNoMoreInteractions(accounts);
+  }
+
+  @Test
+  void testGetAccountByUuidNotInCacheAsync() {
+    UUID uuid = UUID.randomUUID();
+    UUID pni = UUID.randomUUID();
+    Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, pni, new ArrayList<>(), new byte[16]);
+
+    when(asyncCommands.get(eq("Account3::" + uuid))).thenReturn(MockRedisFuture.completedFuture(null));
+    when(asyncCommands.setex(any(), anyLong(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
+    when(accounts.getByAccountIdentifierAsync(eq(uuid)))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+
+    Optional<Account> retrieved = accountsManager.getByAccountIdentifierAsync(uuid).join();
+
+    assertTrue(retrieved.isPresent());
+    assertSame(retrieved.get(), account);
+
+    verify(asyncCommands).get(eq("Account3::" + uuid));
+    verify(asyncCommands).setex(eq("AccountMap::+14152222222"), anyLong(), eq(uuid.toString()));
+    verify(asyncCommands).setex(eq("AccountMap::" + pni), anyLong(), eq(uuid.toString()));
+    verify(asyncCommands).setex(eq("Account3::" + uuid), anyLong(), anyString());
+    verifyNoMoreInteractions(asyncCommands);
+
+    verify(accounts).getByAccountIdentifierAsync(eq(uuid));
     verifyNoMoreInteractions(accounts);
   }
 
@@ -333,6 +469,33 @@ class AccountsManagerTest {
     verifyNoMoreInteractions(commands);
 
     verify(accounts).getByPhoneNumberIdentifier(pni);
+    verifyNoMoreInteractions(accounts);
+  }
+
+  @Test
+  void testGetAccountByPniNotInCacheAsync() {
+    UUID uuid = UUID.randomUUID();
+    UUID pni = UUID.randomUUID();
+
+    Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, pni, new ArrayList<>(), new byte[16]);
+
+    when(asyncCommands.get(eq("AccountMap::" + pni))).thenReturn(MockRedisFuture.completedFuture(null));
+    when(asyncCommands.setex(any(), anyLong(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
+    when(accounts.getByPhoneNumberIdentifierAsync(pni))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+
+    Optional<Account> retrieved = accountsManager.getByPhoneNumberIdentifierAsync(pni).join();
+
+    assertTrue(retrieved.isPresent());
+    assertSame(retrieved.get(), account);
+
+    verify(asyncCommands).get(eq("AccountMap::" + pni));
+    verify(asyncCommands).setex(eq("AccountMap::" + pni), anyLong(), eq(uuid.toString()));
+    verify(asyncCommands).setex(eq("AccountMap::+14152222222"), anyLong(), eq(uuid.toString()));
+    verify(asyncCommands).setex(eq("Account3::" + uuid), anyLong(), anyString());
+    verifyNoMoreInteractions(asyncCommands);
+
+    verify(accounts).getByPhoneNumberIdentifierAsync(pni);
     verifyNoMoreInteractions(accounts);
   }
 
@@ -387,6 +550,34 @@ class AccountsManagerTest {
   }
 
   @Test
+  void testGetAccountByNumberBrokenCacheAsync() {
+    UUID uuid = UUID.randomUUID();
+    UUID pni = UUID.randomUUID();
+    Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, pni, new ArrayList<>(), new byte[16]);
+
+    when(asyncCommands.get(eq("AccountMap::+14152222222")))
+        .thenReturn(MockRedisFuture.failedFuture(new RedisException("Connection lost!")));
+
+    when(asyncCommands.setex(any(), anyLong(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
+
+    when(accounts.getByE164Async(eq("+14152222222"))).thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+
+    Optional<Account> retrieved = accountsManager.getByE164Async("+14152222222").join();
+
+    assertTrue(retrieved.isPresent());
+    assertSame(retrieved.get(), account);
+
+    verify(asyncCommands).get(eq("AccountMap::+14152222222"));
+    verify(asyncCommands).setex(eq("AccountMap::+14152222222"), anyLong(), eq(uuid.toString()));
+    verify(asyncCommands).setex(eq("AccountMap::" + pni), anyLong(), eq(uuid.toString()));
+    verify(asyncCommands).setex(eq("Account3::" + uuid), anyLong(), anyString());
+    verifyNoMoreInteractions(asyncCommands);
+
+    verify(accounts).getByE164Async(eq("+14152222222"));
+    verifyNoMoreInteractions(accounts);
+  }
+
+  @Test
   void testGetAccountByUuidBrokenCache() {
     UUID uuid = UUID.randomUUID();
     UUID pni = UUID.randomUUID();
@@ -407,6 +598,35 @@ class AccountsManagerTest {
     verifyNoMoreInteractions(commands);
 
     verify(accounts, times(1)).getByAccountIdentifier(eq(uuid));
+    verifyNoMoreInteractions(accounts);
+  }
+
+  @Test
+  void testGetAccountByUuidBrokenCacheAsync() {
+    UUID uuid = UUID.randomUUID();
+    UUID pni = UUID.randomUUID();
+    Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, pni, new ArrayList<>(), new byte[16]);
+
+    when(asyncCommands.get(eq("Account3::" + uuid)))
+        .thenReturn(MockRedisFuture.failedFuture(new RedisException("Connection lost!")));
+
+    when(asyncCommands.setex(any(), anyLong(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
+
+    when(accounts.getByAccountIdentifierAsync(eq(uuid)))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+
+    Optional<Account> retrieved = accountsManager.getByAccountIdentifierAsync(uuid).join();
+
+    assertTrue(retrieved.isPresent());
+    assertSame(retrieved.get(), account);
+
+    verify(asyncCommands).get(eq("Account3::" + uuid));
+    verify(asyncCommands).setex(eq("AccountMap::+14152222222"), anyLong(), eq(uuid.toString()));
+    verify(asyncCommands).setex(eq("AccountMap::" + pni), anyLong(), eq(uuid.toString()));
+    verify(asyncCommands).setex(eq("Account3::" + uuid), anyLong(), anyString());
+    verifyNoMoreInteractions(asyncCommands);
+
+    verify(accounts).getByAccountIdentifierAsync(eq(uuid));
     verifyNoMoreInteractions(accounts);
   }
 
@@ -432,6 +652,36 @@ class AccountsManagerTest {
     verifyNoMoreInteractions(commands);
 
     verify(accounts).getByPhoneNumberIdentifier(pni);
+    verifyNoMoreInteractions(accounts);
+  }
+
+  @Test
+  void testGetAccountByPniBrokenCacheAsync() {
+    UUID uuid = UUID.randomUUID();
+    UUID pni = UUID.randomUUID();
+
+    Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, pni, new ArrayList<>(), new byte[16]);
+
+    when(asyncCommands.get(eq("AccountMap::" + pni)))
+        .thenReturn(MockRedisFuture.failedFuture(new RedisException("OH NO")));
+
+    when(asyncCommands.setex(any(), anyLong(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
+
+    when(accounts.getByPhoneNumberIdentifierAsync(pni))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+
+    Optional<Account> retrieved = accountsManager.getByPhoneNumberIdentifierAsync(pni).join();
+
+    assertTrue(retrieved.isPresent());
+    assertSame(retrieved.get(), account);
+
+    verify(asyncCommands).get(eq("AccountMap::" + pni));
+    verify(asyncCommands).setex(eq("AccountMap::" + pni), anyLong(), eq(uuid.toString()));
+    verify(asyncCommands).setex(eq("AccountMap::+14152222222"), anyLong(), eq(uuid.toString()));
+    verify(asyncCommands).setex(eq("Account3::" + uuid), anyLong(), anyString());
+    verifyNoMoreInteractions(asyncCommands);
+
+    verify(accounts).getByPhoneNumberIdentifierAsync(pni);
     verifyNoMoreInteractions(accounts);
   }
 
