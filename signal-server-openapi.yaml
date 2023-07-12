@@ -493,9 +493,6 @@ paths:
             device.
         "422":
           description: The request body failed validation.
-        "425":
-          description: Not all of this account's devices support phone-number identities
-            yet.
         "409":
           description: The set of devices specified in the request does not match
             the set of devices active on the account.
@@ -679,7 +676,6 @@ paths:
         Some server endpoints (the "send message" endpoint, for example) may return a 428 response indicating the client must complete a challenge before continuing.
         Clients may use this endpoint to provide proof of a completed challenge. If successful, the client may then
         continue their original operation.
-        This endpoint permits unauthenticated calls if the `token` that was provided by the server with the original 428 response is supplied in the request body.
       operationId: handleChallengeResponse
       parameters:
       - name: X-Forwarded-For
@@ -700,9 +696,6 @@ paths:
       responses:
         "200":
           description: Indicates the challenge proof was accepted
-        "401":
-          description: Indicates authentication or token from original challenge are
-            required
         "413":
           description: Too many attempts
           headers:
@@ -719,7 +712,6 @@ paths:
               style: simple
       security:
       - authenticatedAccount: []
-      - {}
   /v1/challenge/push:
     post:
       tags:
@@ -3223,11 +3215,11 @@ components:
       properties:
         open:
           type: boolean
+        userAgent:
+          type: string
         createdTimestamp:
           type: integer
           format: int64
-        userAgent:
-          type: string
     WebSocketSessionContext:
       type: object
       properties:
