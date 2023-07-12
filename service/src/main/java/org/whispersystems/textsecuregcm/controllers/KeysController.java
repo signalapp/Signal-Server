@@ -22,6 +22,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -296,6 +297,8 @@ public class KeysController {
         d.setSignedPreKey(signedPreKey);
       }
     });
+
+    keys.storeEcSignedPreKeys(getIdentifier(auth.getAccount(), identityType), Map.of(device.getId(), signedPreKey)).join();
   }
 
   private static boolean usePhoneNumberIdentity(final Optional<String> identityType) {

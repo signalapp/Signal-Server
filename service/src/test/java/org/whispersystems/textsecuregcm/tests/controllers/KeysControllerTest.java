@@ -30,6 +30,7 @@ import io.dropwizard.testing.junit5.ResourceExtension;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.UUID;
@@ -224,6 +225,7 @@ class KeysControllerTest {
 
     when(KEYS.store(any(), anyLong(), any(), any(), any(), any())).thenReturn(CompletableFuture.completedFuture(null));
     when(KEYS.getEcSignedPreKey(any(), anyLong())).thenReturn(CompletableFuture.completedFuture(Optional.empty()));
+    when(KEYS.storeEcSignedPreKeys(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
     when(KEYS.takeEC(EXISTS_UUID, 1)).thenReturn(CompletableFuture.completedFuture(Optional.of(SAMPLE_KEY)));
     when(KEYS.takePQ(EXISTS_UUID, 1)).thenReturn(CompletableFuture.completedFuture(Optional.of(SAMPLE_PQ_KEY)));
@@ -281,6 +283,7 @@ class KeysControllerTest {
     verify(AuthHelper.VALID_DEVICE).setSignedPreKey(eq(test));
     verify(AuthHelper.VALID_DEVICE, never()).setPhoneNumberIdentitySignedPreKey(any());
     verify(accounts).updateDevice(eq(AuthHelper.VALID_ACCOUNT), anyLong(), any());
+    verify(KEYS).storeEcSignedPreKeys(AuthHelper.VALID_UUID, Map.of(Device.MASTER_ID, test));
   }
 
   @Test
@@ -299,6 +302,7 @@ class KeysControllerTest {
     verify(AuthHelper.VALID_DEVICE).setPhoneNumberIdentitySignedPreKey(eq(replacementKey));
     verify(AuthHelper.VALID_DEVICE, never()).setSignedPreKey(any());
     verify(accounts).updateDevice(eq(AuthHelper.VALID_ACCOUNT), anyLong(), any());
+    verify(KEYS).storeEcSignedPreKeys(AuthHelper.VALID_PNI, Map.of(Device.MASTER_ID, replacementKey));
   }
 
   @Test
