@@ -101,6 +101,15 @@ class AccountsManagerTest {
     return null;
   };
 
+  private static final Answer<CompletableFuture<Void>> ACCOUNT_UPDATE_ASYNC_ANSWER = invocation -> {
+    // it is implicit in the update() contract is that a successful call will
+    // result in an incremented version
+    final Account updatedAccount = invocation.getArgument(0, Account.class);
+    updatedAccount.setVersion(updatedAccount.getVersion() + 1);
+
+    return CompletableFuture.completedFuture(null);
+  };
+
   @BeforeEach
   void setup() throws InterruptedException {
     accounts = mock(Accounts.class);
@@ -115,6 +124,11 @@ class AccountsManagerTest {
 
     //noinspection unchecked
     asyncCommands = mock(RedisAdvancedClusterAsyncCommands.class);
+    when(asyncCommands.del(any())).thenReturn(MockRedisFuture.completedFuture(0L));
+    when(asyncCommands.get(any())).thenReturn(MockRedisFuture.completedFuture(null));
+    when(asyncCommands.setex(any(), anyLong(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
+
+    when(accounts.updateAsync(any())).thenReturn(CompletableFuture.completedFuture(null));
 
     doAnswer((Answer<Void>) invocation -> {
       final Account account = invocation.getArgument(0, Account.class);
@@ -725,12 +739,6 @@ class AccountsManagerTest {
         .doAnswer(ACCOUNT_UPDATE_ANSWER)
         .when(accounts).update(any());
 
-    when(accounts.getByAccountIdentifier(uuid)).thenReturn(
-        Optional.of(AccountsHelper.generateTestAccount("+14152222222", uuid, pni, new ArrayList<>(), new byte[16])));
-    doThrow(ContestedOptimisticLockException.class)
-        .doAnswer(ACCOUNT_UPDATE_ANSWER)
-        .when(accounts).update(any());
-
     final IdentityKey identityKey = new IdentityKey(Curve.generateKeyPair().getPublicKey());
 
     account = accountsManager.update(account, a -> a.setIdentityKey(identityKey));
@@ -740,6 +748,33 @@ class AccountsManagerTest {
 
     verify(accounts, times(1)).getByAccountIdentifier(uuid);
     verify(accounts, times(2)).update(any());
+    verifyNoMoreInteractions(accounts);
+  }
+
+  @Test
+  void testUpdateAsync_optimisticLockingFailure() {
+    UUID uuid = UUID.randomUUID();
+    UUID pni = UUID.randomUUID();
+    Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, pni, new ArrayList<>(), new byte[16]);
+
+    when(asyncCommands.get(eq("Account3::" + uuid))).thenReturn(null);
+
+    when(accounts.getByAccountIdentifierAsync(uuid)).thenReturn(CompletableFuture.completedFuture(
+        Optional.of(AccountsHelper.generateTestAccount("+14152222222", uuid, pni, new ArrayList<>(), new byte[16]))));
+
+    when(accounts.updateAsync(any()))
+        .thenReturn(CompletableFuture.failedFuture(new ContestedOptimisticLockException()))
+        .thenAnswer(ACCOUNT_UPDATE_ASYNC_ANSWER);
+
+    final IdentityKey identityKey = new IdentityKey(Curve.generateKeyPair().getPublicKey());
+
+    account = accountsManager.updateAsync(account, a -> a.setIdentityKey(identityKey)).join();
+
+    assertEquals(1, account.getVersion());
+    assertEquals(identityKey, account.getIdentityKey());
+
+    verify(accounts, times(1)).getByAccountIdentifierAsync(uuid);
+    verify(accounts, times(2)).updateAsync(any());
     verifyNoMoreInteractions(accounts);
   }
 
@@ -789,6 +824,39 @@ class AccountsManagerTest {
     verify(deviceUpdater, times(1)).accept(any(Device.class));
 
     accountsManager.updateDevice(account, account.getNextDeviceId(), unknownDeviceUpdater);
+
+    verify(unknownDeviceUpdater, never()).accept(any(Device.class));
+  }
+
+  @Test
+  void testUpdateDeviceAsync() {
+    final UUID uuid = UUID.randomUUID();
+    Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, UUID.randomUUID(), new ArrayList<>(), new byte[16]);
+
+    when(accounts.getByAccountIdentifierAsync(uuid)).thenReturn(CompletableFuture.completedFuture(
+        Optional.of(AccountsHelper.generateTestAccount("+14152222222", uuid, UUID.randomUUID(), new ArrayList<>(), new byte[16]))));
+
+    assertTrue(account.getDevices().isEmpty());
+
+    Device enabledDevice = new Device();
+    enabledDevice.setFetchesMessages(true);
+    enabledDevice.setSignedPreKey(KeysHelper.signedECPreKey(1, Curve.generateKeyPair()));
+    enabledDevice.setLastSeen(System.currentTimeMillis());
+    final long deviceId = account.getNextDeviceId();
+    enabledDevice.setId(deviceId);
+    account.addDevice(enabledDevice);
+
+    @SuppressWarnings("unchecked") Consumer<Device> deviceUpdater = mock(Consumer.class);
+    @SuppressWarnings("unchecked") Consumer<Device> unknownDeviceUpdater = mock(Consumer.class);
+
+    account = accountsManager.updateDeviceAsync(account, deviceId, deviceUpdater).join();
+    account = accountsManager.updateDeviceAsync(account, deviceId, d -> d.setName("deviceName")).join();
+
+    assertEquals("deviceName", account.getDevice(deviceId).orElseThrow().getName());
+
+    verify(deviceUpdater, times(1)).accept(any(Device.class));
+
+    accountsManager.updateDeviceAsync(account, account.getNextDeviceId(), unknownDeviceUpdater).join();
 
     verify(unknownDeviceUpdater, never()).accept(any(Device.class));
   }

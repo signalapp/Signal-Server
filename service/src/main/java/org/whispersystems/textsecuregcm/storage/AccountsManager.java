@@ -34,6 +34,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -59,6 +60,7 @@ import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.DestinationDeviceValidator;
+import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.Util;
 import reactor.core.publisher.ParallelFlux;
@@ -119,6 +121,8 @@ public class AccountsManager {
   private static final long CACHE_TTL_SECONDS = Duration.ofDays(2).toSeconds();
 
   private static final Duration USERNAME_HASH_RESERVATION_TTL_MINUTES = Duration.ofMinutes(5);
+
+  private static final int MAX_UPDATE_ATTEMPTS = 10;
 
   @FunctionalInterface
   private interface AccountPersister {
@@ -553,6 +557,14 @@ public class AccountsManager {
     });
   }
 
+  public CompletableFuture<Account> updateAsync(Account account, Consumer<Account> updater) {
+    return updateAsync(account, a -> {
+      updater.accept(a);
+      // assume that all updaters passed to the public method actually modify the account
+      return true;
+    });
+  }
+
   /**
    * Specialized version of {@link #updateDevice(Account, long, Consumer)} that minimizes potentially contentious and
    * redundant updates of {@code device.lastSeen}
@@ -604,6 +616,25 @@ public class AccountsManager {
     }
 
     return updatedAccount;
+  }
+
+  private CompletableFuture<Account> updateAsync(final Account account, final Function<Account, Boolean> updater) {
+
+    final Timer.Context timerContext = updateTimer.time();
+
+    return redisDeleteAsync(account)
+        .thenCompose(ignored -> {
+          final UUID uuid = account.getUuid();
+
+          return updateWithRetriesAsync(account,
+              updater,
+              a -> accounts.updateAsync(a).toCompletableFuture(),
+              () -> accounts.getByAccountIdentifierAsync(uuid).thenApply(Optional::orElseThrow),
+              AccountChangeValidator.GENERAL_CHANGE_VALIDATOR,
+              MAX_UPDATE_ATTEMPTS);
+        })
+        .thenCompose(updatedAccount -> redisSetAsync(updatedAccount).thenApply(ignored -> updatedAccount))
+        .whenComplete((ignored, throwable) -> timerContext.close());
   }
 
   private Account updateWithRetries(Account account,
@@ -660,6 +691,42 @@ public class AccountsManager {
     throw new OptimisticLockRetryLimitExceededException();
   }
 
+  private CompletionStage<Account> updateWithRetriesAsync(Account account,
+      final Function<Account, Boolean> updater,
+      final Function<Account, CompletionStage<Void>> persister,
+      final Supplier<CompletionStage<Account>> retriever,
+      final AccountChangeValidator changeValidator,
+      final int remainingTries) {
+
+    final Account originalAccount = cloneAccount(account);
+
+    if (!updater.apply(account)) {
+      return CompletableFuture.completedFuture(account);
+    }
+
+    if (remainingTries > 0) {
+      return persister.apply(account)
+          .thenApply(ignored -> {
+            final Account updatedAccount = cloneAccount(account);
+            account.markStale();
+
+            changeValidator.validateChange(originalAccount, updatedAccount);
+
+            return updatedAccount;
+          })
+          .exceptionallyCompose(throwable -> {
+            if (ExceptionUtils.unwrap(throwable) instanceof ContestedOptimisticLockException) {
+              return retriever.get().thenCompose(refreshedAccount ->
+                  updateWithRetriesAsync(refreshedAccount, updater, persister, retriever, changeValidator, remainingTries - 1));
+            } else {
+              throw ExceptionUtils.wrap(throwable);
+            }
+          });
+    }
+
+    return CompletableFuture.failedFuture(new OptimisticLockRetryLimitExceededException());
+  }
+
   private static Account cloneAccount(final Account account) {
     try {
       final Account clone = mapper.readValue(mapper.writeValueAsBytes(account), Account.class);
@@ -674,6 +741,14 @@ public class AccountsManager {
 
   public Account updateDevice(Account account, long deviceId, Consumer<Device> deviceUpdater) {
     return update(account, a -> {
+      a.getDevice(deviceId).ifPresent(deviceUpdater);
+      // assume that all updaters passed to the public method actually modify the device
+      return true;
+    });
+  }
+
+  public CompletableFuture<Account> updateDeviceAsync(final Account account, final long deviceId, final Consumer<Device> deviceUpdater) {
+    return updateAsync(account, a -> {
       a.getDevice(deviceId).ifPresent(deviceUpdater);
       // assume that all updaters passed to the public method actually modify the device
       return true;
