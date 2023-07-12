@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
@@ -986,5 +987,20 @@ public class AccountsManager {
         account.getUsernameHash().ifPresent(usernameHash -> connection.sync().del(getUsernameHashAccountMapKey(usernameHash)));
       });
     }
+  }
+
+  private CompletableFuture<Void> redisDeleteAsync(final Account account) {
+    @SuppressWarnings("resource") final Timer.Context timerContext = redisDeleteTimer.time();
+
+    final List<String> keysToDelete = new ArrayList<>(4);
+    keysToDelete.add(getAccountMapKey(account.getNumber()));
+    keysToDelete.add(getAccountMapKey(account.getPhoneNumberIdentifier().toString()));
+    keysToDelete.add(getAccountEntityKey(account.getUuid()));
+
+    account.getUsernameHash().ifPresent(usernameHash -> keysToDelete.add(getUsernameHashAccountMapKey(usernameHash)));
+
+    return cacheCluster.withCluster(connection -> connection.async().del(keysToDelete.toArray(new String[0])))
+        .toCompletableFuture()
+        .thenRun(timerContext::close);
   }
 }
