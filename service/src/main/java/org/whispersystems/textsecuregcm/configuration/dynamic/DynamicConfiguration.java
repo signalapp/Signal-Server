@@ -63,6 +63,10 @@ public class DynamicConfiguration {
   @Valid
   DynamicDeliveryLatencyConfiguration deliveryLatency = new DynamicDeliveryLatencyConfiguration(Collections.emptyMap());
 
+  @JsonProperty
+  @Valid
+  DynamicInboundMessageByteLimitConfiguration inboundMessageByteLimit = new DynamicInboundMessageByteLimitConfiguration(true);
+
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(
       final String experimentName) {
     return Optional.ofNullable(experiments.get(experimentName));
@@ -111,5 +115,9 @@ public class DynamicConfiguration {
 
   public DynamicDeliveryLatencyConfiguration getDeliveryLatencyConfiguration() {
     return deliveryLatency;
+  }
+
+  public DynamicInboundMessageByteLimitConfiguration getInboundMessageByteLimitConfiguration() {
+    return inboundMessageByteLimit;
   }
 }

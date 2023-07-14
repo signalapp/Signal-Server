@@ -226,7 +226,13 @@ public class MessageController {
       totalContentLength += contentLength;
     }
 
-    rateLimiters.getInboundMessageBytes().validate(destinationUuid, totalContentLength);
+    try {
+      rateLimiters.getInboundMessageBytes().validate(destinationUuid, totalContentLength);
+    } catch (final RateLimitExceededException e) {
+      if (dynamicConfigurationManager.getConfiguration().getInboundMessageByteLimitConfiguration().enforceInboundLimit()) {
+        throw e;
+      }
+    }
 
     try {
       boolean isSyncMessage = source.isPresent() && source.get().getAccount().isIdentifiedBy(destinationUuid);
