@@ -17,11 +17,13 @@ class RateLimiterConfigTest {
   @Test
   void leakRatePerMillis() {
     assertEquals(0.001, new RateLimiterConfig(1, Duration.ofSeconds(1)).leakRatePerMillis());
+    assertEquals(1e6, new RateLimiterConfig(1, Duration.ofNanos(1)).leakRatePerMillis());
   }
 
   @Test
   void isRegenerationRatePositive() {
     assertTrue(new RateLimiterConfig(1, Duration.ofSeconds(1)).hasPositiveRegenerationRate());
+    assertTrue(new RateLimiterConfig(1, Duration.ofNanos(1)).hasPositiveRegenerationRate());
     assertFalse(new RateLimiterConfig(1, Duration.ZERO).hasPositiveRegenerationRate());
     assertFalse(new RateLimiterConfig(1, Duration.ofSeconds(-1)).hasPositiveRegenerationRate());
   }

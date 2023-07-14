@@ -302,7 +302,7 @@ class DynamicConfigurationTest {
         limits:
           rateLimitReset:
             bucketSize: 17
-            permitRegenerationDuration: PT4S
+            permitRegenerationDuration: PT0.000004S
         """);
 
     final RateLimiterConfig resetRateLimiterConfig =
@@ -310,7 +310,7 @@ class DynamicConfigurationTest {
             .getLimits().get(RateLimiters.For.RATE_LIMIT_RESET.id());
 
     assertThat(resetRateLimiterConfig.bucketSize()).isEqualTo(17);
-    assertThat(resetRateLimiterConfig.permitRegenerationDuration()).isEqualTo(Duration.ofSeconds(4));
+    assertThat(resetRateLimiterConfig.permitRegenerationDuration()).isEqualTo(Duration.ofNanos(4_000));
   }
 
   @Test
