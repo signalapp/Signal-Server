@@ -205,6 +205,7 @@ class MessageControllerTest {
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
 
     when(rateLimiters.getMessagesLimiter()).thenReturn(rateLimiter);
+    when(rateLimiters.getInboundMessageBytes()).thenReturn(rateLimiter);
   }
 
   private static Device generateTestDevice(final long id, final int registrationId, final int pniRegistrationId, final ECSignedPreKey signedPreKey, final long createdAt, final long lastSeen) {

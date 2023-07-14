@@ -186,9 +186,7 @@ public class MessageController {
       @PathParam("destination") UUID destinationUuid,
       @QueryParam("story") boolean isStory,
       @NotNull @Valid IncomingMessageList messages,
-      @Context ContainerRequestContext context
-  )
-      throws RateLimitExceededException {
+      @Context ContainerRequestContext context) throws RateLimitExceededException {
 
     if (source.isEmpty() && accessKey.isEmpty() && !isStory) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
@@ -213,8 +211,9 @@ public class MessageController {
       spamReportToken = Optional.empty();
     }
 
-    for (final IncomingMessage message : messages.messages()) {
+    int totalContentLength = 0;
 
+    for (final IncomingMessage message : messages.messages()) {
       int contentLength = 0;
 
       if (!Util.isEmpty(message.content())) {
@@ -223,7 +222,11 @@ public class MessageController {
 
       validateContentLength(contentLength, userAgent);
       validateEnvelopeType(message.type(), userAgent);
+
+      totalContentLength += contentLength;
     }
+
+    rateLimiters.getInboundMessageBytes().validate(destinationUuid, totalContentLength);
 
     try {
       boolean isSyncMessage = source.isPresent() && source.get().getAccount().isIdentifiedBy(destinationUuid);

@@ -33,6 +33,10 @@ public interface RateLimiter {
     validate(accountUuid.toString());
   }
 
+  default void validate(final UUID accountUuid, final int permits) throws RateLimitExceededException {
+    validate(accountUuid.toString(), permits);
+  }
+
   default void validate(final UUID srcAccountUuid, final UUID dstAccountUuid) throws RateLimitExceededException {
     validate(srcAccountUuid.toString() + "__" + dstAccountUuid.toString());
   }

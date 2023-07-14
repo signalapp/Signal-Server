@@ -48,7 +48,8 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
     RECAPTCHA_CHALLENGE_SUCCESS("recaptchaChallengeSuccess", true, new RateLimiterConfig(2, Duration.ofMinutes(12))),
     PUSH_CHALLENGE_ATTEMPT("pushChallengeAttempt", true, new RateLimiterConfig(10, Duration.ofSeconds(144))),
     PUSH_CHALLENGE_SUCCESS("pushChallengeSuccess", true, new RateLimiterConfig(2, Duration.ofMinutes(12))),
-    CREATE_CALL_LINK("createCallLink", false, new RateLimiterConfig(100, Duration.ofSeconds(15)));
+    CREATE_CALL_LINK("createCallLink", false, new RateLimiterConfig(100, Duration.ofSeconds(15))),
+    INBOUND_MESSAGE_BYTES("inboundMessageBytes", true, new RateLimiterConfig(128 * 1024 * 1024, Duration.ofNanos(500_000)));
 
     private final String id;
 
@@ -210,5 +211,9 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
 
   public RateLimiter getCreateCallLinkLimiter() {
     return forDescriptor(For.CREATE_CALL_LINK);
+  }
+
+  public RateLimiter getInboundMessageBytes() {
+    return forDescriptor(For.INBOUND_MESSAGE_BYTES);
   }
 }
