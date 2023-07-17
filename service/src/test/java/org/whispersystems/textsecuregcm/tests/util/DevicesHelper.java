@@ -6,7 +6,6 @@
 package org.whispersystems.textsecuregcm.tests.util;
 
 import java.util.Random;
-
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.Util;

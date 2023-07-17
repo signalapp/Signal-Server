@@ -6,17 +6,8 @@
 package org.whispersystems.textsecuregcm.tests.util;
 
 import io.lettuce.core.RedisFuture;
-import org.jetbrains.annotations.NotNull;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
-import java.util.function.Consumer;
-import java.util.function.Function;
 
 public class MockRedisFuture<T> extends CompletableFuture<T> implements RedisFuture<T> {
 

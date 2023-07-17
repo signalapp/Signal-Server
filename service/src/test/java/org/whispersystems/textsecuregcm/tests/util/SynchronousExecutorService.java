@@ -1,12 +1,11 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
 package org.whispersystems.textsecuregcm.tests.util;
 
 import com.google.common.util.concurrent.SettableFuture;
-
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedList;
