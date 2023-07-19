@@ -503,11 +503,12 @@ public class AccountsManager {
    *
    * @param account the account to update
    * @param reservedUsernameHash the previously reserved username hash
+   * @param encryptedUsername the encrypted form of the previously reserved username for the username link
    * @return the updated account with the username hash field set
    * @throws UsernameHashNotAvailableException if the reserved username hash has been taken (because the reservation expired)
    * @throws UsernameReservationNotFoundException if `reservedUsernameHash` was not reserved in the account
    */
-  public Account confirmReservedUsernameHash(final Account account, final byte[] reservedUsernameHash) throws UsernameHashNotAvailableException, UsernameReservationNotFoundException {
+  public Account confirmReservedUsernameHash(final Account account, final byte[] reservedUsernameHash, @Nullable final byte[] encryptedUsername) throws UsernameHashNotAvailableException, UsernameReservationNotFoundException {
     if (!experimentEnrollmentManager.isEnrolled(account.getUuid(), USERNAME_EXPERIMENT_NAME)) {
       throw new UsernameHashNotAvailableException();
     }
@@ -532,7 +533,7 @@ public class AccountsManager {
           if (!accounts.usernameHashAvailable(Optional.of(account.getUuid()), reservedUsernameHash)) {
             throw new UsernameHashNotAvailableException();
           }
-          accounts.confirmUsernameHash(a, reservedUsernameHash);
+          accounts.confirmUsernameHash(a, reservedUsernameHash, encryptedUsername);
         },
         () -> accounts.getByAccountIdentifier(account.getUuid()).orElseThrow(),
         AccountChangeValidator.USERNAME_CHANGE_VALIDATOR);
@@ -731,6 +732,7 @@ public class AccountsManager {
     try {
       final Account clone = mapper.readValue(mapper.writeValueAsBytes(account), Account.class);
       clone.setUuid(account.getUuid());
+      clone.setUsernameLinkHandle(account.getUsernameLinkHandle());
 
       return clone;
     } catch (final IOException e) {

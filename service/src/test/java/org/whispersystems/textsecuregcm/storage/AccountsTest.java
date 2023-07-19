@@ -79,8 +79,12 @@ class AccountsTest {
 
   private static final String BASE_64_URL_USERNAME_HASH_1 = "9p6Tip7BFefFOJzv4kv4GyXEYsBVfk_WbjNejdlOvQE";
   private static final String BASE_64_URL_USERNAME_HASH_2 = "NLUom-CHwtemcdvOTTXdmXmzRIV7F05leS8lwkVK_vc";
+  private static final String BASE_64_URL_ENCRYPTED_USERNAME_1 = "md1votbj9r794DsqTNrBqA";
+  private static final String BASE_64_URL_ENCRYPTED_USERNAME_2 = "9hrqVLy59bzgPse-S9NUsA";
   private static final byte[] USERNAME_HASH_1 = Base64.getUrlDecoder().decode(BASE_64_URL_USERNAME_HASH_1);
   private static final byte[] USERNAME_HASH_2 = Base64.getUrlDecoder().decode(BASE_64_URL_USERNAME_HASH_2);
+  private static final byte[] ENCRYPTED_USERNAME_1 = Base64.getUrlDecoder().decode(BASE_64_URL_ENCRYPTED_USERNAME_1);
+  private static final byte[] ENCRYPTED_USERNAME_2 = Base64.getUrlDecoder().decode(BASE_64_URL_ENCRYPTED_USERNAME_2);
 
   private static final int SCAN_PAGE_SIZE = 1;
 
@@ -350,9 +354,11 @@ class AccountsTest {
     final SecureRandom byteGenerator = new SecureRandom();
     final byte[] usernameHash = new byte[32];
     byteGenerator.nextBytes(usernameHash);
+    final byte[] encryptedUsername = new byte[16];
+    byteGenerator.nextBytes(encryptedUsername);
 
     // Set up the existing account to have a username hash
-    accounts.confirmUsernameHash(account, usernameHash);
+    accounts.confirmUsernameHash(account, usernameHash, encryptedUsername);
 
     verifyStoredState("+14151112222", account.getUuid(), account.getPhoneNumberIdentifier(), usernameHash, account, true);
 
@@ -738,16 +744,20 @@ class AccountsTest {
     assertThat(accounts.getByUsernameHash(USERNAME_HASH_1)).isEmpty();
 
     accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1));
-    accounts.confirmUsernameHash(account, USERNAME_HASH_1);
-
+    accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
+    final UUID oldHandle = account.getUsernameLinkHandle();
+    
     {
       final Optional<Account> maybeAccount = accounts.getByUsernameHash(USERNAME_HASH_1);
 
       verifyStoredState(account.getNumber(), account.getUuid(), account.getPhoneNumberIdentifier(), USERNAME_HASH_1, maybeAccount.orElseThrow(), account);
+      final Optional<Account> maybeAccount2 = accounts.getByUsernameLinkHandle(oldHandle);
+      verifyStoredState(account.getNumber(), account.getUuid(), account.getPhoneNumberIdentifier(), USERNAME_HASH_1, maybeAccount2.orElseThrow(), account);
     }
 
     accounts.reserveUsernameHash(account, USERNAME_HASH_2, Duration.ofDays(1));
-    accounts.confirmUsernameHash(account, USERNAME_HASH_2);
+    accounts.confirmUsernameHash(account, USERNAME_HASH_2, ENCRYPTED_USERNAME_2);
+    final UUID newHandle = account.getUsernameLinkHandle();
 
     assertThat(accounts.getByUsernameHash(USERNAME_HASH_1)).isEmpty();
     assertThat(DYNAMO_DB_EXTENSION.getDynamoDbClient()
@@ -756,6 +766,7 @@ class AccountsTest {
             .key(Map.of(Accounts.ATTR_USERNAME_HASH, AttributeValues.fromByteArray(USERNAME_HASH_1)))
             .build())
         .item()).isEmpty();
+    assertThat(accounts.getByUsernameLinkHandle(oldHandle)).isEmpty();
 
     {
       final Optional<Account> maybeAccount = accounts.getByUsernameHash(USERNAME_HASH_2);
@@ -763,6 +774,9 @@ class AccountsTest {
       assertThat(maybeAccount).isPresent();
       verifyStoredState(account.getNumber(), account.getUuid(), account.getPhoneNumberIdentifier(),
           USERNAME_HASH_2, maybeAccount.get(), account);
+      final Optional<Account> maybeAccount2 = accounts.getByUsernameLinkHandle(newHandle);
+      verifyStoredState(account.getNumber(), account.getUuid(), account.getPhoneNumberIdentifier(),
+          USERNAME_HASH_2, maybeAccount2.get(), account);
     }
   }
 
@@ -777,7 +791,7 @@ class AccountsTest {
     // first account reserves and confirms username hash
     assertThatNoException().isThrownBy(() -> {
       accounts.reserveUsernameHash(firstAccount, USERNAME_HASH_1, Duration.ofDays(1));
-      accounts.confirmUsernameHash(firstAccount, USERNAME_HASH_1);
+      accounts.confirmUsernameHash(firstAccount, USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
     });
 
     final Optional<Account> maybeAccount = accounts.getByUsernameHash(USERNAME_HASH_1);
@@ -789,13 +803,13 @@ class AccountsTest {
     assertThatExceptionOfType(ContestedOptimisticLockException.class)
         .isThrownBy(() -> accounts.reserveUsernameHash(secondAccount, USERNAME_HASH_1, Duration.ofDays(1)));
     assertThatExceptionOfType(ContestedOptimisticLockException.class)
-        .isThrownBy(() -> accounts.confirmUsernameHash(secondAccount, USERNAME_HASH_1));
+        .isThrownBy(() -> accounts.confirmUsernameHash(secondAccount, USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
 
     // throw an error if first account tries to reserve or confirm the username hash that it has already confirmed
     assertThatExceptionOfType(ContestedOptimisticLockException.class)
         .isThrownBy(() -> accounts.reserveUsernameHash(firstAccount, USERNAME_HASH_1, Duration.ofDays(1)));
     assertThatExceptionOfType(ContestedOptimisticLockException.class)
-        .isThrownBy(() -> accounts.confirmUsernameHash(firstAccount, USERNAME_HASH_1));
+        .isThrownBy(() -> accounts.confirmUsernameHash(firstAccount, USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
 
     assertThat(secondAccount.getReservedUsernameHash()).isEmpty();
     assertThat(secondAccount.getUsernameHash()).isEmpty();
@@ -809,7 +823,7 @@ class AccountsTest {
     account.setVersion(account.getVersion() + 77);
 
     assertThatExceptionOfType(ContestedOptimisticLockException.class)
-        .isThrownBy(() -> accounts.confirmUsernameHash(account, USERNAME_HASH_1));
+        .isThrownBy(() -> accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
 
     assertThat(account.getUsernameHash()).isEmpty();
   }
@@ -820,7 +834,7 @@ class AccountsTest {
     accounts.create(account);
 
     accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1));
-    accounts.confirmUsernameHash(account, USERNAME_HASH_1);
+    accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
     assertThat(accounts.getByUsernameHash(USERNAME_HASH_1)).isPresent();
 
     accounts.clearUsernameHash(account);
@@ -844,7 +858,7 @@ class AccountsTest {
     accounts.create(account);
 
     accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1));
-    accounts.confirmUsernameHash(account, USERNAME_HASH_1);
+    accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
 
     account.setVersion(account.getVersion() + 12);
 
@@ -868,10 +882,10 @@ class AccountsTest {
     assertThrows(ContestedOptimisticLockException.class,
         () -> accounts.reserveUsernameHash(account2, USERNAME_HASH_1, Duration.ofDays(1)));
     assertThrows(ContestedOptimisticLockException.class,
-        () -> accounts.confirmUsernameHash(account2, USERNAME_HASH_1));
+        () -> accounts.confirmUsernameHash(account2, USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
     assertThat(accounts.getByUsernameHash(USERNAME_HASH_1)).isEmpty();
 
-    accounts.confirmUsernameHash(account1, USERNAME_HASH_1);
+    accounts.confirmUsernameHash(account1, USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
     assertThat(account1.getReservedUsernameHash()).isEmpty();
     assertArrayEquals(account1.getUsernameHash().orElseThrow(), USERNAME_HASH_1);
     assertThat(accounts.getByUsernameHash(USERNAME_HASH_1).get().getUuid()).isEqualTo(account1.getUuid());
@@ -898,7 +912,7 @@ class AccountsTest {
     assertThat(accounts.usernameHashAvailable(Optional.of(UUID.randomUUID()), USERNAME_HASH_1)).isFalse();
     assertThat(accounts.usernameHashAvailable(Optional.of(account1.getUuid()), USERNAME_HASH_1)).isTrue();
 
-    accounts.confirmUsernameHash(account1, USERNAME_HASH_1);
+    accounts.confirmUsernameHash(account1, USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
     assertThat(accounts.usernameHashAvailable(USERNAME_HASH_1)).isFalse();
     assertThat(accounts.usernameHashAvailable(Optional.empty(), USERNAME_HASH_1)).isFalse();
     assertThat(accounts.usernameHashAvailable(Optional.of(UUID.randomUUID()), USERNAME_HASH_1)).isFalse();
@@ -918,7 +932,7 @@ class AccountsTest {
 
     // only account1 should be able to confirm the reserved hash
     assertThrows(ContestedOptimisticLockException.class,
-        () -> accounts.confirmUsernameHash(account2, USERNAME_HASH_1));
+        () -> accounts.confirmUsernameHash(account2, USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
   }
 
   @Test
@@ -942,12 +956,12 @@ class AccountsTest {
     runnable.run();
     assertEquals(account2.getReservedUsernameHash().orElseThrow(), USERNAME_HASH_1);
 
-    accounts.confirmUsernameHash(account2, USERNAME_HASH_1);
+    accounts.confirmUsernameHash(account2, USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
 
     assertThrows(ContestedOptimisticLockException.class,
         () -> accounts.reserveUsernameHash(account1, USERNAME_HASH_1, Duration.ofDays(2)));
     assertThrows(ContestedOptimisticLockException.class,
-        () -> accounts.confirmUsernameHash(account1, USERNAME_HASH_1));
+        () -> accounts.confirmUsernameHash(account1, USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
     assertThat(accounts.getByUsernameHash(USERNAME_HASH_1).get().getUuid()).isEqualTo(account2.getUuid());
   }
 
@@ -970,7 +984,7 @@ class AccountsTest {
     assertThrows(ContestedOptimisticLockException.class,
         () -> accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1)));
     assertThrows(ContestedOptimisticLockException.class,
-        () -> accounts.confirmUsernameHash(account, USERNAME_HASH_1));
+        () -> accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
     assertThat(account.getReservedUsernameHash()).isEmpty();
     assertThat(account.getUsernameHash()).isEmpty();
   }

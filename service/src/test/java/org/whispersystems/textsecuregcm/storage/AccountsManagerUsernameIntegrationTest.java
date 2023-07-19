@@ -52,9 +52,13 @@ class AccountsManagerUsernameIntegrationTest {
 
   private static final String BASE_64_URL_USERNAME_HASH_1 = "9p6Tip7BFefFOJzv4kv4GyXEYsBVfk_WbjNejdlOvQE";
   private static final String BASE_64_URL_USERNAME_HASH_2 = "NLUom-CHwtemcdvOTTXdmXmzRIV7F05leS8lwkVK_vc";
+  private static final String BASE_64_URL_ENCRYPTED_USERNAME_1 = "md1votbj9r794DsqTNrBqA";
+  private static final String BASE_64_URL_ENCRYPTED_USERNAME_2 = "9hrqVLy59bzgPse-S9NUsA";
   private static final int SCAN_PAGE_SIZE = 1;
   private static final byte[] USERNAME_HASH_1 = Base64.getUrlDecoder().decode(BASE_64_URL_USERNAME_HASH_1);
   private static final byte[] USERNAME_HASH_2 = Base64.getUrlDecoder().decode(BASE_64_URL_USERNAME_HASH_2);
+  private static final byte[] ENCRYPTED_USERNAME_1 = Base64.getUrlDecoder().decode(BASE_64_URL_ENCRYPTED_USERNAME_1);
+  private static final byte[] ENCRYPTED_USERNAME_2 = Base64.getUrlDecoder().decode(BASE_64_URL_ENCRYPTED_USERNAME_2);
 
   @RegisterExtension
   static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(
@@ -203,10 +207,14 @@ class AccountsManagerUsernameIntegrationTest {
     // confirm
     account = accountsManager.confirmReservedUsernameHash(
         reservation.account(),
-        reservation.reservedUsernameHash());
+        reservation.reservedUsernameHash(),
+        ENCRYPTED_USERNAME_1);
     assertArrayEquals(account.getUsernameHash().orElseThrow(), USERNAME_HASH_1);
     assertThat(accountsManager.getByUsernameHash(USERNAME_HASH_1).orElseThrow().getUuid()).isEqualTo(
         account.getUuid());
+    assertThat(account.getUsernameLinkHandle()).isNotNull();
+    assertThat(accountsManager.getByUsernameLinkHandle(account.getUsernameLinkHandle()).orElseThrow().getUuid())
+        .isEqualTo(account.getUuid());
 
     // clear
     account = accountsManager.clearUsernameHash(account);
@@ -241,8 +249,8 @@ class AccountsManagerUsernameIntegrationTest {
     assertArrayEquals(reservation2.reservedUsernameHash(), USERNAME_HASH_1);
 
     assertThrows(UsernameHashNotAvailableException.class,
-        () -> accountsManager.confirmReservedUsernameHash(reservation1.account(), USERNAME_HASH_1));
-    account2 = accountsManager.confirmReservedUsernameHash(reservation2.account(), USERNAME_HASH_1);
+        () -> accountsManager.confirmReservedUsernameHash(reservation1.account(), USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
+    account2 = accountsManager.confirmReservedUsernameHash(reservation2.account(), USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
     assertEquals(accountsManager.getByUsernameHash(USERNAME_HASH_1).orElseThrow().getUuid(), account2.getUuid());
     assertArrayEquals(account2.getUsernameHash().orElseThrow(), USERNAME_HASH_1);
   }
@@ -256,7 +264,7 @@ class AccountsManagerUsernameIntegrationTest {
     // Set username hash
     final AccountsManager.UsernameReservation reservation1 = accountsManager.reserveUsernameHash(account, List.of(
         USERNAME_HASH_1));
-    account = accountsManager.confirmReservedUsernameHash(reservation1.account(), USERNAME_HASH_1);
+    account = accountsManager.confirmReservedUsernameHash(reservation1.account(), USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
 
     // Reserve another hash on the same account
     final AccountsManager.UsernameReservation reservation2 = accountsManager.reserveUsernameHash(account, List.of(
@@ -265,6 +273,7 @@ class AccountsManagerUsernameIntegrationTest {
 
     assertArrayEquals(account.getReservedUsernameHash().orElseThrow(), USERNAME_HASH_2);
     assertArrayEquals(account.getUsernameHash().orElseThrow(), USERNAME_HASH_1);
+    assertArrayEquals(account.getEncryptedUsername().orElseThrow(), ENCRYPTED_USERNAME_1);
 
     // Clear the set username hash but not the reserved one
     account = accountsManager.clearUsernameHash(account);
@@ -272,7 +281,8 @@ class AccountsManagerUsernameIntegrationTest {
     assertThat(account.getUsernameHash()).isEmpty();
 
     // Confirm second reservation
-    account = accountsManager.confirmReservedUsernameHash(account, reservation2.reservedUsernameHash());
+    account = accountsManager.confirmReservedUsernameHash(account, reservation2.reservedUsernameHash(), ENCRYPTED_USERNAME_2);
     assertArrayEquals(account.getUsernameHash().orElseThrow(), USERNAME_HASH_2);
+    assertArrayEquals(account.getEncryptedUsername().orElseThrow(), ENCRYPTED_USERNAME_2);
   }
 }

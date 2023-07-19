@@ -30,6 +30,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.util.AsyncTimerUtil;
@@ -386,15 +388,18 @@ public class Accounts extends AbstractDynamoDbStore {
    * @param usernameHash believed to be available
    * @throws ContestedOptimisticLockException if the account has been updated or the username has taken by someone else
    */
-  public void confirmUsernameHash(final Account account, final byte[] usernameHash)
+  public void confirmUsernameHash(final Account account, final byte[] usernameHash, @Nullable final byte[] encryptedUsername)
       throws ContestedOptimisticLockException {
     final long startNanos = System.nanoTime();
 
     final Optional<byte[]> maybeOriginalUsernameHash = account.getUsernameHash();
     final Optional<byte[]> maybeOriginalReservationHash = account.getReservedUsernameHash();
+    final Optional<UUID> maybeOriginalUsernameLinkHandle = Optional.ofNullable(account.getUsernameLinkHandle());
+    final Optional<byte[]> maybeOriginalEncryptedUsername = account.getEncryptedUsername();
 
     account.setUsernameHash(usernameHash);
     account.setReservedUsernameHash(null);
+    account.setUsernameLinkDetails(encryptedUsername == null ? null : UUID.randomUUID(), encryptedUsername);
 
     boolean succeeded = false;
 
@@ -420,21 +425,32 @@ public class Accounts extends AbstractDynamoDbStore {
               .build())
           .build());
 
+      final StringBuilder updateExpr = new StringBuilder("SET #data = :data, #username_hash = :username_hash");
+      final Map<String, AttributeValue> expressionAttributeValues = new HashMap<>(Map.of(
+          ":data", AttributeValues.fromByteArray(SystemMapper.jsonMapper().writeValueAsBytes(account)),
+          ":username_hash", AttributeValues.fromByteArray(usernameHash),
+          ":version", AttributeValues.fromInt(account.getVersion()),
+          ":version_increment", AttributeValues.fromInt(1)));
+      if (account.getUsernameLinkHandle() != null) {
+        updateExpr.append(", #ul = :ul");
+        expressionAttributeValues.put(":ul", AttributeValues.fromUUID(account.getUsernameLinkHandle()));
+      } else {
+        updateExpr.append(" REMOVE #ul");
+      }
+      updateExpr.append(" ADD #version :version_increment");
+
       writeItems.add(
           TransactWriteItem.builder()
               .update(Update.builder()
                   .tableName(accountsTableName)
                   .key(Map.of(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid())))
-                  .updateExpression("SET #data = :data, #username_hash = :username_hash ADD #version :version_increment")
+                  .updateExpression(updateExpr.toString())
                   .conditionExpression("#version = :version")
                   .expressionAttributeNames(Map.of("#data", ATTR_ACCOUNT_DATA,
                       "#username_hash", ATTR_USERNAME_HASH,
+                      "#ul", ATTR_USERNAME_LINK_UUID,
                       "#version", ATTR_VERSION))
-                  .expressionAttributeValues(Map.of(
-                      ":data", AttributeValues.fromByteArray(SystemMapper.jsonMapper().writeValueAsBytes(account)),
-                      ":username_hash", AttributeValues.fromByteArray(usernameHash),
-                      ":version", AttributeValues.fromInt(account.getVersion()),
-                      ":version_increment", AttributeValues.fromInt(1)))
+                  .expressionAttributeValues(expressionAttributeValues)
                   .build())
               .build());
 
@@ -460,6 +476,7 @@ public class Accounts extends AbstractDynamoDbStore {
       if (!succeeded) {
         account.setUsernameHash(maybeOriginalUsernameHash.orElse(null));
         account.setReservedUsernameHash(maybeOriginalReservationHash.orElse(null));
+        account.setUsernameLinkDetails(maybeOriginalUsernameLinkHandle.orElse(null), maybeOriginalEncryptedUsername.orElse(null));
       }
       SET_USERNAME_TIMER.record(System.nanoTime() - startNanos, TimeUnit.NANOSECONDS);
     }

@@ -82,6 +82,12 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
         .required(true)
         .help("The username hash to assign");
 
+    subparser.addArgument("-e", "--encryptedUsername")
+        .dest("encryptedUsername")
+        .type(String.class)
+        .required(false)
+        .help("The encrypted username for the username link");
+
     subparser.addArgument("-a", "--aci")
         .dest("aci")
         .type(String.class)
@@ -210,14 +216,19 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
         experimentEnrollmentManager, registrationRecoveryPasswordsManager, Clock.systemUTC());
 
     final String usernameHash = namespace.getString("usernameHash");
+    final String encryptedUsername = namespace.getString("encryptedUsername");
     final UUID accountIdentifier = UUID.fromString(namespace.getString("aci"));
 
     accountsManager.getByAccountIdentifier(accountIdentifier).ifPresentOrElse(account -> {
           try {
             final AccountsManager.UsernameReservation reservation = accountsManager.reserveUsernameHash(account,
                 List.of(Base64.getUrlDecoder().decode(usernameHash)));
-            final Account result = accountsManager.confirmReservedUsernameHash(account, Base64.getUrlDecoder().decode(usernameHash));
-            System.out.println("New username hash: " + usernameHash);
+            final Account result = accountsManager.confirmReservedUsernameHash(
+                account,
+                reservation.reservedUsernameHash(),
+                encryptedUsername == null ? null : Base64.getUrlDecoder().decode(encryptedUsername));
+            System.out.println("New username hash: " + Base64.getUrlEncoder().encodeToString(result.getUsernameHash().orElseThrow()));
+            System.out.println("New username link handle: " + result.getUsernameLinkHandle().toString());
           } catch (final UsernameHashNotAvailableException e) {
             throw new IllegalArgumentException("Username hash already taken");
           } catch (final UsernameReservationNotFoundException e) {

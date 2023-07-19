@@ -76,8 +76,13 @@ import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
 class AccountsManagerTest {
   private static final String BASE_64_URL_USERNAME_HASH_1 = "9p6Tip7BFefFOJzv4kv4GyXEYsBVfk_WbjNejdlOvQE";
   private static final String BASE_64_URL_USERNAME_HASH_2 = "NLUom-CHwtemcdvOTTXdmXmzRIV7F05leS8lwkVK_vc";
+  private static final String BASE_64_URL_ENCRYPTED_USERNAME_1 = "md1votbj9r794DsqTNrBqA";
+  private static final String BASE_64_URL_ENCRYPTED_USERNAME_2 = "9hrqVLy59bzgPse-S9NUsA";
+
   private static final byte[] USERNAME_HASH_1 = Base64.getUrlDecoder().decode(BASE_64_URL_USERNAME_HASH_1);
   private static final byte[] USERNAME_HASH_2 = Base64.getUrlDecoder().decode(BASE_64_URL_USERNAME_HASH_2);
+  private static final byte[] ENCRYPTED_USERNAME_1 = Base64.getUrlDecoder().decode(BASE_64_URL_ENCRYPTED_USERNAME_1);
+  private static final byte[] ENCRYPTED_USERNAME_2 = Base64.getUrlDecoder().decode(BASE_64_URL_ENCRYPTED_USERNAME_2);
 
   private Accounts accounts;
   private DeletedAccounts deletedAccounts;
@@ -1217,8 +1222,8 @@ class AccountsManagerTest {
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
     setReservationHash(account, USERNAME_HASH_1);
     when(accounts.usernameHashAvailable(eq(Optional.of(account.getUuid())), eq(USERNAME_HASH_1))).thenReturn(true);
-    accountsManager.confirmReservedUsernameHash(account, USERNAME_HASH_1);
-    verify(accounts).confirmUsernameHash(eq(account), eq(USERNAME_HASH_1));
+    accountsManager.confirmReservedUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
+    verify(accounts).confirmUsernameHash(eq(account), eq(USERNAME_HASH_1), eq(ENCRYPTED_USERNAME_1));
   }
 
   @Test
@@ -1227,7 +1232,7 @@ class AccountsManagerTest {
     setReservationHash(account, USERNAME_HASH_1);
     when(accounts.usernameHashAvailable(eq(Optional.of(account.getUuid())), eq(USERNAME_HASH_1))).thenReturn(true);
     assertThrows(UsernameReservationNotFoundException.class,
-        () -> accountsManager.confirmReservedUsernameHash(account, USERNAME_HASH_2));
+        () -> accountsManager.confirmReservedUsernameHash(account, USERNAME_HASH_2, ENCRYPTED_USERNAME_2));
   }
 
   @Test
@@ -1237,8 +1242,8 @@ class AccountsManagerTest {
     setReservationHash(account, USERNAME_HASH_1);
     when(accounts.usernameHashAvailable(eq(Optional.of(account.getUuid())), eq(USERNAME_HASH_1))).thenReturn(false);
     assertThrows(UsernameHashNotAvailableException.class, () -> accountsManager.confirmReservedUsernameHash(account,
-        USERNAME_HASH_1));
-    verify(accounts, never()).confirmUsernameHash(any(), any());
+            USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
+    verify(accounts, never()).confirmUsernameHash(any(), any(), any());
   }
 
   @Test
@@ -1247,7 +1252,7 @@ class AccountsManagerTest {
     account.setUsernameHash(USERNAME_HASH_1);
 
     // reserved username already set, should be treated as a replay
-    accountsManager.confirmReservedUsernameHash(account, USERNAME_HASH_1);
+    accountsManager.confirmReservedUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
     verifyNoInteractions(accounts);
   }
 
@@ -1256,8 +1261,8 @@ class AccountsManagerTest {
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(),
         new ArrayList<>(), new byte[16]);
     assertThrows(UsernameReservationNotFoundException.class,
-        () -> accountsManager.confirmReservedUsernameHash(account, USERNAME_HASH_1));
-    verify(accounts, never()).confirmUsernameHash(any(), any());
+        () -> accountsManager.confirmReservedUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
+    verify(accounts, never()).confirmUsernameHash(any(), any(), any());
   }
 
   @Test

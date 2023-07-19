@@ -350,17 +350,15 @@ public class AccountController {
       throw new WebApplicationException(Response.status(422).build());
     }
 
-    // Whenever a valid request for a username change arrives,
-    // we're making sure to clear username link. This may happen before and username changes are written to the db
-    // but verifying zk proof means that request itself is valid from the client's perspective
-    clearUsernameLink(auth.getAccount());
-
     try {
-      final Account account = accounts.confirmReservedUsernameHash(auth.getAccount(), confirmRequest.usernameHash());
-      return account
-          .getUsernameHash()
-          .map(UsernameHashResponse::new)
-          .orElseThrow(() -> new IllegalStateException("Could not get username after setting"));
+      final Account account = accounts.confirmReservedUsernameHash(
+          auth.getAccount(),
+          confirmRequest.usernameHash(),
+          Optional.ofNullable(confirmRequest.encryptedUsername()).map(EncryptedUsername::usernameLinkEncryptedValue).orElse(null));
+      final UUID linkHandle = account.getUsernameLinkHandle();
+      return new UsernameHashResponse(
+          account.getUsernameHash().orElseThrow(() -> new IllegalStateException("Could not get username after setting")),
+          linkHandle == null ? null : new UsernameLinkHandle(linkHandle));
     } catch (final UsernameReservationNotFoundException e) {
       throw new WebApplicationException(Status.CONFLICT);
     } catch (final UsernameHashNotAvailableException e) {

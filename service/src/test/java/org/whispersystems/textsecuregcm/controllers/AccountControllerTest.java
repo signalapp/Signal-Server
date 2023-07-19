@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.controllers;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.anyLong;
@@ -102,11 +103,15 @@ class AccountControllerTest {
   private static final String SENDER_TRANSFER    = "+14151111112";
   private static final String BASE_64_URL_USERNAME_HASH_1 = "9p6Tip7BFefFOJzv4kv4GyXEYsBVfk_WbjNejdlOvQE";
   private static final String BASE_64_URL_USERNAME_HASH_2 = "NLUom-CHwtemcdvOTTXdmXmzRIV7F05leS8lwkVK_vc";
+  private static final String BASE_64_URL_ENCRYPTED_USERNAME_1 = "md1votbj9r794DsqTNrBqA";
+  private static final String BASE_64_URL_ENCRYPTED_USERNAME_2 = "9hrqVLy59bzgPse-S9NUsA";
 
   private static final String INVALID_BASE_64_URL_USERNAME_HASH = "fA+VkNbvB6dVfx/6NpaRSK6mvhhAUBgDNWFaD7+7gvs=";
   private static final String TOO_SHORT_BASE_64_URL_USERNAME_HASH = "P2oMuxx0xgGxSpTO0ACq3IztEOBDaV9t9YFu4bAGpQ";
   private static final byte[] USERNAME_HASH_1 = Base64.getUrlDecoder().decode(BASE_64_URL_USERNAME_HASH_1);
   private static final byte[] USERNAME_HASH_2 = Base64.getUrlDecoder().decode(BASE_64_URL_USERNAME_HASH_2);
+  private static final byte[] ENCRYPTED_USERNAME_1 = Base64.getUrlDecoder().decode(BASE_64_URL_ENCRYPTED_USERNAME_1);
+  private static final byte[] ENCRYPTED_USERNAME_2 = Base64.getUrlDecoder().decode(BASE_64_URL_ENCRYPTED_USERNAME_2);
   private static final byte[] INVALID_USERNAME_HASH = Base64.getDecoder().decode(INVALID_BASE_64_URL_USERNAME_HASH);
   private static final byte[] TOO_SHORT_USERNAME_HASH = Base64.getUrlDecoder().decode(TOO_SHORT_BASE_64_URL_USERNAME_HASH);
   private static final String BASE_64_URL_ZK_PROOF = "2kambOgmdeeIO0faCMgR6HR4G2BQ5bnhXdIe9ZuZY0NmQXSra5BzDBQ7jzy1cvoEqUHYLpBYMrXudkYPJaWoQg";
@@ -625,30 +630,57 @@ class AccountControllerTest {
   void testConfirmUsernameHash()
       throws UsernameHashNotAvailableException, UsernameReservationNotFoundException, BaseUsernameException {
     Account account = mock(Account.class);
+    final UUID uuid = UUID.randomUUID();
     when(account.getUsernameHash()).thenReturn(Optional.of(USERNAME_HASH_1));
-    when(accountsManager.confirmReservedUsernameHash(any(), eq(USERNAME_HASH_1))).thenReturn(account);
+    when(account.getUsernameLinkHandle()).thenReturn(uuid);
+    when(accountsManager.confirmReservedUsernameHash(any(), eq(USERNAME_HASH_1), eq(ENCRYPTED_USERNAME_1))).thenReturn(account);
     Response response =
         resources.getJerseyTest()
             .target("/v1/accounts/username_hash/confirm")
             .request()
             .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.json(new ConfirmUsernameHashRequest(USERNAME_HASH_1, ZK_PROOF)));
+            .put(Entity.json(new ConfirmUsernameHashRequest(USERNAME_HASH_1, ZK_PROOF, new EncryptedUsername(ENCRYPTED_USERNAME_1))));
     assertThat(response.getStatus()).isEqualTo(200);
-    assertArrayEquals(response.readEntity(UsernameHashResponse.class).usernameHash(), USERNAME_HASH_1);
+
+    final UsernameHashResponse respEntity = response.readEntity(UsernameHashResponse.class);
+    assertArrayEquals(respEntity.usernameHash(), USERNAME_HASH_1);
+    assertEquals(respEntity.usernameLinkHandle().usernameLinkHandle(), uuid);
+    verify(usernameZkProofVerifier).verifyProof(ZK_PROOF, USERNAME_HASH_1);
+  }
+
+  @Test
+  void testConfirmUsernameHashOld()
+      throws UsernameHashNotAvailableException, UsernameReservationNotFoundException, BaseUsernameException {
+    Account account = mock(Account.class);
+    final UUID uuid = UUID.randomUUID();
+    when(account.getUsernameHash()).thenReturn(Optional.of(USERNAME_HASH_1));
+    when(account.getUsernameLinkHandle()).thenReturn(null);
+    when(accountsManager.confirmReservedUsernameHash(any(), eq(USERNAME_HASH_1), eq(null))).thenReturn(account);
+    Response response =
+        resources.getJerseyTest()
+            .target("/v1/accounts/username_hash/confirm")
+            .request()
+            .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(Entity.json(new ConfirmUsernameHashRequest(USERNAME_HASH_1, ZK_PROOF, null)));
+    assertThat(response.getStatus()).isEqualTo(200);
+
+    final UsernameHashResponse respEntity = response.readEntity(UsernameHashResponse.class);
+    assertArrayEquals(respEntity.usernameHash(), USERNAME_HASH_1);
+    assertNull(respEntity.usernameLinkHandle());
     verify(usernameZkProofVerifier).verifyProof(ZK_PROOF, USERNAME_HASH_1);
   }
 
   @Test
   void testConfirmUnreservedUsernameHash()
       throws UsernameHashNotAvailableException, UsernameReservationNotFoundException, BaseUsernameException {
-    when(accountsManager.confirmReservedUsernameHash(any(), eq(USERNAME_HASH_1)))
+    when(accountsManager.confirmReservedUsernameHash(any(), eq(USERNAME_HASH_1), any()))
         .thenThrow(new UsernameReservationNotFoundException());
     Response response =
         resources.getJerseyTest()
             .target("/v1/accounts/username_hash/confirm")
             .request()
             .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.json(new ConfirmUsernameHashRequest(USERNAME_HASH_1, ZK_PROOF)));
+            .put(Entity.json(new ConfirmUsernameHashRequest(USERNAME_HASH_1, ZK_PROOF, new EncryptedUsername(ENCRYPTED_USERNAME_1))));
     assertThat(response.getStatus()).isEqualTo(409);
     verify(usernameZkProofVerifier).verifyProof(ZK_PROOF, USERNAME_HASH_1);
   }
@@ -656,14 +688,14 @@ class AccountControllerTest {
   @Test
   void testConfirmLapsedUsernameHash()
       throws UsernameHashNotAvailableException, UsernameReservationNotFoundException, BaseUsernameException {
-    when(accountsManager.confirmReservedUsernameHash(any(), eq(USERNAME_HASH_1)))
+    when(accountsManager.confirmReservedUsernameHash(any(), eq(USERNAME_HASH_1), any()))
         .thenThrow(new UsernameHashNotAvailableException());
     Response response =
         resources.getJerseyTest()
             .target("/v1/accounts/username_hash/confirm")
             .request()
             .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.json(new ConfirmUsernameHashRequest(USERNAME_HASH_1, ZK_PROOF)));
+            .put(Entity.json(new ConfirmUsernameHashRequest(USERNAME_HASH_1, ZK_PROOF, new EncryptedUsername(ENCRYPTED_USERNAME_1))));
     assertThat(response.getStatus()).isEqualTo(410);
     verify(usernameZkProofVerifier).verifyProof(ZK_PROOF, USERNAME_HASH_1);
   }
@@ -695,7 +727,7 @@ class AccountControllerTest {
             .target("/v1/accounts/username_hash/confirm")
             .request()
             .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.json(new ConfirmUsernameHashRequest(usernameHash, ZK_PROOF)));
+            .put(Entity.json(new ConfirmUsernameHashRequest(usernameHash, ZK_PROOF, new EncryptedUsername(ENCRYPTED_USERNAME_1))));
     assertThat(response.getStatus()).isEqualTo(422);
     verifyNoInteractions(usernameZkProofVerifier);
   }
@@ -708,7 +740,7 @@ class AccountControllerTest {
             .target("/v1/accounts/username_hash/confirm")
             .request()
             .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.json(new ConfirmUsernameHashRequest(USERNAME_HASH_1, ZK_PROOF)));
+            .put(Entity.json(new ConfirmUsernameHashRequest(USERNAME_HASH_1, ZK_PROOF, new EncryptedUsername(ENCRYPTED_USERNAME_1))));
     assertThat(response.getStatus()).isEqualTo(422);
     verify(usernameZkProofVerifier).verifyProof(ZK_PROOF, USERNAME_HASH_1);
   }
