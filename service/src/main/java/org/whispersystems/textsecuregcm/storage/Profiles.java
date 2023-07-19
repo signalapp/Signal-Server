@@ -19,7 +19,9 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
+import org.whispersystems.textsecuregcm.util.AsyncTimerUtil;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
+import org.whispersystems.textsecuregcm.util.Util;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
@@ -93,6 +95,18 @@ public class Profiles {
           .expressionAttributeValues(buildUpdateExpressionAttributeValues(profile))
           .build());
     });
+  }
+
+  public CompletableFuture<Void> setAsync(final UUID uuid, final VersionedProfile profile) {
+    return AsyncTimerUtil.record(SET_PROFILES_TIMER, () -> dynamoDbAsyncClient.updateItem(UpdateItemRequest.builder()
+            .tableName(tableName)
+            .key(buildPrimaryKey(uuid, profile.getVersion()))
+            .updateExpression(buildUpdateExpression(profile))
+            .expressionAttributeNames(UPDATE_EXPRESSION_ATTRIBUTE_NAMES)
+            .expressionAttributeValues(buildUpdateExpressionAttributeValues(profile))
+            .build()
+        ).thenRun(Util.NOOP)
+    ).toCompletableFuture();
   }
 
   private static Map<String, AttributeValue> buildPrimaryKey(final UUID uuid, final String version) {
@@ -196,6 +210,17 @@ public class Profiles {
 
       return response.hasItem() ? Optional.of(fromItem(response.item())) : Optional.empty();
     });
+  }
+
+  public CompletableFuture<Optional<VersionedProfile>> getAsync(final UUID uuid, final String version) {
+    return AsyncTimerUtil.record(GET_PROFILE_TIMER, () -> dynamoDbAsyncClient.getItem(GetItemRequest.builder()
+        .tableName(tableName)
+        .key(buildPrimaryKey(uuid, version))
+        .consistentRead(true)
+        .build())
+        .thenApply(response ->
+            response.hasItem() ? Optional.of(fromItem(response.item())) : Optional.<VersionedProfile>empty())
+    ).toCompletableFuture();
   }
 
   private static VersionedProfile fromItem(final Map<String, AttributeValue> item) {

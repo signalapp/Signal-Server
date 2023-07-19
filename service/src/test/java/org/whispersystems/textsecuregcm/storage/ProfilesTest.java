@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.storage;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -24,7 +25,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
 
-public abstract class ProfilesTest {
+@Timeout(value = 10, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+public class ProfilesTest {
 
   @RegisterExtension
   static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(Tables.PROFILES);
@@ -47,6 +49,24 @@ public abstract class ProfilesTest {
     profiles.set(uuid, profile);
 
     Optional<VersionedProfile> retrieved = profiles.get(uuid, "123");
+
+    assertThat(retrieved.isPresent()).isTrue();
+    assertThat(retrieved.get().getName()).isEqualTo(profile.getName());
+    assertThat(retrieved.get().getAvatar()).isEqualTo(profile.getAvatar());
+    assertThat(retrieved.get().getCommitment()).isEqualTo(profile.getCommitment());
+    assertThat(retrieved.get().getAbout()).isEqualTo(profile.getAbout());
+    assertThat(retrieved.get().getAboutEmoji()).isEqualTo(profile.getAboutEmoji());
+  }
+
+  @Test
+  void testSetGetAsync() {
+    UUID uuid = UUID.randomUUID();
+    VersionedProfile profile = new VersionedProfile("123", "foo", "avatarLocation", "emoji",
+        "the very model of a modern major general",
+        null, "acommitment".getBytes());
+    profiles.setAsync(uuid, profile).join();
+
+    Optional<VersionedProfile> retrieved = profiles.getAsync(uuid, "123").join();
 
     assertThat(retrieved.isPresent()).isTrue();
     assertThat(retrieved.get().getName()).isEqualTo(profile.getName());

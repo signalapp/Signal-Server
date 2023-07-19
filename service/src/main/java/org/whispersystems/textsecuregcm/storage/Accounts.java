@@ -28,11 +28,11 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.util.AsyncTimerUtil;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -521,7 +521,7 @@ public class Accounts extends AbstractDynamoDbStore {
 
   @Nonnull
   public CompletionStage<Void> updateAsync(final Account account) {
-    return record(UPDATE_TIMER, () -> {
+    return AsyncTimerUtil.record(UPDATE_TIMER, () -> {
       final UpdateItemRequest updateItemRequest;
       try {
         // username, e164, and pni cannot be modified through this method
@@ -676,7 +676,7 @@ public class Accounts extends AbstractDynamoDbStore {
 
   @Nonnull
   public CompletableFuture<Optional<Account>> getByAccountIdentifierAsync(final UUID uuid) {
-    return record(GET_BY_UUID_TIMER, () -> itemByKeyAsync(accountsTableName, KEY_ACCOUNT_UUID, AttributeValues.fromUUID(uuid))
+    return AsyncTimerUtil.record(GET_BY_UUID_TIMER, () -> itemByKeyAsync(accountsTableName, KEY_ACCOUNT_UUID, AttributeValues.fromUUID(uuid))
         .thenApply(maybeItem -> maybeItem.map(Accounts::fromItem)))
         .toCompletableFuture();
   }
@@ -776,7 +776,7 @@ public class Accounts extends AbstractDynamoDbStore {
       final AttributeValue keyValue,
       final Predicate<? super Map<String, AttributeValue>> predicate) {
 
-    return record(timer, () -> itemByKeyAsync(tableName, keyName, keyValue)
+    return AsyncTimerUtil.record(timer, () -> itemByKeyAsync(tableName, keyName, keyValue)
         .thenCompose(maybeItem -> maybeItem
             .filter(predicate)
             .map(item -> item.get(KEY_ACCOUNT_UUID))
@@ -933,12 +933,6 @@ public class Accounts extends AbstractDynamoDbStore {
             .key(Map.of(keyName, keyValue))
             .build())
         .build();
-  }
-  
-  @Nonnull
-  private static <T> CompletionStage<T> record(final Timer timer, final Supplier<CompletionStage<T>> toRecord)  {
-    final Timer.Sample sample = Timer.start();
-    return toRecord.get().whenComplete((ignoreT, ignoreE) -> sample.stop(timer));
   }
 
   @Nonnull
