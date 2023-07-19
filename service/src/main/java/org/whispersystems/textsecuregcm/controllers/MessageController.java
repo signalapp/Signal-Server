@@ -87,6 +87,7 @@ import org.whispersystems.textsecuregcm.entities.SendMultiRecipientMessageRespon
 import org.whispersystems.textsecuregcm.entities.SpamReport;
 import org.whispersystems.textsecuregcm.entities.StaleDevices;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.CardinalityEstimator;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -138,7 +139,6 @@ public class MessageController {
   private static final String CONTENT_SIZE_DISTRIBUTION_NAME = name(MessageController.class, "messageContentSize");
   private static final String OUTGOING_MESSAGE_LIST_SIZE_BYTES_DISTRIBUTION_NAME = name(MessageController.class, "outgoingMessageListSizeBytes");
   private static final String RATE_LIMITED_MESSAGE_COUNTER_NAME = name(MessageController.class, "rateLimitedMessage");
-  private static final String RATE_LIMITED_STORIES_COUNTER_NAME = name(MessageController.class, "rateLimitedStory");
 
   private static final String REJECT_INVALID_ENVELOPE_TYPE = name(MessageController.class, "rejectInvalidEnvelopeType");
 
@@ -247,6 +247,10 @@ public class MessageController {
 
     try {
       boolean isSyncMessage = source.isPresent() && source.get().getAccount().isIdentifiedBy(destinationIdentifier);
+
+      if (isSyncMessage && destinationIdentifier.identityType() == IdentityType.PNI) {
+        throw new WebApplicationException(Status.FORBIDDEN);
+      }
 
       Optional<Account> destination;
 

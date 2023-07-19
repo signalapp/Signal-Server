@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
@@ -34,7 +35,9 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
+import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
+import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -147,6 +150,12 @@ public class AuthHelper {
     when(VALID_ACCOUNT_3.getPrimaryDevice()).thenReturn(Optional.of(VALID_DEVICE_3_PRIMARY));
     when(VALID_ACCOUNT_3.getDevice((byte) 2)).thenReturn(Optional.of(VALID_DEVICE_3_LINKED));
 
+    when(VALID_ACCOUNT.getDevices()).thenReturn(List.of(VALID_DEVICE));
+    when(VALID_ACCOUNT_TWO.getDevices()).thenReturn(List.of(VALID_DEVICE_TWO));
+    when(DISABLED_ACCOUNT.getDevices()).thenReturn(List.of(DISABLED_DEVICE));
+    when(UNDISCOVERABLE_ACCOUNT.getDevices()).thenReturn(List.of(UNDISCOVERABLE_DEVICE));
+    when(VALID_ACCOUNT_3.getDevices()).thenReturn(List.of(VALID_DEVICE_3_PRIMARY, VALID_DEVICE_3_LINKED));
+
     when(VALID_ACCOUNT_TWO.hasEnabledLinkedDevice()).thenReturn(true);
 
     when(VALID_ACCOUNT.getNumber()).thenReturn(VALID_NUMBER);
@@ -174,6 +183,15 @@ public class AuthHelper {
     when(DISABLED_ACCOUNT.isDiscoverableByPhoneNumber()).thenReturn(true);
     when(UNDISCOVERABLE_ACCOUNT.isDiscoverableByPhoneNumber()).thenReturn(false);
     when(VALID_ACCOUNT_3.isDiscoverableByPhoneNumber()).thenReturn(true);
+
+    when(VALID_ACCOUNT.isIdentifiedBy(new AciServiceIdentifier(VALID_UUID))).thenReturn(true);
+    when(VALID_ACCOUNT.isIdentifiedBy(new PniServiceIdentifier(VALID_PNI))).thenReturn(true);
+    when(VALID_ACCOUNT_TWO.isIdentifiedBy(new AciServiceIdentifier(VALID_UUID_TWO))).thenReturn(true);
+    when(VALID_ACCOUNT_TWO.isIdentifiedBy(new PniServiceIdentifier(VALID_PNI_TWO))).thenReturn(true);
+    when(DISABLED_ACCOUNT.isIdentifiedBy(new AciServiceIdentifier(DISABLED_UUID))).thenReturn(true);
+    when(UNDISCOVERABLE_ACCOUNT.isIdentifiedBy(new AciServiceIdentifier(UNDISCOVERABLE_UUID))).thenReturn(true);
+    when(VALID_ACCOUNT_3.isIdentifiedBy(new AciServiceIdentifier(VALID_UUID_3))).thenReturn(true);
+    when(VALID_ACCOUNT_3.isIdentifiedBy(new PniServiceIdentifier(VALID_PNI_3))).thenReturn(true);
 
     when(VALID_ACCOUNT.getIdentityKey(IdentityType.ACI)).thenReturn(VALID_IDENTITY);
 

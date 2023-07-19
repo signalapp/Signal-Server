@@ -1,0 +1,8 @@
+{
+  "messages" : [{
+    "type" : 1,
+    "destinationDeviceId" : 2,
+    "content" : "Zm9vYmFyego",
+    "timestamp" : 1234
+  }]
+}

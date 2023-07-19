@@ -297,6 +297,26 @@ class MessageControllerTest {
     assertTrue(captor.getValue().getUrgent());
   }
 
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void testSingleDeviceSync(final boolean sendToPni) throws Exception {
+    final ServiceIdentifier serviceIdentifier = sendToPni
+        ? new PniServiceIdentifier(AuthHelper.VALID_PNI_3)
+        : new AciServiceIdentifier(AuthHelper.VALID_UUID_3);
+
+    try (final Response response =
+        resources.getJerseyTest()
+            .target(String.format("/v1/messages/%s", serviceIdentifier.toServiceIdentifierString()))
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_3, AuthHelper.VALID_PASSWORD_3_PRIMARY))
+            .put(Entity.entity(SystemMapper.jsonMapper().readValue(jsonFixture("fixtures/current_message_sync.json"),
+                    IncomingMessageList.class),
+                MediaType.APPLICATION_JSON_TYPE))) {
+
+      assertThat(response.getStatus(), is(equalTo(sendToPni ? 403 : 200)));
+    }
+  }
+
   @Test
   void testSingleDeviceCurrentNotUrgent() throws Exception {
     Response response =
