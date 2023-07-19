@@ -2459,9 +2459,21 @@ components:
       properties:
         usernameHash:
           type: array
+          description: "The hash of the confirmed username, as supplied in the request"
           items:
             type: string
+            description: "The hash of the confirmed username, as supplied in the request"
             format: byte
+        usernameLinkHandle:
+          $ref: '#/components/schemas/UsernameLinkHandle'
+    UsernameLinkHandle:
+      required:
+      - usernameLinkHandle
+      type: object
+      properties:
+        usernameLinkHandle:
+          type: string
+          format: uuid
     ConfirmUsernameHashRequest:
       type: object
       properties:
@@ -2471,6 +2483,20 @@ components:
             type: string
             format: byte
         zkProof:
+          type: array
+          items:
+            type: string
+            format: byte
+        encryptedUsername:
+          $ref: '#/components/schemas/EncryptedUsername'
+    EncryptedUsername:
+      required:
+      - usernameLinkEncryptedValue
+      type: object
+      properties:
+        usernameLinkEncryptedValue:
+          maxItems: 128
+          minItems: 1
           type: array
           items:
             type: string
@@ -2518,18 +2544,6 @@ components:
         uuid:
           type: string
           format: uuid
-    EncryptedUsername:
-      required:
-      - usernameLinkEncryptedValue
-      type: object
-      properties:
-        usernameLinkEncryptedValue:
-          maxItems: 128
-          minItems: 1
-          type: array
-          items:
-            type: string
-            format: byte
     ReserveUsernameHashResponse:
       type: object
       properties:
@@ -2659,14 +2673,6 @@ components:
           maxLength: 64
           minLength: 64
           type: string
-    UsernameLinkHandle:
-      required:
-      - usernameLinkHandle
-      type: object
-      properties:
-        usernameLinkHandle:
-          type: string
-          format: uuid
     MismatchedDevices:
       type: object
       properties:
@@ -3678,9 +3684,9 @@ components:
           $ref: '#/components/schemas/ApnRegistrationId'
         gcmToken:
           $ref: '#/components/schemas/GcmRegistrationId'
-        everySignedKeyValid:
-          type: boolean
         completeRequest:
+          type: boolean
+        everySignedKeyValid:
           type: boolean
         valid:
           type: boolean
