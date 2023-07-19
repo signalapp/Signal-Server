@@ -354,11 +354,11 @@ public class AccountController {
       final Account account = accounts.confirmReservedUsernameHash(
           auth.getAccount(),
           confirmRequest.usernameHash(),
-          Optional.ofNullable(confirmRequest.encryptedUsername()).map(EncryptedUsername::usernameLinkEncryptedValue).orElse(null));
+          confirmRequest.encryptedUsername());
       final UUID linkHandle = account.getUsernameLinkHandle();
       return new UsernameHashResponse(
           account.getUsernameHash().orElseThrow(() -> new IllegalStateException("Could not get username after setting")),
-          linkHandle == null ? null : new UsernameLinkHandle(linkHandle));
+          linkHandle);
     } catch (final UsernameReservationNotFoundException e) {
       throw new WebApplicationException(Status.CONFLICT);
     } catch (final UsernameHashNotAvailableException e) {

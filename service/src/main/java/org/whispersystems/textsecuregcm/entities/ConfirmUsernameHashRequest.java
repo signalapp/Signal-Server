@@ -5,9 +5,9 @@
 
 package org.whispersystems.textsecuregcm.entities;
 
-import javax.validation.Valid;
-
 import javax.annotation.Nullable;
+import javax.validation.Valid;
+import javax.validation.constraints.Size;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
@@ -27,8 +27,10 @@ public record ConfirmUsernameHashRequest(
     @JsonDeserialize(using = ByteArrayBase64UrlAdapter.Deserializing.class)
     byte[] zkProof,
 
-    @Schema(description = "The encrypted username to be stored for username links")
+    @Schema(type = "string", description = "The url-safe base64-encoded encrypted username to be stored for username links")
     @Nullable
-    @Valid
-    EncryptedUsername encryptedUsername
+    @JsonSerialize(using = ByteArrayBase64UrlAdapter.Serializing.class)
+    @JsonDeserialize(using = ByteArrayBase64UrlAdapter.Deserializing.class)
+    @Size(min = 1, max = 128)
+    byte[] encryptedUsername
 ) {}

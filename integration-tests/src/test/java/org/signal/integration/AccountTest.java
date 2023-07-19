@@ -91,7 +91,7 @@ public class AccountTest {
    final ConfirmUsernameHashRequest confirmUsernameHashRequest = new ConfirmUsernameHashRequest(
         reservedUsername.getHash(),
         reservedUsername.generateProof(),
-        new EncryptedUsername("cluck cluck i'm a parrot".getBytes())
+        "cluck cluck i'm a parrot".getBytes()
     );
     // try unauthorized
     Operations

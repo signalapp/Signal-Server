@@ -639,12 +639,12 @@ class AccountControllerTest {
             .target("/v1/accounts/username_hash/confirm")
             .request()
             .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.json(new ConfirmUsernameHashRequest(USERNAME_HASH_1, ZK_PROOF, new EncryptedUsername(ENCRYPTED_USERNAME_1))));
+            .put(Entity.json(new ConfirmUsernameHashRequest(USERNAME_HASH_1, ZK_PROOF, ENCRYPTED_USERNAME_1)));
     assertThat(response.getStatus()).isEqualTo(200);
 
     final UsernameHashResponse respEntity = response.readEntity(UsernameHashResponse.class);
     assertArrayEquals(respEntity.usernameHash(), USERNAME_HASH_1);
-    assertEquals(respEntity.usernameLinkHandle().usernameLinkHandle(), uuid);
+    assertEquals(respEntity.usernameLinkHandle(), uuid);
     verify(usernameZkProofVerifier).verifyProof(ZK_PROOF, USERNAME_HASH_1);
   }
 
@@ -680,7 +680,7 @@ class AccountControllerTest {
             .target("/v1/accounts/username_hash/confirm")
             .request()
             .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.json(new ConfirmUsernameHashRequest(USERNAME_HASH_1, ZK_PROOF, new EncryptedUsername(ENCRYPTED_USERNAME_1))));
+            .put(Entity.json(new ConfirmUsernameHashRequest(USERNAME_HASH_1, ZK_PROOF, ENCRYPTED_USERNAME_1)));
     assertThat(response.getStatus()).isEqualTo(409);
     verify(usernameZkProofVerifier).verifyProof(ZK_PROOF, USERNAME_HASH_1);
   }
@@ -695,7 +695,7 @@ class AccountControllerTest {
             .target("/v1/accounts/username_hash/confirm")
             .request()
             .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.json(new ConfirmUsernameHashRequest(USERNAME_HASH_1, ZK_PROOF, new EncryptedUsername(ENCRYPTED_USERNAME_1))));
+            .put(Entity.json(new ConfirmUsernameHashRequest(USERNAME_HASH_1, ZK_PROOF, ENCRYPTED_USERNAME_1)));
     assertThat(response.getStatus()).isEqualTo(410);
     verify(usernameZkProofVerifier).verifyProof(ZK_PROOF, USERNAME_HASH_1);
   }
@@ -727,7 +727,7 @@ class AccountControllerTest {
             .target("/v1/accounts/username_hash/confirm")
             .request()
             .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.json(new ConfirmUsernameHashRequest(usernameHash, ZK_PROOF, new EncryptedUsername(ENCRYPTED_USERNAME_1))));
+            .put(Entity.json(new ConfirmUsernameHashRequest(usernameHash, ZK_PROOF, ENCRYPTED_USERNAME_1)));
     assertThat(response.getStatus()).isEqualTo(422);
     verifyNoInteractions(usernameZkProofVerifier);
   }
@@ -740,7 +740,7 @@ class AccountControllerTest {
             .target("/v1/accounts/username_hash/confirm")
             .request()
             .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.json(new ConfirmUsernameHashRequest(USERNAME_HASH_1, ZK_PROOF, new EncryptedUsername(ENCRYPTED_USERNAME_1))));
+            .put(Entity.json(new ConfirmUsernameHashRequest(USERNAME_HASH_1, ZK_PROOF, ENCRYPTED_USERNAME_1)));
     assertThat(response.getStatus()).isEqualTo(422);
     verify(usernameZkProofVerifier).verifyProof(ZK_PROOF, USERNAME_HASH_1);
   }
