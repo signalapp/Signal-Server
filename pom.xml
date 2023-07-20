@@ -62,6 +62,7 @@
     <opentest4j.version>1.2.0</opentest4j.version>
     <protobuf.version>3.21.7</protobuf.version>
     <pushy.version>0.15.2</pushy.version>
+    <reactive.grpc.version>1.2.4</reactive.grpc.version>
     <resilience4j.version>1.7.0</resilience4j.version>
     <semver4j.version>3.1.0</semver4j.version>
     <slf4j.version>1.7.30</slf4j.version>
@@ -123,6 +124,11 @@
         <version>${google-cloud-libraries.version}</version>
         <type>pom</type>
         <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>com.salesforce.servicelibs</groupId>
+        <artifactId>reactor-grpc-stub</artifactId>
+        <version>${reactive.grpc.version}</version>
       </dependency>
       <dependency>
         <groupId>io.github.resilience4j</groupId>
@@ -398,6 +404,16 @@
           <protocArtifact>com.google.protobuf:protoc:${protobuf.version}:exe:${os.detected.classifier}</protocArtifact>
           <pluginId>grpc-java</pluginId>
           <pluginArtifact>io.grpc:protoc-gen-grpc-java:${grpc.version}:exe:${os.detected.classifier}</pluginArtifact>
+
+          <protocPlugins>
+            <protocPlugin>
+              <id>reactor-grpc</id>
+              <groupId>com.salesforce.servicelibs</groupId>
+              <artifactId>reactor-grpc</artifactId>
+              <version>${reactive.grpc.version}</version>
+              <mainClass>com.salesforce.reactorgrpc.ReactorGrpcGenerator</mainClass>
+            </protocPlugin>
+          </protocPlugins>
         </configuration>
         <executions>
           <execution>

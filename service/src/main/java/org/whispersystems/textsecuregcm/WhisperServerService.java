@@ -24,6 +24,7 @@ import io.dropwizard.auth.basic.BasicCredentials;
 import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
 import io.grpc.ServerBuilder;
+import io.grpc.ServerInterceptors;
 import io.lettuce.core.metrics.MicrometerCommandLatencyRecorder;
 import io.lettuce.core.metrics.MicrometerOptions;
 import io.lettuce.core.resource.ClientResources;
@@ -64,6 +65,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.BaseAccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.CertificateGenerator;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
@@ -72,6 +74,7 @@ import org.whispersystems.textsecuregcm.auth.PhoneVerificationTokenManager;
 import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
 import org.whispersystems.textsecuregcm.auth.WebsocketRefreshApplicationEventListener;
+import org.whispersystems.textsecuregcm.auth.grpc.BasicCredentialAuthenticationInterceptor;
 import org.whispersystems.textsecuregcm.badges.ConfiguredProfileBadgeConverter;
 import org.whispersystems.textsecuregcm.badges.ResourceBundleLevelTranslator;
 import org.whispersystems.textsecuregcm.captcha.CaptchaChecker;
@@ -115,6 +118,8 @@ import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.filters.RemoteDeprecationFilter;
 import org.whispersystems.textsecuregcm.filters.RequestStatisticsFilter;
 import org.whispersystems.textsecuregcm.filters.TimestampResponseFilter;
+import org.whispersystems.textsecuregcm.grpc.KeysGrpcService;
+import org.whispersystems.textsecuregcm.grpc.KeysAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.limits.PushChallengeManager;
 import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -401,6 +406,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
                 .build(),
             MetricsUtil.name(getClass(), "messageDeliveryExecutor"), MetricsUtil.PREFIX),
         "messageDelivery");
+
     // TODO: generally speaking this is a DynamoDB I/O executor for the accounts table; we should eventually have a general executor for speaking to the accounts table, but most of the server is still synchronous so this isn't widely useful yet
     ExecutorService batchIdentityCheckExecutor = environment.lifecycle().executorService(name(getClass(), "batchIdentityCheck-%d")).minThreads(32).maxThreads(32).build();
     ExecutorService multiRecipientMessageExecutor = environment.lifecycle()
@@ -606,8 +612,14 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     AuthFilter<BasicCredentials, DisabledPermittedAuthenticatedAccount> disabledPermittedAccountAuthFilter = new BasicCredentialAuthFilter.Builder<DisabledPermittedAuthenticatedAccount>().setAuthenticator(
         disabledPermittedAccountAuthenticator).buildAuthFilter();
 
+    final BasicCredentialAuthenticationInterceptor basicCredentialAuthenticationInterceptor =
+        new BasicCredentialAuthenticationInterceptor(new BaseAccountAuthenticator(accountsManager));
+
     final ServerBuilder<?> grpcServer = ServerBuilder.forPort(config.getGrpcPort())
-        .intercept(new MetricCollectingServerInterceptor(Metrics.globalRegistry)); /* TODO: specialize metrics with user-agent platform */
+        // TODO: specialize metrics with user-agent platform
+        .intercept(new MetricCollectingServerInterceptor(Metrics.globalRegistry))
+        .addService(ServerInterceptors.intercept(new KeysGrpcService(accountsManager, keys, rateLimiters), basicCredentialAuthenticationInterceptor))
+        .addService(new KeysAnonymousGrpcService(accountsManager, keys));
 
     RemoteDeprecationFilter remoteDeprecationFilter = new RemoteDeprecationFilter(dynamicConfigurationManager);
     environment.servlets()

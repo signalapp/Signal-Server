@@ -287,6 +287,11 @@
     </dependency>
 
     <dependency>
+      <groupId>com.salesforce.servicelibs</groupId>
+      <artifactId>reactor-grpc-stub</artifactId>
+    </dependency>
+
+    <dependency>
       <groupId>software.amazon.awssdk</groupId>
       <artifactId>sts</artifactId>
     </dependency>

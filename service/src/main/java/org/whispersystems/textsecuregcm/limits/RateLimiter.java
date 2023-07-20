@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.limits;
 import java.util.UUID;
 import java.util.concurrent.CompletionStage;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
+import reactor.core.publisher.Mono;
 
 public interface RateLimiter {
 
@@ -51,6 +52,10 @@ public interface RateLimiter {
 
   default CompletionStage<Void> validateAsync(final UUID srcAccountUuid, final UUID dstAccountUuid) {
     return validateAsync(srcAccountUuid.toString() + "__" + dstAccountUuid.toString());
+  }
+
+  default Mono<Void> validateReactive(final String key) {
+    return Mono.fromFuture(validateAsync(key).toCompletableFuture());
   }
 
   default boolean hasAvailablePermits(final UUID accountUuid, final int permits) {

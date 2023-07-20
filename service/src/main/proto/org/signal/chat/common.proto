@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+
+package org.signal.chat.common;
+
+enum IdentityType {
+  IDENTITY_TYPE_UNSPECIFIED = 0;
+  IDENTITY_TYPE_ACI = 1;
+  IDENTITY_TYPE_PNI = 2;
+}
+
+message ServiceIdentifier {
+  /**
+   * The type of identity represented by this service identifier.
+   */
+  IdentityType identity_type = 1;
+
+  /**
+   * The UUID of the identity represented by this service identifier.
+   */
+  bytes uuid = 2;
+}
+
+message EcPreKey {
+  /**
+   * A locally-unique identifier for this key.
+   */
+  uint64 key_id = 1;
+
+  /**
+   * The serialized form of the public key.
+   */
+  bytes public_key = 2;
+}
+
+message EcSignedPreKey {
+  /**
+   * A locally-unique identifier for this key.
+   */
+  uint64 key_id = 1;
+
+  /**
+   * The serialized form of the public key.
+   */
+  bytes public_key = 2;
+
+  /**
+   * A signature of the public key, verifiable with the identity key for the
+   * account/identity associated with this pre-key.
+   */
+  bytes signature = 3;
+}
+
+message KemSignedPreKey {
+  /**
+   * A locally-unique identifier for this key.
+   */
+  uint64 key_id = 1;
+
+  /**
+   * The serialized form of the public key.
+   */
+  bytes public_key = 2;
+
+  /**
+   * A signature of the public key, verifiable with the identity key for the
+   * account/identity associated with this pre-key.
+   */
+  bytes signature = 3;
+}

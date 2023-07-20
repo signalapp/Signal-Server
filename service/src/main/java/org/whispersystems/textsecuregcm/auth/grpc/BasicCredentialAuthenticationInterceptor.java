@@ -24,9 +24,8 @@ import org.whispersystems.textsecuregcm.auth.BaseAccountAuthenticator;
  * Callers supply credentials by providing a username (UUID and optional device ID) and password pair in the
  * {@code x-signal-basic-auth-credentials} call header.
  * <p/>
- * Downstream services can retrieve the identity of the authenticated caller using
- * {@link AuthenticationUtil#getAuthenticatedAccountIdentifier()} and
- * {@link AuthenticationUtil#getAuthenticatedDeviceIdentifier()}.
+ * Downstream services can retrieve the identity of the authenticated caller using methods in
+ * {@link AuthenticationUtil}.
  * <p/>
  * Note that this authentication, while fully functional, is intended only for development and testing purposes and is
  * intended to be replaced with a more robust and efficient strategy before widespread client adoption.

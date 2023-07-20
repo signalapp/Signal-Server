@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.util;
 
+import com.google.protobuf.ByteString;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.util.Optional;
@@ -25,6 +26,14 @@ public final class UUIDUtil {
     byteBuffer.putLong(uuid.getMostSignificantBits());
     byteBuffer.putLong(uuid.getLeastSignificantBits());
     return byteBuffer.flip();
+  }
+
+  public static ByteString toByteString(final UUID uuid) {
+    return ByteString.copyFrom(toByteBuffer(uuid));
+  }
+
+  public static UUID fromByteString(final ByteString byteString) {
+    return fromBytes(byteString.toByteArray());
   }
 
   public static UUID fromBytes(final byte[] bytes) {

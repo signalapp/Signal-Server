@@ -90,6 +90,14 @@ public class KeysManager {
     return pqLastResortKeys.store(identifier, keys);
   }
 
+  public CompletableFuture<Void> storeEcOneTimePreKeys(final UUID identifier, final long deviceId, final List<ECPreKey> preKeys) {
+    return ecPreKeys.store(identifier, deviceId, preKeys);
+  }
+
+  public CompletableFuture<Void> storeKemOneTimePreKeys(final UUID identifier, final long deviceId, final List<KEMSignedPreKey> preKeys) {
+    return pqPreKeys.store(identifier, deviceId, preKeys);
+  }
+
   public CompletableFuture<Optional<ECPreKey>> takeEC(final UUID identifier, final long deviceId) {
     return ecPreKeys.take(identifier, deviceId);
   }
