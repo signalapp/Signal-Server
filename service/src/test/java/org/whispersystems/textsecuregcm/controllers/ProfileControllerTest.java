@@ -61,6 +61,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.signal.libsignal.protocol.IdentityKey;
+import org.signal.libsignal.protocol.ServiceId;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.ServerPublicParams;
@@ -421,7 +422,7 @@ class ProfileControllerTest {
 
   @Test
   void testSetProfileWantAvatarUpload() throws InvalidInputException {
-    final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(AuthHelper.VALID_UUID);
+    final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(AuthHelper.VALID_UUID));
 
     final ProfileAvatarUploadAttributes uploadAttributes = resources.getJerseyTest()
         .target("/v1/profile/")
@@ -449,7 +450,7 @@ class ProfileControllerTest {
 
   @Test
   void testSetProfileWantAvatarUploadWithBadProfileSize() throws InvalidInputException {
-    final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(AuthHelper.VALID_UUID);
+    final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(AuthHelper.VALID_UUID));
 
     try (final Response response = resources.getJerseyTest()
         .target("/v1/profile/")
@@ -465,7 +466,7 @@ class ProfileControllerTest {
 
   @Test
   void testSetProfileWithoutAvatarUpload() throws InvalidInputException {
-    final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(AuthHelper.VALID_UUID);
+    final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(AuthHelper.VALID_UUID));
 
     clearInvocations(AuthHelper.VALID_ACCOUNT_TWO);
 
@@ -497,7 +498,7 @@ class ProfileControllerTest {
 
   @Test
   void testSetProfileWithAvatarUploadAndPreviousAvatar() throws InvalidInputException {
-    final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(AuthHelper.VALID_UUID_TWO);
+    final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(AuthHelper.VALID_UUID_TWO));
 
     resources.getJerseyTest()
         .target("/v1/profile/")
@@ -524,7 +525,7 @@ class ProfileControllerTest {
 
   @Test
   void testSetProfileClearPreviousAvatar() throws InvalidInputException {
-    final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(AuthHelper.VALID_UUID_TWO);
+    final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(AuthHelper.VALID_UUID_TWO));
 
     try (final Response response = resources.getJerseyTest()
         .target("/v1/profile/")
@@ -554,7 +555,7 @@ class ProfileControllerTest {
 
   @Test
   void testSetProfileWithSameAvatar() throws InvalidInputException {
-    final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(AuthHelper.VALID_UUID_TWO);
+    final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(AuthHelper.VALID_UUID_TWO));
 
     try (final Response response = resources.getJerseyTest()
         .target("/v1/profile/")
@@ -584,7 +585,7 @@ class ProfileControllerTest {
 
   @Test
   void testSetProfileClearPreviousAvatarDespiteSameAvatarFlagSet() throws InvalidInputException {
-    final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(AuthHelper.VALID_UUID_TWO);
+    final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(AuthHelper.VALID_UUID_TWO));
 
     try (final Response ignored = resources.getJerseyTest()
         .target("/v1/profile/")
@@ -612,7 +613,7 @@ class ProfileControllerTest {
 
   @Test
   void testSetProfileWithSameAvatarDespiteNoPreviousAvatar() throws InvalidInputException {
-    final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(AuthHelper.VALID_UUID);
+    final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(AuthHelper.VALID_UUID));
 
     try (final Response response = resources.getJerseyTest()
         .target("/v1/profile/")
@@ -642,7 +643,7 @@ class ProfileControllerTest {
 
   @Test
   void testSetProfileExtendedName() throws InvalidInputException {
-    final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(AuthHelper.VALID_UUID_TWO);
+    final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(AuthHelper.VALID_UUID_TWO));
 
     final String name = RandomStringUtils.randomAlphabetic(380);
 
@@ -670,7 +671,7 @@ class ProfileControllerTest {
 
   @Test
   void testSetProfileEmojiAndBioText() throws InvalidInputException {
-    final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(AuthHelper.VALID_UUID);
+    final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(AuthHelper.VALID_UUID));
 
     clearInvocations(AuthHelper.VALID_ACCOUNT_TWO);
 
@@ -709,7 +710,7 @@ class ProfileControllerTest {
 
   @Test
   void testSetProfilePaymentAddress() throws InvalidInputException {
-    final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(AuthHelper.VALID_UUID);
+    final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(AuthHelper.VALID_UUID));
 
     clearInvocations(AuthHelper.VALID_ACCOUNT_TWO);
 
@@ -750,7 +751,7 @@ class ProfileControllerTest {
     when(dynamicPaymentsConfiguration.getDisallowedPrefixes())
         .thenReturn(List.of(AuthHelper.VALID_NUMBER_TWO.substring(0, 3)));
 
-    final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(AuthHelper.VALID_UUID);
+    final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(AuthHelper.VALID_UUID));
 
     clearInvocations(AuthHelper.VALID_ACCOUNT_TWO);
 
@@ -779,7 +780,7 @@ class ProfileControllerTest {
     when(dynamicPaymentsConfiguration.getDisallowedPrefixes())
         .thenReturn(List.of(AuthHelper.VALID_NUMBER_TWO.substring(0, 3)));
 
-    final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(AuthHelper.VALID_UUID);
+    final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(AuthHelper.VALID_UUID));
 
     clearInvocations(AuthHelper.VALID_ACCOUNT_TWO);
 
@@ -854,7 +855,7 @@ class ProfileControllerTest {
 
   @Test
   void testSetProfileUpdatesAccountCurrentVersion() throws InvalidInputException {
-    final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(AuthHelper.VALID_UUID_TWO);
+    final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(AuthHelper.VALID_UUID_TWO));
 
     clearInvocations(AuthHelper.VALID_ACCOUNT_TWO);
 
@@ -943,7 +944,7 @@ class ProfileControllerTest {
 
   @Test
   void testSetProfileBadges() throws InvalidInputException {
-    final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(AuthHelper.VALID_UUID);
+    final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(AuthHelper.VALID_UUID));
 
     clearInvocations(AuthHelper.VALID_ACCOUNT_TWO);
 
@@ -1065,13 +1066,13 @@ class ProfileControllerTest {
     new SecureRandom().nextBytes(profileKeyBytes);
 
     final ProfileKey profileKey = new ProfileKey(profileKeyBytes);
-    final ProfileKeyCommitment profileKeyCommitment = profileKey.getCommitment(AuthHelper.VALID_UUID);
+    final ProfileKeyCommitment profileKeyCommitment = profileKey.getCommitment(new ServiceId.Aci(AuthHelper.VALID_UUID));
 
     final VersionedProfile versionedProfile = mock(VersionedProfile.class);
     when(versionedProfile.getCommitment()).thenReturn(profileKeyCommitment.serialize());
 
     final ProfileKeyCredentialRequestContext profileKeyCredentialRequestContext =
-        clientZkProfile.createProfileKeyCredentialRequestContext(AuthHelper.VALID_UUID, profileKey);
+        clientZkProfile.createProfileKeyCredentialRequestContext(new ServiceId.Aci(AuthHelper.VALID_UUID), profileKey);
 
     final ProfileKeyCredentialRequest credentialRequest = profileKeyCredentialRequestContext.getRequest();
 
@@ -1085,11 +1086,11 @@ class ProfileControllerTest {
         .truncatedTo(ChronoUnit.DAYS);
 
     final ExpiringProfileKeyCredentialResponse credentialResponse =
-        serverZkProfile.issueExpiringProfileKeyCredential(credentialRequest, AuthHelper.VALID_UUID, profileKeyCommitment, expiration);
+        serverZkProfile.issueExpiringProfileKeyCredential(credentialRequest, new ServiceId.Aci(AuthHelper.VALID_UUID), profileKeyCommitment, expiration);
 
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
     when(profilesManager.get(AuthHelper.VALID_UUID, version)).thenReturn(Optional.of(versionedProfile));
-    when(zkProfileOperations.issueExpiringProfileKeyCredential(credentialRequest, AuthHelper.VALID_UUID, profileKeyCommitment, expiration))
+    when(zkProfileOperations.issueExpiringProfileKeyCredential(credentialRequest, new ServiceId.Aci(AuthHelper.VALID_UUID), profileKeyCommitment, expiration))
         .thenReturn(credentialResponse);
 
     final ExpiringProfileKeyCredentialProfileResponse profile = resources.getJerseyTest()
@@ -1104,7 +1105,7 @@ class ProfileControllerTest {
         .isEqualTo(new AciServiceIdentifier(AuthHelper.VALID_UUID));
     assertThat(profile.getCredential()).isEqualTo(credentialResponse);
 
-    verify(zkProfileOperations).issueExpiringProfileKeyCredential(credentialRequest, AuthHelper.VALID_UUID, profileKeyCommitment, expiration);
+    verify(zkProfileOperations).issueExpiringProfileKeyCredential(credentialRequest, new ServiceId.Aci(AuthHelper.VALID_UUID), profileKeyCommitment, expiration);
 
     final ClientZkProfileOperations clientZkProfileCipher = new ClientZkProfileOperations(serverPublicParams);
     assertThatNoException().isThrownBy(() ->
@@ -1121,7 +1122,7 @@ class ProfileControllerTest {
 
   @Test
   void testSetProfileBadgesMissingFromRequest() throws InvalidInputException {
-    final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(AuthHelper.VALID_UUID);
+    final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(AuthHelper.VALID_UUID));
 
     clearInvocations(AuthHelper.VALID_ACCOUNT_TWO);
 

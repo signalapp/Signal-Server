@@ -32,6 +32,8 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
+import org.signal.libsignal.protocol.ServiceId;
+import org.signal.libsignal.zkgroup.auth.AuthCredentialWithPniResponse;
 import org.signal.libsignal.zkgroup.auth.ServerZkAuthOperations;
 import org.signal.libsignal.zkgroup.calllinks.CallLinkAuthCredentialResponse;
 import org.signal.libsignal.zkgroup.GenericServerSecretParams;
@@ -92,7 +94,8 @@ public class CertificateController {
   public GroupCredentials getGroupAuthenticationCredentials(
       @Auth AuthenticatedAccount auth,
       @QueryParam("redemptionStartSeconds") int startSeconds,
-      @QueryParam("redemptionEndSeconds") int endSeconds) {
+      @QueryParam("redemptionEndSeconds") int endSeconds,
+      @QueryParam("pniAsServiceId") boolean pniAsServiceId) {
 
     final Instant startOfDay = clock.instant().truncatedTo(ChronoUnit.DAYS);
     final Instant redemptionStart = Instant.ofEpochSecond(startSeconds);
@@ -112,12 +115,18 @@ public class CertificateController {
 
     Instant redemption = redemptionStart;
 
-    UUID aci = auth.getAccount().getUuid();
-    UUID pni = auth.getAccount().getPhoneNumberIdentifier();
+    ServiceId.Aci aci = new ServiceId.Aci(auth.getAccount().getUuid());
+    ServiceId.Pni pni = new ServiceId.Pni(auth.getAccount().getPhoneNumberIdentifier());
 
     while (!redemption.isAfter(redemptionEnd)) {
+      AuthCredentialWithPniResponse authCredentialWithPni;
+      if (pniAsServiceId) {
+        authCredentialWithPni = serverZkAuthOperations.issueAuthCredentialWithPniAsServiceId(aci, pni, redemption);
+      } else {
+        authCredentialWithPni = serverZkAuthOperations.issueAuthCredentialWithPniAsAci(aci, pni, redemption);
+      }
       credentials.add(new GroupCredentials.GroupCredential(
-          serverZkAuthOperations.issueAuthCredentialWithPni(aci, pni, redemption).serialize(),
+          authCredentialWithPni.serialize(),
           (int) redemption.getEpochSecond()));
 
       callLinkAuthCredentials.add(new GroupCredentials.CallLinkAuthCredential(
@@ -128,6 +137,6 @@ public class CertificateController {
     }
 
 
-    return new GroupCredentials(credentials, callLinkAuthCredentials, pni);
+    return new GroupCredentials(credentials, callLinkAuthCredentials, pni.getRawUUID());
   }
 }

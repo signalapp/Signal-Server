@@ -65,6 +65,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.protocol.IdentityKey;
+import org.signal.libsignal.protocol.ServiceId;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.signal.libsignal.zkgroup.profiles.ExpiringProfileKeyCredentialResponse;
@@ -401,7 +402,7 @@ public class ProfileController {
       final ContainerRequestContext containerRequestContext) {
 
     final ExpiringProfileKeyCredentialResponse expiringProfileKeyCredentialResponse = profilesManager.get(account.getUuid(), version)
-        .map(profile -> getExpiringProfileKeyCredentialResponse(encodedCredentialRequest, profile, account.getUuid(), expiration))
+        .map(profile -> getExpiringProfileKeyCredentialResponse(encodedCredentialRequest, profile, new ServiceId.Aci(account.getUuid()), expiration))
         .orElse(null);
 
     return new ExpiringProfileKeyCredentialProfileResponse(
@@ -465,7 +466,7 @@ public class ProfileController {
   private ExpiringProfileKeyCredentialResponse getExpiringProfileKeyCredentialResponse(
       final String encodedCredentialRequest,
       final VersionedProfile profile,
-      final UUID accountIdentifier,
+      final ServiceId.Aci accountIdentifier,
       final Instant expiration) {
 
     try {

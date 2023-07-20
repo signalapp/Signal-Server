@@ -293,7 +293,7 @@
       <dependency>
         <groupId>org.signal</groupId>
         <artifactId>libsignal-server</artifactId>
-        <version>0.26.0</version>
+        <version>0.30.0</version>
       </dependency>
       <dependency>
         <groupId>org.apache.logging.log4j</groupId>

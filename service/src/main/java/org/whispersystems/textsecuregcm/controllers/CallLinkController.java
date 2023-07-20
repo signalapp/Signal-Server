@@ -4,6 +4,7 @@ import com.codahale.metrics.annotation.Timed;
 import io.dropwizard.auth.Auth;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import org.signal.libsignal.protocol.ServiceId;
 import org.signal.libsignal.zkgroup.GenericServerSecretParams;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.calllinks.CreateCallLinkCredentialRequest;
@@ -68,7 +69,7 @@ public class CallLinkController {
     }
 
     return new CreateCallLinkCredential(
-        createCallLinkCredentialRequest.issueCredential(auth.getAccount().getUuid(), truncatedDayTimestamp, genericServerSecretParams).serialize(),
+        createCallLinkCredentialRequest.issueCredential(new ServiceId.Aci(auth.getAccount().getUuid()), truncatedDayTimestamp, genericServerSecretParams).serialize(),
         truncatedDayTimestamp.getEpochSecond()
     );
   }
