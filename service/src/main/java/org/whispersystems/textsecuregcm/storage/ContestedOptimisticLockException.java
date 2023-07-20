@@ -5,9 +5,7 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
-public class ContestedOptimisticLockException extends RuntimeException {
+import org.whispersystems.textsecuregcm.util.NoStackTraceRuntimeException;
 
-  public ContestedOptimisticLockException() {
-    super(null, null, true, false);
-  }
+public class ContestedOptimisticLockException extends NoStackTraceRuntimeException {
 }
