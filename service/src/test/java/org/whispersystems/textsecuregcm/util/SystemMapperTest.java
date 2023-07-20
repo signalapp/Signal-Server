@@ -6,13 +6,19 @@
 package org.whispersystems.textsecuregcm.util;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.fasterxml.jackson.annotation.JsonFilter;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -68,7 +74,6 @@ class SystemMapperTest {
     }
   }
 
-
   @ParameterizedTest
   @ValueSource(classes = {DataClass.class, DataRecord.class})
   public void testOptionalField(final Class<? extends Data> clazz) throws Exception {
@@ -95,5 +100,23 @@ class SystemMapperTest {
         Arguments.of(new DataRecord(Optional.empty()), JSON_NO_FIELD),
         Arguments.of(new DataRecord(null), JSON_NO_FIELD)
     );
+  }
+
+  public record NotAnnotatedWithJsonFilter(String data) {
+  }
+
+  @JsonFilter("AnnotatedWithJsonFilter")
+  public record AnnotatedWithJsonFilter(String data, String excluded) {
+  }
+
+  @Test
+  public void testFiltering() throws Exception {
+    assertThrows(IllegalStateException.class, () -> SystemMapper.excludingField(NotAnnotatedWithJsonFilter.class, List.of("data")));
+    final ObjectWriter writer = SystemMapper.jsonMapper()
+        .writer(SystemMapper.excludingField(AnnotatedWithJsonFilter.class, List.of("excluded")));
+    final AnnotatedWithJsonFilter obj = new AnnotatedWithJsonFilter("valData", "valExcluded");
+    final String json = writer.writeValueAsString(obj);
+    final Map<?, ?> serializedFields = SystemMapper.jsonMapper().readValue(json, Map.class);
+    assertEquals(Map.of("data", "valData"), serializedFields);
   }
 }

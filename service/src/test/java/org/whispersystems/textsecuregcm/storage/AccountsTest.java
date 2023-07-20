@@ -11,6 +11,7 @@ import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -987,6 +988,24 @@ class AccountsTest {
         () -> accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
     assertThat(account.getReservedUsernameHash()).isEmpty();
     assertThat(account.getUsernameHash()).isEmpty();
+  }
+
+  @Test
+  public void testIgnoredFieldsNotAddedToDataAttribute() throws Exception {
+    final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
+    account.setUsernameHash(RandomUtils.nextBytes(32));
+    account.setUsernameLinkDetails(UUID.randomUUID(), RandomUtils.nextBytes(32));
+    accounts.create(account);
+    final Map<String, AttributeValue> accountRecord = DYNAMO_DB_EXTENSION.getDynamoDbClient()
+        .getItem(GetItemRequest.builder()
+            .tableName(Tables.ACCOUNTS.tableName())
+            .key(Map.of(Accounts.KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid())))
+            .build())
+        .item();
+    final Map<?, ?> dataMap = SystemMapper.jsonMapper()
+        .readValue(accountRecord.get(Accounts.ATTR_ACCOUNT_DATA).b().asByteArray(), Map.class);
+    Accounts.ACCOUNT_FIELDS_TO_EXCLUDE_FROM_SERIALIZATION
+        .forEach(field -> assertFalse(dataMap.containsKey(field)));
   }
 
   private static Device generateDevice(long id) {

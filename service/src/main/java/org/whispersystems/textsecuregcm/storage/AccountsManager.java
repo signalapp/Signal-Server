@@ -12,7 +12,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import io.lettuce.core.RedisException;
@@ -112,7 +112,8 @@ public class AccountsManager {
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
   private final Clock clock;
 
-  private static final ObjectMapper mapper = SystemMapper.jsonMapper();
+  private static final ObjectWriter ACCOUNT_REDIS_JSON_WRITER = SystemMapper.jsonMapper()
+      .writer(SystemMapper.excludingField(Account.class, List.of("uuid")));
 
   // An account that's used at least daily will get reset in the cache at least once per day when its "last seen"
   // timestamp updates; expiring entries after two days will help clear out "zombie" cache entries that are read
@@ -454,7 +455,7 @@ public class AccountsManager {
   /**
    * Reserve a username hash so that no other accounts may take it.
    * <p>
-   * The reserved hash can later be set with {@link #confirmReservedUsernameHash(Account, byte[])}. The reservation
+   * The reserved hash can later be set with {@link #confirmReservedUsernameHash(Account, byte[], byte[])}. The reservation
    * will eventually expire, after which point confirmReservedUsernameHash may fail if another account has taken the
    * username hash.
    *
@@ -657,7 +658,7 @@ public class AccountsManager {
       final Supplier<Account> retriever,
       final AccountChangeValidator changeValidator) throws UsernameHashNotAvailableException {
 
-    Account originalAccount = cloneAccount(account);
+    Account originalAccount = cloneAccountAsNotStale(account);
 
     if (!updater.apply(account)) {
       return account;
@@ -671,7 +672,7 @@ public class AccountsManager {
       try {
         persister.persistAccount(account);
 
-        final Account updatedAccount = cloneAccount(account);
+        final Account updatedAccount = cloneAccountAsNotStale(account);
         account.markStale();
 
         changeValidator.validateChange(originalAccount, updatedAccount);
@@ -681,7 +682,7 @@ public class AccountsManager {
         tries++;
 
         account = retriever.get();
-        originalAccount = cloneAccount(account);
+        originalAccount = cloneAccountAsNotStale(account);
 
         if (!updater.apply(account)) {
           return account;
@@ -699,7 +700,7 @@ public class AccountsManager {
       final AccountChangeValidator changeValidator,
       final int remainingTries) {
 
-    final Account originalAccount = cloneAccount(account);
+    final Account originalAccount = cloneAccountAsNotStale(account);
 
     if (!updater.apply(account)) {
       return CompletableFuture.completedFuture(account);
@@ -708,7 +709,7 @@ public class AccountsManager {
     if (remainingTries > 0) {
       return persister.apply(account)
           .thenApply(ignored -> {
-            final Account updatedAccount = cloneAccount(account);
+            final Account updatedAccount = cloneAccountAsNotStale(account);
             account.markStale();
 
             changeValidator.validateChange(originalAccount, updatedAccount);
@@ -728,13 +729,10 @@ public class AccountsManager {
     return CompletableFuture.failedFuture(new OptimisticLockRetryLimitExceededException());
   }
 
-  private static Account cloneAccount(final Account account) {
+  private static Account cloneAccountAsNotStale(final Account account) {
     try {
-      final Account clone = mapper.readValue(mapper.writeValueAsBytes(account), Account.class);
-      clone.setUuid(account.getUuid());
-      clone.setUsernameLinkHandle(account.getUsernameLinkHandle());
-
-      return clone;
+      return SystemMapper.jsonMapper().readValue(
+          SystemMapper.jsonMapper().writeValueAsBytes(account), Account.class);
     } catch (final IOException e) {
       // this should really, truly, never happen
       throw new IllegalArgumentException(e);
@@ -901,7 +899,7 @@ public class AccountsManager {
 
   private void redisSet(Account account) {
     try (Timer.Context ignored = redisSetTimer.time()) {
-      final String accountJson = mapper.writeValueAsString(account);
+      final String accountJson = ACCOUNT_REDIS_JSON_WRITER.writeValueAsString(account);
 
       cacheCluster.useCluster(connection -> {
         final RedisAdvancedClusterCommands<String, String> commands = connection.sync();
@@ -922,7 +920,7 @@ public class AccountsManager {
     final String accountJson;
 
     try {
-      accountJson = mapper.writeValueAsString(account);
+      accountJson = ACCOUNT_REDIS_JSON_WRITER.writeValueAsString(account);
     } catch (final JsonProcessingException e) {
       throw new UncheckedIOException(e);
     }
@@ -1036,7 +1034,7 @@ public class AccountsManager {
   private static Optional<Account> parseAccountJson(@Nullable final String accountJson, final UUID uuid) {
     try {
       if (StringUtils.isNotBlank(accountJson)) {
-        Account account = mapper.readValue(accountJson, Account.class);
+        Account account = SystemMapper.jsonMapper().readValue(accountJson, Account.class);
         account.setUuid(uuid);
 
         if (account.getPhoneNumberIdentifier() == null) {

@@ -16,11 +16,15 @@ import static org.mockito.Mockito.when;
 import static org.whispersystems.textsecuregcm.tests.util.DevicesHelper.createDevice;
 import static org.whispersystems.textsecuregcm.tests.util.DevicesHelper.setEnabled;
 
+import com.fasterxml.jackson.annotation.JsonFilter;
+import java.lang.annotation.Annotation;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
@@ -427,5 +431,17 @@ class AccountTest {
       assertThat(badge.getExpiration().getEpochSecond()).isEqualTo(51);
       assertThat(badge.isVisible()).isTrue();
     });
+  }
+
+  @Test
+  public void testAccountClassJsonFilterIdMatchesClassName() throws Exception {
+    // Some logic relies on the @JsonFilter name being equal to the class name.
+    // This test is just making sure that annotation is there and that the ID matches class name.
+    final Optional<Annotation> maybeJsonFilterAnnotation = Arrays.stream(Account.class.getAnnotations())
+        .filter(a -> a.annotationType().equals(JsonFilter.class))
+        .findFirst();
+    assertTrue(maybeJsonFilterAnnotation.isPresent());
+    final JsonFilter jsonFilterAnnotation = (JsonFilter) maybeJsonFilterAnnotation.get();
+    assertEquals(Account.class.getSimpleName(), jsonFilterAnnotation.value());
   }
 }

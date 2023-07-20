@@ -8,6 +8,7 @@ import static com.codahale.metrics.MetricRegistry.name;
 import static java.util.Objects.requireNonNull;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import io.micrometer.core.instrument.Metrics;
@@ -31,7 +32,6 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.util.AsyncTimerUtil;
@@ -63,10 +63,24 @@ import software.amazon.awssdk.services.dynamodb.model.Update;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 import software.amazon.awssdk.utils.CompletableFutureUtils;
 
+/**
+ * "Accounts" DDB table's structure doesn't match 1:1 the {@link Account} class: most of the class fields are serialized
+ * and stored in the {@link Accounts#ATTR_ACCOUNT_DATA} attribute, however there are certain fields that are stored only as DDB attributes
+ * (e.g. if indexing or lookup by field is required), and there are also fields that stored in both places.
+ * This class contains all the logic that decides whether or not a field of the {@link Account} class should be
+ * added as an attribute, serialized as a part of {@link Accounts#ATTR_ACCOUNT_DATA}, or both. To skip serialization,
+ * make sure attribute name is listed in {@link Accounts#ACCOUNT_FIELDS_TO_EXCLUDE_FROM_SERIALIZATION}. If serialization is skipped,
+ * make sure the field is stored in a DDB attribute and then put back into the account object in {@link Accounts#fromItem(Map)}.
+ */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class Accounts extends AbstractDynamoDbStore {
 
   private static final Logger log = LoggerFactory.getLogger(Accounts.class);
+
+  static final List<String> ACCOUNT_FIELDS_TO_EXCLUDE_FROM_SERIALIZATION = List.of("uuid", "usernameLinkHandle");
+
+  private static final ObjectWriter ACCOUNT_DDB_JSON_WRITER = SystemMapper.jsonMapper()
+      .writer(SystemMapper.excludingField(Account.class, ACCOUNT_FIELDS_TO_EXCLUDE_FROM_SERIALIZATION));
 
   private static final Timer CREATE_TIMER = Metrics.timer(name(Accounts.class, "create"));
   private static final Timer CHANGE_NUMBER_TIMER = Metrics.timer(name(Accounts.class, "changeNumber"));
@@ -207,7 +221,7 @@ public class Accounts extends AbstractDynamoDbStore {
             final Account existingAccount = getByAccountIdentifier(account.getUuid()).orElseThrow();
 
             // It's up to the client to delete this username hash if they can't retrieve and decrypt the plaintext username from storage service
-            existingAccount.getUsernameHash().ifPresent(existingUsernameHash -> account.setUsernameHash(existingUsernameHash));
+            existingAccount.getUsernameHash().ifPresent(account::setUsernameHash);
             account.setNumber(existingAccount.getNumber(), existingAccount.getPhoneNumberIdentifier());
             account.setVersion(existingAccount.getVersion());
 
@@ -281,7 +295,7 @@ public class Accounts extends AbstractDynamoDbStore {
                         "#version", ATTR_VERSION))
                     .expressionAttributeValues(Map.of(
                         ":number", numberAttr,
-                        ":data", AttributeValues.fromByteArray(SystemMapper.jsonMapper().writeValueAsBytes(account)),
+                        ":data", accountDataAttributeValue(account),
                         ":cds", AttributeValues.fromBool(account.shouldBeVisibleInDirectory()),
                         ":pni", pniAttr,
                         ":version", AttributeValues.fromInt(account.getVersion()),
@@ -324,7 +338,7 @@ public class Accounts extends AbstractDynamoDbStore {
     final long expirationTime = clock.instant().plus(ttl).getEpochSecond();
 
     // Use account UUID as a "reservation token" - by providing this, the client proves ownership of the hash
-    UUID uuid = account.getUuid();
+    final UUID uuid = account.getUuid();
     try {
       final List<TransactWriteItem> writeItems = new ArrayList<>();
 
@@ -352,7 +366,7 @@ public class Accounts extends AbstractDynamoDbStore {
                   .conditionExpression("#version = :version")
                   .expressionAttributeNames(Map.of("#data", ATTR_ACCOUNT_DATA, "#version", ATTR_VERSION))
                   .expressionAttributeValues(Map.of(
-                      ":data", AttributeValues.fromByteArray(SystemMapper.jsonMapper().writeValueAsBytes(account)),
+                      ":data", accountDataAttributeValue(account),
                       ":version", AttributeValues.fromInt(account.getVersion()),
                       ":version_increment", AttributeValues.fromInt(1)))
                   .build())
@@ -427,7 +441,7 @@ public class Accounts extends AbstractDynamoDbStore {
 
       final StringBuilder updateExpr = new StringBuilder("SET #data = :data, #username_hash = :username_hash");
       final Map<String, AttributeValue> expressionAttributeValues = new HashMap<>(Map.of(
-          ":data", AttributeValues.fromByteArray(SystemMapper.jsonMapper().writeValueAsBytes(account)),
+          ":data", accountDataAttributeValue(account),
           ":username_hash", AttributeValues.fromByteArray(usernameHash),
           ":version", AttributeValues.fromInt(account.getVersion()),
           ":version_increment", AttributeValues.fromInt(1)));
@@ -503,7 +517,7 @@ public class Accounts extends AbstractDynamoDbStore {
                           "#username_hash", ATTR_USERNAME_HASH,
                           "#version", ATTR_VERSION))
                       .expressionAttributeValues(Map.of(
-                          ":data", AttributeValues.fromByteArray(SystemMapper.jsonMapper().writeValueAsBytes(account)),
+                          ":data", accountDataAttributeValue(account),
                           ":version", AttributeValues.fromInt(account.getVersion()),
                           ":version_increment", AttributeValues.fromInt(1)))
                       .build())
@@ -547,8 +561,9 @@ public class Accounts extends AbstractDynamoDbStore {
             "#data", ATTR_ACCOUNT_DATA,
             "#cds", ATTR_CANONICALLY_DISCOVERABLE,
             "#version", ATTR_VERSION));
+
         final Map<String, AttributeValue> attrValues = new HashMap<>(Map.of(
-            ":data", AttributeValues.fromByteArray(SystemMapper.jsonMapper().writeValueAsBytes(account)),
+            ":data", accountDataAttributeValue(account),
             ":cds", AttributeValues.fromBool(account.shouldBeVisibleInDirectory()),
             ":version", AttributeValues.fromInt(account.getVersion()),
             ":version_increment", AttributeValues.fromInt(1)));
@@ -861,7 +876,7 @@ public class Accounts extends AbstractDynamoDbStore {
         KEY_ACCOUNT_UUID, uuidAttr,
         ATTR_ACCOUNT_E164, numberAttr,
         ATTR_PNI_UUID, pniUuidAttr,
-        ATTR_ACCOUNT_DATA, AttributeValues.fromByteArray(SystemMapper.jsonMapper().writeValueAsBytes(account)),
+        ATTR_ACCOUNT_DATA, accountDataAttributeValue(account),
         ATTR_VERSION, AttributeValues.fromInt(account.getVersion()),
         ATTR_CANONICALLY_DISCOVERABLE, AttributeValues.fromBool(account.shouldBeVisibleInDirectory())));
 
@@ -970,10 +985,10 @@ public class Accounts extends AbstractDynamoDbStore {
   @VisibleForTesting
   @Nonnull
   static Account fromItem(final Map<String, AttributeValue> item) {
-    // TODO: eventually require ATTR_CANONICALLY_DISCOVERABLE
     if (!item.containsKey(ATTR_ACCOUNT_DATA)
         || !item.containsKey(ATTR_ACCOUNT_E164)
-        || !item.containsKey(KEY_ACCOUNT_UUID)) {
+        || !item.containsKey(KEY_ACCOUNT_UUID)
+        || !item.containsKey(ATTR_CANONICALLY_DISCOVERABLE)) {
       throw new RuntimeException("item missing values");
     }
     try {
@@ -994,15 +1009,16 @@ public class Accounts extends AbstractDynamoDbStore {
       account.setUsernameHash(AttributeValues.getByteArray(item, ATTR_USERNAME_HASH, null));
       account.setUsernameLinkHandle(AttributeValues.getUUID(item, ATTR_USERNAME_LINK_UUID, null));
       account.setVersion(Integer.parseInt(item.get(ATTR_VERSION).n()));
-      account.setCanonicallyDiscoverable(Optional.ofNullable(item.get(ATTR_CANONICALLY_DISCOVERABLE))
-          .map(AttributeValue::bool)
-          .orElse(false));
 
       return account;
 
     } catch (final IOException e) {
       throw new RuntimeException("Could not read stored account data", e);
     }
+  }
+
+  private static AttributeValue accountDataAttributeValue(final Account account) throws JsonProcessingException {
+    return AttributeValues.fromByteArray(ACCOUNT_DDB_JSON_WRITER.writeValueAsBytes(account));
   }
 
   private static boolean conditionalCheckFailed(final CancellationReason reason) {

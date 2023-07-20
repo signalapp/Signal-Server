@@ -5,6 +5,7 @@
 package org.whispersystems.textsecuregcm.storage;
 
 
+import com.fasterxml.jackson.annotation.JsonFilter;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
@@ -29,12 +30,12 @@ import org.whispersystems.textsecuregcm.util.ByteArrayBase64UrlAdapter;
 import org.whispersystems.textsecuregcm.util.IdentityKeyAdapter;
 import org.whispersystems.textsecuregcm.util.Util;
 
+@JsonFilter("Account")
 public class Account {
 
-  @JsonIgnore
   private static final Logger logger = LoggerFactory.getLogger(Account.class);
 
-  @JsonIgnore
+  @JsonProperty
   private UUID uuid;
 
   @JsonProperty("pni")
@@ -55,7 +56,7 @@ public class Account {
   @Nullable
   private byte[] reservedUsernameHash;
 
-  @JsonIgnore
+  @JsonProperty
   @Nullable
   private UUID usernameLinkHandle;
 
@@ -103,16 +104,13 @@ public class Account {
   @JsonIgnore
   private boolean stale;
 
-  @JsonIgnore
-  private boolean canonicallyDiscoverable;
-
 
   public UUID getUuid() {
     // this is the one method that may be called on a stale account
     return uuid;
   }
 
-  public void setUuid(UUID uuid) {
+  public void setUuid(final UUID uuid) {
     requireNotStale();
 
     this.uuid = uuid;
@@ -140,7 +138,7 @@ public class Account {
     return number;
   }
 
-  public void setNumber(String number, UUID phoneNumberIdentifier) {
+  public void setNumber(final String number, final UUID phoneNumberIdentifier) {
     requireNotStale();
 
     this.number = number;
@@ -203,14 +201,14 @@ public class Account {
     this.usernameLinkHandle = usernameLinkHandle;
   }
 
-  public void addDevice(Device device) {
+  public void addDevice(final Device device) {
     requireNotStale();
 
     removeDevice(device.getId());
     this.devices.add(device);
   }
 
-  public void removeDevice(long deviceId) {
+  public void removeDevice(final long deviceId) {
     requireNotStale();
 
     this.devices.removeIf(device -> device.getId() == deviceId);
@@ -228,7 +226,7 @@ public class Account {
     return getDevice(Device.MASTER_ID);
   }
 
-  public Optional<Device> getDevice(long deviceId) {
+  public Optional<Device> getDevice(final long deviceId) {
     requireNotStale();
 
     return devices.stream().filter(device -> device.getId() == deviceId).findFirst();
@@ -278,7 +276,7 @@ public class Account {
     return allEnabledDevicesHaveCapability(DeviceCapabilities::isPaymentActivation);
   }
 
-  private boolean allEnabledDevicesHaveCapability(Predicate<DeviceCapabilities> predicate) {
+  private boolean allEnabledDevicesHaveCapability(final Predicate<DeviceCapabilities> predicate) {
     requireNotStale();
 
     return devices.stream()
@@ -309,23 +307,11 @@ public class Account {
 
     int count = 0;
 
-    for (Device device : devices) {
+    for (final Device device : devices) {
       if (device.isEnabled()) count++;
     }
 
     return count;
-  }
-
-  public boolean isCanonicallyDiscoverable() {
-    requireNotStale();
-
-    return canonicallyDiscoverable;
-  }
-
-  public void setCanonicallyDiscoverable(boolean canonicallyDiscoverable) {
-    requireNotStale();
-
-    this.canonicallyDiscoverable = canonicallyDiscoverable;
   }
 
   public void setIdentityKey(final IdentityKey identityKey) {
@@ -362,7 +348,7 @@ public class Account {
     return Optional.ofNullable(currentProfileVersion);
   }
 
-  public void setCurrentProfileVersion(String currentProfileVersion) {
+  public void setCurrentProfileVersion(final String currentProfileVersion) {
     requireNotStale();
 
     this.currentProfileVersion = currentProfileVersion;
@@ -374,7 +360,7 @@ public class Account {
     return badges;
   }
 
-  public void setBadges(Clock clock, List<AccountBadge> badges) {
+  public void setBadges(final Clock clock, final List<AccountBadge> badges) {
     requireNotStale();
 
     this.badges = badges;
@@ -382,11 +368,11 @@ public class Account {
     purgeStaleBadges(clock);
   }
 
-  public void addBadge(Clock clock, AccountBadge badge) {
+  public void addBadge(final Clock clock, final AccountBadge badge) {
     requireNotStale();
     boolean added = false;
     for (int i = 0; i < badges.size(); i++) {
-      AccountBadge badgeInList = badges.get(i);
+      final AccountBadge badgeInList = badges.get(i);
       if (Objects.equals(badgeInList.getId(), badge.getId())) {
         if (added) {
           badges.remove(i);
@@ -405,7 +391,7 @@ public class Account {
     purgeStaleBadges(clock);
   }
 
-  public void makeBadgePrimaryIfExists(Clock clock, String badgeId) {
+  public void makeBadgePrimaryIfExists(final Clock clock, final String badgeId) {
     requireNotStale();
 
     // early exit if it's already the first item in the list
@@ -429,28 +415,28 @@ public class Account {
     purgeStaleBadges(clock);
   }
 
-  public void removeBadge(Clock clock, String id) {
+  public void removeBadge(final Clock clock, final String id) {
     requireNotStale();
 
     badges.removeIf(accountBadge -> Objects.equals(accountBadge.getId(), id));
     purgeStaleBadges(clock);
   }
 
-  private void purgeStaleBadges(Clock clock) {
+  private void purgeStaleBadges(final Clock clock) {
     final Instant now = clock.instant();
     badges.removeIf(accountBadge -> now.isAfter(accountBadge.getExpiration()));
   }
 
   public void setRegistrationLockFromAttributes(final AccountAttributes attributes) {
     if (!Util.isEmpty(attributes.getRegistrationLock())) {
-      SaltedTokenHash credentials = SaltedTokenHash.generateFor(attributes.getRegistrationLock());
+      final SaltedTokenHash credentials = SaltedTokenHash.generateFor(attributes.getRegistrationLock());
       setRegistrationLock(credentials.hash(), credentials.salt());
     } else {
       setRegistrationLock(null, null);
     }
   }
 
-  public void setRegistrationLock(String registrationLock, String registrationLockSalt) {
+  public void setRegistrationLock(final String registrationLock, final String registrationLockSalt) {
     requireNotStale();
 
     this.registrationLock     = registrationLock;
@@ -469,7 +455,7 @@ public class Account {
     return Optional.ofNullable(unidentifiedAccessKey);
   }
 
-  public void setUnidentifiedAccessKey(byte[] unidentifiedAccessKey) {
+  public void setUnidentifiedAccessKey(final byte[] unidentifiedAccessKey) {
     requireNotStale();
 
     this.unidentifiedAccessKey = unidentifiedAccessKey;
@@ -481,7 +467,7 @@ public class Account {
     return unrestrictedUnidentifiedAccess;
   }
 
-  public void setUnrestrictedUnidentifiedAccess(boolean unrestrictedUnidentifiedAccess) {
+  public void setUnrestrictedUnidentifiedAccess(final boolean unrestrictedUnidentifiedAccess) {
     requireNotStale();
 
     this.unrestrictedUnidentifiedAccess = unrestrictedUnidentifiedAccess;
@@ -511,7 +497,7 @@ public class Account {
     return version;
   }
 
-  public void setVersion(int version) {
+  public void setVersion(final int version) {
     requireNotStale();
 
     this.version = version;
