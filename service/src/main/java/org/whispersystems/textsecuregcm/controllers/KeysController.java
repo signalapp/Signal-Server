@@ -57,6 +57,7 @@ import org.whispersystems.textsecuregcm.entities.PreKeyResponse;
 import org.whispersystems.textsecuregcm.entities.PreKeyResponseItem;
 import org.whispersystems.textsecuregcm.entities.PreKeyState;
 import org.whispersystems.textsecuregcm.experiment.Experiment;
+import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -207,7 +208,7 @@ public class KeysController {
       @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
 
       @Parameter(description="the account or phone-number identifier to retrieve keys for")
-      @PathParam("identifier") UUID targetUuid,
+      @PathParam("identifier") ServiceIdentifier targetIdentifier,
 
       @Parameter(description="the device id of a single device to retrieve prekeys for, or `*` for all enabled devices")
       @PathParam("device_id") String deviceId,
@@ -227,8 +228,7 @@ public class KeysController {
 
     final Account target;
     {
-      final Optional<Account> maybeTarget = accounts.getByAccountIdentifier(targetUuid)
-          .or(() -> accounts.getByPhoneNumberIdentifier(targetUuid));
+      final Optional<Account> maybeTarget = accounts.getByServiceIdentifier(targetIdentifier);
 
       OptionalAccess.verify(account, accessKey, maybeTarget, deviceId);
 
@@ -237,34 +237,39 @@ public class KeysController {
 
     if (account.isPresent()) {
       rateLimiters.getPreKeysLimiter().validate(
-          account.get().getUuid() + "." + auth.get().getAuthenticatedDevice().getId() + "__" + targetUuid
+          account.get().getUuid() + "." + auth.get().getAuthenticatedDevice().getId() + "__" + targetIdentifier.uuid()
               + "." + deviceId);
     }
-
-    final boolean usePhoneNumberIdentity = target.getPhoneNumberIdentifier().equals(targetUuid);
 
     List<Device> devices = parseDeviceId(deviceId, target);
     List<PreKeyResponseItem> responseItems = new ArrayList<>(devices.size());
 
     for (Device device : devices) {
-      UUID identifier = usePhoneNumberIdentity ? target.getPhoneNumberIdentifier() : targetUuid;
-      ECSignedPreKey signedECPreKey = usePhoneNumberIdentity ? device.getPhoneNumberIdentitySignedPreKey() : device.getSignedPreKey();
-      ECPreKey unsignedECPreKey = keys.takeEC(identifier, device.getId()).join().orElse(null);
-      KEMSignedPreKey pqPreKey = returnPqKey ? keys.takePQ(identifier, device.getId()).join().orElse(null) : null;
+      ECSignedPreKey signedECPreKey = switch (targetIdentifier.identityType()) {
+        case ACI -> device.getSignedPreKey();
+        case PNI -> device.getPhoneNumberIdentitySignedPreKey();
+      };
+
+      ECPreKey unsignedECPreKey = keys.takeEC(targetIdentifier.uuid(), device.getId()).join().orElse(null);
+      KEMSignedPreKey pqPreKey = returnPqKey ? keys.takePQ(targetIdentifier.uuid(), device.getId()).join().orElse(null) : null;
 
       compareSignedEcPreKeysExperiment.compareFutureResult(Optional.ofNullable(signedECPreKey),
-          keys.getEcSignedPreKey(identifier, device.getId()));
+          keys.getEcSignedPreKey(targetIdentifier.uuid(), device.getId()));
 
       if (signedECPreKey != null || unsignedECPreKey != null || pqPreKey != null) {
-        final int registrationId = usePhoneNumberIdentity ?
-            device.getPhoneNumberIdentityRegistrationId().orElse(device.getRegistrationId()) :
-            device.getRegistrationId();
+        final int registrationId = switch (targetIdentifier.identityType()) {
+          case ACI -> device.getRegistrationId();
+          case PNI -> device.getPhoneNumberIdentityRegistrationId().orElse(device.getRegistrationId());
+        };
 
         responseItems.add(new PreKeyResponseItem(device.getId(), registrationId, signedECPreKey, unsignedECPreKey, pqPreKey));
       }
     }
 
-    final IdentityKey identityKey = usePhoneNumberIdentity ? target.getPhoneNumberIdentityKey() : target.getIdentityKey();
+    final IdentityKey identityKey = switch (targetIdentifier.identityType()) {
+      case ACI -> target.getIdentityKey();
+      case PNI -> target.getPhoneNumberIdentityKey();
+    };
 
     if (responseItems.isEmpty()) {
       throw new WebApplicationException(Response.Status.NOT_FOUND);

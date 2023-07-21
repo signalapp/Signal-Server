@@ -11,7 +11,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
-import java.util.UUID;
 import javax.ws.rs.BadRequestException;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.WebApplicationException;
@@ -21,6 +20,7 @@ import javax.ws.rs.core.NoContentException;
 import javax.ws.rs.ext.MessageBodyReader;
 import javax.ws.rs.ext.Provider;
 import org.whispersystems.textsecuregcm.entities.MultiRecipientMessage;
+import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 
 @Provider
 @Consumes(MultiRecipientMessageProvider.MEDIA_TYPE)
@@ -29,7 +29,30 @@ public class MultiRecipientMessageProvider implements MessageBodyReader<MultiRec
   public static final String MEDIA_TYPE = "application/vnd.signal-messenger.mrm";
   public static final int MAX_RECIPIENT_COUNT = 5000;
   public static final int MAX_MESSAGE_SIZE = Math.toIntExact(32 + DataSizeUnit.KIBIBYTES.toBytes(256));
-  public static final byte VERSION = 0x22;
+
+  public static final byte AMBIGUOUS_ID_VERSION_IDENTIFIER = 0x22;
+  public static final byte EXPLICIT_ID_VERSION_IDENTIFIER = 0x23;
+
+  private enum Version {
+    AMBIGUOUS_ID(AMBIGUOUS_ID_VERSION_IDENTIFIER),
+    EXPLICIT_ID(EXPLICIT_ID_VERSION_IDENTIFIER);
+
+    private final byte identifier;
+
+    Version(final byte identifier) {
+      this.identifier = identifier;
+    }
+
+    static Version forVersionByte(final byte versionByte) {
+      for (final Version version : values()) {
+        if (version.identifier == versionByte) {
+          return version;
+        }
+      }
+
+      throw new IllegalArgumentException("Unrecognized version byte: " + versionByte);
+    }
+  }
 
   @Override
   public boolean isReadable(Class<?> type, Type genericType, Annotation[] annotations, MediaType mediaType) {
@@ -44,23 +67,29 @@ public class MultiRecipientMessageProvider implements MessageBodyReader<MultiRec
     if (versionByte == -1) {
       throw new NoContentException("Empty body not allowed");
     }
-    if (versionByte != VERSION) {
+
+    final Version version;
+
+    try {
+      version = Version.forVersionByte((byte) versionByte);
+    } catch (final IllegalArgumentException e) {
       throw new BadRequestException("Unsupported version");
     }
+
     long count = readVarint(entityStream);
     if (count > MAX_RECIPIENT_COUNT) {
       throw new BadRequestException("Maximum recipient count exceeded");
     }
     MultiRecipientMessage.Recipient[] recipients = new MultiRecipientMessage.Recipient[Math.toIntExact(count)];
     for (int i = 0; i < Math.toIntExact(count); i++) {
-      UUID uuid = readUuid(entityStream);
+      ServiceIdentifier identifier = readIdentifier(entityStream, version);
       long deviceId = readVarint(entityStream);
       int registrationId = readU16(entityStream);
       byte[] perRecipientKeyMaterial = entityStream.readNBytes(48);
       if (perRecipientKeyMaterial.length != 48) {
         throw new IOException("Failed to read expected number of key material bytes for a recipient");
       }
-      recipients[i] = new MultiRecipientMessage.Recipient(uuid, deviceId, registrationId, perRecipientKeyMaterial);
+      recipients[i] = new MultiRecipientMessage.Recipient(identifier, deviceId, registrationId, perRecipientKeyMaterial);
     }
 
     // caller is responsible for checking that the entity stream is at EOF when we return; if there are more bytes than
@@ -73,32 +102,15 @@ public class MultiRecipientMessageProvider implements MessageBodyReader<MultiRec
   }
 
   /**
-   * Reads a UUID in network byte order and converts to a UUID object.
+   * Reads a service identifier from the given stream.
    */
-  private UUID readUuid(InputStream stream) throws IOException {
-    byte[] buffer = new byte[8];
+  private ServiceIdentifier readIdentifier(final InputStream stream, final Version version) throws IOException {
+    final byte[] uuidBytes = switch (version) {
+      case AMBIGUOUS_ID -> stream.readNBytes(16);
+      case EXPLICIT_ID -> stream.readNBytes(17);
+    };
 
-    int read = stream.readNBytes(buffer, 0, 8);
-    if (read != 8) {
-      throw new IOException("Insufficient bytes for UUID");
-    }
-    long msb = convertNetworkByteOrderToLong(buffer);
-
-    read = stream.readNBytes(buffer, 0, 8);
-    if (read != 8) {
-      throw new IOException("Insufficient bytes for UUID");
-    }
-    long lsb = convertNetworkByteOrderToLong(buffer);
-
-    return new UUID(msb, lsb);
-  }
-
-  private long convertNetworkByteOrderToLong(byte[] buffer) {
-    long result = 0;
-    for (int i = 0; i < 8; i++) {
-      result = (result << 8) | (buffer[i] & 0xFFL);
-    }
-    return result;
+    return ServiceIdentifier.fromBytes(uuidBytes);
   }
 
   /**

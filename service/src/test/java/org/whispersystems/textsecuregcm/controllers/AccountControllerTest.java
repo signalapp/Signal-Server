@@ -70,6 +70,8 @@ import org.whispersystems.textsecuregcm.entities.RegistrationLock;
 import org.whispersystems.textsecuregcm.entities.ReserveUsernameHashRequest;
 import org.whispersystems.textsecuregcm.entities.ReserveUsernameHashResponse;
 import org.whispersystems.textsecuregcm.entities.UsernameHashResponse;
+import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
+import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimitByIpFilter;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -869,10 +871,9 @@ class AccountControllerTest {
     final UUID accountIdentifier = UUID.randomUUID();
     final UUID phoneNumberIdentifier = UUID.randomUUID();
 
-    when(accountsManager.getByAccountIdentifier(any())).thenReturn(Optional.empty());
-    when(accountsManager.getByAccountIdentifier(accountIdentifier)).thenReturn(Optional.of(account));
-    when(accountsManager.getByPhoneNumberIdentifier(any())).thenReturn(Optional.empty());
-    when(accountsManager.getByPhoneNumberIdentifier(phoneNumberIdentifier)).thenReturn(Optional.of(account));
+    when(accountsManager.getByServiceIdentifier(any())).thenReturn(Optional.empty());
+    when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(accountIdentifier))).thenReturn(Optional.of(account));
+    when(accountsManager.getByServiceIdentifier(new PniServiceIdentifier(phoneNumberIdentifier))).thenReturn(Optional.of(account));
 
     when(rateLimiters.getCheckAccountExistenceLimiter()).thenReturn(mock(RateLimiter.class));
 
@@ -884,7 +885,7 @@ class AccountControllerTest {
         .getStatus()).isEqualTo(200);
 
     assertThat(resources.getJerseyTest()
-        .target(String.format("/v1/accounts/account/%s", phoneNumberIdentifier))
+        .target(String.format("/v1/accounts/account/PNI:%s", phoneNumberIdentifier))
         .request()
         .header(HttpHeaders.X_FORWARDED_FOR, "127.0.0.1")
         .head()
@@ -954,7 +955,7 @@ class AccountControllerTest {
         .header(HttpHeaders.X_FORWARDED_FOR, "127.0.0.1")
         .get();
     assertThat(response.getStatus()).isEqualTo(200);
-    assertThat(response.readEntity(AccountIdentifierResponse.class).uuid()).isEqualTo(uuid);
+    assertThat(response.readEntity(AccountIdentifierResponse.class).uuid().uuid()).isEqualTo(uuid);
   }
 
   @Test

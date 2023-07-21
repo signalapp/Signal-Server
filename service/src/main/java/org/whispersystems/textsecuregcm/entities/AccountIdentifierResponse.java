@@ -4,7 +4,14 @@
  */
 
 package org.whispersystems.textsecuregcm.entities;
-import javax.validation.constraints.NotNull;
-import java.util.UUID;
 
-public record AccountIdentifierResponse(@NotNull UUID uuid) {}
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import javax.validation.constraints.NotNull;
+import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
+import org.whispersystems.textsecuregcm.util.ServiceIdentifierAdapter;
+
+public record AccountIdentifierResponse(@NotNull
+                                        @JsonSerialize(using = ServiceIdentifierAdapter.ServiceIdentifierSerializer.class)
+                                        @JsonDeserialize(using = ServiceIdentifierAdapter.AciServiceIdentifierDeserializer.class)
+                                        AciServiceIdentifier uuid) {}

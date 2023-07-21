@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.controllers;
 import com.codahale.metrics.annotation.Timed;
 import io.dropwizard.auth.Auth;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import java.util.Base64;
 import java.util.Objects;
@@ -50,6 +51,8 @@ import org.whispersystems.textsecuregcm.entities.ReserveUsernameHashRequest;
 import org.whispersystems.textsecuregcm.entities.ReserveUsernameHashResponse;
 import org.whispersystems.textsecuregcm.entities.UsernameHashResponse;
 import org.whispersystems.textsecuregcm.entities.UsernameLinkHandle;
+import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
+import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimitedByIp;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -399,6 +402,7 @@ public class AccountController {
     return accounts
         .getByUsernameHash(hash)
         .map(Account::getUuid)
+        .map(AciServiceIdentifier::new)
         .map(AccountIdentifierResponse::new)
         .orElseThrow(() -> new WebApplicationException(Status.NOT_FOUND));
   }
@@ -485,21 +489,32 @@ public class AccountController {
     return new EncryptedUsername(maybeEncryptedUsername.get());
   }
 
+  @Operation(
+      summary = "Check whether an account exists",
+      description = """
+          Enforced unauthenticated endpoint. Checks whether an account with a given identifier exists.
+          """
+  )
+  @ApiResponse(responseCode = "200", description = "An account with the given identifier was found.", useReturnTypeSchema = true)
+  @ApiResponse(responseCode = "400", description = "A client made an authenticated to this endpoint, and must not provide credentials.")
+  @ApiResponse(responseCode = "404", description = "An account was not found for the given identifier.")
+  @ApiResponse(responseCode = "422", description = "Invalid request format.")
+  @ApiResponse(responseCode = "429", description = "Rate-limited.")
   @HEAD
-  @Path("/account/{uuid}")
+  @Path("/account/{identifier}")
   @RateLimitedByIp(RateLimiters.For.CHECK_ACCOUNT_EXISTENCE)
   public Response accountExists(
       @Auth final Optional<AuthenticatedAccount> authenticatedAccount,
-      @PathParam("uuid") final UUID uuid) throws RateLimitExceededException {
+
+      @Parameter(description = "An ACI or PNI account identifier to check")
+      @PathParam("identifier") final ServiceIdentifier accountIdentifier) {
 
     // Disallow clients from making authenticated requests to this endpoint
     requireNotAuthenticated(authenticatedAccount);
 
-    final Status status = accounts.getByAccountIdentifier(uuid)
-        .or(() -> accounts.getByPhoneNumberIdentifier(uuid))
-        .isPresent() ? Status.OK : Status.NOT_FOUND;
+    final Optional<Account> maybeAccount = accounts.getByServiceIdentifier(accountIdentifier);
 
-    return Response.status(status).build();
+    return Response.status(maybeAccount.map(ignored -> Status.OK).orElse(Status.NOT_FOUND)).build();
   }
 
   @Timed

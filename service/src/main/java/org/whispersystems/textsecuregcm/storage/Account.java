@@ -25,6 +25,7 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
+import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 import org.whispersystems.textsecuregcm.util.ByteArrayBase64UrlAdapter;
 import org.whispersystems.textsecuregcm.util.IdentityKeyAdapter;
@@ -123,13 +124,17 @@ public class Account {
   }
 
   /**
-   * Tests whether this account's account identifier or phone number identifier matches the given UUID.
+   * Tests whether this account's account identifier or phone number identifier (depending on the given service
+   * identifier's identity type) matches the given service identifier.
    *
-   * @param identifier the identifier to test
+   * @param serviceIdentifier the identifier to test
    * @return {@code true} if this account's identifier or phone number identifier matches
    */
-  public boolean isIdentifiedBy(final UUID identifier) {
-    return uuid.equals(identifier) || (phoneNumberIdentifier != null && phoneNumberIdentifier.equals(identifier));
+  public boolean isIdentifiedBy(final ServiceIdentifier serviceIdentifier) {
+    return switch (serviceIdentifier.identityType()) {
+      case ACI -> serviceIdentifier.uuid().equals(uuid);
+      case PNI -> serviceIdentifier.uuid().equals(phoneNumberIdentifier);
+    };
   }
 
   public String getNumber() {

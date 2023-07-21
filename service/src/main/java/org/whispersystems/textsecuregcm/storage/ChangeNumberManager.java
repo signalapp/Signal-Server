@@ -24,6 +24,7 @@ import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.IncomingMessage;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
+import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.util.DestinationDeviceValidator;
@@ -136,9 +137,9 @@ public class ChangeNumberManager {
           .setType(Envelope.Type.forNumber(message.type()))
           .setTimestamp(serverTimestamp)
           .setServerTimestamp(serverTimestamp)
-          .setDestinationUuid(sourceAndDestinationAccount.getUuid().toString())
+          .setDestinationUuid(new AciServiceIdentifier(sourceAndDestinationAccount.getUuid()).toServiceIdentifierString())
           .setContent(ByteString.copyFrom(contents.get()))
-          .setSourceUuid(sourceAndDestinationAccount.getUuid().toString())
+          .setSourceUuid(new AciServiceIdentifier(sourceAndDestinationAccount.getUuid()).toServiceIdentifierString())
           .setSourceDevice((int) Device.MASTER_ID)
           .setUpdatedPni(sourceAndDestinationAccount.getPhoneNumberIdentifier().toString())
           .setUrgent(true)

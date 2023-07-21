@@ -40,6 +40,8 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
+import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
+import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
@@ -265,8 +267,8 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
     }
 
     try {
-      receiptSender.sendReceipt(UUID.fromString(message.getDestinationUuid()),
-          auth.getAuthenticatedDevice().getId(), UUID.fromString(message.getSourceUuid()),
+      receiptSender.sendReceipt(ServiceIdentifier.valueOf(message.getDestinationUuid()),
+          auth.getAuthenticatedDevice().getId(), AciServiceIdentifier.valueOf(message.getSourceUuid()),
           message.getTimestamp());
     } catch (IllegalArgumentException e) {
       logger.error("Could not parse UUID: {}", message.getSourceUuid());

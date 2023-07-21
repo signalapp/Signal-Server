@@ -6,39 +6,27 @@
 package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import java.util.List;
-import java.util.UUID;
-import javax.annotation.Nullable;
-import javax.validation.Valid;
-import javax.validation.constraints.NotNull;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import java.util.List;
+import javax.validation.Valid;
+import javax.validation.constraints.NotNull;
 import org.signal.libsignal.protocol.IdentityKey;
-import org.signal.libsignal.protocol.ecc.ECPublicKey;
+import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.util.IdentityKeyAdapter;
+import org.whispersystems.textsecuregcm.util.ServiceIdentifierAdapter;
 
 public record BatchIdentityCheckResponse(@Valid List<Element> elements) {
 
-  public record Element(@Deprecated
-                        @JsonInclude(JsonInclude.Include.NON_EMPTY)
-                        @Nullable UUID aci,
-
-                        @JsonInclude(JsonInclude.Include.NON_EMPTY)
-                        @Nullable UUID uuid,
+  public record Element(@JsonInclude(JsonInclude.Include.NON_EMPTY)
+                        @JsonSerialize(using = ServiceIdentifierAdapter.ServiceIdentifierSerializer.class)
+                        @JsonDeserialize(using = ServiceIdentifierAdapter.ServiceIdentifierDeserializer.class)
+                        @NotNull
+                        ServiceIdentifier uuid,
 
                         @NotNull
                         @JsonSerialize(using = IdentityKeyAdapter.Serializer.class)
                         @JsonDeserialize(using = IdentityKeyAdapter.Deserializer.class)
                         IdentityKey identityKey) {
-
-    public Element {
-      if (aci == null && uuid == null) {
-        throw new IllegalArgumentException("aci and uuid cannot both be null");
-      }
-
-      if (aci != null && uuid != null) {
-        throw new IllegalArgumentException("aci and uuid cannot both be non-null");
-      }
-    }
   }
 }

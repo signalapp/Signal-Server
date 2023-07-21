@@ -57,6 +57,8 @@ import org.whispersystems.textsecuregcm.entities.PreKeyCount;
 import org.whispersystems.textsecuregcm.entities.PreKeyResponse;
 import org.whispersystems.textsecuregcm.entities.PreKeyState;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
+import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
+import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
@@ -77,7 +79,6 @@ class KeysControllerTest {
   private static final UUID   EXISTS_UUID   = UUID.randomUUID();
   private static final UUID   EXISTS_PNI    = UUID.randomUUID();
 
-  private static final String NOT_EXISTS_NUMBER = "+14152222220";
   private static final UUID   NOT_EXISTS_UUID   = UUID.randomUUID();
 
   private static final int SAMPLE_REGISTRATION_ID  =  999;
@@ -212,12 +213,10 @@ class KeysControllerTest {
     when(existsAccount.getNumber()).thenReturn(EXISTS_NUMBER);
     when(existsAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of("1337".getBytes()));
 
-    when(accounts.getByE164(EXISTS_NUMBER)).thenReturn(Optional.of(existsAccount));
-    when(accounts.getByAccountIdentifier(EXISTS_UUID)).thenReturn(Optional.of(existsAccount));
-    when(accounts.getByPhoneNumberIdentifier(EXISTS_PNI)).thenReturn(Optional.of(existsAccount));
+    when(accounts.getByServiceIdentifier(any())).thenReturn(Optional.empty());
 
-    when(accounts.getByE164(NOT_EXISTS_NUMBER)).thenReturn(Optional.empty());
-    when(accounts.getByAccountIdentifier(NOT_EXISTS_UUID)).thenReturn(Optional.empty());
+    when(accounts.getByServiceIdentifier(new AciServiceIdentifier(EXISTS_UUID))).thenReturn(Optional.of(existsAccount));
+    when(accounts.getByServiceIdentifier(new PniServiceIdentifier(EXISTS_PNI))).thenReturn(Optional.of(existsAccount));
 
     when(rateLimiters.getPreKeysLimiter()).thenReturn(rateLimiter);
 
@@ -384,7 +383,7 @@ class KeysControllerTest {
   @Test
   void validSingleRequestByPhoneNumberIdentifierTestV2() {
     PreKeyResponse result = resources.getJerseyTest()
-        .target(String.format("/v2/keys/%s/1", EXISTS_PNI))
+        .target(String.format("/v2/keys/PNI:%s/1", EXISTS_PNI))
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get(PreKeyResponse.class);
@@ -404,7 +403,7 @@ class KeysControllerTest {
   @Test
   void validSingleRequestPqByPhoneNumberIdentifierTestV2() {
     PreKeyResponse result = resources.getJerseyTest()
-        .target(String.format("/v2/keys/%s/1", EXISTS_PNI))
+        .target(String.format("/v2/keys/PNI:%s/1", EXISTS_PNI))
         .queryParam("pq", "true")
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
@@ -428,7 +427,7 @@ class KeysControllerTest {
     when(sampleDevice.getPhoneNumberIdentityRegistrationId()).thenReturn(OptionalInt.empty());
 
     PreKeyResponse result = resources.getJerseyTest()
-        .target(String.format("/v2/keys/%s/1", EXISTS_PNI))
+        .target(String.format("/v2/keys/PNI:%s/1", EXISTS_PNI))
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get(PreKeyResponse.class);
@@ -451,7 +450,7 @@ class KeysControllerTest {
     doThrow(new RateLimitExceededException(retryAfter, true)).when(rateLimiter).validate(anyString());
 
     Response result = resources.getJerseyTest()
-        .target(String.format("/v2/keys/%s/*", EXISTS_PNI))
+        .target(String.format("/v2/keys/PNI:%s/*", EXISTS_PNI))
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get();

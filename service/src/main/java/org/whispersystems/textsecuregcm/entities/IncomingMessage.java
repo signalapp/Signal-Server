@@ -6,14 +6,15 @@ package org.whispersystems.textsecuregcm.entities;
 
 import com.google.protobuf.ByteString;
 import java.util.Base64;
-import java.util.UUID;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
+import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
+import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Account;
 
 public record IncomingMessage(int type, long destinationDeviceId, int destinationRegistrationId, String content) {
 
-  public MessageProtos.Envelope toEnvelope(final UUID destinationUuid,
+  public MessageProtos.Envelope toEnvelope(final ServiceIdentifier destinationIdentifier,
       @Nullable Account sourceAccount,
       @Nullable Long sourceDeviceId,
       final long timestamp,
@@ -32,13 +33,13 @@ public record IncomingMessage(int type, long destinationDeviceId, int destinatio
     envelopeBuilder.setType(envelopeType)
         .setTimestamp(timestamp)
         .setServerTimestamp(System.currentTimeMillis())
-        .setDestinationUuid(destinationUuid.toString())
+        .setDestinationUuid(destinationIdentifier.toServiceIdentifierString())
         .setStory(story)
         .setUrgent(urgent);
 
     if (sourceAccount != null && sourceDeviceId != null) {
       envelopeBuilder
-          .setSourceUuid(sourceAccount.getUuid().toString())
+          .setSourceUuid(new AciServiceIdentifier(sourceAccount.getUuid()).toServiceIdentifierString())
           .setSourceDevice(sourceDeviceId.intValue());
     }
 

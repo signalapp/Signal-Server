@@ -5,22 +5,14 @@
 
 package org.whispersystems.textsecuregcm.entities;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import java.util.UUID;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
+import org.whispersystems.textsecuregcm.util.ServiceIdentifierAdapter;
 
-public class AccountMismatchedDevices {
-  @JsonProperty
-  public final UUID uuid;
+public record AccountMismatchedDevices(@JsonSerialize(using = ServiceIdentifierAdapter.ServiceIdentifierSerializer.class)
+                                       @JsonDeserialize(using = ServiceIdentifierAdapter.ServiceIdentifierDeserializer.class)
+                                       ServiceIdentifier uuid,
 
-  @JsonProperty
-  public final MismatchedDevices devices;
-
-  public String toString() {
-    return "AccountMismatchedDevices(" + uuid + ", " + devices + ")";
-  }
-
-  public AccountMismatchedDevices(final UUID uuid, final MismatchedDevices devices) {
-    this.uuid = uuid;
-    this.devices = devices;
-  }
+                                       MismatchedDevices devices) {
 }

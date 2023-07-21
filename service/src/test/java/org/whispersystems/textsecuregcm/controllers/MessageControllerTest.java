@@ -19,6 +19,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.anyBoolean;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
@@ -29,6 +30,7 @@ import static org.mockito.Mockito.when;
 import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.asJson;
 import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.jsonFixture;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.ByteString;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
@@ -42,11 +44,13 @@ import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
@@ -69,6 +73,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
@@ -78,6 +83,8 @@ import org.whispersystems.textsecuregcm.auth.OptionalAccess;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicDeliveryLatencyConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicInboundMessageByteLimitConfiguration;
+import org.whispersystems.textsecuregcm.entities.AccountMismatchedDevices;
+import org.whispersystems.textsecuregcm.entities.AccountStaleDevices;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.IncomingMessage;
 import org.whispersystems.textsecuregcm.entities.IncomingMessageList;
@@ -91,11 +98,15 @@ import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntityList;
 import org.whispersystems.textsecuregcm.entities.SendMultiRecipientMessageResponse;
 import org.whispersystems.textsecuregcm.entities.SpamReport;
 import org.whispersystems.textsecuregcm.entities.StaleDevices;
+import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
+import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
+import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.providers.MultiRecipientMessageProvider;
 import org.whispersystems.textsecuregcm.push.MessageSender;
+import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.spam.ReportSpamTokenProvider;
@@ -111,6 +122,7 @@ import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
+import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import org.whispersystems.websocket.Stories;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
@@ -191,11 +203,11 @@ class MessageControllerTest {
     Account internationalAccount = AccountsHelper.generateTestAccount(INTERNATIONAL_RECIPIENT, INTERNATIONAL_UUID,
         UUID.randomUUID(), singleDeviceList, UNIDENTIFIED_ACCESS_BYTES);
 
-    when(accountsManager.getByAccountIdentifier(eq(SINGLE_DEVICE_UUID))).thenReturn(Optional.of(singleDeviceAccount));
-    when(accountsManager.getByPhoneNumberIdentifier(SINGLE_DEVICE_PNI)).thenReturn(Optional.of(singleDeviceAccount));
-    when(accountsManager.getByAccountIdentifier(eq(MULTI_DEVICE_UUID))).thenReturn(Optional.of(multiDeviceAccount));
-    when(accountsManager.getByPhoneNumberIdentifier(MULTI_DEVICE_PNI)).thenReturn(Optional.of(multiDeviceAccount));
-    when(accountsManager.getByAccountIdentifier(INTERNATIONAL_UUID)).thenReturn(Optional.of(internationalAccount));
+    when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(SINGLE_DEVICE_UUID))).thenReturn(Optional.of(singleDeviceAccount));
+    when(accountsManager.getByServiceIdentifier(new PniServiceIdentifier(SINGLE_DEVICE_PNI))).thenReturn(Optional.of(singleDeviceAccount));
+    when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(MULTI_DEVICE_UUID))).thenReturn(Optional.of(multiDeviceAccount));
+    when(accountsManager.getByServiceIdentifier(new PniServiceIdentifier(MULTI_DEVICE_PNI))).thenReturn(Optional.of(multiDeviceAccount));
+    when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(INTERNATIONAL_UUID))).thenReturn(Optional.of(internationalAccount));
 
     final DynamicDeliveryLatencyConfiguration deliveryLatencyConfiguration = mock(DynamicDeliveryLatencyConfiguration.class);
     when(deliveryLatencyConfiguration.instrumentedVersions()).thenReturn(Collections.emptyMap());
@@ -310,7 +322,7 @@ class MessageControllerTest {
   void testSingleDeviceCurrentByPni() throws Exception {
     Response response =
         resources.getJerseyTest()
-            .target(String.format("/v1/messages/%s", SINGLE_DEVICE_PNI))
+            .target(String.format("/v1/messages/PNI:%s", SINGLE_DEVICE_PNI))
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
             .put(Entity.entity(SystemMapper.jsonMapper().readValue(jsonFixture("fixtures/current_message_single_device.json"),
@@ -471,7 +483,7 @@ class MessageControllerTest {
   void testMultiDeviceByPni() throws Exception {
     Response response =
         resources.getJerseyTest()
-            .target(String.format("/v1/messages/%s", MULTI_DEVICE_PNI))
+            .target(String.format("/v1/messages/PNI:%s", MULTI_DEVICE_PNI))
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
             .put(Entity.entity(SystemMapper.jsonMapper().readValue(jsonFixture("fixtures/current_message_multi_device_pni.json"),
@@ -543,14 +555,14 @@ class MessageControllerTest {
     OutgoingMessageEntity first = messages.get(0);
     assertEquals(first.timestamp(), timestampOne);
     assertEquals(first.guid(), messageGuidOne);
-    assertEquals(first.sourceUuid(), sourceUuid);
+    assertEquals(first.sourceUuid().uuid(), sourceUuid);
     assertEquals(updatedPniOne, first.updatedPni());
 
     if (receiveStories) {
       OutgoingMessageEntity second = messages.get(1);
       assertEquals(second.timestamp(), timestampTwo);
       assertEquals(second.guid(), messageGuidTwo);
-      assertEquals(second.sourceUuid(), sourceUuid);
+      assertEquals(second.sourceUuid().uuid(), sourceUuid);
       assertNull(second.updatedPni());
     }
 
@@ -623,8 +635,8 @@ class MessageControllerTest {
         .delete();
 
     assertThat("Good Response Code", response.getStatus(), is(equalTo(204)));
-    verify(receiptSender).sendReceipt(eq(AuthHelper.VALID_UUID), eq(1L),
-        eq(sourceUuid), eq(timestamp));
+    verify(receiptSender).sendReceipt(eq(new AciServiceIdentifier(AuthHelper.VALID_UUID)), eq(1L),
+        eq(new AciServiceIdentifier(sourceUuid)), eq(timestamp));
 
     response = resources.getJerseyTest()
         .target(String.format("/v1/messages/uuid/%s", uuid2))
@@ -920,28 +932,32 @@ class MessageControllerTest {
     } while (x != 0);
   }
 
-  private static void writeMultiPayloadRecipient(ByteBuffer bb, Recipient r) throws Exception {
-    long msb = r.getUuid().getMostSignificantBits();
-    long lsb = r.getUuid().getLeastSignificantBits();
-    bb.putLong(msb);            // uuid (first 8 bytes)
-    bb.putLong(lsb);            // uuid (last 8 bytes)
-    writePayloadDeviceId(bb, r.getDeviceId()); // device id (1-9 bytes)
-    bb.putShort((short) r.getRegistrationId()); // registration id (2 bytes)
-    bb.put(r.getPerRecipientKeyMaterial()); // key material (48 bytes)
+  private static void writeMultiPayloadRecipient(final ByteBuffer bb, final Recipient r, final boolean useExplicitIdentifier) {
+    if (useExplicitIdentifier) {
+      bb.put(r.uuid().toFixedWidthByteArray());
+    } else {
+      bb.put(UUIDUtil.toBytes(r.uuid().uuid()));
+    }
+
+    writePayloadDeviceId(bb, r.deviceId()); // device id (1-9 bytes)
+    bb.putShort((short) r.registrationId()); // registration id (2 bytes)
+    bb.put(r.perRecipientKeyMaterial()); // key material (48 bytes)
   }
 
-  private static InputStream initializeMultiPayload(List<Recipient> recipients, byte[] buffer) throws Exception {
+  private static InputStream initializeMultiPayload(List<Recipient> recipients, byte[] buffer, final boolean explicitIdentifiers) {
     // initialize a binary payload according to our wire format
     ByteBuffer bb = ByteBuffer.wrap(buffer);
     bb.order(ByteOrder.BIG_ENDIAN);
 
     // first write the header
-    bb.put(MultiRecipientMessageProvider.VERSION); // version byte
+    bb.put(explicitIdentifiers
+        ? MultiRecipientMessageProvider.EXPLICIT_ID_VERSION_IDENTIFIER
+        : MultiRecipientMessageProvider.AMBIGUOUS_ID_VERSION_IDENTIFIER); // version byte
     bb.put((byte)recipients.size());               // count varint
 
     Iterator<Recipient> it = recipients.iterator();
     while (it.hasNext()) {
-      writeMultiPayloadRecipient(bb, it.next());
+      writeMultiPayloadRecipient(bb, it.next(), explicitIdentifiers);
     }
 
     // now write the actual message body (empty for now)
@@ -953,22 +969,22 @@ class MessageControllerTest {
 
   @ParameterizedTest
   @MethodSource
-  void testMultiRecipientMessage(UUID recipientUUID, boolean authorize, boolean isStory, boolean urgent) throws Exception {
+  void testMultiRecipientMessage(UUID recipientUUID, boolean authorize, boolean isStory, boolean urgent, boolean explicitIdentifier) throws Exception {
 
     final List<Recipient> recipients;
     if (recipientUUID == MULTI_DEVICE_UUID) {
       recipients = List.of(
-        new Recipient(MULTI_DEVICE_UUID, MULTI_DEVICE_ID1, MULTI_DEVICE_REG_ID1, new byte[48]),
-        new Recipient(MULTI_DEVICE_UUID, MULTI_DEVICE_ID2, MULTI_DEVICE_REG_ID2, new byte[48])
+        new Recipient(new AciServiceIdentifier(MULTI_DEVICE_UUID), MULTI_DEVICE_ID1, MULTI_DEVICE_REG_ID1, new byte[48]),
+        new Recipient(new AciServiceIdentifier(MULTI_DEVICE_UUID), MULTI_DEVICE_ID2, MULTI_DEVICE_REG_ID2, new byte[48])
       );
     } else {
-      recipients = List.of(new Recipient(SINGLE_DEVICE_UUID, SINGLE_DEVICE_ID1, SINGLE_DEVICE_REG_ID1, new byte[48]));
+      recipients = List.of(new Recipient(new AciServiceIdentifier(SINGLE_DEVICE_UUID), SINGLE_DEVICE_ID1, SINGLE_DEVICE_REG_ID1, new byte[48]));
     }
 
     // initialize our binary payload and create an input stream
     byte[] buffer = new byte[2048];
     //InputStream stream = initializeMultiPayload(recipientUUID, buffer);
-    InputStream stream = initializeMultiPayload(recipients, buffer);
+    InputStream stream = initializeMultiPayload(recipients, buffer, explicitIdentifier);
 
     // set up the entity to use in our PUT request
     Entity<InputStream> entity = Entity.entity(stream, MultiRecipientMessageProvider.MEDIA_TYPE);
@@ -1058,31 +1074,48 @@ class MessageControllerTest {
   // Arguments here are: recipient-UUID, is-authorized?, is-story?
   private static Stream<Arguments> testMultiRecipientMessage() {
     return Stream.of(
-        Arguments.of(MULTI_DEVICE_UUID, false, true, true),
-        Arguments.of(MULTI_DEVICE_UUID, false, false, true),
-        Arguments.of(SINGLE_DEVICE_UUID, false, true, true),
-        Arguments.of(SINGLE_DEVICE_UUID, false, false, true),
-        Arguments.of(MULTI_DEVICE_UUID, true, true, true),
-        Arguments.of(MULTI_DEVICE_UUID, true, false, true),
-        Arguments.of(SINGLE_DEVICE_UUID, true, true, true),
-        Arguments.of(SINGLE_DEVICE_UUID, true, false, true),
-        Arguments.of(MULTI_DEVICE_UUID, false, true, false),
-        Arguments.of(MULTI_DEVICE_UUID, false, false, false),
-        Arguments.of(SINGLE_DEVICE_UUID, false, true, false),
-        Arguments.of(SINGLE_DEVICE_UUID, false, false, false),
-        Arguments.of(MULTI_DEVICE_UUID, true, true, false),
-        Arguments.of(MULTI_DEVICE_UUID, true, false, false),
-        Arguments.of(SINGLE_DEVICE_UUID, true, true, false),
-        Arguments.of(SINGLE_DEVICE_UUID, true, false, false)
+        Arguments.of(MULTI_DEVICE_UUID, false, true, true, false),
+        Arguments.of(MULTI_DEVICE_UUID, false, false, true, false),
+        Arguments.of(SINGLE_DEVICE_UUID, false, true, true, false),
+        Arguments.of(SINGLE_DEVICE_UUID, false, false, true, false),
+        Arguments.of(MULTI_DEVICE_UUID, true, true, true, false),
+        Arguments.of(MULTI_DEVICE_UUID, true, false, true, false),
+        Arguments.of(SINGLE_DEVICE_UUID, true, true, true, false),
+        Arguments.of(SINGLE_DEVICE_UUID, true, false, true, false),
+        Arguments.of(MULTI_DEVICE_UUID, false, true, false, false),
+        Arguments.of(MULTI_DEVICE_UUID, false, false, false, false),
+        Arguments.of(SINGLE_DEVICE_UUID, false, true, false, false),
+        Arguments.of(SINGLE_DEVICE_UUID, false, false, false, false),
+        Arguments.of(MULTI_DEVICE_UUID, true, true, false, false),
+        Arguments.of(MULTI_DEVICE_UUID, true, false, false, false),
+        Arguments.of(SINGLE_DEVICE_UUID, true, true, false, false),
+        Arguments.of(SINGLE_DEVICE_UUID, true, false, false, false),
+        Arguments.of(MULTI_DEVICE_UUID, false, true, true, true),
+        Arguments.of(MULTI_DEVICE_UUID, false, false, true, true),
+        Arguments.of(SINGLE_DEVICE_UUID, false, true, true, true),
+        Arguments.of(SINGLE_DEVICE_UUID, false, false, true, true),
+        Arguments.of(MULTI_DEVICE_UUID, true, true, true, true),
+        Arguments.of(MULTI_DEVICE_UUID, true, false, true, true),
+        Arguments.of(SINGLE_DEVICE_UUID, true, true, true, true),
+        Arguments.of(SINGLE_DEVICE_UUID, true, false, true, true),
+        Arguments.of(MULTI_DEVICE_UUID, false, true, false, true),
+        Arguments.of(MULTI_DEVICE_UUID, false, false, false, true),
+        Arguments.of(SINGLE_DEVICE_UUID, false, true, false, true),
+        Arguments.of(SINGLE_DEVICE_UUID, false, false, false, true),
+        Arguments.of(MULTI_DEVICE_UUID, true, true, false, true),
+        Arguments.of(MULTI_DEVICE_UUID, true, false, false, true),
+        Arguments.of(SINGLE_DEVICE_UUID, true, true, false, true),
+        Arguments.of(SINGLE_DEVICE_UUID, true, false, false, true)
     );
   }
 
-  @Test
-  void testMultiRecipientRedisBombProtection() throws Exception {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void testMultiRecipientRedisBombProtection(final boolean useExplicitIdentifier) throws Exception {
     final List<Recipient> recipients = List.of(
-        new Recipient(MULTI_DEVICE_UUID, MULTI_DEVICE_ID1, MULTI_DEVICE_REG_ID1, new byte[48]),
-        new Recipient(MULTI_DEVICE_UUID, MULTI_DEVICE_ID2, MULTI_DEVICE_REG_ID1, new byte[48]),
-        new Recipient(MULTI_DEVICE_UUID, MULTI_DEVICE_ID1, MULTI_DEVICE_REG_ID1, new byte[48]));
+        new Recipient(new AciServiceIdentifier(MULTI_DEVICE_UUID), MULTI_DEVICE_ID1, MULTI_DEVICE_REG_ID1, new byte[48]),
+        new Recipient(new AciServiceIdentifier(MULTI_DEVICE_UUID), MULTI_DEVICE_ID2, MULTI_DEVICE_REG_ID1, new byte[48]),
+        new Recipient(new AciServiceIdentifier(MULTI_DEVICE_UUID), MULTI_DEVICE_ID1, MULTI_DEVICE_REG_ID1, new byte[48]));
 
     Response response = resources
         .getJerseyTest()
@@ -1094,7 +1127,7 @@ class MessageControllerTest {
         .request()
         .header(HttpHeaders.USER_AGENT, "cluck cluck, i'm a parrot")
         .header(OptionalAccess.UNIDENTIFIED, Base64.getEncoder().encodeToString(UNIDENTIFIED_ACCESS_BYTES))
-        .put(Entity.entity(initializeMultiPayload(recipients, new byte[2048]), MultiRecipientMessageProvider.MEDIA_TYPE));
+        .put(Entity.entity(initializeMultiPayload(recipients, new byte[2048], useExplicitIdentifier), MultiRecipientMessageProvider.MEDIA_TYPE));
 
     checkBadMultiRecipientResponse(response, 422);
   }
@@ -1118,22 +1151,22 @@ class MessageControllerTest {
 
   @ParameterizedTest
   @MethodSource
-  void testSendMultiRecipientMessageToUnknownAccounts(boolean story, boolean known) throws Exception {
+  void testSendMultiRecipientMessageToUnknownAccounts(boolean story, boolean known, boolean useExplicitIdentifier) {
 
     final Recipient r1;
     if (known) {
-      r1 = new Recipient(SINGLE_DEVICE_UUID, SINGLE_DEVICE_ID1, SINGLE_DEVICE_REG_ID1, new byte[48]);
+      r1 = new Recipient(new AciServiceIdentifier(SINGLE_DEVICE_UUID), SINGLE_DEVICE_ID1, SINGLE_DEVICE_REG_ID1, new byte[48]);
     } else {
-      r1 = new Recipient(UUID.randomUUID(), 999, 999, new byte[48]);
+      r1 = new Recipient(new AciServiceIdentifier(UUID.randomUUID()), 999, 999, new byte[48]);
     }
 
-    Recipient r2 = new Recipient(MULTI_DEVICE_UUID, MULTI_DEVICE_ID1, MULTI_DEVICE_REG_ID1, new byte[48]);
-    Recipient r3 = new Recipient(MULTI_DEVICE_UUID, MULTI_DEVICE_ID2, MULTI_DEVICE_REG_ID2, new byte[48]);
+    Recipient r2 = new Recipient(new AciServiceIdentifier(MULTI_DEVICE_UUID), MULTI_DEVICE_ID1, MULTI_DEVICE_REG_ID1, new byte[48]);
+    Recipient r3 = new Recipient(new AciServiceIdentifier(MULTI_DEVICE_UUID), MULTI_DEVICE_ID2, MULTI_DEVICE_REG_ID2, new byte[48]);
 
     List<Recipient> recipients = List.of(r1, r2, r3);
 
     byte[] buffer = new byte[2048];
-    InputStream stream = initializeMultiPayload(recipients, buffer);
+    InputStream stream = initializeMultiPayload(recipients, buffer, useExplicitIdentifier);
     // set up the entity to use in our PUT request
     Entity<InputStream> entity = Entity.entity(stream, MultiRecipientMessageProvider.MEDIA_TYPE);
 
@@ -1167,10 +1200,170 @@ class MessageControllerTest {
 
   private static Stream<Arguments> testSendMultiRecipientMessageToUnknownAccounts() {
     return Stream.of(
-        Arguments.of(true, true),
-        Arguments.of(true, false),
-        Arguments.of(false, true),
-        Arguments.of(false, false));
+        Arguments.of(true, true, false),
+        Arguments.of(true, false, false),
+        Arguments.of(false, true, false),
+        Arguments.of(false, false, false),
+
+        Arguments.of(true, true, true),
+        Arguments.of(true, false, true),
+        Arguments.of(false, true, true),
+        Arguments.of(false, false, true)
+    );
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void sendMultiRecipientMessageMismatchedDevices(final ServiceIdentifier serviceIdentifier)
+      throws JsonProcessingException {
+
+    final List<Recipient> recipients = List.of(
+        new Recipient(serviceIdentifier, MULTI_DEVICE_ID1, MULTI_DEVICE_REG_ID1, new byte[48]),
+        new Recipient(serviceIdentifier, MULTI_DEVICE_ID2, MULTI_DEVICE_REG_ID2, new byte[48]),
+        new Recipient(serviceIdentifier, MULTI_DEVICE_ID3, MULTI_DEVICE_REG_ID3, new byte[48]));
+
+    // initialize our binary payload and create an input stream
+    byte[] buffer = new byte[2048];
+    // InputStream stream = initializeMultiPayload(recipientUUID, buffer);
+    InputStream stream = initializeMultiPayload(recipients, buffer, true);
+
+    // set up the entity to use in our PUT request
+    Entity<InputStream> entity = Entity.entity(stream, MultiRecipientMessageProvider.MEDIA_TYPE);
+
+    // start building the request
+    final Invocation.Builder invocationBuilder = resources
+        .getJerseyTest()
+        .target("/v1/messages/multi_recipient")
+        .queryParam("online", false)
+        .queryParam("ts", System.currentTimeMillis())
+        .queryParam("story", false)
+        .queryParam("urgent", true)
+        .request()
+        .header(HttpHeaders.USER_AGENT, "FIXME")
+        .header(OptionalAccess.UNIDENTIFIED, Base64.getEncoder().encodeToString(UNIDENTIFIED_ACCESS_BYTES));
+
+    // make the PUT request
+    final Response response = invocationBuilder.put(entity);
+
+    assertEquals(409, response.getStatus());
+
+    final List<AccountMismatchedDevices> mismatchedDevices =
+        SystemMapper.jsonMapper().readValue(response.readEntity(String.class),
+            SystemMapper.jsonMapper().getTypeFactory().constructCollectionType(List.class, AccountMismatchedDevices.class));
+
+    assertEquals(List.of(new AccountMismatchedDevices(serviceIdentifier,
+            new MismatchedDevices(Collections.emptyList(), List.of((long) MULTI_DEVICE_ID3)))),
+        mismatchedDevices);
+  }
+
+  private static Stream<Arguments> sendMultiRecipientMessageMismatchedDevices() {
+    return Stream.of(
+        Arguments.of(new AciServiceIdentifier(MULTI_DEVICE_UUID)),
+        Arguments.of(new PniServiceIdentifier(MULTI_DEVICE_PNI)));
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void sendMultiRecipientMessageStaleDevices(final ServiceIdentifier serviceIdentifier) throws JsonProcessingException {
+    final List<Recipient> recipients = List.of(
+        new Recipient(serviceIdentifier, MULTI_DEVICE_ID1, MULTI_DEVICE_REG_ID1 + 1, new byte[48]),
+        new Recipient(serviceIdentifier, MULTI_DEVICE_ID2, MULTI_DEVICE_REG_ID2 + 1, new byte[48]));
+
+    // initialize our binary payload and create an input stream
+    byte[] buffer = new byte[2048];
+    // InputStream stream = initializeMultiPayload(recipientUUID, buffer);
+    InputStream stream = initializeMultiPayload(recipients, buffer, true);
+
+    // set up the entity to use in our PUT request
+    Entity<InputStream> entity = Entity.entity(stream, MultiRecipientMessageProvider.MEDIA_TYPE);
+
+    // start building the request
+    final Invocation.Builder invocationBuilder = resources
+        .getJerseyTest()
+        .target("/v1/messages/multi_recipient")
+        .queryParam("online", false)
+        .queryParam("ts", System.currentTimeMillis())
+        .queryParam("story", false)
+        .queryParam("urgent", true)
+        .request()
+        .header(HttpHeaders.USER_AGENT, "FIXME")
+        .header(OptionalAccess.UNIDENTIFIED, Base64.getEncoder().encodeToString(UNIDENTIFIED_ACCESS_BYTES));
+
+    // make the PUT request
+    final Response response = invocationBuilder.put(entity);
+
+    assertEquals(410, response.getStatus());
+
+    final List<AccountStaleDevices> staleDevices =
+        SystemMapper.jsonMapper().readValue(response.readEntity(String.class),
+            SystemMapper.jsonMapper().getTypeFactory().constructCollectionType(List.class, AccountStaleDevices.class));
+
+    assertEquals(1, staleDevices.size());
+    assertEquals(serviceIdentifier, staleDevices.get(0).uuid());
+    assertEquals(Set.of((long) MULTI_DEVICE_ID1, (long) MULTI_DEVICE_ID2), new HashSet<>(staleDevices.get(0).devices().staleDevices()));
+  }
+
+  private static Stream<Arguments> sendMultiRecipientMessageStaleDevices() {
+    return Stream.of(
+        Arguments.of(new AciServiceIdentifier(MULTI_DEVICE_UUID)),
+        Arguments.of(new PniServiceIdentifier(MULTI_DEVICE_PNI)));
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void sendMultiRecipientMessage404(final ServiceIdentifier serviceIdentifier)
+      throws NotPushRegisteredException, InterruptedException {
+
+    when(multiRecipientMessageExecutor.invokeAll(any()))
+        .thenAnswer(answer -> {
+          final List<Callable> tasks = answer.getArgument(0, List.class);
+          tasks.forEach(c -> {
+            try {
+              c.call();
+            } catch (Exception e) {
+              throw new RuntimeException(e);
+            }
+          });
+          return null;
+        });
+
+    final List<Recipient> recipients = List.of(
+        new Recipient(serviceIdentifier, MULTI_DEVICE_ID1, MULTI_DEVICE_REG_ID1, new byte[48]),
+        new Recipient(serviceIdentifier, MULTI_DEVICE_ID2, MULTI_DEVICE_REG_ID2, new byte[48]));
+
+    // initialize our binary payload and create an input stream
+    byte[] buffer = new byte[2048];
+    // InputStream stream = initializeMultiPayload(recipientUUID, buffer);
+    InputStream stream = initializeMultiPayload(recipients, buffer, true);
+
+    // set up the entity to use in our PUT request
+    Entity<InputStream> entity = Entity.entity(stream, MultiRecipientMessageProvider.MEDIA_TYPE);
+
+    // start building the request
+    final Invocation.Builder invocationBuilder = resources
+        .getJerseyTest()
+        .target("/v1/messages/multi_recipient")
+        .queryParam("online", false)
+        .queryParam("ts", System.currentTimeMillis())
+        .queryParam("story", true)
+        .queryParam("urgent", true)
+        .request()
+        .header(HttpHeaders.USER_AGENT, "FIXME")
+        .header(OptionalAccess.UNIDENTIFIED, Base64.getEncoder().encodeToString(UNIDENTIFIED_ACCESS_BYTES));
+
+    doThrow(NotPushRegisteredException.class)
+        .when(messageSender).sendMessage(any(), any(), any(), anyBoolean());
+
+    // make the PUT request
+    final SendMultiRecipientMessageResponse response = invocationBuilder.put(entity, SendMultiRecipientMessageResponse.class);
+
+    assertEquals(List.of(serviceIdentifier), response.uuids404());
+  }
+
+  private static Stream<Arguments> sendMultiRecipientMessage404() {
+    return Stream.of(
+        Arguments.of(new AciServiceIdentifier(MULTI_DEVICE_UUID)),
+        Arguments.of(new PniServiceIdentifier(MULTI_DEVICE_PNI)));
   }
 
   private void checkBadMultiRecipientResponse(Response response, int expectedCode) throws Exception {
@@ -1185,7 +1378,7 @@ class MessageControllerTest {
     verify(multiRecipientMessageExecutor, times(1)).invokeAll(captor.capture());
     assert (captor.getValue().size() == expectedCount);
     SendMultiRecipientMessageResponse smrmr = response.readEntity(SendMultiRecipientMessageResponse.class);
-    assert (smrmr.getUUIDs404().isEmpty());
+    assert (smrmr.uuids404().isEmpty());
   }
 
   private static Envelope generateEnvelope(UUID guid, int type, long timestamp, UUID sourceUuid,
@@ -1226,7 +1419,7 @@ class MessageControllerTest {
     int dr1 = rng.nextInt() & 0xffff; // 0 to 65535
     byte[] perKeyBytes = new byte[48]; // size=48, non-null
     rng.nextBytes(perKeyBytes);
-    return new Recipient(u1, d1, dr1, perKeyBytes);
+    return new Recipient(new AciServiceIdentifier(u1), d1, dr1, perKeyBytes);
   }
 
   private static void roundTripVarint(long expected, byte [] bytes) throws Exception {
@@ -1258,8 +1451,9 @@ class MessageControllerTest {
     }
   }
 
-  @Test
-  void testMultiPayloadRoundtrip() throws Exception {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void testMultiPayloadRoundtrip(final boolean useExplicitIdentifiers) throws Exception {
     Random rng = new java.util.Random();
     List<Recipient> expected = new LinkedList<>();
     for(int i = 0; i < 100; i++) {
@@ -1267,11 +1461,11 @@ class MessageControllerTest {
     }
 
     byte[] buffer = new byte[100 + expected.size() * 100];
-    InputStream entityStream = initializeMultiPayload(expected, buffer);
+    InputStream entityStream = initializeMultiPayload(expected, buffer, useExplicitIdentifiers);
     MultiRecipientMessageProvider provider = new MultiRecipientMessageProvider();
     // the provider ignores the headers, java reflection, etc. so we don't use those here.
     MultiRecipientMessage res = provider.readFrom(null, null, null, null, null, entityStream);
-    List<Recipient> got = Arrays.asList(res.getRecipients());
+    List<Recipient> got = Arrays.asList(res.recipients());
 
     assertEquals(expected, got);
   }

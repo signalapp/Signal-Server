@@ -9,11 +9,11 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import org.signal.libsignal.protocol.IdentityKey;
-import org.signal.libsignal.protocol.ecc.ECPublicKey;
+import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
+import org.whispersystems.textsecuregcm.util.ServiceIdentifierAdapter;
 import org.whispersystems.textsecuregcm.util.IdentityKeyAdapter;
 
 import java.util.List;
-import java.util.UUID;
 
 public class BaseProfileResponse {
 
@@ -35,7 +35,9 @@ public class BaseProfileResponse {
   private List<Badge> badges;
 
   @JsonProperty
-  private UUID uuid;
+  @JsonSerialize(using = ServiceIdentifierAdapter.ServiceIdentifierSerializer.class)
+  @JsonDeserialize(using = ServiceIdentifierAdapter.ServiceIdentifierDeserializer.class)
+  private ServiceIdentifier uuid;
 
   public BaseProfileResponse() {
   }
@@ -45,7 +47,7 @@ public class BaseProfileResponse {
       final boolean unrestrictedUnidentifiedAccess,
       final UserCapabilities capabilities,
       final List<Badge> badges,
-      final UUID uuid) {
+      final ServiceIdentifier uuid) {
 
     this.identityKey = identityKey;
     this.unidentifiedAccess = unidentifiedAccess;
@@ -75,7 +77,7 @@ public class BaseProfileResponse {
     return badges;
   }
 
-  public UUID getUuid() {
+  public ServiceIdentifier getUuid() {
     return uuid;
   }
 }

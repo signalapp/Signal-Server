@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -35,7 +36,6 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -48,6 +48,7 @@ import javax.ws.rs.DELETE;
 import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
+import javax.ws.rs.NotFoundException;
 import javax.ws.rs.POST;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
@@ -82,6 +83,8 @@ import org.whispersystems.textsecuregcm.entities.SendMessageResponse;
 import org.whispersystems.textsecuregcm.entities.SendMultiRecipientMessageResponse;
 import org.whispersystems.textsecuregcm.entities.SpamReport;
 import org.whispersystems.textsecuregcm.entities.StaleDevices;
+import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
+import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
@@ -183,7 +186,7 @@ public class MessageController {
       @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
       @HeaderParam(HttpHeaders.USER_AGENT) String userAgent,
       @HeaderParam(HttpHeaders.X_FORWARDED_FOR) String forwardedFor,
-      @PathParam("destination") UUID destinationUuid,
+      @PathParam("destination") ServiceIdentifier destinationIdentifier,
       @QueryParam("story") boolean isStory,
       @NotNull @Valid IncomingMessageList messages,
       @Context ContainerRequestContext context) throws RateLimitExceededException {
@@ -195,7 +198,7 @@ public class MessageController {
     final String senderType;
 
     if (source.isPresent()) {
-      if (source.get().getAccount().isIdentifiedBy(destinationUuid)) {
+      if (source.get().getAccount().isIdentifiedBy(destinationIdentifier)) {
         senderType = SENDER_TYPE_SELF;
       } else {
         senderType = SENDER_TYPE_IDENTIFIED;
@@ -227,7 +230,7 @@ public class MessageController {
     }
 
     try {
-      rateLimiters.getInboundMessageBytes().validate(destinationUuid, totalContentLength);
+      rateLimiters.getInboundMessageBytes().validate(destinationIdentifier.uuid(), totalContentLength);
     } catch (final RateLimitExceededException e) {
       if (dynamicConfigurationManager.getConfiguration().getInboundMessageByteLimitConfiguration().enforceInboundLimit()) {
         throw e;
@@ -235,13 +238,12 @@ public class MessageController {
     }
 
     try {
-      boolean isSyncMessage = source.isPresent() && source.get().getAccount().isIdentifiedBy(destinationUuid);
+      boolean isSyncMessage = source.isPresent() && source.get().getAccount().isIdentifiedBy(destinationIdentifier);
 
       Optional<Account> destination;
 
       if (!isSyncMessage) {
-        destination = accountsManager.getByAccountIdentifier(destinationUuid)
-            .or(() -> accountsManager.getByPhoneNumberIdentifier(destinationUuid));
+        destination = accountsManager.getByServiceIdentifier(destinationIdentifier);
       } else {
         destination = source.map(AuthenticatedAccount::getAccount);
       }
@@ -288,7 +290,7 @@ public class MessageController {
           messages.messages(),
           IncomingMessage::destinationDeviceId,
           IncomingMessage::destinationRegistrationId,
-          destination.get().getPhoneNumberIdentifier().equals(destinationUuid));
+          destination.get().getPhoneNumberIdentifier().equals(destinationIdentifier.uuid()));
 
       final List<Tag> tags = List.of(UserAgentTagUtil.getPlatformTag(userAgent),
           Tag.of(EPHEMERAL_TAG_NAME, String.valueOf(messages.online())),
@@ -303,7 +305,7 @@ public class MessageController {
               source,
               destination.get(),
               destinationDevice.get(),
-              destinationUuid,
+              destinationIdentifier,
               messages.timestamp(),
               messages.online(),
               isStory,
@@ -334,25 +336,20 @@ public class MessageController {
 
   /**
    * Build mapping of accounts to devices/registration IDs.
-   *
-   * @param multiRecipientMessage
-   * @param uuidToAccountMap
-   * @return
    */
   private Map<Account, Set<Pair<Long, Integer>>> buildDeviceIdAndRegistrationIdMap(
       MultiRecipientMessage multiRecipientMessage,
-      Map<UUID, Account> uuidToAccountMap
-  ) {
+      Map<ServiceIdentifier, Account> accountsByServiceIdentifier) {
 
-    return Arrays.stream(multiRecipientMessage.getRecipients())
+    return Arrays.stream(multiRecipientMessage.recipients())
         // for normal messages, all recipients UUIDs are in the map,
         // but story messages might specify inactive UUIDs, which we
         // have previously filtered
-        .filter(r -> uuidToAccountMap.containsKey(r.getUuid()))
+        .filter(r -> accountsByServiceIdentifier.containsKey(r.uuid()))
         .collect(Collectors.toMap(
-            recipient -> uuidToAccountMap.get(recipient.getUuid()),
+            recipient -> accountsByServiceIdentifier.get(recipient.uuid()),
             recipient -> new HashSet<>(
-                Collections.singletonList(new Pair<>(recipient.getDeviceId(), recipient.getRegistrationId()))),
+                Collections.singletonList(new Pair<>(recipient.deviceId(), recipient.registrationId()))),
             (a, b) -> {
               a.addAll(b);
               return a;
@@ -376,33 +373,29 @@ public class MessageController {
       @QueryParam("story") boolean isStory,
       @NotNull @Valid MultiRecipientMessage multiRecipientMessage) {
 
-    // we skip "missing" accounts when story=true.
-    // otherwise, we return a 404 status code.
-    final Function<UUID, Stream<Account>> accountFinder = uuid -> {
-      Optional<Account> res = accountsManager.getByAccountIdentifier(uuid);
-      if (!isStory && res.isEmpty()) {
-        throw new WebApplicationException(Status.NOT_FOUND);
-      }
-      return res.stream();
-    };
+    final Map<ServiceIdentifier, Account> accountsByServiceIdentifier = new HashMap<>();
 
-    // build a map from UUID to accounts
-    Map<UUID, Account> uuidToAccountMap =
-        Arrays.stream(multiRecipientMessage.getRecipients())
-            .map(Recipient::getUuid)
-            .distinct()
-            .flatMap(accountFinder)
-            .collect(Collectors.toUnmodifiableMap(
-                Account::getUuid,
-                Function.identity()));
+    for (final Recipient recipient : multiRecipientMessage.recipients()) {
+      if (!accountsByServiceIdentifier.containsKey(recipient.uuid())) {
+        final Optional<Account> maybeAccount = accountsManager.getByServiceIdentifier(recipient.uuid());
+
+        if (maybeAccount.isPresent()) {
+          accountsByServiceIdentifier.put(recipient.uuid(), maybeAccount.get());
+        } else {
+          if (!isStory) {
+            throw new NotFoundException();
+          }
+        }
+      }
+    }
 
     // Stories will be checked by the client; we bypass access checks here for stories.
     if (!isStory) {
-      checkAccessKeys(accessKeys, uuidToAccountMap);
+      checkAccessKeys(accessKeys, accountsByServiceIdentifier.values());
     }
 
     final Map<Account, Set<Pair<Long, Integer>>> accountToDeviceIdAndRegistrationIdMap =
-        buildDeviceIdAndRegistrationIdMap(multiRecipientMessage, uuidToAccountMap);
+        buildDeviceIdAndRegistrationIdMap(multiRecipientMessage, accountsByServiceIdentifier);
 
     // We might filter out all the recipients of a story (if none have enabled stories).
     // In this case there is no error so we should just return 200 now.
@@ -412,7 +405,7 @@ public class MessageController {
 
     Collection<AccountMismatchedDevices> accountMismatchedDevices = new ArrayList<>();
     Collection<AccountStaleDevices> accountStaleDevices = new ArrayList<>();
-    uuidToAccountMap.values().forEach(account -> {
+    accountsByServiceIdentifier.forEach((serviceIdentifier, account) -> {
 
       if (isStory) {
         checkStoryRateLimit(account);
@@ -434,10 +427,10 @@ public class MessageController {
             accountToDeviceIdAndRegistrationIdMap.get(account).stream(),
             false);
       } catch (MismatchedDevicesException e) {
-        accountMismatchedDevices.add(new AccountMismatchedDevices(account.getUuid(),
+        accountMismatchedDevices.add(new AccountMismatchedDevices(serviceIdentifier,
             new MismatchedDevices(e.getMissingDevices(), e.getExtraDevices())));
       } catch (StaleDevicesException e) {
-        accountStaleDevices.add(new AccountStaleDevices(account.getUuid(), new StaleDevices(e.getStaleDevices())));
+        accountStaleDevices.add(new AccountStaleDevices(serviceIdentifier, new StaleDevices(e.getStaleDevices())));
       }
     });
     if (!accountMismatchedDevices.isEmpty()) {
@@ -455,7 +448,7 @@ public class MessageController {
           .build();
     }
 
-    List<UUID> uuids404 = Collections.synchronizedList(new ArrayList<>());
+    List<ServiceIdentifier> uuids404 = Collections.synchronizedList(new ArrayList<>());
 
     try {
       final Counter sentMessageCounter = Metrics.counter(SENT_MESSAGE_COUNTER_NAME, Tags.of(
@@ -463,18 +456,18 @@ public class MessageController {
           Tag.of(EPHEMERAL_TAG_NAME, String.valueOf(online)),
           Tag.of(SENDER_TYPE_TAG_NAME, SENDER_TYPE_UNIDENTIFIED)));
 
-      multiRecipientMessageExecutor.invokeAll(Arrays.stream(multiRecipientMessage.getRecipients())
+      multiRecipientMessageExecutor.invokeAll(Arrays.stream(multiRecipientMessage.recipients())
           .map(recipient -> (Callable<Void>) () -> {
-            Account destinationAccount = uuidToAccountMap.get(recipient.getUuid());
+            Account destinationAccount = accountsByServiceIdentifier.get(recipient.uuid());
 
             // we asserted this must exist in validateCompleteDeviceList
-            Device destinationDevice = destinationAccount.getDevice(recipient.getDeviceId()).orElseThrow();
+            Device destinationDevice = destinationAccount.getDevice(recipient.deviceId()).orElseThrow();
             sentMessageCounter.increment();
             try {
               sendCommonPayloadMessage(destinationAccount, destinationDevice, timestamp, online, isStory, isUrgent,
-                  recipient, multiRecipientMessage.getCommonPayload());
+                  recipient, multiRecipientMessage.commonPayload());
             } catch (NoSuchUserException e) {
-              uuids404.add(destinationAccount.getUuid());
+              uuids404.add(recipient.uuid());
             }
             return null;
           })
@@ -486,7 +479,7 @@ public class MessageController {
     return Response.ok(new SendMultiRecipientMessageResponse(uuids404)).build();
   }
 
-  private void checkAccessKeys(CombinedUnidentifiedSenderAccessKeys accessKeys, Map<UUID, Account> uuidToAccountMap) {
+  private void checkAccessKeys(final CombinedUnidentifiedSenderAccessKeys accessKeys, final Collection<Account> destinationAccounts) {
     // We should not have null access keys when checking access; bail out early.
     if (accessKeys == null) {
       throw new WebApplicationException(Status.UNAUTHORIZED);
@@ -494,7 +487,7 @@ public class MessageController {
     AtomicBoolean throwUnauthorized = new AtomicBoolean(false);
     byte[] empty = new byte[16];
     final Optional<byte[]> UNRESTRICTED_UNIDENTIFIED_ACCESS_KEY = Optional.of(new byte[16]);
-    byte[] combinedUnknownAccessKeys = uuidToAccountMap.values().stream()
+    byte[] combinedUnknownAccessKeys = destinationAccounts.stream()
         .map(account -> {
           if (account.isUnrestrictedUnidentifiedAccess()) {
             return UNRESTRICTED_UNIDENTIFIED_ACCESS_KEY;
@@ -595,8 +588,8 @@ public class MessageController {
             if (deletedMessage.hasSourceUuid() && deletedMessage.getType() != Type.SERVER_DELIVERY_RECEIPT) {
               try {
                 receiptSender.sendReceipt(
-                    UUID.fromString(deletedMessage.getDestinationUuid()), auth.getAuthenticatedDevice().getId(),
-                    UUID.fromString(deletedMessage.getSourceUuid()), deletedMessage.getTimestamp());
+                    ServiceIdentifier.valueOf(deletedMessage.getDestinationUuid()), auth.getAuthenticatedDevice().getId(),
+                    AciServiceIdentifier.valueOf(deletedMessage.getSourceUuid()), deletedMessage.getTimestamp());
               } catch (Exception e) {
                 logger.warn("Failed to send delivery receipt", e);
               }
@@ -663,7 +656,7 @@ public class MessageController {
       Optional<AuthenticatedAccount> source,
       Account destinationAccount,
       Device destinationDevice,
-      UUID destinationUuid,
+      ServiceIdentifier destinationIdentifier,
       long timestamp,
       boolean online,
       boolean story,
@@ -679,7 +672,7 @@ public class MessageController {
         Account sourceAccount = source.map(AuthenticatedAccount::getAccount).orElse(null);
         Long sourceDeviceId = source.map(account -> account.getAuthenticatedDevice().getId()).orElse(null);
         envelope = incomingMessage.toEnvelope(
-            destinationUuid,
+            destinationIdentifier,
             sourceAccount,
             sourceDeviceId,
             timestamp == 0 ? System.currentTimeMillis() : timestamp,
@@ -709,10 +702,10 @@ public class MessageController {
     try {
       Envelope.Builder messageBuilder = Envelope.newBuilder();
       long serverTimestamp = System.currentTimeMillis();
-      byte[] recipientKeyMaterial = recipient.getPerRecipientKeyMaterial();
+      byte[] recipientKeyMaterial = recipient.perRecipientKeyMaterial();
 
       byte[] payload = new byte[1 + recipientKeyMaterial.length + commonPayload.length];
-      payload[0] = MultiRecipientMessageProvider.VERSION;
+      payload[0] = MultiRecipientMessageProvider.AMBIGUOUS_ID_VERSION_IDENTIFIER;
       System.arraycopy(recipientKeyMaterial, 0, payload, 1, recipientKeyMaterial.length);
       System.arraycopy(commonPayload, 0, payload, 1 + recipientKeyMaterial.length, commonPayload.length);
 
@@ -723,7 +716,7 @@ public class MessageController {
           .setContent(ByteString.copyFrom(payload))
           .setStory(story)
           .setUrgent(urgent)
-          .setDestinationUuid(destinationAccount.getUuid().toString());
+          .setDestinationUuid(new AciServiceIdentifier(destinationAccount.getUuid()).toServiceIdentifierString());
 
       messageSender.sendMessage(destinationAccount, destinationDevice, messageBuilder.build(), online);
     } catch (NotPushRegisteredException e) {

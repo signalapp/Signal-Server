@@ -9,22 +9,20 @@ import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import com.vdurmont.semver4j.Semver;
 import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tag;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
-import io.micrometer.core.instrument.Tag;
-import io.micrometer.core.instrument.Tags;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
+import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
-import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 
 public final class MessageMetrics {
 
@@ -44,16 +42,15 @@ public final class MessageMetrics {
       final MessageProtos.Envelope envelope) {
     if (envelope.hasDestinationUuid()) {
       try {
-        final UUID destinationUuid = UUID.fromString(envelope.getDestinationUuid());
-        measureAccountDestinationUuidMismatches(account, destinationUuid);
+        measureAccountDestinationUuidMismatches(account, ServiceIdentifier.valueOf(envelope.getDestinationUuid()));
       } catch (final IllegalArgumentException ignored) {
         logger.warn("Envelope had invalid destination UUID: {}", envelope.getDestinationUuid());
       }
     }
   }
 
-  private static void measureAccountDestinationUuidMismatches(final Account account, final UUID destinationUuid) {
-    if (!destinationUuid.equals(account.getUuid()) && !destinationUuid.equals(account.getPhoneNumberIdentifier())) {
+  private static void measureAccountDestinationUuidMismatches(final Account account, final ServiceIdentifier destinationIdentifier) {
+    if (!account.isIdentifiedBy(destinationIdentifier)) {
       // In all cases, this represents a mismatch between the account’s current PNI and its PNI when the message was
       // sent. This is an expected case, but if this metric changes significantly, it could indicate an issue to
       // investigate.

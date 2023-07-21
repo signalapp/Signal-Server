@@ -90,6 +90,9 @@ import org.whispersystems.textsecuregcm.entities.ExpiringProfileKeyCredentialPro
 import org.whispersystems.textsecuregcm.entities.ProfileAvatarUploadAttributes;
 import org.whispersystems.textsecuregcm.entities.UserCapabilities;
 import org.whispersystems.textsecuregcm.entities.VersionedProfileResponse;
+import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
+import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
+import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.s3.PolicySigner;
@@ -234,33 +237,33 @@ public class ProfileController {
   @Timed
   @GET
   @Produces(MediaType.APPLICATION_JSON)
-  @Path("/{uuid}/{version}")
+  @Path("/{identifier}/{version}")
   public VersionedProfileResponse getProfile(
       @Auth Optional<AuthenticatedAccount> auth,
       @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
       @Context ContainerRequestContext containerRequestContext,
-      @PathParam("uuid") UUID uuid,
+      @PathParam("identifier") AciServiceIdentifier accountIdentifier,
       @PathParam("version") String version)
       throws RateLimitExceededException {
 
     final Optional<Account> maybeRequester = auth.map(AuthenticatedAccount::getAccount);
-    final Account targetAccount = verifyPermissionToReceiveAccountIdentityProfile(maybeRequester, accessKey, uuid);
+    final Account targetAccount = verifyPermissionToReceiveAccountIdentityProfile(maybeRequester, accessKey, accountIdentifier);
 
     return buildVersionedProfileResponse(targetAccount,
         version,
-        isSelfProfileRequest(maybeRequester, uuid),
+        isSelfProfileRequest(maybeRequester, accountIdentifier),
         containerRequestContext);
   }
 
   @Timed
   @GET
   @Produces(MediaType.APPLICATION_JSON)
-  @Path("/{uuid}/{version}/{credentialRequest}")
+  @Path("/{identifier}/{version}/{credentialRequest}")
   public CredentialProfileResponse getProfile(
       @Auth Optional<AuthenticatedAccount> auth,
       @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
       @Context ContainerRequestContext containerRequestContext,
-      @PathParam("uuid") UUID uuid,
+      @PathParam("identifier") AciServiceIdentifier accountIdentifier,
       @PathParam("version") String version,
       @PathParam("credentialRequest") String credentialRequest,
       @QueryParam("credentialType") String credentialType)
@@ -271,8 +274,8 @@ public class ProfileController {
     }
 
     final Optional<Account> maybeRequester = auth.map(AuthenticatedAccount::getAccount);
-    final Account targetAccount = verifyPermissionToReceiveAccountIdentityProfile(maybeRequester, accessKey, uuid);
-    final boolean isSelf = isSelfProfileRequest(maybeRequester, uuid);
+    final Account targetAccount = verifyPermissionToReceiveAccountIdentityProfile(maybeRequester, accessKey, accountIdentifier);
+    final boolean isSelf = isSelfProfileRequest(maybeRequester, accountIdentifier);
 
     return buildExpiringProfileKeyCredentialProfileResponse(targetAccount,
         version,
@@ -293,34 +296,38 @@ public class ProfileController {
       @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
       @Context ContainerRequestContext containerRequestContext,
       @HeaderParam(HttpHeaders.USER_AGENT) String userAgent,
-      @PathParam("identifier") UUID identifier,
+      @PathParam("identifier") ServiceIdentifier identifier,
       @QueryParam("ca") boolean useCaCertificate)
       throws RateLimitExceededException {
 
-    final Optional<Account> maybeAccountByPni = accountsManager.getByPhoneNumberIdentifier(identifier);
     final Optional<Account> maybeRequester = auth.map(AuthenticatedAccount::getAccount);
 
-    final BaseProfileResponse profileResponse;
+    return switch (identifier.identityType()) {
+      case ACI -> {
+        final AciServiceIdentifier aciServiceIdentifier = (AciServiceIdentifier) identifier;
 
-    if (maybeAccountByPni.isPresent()) {
-      if (maybeRequester.isEmpty()) {
-        throw new WebApplicationException(Response.Status.UNAUTHORIZED);
-      } else {
-        rateLimiters.getProfileLimiter().validate(maybeRequester.get().getUuid());
+        final Account targetAccount =
+            verifyPermissionToReceiveAccountIdentityProfile(maybeRequester, accessKey, aciServiceIdentifier);
+
+        yield buildBaseProfileResponseForAccountIdentity(targetAccount,
+            isSelfProfileRequest(maybeRequester, aciServiceIdentifier),
+            containerRequestContext);
       }
+      case PNI -> {
+        final Optional<Account> maybeAccountByPni = accountsManager.getByPhoneNumberIdentifier(identifier.uuid());
 
-      OptionalAccess.verify(maybeRequester, Optional.empty(), maybeAccountByPni);
+        if (maybeRequester.isEmpty()) {
+          throw new WebApplicationException(Response.Status.UNAUTHORIZED);
+        } else {
+          rateLimiters.getProfileLimiter().validate(maybeRequester.get().getUuid());
+        }
 
-      profileResponse = buildBaseProfileResponseForPhoneNumberIdentity(maybeAccountByPni.get());
-    } else {
-      final Account targetAccount = verifyPermissionToReceiveAccountIdentityProfile(maybeRequester, accessKey, identifier);
+        OptionalAccess.verify(maybeRequester, Optional.empty(), maybeAccountByPni);
 
-      profileResponse = buildBaseProfileResponseForAccountIdentity(targetAccount,
-          isSelfProfileRequest(maybeRequester, identifier),
-          containerRequestContext);
-    }
-
-    return profileResponse;
+        assert maybeAccountByPni.isPresent();
+        yield buildBaseProfileResponseForPhoneNumberIdentity(maybeAccountByPni.get());
+      }
+    };
   }
 
   @Timed
@@ -363,35 +370,24 @@ public class ProfileController {
   private void checkFingerprintAndAdd(BatchIdentityCheckRequest.Element element,
       Collection<BatchIdentityCheckResponse.Element> responseElements, MessageDigest md) {
 
-    final Optional<Account> maybeAccount;
-    final boolean usePhoneNumberIdentity;
-    if (element.aci() != null) {
-      maybeAccount = accountsManager.getByAccountIdentifier(element.aci());
-      usePhoneNumberIdentity = false;
-    } else {
-      final Optional<Account> maybeAciAccount = accountsManager.getByAccountIdentifier(element.uuid());
-
-      if (maybeAciAccount.isEmpty()) {
-        maybeAccount = accountsManager.getByPhoneNumberIdentifier(element.uuid());
-        usePhoneNumberIdentity = true;
-      } else {
-        maybeAccount = maybeAciAccount;
-        usePhoneNumberIdentity = false;
-      }
-    }
+    final Optional<Account> maybeAccount = accountsManager.getByServiceIdentifier(element.uuid());
 
     maybeAccount.ifPresent(account -> {
       if (account.getIdentityKey() == null || account.getPhoneNumberIdentityKey() == null) {
         return;
       }
-      final IdentityKey identityKey =
-          usePhoneNumberIdentity ? account.getPhoneNumberIdentityKey() : account.getIdentityKey();
+
+      final IdentityKey identityKey = switch (element.uuid().identityType()) {
+        case ACI -> account.getIdentityKey();
+        case PNI -> account.getPhoneNumberIdentityKey();
+      };
+
       md.reset();
       byte[] digest = md.digest(identityKey.serialize());
       byte[] fingerprint = Util.truncate(digest, 4);
 
       if (!Arrays.equals(fingerprint, element.fingerprint())) {
-        responseElements.add(new BatchIdentityCheckResponse.Element(element.aci(), element.uuid(), identityKey));
+        responseElements.add(new BatchIdentityCheckResponse.Element(element.uuid(), identityKey));
       }
     });
   }
@@ -454,7 +450,7 @@ public class ProfileController {
             getAcceptableLanguagesForRequest(containerRequestContext),
             account.getBadges(),
             isSelf),
-        account.getUuid());
+        new AciServiceIdentifier(account.getUuid()));
   }
 
   private BaseProfileResponse buildBaseProfileResponseForPhoneNumberIdentity(final Account account) {
@@ -463,7 +459,7 @@ public class ProfileController {
         false,
         UserCapabilities.createForAccount(account),
         Collections.emptyList(),
-        account.getPhoneNumberIdentifier());
+        new PniServiceIdentifier(account.getPhoneNumberIdentifier()));
   }
 
   private ExpiringProfileKeyCredentialResponse getExpiringProfileKeyCredentialResponse(
@@ -562,7 +558,7 @@ public class ProfileController {
    *
    * @param maybeRequester the authenticated account requesting the profile, if any
    * @param maybeAccessKey an anonymous access key for the target account
-   * @param targetUuid the ACI of the target account
+   * @param accountIdentifier the ACI of the target account
    *
    * @return the target account
    *
@@ -573,7 +569,7 @@ public class ProfileController {
    */
   private Account verifyPermissionToReceiveAccountIdentityProfile(final Optional<Account> maybeRequester,
       final Optional<Anonymous> maybeAccessKey,
-      final UUID targetUuid) throws RateLimitExceededException {
+      final AciServiceIdentifier accountIdentifier) throws RateLimitExceededException {
 
     if (maybeRequester.isEmpty() && maybeAccessKey.isEmpty()) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
@@ -583,7 +579,7 @@ public class ProfileController {
       rateLimiters.getProfileLimiter().validate(maybeRequester.get().getUuid());
     }
 
-    final Optional<Account> maybeTargetAccount = accountsManager.getByAccountIdentifier(targetUuid);
+    final Optional<Account> maybeTargetAccount = accountsManager.getByAccountIdentifier(accountIdentifier.uuid());
 
     OptionalAccess.verify(maybeRequester, maybeAccessKey, maybeTargetAccount);
     assert maybeTargetAccount.isPresent();
@@ -591,7 +587,7 @@ public class ProfileController {
     return maybeTargetAccount.get();
   }
 
-  private boolean isSelfProfileRequest(final Optional<Account> maybeRequester, final UUID targetUuid) {
-    return maybeRequester.map(requester -> requester.getUuid().equals(targetUuid)).orElse(false);
+  private boolean isSelfProfileRequest(final Optional<Account> maybeRequester, final AciServiceIdentifier targetIdentifier) {
+    return maybeRequester.map(requester -> requester.getUuid().equals(targetIdentifier.uuid())).orElse(false);
   }
 }

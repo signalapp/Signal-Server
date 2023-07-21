@@ -5,28 +5,50 @@
 
 package org.whispersystems.textsecuregcm.entities;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.protobuf.ByteString;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.UUID;
 import javax.annotation.Nullable;
+import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
+import org.whispersystems.textsecuregcm.util.ServiceIdentifierAdapter;
 
-public record OutgoingMessageEntity(UUID guid, int type, long timestamp, @Nullable UUID sourceUuid, int sourceDevice,
-                                    UUID destinationUuid, @Nullable UUID updatedPni, byte[] content,
-                                    long serverTimestamp, boolean urgent, boolean story, @Nullable byte[] reportSpamToken) {
+public record OutgoingMessageEntity(UUID guid,
+                                    int type,
+                                    long timestamp,
+
+                                    @JsonSerialize(using = ServiceIdentifierAdapter.ServiceIdentifierSerializer.class)
+                                    @JsonDeserialize(using = ServiceIdentifierAdapter.ServiceIdentifierDeserializer.class)
+                                    @Nullable
+                                    ServiceIdentifier sourceUuid,
+
+                                    int sourceDevice,
+
+                                    @JsonSerialize(using = ServiceIdentifierAdapter.ServiceIdentifierSerializer.class)
+                                    @JsonDeserialize(using = ServiceIdentifierAdapter.ServiceIdentifierDeserializer.class)
+                                    ServiceIdentifier destinationUuid,
+
+                                    @Nullable UUID updatedPni,
+                                    byte[] content,
+                                    long serverTimestamp,
+                                    boolean urgent,
+                                    boolean story,
+                                    @Nullable byte[] reportSpamToken) {
 
   public MessageProtos.Envelope toEnvelope() {
     final MessageProtos.Envelope.Builder builder = MessageProtos.Envelope.newBuilder()
         .setType(MessageProtos.Envelope.Type.forNumber(type()))
         .setTimestamp(timestamp())
         .setServerTimestamp(serverTimestamp())
-        .setDestinationUuid(destinationUuid().toString())
+        .setDestinationUuid(destinationUuid().toServiceIdentifierString())
         .setServerGuid(guid().toString())
         .setStory(story)
         .setUrgent(urgent);
 
     if (sourceUuid() != null) {
-      builder.setSourceUuid(sourceUuid().toString());
+      builder.setSourceUuid(sourceUuid().toServiceIdentifierString());
       builder.setSourceDevice(sourceDevice());
     }
 
@@ -51,9 +73,9 @@ public record OutgoingMessageEntity(UUID guid, int type, long timestamp, @Nullab
         UUID.fromString(envelope.getServerGuid()),
         envelope.getType().getNumber(),
         envelope.getTimestamp(),
-        envelope.hasSourceUuid() ? UUID.fromString(envelope.getSourceUuid()) : null,
+        envelope.hasSourceUuid() ? ServiceIdentifier.valueOf(envelope.getSourceUuid()) : null,
         envelope.getSourceDevice(),
-        envelope.hasDestinationUuid() ? UUID.fromString(envelope.getDestinationUuid()) : null,
+        envelope.hasDestinationUuid() ? ServiceIdentifier.valueOf(envelope.getDestinationUuid()) : null,
         envelope.hasUpdatedPni() ? UUID.fromString(envelope.getUpdatedPni()) : null,
         envelope.getContent().toByteArray(),
         envelope.getServerTimestamp(),

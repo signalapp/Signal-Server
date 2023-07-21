@@ -10,20 +10,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.util.List;
 
-public class StaleDevices {
-
-  @JsonProperty
-  @Schema(description = "Devices that are no longer active")
-  private List<Long> staleDevices;
-
-  public StaleDevices() {}
-
-  public String toString() {
-    return "StaleDevices(" + staleDevices + ")";
-  }
-
-  public StaleDevices(List<Long> staleDevices) {
-    this.staleDevices = staleDevices;
-  }
-
+public record StaleDevices(@JsonProperty
+                           @Schema(description = "Devices that are no longer active")
+                           List<Long> staleDevices) {
 }

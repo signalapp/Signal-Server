@@ -38,7 +38,6 @@ import java.util.Collections;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Executors;
@@ -90,6 +89,9 @@ import org.whispersystems.textsecuregcm.entities.CreateProfileRequest;
 import org.whispersystems.textsecuregcm.entities.ExpiringProfileKeyCredentialProfileResponse;
 import org.whispersystems.textsecuregcm.entities.ProfileAvatarUploadAttributes;
 import org.whispersystems.textsecuregcm.entities.VersionedProfileResponse;
+import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
+import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
+import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
@@ -202,6 +204,7 @@ class ProfileControllerTest {
 
     Account capabilitiesAccount = mock(Account.class);
 
+    when(capabilitiesAccount.getUuid()).thenReturn(AuthHelper.VALID_UUID);
     when(capabilitiesAccount.getIdentityKey()).thenReturn(ACCOUNT_IDENTITY_KEY);
     when(capabilitiesAccount.getPhoneNumberIdentityKey()).thenReturn(ACCOUNT_PHONE_NUMBER_IDENTITY_KEY);
     when(capabilitiesAccount.isEnabled()).thenReturn(true);
@@ -209,19 +212,22 @@ class ProfileControllerTest {
     when(capabilitiesAccount.isAnnouncementGroupSupported()).thenReturn(true);
     when(capabilitiesAccount.isChangeNumberSupported()).thenReturn(true);
 
+    when(accountsManager.getByServiceIdentifier(any())).thenReturn(Optional.empty());
+
     when(accountsManager.getByE164(AuthHelper.VALID_NUMBER_TWO)).thenReturn(Optional.of(profileAccount));
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID_TWO)).thenReturn(Optional.of(profileAccount));
     when(accountsManager.getByPhoneNumberIdentifier(AuthHelper.VALID_PNI_TWO)).thenReturn(Optional.of(profileAccount));
+    when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(AuthHelper.VALID_UUID_TWO))).thenReturn(Optional.of(profileAccount));
+    when(accountsManager.getByServiceIdentifier(new PniServiceIdentifier(AuthHelper.VALID_PNI_TWO))).thenReturn(Optional.of(profileAccount));
     when(accountsManager.getByUsernameHash(USERNAME_HASH)).thenReturn(Optional.of(profileAccount));
 
     when(accountsManager.getByE164(AuthHelper.VALID_NUMBER)).thenReturn(Optional.of(capabilitiesAccount));
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(capabilitiesAccount));
+    when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(AuthHelper.VALID_UUID))).thenReturn(Optional.of(capabilitiesAccount));
 
     when(profilesManager.get(eq(AuthHelper.VALID_UUID), eq("someversion"))).thenReturn(Optional.empty());
     when(profilesManager.get(eq(AuthHelper.VALID_UUID_TWO), eq("validversion"))).thenReturn(Optional.of(new VersionedProfile(
         "validversion", "validname", "profiles/validavatar", "emoji", "about", null, "validcommitmnet".getBytes())));
-
-    when(accountsManager.getByAccountIdentifier(AuthHelper.INVALID_UUID)).thenReturn(Optional.empty());
 
     clearInvocations(rateLimiter);
     clearInvocations(accountsManager);
@@ -308,14 +314,14 @@ class ProfileControllerTest {
   @Test
   void testProfileGetByPni() throws RateLimitExceededException {
     final BaseProfileResponse profile = resources.getJerseyTest()
-        .target("/v1/profile/" + AuthHelper.VALID_PNI_TWO)
+        .target("/v1/profile/PNI:" + AuthHelper.VALID_PNI_TWO)
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get(BaseProfileResponse.class);
 
     assertThat(profile.getIdentityKey()).isEqualTo(ACCOUNT_TWO_PHONE_NUMBER_IDENTITY_KEY);
     assertThat(profile.getBadges()).isEmpty();
-    assertThat(profile.getUuid()).isEqualTo(AuthHelper.VALID_PNI_TWO);
+    assertThat(profile.getUuid()).isEqualTo(new PniServiceIdentifier(AuthHelper.VALID_PNI_TWO));
     assertThat(profile.getCapabilities()).isNotNull();
     assertThat(profile.isUnrestrictedUnidentifiedAccess()).isFalse();
     assertThat(profile.getUnidentifiedAccess()).isNull();
@@ -342,7 +348,7 @@ class ProfileControllerTest {
   @Test
   void testProfileGetByPniUnidentified() throws RateLimitExceededException {
     final Response response = resources.getJerseyTest()
-        .target("/v1/profile/" + AuthHelper.VALID_PNI_TWO)
+        .target("/v1/profile/PNI:" + AuthHelper.VALID_PNI_TWO)
         .request()
         .header(OptionalAccess.UNIDENTIFIED, AuthHelper.getUnidentifiedAccessHeader("1337".getBytes()))
         .get();
@@ -836,7 +842,7 @@ class ProfileControllerTest {
     assertThat(profile.getAboutEmoji()).isEqualTo("emoji");
     assertThat(profile.getAvatar()).isEqualTo("profiles/validavatar");
     assertThat(profile.getBaseProfileResponse().getCapabilities().gv1Migration()).isTrue();
-    assertThat(profile.getBaseProfileResponse().getUuid()).isEqualTo(AuthHelper.VALID_UUID_TWO);
+    assertThat(profile.getBaseProfileResponse().getUuid()).isEqualTo(new AciServiceIdentifier(AuthHelper.VALID_UUID_TWO));
     assertThat(profile.getBaseProfileResponse().getBadges()).hasSize(1).element(0).has(new Condition<>(
         badge -> "Test Badge".equals(badge.getName()), "has badge with expected name"));
 
@@ -927,7 +933,9 @@ class ProfileControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get(ExpiringProfileKeyCredentialProfileResponse.class);
 
-    assertThat(profile.getVersionedProfileResponse().getBaseProfileResponse().getUuid()).isEqualTo(AuthHelper.VALID_UUID);
+    assertThat(profile.getVersionedProfileResponse().getBaseProfileResponse().getUuid())
+        .isEqualTo(new AciServiceIdentifier(AuthHelper.VALID_UUID));
+
     assertThat(profile.getCredential()).isNull();
 
     verify(zkProfileOperations, never()).issueExpiringProfileKeyCredential(any(), any(), any(), any());
@@ -1092,7 +1100,8 @@ class ProfileControllerTest {
         .headers(authHeaders)
         .get(ExpiringProfileKeyCredentialProfileResponse.class);
 
-    assertThat(profile.getVersionedProfileResponse().getBaseProfileResponse().getUuid()).isEqualTo(AuthHelper.VALID_UUID);
+    assertThat(profile.getVersionedProfileResponse().getBaseProfileResponse().getUuid())
+        .isEqualTo(new AciServiceIdentifier(AuthHelper.VALID_UUID));
     assertThat(profile.getCredential()).isEqualTo(credentialResponse);
 
     verify(zkProfileOperations).issueExpiringProfileKeyCredential(credentialRequest, AuthHelper.VALID_UUID, profileKeyCommitment, expiration);
@@ -1154,13 +1163,13 @@ class ProfileControllerTest {
   void testBatchIdentityCheck() {
     try (final Response response = resources.getJerseyTest().target("/v1/profile/identity_check/batch").request()
         .post(Entity.json(new BatchIdentityCheckRequest(List.of(
-            new BatchIdentityCheckRequest.Element(AuthHelper.VALID_UUID, null,
+            new BatchIdentityCheckRequest.Element(new AciServiceIdentifier(AuthHelper.VALID_UUID),
                 convertKeyToFingerprint(ACCOUNT_IDENTITY_KEY)),
-            new BatchIdentityCheckRequest.Element(null, AuthHelper.VALID_PNI_TWO,
+            new BatchIdentityCheckRequest.Element(new PniServiceIdentifier(AuthHelper.VALID_PNI_TWO),
                 convertKeyToFingerprint(ACCOUNT_TWO_PHONE_NUMBER_IDENTITY_KEY)),
-            new BatchIdentityCheckRequest.Element(null, AuthHelper.VALID_UUID_TWO,
+            new BatchIdentityCheckRequest.Element(new AciServiceIdentifier(AuthHelper.VALID_UUID_TWO),
                 convertKeyToFingerprint(ACCOUNT_TWO_IDENTITY_KEY)),
-            new BatchIdentityCheckRequest.Element(AuthHelper.INVALID_UUID, null,
+            new BatchIdentityCheckRequest.Element(new AciServiceIdentifier(AuthHelper.INVALID_UUID),
                 convertKeyToFingerprint(ACCOUNT_TWO_PHONE_NUMBER_IDENTITY_KEY))
         ))))) {
       assertThat(response).isNotNull();
@@ -1170,17 +1179,14 @@ class ProfileControllerTest {
       assertThat(identityCheckResponse.elements()).isNotNull().isEmpty();
     }
 
-    final Condition<BatchIdentityCheckResponse.Element> isAnExpectedUuid = new Condition<>(element -> {
-      if (AuthHelper.VALID_UUID.equals(element.aci())) {
-        return Objects.equals(ACCOUNT_IDENTITY_KEY, element.identityKey());
-      } else if (AuthHelper.VALID_PNI_TWO.equals(element.uuid())) {
-        return Objects.equals(ACCOUNT_TWO_PHONE_NUMBER_IDENTITY_KEY, element.identityKey());
-      } else if (AuthHelper.VALID_UUID_TWO.equals(element.uuid())) {
-        return Objects.equals(ACCOUNT_TWO_IDENTITY_KEY, element.identityKey());
-      } else {
-        return false;
-      }
-    }, "is an expected UUID with the correct identity key");
+    final Map<ServiceIdentifier, IdentityKey> expectedIdentityKeys = Map.of(
+        new AciServiceIdentifier(AuthHelper.VALID_UUID), ACCOUNT_IDENTITY_KEY,
+        new PniServiceIdentifier(AuthHelper.VALID_PNI_TWO), ACCOUNT_TWO_PHONE_NUMBER_IDENTITY_KEY,
+        new AciServiceIdentifier(AuthHelper.VALID_UUID_TWO), ACCOUNT_TWO_IDENTITY_KEY);
+
+    final Condition<BatchIdentityCheckResponse.Element> isAnExpectedUuid =
+        new Condition<>(element -> element.identityKey().equals(expectedIdentityKeys.get(element.uuid())),
+            "is an expected UUID with the correct identity key");
 
     final IdentityKey validAciIdentityKey = new IdentityKey(Curve.generateKeyPair().getPublicKey());
     final IdentityKey secondValidPniIdentityKey = new IdentityKey(Curve.generateKeyPair().getPublicKey());
@@ -1189,13 +1195,13 @@ class ProfileControllerTest {
 
     try (final Response response = resources.getJerseyTest().target("/v1/profile/identity_check/batch").request()
         .post(Entity.json(new BatchIdentityCheckRequest(List.of(
-            new BatchIdentityCheckRequest.Element(AuthHelper.VALID_UUID, null,
+            new BatchIdentityCheckRequest.Element(new AciServiceIdentifier(AuthHelper.VALID_UUID),
                 convertKeyToFingerprint(validAciIdentityKey)),
-            new BatchIdentityCheckRequest.Element(null, AuthHelper.VALID_PNI_TWO,
+            new BatchIdentityCheckRequest.Element(new PniServiceIdentifier(AuthHelper.VALID_PNI_TWO),
                 convertKeyToFingerprint(secondValidPniIdentityKey)),
-            new BatchIdentityCheckRequest.Element(null, AuthHelper.VALID_UUID_TWO,
+            new BatchIdentityCheckRequest.Element(new AciServiceIdentifier(AuthHelper.VALID_UUID_TWO),
                 convertKeyToFingerprint(secondValidAciIdentityKey)),
-            new BatchIdentityCheckRequest.Element(AuthHelper.INVALID_UUID, null,
+            new BatchIdentityCheckRequest.Element(new AciServiceIdentifier(AuthHelper.INVALID_UUID),
                 convertKeyToFingerprint(invalidAciIdentityKey))
         ))))) {
       assertThat(response).isNotNull();
@@ -1209,13 +1215,13 @@ class ProfileControllerTest {
     }
 
     final List<BatchIdentityCheckRequest.Element> largeElementList = new ArrayList<>(List.of(
-        new BatchIdentityCheckRequest.Element(AuthHelper.VALID_UUID, null, convertKeyToFingerprint(validAciIdentityKey)),
-        new BatchIdentityCheckRequest.Element(null, AuthHelper.VALID_PNI_TWO, convertKeyToFingerprint(secondValidPniIdentityKey)),
-        new BatchIdentityCheckRequest.Element(AuthHelper.INVALID_UUID, null, convertKeyToFingerprint(invalidAciIdentityKey))));
+        new BatchIdentityCheckRequest.Element(new AciServiceIdentifier(AuthHelper.VALID_UUID), convertKeyToFingerprint(validAciIdentityKey)),
+        new BatchIdentityCheckRequest.Element(new PniServiceIdentifier(AuthHelper.VALID_PNI_TWO), convertKeyToFingerprint(secondValidPniIdentityKey)),
+        new BatchIdentityCheckRequest.Element(new AciServiceIdentifier(AuthHelper.INVALID_UUID), convertKeyToFingerprint(invalidAciIdentityKey))));
 
     for (int i = 0; i < 900; i++) {
       largeElementList.add(
-          new BatchIdentityCheckRequest.Element(UUID.randomUUID(), null, convertKeyToFingerprint(new IdentityKey(Curve.generateKeyPair().getPublicKey()))));
+          new BatchIdentityCheckRequest.Element(new AciServiceIdentifier(UUID.randomUUID()), convertKeyToFingerprint(new IdentityKey(Curve.generateKeyPair().getPublicKey()))));
     }
 
     try (final Response response = resources.getJerseyTest().target("/v1/profile/identity_check/batch").request()
@@ -1233,27 +1239,25 @@ class ProfileControllerTest {
   @Test
   void testBatchIdentityCheckDeserialization() throws Exception {
 
-    final Condition<BatchIdentityCheckResponse.Element> isAnExpectedUuid = new Condition<>(element -> {
-      if (AuthHelper.VALID_UUID.equals(element.aci())) {
-        return ACCOUNT_IDENTITY_KEY.equals(element.identityKey());
-      } else if (AuthHelper.VALID_PNI_TWO.equals(element.uuid())) {
-        return ACCOUNT_TWO_PHONE_NUMBER_IDENTITY_KEY.equals(element.identityKey());
-      } else {
-        return false;
-      }
-    }, "is an expected UUID with the correct identity key");
+    final Map<ServiceIdentifier, IdentityKey> expectedIdentityKeys = Map.of(
+        new AciServiceIdentifier(AuthHelper.VALID_UUID), ACCOUNT_IDENTITY_KEY,
+        new PniServiceIdentifier(AuthHelper.VALID_PNI_TWO), ACCOUNT_TWO_PHONE_NUMBER_IDENTITY_KEY);
+
+    final Condition<BatchIdentityCheckResponse.Element> isAnExpectedUuid =
+        new Condition<>(element -> element.identityKey().equals(expectedIdentityKeys.get(element.uuid())),
+            "is an expected UUID with the correct identity key");
 
     // null properties are ok to omit
     final String json = String.format("""
             {
               "elements": [
-                { "aci": "%s", "fingerprint": "%s" },
                 { "uuid": "%s", "fingerprint": "%s" },
-                { "aci": "%s", "fingerprint": "%s" }
+                { "uuid": "%s", "fingerprint": "%s" },
+                { "uuid": "%s", "fingerprint": "%s" }
               ]
             }
             """, AuthHelper.VALID_UUID, Base64.getEncoder().encodeToString(convertKeyToFingerprint(new IdentityKey(Curve.generateKeyPair().getPublicKey()))),
-        AuthHelper.VALID_PNI_TWO, Base64.getEncoder().encodeToString(convertKeyToFingerprint(new IdentityKey(Curve.generateKeyPair().getPublicKey()))),
+        "PNI:" + AuthHelper.VALID_PNI_TWO, Base64.getEncoder().encodeToString(convertKeyToFingerprint(new IdentityKey(Curve.generateKeyPair().getPublicKey()))),
         AuthHelper.INVALID_UUID, Base64.getEncoder().encodeToString(convertKeyToFingerprint(new IdentityKey(Curve.generateKeyPair().getPublicKey()))));
 
     try (final Response response = resources.getJerseyTest().target("/v1/profile/identity_check/batch").request()
@@ -1277,50 +1281,34 @@ class ProfileControllerTest {
 
   @ParameterizedTest
   @MethodSource
-  void testBatchIdentityCheckDeserializationBadRequest(final String json) {
+  void testBatchIdentityCheckDeserializationBadRequest(final String json, final int expectedStatus) {
     try (final Response response = resources.getJerseyTest().target("/v1/profile/identity_check/batch").request()
         .post(Entity.entity(json, "application/json"))) {
       assertThat(response).isNotNull();
-      assertThat(response.getStatus()).isEqualTo(400);
+      assertThat(response.getStatus()).isEqualTo(expectedStatus);
     }
   }
 
   static Stream<Arguments> testBatchIdentityCheckDeserializationBadRequest() {
     return Stream.of(
         Arguments.of( // aci and uuid cannot both be null
-            """
-                {
-                  "elements": [
-                    { "aci": null, "uuid": null, "fingerprint": "%s" }
-                  ]
-                }
-                """),
-        Arguments.of( // an empty string is also invalid
-            """
-                {
-                  "elements": [
-                    { "aci": "", "uuid": null, "fingerprint": "%s" }
-                  ]
-                }
-                """
-        ),
-        Arguments.of( // as is a blank string
-            """
-                {
-                  "elements": [
-                    { "aci": null, "uuid": " ", "fingerprint": "%s" }
-                  ]
-                }
-                """),
-        Arguments.of( // aci and uuid cannot both be non-null
             String.format("""
-                    {
-                      "elements": [
-                        { "aci": "%s", "uuid": "%s", "fingerprint": "%s" }
-                      ]
-                    }
-                    """, AuthHelper.VALID_UUID, AuthHelper.VALID_PNI,
-                Base64.getEncoder().encodeToString(convertKeyToFingerprint(new IdentityKey(Curve.generateKeyPair().getPublicKey())))))
+                {
+                  "elements": [
+                    { "uuid": null, "fingerprint": "%s" }
+                  ]
+                }
+                """, Base64.getEncoder().encodeToString(convertKeyToFingerprint(new IdentityKey(Curve.generateKeyPair().getPublicKey())))),
+            422),
+        Arguments.of( // a blank string is invalid
+            String.format("""
+                {
+                  "elements": [
+                    { "uuid": " ", "fingerprint": "%s" }
+                  ]
+                }
+                """, Base64.getEncoder().encodeToString(convertKeyToFingerprint(new IdentityKey(Curve.generateKeyPair().getPublicKey())))),
+            400)
     );
   }
 

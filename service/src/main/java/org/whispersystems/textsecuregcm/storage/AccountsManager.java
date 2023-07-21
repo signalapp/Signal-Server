@@ -52,6 +52,7 @@ import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
+import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.RedisOperation;
@@ -801,6 +802,13 @@ public class AccountsManager {
         () -> redisGetBySecondaryKey(getUsernameHashAccountMapKey(usernameHash), redisUsernameHashGetTimer),
         () -> accounts.getByUsernameHash(usernameHash)
     );
+  }
+
+  public Optional<Account> getByServiceIdentifier(final ServiceIdentifier serviceIdentifier) {
+    return switch (serviceIdentifier.identityType()) {
+      case ACI -> getByAccountIdentifier(serviceIdentifier.uuid());
+      case PNI -> getByPhoneNumberIdentifier(serviceIdentifier.uuid());
+    };
   }
 
   public Optional<Account> getByAccountIdentifier(final UUID uuid) {
