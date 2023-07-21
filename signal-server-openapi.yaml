@@ -10,23 +10,33 @@ servers:
 - url: https://chat.staging.signal.org
   description: Staging service
 paths:
-  /v1/accounts/account/{uuid}:
+  /v1/accounts/account/{identifier}:
     head:
       tags:
       - Account
+      summary: Check whether an account exists
+      description: |
+        Enforced unauthenticated endpoint. Checks whether an account with a given identifier exists.
       operationId: accountExists
       parameters:
-      - name: uuid
+      - name: identifier
         in: path
+        description: An ACI or PNI account identifier to check
         required: true
         schema:
-          type: string
-          format: uuid
+          $ref: '#/components/schemas/ServiceIdentifier'
       responses:
-        default:
-          description: default response
-          content:
-            '*/*': {}
+        "200":
+          description: An account with the given identifier was found.
+        "400":
+          description: "A client made an authenticated to this endpoint, and must\
+            \ not provide credentials."
+        "404":
+          description: An account was not found for the given identifier.
+        "422":
+          description: Invalid request format.
+        "429":
+          description: Rate-limited.
       security:
       - authenticatedAccount: []
       - {}
@@ -590,6 +600,38 @@ paths:
                 $ref: '#/components/schemas/AttachmentDescriptorV3'
       security:
       - authenticatedAccount: []
+  /v4/attachments/form/upload:
+    get:
+      tags:
+      - Attachments
+      summary: Get an upload form
+      description: |
+        Retrieve an upload form that can be used to perform a resumable upload. The response will include a cdn number
+        indicating what protocol should be used to perform the upload.
+      operationId: getAttachmentUploadForm_2
+      responses:
+        "200":
+          description: "Success, response body includes upload form"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttachmentDescriptorV3'
+        "413":
+          description: Too many attempts
+          headers:
+            Retry-After:
+              description: "If present, an positive integer indicating the number\
+                \ of seconds before a subsequent attempt could succeed"
+              style: simple
+        "429":
+          description: Too many attempts
+          headers:
+            Retry-After:
+              description: "If present, an positive integer indicating the number\
+                \ of seconds before a subsequent attempt could succeed"
+              style: simple
+      security:
+      - authenticatedAccount: []
   /v1/call-link/create-auth:
     post:
       tags:
@@ -994,8 +1036,7 @@ paths:
         description: the account or phone-number identifier to retrieve keys for
         required: true
         schema:
-          type: string
-          format: uuid
+          $ref: '#/components/schemas/ServiceIdentifier'
       - name: device_id
         in: path
         description: "the device id of a single device to retrieve prekeys for, or\
@@ -1244,8 +1285,7 @@ paths:
         in: path
         required: true
         schema:
-          type: string
-          format: uuid
+          $ref: '#/components/schemas/ServiceIdentifier'
       - name: story
         in: query
         schema:
@@ -1339,7 +1379,7 @@ paths:
                 $ref: '#/components/schemas/CurrencyConversionEntityList'
       security:
       - authenticatedAccount: []
-  /v1/profile/{uuid}/{version}:
+  /v1/profile/{identifier}/{version}:
     get:
       tags:
       - Profile
@@ -1349,12 +1389,11 @@ paths:
         in: header
         schema:
           $ref: '#/components/schemas/Anonymous'
-      - name: uuid
+      - name: identifier
         in: path
         required: true
         schema:
-          type: string
-          format: uuid
+          $ref: '#/components/schemas/AciServiceIdentifier'
       - name: version
         in: path
         required: true
@@ -1370,7 +1409,7 @@ paths:
       security:
       - authenticatedAccount: []
       - {}
-  /v1/profile/{uuid}/{version}/{credentialRequest}:
+  /v1/profile/{identifier}/{version}/{credentialRequest}:
     get:
       tags:
       - Profile
@@ -1380,12 +1419,11 @@ paths:
         in: header
         schema:
           $ref: '#/components/schemas/Anonymous'
-      - name: uuid
+      - name: identifier
         in: path
         required: true
         schema:
-          type: string
-          format: uuid
+          $ref: '#/components/schemas/AciServiceIdentifier'
       - name: version
         in: path
         required: true
@@ -1428,8 +1466,7 @@ paths:
         in: path
         required: true
         schema:
-          type: string
-          format: uuid
+          $ref: '#/components/schemas/ServiceIdentifier'
       - name: ca
         in: query
         schema:
@@ -2454,26 +2491,31 @@ paths:
                 $ref: '#/components/schemas/VerificationSessionResponse'
 components:
   schemas:
+    AciServiceIdentifier:
+      type: string
+      description: An identifier for an account based on the account's ACI
+      allOf:
+      - $ref: '#/components/schemas/ServiceIdentifier'
+    PniServiceIdentifier:
+      type: string
+      description: An identifier for an account based on the account's phone number
+        identifier (PNI)
+      allOf:
+      - $ref: '#/components/schemas/ServiceIdentifier'
+    ServiceIdentifier:
+      type: object
+      description: A service identifier is a tuple of a UUID and identity type that
+        identifies an account and identity within the Signal service.
     UsernameHashResponse:
       type: object
       properties:
         usernameHash:
-          type: array
+          type: string
           description: "The hash of the confirmed username, as supplied in the request"
-          items:
-            type: string
-            description: "The hash of the confirmed username, as supplied in the request"
-            format: byte
-        usernameLinkHandle:
-          $ref: '#/components/schemas/UsernameLinkHandle'
-    UsernameLinkHandle:
-      required:
-      - usernameLinkHandle
-      type: object
-      properties:
         usernameLinkHandle:
           type: string
-          format: uuid
+          description: A handle that can be included in username links to retrieve
+            the stored encrypted username
     ConfirmUsernameHashRequest:
       type: object
       properties:
@@ -2488,19 +2530,11 @@ components:
             type: string
             format: byte
         encryptedUsername:
-          $ref: '#/components/schemas/EncryptedUsername'
-    EncryptedUsername:
-      required:
-      - usernameLinkEncryptedValue
-      type: object
-      properties:
-        usernameLinkEncryptedValue:
-          maxItems: 128
-          minItems: 1
-          type: array
-          items:
-            type: string
-            format: byte
+          maxLength: 128
+          minLength: 1
+          type: string
+          description: The url-safe base64-encoded encrypted username to be stored
+            for username links
     AccountIdentityResponse:
       type: object
       properties:
@@ -2543,7 +2577,17 @@ components:
       properties:
         uuid:
           type: string
-          format: uuid
+          description: An identifier for an account based on the account's ACI
+    EncryptedUsername:
+      required:
+      - usernameLinkEncryptedValue
+      type: object
+      properties:
+        usernameLinkEncryptedValue:
+          maxLength: 128
+          minLength: 1
+          type: string
+          description: the URL-safe base64 encoding of the encrypted username
     ReserveUsernameHashResponse:
       type: object
       properties:
@@ -2673,6 +2717,16 @@ components:
           maxLength: 64
           minLength: 64
           type: string
+    UsernameLinkHandle:
+      required:
+      - usernameLinkHandle
+      type: object
+      properties:
+        usernameLinkHandle:
+          type: string
+          description: A handle that can be included in username links to retrieve
+            the stored encrypted username
+          format: uuid
     MismatchedDevices:
       type: object
       properties:
@@ -3005,15 +3059,26 @@ components:
       properties:
         cdn:
           type: integer
+          description: |
+            Indicates the CDN type. 2 in the v3 API, 2 or 3 in the v4 API.
+            2 indicates resumable uploads using GCS,
+            3 indicates resumable uploads using TUS
           format: int32
         key:
           type: string
+          description: The location within the specified cdn where the finished upload
+            can be found
         headers:
           type: object
           additionalProperties:
             type: string
+            description: A map of headers to include with all upload requests. Potentially
+              contains time-limited upload credentials
+          description: A map of headers to include with all upload requests. Potentially
+            contains time-limited upload credentials
         signedUploadLocation:
           type: string
+          description: The URL to upload to with the appropriate protocol
     CreateCallLinkCredential:
       type: object
       properties:
@@ -3388,7 +3453,8 @@ components:
       properties:
         uuid:
           type: string
-          format: uuid
+          description: A service identifier is a tuple of a UUID and identity type
+            that identifies an account and identity within the Signal service.
         deviceId:
           minimum: 1
           type: integer
@@ -3474,7 +3540,8 @@ components:
             $ref: '#/components/schemas/Badge'
         uuid:
           type: string
-          format: uuid
+          description: A service identifier is a tuple of a UUID and identity type
+            that identifies an account and identity within the Signal service.
     UserCapabilities:
       type: object
       properties:
@@ -3511,7 +3578,8 @@ components:
             $ref: '#/components/schemas/Badge'
         uuid:
           type: string
-          format: uuid
+          description: A service identifier is a tuple of a UUID and identity type
+            that identifies an account and identity within the Signal service.
         name:
           type: string
         about:
@@ -3539,7 +3607,8 @@ components:
             $ref: '#/components/schemas/Badge'
         uuid:
           type: string
-          format: uuid
+          description: A service identifier is a tuple of a UUID and identity type
+            that identifies an account and identity within the Signal service.
         name:
           type: string
         about:
@@ -3564,14 +3633,13 @@ components:
     Element:
       required:
       - fingerprint
+      - uuid
       type: object
       properties:
-        aci:
-          type: string
-          format: uuid
         uuid:
           type: string
-          format: uuid
+          description: A service identifier is a tuple of a UUID and identity type
+            that identifies an account and identity within the Signal service.
         fingerprint:
           type: array
           items:
@@ -3684,9 +3752,9 @@ components:
           $ref: '#/components/schemas/ApnRegistrationId'
         gcmToken:
           $ref: '#/components/schemas/GcmRegistrationId'
-        completeRequest:
-          type: boolean
         everySignedKeyValid:
+          type: boolean
+        completeRequest:
           type: boolean
         valid:
           type: boolean
