@@ -39,12 +39,6 @@ service Keys {
    * the first key has an ACI identity type, then all other keys in the same
    * stream must also have an ACI identity type).
    *
-   * This method returns a single status code; if all keys were validated/stored
-   * successfully, then this method will return `SET_PRE_KEY_STATUS_OK`. If one
-   * or more keys could not be stored, this method will return a status code
-   * indicating the reason. If multiple keys had problems, which status code
-   * will be returned is not defined.
-   *
    * This RPC may fail with an `INVALID_ARGUMENT` status if one or more of the
    * given pre-keys was structurally invalid or if the list of pre-keys was
    * empty.
@@ -57,12 +51,6 @@ service Keys {
    * a single call to this method _must_ have the same identity type (i.e. if
    * the first key has an ACI identity type, then all other keys in the same
    * stream must also have an ACI identity type).
-   *
-   * This method returns a single status code; if all keys were validated/stored
-   * successfully, then this method will return `SET_PRE_KEY_STATUS_OK`. If one
-   * or more keys could not be stored, this method will return a status code
-   * indicating the reason. If multiple keys had problems, which status code
-   * will be returned is not defined.
    *
    * This RPC may fail with an `INVALID_ARGUMENT` status if one or more of the
    * given pre-keys was structurally invalid, had an invalid signature, or if
