@@ -6,15 +6,17 @@
 package org.whispersystems.textsecuregcm.grpc;
 
 import io.grpc.Status;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 
-public enum IdentityType {
-  ACI,
-  PNI;
+public class IdentityTypeUtil {
+
+  private IdentityTypeUtil() {
+  }
 
   public static IdentityType fromGrpcIdentityType(final org.signal.chat.common.IdentityType grpcIdentityType) {
     return switch (grpcIdentityType) {
-      case IDENTITY_TYPE_ACI -> ACI;
-      case IDENTITY_TYPE_PNI -> PNI;
+      case IDENTITY_TYPE_ACI -> IdentityType.ACI;
+      case IDENTITY_TYPE_PNI -> IdentityType.PNI;
       case IDENTITY_TYPE_UNSPECIFIED, UNRECOGNIZED -> throw Status.INVALID_ARGUMENT.asRuntimeException();
     };
   }

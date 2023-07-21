@@ -218,12 +218,35 @@ class AccountsManagerTest {
 
     when(commands.get(eq("AccountMap::" + pni))).thenReturn(aci.toString());
     when(commands.get(eq("Account3::" + aci))).thenReturn(
-        "{\"number\": \"+14152222222\", \"pni\": \"de24dc73-fbd8-41be-a7d5-764c70d9da7e\"}");
+        "{\"number\": \"+14152222222\", \"pni\": \"" + pni + "\"}");
 
     assertTrue(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(aci)).isPresent());
     assertTrue(accountsManager.getByServiceIdentifier(new PniServiceIdentifier(pni)).isPresent());
     assertFalse(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(pni)).isPresent());
     assertFalse(accountsManager.getByServiceIdentifier(new PniServiceIdentifier(aci)).isPresent());
+  }
+
+  @Test
+  void testGetByServiceIdentifierAsync() {
+    final UUID aci = UUID.randomUUID();
+    final UUID pni = UUID.randomUUID();
+
+    when(asyncCommands.get(eq("AccountMap::" + pni))).thenReturn(MockRedisFuture.completedFuture(aci.toString()));
+    when(asyncCommands.get(eq("Account3::" + aci))).thenReturn(MockRedisFuture.completedFuture(
+        "{\"number\": \"+14152222222\", \"pni\": \"" + pni + "\"}"));
+
+    when(asyncCommands.setex(any(), anyLong(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
+
+    when(accounts.getByAccountIdentifierAsync(any()))
+        .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
+
+    when(accounts.getByPhoneNumberIdentifierAsync(any()))
+        .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
+
+    assertTrue(accountsManager.getByServiceIdentifierAsync(new AciServiceIdentifier(aci)).join().isPresent());
+    assertTrue(accountsManager.getByServiceIdentifierAsync(new PniServiceIdentifier(pni)).join().isPresent());
+    assertFalse(accountsManager.getByServiceIdentifierAsync(new AciServiceIdentifier(pni)).join().isPresent());
+    assertFalse(accountsManager.getByServiceIdentifierAsync(new PniServiceIdentifier(aci)).join().isPresent());
   }
 
   @Test
@@ -315,7 +338,7 @@ class AccountsManagerTest {
   }
 
   @Test
-  void testGetByPniInCache() {
+  void testGetAccountByPniInCache() {
     UUID uuid = UUID.randomUUID();
     UUID pni = UUID.randomUUID();
 
@@ -337,7 +360,7 @@ class AccountsManagerTest {
   }
 
   @Test
-  void testGetByPniInCacheAsync() {
+  void testGetAccountByPniInCacheAsync() {
     UUID uuid = UUID.randomUUID();
     UUID pni = UUID.randomUUID();
 
@@ -363,7 +386,7 @@ class AccountsManagerTest {
   }
 
   @Test
-  void testGetByUsernameHashInCache() {
+  void testGetAccountByUsernameHashInCache() {
     UUID uuid = UUID.randomUUID();
     when(commands.get(eq("UAccountMap::" + BASE_64_URL_USERNAME_HASH_1))).thenReturn(uuid.toString());
     when(commands.get(eq("Account3::" + uuid))).thenReturn(

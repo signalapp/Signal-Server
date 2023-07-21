@@ -27,7 +27,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.signal.chat.common.EcPreKey;
 import org.signal.chat.common.EcSignedPreKey;
-import org.signal.chat.common.IdentityType;
 import org.signal.chat.common.KemSignedPreKey;
 import org.signal.chat.common.ServiceIdentifier;
 import org.signal.chat.keys.GetPreKeysAnonymousRequest;
@@ -39,6 +38,8 @@ import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.entities.ECPreKey;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
+import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -86,9 +87,9 @@ class KeysAnonymousGrpcServiceTest {
     when(targetAccount.getDevice(Device.MASTER_ID)).thenReturn(Optional.of(targetDevice));
 
     when(targetAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
-    when(targetAccount.getUuid()).thenReturn(identifier);
-    when(targetAccount.getIdentityKey()).thenReturn(identityKey);
-    when(accountsManager.getByAccountIdentifierAsync(identifier))
+    when(targetAccount.getIdentifier(IdentityType.ACI)).thenReturn(identifier);
+    when(targetAccount.getIdentityKey(IdentityType.ACI)).thenReturn(identityKey);
+    when(accountsManager.getByServiceIdentifierAsync(new AciServiceIdentifier(identifier)))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(targetAccount)));
 
     final ECPreKey ecPreKey = new ECPreKey(1, Curve.generateKeyPair().getPublicKey());
@@ -97,11 +98,11 @@ class KeysAnonymousGrpcServiceTest {
 
     when(keysManager.takeEC(identifier, Device.MASTER_ID)).thenReturn(CompletableFuture.completedFuture(Optional.of(ecPreKey)));
     when(keysManager.takePQ(identifier, Device.MASTER_ID)).thenReturn(CompletableFuture.completedFuture(Optional.of(kemSignedPreKey)));
-    when(targetDevice.getSignedPreKey()).thenReturn(ecSignedPreKey);
+    when(targetDevice.getSignedPreKey(IdentityType.ACI)).thenReturn(ecSignedPreKey);
 
     final GetPreKeysResponse response = keysAnonymousStub.getPreKeys(GetPreKeysAnonymousRequest.newBuilder()
             .setTargetIdentifier(ServiceIdentifier.newBuilder()
-                .setIdentityType(IdentityType.IDENTITY_TYPE_ACI)
+                .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
                 .setUuid(UUIDUtil.toByteString(identifier))
                 .build())
             .setDeviceId(Device.MASTER_ID)
@@ -144,15 +145,15 @@ class KeysAnonymousGrpcServiceTest {
 
     when(targetAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
     when(targetAccount.getUuid()).thenReturn(identifier);
-    when(targetAccount.getIdentityKey()).thenReturn(identityKey);
-    when(accountsManager.getByAccountIdentifierAsync(identifier))
+    when(targetAccount.getIdentityKey(IdentityType.ACI)).thenReturn(identityKey);
+    when(accountsManager.getByServiceIdentifierAsync(new AciServiceIdentifier(identifier)))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(targetAccount)));
 
     @SuppressWarnings("ResultOfMethodCallIgnored") final StatusRuntimeException statusRuntimeException =
         assertThrows(StatusRuntimeException.class,
             () -> keysAnonymousStub.getPreKeys(GetPreKeysAnonymousRequest.newBuilder()
                 .setTargetIdentifier(ServiceIdentifier.newBuilder()
-                    .setIdentityType(IdentityType.IDENTITY_TYPE_ACI)
+                    .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
                     .setUuid(UUIDUtil.toByteString(identifier))
                     .build())
                 .setDeviceId(Device.MASTER_ID)
@@ -163,7 +164,7 @@ class KeysAnonymousGrpcServiceTest {
 
   @Test
   void getPreKeysAccountNotFound() {
-    when(accountsManager.getByAccountIdentifierAsync(any()))
+    when(accountsManager.getByServiceIdentifierAsync(any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
 
     @SuppressWarnings("ResultOfMethodCallIgnored") final StatusRuntimeException exception =
@@ -188,12 +189,12 @@ class KeysAnonymousGrpcServiceTest {
 
     final Account targetAccount = mock(Account.class);
     when(targetAccount.getUuid()).thenReturn(accountIdentifier);
-    when(targetAccount.getIdentityKey()).thenReturn(new IdentityKey(Curve.generateKeyPair().getPublicKey()));
+    when(targetAccount.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(Curve.generateKeyPair().getPublicKey()));
     when(targetAccount.getDevices()).thenReturn(Collections.emptyList());
     when(targetAccount.getDevice(anyLong())).thenReturn(Optional.empty());
     when(targetAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
 
-    when(accountsManager.getByAccountIdentifierAsync(accountIdentifier))
+    when(accountsManager.getByServiceIdentifierAsync(new AciServiceIdentifier(accountIdentifier)))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(targetAccount)));
 
     @SuppressWarnings("ResultOfMethodCallIgnored") final StatusRuntimeException exception =

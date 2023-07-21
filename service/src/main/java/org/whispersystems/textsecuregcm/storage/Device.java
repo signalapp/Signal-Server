@@ -14,6 +14,7 @@ import java.util.stream.LongStream;
 import javax.annotation.Nullable;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.util.Util;
 
 public class Device {
@@ -230,6 +231,17 @@ public class Device {
     this.phoneNumberIdentityRegistrationId = phoneNumberIdentityRegistrationId;
   }
 
+  public ECSignedPreKey getSignedPreKey(final IdentityType identityType) {
+    return switch (identityType) {
+      case ACI -> signedPreKey;
+      case PNI -> phoneNumberIdentitySignedPreKey;
+    };
+  }
+
+  /**
+   * @deprecated Please use {@link #getSignedPreKey(IdentityType)} instead.
+   */
+  @Deprecated
   public ECSignedPreKey getSignedPreKey() {
     return signedPreKey;
   }
@@ -238,6 +250,10 @@ public class Device {
     this.signedPreKey = signedPreKey;
   }
 
+  /**
+   * @deprecated Please use {@link #getSignedPreKey(IdentityType)} instead.
+   */
+  @Deprecated
   public ECSignedPreKey getPhoneNumberIdentitySignedPreKey() {
     return phoneNumberIdentitySignedPreKey;
   }

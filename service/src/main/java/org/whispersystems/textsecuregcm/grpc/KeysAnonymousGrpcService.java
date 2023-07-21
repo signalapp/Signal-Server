@@ -10,6 +10,7 @@ import org.signal.chat.keys.GetPreKeysAnonymousRequest;
 import org.signal.chat.keys.GetPreKeysResponse;
 import org.signal.chat.keys.ReactorKeysAnonymousGrpc;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
+import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.KeysManager;
 import reactor.core.publisher.Mono;
@@ -26,15 +27,15 @@ public class KeysAnonymousGrpcService extends ReactorKeysAnonymousGrpc.KeysAnony
 
   @Override
   public Mono<GetPreKeysResponse> getPreKeys(final GetPreKeysAnonymousRequest request) {
-    return KeysGrpcHelper.findAccount(request.getTargetIdentifier(), accountsManager)
-        .switchIfEmpty(Mono.error(Status.UNAUTHENTICATED.asException()))
-        .flatMap(targetAccount -> {
-          final IdentityType identityType =
-              IdentityType.fromGrpcIdentityType(request.getTargetIdentifier().getIdentityType());
+    final ServiceIdentifier serviceIdentifier =
+        ServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getTargetIdentifier());
 
-          return UnidentifiedAccessUtil.checkUnidentifiedAccess(targetAccount, request.getUnidentifiedAccessKey().toByteArray())
-              ? KeysGrpcHelper.getPreKeys(targetAccount, identityType, request.getDeviceId(), keysManager)
-              : Mono.error(Status.UNAUTHENTICATED.asException());
-        });
+    return Mono.fromFuture(accountsManager.getByServiceIdentifierAsync(serviceIdentifier))
+        .flatMap(Mono::justOrEmpty)
+        .switchIfEmpty(Mono.error(Status.UNAUTHENTICATED.asException()))
+        .flatMap(targetAccount ->
+            UnidentifiedAccessUtil.checkUnidentifiedAccess(targetAccount, request.getUnidentifiedAccessKey().toByteArray())
+                ? KeysGrpcHelper.getPreKeys(targetAccount, serviceIdentifier.identityType(), request.getDeviceId(), keysManager)
+                : Mono.error(Status.UNAUTHENTICATED.asException()));
   }
 }

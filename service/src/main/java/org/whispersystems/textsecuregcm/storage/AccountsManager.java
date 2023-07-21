@@ -811,6 +811,13 @@ public class AccountsManager {
     };
   }
 
+  public CompletableFuture<Optional<Account>> getByServiceIdentifierAsync(final ServiceIdentifier serviceIdentifier) {
+    return switch (serviceIdentifier.identityType()) {
+      case ACI -> getByAccountIdentifierAsync(serviceIdentifier.uuid());
+      case PNI -> getByPhoneNumberIdentifierAsync(serviceIdentifier.uuid());
+    };
+  }
+
   public Optional<Account> getByAccountIdentifier(final UUID uuid) {
     return checkRedisThenAccounts(
         getByUuidTimer,

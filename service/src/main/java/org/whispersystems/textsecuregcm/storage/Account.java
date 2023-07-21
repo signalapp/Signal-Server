@@ -25,6 +25,7 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 import org.whispersystems.textsecuregcm.util.ByteArrayBase64UrlAdapter;
@@ -105,6 +106,12 @@ public class Account {
   @JsonIgnore
   private boolean stale;
 
+  public UUID getIdentifier(final IdentityType identityType) {
+    return switch (identityType) {
+      case ACI -> getUuid();
+      case PNI -> getPhoneNumberIdentifier();
+    };
+  }
 
   public UUID getUuid() {
     // this is the one method that may be called on a stale account
@@ -325,12 +332,29 @@ public class Account {
     this.identityKey = identityKey;
   }
 
+  public IdentityKey getIdentityKey(final IdentityType identityType) {
+    requireNotStale();
+
+    return switch (identityType) {
+      case ACI -> identityKey;
+      case PNI -> phoneNumberIdentityKey;
+    };
+  }
+
+  /**
+   * @deprecated Please use {@link #getIdentityKey(IdentityType)} instead.
+   */
+  @Deprecated
   public IdentityKey getIdentityKey() {
     requireNotStale();
 
     return identityKey;
   }
 
+  /**
+   * @deprecated Please use {@link #getIdentityKey(IdentityType)} instead.
+   */
+  @Deprecated
   public IdentityKey getPhoneNumberIdentityKey() {
     return phoneNumberIdentityKey;
   }
