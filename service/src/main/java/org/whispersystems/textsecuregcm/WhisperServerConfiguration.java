@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.Set;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
+import org.whispersystems.textsecuregcm.attachments.TusConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AccountDatabaseCrawlerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AdminEventLoggingConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ApnConfiguration;
@@ -273,6 +274,11 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @NotNull
   @JsonProperty
+  private TusConfiguration tus;
+
+  @Valid
+  @NotNull
+  @JsonProperty
   private int grpcPort;
 
   public AdminEventLoggingConfiguration getAdminEventLoggingConfiguration() {
@@ -452,6 +458,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public TurnSecretConfiguration getTurnSecretConfiguration() {
     return turn;
+  }
+
+  public TusConfiguration getTus() {
+    return tus;
   }
 
   public int getGrpcPort() {

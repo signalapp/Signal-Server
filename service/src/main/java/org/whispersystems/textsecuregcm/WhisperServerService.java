@@ -63,6 +63,8 @@ import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialPresentation;
 import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.attachments.GcsAttachmentGenerator;
+import org.whispersystems.textsecuregcm.attachments.TusAttachmentGenerator;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.BaseAccountAuthenticator;
@@ -89,6 +91,7 @@ import org.whispersystems.textsecuregcm.controllers.AccountControllerV2;
 import org.whispersystems.textsecuregcm.controllers.ArtController;
 import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV2;
 import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV3;
+import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV4;
 import org.whispersystems.textsecuregcm.controllers.CallLinkController;
 import org.whispersystems.textsecuregcm.controllers.CertificateController;
 import org.whispersystems.textsecuregcm.controllers.ChallengeController;
@@ -596,6 +599,14 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .credentialsProvider(cdnCredentialsProvider)
         .region(Region.of(config.getCdnConfiguration().region()))
         .build();
+
+    final GcsAttachmentGenerator gcsAttachmentGenerator = new GcsAttachmentGenerator(
+        config.getGcpAttachmentsConfiguration().domain(),
+        config.getGcpAttachmentsConfiguration().email(),
+        config.getGcpAttachmentsConfiguration().maxSizeInBytes(),
+        config.getGcpAttachmentsConfiguration().pathPrefix(),
+        config.getGcpAttachmentsConfiguration().rsaSigningKey().value());
+
     PostPolicyGenerator profileCdnPolicyGenerator = new PostPolicyGenerator(config.getCdnConfiguration().region(),
         config.getCdnConfiguration().bucket(), config.getCdnConfiguration().accessKey().value());
     PolicySigner profileCdnPolicySigner = new PolicySigner(config.getCdnConfiguration().accessSecret().value(),
@@ -718,7 +729,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             registrationLockVerificationManager, rateLimiters),
         new ArtController(rateLimiters, artCredentialsGenerator),
         new AttachmentControllerV2(rateLimiters, config.getAwsAttachmentsConfiguration().accessKey().value(), config.getAwsAttachmentsConfiguration().accessSecret().value(), config.getAwsAttachmentsConfiguration().region(), config.getAwsAttachmentsConfiguration().bucket()),
-        new AttachmentControllerV3(rateLimiters, config.getGcpAttachmentsConfiguration().domain(), config.getGcpAttachmentsConfiguration().email(), config.getGcpAttachmentsConfiguration().maxSizeInBytes(), config.getGcpAttachmentsConfiguration().pathPrefix(), config.getGcpAttachmentsConfiguration().rsaSigningKey().value()),
+        new AttachmentControllerV3(rateLimiters, gcsAttachmentGenerator),
+        new AttachmentControllerV4(rateLimiters, gcsAttachmentGenerator, new TusAttachmentGenerator(config.getTus()), experimentEnrollmentManager),
         new CallLinkController(rateLimiters, genericZkSecretParams),
         new CertificateController(new CertificateGenerator(config.getDeliveryCertificate().certificate().value(), config.getDeliveryCertificate().ecPrivateKey(), config.getDeliveryCertificate().expiresDays()), zkAuthOperations, genericZkSecretParams, clock),
         new ChallengeController(rateLimitChallengeManager),

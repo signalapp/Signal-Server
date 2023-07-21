@@ -26,6 +26,7 @@ import java.security.spec.InvalidKeySpecException;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 import javax.ws.rs.core.Response;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.Condition;
@@ -33,10 +34,15 @@ import org.assertj.core.api.InstanceOfAssertFactories;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.whispersystems.textsecuregcm.attachments.GcsAttachmentGenerator;
+import org.whispersystems.textsecuregcm.attachments.TusAttachmentGenerator;
+import org.whispersystems.textsecuregcm.attachments.TusConfiguration;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
+import org.whispersystems.textsecuregcm.configuration.secrets.SecretBytes;
 import org.whispersystems.textsecuregcm.entities.AttachmentDescriptorV2;
 import org.whispersystems.textsecuregcm.entities.AttachmentDescriptorV3;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
@@ -50,6 +56,17 @@ class AttachmentControllerTest {
 
   private static final RateLimiters RATE_LIMITERS = MockUtils.buildMock(RateLimiters.class, rateLimiters ->
       when(rateLimiters.getAttachmentLimiter()).thenReturn(RATE_LIMITER));
+
+
+  private static String CDN3_ENABLED_CREDS = AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD);
+  private static String CDN3_DISABLED_CREDS = AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO);
+  private static final ExperimentEnrollmentManager EXPERIMENT_MANAGER = MockUtils.buildMock(ExperimentEnrollmentManager.class, mgr -> {
+    when(mgr.isEnrolled(AuthHelper.VALID_UUID, AttachmentControllerV4.CDN3_EXPERIMENT_NAME)).thenReturn(true);
+    when(mgr.isEnrolled(AuthHelper.VALID_UUID_TWO, AttachmentControllerV4.CDN3_EXPERIMENT_NAME)).thenReturn(false);
+  });
+
+  private static final byte[] TUS_SECRET = getRandomBytes(32);
+  private static final String TUS_URL = "https://example.com/uploads";
 
   public static final String RSA_PRIVATE_KEY_PEM;
 
@@ -67,10 +84,13 @@ class AttachmentControllerTest {
     }
   }
 
+
   private static final ResourceExtension resources;
 
   static {
     try {
+      final GcsAttachmentGenerator gcsAttachmentGenerator = new GcsAttachmentGenerator("some-cdn.signal.org",
+          "signal@example.com", 1000, "/attach-here", RSA_PRIVATE_KEY_PEM);
       resources = ResourceExtension.builder()
           .addProvider(AuthHelper.getAuthFilter())
           .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(
@@ -78,11 +98,41 @@ class AttachmentControllerTest {
               .setMapper(SystemMapper.jsonMapper())
               .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
               .addResource(new AttachmentControllerV2(RATE_LIMITERS, "accessKey", "accessSecret", "us-east-1", "attachmentv2-bucket"))
-              .addResource(new AttachmentControllerV3(RATE_LIMITERS, "some-cdn.signal.org", "signal@example.com", 1000, "/attach-here", RSA_PRIVATE_KEY_PEM))
-              .build();
+              .addResource(new AttachmentControllerV3(RATE_LIMITERS, gcsAttachmentGenerator))
+          .addProvider(new AttachmentControllerV4(RATE_LIMITERS,
+              gcsAttachmentGenerator,
+              new TusAttachmentGenerator(new TusConfiguration( new SecretBytes(TUS_SECRET), TUS_URL)),
+              EXPERIMENT_MANAGER))
+          .build();
     } catch (IOException | InvalidKeyException | InvalidKeySpecException e) {
       throw new AssertionError(e);
     }
+  }
+
+  @Test
+  void testV4TusForm() {
+    AttachmentDescriptorV3 descriptor = resources.getJerseyTest()
+        .target("/v4/attachments/form/upload")
+        .request()
+        .header("Authorization", CDN3_ENABLED_CREDS)
+        .get(AttachmentDescriptorV3.class);
+    assertThat(descriptor.cdn()).isEqualTo(3);
+    assertThat(descriptor.key()).isNotBlank();
+    assertThat(descriptor.signedUploadLocation()).isEqualTo(TUS_URL + "/" + "attachments");
+    final String filenameb64 = descriptor.headers().get("Upload-Metadata").split(" ")[1];
+    final String filename = new String(Base64.getDecoder().decode(filenameb64));
+    assertThat(descriptor.key()).isEqualTo(filename);
+  }
+
+  @Test
+  void testV4GcsForm() {
+    AttachmentDescriptorV3 descriptor = resources.getJerseyTest()
+        .target("/v4/attachments/form/upload")
+        .request()
+        .header("Authorization", CDN3_DISABLED_CREDS)
+        .get(AttachmentDescriptorV3.class);
+    assertThat(descriptor.cdn()).isEqualTo(2);
+    assertValidCdn2Response(descriptor);
   }
 
   @Test
@@ -92,7 +142,10 @@ class AttachmentControllerTest {
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
             .get(AttachmentDescriptorV3.class);
+    assertValidCdn2Response(descriptor);
+  }
 
+  private static void assertValidCdn2Response(final AttachmentDescriptorV3 descriptor) {
     assertThat(descriptor.key()).isNotBlank();
     assertThat(descriptor.cdn()).isEqualTo(2);
     assertThat(descriptor.headers()).hasSize(3);
@@ -123,8 +176,8 @@ class AttachmentControllerTest {
     for (final String queryTerm : queryTerms) {
       final String[] keyValueArray = queryTerm.split("=", 2);
       queryParamMap.put(
-              URLDecoder.decode(keyValueArray[0], StandardCharsets.UTF_8),
-              URLDecoder.decode(keyValueArray[1], StandardCharsets.UTF_8));
+          URLDecoder.decode(keyValueArray[0], StandardCharsets.UTF_8),
+          URLDecoder.decode(keyValueArray[1], StandardCharsets.UTF_8));
     }
 
     assertThat(queryParamMap).extractingByKey("X-Goog-Algorithm").isEqualTo("GOOG4-RSA-SHA256");
@@ -191,4 +244,9 @@ class AttachmentControllerTest {
     assertThat(response.getStatus()).isEqualTo(401);
   }
 
+  private static byte[] getRandomBytes(int length) {
+    byte[] result = new byte[length];
+    ThreadLocalRandom.current().nextBytes(result);
+    return result;
+  }
 }
