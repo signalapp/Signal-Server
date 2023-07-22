@@ -10,6 +10,7 @@ import ch.qos.logback.classic.PatternLayout;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.Appender;
 import ch.qos.logback.core.encoder.LayoutWrappingEncoder;
+import ch.qos.logback.core.helpers.NOPAppender;
 import ch.qos.logback.core.net.ssl.SSLConfiguration;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
@@ -21,6 +22,7 @@ import io.dropwizard.logging.async.AsyncAppenderFactory;
 import io.dropwizard.logging.filter.LevelFilterFactory;
 import io.dropwizard.logging.layout.LayoutFactory;
 import java.time.Duration;
+import java.util.Optional;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import net.logstash.logback.appender.LogstashTcpSocketAppender;
@@ -74,6 +76,14 @@ public class LogstashTcpSocketAppenderFactory extends AbstractAppenderFactory<IL
       final LayoutFactory<ILoggingEvent> layoutFactory,
       final LevelFilterFactory<ILoggingEvent> levelFilterFactory,
       final AsyncAppenderFactory<ILoggingEvent> asyncAppenderFactory) {
+
+    final boolean disableLogstashTcpSocketAppender = Optional.ofNullable(
+            System.getenv("SIGNAL_DISABLE_LOGSTASH_TCP_SOCKET_APPENDER"))
+        .isPresent();
+
+    if (disableLogstashTcpSocketAppender) {
+      return new NOPAppender<>();
+    }
 
     final SSLConfiguration sslConfiguration = new SSLConfiguration();
     final LogstashTcpSocketAppender appender = new LogstashTcpSocketAppender();
