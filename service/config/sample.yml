@@ -24,6 +24,9 @@ metrics:
         - "service:chat"
       transport:
         apiKey: secret://datadog.apiKey
+      udpTransport:
+        statsdHost: localhost
+        port: 8125
       excludesAttributes:
         - m1_rate
         - m5_rate
