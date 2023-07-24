@@ -311,7 +311,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     Metrics.gaugeCollectionSize(name(getClass(), "messageDeletionQueueSize"), Collections.emptyList(),
         messageDeletionQueue);
     ExecutorService messageDeletionAsyncExecutor = environment.lifecycle()
-        .executorService(name(getClass(), "messageDeletionAsyncExecutor-%d")).maxThreads(16)
+        .executorService(name(getClass(), "messageDeletionAsyncExecutor-%d"))
+        .minThreads(2)
+        .maxThreads(2)
+        .allowCoreThreadTimeOut(true)
         .workQueue(messageDeletionQueue).build();
 
     Accounts accounts = new Accounts(
