@@ -432,3 +432,6 @@ registrationService:
 
 turn:
   secret: secret://turn.secret
+
+commandStopListener:
+  path: /example/path

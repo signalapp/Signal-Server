@@ -26,6 +26,7 @@ import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BraintreeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.CdnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ClientReleaseConfiguration;
+import org.whispersystems.textsecuregcm.configuration.CommandStopListenerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DatadogConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DirectoryV2Configuration;
 import org.whispersystems.textsecuregcm.configuration.DynamoDbClientConfiguration;
@@ -294,6 +295,11 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private MessageByteLimitCardinalityEstimatorConfiguration messageByteLimitCardinalityEstimator = new MessageByteLimitCardinalityEstimatorConfiguration(Duration.ofDays(1));
 
+  @Valid
+  @NotNull
+  @JsonProperty
+  private CommandStopListenerConfiguration commandStopListener;
+
   public AdminEventLoggingConfiguration getAdminEventLoggingConfiguration() {
     return adminEventLoggingConfiguration;
   }
@@ -487,5 +493,9 @@ public class WhisperServerConfiguration extends Configuration {
 
   public MessageByteLimitCardinalityEstimatorConfiguration getMessageByteLimitCardinalityEstimator() {
     return messageByteLimitCardinalityEstimator;
+  }
+
+  public CommandStopListenerConfiguration getCommandStopListener() {
+    return commandStopListener;
   }
 }

@@ -142,6 +142,8 @@ public class CrawlAccountsCommand extends EnvironmentCommand<WhisperServerConfig
       }
     };
 
+    environment.lifecycle().manage(new CommandStopListener(configuration.getCommandStopListener()));
+
     environment.lifecycle().getManagedObjects().forEach(managedObject -> {
       try {
         managedObject.start();

@@ -9,6 +9,7 @@ import io.dropwizard.Application;
 import io.dropwizard.cli.Cli;
 import io.dropwizard.cli.EnvironmentCommand;
 import io.dropwizard.setup.Environment;
+import java.util.Objects;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 import org.slf4j.Logger;
@@ -17,10 +18,8 @@ import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.util.logging.UncaughtExceptionHandler;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.ParallelFlux;
 import reactor.core.scheduler.Schedulers;
-import java.util.Objects;
 
 public abstract class AbstractSinglePassCrawlAccountsCommand extends EnvironmentCommand<WhisperServerConfiguration> {
 
@@ -69,7 +68,14 @@ public abstract class AbstractSinglePassCrawlAccountsCommand extends Environment
         segments,
         Runtime.getRuntime().availableProcessors());
 
-    crawlAccounts(commandDependencies.accountsManager().streamAllFromDynamo(segments, Schedulers.parallel()));
+    final CommandStopListener commandStopListener = new CommandStopListener(configuration.getCommandStopListener());
+    try {
+      commandStopListener.start();
+      crawlAccounts(commandDependencies.accountsManager().streamAllFromDynamo(segments, Schedulers.parallel()));
+    } finally {
+      commandStopListener.stop();
+    }
+
   }
 
   @Override
