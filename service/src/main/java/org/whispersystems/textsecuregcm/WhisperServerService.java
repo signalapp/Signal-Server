@@ -391,9 +391,14 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .scheduledExecutorService(name(getClass(), "recurringJob-%d")).threads(6).build();
     ScheduledExecutorService websocketScheduledExecutor = environment.lifecycle()
         .scheduledExecutorService(name(getClass(), "websocket-%d")).threads(8).build();
-    ExecutorService keyspaceNotificationDispatchExecutor = environment.lifecycle()
-        .executorService(name(getClass(), "keyspaceNotification-%d")).maxThreads(16)
-        .workQueue(keyspaceNotificationDispatchQueue).build();
+    ExecutorService keyspaceNotificationDispatchExecutor = ExecutorServiceMetrics.monitor(Metrics.globalRegistry,
+        environment.lifecycle()
+            .executorService(name(getClass(), "keyspaceNotification-%d"))
+            .maxThreads(16)
+            .workQueue(keyspaceNotificationDispatchQueue)
+            .build(),
+        MetricsUtil.name(getClass(), "keyspaceNotificationExecutor"),
+        MetricsUtil.PREFIX);
     ExecutorService apnSenderExecutor = environment.lifecycle().executorService(name(getClass(), "apnSender-%d"))
         .maxThreads(1).minThreads(1).build();
     ExecutorService fcmSenderExecutor = environment.lifecycle().executorService(name(getClass(), "fcmSender-%d"))
