@@ -47,6 +47,7 @@ public class DynamoDbTables {
   }
 
   private final AccountsTableConfiguration accounts;
+  private final Table clientReleases;
   private final Table deletedAccounts;
   private final Table deletedAccountsLock;
   private final IssuedReceiptsTableConfiguration issuedReceipts;
@@ -69,6 +70,7 @@ public class DynamoDbTables {
 
   public DynamoDbTables(
       @JsonProperty("accounts") final AccountsTableConfiguration accounts,
+      @JsonProperty("clientReleases") final Table clientReleases,
       @JsonProperty("deletedAccounts") final Table deletedAccounts,
       @JsonProperty("deletedAccountsLock") final Table deletedAccountsLock,
       @JsonProperty("issuedReceipts") final IssuedReceiptsTableConfiguration issuedReceipts,
@@ -90,6 +92,7 @@ public class DynamoDbTables {
       @JsonProperty("verificationSessions") final Table verificationSessions) {
 
     this.accounts = accounts;
+    this.clientReleases = clientReleases;
     this.deletedAccounts = deletedAccounts;
     this.deletedAccountsLock = deletedAccountsLock;
     this.issuedReceipts = issuedReceipts;
@@ -115,6 +118,12 @@ public class DynamoDbTables {
   @Valid
   public AccountsTableConfiguration getAccounts() {
     return accounts;
+  }
+
+  @NotNull
+  @Valid
+  public Table getClientReleases() {
+    return clientReleases;
   }
 
   @NotNull

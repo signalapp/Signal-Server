@@ -168,6 +168,8 @@ import org.whispersystems.textsecuregcm.storage.AccountLockManager;
 import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
+import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
+import org.whispersystems.textsecuregcm.storage.ClientReleases;
 import org.whispersystems.textsecuregcm.storage.DeletedAccounts;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
@@ -320,6 +322,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getDynamoDbTables().getAccounts().getPhoneNumberIdentifierTableName(),
         config.getDynamoDbTables().getAccounts().getUsernamesTableName(),
         config.getDynamoDbTables().getAccounts().getScanPageSize());
+    ClientReleases clientReleases = new ClientReleases(dynamoDbAsyncClient,
+        config.getDynamoDbTables().getClientReleases().getTableName());
     PhoneNumberIdentifiers phoneNumberIdentifiers = new PhoneNumberIdentifiers(dynamoDbClient,
         config.getDynamoDbTables().getPhoneNumberIdentifiers().getTableName());
     Profiles profiles = new Profiles(dynamoDbClient, dynamoDbAsyncClient,
@@ -499,7 +503,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster);
     MessagesCache messagesCache = new MessagesCache(messagesCluster, messagesCluster,
         keyspaceNotificationDispatchExecutor, messageDeliveryScheduler, messageDeletionAsyncExecutor, clock);
-    PushLatencyManager pushLatencyManager = new PushLatencyManager(metricsCluster, dynamicConfigurationManager);
+    ClientReleaseManager clientReleaseManager = new ClientReleaseManager(clientReleases,
+        recurringJobExecutor,
+        config.getClientReleaseConfiguration().refreshInterval(),
+        Clock.systemUTC());
+    PushLatencyManager pushLatencyManager = new PushLatencyManager(metricsCluster, clientReleaseManager);
     ReportMessageManager reportMessageManager = new ReportMessageManager(reportMessageDynamoDb, rateLimitersCluster,
         config.getReportMessageConfiguration().getCounterTtl());
     MessagesManager messagesManager = new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager,
@@ -587,6 +595,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.lifecycle().manage(clientPresenceManager);
     environment.lifecycle().manage(currencyManager);
     environment.lifecycle().manage(registrationServiceClient);
+    environment.lifecycle().manage(clientReleaseManager);
 
     final RegistrationCaptchaManager registrationCaptchaManager = new RegistrationCaptchaManager(captchaChecker,
         rateLimiters, config.getTestDevices(), dynamicConfigurationManager);
@@ -662,7 +671,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     webSocketEnvironment.setAuthenticator(new WebSocketAccountAuthenticator(accountAuthenticator));
     webSocketEnvironment.setConnectListener(
         new AuthenticatedConnectListener(receiptSender, messagesManager, pushNotificationManager,
-            clientPresenceManager, websocketScheduledExecutor, messageDeliveryScheduler, dynamicConfigurationManager));
+            clientPresenceManager, websocketScheduledExecutor, messageDeliveryScheduler, clientReleaseManager));
     webSocketEnvironment.jersey()
         .register(new WebsocketRefreshApplicationEventListener(accountsManager, clientPresenceManager));
     webSocketEnvironment.jersey().register(new RequestStatisticsFilter(TrafficSource.WEBSOCKET));
@@ -740,7 +749,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             ReceiptCredentialPresentation::new),
         new MessageController(rateLimiters, messageSender, receiptSender, accountsManager, deletedAccounts,
             messagesManager, pushNotificationManager, reportMessageManager, multiRecipientMessageExecutor,
-            messageDeliveryScheduler, reportSpamTokenProvider, dynamicConfigurationManager),
+            messageDeliveryScheduler, reportSpamTokenProvider, clientReleaseManager, dynamicConfigurationManager),
         new PaymentsController(currencyManager, paymentsCredentialsGenerator),
         new ProfileController(clock, rateLimiters, accountsManager, profilesManager, dynamicConfigurationManager,
             profileBadgeConverter, config.getBadges(), cdnS3Client, profileCdnPolicyGenerator, profileCdnPolicySigner,

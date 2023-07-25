@@ -11,6 +11,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
 import org.whispersystems.textsecuregcm.util.ua.UserAgent;
@@ -39,11 +40,11 @@ public class UserAgentTagUtil {
     return Tag.of(PLATFORM_TAG, platform);
   }
 
-  public static Optional<Tag> getClientVersionTag(final String userAgentString, final Map<ClientPlatform, Set<Semver>> taggedVersions) {
+  public static Optional<Tag> getClientVersionTag(final String userAgentString, final ClientReleaseManager clientReleaseManager) {
     try {
       final UserAgent userAgent = UserAgentUtil.parseUserAgentString(userAgentString);
 
-      if (taggedVersions.getOrDefault(userAgent.getPlatform(), Collections.emptySet()).contains(userAgent.getVersion())) {
+      if (clientReleaseManager.isVersionActive(userAgent.getPlatform(), userAgent.getVersion())) {
         return Optional.of(Tag.of(VERSION_TAG, userAgent.getVersion().toString()));
       }
     } catch (final UnrecognizedUserAgentException ignored) {

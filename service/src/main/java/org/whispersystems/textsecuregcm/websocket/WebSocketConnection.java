@@ -37,7 +37,6 @@ import org.reactivestreams.Publisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
@@ -47,8 +46,8 @@ import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.DisplacedPresenceListener;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
+import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.MessageAvailabilityListener;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.util.Constants;
@@ -132,7 +131,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   private final Random random = new Random();
   private final Scheduler messageDeliveryScheduler;
 
-  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
+  private final ClientReleaseManager clientReleaseManager;
 
   private enum StoredMessageState {
     EMPTY,
@@ -147,7 +146,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
       WebSocketClient client,
       ScheduledExecutorService scheduledExecutorService,
       Scheduler messageDeliveryScheduler,
-      DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
+      ClientReleaseManager clientReleaseManager) {
 
     this(receiptSender,
         messagesManager,
@@ -156,7 +155,8 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
         client,
         DEFAULT_SEND_FUTURES_TIMEOUT_MILLIS,
         scheduledExecutorService,
-        messageDeliveryScheduler, dynamicConfigurationManager);
+        messageDeliveryScheduler,
+        clientReleaseManager);
   }
 
   @VisibleForTesting
@@ -168,7 +168,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
       int sendFuturesTimeoutMillis,
       ScheduledExecutorService scheduledExecutorService,
       Scheduler messageDeliveryScheduler,
-      DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
+      ClientReleaseManager clientReleaseManager) {
 
     this.receiptSender = receiptSender;
     this.messagesManager = messagesManager;
@@ -178,7 +178,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
     this.sendFuturesTimeoutMillis = sendFuturesTimeoutMillis;
     this.scheduledExecutorService = scheduledExecutorService;
     this.messageDeliveryScheduler = messageDeliveryScheduler;
-    this.dynamicConfigurationManager = dynamicConfigurationManager;
+    this.clientReleaseManager = clientReleaseManager;
   }
 
   public void start() {
@@ -217,8 +217,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
           if (throwable != null) {
             sendFailuresMeter.mark();
           } else {
-            MessageMetrics.measureOutgoingMessageLatency(message.getServerTimestamp(), "websocket", client.getUserAgent(),
-                dynamicConfigurationManager.getConfiguration().getDeliveryLatencyConfiguration().instrumentedVersions());
+            MessageMetrics.measureOutgoingMessageLatency(message.getServerTimestamp(), "websocket", client.getUserAgent(), clientReleaseManager);
           }
         }).thenCompose(response -> {
           final CompletableFuture<Void> result;

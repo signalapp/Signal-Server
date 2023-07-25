@@ -22,10 +22,9 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
-import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
+import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 /**
@@ -40,7 +39,7 @@ import org.whispersystems.textsecuregcm.util.SystemMapper;
 public class PushLatencyManager {
 
   private final FaultTolerantRedisCluster redisCluster;
-  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
+  private final ClientReleaseManager clientReleaseManager;
 
   private final Clock clock;
 
@@ -59,18 +58,18 @@ public class PushLatencyManager {
   }
 
   public PushLatencyManager(final FaultTolerantRedisCluster redisCluster,
-      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
+      final ClientReleaseManager clientReleaseManager) {
 
-    this(redisCluster, dynamicConfigurationManager, Clock.systemUTC());
+    this(redisCluster, clientReleaseManager, Clock.systemUTC());
   }
 
   @VisibleForTesting
   PushLatencyManager(final FaultTolerantRedisCluster redisCluster,
-      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
+      final ClientReleaseManager clientReleaseManager,
       final Clock clock) {
 
     this.redisCluster = redisCluster;
-    this.dynamicConfigurationManager = dynamicConfigurationManager;
+    this.clientReleaseManager = clientReleaseManager;
     this.clock = clock;
   }
 
@@ -99,8 +98,7 @@ public class PushLatencyManager {
         tags.add(UserAgentTagUtil.getPlatformTag(userAgentString));
         tags.add(Tag.of("pushType", pushRecord.pushType().name().toLowerCase()));
 
-        UserAgentTagUtil.getClientVersionTag(userAgentString,
-                dynamicConfigurationManager.getConfiguration().getPushLatencyConfiguration().instrumentedVersions())
+        UserAgentTagUtil.getClientVersionTag(userAgentString, clientReleaseManager)
             .ifPresent(tags::add);
 
         pushRecord.urgent().ifPresent(urgent -> tags.add(Tag.of("urgent", String.valueOf(urgent))));

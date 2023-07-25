@@ -97,6 +97,7 @@ import org.whispersystems.textsecuregcm.spam.FilterSpam;
 import org.whispersystems.textsecuregcm.spam.ReportSpamTokenProvider;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.DeletedAccounts;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
@@ -127,6 +128,7 @@ public class MessageController {
   private final ExecutorService multiRecipientMessageExecutor;
   private final Scheduler messageDeliveryScheduler;
   private final ReportSpamTokenProvider reportSpamTokenProvider;
+  private final ClientReleaseManager clientReleaseManager;
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
 
   private static final String REJECT_OVERSIZE_MESSAGE_COUNTER = name(MessageController.class, "rejectOversizeMessage");
@@ -161,6 +163,7 @@ public class MessageController {
       @Nonnull ExecutorService multiRecipientMessageExecutor,
       Scheduler messageDeliveryScheduler,
       @Nonnull ReportSpamTokenProvider reportSpamTokenProvider,
+      final ClientReleaseManager clientReleaseManager,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
     this.rateLimiters = rateLimiters;
     this.messageSender = messageSender;
@@ -173,6 +176,7 @@ public class MessageController {
     this.multiRecipientMessageExecutor = Objects.requireNonNull(multiRecipientMessageExecutor);
     this.messageDeliveryScheduler = messageDeliveryScheduler;
     this.reportSpamTokenProvider = reportSpamTokenProvider;
+    this.clientReleaseManager = clientReleaseManager;
     this.dynamicConfigurationManager = dynamicConfigurationManager;
   }
 
@@ -543,8 +547,7 @@ public class MessageController {
               .map(OutgoingMessageEntity::fromEnvelope)
               .peek(outgoingMessageEntity -> {
                 MessageMetrics.measureAccountOutgoingMessageUuidMismatches(auth.getAccount(), outgoingMessageEntity);
-                MessageMetrics.measureOutgoingMessageLatency(outgoingMessageEntity.serverTimestamp(), "rest", userAgent,
-                    dynamicConfigurationManager.getConfiguration().getDeliveryLatencyConfiguration().instrumentedVersions());
+                MessageMetrics.measureOutgoingMessageLatency(outgoingMessageEntity.serverTimestamp(), "rest", userAgent, clientReleaseManager);
               })
               .collect(Collectors.toList()),
               messagesAndHasMore.second());

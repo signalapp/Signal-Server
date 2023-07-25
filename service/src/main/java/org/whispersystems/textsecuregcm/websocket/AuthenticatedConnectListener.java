@@ -23,7 +23,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
@@ -31,8 +30,8 @@ import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.redis.RedisOperation;
+import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
@@ -69,7 +68,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
   private final ClientPresenceManager clientPresenceManager;
   private final ScheduledExecutorService scheduledExecutorService;
   private final Scheduler messageDeliveryScheduler;
-  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
+  private final ClientReleaseManager clientReleaseManager;
 
   private final Map<ClientPlatform, AtomicInteger> openAuthenticatedWebsocketsByClientPlatform;
   private final Map<ClientPlatform, AtomicInteger> openUnauthenticatedWebsocketsByClientPlatform;
@@ -87,14 +86,14 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
       ClientPresenceManager clientPresenceManager,
       ScheduledExecutorService scheduledExecutorService,
       Scheduler messageDeliveryScheduler,
-      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
+      ClientReleaseManager clientReleaseManager) {
     this.receiptSender = receiptSender;
     this.messagesManager = messagesManager;
     this.pushNotificationManager = pushNotificationManager;
     this.clientPresenceManager = clientPresenceManager;
     this.scheduledExecutorService = scheduledExecutorService;
     this.messageDeliveryScheduler = messageDeliveryScheduler;
-    this.dynamicConfigurationManager = dynamicConfigurationManager;
+    this.clientReleaseManager = clientReleaseManager;
 
     openAuthenticatedWebsocketsByClientPlatform = new EnumMap<>(ClientPlatform.class);
     openUnauthenticatedWebsocketsByClientPlatform = new EnumMap<>(ClientPlatform.class);
@@ -157,7 +156,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
           context.getClient(),
           scheduledExecutorService,
           messageDeliveryScheduler,
-          dynamicConfigurationManager);
+          clientReleaseManager);
 
       openWebsocketAtomicInteger.incrementAndGet();
       openWebsocketCounter.inc();

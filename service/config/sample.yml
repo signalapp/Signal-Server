@@ -88,6 +88,8 @@ dynamoDbTables:
     phoneNumberIdentifierTableName: Example_Accounts_PhoneNumberIdentifiers
     usernamesTableName: Example_Accounts_Usernames
     scanPageSize: 100
+  clientReleases:
+    tableName: Example_ClientReleases
   deletedAccounts:
     tableName: Example_DeletedAccounts
   deletedAccountsLock:

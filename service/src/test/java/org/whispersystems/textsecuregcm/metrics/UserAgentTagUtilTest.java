@@ -6,6 +6,9 @@
 package org.whispersystems.textsecuregcm.metrics;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.vdurmont.semver4j.Semver;
 import io.micrometer.core.instrument.Tag;
@@ -17,6 +20,7 @@ import java.util.stream.Stream;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
 class UserAgentTagUtilTest {
@@ -49,26 +53,21 @@ class UserAgentTagUtilTest {
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   @ParameterizedTest
   @MethodSource
-  void getClientVersionTag(final String userAgent, final Map<ClientPlatform, Set<Semver>> taggedVersions, final Optional<Tag> expectedTag) {
-    assertEquals(expectedTag, UserAgentTagUtil.getClientVersionTag(userAgent, taggedVersions));
+  void getClientVersionTag(final String userAgent, final boolean isVersionLive, final Optional<Tag> expectedTag) {
+    final ClientReleaseManager clientReleaseManager = mock(ClientReleaseManager.class);
+    when(clientReleaseManager.isVersionActive(any(), any())).thenReturn(isVersionLive);
+
+    assertEquals(expectedTag, UserAgentTagUtil.getClientVersionTag(userAgent, clientReleaseManager));
   }
 
   private static Stream<Arguments> getClientVersionTag() {
     return Stream.of(
         Arguments.of("Signal-Android/1.2.3 (Android 9)",
-            Map.of(ClientPlatform.ANDROID, Set.of(new Semver("1.2.3"))),
+            true,
             Optional.of(Tag.of(UserAgentTagUtil.VERSION_TAG, "1.2.3"))),
 
         Arguments.of("Signal-Android/1.2.3 (Android 9)",
-            Collections.emptyMap(),
-            Optional.empty()),
-
-        Arguments.of("Signal-Android/1.2.3.0-bobsbootlegclient",
-            Map.of(ClientPlatform.ANDROID, Set.of(new Semver("1.2.3"))),
-            Optional.empty()),
-
-        Arguments.of("Signal-Desktop/1.2.3",
-            Map.of(ClientPlatform.ANDROID, Set.of(new Semver("1.2.3"))),
+            false,
             Optional.empty())
     );
   }

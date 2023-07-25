@@ -41,10 +41,6 @@ public class DynamicConfiguration {
 
   @JsonProperty
   @Valid
-  private DynamicPushLatencyConfiguration pushLatency = new DynamicPushLatencyConfiguration(Collections.emptyMap());
-
-  @JsonProperty
-  @Valid
   private DynamicTurnConfiguration turn = new DynamicTurnConfiguration();
 
   @JsonProperty
@@ -58,10 +54,6 @@ public class DynamicConfiguration {
   @JsonProperty
   @Valid
   DynamicECPreKeyMigrationConfiguration ecPreKeyMigration = new DynamicECPreKeyMigrationConfiguration(true, false);
-
-  @JsonProperty
-  @Valid
-  DynamicDeliveryLatencyConfiguration deliveryLatency = new DynamicDeliveryLatencyConfiguration(Collections.emptyMap());
 
   @JsonProperty
   @Valid
@@ -93,10 +85,6 @@ public class DynamicConfiguration {
     return captcha;
   }
 
-  public DynamicPushLatencyConfiguration getPushLatencyConfiguration() {
-    return pushLatency;
-  }
-
   public DynamicTurnConfiguration getTurnConfiguration() {
     return turn;
   }
@@ -111,10 +99,6 @@ public class DynamicConfiguration {
 
   public DynamicECPreKeyMigrationConfiguration getEcPreKeyMigrationConfiguration() {
     return ecPreKeyMigration;
-  }
-
-  public DynamicDeliveryLatencyConfiguration getDeliveryLatencyConfiguration() {
-    return deliveryLatency;
   }
 
   public DynamicInboundMessageByteLimitConfiguration getInboundMessageByteLimitConfiguration() {

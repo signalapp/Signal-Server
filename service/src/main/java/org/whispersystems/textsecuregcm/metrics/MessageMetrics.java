@@ -22,6 +22,7 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
 public final class MessageMetrics {
@@ -61,13 +62,13 @@ public final class MessageMetrics {
   public static void measureOutgoingMessageLatency(final long serverTimestamp,
       final String channel,
       final String userAgent,
-      final Map<ClientPlatform, Set<Semver>> taggedVersions) {
+      final ClientReleaseManager clientReleaseManager) {
 
     final List<Tag> tags = new ArrayList<>(3);
     tags.add(UserAgentTagUtil.getPlatformTag(userAgent));
     tags.add(Tag.of("channel", channel));
 
-    UserAgentTagUtil.getClientVersionTag(userAgent, taggedVersions).ifPresent(tags::add);
+    UserAgentTagUtil.getClientVersionTag(userAgent, clientReleaseManager).ifPresent(tags::add);
 
     Metrics.timer(DELIVERY_LATENCY_TIMER_NAME, tags)
         .record(Duration.between(Instant.ofEpochMilli(serverTimestamp), Instant.now()));

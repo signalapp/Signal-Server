@@ -81,7 +81,6 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicDeliveryLatencyConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicInboundMessageByteLimitConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountMismatchedDevices;
 import org.whispersystems.textsecuregcm.entities.AccountStaleDevices;
@@ -112,6 +111,7 @@ import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.spam.ReportSpamTokenProvider;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.DeletedAccounts;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
@@ -179,7 +179,7 @@ class MessageControllerTest {
       .addResource(
           new MessageController(rateLimiters, messageSender, receiptSender, accountsManager, deletedAccounts,
               messagesManager, pushNotificationManager, reportMessageManager, multiRecipientMessageExecutor,
-              messageDeliveryScheduler, ReportSpamTokenProvider.noop(), dynamicConfigurationManager))
+              messageDeliveryScheduler, ReportSpamTokenProvider.noop(), mock(ClientReleaseManager.class), dynamicConfigurationManager))
       .build();
 
   @BeforeEach
@@ -209,16 +209,12 @@ class MessageControllerTest {
     when(accountsManager.getByServiceIdentifier(new PniServiceIdentifier(MULTI_DEVICE_PNI))).thenReturn(Optional.of(multiDeviceAccount));
     when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(INTERNATIONAL_UUID))).thenReturn(Optional.of(internationalAccount));
 
-    final DynamicDeliveryLatencyConfiguration deliveryLatencyConfiguration = mock(DynamicDeliveryLatencyConfiguration.class);
-    when(deliveryLatencyConfiguration.instrumentedVersions()).thenReturn(Collections.emptyMap());
-
     final DynamicInboundMessageByteLimitConfiguration inboundMessageByteLimitConfiguration =
         mock(DynamicInboundMessageByteLimitConfiguration.class);
 
     when(inboundMessageByteLimitConfiguration.enforceInboundLimit()).thenReturn(false);
 
     final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
-    when(dynamicConfiguration.getDeliveryLatencyConfiguration()).thenReturn(deliveryLatencyConfiguration);
     when(dynamicConfiguration.getInboundMessageByteLimitConfiguration()).thenReturn(inboundMessageByteLimitConfiguration);
 
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
