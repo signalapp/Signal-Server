@@ -388,7 +388,10 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
   }
 
   public void removeMessageAvailabilityListener(final MessageAvailabilityListener listener) {
-    @Nullable final String queueName = queueNamesByMessageListener.get(listener);
+    @Nullable final String queueName;
+    synchronized (messageListenersByQueueName) {
+      queueName = queueNamesByMessageListener.get(listener);
+    }
 
     if (queueName != null) {
       unsubscribeFromKeyspaceNotifications(queueName);
