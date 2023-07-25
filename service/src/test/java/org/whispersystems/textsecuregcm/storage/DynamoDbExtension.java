@@ -31,12 +31,12 @@ import software.amazon.awssdk.services.dynamodb.model.ProvisionedThroughput;
 public class DynamoDbExtension implements BeforeEachCallback, AfterEachCallback {
 
   public interface TableSchema {
-    public String tableName();
-    public String hashKeyName();
-    public String rangeKeyName();
-    public List<AttributeDefinition> attributeDefinitions();
-    public List<GlobalSecondaryIndex> globalSecondaryIndexes();
-    public List<LocalSecondaryIndex> localSecondaryIndexes();
+    String tableName();
+    String hashKeyName();
+    String rangeKeyName();
+    List<AttributeDefinition> attributeDefinitions();
+    List<GlobalSecondaryIndex> globalSecondaryIndexes();
+    List<LocalSecondaryIndex> localSecondaryIndexes();
   }
 
   record RawSchema(

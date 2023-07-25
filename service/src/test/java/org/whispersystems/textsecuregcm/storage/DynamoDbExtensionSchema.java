@@ -47,6 +47,21 @@ public final class DynamoDbExtensionSchema {
         ),
         List.of()),
 
+    CLIENT_RELEASES("client_releases_test",
+        ClientReleases.ATTR_PLATFORM,
+        ClientReleases.ATTR_VERSION,
+        List.of(
+            AttributeDefinition.builder()
+                .attributeName(ClientReleases.ATTR_PLATFORM)
+                .attributeType(ScalarAttributeType.S)
+                .build(),
+            AttributeDefinition.builder()
+                .attributeName(ClientReleases.ATTR_VERSION)
+                .attributeType(ScalarAttributeType.S)
+                .build()),
+        List.of(),
+        List.of()),
+
     DELETED_ACCOUNTS("deleted_accounts_test",
         DeletedAccounts.KEY_ACCOUNT_E164,
         null,
