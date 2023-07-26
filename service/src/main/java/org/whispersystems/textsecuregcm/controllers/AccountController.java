@@ -143,6 +143,7 @@ public class AccountController {
   @PUT
   @Path("/apn/")
   @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
   @ChangesDeviceEnabledState
   public void setApnRegistrationId(@Auth DisabledPermittedAuthenticatedAccount disabledPermittedAuth,
       @NotNull @Valid ApnRegistrationId registrationId) {
