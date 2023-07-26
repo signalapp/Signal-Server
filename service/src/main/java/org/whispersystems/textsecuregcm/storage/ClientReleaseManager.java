@@ -73,6 +73,11 @@ public class ClientReleaseManager implements Managed {
   void refreshClientVersions() {
     try {
       clientReleasesByPlatform = clientReleases.getClientReleases();
+
+      logger.debug("Loaded client releases; android: {}, desktop: {}, ios: {}",
+          clientReleasesByPlatform.getOrDefault(ClientPlatform.ANDROID, Collections.emptyMap()).size(),
+          clientReleasesByPlatform.getOrDefault(ClientPlatform.DESKTOP, Collections.emptyMap()).size(),
+          clientReleasesByPlatform.getOrDefault(ClientPlatform.IOS, Collections.emptyMap()).size());
     } catch (final Exception e) {
       logger.warn("Failed to refresh client releases", e);
     }
