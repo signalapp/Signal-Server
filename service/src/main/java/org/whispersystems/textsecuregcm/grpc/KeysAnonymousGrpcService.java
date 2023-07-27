@@ -28,14 +28,14 @@ public class KeysAnonymousGrpcService extends ReactorKeysAnonymousGrpc.KeysAnony
   @Override
   public Mono<GetPreKeysResponse> getPreKeys(final GetPreKeysAnonymousRequest request) {
     final ServiceIdentifier serviceIdentifier =
-        ServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getTargetIdentifier());
+        ServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getRequest().getTargetIdentifier());
 
     return Mono.fromFuture(accountsManager.getByServiceIdentifierAsync(serviceIdentifier))
         .flatMap(Mono::justOrEmpty)
         .switchIfEmpty(Mono.error(Status.UNAUTHENTICATED.asException()))
         .flatMap(targetAccount ->
             UnidentifiedAccessUtil.checkUnidentifiedAccess(targetAccount, request.getUnidentifiedAccessKey().toByteArray())
-                ? KeysGrpcHelper.getPreKeys(targetAccount, serviceIdentifier.identityType(), request.getDeviceId(), keysManager)
+                ? KeysGrpcHelper.getPreKeys(targetAccount, serviceIdentifier.identityType(), request.getRequest().getDeviceId(), keysManager)
                 : Mono.error(Status.UNAUTHENTICATED.asException()));
   }
 }

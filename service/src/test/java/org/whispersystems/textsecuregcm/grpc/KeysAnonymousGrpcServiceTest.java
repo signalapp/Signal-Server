@@ -30,6 +30,7 @@ import org.signal.chat.common.EcSignedPreKey;
 import org.signal.chat.common.KemSignedPreKey;
 import org.signal.chat.common.ServiceIdentifier;
 import org.signal.chat.keys.GetPreKeysAnonymousRequest;
+import org.signal.chat.keys.GetPreKeysRequest;
 import org.signal.chat.keys.GetPreKeysResponse;
 import org.signal.chat.keys.KeysAnonymousGrpc;
 import org.signal.libsignal.protocol.IdentityKey;
@@ -101,13 +102,15 @@ class KeysAnonymousGrpcServiceTest {
     when(targetDevice.getSignedPreKey(IdentityType.ACI)).thenReturn(ecSignedPreKey);
 
     final GetPreKeysResponse response = keysAnonymousStub.getPreKeys(GetPreKeysAnonymousRequest.newBuilder()
+        .setUnidentifiedAccessKey(ByteString.copyFrom(unidentifiedAccessKey))
+        .setRequest(GetPreKeysRequest.newBuilder()
             .setTargetIdentifier(ServiceIdentifier.newBuilder()
                 .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
                 .setUuid(UUIDUtil.toByteString(identifier))
                 .build())
             .setDeviceId(Device.MASTER_ID)
-            .setUnidentifiedAccessKey(ByteString.copyFrom(unidentifiedAccessKey))
-            .build());
+            .build())
+        .build());
 
     final GetPreKeysResponse expectedResponse = GetPreKeysResponse.newBuilder()
         .setIdentityKey(ByteString.copyFrom(identityKey.serialize()))
@@ -152,11 +155,13 @@ class KeysAnonymousGrpcServiceTest {
     @SuppressWarnings("ResultOfMethodCallIgnored") final StatusRuntimeException statusRuntimeException =
         assertThrows(StatusRuntimeException.class,
             () -> keysAnonymousStub.getPreKeys(GetPreKeysAnonymousRequest.newBuilder()
-                .setTargetIdentifier(ServiceIdentifier.newBuilder()
-                    .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
-                    .setUuid(UUIDUtil.toByteString(identifier))
+                .setRequest(GetPreKeysRequest.newBuilder()
+                    .setTargetIdentifier(ServiceIdentifier.newBuilder()
+                        .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
+                        .setUuid(UUIDUtil.toByteString(identifier))
+                        .build())
+                    .setDeviceId(Device.MASTER_ID)
                     .build())
-                .setDeviceId(Device.MASTER_ID)
                 .build()));
 
     assertEquals(Status.UNAUTHENTICATED.getCode(), statusRuntimeException.getStatus().getCode());
@@ -168,13 +173,16 @@ class KeysAnonymousGrpcServiceTest {
         .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
 
     @SuppressWarnings("ResultOfMethodCallIgnored") final StatusRuntimeException exception =
-        assertThrows(StatusRuntimeException.class, () -> keysAnonymousStub.getPreKeys(GetPreKeysAnonymousRequest.newBuilder()
-            .setUnidentifiedAccessKey(UUIDUtil.toByteString(UUID.randomUUID()))
-            .setTargetIdentifier(ServiceIdentifier.newBuilder()
-                .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
-                .setUuid(UUIDUtil.toByteString(UUID.randomUUID()))
-                .build())
-            .build()));
+        assertThrows(StatusRuntimeException.class,
+            () -> keysAnonymousStub.getPreKeys(GetPreKeysAnonymousRequest.newBuilder()
+                .setUnidentifiedAccessKey(UUIDUtil.toByteString(UUID.randomUUID()))
+                .setRequest(GetPreKeysRequest.newBuilder()
+                    .setTargetIdentifier(ServiceIdentifier.newBuilder()
+                        .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
+                        .setUuid(UUIDUtil.toByteString(UUID.randomUUID()))
+                        .build())
+                    .build())
+                .build()));
 
     assertEquals(Status.Code.UNAUTHENTICATED, exception.getStatus().getCode());
   }
@@ -198,14 +206,17 @@ class KeysAnonymousGrpcServiceTest {
         .thenReturn(CompletableFuture.completedFuture(Optional.of(targetAccount)));
 
     @SuppressWarnings("ResultOfMethodCallIgnored") final StatusRuntimeException exception =
-        assertThrows(StatusRuntimeException.class, () -> keysAnonymousStub.getPreKeys(GetPreKeysAnonymousRequest.newBuilder()
-            .setUnidentifiedAccessKey(ByteString.copyFrom(unidentifiedAccessKey))
-            .setTargetIdentifier(ServiceIdentifier.newBuilder()
-                .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
-                .setUuid(UUIDUtil.toByteString(accountIdentifier))
-                .build())
-            .setDeviceId(deviceId)
-            .build()));
+        assertThrows(StatusRuntimeException.class,
+            () -> keysAnonymousStub.getPreKeys(GetPreKeysAnonymousRequest.newBuilder()
+                .setUnidentifiedAccessKey(ByteString.copyFrom(unidentifiedAccessKey))
+                .setRequest(GetPreKeysRequest.newBuilder()
+                    .setTargetIdentifier(ServiceIdentifier.newBuilder()
+                        .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
+                        .setUuid(UUIDUtil.toByteString(accountIdentifier))
+                        .build())
+                    .setDeviceId(deviceId)
+                    .build())
+                .build()));
 
     assertEquals(Status.Code.NOT_FOUND, exception.getStatus().getCode());
   }

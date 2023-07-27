@@ -146,21 +146,14 @@ message GetPreKeysRequest {
 
 message GetPreKeysAnonymousRequest {
   /**
-   * The service identifier of the account for which to retrieve pre-keys.
+   * The request to retrieve pre-keys for a specific account/device(s).
    */
-  common.ServiceIdentifier target_identifier = 1;
-
-  /**
-   * The ID of the device associated with the targeted account for which to
-   * retrieve pre-keys. If not set, pre-keys are returned for all devices
-   * associated with the targeted account.
-   */
-  uint64 device_id = 2;
+  GetPreKeysRequest request = 1;
 
   /**
    * The unidentified access key (UAK) for the targeted account.
    */
-  bytes unidentified_access_key = 3;
+  bytes unidentified_access_key = 2;
 }
 
 message GetPreKeysResponse {
