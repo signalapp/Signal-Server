@@ -36,8 +36,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
@@ -371,24 +371,21 @@ public class ProfileController {
   private void checkFingerprintAndAdd(BatchIdentityCheckRequest.Element element,
       Collection<BatchIdentityCheckResponse.Element> responseElements, MessageDigest md) {
 
-    final Optional<Account> maybeAccount = accountsManager.getByServiceIdentifier(element.uuid());
+    final ServiceIdentifier identifier = Objects.requireNonNullElse(element.uuid(), element.aci());
+    final Optional<Account> maybeAccount = accountsManager.getByServiceIdentifier(identifier);
 
     maybeAccount.ifPresent(account -> {
-      if (account.getIdentityKey() == null || account.getPhoneNumberIdentityKey() == null) {
+      final IdentityKey identityKey = account.getIdentityKey(identifier.identityType());
+      if (identityKey == null) {
         return;
       }
-
-      final IdentityKey identityKey = switch (element.uuid().identityType()) {
-        case ACI -> account.getIdentityKey();
-        case PNI -> account.getPhoneNumberIdentityKey();
-      };
 
       md.reset();
       byte[] digest = md.digest(identityKey.serialize());
       byte[] fingerprint = Util.truncate(digest, 4);
 
       if (!Arrays.equals(fingerprint, element.fingerprint())) {
-        responseElements.add(new BatchIdentityCheckResponse.Element(element.uuid(), identityKey));
+        responseElements.add(new BatchIdentityCheckResponse.Element(element.uuid(), element.aci(), identityKey));
       }
     });
   }

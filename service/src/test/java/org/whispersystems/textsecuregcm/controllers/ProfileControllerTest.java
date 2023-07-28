@@ -38,6 +38,7 @@ import java.util.Collections;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Executors;
@@ -91,6 +92,7 @@ import org.whispersystems.textsecuregcm.entities.ExpiringProfileKeyCredentialPro
 import org.whispersystems.textsecuregcm.entities.ProfileAvatarUploadAttributes;
 import org.whispersystems.textsecuregcm.entities.VersionedProfileResponse;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
@@ -192,7 +194,9 @@ class ProfileControllerTest {
     profileAccount = mock(Account.class);
 
     when(profileAccount.getIdentityKey()).thenReturn(ACCOUNT_TWO_IDENTITY_KEY);
+    when(profileAccount.getIdentityKey(IdentityType.ACI)).thenReturn(ACCOUNT_TWO_IDENTITY_KEY);
     when(profileAccount.getPhoneNumberIdentityKey()).thenReturn(ACCOUNT_TWO_PHONE_NUMBER_IDENTITY_KEY);
+    when(profileAccount.getIdentityKey(IdentityType.PNI)).thenReturn(ACCOUNT_TWO_PHONE_NUMBER_IDENTITY_KEY);
     when(profileAccount.getUuid()).thenReturn(AuthHelper.VALID_UUID_TWO);
     when(profileAccount.getPhoneNumberIdentifier()).thenReturn(AuthHelper.VALID_PNI_TWO);
     when(profileAccount.isEnabled()).thenReturn(true);
@@ -207,7 +211,9 @@ class ProfileControllerTest {
 
     when(capabilitiesAccount.getUuid()).thenReturn(AuthHelper.VALID_UUID);
     when(capabilitiesAccount.getIdentityKey()).thenReturn(ACCOUNT_IDENTITY_KEY);
+    when(capabilitiesAccount.getIdentityKey(IdentityType.ACI)).thenReturn(ACCOUNT_IDENTITY_KEY);
     when(capabilitiesAccount.getPhoneNumberIdentityKey()).thenReturn(ACCOUNT_PHONE_NUMBER_IDENTITY_KEY);
+    when(capabilitiesAccount.getIdentityKey(IdentityType.PNI)).thenReturn(ACCOUNT_PHONE_NUMBER_IDENTITY_KEY);
     when(capabilitiesAccount.isEnabled()).thenReturn(true);
     when(capabilitiesAccount.isSenderKeySupported()).thenReturn(true);
     when(capabilitiesAccount.isAnnouncementGroupSupported()).thenReturn(true);
@@ -1164,13 +1170,13 @@ class ProfileControllerTest {
   void testBatchIdentityCheck() {
     try (final Response response = resources.getJerseyTest().target("/v1/profile/identity_check/batch").request()
         .post(Entity.json(new BatchIdentityCheckRequest(List.of(
-            new BatchIdentityCheckRequest.Element(new AciServiceIdentifier(AuthHelper.VALID_UUID),
+            new BatchIdentityCheckRequest.Element(new AciServiceIdentifier(AuthHelper.VALID_UUID), null,
                 convertKeyToFingerprint(ACCOUNT_IDENTITY_KEY)),
-            new BatchIdentityCheckRequest.Element(new PniServiceIdentifier(AuthHelper.VALID_PNI_TWO),
+            new BatchIdentityCheckRequest.Element(new PniServiceIdentifier(AuthHelper.VALID_PNI_TWO), null,
                 convertKeyToFingerprint(ACCOUNT_TWO_PHONE_NUMBER_IDENTITY_KEY)),
-            new BatchIdentityCheckRequest.Element(new AciServiceIdentifier(AuthHelper.VALID_UUID_TWO),
+            new BatchIdentityCheckRequest.Element(null, new AciServiceIdentifier(AuthHelper.VALID_UUID_TWO),
                 convertKeyToFingerprint(ACCOUNT_TWO_IDENTITY_KEY)),
-            new BatchIdentityCheckRequest.Element(new AciServiceIdentifier(AuthHelper.INVALID_UUID),
+            new BatchIdentityCheckRequest.Element(new AciServiceIdentifier(AuthHelper.INVALID_UUID), null,
                 convertKeyToFingerprint(ACCOUNT_TWO_PHONE_NUMBER_IDENTITY_KEY))
         ))))) {
       assertThat(response).isNotNull();
@@ -1186,7 +1192,8 @@ class ProfileControllerTest {
         new AciServiceIdentifier(AuthHelper.VALID_UUID_TWO), ACCOUNT_TWO_IDENTITY_KEY);
 
     final Condition<BatchIdentityCheckResponse.Element> isAnExpectedUuid =
-        new Condition<>(element -> element.identityKey().equals(expectedIdentityKeys.get(element.uuid())),
+        new Condition<>(element -> element.identityKey()
+            .equals(expectedIdentityKeys.get(Objects.requireNonNullElse(element.uuid(), element.aci()))),
             "is an expected UUID with the correct identity key");
 
     final IdentityKey validAciIdentityKey = new IdentityKey(Curve.generateKeyPair().getPublicKey());
@@ -1196,13 +1203,13 @@ class ProfileControllerTest {
 
     try (final Response response = resources.getJerseyTest().target("/v1/profile/identity_check/batch").request()
         .post(Entity.json(new BatchIdentityCheckRequest(List.of(
-            new BatchIdentityCheckRequest.Element(new AciServiceIdentifier(AuthHelper.VALID_UUID),
+            new BatchIdentityCheckRequest.Element(new AciServiceIdentifier(AuthHelper.VALID_UUID), null,
                 convertKeyToFingerprint(validAciIdentityKey)),
-            new BatchIdentityCheckRequest.Element(new PniServiceIdentifier(AuthHelper.VALID_PNI_TWO),
+            new BatchIdentityCheckRequest.Element(new PniServiceIdentifier(AuthHelper.VALID_PNI_TWO), null,
                 convertKeyToFingerprint(secondValidPniIdentityKey)),
-            new BatchIdentityCheckRequest.Element(new AciServiceIdentifier(AuthHelper.VALID_UUID_TWO),
+            new BatchIdentityCheckRequest.Element(null, new AciServiceIdentifier(AuthHelper.VALID_UUID_TWO),
                 convertKeyToFingerprint(secondValidAciIdentityKey)),
-            new BatchIdentityCheckRequest.Element(new AciServiceIdentifier(AuthHelper.INVALID_UUID),
+            new BatchIdentityCheckRequest.Element(new AciServiceIdentifier(AuthHelper.INVALID_UUID), null,
                 convertKeyToFingerprint(invalidAciIdentityKey))
         ))))) {
       assertThat(response).isNotNull();
@@ -1216,13 +1223,17 @@ class ProfileControllerTest {
     }
 
     final List<BatchIdentityCheckRequest.Element> largeElementList = new ArrayList<>(List.of(
-        new BatchIdentityCheckRequest.Element(new AciServiceIdentifier(AuthHelper.VALID_UUID), convertKeyToFingerprint(validAciIdentityKey)),
-        new BatchIdentityCheckRequest.Element(new PniServiceIdentifier(AuthHelper.VALID_PNI_TWO), convertKeyToFingerprint(secondValidPniIdentityKey)),
-        new BatchIdentityCheckRequest.Element(new AciServiceIdentifier(AuthHelper.INVALID_UUID), convertKeyToFingerprint(invalidAciIdentityKey))));
+        new BatchIdentityCheckRequest.Element(new AciServiceIdentifier(AuthHelper.VALID_UUID), null,
+            convertKeyToFingerprint(validAciIdentityKey)),
+        new BatchIdentityCheckRequest.Element(new PniServiceIdentifier(AuthHelper.VALID_PNI_TWO), null,
+            convertKeyToFingerprint(secondValidPniIdentityKey)),
+        new BatchIdentityCheckRequest.Element(new AciServiceIdentifier(AuthHelper.INVALID_UUID), null,
+            convertKeyToFingerprint(invalidAciIdentityKey))));
 
     for (int i = 0; i < 900; i++) {
       largeElementList.add(
-          new BatchIdentityCheckRequest.Element(new AciServiceIdentifier(UUID.randomUUID()), convertKeyToFingerprint(new IdentityKey(Curve.generateKeyPair().getPublicKey()))));
+          new BatchIdentityCheckRequest.Element(new AciServiceIdentifier(UUID.randomUUID()), null,
+              convertKeyToFingerprint(new IdentityKey(Curve.generateKeyPair().getPublicKey()))));
     }
 
     try (final Response response = resources.getJerseyTest().target("/v1/profile/identity_check/batch").request()
@@ -1300,7 +1311,7 @@ class ProfileControllerTest {
                   ]
                 }
                 """, Base64.getEncoder().encodeToString(convertKeyToFingerprint(new IdentityKey(Curve.generateKeyPair().getPublicKey())))),
-            422),
+            400),
         Arguments.of( // a blank string is invalid
             String.format("""
                 {
