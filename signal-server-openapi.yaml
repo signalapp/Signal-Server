@@ -3290,11 +3290,11 @@ components:
       properties:
         open:
           type: boolean
+        userAgent:
+          type: string
         createdTimestamp:
           type: integer
           format: int64
-        userAgent:
-          type: string
     WebSocketSessionContext:
       type: object
       properties:
@@ -3637,13 +3637,15 @@ components:
     Element:
       required:
       - fingerprint
-      - uuid
       type: object
       properties:
         uuid:
           type: string
           description: A service identifier is a tuple of a UUID and identity type
             that identifies an account and identity within the Signal service.
+        aci:
+          type: string
+          description: An identifier for an account based on the account's ACI
         fingerprint:
           type: array
           items:
@@ -3675,16 +3677,16 @@ components:
             type: string
         commitment:
           $ref: '#/components/schemas/ProfileKeyCommitment'
-        badges:
-          type: array
-          items:
-            type: string
         avatarChange:
           type: string
           enum:
           - UNCHANGED
           - CLEAR
           - UPDATE
+        badges:
+          type: array
+          items:
+            type: string
     ProfileKeyCommitment:
       type: object
       properties:
