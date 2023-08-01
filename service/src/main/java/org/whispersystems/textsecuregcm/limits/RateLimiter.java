@@ -58,6 +58,10 @@ public interface RateLimiter {
     return Mono.fromFuture(validateAsync(key).toCompletableFuture());
   }
 
+  default Mono<Void> validateReactive(final UUID accountUuid) {
+    return validateReactive(accountUuid.toString());
+  }
+
   default boolean hasAvailablePermits(final UUID accountUuid, final int permits) {
     return hasAvailablePermits(accountUuid.toString(), permits);
   }
