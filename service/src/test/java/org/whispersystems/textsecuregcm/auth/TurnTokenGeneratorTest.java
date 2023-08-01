@@ -49,7 +49,7 @@ public class TurnTokenGeneratorTest {
     final Map<String, Long> urlCounts = Stream
         .generate(() -> turnTokenGenerator.generate(UUID.randomUUID()))
         .limit(COUNT)
-        .flatMap(token -> token.getUrls().stream())
+        .flatMap(token -> token.urls().stream())
         .collect(Collectors.groupingBy(i -> i, Collectors.counting()));
 
     assertThat(urlCounts.get("always1.org")).isEqualTo(COUNT);
@@ -90,7 +90,7 @@ public class TurnTokenGeneratorTest {
     final Map<String, Long> urlCounts = Stream
         .generate(() -> turnTokenGenerator.generate(UUID.randomUUID()))
         .limit(COUNT)
-        .flatMap(token -> token.getUrls().stream())
+        .flatMap(token -> token.urls().stream())
         .collect(Collectors.groupingBy(i -> i, Collectors.counting()));
 
     assertThat(urlCounts.get("always.org")).isEqualTo(COUNT);
@@ -129,9 +129,9 @@ public class TurnTokenGeneratorTest {
         new TurnTokenGenerator(mockDynamicConfigManager, "bloop".getBytes(StandardCharsets.UTF_8));
 
     TurnToken token = turnTokenGenerator.generate(UUID.fromString("732506d7-d04f-43a4-b1d7-8a3a91ebe8a6"));
-    assertThat(token.getUrls().get(0)).isEqualTo("enrolled.org");
+    assertThat(token.urls().get(0)).isEqualTo("enrolled.org");
     token = turnTokenGenerator.generate(UUID.randomUUID());
-    assertThat(token.getUrls().get(0)).isEqualTo("unenrolled.org");
+    assertThat(token.urls().get(0)).isEqualTo("unenrolled.org");
 
   }
 
