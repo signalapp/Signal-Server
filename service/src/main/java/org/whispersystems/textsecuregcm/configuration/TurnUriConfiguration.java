@@ -6,6 +6,7 @@ import javax.validation.constraints.NotNull;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 public class TurnUriConfiguration {
   @JsonProperty
@@ -22,7 +23,8 @@ public class TurnUriConfiguration {
   /**
    * Enrolled numbers will always get this uri list
    */
-  private Set<String> enrolledNumbers = Collections.emptySet();
+  @JsonProperty
+  private Set<UUID> enrolledAcis = Collections.emptySet();
 
   public List<String> getUris() {
     return uris;
@@ -32,7 +34,7 @@ public class TurnUriConfiguration {
     return weight;
   }
 
-  public Set<String> getEnrolledNumbers() {
-    return Collections.unmodifiableSet(enrolledNumbers);
+  public Set<UUID> getEnrolledAcis() {
+    return Collections.unmodifiableSet(enrolledAcis);
   }
 }

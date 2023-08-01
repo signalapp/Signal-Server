@@ -97,7 +97,7 @@ public class AccountController {
   @Produces(MediaType.APPLICATION_JSON)
   public TurnToken getTurnToken(@Auth AuthenticatedAccount auth) throws RateLimitExceededException {
     rateLimiters.getTurnLimiter().validate(auth.getAccount().getUuid());
-    return turnTokenGenerator.generate(auth.getAccount().getNumber());
+    return turnTokenGenerator.generate(auth.getAccount().getUuid());
   }
 
   @Timed

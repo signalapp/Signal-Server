@@ -7,6 +7,7 @@ import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -46,7 +47,7 @@ public class TurnTokenGeneratorTest {
     final long COUNT = 1000;
 
     final Map<String, Long> urlCounts = Stream
-        .generate(() -> turnTokenGenerator.generate(""))
+        .generate(() -> turnTokenGenerator.generate(UUID.randomUUID()))
         .limit(COUNT)
         .flatMap(token -> token.getUrls().stream())
         .collect(Collectors.groupingBy(i -> i, Collectors.counting()));
@@ -87,7 +88,7 @@ public class TurnTokenGeneratorTest {
     final long COUNT = 1000;
 
     final Map<String, Long> urlCounts = Stream
-        .generate(() -> turnTokenGenerator.generate(""))
+        .generate(() -> turnTokenGenerator.generate(UUID.randomUUID()))
         .limit(COUNT)
         .flatMap(token -> token.getUrls().stream())
         .collect(Collectors.groupingBy(i -> i, Collectors.counting()));
@@ -108,8 +109,8 @@ public class TurnTokenGeneratorTest {
             - uris:
                 - enrolled.org
               weight: 0
-              enrolledNumbers:
-                - +15555555555
+              enrolledAcis:
+                - 732506d7-d04f-43a4-b1d7-8a3a91ebe8a6
             - uris:
                 - unenrolled.org
               weight: 1
@@ -127,9 +128,9 @@ public class TurnTokenGeneratorTest {
     final TurnTokenGenerator turnTokenGenerator =
         new TurnTokenGenerator(mockDynamicConfigManager, "bloop".getBytes(StandardCharsets.UTF_8));
 
-    TurnToken token = turnTokenGenerator.generate("+15555555555");
+    TurnToken token = turnTokenGenerator.generate(UUID.fromString("732506d7-d04f-43a4-b1d7-8a3a91ebe8a6"));
     assertThat(token.getUrls().get(0)).isEqualTo("enrolled.org");
-    token = turnTokenGenerator.generate("+15555555556");
+    token = turnTokenGenerator.generate(UUID.randomUUID());
     assertThat(token.getUrls().get(0)).isEqualTo("unenrolled.org");
 
   }

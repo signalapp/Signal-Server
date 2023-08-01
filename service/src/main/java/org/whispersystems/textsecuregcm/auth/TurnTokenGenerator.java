@@ -23,6 +23,7 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public class TurnTokenGenerator {
 
@@ -39,9 +40,9 @@ public class TurnTokenGenerator {
     this.turnSecret = turnSecret;
   }
 
-  public TurnToken generate(final String e164) {
+  public TurnToken generate(final UUID aci) {
     try {
-      final List<String> urls = urls(e164);
+      final List<String> urls = urls(aci);
       final Mac mac = Mac.getInstance(ALGORITHM);
       final long validUntilSeconds = Instant.now().plus(Duration.ofDays(1)).getEpochSecond();
       final long user = Util.ensureNonNegativeInt(new SecureRandom().nextInt());
@@ -56,12 +57,12 @@ public class TurnTokenGenerator {
     }
   }
 
-  private List<String> urls(final String e164) {
+  private List<String> urls(final UUID aci) {
     final DynamicTurnConfiguration turnConfig = dynamicConfigurationManager.getConfiguration().getTurnConfiguration();
 
     // Check if number is enrolled to test out specific turn servers
     final Optional<TurnUriConfiguration> enrolled = turnConfig.getUriConfigs().stream()
-        .filter(config -> config.getEnrolledNumbers().contains(e164))
+        .filter(config -> config.getEnrolledAcis().contains(aci))
         .findFirst();
 
     if (enrolled.isPresent()) {

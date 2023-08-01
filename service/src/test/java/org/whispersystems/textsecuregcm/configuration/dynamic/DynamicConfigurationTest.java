@@ -336,8 +336,8 @@ class DynamicConfigurationTest {
                 - uris:
                     - turn:test2.org
                   weight: 2
-                  enrolledNumbers:
-                    - +15555555555
+                  enrolledAcis:
+                    - 732506d7-d04f-43a4-b1d7-8a3a91ebe8a6
            """);
       DynamicTurnConfiguration turnConfiguration = DynamicConfigurationManager
           .parseConfiguration(config, DynamicConfiguration.class)
@@ -347,7 +347,8 @@ class DynamicConfigurationTest {
       assertThat(turnConfiguration.getUriConfigs().get(1).getUris()).hasSize(1);
       assertThat(turnConfiguration.getUriConfigs().get(0).getWeight()).isEqualTo(1);
       assertThat(turnConfiguration.getUriConfigs().get(1).getWeight()).isEqualTo(2);
-      assertThat(turnConfiguration.getUriConfigs().get(1).getEnrolledNumbers()).containsExactly("+15555555555");
+      assertThat(turnConfiguration.getUriConfigs().get(1).getEnrolledAcis())
+          .containsExactly(UUID.fromString("732506d7-d04f-43a4-b1d7-8a3a91ebe8a6"));
 
     }
   }
