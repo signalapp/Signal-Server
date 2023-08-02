@@ -9,6 +9,7 @@ import org.glassfish.jersey.server.monitoring.ApplicationEvent;
 import org.glassfish.jersey.server.monitoring.ApplicationEventListener;
 import org.glassfish.jersey.server.monitoring.RequestEvent;
 import org.glassfish.jersey.server.monitoring.RequestEventListener;
+import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 
 /**
  * Delegates request events to a listener that captures and reports request-level metrics.
@@ -17,8 +18,8 @@ public class MetricsApplicationEventListener implements ApplicationEventListener
 
   private final MetricsRequestEventListener metricsRequestEventListener;
 
-  public MetricsApplicationEventListener(final TrafficSource trafficSource) {
-    this.metricsRequestEventListener = new MetricsRequestEventListener(trafficSource);
+  public MetricsApplicationEventListener(final TrafficSource trafficSource, final ClientReleaseManager clientReleaseManager) {
+    this.metricsRequestEventListener = new MetricsRequestEventListener(trafficSource, clientReleaseManager);
   }
 
   @Override

@@ -11,8 +11,10 @@ import com.google.common.net.HttpHeaders;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 import org.glassfish.jersey.server.monitoring.RequestEvent;
 import org.glassfish.jersey.server.monitoring.RequestEventListener;
+import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.util.logging.UriInfoUtil;
 
 import javax.annotation.Nullable;
@@ -24,7 +26,10 @@ import java.util.List;
  */
 public class MetricsRequestEventListener implements RequestEventListener {
 
+  private final ClientReleaseManager clientReleaseManager;
+
   public static final String REQUEST_COUNTER_NAME = MetricRegistry.name(MetricsRequestEventListener.class, "request");
+  public static final String REQUESTS_BY_VERSION_COUNTER_NAME = MetricRegistry.name(MetricsRequestEventListener.class, "requestByVersion");
 
   @VisibleForTesting
   static final String PATH_TAG = "path";
@@ -41,14 +46,18 @@ public class MetricsRequestEventListener implements RequestEventListener {
   private final TrafficSource trafficSource;
   private final MeterRegistry meterRegistry;
 
-  public MetricsRequestEventListener(final TrafficSource trafficSource) {
-    this(trafficSource, Metrics.globalRegistry);
+  public MetricsRequestEventListener(final TrafficSource trafficSource, final ClientReleaseManager clientReleaseManager) {
+    this(trafficSource, Metrics.globalRegistry, clientReleaseManager);
   }
 
   @VisibleForTesting
-  MetricsRequestEventListener(final TrafficSource trafficSource, final MeterRegistry meterRegistry) {
+  MetricsRequestEventListener(final TrafficSource trafficSource,
+      final MeterRegistry meterRegistry,
+      final ClientReleaseManager clientReleaseManager) {
+
     this.trafficSource = trafficSource;
     this.meterRegistry = meterRegistry;
+    this.clientReleaseManager = clientReleaseManager;
   }
 
   @Override
@@ -70,6 +79,11 @@ public class MetricsRequestEventListener implements RequestEventListener {
         tags.add(UserAgentTagUtil.getPlatformTag(userAgent));
 
         meterRegistry.counter(REQUEST_COUNTER_NAME, tags).increment();
+
+        UserAgentTagUtil.getClientVersionTag(userAgent, clientReleaseManager)
+            .ifPresent(clientVersionTag -> meterRegistry.counter(REQUESTS_BY_VERSION_COUNTER_NAME,
+                    Tags.of(clientVersionTag, UserAgentTagUtil.getPlatformTag(userAgent)))
+                .increment());
       }
     }
   }

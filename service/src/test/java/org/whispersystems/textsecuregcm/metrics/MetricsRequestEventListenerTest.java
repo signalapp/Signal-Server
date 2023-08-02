@@ -46,6 +46,7 @@ import org.glassfish.jersey.uri.UriTemplate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.websocket.WebSocketResourceProvider;
 import org.whispersystems.websocket.auth.WebsocketAuthValueFactoryProvider;
 import org.whispersystems.websocket.logging.WebsocketRequestLog;
@@ -65,7 +66,11 @@ class MetricsRequestEventListenerTest {
   void setup() {
     meterRegistry = mock(MeterRegistry.class);
     counter = mock(Counter.class);
-    listener = new MetricsRequestEventListener(TRAFFIC_SOURCE, meterRegistry);
+
+    final ClientReleaseManager clientReleaseManager = mock(ClientReleaseManager.class);
+    when(clientReleaseManager.isVersionActive(any(), any())).thenReturn(false);
+
+    listener = new MetricsRequestEventListener(TRAFFIC_SOURCE, meterRegistry, clientReleaseManager);
   }
 
   @Test

@@ -669,7 +669,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     environment.jersey().register(new RequestStatisticsFilter(TrafficSource.HTTP));
     environment.jersey().register(MultiRecipientMessageProvider.class);
-    environment.jersey().register(new MetricsApplicationEventListener(TrafficSource.HTTP));
+    environment.jersey().register(new MetricsApplicationEventListener(TrafficSource.HTTP, clientReleaseManager));
     environment.jersey()
         .register(new PolymorphicAuthDynamicFeature<>(ImmutableMap.of(AuthenticatedAccount.class, accountAuthFilter,
             DisabledPermittedAuthenticatedAccount.class, disabledPermittedAccountAuthFilter)));
@@ -689,7 +689,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .register(new WebsocketRefreshApplicationEventListener(accountsManager, clientPresenceManager));
     webSocketEnvironment.jersey().register(new RequestStatisticsFilter(TrafficSource.WEBSOCKET));
     webSocketEnvironment.jersey().register(MultiRecipientMessageProvider.class);
-    webSocketEnvironment.jersey().register(new MetricsApplicationEventListener(TrafficSource.WEBSOCKET));
+    webSocketEnvironment.jersey().register(new MetricsApplicationEventListener(TrafficSource.WEBSOCKET, clientReleaseManager));
     webSocketEnvironment.jersey().register(new KeepAliveController(clientPresenceManager));
 
     // these should be common, but use @Auth DisabledPermittedAccount, which isn’t supported yet on websocket
@@ -802,7 +802,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         webSocketEnvironment.getRequestLog(), 60000);
     provisioningEnvironment.jersey().register(new WebsocketRefreshApplicationEventListener(accountsManager, clientPresenceManager));
     provisioningEnvironment.setConnectListener(new ProvisioningConnectListener(provisioningManager));
-    provisioningEnvironment.jersey().register(new MetricsApplicationEventListener(TrafficSource.WEBSOCKET));
+    provisioningEnvironment.jersey().register(new MetricsApplicationEventListener(TrafficSource.WEBSOCKET, clientReleaseManager));
     provisioningEnvironment.jersey().register(new KeepAliveController(clientPresenceManager));
 
     registerCorsFilter(environment);
