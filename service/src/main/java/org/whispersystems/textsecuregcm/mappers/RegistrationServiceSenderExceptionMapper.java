@@ -12,9 +12,11 @@ import org.whispersystems.textsecuregcm.registration.RegistrationServiceSenderEx
 
 public class RegistrationServiceSenderExceptionMapper implements ExceptionMapper<RegistrationServiceSenderException> {
 
+  public static int REMOTE_SERVICE_REJECTED_REQUEST_STATUS = 440;
+
   @Override
   public Response toResponse(final RegistrationServiceSenderException exception) {
-    return Response.status(Response.Status.BAD_GATEWAY)
+    return Response.status(REMOTE_SERVICE_REJECTED_REQUEST_STATUS)
         .entity(new SendVerificationCodeFailureResponse(exception.getReason(), exception.isPermanent()))
         .build();
   }

@@ -1071,7 +1071,7 @@ class VerificationControllerTest {
         .request()
         .header(HttpHeaders.X_FORWARDED_FOR, "127.0.0.1");
     try (Response response = request.post(Entity.json(requestVerificationCodeJson("voice", "ios")))) {
-      assertEquals(HttpStatus.SC_BAD_GATEWAY, response.getStatus());
+      assertEquals(RegistrationServiceSenderExceptionMapper.REMOTE_SERVICE_REJECTED_REQUEST_STATUS, response.getStatus());
 
       final Map<String, Object> responseMap = response.readEntity(Map.class);
 
