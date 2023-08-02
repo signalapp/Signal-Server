@@ -204,6 +204,7 @@ import org.whispersystems.textsecuregcm.util.logging.UncaughtExceptionHandler;
 import org.whispersystems.textsecuregcm.websocket.AuthenticatedConnectListener;
 import org.whispersystems.textsecuregcm.websocket.ProvisioningConnectListener;
 import org.whispersystems.textsecuregcm.websocket.WebSocketAccountAuthenticator;
+import org.whispersystems.textsecuregcm.workers.AnalyzeDeviceCapabilitiesCommand;
 import org.whispersystems.textsecuregcm.workers.AssignUsernameCommand;
 import org.whispersystems.textsecuregcm.workers.CertificateCommand;
 import org.whispersystems.textsecuregcm.workers.CheckDynamicConfigurationCommand;
@@ -266,6 +267,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     bootstrap.addCommand(new ScheduledApnPushNotificationSenderServiceCommand());
     bootstrap.addCommand(new MessagePersisterServiceCommand());
     bootstrap.addCommand(new MigrateSignedECPreKeysCommand());
+    bootstrap.addCommand(new AnalyzeDeviceCapabilitiesCommand());
   }
 
   @Override
