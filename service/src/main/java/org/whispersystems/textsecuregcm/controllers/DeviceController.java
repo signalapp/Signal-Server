@@ -186,7 +186,7 @@ public class DeviceController {
 
     VerificationCode verificationCode = generateVerificationCode();
     StoredVerificationCode storedVerificationCode =
-        new StoredVerificationCode(verificationCode.getVerificationCode(), System.currentTimeMillis(), null, null);
+        new StoredVerificationCode(verificationCode.verificationCode(), System.currentTimeMillis(), null, null);
 
     pendingDevices.store(account.getNumber(), storedVerificationCode);
 
@@ -281,7 +281,7 @@ public class DeviceController {
   VerificationCode generateVerificationCode() {
     SecureRandom random = new SecureRandom();
     int randomInt       = 100000 + random.nextInt(900000);
-    return new VerificationCode(randomInt);
+    return new VerificationCode(String.valueOf(randomInt));
   }
 
   private Mac getInitializedMac() {

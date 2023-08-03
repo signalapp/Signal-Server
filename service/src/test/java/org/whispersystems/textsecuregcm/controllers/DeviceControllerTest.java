@@ -82,7 +82,7 @@ class DeviceControllerTest {
 
     @Override
     protected VerificationCode generateVerificationCode() {
-      return new VerificationCode(5678901);
+      return new VerificationCode("5678901");
     }
   }
 
@@ -195,7 +195,7 @@ class DeviceControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get(VerificationCode.class);
 
-    assertThat(deviceCode).isEqualTo(new VerificationCode(5678901));
+    assertThat(deviceCode).isEqualTo(new VerificationCode("5678901"));
 
     DeviceResponse response = resources.getJerseyTest()
         .target("/v1/devices/5678901")
@@ -275,7 +275,7 @@ class DeviceControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get(VerificationCode.class);
 
-    assertThat(deviceCode).isEqualTo(new VerificationCode(5678901));
+    assertThat(deviceCode).isEqualTo(new VerificationCode("5678901"));
 
     final Response response = resources.getJerseyTest()
         .target("/v1/devices/5678901")
@@ -321,7 +321,7 @@ class DeviceControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get(VerificationCode.class);
 
-    assertThat(deviceCode).isEqualTo(new VerificationCode(5678901));
+    assertThat(deviceCode).isEqualTo(new VerificationCode("5678901"));
 
     final Optional<ECSignedPreKey> aciSignedPreKey;
     final Optional<ECSignedPreKey> pniSignedPreKey;
@@ -508,7 +508,7 @@ class DeviceControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get(VerificationCode.class);
 
-    assertThat(deviceCode).isEqualTo(new VerificationCode(5678901));
+    assertThat(deviceCode).isEqualTo(new VerificationCode("5678901"));
 
     final Optional<ECSignedPreKey> aciSignedPreKey;
     final Optional<ECSignedPreKey> pniSignedPreKey;
@@ -571,7 +571,7 @@ class DeviceControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get(VerificationCode.class);
 
-    assertThat(deviceCode).isEqualTo(new VerificationCode(5678901));
+    assertThat(deviceCode).isEqualTo(new VerificationCode("5678901"));
 
     when(account.getIdentityKey()).thenReturn(aciIdentityKey);
     when(account.getPhoneNumberIdentityKey()).thenReturn(pniIdentityKey);
@@ -631,7 +631,7 @@ class DeviceControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get(VerificationCode.class);
 
-    assertThat(deviceCode).isEqualTo(new VerificationCode(5678901));
+    assertThat(deviceCode).isEqualTo(new VerificationCode("5678901"));
 
     when(account.getIdentityKey()).thenReturn(aciIdentityKey);
     when(account.getPhoneNumberIdentityKey()).thenReturn(pniIdentityKey);
@@ -701,7 +701,7 @@ class DeviceControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get(VerificationCode.class);
 
-    assertThat(deviceCode).isEqualTo(new VerificationCode(5678901));
+    assertThat(deviceCode).isEqualTo(new VerificationCode("5678901"));
 
     Response response = resources.getJerseyTest()
         .target("/v1/devices/5678902")
