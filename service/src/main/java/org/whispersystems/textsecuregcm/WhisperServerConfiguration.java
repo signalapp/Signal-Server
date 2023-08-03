@@ -35,6 +35,7 @@ import org.whispersystems.textsecuregcm.configuration.FcmConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GcpAttachmentsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GenericZkConfig;
 import org.whispersystems.textsecuregcm.configuration.HCaptchaConfiguration;
+import org.whispersystems.textsecuregcm.configuration.LinkDeviceSecretConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MaxDeviceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MessageByteLimitCardinalityEstimatorConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MessageCacheConfiguration;
@@ -300,6 +301,11 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private CommandStopListenerConfiguration commandStopListener;
 
+  @Valid
+  @NotNull
+  @JsonProperty
+  private LinkDeviceSecretConfiguration linkDevice;
+
   public AdminEventLoggingConfiguration getAdminEventLoggingConfiguration() {
     return adminEventLoggingConfiguration;
   }
@@ -497,5 +503,9 @@ public class WhisperServerConfiguration extends Configuration {
 
   public CommandStopListenerConfiguration getCommandStopListener() {
     return commandStopListener;
+  }
+
+  public LinkDeviceSecretConfiguration getLinkDeviceSecretConfiguration() {
+    return linkDevice;
   }
 }

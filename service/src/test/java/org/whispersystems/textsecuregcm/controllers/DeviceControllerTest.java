@@ -24,10 +24,14 @@ import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import javax.ws.rs.Path;
@@ -73,6 +77,7 @@ import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
+import org.whispersystems.textsecuregcm.util.TestClock;
 import org.whispersystems.textsecuregcm.util.VerificationCode;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
@@ -82,12 +87,15 @@ class DeviceControllerTest {
   static class DumbVerificationDeviceController extends DeviceController {
 
     public DumbVerificationDeviceController(StoredVerificationCodeManager pendingDevices,
+        byte[] linkDeviceSecret,
         AccountsManager accounts,
         MessagesManager messages,
         KeysManager keys,
         RateLimiters rateLimiters,
-        Map<String, Integer> deviceConfiguration) {
-      super(pendingDevices, accounts, messages, keys, rateLimiters, deviceConfiguration);
+        Map<String, Integer> deviceConfiguration,
+        Clock clock) {
+
+      super(pendingDevices, linkDeviceSecret, accounts, messages, keys, rateLimiters, deviceConfiguration, clock);
     }
 
     @Override
@@ -106,8 +114,17 @@ class DeviceControllerTest {
   private static Account maxedAccount = mock(Account.class);
   private static Device masterDevice = mock(Device.class);
   private static ClientPresenceManager clientPresenceManager = mock(ClientPresenceManager.class);
-
   private static Map<String, Integer> deviceConfiguration = new HashMap<>();
+  private static TestClock testClock = TestClock.now();
+
+  private static DeviceController deviceController = new DumbVerificationDeviceController(pendingDevicesManager,
+      generateLinkDeviceSecret(),
+      accountsManager,
+      messagesManager,
+      keysManager,
+      rateLimiters,
+      deviceConfiguration,
+      testClock);
 
   private static final ResourceExtension resources = ResourceExtension.builder()
       .addProvider(AuthHelper.getAuthFilter())
@@ -116,14 +133,15 @@ class DeviceControllerTest {
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addProvider(new WebsocketRefreshApplicationEventListener(accountsManager, clientPresenceManager))
       .addProvider(new DeviceLimitExceededExceptionMapper())
-      .addResource(new DumbVerificationDeviceController(pendingDevicesManager,
-          accountsManager,
-          messagesManager,
-          keysManager,
-          rateLimiters,
-          deviceConfiguration))
+      .addResource(deviceController)
       .build();
 
+  private static byte[] generateLinkDeviceSecret() {
+    final byte[] linkDeviceSecret = new byte[32];
+    new SecureRandom().nextBytes(linkDeviceSecret);
+
+    return linkDeviceSecret;
+  }
 
   @BeforeEach
   void setup() {
@@ -174,6 +192,8 @@ class DeviceControllerTest {
         masterDevice,
         clientPresenceManager
     );
+
+    testClock.unpin();
   }
 
   @Test
@@ -206,6 +226,28 @@ class DeviceControllerTest {
     verify(pendingDevicesManager).remove(AuthHelper.VALID_NUMBER);
     verify(messagesManager).clear(eq(AuthHelper.VALID_UUID), eq(42L));
     verify(clientPresenceManager).disconnectPresence(AuthHelper.VALID_UUID, Device.MASTER_ID);
+  }
+
+  @Test
+  void validDeviceRegisterTestSignedToken() {
+    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
+
+    final Device existingDevice = mock(Device.class);
+    when(existingDevice.getId()).thenReturn(Device.MASTER_ID);
+    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(existingDevice));
+
+    final String verificationToken = deviceController.generateVerificationToken(AuthHelper.VALID_UUID);
+
+    final DeviceResponse response = resources.getJerseyTest()
+        .target("/v1/devices/" + verificationToken)
+        .request()
+        .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
+        .put(Entity.entity(new AccountAttributes(false, 1234, null,
+                    null, true, null),
+                MediaType.APPLICATION_JSON_TYPE),
+            DeviceResponse.class);
+
+    assertThat(response.getDeviceId()).isEqualTo(42L);
   }
 
   @Test
@@ -326,6 +368,54 @@ class DeviceControllerTest {
     verify(keysManager).storeEcSignedPreKeys(AuthHelper.VALID_PNI, Map.of(response.getDeviceId(), pniSignedPreKey.get()));
     verify(keysManager).storePqLastResort(AuthHelper.VALID_UUID, Map.of(response.getDeviceId(), aciPqLastResortPreKey.get()));
     verify(keysManager).storePqLastResort(AuthHelper.VALID_PNI, Map.of(response.getDeviceId(), pniPqLastResortPreKey.get()));
+  }
+
+  @ParameterizedTest
+  @MethodSource("linkDeviceAtomic")
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+  void linkDeviceAtomicWithVerificationToken(final boolean fetchesMessages,
+      final Optional<ApnRegistrationId> apnRegistrationId,
+      final Optional<GcmRegistrationId> gcmRegistrationId,
+      final Optional<String> expectedApnsToken,
+      final Optional<String> expectedApnsVoipToken,
+      final Optional<String> expectedGcmToken) {
+
+    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
+
+    final Device existingDevice = mock(Device.class);
+    when(existingDevice.getId()).thenReturn(Device.MASTER_ID);
+    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(existingDevice));
+
+    final Optional<ECSignedPreKey> aciSignedPreKey;
+    final Optional<ECSignedPreKey> pniSignedPreKey;
+    final Optional<KEMSignedPreKey> aciPqLastResortPreKey;
+    final Optional<KEMSignedPreKey> pniPqLastResortPreKey;
+
+    final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+
+    aciSignedPreKey = Optional.of(KeysHelper.signedECPreKey(1, aciIdentityKeyPair));
+    pniSignedPreKey = Optional.of(KeysHelper.signedECPreKey(2, pniIdentityKeyPair));
+    aciPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair));
+    pniPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair));
+
+    when(account.getIdentityKey()).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
+    when(account.getPhoneNumberIdentityKey()).thenReturn(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
+
+    when(keysManager.storeEcSignedPreKeys(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(keysManager.storePqLastResort(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+
+    final LinkDeviceRequest request = new LinkDeviceRequest(deviceController.generateVerificationToken(AuthHelper.VALID_UUID),
+        new AccountAttributes(fetchesMessages, 1234, null, null, true, null),
+        new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, apnRegistrationId, gcmRegistrationId));
+
+    final DeviceResponse response = resources.getJerseyTest()
+        .target("/v1/devices/link")
+        .request()
+        .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
+        .put(Entity.entity(request, MediaType.APPLICATION_JSON_TYPE), DeviceResponse.class);
+
+    assertThat(response.getDeviceId()).isEqualTo(42L);
   }
 
   private static Stream<Arguments> linkDeviceAtomic() {
@@ -841,4 +931,57 @@ class DeviceControllerTest {
     verify(keysManager).delete(AuthHelper.VALID_UUID, deviceId);
   }
 
+  @Test
+  void checkVerificationToken() {
+    final UUID uuid = UUID.randomUUID();
+
+    assertEquals(Optional.of(uuid),
+        deviceController.checkVerificationToken(deviceController.generateVerificationToken(uuid)));
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void checkVerificationTokenBadToken(final String token, final Instant currentTime) {
+    testClock.pin(currentTime);
+
+    assertEquals(Optional.empty(),
+        deviceController.checkVerificationToken(token));
+  }
+
+  private static Stream<Arguments> checkVerificationTokenBadToken() {
+    final Instant tokenTimestamp = testClock.instant();
+
+    return Stream.of(
+        // Expired token
+        Arguments.of(deviceController.generateVerificationToken(UUID.randomUUID()),
+            tokenTimestamp.plus(DeviceController.TOKEN_EXPIRATION_DURATION).plusSeconds(1)),
+
+        // Bad UUID
+        Arguments.of("not-a-valid-uuid.1691096565171:0CKWF7q3E9fi4sB2or4q1A0Up2z_73EQlMAy7Dpel9c=", tokenTimestamp),
+
+        // No UUID
+        Arguments.of(".1691096565171:0CKWF7q3E9fi4sB2or4q1A0Up2z_73EQlMAy7Dpel9c=", tokenTimestamp),
+
+        // Bad timestamp
+        Arguments.of("e552603a-1492-4de6-872d-bac19a2825b4.not-a-valid-timestamp:0CKWF7q3E9fi4sB2or4q1A0Up2z_73EQlMAy7Dpel9c=", tokenTimestamp),
+
+        // No timestamp
+        Arguments.of("e552603a-1492-4de6-872d-bac19a2825b4:0CKWF7q3E9fi4sB2or4q1A0Up2z_73EQlMAy7Dpel9c=", tokenTimestamp),
+
+        // Blank timestamp
+        Arguments.of("e552603a-1492-4de6-872d-bac19a2825b4.:0CKWF7q3E9fi4sB2or4q1A0Up2z_73EQlMAy7Dpel9c=", tokenTimestamp),
+
+        // No signature
+        Arguments.of("e552603a-1492-4de6-872d-bac19a2825b4.1691096565171", tokenTimestamp),
+
+        // Blank signature
+        Arguments.of("e552603a-1492-4de6-872d-bac19a2825b4.1691096565171:", tokenTimestamp),
+
+        // Incorrect signature
+        Arguments.of("e552603a-1492-4de6-872d-bac19a2825b4.1691096565171:0CKWF7q3E9fi4sB2or4q1A0Up2z_73EQlMAy7Dpel9c=", tokenTimestamp),
+
+        // Invalid signature
+        Arguments.of("e552603a-1492-4de6-872d-bac19a2825b4.1691096565171:This is not valid base64", tokenTimestamp)
+    );
+  }
 }

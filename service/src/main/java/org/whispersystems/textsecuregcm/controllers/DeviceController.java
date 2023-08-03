@@ -12,12 +12,20 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import java.security.SecureRandom;
+import java.nio.charset.StandardCharsets;
+import java.security.*;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Base64;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import javax.ws.rs.Consumes;
@@ -66,24 +74,45 @@ public class DeviceController {
   static final int MAX_DEVICES = 6;
 
   private final StoredVerificationCodeManager pendingDevices;
+  private final Key verificationTokenKey;
   private final AccountsManager       accounts;
   private final MessagesManager       messages;
   private final KeysManager keys;
   private final RateLimiters          rateLimiters;
   private final Map<String, Integer>  maxDeviceConfiguration;
 
+  private final Clock clock;
+
+  private static final String VERIFICATION_TOKEN_ALGORITHM = "HmacSHA256";
+
+  @VisibleForTesting
+  static final Duration TOKEN_EXPIRATION_DURATION = Duration.ofMinutes(10);
+
   public DeviceController(StoredVerificationCodeManager pendingDevices,
+      byte[] linkDeviceSecret,
       AccountsManager accounts,
       MessagesManager messages,
       KeysManager keys,
       RateLimiters rateLimiters,
-      Map<String, Integer> maxDeviceConfiguration) {
+      Map<String, Integer> maxDeviceConfiguration, final Clock clock) {
     this.pendingDevices = pendingDevices;
+    this.verificationTokenKey = new SecretKeySpec(linkDeviceSecret, VERIFICATION_TOKEN_ALGORITHM);
     this.accounts = accounts;
     this.messages = messages;
     this.keys = keys;
     this.rateLimiters = rateLimiters;
     this.maxDeviceConfiguration = maxDeviceConfiguration;
+    this.clock = clock;
+
+    // Fail fast: reject bad keys
+    try {
+      final Mac mac = Mac.getInstance(VERIFICATION_TOKEN_ALGORITHM);
+      mac.init(verificationTokenKey);
+    } catch (final NoSuchAlgorithmException e) {
+      throw new AssertionError("All Java implementations must support HmacSHA256", e);
+    } catch (final InvalidKeyException e) {
+      throw new IllegalArgumentException(e);
+    }
   }
 
   @Timed
@@ -239,10 +268,84 @@ public class DeviceController {
     accounts.updateDevice(auth.getAccount(), deviceId, d -> d.setCapabilities(capabilities));
   }
 
-  @VisibleForTesting protected VerificationCode generateVerificationCode() {
+  @VisibleForTesting
+  VerificationCode generateVerificationCode() {
     SecureRandom random = new SecureRandom();
     int randomInt       = 100000 + random.nextInt(900000);
     return new VerificationCode(randomInt);
+  }
+
+  private Mac getInitializedMac() {
+    try {
+      final Mac mac = Mac.getInstance(VERIFICATION_TOKEN_ALGORITHM);
+      mac.init(verificationTokenKey);
+
+      return mac;
+    } catch (final NoSuchAlgorithmException | InvalidKeyException e) {
+      // All Java implementations must support HmacSHA256 and we checked the key at construction time, so this can never
+      // happen
+      throw new AssertionError(e);
+    }
+  }
+
+  @VisibleForTesting
+  String generateVerificationToken(final UUID aci) {
+    final String claims = aci + "." + clock.instant().toEpochMilli();
+    final byte[] signature = getInitializedMac().doFinal(claims.getBytes(StandardCharsets.UTF_8));
+
+    return claims + ":" + Base64.getUrlEncoder().encodeToString(signature);
+  }
+
+  @VisibleForTesting
+  Optional<UUID> checkVerificationToken(final String verificationToken) {
+    final String[] claimsAndSignature = verificationToken.split(":", 2);
+
+    if (claimsAndSignature.length != 2) {
+      return Optional.empty();
+    }
+
+    final byte[] expectedSignature = getInitializedMac().doFinal(claimsAndSignature[0].getBytes(StandardCharsets.UTF_8));
+    final byte[] providedSignature;
+
+    try {
+      providedSignature = Base64.getUrlDecoder().decode(claimsAndSignature[1]);
+    } catch (final IllegalArgumentException e) {
+      return Optional.empty();
+    }
+
+    if (!MessageDigest.isEqual(expectedSignature, providedSignature)) {
+      return Optional.empty();
+    }
+
+    final String[] aciAndTimestamp = claimsAndSignature[0].split("\\.", 2);
+
+    if (aciAndTimestamp.length != 2) {
+      return Optional.empty();
+    }
+
+    final UUID aci;
+
+    try {
+      aci = UUID.fromString(aciAndTimestamp[0]);
+    } catch (final IllegalArgumentException e) {
+      return Optional.empty();
+    }
+
+    final Instant timestamp;
+
+    try {
+      timestamp = Instant.ofEpochMilli(Long.parseLong(aciAndTimestamp[1]));
+    } catch (final NumberFormatException e) {
+      return Optional.empty();
+    }
+
+    final Instant tokenExpiration = timestamp.plus(TOKEN_EXPIRATION_DURATION);
+
+    if (tokenExpiration.isBefore(clock.instant())) {
+      return Optional.empty();
+    }
+
+    return Optional.of(aci);
   }
 
   static boolean isCapabilityDowngrade(Account account, DeviceCapabilities capabilities) {
@@ -268,13 +371,15 @@ public class DeviceController {
 
     rateLimiters.getVerifyDeviceLimiter().validate(phoneNumber);
 
-    Optional<StoredVerificationCode> storedVerificationCode = pendingDevices.getCodeForNumber(phoneNumber);
+    final Account account = checkVerificationToken(verificationCode)
+        .flatMap(accounts::getByAccountIdentifier)
+        .or(() -> {
+          final boolean verificationCodeValid = pendingDevices.getCodeForNumber(phoneNumber)
+              .map(storedVerificationCode -> storedVerificationCode.isValid(verificationCode))
+              .orElse(false);
 
-    if (storedVerificationCode.isEmpty() || !storedVerificationCode.get().isValid(verificationCode)) {
-      throw new WebApplicationException(Response.status(403).build());
-    }
-
-    final Account account = accounts.getByE164(phoneNumber)
+          return verificationCodeValid ? accounts.getByE164(phoneNumber) : Optional.empty();
+        })
         .orElseThrow(ForbiddenException::new);
 
     maybeDeviceActivationRequest.ifPresent(deviceActivationRequest -> {

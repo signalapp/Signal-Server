@@ -435,3 +435,6 @@ turn:
 
 commandStopListener:
   path: /example/path
+
+linkDevice:
+  secret: secret://linkDevice.secret
