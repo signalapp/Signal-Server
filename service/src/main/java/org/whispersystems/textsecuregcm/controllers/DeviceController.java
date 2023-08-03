@@ -66,7 +66,6 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 import org.whispersystems.textsecuregcm.storage.KeysManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
-import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.util.VerificationCode;
@@ -77,7 +76,6 @@ public class DeviceController {
 
   static final int MAX_DEVICES = 6;
 
-  private final StoredVerificationCodeManager pendingDevices;
   private final Key verificationTokenKey;
   private final AccountsManager       accounts;
   private final MessagesManager       messages;
@@ -93,15 +91,13 @@ public class DeviceController {
   @VisibleForTesting
   static final Duration TOKEN_EXPIRATION_DURATION = Duration.ofMinutes(10);
 
-  public DeviceController(StoredVerificationCodeManager pendingDevices,
-      byte[] linkDeviceSecret,
+  public DeviceController(byte[] linkDeviceSecret,
       AccountsManager accounts,
       MessagesManager messages,
       KeysManager keys,
       RateLimiters rateLimiters,
       FaultTolerantRedisCluster usedTokenCluster,
       Map<String, Integer> maxDeviceConfiguration, final Clock clock) {
-    this.pendingDevices = pendingDevices;
     this.verificationTokenKey = new SecretKeySpec(linkDeviceSecret, VERIFICATION_TOKEN_ALGORITHM);
     this.accounts = accounts;
     this.messages = messages;
@@ -202,8 +198,7 @@ public class DeviceController {
       @Context ContainerRequest containerRequest)
       throws RateLimitExceededException, DeviceLimitExceededException {
 
-    final Pair<Account, Device> accountAndDevice = createDevice(authorizationHeader.getUsername(),
-        authorizationHeader.getPassword(),
+    final Pair<Account, Device> accountAndDevice = createDevice(authorizationHeader.getPassword(),
         verificationCode,
         accountAttributes,
         containerRequest,
@@ -237,8 +232,7 @@ public class DeviceController {
                                    @Context ContainerRequest containerRequest)
       throws RateLimitExceededException, DeviceLimitExceededException {
 
-    final Pair<Account, Device> accountAndDevice = createDevice(authorizationHeader.getUsername(),
-        authorizationHeader.getPassword(),
+    final Pair<Account, Device> accountAndDevice = createDevice(authorizationHeader.getPassword(),
         linkDeviceRequest.verificationCode(),
         linkDeviceRequest.accountAttributes(),
         containerRequest,
@@ -362,27 +356,19 @@ public class DeviceController {
     return isDowngrade;
   }
 
-  private Pair<Account, Device> createDevice(final String phoneNumber,
-                                     final String password,
+  private Pair<Account, Device> createDevice(final String password,
                                      final String verificationCode,
                                      final AccountAttributes accountAttributes,
                                      final ContainerRequest containerRequest,
                                      final Optional<DeviceActivationRequest> maybeDeviceActivationRequest)
       throws RateLimitExceededException, DeviceLimitExceededException {
 
-    rateLimiters.getVerifyDeviceLimiter().validate(phoneNumber);
-
     final Optional<UUID> maybeAciFromToken = checkVerificationToken(verificationCode);
 
     final Account account = maybeAciFromToken.flatMap(accounts::getByAccountIdentifier)
-        .or(() -> {
-          final boolean verificationCodeValid = pendingDevices.getCodeForNumber(phoneNumber)
-              .map(storedVerificationCode -> storedVerificationCode.isValid(verificationCode))
-              .orElse(false);
-
-          return verificationCodeValid ? accounts.getByE164(phoneNumber) : Optional.empty();
-        })
         .orElseThrow(ForbiddenException::new);
+
+    rateLimiters.getVerifyDeviceLimiter().validate(account.getUuid());
 
     maybeDeviceActivationRequest.ifPresent(deviceActivationRequest -> {
       assert deviceActivationRequest.aciSignedPreKey().isPresent();
@@ -467,8 +453,6 @@ public class DeviceController {
 
       a.addDevice(device);
     });
-
-    pendingDevices.remove(phoneNumber);
 
     if (maybeAciFromToken.isPresent()) {
       usedTokenCluster.useCluster(connection ->

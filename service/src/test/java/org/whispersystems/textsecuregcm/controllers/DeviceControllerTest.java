@@ -25,7 +25,6 @@ import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
-import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.auth.WebsocketRefreshApplicationEventListener;
 import org.whispersystems.textsecuregcm.entities.*;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
@@ -34,6 +33,8 @@ import org.whispersystems.textsecuregcm.mappers.DeviceLimitExceededExceptionMapp
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.storage.*;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
+import org.whispersystems.textsecuregcm.storage.KeysManager;
+import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
@@ -61,7 +62,6 @@ import static org.mockito.Mockito.*;
 @ExtendWith(DropwizardExtensionsSupport.class)
 class DeviceControllerTest {
 
-  private static StoredVerificationCodeManager pendingDevicesManager = mock(StoredVerificationCodeManager.class);
   private static AccountsManager accountsManager = mock(AccountsManager.class);
   private static MessagesManager messagesManager = mock(MessagesManager.class);
   private static KeysManager keysManager = mock(KeysManager.class);
@@ -75,7 +75,7 @@ class DeviceControllerTest {
   private static Map<String, Integer> deviceConfiguration = new HashMap<>();
   private static TestClock testClock = TestClock.now();
 
-  private static DeviceController deviceController = new DeviceController(pendingDevicesManager,
+  private static DeviceController deviceController = new DeviceController(
       generateLinkDeviceSecret(),
       accountsManager,
       messagesManager,
@@ -125,7 +125,6 @@ class DeviceControllerTest {
     when(account.isGiftBadgesSupported()).thenReturn(true);
     when(account.isPaymentActivationSupported()).thenReturn(false);
 
-    when(pendingDevicesManager.getCodeForNumber(any())).thenReturn(Optional.empty());
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
     when(accountsManager.getByE164(AuthHelper.VALID_NUMBER)).thenReturn(Optional.of(account));
     when(accountsManager.getByE164(AuthHelper.VALID_NUMBER_TWO)).thenReturn(Optional.of(maxedAccount));
@@ -139,7 +138,6 @@ class DeviceControllerTest {
   @AfterEach
   void teardown() {
     reset(
-        pendingDevicesManager,
         accountsManager,
         messagesManager,
         keysManager,
@@ -179,34 +177,8 @@ class DeviceControllerTest {
 
     assertThat(response.getDeviceId()).isEqualTo(42L);
 
-    verify(pendingDevicesManager).remove(AuthHelper.VALID_NUMBER);
     verify(messagesManager).clear(eq(AuthHelper.VALID_UUID), eq(42L));
     verify(commands).set(anyString(), anyString(), any());
-  }
-
-  @Test
-  void validDeviceRegisterTestStoredCode() {
-    final Device existingDevice = mock(Device.class);
-    when(existingDevice.getId()).thenReturn(Device.MASTER_ID);
-    when(account.getDevices()).thenReturn(List.of(existingDevice));
-
-    final String storedCode = "5678901";
-
-    when(pendingDevicesManager.getCodeForNumber(AuthHelper.VALID_NUMBER)).thenReturn(
-        Optional.of(new StoredVerificationCode(storedCode, System.currentTimeMillis(), null, null)));
-
-    final DeviceResponse response = resources.getJerseyTest()
-        .target("/v1/devices/" + storedCode)
-        .request()
-        .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
-        .put(Entity.entity(new AccountAttributes(false, 1234, null,
-                    null, true, null),
-                MediaType.APPLICATION_JSON_TYPE),
-            DeviceResponse.class);
-
-    assertThat(response.getDeviceId()).isEqualTo(42L);
-
-    verify(commands, never()).set(anyString(), anyString(), any());
   }
 
   @Test
@@ -339,7 +311,6 @@ class DeviceControllerTest {
     expectedGcmToken.ifPresentOrElse(expectedToken -> assertEquals(expectedToken, device.getGcmId()),
         () -> assertNull(device.getGcmId()));
 
-    verify(pendingDevicesManager).remove(AuthHelper.VALID_NUMBER);
     verify(messagesManager).clear(eq(AuthHelper.VALID_UUID), eq(42L));
     verify(keysManager).storeEcSignedPreKeys(AuthHelper.VALID_UUID, Map.of(response.getDeviceId(), aciSignedPreKey.get()));
     verify(keysManager).storeEcSignedPreKeys(AuthHelper.VALID_PNI, Map.of(response.getDeviceId(), pniSignedPreKey.get()));
@@ -348,61 +319,6 @@ class DeviceControllerTest {
     verify(commands).set(anyString(), anyString(), any());
   }
 
-
-  @ParameterizedTest
-  @MethodSource("linkDeviceAtomic")
-  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-  void linkDeviceAtomicWithStoredCode(final boolean fetchesMessages,
-      final Optional<ApnRegistrationId> apnRegistrationId,
-      final Optional<GcmRegistrationId> gcmRegistrationId,
-      final Optional<String> expectedApnsToken,
-      final Optional<String> expectedApnsVoipToken,
-      final Optional<String> expectedGcmToken) {
-
-    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
-
-    final Device existingDevice = mock(Device.class);
-    when(existingDevice.getId()).thenReturn(Device.MASTER_ID);
-    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(existingDevice));
-
-    final Optional<ECSignedPreKey> aciSignedPreKey;
-    final Optional<ECSignedPreKey> pniSignedPreKey;
-    final Optional<KEMSignedPreKey> aciPqLastResortPreKey;
-    final Optional<KEMSignedPreKey> pniPqLastResortPreKey;
-
-    final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
-    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
-
-    aciSignedPreKey = Optional.of(KeysHelper.signedECPreKey(1, aciIdentityKeyPair));
-    pniSignedPreKey = Optional.of(KeysHelper.signedECPreKey(2, pniIdentityKeyPair));
-    aciPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair));
-    pniPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair));
-
-    when(account.getIdentityKey()).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
-    when(account.getPhoneNumberIdentityKey()).thenReturn(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
-
-    when(keysManager.storeEcSignedPreKeys(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
-    when(keysManager.storePqLastResort(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
-
-    final String storedCode = "5678901";
-
-    when(pendingDevicesManager.getCodeForNumber(AuthHelper.VALID_NUMBER)).thenReturn(
-        Optional.of(new StoredVerificationCode(storedCode, System.currentTimeMillis(), null, null)));
-
-    final LinkDeviceRequest request = new LinkDeviceRequest(storedCode,
-        new AccountAttributes(fetchesMessages, 1234, null, null, true, null),
-        new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, apnRegistrationId, gcmRegistrationId));
-
-    final DeviceResponse response = resources.getJerseyTest()
-        .target("/v1/devices/link")
-        .request()
-        .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
-        .put(Entity.entity(request, MediaType.APPLICATION_JSON_TYPE), DeviceResponse.class);
-
-    assertThat(response.getDeviceId()).isEqualTo(42L);
-
-    verify(commands, never()).set(anyString(), anyString(), any());
-  }
 
   private static Stream<Arguments> linkDeviceAtomic() {
     final String apnsToken = "apns-token";

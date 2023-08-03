@@ -115,14 +115,14 @@ import org.whispersystems.textsecuregcm.controllers.VerificationController;
 import org.whispersystems.textsecuregcm.currency.CoinMarketCapClient;
 import org.whispersystems.textsecuregcm.currency.CurrencyConversionManager;
 import org.whispersystems.textsecuregcm.currency.FixerClient;
-import org.whispersystems.textsecuregcm.grpc.GrpcServerManagedWrapper;
-import org.whispersystems.textsecuregcm.grpc.UserAgentInterceptor;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.filters.RemoteDeprecationFilter;
 import org.whispersystems.textsecuregcm.filters.RequestStatisticsFilter;
 import org.whispersystems.textsecuregcm.filters.TimestampResponseFilter;
-import org.whispersystems.textsecuregcm.grpc.KeysGrpcService;
+import org.whispersystems.textsecuregcm.grpc.GrpcServerManagedWrapper;
 import org.whispersystems.textsecuregcm.grpc.KeysAnonymousGrpcService;
+import org.whispersystems.textsecuregcm.grpc.KeysGrpcService;
+import org.whispersystems.textsecuregcm.grpc.UserAgentInterceptor;
 import org.whispersystems.textsecuregcm.limits.CardinalityEstimator;
 import org.whispersystems.textsecuregcm.limits.PushChallengeManager;
 import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
@@ -189,9 +189,7 @@ import org.whispersystems.textsecuregcm.storage.RemoteConfigs;
 import org.whispersystems.textsecuregcm.storage.RemoteConfigsManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageDynamoDb;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
-import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
-import org.whispersystems.textsecuregcm.storage.VerificationCodeStore;
 import org.whispersystems.textsecuregcm.storage.VerificationSessionManager;
 import org.whispersystems.textsecuregcm.storage.VerificationSessions;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
@@ -352,8 +350,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ReportMessageDynamoDb reportMessageDynamoDb = new ReportMessageDynamoDb(dynamoDbClient,
         config.getDynamoDbTables().getReportMessage().getTableName(),
         config.getReportMessageConfiguration().getReportTtl());
-    VerificationCodeStore pendingDevices = new VerificationCodeStore(dynamoDbClient,
-        config.getDynamoDbTables().getPendingDevices().getTableName());
     RegistrationRecoveryPasswords registrationRecoveryPasswords = new RegistrationRecoveryPasswords(
         config.getDynamoDbTables().getRegistrationRecovery().getTableName(),
         config.getDynamoDbTables().getRegistrationRecovery().getExpiration(),
@@ -507,7 +503,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         storageServiceExecutor, storageServiceRetryExecutor, config.getSecureStorageServiceConfiguration());
     ClientPresenceManager clientPresenceManager = new ClientPresenceManager(clientPresenceCluster, recurringJobExecutor,
         keyspaceNotificationDispatchExecutor);
-    StoredVerificationCodeManager pendingDevicesManager = new StoredVerificationCodeManager(pendingDevices);
     ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster);
     MessagesCache messagesCache = new MessagesCache(messagesCluster, messagesCluster,
         keyspaceNotificationDispatchExecutor, messageDeliveryScheduler, messageDeletionAsyncExecutor, clock);
@@ -756,7 +751,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new CallLinkController(rateLimiters, genericZkSecretParams),
         new CertificateController(new CertificateGenerator(config.getDeliveryCertificate().certificate().value(), config.getDeliveryCertificate().ecPrivateKey(), config.getDeliveryCertificate().expiresDays()), zkAuthOperations, genericZkSecretParams, clock),
         new ChallengeController(rateLimitChallengeManager),
-        new DeviceController(pendingDevicesManager, config.getLinkDeviceSecretConfiguration().secret().value(), accountsManager, messagesManager, keys, rateLimiters,
+        new DeviceController(config.getLinkDeviceSecretConfiguration().secret().value(), accountsManager, messagesManager, keys, rateLimiters,
             rateLimitersCluster, config.getMaxDevices(), clock),
         new DirectoryV2Controller(directoryV2CredentialsGenerator),
         new DonationController(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager, config.getBadges(),
