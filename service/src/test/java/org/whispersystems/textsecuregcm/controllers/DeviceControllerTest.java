@@ -32,7 +32,6 @@ import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.DeviceLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.storage.*;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
@@ -42,13 +41,11 @@ import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
 import org.whispersystems.textsecuregcm.util.TestClock;
 import org.whispersystems.textsecuregcm.util.VerificationCode;
 
-import javax.ws.rs.Path;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
-import java.time.Clock;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -64,28 +61,6 @@ import static org.mockito.Mockito.*;
 @ExtendWith(DropwizardExtensionsSupport.class)
 class DeviceControllerTest {
 
-  @Path("/v1/devices")
-  static class DumbVerificationDeviceController extends DeviceController {
-
-    public DumbVerificationDeviceController(StoredVerificationCodeManager pendingDevices,
-        byte[] linkDeviceSecret,
-        AccountsManager accounts,
-        MessagesManager messages,
-        KeysManager keys,
-        RateLimiters rateLimiters,
-        FaultTolerantRedisCluster usedTokenCluster,
-        Map<String, Integer> deviceConfiguration,
-        Clock clock) {
-
-      super(pendingDevices, linkDeviceSecret, accounts, messages, keys, rateLimiters, usedTokenCluster, deviceConfiguration, clock);
-    }
-
-    @Override
-    protected VerificationCode generateVerificationCode() {
-      return new VerificationCode("5678901");
-    }
-  }
-
   private static StoredVerificationCodeManager pendingDevicesManager = mock(StoredVerificationCodeManager.class);
   private static AccountsManager accountsManager = mock(AccountsManager.class);
   private static MessagesManager messagesManager = mock(MessagesManager.class);
@@ -100,7 +75,7 @@ class DeviceControllerTest {
   private static Map<String, Integer> deviceConfiguration = new HashMap<>();
   private static TestClock testClock = TestClock.now();
 
-  private static DeviceController deviceController = new DumbVerificationDeviceController(pendingDevicesManager,
+  private static DeviceController deviceController = new DeviceController(pendingDevicesManager,
       generateLinkDeviceSecret(),
       accountsManager,
       messagesManager,
@@ -150,9 +125,8 @@ class DeviceControllerTest {
     when(account.isGiftBadgesSupported()).thenReturn(true);
     when(account.isPaymentActivationSupported()).thenReturn(false);
 
-    when(pendingDevicesManager.getCodeForNumber(AuthHelper.VALID_NUMBER)).thenReturn(
-        Optional.of(new StoredVerificationCode("5678901", System.currentTimeMillis(), null, null)));
-    when(pendingDevicesManager.getCodeForNumber(AuthHelper.VALID_NUMBER_TWO)).thenReturn(Optional.empty());
+    when(pendingDevicesManager.getCodeForNumber(any())).thenReturn(Optional.empty());
+    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
     when(accountsManager.getByE164(AuthHelper.VALID_NUMBER)).thenReturn(Optional.of(account));
     when(accountsManager.getByE164(AuthHelper.VALID_NUMBER_TWO)).thenReturn(Optional.of(maxedAccount));
 
@@ -183,10 +157,9 @@ class DeviceControllerTest {
 
   @Test
   void validDeviceRegisterTest() {
-    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
-
     final Device existingDevice = mock(Device.class);
     when(existingDevice.getId()).thenReturn(Device.MASTER_ID);
+    when(existingDevice.isEnabled()).thenReturn(true);
     when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(existingDevice));
 
     VerificationCode deviceCode = resources.getJerseyTest()
@@ -195,10 +168,8 @@ class DeviceControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get(VerificationCode.class);
 
-    assertThat(deviceCode).isEqualTo(new VerificationCode("5678901"));
-
     DeviceResponse response = resources.getJerseyTest()
-        .target("/v1/devices/5678901")
+        .target("/v1/devices/" + deviceCode.verificationCode())
         .request()
         .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
         .put(Entity.entity(new AccountAttributes(false, 1234, null,
@@ -210,22 +181,22 @@ class DeviceControllerTest {
 
     verify(pendingDevicesManager).remove(AuthHelper.VALID_NUMBER);
     verify(messagesManager).clear(eq(AuthHelper.VALID_UUID), eq(42L));
-    verify(clientPresenceManager).disconnectPresence(AuthHelper.VALID_UUID, Device.MASTER_ID);
-    verify(commands, never()).set(anyString(), anyString(), any());
+    verify(commands).set(anyString(), anyString(), any());
   }
 
   @Test
-  void validDeviceRegisterTestSignedToken() {
-    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
-
+  void validDeviceRegisterTestStoredCode() {
     final Device existingDevice = mock(Device.class);
     when(existingDevice.getId()).thenReturn(Device.MASTER_ID);
-    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(existingDevice));
+    when(account.getDevices()).thenReturn(List.of(existingDevice));
 
-    final String verificationToken = deviceController.generateVerificationToken(AuthHelper.VALID_UUID);
+    final String storedCode = "5678901";
+
+    when(pendingDevicesManager.getCodeForNumber(AuthHelper.VALID_NUMBER)).thenReturn(
+        Optional.of(new StoredVerificationCode(storedCode, System.currentTimeMillis(), null, null)));
 
     final DeviceResponse response = resources.getJerseyTest()
-        .target("/v1/devices/" + verificationToken)
+        .target("/v1/devices/" + storedCode)
         .request()
         .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
         .put(Entity.entity(new AccountAttributes(false, 1234, null,
@@ -235,7 +206,7 @@ class DeviceControllerTest {
 
     assertThat(response.getDeviceId()).isEqualTo(42L);
 
-    verify(commands).set(anyString(), anyString(), any());
+    verify(commands, never()).set(anyString(), anyString(), any());
   }
 
   @Test
@@ -275,10 +246,8 @@ class DeviceControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get(VerificationCode.class);
 
-    assertThat(deviceCode).isEqualTo(new VerificationCode("5678901"));
-
     final Response response = resources.getJerseyTest()
-        .target("/v1/devices/5678901")
+        .target("/v1/devices/" + deviceCode.verificationCode())
         .request()
         .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
         .put(Entity.json(""));
@@ -288,8 +257,10 @@ class DeviceControllerTest {
 
   @Test
   void verifyDeviceTokenBadCredentials() {
+    final String verificationToken = deviceController.generateVerificationToken(AuthHelper.VALID_UUID);
+
     final Response response = resources.getJerseyTest()
-        .target("/v1/devices/5678901")
+        .target("/v1/devices/" + verificationToken)
         .request()
         .header("Authorization", "This is not a valid authorization header")
         .put(Entity.entity(new AccountAttributes(false, 1234, null,
@@ -309,8 +280,6 @@ class DeviceControllerTest {
                         final Optional<String> expectedApnsVoipToken,
                         final Optional<String> expectedGcmToken) {
 
-    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
-
     final Device existingDevice = mock(Device.class);
     when(existingDevice.getId()).thenReturn(Device.MASTER_ID);
     when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(existingDevice));
@@ -320,8 +289,6 @@ class DeviceControllerTest {
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get(VerificationCode.class);
-
-    assertThat(deviceCode).isEqualTo(new VerificationCode("5678901"));
 
     final Optional<ECSignedPreKey> aciSignedPreKey;
     final Optional<ECSignedPreKey> pniSignedPreKey;
@@ -342,7 +309,7 @@ class DeviceControllerTest {
     when(keysManager.storeEcSignedPreKeys(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
     when(keysManager.storePqLastResort(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
-    final LinkDeviceRequest request = new LinkDeviceRequest("5678901",
+    final LinkDeviceRequest request = new LinkDeviceRequest(deviceCode.verificationCode(),
         new AccountAttributes(fetchesMessages, 1234, null, null, true, null),
         new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, apnRegistrationId, gcmRegistrationId));
 
@@ -374,19 +341,18 @@ class DeviceControllerTest {
 
     verify(pendingDevicesManager).remove(AuthHelper.VALID_NUMBER);
     verify(messagesManager).clear(eq(AuthHelper.VALID_UUID), eq(42L));
-    verify(clientPresenceManager).disconnectPresence(AuthHelper.VALID_UUID, Device.MASTER_ID);
     verify(keysManager).storeEcSignedPreKeys(AuthHelper.VALID_UUID, Map.of(response.getDeviceId(), aciSignedPreKey.get()));
     verify(keysManager).storeEcSignedPreKeys(AuthHelper.VALID_PNI, Map.of(response.getDeviceId(), pniSignedPreKey.get()));
     verify(keysManager).storePqLastResort(AuthHelper.VALID_UUID, Map.of(response.getDeviceId(), aciPqLastResortPreKey.get()));
     verify(keysManager).storePqLastResort(AuthHelper.VALID_PNI, Map.of(response.getDeviceId(), pniPqLastResortPreKey.get()));
-    verify(commands, never()).set(anyString(), anyString(), any());
+    verify(commands).set(anyString(), anyString(), any());
   }
 
 
   @ParameterizedTest
   @MethodSource("linkDeviceAtomic")
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-  void linkDeviceAtomicWithVerificationToken(final boolean fetchesMessages,
+  void linkDeviceAtomicWithStoredCode(final boolean fetchesMessages,
       final Optional<ApnRegistrationId> apnRegistrationId,
       final Optional<GcmRegistrationId> gcmRegistrationId,
       final Optional<String> expectedApnsToken,
@@ -418,7 +384,12 @@ class DeviceControllerTest {
     when(keysManager.storeEcSignedPreKeys(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
     when(keysManager.storePqLastResort(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
-    final LinkDeviceRequest request = new LinkDeviceRequest(deviceController.generateVerificationToken(AuthHelper.VALID_UUID),
+    final String storedCode = "5678901";
+
+    when(pendingDevicesManager.getCodeForNumber(AuthHelper.VALID_NUMBER)).thenReturn(
+        Optional.of(new StoredVerificationCode(storedCode, System.currentTimeMillis(), null, null)));
+
+    final LinkDeviceRequest request = new LinkDeviceRequest(storedCode,
         new AccountAttributes(fetchesMessages, 1234, null, null, true, null),
         new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, apnRegistrationId, gcmRegistrationId));
 
@@ -430,7 +401,7 @@ class DeviceControllerTest {
 
     assertThat(response.getDeviceId()).isEqualTo(42L);
 
-    verify(commands).set(anyString(), anyString(), any());
+    verify(commands, never()).set(anyString(), anyString(), any());
   }
 
   private static Stream<Arguments> linkDeviceAtomic() {
@@ -508,8 +479,6 @@ class DeviceControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get(VerificationCode.class);
 
-    assertThat(deviceCode).isEqualTo(new VerificationCode("5678901"));
-
     final Optional<ECSignedPreKey> aciSignedPreKey;
     final Optional<ECSignedPreKey> pniSignedPreKey;
     final Optional<KEMSignedPreKey> aciPqLastResortPreKey;
@@ -526,7 +495,7 @@ class DeviceControllerTest {
     when(account.getIdentityKey()).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
     when(account.getPhoneNumberIdentityKey()).thenReturn(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
 
-    final LinkDeviceRequest request = new LinkDeviceRequest("5678901",
+    final LinkDeviceRequest request = new LinkDeviceRequest(deviceCode.verificationCode(),
         new AccountAttributes(fetchesMessages, 1234, null, null, true, null),
         new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, apnRegistrationId, gcmRegistrationId));
 
@@ -571,12 +540,10 @@ class DeviceControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get(VerificationCode.class);
 
-    assertThat(deviceCode).isEqualTo(new VerificationCode("5678901"));
-
     when(account.getIdentityKey()).thenReturn(aciIdentityKey);
     when(account.getPhoneNumberIdentityKey()).thenReturn(pniIdentityKey);
 
-    final LinkDeviceRequest request = new LinkDeviceRequest("5678901",
+    final LinkDeviceRequest request = new LinkDeviceRequest(deviceCode.verificationCode(),
         new AccountAttributes(true, 1234, null, null, true, null),
         new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, Optional.empty(), Optional.empty()));
 
@@ -631,12 +598,10 @@ class DeviceControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get(VerificationCode.class);
 
-    assertThat(deviceCode).isEqualTo(new VerificationCode("5678901"));
-
     when(account.getIdentityKey()).thenReturn(aciIdentityKey);
     when(account.getPhoneNumberIdentityKey()).thenReturn(pniIdentityKey);
 
-    final LinkDeviceRequest request = new LinkDeviceRequest("5678901",
+    final LinkDeviceRequest request = new LinkDeviceRequest(deviceCode.verificationCode(),
         new AccountAttributes(true, 1234, null, null, true, null),
         new DeviceActivationRequest(Optional.of(aciSignedPreKey), Optional.of(pniSignedPreKey), Optional.of(aciPqLastResortPreKey), Optional.of(pniPqLastResortPreKey), Optional.empty(), Optional.empty()));
 
@@ -701,10 +666,8 @@ class DeviceControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get(VerificationCode.class);
 
-    assertThat(deviceCode).isEqualTo(new VerificationCode("5678901"));
-
     Response response = resources.getJerseyTest()
-        .target("/v1/devices/5678902")
+        .target("/v1/devices/" + deviceCode.verificationCode() + "-incorrect")
         .request()
         .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
         .put(Entity.entity(new AccountAttributes(false, 1234, null, null, true, null),
@@ -744,8 +707,10 @@ class DeviceControllerTest {
 
   @Test
   void longNameTest() {
+    final String verificationToken = deviceController.generateVerificationToken(AuthHelper.VALID_UUID);
+
     Response response = resources.getJerseyTest()
-        .target("/v1/devices/5678901")
+        .target("/v1/devices/" + verificationToken)
         .request()
         .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
         .put(Entity.entity(new AccountAttributes(false, 1234,
@@ -763,9 +728,12 @@ class DeviceControllerTest {
         true, true, true, true, true);
     AccountAttributes accountAttributes =
         new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
+
+    final String verificationToken = deviceController.generateVerificationToken(AuthHelper.VALID_UUID);
+
     Response response = resources
         .getJerseyTest()
-        .target("/v1/devices/5678901")
+        .target("/v1/devices/" + verificationToken)
         .request()
         .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
         .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
@@ -776,7 +744,7 @@ class DeviceControllerTest {
     accountAttributes = new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
     response = resources
         .getJerseyTest()
-        .target("/v1/devices/5678901")
+        .target("/v1/devices/" + verificationToken)
         .request()
         .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
         .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
@@ -790,9 +758,12 @@ class DeviceControllerTest {
         true, true, true, true, true);
     AccountAttributes accountAttributes =
         new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
+
+    final String verificationToken = deviceController.generateVerificationToken(AuthHelper.VALID_UUID);
+
     Response response = resources
         .getJerseyTest()
-        .target("/v1/devices/5678901")
+        .target("/v1/devices/" + verificationToken)
         .request()
         .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
         .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
@@ -803,7 +774,7 @@ class DeviceControllerTest {
     accountAttributes = new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
     response = resources
         .getJerseyTest()
-        .target("/v1/devices/5678901")
+        .target("/v1/devices/" + verificationToken)
         .request()
         .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
         .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
@@ -817,9 +788,12 @@ class DeviceControllerTest {
         false, true, true, true, true);
     AccountAttributes accountAttributes =
         new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
+
+    final String verificationToken = deviceController.generateVerificationToken(AuthHelper.VALID_UUID);
+
     Response response = resources
         .getJerseyTest()
-        .target("/v1/devices/5678901")
+        .target("/v1/devices/" + verificationToken)
         .request()
         .header("Authorization",
             AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
@@ -831,7 +805,7 @@ class DeviceControllerTest {
     accountAttributes = new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
     response = resources
         .getJerseyTest()
-        .target("/v1/devices/5678901")
+        .target("/v1/devices/" + verificationToken)
         .request()
         .header("Authorization",
             AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
@@ -846,9 +820,12 @@ class DeviceControllerTest {
         false, true, true, true);
     AccountAttributes accountAttributes =
         new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
+
+    final String verificationToken = deviceController.generateVerificationToken(AuthHelper.VALID_UUID);
+
     Response response = resources
         .getJerseyTest()
-        .target("/v1/devices/5678901")
+        .target("/v1/devices/" + verificationToken)
         .request()
         .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
         .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
@@ -859,7 +836,7 @@ class DeviceControllerTest {
     accountAttributes = new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
     response = resources
         .getJerseyTest()
-        .target("/v1/devices/5678901")
+        .target("/v1/devices/" + verificationToken)
         .request()
         .header("Authorization",
             AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
@@ -874,9 +851,12 @@ class DeviceControllerTest {
         true, false, true, true);
     AccountAttributes accountAttributes =
         new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
+
+    final String verificationToken = deviceController.generateVerificationToken(AuthHelper.VALID_UUID);
+
     Response response = resources
         .getJerseyTest()
-        .target("/v1/devices/5678901")
+        .target("/v1/devices/" + verificationToken)
         .request()
         .header("Authorization",
             AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
@@ -888,7 +868,7 @@ class DeviceControllerTest {
     accountAttributes = new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
     response = resources
         .getJerseyTest()
-        .target("/v1/devices/5678901")
+        .target("/v1/devices/" + verificationToken)
         .request()
         .header("Authorization",
             AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
@@ -901,9 +881,12 @@ class DeviceControllerTest {
   void deviceDowngradeGiftBadgesTest() {
     DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, false, true);
     AccountAttributes accountAttributes = new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
+
+    final String verificationToken = deviceController.generateVerificationToken(AuthHelper.VALID_UUID);
+
     Response response = resources
         .getJerseyTest()
-        .target("/v1/devices/5678901")
+        .target("/v1/devices/" + verificationToken)
         .request()
         .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
         .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
@@ -914,7 +897,7 @@ class DeviceControllerTest {
     accountAttributes = new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
     response = resources
         .getJerseyTest()
-        .target("/v1/devices/5678901")
+        .target("/v1/devices/" + verificationToken)
         .request()
         .header("Authorization",
             AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
@@ -955,9 +938,12 @@ class DeviceControllerTest {
     // Update when we start returning true value of capability & restricting downgrades
     DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, true, paymentActivation);
     AccountAttributes accountAttributes = new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
+
+    final String verificationToken = deviceController.generateVerificationToken(AuthHelper.VALID_UUID);
+
     Response response = resources
         .getJerseyTest()
-        .target("/v1/devices/5678901")
+        .target("/v1/devices/" + verificationToken)
         .request()
         .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
         .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")

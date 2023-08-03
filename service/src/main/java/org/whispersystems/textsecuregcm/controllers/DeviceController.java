@@ -18,7 +18,6 @@ import java.security.InvalidKeyException;
 import java.security.Key;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -52,7 +51,6 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.BasicAuthorizationHeader;
 import org.whispersystems.textsecuregcm.auth.ChangesDeviceEnabledState;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
-import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.DeviceActivationRequest;
 import org.whispersystems.textsecuregcm.entities.DeviceInfo;
@@ -184,13 +182,7 @@ public class DeviceController {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 
-    VerificationCode verificationCode = generateVerificationCode();
-    StoredVerificationCode storedVerificationCode =
-        new StoredVerificationCode(verificationCode.verificationCode(), System.currentTimeMillis(), null, null);
-
-    pendingDevices.store(account.getNumber(), storedVerificationCode);
-
-    return verificationCode;
+    return new VerificationCode(generateVerificationToken(account.getUuid()));
   }
 
   /**
@@ -275,13 +267,6 @@ public class DeviceController {
     assert (auth.getAuthenticatedDevice() != null);
     final long deviceId = auth.getAuthenticatedDevice().getId();
     accounts.updateDevice(auth.getAccount(), deviceId, d -> d.setCapabilities(capabilities));
-  }
-
-  @VisibleForTesting
-  VerificationCode generateVerificationCode() {
-    SecureRandom random = new SecureRandom();
-    int randomInt       = 100000 + random.nextInt(900000);
-    return new VerificationCode(String.valueOf(randomInt));
   }
 
   private Mac getInitializedMac() {
