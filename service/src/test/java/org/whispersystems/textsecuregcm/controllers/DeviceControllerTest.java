@@ -4,40 +4,12 @@
  */
 package org.whispersystems.textsecuregcm.controllers;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.clearInvocations;
-import static org.mockito.Mockito.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.when;
-
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
-import java.nio.charset.StandardCharsets;
-import java.security.SecureRandom;
-import java.time.Clock;
-import java.time.Instant;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.stream.Stream;
-import javax.ws.rs.Path;
-import javax.ws.rs.client.Entity;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
+import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -55,30 +27,39 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.auth.WebsocketRefreshApplicationEventListener;
-import org.whispersystems.textsecuregcm.entities.AccountAttributes;
-import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
-import org.whispersystems.textsecuregcm.entities.DeviceActivationRequest;
-import org.whispersystems.textsecuregcm.entities.DeviceResponse;
-import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
-import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
-import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
-import org.whispersystems.textsecuregcm.entities.LinkDeviceRequest;
+import org.whispersystems.textsecuregcm.entities.*;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.DeviceLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
-import org.whispersystems.textsecuregcm.storage.Account;
-import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.storage.*;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
-import org.whispersystems.textsecuregcm.storage.KeysManager;
-import org.whispersystems.textsecuregcm.storage.MessagesManager;
-import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
+import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
 import org.whispersystems.textsecuregcm.util.TestClock;
 import org.whispersystems.textsecuregcm.util.VerificationCode;
+
+import javax.ws.rs.Path;
+import javax.ws.rs.client.Entity;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
+import java.time.Clock;
+import java.time.Instant;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Stream;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class DeviceControllerTest {
@@ -92,10 +73,11 @@ class DeviceControllerTest {
         MessagesManager messages,
         KeysManager keys,
         RateLimiters rateLimiters,
+        FaultTolerantRedisCluster usedTokenCluster,
         Map<String, Integer> deviceConfiguration,
         Clock clock) {
 
-      super(pendingDevices, linkDeviceSecret, accounts, messages, keys, rateLimiters, deviceConfiguration, clock);
+      super(pendingDevices, linkDeviceSecret, accounts, messages, keys, rateLimiters, usedTokenCluster, deviceConfiguration, clock);
     }
 
     @Override
@@ -110,6 +92,7 @@ class DeviceControllerTest {
   private static KeysManager keysManager = mock(KeysManager.class);
   private static RateLimiters rateLimiters = mock(RateLimiters.class);
   private static RateLimiter rateLimiter = mock(RateLimiter.class);
+  private static RedisAdvancedClusterCommands<String, String> commands = mock(RedisAdvancedClusterCommands.class);
   private static Account account = mock(Account.class);
   private static Account maxedAccount = mock(Account.class);
   private static Device masterDevice = mock(Device.class);
@@ -123,6 +106,7 @@ class DeviceControllerTest {
       messagesManager,
       keysManager,
       rateLimiters,
+      RedisClusterHelper.builder().stringCommands(commands).build(),
       deviceConfiguration,
       testClock);
 
@@ -187,6 +171,7 @@ class DeviceControllerTest {
         keysManager,
         rateLimiters,
         rateLimiter,
+        commands,
         account,
         maxedAccount,
         masterDevice,
@@ -226,6 +211,7 @@ class DeviceControllerTest {
     verify(pendingDevicesManager).remove(AuthHelper.VALID_NUMBER);
     verify(messagesManager).clear(eq(AuthHelper.VALID_UUID), eq(42L));
     verify(clientPresenceManager).disconnectPresence(AuthHelper.VALID_UUID, Device.MASTER_ID);
+    verify(commands, never()).set(anyString(), anyString(), any());
   }
 
   @Test
@@ -248,6 +234,31 @@ class DeviceControllerTest {
             DeviceResponse.class);
 
     assertThat(response.getDeviceId()).isEqualTo(42L);
+
+    verify(commands).set(anyString(), anyString(), any());
+  }
+
+  @Test
+  void validDeviceRegisterTestSignedTokenUsed() {
+    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
+
+    final Device existingDevice = mock(Device.class);
+    when(existingDevice.getId()).thenReturn(Device.MASTER_ID);
+    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(existingDevice));
+
+    final String verificationToken = deviceController.generateVerificationToken(AuthHelper.VALID_UUID);
+
+    when(commands.get(anyString())).thenReturn("");
+
+    final Response response = resources.getJerseyTest()
+            .target("/v1/devices/" + verificationToken)
+            .request()
+            .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
+            .put(Entity.entity(new AccountAttributes(false, 1234, null,
+                                    null, true, null),
+                            MediaType.APPLICATION_JSON_TYPE));
+
+    assertEquals(Response.Status.FORBIDDEN.getStatusCode(), response.getStatus());
   }
 
   @Test
@@ -368,7 +379,9 @@ class DeviceControllerTest {
     verify(keysManager).storeEcSignedPreKeys(AuthHelper.VALID_PNI, Map.of(response.getDeviceId(), pniSignedPreKey.get()));
     verify(keysManager).storePqLastResort(AuthHelper.VALID_UUID, Map.of(response.getDeviceId(), aciPqLastResortPreKey.get()));
     verify(keysManager).storePqLastResort(AuthHelper.VALID_PNI, Map.of(response.getDeviceId(), pniPqLastResortPreKey.get()));
+    verify(commands, never()).set(anyString(), anyString(), any());
   }
+
 
   @ParameterizedTest
   @MethodSource("linkDeviceAtomic")
@@ -416,6 +429,8 @@ class DeviceControllerTest {
         .put(Entity.entity(request, MediaType.APPLICATION_JSON_TYPE), DeviceResponse.class);
 
     assertThat(response.getDeviceId()).isEqualTo(42L);
+
+    verify(commands).set(anyString(), anyString(), any());
   }
 
   private static Stream<Arguments> linkDeviceAtomic() {
@@ -429,6 +444,50 @@ class DeviceControllerTest {
         Arguments.of(false, Optional.of(new ApnRegistrationId(apnsToken, apnsVoipToken)), Optional.empty(), Optional.of(apnsToken), Optional.of(apnsVoipToken), Optional.empty()),
         Arguments.of(false, Optional.empty(), Optional.of(new GcmRegistrationId(gcmToken)), Optional.empty(), Optional.empty(), Optional.of(gcmToken))
     );
+  }
+
+  @Test
+  void linkDeviceAtomicWithVerificationTokenUsed() {
+
+    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
+
+    final Device existingDevice = mock(Device.class);
+    when(existingDevice.getId()).thenReturn(Device.MASTER_ID);
+    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(existingDevice));
+
+    final Optional<ECSignedPreKey> aciSignedPreKey;
+    final Optional<ECSignedPreKey> pniSignedPreKey;
+    final Optional<KEMSignedPreKey> aciPqLastResortPreKey;
+    final Optional<KEMSignedPreKey> pniPqLastResortPreKey;
+
+    final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+
+    aciSignedPreKey = Optional.of(KeysHelper.signedECPreKey(1, aciIdentityKeyPair));
+    pniSignedPreKey = Optional.of(KeysHelper.signedECPreKey(2, pniIdentityKeyPair));
+    aciPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair));
+    pniPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair));
+
+    when(account.getIdentityKey()).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
+    when(account.getPhoneNumberIdentityKey()).thenReturn(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
+
+    when(keysManager.storeEcSignedPreKeys(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(keysManager.storePqLastResort(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+
+    when(commands.get(anyString())).thenReturn("");
+
+    final LinkDeviceRequest request = new LinkDeviceRequest(deviceController.generateVerificationToken(AuthHelper.VALID_UUID),
+            new AccountAttributes(false, 1234, null, null, true, null),
+            new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, Optional.empty(), Optional.of(new GcmRegistrationId("gcm-id"))));
+
+    try (final Response response = resources.getJerseyTest()
+            .target("/v1/devices/link")
+            .request()
+            .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
+            .put(Entity.entity(request, MediaType.APPLICATION_JSON_TYPE))) {
+
+      assertEquals(Response.Status.FORBIDDEN.getStatusCode(), response.getStatus());
+    }
   }
 
   @ParameterizedTest

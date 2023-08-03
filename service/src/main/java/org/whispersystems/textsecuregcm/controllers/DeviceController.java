@@ -8,12 +8,17 @@ import com.codahale.metrics.annotation.Timed;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.Auth;
+import io.lettuce.core.SetArgs;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.nio.charset.StandardCharsets;
-import java.security.*;
+import java.security.InvalidKeyException;
+import java.security.Key;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -56,6 +61,7 @@ import org.whispersystems.textsecuregcm.entities.DeviceResponse;
 import org.whispersystems.textsecuregcm.entities.LinkDeviceRequest;
 import org.whispersystems.textsecuregcm.entities.PreKeySignatureValidator;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -79,6 +85,7 @@ public class DeviceController {
   private final MessagesManager       messages;
   private final KeysManager keys;
   private final RateLimiters          rateLimiters;
+  private final FaultTolerantRedisCluster usedTokenCluster;
   private final Map<String, Integer>  maxDeviceConfiguration;
 
   private final Clock clock;
@@ -94,6 +101,7 @@ public class DeviceController {
       MessagesManager messages,
       KeysManager keys,
       RateLimiters rateLimiters,
+      FaultTolerantRedisCluster usedTokenCluster,
       Map<String, Integer> maxDeviceConfiguration, final Clock clock) {
     this.pendingDevices = pendingDevices;
     this.verificationTokenKey = new SecretKeySpec(linkDeviceSecret, VERIFICATION_TOKEN_ALGORITHM);
@@ -101,6 +109,7 @@ public class DeviceController {
     this.messages = messages;
     this.keys = keys;
     this.rateLimiters = rateLimiters;
+    this.usedTokenCluster = usedTokenCluster;
     this.maxDeviceConfiguration = maxDeviceConfiguration;
     this.clock = clock;
 
@@ -298,6 +307,13 @@ public class DeviceController {
 
   @VisibleForTesting
   Optional<UUID> checkVerificationToken(final String verificationToken) {
+    final boolean tokenUsed = usedTokenCluster.withCluster(connection ->
+        connection.sync().get(getUsedTokenKey(verificationToken)) != null);
+
+    if (tokenUsed) {
+      return Optional.empty();
+    }
+
     final String[] claimsAndSignature = verificationToken.split(":", 2);
 
     if (claimsAndSignature.length != 2) {
@@ -371,8 +387,9 @@ public class DeviceController {
 
     rateLimiters.getVerifyDeviceLimiter().validate(phoneNumber);
 
-    final Account account = checkVerificationToken(verificationCode)
-        .flatMap(accounts::getByAccountIdentifier)
+    final Optional<UUID> maybeAciFromToken = checkVerificationToken(verificationCode);
+
+    final Account account = maybeAciFromToken.flatMap(accounts::getByAccountIdentifier)
         .or(() -> {
           final boolean verificationCodeValid = pendingDevices.getCodeForNumber(phoneNumber)
               .map(storedVerificationCode -> storedVerificationCode.isValid(verificationCode))
@@ -468,6 +485,15 @@ public class DeviceController {
 
     pendingDevices.remove(phoneNumber);
 
+    if (maybeAciFromToken.isPresent()) {
+      usedTokenCluster.useCluster(connection ->
+          connection.sync().set(getUsedTokenKey(verificationCode), "", new SetArgs().ex(TOKEN_EXPIRATION_DURATION)));
+    }
+
     return new Pair<>(updatedAccount, device);
+  }
+
+  private static String getUsedTokenKey(final String token) {
+    return "usedToken::" + token;
   }
 }
