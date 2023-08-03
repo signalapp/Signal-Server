@@ -45,7 +45,7 @@ public abstract class SerializedExpireableJsonDynamoStore<T> {
   private static final String ATTR_SERIALIZED_VALUE = "V";
   private static final String ATTR_TTL = "E";
 
-  private static final Logger log = LoggerFactory.getLogger(VerificationCodeStore.class);
+  private final Logger log = LoggerFactory.getLogger(getClass());
 
   public SerializedExpireableJsonDynamoStore(final DynamoDbAsyncClient dynamoDbClient, final String tableName,
       final Clock clock) {

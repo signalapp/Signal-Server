@@ -316,15 +316,6 @@ public final class DynamoDbExtensionSchema {
             .build()),
         List.of(), List.of()),
 
-    VERIFICATION_CODES("verification_codes_test",
-        VerificationCodeStore.KEY_E164,
-        null,
-        List.of(AttributeDefinition.builder()
-            .attributeName(VerificationCodeStore.KEY_E164)
-            .attributeType(ScalarAttributeType.S)
-            .build()),
-        List.of(), List.of()),
-    
     VERIFICATION_SESSIONS("verification_sessions_test",
         VerificationSessions.KEY_KEY,
         null,

@@ -57,7 +57,6 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
-import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.AccountIdentifierResponse;
@@ -83,7 +82,6 @@ import org.whispersystems.textsecuregcm.spam.ScoreThresholdProvider;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
-import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.storage.UsernameHashNotAvailableException;
 import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundException;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
@@ -124,7 +122,6 @@ class AccountControllerTest {
   private static final String NICE_HOST                = "127.0.0.1";
   private static final String RATE_LIMITED_IP_HOST     = "10.0.0.1";
 
-  private static StoredVerificationCodeManager pendingAccountsManager = mock(StoredVerificationCodeManager.class);
   private static AccountsManager accountsManager = mock(AccountsManager.class);
   private static RateLimiters rateLimiters = mock(RateLimiters.class);
   private static RateLimiter rateLimiter = mock(RateLimiter.class);
@@ -204,24 +201,6 @@ class AccountControllerTest {
     when(senderTransfer.getUuid()).thenReturn(SENDER_TRANSFER_UUID);
     when(senderTransfer.getNumber()).thenReturn(SENDER_TRANSFER);
 
-    when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(
-        Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), "1234-push", null)));
-    when(pendingAccountsManager.getCodeForNumber(SENDER_OLD)).thenReturn(Optional.empty());
-    when(pendingAccountsManager.getCodeForNumber(SENDER_PIN)).thenReturn(
-        Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), null, null)));
-    when(pendingAccountsManager.getCodeForNumber(SENDER_REG_LOCK)).thenReturn(
-        Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), null, null)));
-    when(pendingAccountsManager.getCodeForNumber(SENDER_OVER_PIN)).thenReturn(
-        Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), null, null)));
-    when(pendingAccountsManager.getCodeForNumber(SENDER_OVER_PREFIX)).thenReturn(
-        Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), "1234-push", null)));
-    when(pendingAccountsManager.getCodeForNumber(SENDER_PREAUTH)).thenReturn(
-        Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), "validchallenge", null)));
-    when(pendingAccountsManager.getCodeForNumber(SENDER_HAS_STORAGE)).thenReturn(
-        Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), null, null)));
-    when(pendingAccountsManager.getCodeForNumber(SENDER_TRANSFER)).thenReturn(
-        Optional.of(new StoredVerificationCode(null, System.currentTimeMillis(), null, null)));
-
     when(accountsManager.getByE164(eq(SENDER_PIN))).thenReturn(Optional.of(senderPinAccount));
     when(accountsManager.getByE164(eq(SENDER_REG_LOCK))).thenReturn(Optional.of(senderRegLockAccount));
     when(accountsManager.getByE164(eq(SENDER_OVER_PIN))).thenReturn(Optional.of(senderPinAccount));
@@ -244,7 +223,6 @@ class AccountControllerTest {
   @AfterEach
   void teardown() {
     reset(
-        pendingAccountsManager,
         accountsManager,
         rateLimiters,
         rateLimiter,
