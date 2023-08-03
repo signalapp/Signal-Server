@@ -56,7 +56,6 @@ public class DynamoDbTables {
   private final Table kemKeys;
   private final Table kemLastResortKeys;
   private final TableWithExpiration messages;
-  private final Table pendingAccounts;
   private final Table pendingDevices;
   private final Table phoneNumberIdentifiers;
   private final Table profiles;
@@ -79,7 +78,6 @@ public class DynamoDbTables {
       @JsonProperty("pqKeys") final Table kemKeys,
       @JsonProperty("pqLastResortKeys") final Table kemLastResortKeys,
       @JsonProperty("messages") final TableWithExpiration messages,
-      @JsonProperty("pendingAccounts") final Table pendingAccounts,
       @JsonProperty("pendingDevices") final Table pendingDevices,
       @JsonProperty("phoneNumberIdentifiers") final Table phoneNumberIdentifiers,
       @JsonProperty("profiles") final Table profiles,
@@ -101,7 +99,6 @@ public class DynamoDbTables {
     this.kemKeys = kemKeys;
     this.kemLastResortKeys = kemLastResortKeys;
     this.messages = messages;
-    this.pendingAccounts = pendingAccounts;
     this.pendingDevices = pendingDevices;
     this.phoneNumberIdentifiers = phoneNumberIdentifiers;
     this.profiles = profiles;
@@ -172,12 +169,6 @@ public class DynamoDbTables {
   @Valid
   public TableWithExpiration getMessages() {
     return messages;
-  }
-
-  @NotNull
-  @Valid
-  public Table getPendingAccounts() {
-    return pendingAccounts;
   }
 
   @NotNull

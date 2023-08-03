@@ -118,7 +118,6 @@ class AccountsManagerConcurrentModificationIntegrationTest {
           mock(KeysManager.class),
           mock(MessagesManager.class),
           mock(ProfilesManager.class),
-          mock(StoredVerificationCodeManager.class),
           mock(SecureStorageClient.class),
           mock(SecureBackupClient.class),
           mock(SecureValueRecovery2Client.class),

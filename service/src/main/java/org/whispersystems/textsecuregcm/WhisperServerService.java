@@ -350,8 +350,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ReportMessageDynamoDb reportMessageDynamoDb = new ReportMessageDynamoDb(dynamoDbClient,
         config.getDynamoDbTables().getReportMessage().getTableName(),
         config.getReportMessageConfiguration().getReportTtl());
-    VerificationCodeStore pendingAccounts = new VerificationCodeStore(dynamoDbClient,
-        config.getDynamoDbTables().getPendingAccounts().getTableName());
     VerificationCodeStore pendingDevices = new VerificationCodeStore(dynamoDbClient,
         config.getDynamoDbTables().getPendingDevices().getTableName());
     RegistrationRecoveryPasswords registrationRecoveryPasswords = new RegistrationRecoveryPasswords(
@@ -507,7 +505,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         storageServiceExecutor, storageServiceRetryExecutor, config.getSecureStorageServiceConfiguration());
     ClientPresenceManager clientPresenceManager = new ClientPresenceManager(clientPresenceCluster, recurringJobExecutor,
         keyspaceNotificationDispatchExecutor);
-    StoredVerificationCodeManager pendingAccountsManager = new StoredVerificationCodeManager(pendingAccounts);
     StoredVerificationCodeManager pendingDevicesManager = new StoredVerificationCodeManager(pendingDevices);
     ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster);
     MessagesCache messagesCache = new MessagesCache(messagesCluster, messagesCluster,
@@ -525,7 +522,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getDynamoDbTables().getDeletedAccountsLock().getTableName());
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
         accountLockManager, deletedAccounts, keys, messagesManager, profilesManager,
-        pendingAccountsManager, secureStorageClient, secureBackupClient, secureValueRecovery2Client,
+        secureStorageClient, secureBackupClient, secureValueRecovery2Client,
         clientPresenceManager,
         experimentEnrollmentManager, registrationRecoveryPasswordsManager, clock);
     RemoteConfigsManager remoteConfigsManager = new RemoteConfigsManager(remoteConfigs);

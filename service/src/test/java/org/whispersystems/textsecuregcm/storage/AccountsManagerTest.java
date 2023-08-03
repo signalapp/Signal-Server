@@ -201,7 +201,6 @@ class AccountsManagerTest {
         keysManager,
         messagesManager,
         profilesManager,
-        mock(StoredVerificationCodeManager.class),
         storageClient,
         backupClient,
         svr2Client,

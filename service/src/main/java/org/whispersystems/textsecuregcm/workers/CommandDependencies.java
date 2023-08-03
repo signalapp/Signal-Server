@@ -44,8 +44,6 @@ import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswords;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageDynamoDb;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
-import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
-import org.whispersystems.textsecuregcm.storage.VerificationCodeStore;
 import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
@@ -61,7 +59,6 @@ record CommandDependencies(
     ReportMessageManager reportMessageManager,
     MessagesCache messagesCache,
     MessagesManager messagesManager,
-    StoredVerificationCodeManager pendingAccountsManager,
     ClientPresenceManager clientPresenceManager,
     KeysManager keysManager,
     FaultTolerantRedisCluster cacheCluster,
@@ -122,8 +119,6 @@ record CommandDependencies(
 
     DeletedAccounts deletedAccounts = new DeletedAccounts(dynamoDbClient,
         configuration.getDynamoDbTables().getDeletedAccounts().getTableName());
-    VerificationCodeStore pendingAccounts = new VerificationCodeStore(dynamoDbClient,
-        configuration.getDynamoDbTables().getPendingAccounts().getTableName());
     RegistrationRecoveryPasswords registrationRecoveryPasswords = new RegistrationRecoveryPasswords(
         configuration.getDynamoDbTables().getRegistrationRecovery().getTableName(),
         configuration.getDynamoDbTables().getRegistrationRecovery().getExpiration(),
@@ -188,10 +183,9 @@ record CommandDependencies(
         reportMessageManager, messageDeletionExecutor);
     AccountLockManager accountLockManager = new AccountLockManager(dynamoDbClient,
         configuration.getDynamoDbTables().getDeletedAccountsLock().getTableName());
-    StoredVerificationCodeManager pendingAccountsManager = new StoredVerificationCodeManager(pendingAccounts);
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
         accountLockManager, deletedAccounts, keys, messagesManager, profilesManager,
-        pendingAccountsManager, secureStorageClient, secureBackupClient, secureValueRecovery2Client,
+            secureStorageClient, secureBackupClient, secureValueRecovery2Client,
         clientPresenceManager,
         experimentEnrollmentManager, registrationRecoveryPasswordsManager, clock);
 
@@ -204,7 +198,6 @@ record CommandDependencies(
         reportMessageManager,
         messagesCache,
         messagesManager,
-        pendingAccountsManager,
         clientPresenceManager,
         keys,
         cacheCluster,

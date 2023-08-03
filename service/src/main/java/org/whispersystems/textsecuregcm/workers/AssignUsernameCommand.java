@@ -51,10 +51,8 @@ import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswords;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageDynamoDb;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
-import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.storage.UsernameHashNotAvailableException;
 import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundException;
-import org.whispersystems.textsecuregcm.storage.VerificationCodeStore;
 import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
@@ -145,8 +143,6 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
 
     DeletedAccounts deletedAccounts = new DeletedAccounts(dynamoDbClient,
         configuration.getDynamoDbTables().getDeletedAccounts().getTableName());
-    VerificationCodeStore pendingAccounts = new VerificationCodeStore(dynamoDbClient,
-        configuration.getDynamoDbTables().getPendingAccounts().getTableName());
     RegistrationRecoveryPasswords registrationRecoveryPasswords = new RegistrationRecoveryPasswords(
         configuration.getDynamoDbTables().getRegistrationRecovery().getTableName(),
         configuration.getDynamoDbTables().getRegistrationRecovery().getExpiration(),
@@ -209,10 +205,9 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
         reportMessageManager, messageDeletionExecutor);
     AccountLockManager accountLockManager = new AccountLockManager(dynamoDbClient,
         configuration.getDynamoDbTables().getDeletedAccountsLock().getTableName());
-    StoredVerificationCodeManager pendingAccountsManager = new StoredVerificationCodeManager(pendingAccounts);
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
         accountLockManager, deletedAccounts, keys, messagesManager, profilesManager,
-        pendingAccountsManager, secureStorageClient, secureBackupClient, secureValueRecovery2Client, clientPresenceManager,
+            secureStorageClient, secureBackupClient, secureValueRecovery2Client, clientPresenceManager,
         experimentEnrollmentManager, registrationRecoveryPasswordsManager, Clock.systemUTC());
 
     final String usernameHash = namespace.getString("usernameHash");

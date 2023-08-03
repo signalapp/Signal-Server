@@ -104,7 +104,6 @@ public class AccountsManager {
   private final KeysManager keysManager;
   private final MessagesManager messagesManager;
   private final ProfilesManager profilesManager;
-  private final StoredVerificationCodeManager pendingAccounts;
   private final SecureStorageClient secureStorageClient;
   private final SecureBackupClient secureBackupClient;
   private final SecureValueRecovery2Client secureValueRecovery2Client;
@@ -151,7 +150,6 @@ public class AccountsManager {
       final KeysManager keysManager,
       final MessagesManager messagesManager,
       final ProfilesManager profilesManager,
-      final StoredVerificationCodeManager pendingAccounts,
       final SecureStorageClient secureStorageClient,
       final SecureBackupClient secureBackupClient,
       final SecureValueRecovery2Client secureValueRecovery2Client,
@@ -167,7 +165,6 @@ public class AccountsManager {
     this.keysManager = keysManager;
     this.messagesManager = messagesManager;
     this.profilesManager = profilesManager;
-    this.pendingAccounts = pendingAccounts;
     this.secureStorageClient = secureStorageClient;
     this.secureBackupClient = secureBackupClient;
     this.secureValueRecovery2Client = secureValueRecovery2Client;
@@ -220,8 +217,6 @@ public class AccountsManager {
         final UUID actualUuid = account.getUuid();
 
         redisSet(account);
-
-        pendingAccounts.remove(number);
 
         // In terms of previously-existing accounts, there are three possible cases:
         //

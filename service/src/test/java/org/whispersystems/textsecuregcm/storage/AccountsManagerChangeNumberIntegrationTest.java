@@ -112,7 +112,6 @@ class AccountsManagerChangeNumberIntegrationTest {
           keysManager,
           mock(MessagesManager.class),
           mock(ProfilesManager.class),
-          mock(StoredVerificationCodeManager.class),
           secureStorageClient,
           secureBackupClient,
           svr2Client,

@@ -112,8 +112,6 @@ dynamoDbTables:
   messages:
     tableName: Example_Messages
     expiration: P30D # Duration of time until rows expire
-  pendingAccounts:
-    tableName: Example_PendingAccounts
   pendingDevices:
     tableName: Example_PendingDevices
   phoneNumberIdentifiers:
