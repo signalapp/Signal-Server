@@ -6,7 +6,9 @@
 package org.signal.event
 
 import com.google.cloud.logging.Logging
+import com.google.cloud.logging.LoggingOptions
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertDoesNotThrow
 import org.mockito.Mockito.mock
 
 class GoogleCloudAdminEventLoggerTest {
@@ -18,5 +20,16 @@ class GoogleCloudAdminEventLoggerTest {
 
         val event = RemoteConfigDeleteEvent("token", "test")
         logger.logEvent(event)
+    }
+
+    @Test
+    fun testGetService() {
+        assertDoesNotThrow {
+            // This is a canary for version conflicts between the cloud logging library and protobuf-java
+            LoggingOptions.newBuilder()
+                    .setProjectId("test")
+                    .build()
+                    .getService()
+        }
     }
 }

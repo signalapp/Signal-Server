@@ -45,7 +45,7 @@
     <dropwizard.version>2.1.7</dropwizard.version>
     <dropwizard-metrics-datadog.version>1.1.13</dropwizard-metrics-datadog.version>
     <google-cloud-libraries.version>26.21.0</google-cloud-libraries.version>
-    <grpc.version>1.56.1</grpc.version> <!-- this should be kept in sync with the value from Google’s libraries-bom -->
+    <grpc.version>1.56.1</grpc.version> <!-- should be kept in sync with the value from Google libraries-bom -->
     <gson.version>2.9.0</gson.version>
     <jackson.version>2.13.5</jackson.version>
     <jaxb.version>2.3.1</jaxb.version>
@@ -59,7 +59,7 @@
     <mockito.version>4.11.0</mockito.version>
     <netty.version>4.1.96.Final</netty.version>
     <opentest4j.version>1.2.0</opentest4j.version>
-    <protobuf.version>3.21.7</protobuf.version>
+    <protobuf.version>3.23.2</protobuf.version> <!-- should be kept in sync with the value from Google libraries-bom -->
     <pushy.version>0.15.2</pushy.version>
     <reactive.grpc.version>1.2.4</reactive.grpc.version>
     <resilience4j.version>1.7.0</resilience4j.version>
