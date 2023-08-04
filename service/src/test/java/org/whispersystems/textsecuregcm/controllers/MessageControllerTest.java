@@ -100,6 +100,7 @@ import org.whispersystems.textsecuregcm.entities.StaleDevices;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
+import org.whispersystems.textsecuregcm.limits.CardinalityEstimator;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
@@ -161,6 +162,7 @@ class MessageControllerTest {
   private static final DeletedAccounts deletedAccounts = mock(DeletedAccounts.class);
   private static final MessagesManager messagesManager = mock(MessagesManager.class);
   private static final RateLimiters rateLimiters = mock(RateLimiters.class);
+  private static final CardinalityEstimator cardinalityEstimator = mock(CardinalityEstimator.class);
   private static final RateLimiter rateLimiter = mock(RateLimiter.class);
   private static final PushNotificationManager pushNotificationManager = mock(PushNotificationManager.class);
   private static final ReportMessageManager reportMessageManager = mock(ReportMessageManager.class);
@@ -177,7 +179,7 @@ class MessageControllerTest {
       .addProvider(MultiRecipientMessageProvider.class)
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(
-          new MessageController(rateLimiters, messageSender, receiptSender, accountsManager, deletedAccounts,
+          new MessageController(rateLimiters, cardinalityEstimator, messageSender, receiptSender, accountsManager, deletedAccounts,
               messagesManager, pushNotificationManager, reportMessageManager, multiRecipientMessageExecutor,
               messageDeliveryScheduler, ReportSpamTokenProvider.noop(), mock(ClientReleaseManager.class), dynamicConfigurationManager))
       .build();
@@ -247,6 +249,7 @@ class MessageControllerTest {
         messagesManager,
         rateLimiters,
         rateLimiter,
+        cardinalityEstimator,
         pushNotificationManager,
         reportMessageManager,
         multiRecipientMessageExecutor

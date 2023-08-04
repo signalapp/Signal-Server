@@ -123,6 +123,7 @@ import org.whispersystems.textsecuregcm.filters.RequestStatisticsFilter;
 import org.whispersystems.textsecuregcm.filters.TimestampResponseFilter;
 import org.whispersystems.textsecuregcm.grpc.KeysGrpcService;
 import org.whispersystems.textsecuregcm.grpc.KeysAnonymousGrpcService;
+import org.whispersystems.textsecuregcm.limits.CardinalityEstimator;
 import org.whispersystems.textsecuregcm.limits.PushChallengeManager;
 import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -571,6 +572,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final TurnTokenGenerator turnTokenGenerator = new TurnTokenGenerator(dynamicConfigurationManager,
         config.getTurnSecretConfiguration().secret().value());
 
+    final CardinalityEstimator messageByteLimitCardinalityEstimator = new CardinalityEstimator(
+        rateLimitersCluster,
+        "message_byte_limit",
+        config.getMessageByteLimitCardinalityEstimator().period());
+
     RecaptchaClient recaptchaClient = new RecaptchaClient(
         config.getRecaptchaConfiguration().projectPath(),
         useSecondaryCredentialsJson
@@ -755,9 +761,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new DirectoryV2Controller(directoryV2CredentialsGenerator),
         new DonationController(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager, config.getBadges(),
             ReceiptCredentialPresentation::new),
-        new MessageController(rateLimiters, messageSender, receiptSender, accountsManager, deletedAccounts,
-            messagesManager, pushNotificationManager, reportMessageManager, multiRecipientMessageExecutor,
-            messageDeliveryScheduler, reportSpamTokenProvider, clientReleaseManager, dynamicConfigurationManager),
+        new MessageController(rateLimiters, messageByteLimitCardinalityEstimator, messageSender, receiptSender,
+            accountsManager, deletedAccounts, messagesManager, pushNotificationManager, reportMessageManager,
+            multiRecipientMessageExecutor, messageDeliveryScheduler, reportSpamTokenProvider, clientReleaseManager,
+            dynamicConfigurationManager),
         new PaymentsController(currencyManager, paymentsCredentialsGenerator),
         new ProfileController(clock, rateLimiters, accountsManager, profilesManager, dynamicConfigurationManager,
             profileBadgeConverter, config.getBadges(), cdnS3Client, profileCdnPolicyGenerator, profileCdnPolicySigner,

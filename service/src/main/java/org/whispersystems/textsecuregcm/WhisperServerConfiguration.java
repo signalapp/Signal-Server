@@ -35,6 +35,7 @@ import org.whispersystems.textsecuregcm.configuration.GcpAttachmentsConfiguratio
 import org.whispersystems.textsecuregcm.configuration.GenericZkConfig;
 import org.whispersystems.textsecuregcm.configuration.HCaptchaConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MaxDeviceConfiguration;
+import org.whispersystems.textsecuregcm.configuration.MessageByteLimitCardinalityEstimatorConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MessageCacheConfiguration;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.PaymentsServiceConfiguration;
@@ -288,6 +289,11 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private ClientReleaseConfiguration clientRelease = new ClientReleaseConfiguration(Duration.ofHours(4));
 
+  @Valid
+  @NotNull
+  @JsonProperty
+  private MessageByteLimitCardinalityEstimatorConfiguration messageByteLimitCardinalityEstimator = new MessageByteLimitCardinalityEstimatorConfiguration(Duration.ofDays(1));
+
   public AdminEventLoggingConfiguration getAdminEventLoggingConfiguration() {
     return adminEventLoggingConfiguration;
   }
@@ -477,5 +483,9 @@ public class WhisperServerConfiguration extends Configuration {
 
   public ClientReleaseConfiguration getClientReleaseConfiguration() {
     return clientRelease;
+  }
+
+  public MessageByteLimitCardinalityEstimatorConfiguration getMessageByteLimitCardinalityEstimator() {
+    return messageByteLimitCardinalityEstimator;
   }
 }

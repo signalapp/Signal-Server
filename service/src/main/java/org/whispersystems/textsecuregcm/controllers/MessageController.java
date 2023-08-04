@@ -85,6 +85,7 @@ import org.whispersystems.textsecuregcm.entities.SpamReport;
 import org.whispersystems.textsecuregcm.entities.StaleDevices;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
+import org.whispersystems.textsecuregcm.limits.CardinalityEstimator;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
@@ -118,6 +119,7 @@ public class MessageController {
   private static final Logger logger = LoggerFactory.getLogger(MessageController.class);
 
   private final RateLimiters rateLimiters;
+  private final CardinalityEstimator messageByteLimitEstimator;
   private final MessageSender messageSender;
   private final ReceiptSender receiptSender;
   private final AccountsManager accountsManager;
@@ -153,6 +155,7 @@ public class MessageController {
 
   public MessageController(
       RateLimiters rateLimiters,
+      CardinalityEstimator messageByteLimitEstimator,
       MessageSender messageSender,
       ReceiptSender receiptSender,
       AccountsManager accountsManager,
@@ -166,6 +169,7 @@ public class MessageController {
       final ClientReleaseManager clientReleaseManager,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
     this.rateLimiters = rateLimiters;
+    this.messageByteLimitEstimator = messageByteLimitEstimator;
     this.messageSender = messageSender;
     this.receiptSender = receiptSender;
     this.accountsManager = accountsManager;
@@ -237,6 +241,7 @@ public class MessageController {
       rateLimiters.getInboundMessageBytes().validate(destinationIdentifier.uuid(), totalContentLength);
     } catch (final RateLimitExceededException e) {
       if (dynamicConfigurationManager.getConfiguration().getInboundMessageByteLimitConfiguration().enforceInboundLimit()) {
+        messageByteLimitEstimator.add(destinationIdentifier.uuid().toString());
         throw e;
       }
     }
