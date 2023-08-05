@@ -152,7 +152,7 @@ class KeysAnonymousGrpcServiceTest {
     when(accountsManager.getByServiceIdentifierAsync(new AciServiceIdentifier(identifier)))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(targetAccount)));
 
-    @SuppressWarnings("ResultOfMethodCallIgnored") final StatusRuntimeException statusRuntimeException =
+    final StatusRuntimeException statusRuntimeException =
         assertThrows(StatusRuntimeException.class,
             () -> keysAnonymousStub.getPreKeys(GetPreKeysAnonymousRequest.newBuilder()
                 .setRequest(GetPreKeysRequest.newBuilder()
@@ -172,7 +172,7 @@ class KeysAnonymousGrpcServiceTest {
     when(accountsManager.getByServiceIdentifierAsync(any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
 
-    @SuppressWarnings("ResultOfMethodCallIgnored") final StatusRuntimeException exception =
+    final StatusRuntimeException exception =
         assertThrows(StatusRuntimeException.class,
             () -> keysAnonymousStub.getPreKeys(GetPreKeysAnonymousRequest.newBuilder()
                 .setUnidentifiedAccessKey(UUIDUtil.toByteString(UUID.randomUUID()))
@@ -205,7 +205,7 @@ class KeysAnonymousGrpcServiceTest {
     when(accountsManager.getByServiceIdentifierAsync(new AciServiceIdentifier(accountIdentifier)))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(targetAccount)));
 
-    @SuppressWarnings("ResultOfMethodCallIgnored") final StatusRuntimeException exception =
+    final StatusRuntimeException exception =
         assertThrows(StatusRuntimeException.class,
             () -> keysAnonymousStub.getPreKeys(GetPreKeysAnonymousRequest.newBuilder()
                 .setUnidentifiedAccessKey(ByteString.copyFrom(unidentifiedAccessKey))

@@ -188,34 +188,37 @@ class KeysGrpcServiceTest {
   @ParameterizedTest
   @MethodSource
   void setOneTimeEcPreKeysWithError(final SetOneTimeEcPreKeysRequest request) {
-    @SuppressWarnings("ResultOfMethodCallIgnored") final StatusRuntimeException exception =
+    final StatusRuntimeException exception =
         assertThrows(StatusRuntimeException.class, () -> keysStub.setOneTimeEcPreKeys(request));
 
     assertEquals(Status.INVALID_ARGUMENT.getCode(), exception.getStatus().getCode());
   }
 
   private static Stream<Arguments> setOneTimeEcPreKeysWithError() {
+    final SetOneTimeEcPreKeysRequest prototypeRequest = SetOneTimeEcPreKeysRequest.newBuilder()
+        .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
+        .addPreKeys(EcPreKey.newBuilder()
+            .setKeyId(1)
+            .setPublicKey(ByteString.copyFrom(Curve.generateKeyPair().getPublicKey().serialize()))
+            .build())
+        .build();
+
     return Stream.of(
         // Missing identity type
-        Arguments.of(SetOneTimeEcPreKeysRequest.newBuilder()
-            .addPreKeys(EcPreKey.newBuilder()
-                .setKeyId(1)
-                .setPublicKey(ByteString.copyFrom(Curve.generateKeyPair().getPublicKey().serialize()))
-                .build())
+        Arguments.of(SetOneTimeEcPreKeysRequest.newBuilder(prototypeRequest)
+            .clearIdentityType()
             .build()),
 
         // Invalid public key
-        Arguments.of(SetOneTimeEcPreKeysRequest.newBuilder()
-            .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
-            .addPreKeys(EcPreKey.newBuilder()
-                .setKeyId(1)
-                .setPublicKey(ByteString.empty())
+        Arguments.of(SetOneTimeEcPreKeysRequest.newBuilder(prototypeRequest)
+            .setPreKeys(0, EcPreKey.newBuilder(prototypeRequest.getPreKeys(0))
+                .clearPublicKey()
                 .build())
             .build()),
 
         // No keys
-        Arguments.of(SetOneTimeEcPreKeysRequest.newBuilder()
-            .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
+        Arguments.of(SetOneTimeEcPreKeysRequest.newBuilder(prototypeRequest)
+            .clearPreKeys()
             .build())
     );
   }
@@ -261,7 +264,7 @@ class KeysGrpcServiceTest {
   @ParameterizedTest
   @MethodSource
   void setOneTimeKemSignedPreKeysWithError(final SetOneTimeKemSignedPreKeysRequest request) {
-    @SuppressWarnings("ResultOfMethodCallIgnored") final StatusRuntimeException exception =
+    final StatusRuntimeException exception =
         assertThrows(StatusRuntimeException.class, () -> keysStub.setOneTimeKemSignedPreKeys(request));
 
     assertEquals(Status.INVALID_ARGUMENT.getCode(), exception.getStatus().getCode());
@@ -270,39 +273,38 @@ class KeysGrpcServiceTest {
   private static Stream<Arguments> setOneTimeKemSignedPreKeysWithError() {
     final KEMSignedPreKey signedPreKey = KeysHelper.signedKEMPreKey(1, ACI_IDENTITY_KEY_PAIR);
 
+    final SetOneTimeKemSignedPreKeysRequest prototypeRequest = SetOneTimeKemSignedPreKeysRequest.newBuilder()
+        .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
+        .addPreKeys(KemSignedPreKey.newBuilder()
+            .setKeyId(1)
+            .setPublicKey(ByteString.copyFrom(signedPreKey.serializedPublicKey()))
+            .setSignature(ByteString.copyFrom(signedPreKey.signature()))
+            .build())
+        .build();
+
     return Stream.of(
         // Missing identity type
-        Arguments.of(SetOneTimeKemSignedPreKeysRequest.newBuilder()
-            .addPreKeys(KemSignedPreKey.newBuilder()
-                .setKeyId(1)
-                .setPublicKey(ByteString.copyFrom(signedPreKey.serializedPublicKey()))
-                .setSignature(ByteString.copyFrom(signedPreKey.signature()))
-                .build())
+        Arguments.of(SetOneTimeKemSignedPreKeysRequest.newBuilder(prototypeRequest)
+            .clearIdentityType()
             .build()),
 
         // Invalid public key
-        Arguments.of(SetOneTimeKemSignedPreKeysRequest.newBuilder()
-            .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
-            .addPreKeys(KemSignedPreKey.newBuilder()
-                .setKeyId(1)
-                .setPublicKey(ByteString.empty())
-                .setSignature(ByteString.copyFrom(signedPreKey.signature()))
+        Arguments.of(SetOneTimeKemSignedPreKeysRequest.newBuilder(prototypeRequest)
+            .setPreKeys(0, KemSignedPreKey.newBuilder(prototypeRequest.getPreKeys(0))
+                .clearPublicKey()
                 .build())
             .build()),
 
         // Invalid signature
-        Arguments.of(SetOneTimeKemSignedPreKeysRequest.newBuilder()
-            .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
-            .addPreKeys(KemSignedPreKey.newBuilder()
-                .setKeyId(1)
-                .setPublicKey(ByteString.copyFrom(signedPreKey.serializedPublicKey()))
-                .setSignature(ByteString.empty())
+        Arguments.of(SetOneTimeKemSignedPreKeysRequest.newBuilder(prototypeRequest)
+            .setPreKeys(0, KemSignedPreKey.newBuilder(prototypeRequest.getPreKeys(0))
+                .clearSignature()
                 .build())
             .build()),
 
         // No keys
-        Arguments.of(SetOneTimeKemSignedPreKeysRequest.newBuilder()
-            .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
+        Arguments.of(SetOneTimeKemSignedPreKeysRequest.newBuilder(prototypeRequest)
+            .clearPreKeys()
             .build())
     );
   }
@@ -355,7 +357,7 @@ class KeysGrpcServiceTest {
   @ParameterizedTest
   @MethodSource
   void setSignedPreKeyWithError(final SetEcSignedPreKeyRequest request) {
-    @SuppressWarnings("ResultOfMethodCallIgnored") final StatusRuntimeException exception =
+    final StatusRuntimeException exception =
         assertThrows(StatusRuntimeException.class, () -> keysStub.setEcSignedPreKey(request));
 
     assertEquals(Status.INVALID_ARGUMENT.getCode(), exception.getStatus().getCode());
@@ -364,39 +366,38 @@ class KeysGrpcServiceTest {
   private static Stream<Arguments> setSignedPreKeyWithError() {
     final ECSignedPreKey signedPreKey = KeysHelper.signedECPreKey(17, ACI_IDENTITY_KEY_PAIR);
 
+    final SetEcSignedPreKeyRequest prototypeRequest = SetEcSignedPreKeyRequest.newBuilder()
+        .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
+        .setSignedPreKey(EcSignedPreKey.newBuilder()
+            .setKeyId(signedPreKey.keyId())
+            .setPublicKey(ByteString.copyFrom(signedPreKey.serializedPublicKey()))
+            .setSignature(ByteString.copyFrom(signedPreKey.signature()))
+            .build())
+        .build();
+
     return Stream.of(
         // Missing identity type
-        Arguments.of(SetEcSignedPreKeyRequest.newBuilder()
-            .setSignedPreKey(EcSignedPreKey.newBuilder()
-                .setKeyId(signedPreKey.keyId())
-                .setPublicKey(ByteString.copyFrom(signedPreKey.serializedPublicKey()))
-                .setSignature(ByteString.copyFrom(signedPreKey.signature()))
-                .build())
+        Arguments.of(SetEcSignedPreKeyRequest.newBuilder(prototypeRequest)
+            .clearIdentityType()
             .build()),
 
         // Invalid public key
-        Arguments.of(SetEcSignedPreKeyRequest.newBuilder()
-                .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
-                .setSignedPreKey(EcSignedPreKey.newBuilder()
-                    .setKeyId(signedPreKey.keyId())
-                    .setPublicKey(ByteString.empty())
-                    .setSignature(ByteString.copyFrom(signedPreKey.signature()))
+        Arguments.of(SetEcSignedPreKeyRequest.newBuilder(prototypeRequest)
+                .setSignedPreKey(EcSignedPreKey.newBuilder(prototypeRequest.getSignedPreKey())
+                    .clearPublicKey()
                     .build())
                 .build()),
 
         // Invalid signature
-        Arguments.of(SetEcSignedPreKeyRequest.newBuilder()
-                .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
-                .setSignedPreKey(EcSignedPreKey.newBuilder()
-                    .setKeyId(signedPreKey.keyId())
-                    .setPublicKey(ByteString.copyFrom(signedPreKey.serializedPublicKey()))
-                    .setSignature(ByteString.empty())
-                    .build())
-                .build()),
+        Arguments.of(SetEcSignedPreKeyRequest.newBuilder(prototypeRequest)
+            .setSignedPreKey(EcSignedPreKey.newBuilder(prototypeRequest.getSignedPreKey())
+                .clearSignature()
+                .build())
+            .build()),
 
         // Missing key
-        Arguments.of(SetEcSignedPreKeyRequest.newBuilder()
-            .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
+        Arguments.of(SetEcSignedPreKeyRequest.newBuilder(prototypeRequest)
+            .clearSignedPreKey()
             .build())
     );
   }
@@ -435,7 +436,7 @@ class KeysGrpcServiceTest {
   @ParameterizedTest
   @MethodSource
   void setLastResortPreKeyWithError(final SetKemLastResortPreKeyRequest request) {
-    @SuppressWarnings("ResultOfMethodCallIgnored") final StatusRuntimeException exception =
+    final StatusRuntimeException exception =
         assertThrows(StatusRuntimeException.class, () -> keysStub.setKemLastResortPreKey(request));
 
     assertEquals(Status.INVALID_ARGUMENT.getCode(), exception.getStatus().getCode());
@@ -444,39 +445,38 @@ class KeysGrpcServiceTest {
   private static Stream<Arguments> setLastResortPreKeyWithError() {
     final KEMSignedPreKey lastResortPreKey = KeysHelper.signedKEMPreKey(17, ACI_IDENTITY_KEY_PAIR);
 
+    final SetKemLastResortPreKeyRequest prototypeRequest = SetKemLastResortPreKeyRequest.newBuilder()
+        .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
+        .setSignedPreKey(KemSignedPreKey.newBuilder()
+            .setKeyId(lastResortPreKey.keyId())
+            .setPublicKey(ByteString.copyFrom(lastResortPreKey.serializedPublicKey()))
+            .setSignature(ByteString.copyFrom(lastResortPreKey.signature()))
+            .build())
+        .build();
+
     return Stream.of(
         // No identity type
-        Arguments.of(SetKemLastResortPreKeyRequest.newBuilder()
-            .setSignedPreKey(KemSignedPreKey.newBuilder()
-                .setKeyId(lastResortPreKey.keyId())
-                .setPublicKey(ByteString.copyFrom(lastResortPreKey.serializedPublicKey()))
-                .setSignature(ByteString.copyFrom(lastResortPreKey.signature()))
-                .build())
+        Arguments.of(SetKemLastResortPreKeyRequest.newBuilder(prototypeRequest)
+            .clearIdentityType()
             .build()),
 
         // Bad public key
-        Arguments.of(SetKemLastResortPreKeyRequest.newBuilder()
-            .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
-            .setSignedPreKey(KemSignedPreKey.newBuilder()
-                .setKeyId(lastResortPreKey.keyId())
-                .setPublicKey(ByteString.empty())
-                .setSignature(ByteString.copyFrom(lastResortPreKey.signature()))
+        Arguments.of(SetKemLastResortPreKeyRequest.newBuilder(prototypeRequest)
+            .setSignedPreKey(KemSignedPreKey.newBuilder(prototypeRequest.getSignedPreKey())
+                .clearPublicKey()
                 .build())
             .build()),
 
         // Bad signature
-        Arguments.of(SetKemLastResortPreKeyRequest.newBuilder()
-            .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
-            .setSignedPreKey(KemSignedPreKey.newBuilder()
-                .setKeyId(lastResortPreKey.keyId())
-                .setPublicKey(ByteString.copyFrom(lastResortPreKey.serializedPublicKey()))
-                .setSignature(ByteString.empty())
+        Arguments.of(SetKemLastResortPreKeyRequest.newBuilder(prototypeRequest)
+            .setSignedPreKey(KemSignedPreKey.newBuilder(prototypeRequest.getSignedPreKey())
+                .clearSignature()
                 .build())
             .build()),
 
         // Missing key
-        Arguments.of(SetKemLastResortPreKeyRequest.newBuilder()
-            .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
+        Arguments.of(SetKemLastResortPreKeyRequest.newBuilder(prototypeRequest)
+            .clearSignedPreKey()
             .build())
     );
   }
@@ -605,7 +605,7 @@ class KeysGrpcServiceTest {
     when(accountsManager.getByServiceIdentifierAsync(any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
 
-    @SuppressWarnings("ResultOfMethodCallIgnored") final StatusRuntimeException exception =
+    final StatusRuntimeException exception =
         assertThrows(StatusRuntimeException.class, () -> keysStub.getPreKeys(GetPreKeysRequest.newBuilder()
             .setTargetIdentifier(ServiceIdentifier.newBuilder()
                 .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
@@ -630,7 +630,7 @@ class KeysGrpcServiceTest {
     when(accountsManager.getByServiceIdentifierAsync(new AciServiceIdentifier(accountIdentifier)))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(targetAccount)));
 
-    @SuppressWarnings("ResultOfMethodCallIgnored") final StatusRuntimeException exception =
+    final StatusRuntimeException exception =
         assertThrows(StatusRuntimeException.class, () -> keysStub.getPreKeys(GetPreKeysRequest.newBuilder()
             .setTargetIdentifier(ServiceIdentifier.newBuilder()
                 .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
@@ -658,7 +658,7 @@ class KeysGrpcServiceTest {
     when(preKeysRateLimiter.validateReactive(anyString()))
         .thenReturn(Mono.error(new RateLimitExceededException(retryAfterDuration, false)));
 
-    @SuppressWarnings("ResultOfMethodCallIgnored") final StatusRuntimeException exception =
+    final StatusRuntimeException exception =
         assertThrows(StatusRuntimeException.class, () -> keysStub.getPreKeys(GetPreKeysRequest.newBuilder()
             .setTargetIdentifier(ServiceIdentifier.newBuilder()
                 .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
