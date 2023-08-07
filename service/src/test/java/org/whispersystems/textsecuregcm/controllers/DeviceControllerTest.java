@@ -117,12 +117,7 @@ class DeviceControllerTest {
     when(account.getUuid()).thenReturn(AuthHelper.VALID_UUID);
     when(account.getPhoneNumberIdentifier()).thenReturn(AuthHelper.VALID_PNI);
     when(account.isEnabled()).thenReturn(false);
-    when(account.isSenderKeySupported()).thenReturn(true);
-    when(account.isAnnouncementGroupSupported()).thenReturn(true);
-    when(account.isChangeNumberSupported()).thenReturn(true);
     when(account.isPniSupported()).thenReturn(true);
-    when(account.isStoriesSupported()).thenReturn(true);
-    when(account.isGiftBadgesSupported()).thenReturn(true);
     when(account.isPaymentActivationSupported()).thenReturn(false);
 
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
@@ -639,101 +634,9 @@ class DeviceControllerTest {
   }
 
   @Test
-  void deviceDowngradeSenderKeyTest() {
-    DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, false, true,
-        true, true, true, true, true);
-    AccountAttributes accountAttributes =
-        new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
-
-    final String verificationToken = deviceController.generateVerificationToken(AuthHelper.VALID_UUID);
-
-    Response response = resources
-        .getJerseyTest()
-        .target("/v1/devices/" + verificationToken)
-        .request()
-        .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-        .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
-        .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
-    assertThat(response.getStatus()).isEqualTo(409);
-
-    deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, true, true);
-    accountAttributes = new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
-    response = resources
-        .getJerseyTest()
-        .target("/v1/devices/" + verificationToken)
-        .request()
-        .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-        .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
-        .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
-    assertThat(response.getStatus()).isEqualTo(200);
-  }
-
-  @Test
-  void deviceDowngradeAnnouncementGroupTest() {
-    DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, true, false,
-        true, true, true, true, true);
-    AccountAttributes accountAttributes =
-        new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
-
-    final String verificationToken = deviceController.generateVerificationToken(AuthHelper.VALID_UUID);
-
-    Response response = resources
-        .getJerseyTest()
-        .target("/v1/devices/" + verificationToken)
-        .request()
-        .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-        .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
-        .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
-    assertThat(response.getStatus()).isEqualTo(409);
-
-    deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, true, true);
-    accountAttributes = new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
-    response = resources
-        .getJerseyTest()
-        .target("/v1/devices/" + verificationToken)
-        .request()
-        .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-        .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
-        .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
-    assertThat(response.getStatus()).isEqualTo(200);
-  }
-
-  @Test
-  void deviceDowngradeChangeNumberTest() {
-    DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, true, true,
-        false, true, true, true, true);
-    AccountAttributes accountAttributes =
-        new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
-
-    final String verificationToken = deviceController.generateVerificationToken(AuthHelper.VALID_UUID);
-
-    Response response = resources
-        .getJerseyTest()
-        .target("/v1/devices/" + verificationToken)
-        .request()
-        .header("Authorization",
-            AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-        .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
-        .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
-    assertThat(response.getStatus()).isEqualTo(409);
-
-    deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, true, true);
-    accountAttributes = new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
-    response = resources
-        .getJerseyTest()
-        .target("/v1/devices/" + verificationToken)
-        .request()
-        .header("Authorization",
-            AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-        .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
-        .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
-    assertThat(response.getStatus()).isEqualTo(200);
-  }
-
-  @Test
   void deviceDowngradePniTest() {
-    DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, true, true, true,
-        false, true, true, true);
+    DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true,
+        false, true);
     AccountAttributes accountAttributes =
         new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
 
@@ -748,68 +651,7 @@ class DeviceControllerTest {
         .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatus()).isEqualTo(409);
 
-    deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, true, true);
-    accountAttributes = new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
-    response = resources
-        .getJerseyTest()
-        .target("/v1/devices/" + verificationToken)
-        .request()
-        .header("Authorization",
-            AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-        .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
-        .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
-    assertThat(response.getStatus()).isEqualTo(200);
-  }
-
-  @Test
-  void deviceDowngradeStoriesTest() {
-    DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, true, true, true,
-        true, false, true, true);
-    AccountAttributes accountAttributes =
-        new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
-
-    final String verificationToken = deviceController.generateVerificationToken(AuthHelper.VALID_UUID);
-
-    Response response = resources
-        .getJerseyTest()
-        .target("/v1/devices/" + verificationToken)
-        .request()
-        .header("Authorization",
-            AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-        .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
-        .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
-    assertThat(response.getStatus()).isEqualTo(409);
-
-    deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, true, true);
-    accountAttributes = new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
-    response = resources
-        .getJerseyTest()
-        .target("/v1/devices/" + verificationToken)
-        .request()
-        .header("Authorization",
-            AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-        .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
-        .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
-    assertThat(response.getStatus()).isEqualTo(200);
-  }
-
-  @Test
-  void deviceDowngradeGiftBadgesTest() {
-    DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, false, true);
-    AccountAttributes accountAttributes = new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
-
-    final String verificationToken = deviceController.generateVerificationToken(AuthHelper.VALID_UUID);
-
-    Response response = resources
-        .getJerseyTest()
-        .target("/v1/devices/" + verificationToken)
-        .request()
-        .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-        .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
-        .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
-    assertThat(response.getStatus()).isEqualTo(409);
-
-    deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, true, true);
+    deviceCapabilities = new DeviceCapabilities(true, true, true, true);
     accountAttributes = new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
     response = resources
         .getJerseyTest()
@@ -824,7 +666,7 @@ class DeviceControllerTest {
 
   @Test
   void putCapabilitiesSuccessTest() {
-    final DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, true, true);
+    final DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, true, true);
     final Response response = resources
         .getJerseyTest()
         .target("/v1/devices/capabilities")
@@ -852,7 +694,7 @@ class DeviceControllerTest {
   @ValueSource(booleans = {true, false})
   void deviceDowngradePaymentActivationTest(boolean paymentActivation) {
     // Update when we start returning true value of capability & restricting downgrades
-    DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, true, paymentActivation);
+    DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, true, paymentActivation);
     AccountAttributes accountAttributes = new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
 
     final String verificationToken = deviceController.generateVerificationToken(AuthHelper.VALID_UUID);

@@ -256,32 +256,8 @@ public class Account {
     return getMasterDevice().map(Device::getCapabilities).map(Device.DeviceCapabilities::isTransfer).orElse(false);
   }
 
-  public boolean isSenderKeySupported() {
-    return allEnabledDevicesHaveCapability(DeviceCapabilities::isSenderKey);
-  }
-
-  public boolean isAnnouncementGroupSupported() {
-    return allEnabledDevicesHaveCapability(DeviceCapabilities::isAnnouncementGroup);
-  }
-
-  public boolean isChangeNumberSupported() {
-    return allEnabledDevicesHaveCapability(DeviceCapabilities::isChangeNumber);
-  }
-
   public boolean isPniSupported() {
     return allEnabledDevicesHaveCapability(DeviceCapabilities::isPni);
-  }
-
-  public boolean isStoriesSupported() {
-    requireNotStale();
-
-    return devices.stream()
-        .filter(Device::isEnabled)
-        .allMatch(device -> device.getCapabilities() != null && device.getCapabilities().isStories());
-  }
-
-  public boolean isGiftBadgesSupported() {
-    return allEnabledDevicesHaveCapability(DeviceCapabilities::isGiftBadges);
   }
 
   public boolean isPaymentActivationSupported() {

@@ -200,9 +200,6 @@ class ProfileControllerTest {
     when(profileAccount.getUuid()).thenReturn(AuthHelper.VALID_UUID_TWO);
     when(profileAccount.getPhoneNumberIdentifier()).thenReturn(AuthHelper.VALID_PNI_TWO);
     when(profileAccount.isEnabled()).thenReturn(true);
-    when(profileAccount.isSenderKeySupported()).thenReturn(false);
-    when(profileAccount.isAnnouncementGroupSupported()).thenReturn(false);
-    when(profileAccount.isChangeNumberSupported()).thenReturn(false);
     when(profileAccount.getCurrentProfileVersion()).thenReturn(Optional.empty());
     when(profileAccount.getUsernameHash()).thenReturn(Optional.of(USERNAME_HASH));
     when(profileAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of("1337".getBytes()));
@@ -215,9 +212,6 @@ class ProfileControllerTest {
     when(capabilitiesAccount.getPhoneNumberIdentityKey()).thenReturn(ACCOUNT_PHONE_NUMBER_IDENTITY_KEY);
     when(capabilitiesAccount.getIdentityKey(IdentityType.PNI)).thenReturn(ACCOUNT_PHONE_NUMBER_IDENTITY_KEY);
     when(capabilitiesAccount.isEnabled()).thenReturn(true);
-    when(capabilitiesAccount.isSenderKeySupported()).thenReturn(true);
-    when(capabilitiesAccount.isAnnouncementGroupSupported()).thenReturn(true);
-    when(capabilitiesAccount.isChangeNumberSupported()).thenReturn(true);
 
     when(accountsManager.getByServiceIdentifier(any())).thenReturn(Optional.empty());
 
@@ -401,29 +395,15 @@ class ProfileControllerTest {
 
   @Test
   void testProfileCapabilities() {
-    {
-      final BaseProfileResponse profile = resources.getJerseyTest()
-          .target("/v1/profile/" + AuthHelper.VALID_UUID)
-          .request()
-          .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-          .get(BaseProfileResponse.class);
+    final BaseProfileResponse profile = resources.getJerseyTest()
+        .target("/v1/profile/" + AuthHelper.VALID_UUID)
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .get(BaseProfileResponse.class);
 
-      assertThat(profile.getCapabilities().gv1Migration()).isTrue();
-      assertThat(profile.getCapabilities().senderKey()).isTrue();
-      assertThat(profile.getCapabilities().announcementGroup()).isTrue();
-    }
-
-    {
-      final BaseProfileResponse profile = resources.getJerseyTest()
-          .target("/v1/profile/" + AuthHelper.VALID_UUID_TWO)
-          .request()
-          .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
-          .get(BaseProfileResponse.class);
-
-      assertThat(profile.getCapabilities().gv1Migration()).isTrue();
-      assertThat(profile.getCapabilities().senderKey()).isFalse();
-      assertThat(profile.getCapabilities().announcementGroup()).isFalse();
-    }
+    assertThat(profile.getCapabilities().gv1Migration()).isTrue();
+    assertThat(profile.getCapabilities().senderKey()).isTrue();
+    assertThat(profile.getCapabilities().announcementGroup()).isTrue();
   }
 
   @Test

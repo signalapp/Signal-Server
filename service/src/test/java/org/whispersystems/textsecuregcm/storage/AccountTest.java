@@ -92,86 +92,86 @@ class AccountTest {
     when(oldSecondaryDevice.getId()).thenReturn(2L);
 
     when(senderKeyCapableDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, false, false, false, false, false, false));
+        new DeviceCapabilities(true, true, false, false));
     when(senderKeyCapableDevice.isEnabled()).thenReturn(true);
 
     when(senderKeyIncapableDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, false, false, false, false, false, false, false));
+        new DeviceCapabilities(true, true, false, false));
     when(senderKeyIncapableDevice.isEnabled()).thenReturn(true);
 
     when(senderKeyIncapableExpiredDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, false, false, false, false, false, false, false));
+        new DeviceCapabilities(true, true, false, false));
     when(senderKeyIncapableExpiredDevice.isEnabled()).thenReturn(false);
 
     when(announcementGroupCapableDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, true, false, false, false, false, false));
+        new DeviceCapabilities(true, true, false, false));
     when(announcementGroupCapableDevice.isEnabled()).thenReturn(true);
 
     when(announcementGroupIncapableDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, false, false, false, false, false, false));
+        new DeviceCapabilities(true, true, false, false));
     when(announcementGroupIncapableDevice.isEnabled()).thenReturn(true);
 
     when(announcementGroupIncapableExpiredDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, false, false, false, false, false, false));
+        new DeviceCapabilities(true, true, false, false));
     when(announcementGroupIncapableExpiredDevice.isEnabled()).thenReturn(false);
 
     when(changeNumberCapableDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, false, true, false, false, false, false));
+        new DeviceCapabilities(true, true, false, false));
     when(changeNumberCapableDevice.isEnabled()).thenReturn(true);
 
     when(changeNumberIncapableDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, false, false, false, false, false, false));
+        new DeviceCapabilities(true, true, false, false));
     when(changeNumberIncapableDevice.isEnabled()).thenReturn(true);
 
     when(changeNumberIncapableExpiredDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, false, false, false, false, false, false));
+        new DeviceCapabilities(true, true, false, false));
     when(changeNumberIncapableExpiredDevice.isEnabled()).thenReturn(false);
 
     when(pniCapableDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, false, false, true, false, false, false));
+        new DeviceCapabilities(true, true, true, false));
     when(pniCapableDevice.isEnabled()).thenReturn(true);
 
     when(pniIncapableDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, false, false, false, false, false, false));
+        new DeviceCapabilities(true, true, false, false));
     when(pniIncapableDevice.isEnabled()).thenReturn(true);
 
     when(pniIncapableExpiredDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, false, false, false, false, false, false));
+        new DeviceCapabilities(true, true, false, false));
     when(pniIncapableExpiredDevice.isEnabled()).thenReturn(false);
 
     when(storiesCapableDevice.getId()).thenReturn(1L);
     when(storiesCapableDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, false, false, false, true, false, false));
+        new DeviceCapabilities(true, true, false, false));
     when(storiesCapableDevice.isEnabled()).thenReturn(true);
 
     when(storiesCapableDevice.getId()).thenReturn(2L);
     when(storiesIncapableDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, false, false, false, false, false, false));
+        new DeviceCapabilities(true, true, false, false));
     when(storiesIncapableDevice.isEnabled()).thenReturn(true);
 
     when(storiesCapableDevice.getId()).thenReturn(3L);
     when(storiesIncapableExpiredDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, false, false, false, false, false, false));
+        new DeviceCapabilities(true, true, false, false));
     when(storiesIncapableExpiredDevice.isEnabled()).thenReturn(false);
 
     when(giftBadgesCapableDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, true, true, true, true, true, false));
+        new DeviceCapabilities(true, true, true, false));
     when(giftBadgesCapableDevice.isEnabled()).thenReturn(true);
     when(giftBadgesIncapableDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, true, true, true, true, false, false));
+        new DeviceCapabilities(true, true, true, false));
     when(giftBadgesIncapableDevice.isEnabled()).thenReturn(true);
     when(giftBadgesIncapableExpiredDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, true, true, true, true, false, false));
+        new DeviceCapabilities(true, true, true, false));
     when(giftBadgesIncapableExpiredDevice.isEnabled()).thenReturn(false);
 
     when(paymentActivationCapableDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, true, true, true, true, true, true));
+        new DeviceCapabilities(true, true, true, true));
     when(paymentActivationCapableDevice.isEnabled()).thenReturn(true);
     when(paymentActivationIncapableDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, true, true, true, true, false, false));
+        new DeviceCapabilities(true, true, true, false));
     when(paymentActivationIncapableDevice.isEnabled()).thenReturn(true);
     when(paymentActivationIncapableExpiredDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, true, true, true, true, false, false));
+        new DeviceCapabilities(true, true, true, false));
     when(paymentActivationIncapableExpiredDevice.isEnabled()).thenReturn(false);
 
   }
@@ -262,44 +262,6 @@ class AccountTest {
   }
 
   @Test
-  void isSenderKeySupported() {
-    assertThat(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), List.of(senderKeyCapableDevice),
-        "1234".getBytes(StandardCharsets.UTF_8)).isSenderKeySupported()).isTrue();
-    assertThat(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(),
-        List.of(senderKeyCapableDevice, senderKeyIncapableDevice),
-        "1234".getBytes(StandardCharsets.UTF_8)).isSenderKeySupported()).isFalse();
-    assertThat(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(),
-        UUID.randomUUID(), List.of(senderKeyCapableDevice, senderKeyIncapableExpiredDevice),
-        "1234".getBytes(StandardCharsets.UTF_8)).isSenderKeySupported()).isTrue();
-  }
-
-  @Test
-  void isAnnouncementGroupSupported() {
-    assertThat(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(),
-        UUID.randomUUID(), List.of(announcementGroupCapableDevice),
-        "1234".getBytes(StandardCharsets.UTF_8)).isAnnouncementGroupSupported()).isTrue();
-    assertThat(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(),
-        UUID.randomUUID(), List.of(announcementGroupCapableDevice, announcementGroupIncapableDevice),
-        "1234".getBytes(StandardCharsets.UTF_8)).isAnnouncementGroupSupported()).isFalse();
-    assertThat(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(),
-        UUID.randomUUID(), List.of(announcementGroupCapableDevice, announcementGroupIncapableExpiredDevice),
-        "1234".getBytes(StandardCharsets.UTF_8)).isAnnouncementGroupSupported()).isTrue();
-  }
-
-  @Test
-  void isChangeNumberSupported() {
-    assertThat(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(),
-        UUID.randomUUID(), List.of(changeNumberCapableDevice),
-        "1234".getBytes(StandardCharsets.UTF_8)).isChangeNumberSupported()).isTrue();
-    assertThat(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(),
-        UUID.randomUUID(), List.of(changeNumberCapableDevice, changeNumberIncapableDevice),
-        "1234".getBytes(StandardCharsets.UTF_8)).isChangeNumberSupported()).isFalse();
-    assertThat(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(),
-        UUID.randomUUID(), List.of(changeNumberCapableDevice, changeNumberIncapableExpiredDevice),
-        "1234".getBytes(StandardCharsets.UTF_8)).isChangeNumberSupported()).isTrue();
-  }
-
-  @Test
   void isPniSupported() {
     assertThat(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(),
         UUID.randomUUID(), List.of(pniCapableDevice),
@@ -310,32 +272,6 @@ class AccountTest {
     assertThat(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(),
         UUID.randomUUID(), List.of(pniCapableDevice, pniIncapableExpiredDevice),
         "1234".getBytes(StandardCharsets.UTF_8)).isPniSupported()).isTrue();
-  }
-
-  @Test
-  void isStoriesSupported() {
-    assertThat(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(),
-        UUID.randomUUID(), List.of(storiesCapableDevice),
-        "1234".getBytes(StandardCharsets.UTF_8)).isStoriesSupported()).isTrue();
-    assertThat(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(),
-        UUID.randomUUID(), List.of(storiesCapableDevice, storiesIncapableDevice),
-        "1234".getBytes(StandardCharsets.UTF_8)).isStoriesSupported()).isFalse();
-    assertThat(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(),
-        UUID.randomUUID(), List.of(storiesCapableDevice, storiesIncapableExpiredDevice),
-        "1234".getBytes(StandardCharsets.UTF_8)).isStoriesSupported()).isTrue();
-  }
-
-  @Test
-  void isGiftBadgesSupported() {
-    assertThat(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(),
-        List.of(giftBadgesCapableDevice),
-        "1234".getBytes(StandardCharsets.UTF_8)).isGiftBadgesSupported()).isTrue();
-    assertThat(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(),
-        List.of(giftBadgesCapableDevice, giftBadgesIncapableDevice),
-        "1234".getBytes(StandardCharsets.UTF_8)).isGiftBadgesSupported()).isFalse();
-    assertThat(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(),
-        List.of(giftBadgesCapableDevice, giftBadgesIncapableExpiredDevice),
-        "1234".getBytes(StandardCharsets.UTF_8)).isGiftBadgesSupported()).isTrue();
   }
 
   @Test

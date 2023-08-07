@@ -9,11 +9,23 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import org.whispersystems.textsecuregcm.storage.Account;
 
 public record UserCapabilities(
-    @JsonProperty("gv1-migration") boolean gv1Migration,
+    @Deprecated(forRemoval = true)
+    @JsonProperty("gv1-migration")
+    boolean gv1Migration,
+
+    @Deprecated(forRemoval = true)
     boolean senderKey,
+
+    @Deprecated(forRemoval = true)
     boolean announcementGroup,
+
+    @Deprecated(forRemoval = true)
     boolean changeNumber,
+
+    @Deprecated(forRemoval = true)
     boolean stories,
+
+    @Deprecated(forRemoval = true)
     boolean giftBadges,
     boolean paymentActivation,
     boolean pni) {
@@ -21,11 +33,11 @@ public record UserCapabilities(
   public static UserCapabilities createForAccount(Account account) {
     return new UserCapabilities(
         true,
-        account.isSenderKeySupported(),
-        account.isAnnouncementGroupSupported(),
-        account.isChangeNumberSupported(),
-        account.isStoriesSupported(),
-        account.isGiftBadgesSupported(),
+        true,
+        true,
+        true,
+        true,
+        true,
 
         // Hardcode payment activation flag to false until all clients support the flow
         false,

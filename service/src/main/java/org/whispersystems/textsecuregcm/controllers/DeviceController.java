@@ -344,16 +344,7 @@ public class DeviceController {
   }
 
   static boolean isCapabilityDowngrade(Account account, DeviceCapabilities capabilities) {
-    boolean isDowngrade = false;
-
-    isDowngrade |= account.isStoriesSupported() && !capabilities.isStories();
-    isDowngrade |= account.isPniSupported() && !capabilities.isPni();
-    isDowngrade |= account.isChangeNumberSupported() && !capabilities.isChangeNumber();
-    isDowngrade |= account.isAnnouncementGroupSupported() && !capabilities.isAnnouncementGroup();
-    isDowngrade |= account.isSenderKeySupported() && !capabilities.isSenderKey();
-    isDowngrade |= account.isGiftBadgesSupported() && !capabilities.isGiftBadges();
-
-    return isDowngrade;
+    return account.isPniSupported() && !capabilities.isPni();
   }
 
   private Pair<Account, Device> createDevice(final String password,

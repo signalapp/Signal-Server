@@ -282,22 +282,7 @@ public class Device {
     private boolean transfer;
 
     @JsonProperty
-    private boolean senderKey;
-
-    @JsonProperty
-    private boolean announcementGroup;
-
-    @JsonProperty
-    private boolean changeNumber;
-
-    @JsonProperty
     private boolean pni;
-
-    @JsonProperty
-    private boolean stories;
-
-    @JsonProperty
-    private boolean giftBadges;
 
     @JsonProperty
     private boolean paymentActivation;
@@ -305,17 +290,10 @@ public class Device {
     public DeviceCapabilities() {
     }
 
-    public DeviceCapabilities(boolean storage, boolean transfer,
-        final boolean senderKey, final boolean announcementGroup, final boolean changeNumber,
-        final boolean pni, final boolean stories, final boolean giftBadges, final boolean paymentActivation) {
+    public DeviceCapabilities(boolean storage, boolean transfer, final boolean pni, final boolean paymentActivation) {
       this.storage = storage;
       this.transfer = transfer;
-      this.senderKey = senderKey;
-      this.announcementGroup = announcementGroup;
-      this.changeNumber = changeNumber;
       this.pni = pni;
-      this.stories = stories;
-      this.giftBadges = giftBadges;
       this.paymentActivation = paymentActivation;
     }
 
@@ -327,28 +305,8 @@ public class Device {
       return transfer;
     }
 
-    public boolean isSenderKey() {
-      return senderKey;
-    }
-
-    public boolean isAnnouncementGroup() {
-      return announcementGroup;
-    }
-
-    public boolean isChangeNumber() {
-      return changeNumber;
-    }
-
     public boolean isPni() {
       return pni;
-    }
-
-    public boolean isStories() {
-      return stories;
-    }
-
-    public boolean isGiftBadges() {
-      return giftBadges;
     }
 
     public boolean isPaymentActivation() {
