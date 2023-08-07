@@ -344,7 +344,7 @@ public class DeviceController {
   }
 
   static boolean isCapabilityDowngrade(Account account, DeviceCapabilities capabilities) {
-    return account.isPniSupported() && !capabilities.isPni();
+    return account.isPniSupported() && !capabilities.pni();
   }
 
   private Pair<Account, Device> createDevice(final String password,

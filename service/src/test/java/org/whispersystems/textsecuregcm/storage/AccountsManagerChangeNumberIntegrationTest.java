@@ -153,7 +153,7 @@ class AccountsManagerChangeNumberIntegrationTest {
     final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
     final ECSignedPreKey rotatedSignedPreKey = KeysHelper.signedECPreKey(1L, pniIdentityKeyPair);
 
-    final AccountAttributes accountAttributes = new AccountAttributes(true, rotatedPniRegistrationId + 1, "test", null, true, new Device.DeviceCapabilities());
+    final AccountAttributes accountAttributes = new AccountAttributes(true, rotatedPniRegistrationId + 1, "test", null, true, new Device.DeviceCapabilities(false, false, false, false));
     final Account account = accountsManager.create(originalNumber, "password", null, accountAttributes, new ArrayList<>());
     account.getMasterDevice().orElseThrow().setSignedPreKey(KeysHelper.signedECPreKey(1, pniIdentityKeyPair));
 

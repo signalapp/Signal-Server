@@ -117,7 +117,7 @@ public class TestUser {
   }
 
   public AccountAttributes accountAttributes() {
-    return new AccountAttributes(true, registrationId, "", "", true, new Device.DeviceCapabilities())
+    return new AccountAttributes(true, registrationId, "", "", true, new Device.DeviceCapabilities(false, false, false, false))
         .withUnidentifiedAccessKey(unidentifiedAccessKey)
         .withRecoveryPassword(registrationPassword);
   }

@@ -437,10 +437,10 @@ class RegistrationControllerTest {
     }
 
     final AccountAttributes fetchesMessagesAccountAttributes =
-        new AccountAttributes(true, 1, "test", null, true, new Device.DeviceCapabilities());
+        new AccountAttributes(true, 1, "test", null, true, new Device.DeviceCapabilities(false, false, false, false));
 
     final AccountAttributes pushAccountAttributes =
-        new AccountAttributes(false, 1, "test", null, true, new Device.DeviceCapabilities());
+        new AccountAttributes(false, 1, "test", null, true, new Device.DeviceCapabilities(false, false, false, false));
 
     return Stream.of(
         // "Fetches messages" is true, but an APNs token is provided
@@ -529,7 +529,7 @@ class RegistrationControllerTest {
     }
 
     final AccountAttributes accountAttributes =
-        new AccountAttributes(true, 1, "test", null, true, new Device.DeviceCapabilities());
+        new AccountAttributes(true, 1, "test", null, true, new Device.DeviceCapabilities(false, false, false, false));
 
     return Stream.of(
         // Signed PNI EC pre-key is missing
@@ -720,7 +720,7 @@ class RegistrationControllerTest {
 
     RegistrationRequest reg = new RegistrationRequest("session-id",
         new byte[0],
-        new AccountAttributes(true, 1, "test", null, true, new Device.DeviceCapabilities()),
+        new AccountAttributes(true, 1, "test", null, true, new Device.DeviceCapabilities(false, false, false, false)),
         true,
         requireAtomic,
         Optional.empty(),
@@ -758,10 +758,10 @@ class RegistrationControllerTest {
     }
 
     final AccountAttributes fetchesMessagesAccountAttributes =
-        new AccountAttributes(true, 1, "test", null, true, new Device.DeviceCapabilities());
+        new AccountAttributes(true, 1, "test", null, true, new Device.DeviceCapabilities(false, false, false, false));
 
     final AccountAttributes pushAccountAttributes =
-        new AccountAttributes(false, 1, "test", null, true, new Device.DeviceCapabilities());
+        new AccountAttributes(false, 1, "test", null, true, new Device.DeviceCapabilities(false, false, false, false));
 
     final String apnsToken = "apns-token";
     final String apnsVoipToken = "apns-voip-token";

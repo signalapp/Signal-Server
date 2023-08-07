@@ -274,43 +274,6 @@ public class Device {
     return this.userAgent;
   }
 
-  public static class DeviceCapabilities {
-    @JsonProperty
-    private boolean storage;
-
-    @JsonProperty
-    private boolean transfer;
-
-    @JsonProperty
-    private boolean pni;
-
-    @JsonProperty
-    private boolean paymentActivation;
-
-    public DeviceCapabilities() {
-    }
-
-    public DeviceCapabilities(boolean storage, boolean transfer, final boolean pni, final boolean paymentActivation) {
-      this.storage = storage;
-      this.transfer = transfer;
-      this.pni = pni;
-      this.paymentActivation = paymentActivation;
-    }
-
-    public boolean isStorage() {
-      return storage;
-    }
-
-    public boolean isTransfer() {
-      return transfer;
-    }
-
-    public boolean isPni() {
-      return pni;
-    }
-
-    public boolean isPaymentActivation() {
-      return paymentActivation;
-    }
+  public record DeviceCapabilities(boolean storage, boolean transfer, boolean pni, boolean paymentActivation) {
   }
 }

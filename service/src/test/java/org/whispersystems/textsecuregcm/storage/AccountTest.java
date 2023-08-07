@@ -222,8 +222,8 @@ class AccountTest {
     when(transferCapableLinkedDevice.isMaster()).thenReturn(false);
     when(transferCapableLinkedDevice.getCapabilities()).thenReturn(transferCapabilities);
 
-    when(transferCapabilities.isTransfer()).thenReturn(true);
-    when(nonTransferCapabilities.isTransfer()).thenReturn(false);
+    when(transferCapabilities.transfer()).thenReturn(true);
+    when(nonTransferCapabilities.transfer()).thenReturn(false);
 
     {
       final Account transferableMasterAccount =

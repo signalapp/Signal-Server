@@ -247,21 +247,21 @@ public class Account {
   public boolean isStorageSupported() {
     requireNotStale();
 
-    return devices.stream().anyMatch(device -> device.getCapabilities() != null && device.getCapabilities().isStorage());
+    return devices.stream().anyMatch(device -> device.getCapabilities() != null && device.getCapabilities().storage());
   }
 
   public boolean isTransferSupported() {
     requireNotStale();
 
-    return getMasterDevice().map(Device::getCapabilities).map(Device.DeviceCapabilities::isTransfer).orElse(false);
+    return getMasterDevice().map(Device::getCapabilities).map(Device.DeviceCapabilities::transfer).orElse(false);
   }
 
   public boolean isPniSupported() {
-    return allEnabledDevicesHaveCapability(DeviceCapabilities::isPni);
+    return allEnabledDevicesHaveCapability(DeviceCapabilities::pni);
   }
 
   public boolean isPaymentActivationSupported() {
-    return allEnabledDevicesHaveCapability(DeviceCapabilities::isPaymentActivation);
+    return allEnabledDevicesHaveCapability(DeviceCapabilities::paymentActivation);
   }
 
   private boolean allEnabledDevicesHaveCapability(final Predicate<DeviceCapabilities> predicate) {
