@@ -9,9 +9,7 @@ import io.grpc.Context;
 import io.grpc.Status;
 import java.util.UUID;
 import javax.annotation.Nullable;
-import reactor.core.publisher.Mono;
-import reactor.util.function.Tuple2;
-import reactor.util.function.Tuples;
+import org.whispersystems.textsecuregcm.storage.Device;
 
 /**
  * Provides utility methods for working with authentication in the context of gRPC calls.
@@ -25,7 +23,7 @@ public class AuthenticationUtil {
    * Returns the account/device authenticated in the current gRPC context or throws an "unauthenticated" exception if
    * no authenticated account/device is available.
    *
-   * @return the account/device authenticated in the current gRPC context
+   * @return the account/device identifier authenticated in the current gRPC context
    *
    * @throws io.grpc.StatusRuntimeException with a status of {@code UNAUTHENTICATED} if no authenticated account/device
    * could be retrieved from the current gRPC context
@@ -39,5 +37,26 @@ public class AuthenticationUtil {
     }
 
     throw Status.UNAUTHENTICATED.asRuntimeException();
+  }
+
+  /**
+   * Returns the account/device authenticated in the current gRPC context or throws an "unauthenticated" exception if
+   * no authenticated account/device is available or "permission denied" if the authenticated device is not the primary
+   * device for the account.
+   *
+   * @return the account/device identifier authenticated in the current gRPC context
+   *
+   * @throws io.grpc.StatusRuntimeException with a status of {@code UNAUTHENTICATED} if no authenticated account/device
+   * could be retrieved from the current gRPC context or a status of {@code PERMISSION_DENIED} if the authenticated
+   * device is not the primary device for the authenticated account
+   */
+  public static AuthenticatedDevice requireAuthenticatedPrimaryDevice() {
+    final AuthenticatedDevice authenticatedDevice = requireAuthenticatedDevice();
+
+    if (authenticatedDevice.deviceId() != Device.MASTER_ID) {
+      throw Status.PERMISSION_DENIED.asRuntimeException();
+    }
+
+    return authenticatedDevice;
   }
 }
