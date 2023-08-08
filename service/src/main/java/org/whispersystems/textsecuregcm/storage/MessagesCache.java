@@ -329,21 +329,24 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
     });
   }
 
-  public void clear(final UUID destinationUuid) {
-    // TODO Remove null check in a fully UUID-based world
-    if (destinationUuid != null) {
-      for (int i = 1; i < Device.MAXIMUM_DEVICE_ID; i++) {
-        clear(destinationUuid, i);
-      }
+  public CompletableFuture<Void> clear(final UUID destinationUuid) {
+    final CompletableFuture<?>[] clearFutures = new CompletableFuture[Device.MAXIMUM_DEVICE_ID];
+
+    for (int deviceId = 0; deviceId < Device.MAXIMUM_DEVICE_ID; deviceId++) {
+      clearFutures[deviceId] = clear(destinationUuid, deviceId);
     }
+
+    return CompletableFuture.allOf(clearFutures);
   }
 
-  public void clear(final UUID destinationUuid, final long deviceId) {
-    clearQueueTimer.record(() ->
-        removeQueueScript.executeBinary(List.of(getMessageQueueKey(destinationUuid, deviceId),
+  public CompletableFuture<Void> clear(final UUID destinationUuid, final long deviceId) {
+    final Timer.Sample sample = Timer.start();
+
+    return removeQueueScript.executeBinaryAsync(List.of(getMessageQueueKey(destinationUuid, deviceId),
                 getMessageQueueMetadataKey(destinationUuid, deviceId),
                 getQueueIndexKey(destinationUuid, deviceId)),
-            Collections.emptyList()));
+            Collections.emptyList())
+        .thenRun(() -> sample.stop(clearQueueTimer));
   }
 
   int getNextSlotToPersist() {

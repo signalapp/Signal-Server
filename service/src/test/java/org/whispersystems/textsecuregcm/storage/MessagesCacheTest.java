@@ -320,7 +320,7 @@ class MessagesCacheTest {
         }
       }
 
-      messagesCache.clear(DESTINATION_UUID, DESTINATION_DEVICE_ID);
+      messagesCache.clear(DESTINATION_UUID, DESTINATION_DEVICE_ID).join();
 
       assertEquals(Collections.emptyList(), get(DESTINATION_UUID, DESTINATION_DEVICE_ID, messageCount));
       assertEquals(messageCount, get(DESTINATION_UUID, DESTINATION_DEVICE_ID + 1, messageCount).size());
@@ -340,16 +340,10 @@ class MessagesCacheTest {
         }
       }
 
-      messagesCache.clear(DESTINATION_UUID);
+      messagesCache.clear(DESTINATION_UUID).join();
 
       assertEquals(Collections.emptyList(), get(DESTINATION_UUID, DESTINATION_DEVICE_ID, messageCount));
       assertEquals(Collections.emptyList(), get(DESTINATION_UUID, DESTINATION_DEVICE_ID + 1, messageCount));
-    }
-
-    @Test
-    void testClearNullUuid() {
-      // We're happy as long as this doesn't throw an exception
-      messagesCache.clear(null);
     }
 
     @Test
