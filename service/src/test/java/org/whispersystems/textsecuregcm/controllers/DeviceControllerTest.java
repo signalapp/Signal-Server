@@ -348,6 +348,52 @@ class DeviceControllerTest {
   }
 
   @Test
+  void linkDeviceAtomicPniKeysRequired() {
+
+    final Device existingDevice = mock(Device.class);
+    when(existingDevice.getId()).thenReturn(Device.MASTER_ID);
+    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(existingDevice));
+
+    VerificationCode deviceCode = resources.getJerseyTest()
+        .target("/v1/devices/provisioning/code")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .get(VerificationCode.class);
+
+    final Optional<ECSignedPreKey> aciSignedPreKey;
+    final Optional<ECSignedPreKey> pniSignedPreKey;
+    final Optional<KEMSignedPreKey> aciPqLastResortPreKey;
+    final Optional<KEMSignedPreKey> pniPqLastResortPreKey;
+
+    final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+
+    aciSignedPreKey = Optional.of(KeysHelper.signedECPreKey(1, aciIdentityKeyPair));
+    pniSignedPreKey = Optional.empty();
+    aciPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair));
+    pniPqLastResortPreKey = Optional.empty();
+
+    when(account.getIdentityKey()).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
+    when(account.getPhoneNumberIdentityKey()).thenReturn(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
+
+    when(keysManager.storeEcSignedPreKeys(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(keysManager.storePqLastResort(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+
+    final LinkDeviceRequest request = new LinkDeviceRequest(deviceCode.verificationCode(),
+        new AccountAttributes(true, 1234, null, null, true, null),
+        new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, Optional.empty(), Optional.empty()));
+
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/devices/link")
+        .request()
+        .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
+        .put(Entity.entity(request, MediaType.APPLICATION_JSON_TYPE))) {
+
+      assertEquals(422, response.getStatus());
+    }
+  }
+
+  @Test
   void linkDeviceAtomicWithVerificationTokenUsed() {
 
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
