@@ -188,6 +188,7 @@ class AccountsManagerTest {
     }).when(accountLockManager).withLock(any(), any());
 
     when(keysManager.delete(any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(messagesManager.clear(any())).thenReturn(CompletableFuture.completedFuture(null));
 
     accountsManager = new AccountsManager(
         accounts,

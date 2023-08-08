@@ -235,7 +235,7 @@ public class AccountsManager {
               keysManager.delete(actualUuid),
               keysManager.delete(account.getPhoneNumberIdentifier()));
 
-          messagesManager.clear(actualUuid);
+          messagesManager.clear(actualUuid).join();
           profilesManager.deleteAll(actualUuid);
 
           deleteKeysFuture.join();
@@ -877,12 +877,15 @@ public class AccountsManager {
         keysManager.delete(account.getUuid()),
         keysManager.delete(account.getPhoneNumberIdentifier()));
 
+    final CompletableFuture<Void> deleteMessagesFuture = CompletableFuture.allOf(
+        messagesManager.clear(account.getUuid()),
+        messagesManager.clear(account.getPhoneNumberIdentifier()));
+
     profilesManager.deleteAll(account.getUuid());
-    messagesManager.clear(account.getUuid());
-    messagesManager.clear(account.getPhoneNumberIdentifier());
     registrationRecoveryPasswordsManager.removeForNumber(account.getNumber());
 
     deleteKeysFuture.join();
+    deleteMessagesFuture.join();
     deleteStorageServiceDataFuture.join();
     deleteBackupServiceDataFuture.join();
     deleteSecureValueRecoveryServiceDataFuture.join();

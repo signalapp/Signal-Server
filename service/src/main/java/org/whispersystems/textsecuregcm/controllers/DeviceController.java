@@ -142,10 +142,10 @@ public class DeviceController {
 
     final CompletableFuture<Void> deleteKeysFuture = keys.delete(account.getUuid(), deviceId);
 
-    messages.clear(account.getUuid(), deviceId);
+    messages.clear(account.getUuid(), deviceId).join();
     account = accounts.update(account, a -> a.removeDevice(deviceId));
     // ensure any messages that came in after the first clear() are also removed
-    messages.clear(account.getUuid(), deviceId);
+    messages.clear(account.getUuid(), deviceId).join();
 
     deleteKeysFuture.join();
   }
@@ -419,7 +419,7 @@ public class DeviceController {
           keys.delete(a.getUuid(), device.getId()),
           keys.delete(a.getPhoneNumberIdentifier(), device.getId()));
 
-      messages.clear(a.getUuid(), device.getId());
+      messages.clear(a.getUuid(), device.getId()).join();
 
       deleteKeysFuture.join();
 

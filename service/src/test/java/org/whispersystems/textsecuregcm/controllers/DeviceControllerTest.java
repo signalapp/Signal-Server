@@ -128,6 +128,8 @@ class DeviceControllerTest {
 
     when(keysManager.storePqLastResort(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
     when(keysManager.delete(any(), anyLong())).thenReturn(CompletableFuture.completedFuture(null));
+
+    when(messagesManager.clear(any(), anyLong())).thenReturn(CompletableFuture.completedFuture(null));
   }
 
   @AfterEach

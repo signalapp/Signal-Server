@@ -102,14 +102,16 @@ public class MessagesManager {
         .tap(Micrometer.metrics(Metrics.globalRegistry));
   }
 
-  public void clear(UUID destinationUuid) {
-    messagesCache.clear(destinationUuid).join();
-    messagesDynamoDb.deleteAllMessagesForAccount(destinationUuid).join();
+  public CompletableFuture<Void> clear(UUID destinationUuid) {
+    return CompletableFuture.allOf(
+        messagesCache.clear(destinationUuid),
+        messagesDynamoDb.deleteAllMessagesForAccount(destinationUuid));
   }
 
-  public void clear(UUID destinationUuid, long deviceId) {
-    messagesCache.clear(destinationUuid, deviceId).join();
-    messagesDynamoDb.deleteAllMessagesForDevice(destinationUuid, deviceId).join();
+  public CompletableFuture<Void> clear(UUID destinationUuid, long deviceId) {
+    return CompletableFuture.allOf(
+        messagesCache.clear(destinationUuid, deviceId),
+        messagesDynamoDb.deleteAllMessagesForDevice(destinationUuid, deviceId));
   }
 
   public CompletableFuture<Optional<Envelope>> delete(UUID destinationUuid, long destinationDeviceId, UUID guid,

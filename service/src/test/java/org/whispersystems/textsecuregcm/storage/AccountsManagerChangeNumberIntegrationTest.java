@@ -103,6 +103,9 @@ class AccountsManagerChangeNumberIntegrationTest {
       final KeysManager keysManager = mock(KeysManager.class);
       when(keysManager.delete(any())).thenReturn(CompletableFuture.completedFuture(null));
 
+      final MessagesManager messagesManager = mock(MessagesManager.class);
+      when(messagesManager.clear(any())).thenReturn(CompletableFuture.completedFuture(null));
+
       accountsManager = new AccountsManager(
           accounts,
           phoneNumberIdentifiers,
@@ -110,7 +113,7 @@ class AccountsManagerChangeNumberIntegrationTest {
           accountLockManager,
           deletedAccounts,
           keysManager,
-          mock(MessagesManager.class),
+          messagesManager,
           mock(ProfilesManager.class),
           secureStorageClient,
           secureBackupClient,
