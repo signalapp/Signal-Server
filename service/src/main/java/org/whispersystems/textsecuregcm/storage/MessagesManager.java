@@ -104,12 +104,12 @@ public class MessagesManager {
 
   public void clear(UUID destinationUuid) {
     messagesCache.clear(destinationUuid).join();
-    messagesDynamoDb.deleteAllMessagesForAccount(destinationUuid);
+    messagesDynamoDb.deleteAllMessagesForAccount(destinationUuid).join();
   }
 
   public void clear(UUID destinationUuid, long deviceId) {
     messagesCache.clear(destinationUuid, deviceId).join();
-    messagesDynamoDb.deleteAllMessagesForDevice(destinationUuid, deviceId);
+    messagesDynamoDb.deleteAllMessagesForDevice(destinationUuid, deviceId).join();
   }
 
   public CompletableFuture<Optional<Envelope>> delete(UUID destinationUuid, long destinationDeviceId, UUID guid,

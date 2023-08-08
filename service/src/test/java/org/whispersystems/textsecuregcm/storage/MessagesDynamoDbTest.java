@@ -194,7 +194,7 @@ class MessagesDynamoDbTest {
     assertThat(load(secondDestinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
         .hasSize(1).element(0).isEqualTo(MESSAGE2);
 
-    messagesDynamoDb.deleteAllMessagesForAccount(destinationUuid);
+    messagesDynamoDb.deleteAllMessagesForAccount(destinationUuid).join();
 
     assertThat(load(destinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().isEmpty();
     assertThat(load(destinationUuid, 2, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().isEmpty();
@@ -217,7 +217,7 @@ class MessagesDynamoDbTest {
     assertThat(load(secondDestinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
         .hasSize(1).element(0).isEqualTo(MESSAGE2);
 
-    messagesDynamoDb.deleteAllMessagesForDevice(destinationUuid, 2);
+    messagesDynamoDb.deleteAllMessagesForDevice(destinationUuid, 2).join();
 
     assertThat(load(destinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
         .element(0).isEqualTo(MESSAGE1);
