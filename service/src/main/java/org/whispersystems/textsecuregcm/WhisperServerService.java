@@ -115,6 +115,7 @@ import org.whispersystems.textsecuregcm.controllers.VerificationController;
 import org.whispersystems.textsecuregcm.currency.CoinMarketCapClient;
 import org.whispersystems.textsecuregcm.currency.CurrencyConversionManager;
 import org.whispersystems.textsecuregcm.currency.FixerClient;
+import org.whispersystems.textsecuregcm.grpc.ProfileGrpcService;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.filters.RemoteDeprecationFilter;
 import org.whispersystems.textsecuregcm.filters.RequestStatisticsFilter;
@@ -228,6 +229,7 @@ import software.amazon.awssdk.auth.credentials.WebIdentityTokenFileCredentialsPr
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3Client;
 
 public class WhisperServerService extends Application<WhisperServerConfiguration> {
@@ -616,6 +618,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .credentialsProvider(cdnCredentialsProvider)
         .region(Region.of(config.getCdnConfiguration().region()))
         .build();
+    S3AsyncClient asyncCdnS3Client = S3AsyncClient.builder()
+        .credentialsProvider(cdnCredentialsProvider)
+        .region(Region.of(config.getCdnConfiguration().region()))
+        .build();
 
     final GcsAttachmentGenerator gcsAttachmentGenerator = new GcsAttachmentGenerator(
         config.getGcpAttachmentsConfiguration().domain(),
@@ -647,7 +653,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         // TODO: specialize metrics with user-agent platform
         .intercept(new MetricCollectingServerInterceptor(Metrics.globalRegistry))
         .addService(ServerInterceptors.intercept(new KeysGrpcService(accountsManager, keys, rateLimiters), basicCredentialAuthenticationInterceptor))
-        .addService(new KeysAnonymousGrpcService(accountsManager, keys));
+        .addService(new KeysAnonymousGrpcService(accountsManager, keys))
+        .addService(ServerInterceptors.intercept(new ProfileGrpcService(clock, accountsManager, profilesManager, dynamicConfigurationManager, config.getBadges(), asyncCdnS3Client, profileCdnPolicyGenerator, profileCdnPolicySigner, config.getCdnConfiguration().bucket())));
 
     RemoteDeprecationFilter remoteDeprecationFilter = new RemoteDeprecationFilter(dynamicConfigurationManager);
     environment.servlets()

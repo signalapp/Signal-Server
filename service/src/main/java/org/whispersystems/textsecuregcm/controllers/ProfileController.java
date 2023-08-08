@@ -91,6 +91,7 @@ import org.whispersystems.textsecuregcm.entities.ExpiringProfileKeyCredentialPro
 import org.whispersystems.textsecuregcm.entities.ProfileAvatarUploadAttributes;
 import org.whispersystems.textsecuregcm.entities.UserCapabilities;
 import org.whispersystems.textsecuregcm.entities.VersionedProfileResponse;
+import org.whispersystems.textsecuregcm.grpc.ProfileHelper;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
@@ -199,7 +200,7 @@ public class ProfileController {
     final String avatar = switch (request.getAvatarChange()) {
       case UNCHANGED -> currentAvatar.orElse(null);
       case CLEAR -> null;
-      case UPDATE -> generateAvatarObjectName();
+      case UPDATE -> ProfileHelper.generateAvatarObjectName();
     };
 
     profilesManager.set(auth.getAccount().getUuid(),
@@ -220,7 +221,7 @@ public class ProfileController {
     }
 
     final List<AccountBadge> updatedBadges = request.getBadges()
-        .map(badges -> mergeBadgeIdsWithExistingAccountBadges(badges, auth.getAccount().getBadges()))
+        .map(badges -> ProfileHelper.mergeBadgeIdsWithExistingAccountBadges(clock, badgeConfigurationMap, badges, auth.getAccount().getBadges()))
         .orElseGet(() -> auth.getAccount().getBadges());
 
     accountsManager.update(auth.getAccount(), a -> {
@@ -229,7 +230,7 @@ public class ProfileController {
     });
 
     if (request.getAvatarChange() == CreateProfileRequest.AvatarChange.UPDATE) {
-      return Response.ok(generateAvatarUploadForm(avatar)).build();
+      return Response.ok(ProfileHelper.generateAvatarUploadForm(policyGenerator, policySigner, avatar)).build();
     } else {
       return Response.ok().build();
     }
@@ -477,23 +478,6 @@ public class ProfileController {
     }
   }
 
-  private ProfileAvatarUploadAttributes generateAvatarUploadForm(String objectName) {
-    ZonedDateTime        now            = ZonedDateTime.now(ZoneOffset.UTC);
-    Pair<String, String> policy         = policyGenerator.createFor(now, objectName, 10 * 1024 * 1024);
-    String               signature      = policySigner.getSignature(now, policy.second());
-
-    return new ProfileAvatarUploadAttributes(objectName, policy.first(), "private", "AWS4-HMAC-SHA256",
-                                             now.format(PostPolicyGenerator.AWS_DATE_TIME), policy.second(), signature);
-
-  }
-
-  private String generateAvatarObjectName() {
-    byte[] object = new byte[16];
-    new SecureRandom().nextBytes(object);
-
-    return "profiles/" + Base64.getUrlEncoder().encodeToString(object);
-  }
-
   private List<Locale> getAcceptableLanguagesForRequest(ContainerRequestContext containerRequestContext) {
     try {
       return containerRequestContext.getAcceptableLanguages();
@@ -507,48 +491,6 @@ public class ProfileController {
 
       return List.of();
     }
-  }
-
-  private List<AccountBadge> mergeBadgeIdsWithExistingAccountBadges(
-      final List<String> badgeIds,
-      final List<AccountBadge> accountBadges) {
-    LinkedHashMap<String, AccountBadge> existingBadges = new LinkedHashMap<>(accountBadges.size());
-    for (final AccountBadge accountBadge : accountBadges) {
-      existingBadges.putIfAbsent(accountBadge.getId(), accountBadge);
-    }
-
-    LinkedHashMap<String, AccountBadge> result = new LinkedHashMap<>(accountBadges.size());
-    for (final String badgeId : badgeIds) {
-
-      // duplicate in the list, ignore it
-      if (result.containsKey(badgeId)) {
-        continue;
-      }
-
-      // This is for testing badges and allows them to be added to an account at any time with an expiration of 1 day
-      // in the future.
-      BadgeConfiguration badgeConfiguration = badgeConfigurationMap.get(badgeId);
-      if (badgeConfiguration != null && badgeConfiguration.isTestBadge()) {
-        result.put(badgeId, new AccountBadge(badgeId, clock.instant().plus(Duration.ofDays(1)), true));
-        continue;
-      }
-
-      // reordering or making visible existing badges
-      if (existingBadges.containsKey(badgeId)) {
-        AccountBadge accountBadge = existingBadges.get(badgeId).withVisibility(true);
-        result.put(badgeId, accountBadge);
-      }
-    }
-
-    // take any remaining account badges and make them invisible
-    for (final Entry<String, AccountBadge> entry : existingBadges.entrySet()) {
-      if (!result.containsKey(entry.getKey())) {
-        AccountBadge accountBadge = entry.getValue().withVisibility(false);
-        result.put(accountBadge.getId(), accountBadge);
-      }
-    }
-
-    return new ArrayList<>(result.values());
   }
 
   /**

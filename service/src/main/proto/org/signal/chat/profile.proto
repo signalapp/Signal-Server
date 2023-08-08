@@ -1,0 +1,406 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+
+package org.signal.chat.profile;
+
+import "org/signal/chat/common.proto";
+
+/**
+ * Provides methods for working with profiles and profile-related data.
+ */
+service Profile {
+  /**
+   * Sets profile data and if needed, returns S3 credentials used by clients to upload an avatar.
+   *
+   * This RPC may fail with `PERMISSION_DENIED` if it attempts to set the MobileCoin wallet ID
+   * on an account whose profile does not currently have a MobileCoin wallet ID and
+   * whose phone number contains a disallowed country prefix.
+   */
+  rpc SetProfile(SetProfileRequest) returns (SetProfileResponse) {}
+
+  /**
+   * Retrieves versioned profile data. Callers with an unidentified access key for the account
+   * should use the version of this method in `ProfileAnonymous` instead.
+   *
+   * This RPC may fail with a `NOT_FOUND` status if the target account was not
+   * found. It may fail with a `RESOURCE_EXHAUSTED` if a rate limit for fetching profiles has been
+   * exceeded, in which case a `retry-after` header containing an ISO 8601
+   * duration string will be present in the response trailers.
+   */
+  rpc GetVersionedProfile(GetVersionedProfileRequest) returns (GetVersionedProfileResponse) {}
+
+  /**
+   * Retrieves unversioned profile data. Callers with an unidentified access key for the account
+   * should use the version of this method in `ProfileAnonymous` instead.
+   *
+   * This RPC may fail with a `NOT_FOUND` status if the target account was not
+   * found. It may fail with a `RESOURCE_EXHAUSTED` if a rate limit for fetching profiles has been
+   * exceeded, in which case a `retry-after` header containing an ISO 8601
+   * duration string will be present in the response trailers.
+   */
+  rpc GetUnversionedProfile(GetUnversionedProfileRequest) returns (GetUnversionedProfileResponse) {}
+
+  /**
+   * Retrieves a profile key credential.
+   * Callers with an unidentified access key for the account
+   * should use the version of this method in `ProfileAnonymous` instead.
+   *
+   * This RPC may fail with a `NOT_FOUND` status if the target account was not
+   * found. It may fail with a `RESOURCE_EXHAUSTED` if a rate limit for fetching profiles has been
+   * exceeded, in which case a `retry-after` header containing an ISO 8601
+   * duration string will be present in the response trailers. It may also fail with an
+   * `INVALID_ARGUMENT` status if the given credential type is invalid.
+   */
+  rpc GetExpiringProfileKeyCredential(GetExpiringProfileKeyCredentialRequest) returns (GetExpiringProfileKeyCredentialResponse) {}
+}
+
+/**
+ * Provides methods for working with profiles and profile-related data using "unidentified access"
+ * credentials. Callers must not submit any self-identifying credentials
+ * when calling methods in this service and must instead present the targeted account's
+ * unidentified access key as an anonymous authentication mechanism. Callers
+ * without an unidentified access key should use the equivalent, authenticated
+ * methods in `Profile` instead.
+ */
+service ProfileAnonymous {
+  /**
+   * Retrieves versioned profile data.
+   *
+   * This RPC may fail with a `NOT_FOUND` status if the target account was not
+   * found. It may also fail with an `UNAUTHENTICATED` status if the given
+   * unidentified access key did not match the target account's unidentified
+   * access key.
+   */
+  rpc GetVersionedProfile(GetVersionedProfileAnonymousRequest) returns (GetVersionedProfileResponse) {}
+  /**
+   * Retrieves unversioned profile data.
+   *
+   * This RPC may fail with a `NOT_FOUND` status if the target account was not
+   * found. It may also fail with an `UNAUTHENTICATED` status if the given
+   * unidentified access key did not match the target account's unidentified
+   * access key.
+   */
+  rpc GetUnversionedProfile(GetUnversionedProfileAnonymousRequest) returns (GetUnversionedProfileResponse) {}
+  /**
+   * Retrieves a profile key credential.
+   *
+   * This RPC may fail with a `NOT_FOUND` status if the target account was not
+   * found. It may also fail with an `UNAUTHENTICATED` status if the given
+   * unidentified access key did not match the target account's unidentified
+   * access key, or an `INVALID_ARGUMENT` status if the given credential type is invalid.
+   */
+  rpc GetExpiringProfileKeyCredential(GetExpiringProfileKeyCredentialAnonymousRequest) returns (GetExpiringProfileKeyCredentialResponse) {}
+
+  /**
+   * Checks identity key fingerprints of the target accounts.
+   *
+   * Returns a stream of elements, each one representing an account that had a mismatched
+   * identity key fingerprint with the server and the corresponding identity key stored by the server.
+   */
+  rpc CheckIdentityKeys(stream CheckIdentityKeysRequest) returns (stream CheckIdentityKeysResponse) {}
+}
+
+message SetProfileRequest {
+  enum AvatarChange {
+    AVATAR_CHANGE_UNCHANGED = 0;
+    AVATAR_CHANGE_CLEAR = 1;
+    AVATAR_CHANGE_UPDATE = 2;
+  }
+  /**
+   * The profile version. Must be set.
+   */
+  string version = 1;
+  /**
+   * The ciphertext of a name that users must set on the profile.
+   */
+  bytes name = 2;
+  /**
+   * An enum to indicate what change, if any, is made to the avatar with this request.
+   */
+  AvatarChange avatarChange = 3;
+  /**
+   * The ciphertext of an emoji that users can set on their profile.
+   */
+  bytes about_emoji = 4;
+  /**
+   * The ciphertext of a description that users can set on their profile.
+   */
+  bytes about = 5;
+  /**
+   * The ciphertext of the MobileCoin wallet ID on the profile.
+   */
+  bytes payment_address = 6;
+  /**
+   * A list of badge IDs associated with the profile.
+   */
+  repeated string badge_ids = 7;
+  /**
+   * The profile key commitment. Used to issue a profile key credential response.
+   * Must be set on the request.
+   */
+  bytes commitment = 9;
+}
+
+message SetProfileResponse {
+  /**
+   * The policy and credential used by clients to upload an avatar to S3.
+   */
+  ProfileAvatarUploadAttributes attributes = 1;
+}
+
+message GetVersionedProfileRequest {
+  /**
+   * The ACI of the account for which to get profile data.
+   */
+  common.ServiceIdentifier accountIdentifier = 1;
+  /**
+   * The profile version to retrieve.
+   */
+  bytes version = 2;
+}
+
+message GetVersionedProfileAnonymousRequest {
+  /**
+   * Contains the data necessary to request a versioned profile.
+   */
+  GetVersionedProfileRequest request = 1;
+  /**
+   * The unidentified access key for the targeted account.
+   */
+  bytes unidentified_access_key = 2;
+}
+
+message GetVersionedProfileResponse {
+  /**
+   * The ciphertext of the name on the profile.
+   */
+  bytes name = 1;
+  /**
+   * The ciphertext of the description on the profile.
+   */
+  bytes about = 2;
+  /**
+   * The ciphertext of the emoji on the profile.
+   */
+  bytes about_emoji = 3;
+  /**
+   * The S3 path of the avatar on the profile.
+   */
+  string avatar = 4;
+  /**
+   * The ciphertext of the MobileCoin wallet ID on the profile.
+   */
+  bytes payment_address = 5;
+}
+
+message GetUnversionedProfileRequest {
+  /**
+   * The service identifier of the account for which to get profile data.
+   */
+  common.ServiceIdentifier serviceIdentifier = 1;
+}
+
+message GetUnversionedProfileAnonymousRequest {
+  /**
+   * Contains the data necessary to request an unversioned profile.
+   */
+  GetUnversionedProfileRequest request = 1;
+  /**
+   * The unidentified access key for the targeted account.
+   */
+  bytes unidentified_access_key = 2;
+}
+
+message GetUnversionedProfileResponse {
+  /**
+   * The identity key of the targeted account/identity type.
+   */
+  bytes identity_key = 1;
+  /**
+   * A checksum of the unidentified access key for the targeted account.
+   */
+  bytes unidentified_access = 2;
+  /**
+   * Whether the account has enabled sealed sender from anyone.
+   */
+  bool unrestricted_unidentified_access = 3;
+  /**
+   * A list of capabilities enabled on the account.
+   */
+  UserCapabilities capabilities = 4;
+  /**
+   * A list of badges associated with the account.
+   */
+  repeated Badge badges = 5;
+}
+
+message GetExpiringProfileKeyCredentialRequest {
+  /**
+   * The ACI of the account for which to get a profile key credential.
+   */
+  common.ServiceIdentifier accountIdentifier = 1;
+  /**
+   * A zkgroup request for a profile key credential.
+   */
+  bytes credential_request = 2;
+  /**
+   * The type of credential being requested.
+   */
+  CredentialType credential_type = 3;
+}
+
+message GetExpiringProfileKeyCredentialAnonymousRequest {
+  /**
+   * Contains the data necessary to request an expiring profile key credential.
+   */
+  GetExpiringProfileKeyCredentialRequest request = 1;
+  /**
+   * The unidentified access key for the targeted account.
+   */
+  bytes unidentified_access_key = 2;
+}
+
+message GetExpiringProfileKeyCredentialResponse {
+  /**
+   * A zkgroup credential used by a client to prove that it has the profile key
+   * of a targeted account.
+   */
+  bytes profileKeyCredential = 2;
+}
+
+message CheckIdentityKeysRequest {
+  /**
+   * The service identifier of the account for which we want to check the associated identity key fingerprint.
+   */
+  common.ServiceIdentifier target_identifier = 1;
+  /**
+   * The most significant 4 bytes of the SHA-256 hash of the identity key associated with the target account/identity type.
+   */
+  bytes fingerprint = 2;
+}
+
+message CheckIdentityKeysResponse {
+  /**
+   * The service identifier of the account for which there is a mismatch between the client and server identity key fingerprints.
+   */
+  common.ServiceIdentifier target_identifier = 1;
+  /**
+   * The identity key that is stored by the server for the target account/identity type.
+   */
+  bytes identity_key = 2;
+}
+
+message ProfileAvatarUploadAttributes {
+  /**
+   * The S3 upload path for the profile's avatar.
+   */
+  string path = 1;
+  /**
+   * A scoped credential. Includes the AWS access key, date, region targeted, and AWS service.
+   */
+  string credential = 2;
+  /**
+   * The type of access control for the avatar object.
+   */
+  string acl = 3;
+  /**
+   * The algorithm used to calculate a signature on the S3 policy.
+   */
+  string algorithm = 4;
+  /**
+   * The timestamp at which the S3 policy and signature were generated.
+   */
+  string date = 5;
+  /**
+   * The S3 policy used to upload the avatar object.
+   */
+  string policy = 6;
+  /**
+   * A digital signature on the S3 policy.
+   */
+  bytes signature = 7;
+}
+
+message UserCapabilities {
+  /**
+   * Whether all devices linked to the account support the groups v1 migration.
+   */
+  bool gv1_migration = 1;
+  /**
+   * Whether all devices linked to the account support sender keys.
+   */
+  bool sender_key = 2;
+  /**
+   * Whether all devices linked to the account support announcement groups
+   * (groups where only the admin can send messages or start calls).
+   */
+  bool announcement_group = 3;
+  /**
+   * Whether all devices linked to the account support changing phone number.
+   */
+  bool change_number = 4;
+  /**
+   * Whether all devices linked to the account support stories.
+   */
+  bool stories = 5;
+  /**
+   * Whether all devices linked to the account support gift badges.
+   */
+  bool gift_badges = 6;
+  /**
+   * Whether all devices linked to the account support MobileCoin payments.
+   */
+  bool payment_activation = 7;
+  /**
+   * Whether all devices linked to the account support phone number privacy.
+   */
+  bool pni = 8;
+}
+
+message Badge {
+  /**
+   * An ID that uniquely identifies the badge.
+   */
+  string id = 1;
+  /**
+   * The category the badge falls in ("donor" or "other").
+   */
+  string category = 2;
+  /**
+   * The badge name.
+   */
+  string name = 3;
+  /**
+   * The badge description.
+   */
+  string description = 4;
+  /**
+   * Different size badge SVG files.
+   */
+  repeated string sprites6 = 5;
+  /**
+   * File name of the scalable vector graphic representing this badge.
+   */
+  string svg = 6;
+  /**
+   * Pairs of light/dark SVG files designed for display at different sizes.
+   */
+  repeated BadgeSvg svgs = 7;
+}
+
+message BadgeSvg {
+  /**
+   * File name of the scalable vector graphic for light mode.
+   */
+  string light = 1;
+  /**
+   * File name of the scalable vector graphic for dark mode.
+   */
+  string dark = 2;
+}
+
+enum CredentialType {
+  CREDENTIAL_TYPE_UNSPECIFIED = 0;
+  CREDENTIAL_TYPE_EXPIRING_PROFILE_KEY = 1;
+}
