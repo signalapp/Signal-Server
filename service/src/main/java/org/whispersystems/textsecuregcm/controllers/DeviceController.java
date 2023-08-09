@@ -365,12 +365,6 @@ public class DeviceController {
       assert deviceActivationRequest.aciSignedPreKey().isPresent();
       assert deviceActivationRequest.aciPqLastResortPreKey().isPresent();
 
-      if (account.getPhoneNumberIdentityKey() != null) {
-        if (deviceActivationRequest.pniSignedPreKey().isEmpty() || deviceActivationRequest.pniPqLastResortPreKey().isEmpty()) {
-          throw new WebApplicationException(Response.status(422).build());
-        }
-      }
-
       final boolean allKeysValid = PreKeySignatureValidator.validatePreKeySignatures(account.getIdentityKey(),
           List.of(deviceActivationRequest.aciSignedPreKey().get(), deviceActivationRequest.aciPqLastResortPreKey().get())) &&
           deviceActivationRequest.pniSignedPreKey().map(pniSignedPreKey ->
