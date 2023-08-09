@@ -11,6 +11,7 @@ import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.config.MeterFilter;
+import io.micrometer.core.instrument.config.MeterFilterReply;
 import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
 import io.micrometer.datadog.DatadogMeterRegistry;
 import java.util.concurrent.TimeUnit;
@@ -63,20 +64,25 @@ public class MetricsUtil {
             }
           });
 
-      // Remove high-cardinality `command` tags from Lettuce metrics and prepend "chat." to meter names
-      datadogMeterRegistry.config().meterFilter(new MeterFilter() {
-        @Override
-        public Meter.Id map(final Meter.Id id) {
-          if (id.getName().startsWith("lettuce")) {
-            return id.withName(PREFIX + "." + id.getName())
-                .replaceTags(id.getTags().stream()
-                    .filter(tag -> !"command".equals(tag.getKey()))
-                    .toList());
-          }
+      datadogMeterRegistry.config()
+          // Deny lettuce metrics, but leave command.completions.max
+          .meterFilter(MeterFilter.deny(id ->
+              id.getName().startsWith("lettuce") && !id.getName().contains("command.completions.max")
+          ))
+          // Remove high-cardinality `command` tags from Lettuce metrics and prepend "chat." to meter names
+          .meterFilter(new MeterFilter() {
+            @Override
+            public Meter.Id map(final Meter.Id id) {
+              if (id.getName().startsWith("lettuce")) {
+                return id.withName(PREFIX + "." + id.getName())
+                    .replaceTags(id.getTags().stream()
+                        .filter(tag -> !"command".equals(tag.getKey()))
+                        .toList());
+              }
 
-          return MeterFilter.super.map(id);
-        }
-      });
+              return MeterFilter.super.map(id);
+            }
+          });
 
       Metrics.addRegistry(datadogMeterRegistry);
     }
