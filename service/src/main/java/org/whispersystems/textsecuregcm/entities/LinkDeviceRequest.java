@@ -7,7 +7,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 import javax.validation.Valid;
 import javax.validation.constraints.AssertTrue;
-import javax.validation.constraints.NotBlank;
 import java.util.Optional;
 
 public record LinkDeviceRequest(@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = """
@@ -24,8 +23,8 @@ public record LinkDeviceRequest(@Schema(requiredMode = Schema.RequiredMode.REQUI
 
   @JsonCreator
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-  public LinkDeviceRequest(@JsonProperty("verificationCode") @NotBlank String verificationCode,
-                           @JsonProperty("accountAttributes") @Valid AccountAttributes accountAttributes,
+  public LinkDeviceRequest(@JsonProperty("verificationCode") String verificationCode,
+                           @JsonProperty("accountAttributes") AccountAttributes accountAttributes,
                            @JsonProperty("aciSignedPreKey") Optional<@Valid ECSignedPreKey> aciSignedPreKey,
                            @JsonProperty("pniSignedPreKey") Optional<@Valid ECSignedPreKey> pniSignedPreKey,
                            @JsonProperty("aciPqLastResortPreKey") Optional<@Valid KEMSignedPreKey> aciPqLastResortPreKey,
@@ -39,14 +38,10 @@ public record LinkDeviceRequest(@Schema(requiredMode = Schema.RequiredMode.REQUI
 
   @AssertTrue
   public boolean hasAllRequiredFields() {
-    // PNI-associated credentials are not yet required, but will be when all devices are assumed to have a PNI identity
-    // key.
-    final boolean mismatchedPniKeys = deviceActivationRequest().pniSignedPreKey().isPresent()
-        ^ deviceActivationRequest().pniPqLastResortPreKey().isPresent();
-
     return deviceActivationRequest().aciSignedPreKey().isPresent()
+        && deviceActivationRequest().pniSignedPreKey().isPresent()
         && deviceActivationRequest().aciPqLastResortPreKey().isPresent()
-        && !mismatchedPniKeys;
+        && deviceActivationRequest().pniPqLastResortPreKey().isPresent();
   }
 
   @AssertTrue

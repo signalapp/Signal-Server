@@ -21,7 +21,6 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Base64;
 import java.util.LinkedList;
 import java.util.List;
@@ -355,24 +354,23 @@ public class DeviceController {
                                      final Optional<DeviceActivationRequest> maybeDeviceActivationRequest)
       throws RateLimitExceededException, DeviceLimitExceededException {
 
-    final Account account = checkVerificationToken(verificationCode)
-        .flatMap(accounts::getByAccountIdentifier)
+    final Optional<UUID> maybeAciFromToken = checkVerificationToken(verificationCode);
+
+    final Account account = maybeAciFromToken.flatMap(accounts::getByAccountIdentifier)
         .orElseThrow(ForbiddenException::new);
 
     rateLimiters.getVerifyDeviceLimiter().validate(account.getUuid());
 
     maybeDeviceActivationRequest.ifPresent(deviceActivationRequest -> {
       assert deviceActivationRequest.aciSignedPreKey().isPresent();
+      assert deviceActivationRequest.pniSignedPreKey().isPresent();
       assert deviceActivationRequest.aciPqLastResortPreKey().isPresent();
+      assert deviceActivationRequest.pniPqLastResortPreKey().isPresent();
 
       final boolean allKeysValid = PreKeySignatureValidator.validatePreKeySignatures(account.getIdentityKey(),
-          List.of(deviceActivationRequest.aciSignedPreKey().get(), deviceActivationRequest.aciPqLastResortPreKey().get())) &&
-          deviceActivationRequest.pniSignedPreKey().map(pniSignedPreKey ->
-                  PreKeySignatureValidator.validatePreKeySignatures(account.getPhoneNumberIdentityKey(), List.of(pniSignedPreKey)))
-              .orElse(true) &&
-          deviceActivationRequest.pniPqLastResortPreKey().map(pniPqLastResortPreKey ->
-                  PreKeySignatureValidator.validatePreKeySignatures(account.getPhoneNumberIdentityKey(), List.of(pniPqLastResortPreKey)))
-              .orElse(true);
+          List.of(deviceActivationRequest.aciSignedPreKey().get(), deviceActivationRequest.aciPqLastResortPreKey().get()))
+          && PreKeySignatureValidator.validatePreKeySignatures(account.getPhoneNumberIdentityKey(),
+          List.of(deviceActivationRequest.pniSignedPreKey().get(), deviceActivationRequest.pniPqLastResortPreKey().get()));
 
       if (!allKeysValid) {
         throw new WebApplicationException(Response.status(422).build());
@@ -411,8 +409,7 @@ public class DeviceController {
 
     maybeDeviceActivationRequest.ifPresent(deviceActivationRequest -> {
       device.setSignedPreKey(deviceActivationRequest.aciSignedPreKey().get());
-
-      deviceActivationRequest.pniSignedPreKey().ifPresent(device::setPhoneNumberIdentitySignedPreKey);
+      device.setPhoneNumberIdentitySignedPreKey(deviceActivationRequest.pniSignedPreKey().get());
 
       deviceActivationRequest.apnToken().ifPresent(apnRegistrationId -> {
         device.setApnId(apnRegistrationId.apnRegistrationId());
@@ -434,31 +431,24 @@ public class DeviceController {
 
       deleteKeysFuture.join();
 
-      maybeDeviceActivationRequest.ifPresent(deviceActivationRequest -> {
-        final List<CompletableFuture<Void>> storeKeyFutures = new ArrayList<>(4);
-
-        storeKeyFutures.add(keys.storeEcSignedPreKeys(a.getUuid(),
-            Map.of(device.getId(), deviceActivationRequest.aciSignedPreKey().get())));
-
-        storeKeyFutures.add(keys.storePqLastResort(a.getUuid(),
-            Map.of(device.getId(), deviceActivationRequest.aciPqLastResortPreKey().get())));
-
-        deviceActivationRequest.pniSignedPreKey().ifPresent(pniSignedPreKey ->
-            storeKeyFutures.add(keys.storeEcSignedPreKeys(a.getPhoneNumberIdentifier(),
-            Map.of(device.getId(), pniSignedPreKey))));
-
-        deviceActivationRequest.pniPqLastResortPreKey().ifPresent(pniPqLastResortPreKey ->
-            storeKeyFutures.add(keys.storePqLastResort(a.getPhoneNumberIdentifier(),
-                Map.of(device.getId(), pniPqLastResortPreKey))));
-
-        CompletableFuture.allOf(storeKeyFutures.toArray(new CompletableFuture[0])).join();
-      });
+      maybeDeviceActivationRequest.ifPresent(deviceActivationRequest -> CompletableFuture.allOf(
+              keys.storeEcSignedPreKeys(a.getUuid(),
+                  Map.of(device.getId(), deviceActivationRequest.aciSignedPreKey().get())),
+              keys.storePqLastResort(a.getUuid(),
+                  Map.of(device.getId(), deviceActivationRequest.aciPqLastResortPreKey().get())),
+              keys.storeEcSignedPreKeys(a.getPhoneNumberIdentifier(),
+                  Map.of(device.getId(), deviceActivationRequest.pniSignedPreKey().get())),
+              keys.storePqLastResort(a.getPhoneNumberIdentifier(),
+                  Map.of(device.getId(), deviceActivationRequest.pniPqLastResortPreKey().get())))
+          .join());
 
       a.addDevice(device);
     });
 
-    usedTokenCluster.useCluster(connection ->
-        connection.sync().set(getUsedTokenKey(verificationCode), "", new SetArgs().ex(TOKEN_EXPIRATION_DURATION)));
+    if (maybeAciFromToken.isPresent()) {
+      usedTokenCluster.useCluster(connection ->
+          connection.sync().set(getUsedTokenKey(verificationCode), "", new SetArgs().ex(TOKEN_EXPIRATION_DURATION)));
+    }
 
     return new Pair<>(updatedAccount, device);
   }
