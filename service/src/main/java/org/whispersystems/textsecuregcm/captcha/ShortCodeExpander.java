@@ -28,7 +28,7 @@ public class ShortCodeExpander {
   }
 
   public Optional<String> retrieve(final String shortCode) throws IOException {
-    final URI uri = shortenerHost.resolve("/" + shortCode);
+    final URI uri = shortenerHost.resolve(shortCode);
     final HttpRequest request = HttpRequest.newBuilder().uri(uri).GET().build();
 
     try {
