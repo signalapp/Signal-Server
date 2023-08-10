@@ -6,12 +6,13 @@
 package org.whispersystems.textsecuregcm.metrics;
 
 import com.codahale.metrics.SharedMetricRegistries;
+import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.setup.Environment;
 import io.micrometer.core.instrument.Meter;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.config.MeterFilter;
-import io.micrometer.core.instrument.config.MeterFilterReply;
 import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
 import io.micrometer.datadog.DatadogMeterRegistry;
 import java.util.concurrent.TimeUnit;
@@ -43,52 +44,56 @@ public class MetricsUtil {
   public static void configureRegistries(final WhisperServerConfiguration config, final Environment environment) {
     SharedMetricRegistries.add(Constants.METRICS_NAME, environment.metrics());
 
-    final DistributionStatisticConfig defaultDistributionStatisticConfig = DistributionStatisticConfig.builder()
-        .percentiles(.75, .95, .99, .999)
-        .build();
-
     {
       final DatadogMeterRegistry datadogMeterRegistry = new DatadogMeterRegistry(
           config.getDatadogConfiguration(), io.micrometer.core.instrument.Clock.SYSTEM);
 
       datadogMeterRegistry.config().commonTags(
-              Tags.of(
-                  "service", "chat",
-                  "host", HostnameUtil.getLocalHostname(),
-                  "version", WhisperServerVersion.getServerVersion(),
-                  "env", config.getDatadogConfiguration().getEnvironment()))
-          .meterFilter(new MeterFilter() {
-            @Override
-            public DistributionStatisticConfig configure(final Meter.Id id, final DistributionStatisticConfig config) {
-              return defaultDistributionStatisticConfig.merge(config);
-            }
-          });
-
-      datadogMeterRegistry.config()
-          // Deny lettuce metrics, but leave command.completions.max
-          .meterFilter(MeterFilter.deny(id ->
-              id.getName().startsWith("lettuce") && !id.getName().contains("command.completions.max")
-          ))
-          // Remove high-cardinality `command` tags from Lettuce metrics and prepend "chat." to meter names
-          .meterFilter(new MeterFilter() {
-            @Override
-            public Meter.Id map(final Meter.Id id) {
-              if (id.getName().startsWith("lettuce")) {
-                return id.withName(PREFIX + "." + id.getName())
-                    .replaceTags(id.getTags().stream()
-                        .filter(tag -> !"command".equals(tag.getKey()))
-                        .toList());
-              }
-
-              return MeterFilter.super.map(id);
-            }
-          });
-
+          Tags.of(
+              "service", "chat",
+              "host", HostnameUtil.getLocalHostname(),
+              "version", WhisperServerVersion.getServerVersion(),
+              "env", config.getDatadogConfiguration().getEnvironment()));
+      configureMeterFilters(datadogMeterRegistry.config());
       Metrics.addRegistry(datadogMeterRegistry);
     }
 
     environment.lifecycle().manage(new MicrometerRegistryManager(Metrics.globalRegistry));
     environment.lifecycle().manage(new ApplicationShutdownMonitor(Metrics.globalRegistry));
+  }
+
+  @VisibleForTesting
+  static MeterRegistry.Config configureMeterFilters(MeterRegistry.Config config) {
+    final DistributionStatisticConfig defaultDistributionStatisticConfig = DistributionStatisticConfig.builder()
+        .percentiles(.75, .95, .99, .999)
+        .build();
+
+    return config
+        .meterFilter(new MeterFilter() {
+          @Override
+          public DistributionStatisticConfig configure(final Meter.Id id, final DistributionStatisticConfig config) {
+            return defaultDistributionStatisticConfig.merge(config);
+          }
+        })
+        // Remove high-cardinality `command` tags from Lettuce metrics and prepend "chat." to meter names
+        .meterFilter(new MeterFilter() {
+          @Override
+          public Meter.Id map(final Meter.Id id) {
+            if (id.getName().startsWith("lettuce")) {
+              return id.withName(PREFIX + "." + id.getName())
+                  .replaceTags(id.getTags().stream()
+                      .filter(tag -> !"command".equals(tag.getKey()))
+                      .toList());
+            }
+
+            return MeterFilter.super.map(id);
+          }
+        })
+        // Deny lettuce metrics, but leave command.completions.max. Note that regardless of configured order, accept
+        // filters are applied after map filters.
+        .meterFilter(MeterFilter.deny(id ->
+              id.getName().startsWith(PREFIX + ".lettuce") && !id.getName().contains("command.completion.max")
+        ));
   }
 
   public static void registerSystemResourceMetrics(final Environment environment) {
