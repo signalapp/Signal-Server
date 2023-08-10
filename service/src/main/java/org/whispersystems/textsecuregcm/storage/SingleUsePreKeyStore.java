@@ -73,9 +73,6 @@ public abstract class SingleUsePreKeyStore<K extends PreKey<?>> {
   private final String takeKeyTimerName = name(getClass(), "takeKey");
   private static final String KEY_PRESENT_TAG_NAME = "keyPresent";
 
-  private final Counter parseBytesFromStringCounter = Metrics.counter(name(getClass(), "parseByteArray"), "format", "string");
-  private final Counter readBytesFromByteArrayCounter = Metrics.counter(name(getClass(), "parseByteArray"), "format", "bytes");
-
   static final String KEY_ACCOUNT_UUID = "U";
   static final String KEY_DEVICE_ID_KEY_ID = "DK";
   static final String ATTR_PUBLIC_KEY = "P";
@@ -289,24 +286,4 @@ public abstract class SingleUsePreKeyStore<K extends PreKey<?>> {
       final K preKey);
 
   protected abstract K getPreKeyFromItem(final Map<String, AttributeValue> item);
-
-  /**
-   * Extracts a byte array from an {@link AttributeValue} that may be either a byte array or a base64-encoded string.
-   *
-   * @param attributeValue the {@code AttributeValue} from which to extract a byte array
-   *
-   * @return the byte array represented by the given {@code AttributeValue}
-   */
-  @VisibleForTesting
-  byte[] extractByteArray(final AttributeValue attributeValue) {
-    if (attributeValue.b() != null) {
-      readBytesFromByteArrayCounter.increment();
-      return attributeValue.b().asByteArray();
-    } else if (StringUtils.isNotBlank(attributeValue.s())) {
-      parseBytesFromStringCounter.increment();
-      return Base64.getDecoder().decode(attributeValue.s());
-    }
-
-    throw new IllegalArgumentException("Attribute value has neither a byte array nor a string value");
-  }
 }

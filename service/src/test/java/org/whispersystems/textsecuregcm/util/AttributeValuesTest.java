@@ -6,10 +6,16 @@
 package org.whispersystems.textsecuregcm.util;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import java.nio.ByteBuffer;
+import java.util.Base64;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -62,5 +68,35 @@ public class AttributeValuesTest {
   void testNullUuid() {
     final Map<String, AttributeValue> item = Map.of("key", AttributeValue.builder().nul(true).build());
     assertNull(AttributeValues.getUUID(item, "key", null));
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void extractByteArray(final AttributeValue attributeValue, final byte[] expectedByteArray) {
+    assertArrayEquals(expectedByteArray, AttributeValues.extractByteArray(attributeValue, "counter"));
+  }
+
+  private static Stream<Arguments> extractByteArray() {
+    final byte[] key = Base64.getDecoder().decode("c+k+8zv8WaFdDjR9IOvCk6BcY5OI7rge/YUDkaDGyRc=");
+
+    return Stream.of(
+        Arguments.of(AttributeValue.fromB(SdkBytes.fromByteArray(key)), key),
+        Arguments.of(AttributeValue.fromS(Base64.getEncoder().encodeToString(key)), key),
+        Arguments.of(AttributeValue.fromS(Base64.getEncoder().withoutPadding().encodeToString(key)), key)
+    );
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void extractByteArrayIllegalArgument(final AttributeValue attributeValue) {
+    assertThrows(IllegalArgumentException.class, () -> AttributeValues.extractByteArray(attributeValue, "counter"));
+  }
+
+  private static Stream<Arguments> extractByteArrayIllegalArgument() {
+    return Stream.of(
+        Arguments.of(AttributeValue.fromN("12")),
+        Arguments.of(AttributeValue.fromS("")),
+        Arguments.of(AttributeValue.fromS("Definitely not legitimate base64 👎"))
+    );
   }
 }

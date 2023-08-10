@@ -122,34 +122,4 @@ abstract class SingleUsePreKeyStoreTest<K extends PreKey<?>> {
     assertEquals(0, preKeyStore.getCount(accountIdentifier, deviceId).join());
     assertEquals(0, preKeyStore.getCount(accountIdentifier, deviceId + 1).join());
   }
-
-  @ParameterizedTest
-  @MethodSource
-  void extractByteArray(final AttributeValue attributeValue, final byte[] expectedByteArray) {
-    assertArrayEquals(expectedByteArray, getPreKeyStore().extractByteArray(attributeValue));
-  }
-
-  private static Stream<Arguments> extractByteArray() {
-    final byte[] key = Base64.getDecoder().decode("c+k+8zv8WaFdDjR9IOvCk6BcY5OI7rge/YUDkaDGyRc=");
-
-    return Stream.of(
-        Arguments.of(AttributeValue.fromB(SdkBytes.fromByteArray(key)), key),
-        Arguments.of(AttributeValue.fromS(Base64.getEncoder().encodeToString(key)), key),
-        Arguments.of(AttributeValue.fromS(Base64.getEncoder().withoutPadding().encodeToString(key)), key)
-    );
-  }
-
-  @ParameterizedTest
-  @MethodSource
-  void extractByteArrayIllegalArgument(final AttributeValue attributeValue) {
-    assertThrows(IllegalArgumentException.class, () -> getPreKeyStore().extractByteArray(attributeValue));
-  }
-
-  private static Stream<Arguments> extractByteArrayIllegalArgument() {
-    return Stream.of(
-        Arguments.of(AttributeValue.fromN("12")),
-        Arguments.of(AttributeValue.fromS("")),
-        Arguments.of(AttributeValue.fromS("Definitely not legitimate base64 👎"))
-    );
-  }
 }

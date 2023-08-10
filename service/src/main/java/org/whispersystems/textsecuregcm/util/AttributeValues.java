@@ -6,9 +6,13 @@
 package org.whispersystems.textsecuregcm.util;
 
 import java.nio.ByteBuffer;
+import java.util.Base64;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import com.google.common.annotations.VisibleForTesting;
+import io.micrometer.core.instrument.Metrics;
+import org.apache.commons.lang3.StringUtils;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
@@ -123,5 +127,25 @@ public class AttributeValues {
 
   public static UUID getUUID(Map<String, AttributeValue> item, String key, UUID defaultValue) {
     return AttributeValues.get(item, key).filter(av -> av.b() != null).map(AttributeValues::toUUID).orElse(defaultValue);
+  }
+
+  /**
+   * Extracts a byte array from an {@link AttributeValue} that may be either a byte array or a base64-encoded string.
+   *
+   * @param attributeValue the {@code AttributeValue} from which to extract a byte array
+   *
+   * @return the byte array represented by the given {@code AttributeValue}
+   */
+  @VisibleForTesting
+  public static byte[] extractByteArray(final AttributeValue attributeValue, final String counterName) {
+    if (attributeValue.b() != null) {
+      Metrics.counter(counterName, "format", "bytes").increment();
+      return attributeValue.b().asByteArray();
+    } else if (StringUtils.isNotBlank(attributeValue.s())) {
+      Metrics.counter(counterName, "format", "string").increment();
+      return Base64.getDecoder().decode(attributeValue.s());
+    }
+
+    throw new IllegalArgumentException("Attribute value has neither a byte array nor a string value");
   }
 }

@@ -8,7 +8,6 @@ package org.whispersystems.textsecuregcm.storage;
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import com.google.common.annotations.VisibleForTesting;
-import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
 import java.util.ArrayList;
@@ -77,12 +76,7 @@ public class Profiles {
   private static final Timer SET_PROFILES_TIMER = Metrics.timer(name(Profiles.class, "set"));
   private static final Timer GET_PROFILE_TIMER = Metrics.timer(name(Profiles.class, "get"));
   private static final Timer DELETE_PROFILES_TIMER = Metrics.timer(name(Profiles.class, "delete"));
-
-  private static final Counter INVALID_NAME_COUNTER = Metrics.counter(name(Profiles.class, "invalidProfileData"), "field", "name");
-  private static final Counter INVALID_EMOJI_COUNTER = Metrics.counter(name(Profiles.class, "invalidProfileData"), "field", "emoji");
-  private static final Counter INVALID_ABOUT_COUNTER = Metrics.counter(name(Profiles.class, "invalidProfileData"), "field", "about");
-  private static final Counter INVALID_PAYMENT_ADDRESS_COUNTER = Metrics.counter(name(Profiles.class, "invalidProfileData"), "field", "paymentAddress");
-
+  private static final String PARSE_BYTE_ARRAY_COUNTER_NAME = name(Profiles.class, "parseByteArray");
 
   public Profiles(final DynamoDbClient dynamoDbClient,
       final DynamoDbAsyncClient dynamoDbAsyncClient,
@@ -232,34 +226,23 @@ public class Profiles {
   }
 
   private static VersionedProfile fromItem(final Map<String, AttributeValue> item) {
-    final String name = AttributeValues.getString(item, ATTR_NAME, null);
-    final String emoji = AttributeValues.getString(item, ATTR_EMOJI, null);
-    final String about = AttributeValues.getString(item, ATTR_ABOUT, null);
-    final String paymentAddress = AttributeValues.getString(item, ATTR_PAYMENT_ADDRESS, null);
-
-    checkValidBase64(name, INVALID_NAME_COUNTER);
-    checkValidBase64(emoji, INVALID_EMOJI_COUNTER);
-    checkValidBase64(about, INVALID_ABOUT_COUNTER);
-    checkValidBase64(paymentAddress, INVALID_PAYMENT_ADDRESS_COUNTER);
-    
     return new VersionedProfile(
         AttributeValues.getString(item, ATTR_VERSION, null),
-        name,
+        getBase64EncodedBytes(item, ATTR_NAME, PARSE_BYTE_ARRAY_COUNTER_NAME),
         AttributeValues.getString(item, ATTR_AVATAR, null),
-        emoji,
-        about,
-        paymentAddress,
+        getBase64EncodedBytes(item, ATTR_EMOJI, PARSE_BYTE_ARRAY_COUNTER_NAME),
+        getBase64EncodedBytes(item, ATTR_ABOUT, PARSE_BYTE_ARRAY_COUNTER_NAME),
+        getBase64EncodedBytes(item, ATTR_PAYMENT_ADDRESS, PARSE_BYTE_ARRAY_COUNTER_NAME),
         AttributeValues.getByteArray(item, ATTR_COMMITMENT, null));
   }
 
-  private static void checkValidBase64(final String value, final Counter counter) {
-    if (StringUtils.isNotBlank(value)) {
-      try {
-        Base64.getDecoder().decode(value);
-      } catch (final IllegalArgumentException e) {
-        counter.increment();
-      }
+  private static String getBase64EncodedBytes(final Map<String, AttributeValue> item, final String attributeName, final String counterName) {
+    final AttributeValue attributeValue = item.get(attributeName);
+
+    if (attributeValue == null) {
+      return null;
     }
+    return Base64.getEncoder().encodeToString(AttributeValues.extractByteArray(attributeValue, counterName));
   }
 
   public void deleteAll(final UUID uuid) {

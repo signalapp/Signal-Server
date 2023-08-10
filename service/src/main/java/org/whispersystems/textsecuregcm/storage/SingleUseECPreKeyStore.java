@@ -14,7 +14,10 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import java.util.Map;
 import java.util.UUID;
 
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
+
 public class SingleUseECPreKeyStore extends SingleUsePreKeyStore<ECPreKey> {
+  private static final String PARSE_BYTE_ARRAY_COUNTER_NAME = name(SingleUseECPreKeyStore.class, "parseByteArray");
 
   protected SingleUseECPreKeyStore(final DynamoDbAsyncClient dynamoDbAsyncClient, final String tableName) {
     super(dynamoDbAsyncClient, tableName);
@@ -31,7 +34,7 @@ public class SingleUseECPreKeyStore extends SingleUsePreKeyStore<ECPreKey> {
   @Override
   protected ECPreKey getPreKeyFromItem(final Map<String, AttributeValue> item) {
     final long keyId = item.get(KEY_DEVICE_ID_KEY_ID).b().asByteBuffer().getLong(8);
-    final byte[] publicKey = extractByteArray(item.get(ATTR_PUBLIC_KEY));
+    final byte[] publicKey = AttributeValues.extractByteArray(item.get(ATTR_PUBLIC_KEY), PARSE_BYTE_ARRAY_COUNTER_NAME);
 
     try {
       return new ECPreKey(keyId, new ECPublicKey(publicKey));
