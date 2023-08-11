@@ -379,7 +379,7 @@ public class AccountController {
   )
   @ApiResponse(responseCode = "200", description = "Account found for the given username.", useReturnTypeSchema = true)
   @ApiResponse(responseCode = "400", description = "Request must not be authenticated.")
-  @ApiResponse(responseCode = "404", description = "Account not fount for the given username.")
+  @ApiResponse(responseCode = "404", description = "Account not found for the given username.")
   public CompletableFuture<AccountIdentifierResponse> lookupUsernameHash(
       @Auth final Optional<AuthenticatedAccount> maybeAuthenticatedAccount,
       @PathParam("usernameHash") final String usernameHash) {

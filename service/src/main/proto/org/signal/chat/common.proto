@@ -27,6 +27,12 @@ message ServiceIdentifier {
   bytes uuid = 2;
 }
 
+message AccountIdentifiers {
+  repeated ServiceIdentifier service_identifiers = 1;
+  string e164 = 2;
+  bytes username_hash = 3;
+}
+
 message EcPreKey {
   /**
    * A locally-unique identifier for this key.

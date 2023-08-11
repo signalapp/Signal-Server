@@ -1,0 +1,76 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+
+package org.signal.chat.account;
+
+import "org/signal/chat/common.proto";
+
+/**
+ * Provides methods for looking up Signal accounts. Callers must not provide
+ * identifying credentials when calling methods in this service.
+ */
+service AccountsAnonymous {
+  /**
+   * Checks whether an account with the given service identifier exists.
+   */
+  rpc CheckAccountExistence(CheckAccountExistenceRequest) returns (CheckAccountExistenceResponse) {}
+
+  /**
+   * Finds the service identifier of the account associated with the given
+   * username hash. This method will return a `NOT_FOUND` status if no account
+   * was found for the given username hash.
+   */
+  rpc LookupUsernameHash(LookupUsernameHashRequest) returns (LookupUsernameHashResponse) {}
+
+  /**
+   * Finds the encrypted username identified by a given username link handle.
+   * This method will return a `NOT_FOUND` status if no username was found for
+   * the given link handle.
+   */
+  rpc LookupUsernameLink(LookupUsernameLinkRequest) returns (LookupUsernameLinkResponse) {}
+}
+
+message CheckAccountExistenceRequest {
+  /**
+   * The service identifier of an account that may or may not exist.
+   */
+  common.ServiceIdentifier service_identifier = 1;
+}
+
+message CheckAccountExistenceResponse {
+  /**
+   * True if an account exists with the given service identifier or false if no
+   * account was found.
+   */
+  bool account_exists = 1;
+}
+
+message LookupUsernameHashRequest {
+  /**
+   * A 32-byte username hash for which to find an account.
+   */
+  bytes username_hash = 1;
+}
+
+message LookupUsernameHashResponse {
+  /**
+   * The service identifier associated with a given username hash.
+   */
+  common.ServiceIdentifier service_identifier = 1;
+}
+
+message LookupUsernameLinkRequest {
+  /**
+   * The link handle for which to find an encrypted username. Link handles are
+   * 16-byte representations of UUIDs.
+   */
+  bytes username_link_handle = 1;
+}
+
+message LookupUsernameLinkResponse {
+  /**
+   * The ciphertext of the username identified by the given link handle.
+   */
+  bytes username_ciphertext = 1;
+}
