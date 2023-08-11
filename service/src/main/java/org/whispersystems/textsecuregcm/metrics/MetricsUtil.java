@@ -77,7 +77,7 @@ public class MetricsUtil {
             return defaultDistributionStatisticConfig.merge(config);
           }
         })
-        // Remove high-cardinality `command` tags from Lettuce metrics and prepend "chat." to meter names
+        // Remove high-cardinality `command` and `remote` tags from Lettuce metrics and prepend "chat." to meter names
         .meterFilter(new MeterFilter() {
           @Override
           public Meter.Id map(final Meter.Id id) {
@@ -85,17 +85,13 @@ public class MetricsUtil {
               return id.withName(PREFIX + "." + id.getName())
                   .replaceTags(id.getTags().stream()
                       .filter(tag -> !"command".equals(tag.getKey()))
+                      .filter(tag -> !"remote".equals(tag.getKey()))
                       .toList());
             }
 
             return MeterFilter.super.map(id);
           }
         })
-        // Deny lettuce metrics, but leave command.completions.max. Note that regardless of configured order, accept
-        // filters are applied after map filters.
-        .meterFilter(MeterFilter.deny(id ->
-              id.getName().startsWith(PREFIX + ".lettuce") && !id.getName().contains("command.completion.max")
-        ))
         .meterFilter(MeterFilter.denyNameStartsWith(PushLatencyManager.TIMER_NAME + ".percentile"))
         .meterFilter(MeterFilter.denyNameStartsWith(MessageMetrics.DELIVERY_LATENCY_TIMER_NAME + ".percentile"));
   }
