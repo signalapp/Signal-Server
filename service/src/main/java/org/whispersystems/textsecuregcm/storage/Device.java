@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.storage;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.concurrent.TimeUnit;
@@ -17,6 +18,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
+import org.whispersystems.textsecuregcm.util.DeviceNameByteArrayAdapter;
 
 public class Device {
 
@@ -31,7 +33,9 @@ public class Device {
   private byte id;
 
   @JsonProperty
-  private String  name;
+  @JsonSerialize(using = DeviceNameByteArrayAdapter.Serializer.class)
+  @JsonDeserialize(using = DeviceNameByteArrayAdapter.Deserializer.class)
+  private byte[] name;
 
   @JsonProperty
   private String  authToken;
@@ -146,11 +150,11 @@ public class Device {
     this.id = id;
   }
 
-  public String getName() {
+  public byte[] getName() {
     return name;
   }
 
-  public void setName(String name) {
+  public void setName(byte[] name) {
     this.name = name;
   }
 

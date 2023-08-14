@@ -900,9 +900,9 @@ class AccountsManagerTest {
     @SuppressWarnings("unchecked") Consumer<Device> unknownDeviceUpdater = mock(Consumer.class);
 
     account = accountsManager.updateDevice(account, deviceId, deviceUpdater);
-    account = accountsManager.updateDevice(account, deviceId, d -> d.setName("deviceName"));
+    account = accountsManager.updateDevice(account, deviceId, d -> d.setName("deviceName".getBytes(StandardCharsets.UTF_8)));
 
-    assertEquals("deviceName", account.getDevice(deviceId).orElseThrow().getName());
+    assertArrayEquals("deviceName".getBytes(StandardCharsets.UTF_8), account.getDevice(deviceId).orElseThrow().getName());
 
     verify(deviceUpdater, times(1)).accept(any(Device.class));
 
@@ -933,9 +933,9 @@ class AccountsManagerTest {
     @SuppressWarnings("unchecked") Consumer<Device> unknownDeviceUpdater = mock(Consumer.class);
 
     account = accountsManager.updateDeviceAsync(account, deviceId, deviceUpdater).join();
-    account = accountsManager.updateDeviceAsync(account, deviceId, d -> d.setName("deviceName")).join();
+    account = accountsManager.updateDeviceAsync(account, deviceId, d -> d.setName("deviceName".getBytes(StandardCharsets.UTF_8))).join();
 
-    assertEquals("deviceName", account.getDevice(deviceId).orElseThrow().getName());
+    assertArrayEquals("deviceName".getBytes(StandardCharsets.UTF_8), account.getDevice(deviceId).orElseThrow().getName());
 
     verify(deviceUpdater, times(1)).accept(any(Device.class));
 

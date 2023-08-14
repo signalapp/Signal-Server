@@ -477,10 +477,10 @@ class RegistrationControllerTest {
     }
 
     final AccountAttributes fetchesMessagesAccountAttributes =
-        new AccountAttributes(true, 1, 1, "test", null, true, new Device.DeviceCapabilities(false, false, false, false));
+        new AccountAttributes(true, 1, 1, "test".getBytes(StandardCharsets.UTF_8), null, true, new Device.DeviceCapabilities(false, false, false, false));
 
     final AccountAttributes pushAccountAttributes =
-        new AccountAttributes(false, 1, 1, "test", null, true, new Device.DeviceCapabilities(false, false, false, false));
+        new AccountAttributes(false, 1, 1, "test".getBytes(StandardCharsets.UTF_8), null, true, new Device.DeviceCapabilities(false, false, false, false));
 
     return Stream.of(
         // "Fetches messages" is true, but an APNs token is provided
@@ -566,7 +566,7 @@ class RegistrationControllerTest {
     }
 
     final AccountAttributes accountAttributes =
-        new AccountAttributes(true, 1, 1, "test", null, true, new Device.DeviceCapabilities(false, false, false, false));
+        new AccountAttributes(true, 1, 1, "test".getBytes(StandardCharsets.UTF_8), null, true, new Device.DeviceCapabilities(false, false, false, false));
 
     return Stream.of(
         // Signed PNI EC pre-key is missing
@@ -719,7 +719,7 @@ class RegistrationControllerTest {
         && a.isUnrestrictedUnidentifiedAccess() == b.isUnrestrictedUnidentifiedAccess()
         && a.isDiscoverableByPhoneNumber() == b.isDiscoverableByPhoneNumber()
         && Objects.equals(a.getPhoneNumberIdentityRegistrationId(), b.getPhoneNumberIdentityRegistrationId())
-        && Objects.equals(a.getName(), b.getName())
+        && Arrays.equals(a.getName(), b.getName())
         && Objects.equals(a.getRegistrationLock(), b.getRegistrationLock())
         && Arrays.equals(a.getUnidentifiedAccessKey(), b.getUnidentifiedAccessKey())
         && Objects.equals(a.getCapabilities(), b.getCapabilities())
@@ -746,10 +746,10 @@ class RegistrationControllerTest {
     }
 
     final AccountAttributes fetchesMessagesAccountAttributes =
-        new AccountAttributes(true, 1, 1, "test", null, true, new Device.DeviceCapabilities(false, false, false, false));
+        new AccountAttributes(true, 1, 1, "test".getBytes(StandardCharsets.UTF_8), null, true, new Device.DeviceCapabilities(false, false, false, false));
 
     final AccountAttributes pushAccountAttributes =
-        new AccountAttributes(false, 1, 1, "test", null, true, new Device.DeviceCapabilities(false, false, false, false));
+        new AccountAttributes(false, 1, 1, "test".getBytes(StandardCharsets.UTF_8), null, true, new Device.DeviceCapabilities(false, false, false, false));
 
     final String apnsToken = "apns-token";
     final String apnsVoipToken = "apns-voip-token";
@@ -861,7 +861,7 @@ class RegistrationControllerTest {
     final IdentityKey aciIdentityKey = new IdentityKey(aciIdentityKeyPair.getPublicKey());
     final IdentityKey pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());
 
-    final AccountAttributes accountAttributes = new AccountAttributes(true, registrationId, pniRegistrationId, "name", "reglock",
+    final AccountAttributes accountAttributes = new AccountAttributes(true, registrationId, pniRegistrationId, "name".getBytes(StandardCharsets.UTF_8), "reglock",
             true, new Device.DeviceCapabilities(true, true, true, true));
 
     final RegistrationRequest request = new RegistrationRequest(
