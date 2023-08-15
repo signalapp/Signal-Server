@@ -6,7 +6,6 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
-import com.codahale.metrics.annotation.Timed;
 import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Metrics;
@@ -107,7 +106,6 @@ public class KeysController {
     return new PreKeyCount(ecCountFuture.join(), pqCountFuture.join());
   }
 
-  @Timed
   @PUT
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
@@ -192,7 +190,6 @@ public class KeysController {
         .join();
   }
 
-  @Timed
   @GET
   @Path("/{identifier}/{device_id}")
   @Produces(MediaType.APPLICATION_JSON)
@@ -277,7 +274,6 @@ public class KeysController {
     return new PreKeyResponse(identityKey, responseItems);
   }
 
-  @Timed
   @PUT
   @Path("/signed")
   @Consumes(MediaType.APPLICATION_JSON)

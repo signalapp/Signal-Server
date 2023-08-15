@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
-import com.codahale.metrics.annotation.Timed;
 import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
@@ -40,7 +39,6 @@ public class KeepAliveController {
     this.clientPresenceManager = clientPresenceManager;
   }
 
-  @Timed
   @GET
   public Response getKeepAlive(@Auth Optional<AuthenticatedAccount> maybeAuth,
       @WebSocketSession WebSocketSessionContext context) {
@@ -63,7 +61,6 @@ public class KeepAliveController {
     return Response.ok().build();
   }
 
-  @Timed
   @GET
   @Path("/provisioning")
   public Response getProvisioningKeepAlive() {

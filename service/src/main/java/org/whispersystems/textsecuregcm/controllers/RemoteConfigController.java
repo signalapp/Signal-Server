@@ -5,7 +5,6 @@
 
 package org.whispersystems.textsecuregcm.controllers;
 
-import com.codahale.metrics.annotation.Timed;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
 import com.google.common.annotations.VisibleForTesting;
@@ -76,7 +75,6 @@ public class RemoteConfigController {
     this.googleIdTokenVerifier = googleIdTokenVerifierBuilder.setAudience(audience).build();
   }
 
-  @Timed
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   public UserRemoteConfigList getAll(@Auth AuthenticatedAccount auth) {
@@ -98,7 +96,6 @@ public class RemoteConfigController {
     }
   }
 
-  @Timed
   @PUT
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
@@ -123,7 +120,6 @@ public class RemoteConfigController {
     remoteConfigsManager.set(config);
   }
 
-  @Timed
   @DELETE
   @Path("/{name}")
   public void delete(@HeaderParam("Config-Token") String configToken, @PathParam("name") String name) {

@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
-import com.codahale.metrics.annotation.Timed;
 import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Metrics;
@@ -76,7 +75,6 @@ public class AccountControllerV2 {
     this.rateLimiters = rateLimiters;
   }
 
-  @Timed
   @PUT
   @Path("/number")
   @Consumes(MediaType.APPLICATION_JSON)
@@ -155,7 +153,6 @@ public class AccountControllerV2 {
     }
   }
 
-  @Timed
   @PUT
   @Path("/phone_number_identity_key_distribution")
   @Consumes(MediaType.APPLICATION_JSON)
@@ -208,7 +205,6 @@ public class AccountControllerV2 {
     }
   }
 
-  @Timed
   @PUT
   @Path("/phone_number_discoverability")
   @Consumes(MediaType.APPLICATION_JSON)
@@ -221,7 +217,6 @@ public class AccountControllerV2 {
         phoneNumberDiscoverability.discoverableByPhoneNumber()));
   }
 
-  @Timed
   @GET
   @Path("/data_report")
   @Produces(MediaType.APPLICATION_JSON)

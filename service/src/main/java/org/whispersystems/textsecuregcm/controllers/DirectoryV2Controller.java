@@ -4,7 +4,6 @@
  */
 package org.whispersystems.textsecuregcm.controllers;
 
-import com.codahale.metrics.annotation.Timed;
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.auth.Auth;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -45,7 +44,6 @@ public class DirectoryV2Controller {
     this.directoryServiceTokenGenerator = userTokenGenerator;
   }
 
-  @Timed
   @GET
   @Path("/auth")
   @Produces(MediaType.APPLICATION_JSON)

@@ -5,7 +5,6 @@
 
 package org.whispersystems.textsecuregcm.controllers;
 
-import com.codahale.metrics.annotation.Timed;
 import io.dropwizard.auth.Auth;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -66,7 +65,6 @@ public class SecureValueRecovery2Controller {
     this.accountsManager = accountsManager;
   }
 
-  @Timed
   @GET
   @Path("/auth")
   @Produces(MediaType.APPLICATION_JSON)
@@ -84,7 +82,6 @@ public class SecureValueRecovery2Controller {
   }
 
 
-  @Timed
   @POST
   @Path("/auth/check")
   @Consumes(MediaType.APPLICATION_JSON)

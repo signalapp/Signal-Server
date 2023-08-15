@@ -5,7 +5,6 @@
 
 package org.whispersystems.textsecuregcm.controllers;
 
-import com.codahale.metrics.annotation.Timed;
 import io.dropwizard.auth.Auth;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import javax.ws.rs.GET;
@@ -34,7 +33,6 @@ public class SecureStorageController {
     this.storageServiceCredentialsGenerator = storageServiceCredentialsGenerator;
   }
 
-  @Timed
   @GET
   @Path("/auth")
   @Produces(MediaType.APPLICATION_JSON)

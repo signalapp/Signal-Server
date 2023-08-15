@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
-import com.codahale.metrics.annotation.Timed;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
@@ -220,7 +219,6 @@ public class SubscriptionController {
     return new GetSubscriptionConfigurationResponse(currencyConfiguration, levels);
   }
 
-  @Timed
   @DELETE
   @Path("/{subscriberId}")
   @Produces(MediaType.APPLICATION_JSON)
@@ -242,7 +240,6 @@ public class SubscriptionController {
         .thenApply(unused -> Response.ok().build());
   }
 
-  @Timed
   @PUT
   @Path("/{subscriberId}")
   @Consumes(MediaType.APPLICATION_JSON)
@@ -277,7 +274,6 @@ public class SubscriptionController {
 
   }
 
-  @Timed
   @POST
   @Path("/{subscriberId}/create_payment_method")
   @Consumes(MediaType.APPLICATION_JSON)
@@ -332,7 +328,6 @@ public class SubscriptionController {
 
   }
 
-  @Timed
   @POST
   @Path("/{subscriberId}/create_payment_method/paypal")
   @Consumes(MediaType.APPLICATION_JSON)
@@ -396,7 +391,6 @@ public class SubscriptionController {
     };
   }
 
-  @Timed
   @POST
   @Path("/{subscriberId}/default_payment_method/{paymentMethodId}")
   @Consumes(MediaType.APPLICATION_JSON)
@@ -414,7 +408,6 @@ public class SubscriptionController {
         .thenApply(customer -> Response.ok().build());
   }
 
-  @Timed
   @POST
   @Path("/{subscriberId}/default_payment_method/{processor}/{paymentMethodToken}")
   @Consumes(MediaType.APPLICATION_JSON)
@@ -497,7 +490,6 @@ public class SubscriptionController {
     }
   }
 
-  @Timed
   @PUT
   @Path("/{subscriberId}/level/{level}/{currency}/{idempotencyKey}")
   @Consumes(MediaType.APPLICATION_JSON)
@@ -655,7 +647,6 @@ public class SubscriptionController {
 
   }
 
-  @Timed
   @GET
   @Path("/configuration")
   @Produces(MediaType.APPLICATION_JSON)
@@ -666,7 +657,6 @@ public class SubscriptionController {
     });
   }
 
-  @Timed
   @GET
   @Path("/levels")
   @Produces(MediaType.APPLICATION_JSON)
@@ -714,7 +704,6 @@ public class SubscriptionController {
     }
   }
 
-  @Timed
   @GET
   @Path("/boost/badges")
   @Produces(MediaType.APPLICATION_JSON)
@@ -737,7 +726,6 @@ public class SubscriptionController {
     });
   }
 
-  @Timed
   @GET
   @Path("/boost/amounts")
   @Produces(MediaType.APPLICATION_JSON)
@@ -749,7 +737,6 @@ public class SubscriptionController {
         .build());
   }
 
-  @Timed
   @GET
   @Path("/boost/amounts/gift")
   @Produces(MediaType.APPLICATION_JSON)
@@ -801,7 +788,6 @@ public class SubscriptionController {
   /**
    * Creates a Stripe PaymentIntent with the requested amount and currency
    */
-  @Timed
   @POST
   @Path("/boost/create")
   @Consumes(MediaType.APPLICATION_JSON)
@@ -855,7 +841,6 @@ public class SubscriptionController {
     }
   }
 
-  @Timed
   @POST
   @Path("/boost/paypal/create")
   @Consumes(MediaType.APPLICATION_JSON)
@@ -898,7 +883,6 @@ public class SubscriptionController {
 
   }
 
-  @Timed
   @POST
   @Path("/boost/paypal/confirm")
   @Consumes(MediaType.APPLICATION_JSON)
@@ -945,7 +929,6 @@ public class SubscriptionController {
     }
   }
 
-  @Timed
   @POST
   @Path("/boost/receipt_credentials")
   @Consumes(MediaType.APPLICATION_JSON)
@@ -1158,7 +1141,6 @@ public class SubscriptionController {
     }
   }
 
-  @Timed
   @GET
   @Path("/{subscriberId}")
   @Produces(MediaType.APPLICATION_JSON)
@@ -1236,7 +1218,6 @@ public class SubscriptionController {
     }
   }
 
-  @Timed
   @POST
   @Path("/{subscriberId}/receipt_credentials")
   @Consumes(MediaType.APPLICATION_JSON)

@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
-import com.codahale.metrics.annotation.Timed;
 import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
@@ -78,8 +77,8 @@ import org.whispersystems.textsecuregcm.registration.TransportNotAllowedExceptio
 import org.whispersystems.textsecuregcm.registration.VerificationSession;
 import org.whispersystems.textsecuregcm.spam.Extract;
 import org.whispersystems.textsecuregcm.spam.FilterSpam;
-import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.spam.ScoreThreshold;
+import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.VerificationSessionManager;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
@@ -137,7 +136,6 @@ public class VerificationController {
     this.clock = clock;
   }
 
-  @Timed
   @POST
   @Path("/session")
   @Consumes(MediaType.APPLICATION_JSON)
@@ -188,7 +186,6 @@ public class VerificationController {
     return buildResponse(registrationServiceSession, verificationSession);
   }
 
-  @Timed
   @FilterSpam
   @PATCH
   @Path("/session/{sessionId}")
@@ -411,7 +408,6 @@ public class VerificationController {
     return verificationSession;
   }
 
-  @Timed
   @GET
   @Path("/session/{sessionId}")
   @Produces(MediaType.APPLICATION_JSON)
@@ -423,7 +419,6 @@ public class VerificationController {
     return buildResponse(registrationServiceSession, verificationSession);
   }
 
-  @Timed
   @POST
   @Path("/session/{sessionId}/code")
   @Consumes(MediaType.APPLICATION_JSON)
@@ -518,7 +513,6 @@ public class VerificationController {
     return buildResponse(resultSession, verificationSession);
   }
 
-  @Timed
   @PUT
   @Path("/session/{sessionId}/code")
   @Consumes(MediaType.APPLICATION_JSON)

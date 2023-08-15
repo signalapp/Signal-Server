@@ -5,7 +5,6 @@
 
 package org.whispersystems.textsecuregcm.controllers;
 
-import com.codahale.metrics.annotation.Timed;
 import io.dropwizard.auth.Auth;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import javax.ws.rs.GET;
@@ -40,7 +39,6 @@ public class PaymentsController {
     this.paymentsServiceCredentialsGenerator = paymentsServiceCredentialsGenerator;
   }
 
-  @Timed
   @GET
   @Path("/auth")
   @Produces(MediaType.APPLICATION_JSON)
@@ -48,7 +46,6 @@ public class PaymentsController {
     return paymentsServiceCredentialsGenerator.generateForUuid(auth.getAccount().getUuid());
   }
 
-  @Timed
   @GET
   @Path("/conversions")
   @Produces(MediaType.APPLICATION_JSON)

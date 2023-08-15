@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
-import com.codahale.metrics.annotation.Timed;
 import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Metrics;
@@ -48,7 +47,6 @@ public class AttachmentControllerV2 {
     this.policySigner = new PolicySigner(accessSecret, region);
   }
 
-  @Timed
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/form/upload")

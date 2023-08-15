@@ -5,7 +5,6 @@
 
 package org.whispersystems.textsecuregcm.controllers;
 
-import com.codahale.metrics.annotation.Timed;
 import io.dropwizard.auth.Auth;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.Clock;
@@ -74,7 +73,6 @@ public class DonationController {
     this.receiptCredentialPresentationFactory = Objects.requireNonNull(receiptCredentialPresentationFactory);
   }
 
-  @Timed
   @POST
   @Path("/redeem-receipt")
   @Consumes(MediaType.APPLICATION_JSON)

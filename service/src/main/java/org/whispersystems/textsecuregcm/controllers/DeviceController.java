@@ -4,7 +4,6 @@
  */
 package org.whispersystems.textsecuregcm.controllers;
 
-import com.codahale.metrics.annotation.Timed;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.Auth;
@@ -118,7 +117,6 @@ public class DeviceController {
     }
   }
 
-  @Timed
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   public DeviceInfoList getDevices(@Auth AuthenticatedAccount auth) {
@@ -132,7 +130,6 @@ public class DeviceController {
     return new DeviceInfoList(devices);
   }
 
-  @Timed
   @DELETE
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/{device_id}")
@@ -153,7 +150,6 @@ public class DeviceController {
     deleteKeysFuture.join();
   }
 
-  @Timed
   @GET
   @Path("/provisioning/code")
   @Produces(MediaType.APPLICATION_JSON)
@@ -185,7 +181,6 @@ public class DeviceController {
    * @deprecated callers should use {@link #linkDevice(BasicAuthorizationHeader, LinkDeviceRequest, ContainerRequest)}
    * instead
    */
-  @Timed
   @PUT
   @Produces(MediaType.APPLICATION_JSON)
   @Consumes(MediaType.APPLICATION_JSON)
@@ -210,7 +205,6 @@ public class DeviceController {
     return new DeviceResponse(account.getUuid(), account.getPhoneNumberIdentifier(), device.getId());
   }
 
-  @Timed
   @PUT
   @Produces(MediaType.APPLICATION_JSON)
   @Consumes(MediaType.APPLICATION_JSON)
@@ -244,7 +238,6 @@ public class DeviceController {
     return new DeviceResponse(account.getUuid(), account.getPhoneNumberIdentifier(), device.getId());
   }
 
-  @Timed
   @PUT
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/unauthenticated_delivery")
@@ -253,7 +246,6 @@ public class DeviceController {
     // Deprecated
   }
 
-  @Timed
   @PUT
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/capabilities")

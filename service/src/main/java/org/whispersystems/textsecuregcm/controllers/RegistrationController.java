@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
-import com.codahale.metrics.annotation.Timed;
 import com.google.common.net.HttpHeaders;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
@@ -34,8 +33,6 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.BasicAuthorizationHeader;
 import org.whispersystems.textsecuregcm.auth.PhoneVerificationTokenManager;
 import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager;
@@ -56,8 +53,6 @@ import org.whispersystems.textsecuregcm.util.Util;
 @Path("/v1/registration")
 @io.swagger.v3.oas.annotations.tags.Tag(name = "Registration")
 public class RegistrationController {
-
-  private static final Logger logger = LoggerFactory.getLogger(RegistrationController.class);
 
   private static final DistributionSummary REREGISTRATION_IDLE_DAYS_DISTRIBUTION = DistributionSummary
       .builder(name(RegistrationController.class, "reregistrationIdleDays"))
@@ -90,7 +85,6 @@ public class RegistrationController {
     this.rateLimiters = rateLimiters;
   }
 
-  @Timed
   @POST
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)

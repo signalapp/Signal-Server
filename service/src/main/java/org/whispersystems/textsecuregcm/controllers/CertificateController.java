@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
-import com.codahale.metrics.annotation.Timed;
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Metrics;
@@ -20,7 +19,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
 import javax.annotation.Nonnull;
 import javax.ws.rs.BadRequestException;
 import javax.ws.rs.DefaultValue;
@@ -31,12 +29,11 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-
 import org.signal.libsignal.protocol.ServiceId;
+import org.signal.libsignal.zkgroup.GenericServerSecretParams;
 import org.signal.libsignal.zkgroup.auth.AuthCredentialWithPniResponse;
 import org.signal.libsignal.zkgroup.auth.ServerZkAuthOperations;
 import org.signal.libsignal.zkgroup.calllinks.CallLinkAuthCredentialResponse;
-import org.signal.libsignal.zkgroup.GenericServerSecretParams;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.CertificateGenerator;
 import org.whispersystems.textsecuregcm.entities.DeliveryCertificate;
@@ -68,7 +65,6 @@ public class CertificateController {
     this.clock = Objects.requireNonNull(clock);
   }
 
-  @Timed
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/delivery")
@@ -87,7 +83,6 @@ public class CertificateController {
         certificateGenerator.createFor(auth.getAccount(), auth.getAuthenticatedDevice(), includeE164));
   }
 
-  @Timed
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/auth/group")

@@ -5,7 +5,6 @@
 
 package org.whispersystems.textsecuregcm.controllers;
 
-import com.codahale.metrics.annotation.Timed;
 import io.dropwizard.auth.Auth;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.UUID;
@@ -40,7 +39,6 @@ public class ArtController {
     this.rateLimiters = rateLimiters;
   }
 
-  @Timed
   @GET
   @Path("/auth")
   @Produces(MediaType.APPLICATION_JSON)

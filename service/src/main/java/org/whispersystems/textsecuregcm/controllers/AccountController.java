@@ -4,7 +4,6 @@
  */
 package org.whispersystems.textsecuregcm.controllers;
 
-import com.codahale.metrics.annotation.Timed;
 import io.dropwizard.auth.Auth;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -91,7 +90,6 @@ public class AccountController {
     this.usernameHashZkProofVerifier = usernameHashZkProofVerifier;
   }
 
-  @Timed
   @GET
   @Path("/turn/")
   @Produces(MediaType.APPLICATION_JSON)
@@ -100,7 +98,6 @@ public class AccountController {
     return turnTokenGenerator.generate(auth.getAccount().getUuid());
   }
 
-  @Timed
   @PUT
   @Path("/gcm/")
   @Consumes(MediaType.APPLICATION_JSON)
@@ -124,7 +121,6 @@ public class AccountController {
     });
   }
 
-  @Timed
   @DELETE
   @Path("/gcm/")
   @ChangesDeviceEnabledState
@@ -139,7 +135,6 @@ public class AccountController {
     });
   }
 
-  @Timed
   @PUT
   @Path("/apn/")
   @Consumes(MediaType.APPLICATION_JSON)
@@ -165,7 +160,6 @@ public class AccountController {
     });
   }
 
-  @Timed
   @DELETE
   @Path("/apn/")
   @ChangesDeviceEnabledState
@@ -184,7 +178,6 @@ public class AccountController {
     });
   }
 
-  @Timed
   @PUT
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/registration_lock")
@@ -195,14 +188,12 @@ public class AccountController {
         a -> a.setRegistrationLock(credentials.hash(), credentials.salt()));
   }
 
-  @Timed
   @DELETE
   @Path("/registration_lock")
   public void removeRegistrationLock(@Auth AuthenticatedAccount auth) {
     accounts.update(auth.getAccount(), a -> a.setRegistrationLock(null, null));
   }
 
-  @Timed
   @PUT
   @Path("/name/")
   public void setName(@Auth DisabledPermittedAuthenticatedAccount disabledPermittedAuth, @NotNull @Valid DeviceName deviceName) {
@@ -211,7 +202,6 @@ public class AccountController {
     accounts.updateDevice(account, device.getId(), d -> d.setName(deviceName.getDeviceName()));
   }
 
-  @Timed
   @PUT
   @Path("/attributes/")
   @Consumes(MediaType.APPLICATION_JSON)
@@ -268,7 +258,6 @@ public class AccountController {
         auth.getAccount().isStorageSupported());
   }
 
-  @Timed
   @DELETE
   @Path("/username_hash")
   @Produces(MediaType.APPLICATION_JSON)
@@ -285,7 +274,6 @@ public class AccountController {
     accounts.clearUsernameHash(auth.getAccount());
   }
 
-  @Timed
   @PUT
   @Path("/username_hash/reserve")
   @Produces(MediaType.APPLICATION_JSON)
@@ -325,7 +313,6 @@ public class AccountController {
     }
   }
 
-  @Timed
   @PUT
   @Path("/username_hash/confirm")
   @Produces(MediaType.APPLICATION_JSON)
@@ -370,7 +357,6 @@ public class AccountController {
     }
   }
 
-  @Timed
   @GET
   @Path("/username_hash/{usernameHash}")
   @Produces(MediaType.APPLICATION_JSON)
@@ -408,7 +394,6 @@ public class AccountController {
         .orElseThrow(() -> new WebApplicationException(Status.NOT_FOUND));
   }
 
-  @Timed
   @PUT
   @Path("/username_link")
   @Produces(MediaType.APPLICATION_JSON)
@@ -443,7 +428,6 @@ public class AccountController {
     return new UsernameLinkHandle(usernameLinkHandle);
   }
 
-  @Timed
   @DELETE
   @Path("/username_link")
   @Operation(
@@ -462,7 +446,6 @@ public class AccountController {
     clearUsernameLink(auth.getAccount());
   }
 
-  @Timed
   @GET
   @Path("/username_link/{uuid}")
   @Produces(MediaType.APPLICATION_JSON)
@@ -518,7 +501,6 @@ public class AccountController {
     return Response.status(maybeAccount.map(ignored -> Status.OK).orElse(Status.NOT_FOUND)).build();
   }
 
-  @Timed
   @DELETE
   @Path("/me")
   public void deleteAccount(@Auth DisabledPermittedAuthenticatedAccount auth) throws InterruptedException {

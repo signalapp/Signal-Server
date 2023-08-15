@@ -5,7 +5,6 @@
 
 package org.whispersystems.textsecuregcm.controllers;
 
-import com.codahale.metrics.annotation.Timed;
 import io.dropwizard.auth.Auth;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.Base64;
@@ -37,7 +36,6 @@ public class ProvisioningController {
     this.provisioningManager = provisioningManager;
   }
 
-  @Timed
   @Path("/{destination}")
   @PUT
   @Consumes(MediaType.APPLICATION_JSON)

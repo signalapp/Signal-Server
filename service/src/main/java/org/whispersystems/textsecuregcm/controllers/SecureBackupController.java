@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import static java.util.Objects.requireNonNull;
 
-import com.codahale.metrics.annotation.Timed;
 import io.dropwizard.auth.Auth;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -69,7 +68,6 @@ public class SecureBackupController {
     this.accountsManager = requireNonNull(accountsManager);
   }
 
-  @Timed
   @GET
   @Path("/auth")
   @Produces(MediaType.APPLICATION_JSON)
@@ -86,7 +84,6 @@ public class SecureBackupController {
     return credentialsGenerator.generateForUuid(auth.getAccount().getUuid());
   }
 
-  @Timed
   @POST
   @Path("/auth/check")
   @Consumes(MediaType.APPLICATION_JSON)

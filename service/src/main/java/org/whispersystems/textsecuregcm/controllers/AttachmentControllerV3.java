@@ -5,17 +5,13 @@
 
 package org.whispersystems.textsecuregcm.controllers;
 
-import com.codahale.metrics.annotation.Timed;
 import io.dropwizard.auth.Auth;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.io.IOException;
 import java.security.InvalidKeyException;
 import java.security.SecureRandom;
 import java.security.spec.InvalidKeySpecException;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
 import java.util.Base64;
-import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
@@ -25,9 +21,6 @@ import org.whispersystems.textsecuregcm.attachments.AttachmentGenerator;
 import org.whispersystems.textsecuregcm.attachments.GcsAttachmentGenerator;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.entities.AttachmentDescriptorV3;
-import org.whispersystems.textsecuregcm.gcp.CanonicalRequest;
-import org.whispersystems.textsecuregcm.gcp.CanonicalRequestGenerator;
-import org.whispersystems.textsecuregcm.gcp.CanonicalRequestSigner;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 
@@ -51,7 +44,6 @@ public class AttachmentControllerV3 {
     this.secureRandom = new SecureRandom();
   }
 
-  @Timed
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/form/upload")
