@@ -25,7 +25,6 @@ import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import java.time.Clock;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -85,14 +84,14 @@ public class ProfileGrpcService extends ReactorProfileGrpc.ProfileImplBase {
             final boolean hasDisallowedPrefix =
                 dynamicConfigurationManager.getConfiguration().getPaymentsConfiguration().getDisallowedPrefixes().stream()
                     .anyMatch(prefix -> accountAndMaybeProfile.getT1().getNumber().startsWith(prefix));
-            if (hasDisallowedPrefix && accountAndMaybeProfile.getT2().map(VersionedProfile::getPaymentAddress).isEmpty()) {
+            if (hasDisallowedPrefix && accountAndMaybeProfile.getT2().map(VersionedProfile::paymentAddress).isEmpty()) {
               throw Status.PERMISSION_DENIED.asRuntimeException();
             }
           }
         })
         .flatMap(accountAndMaybeProfile -> {
           final Account account = accountAndMaybeProfile.getT1();
-          final Optional<String> currentAvatar = accountAndMaybeProfile.getT2().map(VersionedProfile::getAvatar)
+          final Optional<String> currentAvatar = accountAndMaybeProfile.getT2().map(VersionedProfile::avatar)
               .filter(avatar -> avatar.startsWith("profiles/"));
           final AvatarData avatarData = switch (AvatarChangeUtil.fromGrpcAvatarChange(request.getAvatarChange())) {
             case AVATAR_CHANGE_UNCHANGED -> new AvatarData(currentAvatar, currentAvatar, Optional.empty());
@@ -107,11 +106,11 @@ public class ProfileGrpcService extends ReactorProfileGrpc.ProfileImplBase {
           final Mono<Void> profileSetMono = Mono.fromFuture(profilesManager.setAsync(account.getUuid(),
               new VersionedProfile(
                   request.getVersion(),
-                  encodeToBase64(request.getName().toByteArray()),
+                  request.getName().toByteArray(),
                   avatarData.finalAvatar().orElse(null),
-                  encodeToBase64(request.getAboutEmoji().toByteArray()),
-                  encodeToBase64(request.getAbout().toByteArray()),
-                  encodeToBase64(request.getPaymentAddress().toByteArray()),
+                  request.getAboutEmoji().toByteArray(),
+                  request.getAbout().toByteArray(),
+                  request.getPaymentAddress().toByteArray(),
                   request.getCommitment().toByteArray())));
 
           final List<Mono<?>> updates = new ArrayList<>(2);
@@ -162,9 +161,5 @@ public class ProfileGrpcService extends ReactorProfileGrpc.ProfileImplBase {
     }
 
     throw Status.INVALID_ARGUMENT.withDescription(errorMessage).asRuntimeException();
-  }
-
-  private static String encodeToBase64(byte[] input) {
-    return Base64.getEncoder().encodeToString(input);
   }
 }

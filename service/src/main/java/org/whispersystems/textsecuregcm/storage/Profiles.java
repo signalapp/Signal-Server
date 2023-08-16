@@ -11,7 +11,6 @@ import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,19 +46,19 @@ public class Profiles {
   @VisibleForTesting
   static final String ATTR_VERSION = "V";
 
-  // User's name; string
+  // User's name; byte array
   private static final String ATTR_NAME = "N";
 
   // Avatar path/filename; string
   private static final String ATTR_AVATAR = "A";
 
-  // Bio/about text; string
+  // Bio/about text; byte array
   private static final String ATTR_ABOUT = "B";
 
-  // Bio/about emoji; string
+  // Bio/about emoji; byte array
   private static final String ATTR_EMOJI = "E";
 
-  // Payment address; string
+  // Payment address; byte array
   private static final String ATTR_PAYMENT_ADDRESS = "P";
 
   // Commitment; byte array
@@ -91,7 +90,7 @@ public class Profiles {
     SET_PROFILES_TIMER.record(() -> {
       dynamoDbClient.updateItem(UpdateItemRequest.builder()
           .tableName(tableName)
-          .key(buildPrimaryKey(uuid, profile.getVersion()))
+          .key(buildPrimaryKey(uuid, profile.version()))
           .updateExpression(buildUpdateExpression(profile))
           .expressionAttributeNames(UPDATE_EXPRESSION_ATTRIBUTE_NAMES)
           .expressionAttributeValues(buildUpdateExpressionAttributeValues(profile))
@@ -102,7 +101,7 @@ public class Profiles {
   public CompletableFuture<Void> setAsync(final UUID uuid, final VersionedProfile profile) {
     return AsyncTimerUtil.record(SET_PROFILES_TIMER, () -> dynamoDbAsyncClient.updateItem(UpdateItemRequest.builder()
             .tableName(tableName)
-            .key(buildPrimaryKey(uuid, profile.getVersion()))
+            .key(buildPrimaryKey(uuid, profile.version()))
             .updateExpression(buildUpdateExpression(profile))
             .expressionAttributeNames(UPDATE_EXPRESSION_ATTRIBUTE_NAMES)
             .expressionAttributeValues(buildUpdateExpressionAttributeValues(profile))
@@ -122,31 +121,31 @@ public class Profiles {
     final List<String> updatedAttributes = new ArrayList<>(5);
     final List<String> deletedAttributes = new ArrayList<>(5);
 
-    if (StringUtils.isNotBlank(profile.getName())) {
+    if (profile.name() != null) {
       updatedAttributes.add("name");
     } else {
       deletedAttributes.add("name");
     }
 
-    if (StringUtils.isNotBlank(profile.getAvatar())) {
+    if (StringUtils.isNotBlank(profile.avatar())) {
       updatedAttributes.add("avatar");
     } else {
       deletedAttributes.add("avatar");
     }
 
-    if (StringUtils.isNotBlank(profile.getAbout())) {
+    if (profile.about() != null) {
       updatedAttributes.add("about");
     } else {
       deletedAttributes.add("about");
     }
 
-    if (StringUtils.isNotBlank(profile.getAboutEmoji())) {
+    if (profile.aboutEmoji() != null) {
       updatedAttributes.add("aboutEmoji");
     } else {
       deletedAttributes.add("aboutEmoji");
     }
 
-    if (StringUtils.isNotBlank(profile.getPaymentAddress())) {
+    if (profile.paymentAddress() != null) {
       updatedAttributes.add("paymentAddress");
     } else {
       deletedAttributes.add("paymentAddress");
@@ -177,26 +176,26 @@ public class Profiles {
   static Map<String, AttributeValue> buildUpdateExpressionAttributeValues(final VersionedProfile profile) {
     final Map<String, AttributeValue> expressionValues = new HashMap<>();
     
-    expressionValues.put(":commitment", AttributeValues.fromByteArray(profile.getCommitment()));
+    expressionValues.put(":commitment", AttributeValues.fromByteArray(profile.commitment()));
 
-    if (StringUtils.isNotBlank(profile.getName())) {
-      expressionValues.put(":name", AttributeValues.fromString(profile.getName()));
+    if (profile.name() != null) {
+      expressionValues.put(":name", AttributeValues.fromByteArray(profile.name()));
     }
 
-    if (StringUtils.isNotBlank(profile.getAvatar())) {
-      expressionValues.put(":avatar", AttributeValues.fromString(profile.getAvatar()));
+    if (StringUtils.isNotBlank(profile.avatar())) {
+      expressionValues.put(":avatar", AttributeValues.fromString(profile.avatar()));
     }
 
-    if (StringUtils.isNotBlank(profile.getAbout())) {
-      expressionValues.put(":about", AttributeValues.fromString(profile.getAbout()));
+    if (profile.about() != null) {
+      expressionValues.put(":about", AttributeValues.fromByteArray(profile.about()));
     }
 
-    if (StringUtils.isNotBlank(profile.getAboutEmoji())) {
-      expressionValues.put(":aboutEmoji", AttributeValues.fromString(profile.getAboutEmoji()));
+    if (profile.aboutEmoji() != null) {
+      expressionValues.put(":aboutEmoji", AttributeValues.fromByteArray(profile.aboutEmoji()));
     }
 
-    if (StringUtils.isNotBlank(profile.getPaymentAddress())) {
-      expressionValues.put(":paymentAddress", AttributeValues.fromString(profile.getPaymentAddress()));
+    if (profile.paymentAddress() != null) {
+      expressionValues.put(":paymentAddress", AttributeValues.fromByteArray(profile.paymentAddress()));
     }
     
     return expressionValues;
@@ -228,21 +227,21 @@ public class Profiles {
   private static VersionedProfile fromItem(final Map<String, AttributeValue> item) {
     return new VersionedProfile(
         AttributeValues.getString(item, ATTR_VERSION, null),
-        getBase64EncodedBytes(item, ATTR_NAME, PARSE_BYTE_ARRAY_COUNTER_NAME),
+        getBytes(item, ATTR_NAME),
         AttributeValues.getString(item, ATTR_AVATAR, null),
-        getBase64EncodedBytes(item, ATTR_EMOJI, PARSE_BYTE_ARRAY_COUNTER_NAME),
-        getBase64EncodedBytes(item, ATTR_ABOUT, PARSE_BYTE_ARRAY_COUNTER_NAME),
-        getBase64EncodedBytes(item, ATTR_PAYMENT_ADDRESS, PARSE_BYTE_ARRAY_COUNTER_NAME),
+        getBytes(item, ATTR_EMOJI),
+        getBytes(item, ATTR_ABOUT),
+        getBytes(item, ATTR_PAYMENT_ADDRESS),
         AttributeValues.getByteArray(item, ATTR_COMMITMENT, null));
   }
 
-  private static String getBase64EncodedBytes(final Map<String, AttributeValue> item, final String attributeName, final String counterName) {
+  private static byte[] getBytes(final Map<String, AttributeValue> item, final String attributeName) {
     final AttributeValue attributeValue = item.get(attributeName);
 
     if (attributeValue == null) {
       return null;
     }
-    return Base64.getEncoder().encodeToString(AttributeValues.extractByteArray(attributeValue, counterName));
+    return AttributeValues.extractByteArray(attributeValue, PARSE_BYTE_ARRAY_COUNTER_NAME);
   }
 
   public void deleteAll(final UUID uuid) {

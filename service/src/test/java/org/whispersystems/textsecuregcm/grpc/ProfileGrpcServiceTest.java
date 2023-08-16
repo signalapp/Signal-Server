@@ -39,7 +39,6 @@ import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import java.time.Clock;
-import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -136,8 +135,8 @@ public class ProfileGrpcServiceTest {
     when(account.getNumber()).thenReturn(phoneNumber);
     when(account.getBadges()).thenReturn(Collections.emptyList());
 
-    when(profile.getPaymentAddress()).thenReturn(null);
-    when(profile.getAvatar()).thenReturn("");
+    when(profile.paymentAddress()).thenReturn(null);
+    when(profile.avatar()).thenReturn("");
 
     when(accountsManager.getByAccountIdentifierAsync(any())).thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
     when(accountsManager.updateAsync(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
@@ -178,13 +177,13 @@ public class ProfileGrpcServiceTest {
 
     final VersionedProfile profile = profileArgumentCaptor.getValue();
 
-    assertThat(profile.getCommitment()).isEqualTo(commitment);
-    assertThat(profile.getAvatar()).isNull();
-    assertThat(profile.getVersion()).isEqualTo(VERSION);
-    assertThat(profile.getName()).isEqualTo(encodeToBase64(VALID_NAME));
-    assertThat(profile.getAboutEmoji()).isEqualTo(encodeToBase64(validAboutEmoji));
-    assertThat(profile.getAbout()).isEqualTo(encodeToBase64(validAbout));
-    assertThat(profile.getPaymentAddress()).isEqualTo(encodeToBase64(validPaymentAddress));
+    assertThat(profile.commitment()).isEqualTo(commitment);
+    assertThat(profile.avatar()).isNull();
+    assertThat(profile.version()).isEqualTo(VERSION);
+    assertThat(profile.name()).isEqualTo(VALID_NAME);
+    assertThat(profile.aboutEmoji()).isEqualTo(validAboutEmoji);
+    assertThat(profile.about()).isEqualTo(validAbout);
+    assertThat(profile.paymentAddress()).isEqualTo(validPaymentAddress);
   }
 
   @ParameterizedTest
@@ -201,7 +200,7 @@ public class ProfileGrpcServiceTest {
         .setCommitment(ByteString.copyFrom(commitment))
         .build();
 
-    when(profile.getAvatar()).thenReturn(currentAvatar);
+    when(profile.avatar()).thenReturn(currentAvatar);
 
     when(profilesManager.getAsync(any(), anyString())).thenReturn(CompletableFuture.completedFuture(
         hasPreviousProfile ? Optional.of(profile) : Optional.empty()));
@@ -301,7 +300,7 @@ public class ProfileGrpcServiceTest {
 
     final byte[] validPaymentAddress = new byte[582];
     if (hasExistingPaymentAddress) {
-      when(profile.getPaymentAddress()).thenReturn(encodeToBase64(validPaymentAddress));
+      when(profile.paymentAddress()).thenReturn(validPaymentAddress);
     }
 
     final SetProfileRequest request = SetProfileRequest.newBuilder()
@@ -328,7 +327,13 @@ public class ProfileGrpcServiceTest {
     }
   }
 
-  private static String encodeToBase64(byte[] input) {
-    return Base64.getEncoder().encodeToString(input);
+  @Test
+  void test() {
+    record Person(String firstName, String lastName) {};
+
+    Person rob = new Person("rob", "l");
+    Person mike = new Person("rob", "l");
+
+    assertEquals(rob, mike);
   }
 }

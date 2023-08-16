@@ -35,6 +35,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import javax.ws.rs.BadRequestException;
@@ -176,15 +177,15 @@ public class ProfileController {
           dynamicConfigurationManager.getConfiguration().getPaymentsConfiguration().getDisallowedPrefixes().stream()
               .anyMatch(prefix -> auth.getAccount().getNumber().startsWith(prefix));
 
-      if (hasDisallowedPrefix && currentProfile.map(VersionedProfile::getPaymentAddress).isEmpty()) {
+      if (hasDisallowedPrefix && currentProfile.map(VersionedProfile::paymentAddress).isEmpty()) {
         return Response.status(Response.Status.FORBIDDEN).build();
       }
     }
 
     Optional<String> currentAvatar = Optional.empty();
-    if (currentProfile.isPresent() && currentProfile.get().getAvatar() != null && currentProfile.get().getAvatar()
+    if (currentProfile.isPresent() && currentProfile.get().avatar() != null && currentProfile.get().avatar()
         .startsWith("profiles/")) {
-      currentAvatar = Optional.of(currentProfile.get().getAvatar());
+      currentAvatar = Optional.of(currentProfile.get().avatar());
     }
 
     final String avatar = switch (request.getAvatarChange()) {
@@ -196,11 +197,11 @@ public class ProfileController {
     profilesManager.set(auth.getAccount().getUuid(),
         new VersionedProfile(
             request.getVersion(),
-            request.getName(),
+            decodeFromBase64(request.getName()),
             avatar,
-            request.getAboutEmoji(),
-            request.getAbout(),
-            request.getPaymentAddress(),
+            decodeFromBase64(request.getAboutEmoji()),
+            decodeFromBase64(request.getAbout()),
+            decodeFromBase64(request.getPaymentAddress()),
             request.getCommitment().serialize()));
 
     if (request.getAvatarChange() != CreateProfileRequest.AvatarChange.UNCHANGED) {
@@ -406,16 +407,17 @@ public class ProfileController {
       VERSION_NOT_FOUND_COUNTER.increment();
     }
 
-    final String name = maybeProfile.map(VersionedProfile::getName).orElse(null);
-    final String about = maybeProfile.map(VersionedProfile::getAbout).orElse(null);
-    final String aboutEmoji = maybeProfile.map(VersionedProfile::getAboutEmoji).orElse(null);
-    final String avatar = maybeProfile.map(VersionedProfile::getAvatar).orElse(null);
+    final String name = maybeProfile.map(VersionedProfile::name).map(ProfileController::encodeToBase64).orElse(null);
+    final String about = maybeProfile.map(VersionedProfile::about).map(ProfileController::encodeToBase64).orElse(null);
+    final String aboutEmoji = maybeProfile.map(VersionedProfile::aboutEmoji).map(ProfileController::encodeToBase64).orElse(null);
+    final String avatar = maybeProfile.map(VersionedProfile::avatar).orElse(null);
 
     // Allow requests where either the version matches the latest version on Account or the latest version on Account
     // is empty to read the payment address.
     final String paymentAddress = maybeProfile
         .filter(p -> account.getCurrentProfileVersion().map(v -> v.equals(version)).orElse(true))
-        .map(VersionedProfile::getPaymentAddress)
+        .map(VersionedProfile::paymentAddress)
+        .map(ProfileController::encodeToBase64)
         .orElse(null);
 
     return new VersionedProfileResponse(
@@ -454,7 +456,7 @@ public class ProfileController {
       final Instant expiration) {
 
     try {
-      final ProfileKeyCommitment commitment = new ProfileKeyCommitment(profile.getCommitment());
+      final ProfileKeyCommitment commitment = new ProfileKeyCommitment(profile.commitment());
       final ProfileKeyCredentialRequest request = new ProfileKeyCredentialRequest(
           HexFormat.of().parseHex(encodedCredentialRequest));
 
@@ -515,5 +517,21 @@ public class ProfileController {
 
   private boolean isSelfProfileRequest(final Optional<Account> maybeRequester, final AciServiceIdentifier targetIdentifier) {
     return maybeRequester.map(requester -> requester.getUuid().equals(targetIdentifier.uuid())).orElse(false);
+  }
+
+  @Nullable
+  private static byte[] decodeFromBase64(@Nullable final String input) {
+    if (input == null) {
+      return null;
+    }
+    return Base64.getDecoder().decode(input);
+  }
+
+  @Nullable
+  private static String encodeToBase64(@Nullable final byte[] input) {
+    if (input == null) {
+      return null;
+    }
+    return Base64.getEncoder().encodeToString(input);
   }
 }

@@ -77,7 +77,7 @@ public class ProfilesManager {
     try {
       final String profileJson = mapper.writeValueAsString(profile);
 
-      cacheCluster.useCluster(connection -> connection.sync().hset(getCacheKey(uuid), profile.getVersion(), profileJson));
+      cacheCluster.useCluster(connection -> connection.sync().hset(getCacheKey(uuid), profile.version(), profileJson));
     } catch (JsonProcessingException e) {
       throw new IllegalArgumentException(e);
     }
@@ -93,7 +93,7 @@ public class ProfilesManager {
     }
 
     return cacheCluster.withCluster(connection ->
-        connection.async().hset(getCacheKey(uuid), profile.getVersion(), profileJson))
+        connection.async().hset(getCacheKey(uuid), profile.version(), profileJson))
             .thenRun(Util.NOOP)
             .toCompletableFuture();
   }

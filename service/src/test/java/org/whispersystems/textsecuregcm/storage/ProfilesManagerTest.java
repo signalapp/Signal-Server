@@ -5,7 +5,7 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -21,15 +21,18 @@ import static org.mockito.Mockito.when;
 import io.lettuce.core.RedisException;
 import io.lettuce.core.cluster.api.async.RedisAdvancedClusterAsyncCommands;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
-import java.util.Base64;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.signal.libsignal.protocol.ServiceId;
+import org.signal.libsignal.zkgroup.InvalidInputException;
+import org.signal.libsignal.zkgroup.profiles.ProfileKey;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.tests.util.MockRedisFuture;
+import org.whispersystems.textsecuregcm.tests.util.ProfileHelper;
 import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
 
 @Timeout(value = 10, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
@@ -57,17 +60,21 @@ public class ProfilesManagerTest {
   }
 
   @Test
-  public void testGetProfileInCache() {
-    UUID uuid = UUID.randomUUID();
-
-    when(commands.hget(eq("profiles::" + uuid), eq("someversion"))).thenReturn("{\"version\": \"someversion\", \"name\": \"somename\", \"avatar\": \"someavatar\", \"commitment\":\"" + Base64.getEncoder().encodeToString("somecommitment".getBytes()) + "\"}");
+  public void testGetProfileInCache() throws InvalidInputException {
+    final UUID uuid = UUID.randomUUID();
+    final byte[] name = ProfileHelper.generateRandomByteArray(81);
+    final byte[] commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(uuid)).serialize();
+    when(commands.hget(eq("profiles::" + uuid), eq("someversion"))).thenReturn(String.format(
+        "{\"version\": \"someversion\", \"name\": \"%s\", \"avatar\": \"someavatar\", \"commitment\":\"%s\"}",
+        ProfileHelper.encodeToBase64(name),
+        ProfileHelper.encodeToBase64(commitment)));
 
     Optional<VersionedProfile> profile = profilesManager.get(uuid, "someversion");
 
     assertTrue(profile.isPresent());
-    assertEquals(profile.get().getName(), "somename");
-    assertEquals(profile.get().getAvatar(), "someavatar");
-    assertThat(profile.get().getCommitment()).isEqualTo("somecommitment".getBytes());
+    assertArrayEquals(profile.get().name(), name);
+    assertEquals(profile.get().avatar(), "someavatar");
+    assertArrayEquals(profile.get().commitment(), commitment);
 
     verify(commands, times(1)).hget(eq("profiles::" + uuid), eq("someversion"));
     verifyNoMoreInteractions(commands);
@@ -75,18 +82,22 @@ public class ProfilesManagerTest {
   }
 
   @Test
-  public void testGetProfileAsyncInCache() {
-    UUID uuid = UUID.randomUUID();
+  public void testGetProfileAsyncInCache() throws InvalidInputException {
+    final UUID uuid = UUID.randomUUID();
+    final byte[] name = ProfileHelper.generateRandomByteArray(81);
+    final byte[] commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(uuid)).serialize();
 
     when(asyncCommands.hget(eq("profiles::" + uuid), eq("someversion"))).thenReturn(
-        MockRedisFuture.completedFuture("{\"version\": \"someversion\", \"name\": \"somename\", \"avatar\": \"someavatar\", \"commitment\":\"" + Base64.getEncoder().encodeToString("somecommitment".getBytes()) + "\"}"));
+        MockRedisFuture.completedFuture(String.format("{\"version\": \"someversion\", \"name\": \"%s\", \"avatar\": \"someavatar\", \"commitment\":\"%s\"}",
+            ProfileHelper.encodeToBase64(name),
+            ProfileHelper.encodeToBase64(commitment))));
 
     Optional<VersionedProfile> profile = profilesManager.getAsync(uuid, "someversion").join();
 
     assertTrue(profile.isPresent());
-    assertEquals(profile.get().getName(), "somename");
-    assertEquals(profile.get().getAvatar(), "someavatar");
-    assertThat(profile.get().getCommitment()).isEqualTo("somecommitment".getBytes());
+    assertArrayEquals(profile.get().name(), name);
+    assertEquals(profile.get().avatar(), "someavatar");
+    assertArrayEquals(profile.get().commitment(), commitment);
 
     verify(asyncCommands, times(1)).hget(eq("profiles::" + uuid), eq("someversion"));
     verifyNoMoreInteractions(asyncCommands);
@@ -95,8 +106,9 @@ public class ProfilesManagerTest {
 
   @Test
   public void testGetProfileNotInCache() {
-    UUID             uuid    = UUID.randomUUID();
-    VersionedProfile profile = new VersionedProfile("someversion", "somename", "someavatar", null, null,
+    final UUID uuid = UUID.randomUUID();
+    final byte[] name = ProfileHelper.generateRandomByteArray(81);
+    final VersionedProfile profile = new VersionedProfile("someversion", name, "someavatar", null, null,
         null, "somecommitment".getBytes());
 
     when(commands.hget(eq("profiles::" + uuid), eq("someversion"))).thenReturn(null);
@@ -117,8 +129,9 @@ public class ProfilesManagerTest {
 
   @Test
   public void testGetProfileAsyncNotInCache() {
-    UUID uuid = UUID.randomUUID();
-    VersionedProfile profile = new VersionedProfile("someversion", "somename", "someavatar", null, null,
+    final UUID uuid = UUID.randomUUID();
+    final byte[] name = ProfileHelper.generateRandomByteArray(81);
+    final VersionedProfile profile = new VersionedProfile("someversion", name, "someavatar", null, null,
         null, "somecommitment".getBytes());
 
     when(asyncCommands.hget(eq("profiles::" + uuid), eq("someversion"))).thenReturn(MockRedisFuture.completedFuture(null));
@@ -140,8 +153,9 @@ public class ProfilesManagerTest {
 
   @Test
   public void testGetProfileBrokenCache() {
-    UUID             uuid    = UUID.randomUUID();
-    VersionedProfile profile = new VersionedProfile("someversion", "somename", "someavatar", null, null,
+    final UUID uuid = UUID.randomUUID();
+    final byte[] name = ProfileHelper.generateRandomByteArray(81);
+    final VersionedProfile profile = new VersionedProfile("someversion", name, "someavatar", null, null,
         null, "somecommitment".getBytes());
 
     when(commands.hget(eq("profiles::" + uuid), eq("someversion"))).thenThrow(new RedisException("Connection lost"));
@@ -162,8 +176,9 @@ public class ProfilesManagerTest {
 
   @Test
   public void testGetProfileAsyncBrokenCache() {
-    UUID uuid = UUID.randomUUID();
-    VersionedProfile profile = new VersionedProfile("someversion", "somename", "someavatar", null, null,
+    final UUID uuid = UUID.randomUUID();
+    final byte[] name = ProfileHelper.generateRandomByteArray(81);
+    final VersionedProfile profile = new VersionedProfile("someversion", name, "someavatar", null, null,
         null, "somecommitment".getBytes());
 
     when(asyncCommands.hget(eq("profiles::" + uuid), eq("someversion"))).thenReturn(MockRedisFuture.failedFuture(new RedisException("Connection lost")));
@@ -185,8 +200,9 @@ public class ProfilesManagerTest {
 
   @Test
   public void testSet() {
-    UUID uuid = UUID.randomUUID();
-    VersionedProfile profile = new VersionedProfile("someversion", "somename", "someavatar", null, null,
+    final UUID uuid = UUID.randomUUID();
+    final byte[] name = ProfileHelper.generateRandomByteArray(81);
+    final VersionedProfile profile = new VersionedProfile("someversion", name, "someavatar", null, null,
         null, "somecommitment".getBytes());
 
     profilesManager.set(uuid, profile);
@@ -200,8 +216,9 @@ public class ProfilesManagerTest {
 
   @Test
   public void testSetAsync() {
-    UUID uuid = UUID.randomUUID();
-    VersionedProfile profile = new VersionedProfile("someversion", "somename", "someavatar", null, null,
+    final UUID uuid = UUID.randomUUID();
+    final byte[] name = ProfileHelper.generateRandomByteArray(81);
+    final VersionedProfile profile = new VersionedProfile("someversion", name, "someavatar", null, null,
         null, "somecommitment".getBytes());
 
     when(asyncCommands.hset(eq("profiles::" + uuid), eq("someversion"), anyString())).thenReturn(MockRedisFuture.completedFuture(null));
