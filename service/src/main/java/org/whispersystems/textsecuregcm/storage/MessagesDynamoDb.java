@@ -233,7 +233,8 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
             .key(Map.of(
                 KEY_PARTITION, partitionKey,
                 KEY_SORT, item.get(KEY_SORT)))
-            .build())))
+            .build())),
+            DYNAMO_DB_MAX_BATCH_SIZE)
         .doOnComplete(() -> sample.stop(deleteByAccount))
         .then()
         .toFuture();
@@ -261,7 +262,8 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
             .key(Map.of(
                 KEY_PARTITION, partitionKey,
                 KEY_SORT, item.get(KEY_SORT)))
-            .build())))
+            .build())),
+            DYNAMO_DB_MAX_BATCH_SIZE)
         .doOnComplete(() -> sample.stop(deleteByDevice))
         .then()
         .toFuture();
