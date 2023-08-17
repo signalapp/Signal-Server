@@ -326,14 +326,4 @@ public class ProfileGrpcServiceTest {
       assertEquals(Status.PERMISSION_DENIED.getCode(), exception.getStatus().getCode());
     }
   }
-
-  @Test
-  void test() {
-    record Person(String firstName, String lastName) {};
-
-    Person rob = new Person("rob", "l");
-    Person mike = new Person("rob", "l");
-
-    assertEquals(rob, mike);
-  }
 }
