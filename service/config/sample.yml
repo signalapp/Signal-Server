@@ -22,8 +22,6 @@ metrics:
       tags:
         - "env:staging"
         - "service:chat"
-      transport:
-        apiKey: secret://datadog.apiKey
       udpTransport:
         statsdHost: localhost
         port: 8125
