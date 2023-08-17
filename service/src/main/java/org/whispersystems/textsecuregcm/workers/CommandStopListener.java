@@ -39,7 +39,7 @@ public class CommandStopListener implements Managed {
         writer.write("stopped");
       }
     } catch (final IOException e) {
-      logger.error("Failed to open file {}", path);
+      logger.error("Failed to open file {}", path, e);
     }
   }
 }
