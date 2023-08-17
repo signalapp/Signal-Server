@@ -11,6 +11,7 @@ import com.google.common.annotations.VisibleForTesting;
 import io.lettuce.core.SetArgs;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Timer;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -43,7 +44,7 @@ public class PushLatencyManager {
 
   private final Clock clock;
 
-  private static final String TIMER_NAME = MetricRegistry.name(PushLatencyManager.class, "latency");
+  public static final String TIMER_NAME = MetricRegistry.name(PushLatencyManager.class, "latency");
   private static final int TTL = (int) Duration.ofDays(1).toSeconds();
 
   private static final Logger log = LoggerFactory.getLogger(PushLatencyManager.class);
@@ -103,7 +104,11 @@ public class PushLatencyManager {
 
         pushRecord.urgent().ifPresent(urgent -> tags.add(Tag.of("urgent", String.valueOf(urgent))));
 
-        Metrics.timer(TIMER_NAME, tags).record(latency);
+        Timer.builder(TIMER_NAME)
+            .publishPercentileHistogram(true)
+            .tags(tags)
+            .register(Metrics.globalRegistry)
+            .record(latency);
       }
     });
   }

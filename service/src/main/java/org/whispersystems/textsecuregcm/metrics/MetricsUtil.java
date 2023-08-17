@@ -11,14 +11,13 @@ import io.dropwizard.setup.Environment;
 import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.config.MeterFilter;
 import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
 import io.micrometer.statsd.StatsdMeterRegistry;
 import java.util.concurrent.TimeUnit;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
+import org.whispersystems.textsecuregcm.push.PushLatencyManager;
 import org.whispersystems.textsecuregcm.util.Constants;
-import org.whispersystems.textsecuregcm.util.HostnameUtil;
 
 public class MetricsUtil {
 
@@ -86,7 +85,9 @@ public class MetricsUtil {
         // filters are applied after map filters.
         .meterFilter(MeterFilter.deny(id ->
               id.getName().startsWith(PREFIX + ".lettuce") && !id.getName().contains("command.completion.max")
-        ));
+        ))
+        .meterFilter(MeterFilter.denyNameStartsWith(PushLatencyManager.TIMER_NAME + ".percentile"))
+        .meterFilter(MeterFilter.denyNameStartsWith(MessageMetrics.DELIVERY_LATENCY_TIMER_NAME + ".percentile"));
   }
 
   public static void registerSystemResourceMetrics(final Environment environment) {

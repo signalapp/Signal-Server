@@ -7,15 +7,13 @@ package org.whispersystems.textsecuregcm.metrics;
 
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
-import com.vdurmont.semver4j.Semver;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Timer;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
@@ -23,7 +21,6 @@ import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
-import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
 public final class MessageMetrics {
 
@@ -32,7 +29,7 @@ public final class MessageMetrics {
   private static final String MISMATCHED_ACCOUNT_ENVELOPE_UUID_COUNTER_NAME = name(MessageMetrics.class,
       "mismatchedAccountEnvelopeUuid");
 
-  private static final String DELIVERY_LATENCY_TIMER_NAME = name(MessageMetrics.class, "deliveryLatency");
+  public static final String DELIVERY_LATENCY_TIMER_NAME = name(MessageMetrics.class, "deliveryLatency");
 
   public static void measureAccountOutgoingMessageUuidMismatches(final Account account,
       final OutgoingMessageEntity outgoingMessage) {
@@ -70,7 +67,10 @@ public final class MessageMetrics {
 
     UserAgentTagUtil.getClientVersionTag(userAgent, clientReleaseManager).ifPresent(tags::add);
 
-    Metrics.timer(DELIVERY_LATENCY_TIMER_NAME, tags)
+    Timer.builder(DELIVERY_LATENCY_TIMER_NAME)
+        .publishPercentileHistogram(true)
+        .tags(tags)
+        .register(Metrics.globalRegistry)
         .record(Duration.between(Instant.ofEpochMilli(serverTimestamp), Instant.now()));
   }
 }
