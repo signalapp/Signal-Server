@@ -224,10 +224,6 @@ cdn:
   bucket: cdn        # S3 Bucket name
   region: us-west-2  # AWS region
 
-datadog:
-  apiKey: secret://datadog.apiKey
-  environment: dev
-
 unidentifiedDelivery:
   certificate: secret://unidentifiedDelivery.certificate
   privateKey: secret://unidentifiedDelivery.privateKey

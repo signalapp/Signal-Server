@@ -14,10 +14,9 @@ import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.config.MeterFilter;
 import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
-import io.micrometer.datadog.DatadogMeterRegistry;
+import io.micrometer.statsd.StatsdMeterRegistry;
 import java.util.concurrent.TimeUnit;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
-import org.whispersystems.textsecuregcm.WhisperServerVersion;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.HostnameUtil;
 
@@ -45,17 +44,11 @@ public class MetricsUtil {
     SharedMetricRegistries.add(Constants.METRICS_NAME, environment.metrics());
 
     {
-      final DatadogMeterRegistry datadogMeterRegistry = new DatadogMeterRegistry(
+      final StatsdMeterRegistry dogstatsdMeterRegistry = new StatsdMeterRegistry(
           config.getDatadogConfiguration(), io.micrometer.core.instrument.Clock.SYSTEM);
 
-      datadogMeterRegistry.config().commonTags(
-          Tags.of(
-              "service", "chat",
-              "host", HostnameUtil.getLocalHostname(),
-              "version", WhisperServerVersion.getServerVersion(),
-              "env", config.getDatadogConfiguration().getEnvironment()));
-      configureMeterFilters(datadogMeterRegistry.config());
-      Metrics.addRegistry(datadogMeterRegistry);
+      configureMeterFilters(dogstatsdMeterRegistry.config());
+      Metrics.addRegistry(dogstatsdMeterRegistry);
     }
 
     environment.lifecycle().manage(new MicrometerRegistryManager(Metrics.globalRegistry));

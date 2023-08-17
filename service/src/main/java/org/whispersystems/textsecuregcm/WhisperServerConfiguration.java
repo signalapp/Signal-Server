@@ -27,7 +27,7 @@ import org.whispersystems.textsecuregcm.configuration.BraintreeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.CdnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ClientReleaseConfiguration;
 import org.whispersystems.textsecuregcm.configuration.CommandStopListenerConfiguration;
-import org.whispersystems.textsecuregcm.configuration.DatadogConfiguration;
+import org.whispersystems.textsecuregcm.configuration.DogstatsdConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DirectoryV2Configuration;
 import org.whispersystems.textsecuregcm.configuration.DynamoDbClientConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DynamoDbTables;
@@ -106,7 +106,7 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @Valid
   @JsonProperty
-  private DatadogConfiguration datadog;
+  private DogstatsdConfiguration dogstatsd = new DogstatsdConfiguration();
 
   @NotNull
   @Valid
@@ -416,8 +416,8 @@ public class WhisperServerConfiguration extends Configuration {
     return cdn;
   }
 
-  public DatadogConfiguration getDatadogConfiguration() {
-    return datadog;
+  public DogstatsdConfiguration getDatadogConfiguration() {
+    return dogstatsd;
   }
 
   public UnidentifiedDeliveryConfiguration getDeliveryCertificate() {
