@@ -9,6 +9,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.micrometer.statsd.StatsdConfig;
 import io.micrometer.statsd.StatsdFlavor;
 import java.time.Duration;
+import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 
 public class DogstatsdConfiguration implements StatsdConfig {
@@ -17,9 +18,17 @@ public class DogstatsdConfiguration implements StatsdConfig {
   @NotNull
   private Duration step = Duration.ofSeconds(10);
 
+  @JsonProperty
+  @NotBlank
+  private String environment;
+
   @Override
   public Duration step() {
     return step;
+  }
+
+  public String getEnvironment() {
+    return environment;
   }
 
   @Override

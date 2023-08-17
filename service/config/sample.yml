@@ -224,6 +224,9 @@ cdn:
   bucket: cdn        # S3 Bucket name
   region: us-west-2  # AWS region
 
+dogstatsd:
+  environment: dev
+
 unidentifiedDelivery:
   certificate: secret://unidentifiedDelivery.certificate
   privateKey: secret://unidentifiedDelivery.privateKey

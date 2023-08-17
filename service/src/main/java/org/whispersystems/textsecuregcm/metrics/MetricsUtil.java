@@ -11,13 +11,16 @@ import io.dropwizard.setup.Environment;
 import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.config.MeterFilter;
 import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
 import io.micrometer.statsd.StatsdMeterRegistry;
 import java.util.concurrent.TimeUnit;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
+import org.whispersystems.textsecuregcm.WhisperServerVersion;
 import org.whispersystems.textsecuregcm.push.PushLatencyManager;
 import org.whispersystems.textsecuregcm.util.Constants;
+import org.whispersystems.textsecuregcm.util.HostnameUtil;
 
 public class MetricsUtil {
 
@@ -45,6 +48,13 @@ public class MetricsUtil {
     {
       final StatsdMeterRegistry dogstatsdMeterRegistry = new StatsdMeterRegistry(
           config.getDatadogConfiguration(), io.micrometer.core.instrument.Clock.SYSTEM);
+
+      dogstatsdMeterRegistry.config().commonTags(
+          Tags.of(
+              "service", "chat",
+              "host", HostnameUtil.getLocalHostname(),
+              "version", WhisperServerVersion.getServerVersion(),
+              "env", config.getDatadogConfiguration().getEnvironment()));
 
       configureMeterFilters(dogstatsdMeterRegistry.config());
       Metrics.addRegistry(dogstatsdMeterRegistry);
