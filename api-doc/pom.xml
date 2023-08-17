@@ -16,6 +16,11 @@
       <artifactId>service</artifactId>
       <version>${project.version}</version>
     </dependency>
+    <dependency>
+        <groupId>com.braintreepayments.gateway</groupId>
+        <artifactId>braintree-java</artifactId>
+        <version>3.19.0</version> <!-- Replace 3.x.x with the actual version -->
+    </dependency>
   </dependencies>
 
   <build>
