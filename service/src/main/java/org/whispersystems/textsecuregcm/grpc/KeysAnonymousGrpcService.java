@@ -30,7 +30,7 @@ public class KeysAnonymousGrpcService extends ReactorKeysAnonymousGrpc.KeysAnony
     final ServiceIdentifier serviceIdentifier =
         ServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getRequest().getTargetIdentifier());
 
-    return Mono.fromFuture(accountsManager.getByServiceIdentifierAsync(serviceIdentifier))
+    return Mono.fromFuture(() -> accountsManager.getByServiceIdentifierAsync(serviceIdentifier))
         .flatMap(Mono::justOrEmpty)
         .switchIfEmpty(Mono.error(Status.UNAUTHENTICATED.asException()))
         .flatMap(targetAccount ->

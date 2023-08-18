@@ -150,7 +150,7 @@ public abstract class RepeatedUseSignedPreKeyStore<K extends SignedPreKey<?>> {
             .tableName(tableName)
             .key(getPrimaryKey(identifier, deviceId))
             .build())
-        .flatMap(deleteItemRequest -> Mono.fromFuture(dynamoDbAsyncClient.deleteItem(deleteItemRequest)))
+        .flatMap(deleteItemRequest -> Mono.fromFuture(() -> dynamoDbAsyncClient.deleteItem(deleteItemRequest)))
         // Idiom: wait for everything to finish, but discard the results
         .reduce(0, (a, b) -> 0)
         .toFuture()

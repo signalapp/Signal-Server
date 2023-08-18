@@ -228,7 +228,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
             .expressionAttributeValues(Map.of(":part", partitionKey))
             .build())
         .items())
-        .flatMap(item -> Mono.fromFuture(dbAsyncClient.deleteItem(DeleteItemRequest.builder()
+        .flatMap(item -> Mono.fromFuture(() -> dbAsyncClient.deleteItem(DeleteItemRequest.builder()
             .tableName(tableName)
             .key(Map.of(
                 KEY_PARTITION, partitionKey,
@@ -257,7 +257,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
                 .consistentRead(true)
                 .build())
             .items())
-        .flatMap(item -> Mono.fromFuture(dbAsyncClient.deleteItem(DeleteItemRequest.builder()
+        .flatMap(item -> Mono.fromFuture(() -> dbAsyncClient.deleteItem(DeleteItemRequest.builder()
             .tableName(tableName)
             .key(Map.of(
                 KEY_PARTITION, partitionKey,

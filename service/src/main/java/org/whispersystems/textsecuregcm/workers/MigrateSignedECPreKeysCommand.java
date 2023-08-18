@@ -52,7 +52,7 @@ public class MigrateSignedECPreKeysCommand extends AbstractSinglePassCrawlAccoun
 
               return Flux.fromIterable(keys);
             }))
-        .flatMap(keyTuple -> Mono.fromFuture(keysManager.storeEcSignedPreKeyIfAbsent(keyTuple.getT1(), keyTuple.getT2(), keyTuple.getT3()))
+        .flatMap(keyTuple -> Mono.fromFuture(() -> keysManager.storeEcSignedPreKeyIfAbsent(keyTuple.getT1(), keyTuple.getT2(), keyTuple.getT3()))
             .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)).onRetryExhaustedThrow((spec, rs) -> rs.failure())),
             false, MAX_CONCURRENCY)
         .doOnNext(keyStored -> Metrics.counter(STORE_KEY_ATTEMPT_COUNTER_NAME, "stored", String.valueOf(keyStored)).increment())

@@ -34,7 +34,7 @@ public class CallingGrpcService extends ReactorCallingGrpc.CallingImplBase {
     final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
 
     return rateLimiters.getTurnLimiter().validateReactive(authenticatedDevice.accountIdentifier())
-        .then(Mono.defer(() -> Mono.fromSupplier(() -> turnTokenGenerator.generate(authenticatedDevice.accountIdentifier()))))
+        .then(Mono.fromSupplier(() -> turnTokenGenerator.generate(authenticatedDevice.accountIdentifier())))
         .map(turnToken -> GetTurnCredentialsResponse.newBuilder()
             .setUsername(turnToken.username())
             .setPassword(turnToken.password())

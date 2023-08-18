@@ -82,7 +82,7 @@ public class KeysGrpcService extends ReactorKeysGrpc.KeysImplBase {
   @Override
   public Mono<GetPreKeyCountResponse> getPreKeyCount(final GetPreKeyCountRequest request) {
     return Mono.fromSupplier(AuthenticationUtil::requireAuthenticatedDevice)
-        .flatMap(authenticatedDevice -> Mono.fromFuture(accountsManager.getByAccountIdentifierAsync(authenticatedDevice.accountIdentifier()))
+        .flatMap(authenticatedDevice -> Mono.fromFuture(() -> accountsManager.getByAccountIdentifierAsync(authenticatedDevice.accountIdentifier()))
             .map(maybeAccount -> maybeAccount
                 .map(account -> Tuples.of(account, authenticatedDevice.deviceId()))
                 .orElseThrow(Status.UNAUTHENTICATED::asRuntimeException)))
@@ -91,10 +91,10 @@ public class KeysGrpcService extends ReactorKeysGrpc.KeysImplBase {
             Tuples.of(IdentityType.PNI, accountAndDeviceId.getT1().getPhoneNumberIdentifier(), accountAndDeviceId.getT2())
         ))
         .flatMap(identityTypeUuidAndDeviceId -> Flux.merge(
-            Mono.fromFuture(keysManager.getEcCount(identityTypeUuidAndDeviceId.getT2(), identityTypeUuidAndDeviceId.getT3()))
+            Mono.fromFuture(() -> keysManager.getEcCount(identityTypeUuidAndDeviceId.getT2(), identityTypeUuidAndDeviceId.getT3()))
                 .map(ecKeyCount -> Tuples.of(identityTypeUuidAndDeviceId.getT1(), PreKeyType.EC, ecKeyCount)),
 
-            Mono.fromFuture(keysManager.getPqCount(identityTypeUuidAndDeviceId.getT2(), identityTypeUuidAndDeviceId.getT3()))
+            Mono.fromFuture(() -> keysManager.getPqCount(identityTypeUuidAndDeviceId.getT2(), identityTypeUuidAndDeviceId.getT3()))
                 .map(ecKeyCount -> Tuples.of(identityTypeUuidAndDeviceId.getT1(), PreKeyType.KEM, ecKeyCount))
         ))
         .reduce(GetPreKeyCountResponse.newBuilder(), (builder, tuple) -> {
@@ -168,7 +168,7 @@ public class KeysGrpcService extends ReactorKeysGrpc.KeysImplBase {
       final BiFunction<R, IdentityKey, K> extractPreKeyFunction,
       final BiFunction<UUID, List<K>, CompletableFuture<Void>> storeKeysFunction) {
 
-    return Mono.fromFuture(accountsManager.getByAccountIdentifierAsync(authenticatedAccountUuid))
+    return Mono.fromFuture(() -> accountsManager.getByAccountIdentifierAsync(authenticatedAccountUuid))
         .map(maybeAccount -> maybeAccount.orElseThrow(Status.UNAUTHENTICATED::asRuntimeException))
         .map(account -> {
           final List<K> preKeys = requestPreKeys.stream()
@@ -181,7 +181,7 @@ public class KeysGrpcService extends ReactorKeysGrpc.KeysImplBase {
 
           return Tuples.of(account.getIdentifier(identityType), preKeys);
         })
-        .flatMap(identifierAndPreKeys -> Mono.fromFuture(storeKeysFunction.apply(identifierAndPreKeys.getT1(), identifierAndPreKeys.getT2())))
+        .flatMap(identifierAndPreKeys -> Mono.fromFuture(() -> storeKeysFunction.apply(identifierAndPreKeys.getT1(), identifierAndPreKeys.getT2())))
         .thenReturn(SetPreKeyResponse.newBuilder().build());
   }
 
@@ -203,8 +203,8 @@ public class KeysGrpcService extends ReactorKeysGrpc.KeysImplBase {
               final UUID identifier = account.getIdentifier(identityType);
 
               return Flux.merge(
-                      Mono.fromFuture(keysManager.storeEcSignedPreKeys(identifier, Map.of(authenticatedDevice.deviceId(), signedPreKey))),
-                      Mono.fromFuture(accountsManager.updateDeviceAsync(account, authenticatedDevice.deviceId(), deviceUpdater)))
+                      Mono.fromFuture(() -> keysManager.storeEcSignedPreKeys(identifier, Map.of(authenticatedDevice.deviceId(), signedPreKey))),
+                      Mono.fromFuture(() -> accountsManager.updateDeviceAsync(account, authenticatedDevice.deviceId(), deviceUpdater)))
                   .then();
             }));
   }
@@ -220,7 +220,7 @@ public class KeysGrpcService extends ReactorKeysGrpc.KeysImplBase {
               final UUID identifier =
                   account.getIdentifier(IdentityTypeUtil.fromGrpcIdentityType(request.getIdentityType()));
 
-              return Mono.fromFuture(keysManager.storePqLastResort(identifier, Map.of(authenticatedDevice.deviceId(), lastResortKey)));
+              return Mono.fromFuture(() -> keysManager.storePqLastResort(identifier, Map.of(authenticatedDevice.deviceId(), lastResortKey)));
             }));
   }
 
@@ -230,7 +230,7 @@ public class KeysGrpcService extends ReactorKeysGrpc.KeysImplBase {
       final BiFunction<R, IdentityKey, K> extractKeyFunction,
       final BiFunction<Account, K, Mono<?>> storeKeyFunction) {
 
-    return Mono.fromFuture(accountsManager.getByAccountIdentifierAsync(authenticatedAccountUuid))
+    return Mono.fromFuture(() -> accountsManager.getByAccountIdentifierAsync(authenticatedAccountUuid))
         .map(maybeAccount -> maybeAccount.orElseThrow(Status.UNAUTHENTICATED::asRuntimeException))
         .map(account -> {
           final IdentityKey identityKey = account.getIdentityKey(IdentityTypeUtil.fromGrpcIdentityType(identityType));

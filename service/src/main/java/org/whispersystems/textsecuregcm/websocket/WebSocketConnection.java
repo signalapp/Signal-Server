@@ -357,7 +357,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
         .tap(Micrometer.metrics(Metrics.globalRegistry))
         .limitRate(MESSAGE_PUBLISHER_LIMIT_RATE)
         .flatMapSequential(envelope ->
-            Mono.fromFuture(sendMessage(envelope)
+            Mono.fromFuture(() -> sendMessage(envelope)
                 .orTimeout(sendFuturesTimeoutMillis, TimeUnit.MILLISECONDS)))
         .subscribeOn(messageDeliveryScheduler)
         .subscribe(

@@ -55,7 +55,7 @@ public interface RateLimiter {
   }
 
   default Mono<Void> validateReactive(final String key) {
-    return Mono.fromFuture(validateAsync(key).toCompletableFuture());
+    return Mono.fromFuture(() -> validateAsync(key).toCompletableFuture());
   }
 
   default Mono<Void> validateReactive(final UUID accountUuid) {

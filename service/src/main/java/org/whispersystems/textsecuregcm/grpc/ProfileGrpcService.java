@@ -75,9 +75,9 @@ public class ProfileGrpcService extends ReactorProfileGrpc.ProfileImplBase {
     validateRequest(request);
     return Mono.fromSupplier(AuthenticationUtil::requireAuthenticatedDevice)
         .flatMap(authenticatedDevice -> Mono.zip(
-            Mono.fromFuture(accountsManager.getByAccountIdentifierAsync(authenticatedDevice.accountIdentifier()))
+            Mono.fromFuture(() -> accountsManager.getByAccountIdentifierAsync(authenticatedDevice.accountIdentifier()))
                 .map(maybeAccount -> maybeAccount.orElseThrow(Status.UNAUTHENTICATED::asRuntimeException)),
-            Mono.fromFuture(profilesManager.getAsync(authenticatedDevice.accountIdentifier(), request.getVersion()))
+            Mono.fromFuture(() -> profilesManager.getAsync(authenticatedDevice.accountIdentifier(), request.getVersion()))
         ))
         .doOnNext(accountAndMaybeProfile -> {
           if (!request.getPaymentAddress().isEmpty()) {
@@ -103,7 +103,7 @@ public class ProfileGrpcService extends ReactorProfileGrpc.ProfileImplBase {
             }
           };
 
-          final Mono<Void> profileSetMono = Mono.fromFuture(profilesManager.setAsync(account.getUuid(),
+          final Mono<Void> profileSetMono = Mono.fromFuture(() -> profilesManager.setAsync(account.getUuid(),
               new VersionedProfile(
                   request.getVersion(),
                   request.getName().toByteArray(),
@@ -118,12 +118,13 @@ public class ProfileGrpcService extends ReactorProfileGrpc.ProfileImplBase {
               .map(badges -> ProfileHelper.mergeBadgeIdsWithExistingAccountBadges(clock, badgeConfigurationMap, badges, account.getBadges()))
               .orElseGet(account::getBadges);
 
-          updates.add(Mono.fromFuture(accountsManager.updateAsync(account, a -> {
+          updates.add(Mono.fromFuture(() -> accountsManager.updateAsync(account, a -> {
             a.setBadges(clock, updatedBadges);
             a.setCurrentProfileVersion(request.getVersion());
           })));
+
           if (request.getAvatarChange() != AvatarChange.AVATAR_CHANGE_UNCHANGED && avatarData.currentAvatar().isPresent()) {
-            updates.add(Mono.fromFuture(asyncS3client.deleteObject(DeleteObjectRequest.builder()
+            updates.add(Mono.fromFuture(() -> asyncS3client.deleteObject(DeleteObjectRequest.builder()
                 .bucket(bucket)
                 .key(avatarData.currentAvatar().get())
                 .build())));

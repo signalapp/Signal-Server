@@ -52,8 +52,8 @@ class KeysGrpcHelper {
                   .build());
 
           return Flux.merge(
-                  Mono.fromFuture(keysManager.takeEC(targetAccount.getIdentifier(identityType), device.getId())),
-                  Mono.fromFuture(keysManager.takePQ(targetAccount.getIdentifier(identityType), device.getId())))
+                  Mono.fromFuture(() -> keysManager.takeEC(targetAccount.getIdentifier(identityType), device.getId())),
+                  Mono.fromFuture(() -> keysManager.takePQ(targetAccount.getIdentifier(identityType), device.getId())))
               .flatMap(Mono::justOrEmpty)
               .reduce(preKeyBundleBuilder, (builder, preKey) -> {
                 if (preKey instanceof ECPreKey ecPreKey) {

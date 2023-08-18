@@ -94,12 +94,10 @@ public abstract class SingleUsePreKeyStore<K extends PreKey<?>> {
   public CompletableFuture<Void> store(final UUID identifier, final long deviceId, final List<K> preKeys) {
     final Timer.Sample sample = Timer.start();
 
-    return Mono.fromFuture(delete(identifier, deviceId))
+    return Mono.fromFuture(() -> delete(identifier, deviceId))
         .thenMany(
             Flux.fromIterable(preKeys)
-                .flatMap(
-                    preKey -> Mono.fromFuture(store(identifier, deviceId, preKey)),
-                    DYNAMO_DB_MAX_BATCH_SIZE))
+                .flatMap(preKey -> Mono.fromFuture(() -> store(identifier, deviceId, preKey)), DYNAMO_DB_MAX_BATCH_SIZE))
         .then()
         .toFuture()
         .thenRun(() -> sample.stop(storeKeyBatchTimer));
@@ -149,7 +147,7 @@ public abstract class SingleUsePreKeyStore<K extends PreKey<?>> {
                 KEY_DEVICE_ID_KEY_ID, item.get(KEY_DEVICE_ID_KEY_ID)))
             .returnValues(ReturnValue.ALL_OLD)
             .build())
-        .flatMap(deleteItemRequest -> Mono.fromFuture(dynamoDbAsyncClient.deleteItem(deleteItemRequest)), 1)
+        .flatMap(deleteItemRequest -> Mono.fromFuture(() -> dynamoDbAsyncClient.deleteItem(deleteItemRequest)), 1)
         .doOnNext(deleteItemResponse -> keysConsidered.incrementAndGet())
         .filter(DeleteItemResponse::hasAttributes)
         .next()
@@ -258,7 +256,7 @@ public abstract class SingleUsePreKeyStore<K extends PreKey<?>> {
                 KEY_DEVICE_ID_KEY_ID, item.get(KEY_DEVICE_ID_KEY_ID)
             ))
             .build())
-        .flatMap(deleteItemRequest -> Mono.fromFuture(dynamoDbAsyncClient.deleteItem(deleteItemRequest)), DYNAMO_DB_MAX_BATCH_SIZE)
+        .flatMap(deleteItemRequest -> Mono.fromFuture(() -> dynamoDbAsyncClient.deleteItem(deleteItemRequest)), DYNAMO_DB_MAX_BATCH_SIZE)
         // Idiom: wait for everything to finish, but discard the results
         .reduce(0, (a, b) -> 0)
         .toFuture()
