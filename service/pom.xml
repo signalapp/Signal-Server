@@ -35,7 +35,17 @@
       <groupId>jakarta.ws.rs</groupId>
       <artifactId>jakarta.ws.rs-api</artifactId>
     </dependency>
-
+    <dependency>
+      <groupId>com.braintreepayments.gateway</groupId>
+      <artifactId>braintree-java</artifactId>
+      <version>3.25.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.signal</groupId>
+      <artifactId>libsignal-server</artifactId>
+      <version>0.31.0</version>
+    </dependency>
+    
     <dependency>
       <groupId>org.whispersystems.textsecure</groupId>
       <artifactId>event-logger</artifactId>

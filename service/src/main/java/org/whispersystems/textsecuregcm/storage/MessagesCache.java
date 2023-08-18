@@ -7,18 +7,6 @@ package org.whispersystems.textsecuregcm.storage;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.protobuf.InvalidProtocolBufferException;
-import io.dropwizard.lifecycle.Managed;
-import io.lettuce.core.ScoredValue;
-import io.lettuce.core.ScriptOutputType;
-import io.lettuce.core.ZAddArgs;
-import io.lettuce.core.cluster.SlotHash;
-import io.lettuce.core.cluster.models.partitions.RedisClusterNode;
-import io.lettuce.core.cluster.pubsub.RedisClusterPubSubAdapter;
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Timer;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
@@ -38,7 +26,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+
 import javax.annotation.Nullable;
+
 import org.reactivestreams.Publisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,6 +39,20 @@ import org.whispersystems.textsecuregcm.redis.FaultTolerantPubSubConnection;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.RedisClusterUtil;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.google.protobuf.InvalidProtocolBufferException;
+
+import io.dropwizard.lifecycle.Managed;
+import io.lettuce.core.ScoredValue;
+import io.lettuce.core.ScriptOutputType;
+import io.lettuce.core.ZAddArgs;
+import io.lettuce.core.cluster.SlotHash;
+import io.lettuce.core.cluster.models.partitions.RedisClusterNode;
+import io.lettuce.core.cluster.pubsub.RedisClusterPubSubAdapter;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Timer;
 import reactor.core.observability.micrometer.Micrometer;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
