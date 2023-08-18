@@ -278,7 +278,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
         });
   }
 
-  private Flux<Pair<List<byte[]>, Long>> getNextMessagePage(final UUID destinationUuid, final long destinationDevice,
+  private Flux<Object> getNextMessagePage(final UUID destinationUuid, final long destinationDevice,
       long messageId) {
 
     return getItemsScript.executeBinaryReactive(
