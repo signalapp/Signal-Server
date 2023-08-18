@@ -135,7 +135,7 @@ public class KeysGrpcService extends ReactorKeysGrpc.KeysImplBase {
         request.getDeviceId();
 
     return rateLimiters.getPreKeysLimiter().validateReactive(rateLimitKey)
-        .then(Mono.fromFuture(accountsManager.getByServiceIdentifierAsync(targetIdentifier))
+        .then(Mono.fromFuture(() -> accountsManager.getByServiceIdentifierAsync(targetIdentifier))
             .flatMap(Mono::justOrEmpty))
         .switchIfEmpty(Mono.error(Status.NOT_FOUND.asException()))
         .flatMap(targetAccount ->

@@ -12,6 +12,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.grpc.ServerInterceptors;
@@ -102,5 +103,7 @@ class CallingGrpcServiceTest {
     assertEquals(Status.Code.RESOURCE_EXHAUSTED, exception.getStatus().getCode());
     assertNotNull(exception.getTrailers());
     assertEquals(retryAfter, exception.getTrailers().get(RateLimitUtil.RETRY_AFTER_DURATION_KEY));
+
+    verifyNoInteractions(turnTokenGenerator);
   }
 }

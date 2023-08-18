@@ -14,6 +14,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.google.protobuf.ByteString;
@@ -669,5 +670,7 @@ class KeysGrpcServiceTest {
     assertEquals(Status.Code.RESOURCE_EXHAUSTED, exception.getStatus().getCode());
     assertNotNull(exception.getTrailers());
     assertEquals(retryAfterDuration, exception.getTrailers().get(RateLimitUtil.RETRY_AFTER_DURATION_KEY));
+
+    verifyNoInteractions(accountsManager);
   }
 }
