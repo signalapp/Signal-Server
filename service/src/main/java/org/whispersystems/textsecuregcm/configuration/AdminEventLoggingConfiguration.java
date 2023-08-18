@@ -10,7 +10,6 @@ import javax.validation.constraints.NotEmpty;
 
 public record AdminEventLoggingConfiguration(
     @NotBlank String credentials,
-    @NotBlank String secondaryCredentials,
     @NotEmpty String projectId,
     @NotEmpty String logName) {
 }

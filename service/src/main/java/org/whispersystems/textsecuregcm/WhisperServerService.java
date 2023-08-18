@@ -39,7 +39,6 @@ import java.time.Duration;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -116,7 +115,6 @@ import org.whispersystems.textsecuregcm.controllers.VerificationController;
 import org.whispersystems.textsecuregcm.currency.CoinMarketCapClient;
 import org.whispersystems.textsecuregcm.currency.CurrencyConversionManager;
 import org.whispersystems.textsecuregcm.currency.FixerClient;
-import org.whispersystems.textsecuregcm.grpc.ProfileGrpcService;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.filters.RemoteDeprecationFilter;
 import org.whispersystems.textsecuregcm.filters.RequestStatisticsFilter;
@@ -124,6 +122,7 @@ import org.whispersystems.textsecuregcm.filters.TimestampResponseFilter;
 import org.whispersystems.textsecuregcm.grpc.GrpcServerManagedWrapper;
 import org.whispersystems.textsecuregcm.grpc.KeysAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.KeysGrpcService;
+import org.whispersystems.textsecuregcm.grpc.ProfileGrpcService;
 import org.whispersystems.textsecuregcm.grpc.UserAgentInterceptor;
 import org.whispersystems.textsecuregcm.limits.CardinalityEstimator;
 import org.whispersystems.textsecuregcm.limits.PushChallengeManager;
@@ -282,10 +281,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     UncaughtExceptionHandler.register();
 
     MetricsUtil.configureRegistries(config, environment);
-
-    final boolean useSecondaryCredentialsJson = Optional.ofNullable(
-            System.getenv("SIGNAL_USE_SECONDARY_CREDENTIALS_JSON"))
-        .isPresent();
 
     HeaderControlledResourceBundleLookup headerControlledResourceBundleLookup =
         new HeaderControlledResourceBundleLookup();
@@ -448,9 +443,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final AdminEventLogger adminEventLogger = new GoogleCloudAdminEventLogger(
         LoggingOptions.newBuilder().setProjectId(config.getAdminEventLoggingConfiguration().projectId())
             .setCredentials(GoogleCredentials.fromStream(new ByteArrayInputStream(
-                useSecondaryCredentialsJson
-                    ? config.getAdminEventLoggingConfiguration().secondaryCredentials().getBytes(StandardCharsets.UTF_8)
-                    : config.getAdminEventLoggingConfiguration().credentials().getBytes(StandardCharsets.UTF_8))))
+                config.getAdminEventLoggingConfiguration().credentials().getBytes(StandardCharsets.UTF_8))))
             .build().getService(),
         config.getAdminEventLoggingConfiguration().projectId(),
         config.getAdminEventLoggingConfiguration().logName());
@@ -489,9 +482,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     RegistrationServiceClient registrationServiceClient = new RegistrationServiceClient(
         config.getRegistrationServiceConfiguration().host(),
         config.getRegistrationServiceConfiguration().port(),
-        useSecondaryCredentialsJson
-            ? config.getRegistrationServiceConfiguration().secondaryCredentialConfigurationJson()
-            : config.getRegistrationServiceConfiguration().credentialConfigurationJson(),
+        config.getRegistrationServiceConfiguration().credentialConfigurationJson(),
         config.getRegistrationServiceConfiguration().identityTokenAudience(),
         config.getRegistrationServiceConfiguration().registrationCaCertificate(),
         registrationCallbackExecutor);
@@ -574,9 +565,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     RecaptchaClient recaptchaClient = new RecaptchaClient(
         config.getRecaptchaConfiguration().projectPath(),
-        useSecondaryCredentialsJson
-            ? config.getRecaptchaConfiguration().secondaryCredentialConfigurationJson()
-            : config.getRecaptchaConfiguration().credentialConfigurationJson(),
+        config.getRecaptchaConfiguration().credentialConfigurationJson(),
         dynamicConfigurationManager);
     HttpClient hcaptchaHttpClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_2)
         .connectTimeout(Duration.ofSeconds(10)).build();

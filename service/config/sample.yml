@@ -45,10 +45,6 @@ adminEventLoggingConfiguration:
     {
       "key": "value"
     }
-  secondaryCredentials: |
-    {
-      "key": "value"
-    }
   projectId: some-project-id
   logName: some-log-name
 
@@ -235,7 +231,6 @@ unidentifiedDelivery:
 recaptcha:
   projectPath: projects/example
   credentialConfigurationJson: "{ }" # service account configuration for backend authentication
-  secondaryCredentialConfigurationJson: "{ }" # service account configuration for backend authentication
 
 hCaptcha:
   apiKey: secret://hCaptcha.apiKey
@@ -397,10 +392,6 @@ registrationService:
   host: registration.example.com
   port: 443
   credentialConfigurationJson: |
-    {
-      "example": "example"
-    }
-  secondaryCredentialConfigurationJson: |
     {
       "example": "example"
     }
