@@ -38,38 +38,37 @@
   </modules>
 
   <properties>
-    <aws.sdk2.version>2.20.118</aws.sdk2.version>
-    <braintree.version>3.19.0</braintree.version>
+    <aws.sdk2.version>2.20.130</aws.sdk2.version>
+    <braintree.version>3.25.0</braintree.version>
     <commons-csv.version>1.9.0</commons-csv.version>
-    <commons-io.version>2.9.0</commons-io.version>
+    <commons-io.version>2.13.0</commons-io.version>
     <dropwizard.version>2.1.7</dropwizard.version>
     <dropwizard-metrics-datadog.version>1.1.13</dropwizard-metrics-datadog.version>
-    <google-cloud-libraries.version>26.21.0</google-cloud-libraries.version>
+    <google-cloud-libraries.version>26.22.0</google-cloud-libraries.version>
     <grpc.version>1.56.1</grpc.version> <!-- should be kept in sync with the value from Google libraries-bom -->
-    <gson.version>2.9.0</gson.version>
+    <gson.version>2.10.1</gson.version>
     <jackson.version>2.13.5</jackson.version>
     <jaxb.version>2.3.1</jaxb.version>
-    <kotlin.version>1.8.0</kotlin.version>
-    <kotlinx-serialization.version>1.4.1</kotlinx-serialization.version>
-    <lettuce.version>6.2.4.RELEASE</lettuce.version>
+    <kotlin.version>1.9.0</kotlin.version>
+    <kotlinx-serialization.version>1.5.1</kotlinx-serialization.version>
+    <lettuce.version>6.2.6.RELEASE</lettuce.version>
     <libphonenumber.version>8.12.54</libphonenumber.version>
-    <logstash.logback.version>7.2</logstash.logback.version>
+    <logstash.logback.version>7.4</logstash.logback.version>
     <luajava.version>3.4.0</luajava.version>
-    <micrometer.version>1.10.3</micrometer.version>
-    <mockito.version>4.11.0</mockito.version>
+    <micrometer.version>1.10.10</micrometer.version>
     <netty.version>4.1.96.Final</netty.version>
-    <opentest4j.version>1.2.0</opentest4j.version>
+    <opentest4j.version>1.3.0</opentest4j.version>
     <protobuf.version>3.23.2</protobuf.version> <!-- should be kept in sync with the value from Google libraries-bom -->
     <pushy.version>0.15.2</pushy.version>
     <reactive.grpc.version>1.2.4</reactive.grpc.version>
     <resilience4j.version>1.7.0</resilience4j.version>
     <semver4j.version>3.1.0</semver4j.version>
-    <slf4j.version>1.7.30</slf4j.version>
-    <stripe.version>21.2.0</stripe.version>
+    <slf4j.version>1.7.36</slf4j.version>
+    <stripe.version>23.1.0</stripe.version>
     <vavr.version>0.10.4</vavr.version>
 
-    <!-- 17.0.7_7-jre-jammy -->
-    <docker.image.sha256>ddf36656dc8920621fddf4928bdcb4b98c0d0e7bc9672f0cea8115c10ad5cbc6</docker.image.sha256>
+    <!-- 17.0.8_7-jre-jammy -->
+    <docker.image.sha256>b8af44d6a7e0615a7486d7307dd54bba23ff24e3aea14893fd2795e8c436d44e</docker.image.sha256>
 
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
@@ -144,7 +143,7 @@
       <dependency>
         <groupId>io.projectreactor</groupId>
         <artifactId>reactor-bom</artifactId>
-        <version>2022.0.3</version> <!-- 3.5.x, see https://github.com/reactor/reactor#bom-versioning-scheme -->
+        <version>2022.0.10</version> <!-- 3.5.x, see https://github.com/reactor/reactor#bom-versioning-scheme -->
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -222,18 +221,6 @@
         <scope>runtime</scope>
       </dependency>
       <dependency>
-        <groupId>org.mockito</groupId>
-        <artifactId>mockito-core</artifactId>
-        <version>${mockito.version}</version>
-        <scope>test</scope>
-      </dependency>
-      <dependency>
-        <groupId>org.mockito</groupId>
-        <artifactId>mockito-inline</artifactId>
-        <version>${mockito.version}</version>
-        <scope>test</scope>
-      </dependency>
-      <dependency>
         <groupId>org.opentest4j</groupId>
         <artifactId>opentest4j</artifactId>
         <version>${opentest4j.version}</version>
@@ -258,7 +245,7 @@
       <dependency>
         <groupId>org.ow2.asm</groupId>
         <artifactId>asm</artifactId>
-        <version>9.2</version>
+        <version>9.5</version>
         <scope>test</scope>
       </dependency>
       <dependency>
@@ -323,7 +310,6 @@
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-core</artifactId>
-      <version>${mockito.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -339,7 +325,7 @@
     <dependency>
       <groupId>org.junit-pioneer</groupId>
       <artifactId>junit-pioneer</artifactId>
-      <version>1.9.1</version>
+      <version>2.0.1</version>
       <scope>test</scope>
     </dependency>
 
