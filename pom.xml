@@ -52,7 +52,7 @@
     <kotlin.version>1.9.0</kotlin.version>
     <kotlinx-serialization.version>1.5.1</kotlinx-serialization.version>
     <lettuce.version>6.2.6.RELEASE</lettuce.version>
-    <libphonenumber.version>8.12.54</libphonenumber.version>
+    <libphonenumber.version>8.13.19</libphonenumber.version>
     <logstash.logback.version>7.3</logstash.logback.version>
     <luajava.version>3.4.0</luajava.version>
     <micrometer.version>1.10.10</micrometer.version>
