@@ -483,7 +483,7 @@
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-shade-plugin</artifactId>
-            <version>3.2.4</version>
+            <version>3.5.0</version>
             <configuration>
               <createDependencyReducedPom>true</createDependencyReducedPom>
               <filters>
@@ -518,7 +518,7 @@
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-assembly-plugin</artifactId>
-            <version>3.3.0</version>
+            <version>3.6.0</version>
             <configuration>
               <descriptors>
                 <descriptor>assembly.xml</descriptor>
@@ -538,7 +538,7 @@
           <plugin>
             <groupId>org.codehaus.mojo</groupId>
             <artifactId>properties-maven-plugin</artifactId>
-            <version>1.0.0</version>
+            <version>1.2.0</version>
             <executions>
               <execution>
                 <id>read-deploy-configuration</id>
@@ -638,7 +638,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
-        <version>3.0.0-M7</version>
+        <version>3.1.2</version>
         <configuration>
           <!-- work around PATCH not being a supported method on HttpUrlConnection -->
           <argLine>--add-opens=java.base/java.net=ALL-UNNAMED</argLine>
