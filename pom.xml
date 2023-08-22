@@ -64,7 +64,7 @@
     <resilience4j.version>1.7.0</resilience4j.version>
     <semver4j.version>3.1.0</semver4j.version>
     <slf4j.version>1.7.36</slf4j.version>
-    <stripe.version>23.1.0</stripe.version>
+    <stripe.version>22.30.0</stripe.version>
     <vavr.version>0.10.4</vavr.version>
 
     <!-- 17.0.8_7-jre-jammy -->
