@@ -1,0 +1,48 @@
+{
+  "number": "+14152222222",
+  "usernameHash": null,
+  "reservedUsernameHash": null,
+  "usernameLinkHandle": null,
+  "devices": [
+    {
+      "id": 1,
+      "name": null,
+      "authToken": null,
+      "salt": null,
+      "gcmId": null,
+      "apnId": null,
+      "voipApnId": null,
+      "pushTimestamp": 0,
+      "uninstalledFeedback": 0,
+      "fetchesMessages": true,
+      "registrationId": 1,
+      "signedPreKey": {
+        "keyId": 1,
+        "publicKey": "BerKjYSh1PdniL5bhI9kwbH/Et3mx/8CypR1TYo/+d5o",
+        "signature": "iK2yJkl0l6qe58Fy1dVo31X5sp6EiXSS5FZfa3W//E+Abylfa6ZRmM97CzTdXNu2DjgxZYF43G6HfJ49+99hgg"
+      },
+      "lastSeen" : 1692748800000,
+      "created" : 1692718240137,
+      "userAgent": null,
+      "capabilities": null,
+      "pniRegistrationId": 2,
+      "pniSignedPreKey": {
+        "keyId": 2,
+        "publicKey": "BXcLL1VLft3tUnr/5UIW5Q0Hsr8/Az0CGJ+EuFqiXCYc",
+        "signature": "YoKqyeOCHC0E9mqMoc1UPeyuLqGc8nvY+3D3YX5HC1bhxS48ZLYo40xql51A2CpIBqVmA+2gV3PXCV1Yhq4UAQ"
+      }
+    }
+  ],
+  "identityKey": "BaMV4k/+jSn7jmHnRAPvfc7XBZOcayrhOmHFbGJwMyFS",
+  "badges": [],
+  "registrationLock": null,
+  "registrationLockSalt": null,
+  "version": 0,
+  "pni": "22222222-2222-2222-2222-222222222222",
+  "eu": null,
+  "pniIdentityKey": "Bc0Myhpf2D+iCgUfIs+UStgffR/VGQRfP9mwFHI4U2x4",
+  "cpv": null,
+  "uak": "p5uWNi83Muqsd16PLi0/tQ==",
+  "uua": true,
+  "inCds": true
+}

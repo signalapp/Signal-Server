@@ -915,7 +915,7 @@ public class AccountsManager {
 
   private void redisSet(Account account) {
     try (Timer.Context ignored = redisSetTimer.time()) {
-      final String accountJson = ACCOUNT_REDIS_JSON_WRITER.writeValueAsString(account);
+      final String accountJson = writeRedisAccountJson(account);
 
       cacheCluster.useCluster(connection -> {
         final RedisAdvancedClusterCommands<String, String> commands = connection.sync();
@@ -936,7 +936,7 @@ public class AccountsManager {
     final String accountJson;
 
     try {
-      accountJson = ACCOUNT_REDIS_JSON_WRITER.writeValueAsString(account);
+      accountJson = writeRedisAccountJson(account);
     } catch (final JsonProcessingException e) {
       throw new UncheckedIOException(e);
     }
@@ -1047,7 +1047,8 @@ public class AccountsManager {
         .toCompletableFuture();
   }
 
-  private static Optional<Account> parseAccountJson(@Nullable final String accountJson, final UUID uuid) {
+  @VisibleForTesting
+  static Optional<Account> parseAccountJson(@Nullable final String accountJson, final UUID uuid) {
     try {
       if (StringUtils.isNotBlank(accountJson)) {
         Account account = SystemMapper.jsonMapper().readValue(accountJson, Account.class);
@@ -1065,6 +1066,11 @@ public class AccountsManager {
       logger.warn("Deserialization error", e);
       return Optional.empty();
     }
+  }
+
+  @VisibleForTesting
+  static String writeRedisAccountJson(final Account account) throws JsonProcessingException {
+    return ACCOUNT_REDIS_JSON_WRITER.writeValueAsString(account);
   }
 
   private void redisDelete(final Account account) {

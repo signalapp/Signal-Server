@@ -31,6 +31,8 @@ import static org.mockito.Mockito.when;
 import io.lettuce.core.RedisException;
 import io.lettuce.core.cluster.api.async.RedisAdvancedClusterAsyncCommands;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -39,6 +41,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -1326,6 +1329,46 @@ class AccountsManagerTest {
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
 
     assertThrows(AssertionError.class, () -> accountsManager.update(account, a -> a.setUsernameHash(USERNAME_HASH_1)));
+  }
+
+  @Test
+  void testJsonRoundTripSerialization() throws Exception {
+    String originalJson;
+    try (InputStream inputStream = getClass().getResourceAsStream(
+        "AccountsManagerTest-testJsonRoundTripSerialization.json")) {
+      Objects.requireNonNull(inputStream);
+      originalJson = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+    }
+
+    final Account originalAccount = AccountsManager.parseAccountJson(originalJson,
+        UUID.fromString("111111-1111-1111-1111-111111111111")).orElseThrow();
+
+    final String serialized = AccountsManager.writeRedisAccountJson(originalAccount);
+    final Account parsedAccount = AccountsManager.parseAccountJson(serialized, originalAccount.getUuid()).orElseThrow();
+
+    assertEquals(originalAccount.getUuid(), parsedAccount.getUuid());
+    assertEquals(originalAccount.getPhoneNumberIdentifier(), parsedAccount.getPhoneNumberIdentifier());
+    assertEquals(originalAccount.getIdentityKey(IdentityType.ACI), parsedAccount.getIdentityKey(IdentityType.ACI));
+    assertEquals(originalAccount.getIdentityKey(IdentityType.PNI), parsedAccount.getIdentityKey(IdentityType.PNI));
+    assertEquals(originalAccount.getNumber(), parsedAccount.getNumber());
+    assertArrayEquals(originalAccount.getUnidentifiedAccessKey().orElseThrow(),
+        parsedAccount.getUnidentifiedAccessKey().orElseThrow());
+    assertEquals(originalAccount.isDiscoverableByPhoneNumber(), parsedAccount.isDiscoverableByPhoneNumber());
+    assertEquals(originalAccount.isUnrestrictedUnidentifiedAccess(), parsedAccount.isUnrestrictedUnidentifiedAccess());
+
+    assertEquals(originalAccount.getDevices().size(), parsedAccount.getDevices().size());
+
+    final Device originalDevice = originalAccount.getMasterDevice().orElseThrow();
+    final Device parsedDevice = parsedAccount.getMasterDevice().orElseThrow();
+
+    assertEquals(originalDevice.getId(), parsedDevice.getId());
+    assertEquals(originalDevice.getSignedPreKey(IdentityType.ACI), parsedDevice.getSignedPreKey(IdentityType.ACI));
+    assertEquals(originalDevice.getSignedPreKey(IdentityType.PNI), parsedDevice.getSignedPreKey(IdentityType.PNI));
+    assertEquals(originalDevice.getRegistrationId(), parsedDevice.getRegistrationId());
+    assertEquals(originalDevice.getPhoneNumberIdentityRegistrationId(),
+        parsedDevice.getPhoneNumberIdentityRegistrationId());
+    assertEquals(originalDevice.getCapabilities(), parsedDevice.getCapabilities());
+    assertEquals(originalDevice.getFetchesMessages(), parsedDevice.getFetchesMessages());
   }
 
   private void setReservationHash(final Account account, final byte[] reservedUsernameHash) {

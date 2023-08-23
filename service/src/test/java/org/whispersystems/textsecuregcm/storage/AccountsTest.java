@@ -183,13 +183,13 @@ class AccountsTest {
     accounts.create(account);
 
     final UUID linkHandle = UUID.randomUUID();
-    final byte[] encruptedUsername = RandomUtils.nextBytes(32);
-    accountsManager.update(account, a -> a.setUsernameLinkDetails(linkHandle, encruptedUsername));
+    final byte[] encryptedUsername = RandomUtils.nextBytes(32);
+    accountsManager.update(account, a -> a.setUsernameLinkDetails(linkHandle, encryptedUsername));
 
     final Optional<Account> maybeAccount = accountsManager.getByUsernameLinkHandle(linkHandle);
     assertTrue(maybeAccount.isPresent());
     assertTrue(maybeAccount.get().getEncryptedUsername().isPresent());
-    assertArrayEquals(encruptedUsername, maybeAccount.get().getEncryptedUsername().get());
+    assertArrayEquals(encryptedUsername, maybeAccount.get().getEncryptedUsername().get());
 
     // making some unrelated change and updating account to check that username link data is still there
     final Optional<Account> accountToChange = accountsManager.getByAccountIdentifier(account.getUuid());
@@ -198,7 +198,7 @@ class AccountsTest {
     final Optional<Account> accountAfterChange = accountsManager.getByUsernameLinkHandle(linkHandle);
     assertTrue(accountAfterChange.isPresent());
     assertTrue(accountAfterChange.get().getEncryptedUsername().isPresent());
-    assertArrayEquals(encruptedUsername, accountAfterChange.get().getEncryptedUsername().get());
+    assertArrayEquals(encryptedUsername, accountAfterChange.get().getEncryptedUsername().get());
 
     // now deleting the link
     final Optional<Account> accountToDeleteLink = accountsManager.getByAccountIdentifier(account.getUuid());
