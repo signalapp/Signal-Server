@@ -459,6 +459,7 @@ public class AccountController {
           """
   )
   @ApiResponse(responseCode = "200", description = "Username link with the given handle was found.", useReturnTypeSchema = true)
+  @ApiResponse(responseCode = "400", description = "Request must not be authenticated.")
   @ApiResponse(responseCode = "404", description = "Username link was not found for the given handle.")
   @ApiResponse(responseCode = "422", description = "Invalid request format.")
   @ApiResponse(responseCode = "429", description = "Ratelimited.")
@@ -481,7 +482,7 @@ public class AccountController {
           """
   )
   @ApiResponse(responseCode = "200", description = "An account with the given identifier was found.", useReturnTypeSchema = true)
-  @ApiResponse(responseCode = "400", description = "A client made an authenticated to this endpoint, and must not provide credentials.")
+  @ApiResponse(responseCode = "400", description = "Request must not be authenticated.")
   @ApiResponse(responseCode = "404", description = "An account was not found for the given identifier.")
   @ApiResponse(responseCode = "422", description = "Invalid request format.")
   @ApiResponse(responseCode = "429", description = "Rate-limited.")
