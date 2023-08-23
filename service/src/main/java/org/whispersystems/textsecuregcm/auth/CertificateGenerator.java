@@ -13,6 +13,7 @@ import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECPrivateKey;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.SenderCertificate;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.ServerCertificate;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 
@@ -32,11 +33,11 @@ public class CertificateGenerator {
 
   public byte[] createFor(Account account, Device device, boolean includeE164) throws InvalidKeyException {
     SenderCertificate.Certificate.Builder builder = SenderCertificate.Certificate.newBuilder()
-                                                                                 .setSenderDevice(Math.toIntExact(device.getId()))
-                                                                                 .setExpires(System.currentTimeMillis() + TimeUnit.DAYS.toMillis(expiresDays))
-                                                                                 .setIdentityKey(ByteString.copyFrom(account.getIdentityKey().serialize()))
-                                                                                 .setSigner(serverCertificate)
-                                                                                 .setSenderUuid(account.getUuid().toString());
+        .setSenderDevice(Math.toIntExact(device.getId()))
+        .setExpires(System.currentTimeMillis() + TimeUnit.DAYS.toMillis(expiresDays))
+        .setIdentityKey(ByteString.copyFrom(account.getIdentityKey(IdentityType.ACI).serialize()))
+        .setSigner(serverCertificate)
+        .setSenderUuid(account.getUuid().toString());
 
     if (includeE164) {
       builder.setSender(account.getNumber());

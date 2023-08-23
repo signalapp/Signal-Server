@@ -87,6 +87,7 @@ import org.whispersystems.textsecuregcm.entities.UserCapabilities;
 import org.whispersystems.textsecuregcm.entities.VersionedProfileResponse;
 import org.whispersystems.textsecuregcm.grpc.ProfileHelper;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -430,7 +431,7 @@ public class ProfileController {
       final boolean isSelf,
       final ContainerRequestContext containerRequestContext) {
 
-    return new BaseProfileResponse(account.getIdentityKey(),
+    return new BaseProfileResponse(account.getIdentityKey(IdentityType.ACI),
         UnidentifiedAccessChecksum.generateFor(account.getUnidentifiedAccessKey()),
         account.isUnrestrictedUnidentifiedAccess(),
         UserCapabilities.createForAccount(account),
@@ -442,7 +443,7 @@ public class ProfileController {
   }
 
   private BaseProfileResponse buildBaseProfileResponseForPhoneNumberIdentity(final Account account) {
-    return new BaseProfileResponse(account.getPhoneNumberIdentityKey(),
+    return new BaseProfileResponse(account.getIdentityKey(IdentityType.PNI),
         null,
         false,
         UserCapabilities.createForAccount(account),

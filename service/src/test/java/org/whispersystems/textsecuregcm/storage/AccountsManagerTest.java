@@ -63,6 +63,7 @@ import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
@@ -790,7 +791,7 @@ class AccountsManagerTest {
     account = accountsManager.update(account, a -> a.setIdentityKey(identityKey));
 
     assertEquals(1, account.getVersion());
-    assertEquals(identityKey, account.getIdentityKey());
+    assertEquals(identityKey, account.getIdentityKey(IdentityType.ACI));
 
     verify(accounts, times(1)).getByAccountIdentifier(uuid);
     verify(accounts, times(2)).update(any());
@@ -817,7 +818,7 @@ class AccountsManagerTest {
     account = accountsManager.updateAsync(account, a -> a.setIdentityKey(identityKey)).join();
 
     assertEquals(1, account.getVersion());
-    assertEquals(identityKey, account.getIdentityKey());
+    assertEquals(identityKey, account.getIdentityKey(IdentityType.ACI));
 
     verify(accounts, times(1)).getByAccountIdentifierAsync(uuid);
     verify(accounts, times(2)).updateAsync(any());
@@ -1146,7 +1147,8 @@ class AccountsManagerTest {
 
     UUID oldUuid = account.getUuid();
     UUID oldPni = account.getPhoneNumberIdentifier();
-    Map<Long, ECSignedPreKey> oldSignedPreKeys = account.getDevices().stream().collect(Collectors.toMap(Device::getId, Device::getSignedPreKey));
+    Map<Long, ECSignedPreKey> oldSignedPreKeys = account.getDevices().stream()
+        .collect(Collectors.toMap(Device::getId, d -> d.getSignedPreKey(IdentityType.ACI)));
 
     final IdentityKey pniIdentityKey = new IdentityKey(Curve.generateKeyPair().getPublicKey());
 
@@ -1159,15 +1161,17 @@ class AccountsManagerTest {
     assertEquals(oldUuid, updatedAccount.getUuid());
     assertEquals(number, updatedAccount.getNumber());
     assertEquals(oldPni, updatedAccount.getPhoneNumberIdentifier());
-    assertNull(updatedAccount.getIdentityKey());
-    assertEquals(oldSignedPreKeys, updatedAccount.getDevices().stream().collect(Collectors.toMap(Device::getId, Device::getSignedPreKey)));
+    assertNull(updatedAccount.getIdentityKey(IdentityType.ACI));
+    assertEquals(oldSignedPreKeys, updatedAccount.getDevices().stream()
+        .collect(Collectors.toMap(Device::getId, d -> d.getSignedPreKey(IdentityType.ACI))));
     assertEquals(Map.of(1L, 101, 2L, 102),
         updatedAccount.getDevices().stream().collect(Collectors.toMap(Device::getId, Device::getRegistrationId)));
 
     // PNI stuff should
-    assertEquals(pniIdentityKey, updatedAccount.getPhoneNumberIdentityKey());
+    assertEquals(pniIdentityKey, updatedAccount.getIdentityKey(IdentityType.PNI));
     assertEquals(newSignedKeys,
-        updatedAccount.getDevices().stream().collect(Collectors.toMap(Device::getId, Device::getPhoneNumberIdentitySignedPreKey)));
+        updatedAccount.getDevices().stream()
+            .collect(Collectors.toMap(Device::getId, d -> d.getSignedPreKey(IdentityType.PNI))));
     assertEquals(newRegistrationIds,
         updatedAccount.getDevices().stream().collect(Collectors.toMap(Device::getId, d -> d.getPhoneNumberIdentityRegistrationId().getAsInt())));
 
@@ -1199,7 +1203,8 @@ class AccountsManagerTest {
     when(keysManager.storeEcSignedPreKeys(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
     when(keysManager.storePqLastResort(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
-    Map<Long, ECSignedPreKey> oldSignedPreKeys = account.getDevices().stream().collect(Collectors.toMap(Device::getId, Device::getSignedPreKey));
+    Map<Long, ECSignedPreKey> oldSignedPreKeys = account.getDevices().stream()
+        .collect(Collectors.toMap(Device::getId, d -> d.getSignedPreKey(IdentityType.ACI)));
 
     final IdentityKey pniIdentityKey = new IdentityKey(Curve.generateKeyPair().getPublicKey());
 
@@ -1210,15 +1215,17 @@ class AccountsManagerTest {
     assertEquals(oldUuid, updatedAccount.getUuid());
     assertEquals(number, updatedAccount.getNumber());
     assertEquals(oldPni, updatedAccount.getPhoneNumberIdentifier());
-    assertNull(updatedAccount.getIdentityKey());
-    assertEquals(oldSignedPreKeys, updatedAccount.getDevices().stream().collect(Collectors.toMap(Device::getId, Device::getSignedPreKey)));
+    assertNull(updatedAccount.getIdentityKey(IdentityType.ACI));
+    assertEquals(oldSignedPreKeys, updatedAccount.getDevices().stream()
+        .collect(Collectors.toMap(Device::getId, d -> d.getSignedPreKey(IdentityType.ACI))));
     assertEquals(Map.of(1L, 101, 2L, 102),
         updatedAccount.getDevices().stream().collect(Collectors.toMap(Device::getId, Device::getRegistrationId)));
 
     // PNI keys should
-    assertEquals(pniIdentityKey, updatedAccount.getPhoneNumberIdentityKey());
+    assertEquals(pniIdentityKey, updatedAccount.getIdentityKey(IdentityType.PNI));
     assertEquals(newSignedKeys,
-        updatedAccount.getDevices().stream().collect(Collectors.toMap(Device::getId, Device::getPhoneNumberIdentitySignedPreKey)));
+        updatedAccount.getDevices().stream()
+            .collect(Collectors.toMap(Device::getId, d -> d.getSignedPreKey(IdentityType.PNI))));
     assertEquals(newRegistrationIds,
         updatedAccount.getDevices().stream().collect(Collectors.toMap(Device::getId, d -> d.getPhoneNumberIdentityRegistrationId().getAsInt())));
 

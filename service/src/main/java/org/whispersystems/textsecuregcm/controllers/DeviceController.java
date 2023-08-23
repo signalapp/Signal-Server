@@ -57,6 +57,7 @@ import org.whispersystems.textsecuregcm.entities.DeviceInfoList;
 import org.whispersystems.textsecuregcm.entities.DeviceResponse;
 import org.whispersystems.textsecuregcm.entities.LinkDeviceRequest;
 import org.whispersystems.textsecuregcm.entities.PreKeySignatureValidator;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -359,9 +360,10 @@ public class DeviceController {
       assert deviceActivationRequest.aciPqLastResortPreKey().isPresent();
       assert deviceActivationRequest.pniPqLastResortPreKey().isPresent();
 
-      final boolean allKeysValid = PreKeySignatureValidator.validatePreKeySignatures(account.getIdentityKey(),
+      final boolean allKeysValid = PreKeySignatureValidator.validatePreKeySignatures(account.getIdentityKey(
+              IdentityType.ACI),
           List.of(deviceActivationRequest.aciSignedPreKey().get(), deviceActivationRequest.aciPqLastResortPreKey().get()))
-          && PreKeySignatureValidator.validatePreKeySignatures(account.getPhoneNumberIdentityKey(),
+          && PreKeySignatureValidator.validatePreKeySignatures(account.getIdentityKey(IdentityType.PNI),
           List.of(deviceActivationRequest.pniSignedPreKey().get(), deviceActivationRequest.pniPqLastResortPreKey().get()));
 
       if (!allKeysValid) {

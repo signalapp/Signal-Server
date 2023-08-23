@@ -56,6 +56,7 @@ import org.whispersystems.textsecuregcm.entities.PreKeyResponse;
 import org.whispersystems.textsecuregcm.entities.PreKeyResponseItem;
 import org.whispersystems.textsecuregcm.entities.PreKeyState;
 import org.whispersystems.textsecuregcm.experiment.Experiment;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
@@ -137,11 +138,13 @@ public class KeysController {
     final boolean usePhoneNumberIdentity = usePhoneNumberIdentity(identityType);
 
     if (preKeys.getSignedPreKey() != null &&
-        !preKeys.getSignedPreKey().equals(usePhoneNumberIdentity ? device.getPhoneNumberIdentitySignedPreKey() : device.getSignedPreKey())) {
+        !preKeys.getSignedPreKey().equals(usePhoneNumberIdentity ? device.getSignedPreKey(IdentityType.PNI)
+            : device.getSignedPreKey(IdentityType.ACI))) {
       updateAccount = true;
     }
 
-    final IdentityKey oldIdentityKey = usePhoneNumberIdentity ? account.getPhoneNumberIdentityKey() : account.getIdentityKey();
+    final IdentityKey oldIdentityKey =
+        usePhoneNumberIdentity ? account.getIdentityKey(IdentityType.PNI) : account.getIdentityKey(IdentityType.ACI);
     if (!Objects.equals(preKeys.getIdentityKey(), oldIdentityKey)) {
       updateAccount = true;
 
@@ -242,10 +245,7 @@ public class KeysController {
     List<PreKeyResponseItem> responseItems = new ArrayList<>(devices.size());
 
     for (Device device : devices) {
-      ECSignedPreKey signedECPreKey = switch (targetIdentifier.identityType()) {
-        case ACI -> device.getSignedPreKey();
-        case PNI -> device.getPhoneNumberIdentitySignedPreKey();
-      };
+      ECSignedPreKey signedECPreKey = device.getSignedPreKey(targetIdentifier.identityType());
 
       ECPreKey unsignedECPreKey = keys.takeEC(targetIdentifier.uuid(), device.getId()).join().orElse(null);
       KEMSignedPreKey pqPreKey = returnPqKey ? keys.takePQ(targetIdentifier.uuid(), device.getId()).join().orElse(null) : null;
@@ -263,10 +263,7 @@ public class KeysController {
       }
     }
 
-    final IdentityKey identityKey = switch (targetIdentifier.identityType()) {
-      case ACI -> target.getIdentityKey();
-      case PNI -> target.getPhoneNumberIdentityKey();
-    };
+    final IdentityKey identityKey = target.getIdentityKey(targetIdentifier.identityType());
 
     if (responseItems.isEmpty()) {
       throw new WebApplicationException(Response.Status.NOT_FOUND);

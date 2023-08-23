@@ -38,6 +38,7 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.CertificateGenerator;
 import org.whispersystems.textsecuregcm.entities.DeliveryCertificate;
 import org.whispersystems.textsecuregcm.entities.GroupCredentials;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v1/certificate")
@@ -72,7 +73,7 @@ public class CertificateController {
       @QueryParam("includeE164") @DefaultValue("true") boolean includeE164)
       throws InvalidKeyException {
 
-    if (auth.getAccount().getIdentityKey() == null) {
+    if (auth.getAccount().getIdentityKey(IdentityType.ACI) == null) {
       throw new WebApplicationException(Response.Status.BAD_REQUEST);
     }
 

@@ -238,24 +238,8 @@ public class Device {
     };
   }
 
-  /**
-   * @deprecated Please use {@link #getSignedPreKey(IdentityType)} instead.
-   */
-  @Deprecated
-  public ECSignedPreKey getSignedPreKey() {
-    return signedPreKey;
-  }
-
   public void setSignedPreKey(ECSignedPreKey signedPreKey) {
     this.signedPreKey = signedPreKey;
-  }
-
-  /**
-   * @deprecated Please use {@link #getSignedPreKey(IdentityType)} instead.
-   */
-  @Deprecated
-  public ECSignedPreKey getPhoneNumberIdentitySignedPreKey() {
-    return phoneNumberIdentitySignedPreKey;
   }
 
   public void setPhoneNumberIdentitySignedPreKey(final ECSignedPreKey phoneNumberIdentitySignedPreKey) {

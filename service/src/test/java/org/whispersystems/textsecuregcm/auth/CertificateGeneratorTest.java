@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 
@@ -32,7 +33,7 @@ class CertificateGeneratorTest {
         final Device device = mock(Device.class);
         final CertificateGenerator certificateGenerator = new CertificateGenerator(Base64.getDecoder().decode(SIGNING_CERTIFICATE), Curve.decodePrivatePoint(Base64.getDecoder().decode(SIGNING_KEY)), 1);
 
-        when(account.getIdentityKey()).thenReturn(IDENTITY_KEY);
+      when(account.getIdentityKey(IdentityType.ACI)).thenReturn(IDENTITY_KEY);
         when(account.getUuid()).thenReturn(UUID.randomUUID());
         when(account.getNumber()).thenReturn("+18005551234");
         when(device.getId()).thenReturn(4L);

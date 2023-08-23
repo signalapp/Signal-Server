@@ -48,6 +48,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
@@ -746,7 +747,7 @@ class AccountsTest {
     accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1));
     accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
     final UUID oldHandle = account.getUsernameLinkHandle();
-    
+
     {
       final Optional<Account> maybeAccount = accounts.getByUsernameHash(USERNAME_HASH_1);
 
@@ -1116,7 +1117,8 @@ class AccountsTest {
       assertThat(resultDevice.getApnId()).isEqualTo(expectingDevice.getApnId());
       assertThat(resultDevice.getGcmId()).isEqualTo(expectingDevice.getGcmId());
       assertThat(resultDevice.getLastSeen()).isEqualTo(expectingDevice.getLastSeen());
-      assertThat(resultDevice.getSignedPreKey()).isEqualTo(expectingDevice.getSignedPreKey());
+      assertThat(resultDevice.getSignedPreKey(IdentityType.ACI)).isEqualTo(
+          expectingDevice.getSignedPreKey(IdentityType.ACI));
       assertThat(resultDevice.getFetchesMessages()).isEqualTo(expectingDevice.getFetchesMessages());
       assertThat(resultDevice.getUserAgent()).isEqualTo(expectingDevice.getUserAgent());
       assertThat(resultDevice.getName()).isEqualTo(expectingDevice.getName());

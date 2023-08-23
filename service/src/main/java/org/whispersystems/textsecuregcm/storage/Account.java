@@ -317,24 +317,6 @@ public class Account {
     };
   }
 
-  /**
-   * @deprecated Please use {@link #getIdentityKey(IdentityType)} instead.
-   */
-  @Deprecated
-  public IdentityKey getIdentityKey() {
-    requireNotStale();
-
-    return identityKey;
-  }
-
-  /**
-   * @deprecated Please use {@link #getIdentityKey(IdentityType)} instead.
-   */
-  @Deprecated
-  public IdentityKey getPhoneNumberIdentityKey() {
-    return phoneNumberIdentityKey;
-  }
-
   public void setPhoneNumberIdentityKey(final IdentityKey phoneNumberIdentityKey) {
     this.phoneNumberIdentityKey = phoneNumberIdentityKey;
   }

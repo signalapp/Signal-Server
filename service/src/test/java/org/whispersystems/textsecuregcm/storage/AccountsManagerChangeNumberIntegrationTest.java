@@ -31,6 +31,7 @@ import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
@@ -180,12 +181,12 @@ class AccountsManagerChangeNumberIntegrationTest {
     assertEquals(Optional.empty(), deletedAccounts.findUuid(originalNumber));
     assertEquals(Optional.empty(), deletedAccounts.findUuid(secondNumber));
 
-    assertEquals(pniIdentityKey, updatedAccount.getPhoneNumberIdentityKey());
+    assertEquals(pniIdentityKey, updatedAccount.getIdentityKey(IdentityType.PNI));
 
     assertEquals(OptionalInt.of(rotatedPniRegistrationId),
         updatedAccount.getMasterDevice().orElseThrow().getPhoneNumberIdentityRegistrationId());
 
-    assertEquals(rotatedSignedPreKey, updatedAccount.getMasterDevice().orElseThrow().getPhoneNumberIdentitySignedPreKey());
+    assertEquals(rotatedSignedPreKey, updatedAccount.getMasterDevice().orElseThrow().getSignedPreKey(IdentityType.PNI));
   }
 
   @Test

@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.KeysManager;
@@ -42,12 +43,13 @@ public class MigrateSignedECPreKeysCommand extends AbstractSinglePassCrawlAccoun
             .flatMap(device -> {
               final List<Tuple3<UUID, Long, ECSignedPreKey>> keys = new ArrayList<>(2);
 
-              if (device.getSignedPreKey() != null) {
-                keys.add(Tuples.of(account.getUuid(), device.getId(), device.getSignedPreKey()));
+              if (device.getSignedPreKey(IdentityType.ACI) != null) {
+                keys.add(Tuples.of(account.getUuid(), device.getId(), device.getSignedPreKey(IdentityType.ACI)));
               }
 
-              if (device.getPhoneNumberIdentitySignedPreKey() != null) {
-                keys.add(Tuples.of(account.getPhoneNumberIdentifier(), device.getId(), device.getPhoneNumberIdentitySignedPreKey()));
+              if (device.getSignedPreKey(IdentityType.PNI) != null) {
+                keys.add(Tuples.of(account.getPhoneNumberIdentifier(), device.getId(),
+                    device.getSignedPreKey(IdentityType.PNI)));
               }
 
               return Flux.fromIterable(keys);

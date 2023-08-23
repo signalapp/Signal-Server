@@ -75,6 +75,7 @@ import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
 import org.whispersystems.textsecuregcm.entities.ChangeNumberRequest;
 import org.whispersystems.textsecuregcm.entities.PhoneNumberDiscoverabilityRequest;
 import org.whispersystems.textsecuregcm.entities.RegistrationServiceSession;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.ImpossiblePhoneNumberExceptionMapper;
@@ -151,7 +152,7 @@ class AccountControllerV2Test {
             final Account updatedAccount = mock(Account.class);
             when(updatedAccount.getUuid()).thenReturn(uuid);
             when(updatedAccount.getNumber()).thenReturn(number);
-            when(updatedAccount.getPhoneNumberIdentityKey()).thenReturn(pniIdentityKey);
+            when(updatedAccount.getIdentityKey(IdentityType.PNI)).thenReturn(pniIdentityKey);
             if (number.equals(account.getNumber())) {
               when(updatedAccount.getPhoneNumberIdentifier()).thenReturn(AuthHelper.VALID_PNI);
             } else {
@@ -205,7 +206,7 @@ class AccountControllerV2Test {
               .header(HttpHeaders.AUTHORIZATION,
                   AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
               .put(Entity.entity(
-                  new ChangeNumberRequest(encodeSessionId("session"), null, AuthHelper.VALID_NUMBER, null, 
+                  new ChangeNumberRequest(encodeSessionId("session"), null, AuthHelper.VALID_NUMBER, null,
                       new IdentityKey(Curve.generateKeyPair().getPublicKey()),
                       Collections.emptyList(),
                       Collections.emptyMap(), null, Collections.emptyMap()),
@@ -476,7 +477,7 @@ class AccountControllerV2Test {
             final Account updatedAccount = mock(Account.class);
             when(updatedAccount.getUuid()).thenReturn(uuid);
             when(updatedAccount.getNumber()).thenReturn(number);
-            when(updatedAccount.getPhoneNumberIdentityKey()).thenReturn(pniIdentityKey);
+            when(updatedAccount.getIdentityKey(IdentityType.PNI)).thenReturn(pniIdentityKey);
             when(updatedAccount.getPhoneNumberIdentifier()).thenReturn(pni);
             when(updatedAccount.getDevices()).thenReturn(devices);
 
@@ -487,12 +488,12 @@ class AccountControllerV2Test {
 
             return updatedAccount;
           });
-    }    
+    }
 
     @Test
     void pniKeyDistributionSuccess() throws Exception {
       when(AuthHelper.VALID_ACCOUNT.isPniSupported()).thenReturn(true);
-      
+
       final AccountIdentityResponse accountIdentityResponse =
           resources.getJerseyTest()
           .target("/v2/accounts/phone_number_identity_key_distribution")
@@ -506,8 +507,8 @@ class AccountControllerV2Test {
       assertEquals(AuthHelper.VALID_UUID, accountIdentityResponse.uuid());
       assertEquals(AuthHelper.VALID_NUMBER, accountIdentityResponse.number());
       assertEquals(AuthHelper.VALID_PNI, accountIdentityResponse.pni());
-    }   
-    
+    }
+
     @Test
     void unprocessableRequestJson() {
       final Invocation.Builder request = resources.getJerseyTest()
@@ -552,7 +553,7 @@ class AccountControllerV2Test {
         assertEquals(422, response.getStatus());
       }
     }
-    
+
     /**
      * Valid request JSON for a {@link org.whispersystems.textsecuregcm.entities.PhoneNumberIdentityKeyDistributionRequest}
      */
@@ -596,7 +597,7 @@ class AccountControllerV2Test {
     }
 
   }
-    
+
   @Nested
   class PhoneNumberDiscoverability {
 

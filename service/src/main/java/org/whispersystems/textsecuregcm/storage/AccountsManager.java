@@ -52,6 +52,7 @@ import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
@@ -397,8 +398,8 @@ public class AccountsManager {
       throw new IllegalArgumentException("PNI identity key, signed pre-keys, and registration IDs must be all null or all non-null");
     }
 
-    boolean changed = !Objects.equals(pniIdentityKey, account.getPhoneNumberIdentityKey());
-    
+    boolean changed = !Objects.equals(pniIdentityKey, account.getIdentityKey(IdentityType.PNI));
+
     for (Device device : account.getDevices()) {
         if (!device.isEnabled()) {
             continue;
@@ -406,11 +407,11 @@ public class AccountsManager {
         ECSignedPreKey signedPreKey = pniSignedPreKeys.get(device.getId());
         int registrationId = pniRegistrationIds.get(device.getId());
         changed = changed ||
-            !signedPreKey.equals(device.getPhoneNumberIdentitySignedPreKey()) ||
+            !signedPreKey.equals(device.getSignedPreKey(IdentityType.PNI)) ||
             device.getRegistrationId() != registrationId;
         device.setPhoneNumberIdentitySignedPreKey(signedPreKey);
         device.setPhoneNumberIdentityRegistrationId(registrationId);
-    }   
+    }
 
     account.setPhoneNumberIdentityKey(pniIdentityKey);
 
