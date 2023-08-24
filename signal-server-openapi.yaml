@@ -29,8 +29,7 @@ paths:
         "200":
           description: An account with the given identifier was found.
         "400":
-          description: "A client made an authenticated to this endpoint, and must\
-            \ not provide credentials."
+          description: Request must not be authenticated.
         "404":
           description: An account was not found for the given identifier.
         "422":
@@ -289,6 +288,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/EncryptedUsername'
+        "400":
+          description: Request must not be authenticated.
         "404":
           description: Username link was not found for the given handle.
         "422":
@@ -2837,14 +2838,14 @@ components:
     ECPublicKey:
       type: object
       properties:
+        type:
+          type: integer
+          format: int32
         publicKeyBytes:
           type: array
           items:
             type: string
             format: byte
-        type:
-          type: integer
-          format: int32
     ECSignedPreKey:
       type: object
       properties:
@@ -3278,13 +3279,13 @@ components:
     WebSocketClient:
       type: object
       properties:
-        createdTimestamp:
-          type: integer
-          format: int64
         userAgent:
           type: string
         open:
           type: boolean
+        createdTimestamp:
+          type: integer
+          format: int64
     WebSocketSessionContext:
       type: object
       properties:
@@ -3667,16 +3668,16 @@ components:
             type: string
         commitment:
           $ref: '#/components/schemas/ProfileKeyCommitment'
-        badges:
-          type: array
-          items:
-            type: string
         avatarChange:
           type: string
           enum:
           - UNCHANGED
           - CLEAR
           - UPDATE
+        badges:
+          type: array
+          items:
+            type: string
     ProfileKeyCommitment:
       type: object
       properties:
