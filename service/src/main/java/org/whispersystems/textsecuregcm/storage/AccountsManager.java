@@ -434,11 +434,13 @@ public class AccountsManager {
         Collections.emptySet());
 
     // Check that all including master ID are in Pq pre-keys
-    DestinationDeviceValidator.validateCompleteDeviceList(
-        account,
-        pniSignedPreKeys.keySet(),
-        Collections.emptySet());
-
+    if (pniPqLastResortPreKeys != null) {
+      DestinationDeviceValidator.validateCompleteDeviceList(
+          account,
+          pniPqLastResortPreKeys.keySet(),
+          Collections.emptySet());
+    }
+    
     // Check that all devices are accounted for in the map of new PNI registration IDs
     DestinationDeviceValidator.validateCompleteDeviceList(
         account,
