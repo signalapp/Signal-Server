@@ -1104,7 +1104,17 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PreKeyCount'
+                type: object
+                properties:
+                  completedExceptionally:
+                    type: boolean
+                  numberOfDependents:
+                    type: integer
+                    format: int32
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
         "401":
           description: Account authentication check failed.
       security:
@@ -3346,19 +3356,6 @@ components:
           items:
             type: string
             format: byte
-    PreKeyCount:
-      type: object
-      properties:
-        count:
-          type: integer
-          description: the number of stored unsigned elliptic-curve prekeys for this
-            device
-          format: int32
-        pqCount:
-          type: integer
-          description: the number of stored one-time post-quantum prekeys for this
-            device
-          format: int32
     PreKeyState:
       required:
       - identityKey
