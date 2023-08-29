@@ -28,6 +28,7 @@ import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 public class FaultTolerantHttpClient {
 
   private final HttpClient httpClient;
+  private final Duration defaultRequestTimeout;
   private final ScheduledExecutorService retryExecutor;
   private final Retry retry;
   private final CircuitBreaker breaker;
@@ -40,9 +41,12 @@ public class FaultTolerantHttpClient {
   }
 
   private FaultTolerantHttpClient(String name, HttpClient httpClient, ScheduledExecutorService retryExecutor,
-      RetryConfiguration retryConfiguration, CircuitBreakerConfiguration circuitBreakerConfiguration) {
+      Duration defaultRequestTimeout, RetryConfiguration retryConfiguration,
+      CircuitBreakerConfiguration circuitBreakerConfiguration) {
+
     this.httpClient = httpClient;
     this.retryExecutor = retryExecutor;
+    this.defaultRequestTimeout = defaultRequestTimeout;
     this.breaker = CircuitBreaker.of(name + "-breaker", circuitBreakerConfiguration.toCircuitBreakerConfig());
 
     CircuitBreakerUtil.registerMetrics(breaker, FaultTolerantHttpClient.class);
@@ -61,6 +65,12 @@ public class FaultTolerantHttpClient {
   }
 
   public <T> CompletableFuture<HttpResponse<T>> sendAsync(HttpRequest request, HttpResponse.BodyHandler<T> bodyHandler) {
+    if (request.timeout().isEmpty()) {
+      request = HttpRequest.newBuilder(request, (n, v) -> true)
+          .timeout(defaultRequestTimeout)
+          .build();
+    }
+
     Supplier<CompletionStage<HttpResponse<T>>> asyncRequest = sendAsync(httpClient, request, bodyHandler);
 
     if (retry != null) {
@@ -83,6 +93,7 @@ public class FaultTolerantHttpClient {
     private HttpClient.Version version = HttpClient.Version.HTTP_2;
     private HttpClient.Redirect redirect = HttpClient.Redirect.NEVER;
     private Duration connectTimeout = Duration.ofSeconds(10);
+    private Duration requestTimeout = Duration.ofSeconds(60);
 
     private String name;
     private Executor executor;
@@ -117,6 +128,11 @@ public class FaultTolerantHttpClient {
 
     public Builder withConnectTimeout(Duration connectTimeout) {
       this.connectTimeout = connectTimeout;
+      return this;
+    }
+
+    public Builder withRequestTimeout(Duration requestTimeout) {
+      this.requestTimeout = requestTimeout;
       return this;
     }
 
@@ -164,7 +180,7 @@ public class FaultTolerantHttpClient {
 
       builder.sslContext(sslConfigurator.createSSLContext());
 
-      return new FaultTolerantHttpClient(name, builder.build(), retryExecutor, retryConfiguration,
+      return new FaultTolerantHttpClient(name, builder.build(), retryExecutor, requestTimeout, retryConfiguration,
           circuitBreakerConfiguration);
     }
   }

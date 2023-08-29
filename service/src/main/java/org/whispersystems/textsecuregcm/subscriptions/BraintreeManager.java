@@ -19,7 +19,9 @@ import com.braintreegateway.TransactionSearchRequest;
 import com.braintreegateway.exceptions.BraintreeException;
 import com.braintreegateway.exceptions.NotFoundException;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.google.common.annotations.VisibleForTesting;
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.Comparator;
@@ -37,7 +39,6 @@ import javax.annotation.Nullable;
 import javax.ws.rs.ClientErrorException;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
-import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
@@ -74,6 +75,10 @@ public class BraintreeManager implements SubscriptionProcessorManager {
             .withCircuitBreaker(circuitBreakerConfiguration)
             .withExecutor(executor)
             .withRetryExecutor(retryExecutor)
+            // Braintree documents its internal timeout at 60 seconds, and we want to make sure we don’t miss
+            // a response
+            // https://developer.paypal.com/braintree/docs/reference/general/best-practices/java#timeouts
+            .withRequestTimeout(Duration.ofSeconds(70))
             .build(), graphqlUri, braintreePublicKey, braintreePrivateKey),
         executor);
   }
