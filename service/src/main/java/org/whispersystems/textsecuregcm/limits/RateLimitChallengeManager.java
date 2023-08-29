@@ -19,6 +19,7 @@ import org.whispersystems.textsecuregcm.captcha.CaptchaChecker;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
+import org.whispersystems.textsecuregcm.spam.ChallengeType;
 import org.whispersystems.textsecuregcm.spam.RateLimitChallengeListener;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -59,7 +60,7 @@ public class RateLimitChallengeManager {
 
     if (challengeSuccess) {
       rateLimiters.getPushChallengeSuccessLimiter().validate(account.getUuid());
-      resetRateLimits(account);
+      resetRateLimits(account, ChallengeType.PUSH);
     }
   }
 
@@ -80,12 +81,12 @@ public class RateLimitChallengeManager {
 
     if (challengeSuccess) {
       rateLimiters.getRecaptchaChallengeSuccessLimiter().validate(account.getUuid());
-      resetRateLimits(account);
+      resetRateLimits(account, ChallengeType.CAPTCHA);
     }
     return challengeSuccess;
   }
 
-  private void resetRateLimits(final Account account) throws RateLimitExceededException {
+  private void resetRateLimits(final Account account, final ChallengeType type) throws RateLimitExceededException {
     try {
       rateLimiters.getRateLimitResetLimiter().validate(account.getUuid());
     } catch (final RateLimitExceededException e) {
@@ -95,7 +96,7 @@ public class RateLimitChallengeManager {
       throw e;
     }
 
-    rateLimitChallengeListeners.forEach(listener -> listener.handleRateLimitChallengeAnswered(account));
+    rateLimitChallengeListeners.forEach(listener -> listener.handleRateLimitChallengeAnswered(account, type));
   }
 
   public void sendPushChallenge(final Account account) throws NotPushRegisteredException {

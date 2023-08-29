@@ -11,7 +11,7 @@ import java.io.IOException;
 
 public interface RateLimitChallengeListener {
 
-  void handleRateLimitChallengeAnswered(Account account);
+  void handleRateLimitChallengeAnswered(Account account, ChallengeType type);
 
   /**
    * Configures this rate limit challenge listener. This method will be called before the service begins processing any

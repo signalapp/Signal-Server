@@ -21,6 +21,7 @@ import org.whispersystems.textsecuregcm.captcha.Action;
 import org.whispersystems.textsecuregcm.captcha.AssessmentResult;
 import org.whispersystems.textsecuregcm.captcha.CaptchaChecker;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
+import org.whispersystems.textsecuregcm.spam.ChallengeType;
 import org.whispersystems.textsecuregcm.spam.RateLimitChallengeListener;
 import org.whispersystems.textsecuregcm.storage.Account;
 
@@ -63,7 +64,7 @@ class RateLimitChallengeManagerTest {
     rateLimitChallengeManager.answerPushChallenge(account, "challenge");
 
     if (successfulChallenge) {
-      verify(rateLimitChallengeListener).handleRateLimitChallengeAnswered(account);
+      verify(rateLimitChallengeListener).handleRateLimitChallengeAnswered(account, ChallengeType.PUSH);
     } else {
       verifyNoInteractions(rateLimitChallengeListener);
     }
@@ -88,7 +89,7 @@ class RateLimitChallengeManagerTest {
     rateLimitChallengeManager.answerRecaptchaChallenge(account, "captcha", "10.0.0.1", "Test User-Agent");
 
     if (successfulChallenge) {
-      verify(rateLimitChallengeListener).handleRateLimitChallengeAnswered(account);
+      verify(rateLimitChallengeListener).handleRateLimitChallengeAnswered(account, ChallengeType.CAPTCHA);
     } else {
       verifyNoInteractions(rateLimitChallengeListener);
     }
