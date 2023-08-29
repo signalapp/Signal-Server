@@ -112,7 +112,9 @@ public class PushFeedbackProcessor extends AccountDatabaseCrawlerListener {
         .toList();
 
     try {
-      CompletableFuture.allOf(updateFutures.toArray(new CompletableFuture[0])).join();
+      CompletableFuture.allOf(updateFutures.toArray(new CompletableFuture[0]))
+          .orTimeout(10, TimeUnit.MINUTES)
+          .join();
     } catch (final Exception e) {
       log.debug("Failed to update one or more accounts in chunk", e);
     }

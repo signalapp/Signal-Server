@@ -61,7 +61,9 @@ public class AccountCleaner extends AccountDatabaseCrawlerListener {
         .toList();
 
     try {
-      CompletableFuture.allOf(deletionFutures.toArray(new CompletableFuture[0])).join();
+      CompletableFuture.allOf(deletionFutures.toArray(new CompletableFuture[0]))
+          .orTimeout(10, TimeUnit.MINUTES)
+          .join();
     } catch (final Exception e) {
       log.debug("Failed to delete one or more accounts in chunk", e);
     }
