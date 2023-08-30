@@ -1,7 +1,21 @@
+/*
+ * Copyright 2023 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 package org.whispersystems.textsecuregcm.grpc;
 
 import com.google.protobuf.ByteString;
 import io.grpc.Status;
+import java.time.Clock;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.signal.chat.profile.CredentialType;
 import org.signal.chat.profile.GetExpiringProfileKeyCredentialRequest;
 import org.signal.chat.profile.GetExpiringProfileKeyCredentialResponse;
@@ -9,10 +23,10 @@ import org.signal.chat.profile.GetUnversionedProfileRequest;
 import org.signal.chat.profile.GetUnversionedProfileResponse;
 import org.signal.chat.profile.GetVersionedProfileRequest;
 import org.signal.chat.profile.GetVersionedProfileResponse;
-import org.signal.chat.profile.SetProfileRequest.AvatarChange;
 import org.signal.chat.profile.ProfileAvatarUploadAttributes;
 import org.signal.chat.profile.ReactorProfileGrpc;
 import org.signal.chat.profile.SetProfileRequest;
+import org.signal.chat.profile.SetProfileRequest.AvatarChange;
 import org.signal.chat.profile.SetProfileResponse;
 import org.signal.libsignal.zkgroup.profiles.ServerZkProfileOperations;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
@@ -38,15 +52,6 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
-import java.time.Clock;
-import java.time.ZonedDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 public class ProfileGrpcService extends ReactorProfileGrpc.ProfileImplBase {
 

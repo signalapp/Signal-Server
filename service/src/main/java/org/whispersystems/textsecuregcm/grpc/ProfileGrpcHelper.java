@@ -1,11 +1,16 @@
+/*
+ * Copyright 2023 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 package org.whispersystems.textsecuregcm.grpc;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
+import io.grpc.Status;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import io.grpc.Status;
 import org.signal.chat.profile.Badge;
 import org.signal.chat.profile.BadgeSvg;
 import org.signal.chat.profile.GetExpiringProfileKeyCredentialResponse;
