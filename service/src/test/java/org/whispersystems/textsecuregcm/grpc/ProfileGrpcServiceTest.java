@@ -19,6 +19,9 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.signal.chat.common.IdentityType;
 import org.signal.chat.common.ServiceIdentifier;
+import org.signal.chat.profile.CredentialType;
+import org.signal.chat.profile.GetExpiringProfileKeyCredentialRequest;
+import org.signal.chat.profile.GetExpiringProfileKeyCredentialResponse;
 import org.signal.chat.profile.GetUnversionedProfileRequest;
 import org.signal.chat.profile.GetUnversionedProfileResponse;
 import org.signal.chat.profile.GetVersionedProfileRequest;
@@ -32,7 +35,16 @@ import org.signal.libsignal.protocol.ServiceId;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.zkgroup.InvalidInputException;
+import org.signal.libsignal.zkgroup.ServerPublicParams;
+import org.signal.libsignal.zkgroup.ServerSecretParams;
+import org.signal.libsignal.zkgroup.VerificationFailedException;
+import org.signal.libsignal.zkgroup.profiles.ClientZkProfileOperations;
+import org.signal.libsignal.zkgroup.profiles.ExpiringProfileKeyCredentialResponse;
 import org.signal.libsignal.zkgroup.profiles.ProfileKey;
+import org.signal.libsignal.zkgroup.profiles.ProfileKeyCommitment;
+import org.signal.libsignal.zkgroup.profiles.ProfileKeyCredentialRequest;
+import org.signal.libsignal.zkgroup.profiles.ProfileKeyCredentialRequestContext;
+import org.signal.libsignal.zkgroup.profiles.ServerZkProfileOperations;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessChecksum;
 import org.whispersystems.textsecuregcm.auth.grpc.MockAuthenticationInterceptor;
 import org.whispersystems.textsecuregcm.badges.ProfileBadgeConverter;
@@ -57,15 +69,18 @@ import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.VersionedProfile;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
-import org.whispersystems.textsecuregcm.tests.util.ProfileHelper;
+import org.whispersystems.textsecuregcm.tests.util.ProfileTestHelper;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import reactor.core.publisher.Mono;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import javax.annotation.Nullable;
+import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -75,6 +90,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatNoException;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -103,6 +120,7 @@ public class ProfileGrpcServiceTest {
   private Account account;
   private RateLimiter rateLimiter;
   private ProfileBadgeConverter profileBadgeConverter;
+  private ServerZkProfileOperations serverZkProfileOperations;
   private ProfileGrpc.ProfileBlockingStub profileBlockingStub;
 
   @RegisterExtension
@@ -118,6 +136,7 @@ public class ProfileGrpcServiceTest {
     account = mock(Account.class);
     rateLimiter = mock(RateLimiter.class);
     profileBadgeConverter = mock(ProfileBadgeConverter.class);
+    serverZkProfileOperations = mock(ServerZkProfileOperations.class);
 
     @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
     final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
@@ -160,6 +179,7 @@ public class ProfileGrpcServiceTest {
         policySigner,
         profileBadgeConverter,
         rateLimiters,
+        serverZkProfileOperations,
         S3_BUCKET
     );
 
@@ -482,11 +502,11 @@ public class ProfileGrpcServiceTest {
   @MethodSource
   void getVersionedProfile(final String requestVersion, @Nullable final String accountVersion, final boolean expectResponseHasPaymentAddress) {
     final VersionedProfile profile = mock(VersionedProfile.class);
-    final byte[] name = ProfileHelper.generateRandomByteArray(81);
-    final byte[] emoji = ProfileHelper.generateRandomByteArray(60);
-    final byte[] about = ProfileHelper.generateRandomByteArray(156);
-    final byte[] paymentAddress = ProfileHelper.generateRandomByteArray(582);
-    final String avatar = "profiles/" + ProfileHelper.generateRandomBase64FromByteArray(16);
+    final byte[] name = ProfileTestHelper.generateRandomByteArray(81);
+    final byte[] emoji = ProfileTestHelper.generateRandomByteArray(60);
+    final byte[] about = ProfileTestHelper.generateRandomByteArray(156);
+    final byte[] paymentAddress = ProfileTestHelper.generateRandomByteArray(582);
+    final String avatar = "profiles/" + ProfileTestHelper.generateRandomBase64FromByteArray(16);
 
     final GetVersionedProfileRequest request = GetVersionedProfileRequest.newBuilder()
         .setAccountIdentifier(ServiceIdentifier.newBuilder()
@@ -593,5 +613,163 @@ public class ProfileGrpcServiceTest {
     final StatusRuntimeException exception = assertThrows(StatusRuntimeException.class,
         () -> profileBlockingStub.getVersionedProfile(request));
     assertEquals(Status.INVALID_ARGUMENT.getCode(), exception.getStatus().getCode());
+  }
+
+  @Test
+  void getExpiringProfileKeyCredential() throws InvalidInputException, VerificationFailedException {
+    final UUID targetUuid = UUID.randomUUID();
+
+    final ServerSecretParams serverSecretParams = ServerSecretParams.generate();
+    final ServerPublicParams serverPublicParams = serverSecretParams.getPublicParams();
+
+    final ServerZkProfileOperations serverZkProfile = new ServerZkProfileOperations(serverSecretParams);
+    final ClientZkProfileOperations clientZkProfile = new ClientZkProfileOperations(serverPublicParams);
+
+    final byte[] profileKeyBytes = new byte[32];
+    new SecureRandom().nextBytes(profileKeyBytes);
+
+    final ProfileKey profileKey = new ProfileKey(profileKeyBytes);
+    final ProfileKeyCommitment profileKeyCommitment = profileKey.getCommitment(new ServiceId.Aci(targetUuid));
+    final ProfileKeyCredentialRequestContext profileKeyCredentialRequestContext =
+        clientZkProfile.createProfileKeyCredentialRequestContext(new ServiceId.Aci(targetUuid), profileKey);
+
+    when(account.getUuid()).thenReturn(targetUuid);
+    when(profile.commitment()).thenReturn(profileKeyCommitment.serialize());
+    when(accountsManager.getByServiceIdentifierAsync(new AciServiceIdentifier(targetUuid))).thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+    when(profilesManager.getAsync(targetUuid, "someVersion")).thenReturn(CompletableFuture.completedFuture(Optional.of(profile)));
+
+    final ProfileKeyCredentialRequest credentialRequest = profileKeyCredentialRequestContext.getRequest();
+
+    final Instant expiration = Instant.now().plus(org.whispersystems.textsecuregcm.util.ProfileHelper.EXPIRING_PROFILE_KEY_CREDENTIAL_EXPIRATION)
+        .truncatedTo(ChronoUnit.DAYS);
+
+    final ExpiringProfileKeyCredentialResponse credentialResponse =
+        serverZkProfile.issueExpiringProfileKeyCredential(credentialRequest, new ServiceId.Aci(targetUuid), profileKeyCommitment, expiration);
+
+    when(serverZkProfileOperations.issueExpiringProfileKeyCredential(credentialRequest, new ServiceId.Aci(targetUuid), profileKeyCommitment, expiration))
+        .thenReturn(credentialResponse);
+
+    final GetExpiringProfileKeyCredentialRequest request = GetExpiringProfileKeyCredentialRequest.newBuilder()
+        .setAccountIdentifier(ServiceIdentifier.newBuilder()
+            .setIdentityType(IdentityType.IDENTITY_TYPE_ACI)
+            .setUuid(ByteString.copyFrom(UUIDUtil.toBytes(targetUuid)))
+            .build())
+        .setCredentialRequest(ByteString.copyFrom(credentialRequest.serialize()))
+        .setCredentialType(CredentialType.CREDENTIAL_TYPE_EXPIRING_PROFILE_KEY)
+        .setVersion("someVersion")
+        .build();
+
+    final GetExpiringProfileKeyCredentialResponse response = profileBlockingStub.getExpiringProfileKeyCredential(request);
+
+    assertArrayEquals(credentialResponse.serialize(), response.getProfileKeyCredential().toByteArray());
+
+    verify(serverZkProfileOperations).issueExpiringProfileKeyCredential(credentialRequest, new ServiceId.Aci(targetUuid), profileKeyCommitment, expiration);
+
+    final ClientZkProfileOperations clientZkProfileCipher = new ClientZkProfileOperations(serverPublicParams);
+    assertThatNoException().isThrownBy(() ->
+        clientZkProfileCipher.receiveExpiringProfileKeyCredential(profileKeyCredentialRequestContext, new ExpiringProfileKeyCredentialResponse(response.getProfileKeyCredential().toByteArray())));
+  }
+
+  @Test
+  void getExpiringProfileKeyCredentialRateLimited() {
+    final Duration retryAfterDuration = Duration.ofMinutes(5);
+    when(rateLimiter.validateReactive(AUTHENTICATED_ACI))
+        .thenReturn(Mono.error(new RateLimitExceededException(retryAfterDuration, false)));
+    when(accountsManager.getByServiceIdentifierAsync(any())).thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+
+    final GetExpiringProfileKeyCredentialRequest request = GetExpiringProfileKeyCredentialRequest.newBuilder()
+        .setAccountIdentifier(ServiceIdentifier.newBuilder()
+            .setIdentityType(IdentityType.IDENTITY_TYPE_ACI)
+            .setUuid(ByteString.copyFrom(UUIDUtil.toBytes(UUID.randomUUID())))
+            .build())
+        .setCredentialRequest(ByteString.copyFrom("credentialRequest".getBytes(StandardCharsets.UTF_8)))
+        .setCredentialType(CredentialType.CREDENTIAL_TYPE_EXPIRING_PROFILE_KEY)
+        .setVersion("someVersion")
+        .build();
+
+    StatusRuntimeException exception = assertThrows(StatusRuntimeException.class,
+        () -> profileBlockingStub.getExpiringProfileKeyCredential(request));
+
+    assertEquals(Status.Code.RESOURCE_EXHAUSTED, exception.getStatus().getCode());
+    assertNotNull(exception.getTrailers());
+    assertEquals(retryAfterDuration, exception.getTrailers().get(RateLimitUtil.RETRY_AFTER_DURATION_KEY));
+
+    verifyNoInteractions(profilesManager);
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void getExpiringProfileKeyCredentialAccountOrProfileNotFound(final boolean missingAccount,
+      final boolean missingProfile) {
+    final UUID targetUuid = UUID.randomUUID();
+
+    when(account.getUuid()).thenReturn(targetUuid);
+    when(accountsManager.getByServiceIdentifierAsync(new AciServiceIdentifier(targetUuid))).thenReturn(CompletableFuture.completedFuture(
+        missingAccount ? Optional.empty() : Optional.of(account)));
+    when(profilesManager.getAsync(targetUuid, "someVersion")).thenReturn(CompletableFuture.completedFuture(missingProfile ? Optional.empty() : Optional.of(profile)));
+
+    final GetExpiringProfileKeyCredentialRequest request = GetExpiringProfileKeyCredentialRequest.newBuilder()
+        .setAccountIdentifier(ServiceIdentifier.newBuilder()
+            .setIdentityType(IdentityType.IDENTITY_TYPE_ACI)
+            .setUuid(ByteString.copyFrom(UUIDUtil.toBytes(targetUuid)))
+            .build())
+        .setCredentialRequest(ByteString.copyFrom("credentialRequest".getBytes(StandardCharsets.UTF_8)))
+        .setCredentialType(CredentialType.CREDENTIAL_TYPE_EXPIRING_PROFILE_KEY)
+        .setVersion("someVersion")
+        .build();
+
+    final StatusRuntimeException statusRuntimeException = assertThrows(StatusRuntimeException.class,
+        () -> profileBlockingStub.getExpiringProfileKeyCredential(request));
+
+    assertEquals(Status.Code.NOT_FOUND, statusRuntimeException.getStatus().getCode());
+  }
+
+  private static Stream<Arguments> getExpiringProfileKeyCredentialAccountOrProfileNotFound() {
+    return Stream.of(
+        Arguments.of(true, false),
+        Arguments.of(false, true)
+    );
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void getExpiringProfileKeyCredentialInvalidArgument(final IdentityType identityType, final CredentialType credentialType,
+      final boolean throwZkVerificationException) throws VerificationFailedException {
+    final UUID targetUuid = UUID.randomUUID();
+
+    if (throwZkVerificationException) {
+      when(serverZkProfileOperations.issueExpiringProfileKeyCredential(any(), any(), any(), any())).thenThrow(new VerificationFailedException());
+    }
+
+    when(account.getUuid()).thenReturn(targetUuid);
+    when(profile.commitment()).thenReturn("commitment".getBytes(StandardCharsets.UTF_8));
+    when(accountsManager.getByServiceIdentifierAsync(new AciServiceIdentifier(targetUuid))).thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+    when(profilesManager.getAsync(targetUuid, "someVersion")).thenReturn(CompletableFuture.completedFuture(Optional.of(profile)));
+
+    final GetExpiringProfileKeyCredentialRequest request = GetExpiringProfileKeyCredentialRequest.newBuilder()
+        .setAccountIdentifier(ServiceIdentifier.newBuilder()
+            .setIdentityType(identityType)
+            .setUuid(ByteString.copyFrom(UUIDUtil.toBytes(targetUuid)))
+            .build())
+        .setCredentialRequest(ByteString.copyFrom("credentialRequest".getBytes(StandardCharsets.UTF_8)))
+        .setCredentialType(credentialType)
+        .setVersion("someVersion")
+        .build();
+
+    StatusRuntimeException exception = assertThrows(StatusRuntimeException.class,
+        () -> profileBlockingStub.getExpiringProfileKeyCredential(request));
+
+    assertEquals(Status.Code.INVALID_ARGUMENT, exception.getStatus().getCode());
+  }
+
+  private static Stream<Arguments> getExpiringProfileKeyCredentialInvalidArgument() {
+    return Stream.of(
+        // Credential type unspecified
+        Arguments.of(IdentityType.IDENTITY_TYPE_ACI, CredentialType.CREDENTIAL_TYPE_UNSPECIFIED, false),
+        // Illegal identity type
+        Arguments.of(IdentityType.IDENTITY_TYPE_PNI, CredentialType.CREDENTIAL_TYPE_EXPIRING_PROFILE_KEY, false),
+        // Artificially fails zero knowledge verification
+        Arguments.of(IdentityType.IDENTITY_TYPE_ACI, CredentialType.CREDENTIAL_TYPE_EXPIRING_PROFILE_KEY, true)
+    );
   }
 }

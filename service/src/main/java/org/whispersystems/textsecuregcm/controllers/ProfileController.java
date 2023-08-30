@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Counter;
@@ -18,11 +17,7 @@ import io.vavr.Tuple;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
-import java.time.Duration;
-import java.time.Instant;
-import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -66,8 +61,6 @@ import org.signal.libsignal.protocol.ServiceId;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.signal.libsignal.zkgroup.profiles.ExpiringProfileKeyCredentialResponse;
-import org.signal.libsignal.zkgroup.profiles.ProfileKeyCommitment;
-import org.signal.libsignal.zkgroup.profiles.ProfileKeyCredentialRequest;
 import org.signal.libsignal.zkgroup.profiles.ServerZkProfileOperations;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -129,9 +122,6 @@ public class ProfileController {
   private final String              bucket;
 
   private final Executor batchIdentityCheckExecutor;
-
-  @VisibleForTesting
-  static final Duration EXPIRING_PROFILE_KEY_CREDENTIAL_EXPIRATION = Duration.ofDays(7);
 
   private static final String EXPIRING_PROFILE_KEY_CREDENTIAL_TYPE = "expiringProfileKey";
 
@@ -276,7 +266,6 @@ public class ProfileController {
         version,
         credentialRequest,
         isSelf,
-        Instant.now().plus(EXPIRING_PROFILE_KEY_CREDENTIAL_EXPIRATION).truncatedTo(ChronoUnit.DAYS),
         containerRequestContext);
   }
 
@@ -387,11 +376,19 @@ public class ProfileController {
       final String version,
       final String encodedCredentialRequest,
       final boolean isSelf,
-      final Instant expiration,
       final ContainerRequestContext containerRequestContext) {
 
     final ExpiringProfileKeyCredentialResponse expiringProfileKeyCredentialResponse = profilesManager.get(account.getUuid(), version)
-        .map(profile -> getExpiringProfileKeyCredentialResponse(encodedCredentialRequest, profile, new ServiceId.Aci(account.getUuid()), expiration))
+        .map(profile -> {
+          final ExpiringProfileKeyCredentialResponse profileKeyCredentialResponse;
+          try {
+            profileKeyCredentialResponse = ProfileHelper.getExpiringProfileKeyCredential(HexFormat.of().parseHex(encodedCredentialRequest),
+                profile, new ServiceId.Aci(account.getUuid()), zkProfileOperations);
+          } catch (VerificationFailedException | InvalidInputException e) {
+            throw new BadRequestException(Response.status(Response.Status.BAD_REQUEST).build(), e);
+          }
+          return profileKeyCredentialResponse;
+        })
         .orElse(null);
 
     return new ExpiringProfileKeyCredentialProfileResponse(
@@ -451,23 +448,6 @@ public class ProfileController {
         UserCapabilities.createForAccount(account),
         Collections.emptyList(),
         new PniServiceIdentifier(account.getPhoneNumberIdentifier()));
-  }
-
-  private ExpiringProfileKeyCredentialResponse getExpiringProfileKeyCredentialResponse(
-      final String encodedCredentialRequest,
-      final VersionedProfile profile,
-      final ServiceId.Aci accountIdentifier,
-      final Instant expiration) {
-
-    try {
-      final ProfileKeyCommitment commitment = new ProfileKeyCommitment(profile.commitment());
-      final ProfileKeyCredentialRequest request = new ProfileKeyCredentialRequest(
-          HexFormat.of().parseHex(encodedCredentialRequest));
-
-      return zkProfileOperations.issueExpiringProfileKeyCredential(request, accountIdentifier, commitment, expiration);
-    } catch (IllegalArgumentException | VerificationFailedException | InvalidInputException e) {
-      throw new WebApplicationException(e, Response.status(Response.Status.BAD_REQUEST).build());
-    }
   }
 
   private List<Locale> getAcceptableLanguagesForRequest(final ContainerRequestContext containerRequestContext) {

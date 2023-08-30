@@ -2,6 +2,9 @@ package org.whispersystems.textsecuregcm.grpc;
 
 import com.google.protobuf.ByteString;
 import io.grpc.Status;
+import org.signal.chat.profile.CredentialType;
+import org.signal.chat.profile.GetExpiringProfileKeyCredentialRequest;
+import org.signal.chat.profile.GetExpiringProfileKeyCredentialResponse;
 import org.signal.chat.profile.GetUnversionedProfileRequest;
 import org.signal.chat.profile.GetUnversionedProfileResponse;
 import org.signal.chat.profile.GetVersionedProfileRequest;
@@ -11,6 +14,7 @@ import org.signal.chat.profile.ProfileAvatarUploadAttributes;
 import org.signal.chat.profile.ReactorProfileGrpc;
 import org.signal.chat.profile.SetProfileRequest;
 import org.signal.chat.profile.SetProfileResponse;
+import org.signal.libsignal.zkgroup.profiles.ServerZkProfileOperations;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticationUtil;
 import org.whispersystems.textsecuregcm.badges.ProfileBadgeConverter;
@@ -56,6 +60,7 @@ public class ProfileGrpcService extends ReactorProfileGrpc.ProfileImplBase {
   private final PolicySigner policySigner;
   private final ProfileBadgeConverter profileBadgeConverter;
   private final RateLimiters rateLimiters;
+  private final ServerZkProfileOperations zkProfileOperations;
   private final String bucket;
 
   private record AvatarData(Optional<String> currentAvatar,
@@ -73,6 +78,7 @@ public class ProfileGrpcService extends ReactorProfileGrpc.ProfileImplBase {
       final PolicySigner policySigner,
       final ProfileBadgeConverter profileBadgeConverter,
       final RateLimiters rateLimiters,
+      final ServerZkProfileOperations zkProfileOperations,
       final String bucket) {
     this.clock = clock;
     this.accountsManager = accountsManager;
@@ -85,6 +91,7 @@ public class ProfileGrpcService extends ReactorProfileGrpc.ProfileImplBase {
     this.policySigner = policySigner;
     this.profileBadgeConverter = profileBadgeConverter;
     this.rateLimiters = rateLimiters;
+    this.zkProfileOperations = zkProfileOperations;
     this.bucket = bucket;
   }
 
@@ -185,6 +192,26 @@ public class ProfileGrpcService extends ReactorProfileGrpc.ProfileImplBase {
     return validateRateLimitAndGetAccount(authenticatedDevice.accountIdentifier(), targetIdentifier)
         .flatMap(account -> ProfileGrpcHelper.getVersionedProfile(account, profilesManager, request.getVersion()));
   }
+
+  @Override
+  public Mono<GetExpiringProfileKeyCredentialResponse> getExpiringProfileKeyCredential(
+      final GetExpiringProfileKeyCredentialRequest request) {
+    final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
+    final ServiceIdentifier targetIdentifier = ServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getAccountIdentifier());
+
+    if (targetIdentifier.identityType() != IdentityType.ACI) {
+      throw Status.INVALID_ARGUMENT.withDescription("Expected ACI service identifier").asRuntimeException();
+    }
+
+    if (request.getCredentialType() != CredentialType.CREDENTIAL_TYPE_EXPIRING_PROFILE_KEY) {
+      throw Status.INVALID_ARGUMENT.withDescription("Expected expiring profile key credential type").asRuntimeException();
+    }
+
+    return validateRateLimitAndGetAccount(authenticatedDevice.accountIdentifier(), targetIdentifier)
+        .flatMap(targetAccount -> ProfileGrpcHelper.getExpiringProfileKeyCredentialResponse(targetAccount.getUuid(),
+              request.getVersion(), request.getCredentialRequest().toByteArray(), profilesManager, zkProfileOperations));
+  }
+
 
   private Mono<Account> validateRateLimitAndGetAccount(final UUID requesterUuid,
       final ServiceIdentifier targetIdentifier) {

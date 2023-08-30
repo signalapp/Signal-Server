@@ -8,9 +8,15 @@ import java.util.UUID;
 import io.grpc.Status;
 import org.signal.chat.profile.Badge;
 import org.signal.chat.profile.BadgeSvg;
+import org.signal.chat.profile.GetExpiringProfileKeyCredentialResponse;
 import org.signal.chat.profile.GetUnversionedProfileResponse;
 import org.signal.chat.profile.GetVersionedProfileResponse;
 import org.signal.chat.profile.UserCapabilities;
+import org.signal.libsignal.protocol.ServiceId;
+import org.signal.libsignal.zkgroup.InvalidInputException;
+import org.signal.libsignal.zkgroup.VerificationFailedException;
+import org.signal.libsignal.zkgroup.profiles.ExpiringProfileKeyCredentialResponse;
+import org.signal.libsignal.zkgroup.profiles.ServerZkProfileOperations;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessChecksum;
 import org.whispersystems.textsecuregcm.badges.ProfileBadgeConverter;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
@@ -118,5 +124,29 @@ public class ProfileGrpcHelper {
     }
 
     return responseBuilder.build();
+  }
+
+  static Mono<GetExpiringProfileKeyCredentialResponse> getExpiringProfileKeyCredentialResponse(
+      final UUID targetUuid,
+      final String version,
+      final byte[] encodedCredentialRequest,
+      final ProfilesManager profilesManager,
+      final ServerZkProfileOperations zkProfileOperations) {
+    return Mono.fromFuture(profilesManager.getAsync(targetUuid, version))
+        .flatMap(Mono::justOrEmpty)
+        .map(profile -> {
+          final ExpiringProfileKeyCredentialResponse profileKeyCredentialResponse;
+          try {
+            profileKeyCredentialResponse = ProfileHelper.getExpiringProfileKeyCredential(encodedCredentialRequest,
+                profile, new ServiceId.Aci(targetUuid), zkProfileOperations);
+          } catch (VerificationFailedException | InvalidInputException e) {
+            throw Status.INVALID_ARGUMENT.withCause(e).asRuntimeException();
+          }
+
+          return GetExpiringProfileKeyCredentialResponse.newBuilder()
+              .setProfileKeyCredential(ByteString.copyFrom(profileKeyCredentialResponse.serialize()))
+              .build();
+        })
+        .switchIfEmpty(Mono.error(Status.NOT_FOUND.withDescription("Profile version not found").asException()));
   }
 }

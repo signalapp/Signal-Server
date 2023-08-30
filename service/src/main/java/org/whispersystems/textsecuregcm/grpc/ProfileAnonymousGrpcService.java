@@ -1,11 +1,15 @@
 package org.whispersystems.textsecuregcm.grpc;
 
 import io.grpc.Status;
+import org.signal.chat.profile.CredentialType;
+import org.signal.chat.profile.GetExpiringProfileKeyCredentialAnonymousRequest;
+import org.signal.chat.profile.GetExpiringProfileKeyCredentialResponse;
 import org.signal.chat.profile.GetUnversionedProfileAnonymousRequest;
 import org.signal.chat.profile.GetUnversionedProfileResponse;
 import org.signal.chat.profile.GetVersionedProfileAnonymousRequest;
 import org.signal.chat.profile.GetVersionedProfileResponse;
 import org.signal.chat.profile.ReactorProfileAnonymousGrpc;
+import org.signal.libsignal.zkgroup.profiles.ServerZkProfileOperations;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.badges.ProfileBadgeConverter;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
@@ -19,14 +23,17 @@ public class ProfileAnonymousGrpcService extends ReactorProfileAnonymousGrpc.Pro
   private final AccountsManager accountsManager;
   private final ProfilesManager profilesManager;
   private final ProfileBadgeConverter profileBadgeConverter;
+  private final ServerZkProfileOperations zkProfileOperations;
 
   public ProfileAnonymousGrpcService(
       final AccountsManager accountsManager,
       final ProfilesManager profilesManager,
-      final ProfileBadgeConverter profileBadgeConverter) {
+      final ProfileBadgeConverter profileBadgeConverter,
+      final ServerZkProfileOperations zkProfileOperations) {
     this.accountsManager = accountsManager;
     this.profilesManager = profilesManager;
     this.profileBadgeConverter = profileBadgeConverter;
+    this.zkProfileOperations = zkProfileOperations;
   }
 
   @Override
@@ -58,10 +65,28 @@ public class ProfileAnonymousGrpcService extends ReactorProfileAnonymousGrpc.Pro
         .flatMap(targetAccount -> ProfileGrpcHelper.getVersionedProfile(targetAccount, profilesManager, request.getRequest().getVersion()));
   }
 
-    private Mono<Account> getTargetAccountAndValidateUnidentifiedAccess(final ServiceIdentifier targetIdentifier, final byte[] unidentifiedAccessKey) {
-      return Mono.fromFuture(() -> accountsManager.getByServiceIdentifierAsync(targetIdentifier))
-        .flatMap(Mono::justOrEmpty)
-        .filter(targetAccount -> UnidentifiedAccessUtil.checkUnidentifiedAccess(targetAccount, unidentifiedAccessKey))
-        .switchIfEmpty(Mono.error(Status.UNAUTHENTICATED.asException()));
+  @Override
+  public Mono<GetExpiringProfileKeyCredentialResponse> getExpiringProfileKeyCredential(
+      final GetExpiringProfileKeyCredentialAnonymousRequest request) {
+    final ServiceIdentifier targetIdentifier = ServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getRequest().getAccountIdentifier());
+
+    if (targetIdentifier.identityType() != IdentityType.ACI) {
+      throw Status.INVALID_ARGUMENT.withDescription("Expected ACI service identifier").asRuntimeException();
+    }
+
+    if (request.getRequest().getCredentialType() != CredentialType.CREDENTIAL_TYPE_EXPIRING_PROFILE_KEY) {
+      throw Status.INVALID_ARGUMENT.withDescription("Expected expiring profile key credential type").asRuntimeException();
+    }
+
+    return getTargetAccountAndValidateUnidentifiedAccess(targetIdentifier, request.getUnidentifiedAccessKey().toByteArray())
+        .flatMap(account -> ProfileGrpcHelper.getExpiringProfileKeyCredentialResponse(account.getUuid(),
+            request.getRequest().getVersion(), request.getRequest().getCredentialRequest().toByteArray(), profilesManager, zkProfileOperations));
+  }
+
+  private Mono<Account> getTargetAccountAndValidateUnidentifiedAccess(final ServiceIdentifier targetIdentifier, final byte[] unidentifiedAccessKey) {
+    return Mono.fromFuture(() -> accountsManager.getByServiceIdentifierAsync(targetIdentifier))
+      .flatMap(Mono::justOrEmpty)
+      .filter(targetAccount -> UnidentifiedAccessUtil.checkUnidentifiedAccess(targetAccount, unidentifiedAccessKey))
+      .switchIfEmpty(Mono.error(Status.UNAUTHENTICATED.asException()));
   }
 }

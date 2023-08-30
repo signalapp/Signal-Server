@@ -648,8 +648,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .addService(ServerInterceptors.intercept(new KeysGrpcService(accountsManager, keys, rateLimiters), basicCredentialAuthenticationInterceptor))
         .addService(new KeysAnonymousGrpcService(accountsManager, keys))
         .addService(ServerInterceptors.intercept(new ProfileGrpcService(clock, accountsManager, profilesManager, dynamicConfigurationManager,
-                config.getBadges(), asyncCdnS3Client, profileCdnPolicyGenerator, profileCdnPolicySigner, profileBadgeConverter, rateLimiters, config.getCdnConfiguration().bucket()), basicCredentialAuthenticationInterceptor))
-        .addService(new ProfileAnonymousGrpcService(accountsManager, profilesManager, profileBadgeConverter));
+                config.getBadges(), asyncCdnS3Client, profileCdnPolicyGenerator, profileCdnPolicySigner, profileBadgeConverter, rateLimiters, zkProfileOperations, config.getCdnConfiguration().bucket()), basicCredentialAuthenticationInterceptor))
+        .addService(new ProfileAnonymousGrpcService(accountsManager, profilesManager, profileBadgeConverter, zkProfileOperations));
 
     RemoteDeprecationFilter remoteDeprecationFilter = new RemoteDeprecationFilter(dynamicConfigurationManager);
     environment.servlets()

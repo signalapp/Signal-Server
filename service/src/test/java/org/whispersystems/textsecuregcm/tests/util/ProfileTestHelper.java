@@ -3,7 +3,7 @@ package org.whispersystems.textsecuregcm.tests.util;
 import java.util.Base64;
 import java.util.Random;
 
-public class ProfileHelper {
+public class ProfileTestHelper {
   public static String generateRandomBase64FromByteArray(final int byteArrayLength) {
     return encodeToBase64(generateRandomByteArray(byteArrayLength));
   }

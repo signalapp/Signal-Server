@@ -15,7 +15,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.signal.libsignal.protocol.ServiceId;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.profiles.ProfileKey;
-import org.whispersystems.textsecuregcm.tests.util.ProfileHelper;
+import org.whispersystems.textsecuregcm.tests.util.ProfileTestHelper;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
@@ -44,10 +44,10 @@ public class ProfilesTest {
         Tables.PROFILES.tableName());
     final byte[] commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(ACI)).serialize();
     final String version = "someVersion";
-    final byte[] name = ProfileHelper.generateRandomByteArray(81);
-    final byte[] validAboutEmoji = ProfileHelper.generateRandomByteArray(60);
-    final byte[] validAbout = ProfileHelper.generateRandomByteArray(156);
-    final String avatar = "profiles/" + ProfileHelper.generateRandomBase64FromByteArray(16);
+    final byte[] name = ProfileTestHelper.generateRandomByteArray(81);
+    final byte[] validAboutEmoji = ProfileTestHelper.generateRandomByteArray(60);
+    final byte[] validAbout = ProfileTestHelper.generateRandomByteArray(156);
+    final String avatar = "profiles/" + ProfileTestHelper.generateRandomBase64FromByteArray(16);
 
     validProfile = new VersionedProfile(version, name, avatar, validAboutEmoji, validAbout, null, commitment);
   }
@@ -87,12 +87,12 @@ public class ProfilesTest {
     profiles.deleteAll(ACI);
 
     final String version = "someVersion";
-    final byte[] name = ProfileHelper.generateRandomByteArray(81);
-    final String differentAvatar = "profiles/" + ProfileHelper.generateRandomBase64FromByteArray(16);
-    final byte[] differentEmoji = ProfileHelper.generateRandomByteArray(60);
-    final byte[] differentAbout = ProfileHelper.generateRandomByteArray(156);
-    final byte[] paymentAddress = ProfileHelper.generateRandomByteArray(582);
-    final byte[] commitment = new ProfileKey(ProfileHelper.generateRandomByteArray(32)).getCommitment(new ServiceId.Aci(ACI)).serialize();
+    final byte[] name = ProfileTestHelper.generateRandomByteArray(81);
+    final String differentAvatar = "profiles/" + ProfileTestHelper.generateRandomBase64FromByteArray(16);
+    final byte[] differentEmoji = ProfileTestHelper.generateRandomByteArray(60);
+    final byte[] differentAbout = ProfileTestHelper.generateRandomByteArray(156);
+    final byte[] paymentAddress = ProfileTestHelper.generateRandomByteArray(582);
+    final byte[] commitment = new ProfileKey(ProfileTestHelper.generateRandomByteArray(32)).getCommitment(new ServiceId.Aci(ACI)).serialize();
 
     VersionedProfile updatedProfile = new VersionedProfile(version, name, differentAvatar,
         differentEmoji, differentAbout, paymentAddress, commitment);
@@ -112,8 +112,8 @@ public class ProfilesTest {
   @Test
   void testSetGetNullOptionalFields() throws InvalidInputException {
     final String version = "someVersion";
-    final byte[] name = ProfileHelper.generateRandomByteArray(81);
-    final byte[] commitment = new ProfileKey(ProfileHelper.generateRandomByteArray(32)).getCommitment(new ServiceId.Aci(ACI)).serialize();
+    final byte[] name = ProfileTestHelper.generateRandomByteArray(81);
+    final byte[] commitment = new ProfileKey(ProfileTestHelper.generateRandomByteArray(32)).getCommitment(new ServiceId.Aci(ACI)).serialize();
 
     VersionedProfile profile = new VersionedProfile(version, name, null, null, null, null,
         commitment);
@@ -143,11 +143,11 @@ public class ProfilesTest {
     assertThat(retrieved.get().aboutEmoji()).isEqualTo(validProfile.aboutEmoji());
     assertThat(retrieved.get().paymentAddress()).isNull();
 
-    final byte[] differentName = ProfileHelper.generateRandomByteArray(81);
-    final byte[] differentEmoji = ProfileHelper.generateRandomByteArray(60);
-    final byte[] differentAbout = ProfileHelper.generateRandomByteArray(156);
-    final String differentAvatar = "profiles/" + ProfileHelper.generateRandomBase64FromByteArray(16);
-    final byte[] differentCommitment = new ProfileKey(ProfileHelper.generateRandomByteArray(32)).getCommitment(new ServiceId.Aci(ACI)).serialize();
+    final byte[] differentName = ProfileTestHelper.generateRandomByteArray(81);
+    final byte[] differentEmoji = ProfileTestHelper.generateRandomByteArray(60);
+    final byte[] differentAbout = ProfileTestHelper.generateRandomByteArray(156);
+    final String differentAvatar = "profiles/" + ProfileTestHelper.generateRandomBase64FromByteArray(16);
+    final byte[] differentCommitment = new ProfileKey(ProfileTestHelper.generateRandomByteArray(32)).getCommitment(new ServiceId.Aci(ACI)).serialize();
 
     VersionedProfile updated = new VersionedProfile(validProfile.version(), differentName, differentAvatar, differentEmoji, differentAbout, null,
         differentCommitment);
@@ -170,17 +170,17 @@ public class ProfilesTest {
     final String versionOne = "versionOne";
     final String versionTwo = "versionTwo";
 
-    final byte[] nameOne = ProfileHelper.generateRandomByteArray(81);
-    final byte[] nameTwo = ProfileHelper.generateRandomByteArray(81);
+    final byte[] nameOne = ProfileTestHelper.generateRandomByteArray(81);
+    final byte[] nameTwo = ProfileTestHelper.generateRandomByteArray(81);
 
-    final String avatarOne = "profiles/" + ProfileHelper.generateRandomBase64FromByteArray(16);
-    final String avatarTwo = "profiles/" + ProfileHelper.generateRandomBase64FromByteArray(16);
+    final String avatarOne = "profiles/" + ProfileTestHelper.generateRandomBase64FromByteArray(16);
+    final String avatarTwo = "profiles/" + ProfileTestHelper.generateRandomBase64FromByteArray(16);
 
-    final byte[] aboutEmoji = ProfileHelper.generateRandomByteArray(60);
-    final byte[] about = ProfileHelper.generateRandomByteArray(156);
+    final byte[] aboutEmoji = ProfileTestHelper.generateRandomByteArray(60);
+    final byte[] about = ProfileTestHelper.generateRandomByteArray(156);
 
-    final byte[] commitmentOne = new ProfileKey(ProfileHelper.generateRandomByteArray(32)).getCommitment(new ServiceId.Aci(ACI)).serialize();
-    final byte[] commitmentTwo = new ProfileKey(ProfileHelper.generateRandomByteArray(32)).getCommitment(new ServiceId.Aci(ACI)).serialize();
+    final byte[] commitmentOne = new ProfileKey(ProfileTestHelper.generateRandomByteArray(32)).getCommitment(new ServiceId.Aci(ACI)).serialize();
+    final byte[] commitmentTwo = new ProfileKey(ProfileTestHelper.generateRandomByteArray(32)).getCommitment(new ServiceId.Aci(ACI)).serialize();
 
     VersionedProfile profileOne = new VersionedProfile(versionOne, nameOne, avatarOne, null, null,
         null, commitmentOne);
@@ -223,17 +223,17 @@ public class ProfilesTest {
     final String versionOne = "versionOne";
     final String versionTwo = "versionTwo";
 
-    final byte[] nameOne = ProfileHelper.generateRandomByteArray(81);
-    final byte[] nameTwo = ProfileHelper.generateRandomByteArray(81);
+    final byte[] nameOne = ProfileTestHelper.generateRandomByteArray(81);
+    final byte[] nameTwo = ProfileTestHelper.generateRandomByteArray(81);
 
-    final byte[] aboutEmoji = ProfileHelper.generateRandomByteArray(60);
-    final byte[] about = ProfileHelper.generateRandomByteArray(156);
+    final byte[] aboutEmoji = ProfileTestHelper.generateRandomByteArray(60);
+    final byte[] about = ProfileTestHelper.generateRandomByteArray(156);
 
-    final String avatarOne = "profiles/" + ProfileHelper.generateRandomBase64FromByteArray(16);
-    final String avatarTwo = "profiles/" + ProfileHelper.generateRandomBase64FromByteArray(16);
+    final String avatarOne = "profiles/" + ProfileTestHelper.generateRandomBase64FromByteArray(16);
+    final String avatarTwo = "profiles/" + ProfileTestHelper.generateRandomBase64FromByteArray(16);
 
-    final byte[] commitmentOne = new ProfileKey(ProfileHelper.generateRandomByteArray(32)).getCommitment(new ServiceId.Aci(ACI)).serialize();
-    final byte[] commitmentTwo = new ProfileKey(ProfileHelper.generateRandomByteArray(32)).getCommitment(new ServiceId.Aci(ACI)).serialize();
+    final byte[] commitmentOne = new ProfileKey(ProfileTestHelper.generateRandomByteArray(32)).getCommitment(new ServiceId.Aci(ACI)).serialize();
+    final byte[] commitmentTwo = new ProfileKey(ProfileTestHelper.generateRandomByteArray(32)).getCommitment(new ServiceId.Aci(ACI)).serialize();
 
     VersionedProfile profileOne = new VersionedProfile(versionOne, nameOne, avatarOne, null, null,
         null, commitmentOne);
@@ -261,12 +261,12 @@ public class ProfilesTest {
 
   private static Stream<Arguments> buildUpdateExpression() throws InvalidInputException {
     final String version = "someVersion";
-    final byte[] name = ProfileHelper.generateRandomByteArray(81);
-    final String avatar = "profiles/" + ProfileHelper.generateRandomBase64FromByteArray(16);;
-    final byte[] emoji = ProfileHelper.generateRandomByteArray(60);
-    final byte[] about = ProfileHelper.generateRandomByteArray(156);
-    final byte[] paymentAddress = ProfileHelper.generateRandomByteArray(582);
-    final byte[] commitment = new ProfileKey(ProfileHelper.generateRandomByteArray(32)).getCommitment(new ServiceId.Aci(ACI)).serialize();
+    final byte[] name = ProfileTestHelper.generateRandomByteArray(81);
+    final String avatar = "profiles/" + ProfileTestHelper.generateRandomBase64FromByteArray(16);;
+    final byte[] emoji = ProfileTestHelper.generateRandomByteArray(60);
+    final byte[] about = ProfileTestHelper.generateRandomByteArray(156);
+    final byte[] paymentAddress = ProfileTestHelper.generateRandomByteArray(582);
+    final byte[] commitment = new ProfileKey(ProfileTestHelper.generateRandomByteArray(32)).getCommitment(new ServiceId.Aci(ACI)).serialize();
 
     return Stream.of(
         Arguments.of(
@@ -303,12 +303,12 @@ public class ProfilesTest {
 
   private static Stream<Arguments> buildUpdateExpressionAttributeValues() throws InvalidInputException {
     final String version = "someVersion";
-    final byte[] name = ProfileHelper.generateRandomByteArray(81);
-    final String avatar = "profiles/" + ProfileHelper.generateRandomBase64FromByteArray(16);;
-    final byte[] emoji = ProfileHelper.generateRandomByteArray(60);
-    final byte[] about = ProfileHelper.generateRandomByteArray(156);
-    final byte[] paymentAddress = ProfileHelper.generateRandomByteArray(582);
-    final byte[] commitment = new ProfileKey(ProfileHelper.generateRandomByteArray(32)).getCommitment(new ServiceId.Aci(ACI)).serialize();
+    final byte[] name = ProfileTestHelper.generateRandomByteArray(81);
+    final String avatar = "profiles/" + ProfileTestHelper.generateRandomBase64FromByteArray(16);;
+    final byte[] emoji = ProfileTestHelper.generateRandomByteArray(60);
+    final byte[] about = ProfileTestHelper.generateRandomByteArray(156);
+    final byte[] paymentAddress = ProfileTestHelper.generateRandomByteArray(582);
+    final byte[] commitment = new ProfileKey(ProfileTestHelper.generateRandomByteArray(32)).getCommitment(new ServiceId.Aci(ACI)).serialize();
 
     return Stream.of(
         Arguments.of(

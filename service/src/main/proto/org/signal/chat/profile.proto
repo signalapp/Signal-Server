@@ -253,6 +253,10 @@ message GetExpiringProfileKeyCredentialRequest {
    * The type of credential being requested.
    */
   CredentialType credential_type = 3;
+  /**
+   * The profile version for which to generate a profile key credential.
+   */
+  string version = 4;
 }
 
 message GetExpiringProfileKeyCredentialAnonymousRequest {
@@ -271,7 +275,7 @@ message GetExpiringProfileKeyCredentialResponse {
    * A zkgroup credential used by a client to prove that it has the profile key
    * of a targeted account.
    */
-  bytes profileKeyCredential = 2;
+  bytes profileKeyCredential = 1;
 }
 
 message CheckIdentityKeysRequest {

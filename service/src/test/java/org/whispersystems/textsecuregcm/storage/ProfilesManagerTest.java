@@ -32,7 +32,7 @@ import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.profiles.ProfileKey;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.tests.util.MockRedisFuture;
-import org.whispersystems.textsecuregcm.tests.util.ProfileHelper;
+import org.whispersystems.textsecuregcm.tests.util.ProfileTestHelper;
 import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
 
 @Timeout(value = 10, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
@@ -62,12 +62,12 @@ public class ProfilesManagerTest {
   @Test
   public void testGetProfileInCache() throws InvalidInputException {
     final UUID uuid = UUID.randomUUID();
-    final byte[] name = ProfileHelper.generateRandomByteArray(81);
+    final byte[] name = ProfileTestHelper.generateRandomByteArray(81);
     final byte[] commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(uuid)).serialize();
     when(commands.hget(eq("profiles::" + uuid), eq("someversion"))).thenReturn(String.format(
         "{\"version\": \"someversion\", \"name\": \"%s\", \"avatar\": \"someavatar\", \"commitment\":\"%s\"}",
-        ProfileHelper.encodeToBase64(name),
-        ProfileHelper.encodeToBase64(commitment)));
+        ProfileTestHelper.encodeToBase64(name),
+        ProfileTestHelper.encodeToBase64(commitment)));
 
     Optional<VersionedProfile> profile = profilesManager.get(uuid, "someversion");
 
@@ -84,13 +84,13 @@ public class ProfilesManagerTest {
   @Test
   public void testGetProfileAsyncInCache() throws InvalidInputException {
     final UUID uuid = UUID.randomUUID();
-    final byte[] name = ProfileHelper.generateRandomByteArray(81);
+    final byte[] name = ProfileTestHelper.generateRandomByteArray(81);
     final byte[] commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(uuid)).serialize();
 
     when(asyncCommands.hget(eq("profiles::" + uuid), eq("someversion"))).thenReturn(
         MockRedisFuture.completedFuture(String.format("{\"version\": \"someversion\", \"name\": \"%s\", \"avatar\": \"someavatar\", \"commitment\":\"%s\"}",
-            ProfileHelper.encodeToBase64(name),
-            ProfileHelper.encodeToBase64(commitment))));
+            ProfileTestHelper.encodeToBase64(name),
+            ProfileTestHelper.encodeToBase64(commitment))));
 
     Optional<VersionedProfile> profile = profilesManager.getAsync(uuid, "someversion").join();
 
@@ -107,7 +107,7 @@ public class ProfilesManagerTest {
   @Test
   public void testGetProfileNotInCache() {
     final UUID uuid = UUID.randomUUID();
-    final byte[] name = ProfileHelper.generateRandomByteArray(81);
+    final byte[] name = ProfileTestHelper.generateRandomByteArray(81);
     final VersionedProfile profile = new VersionedProfile("someversion", name, "someavatar", null, null,
         null, "somecommitment".getBytes());
 
@@ -130,7 +130,7 @@ public class ProfilesManagerTest {
   @Test
   public void testGetProfileAsyncNotInCache() {
     final UUID uuid = UUID.randomUUID();
-    final byte[] name = ProfileHelper.generateRandomByteArray(81);
+    final byte[] name = ProfileTestHelper.generateRandomByteArray(81);
     final VersionedProfile profile = new VersionedProfile("someversion", name, "someavatar", null, null,
         null, "somecommitment".getBytes());
 
@@ -154,7 +154,7 @@ public class ProfilesManagerTest {
   @Test
   public void testGetProfileBrokenCache() {
     final UUID uuid = UUID.randomUUID();
-    final byte[] name = ProfileHelper.generateRandomByteArray(81);
+    final byte[] name = ProfileTestHelper.generateRandomByteArray(81);
     final VersionedProfile profile = new VersionedProfile("someversion", name, "someavatar", null, null,
         null, "somecommitment".getBytes());
 
@@ -177,7 +177,7 @@ public class ProfilesManagerTest {
   @Test
   public void testGetProfileAsyncBrokenCache() {
     final UUID uuid = UUID.randomUUID();
-    final byte[] name = ProfileHelper.generateRandomByteArray(81);
+    final byte[] name = ProfileTestHelper.generateRandomByteArray(81);
     final VersionedProfile profile = new VersionedProfile("someversion", name, "someavatar", null, null,
         null, "somecommitment".getBytes());
 
@@ -201,7 +201,7 @@ public class ProfilesManagerTest {
   @Test
   public void testSet() {
     final UUID uuid = UUID.randomUUID();
-    final byte[] name = ProfileHelper.generateRandomByteArray(81);
+    final byte[] name = ProfileTestHelper.generateRandomByteArray(81);
     final VersionedProfile profile = new VersionedProfile("someversion", name, "someavatar", null, null,
         null, "somecommitment".getBytes());
 
@@ -217,7 +217,7 @@ public class ProfilesManagerTest {
   @Test
   public void testSetAsync() {
     final UUID uuid = UUID.randomUUID();
-    final byte[] name = ProfileHelper.generateRandomByteArray(81);
+    final byte[] name = ProfileTestHelper.generateRandomByteArray(81);
     final VersionedProfile profile = new VersionedProfile("someversion", name, "someavatar", null, null,
         null, "somecommitment".getBytes());
 

@@ -1,12 +1,23 @@
 package org.whispersystems.textsecuregcm.util;
 
+import com.google.common.annotations.VisibleForTesting;
+import org.signal.libsignal.protocol.ServiceId;
+import org.signal.libsignal.zkgroup.InvalidInputException;
+import org.signal.libsignal.zkgroup.VerificationFailedException;
+import org.signal.libsignal.zkgroup.profiles.ExpiringProfileKeyCredentialResponse;
+import org.signal.libsignal.zkgroup.profiles.ProfileKeyCommitment;
+import org.signal.libsignal.zkgroup.profiles.ProfileKeyCredentialRequest;
+import org.signal.libsignal.zkgroup.profiles.ServerZkProfileOperations;
 import org.whispersystems.textsecuregcm.configuration.BadgeConfiguration;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.AccountBadge;
+import org.whispersystems.textsecuregcm.storage.VersionedProfile;
 import javax.annotation.Nullable;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.LinkedHashMap;
@@ -16,6 +27,9 @@ import java.util.UUID;
 
 public class ProfileHelper {
   public static int MAX_PROFILE_AVATAR_SIZE_BYTES = 10 * 1024 * 1024;
+  @VisibleForTesting
+  public static final Duration EXPIRING_PROFILE_KEY_CREDENTIAL_EXPIRATION = Duration.ofDays(7);
+
   public static List<AccountBadge> mergeBadgeIdsWithExistingAccountBadges(
       final Clock clock,
       final Map<String, BadgeConfiguration> badgeConfigurationMap,
@@ -69,5 +83,18 @@ public class ProfileHelper {
 
   public static boolean isSelfProfileRequest(@Nullable final UUID requesterUuid, final AciServiceIdentifier targetIdentifier) {
     return targetIdentifier.uuid().equals(requesterUuid);
+  }
+
+  public static ExpiringProfileKeyCredentialResponse getExpiringProfileKeyCredential(
+      final byte[] encodedCredentialRequest,
+      final VersionedProfile profile,
+      final ServiceId.Aci accountIdentifier,
+      final ServerZkProfileOperations zkProfileOperations) throws InvalidInputException, VerificationFailedException {
+    final Instant expiration = Instant.now().plus(EXPIRING_PROFILE_KEY_CREDENTIAL_EXPIRATION).truncatedTo(ChronoUnit.DAYS);
+    final ProfileKeyCommitment commitment = new ProfileKeyCommitment(profile.commitment());
+    final ProfileKeyCredentialRequest request = new ProfileKeyCredentialRequest(
+        encodedCredentialRequest);
+
+    return zkProfileOperations.issueExpiringProfileKeyCredential(request, accountIdentifier, commitment, expiration);
   }
 }
