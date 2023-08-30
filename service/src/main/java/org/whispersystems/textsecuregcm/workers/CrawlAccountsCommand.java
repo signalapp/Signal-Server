@@ -25,7 +25,6 @@ import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
-import org.whispersystems.textsecuregcm.storage.AccountCleaner;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawler;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerCache;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerListener;
@@ -43,7 +42,6 @@ public class CrawlAccountsCommand extends EnvironmentCommand<WhisperServerConfig
 
   public enum CrawlType implements ArgumentType<CrawlType> {
     GENERAL_PURPOSE,
-    ACCOUNT_CLEANER,
     ;
 
     @Override
@@ -121,17 +119,6 @@ public class CrawlAccountsCommand extends EnvironmentCommand<WhisperServerConfig
         yield new AccountDatabaseCrawler("General-purpose account crawler",
             accountsManager,
             accountDatabaseCrawlerCache, accountDatabaseCrawlerListeners,
-            configuration.getAccountDatabaseCrawlerConfiguration().getChunkSize()
-        );
-      }
-      case ACCOUNT_CLEANER -> {
-        final AccountDatabaseCrawlerCache accountDatabaseCrawlerCache = new AccountDatabaseCrawlerCache(
-            cacheCluster, AccountDatabaseCrawlerCache.ACCOUNT_CLEANER_PREFIX);
-
-        yield new AccountDatabaseCrawler("Account cleaner crawler",
-            accountsManager,
-            accountDatabaseCrawlerCache,
-            List.of(new AccountCleaner(accountsManager)),
             configuration.getAccountDatabaseCrawlerConfiguration().getChunkSize()
         );
       }
