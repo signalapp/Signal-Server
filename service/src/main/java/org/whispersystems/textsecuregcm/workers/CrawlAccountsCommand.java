@@ -31,7 +31,6 @@ import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerCache;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerListener;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
-import org.whispersystems.textsecuregcm.storage.NonNormalizedAccountCrawlerListener;
 import org.whispersystems.textsecuregcm.storage.PushFeedbackProcessor;
 import org.whispersystems.textsecuregcm.util.logging.UncaughtExceptionHandler;
 
@@ -112,7 +111,6 @@ public class CrawlAccountsCommand extends EnvironmentCommand<WhisperServerConfig
 
         // TODO listeners must be ordered so that ones that directly update accounts come last, so that read-only ones are not working with stale data
         final List<AccountDatabaseCrawlerListener> accountDatabaseCrawlerListeners = List.of(
-            new NonNormalizedAccountCrawlerListener(accountsManager, metricsCluster),
             // PushFeedbackProcessor may update device properties
             new PushFeedbackProcessor(accountsManager, pushFeedbackUpdateExecutor));
 
