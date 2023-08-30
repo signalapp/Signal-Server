@@ -1125,6 +1125,37 @@ class AccountsManagerTest {
     verifyNoMoreInteractions(keysManager);
   }
 
+
+  @Test
+  void testChangePhoneNumberWithMismatchedPqKeys() throws InterruptedException, MismatchedDevicesException {
+    final String originalNumber = "+14152222222";
+    final String targetNumber = "+14153333333";
+    final UUID existingAccountUuid = UUID.randomUUID();
+    final UUID uuid = UUID.randomUUID();
+    final UUID originalPni = UUID.randomUUID();
+    final UUID targetPni = UUID.randomUUID();
+    final ECKeyPair identityKeyPair = Curve.generateKeyPair();
+    final Map<Long, ECSignedPreKey> newSignedKeys = Map.of(
+        1L, KeysHelper.signedECPreKey(1, identityKeyPair),
+        2L, KeysHelper.signedECPreKey(2, identityKeyPair));
+    final Map<Long, KEMSignedPreKey> newSignedPqKeys = Map.of(
+        1L, KeysHelper.signedKEMPreKey(3, identityKeyPair));
+    final Map<Long, Integer> newRegistrationIds = Map.of(1L, 201, 2L, 202);
+
+    final Account existingAccount = AccountsHelper.generateTestAccount(targetNumber, existingAccountUuid, targetPni, new ArrayList<>(), new byte[16]);
+    when(accounts.getByE164(targetNumber)).thenReturn(Optional.of(existingAccount));
+    when(keysManager.getPqEnabledDevices(uuid)).thenReturn(CompletableFuture.completedFuture(List.of(1L)));
+
+    final List<Device> devices = List.of(DevicesHelper.createDevice(1L, 0L, 101), DevicesHelper.createDevice(2L, 0L, 102));
+    final Account account = AccountsHelper.generateTestAccount(originalNumber, uuid, originalPni, devices, new byte[16]);
+    assertThrows(MismatchedDevicesException.class,
+        () -> accountsManager.changeNumber(
+            account, targetNumber, new IdentityKey(Curve.generateKeyPair().getPublicKey()), newSignedKeys, newSignedPqKeys, newRegistrationIds));
+
+    verifyNoInteractions(accounts);
+    verifyNoInteractions(keysManager);
+  }
+
   @Test
   void testChangePhoneNumberViaUpdate() {
     final String originalNumber = "+14152222222";
@@ -1240,6 +1271,64 @@ class AccountsManagerTest {
 
     // only the pq key for the already-pq-enabled device should be saved
     verify(keysManager).storePqLastResort(eq(oldPni), eq(Map.of(1L, newSignedPqKeys.get(1L))));
+  }
+
+  @Test
+  void testPniUpdate_incompleteKeys() {
+    final String number = "+14152222222";
+
+    List<Device> devices = List.of(DevicesHelper.createDevice(1L, 0L, 101), DevicesHelper.createDevice(2L, 0L, 102));
+    Account account = AccountsHelper.generateTestAccount(number, UUID.randomUUID(), UUID.randomUUID(), devices, new byte[16]);
+    final ECKeyPair identityKeyPair = Curve.generateKeyPair();
+    final Map<Long, ECSignedPreKey> newSignedKeys = Map.of(
+        2L, KeysHelper.signedECPreKey(1, identityKeyPair),
+        3L, KeysHelper.signedECPreKey(2, identityKeyPair));
+    Map<Long, Integer> newRegistrationIds = Map.of(1L, 201, 2L, 202);
+
+    UUID oldUuid = account.getUuid();
+    UUID oldPni = account.getPhoneNumberIdentifier();
+
+    Map<Long, ECSignedPreKey> oldSignedPreKeys = account.getDevices().stream()
+        .collect(Collectors.toMap(Device::getId, d -> d.getSignedPreKey(IdentityType.ACI)));
+
+    final IdentityKey pniIdentityKey = new IdentityKey(Curve.generateKeyPair().getPublicKey());
+
+    assertThrows(MismatchedDevicesException.class,
+        () -> accountsManager.updatePniKeys(account, pniIdentityKey, newSignedKeys, null, newRegistrationIds));
+
+    verifyNoInteractions(accounts);
+    verifyNoInteractions(deletedAccounts);
+    verifyNoInteractions(keysManager);
+  }
+
+  @Test
+  void testPniPqUpdate_incompleteKeys() {
+    final String number = "+14152222222";
+
+    List<Device> devices = List.of(DevicesHelper.createDevice(1L, 0L, 101), DevicesHelper.createDevice(2L, 0L, 102));
+    Account account = AccountsHelper.generateTestAccount(number, UUID.randomUUID(), UUID.randomUUID(), devices, new byte[16]);
+    final ECKeyPair identityKeyPair = Curve.generateKeyPair();
+    final Map<Long, ECSignedPreKey> newSignedKeys = Map.of(
+        1L, KeysHelper.signedECPreKey(1, identityKeyPair),
+        2L, KeysHelper.signedECPreKey(2, identityKeyPair));
+    final Map<Long, KEMSignedPreKey> newSignedPqKeys = Map.of(
+        1L, KeysHelper.signedKEMPreKey(3, identityKeyPair));
+    Map<Long, Integer> newRegistrationIds = Map.of(1L, 201, 2L, 202);
+
+    UUID oldUuid = account.getUuid();
+    UUID oldPni = account.getPhoneNumberIdentifier();
+
+    Map<Long, ECSignedPreKey> oldSignedPreKeys = account.getDevices().stream()
+        .collect(Collectors.toMap(Device::getId, d -> d.getSignedPreKey(IdentityType.ACI)));
+
+    final IdentityKey pniIdentityKey = new IdentityKey(Curve.generateKeyPair().getPublicKey());
+
+    assertThrows(MismatchedDevicesException.class,
+        () -> accountsManager.updatePniKeys(account, pniIdentityKey, newSignedKeys, newSignedPqKeys, newRegistrationIds));
+
+    verifyNoInteractions(accounts);
+    verifyNoInteractions(deletedAccounts);
+    verifyNoInteractions(keysManager);
   }
 
   @Test

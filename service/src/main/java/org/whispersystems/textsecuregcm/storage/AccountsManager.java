@@ -441,7 +441,7 @@ public class AccountsManager {
           pniPqLastResortPreKeys.keySet(),
           Collections.emptySet());
     }
-    
+
     // Check that all devices are accounted for in the map of new PNI registration IDs
     DestinationDeviceValidator.validateCompleteDeviceList(
         account,
