@@ -20,6 +20,8 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -83,9 +85,10 @@ import org.whispersystems.textsecuregcm.entities.BatchIdentityCheckResponse;
 import org.whispersystems.textsecuregcm.entities.CreateProfileRequest;
 import org.whispersystems.textsecuregcm.entities.CredentialProfileResponse;
 import org.whispersystems.textsecuregcm.entities.ExpiringProfileKeyCredentialProfileResponse;
+import org.whispersystems.textsecuregcm.entities.ProfileAvatarUploadAttributes;
 import org.whispersystems.textsecuregcm.entities.UserCapabilities;
 import org.whispersystems.textsecuregcm.entities.VersionedProfileResponse;
-import org.whispersystems.textsecuregcm.grpc.ProfileHelper;
+import org.whispersystems.textsecuregcm.util.ProfileHelper;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
@@ -100,6 +103,7 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.VersionedProfile;
+import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.Util;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
@@ -108,9 +112,7 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 @Path("/v1/profile")
 @Tag(name = "Profile")
 public class ProfileController {
-
   private final Logger logger = LoggerFactory.getLogger(ProfileController.class);
-
   private final Clock clock;
   private final RateLimiters     rateLimiters;
   private final ProfilesManager  profilesManager;
@@ -223,7 +225,7 @@ public class ProfileController {
     });
 
     if (request.getAvatarChange() == CreateProfileRequest.AvatarChange.UPDATE) {
-      return Response.ok(ProfileHelper.generateAvatarUploadForm(policyGenerator, policySigner, avatar)).build();
+      return Response.ok(generateAvatarUploadForm(avatar)).build();
     } else {
       return Response.ok().build();
     }
@@ -245,7 +247,7 @@ public class ProfileController {
 
     return buildVersionedProfileResponse(targetAccount,
         version,
-        isSelfProfileRequest(maybeRequester, accountIdentifier),
+        maybeRequester.map(requester -> ProfileHelper.isSelfProfileRequest(requester.getUuid(), accountIdentifier)).orElse(false),
         containerRequestContext);
   }
 
@@ -268,7 +270,7 @@ public class ProfileController {
 
     final Optional<Account> maybeRequester = auth.map(AuthenticatedAccount::getAccount);
     final Account targetAccount = verifyPermissionToReceiveAccountIdentityProfile(maybeRequester, accessKey, accountIdentifier);
-    final boolean isSelf = isSelfProfileRequest(maybeRequester, accountIdentifier);
+    final boolean isSelf = maybeRequester.map(requester -> ProfileHelper.isSelfProfileRequest(requester.getUuid(), accountIdentifier)).orElse(false);
 
     return buildExpiringProfileKeyCredentialProfileResponse(targetAccount,
         version,
@@ -302,7 +304,7 @@ public class ProfileController {
             verifyPermissionToReceiveAccountIdentityProfile(maybeRequester, accessKey, aciServiceIdentifier);
 
         yield buildBaseProfileResponseForAccountIdentity(targetAccount,
-            isSelfProfileRequest(maybeRequester, aciServiceIdentifier),
+            maybeRequester.map(requester -> ProfileHelper.isSelfProfileRequest(requester.getUuid(), aciServiceIdentifier)).orElse(false),
             containerRequestContext);
       }
       case PNI -> {
@@ -432,7 +434,7 @@ public class ProfileController {
       final ContainerRequestContext containerRequestContext) {
 
     return new BaseProfileResponse(account.getIdentityKey(IdentityType.ACI),
-        UnidentifiedAccessChecksum.generateFor(account.getUnidentifiedAccessKey()),
+        account.getUnidentifiedAccessKey().map(UnidentifiedAccessChecksum::generateFor).orElse(null),
         account.isUnrestrictedUnidentifiedAccess(),
         UserCapabilities.createForAccount(account),
         profileBadgeConverter.convert(
@@ -468,7 +470,7 @@ public class ProfileController {
     }
   }
 
-  private List<Locale> getAcceptableLanguagesForRequest(ContainerRequestContext containerRequestContext) {
+  private List<Locale> getAcceptableLanguagesForRequest(final ContainerRequestContext containerRequestContext) {
     try {
       return containerRequestContext.getAcceptableLanguages();
     } catch (final ProcessingException e) {
@@ -517,8 +519,15 @@ public class ProfileController {
     return maybeTargetAccount.get();
   }
 
-  private boolean isSelfProfileRequest(final Optional<Account> maybeRequester, final AciServiceIdentifier targetIdentifier) {
-    return maybeRequester.map(requester -> requester.getUuid().equals(targetIdentifier.uuid())).orElse(false);
+  private ProfileAvatarUploadAttributes generateAvatarUploadForm(
+      final String objectName) {
+    ZonedDateTime now = ZonedDateTime.now(clock);
+    Pair<String, String> policy = policyGenerator.createFor(now, objectName, ProfileHelper.MAX_PROFILE_AVATAR_SIZE_BYTES);
+    String signature = policySigner.getSignature(now, policy.second());
+
+    return new ProfileAvatarUploadAttributes(objectName, policy.first(),
+        "private", "AWS4-HMAC-SHA256",
+        now.format(PostPolicyGenerator.AWS_DATE_TIME), policy.second(), signature);
   }
 
   @Nullable

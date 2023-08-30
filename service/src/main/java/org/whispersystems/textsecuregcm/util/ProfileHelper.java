@@ -1,24 +1,21 @@
-package org.whispersystems.textsecuregcm.grpc;
+package org.whispersystems.textsecuregcm.util;
 
-import com.google.protobuf.ByteString;
+import org.whispersystems.textsecuregcm.configuration.BadgeConfiguration;
+import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
+import org.whispersystems.textsecuregcm.storage.AccountBadge;
+import javax.annotation.Nullable;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.signal.chat.profile.ProfileAvatarUploadAttributes;
-import org.whispersystems.textsecuregcm.configuration.BadgeConfiguration;
-import org.whispersystems.textsecuregcm.s3.PolicySigner;
-import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
-import org.whispersystems.textsecuregcm.storage.AccountBadge;
-import org.whispersystems.textsecuregcm.util.Pair;
+import java.util.UUID;
 
 public class ProfileHelper {
+  public static int MAX_PROFILE_AVATAR_SIZE_BYTES = 10 * 1024 * 1024;
   public static List<AccountBadge> mergeBadgeIdsWithExistingAccountBadges(
       final Clock clock,
       final Map<String, BadgeConfiguration> badgeConfigurationMap,
@@ -64,41 +61,13 @@ public class ProfileHelper {
   }
 
   public static String generateAvatarObjectName() {
-    byte[] object = new byte[16];
+    final byte[] object = new byte[16];
     new SecureRandom().nextBytes(object);
 
     return "profiles/" + Base64.getUrlEncoder().encodeToString(object);
   }
 
-  public static org.signal.chat.profile.ProfileAvatarUploadAttributes generateAvatarUploadFormGrpc(
-      final PostPolicyGenerator policyGenerator,
-      final PolicySigner policySigner,
-      final String objectName) {
-    final ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
-    final Pair<String, String> policy = policyGenerator.createFor(now, objectName, 10 * 1024 * 1024);
-    final String signature = policySigner.getSignature(now, policy.second());
-
-    return org.signal.chat.profile.ProfileAvatarUploadAttributes.newBuilder()
-        .setPath(objectName)
-        .setCredential(policy.first())
-        .setAcl("private")
-        .setAlgorithm("AWS4-HMAC-SHA256")
-        .setDate(now.format(PostPolicyGenerator.AWS_DATE_TIME))
-        .setPolicy(policy.second())
-        .setSignature(ByteString.copyFrom(signature.getBytes()))
-        .build();
-  }
-
-  public static org.whispersystems.textsecuregcm.entities.ProfileAvatarUploadAttributes generateAvatarUploadForm(
-      final PostPolicyGenerator policyGenerator,
-      final PolicySigner policySigner,
-      final String objectName) {
-    ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
-    Pair<String, String> policy = policyGenerator.createFor(now, objectName, 10 * 1024 * 1024);
-    String signature = policySigner.getSignature(now, policy.second());
-
-    return new org.whispersystems.textsecuregcm.entities.ProfileAvatarUploadAttributes(objectName, policy.first(), "private", "AWS4-HMAC-SHA256",
-        now.format(PostPolicyGenerator.AWS_DATE_TIME), policy.second(), signature);
-
+  public static boolean isSelfProfileRequest(@Nullable final UUID requesterUuid, final AciServiceIdentifier targetIdentifier) {
+    return targetIdentifier.uuid().equals(requesterUuid);
   }
 }

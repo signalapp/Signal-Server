@@ -130,7 +130,7 @@ class ProfileControllerTest {
   private static final PolicySigner policySigner = new PolicySigner("accessSecret", "us-west-1");
   private static final ServerZkProfileOperations zkProfileOperations = mock(ServerZkProfileOperations.class);
 
-  private static final byte[] UNIDENTIFIED_ACCESS_KEY = "test-uak".getBytes(StandardCharsets.UTF_8);
+  private static final byte[] UNIDENTIFIED_ACCESS_KEY = "sixteenbytes1234".getBytes(StandardCharsets.UTF_8);
   private static final IdentityKey ACCOUNT_IDENTITY_KEY = new IdentityKey(Curve.generateKeyPair().getPublicKey());
   private static final IdentityKey ACCOUNT_PHONE_NUMBER_IDENTITY_KEY = new IdentityKey(Curve.generateKeyPair().getPublicKey());
   private static final IdentityKey ACCOUNT_TWO_IDENTITY_KEY = new IdentityKey(Curve.generateKeyPair().getPublicKey());
@@ -200,7 +200,7 @@ class ProfileControllerTest {
     when(profileAccount.isEnabled()).thenReturn(true);
     when(profileAccount.getCurrentProfileVersion()).thenReturn(Optional.empty());
     when(profileAccount.getUsernameHash()).thenReturn(Optional.of(USERNAME_HASH));
-    when(profileAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of("1337".getBytes()));
+    when(profileAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of(UNIDENTIFIED_ACCESS_KEY));
 
     Account capabilitiesAccount = mock(Account.class);
 
@@ -279,7 +279,7 @@ class ProfileControllerTest {
     final BaseProfileResponse profile = resources.getJerseyTest()
         .target("/v1/profile/" + AuthHelper.VALID_UUID_TWO)
         .request()
-        .header(OptionalAccess.UNIDENTIFIED, AuthHelper.getUnidentifiedAccessHeader("1337".getBytes()))
+        .header(OptionalAccess.UNIDENTIFIED, AuthHelper.getUnidentifiedAccessHeader(UNIDENTIFIED_ACCESS_KEY))
         .get(BaseProfileResponse.class);
 
     assertThat(profile.getIdentityKey()).isEqualTo(ACCOUNT_TWO_IDENTITY_KEY);
@@ -306,7 +306,7 @@ class ProfileControllerTest {
     final Response response = resources.getJerseyTest()
         .target("/v1/profile/" + UUID.randomUUID())
         .request()
-        .header(OptionalAccess.UNIDENTIFIED, AuthHelper.getUnidentifiedAccessHeader("1337".getBytes()))
+        .header(OptionalAccess.UNIDENTIFIED, AuthHelper.getUnidentifiedAccessHeader(UNIDENTIFIED_ACCESS_KEY))
         .get();
 
     assertThat(response.getStatus()).isEqualTo(401);
@@ -351,7 +351,7 @@ class ProfileControllerTest {
     final Response response = resources.getJerseyTest()
         .target("/v1/profile/PNI:" + AuthHelper.VALID_PNI_TWO)
         .request()
-        .header(OptionalAccess.UNIDENTIFIED, AuthHelper.getUnidentifiedAccessHeader("1337".getBytes()))
+        .header(OptionalAccess.UNIDENTIFIED, AuthHelper.getUnidentifiedAccessHeader(UNIDENTIFIED_ACCESS_KEY))
         .get();
 
     assertThat(response.getStatus()).isEqualTo(401);
@@ -1054,7 +1054,6 @@ class ProfileControllerTest {
   void testGetProfileWithExpiringProfileKeyCredential(final MultivaluedMap<String, Object> authHeaders)
       throws VerificationFailedException, InvalidInputException {
     final String version = "version";
-    final byte[] unidentifiedAccessKey = "test-uak".getBytes(StandardCharsets.UTF_8);
 
     final ServerSecretParams serverSecretParams = ServerSecretParams.generate();
     final ServerPublicParams serverPublicParams = serverSecretParams.getPublicParams();
@@ -1080,7 +1079,7 @@ class ProfileControllerTest {
     when(account.getUuid()).thenReturn(AuthHelper.VALID_UUID);
     when(account.getCurrentProfileVersion()).thenReturn(Optional.of(version));
     when(account.isEnabled()).thenReturn(true);
-    when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
+    when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(UNIDENTIFIED_ACCESS_KEY));
 
     final Instant expiration = Instant.now().plus(ProfileController.EXPIRING_PROFILE_KEY_CREDENTIAL_EXPIRATION)
         .truncatedTo(ChronoUnit.DAYS);

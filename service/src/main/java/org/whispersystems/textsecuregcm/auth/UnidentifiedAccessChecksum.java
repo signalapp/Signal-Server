@@ -9,23 +9,21 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
-import java.util.Base64;
-import java.util.Optional;
 
-@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class UnidentifiedAccessChecksum {
 
-  public static String generateFor(Optional<byte[]> unidentifiedAccessKey) {
+  public static byte[] generateFor(byte[] unidentifiedAccessKey) {
     try {
-      if (!unidentifiedAccessKey.isPresent()|| unidentifiedAccessKey.get().length != 16) return null;
+      if (unidentifiedAccessKey.length != 16) {
+        throw new IllegalArgumentException("Invalid UAK length: " + unidentifiedAccessKey.length);
+      }
 
       Mac mac = Mac.getInstance("HmacSHA256");
-      mac.init(new SecretKeySpec(unidentifiedAccessKey.get(), "HmacSHA256"));
+      mac.init(new SecretKeySpec(unidentifiedAccessKey, "HmacSHA256"));
 
-      return Base64.getEncoder().encodeToString(mac.doFinal(new byte[32]));
+      return mac.doFinal(new byte[32]);
     } catch (NoSuchAlgorithmException | InvalidKeyException e) {
       throw new AssertionError(e);
     }
   }
-
 }

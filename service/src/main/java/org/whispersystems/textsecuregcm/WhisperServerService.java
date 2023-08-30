@@ -119,9 +119,11 @@ import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.filters.RemoteDeprecationFilter;
 import org.whispersystems.textsecuregcm.filters.RequestStatisticsFilter;
 import org.whispersystems.textsecuregcm.filters.TimestampResponseFilter;
+import org.whispersystems.textsecuregcm.grpc.AcceptLanguageInterceptor;
 import org.whispersystems.textsecuregcm.grpc.GrpcServerManagedWrapper;
 import org.whispersystems.textsecuregcm.grpc.KeysAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.KeysGrpcService;
+import org.whispersystems.textsecuregcm.grpc.ProfileAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ProfileGrpcService;
 import org.whispersystems.textsecuregcm.grpc.UserAgentInterceptor;
 import org.whispersystems.textsecuregcm.limits.CardinalityEstimator;
@@ -646,12 +648,15 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .addService(ServerInterceptors.intercept(new KeysGrpcService(accountsManager, keys, rateLimiters), basicCredentialAuthenticationInterceptor))
         .addService(new KeysAnonymousGrpcService(accountsManager, keys))
         .addService(ServerInterceptors.intercept(new ProfileGrpcService(clock, accountsManager, profilesManager, dynamicConfigurationManager,
-                config.getBadges(), asyncCdnS3Client, profileCdnPolicyGenerator, profileCdnPolicySigner, config.getCdnConfiguration().bucket()), basicCredentialAuthenticationInterceptor));
+                config.getBadges(), asyncCdnS3Client, profileCdnPolicyGenerator, profileCdnPolicySigner, profileBadgeConverter, rateLimiters, config.getCdnConfiguration().bucket()), basicCredentialAuthenticationInterceptor))
+        .addService(new ProfileAnonymousGrpcService(accountsManager, profileBadgeConverter));
 
     RemoteDeprecationFilter remoteDeprecationFilter = new RemoteDeprecationFilter(dynamicConfigurationManager);
     environment.servlets()
         .addFilter("RemoteDeprecationFilter", remoteDeprecationFilter)
         .addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST), false, "/*");
+
+    grpcServer.intercept(new AcceptLanguageInterceptor());
 
     // Note: interceptors run in the reverse order they are added; the remote deprecation filter
     // depends on the user-agent context so it has to come first here!

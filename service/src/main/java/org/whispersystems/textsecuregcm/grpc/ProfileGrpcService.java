@@ -2,15 +2,21 @@ package org.whispersystems.textsecuregcm.grpc;
 
 import com.google.protobuf.ByteString;
 import io.grpc.Status;
+import org.signal.chat.profile.GetUnversionedProfileRequest;
+import org.signal.chat.profile.GetUnversionedProfileResponse;
 import org.signal.chat.profile.SetProfileRequest.AvatarChange;
 import org.signal.chat.profile.ProfileAvatarUploadAttributes;
 import org.signal.chat.profile.ReactorProfileGrpc;
 import org.signal.chat.profile.SetProfileRequest;
 import org.signal.chat.profile.SetProfileResponse;
+import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticationUtil;
+import org.whispersystems.textsecuregcm.badges.ProfileBadgeConverter;
 import org.whispersystems.textsecuregcm.configuration.BadgeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
+import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -19,29 +25,34 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.VersionedProfile;
+import org.whispersystems.textsecuregcm.util.Pair;
+import org.whispersystems.textsecuregcm.util.ProfileHelper;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import java.time.Clock;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class ProfileGrpcService extends ReactorProfileGrpc.ProfileImplBase {
-  private final Clock clock;
 
-  private final ProfilesManager  profilesManager;
+  private final Clock clock;
   private final AccountsManager accountsManager;
+  private final ProfilesManager  profilesManager;
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private final Map<String, BadgeConfiguration> badgeConfigurationMap;
-  private final PolicySigner policySigner;
-  private final PostPolicyGenerator policyGenerator;
-
   private final S3AsyncClient asyncS3client;
+  private final PostPolicyGenerator policyGenerator;
+  private final PolicySigner policySigner;
+  private final ProfileBadgeConverter profileBadgeConverter;
+  private final RateLimiters rateLimiters;
   private final String bucket;
 
   private record AvatarData(Optional<String> currentAvatar,
@@ -49,29 +60,38 @@ public class ProfileGrpcService extends ReactorProfileGrpc.ProfileImplBase {
                             Optional<ProfileAvatarUploadAttributes> uploadAttributes) {}
 
   public ProfileGrpcService(
-      Clock clock,
-      AccountsManager accountsManager,
-      ProfilesManager profilesManager,
-      DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
-      BadgesConfiguration badgesConfiguration,
-      S3AsyncClient asyncS3client,
-      PostPolicyGenerator policyGenerator,
-      PolicySigner policySigner,
-      String bucket) {
+      final Clock clock,
+      final AccountsManager accountsManager,
+      final ProfilesManager profilesManager,
+      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
+      final BadgesConfiguration badgesConfiguration,
+      final S3AsyncClient asyncS3client,
+      final PostPolicyGenerator policyGenerator,
+      final PolicySigner policySigner,
+      final ProfileBadgeConverter profileBadgeConverter,
+      final RateLimiters rateLimiters,
+      final String bucket) {
     this.clock = clock;
     this.accountsManager = accountsManager;
     this.profilesManager = profilesManager;
     this.dynamicConfigurationManager = dynamicConfigurationManager;
     this.badgeConfigurationMap = badgesConfiguration.getBadges().stream().collect(Collectors.toMap(
         BadgeConfiguration::getId, Function.identity()));
-    this.bucket = bucket;
     this.asyncS3client  = asyncS3client;
     this.policyGenerator = policyGenerator;
     this.policySigner = policySigner;
+    this.profileBadgeConverter = profileBadgeConverter;
+    this.rateLimiters = rateLimiters;
+    this.bucket = bucket;
   }
 
   @Override
-  public Mono<SetProfileResponse> setProfile(SetProfileRequest request) {
+  protected Throwable onErrorMap(final Throwable throwable) {
+    return RateLimitUtil.mapRateLimitExceededException(throwable);
+  }
+
+  @Override
+  public Mono<SetProfileResponse> setProfile(final SetProfileRequest request) {
     validateRequest(request);
     return Mono.fromSupplier(AuthenticationUtil::requireAuthenticatedDevice)
         .flatMap(authenticatedDevice -> Mono.zip(
@@ -99,7 +119,7 @@ public class ProfileGrpcService extends ReactorProfileGrpc.ProfileImplBase {
             case AVATAR_CHANGE_UPDATE -> {
               final String updateAvatarObjectName = ProfileHelper.generateAvatarObjectName();
               yield new AvatarData(currentAvatar, Optional.of(updateAvatarObjectName),
-                  Optional.of(ProfileHelper.generateAvatarUploadFormGrpc(policyGenerator, policySigner, updateAvatarObjectName)));
+                  Optional.of(generateAvatarUploadForm(updateAvatarObjectName)));
             }
           };
 
@@ -137,7 +157,27 @@ public class ProfileGrpcService extends ReactorProfileGrpc.ProfileImplBase {
         );
   }
 
-  private void validateRequest(SetProfileRequest request) {
+  @Override
+  public Mono<GetUnversionedProfileResponse> getUnversionedProfile(final GetUnversionedProfileRequest request) {
+    final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
+    final ServiceIdentifier targetIdentifier =
+        ServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getServiceIdentifier());
+    return validateRateLimitAndGetAccount(authenticatedDevice.accountIdentifier(), targetIdentifier)
+        .map(targetAccount -> ProfileGrpcHelper.buildUnversionedProfileResponse(targetIdentifier,
+            authenticatedDevice.accountIdentifier(),
+            targetAccount,
+            profileBadgeConverter));
+  }
+
+  private Mono<Account> validateRateLimitAndGetAccount(final UUID requesterUuid,
+      final ServiceIdentifier targetIdentifier) {
+    return rateLimiters.getProfileLimiter().validateReactive(requesterUuid)
+        .then(Mono.fromFuture(() -> accountsManager.getByServiceIdentifierAsync(targetIdentifier))
+            .flatMap(Mono::justOrEmpty))
+        .switchIfEmpty(Mono.error(Status.NOT_FOUND.asException()));
+  }
+
+  private void validateRequest(final SetProfileRequest request) {
     if (request.getVersion().isEmpty()) {
       throw Status.INVALID_ARGUMENT.withDescription("Missing version").asRuntimeException();
     }
@@ -162,5 +202,21 @@ public class ProfileGrpcService extends ReactorProfileGrpc.ProfileImplBase {
     }
 
     throw Status.INVALID_ARGUMENT.withDescription(errorMessage).asRuntimeException();
+  }
+
+  private ProfileAvatarUploadAttributes generateAvatarUploadForm(final String objectName) {
+    final ZonedDateTime now = ZonedDateTime.now(clock);
+    final Pair<String, String> policy = policyGenerator.createFor(now, objectName, ProfileHelper.MAX_PROFILE_AVATAR_SIZE_BYTES);
+    final String signature = policySigner.getSignature(now, policy.second());
+
+    return ProfileAvatarUploadAttributes.newBuilder()
+        .setPath(objectName)
+        .setCredential(policy.first())
+        .setAcl("private")
+        .setAlgorithm("AWS4-HMAC-SHA256")
+        .setDate(now.format(PostPolicyGenerator.AWS_DATE_TIME))
+        .setPolicy(policy.second())
+        .setSignature(ByteString.copyFrom(signature.getBytes()))
+        .build();
   }
 }
