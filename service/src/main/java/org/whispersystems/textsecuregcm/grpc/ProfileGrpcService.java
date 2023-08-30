@@ -4,6 +4,8 @@ import com.google.protobuf.ByteString;
 import io.grpc.Status;
 import org.signal.chat.profile.GetUnversionedProfileRequest;
 import org.signal.chat.profile.GetUnversionedProfileResponse;
+import org.signal.chat.profile.GetVersionedProfileRequest;
+import org.signal.chat.profile.GetVersionedProfileResponse;
 import org.signal.chat.profile.SetProfileRequest.AvatarChange;
 import org.signal.chat.profile.ProfileAvatarUploadAttributes;
 import org.signal.chat.profile.ReactorProfileGrpc;
@@ -15,6 +17,7 @@ import org.whispersystems.textsecuregcm.badges.ProfileBadgeConverter;
 import org.whispersystems.textsecuregcm.configuration.BadgeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.s3.PolicySigner;
@@ -167,6 +170,20 @@ public class ProfileGrpcService extends ReactorProfileGrpc.ProfileImplBase {
             authenticatedDevice.accountIdentifier(),
             targetAccount,
             profileBadgeConverter));
+  }
+
+  @Override
+  public Mono<GetVersionedProfileResponse> getVersionedProfile(final GetVersionedProfileRequest request) {
+    final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
+    final ServiceIdentifier targetIdentifier =
+        ServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getAccountIdentifier());
+
+    if (targetIdentifier.identityType() != IdentityType.ACI) {
+      throw Status.INVALID_ARGUMENT.withDescription("Expected ACI service identifier").asRuntimeException();
+    }
+
+    return validateRateLimitAndGetAccount(authenticatedDevice.accountIdentifier(), targetIdentifier)
+        .flatMap(account -> ProfileGrpcHelper.getVersionedProfile(account, profilesManager, request.getVersion()));
   }
 
   private Mono<Account> validateRateLimitAndGetAccount(final UUID requesterUuid,

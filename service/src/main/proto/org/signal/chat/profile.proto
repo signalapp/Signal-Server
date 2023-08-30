@@ -162,7 +162,7 @@ message GetVersionedProfileRequest {
   /**
    * The profile version to retrieve.
    */
-  bytes version = 2;
+  string version = 2;
 }
 
 message GetVersionedProfileAnonymousRequest {

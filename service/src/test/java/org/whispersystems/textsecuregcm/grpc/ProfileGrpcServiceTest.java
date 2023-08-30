@@ -21,6 +21,8 @@ import org.signal.chat.common.IdentityType;
 import org.signal.chat.common.ServiceIdentifier;
 import org.signal.chat.profile.GetUnversionedProfileRequest;
 import org.signal.chat.profile.GetUnversionedProfileResponse;
+import org.signal.chat.profile.GetVersionedProfileRequest;
+import org.signal.chat.profile.GetVersionedProfileResponse;
 import org.signal.chat.profile.SetProfileRequest.AvatarChange;
 import org.signal.chat.profile.ProfileGrpc;
 import org.signal.chat.profile.SetProfileRequest;
@@ -55,10 +57,12 @@ import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.VersionedProfile;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
+import org.whispersystems.textsecuregcm.tests.util.ProfileHelper;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import reactor.core.publisher.Mono;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import javax.annotation.Nullable;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
@@ -140,6 +144,7 @@ public class ProfileGrpcServiceTest {
         PhoneNumberUtil.PhoneNumberFormat.E164);
     final Metadata metadata = new Metadata();
     metadata.put(AcceptLanguageInterceptor.ACCEPTABLE_LANGUAGES_GRPC_HEADER, "en-us");
+    metadata.put(UserAgentInterceptor.USER_AGENT_GRPC_HEADER, "Signal-Android/1.2.3");
 
     profileBlockingStub = ProfileGrpc.newBlockingStub(GRPC_SERVER_EXTENSION.getChannel())
         .withInterceptors(MetadataUtils.newAttachHeadersInterceptor(metadata));
@@ -471,5 +476,122 @@ public class ProfileGrpcServiceTest {
     assertEquals(retryAfterDuration, exception.getTrailers().get(RateLimitUtil.RETRY_AFTER_DURATION_KEY));
 
     verifyNoInteractions(accountsManager);
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void getVersionedProfile(final String requestVersion, @Nullable final String accountVersion, final boolean expectResponseHasPaymentAddress) {
+    final VersionedProfile profile = mock(VersionedProfile.class);
+    final byte[] name = ProfileHelper.generateRandomByteArray(81);
+    final byte[] emoji = ProfileHelper.generateRandomByteArray(60);
+    final byte[] about = ProfileHelper.generateRandomByteArray(156);
+    final byte[] paymentAddress = ProfileHelper.generateRandomByteArray(582);
+    final String avatar = "profiles/" + ProfileHelper.generateRandomBase64FromByteArray(16);
+
+    final GetVersionedProfileRequest request = GetVersionedProfileRequest.newBuilder()
+        .setAccountIdentifier(ServiceIdentifier.newBuilder()
+            .setIdentityType(IdentityType.IDENTITY_TYPE_ACI)
+            .setUuid(ByteString.copyFrom(UUIDUtil.toBytes(UUID.randomUUID())))
+            .build())
+        .setVersion(requestVersion)
+        .build();
+
+    when(profile.name()).thenReturn(name);
+    when(profile.about()).thenReturn(about);
+    when(profile.aboutEmoji()).thenReturn(emoji);
+    when(profile.avatar()).thenReturn(avatar);
+    when(profile.paymentAddress()).thenReturn(paymentAddress);
+
+    when(account.getCurrentProfileVersion()).thenReturn(Optional.ofNullable(accountVersion));
+    when(accountsManager.getByServiceIdentifierAsync(any())).thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+    when(profilesManager.getAsync(any(), any())).thenReturn(CompletableFuture.completedFuture(Optional.of(profile)));
+
+    final GetVersionedProfileResponse response = profileBlockingStub.getVersionedProfile(request);
+
+    final GetVersionedProfileResponse.Builder expectedResponseBuilder = GetVersionedProfileResponse.newBuilder()
+        .setName(ByteString.copyFrom(name))
+        .setAbout(ByteString.copyFrom(about))
+        .setAboutEmoji(ByteString.copyFrom(emoji))
+        .setAvatar(avatar);
+
+    if (expectResponseHasPaymentAddress) {
+      expectedResponseBuilder.setPaymentAddress(ByteString.copyFrom(paymentAddress));
+    }
+
+    assertEquals(expectedResponseBuilder.build(), response);
+  }
+
+  private static Stream<Arguments> getVersionedProfile() {
+    return Stream.of(
+        Arguments.of("version1", "version1", true),
+        Arguments.of("version1", null, true),
+        Arguments.of("version1", "version2", false)
+    );
+  }
+  @ParameterizedTest
+  @MethodSource
+  void getVersionedProfileAccountOrProfileNotFound(final boolean missingAccount, final boolean missingProfile) {
+    final GetVersionedProfileRequest request = GetVersionedProfileRequest.newBuilder()
+        .setAccountIdentifier(ServiceIdentifier.newBuilder()
+            .setIdentityType(IdentityType.IDENTITY_TYPE_ACI)
+            .setUuid(ByteString.copyFrom(UUIDUtil.toBytes(UUID.randomUUID())))
+            .build())
+        .setVersion("versionWithNoProfile")
+        .build();
+    when(accountsManager.getByServiceIdentifierAsync(any())).thenReturn(CompletableFuture.completedFuture(missingAccount ? Optional.empty() : Optional.of(account)));
+    when(profilesManager.getAsync(any(), any())).thenReturn(CompletableFuture.completedFuture(missingProfile ? Optional.empty() : Optional.of(profile)));
+
+    final StatusRuntimeException statusRuntimeException = assertThrows(StatusRuntimeException.class,
+        () -> profileBlockingStub.getVersionedProfile(request));
+
+    assertEquals(Status.NOT_FOUND.getCode(), statusRuntimeException.getStatus().getCode());
+  }
+
+  private static Stream<Arguments> getVersionedProfileAccountOrProfileNotFound() {
+    return Stream.of(
+        Arguments.of(true, false),
+        Arguments.of(false, true)
+    );
+  }
+
+  @Test
+  void getVersionedProfileRatelimited() {
+    final Duration retryAfterDuration = Duration.ofMinutes(7);
+
+    when(rateLimiter.validateReactive(any(UUID.class)))
+        .thenReturn(Mono.error(new RateLimitExceededException(retryAfterDuration, false)));
+
+    final GetVersionedProfileRequest request = GetVersionedProfileRequest.newBuilder()
+        .setAccountIdentifier(ServiceIdentifier.newBuilder()
+            .setIdentityType(IdentityType.IDENTITY_TYPE_ACI)
+            .setUuid(ByteString.copyFrom(UUIDUtil.toBytes(UUID.randomUUID())))
+            .build())
+        .setVersion("someVersion")
+        .build();
+
+    final StatusRuntimeException exception = assertThrows(StatusRuntimeException.class,
+        () -> profileBlockingStub.getVersionedProfile(request));
+
+    assertEquals(Status.Code.RESOURCE_EXHAUSTED, exception.getStatus().getCode());
+    assertNotNull(exception.getTrailers());
+    assertEquals(retryAfterDuration, exception.getTrailers().get(RateLimitUtil.RETRY_AFTER_DURATION_KEY));
+
+    verifyNoInteractions(accountsManager);
+    verifyNoInteractions(profilesManager);
+  }
+
+  @Test
+  void getVersionedProfilePniInvalidArgument() {
+    final GetVersionedProfileRequest request = GetVersionedProfileRequest.newBuilder()
+        .setAccountIdentifier(ServiceIdentifier.newBuilder()
+            .setIdentityType(IdentityType.IDENTITY_TYPE_PNI)
+            .setUuid(ByteString.copyFrom(UUIDUtil.toBytes(UUID.randomUUID())))
+            .build())
+        .setVersion("someVersion")
+        .build();
+
+    final StatusRuntimeException exception = assertThrows(StatusRuntimeException.class,
+        () -> profileBlockingStub.getVersionedProfile(request));
+    assertEquals(Status.INVALID_ARGUMENT.getCode(), exception.getStatus().getCode());
   }
 }

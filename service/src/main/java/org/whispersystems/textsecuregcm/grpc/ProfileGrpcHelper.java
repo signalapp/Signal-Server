@@ -5,18 +5,51 @@ import com.google.protobuf.ByteString;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import io.grpc.Status;
 import org.signal.chat.profile.Badge;
 import org.signal.chat.profile.BadgeSvg;
 import org.signal.chat.profile.GetUnversionedProfileResponse;
+import org.signal.chat.profile.GetVersionedProfileResponse;
 import org.signal.chat.profile.UserCapabilities;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessChecksum;
 import org.whispersystems.textsecuregcm.badges.ProfileBadgeConverter;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.ProfilesManager;
+import org.whispersystems.textsecuregcm.storage.VersionedProfile;
 import org.whispersystems.textsecuregcm.util.ProfileHelper;
+import reactor.core.publisher.Mono;
 
 public class ProfileGrpcHelper {
+  static Mono<GetVersionedProfileResponse> getVersionedProfile(final Account account,
+      final ProfilesManager profilesManager,
+      final String requestVersion) {
+    return Mono.fromFuture(() -> profilesManager.getAsync(account.getUuid(), requestVersion))
+        .map(maybeProfile -> {
+          if (maybeProfile.isEmpty()) {
+            throw Status.NOT_FOUND.withDescription("Profile version not found").asRuntimeException();
+          }
+
+          final GetVersionedProfileResponse.Builder responseBuilder = GetVersionedProfileResponse.newBuilder();
+
+          maybeProfile.map(VersionedProfile::name).map(ByteString::copyFrom).ifPresent(responseBuilder::setName);
+          maybeProfile.map(VersionedProfile::about).map(ByteString::copyFrom).ifPresent(responseBuilder::setAbout);
+          maybeProfile.map(VersionedProfile::aboutEmoji).map(ByteString::copyFrom).ifPresent(responseBuilder::setAboutEmoji);
+          maybeProfile.map(VersionedProfile::avatar).ifPresent(responseBuilder::setAvatar);
+
+          // Allow requests where either the version matches the latest version on Account or the latest version on Account
+          // is empty to read the payment address.
+          maybeProfile
+              .filter(p -> account.getCurrentProfileVersion().map(v -> v.equals(requestVersion)).orElse(true))
+              .map(VersionedProfile::paymentAddress)
+              .map(ByteString::copyFrom)
+              .ifPresent(responseBuilder::setPaymentAddress);
+
+          return responseBuilder.build();
+        });
+  }
+
   @VisibleForTesting
   static List<Badge> buildBadges(final List<org.whispersystems.textsecuregcm.entities.Badge> badges) {
     final ArrayList<Badge> grpcBadges = new ArrayList<>();
