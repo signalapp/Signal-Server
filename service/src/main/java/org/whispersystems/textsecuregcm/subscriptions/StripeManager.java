@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.subscriptions;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import com.stripe.StripeClient;
+import com.stripe.exception.CardException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Charge;
 import com.stripe.model.Customer;
@@ -268,6 +269,18 @@ public class StripeManager implements SubscriptionProcessorManager {
                 .create(params, commonOptions(generateIdempotencyKeyForCreateSubscription(
                 customerId, lastSubscriptionCreatedAt)));
           } catch (StripeException e) {
+
+            if (e instanceof CardException ce) {
+              throw new CompletionException(new SubscriptionProcessorException(getProcessor(),
+                  new ChargeFailure(
+                      StringUtils.defaultIfBlank(ce.getDeclineCode(), ce.getCode()),
+                      e.getStripeError().getMessage(),
+                      null,
+                      null,
+                      null
+                  )));
+            }
+
             throw new CompletionException(e);
           }
         }, executor)

@@ -49,6 +49,8 @@ public class BraintreeManager implements SubscriptionProcessorManager {
 
   private static final Logger logger = LoggerFactory.getLogger(BraintreeManager.class);
 
+  private static final String GENERIC_DECLINED_PROCESSOR_CODE = "2046";
+  private static final String PAYPAL_FUNDING_INSTRUMENT_DECLINED_PROCESSOR_CODE = "2074";
   private static final String PAYPAL_PAYMENT_ALREADY_COMPLETED_PROCESSOR_CODE = "2094";
   private final BraintreeGateway braintreeGateway;
   private final BraintreeGraphqlClient braintreeGraphqlClient;
@@ -184,11 +186,18 @@ public class BraintreeManager implements SubscriptionProcessorManager {
                     new PayPalChargeSuccessDetails(successfulTx.getGraphQLId()));
               }
 
-              logger.info("PayPal charge unexpectedly failed: {}", unsuccessfulTx.getProcessorResponseCode());
+              return switch (unsuccessfulTx.getProcessorResponseCode()) {
+                case GENERIC_DECLINED_PROCESSOR_CODE, PAYPAL_FUNDING_INSTRUMENT_DECLINED_PROCESSOR_CODE ->
+                    CompletableFuture.failedFuture(
+                        new SubscriptionProcessorException(getProcessor(), createChargeFailure(unsuccessfulTx)));
 
-              return CompletableFuture.failedFuture(
-                  new WebApplicationException(Response.Status.INTERNAL_SERVER_ERROR));
+                default -> {
+                  logger.info("PayPal charge unexpectedly failed: {}", unsuccessfulTx.getProcessorResponseCode());
 
+                  yield CompletableFuture.failedFuture(
+                      new WebApplicationException(Response.Status.INTERNAL_SERVER_ERROR));
+                }
+              };
             }, executor));
   }
 
@@ -240,12 +249,6 @@ public class BraintreeManager implements SubscriptionProcessorManager {
 
   }
 
-  private void assertResultSuccess(Result<?> result) throws CompletionException {
-    if (!result.isSuccess()) {
-      throw new CompletionException(new BraintreeException(result.getMessage()));
-    }
-  }
-
   @Override
   public CompletableFuture<ProcessorCustomer> createCustomer(final byte[] subscriberUser) {
     return CompletableFuture.supplyAsync(() -> {
@@ -258,7 +261,9 @@ public class BraintreeManager implements SubscriptionProcessorManager {
           }
         }, executor)
         .thenApply(result -> {
-          assertResultSuccess(result);
+          if (!result.isSuccess()) {
+            throw new CompletionException(new BraintreeException(result.getMessage()));
+          }
 
           return new ProcessorCustomer(result.getTarget().getId(), SubscriptionProcessor.BRAINTREE);
         });
@@ -336,7 +341,19 @@ public class BraintreeManager implements SubscriptionProcessorManager {
                     .done()
                 );
 
-                assertResultSuccess(result);
+                if (!result.isSuccess()) {
+                  final CompletionException completionException;
+                  if (result.getTarget() != null) {
+                    completionException = result.getTarget().getTransactions().stream().findFirst()
+                        .map(transaction -> new CompletionException(
+                            new SubscriptionProcessorException(getProcessor(), createChargeFailure(transaction))))
+                        .orElseGet(() -> new CompletionException(new BraintreeException(result.getMessage())));
+                  } else {
+                    completionException = new CompletionException(new BraintreeException(result.getMessage()));
+                  }
+
+                  throw completionException;
+                }
 
                 return result.getTarget();
               }));
@@ -358,7 +375,7 @@ public class BraintreeManager implements SubscriptionProcessorManager {
     }
 
     // since badge redemption is untrackable by design and unrevokable, subscription changes must be immediate and
-    // and not prorated. Braintree subscriptions cannot change their next billing date,
+    // not prorated. Braintree subscriptions cannot change their next billing date,
     // so we must end the existing one and create a new one
     return cancelSubscriptionAtEndOfCurrentPeriod(subscription)
         .thenCompose(ignored -> {
@@ -413,36 +430,12 @@ public class BraintreeManager implements SubscriptionProcessorManager {
       final Instant anchor = subscription.getFirstBillingDate().toInstant();
       final Instant endOfCurrentPeriod = subscription.getBillingPeriodEndDate().toInstant();
 
-      final Optional<Transaction> maybeTransaction = getLatestTransactionForSubscription(subscription);
-
-      final ChargeFailure chargeFailure = maybeTransaction.map(transaction -> {
-
+      final ChargeFailure chargeFailure = getLatestTransactionForSubscription(subscription).map(transaction -> {
         if (getPaymentStatus(transaction.getStatus()).equals(PaymentStatus.SUCCEEDED)) {
           return null;
         }
-
-        final String code;
-        final String message;
-        if (transaction.getProcessorResponseCode() != null) {
-          code = transaction.getProcessorResponseCode();
-          message = transaction.getProcessorResponseText();
-        } else if (transaction.getGatewayRejectionReason() != null) {
-          code = "gateway";
-          message = transaction.getGatewayRejectionReason().toString();
-        } else {
-          code = "unknown";
-          message = "unknown";
-        }
-
-        return new ChargeFailure(
-                code,
-                message,
-                null,
-                null,
-                null);
-
+        return createChargeFailure(transaction);
       }).orElse(null);
-
 
       return new SubscriptionInformation(
           new SubscriptionPrice(plan.getCurrencyIsoCode().toUpperCase(Locale.ROOT),
@@ -456,6 +449,29 @@ public class BraintreeManager implements SubscriptionProcessorManager {
           chargeFailure
       );
     }, executor);
+  }
+
+  private ChargeFailure createChargeFailure(Transaction transaction) {
+
+    final String code;
+    final String message;
+    if (transaction.getProcessorResponseCode() != null) {
+      code = transaction.getProcessorResponseCode();
+      message = transaction.getProcessorResponseText();
+    } else if (transaction.getGatewayRejectionReason() != null) {
+      code = "gateway";
+      message = transaction.getGatewayRejectionReason().toString();
+    } else {
+      code = "unknown";
+      message = "unknown";
+    }
+
+    return new ChargeFailure(
+        code,
+        message,
+        null,
+        null,
+        null);
   }
 
   @Override

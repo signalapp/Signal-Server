@@ -140,6 +140,7 @@ import org.whispersystems.textsecuregcm.mappers.NonNormalizedPhoneNumberExceptio
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RegistrationServiceSenderExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.ServerRejectedExceptionMapper;
+import org.whispersystems.textsecuregcm.mappers.SubscriptionProcessorExceptionMapper;
 import org.whispersystems.textsecuregcm.metrics.MetricsApplicationEventListener;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.ReportedMessageMetricsListener;
@@ -858,6 +859,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new ImpossiblePhoneNumberExceptionMapper(),
         new NonNormalizedPhoneNumberExceptionMapper(),
         new RegistrationServiceSenderExceptionMapper(),
+        new SubscriptionProcessorExceptionMapper(),
         new JsonMappingExceptionMapper()
     ).forEach(exceptionMapper -> {
       environment.jersey().register(exceptionMapper);

@@ -155,11 +155,6 @@ public interface SubscriptionProcessorManager {
 
   }
 
-  record ChargeFailure(String code, String message, @Nullable String outcomeNetworkStatus,
-                       @Nullable String outcomeReason, @Nullable String outcomeType) {
-
-  }
-
   record ReceiptItem(String itemId, Instant expiration, long level) {
 
   }

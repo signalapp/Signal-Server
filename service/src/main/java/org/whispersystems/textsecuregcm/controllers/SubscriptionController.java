@@ -89,6 +89,7 @@ import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager.GetResult;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
+import org.whispersystems.textsecuregcm.subscriptions.ChargeFailure;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
@@ -1078,48 +1079,6 @@ public class SubscriptionController {
       }
     }
 
-    public static class ChargeFailure {
-      private final String code;
-      private final String message;
-      private final String outcomeNetworkStatus;
-      private final String outcomeReason;
-      private final String outcomeType;
-
-      @JsonCreator
-      public ChargeFailure(
-          @JsonProperty("code") String code,
-          @JsonProperty("message") String message,
-          @JsonProperty("outcomeNetworkStatus") String outcomeNetworkStatus,
-          @JsonProperty("outcomeReason") String outcomeReason,
-          @JsonProperty("outcomeType") String outcomeType) {
-        this.code = code;
-        this.message = message;
-        this.outcomeNetworkStatus = outcomeNetworkStatus;
-        this.outcomeReason = outcomeReason;
-        this.outcomeType = outcomeType;
-      }
-
-      public String getCode() {
-        return code;
-      }
-
-      public String getMessage() {
-        return message;
-      }
-
-      public String getOutcomeNetworkStatus() {
-        return outcomeNetworkStatus;
-      }
-
-      public String getOutcomeReason() {
-        return outcomeReason;
-      }
-
-      public String getOutcomeType() {
-        return outcomeType;
-      }
-    }
-
     private final Subscription subscription;
     private final ChargeFailure chargeFailure;
 
@@ -1158,31 +1117,20 @@ public class SubscriptionController {
             final SubscriptionProcessorManager manager = getManagerForProcessor(record.getProcessorCustomer().orElseThrow().processor());
 
             return manager.getSubscription(record.subscriptionId).thenCompose(subscription ->
-                    manager.getSubscriptionInformation(subscription).thenApply(subscriptionInformation -> {
-                        final GetSubscriptionInformationResponse.ChargeFailure chargeFailure = Optional.ofNullable(subscriptionInformation.chargeFailure())
-                                .map(chargeFailure1 -> new GetSubscriptionInformationResponse.ChargeFailure(
-                                        subscriptionInformation.chargeFailure().code(),
-                                        subscriptionInformation.chargeFailure().message(),
-                                        subscriptionInformation.chargeFailure().outcomeNetworkStatus(),
-                                        subscriptionInformation.chargeFailure().outcomeReason(),
-                                        subscriptionInformation.chargeFailure().outcomeType()
-                                ))
-                                .orElse(null);
-                        return Response.ok(
-                                new GetSubscriptionInformationResponse(
-                                    new GetSubscriptionInformationResponse.Subscription(
-                                        subscriptionInformation.level(),
-                                        subscriptionInformation.billingCycleAnchor(),
-                                        subscriptionInformation.endOfCurrentPeriod(),
-                                        subscriptionInformation.active(),
-                                        subscriptionInformation.cancelAtPeriodEnd(),
-                                        subscriptionInformation.price().currency(),
-                                        subscriptionInformation.price().amount(),
-                                        subscriptionInformation.status().getApiValue(),
-                                        manager.getProcessor()),
-                                    chargeFailure
-                                )).build();
-                    }));
+                manager.getSubscriptionInformation(subscription).thenApply(subscriptionInformation -> Response.ok(
+                    new GetSubscriptionInformationResponse(
+                        new GetSubscriptionInformationResponse.Subscription(
+                            subscriptionInformation.level(),
+                            subscriptionInformation.billingCycleAnchor(),
+                            subscriptionInformation.endOfCurrentPeriod(),
+                            subscriptionInformation.active(),
+                            subscriptionInformation.cancelAtPeriodEnd(),
+                            subscriptionInformation.price().currency(),
+                            subscriptionInformation.price().amount(),
+                            subscriptionInformation.status().getApiValue(),
+                            manager.getProcessor()),
+                        subscriptionInformation.chargeFailure()
+                    )).build()));
         });
   }
 

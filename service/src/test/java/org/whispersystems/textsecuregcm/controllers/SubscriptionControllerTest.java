@@ -42,6 +42,7 @@ import java.util.function.Predicate;
 import java.util.stream.Stream;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.Response;
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.glassfish.jersey.server.ServerProperties;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,12 +64,15 @@ import org.whispersystems.textsecuregcm.controllers.SubscriptionController.GetSu
 import org.whispersystems.textsecuregcm.entities.Badge;
 import org.whispersystems.textsecuregcm.entities.BadgeSvg;
 import org.whispersystems.textsecuregcm.mappers.CompletionExceptionMapper;
+import org.whispersystems.textsecuregcm.mappers.SubscriptionProcessorExceptionMapper;
 import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
+import org.whispersystems.textsecuregcm.subscriptions.ChargeFailure;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessor;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -112,6 +116,7 @@ class SubscriptionControllerTest {
       .addProperty(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE)
       .addProvider(AuthHelper.getAuthFilter())
       .addProvider(CompletionExceptionMapper.class)
+      .addProvider(SubscriptionProcessorExceptionMapper.class)
       .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(Set.of(
           AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)))
       .setMapper(SystemMapper.jsonMapper())
@@ -190,6 +195,32 @@ class SubscriptionControllerTest {
   }
 
   @Test
+  void confirmPaypalBoostProcessorError() {
+
+    when(BRAINTREE_MANAGER.captureOneTimePayment(anyString(), anyString(), anyString(), anyString(), anyLong(),
+        anyLong()))
+        .thenReturn(CompletableFuture.failedFuture(new SubscriptionProcessorException(SubscriptionProcessor.BRAINTREE,
+            new ChargeFailure("2046", "Declined", null, null, null))));
+
+    final Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/paypal/confirm")
+        .request()
+        .post(Entity.json(Map.of("payerId", "payer123",
+            "paymentId", "PAYID-456",
+            "paymentToken", "EC-789",
+            "currency", "usd",
+            "amount", 123)));
+
+    assertThat(response.getStatus()).isEqualTo(SubscriptionProcessorExceptionMapper.EXTERNAL_SERVICE_ERROR_STATUS_CODE);
+
+    final Map responseMap = response.readEntity(Map.class);
+    assertThat(responseMap.get("processor")).isEqualTo("BRAINTREE");
+    assertThat(responseMap.get("chargeFailure")).asInstanceOf(
+            InstanceOfAssertFactories.map(String.class, Object.class))
+        .extracting("code")
+        .isEqualTo("2046");
+  }
+
+  @Test
   void createBoostReceiptNoRequest() {
     final Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/receipt_credentials")
         .request()
@@ -230,7 +261,7 @@ class SubscriptionControllerTest {
     }
 
     @Test
-    void success() {
+    void createSubscriptionSuccess() {
       when(STRIPE_MANAGER.createSubscription(any(), any(), anyLong(), anyLong()))
           .thenReturn(CompletableFuture.completedFuture(mock(SubscriptionProcessorManager.SubscriptionId.class)));
 
@@ -242,6 +273,30 @@ class SubscriptionControllerTest {
           .put(Entity.json(""));
 
       assertThat(response.getStatus()).isEqualTo(200);
+    }
+
+    @Test
+    void createSubscriptionProcessorDeclined() {
+      when(STRIPE_MANAGER.createSubscription(any(), any(), anyLong(), anyLong()))
+          .thenReturn(CompletableFuture.failedFuture(new SubscriptionProcessorException(SubscriptionProcessor.STRIPE,
+              new ChargeFailure("card_declined", "Insufficient funds", null, null, null))));
+
+      final String level = String.valueOf(levelId);
+      final String idempotencyKey = UUID.randomUUID().toString();
+      final Response response = RESOURCE_EXTENSION.target(
+              String.format("/v1/subscription/%s/level/%s/%s/%s", subscriberId, level, currency, idempotencyKey))
+          .request()
+          .put(Entity.json(""));
+
+      assertThat(response.getStatus()).isEqualTo(
+          SubscriptionProcessorExceptionMapper.EXTERNAL_SERVICE_ERROR_STATUS_CODE);
+
+      final Map responseMap = response.readEntity(Map.class);
+      assertThat(responseMap.get("processor")).isEqualTo("STRIPE");
+      assertThat(responseMap.get("chargeFailure")).asInstanceOf(
+              InstanceOfAssertFactories.map(String.class, Object.class))
+          .extracting("code")
+          .isEqualTo("card_declined");
     }
 
     @Test
