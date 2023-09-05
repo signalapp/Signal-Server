@@ -43,34 +43,8 @@ public class DynamicCaptchaConfiguration {
   @NotNull
   private Map<Action, BigDecimal> scoreFloorByAction = Collections.emptyMap();
 
-  @JsonProperty
-  @NotNull
-  private Set<String> signupCountryCodes = Collections.emptySet();
-
-  @JsonProperty
-  @NotNull
-  private Set<String> signupRegions = Collections.emptySet();
-
   public BigDecimal getScoreFloor() {
     return scoreFloor;
-  }
-
-  public Set<String> getSignupCountryCodes() {
-    return signupCountryCodes;
-  }
-
-  @VisibleForTesting
-  public void setSignupCountryCodes(Set<String> numbers) {
-    this.signupCountryCodes = numbers;
-  }
-
-  @VisibleForTesting
-  public void setSignupRegions(final Set<String> signupRegions) {
-    this.signupRegions = signupRegions;
-  }
-
-  public Set<String> getSignupRegions() {
-    return signupRegions;
   }
 
   public boolean isAllowHCaptcha() {

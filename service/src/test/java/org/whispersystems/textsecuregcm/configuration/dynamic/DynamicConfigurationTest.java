@@ -249,8 +249,6 @@ class DynamicConfigurationTest {
     {
       final String captchaConfig = """
           captcha:
-            signupCountryCodes:
-              - 1
             scoreFloor: null
           """;
 
@@ -261,8 +259,6 @@ class DynamicConfigurationTest {
     {
       final String captchaConfig = """
           captcha:
-            signupCountryCodes:
-              - 1
             scoreFloor: 0.9
             scoreFloorByAction:
               challenge: 0.1
@@ -282,7 +278,6 @@ class DynamicConfigurationTest {
           DynamicConfigurationManager.parseConfiguration(captchaConfig, DynamicConfiguration.class).orElseThrow()
               .getCaptchaConfiguration();
 
-      assertEquals(Set.of("1"), config.getSignupCountryCodes());
       assertEquals(0.9f, config.getScoreFloor().floatValue());
       assertEquals(0.1f, config.getScoreFloorByAction().get(Action.CHALLENGE).floatValue());
       assertEquals(0.2f, config.getScoreFloorByAction().get(Action.REGISTRATION).floatValue());
