@@ -3289,13 +3289,13 @@ components:
     WebSocketClient:
       type: object
       properties:
-        open:
-          type: boolean
-        userAgent:
-          type: string
         createdTimestamp:
           type: integer
           format: int64
+        userAgent:
+          type: string
+        open:
+          type: boolean
     WebSocketSessionContext:
       type: object
       properties:
