@@ -546,7 +546,7 @@ public class SubscriptionController {
                     lastSubscriptionCreatedAt)
                 .exceptionally(e -> {
                   if (e.getCause() instanceof StripeException stripeException
-                      && stripeException.getCode().equals("subscription_payment_intent_requires_action")) {
+                      && "subscription_payment_intent_requires_action".equals(stripeException.getCode())) {
                     throw new BadRequestException(Response.status(Status.BAD_REQUEST)
                         .entity(new SetSubscriptionLevelErrorResponse(List.of(
                             new SetSubscriptionLevelErrorResponse.Error(
