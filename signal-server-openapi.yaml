@@ -3289,13 +3289,13 @@ components:
     WebSocketClient:
       type: object
       properties:
+        createdTimestamp:
+          type: integer
+          format: int64
         userAgent:
           type: string
         open:
           type: boolean
-        createdTimestamp:
-          type: integer
-          format: int64
     WebSocketSessionContext:
       type: object
       properties:
@@ -3674,16 +3674,16 @@ components:
             type: string
         commitment:
           $ref: '#/components/schemas/ProfileKeyCommitment'
+        badges:
+          type: array
+          items:
+            type: string
         avatarChange:
           type: string
           enum:
           - UNCHANGED
           - CLEAR
           - UPDATE
-        badges:
-          type: array
-          items:
-            type: string
     ProfileKeyCommitment:
       type: object
       properties:
