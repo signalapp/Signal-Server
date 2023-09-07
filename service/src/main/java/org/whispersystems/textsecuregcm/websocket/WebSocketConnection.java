@@ -360,7 +360,10 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
         .limitRate(MESSAGE_PUBLISHER_LIMIT_RATE)
         .flatMapSequential(envelope ->
             Mono.fromFuture(() -> sendMessage(envelope)
-                    .orTimeout(sendFuturesTimeoutMillis, TimeUnit.MILLISECONDS))
+                        .orTimeout(sendFuturesTimeoutMillis, TimeUnit.MILLISECONDS),
+                    // suppressCancel=true, because attempting to cancel the future has no effect, other than
+                    // causing dropped errors
+                    true)
                 .onErrorResume(
                     // let the first error pass through to terminate the subscription
                     e -> {
