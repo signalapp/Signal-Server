@@ -47,6 +47,11 @@ import java.util.concurrent.ConcurrentHashMap;
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class WebSocketResourceProvider<T extends Principal> implements WebSocketListener {
 
+  /**
+   * A static exception instance passed to outstanding requests (via {@code completeExceptionally} in
+   * {@link #onWebSocketClose(int, String)}
+   */
+  public static final IOException CONNECTION_CLOSED_EXCEPTION = new IOException("Connection closed!");
   private static final Logger logger = LoggerFactory.getLogger(WebSocketResourceProvider.class);
 
   private final Map<Long, CompletableFuture<WebSocketResponseMessage>> requestMap = new ConcurrentHashMap<>();
@@ -141,7 +146,7 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
         CompletableFuture<WebSocketResponseMessage> outstandingRequest = requestMap.remove(requestId);
 
         if (outstandingRequest != null) {
-          outstandingRequest.completeExceptionally(new IOException("Connection closed!"));
+          outstandingRequest.completeExceptionally(CONNECTION_CLOSED_EXCEPTION);
         }
       }
     }

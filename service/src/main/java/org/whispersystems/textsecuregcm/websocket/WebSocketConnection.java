@@ -53,6 +53,7 @@ import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.websocket.WebSocketClient;
+import org.whispersystems.websocket.WebSocketResourceProvider;
 import org.whispersystems.websocket.messages.WebSocketResponseMessage;
 import reactor.core.Disposable;
 import reactor.core.observability.micrometer.Micrometer;
@@ -395,6 +396,8 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
       errorType = "timeout";
     } else if (e instanceof java.nio.channels.ClosedChannelException) {
       errorType = "closedChannel";
+    } else if (e == WebSocketResourceProvider.CONNECTION_CLOSED_EXCEPTION) {
+      errorType = "connectionClosed";
     } else {
       logger.warn(terminal ? "Send message failure terminated stream" : "Send message failed", e);
       errorType = "other";
