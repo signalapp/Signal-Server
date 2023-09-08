@@ -6,7 +6,6 @@
 package org.whispersystems.textsecuregcm.grpc;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -16,9 +15,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.whispersystems.textsecuregcm.grpc.GrpcTestUtils.assertRateLimitExceeded;
+import static org.whispersystems.textsecuregcm.grpc.GrpcTestUtils.assertStatusException;
 
 import com.google.protobuf.ByteString;
-import io.grpc.ServerInterceptors;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import java.time.Duration;
@@ -32,14 +32,13 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.Mock;
 import org.signal.chat.common.EcPreKey;
 import org.signal.chat.common.EcSignedPreKey;
 import org.signal.chat.common.KemSignedPreKey;
@@ -56,7 +55,6 @@ import org.signal.chat.keys.SetOneTimeKemSignedPreKeysRequest;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
-import org.whispersystems.textsecuregcm.auth.grpc.MockAuthenticationInterceptor;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.ECPreKey;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
@@ -73,41 +71,34 @@ import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import reactor.core.publisher.Mono;
 
-class KeysGrpcServiceTest {
-
-  private AccountsManager accountsManager;
-  private KeysManager keysManager;
-  private RateLimiter preKeysRateLimiter;
-
-  private Device authenticatedDevice;
-
-  private KeysGrpc.KeysBlockingStub keysStub;
-
-  private static final UUID AUTHENTICATED_ACI = UUID.randomUUID();
-  private static final UUID AUTHENTICATED_PNI = UUID.randomUUID();
-  private static final long AUTHENTICATED_DEVICE_ID = Device.MASTER_ID;
+class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.KeysBlockingStub> {
 
   private static final ECKeyPair ACI_IDENTITY_KEY_PAIR = Curve.generateKeyPair();
+
   private static final ECKeyPair PNI_IDENTITY_KEY_PAIR = Curve.generateKeyPair();
 
-  @RegisterExtension
-  static final GrpcServerExtension GRPC_SERVER_EXTENSION = new GrpcServerExtension();
+  protected static final UUID AUTHENTICATED_PNI = UUID.randomUUID();
 
-  @BeforeEach
-  void setUp() {
-    accountsManager = mock(AccountsManager.class);
-    keysManager = mock(KeysManager.class);
-    preKeysRateLimiter = mock(RateLimiter.class);
+  @Mock
+  private AccountsManager accountsManager;
 
+  @Mock
+  private KeysManager keysManager;
+
+  @Mock
+  private RateLimiter preKeysRateLimiter;
+
+  @Mock
+  private Device authenticatedDevice;
+
+
+  @Override
+  protected KeysGrpcService createServiceBeforeEachTest() {
     final RateLimiters rateLimiters = mock(RateLimiters.class);
     when(rateLimiters.getPreKeysLimiter()).thenReturn(preKeysRateLimiter);
 
     when(preKeysRateLimiter.validateReactive(anyString())).thenReturn(Mono.empty());
 
-    final KeysGrpcService keysGrpcService = new KeysGrpcService(accountsManager, keysManager, rateLimiters);
-    keysStub = KeysGrpc.newBlockingStub(GRPC_SERVER_EXTENSION.getChannel());
-
-    authenticatedDevice = mock(Device.class);
     when(authenticatedDevice.getId()).thenReturn(AUTHENTICATED_DEVICE_ID);
 
     final Account authenticatedAccount = mock(Account.class);
@@ -119,17 +110,13 @@ class KeysGrpcServiceTest {
     when(authenticatedAccount.getIdentityKey(IdentityType.PNI)).thenReturn(new IdentityKey(PNI_IDENTITY_KEY_PAIR.getPublicKey()));
     when(authenticatedAccount.getDevice(AUTHENTICATED_DEVICE_ID)).thenReturn(Optional.of(authenticatedDevice));
 
-    final MockAuthenticationInterceptor mockAuthenticationInterceptor = new MockAuthenticationInterceptor();
-    mockAuthenticationInterceptor.setAuthenticatedDevice(AUTHENTICATED_ACI, AUTHENTICATED_DEVICE_ID);
-
-    GRPC_SERVER_EXTENSION.getServiceRegistry()
-        .addService(ServerInterceptors.intercept(keysGrpcService, mockAuthenticationInterceptor));
-
     when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI)).thenReturn(Optional.of(authenticatedAccount));
     when(accountsManager.getByPhoneNumberIdentifier(AUTHENTICATED_PNI)).thenReturn(Optional.of(authenticatedAccount));
 
     when(accountsManager.getByAccountIdentifierAsync(AUTHENTICATED_ACI)).thenReturn(CompletableFuture.completedFuture(Optional.of(authenticatedAccount)));
     when(accountsManager.getByPhoneNumberIdentifierAsync(AUTHENTICATED_PNI)).thenReturn(CompletableFuture.completedFuture(Optional.of(authenticatedAccount)));
+
+    return new KeysGrpcService(accountsManager, keysManager, rateLimiters);
   }
 
   @Test
@@ -152,7 +139,7 @@ class KeysGrpcServiceTest {
             .setPniEcPreKeyCount(3)
             .setPniKemPreKeyCount(4)
             .build(),
-        keysStub.getPreKeyCount(GetPreKeyCountRequest.newBuilder().build()));
+        authenticatedServiceStub().getPreKeyCount(GetPreKeyCountRequest.newBuilder().build()));
   }
 
   @ParameterizedTest
@@ -168,7 +155,7 @@ class KeysGrpcServiceTest {
         .thenReturn(CompletableFuture.completedFuture(null));
 
     //noinspection ResultOfMethodCallIgnored
-    keysStub.setOneTimeEcPreKeys(SetOneTimeEcPreKeysRequest.newBuilder()
+    authenticatedServiceStub().setOneTimeEcPreKeys(SetOneTimeEcPreKeysRequest.newBuilder()
         .setIdentityType(identityType)
         .addAllPreKeys(preKeys.stream()
             .map(preKey -> EcPreKey.newBuilder()
@@ -189,10 +176,7 @@ class KeysGrpcServiceTest {
   @ParameterizedTest
   @MethodSource
   void setOneTimeEcPreKeysWithError(final SetOneTimeEcPreKeysRequest request) {
-    final StatusRuntimeException exception =
-        assertThrows(StatusRuntimeException.class, () -> keysStub.setOneTimeEcPreKeys(request));
-
-    assertEquals(Status.INVALID_ARGUMENT.getCode(), exception.getStatus().getCode());
+    assertStatusException(Status.INVALID_ARGUMENT, () -> authenticatedServiceStub().setOneTimeEcPreKeys(request));
   }
 
   private static Stream<Arguments> setOneTimeEcPreKeysWithError() {
@@ -242,7 +226,7 @@ class KeysGrpcServiceTest {
         .thenReturn(CompletableFuture.completedFuture(null));
 
     //noinspection ResultOfMethodCallIgnored
-    keysStub.setOneTimeKemSignedPreKeys(
+    authenticatedServiceStub().setOneTimeKemSignedPreKeys(
         SetOneTimeKemSignedPreKeysRequest.newBuilder()
             .setIdentityType(identityType)
             .addAllPreKeys(preKeys.stream()
@@ -265,10 +249,7 @@ class KeysGrpcServiceTest {
   @ParameterizedTest
   @MethodSource
   void setOneTimeKemSignedPreKeysWithError(final SetOneTimeKemSignedPreKeysRequest request) {
-    final StatusRuntimeException exception =
-        assertThrows(StatusRuntimeException.class, () -> keysStub.setOneTimeKemSignedPreKeys(request));
-
-    assertEquals(Status.INVALID_ARGUMENT.getCode(), exception.getStatus().getCode());
+    assertStatusException(Status.INVALID_ARGUMENT, () -> authenticatedServiceStub().setOneTimeKemSignedPreKeys(request));
   }
 
   private static Stream<Arguments> setOneTimeKemSignedPreKeysWithError() {
@@ -333,7 +314,7 @@ class KeysGrpcServiceTest {
     final ECSignedPreKey signedPreKey = KeysHelper.signedECPreKey(17, identityKeyPair);
 
     //noinspection ResultOfMethodCallIgnored
-    keysStub.setEcSignedPreKey(SetEcSignedPreKeyRequest.newBuilder()
+    authenticatedServiceStub().setEcSignedPreKey(SetEcSignedPreKeyRequest.newBuilder()
             .setIdentityType(identityType)
             .setSignedPreKey(EcSignedPreKey.newBuilder()
                 .setKeyId(signedPreKey.keyId())
@@ -359,7 +340,7 @@ class KeysGrpcServiceTest {
   @MethodSource
   void setSignedPreKeyWithError(final SetEcSignedPreKeyRequest request) {
     final StatusRuntimeException exception =
-        assertThrows(StatusRuntimeException.class, () -> keysStub.setEcSignedPreKey(request));
+        assertThrows(StatusRuntimeException.class, () -> authenticatedServiceStub().setEcSignedPreKey(request));
 
     assertEquals(Status.INVALID_ARGUMENT.getCode(), exception.getStatus().getCode());
   }
@@ -416,7 +397,7 @@ class KeysGrpcServiceTest {
     final KEMSignedPreKey lastResortPreKey = KeysHelper.signedKEMPreKey(17, identityKeyPair);
 
     //noinspection ResultOfMethodCallIgnored
-    keysStub.setKemLastResortPreKey(SetKemLastResortPreKeyRequest.newBuilder()
+    authenticatedServiceStub().setKemLastResortPreKey(SetKemLastResortPreKeyRequest.newBuilder()
             .setIdentityType(identityType)
             .setSignedPreKey(KemSignedPreKey.newBuilder()
                 .setKeyId(lastResortPreKey.keyId())
@@ -437,10 +418,7 @@ class KeysGrpcServiceTest {
   @ParameterizedTest
   @MethodSource
   void setLastResortPreKeyWithError(final SetKemLastResortPreKeyRequest request) {
-    final StatusRuntimeException exception =
-        assertThrows(StatusRuntimeException.class, () -> keysStub.setKemLastResortPreKey(request));
-
-    assertEquals(Status.INVALID_ARGUMENT.getCode(), exception.getStatus().getCode());
+    assertStatusException(Status.INVALID_ARGUMENT, () -> authenticatedServiceStub().setKemLastResortPreKey(request));
   }
 
   private static Stream<Arguments> setLastResortPreKeyWithError() {
@@ -528,7 +506,7 @@ class KeysGrpcServiceTest {
         .thenReturn(CompletableFuture.completedFuture(Optional.of(preKey))));
 
     {
-      final GetPreKeysResponse response = keysStub.getPreKeys(GetPreKeysRequest.newBuilder()
+      final GetPreKeysResponse response = authenticatedServiceStub().getPreKeys(GetPreKeysRequest.newBuilder()
           .setTargetIdentifier(ServiceIdentifier.newBuilder()
               .setIdentityType(grpcIdentityType)
               .setUuid(UUIDUtil.toByteString(identifier))
@@ -563,7 +541,7 @@ class KeysGrpcServiceTest {
     when(keysManager.takePQ(identifier, 2)).thenReturn(CompletableFuture.completedFuture(Optional.empty()));
 
     {
-      final GetPreKeysResponse response = keysStub.getPreKeys(GetPreKeysRequest.newBuilder()
+      final GetPreKeysResponse response = authenticatedServiceStub().getPreKeys(GetPreKeysRequest.newBuilder()
           .setTargetIdentifier(ServiceIdentifier.newBuilder()
               .setIdentityType(grpcIdentityType)
               .setUuid(UUIDUtil.toByteString(identifier))
@@ -606,15 +584,12 @@ class KeysGrpcServiceTest {
     when(accountsManager.getByServiceIdentifierAsync(any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
 
-    final StatusRuntimeException exception =
-        assertThrows(StatusRuntimeException.class, () -> keysStub.getPreKeys(GetPreKeysRequest.newBuilder()
-            .setTargetIdentifier(ServiceIdentifier.newBuilder()
-                .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
-                .setUuid(UUIDUtil.toByteString(UUID.randomUUID()))
-                .build())
-            .build()));
-
-    assertEquals(Status.Code.NOT_FOUND, exception.getStatus().getCode());
+    assertStatusException(Status.NOT_FOUND, () -> authenticatedServiceStub().getPreKeys(GetPreKeysRequest.newBuilder()
+        .setTargetIdentifier(ServiceIdentifier.newBuilder()
+            .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
+            .setUuid(UUIDUtil.toByteString(UUID.randomUUID()))
+            .build())
+        .build()));
   }
 
   @ParameterizedTest
@@ -631,16 +606,13 @@ class KeysGrpcServiceTest {
     when(accountsManager.getByServiceIdentifierAsync(new AciServiceIdentifier(accountIdentifier)))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(targetAccount)));
 
-    final StatusRuntimeException exception =
-        assertThrows(StatusRuntimeException.class, () -> keysStub.getPreKeys(GetPreKeysRequest.newBuilder()
-            .setTargetIdentifier(ServiceIdentifier.newBuilder()
-                .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
-                .setUuid(UUIDUtil.toByteString(accountIdentifier))
-                .build())
-            .setDeviceId(deviceId)
-            .build()));
-
-    assertEquals(Status.Code.NOT_FOUND, exception.getStatus().getCode());
+    assertStatusException(Status.NOT_FOUND, () -> authenticatedServiceStub().getPreKeys(GetPreKeysRequest.newBuilder()
+        .setTargetIdentifier(ServiceIdentifier.newBuilder()
+            .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
+            .setUuid(UUIDUtil.toByteString(accountIdentifier))
+            .build())
+        .setDeviceId(deviceId)
+        .build()));
   }
 
   @Test
@@ -655,22 +627,15 @@ class KeysGrpcServiceTest {
         .thenReturn(CompletableFuture.completedFuture(Optional.of(targetAccount)));
 
     final Duration retryAfterDuration = Duration.ofMinutes(7);
-
     when(preKeysRateLimiter.validateReactive(anyString()))
         .thenReturn(Mono.error(new RateLimitExceededException(retryAfterDuration, false)));
 
-    final StatusRuntimeException exception =
-        assertThrows(StatusRuntimeException.class, () -> keysStub.getPreKeys(GetPreKeysRequest.newBuilder()
-            .setTargetIdentifier(ServiceIdentifier.newBuilder()
-                .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
-                .setUuid(UUIDUtil.toByteString(UUID.randomUUID()))
-                .build())
-            .build()));
-
-    assertEquals(Status.Code.RESOURCE_EXHAUSTED, exception.getStatus().getCode());
-    assertNotNull(exception.getTrailers());
-    assertEquals(retryAfterDuration, exception.getTrailers().get(RateLimitUtil.RETRY_AFTER_DURATION_KEY));
-
+    assertRateLimitExceeded(retryAfterDuration, () -> authenticatedServiceStub().getPreKeys(GetPreKeysRequest.newBuilder()
+        .setTargetIdentifier(ServiceIdentifier.newBuilder()
+            .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
+            .setUuid(UUIDUtil.toByteString(UUID.randomUUID()))
+            .build())
+        .build()));
     verifyNoInteractions(accountsManager);
   }
 }

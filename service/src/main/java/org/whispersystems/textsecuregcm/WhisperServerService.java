@@ -120,6 +120,7 @@ import org.whispersystems.textsecuregcm.filters.RemoteDeprecationFilter;
 import org.whispersystems.textsecuregcm.filters.RequestStatisticsFilter;
 import org.whispersystems.textsecuregcm.filters.TimestampResponseFilter;
 import org.whispersystems.textsecuregcm.grpc.AcceptLanguageInterceptor;
+import org.whispersystems.textsecuregcm.grpc.ErrorMappingInterceptor;
 import org.whispersystems.textsecuregcm.grpc.GrpcServerManagedWrapper;
 import org.whispersystems.textsecuregcm.grpc.KeysAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.KeysGrpcService;
@@ -644,8 +645,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new BasicCredentialAuthenticationInterceptor(new BaseAccountAuthenticator(accountsManager));
 
     final ServerBuilder<?> grpcServer = ServerBuilder.forPort(config.getGrpcPort())
-        // TODO: specialize metrics with user-agent platform
-        .intercept(new MetricCollectingServerInterceptor(Metrics.globalRegistry))
         .addService(ServerInterceptors.intercept(new KeysGrpcService(accountsManager, keys, rateLimiters), basicCredentialAuthenticationInterceptor))
         .addService(new KeysAnonymousGrpcService(accountsManager, keys))
         .addService(ServerInterceptors.intercept(new ProfileGrpcService(clock, accountsManager, profilesManager, dynamicConfigurationManager,
@@ -657,13 +656,16 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .addFilter("RemoteDeprecationFilter", remoteDeprecationFilter)
         .addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST), false, "/*");
 
-    grpcServer.intercept(new AcceptLanguageInterceptor());
-
     // Note: interceptors run in the reverse order they are added; the remote deprecation filter
     // depends on the user-agent context so it has to come first here!
     // http://grpc.github.io/grpc-java/javadoc/io/grpc/ServerBuilder.html#intercept-io.grpc.ServerInterceptor-
-    grpcServer.intercept(remoteDeprecationFilter);
-    grpcServer.intercept(new UserAgentInterceptor());
+    grpcServer
+        // TODO: specialize metrics with user-agent platform
+        .intercept(new MetricCollectingServerInterceptor(Metrics.globalRegistry))
+        .intercept(new ErrorMappingInterceptor())
+        .intercept(new AcceptLanguageInterceptor())
+        .intercept(remoteDeprecationFilter)
+        .intercept(new UserAgentInterceptor());
 
     environment.lifecycle().manage(new GrpcServerManagedWrapper(grpcServer.build()));
 

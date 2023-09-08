@@ -101,11 +101,6 @@ public class ProfileGrpcService extends ReactorProfileGrpc.ProfileImplBase {
   }
 
   @Override
-  protected Throwable onErrorMap(final Throwable throwable) {
-    return RateLimitUtil.mapRateLimitExceededException(throwable);
-  }
-
-  @Override
   public Mono<SetProfileResponse> setProfile(final SetProfileRequest request) {
     validateRequest(request);
     return Mono.fromSupplier(AuthenticationUtil::requireAuthenticatedDevice)

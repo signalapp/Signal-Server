@@ -6,7 +6,6 @@
 package org.whispersystems.textsecuregcm.grpc;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
@@ -14,11 +13,10 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.whispersystems.textsecuregcm.grpc.GrpcTestUtils.assertStatusException;
 
 import com.google.protobuf.ByteString;
-import io.grpc.ServerInterceptors;
 import io.grpc.Status;
-import io.grpc.StatusRuntimeException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
@@ -26,21 +24,19 @@ import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.RandomStringUtils;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
+import org.mockito.Mock;
 import org.signal.chat.device.ClearPushTokenRequest;
 import org.signal.chat.device.ClearPushTokenResponse;
 import org.signal.chat.device.DevicesGrpc;
@@ -54,41 +50,30 @@ import org.signal.chat.device.SetDeviceNameRequest;
 import org.signal.chat.device.SetDeviceNameResponse;
 import org.signal.chat.device.SetPushTokenRequest;
 import org.signal.chat.device.SetPushTokenResponse;
-import org.whispersystems.textsecuregcm.auth.grpc.MockAuthenticationInterceptor;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.KeysManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 
-class DevicesGrpcServiceTest {
+class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, DevicesGrpc.DevicesBlockingStub> {
 
+  @Mock
   private AccountsManager accountsManager;
+
+  @Mock
   private KeysManager keysManager;
+
+  @Mock
   private MessagesManager messagesManager;
 
+  @Mock
   private Account authenticatedAccount;
 
-  private MockAuthenticationInterceptor mockAuthenticationInterceptor;
-  private DevicesGrpc.DevicesBlockingStub devicesStub;
 
-  @RegisterExtension
-  static final GrpcServerExtension GRPC_SERVER_EXTENSION = new GrpcServerExtension();
-
-  private static final UUID AUTHENTICATED_ACI = UUID.randomUUID();
-  private static final long AUTHENTICATED_DEVICE_ID = Device.MASTER_ID;
-
-  @BeforeEach
-  void setUp() {
-    accountsManager = mock(AccountsManager.class);
-    keysManager = mock(KeysManager.class);
-    messagesManager = mock(MessagesManager.class);
-
-    authenticatedAccount = mock(Account.class);
+  @Override
+  protected DevicesGrpcService createServiceBeforeEachTest() {
     when(authenticatedAccount.getUuid()).thenReturn(AUTHENTICATED_ACI);
-
-    mockAuthenticationInterceptor = new MockAuthenticationInterceptor();
-    mockAuthenticationInterceptor.setAuthenticatedDevice(AUTHENTICATED_ACI, AUTHENTICATED_DEVICE_ID);
 
     when(accountsManager.getByAccountIdentifierAsync(AUTHENTICATED_ACI))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(authenticatedAccount)));
@@ -117,11 +102,7 @@ class DevicesGrpcServiceTest {
     when(keysManager.delete(any(), anyLong())).thenReturn(CompletableFuture.completedFuture(null));
     when(messagesManager.clear(any(), anyLong())).thenReturn(CompletableFuture.completedFuture(null));
 
-    final DevicesGrpcService devicesGrpcService = new DevicesGrpcService(accountsManager, keysManager, messagesManager);
-    devicesStub = DevicesGrpc.newBlockingStub(GRPC_SERVER_EXTENSION.getChannel());
-
-    GRPC_SERVER_EXTENSION.getServiceRegistry()
-        .addService(ServerInterceptors.intercept(devicesGrpcService, mockAuthenticationInterceptor));
+    return new DevicesGrpcService(accountsManager, keysManager, messagesManager);
   }
 
   @Test
@@ -161,14 +142,14 @@ class DevicesGrpcServiceTest {
             .build())
         .build();
 
-    assertEquals(expectedResponse, devicesStub.getDevices(GetDevicesRequest.newBuilder().build()));
+    assertEquals(expectedResponse, authenticatedServiceStub().getDevices(GetDevicesRequest.newBuilder().build()));
   }
 
   @Test
   void removeDevice() {
     final long deviceId = 17;
 
-    final RemoveDeviceResponse ignored = devicesStub.removeDevice(RemoveDeviceRequest.newBuilder()
+    final RemoveDeviceResponse ignored = authenticatedServiceStub().removeDevice(RemoveDeviceRequest.newBuilder()
         .setId(deviceId)
         .build());
 
@@ -179,30 +160,23 @@ class DevicesGrpcServiceTest {
 
   @Test
   void removeDevicePrimary() {
-    final StatusRuntimeException exception = assertThrows(StatusRuntimeException.class,
-        () -> devicesStub.removeDevice(RemoveDeviceRequest.newBuilder()
-            .setId(1)
-            .build()));
-
-    assertEquals(Status.Code.INVALID_ARGUMENT, exception.getStatus().getCode());
+    assertStatusException(Status.INVALID_ARGUMENT, () -> authenticatedServiceStub().removeDevice(RemoveDeviceRequest.newBuilder()
+        .setId(1)
+        .build()));
   }
 
   @Test
   void removeDeviceNonPrimaryAuthenticated() {
-    mockAuthenticationInterceptor.setAuthenticatedDevice(AUTHENTICATED_ACI, Device.MASTER_ID + 1);
-
-    final StatusRuntimeException exception = assertThrows(StatusRuntimeException.class,
-        () -> devicesStub.removeDevice(RemoveDeviceRequest.newBuilder()
-            .setId(17)
-            .build()));
-
-    assertEquals(Status.Code.PERMISSION_DENIED, exception.getStatus().getCode());
+    mockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, Device.MASTER_ID + 1);
+    assertStatusException(Status.PERMISSION_DENIED, () -> authenticatedServiceStub().removeDevice(RemoveDeviceRequest.newBuilder()
+        .setId(17)
+        .build()));
   }
 
   @ParameterizedTest
   @ValueSource(longs = {Device.MASTER_ID, Device.MASTER_ID + 1})
   void setDeviceName(final long deviceId) {
-    mockAuthenticationInterceptor.setAuthenticatedDevice(AUTHENTICATED_ACI, deviceId);
+    mockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, deviceId);
 
     final Device device = mock(Device.class);
     when(authenticatedAccount.getDevice(deviceId)).thenReturn(Optional.of(device));
@@ -210,7 +184,7 @@ class DevicesGrpcServiceTest {
     final byte[] deviceName = new byte[128];
     ThreadLocalRandom.current().nextBytes(deviceName);
 
-    final SetDeviceNameResponse ignored = devicesStub.setDeviceName(SetDeviceNameRequest.newBuilder()
+    final SetDeviceNameResponse ignored = authenticatedServiceStub().setDeviceName(SetDeviceNameRequest.newBuilder()
         .setName(ByteString.copyFrom(deviceName))
         .build());
 
@@ -221,11 +195,7 @@ class DevicesGrpcServiceTest {
   @MethodSource
   void setDeviceNameIllegalArgument(final SetDeviceNameRequest request) {
     when(authenticatedAccount.getDevice(AUTHENTICATED_DEVICE_ID)).thenReturn(Optional.of(mock(Device.class)));
-
-    final StatusRuntimeException exception =
-        assertThrows(StatusRuntimeException.class, () -> devicesStub.setDeviceName(request));
-
-    assertEquals(Status.Code.INVALID_ARGUMENT, exception.getStatus().getCode());
+    assertStatusException(Status.INVALID_ARGUMENT, () -> authenticatedServiceStub().setDeviceName(request));
   }
 
   private static Stream<Arguments> setDeviceNameIllegalArgument() {
@@ -248,12 +218,12 @@ class DevicesGrpcServiceTest {
       @Nullable final String expectedApnsVoipToken,
       @Nullable final String expectedFcmToken) {
 
-    mockAuthenticationInterceptor.setAuthenticatedDevice(AUTHENTICATED_ACI, deviceId);
+    mockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, deviceId);
 
     final Device device = mock(Device.class);
     when(authenticatedAccount.getDevice(deviceId)).thenReturn(Optional.of(device));
 
-    final SetPushTokenResponse ignored = devicesStub.setPushToken(request);
+    final SetPushTokenResponse ignored = authenticatedServiceStub().setPushToken(request);
 
     verify(device).setApnId(expectedApnsToken);
     verify(device).setVoipApnId(expectedApnsVoipToken);
@@ -312,7 +282,7 @@ class DevicesGrpcServiceTest {
 
     when(authenticatedAccount.getDevice(AUTHENTICATED_DEVICE_ID)).thenReturn(Optional.of(device));
 
-    final SetPushTokenResponse ignored = devicesStub.setPushToken(request);
+    final SetPushTokenResponse ignored = authenticatedServiceStub().setPushToken(request);
 
     verify(accountsManager, never()).updateDevice(any(), anyLong(), any());
   }
@@ -352,12 +322,7 @@ class DevicesGrpcServiceTest {
   void setPushTokenIllegalArgument(final SetPushTokenRequest request) {
     final Device device = mock(Device.class);
     when(authenticatedAccount.getDevice(AUTHENTICATED_DEVICE_ID)).thenReturn(Optional.of(device));
-
-    final StatusRuntimeException exception =
-        assertThrows(StatusRuntimeException.class, () -> devicesStub.setPushToken(request));
-
-    assertEquals(Status.Code.INVALID_ARGUMENT, exception.getStatus().getCode());
-
+    assertStatusException(Status.INVALID_ARGUMENT, () -> authenticatedServiceStub().setPushToken(request));
     verify(accountsManager, never()).updateDevice(any(), anyLong(), any());
   }
 
@@ -383,7 +348,7 @@ class DevicesGrpcServiceTest {
       @Nullable final String fcmToken,
       @Nullable final String expectedUserAgent) {
 
-    mockAuthenticationInterceptor.setAuthenticatedDevice(AUTHENTICATED_ACI, deviceId);
+    mockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, deviceId);
 
     final Device device = mock(Device.class);
     when(device.getId()).thenReturn(deviceId);
@@ -393,7 +358,7 @@ class DevicesGrpcServiceTest {
     when(device.getGcmId()).thenReturn(fcmToken);
     when(authenticatedAccount.getDevice(deviceId)).thenReturn(Optional.of(device));
 
-    final ClearPushTokenResponse ignored = devicesStub.clearPushToken(ClearPushTokenRequest.newBuilder().build());
+    final ClearPushTokenResponse ignored = authenticatedServiceStub().clearPushToken(ClearPushTokenRequest.newBuilder().build());
 
     verify(device).setApnId(null);
     verify(device).setVoipApnId(null);
@@ -430,12 +395,12 @@ class DevicesGrpcServiceTest {
       @CartesianTest.Values(booleans = {true, false}) final boolean pni,
       @CartesianTest.Values(booleans = {true, false}) final boolean paymentActivation) {
 
-    mockAuthenticationInterceptor.setAuthenticatedDevice(AUTHENTICATED_ACI, deviceId);
+    mockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, deviceId);
 
     final Device device = mock(Device.class);
     when(authenticatedAccount.getDevice(deviceId)).thenReturn(Optional.of(device));
 
-    final SetCapabilitiesResponse ignored = devicesStub.setCapabilities(SetCapabilitiesRequest.newBuilder()
+    final SetCapabilitiesResponse ignored = authenticatedServiceStub().setCapabilities(SetCapabilitiesRequest.newBuilder()
             .setStorage(storage)
             .setTransfer(transfer)
             .setPni(pni)

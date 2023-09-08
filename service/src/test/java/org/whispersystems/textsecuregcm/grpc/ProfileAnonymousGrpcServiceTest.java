@@ -1,19 +1,27 @@
+/*
+ * Copyright 2023 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 package org.whispersystems.textsecuregcm.grpc;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatNoException;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.whispersystems.textsecuregcm.grpc.GrpcTestUtils.assertStatusException;
 
 import com.google.protobuf.ByteString;
+import io.grpc.Channel;
 import io.grpc.Metadata;
 import io.grpc.Status;
+import io.grpc.stub.MetadataUtils;
+import java.lang.reflect.InvocationTargetException;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.Instant;
@@ -24,14 +32,12 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
-import io.grpc.StatusRuntimeException;
-import io.grpc.stub.MetadataUtils;
-import org.junit.jupiter.api.BeforeEach;
+import javax.annotation.Nullable;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.Mock;
 import org.signal.chat.common.IdentityType;
 import org.signal.chat.common.ServiceIdentifier;
 import org.signal.chat.profile.CredentialType;
@@ -72,43 +78,41 @@ import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.VersionedProfile;
 import org.whispersystems.textsecuregcm.tests.util.ProfileTestHelper;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
-import javax.annotation.Nullable;
 
-public class ProfileAnonymousGrpcServiceTest {
+public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileAnonymousGrpcService, ProfileAnonymousGrpc.ProfileAnonymousBlockingStub> {
+
+  @Mock
   private Account account;
+
+  @Mock
   private AccountsManager accountsManager;
+
+  @Mock
   private ProfilesManager profilesManager;
+
+  @Mock
   private ProfileBadgeConverter profileBadgeConverter;
-  private ProfileAnonymousGrpc.ProfileAnonymousBlockingStub profileAnonymousBlockingStub;
+
+  @Mock
   private ServerZkProfileOperations serverZkProfileOperations;
 
-  @RegisterExtension
-  static final GrpcServerExtension GRPC_SERVER_EXTENSION = new GrpcServerExtension();
-
-  @BeforeEach
-  void setup() {
-    account = mock(Account.class);
-    accountsManager = mock(AccountsManager.class);
-    profilesManager = mock(ProfilesManager.class);
-    profileBadgeConverter = mock(ProfileBadgeConverter.class);
-    serverZkProfileOperations = mock(ServerZkProfileOperations.class);
-
-    final Metadata metadata = new Metadata();
-    metadata.put(AcceptLanguageInterceptor.ACCEPTABLE_LANGUAGES_GRPC_HEADER, "en-us");
-    metadata.put(UserAgentInterceptor.USER_AGENT_GRPC_HEADER, "Signal-Android/1.2.3");
-
-    profileAnonymousBlockingStub = ProfileAnonymousGrpc.newBlockingStub(GRPC_SERVER_EXTENSION.getChannel())
-        .withInterceptors(MetadataUtils.newAttachHeadersInterceptor(metadata));
-
-    final ProfileAnonymousGrpcService profileAnonymousGrpcService = new ProfileAnonymousGrpcService(
+  
+  @Override
+  protected ProfileAnonymousGrpcService createServiceBeforeEachTest() {
+    return new ProfileAnonymousGrpcService(
         accountsManager,
         profilesManager,
         profileBadgeConverter,
         serverZkProfileOperations
     );
+  }
 
-    GRPC_SERVER_EXTENSION.getServiceRegistry()
-        .addService(profileAnonymousGrpcService);
+  @Override
+  protected ProfileAnonymousGrpc.ProfileAnonymousBlockingStub createStub(final Channel channel) throws ClassNotFoundException, InvocationTargetException, NoSuchMethodException, IllegalAccessException {
+    final Metadata metadata = new Metadata();
+    metadata.put(AcceptLanguageInterceptor.ACCEPTABLE_LANGUAGES_GRPC_HEADER, "en-us");
+    metadata.put(UserAgentInterceptor.USER_AGENT_GRPC_HEADER, "Signal-Android/1.2.3");
+    return super.createStub(channel).withInterceptors(MetadataUtils.newAttachHeadersInterceptor(metadata));
   }
 
   @Test
@@ -151,7 +155,7 @@ public class ProfileAnonymousGrpcServiceTest {
             .build())
         .build();
 
-    final GetUnversionedProfileResponse response = profileAnonymousBlockingStub.getUnversionedProfile(request);
+    final GetUnversionedProfileResponse response = unauthenticatedServiceStub().getUnversionedProfile(request);
 
     final byte[] unidentifiedAccessChecksum = UnidentifiedAccessChecksum.generateFor(unidentifiedAccessKey);
     final GetUnversionedProfileResponse expectedResponse = GetUnversionedProfileResponse.newBuilder()
@@ -189,10 +193,7 @@ public class ProfileAnonymousGrpcServiceTest {
       requestBuilder.setUnidentifiedAccessKey(ByteString.copyFrom(unidentifiedAccessKey));
     }
 
-    final StatusRuntimeException statusRuntimeException = assertThrows(StatusRuntimeException.class,
-        () -> profileAnonymousBlockingStub.getUnversionedProfile(requestBuilder.build()));
-
-    assertEquals(Status.UNAUTHENTICATED.getCode(), statusRuntimeException.getStatus().getCode());
+    assertStatusException(Status.UNAUTHENTICATED, () -> unauthenticatedServiceStub().getUnversionedProfile(requestBuilder.build()));
   }
 
   private static Stream<Arguments> getUnversionedProfileUnauthenticated() {
@@ -242,7 +243,7 @@ public class ProfileAnonymousGrpcServiceTest {
             .build())
         .build();
 
-    final GetVersionedProfileResponse response = profileAnonymousBlockingStub.getVersionedProfile(request);
+    final GetVersionedProfileResponse response = unauthenticatedServiceStub().getVersionedProfile(request);
 
     final GetVersionedProfileResponse.Builder expectedResponseBuilder = GetVersionedProfileResponse.newBuilder()
         .setName(ByteString.copyFrom(name))
@@ -287,10 +288,7 @@ public class ProfileAnonymousGrpcServiceTest {
             .build())
         .build();
 
-    final StatusRuntimeException statusRuntimeException = assertThrows(StatusRuntimeException.class,
-        () -> profileAnonymousBlockingStub.getVersionedProfile(request));
-
-    assertEquals(Status.NOT_FOUND.getCode(), statusRuntimeException.getStatus().getCode());
+    assertStatusException(Status.NOT_FOUND, () -> unauthenticatedServiceStub().getVersionedProfile(request));
   }
 
   @ParameterizedTest
@@ -318,18 +316,15 @@ public class ProfileAnonymousGrpcServiceTest {
       requestBuilder.setUnidentifiedAccessKey(ByteString.copyFrom(unidentifiedAccessKey));
     }
 
-    final StatusRuntimeException statusRuntimeException = assertThrows(StatusRuntimeException.class,
-        () -> profileAnonymousBlockingStub.getVersionedProfile(requestBuilder.build()));
-
-    assertEquals(Status.UNAUTHENTICATED.getCode(), statusRuntimeException.getStatus().getCode());
+    assertStatusException(Status.UNAUTHENTICATED, () -> unauthenticatedServiceStub().getVersionedProfile(requestBuilder.build()));
   }
-
   private static Stream<Arguments> getVersionedProfileUnauthenticated() {
     return Stream.of(
         Arguments.of(true, false),
         Arguments.of(false, true)
     );
   }
+
   @Test
   void getVersionedProfilePniInvalidArgument() {
     final byte[] unidentifiedAccessKey = new byte[16];
@@ -346,10 +341,7 @@ public class ProfileAnonymousGrpcServiceTest {
             .build())
         .build();
 
-    final StatusRuntimeException statusRuntimeException = assertThrows(StatusRuntimeException.class,
-        () -> profileAnonymousBlockingStub.getVersionedProfile(request));
-
-    assertEquals(Status.INVALID_ARGUMENT.getCode(), statusRuntimeException.getStatus().getCode());
+    assertStatusException(Status.INVALID_ARGUMENT, () -> unauthenticatedServiceStub().getVersionedProfile(request));
   }
 
   @Test
@@ -404,7 +396,7 @@ public class ProfileAnonymousGrpcServiceTest {
         .setUnidentifiedAccessKey(ByteString.copyFrom(unidentifiedAccessKey))
         .build();
 
-    final GetExpiringProfileKeyCredentialResponse response = profileAnonymousBlockingStub.getExpiringProfileKeyCredential(request);
+    final GetExpiringProfileKeyCredentialResponse response = unauthenticatedServiceStub().getExpiringProfileKeyCredential(request);
 
     assertArrayEquals(credentialResponse.serialize(), response.getProfileKeyCredential().toByteArray());
 
@@ -442,10 +434,7 @@ public class ProfileAnonymousGrpcServiceTest {
       requestBuilder.setUnidentifiedAccessKey(ByteString.copyFrom(unidentifiedAccessKey));
     }
 
-    final StatusRuntimeException statusRuntimeException = assertThrows(StatusRuntimeException.class,
-        () -> profileAnonymousBlockingStub.getExpiringProfileKeyCredential(requestBuilder.build()));
-
-    assertEquals(Status.UNAUTHENTICATED.getCode(), statusRuntimeException.getStatus().getCode());
+    assertStatusException(Status.UNAUTHENTICATED, () -> unauthenticatedServiceStub().getExpiringProfileKeyCredential(requestBuilder.build()));
 
     verifyNoInteractions(profilesManager);
   }
@@ -483,10 +472,7 @@ public class ProfileAnonymousGrpcServiceTest {
             .build())
         .build();
 
-    final StatusRuntimeException statusRuntimeException = assertThrows(StatusRuntimeException.class,
-        () -> profileAnonymousBlockingStub.getExpiringProfileKeyCredential(request));
-
-    assertEquals(Status.NOT_FOUND.getCode(), statusRuntimeException.getStatus().getCode());
+    assertStatusException(Status.NOT_FOUND, () -> unauthenticatedServiceStub().getExpiringProfileKeyCredential(request));
   }
 
   @ParameterizedTest
@@ -521,10 +507,7 @@ public class ProfileAnonymousGrpcServiceTest {
             .build())
         .build();
 
-    final StatusRuntimeException statusRuntimeException = assertThrows(StatusRuntimeException.class,
-        () -> profileAnonymousBlockingStub.getExpiringProfileKeyCredential(request));
-
-    assertEquals(Status.INVALID_ARGUMENT.getCode(), statusRuntimeException.getStatus().getCode());
+    assertStatusException(Status.INVALID_ARGUMENT, () -> unauthenticatedServiceStub().getExpiringProfileKeyCredential(request));
   }
 
   private static Stream<Arguments> getExpiringProfileKeyCredentialInvalidArgument() {

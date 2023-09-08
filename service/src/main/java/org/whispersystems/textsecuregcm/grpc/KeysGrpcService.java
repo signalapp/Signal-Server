@@ -75,11 +75,6 @@ public class KeysGrpcService extends ReactorKeysGrpc.KeysImplBase {
   }
 
   @Override
-  protected Throwable onErrorMap(final Throwable throwable) {
-    return RateLimitUtil.mapRateLimitExceededException(throwable);
-  }
-
-  @Override
   public Mono<GetPreKeyCountResponse> getPreKeyCount(final GetPreKeyCountRequest request) {
     return Mono.fromSupplier(AuthenticationUtil::requireAuthenticatedDevice)
         .flatMap(authenticatedDevice -> Mono.fromFuture(() -> accountsManager.getByAccountIdentifierAsync(authenticatedDevice.accountIdentifier()))

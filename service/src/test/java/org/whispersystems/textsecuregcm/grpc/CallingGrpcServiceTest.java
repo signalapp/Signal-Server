@@ -6,66 +6,41 @@
 package org.whispersystems.textsecuregcm.grpc;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.whispersystems.textsecuregcm.grpc.GrpcTestUtils.assertRateLimitExceeded;
 
-import io.grpc.ServerInterceptors;
-import io.grpc.Status;
-import io.grpc.StatusRuntimeException;
 import java.time.Duration;
 import java.util.List;
-import java.util.UUID;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.RegisterExtension;
+import org.mockito.Mock;
 import org.signal.chat.calling.CallingGrpc;
 import org.signal.chat.calling.GetTurnCredentialsRequest;
 import org.signal.chat.calling.GetTurnCredentialsResponse;
 import org.whispersystems.textsecuregcm.auth.TurnToken;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
-import org.whispersystems.textsecuregcm.auth.grpc.MockAuthenticationInterceptor;
-import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import org.whispersystems.textsecuregcm.storage.Device;
-import reactor.core.publisher.Mono;
+import org.whispersystems.textsecuregcm.util.MockUtils;
 
-class CallingGrpcServiceTest {
+class CallingGrpcServiceTest extends SimpleBaseGrpcTest<CallingGrpcService, CallingGrpc.CallingBlockingStub> {
 
+  @Mock
   private TurnTokenGenerator turnTokenGenerator;
+
+  @Mock
   private RateLimiter turnCredentialRateLimiter;
 
-  private CallingGrpc.CallingBlockingStub callingStub;
 
-  private static final UUID AUTHENTICATED_ACI = UUID.randomUUID();
-  private static final long AUTHENTICATED_DEVICE_ID = Device.MASTER_ID;
-
-  @RegisterExtension
-  static final GrpcServerExtension GRPC_SERVER_EXTENSION = new GrpcServerExtension();
-
-  @BeforeEach
-  void setUp() {
-    turnTokenGenerator = mock(TurnTokenGenerator.class);
-    turnCredentialRateLimiter = mock(RateLimiter.class);
-
+  @Override
+  protected CallingGrpcService createServiceBeforeEachTest() {
     final RateLimiters rateLimiters = mock(RateLimiters.class);
     when(rateLimiters.getTurnLimiter()).thenReturn(turnCredentialRateLimiter);
-
-    final CallingGrpcService callingGrpcService = new CallingGrpcService(turnTokenGenerator, rateLimiters);
-
-    final MockAuthenticationInterceptor mockAuthenticationInterceptor = new MockAuthenticationInterceptor();
-    mockAuthenticationInterceptor.setAuthenticatedDevice(AUTHENTICATED_ACI, AUTHENTICATED_DEVICE_ID);
-
-    GRPC_SERVER_EXTENSION.getServiceRegistry()
-        .addService(ServerInterceptors.intercept(callingGrpcService, mockAuthenticationInterceptor));
-
-    callingStub = CallingGrpc.newBlockingStub(GRPC_SERVER_EXTENSION.getChannel());
+    return new CallingGrpcService(turnTokenGenerator, rateLimiters);
   }
 
   @Test
@@ -74,10 +49,10 @@ class CallingGrpcServiceTest {
     final String password = "test-password";
     final List<String> urls = List.of("first", "second");
 
-    when(turnCredentialRateLimiter.validateReactive(AUTHENTICATED_ACI)).thenReturn(Mono.empty());
+    MockUtils.updateRateLimiterResponseToAllow(turnCredentialRateLimiter, AUTHENTICATED_ACI);
     when(turnTokenGenerator.generate(any())).thenReturn(new TurnToken(username, password, urls));
 
-    final GetTurnCredentialsResponse response = callingStub.getTurnCredentials(GetTurnCredentialsRequest.newBuilder().build());
+    final GetTurnCredentialsResponse response = authenticatedServiceStub().getTurnCredentials(GetTurnCredentialsRequest.newBuilder().build());
 
     final GetTurnCredentialsResponse expectedResponse = GetTurnCredentialsResponse.newBuilder()
         .setUsername(username)
@@ -90,20 +65,10 @@ class CallingGrpcServiceTest {
 
   @Test
   void getTurnCredentialsRateLimited() {
-    final Duration retryAfter = Duration.ofMinutes(19);
-
-    when(turnCredentialRateLimiter.validateReactive(AUTHENTICATED_ACI))
-        .thenReturn(Mono.error(new RateLimitExceededException(retryAfter, false)));
-
-    final StatusRuntimeException exception =
-        assertThrows(StatusRuntimeException.class, () -> callingStub.getTurnCredentials(GetTurnCredentialsRequest.newBuilder().build()));
-
+    final Duration retryAfter = MockUtils.updateRateLimiterResponseToFail(
+        turnCredentialRateLimiter, AUTHENTICATED_ACI, Duration.ofMinutes(19), false);
+    assertRateLimitExceeded(retryAfter, () -> authenticatedServiceStub().getTurnCredentials(GetTurnCredentialsRequest.newBuilder().build()));
     verify(turnTokenGenerator, never()).generate(any());
-
-    assertEquals(Status.Code.RESOURCE_EXHAUSTED, exception.getStatus().getCode());
-    assertNotNull(exception.getTrailers());
-    assertEquals(retryAfter, exception.getTrailers().get(RateLimitUtil.RETRY_AFTER_DURATION_KEY));
-
     verifyNoInteractions(turnTokenGenerator);
   }
 }

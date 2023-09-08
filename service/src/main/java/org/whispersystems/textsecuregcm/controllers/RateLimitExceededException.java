@@ -1,14 +1,30 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.controllers;
 
+import io.grpc.Metadata;
+import io.grpc.Status;
 import java.time.Duration;
 import java.util.Optional;
 import javax.annotation.Nullable;
+import org.whispersystems.textsecuregcm.grpc.ConvertibleToGrpcStatus;
 
-public class RateLimitExceededException extends Exception {
+public class RateLimitExceededException extends Exception implements ConvertibleToGrpcStatus {
+
+  public static final Metadata.Key<Duration> RETRY_AFTER_DURATION_KEY =
+      Metadata.Key.of("retry-after", new Metadata.AsciiMarshaller<>() {
+        @Override
+        public String toAsciiString(final Duration value) {
+          return value.toString();
+        }
+
+        @Override
+        public Duration parseAsciiString(final String serialized) {
+          return Duration.parse(serialized);
+        }
+      });
 
   @Nullable
   private final Duration retryDuration;
@@ -32,5 +48,20 @@ public class RateLimitExceededException extends Exception {
 
   public boolean isLegacy() {
     return legacy;
+  }
+
+  @Override
+  public Status grpcStatus() {
+    return Status.RESOURCE_EXHAUSTED;
+  }
+
+  @Override
+  public Optional<Metadata> grpcMetadata() {
+    return getRetryDuration()
+        .map(duration -> {
+          final Metadata metadata = new Metadata();
+          metadata.put(RETRY_AFTER_DURATION_KEY, duration);
+          return metadata;
+        });
   }
 }

@@ -10,8 +10,6 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThatNoException
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -21,15 +19,14 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.whispersystems.textsecuregcm.grpc.GrpcTestUtils.assertRateLimitExceeded;
+import static org.whispersystems.textsecuregcm.grpc.GrpcTestUtils.assertStatusException;
 
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import com.google.protobuf.ByteString;
 import io.grpc.Metadata;
-import io.grpc.ServerInterceptors;
 import io.grpc.Status;
-import io.grpc.StatusRuntimeException;
-import io.grpc.stub.MetadataUtils;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.Clock;
@@ -44,15 +41,14 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
 import org.signal.chat.common.IdentityType;
 import org.signal.chat.common.ServiceIdentifier;
 import org.signal.chat.profile.CredentialType;
@@ -82,7 +78,6 @@ import org.signal.libsignal.zkgroup.profiles.ProfileKeyCredentialRequest;
 import org.signal.libsignal.zkgroup.profiles.ProfileKeyCredentialRequestContext;
 import org.signal.libsignal.zkgroup.profiles.ServerZkProfileOperations;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessChecksum;
-import org.whispersystems.textsecuregcm.auth.grpc.MockAuthenticationInterceptor;
 import org.whispersystems.textsecuregcm.badges.ProfileBadgeConverter;
 import org.whispersystems.textsecuregcm.configuration.BadgeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
@@ -100,49 +95,54 @@ import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.VersionedProfile;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.ProfileTestHelper;
+import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import reactor.core.publisher.Mono;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 
-public class ProfileGrpcServiceTest {
-  private static final UUID AUTHENTICATED_ACI = UUID.randomUUID();
-  private static final long AUTHENTICATED_DEVICE_ID = Device.MASTER_ID;
+public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcService, ProfileGrpc.ProfileBlockingStub> {
+
   private static final String S3_BUCKET = "profileBucket";
+
   private static final String VERSION = "someVersion";
+
   private static final byte[] VALID_NAME = new byte[81];
+
+  @Mock
   private AccountsManager accountsManager;
+
+  @Mock
   private ProfilesManager profilesManager;
+
+  @Mock
   private DynamicPaymentsConfiguration dynamicPaymentsConfiguration;
+
+  @Mock
   private S3AsyncClient asyncS3client;
+
+  @Mock
   private VersionedProfile profile;
+
+  @Mock
   private Account account;
+
+  @Mock
   private RateLimiter rateLimiter;
+
+  @Mock
   private ProfileBadgeConverter profileBadgeConverter;
+
+  @Mock
   private ServerZkProfileOperations serverZkProfileOperations;
-  private ProfileGrpc.ProfileBlockingStub profileBlockingStub;
 
-  @RegisterExtension
-  static final GrpcServerExtension GRPC_SERVER_EXTENSION = new GrpcServerExtension();
-
-  @BeforeEach
-  void setup() {
-    accountsManager = mock(AccountsManager.class);
-    profilesManager = mock(ProfilesManager.class);
-    dynamicPaymentsConfiguration = mock(DynamicPaymentsConfiguration.class);
-    asyncS3client = mock(S3AsyncClient.class);
-    profile = mock(VersionedProfile.class);
-    account = mock(Account.class);
-    rateLimiter = mock(RateLimiter.class);
-    profileBadgeConverter = mock(ProfileBadgeConverter.class);
-    serverZkProfileOperations = mock(ServerZkProfileOperations.class);
-
+  @Override
+  protected ProfileGrpcService createServiceBeforeEachTest() {
     @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
     final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
     final PolicySigner policySigner = new PolicySigner("accessSecret", "us-west-1");
@@ -170,30 +170,6 @@ public class ProfileGrpcServiceTest {
     metadata.put(AcceptLanguageInterceptor.ACCEPTABLE_LANGUAGES_GRPC_HEADER, "en-us");
     metadata.put(UserAgentInterceptor.USER_AGENT_GRPC_HEADER, "Signal-Android/1.2.3");
 
-    profileBlockingStub = ProfileGrpc.newBlockingStub(GRPC_SERVER_EXTENSION.getChannel())
-        .withInterceptors(MetadataUtils.newAttachHeadersInterceptor(metadata));
-
-    final ProfileGrpcService profileGrpcService = new ProfileGrpcService(
-        Clock.systemUTC(),
-        accountsManager,
-        profilesManager,
-        dynamicConfigurationManager,
-        badgesConfiguration,
-        asyncS3client,
-        policyGenerator,
-        policySigner,
-        profileBadgeConverter,
-        rateLimiters,
-        serverZkProfileOperations,
-        S3_BUCKET
-    );
-
-    final MockAuthenticationInterceptor mockAuthenticationInterceptor = new MockAuthenticationInterceptor();
-    mockAuthenticationInterceptor.setAuthenticatedDevice(AUTHENTICATED_ACI, AUTHENTICATED_DEVICE_ID);
-
-    GRPC_SERVER_EXTENSION.getServiceRegistry()
-        .addService(ServerInterceptors.intercept(profileGrpcService, mockAuthenticationInterceptor));
-
     when(rateLimiters.getProfileLimiter()).thenReturn(rateLimiter);
     when(rateLimiter.validateReactive(any(UUID.class))).thenReturn(Mono.empty());
 
@@ -218,6 +194,21 @@ public class ProfileGrpcServiceTest {
     when(dynamicPaymentsConfiguration.getDisallowedPrefixes()).thenReturn(Collections.emptyList());
 
     when(asyncS3client.deleteObject(any(DeleteObjectRequest.class))).thenReturn(CompletableFuture.completedFuture(null));
+
+    return new ProfileGrpcService(
+        Clock.systemUTC(),
+        accountsManager,
+        profilesManager,
+        dynamicConfigurationManager,
+        badgesConfiguration,
+        asyncS3client,
+        policyGenerator,
+        policySigner,
+        profileBadgeConverter,
+        rateLimiters,
+        serverZkProfileOperations,
+        S3_BUCKET
+    );
   }
 
   @Test
@@ -237,7 +228,7 @@ public class ProfileGrpcServiceTest {
         .setCommitment(ByteString.copyFrom(commitment))
         .build();
 
-    profileBlockingStub.setProfile(request);
+    authenticatedServiceStub().setProfile(request);
 
     final ArgumentCaptor<VersionedProfile> profileArgumentCaptor = ArgumentCaptor.forClass(VersionedProfile.class);
 
@@ -274,7 +265,7 @@ public class ProfileGrpcServiceTest {
         hasPreviousProfile ? Optional.of(profile) : Optional.empty()));
     when(profilesManager.setAsync(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
-    SetProfileResponse response = profileBlockingStub.setProfile(request);
+    final SetProfileResponse response = authenticatedServiceStub().setProfile(request);
 
     if (expectHasS3UploadPath) {
       assertTrue(response.getAttributes().getPath().startsWith("profiles/"));
@@ -312,10 +303,7 @@ public class ProfileGrpcServiceTest {
   @ParameterizedTest
   @MethodSource
   void setProfileInvalidRequestData(final SetProfileRequest request) {
-    final StatusRuntimeException exception =
-        assertThrows(StatusRuntimeException.class, () -> profileBlockingStub.setProfile(request));
-
-    assertEquals(Status.INVALID_ARGUMENT.getCode(), exception.getStatus().getCode());
+    assertStatusException(Status.INVALID_ARGUMENT, () -> authenticatedServiceStub().setProfile(request));
   }
 
   private static Stream<Arguments> setProfileInvalidRequestData() throws InvalidInputException{
@@ -386,12 +374,10 @@ public class ProfileGrpcServiceTest {
     when(profilesManager.getAsync(any(), anyString())).thenReturn(CompletableFuture.completedFuture(Optional.of(profile)));
 
     if (hasExistingPaymentAddress) {
-      assertDoesNotThrow(() -> profileBlockingStub.setProfile(request),
+      assertDoesNotThrow(() -> authenticatedServiceStub().setProfile(request),
           "Payment address changes in disallowed countries should still be allowed if the account already has a valid payment address");
     } else {
-      final StatusRuntimeException exception =
-          assertThrows(StatusRuntimeException.class, () -> profileBlockingStub.setProfile(request));
-      assertEquals(Status.PERMISSION_DENIED.getCode(), exception.getStatus().getCode());
+      assertStatusException(Status.PERMISSION_DENIED, () -> authenticatedServiceStub().setProfile(request));
     }
   }
 
@@ -433,7 +419,7 @@ public class ProfileGrpcServiceTest {
     when(profileBadgeConverter.convert(any(), any(), anyBoolean())).thenReturn(badges);
     when(accountsManager.getByServiceIdentifierAsync(any())).thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
 
-    final GetUnversionedProfileResponse response = profileBlockingStub.getUnversionedProfile(request);
+    final GetUnversionedProfileResponse response = authenticatedServiceStub().getUnversionedProfile(request);
 
     final byte[] unidentifiedAccessChecksum = UnidentifiedAccessChecksum.generateFor(unidentifiedAccessKey);
     final GetUnversionedProfileResponse prototypeExpectedResponse = GetUnversionedProfileResponse.newBuilder()
@@ -472,10 +458,7 @@ public class ProfileGrpcServiceTest {
             .build())
         .build();
 
-    final StatusRuntimeException statusRuntimeException = assertThrows(StatusRuntimeException.class,
-        () -> profileBlockingStub.getUnversionedProfile(request));
-
-    assertEquals(Status.NOT_FOUND.getCode(), statusRuntimeException.getStatus().getCode());
+    assertStatusException(Status.NOT_FOUND, () -> authenticatedServiceStub().getUnversionedProfile(request));
   }
 
   @ParameterizedTest
@@ -493,14 +476,7 @@ public class ProfileGrpcServiceTest {
             .build())
         .build();
 
-    final StatusRuntimeException exception =
-        assertThrows(StatusRuntimeException.class, () -> profileBlockingStub.getUnversionedProfile(request));
-
-    assertEquals(Status.Code.RESOURCE_EXHAUSTED, exception.getStatus().getCode());
-    assertNotNull(exception.getTrailers());
-    assertEquals(retryAfterDuration, exception.getTrailers().get(RateLimitUtil.RETRY_AFTER_DURATION_KEY));
-
-    verifyNoInteractions(accountsManager);
+    assertRateLimitExceeded(retryAfterDuration, () -> authenticatedServiceStub().getUnversionedProfile(request), accountsManager);
   }
 
   @ParameterizedTest
@@ -531,7 +507,7 @@ public class ProfileGrpcServiceTest {
     when(accountsManager.getByServiceIdentifierAsync(any())).thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
     when(profilesManager.getAsync(any(), any())).thenReturn(CompletableFuture.completedFuture(Optional.of(profile)));
 
-    final GetVersionedProfileResponse response = profileBlockingStub.getVersionedProfile(request);
+    final GetVersionedProfileResponse response = authenticatedServiceStub().getVersionedProfile(request);
 
     final GetVersionedProfileResponse.Builder expectedResponseBuilder = GetVersionedProfileResponse.newBuilder()
         .setName(ByteString.copyFrom(name))
@@ -545,7 +521,6 @@ public class ProfileGrpcServiceTest {
 
     assertEquals(expectedResponseBuilder.build(), response);
   }
-
   private static Stream<Arguments> getVersionedProfile() {
     return Stream.of(
         Arguments.of("version1", "version1", true),
@@ -553,6 +528,7 @@ public class ProfileGrpcServiceTest {
         Arguments.of("version1", "version2", false)
     );
   }
+
   @ParameterizedTest
   @MethodSource
   void getVersionedProfileAccountOrProfileNotFound(final boolean missingAccount, final boolean missingProfile) {
@@ -566,10 +542,7 @@ public class ProfileGrpcServiceTest {
     when(accountsManager.getByServiceIdentifierAsync(any())).thenReturn(CompletableFuture.completedFuture(missingAccount ? Optional.empty() : Optional.of(account)));
     when(profilesManager.getAsync(any(), any())).thenReturn(CompletableFuture.completedFuture(missingProfile ? Optional.empty() : Optional.of(profile)));
 
-    final StatusRuntimeException statusRuntimeException = assertThrows(StatusRuntimeException.class,
-        () -> profileBlockingStub.getVersionedProfile(request));
-
-    assertEquals(Status.NOT_FOUND.getCode(), statusRuntimeException.getStatus().getCode());
+    assertStatusException(Status.NOT_FOUND, () -> authenticatedServiceStub().getVersionedProfile(request));
   }
 
   private static Stream<Arguments> getVersionedProfileAccountOrProfileNotFound() {
@@ -581,10 +554,7 @@ public class ProfileGrpcServiceTest {
 
   @Test
   void getVersionedProfileRatelimited() {
-    final Duration retryAfterDuration = Duration.ofMinutes(7);
-
-    when(rateLimiter.validateReactive(any(UUID.class)))
-        .thenReturn(Mono.error(new RateLimitExceededException(retryAfterDuration, false)));
+    final Duration retryAfterDuration = MockUtils.updateRateLimiterResponseToFail(rateLimiter, AUTHENTICATED_ACI, Duration.ofMinutes(7), false);
 
     final GetVersionedProfileRequest request = GetVersionedProfileRequest.newBuilder()
         .setAccountIdentifier(ServiceIdentifier.newBuilder()
@@ -594,15 +564,7 @@ public class ProfileGrpcServiceTest {
         .setVersion("someVersion")
         .build();
 
-    final StatusRuntimeException exception = assertThrows(StatusRuntimeException.class,
-        () -> profileBlockingStub.getVersionedProfile(request));
-
-    assertEquals(Status.Code.RESOURCE_EXHAUSTED, exception.getStatus().getCode());
-    assertNotNull(exception.getTrailers());
-    assertEquals(retryAfterDuration, exception.getTrailers().get(RateLimitUtil.RETRY_AFTER_DURATION_KEY));
-
-    verifyNoInteractions(accountsManager);
-    verifyNoInteractions(profilesManager);
+    assertRateLimitExceeded(retryAfterDuration, () -> authenticatedServiceStub().getVersionedProfile(request), accountsManager, profilesManager);
   }
 
   @Test
@@ -615,9 +577,7 @@ public class ProfileGrpcServiceTest {
         .setVersion("someVersion")
         .build();
 
-    final StatusRuntimeException exception = assertThrows(StatusRuntimeException.class,
-        () -> profileBlockingStub.getVersionedProfile(request));
-    assertEquals(Status.INVALID_ARGUMENT.getCode(), exception.getStatus().getCode());
+    assertStatusException(Status.INVALID_ARGUMENT, () -> authenticatedServiceStub().getVersionedProfile(request));
   }
 
   @Test
@@ -664,7 +624,7 @@ public class ProfileGrpcServiceTest {
         .setVersion("someVersion")
         .build();
 
-    final GetExpiringProfileKeyCredentialResponse response = profileBlockingStub.getExpiringProfileKeyCredential(request);
+    final GetExpiringProfileKeyCredentialResponse response = authenticatedServiceStub().getExpiringProfileKeyCredential(request);
 
     assertArrayEquals(credentialResponse.serialize(), response.getProfileKeyCredential().toByteArray());
 
@@ -677,9 +637,8 @@ public class ProfileGrpcServiceTest {
 
   @Test
   void getExpiringProfileKeyCredentialRateLimited() {
-    final Duration retryAfterDuration = Duration.ofMinutes(5);
-    when(rateLimiter.validateReactive(AUTHENTICATED_ACI))
-        .thenReturn(Mono.error(new RateLimitExceededException(retryAfterDuration, false)));
+    final Duration retryAfterDuration = MockUtils.updateRateLimiterResponseToFail(
+        rateLimiter, AUTHENTICATED_ACI, Duration.ofMinutes(5), false);
     when(accountsManager.getByServiceIdentifierAsync(any())).thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
 
     final GetExpiringProfileKeyCredentialRequest request = GetExpiringProfileKeyCredentialRequest.newBuilder()
@@ -692,14 +651,7 @@ public class ProfileGrpcServiceTest {
         .setVersion("someVersion")
         .build();
 
-    StatusRuntimeException exception = assertThrows(StatusRuntimeException.class,
-        () -> profileBlockingStub.getExpiringProfileKeyCredential(request));
-
-    assertEquals(Status.Code.RESOURCE_EXHAUSTED, exception.getStatus().getCode());
-    assertNotNull(exception.getTrailers());
-    assertEquals(retryAfterDuration, exception.getTrailers().get(RateLimitUtil.RETRY_AFTER_DURATION_KEY));
-
-    verifyNoInteractions(profilesManager);
+    assertRateLimitExceeded(retryAfterDuration, () -> authenticatedServiceStub().getExpiringProfileKeyCredential(request), profilesManager);
   }
 
   @ParameterizedTest
@@ -723,10 +675,7 @@ public class ProfileGrpcServiceTest {
         .setVersion("someVersion")
         .build();
 
-    final StatusRuntimeException statusRuntimeException = assertThrows(StatusRuntimeException.class,
-        () -> profileBlockingStub.getExpiringProfileKeyCredential(request));
-
-    assertEquals(Status.Code.NOT_FOUND, statusRuntimeException.getStatus().getCode());
+    assertStatusException(Status.NOT_FOUND, () -> authenticatedServiceStub().getExpiringProfileKeyCredential(request));
   }
 
   private static Stream<Arguments> getExpiringProfileKeyCredentialAccountOrProfileNotFound() {
@@ -761,10 +710,7 @@ public class ProfileGrpcServiceTest {
         .setVersion("someVersion")
         .build();
 
-    StatusRuntimeException exception = assertThrows(StatusRuntimeException.class,
-        () -> profileBlockingStub.getExpiringProfileKeyCredential(request));
-
-    assertEquals(Status.Code.INVALID_ARGUMENT, exception.getStatus().getCode());
+    assertStatusException(Status.INVALID_ARGUMENT, () -> authenticatedServiceStub().getExpiringProfileKeyCredential(request));
   }
 
   private static Stream<Arguments> getExpiringProfileKeyCredentialInvalidArgument() {

@@ -11,6 +11,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.whispersystems.textsecuregcm.grpc.GrpcTestUtils.assertStatusException;
 
 import com.google.protobuf.ByteString;
 import io.grpc.Status;
@@ -20,11 +21,10 @@ import java.util.Collections;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.Mock;
 import org.signal.chat.common.EcPreKey;
 import org.signal.chat.common.EcSignedPreKey;
 import org.signal.chat.common.KemSignedPreKey;
@@ -48,27 +48,18 @@ import org.whispersystems.textsecuregcm.storage.KeysManager;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
-class KeysAnonymousGrpcServiceTest {
+class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcService, KeysAnonymousGrpc.KeysAnonymousBlockingStub> {
 
+  @Mock
   private AccountsManager accountsManager;
+
+  @Mock
   private KeysManager keysManager;
 
-  private KeysAnonymousGrpc.KeysAnonymousBlockingStub keysAnonymousStub;
 
-  @RegisterExtension
-  static final GrpcServerExtension GRPC_SERVER_EXTENSION = new GrpcServerExtension();
-
-  @BeforeEach
-  void setUp() {
-    accountsManager = mock(AccountsManager.class);
-    keysManager = mock(KeysManager.class);
-
-    final KeysAnonymousGrpcService keysGrpcService =
-        new KeysAnonymousGrpcService(accountsManager, keysManager);
-
-    keysAnonymousStub = KeysAnonymousGrpc.newBlockingStub(GRPC_SERVER_EXTENSION.getChannel());
-
-    GRPC_SERVER_EXTENSION.getServiceRegistry().addService(keysGrpcService);
+  @Override
+  protected KeysAnonymousGrpcService createServiceBeforeEachTest() {
+    return new KeysAnonymousGrpcService(accountsManager, keysManager);
   }
 
   @Test
@@ -101,7 +92,7 @@ class KeysAnonymousGrpcServiceTest {
     when(keysManager.takePQ(identifier, Device.MASTER_ID)).thenReturn(CompletableFuture.completedFuture(Optional.of(kemSignedPreKey)));
     when(targetDevice.getSignedPreKey(IdentityType.ACI)).thenReturn(ecSignedPreKey);
 
-    final GetPreKeysResponse response = keysAnonymousStub.getPreKeys(GetPreKeysAnonymousRequest.newBuilder()
+    final GetPreKeysResponse response = unauthenticatedServiceStub().getPreKeys(GetPreKeysAnonymousRequest.newBuilder()
         .setUnidentifiedAccessKey(ByteString.copyFrom(unidentifiedAccessKey))
         .setRequest(GetPreKeysRequest.newBuilder()
             .setTargetIdentifier(ServiceIdentifier.newBuilder()
@@ -152,19 +143,15 @@ class KeysAnonymousGrpcServiceTest {
     when(accountsManager.getByServiceIdentifierAsync(new AciServiceIdentifier(identifier)))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(targetAccount)));
 
-    final StatusRuntimeException statusRuntimeException =
-        assertThrows(StatusRuntimeException.class,
-            () -> keysAnonymousStub.getPreKeys(GetPreKeysAnonymousRequest.newBuilder()
-                .setRequest(GetPreKeysRequest.newBuilder()
-                    .setTargetIdentifier(ServiceIdentifier.newBuilder()
-                        .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
-                        .setUuid(UUIDUtil.toByteString(identifier))
-                        .build())
-                    .setDeviceId(Device.MASTER_ID)
-                    .build())
-                .build()));
-
-    assertEquals(Status.UNAUTHENTICATED.getCode(), statusRuntimeException.getStatus().getCode());
+    assertStatusException(Status.UNAUTHENTICATED, () -> unauthenticatedServiceStub().getPreKeys(GetPreKeysAnonymousRequest.newBuilder()
+        .setRequest(GetPreKeysRequest.newBuilder()
+            .setTargetIdentifier(ServiceIdentifier.newBuilder()
+                .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
+                .setUuid(UUIDUtil.toByteString(identifier))
+                .build())
+            .setDeviceId(Device.MASTER_ID)
+            .build())
+        .build()));
   }
 
   @Test
@@ -174,7 +161,7 @@ class KeysAnonymousGrpcServiceTest {
 
     final StatusRuntimeException exception =
         assertThrows(StatusRuntimeException.class,
-            () -> keysAnonymousStub.getPreKeys(GetPreKeysAnonymousRequest.newBuilder()
+            () -> unauthenticatedServiceStub().getPreKeys(GetPreKeysAnonymousRequest.newBuilder()
                 .setUnidentifiedAccessKey(UUIDUtil.toByteString(UUID.randomUUID()))
                 .setRequest(GetPreKeysRequest.newBuilder()
                     .setTargetIdentifier(ServiceIdentifier.newBuilder()
@@ -205,19 +192,15 @@ class KeysAnonymousGrpcServiceTest {
     when(accountsManager.getByServiceIdentifierAsync(new AciServiceIdentifier(accountIdentifier)))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(targetAccount)));
 
-    final StatusRuntimeException exception =
-        assertThrows(StatusRuntimeException.class,
-            () -> keysAnonymousStub.getPreKeys(GetPreKeysAnonymousRequest.newBuilder()
-                .setUnidentifiedAccessKey(ByteString.copyFrom(unidentifiedAccessKey))
-                .setRequest(GetPreKeysRequest.newBuilder()
-                    .setTargetIdentifier(ServiceIdentifier.newBuilder()
-                        .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
-                        .setUuid(UUIDUtil.toByteString(accountIdentifier))
-                        .build())
-                    .setDeviceId(deviceId)
-                    .build())
-                .build()));
-
-    assertEquals(Status.Code.NOT_FOUND, exception.getStatus().getCode());
+    assertStatusException(Status.NOT_FOUND, () -> unauthenticatedServiceStub().getPreKeys(GetPreKeysAnonymousRequest.newBuilder()
+        .setUnidentifiedAccessKey(ByteString.copyFrom(unidentifiedAccessKey))
+        .setRequest(GetPreKeysRequest.newBuilder()
+            .setTargetIdentifier(ServiceIdentifier.newBuilder()
+                .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
+                .setUuid(UUIDUtil.toByteString(accountIdentifier))
+                .build())
+            .setDeviceId(deviceId)
+            .build())
+        .build()));
   }
 }

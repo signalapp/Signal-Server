@@ -25,11 +25,6 @@ public class CallingGrpcService extends ReactorCallingGrpc.CallingImplBase {
   }
 
   @Override
-  protected Throwable onErrorMap(final Throwable throwable) {
-    return RateLimitUtil.mapRateLimitExceededException(throwable);
-  }
-
-  @Override
   public Mono<GetTurnCredentialsResponse> getTurnCredentials(final GetTurnCredentialsRequest request) {
     final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
 
