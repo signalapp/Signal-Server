@@ -13,6 +13,7 @@ import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -755,6 +756,28 @@ class DeviceControllerTest {
     verify(accountsManager, times(1)).update(eq(AuthHelper.VALID_ACCOUNT), any());
     verify(AuthHelper.VALID_ACCOUNT).removeDevice(deviceId);
     verify(keysManager).delete(AuthHelper.VALID_UUID, deviceId);
+  }
+
+  @Test
+  void unlinkPrimaryDevice() {
+    // this is a static mock, so it might have previous invocations
+    clearInvocations(AuthHelper.VALID_ACCOUNT);
+
+    try (final Response response = resources
+        .getJerseyTest()
+        .target("/v1/devices/" + Device.MASTER_ID)
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
+        .delete()) {
+
+      assertThat(response.getStatus()).isEqualTo(403);
+
+      verify(messagesManager, never()).clear(any(), anyLong());
+      verify(accountsManager, never()).update(eq(AuthHelper.VALID_ACCOUNT), any());
+      verify(AuthHelper.VALID_ACCOUNT, never()).removeDevice(anyLong());
+      verify(keysManager, never()).delete(any(), anyLong());
+    }
   }
 
   @Test
