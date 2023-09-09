@@ -141,6 +141,10 @@ public class DeviceController {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 
+    if (deviceId == Device.MASTER_ID) {
+      throw new ForbiddenException();
+    }
+
     final CompletableFuture<Void> deleteKeysFuture = keys.delete(account.getUuid(), deviceId);
 
     messages.clear(account.getUuid(), deviceId).join();
