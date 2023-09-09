@@ -1,3 +1,8 @@
+/*
+ * Copyright 2023 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 package org.whispersystems.textsecuregcm.currency;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -12,6 +17,8 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.entities.CurrencyConversionEntityList;
@@ -21,6 +28,8 @@ class CurrencyConversionManagerTest {
 
   @RegisterExtension
   static final RedisClusterExtension REDIS_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
+
+  static final ScheduledExecutorService EXECUTOR = Executors.newSingleThreadScheduledExecutor();
 
   @Test
   void testCurrencyCalculations() throws IOException {
@@ -35,7 +44,7 @@ class CurrencyConversionManagerTest {
     ));
 
     CurrencyConversionManager manager = new CurrencyConversionManager(fixerClient, coinMarketCapClient, REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-        List.of("FOO"), Clock.systemUTC());
+        List.of("FOO"), EXECUTOR, Clock.systemUTC());
 
     manager.updateCacheIfNecessary();
 
@@ -64,7 +73,7 @@ class CurrencyConversionManagerTest {
     ));
 
     CurrencyConversionManager manager = new CurrencyConversionManager(fixerClient, coinMarketCapClient, REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-        List.of("FOO"), Clock.systemUTC());
+        List.of("FOO"), EXECUTOR, Clock.systemUTC());
 
     manager.updateCacheIfNecessary();
 
@@ -93,7 +102,7 @@ class CurrencyConversionManagerTest {
     ));
 
     CurrencyConversionManager manager = new CurrencyConversionManager(fixerClient, coinMarketCapClient, REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-        List.of("FOO"), Clock.systemUTC());
+        List.of("FOO"), EXECUTOR, Clock.systemUTC());
 
     manager.updateCacheIfNecessary();
 
@@ -122,7 +131,7 @@ class CurrencyConversionManagerTest {
     ));
 
     CurrencyConversionManager manager = new CurrencyConversionManager(fixerClient, coinMarketCapClient, REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-        List.of("FOO"), Clock.systemUTC());
+        List.of("FOO"), EXECUTOR, Clock.systemUTC());
 
     manager.updateCacheIfNecessary();
 
@@ -154,7 +163,7 @@ class CurrencyConversionManagerTest {
     ));
 
     CurrencyConversionManager manager = new CurrencyConversionManager(fixerClient, coinMarketCapClient, REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-        List.of("FOO"), Clock.systemUTC());
+        List.of("FOO"), EXECUTOR, Clock.systemUTC());
 
     manager.updateCacheIfNecessary();
 
@@ -195,7 +204,7 @@ class CurrencyConversionManagerTest {
     when(clock.millis()).thenReturn(currentTime.toEpochMilli());
 
     CurrencyConversionManager manager = new CurrencyConversionManager(fixerClient, coinMarketCapClient, REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-        List.of("FOO"), clock);
+        List.of("FOO"), EXECUTOR, clock);
 
     manager.updateCacheIfNecessary();
 

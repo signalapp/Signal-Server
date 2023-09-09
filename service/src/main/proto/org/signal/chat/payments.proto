@@ -1,0 +1,36 @@
+/*
+ * Copyright 2023 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
+syntax = "proto3";
+
+option java_multiple_files = true;
+
+package org.signal.chat.payments;
+
+/**
+ * Provides methods for working with payments.
+ */
+service Payments {
+  /**
+   */
+  rpc GetCurrencyConversions(GetCurrencyConversionsRequest) returns (GetCurrencyConversionsResponse) {}
+}
+
+message GetCurrencyConversionsRequest {
+}
+
+message GetCurrencyConversionsResponse {
+
+  message CurrencyConversionEntity {
+
+    string base = 1;
+
+    map<string, string> conversions = 2;
+  }
+
+  uint64 timestamp = 1;
+
+  repeated CurrencyConversionEntity currencies = 2;
+}

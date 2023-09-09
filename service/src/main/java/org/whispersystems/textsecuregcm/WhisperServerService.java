@@ -124,6 +124,7 @@ import org.whispersystems.textsecuregcm.grpc.ErrorMappingInterceptor;
 import org.whispersystems.textsecuregcm.grpc.GrpcServerManagedWrapper;
 import org.whispersystems.textsecuregcm.grpc.KeysAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.KeysGrpcService;
+import org.whispersystems.textsecuregcm.grpc.PaymentsGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ProfileAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ProfileGrpcService;
 import org.whispersystems.textsecuregcm.grpc.UserAgentInterceptor;
@@ -588,7 +589,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     FixerClient fixerClient = new FixerClient(currencyClient, config.getPaymentsServiceConfiguration().fixerApiKey().value());
     CoinMarketCapClient coinMarketCapClient = new CoinMarketCapClient(currencyClient, config.getPaymentsServiceConfiguration().coinMarketCapApiKey().value(), config.getPaymentsServiceConfiguration().coinMarketCapCurrencyIds());
     CurrencyConversionManager currencyManager = new CurrencyConversionManager(fixerClient, coinMarketCapClient,
-        cacheCluster, config.getPaymentsServiceConfiguration().paymentCurrencies(), Clock.systemUTC());
+        cacheCluster, config.getPaymentsServiceConfiguration().paymentCurrencies(), recurringJobExecutor, Clock.systemUTC());
 
     environment.lifecycle().manage(apnSender);
     environment.lifecycle().manage(apnPushNotificationScheduler);
@@ -644,6 +645,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final ServerBuilder<?> grpcServer = ServerBuilder.forPort(config.getGrpcPort())
         .addService(ServerInterceptors.intercept(new KeysGrpcService(accountsManager, keys, rateLimiters), basicCredentialAuthenticationInterceptor))
         .addService(new KeysAnonymousGrpcService(accountsManager, keys))
+        .addService(new PaymentsGrpcService(currencyManager))
         .addService(ServerInterceptors.intercept(new ProfileGrpcService(clock, accountsManager, profilesManager, dynamicConfigurationManager,
                 config.getBadges(), asyncCdnS3Client, profileCdnPolicyGenerator, profileCdnPolicySigner, profileBadgeConverter, rateLimiters, zkProfileOperations, config.getCdnConfiguration().bucket()), basicCredentialAuthenticationInterceptor))
         .addService(new ProfileAnonymousGrpcService(accountsManager, profilesManager, profileBadgeConverter, zkProfileOperations));

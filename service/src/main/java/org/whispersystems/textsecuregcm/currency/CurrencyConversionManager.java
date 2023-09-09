@@ -1,3 +1,8 @@
+/*
+ * Copyright 2023 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 package org.whispersystems.textsecuregcm.currency;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -13,13 +18,14 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.CurrencyConversionEntity;
 import org.whispersystems.textsecuregcm.entities.CurrencyConversionEntityList;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
-import org.whispersystems.textsecuregcm.util.Util;
 
 public class CurrencyConversionManager implements Managed {
 
@@ -32,31 +38,42 @@ public class CurrencyConversionManager implements Managed {
 
   @VisibleForTesting
   static final String COIN_MARKET_CAP_SHARED_CACHE_CURRENT_KEY = "CurrencyConversionManager::CoinMarketCapCacheCurrent";
+
   private static final String COIN_MARKET_CAP_SHARED_CACHE_DATA_KEY = "CurrencyConversionManager::CoinMarketCapCacheData";
 
-  private final FixerClient  fixerClient;
+  private final FixerClient fixerClient;
+
   private final CoinMarketCapClient coinMarketCapClient;
+
   private final FaultTolerantRedisCluster cacheCluster;
+
   private final Clock clock;
 
   private final List<String> currencies;
+
+  private final ScheduledExecutorService executor;
 
   private final AtomicReference<CurrencyConversionEntityList> cached = new AtomicReference<>(null);
 
   private Instant fixerUpdatedTimestamp = Instant.MIN;
 
   private Map<String, BigDecimal> cachedFixerValues;
+
   private Map<String, BigDecimal> cachedCoinMarketCapValues;
 
-  public CurrencyConversionManager(final FixerClient fixerClient,
+
+  public CurrencyConversionManager(
+      final FixerClient fixerClient,
       final CoinMarketCapClient coinMarketCapClient,
       final FaultTolerantRedisCluster cacheCluster,
       final List<String> currencies,
+      final ScheduledExecutorService executor,
       final Clock clock) {
     this.fixerClient = fixerClient;
     this.coinMarketCapClient = coinMarketCapClient;
     this.cacheCluster = cacheCluster;
     this.currencies  = currencies;
+    this.executor = executor;
     this.clock = clock;
   }
 
@@ -66,22 +83,13 @@ public class CurrencyConversionManager implements Managed {
 
   @Override
   public void start() throws Exception {
-    new Thread(() -> {
-      for (;;) {
-        try {
-          updateCacheIfNecessary();
-        } catch (Throwable t) {
-          logger.warn("Error updating currency conversions", t);
-        }
-
-        Util.sleep(15000);
+    executor.scheduleAtFixedRate(() -> {
+      try {
+        updateCacheIfNecessary();
+      } catch (Throwable t) {
+        logger.warn("Error updating currency conversions", t);
       }
-    }).start();
-  }
-
-  @Override
-  public void stop() throws Exception {
-
+    }, 0, 15, TimeUnit.SECONDS);
   }
 
   @VisibleForTesting
