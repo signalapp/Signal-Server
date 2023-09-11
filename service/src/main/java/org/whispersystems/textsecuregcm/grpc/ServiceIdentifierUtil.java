@@ -5,8 +5,10 @@
 
 package org.whispersystems.textsecuregcm.grpc;
 
+import com.google.protobuf.ByteString;
 import io.grpc.Status;
 import java.util.UUID;
+import org.signal.chat.common.IdentityType;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
@@ -30,5 +32,12 @@ public class ServiceIdentifierUtil {
       case ACI -> new AciServiceIdentifier(uuid);
       case PNI -> new PniServiceIdentifier(uuid);
     };
+  }
+
+  public static org.signal.chat.common.ServiceIdentifier toGrpcServiceIdentifier(final ServiceIdentifier serviceIdentifier) {
+    return org.signal.chat.common.ServiceIdentifier.newBuilder()
+        .setIdentityType(IdentityTypeUtil.toGrpcIdentityType(serviceIdentifier.identityType()))
+        .setUuid(UUIDUtil.toByteString(serviceIdentifier.uuid()))
+        .build();
   }
 }

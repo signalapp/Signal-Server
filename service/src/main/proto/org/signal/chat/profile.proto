@@ -96,14 +96,6 @@ service ProfileAnonymous {
    * access key, or an `INVALID_ARGUMENT` status if the given credential type is invalid.
    */
   rpc GetExpiringProfileKeyCredential(GetExpiringProfileKeyCredentialAnonymousRequest) returns (GetExpiringProfileKeyCredentialResponse) {}
-
-  /**
-   * Checks identity key fingerprints of the target accounts.
-   *
-   * Returns a stream of elements, each one representing an account that had a mismatched
-   * identity key fingerprint with the server and the corresponding identity key stored by the server.
-   */
-  rpc CheckIdentityKeys(stream CheckIdentityKeysRequest) returns (stream CheckIdentityKeysResponse) {}
 }
 
 message SetProfileRequest {
@@ -276,28 +268,6 @@ message GetExpiringProfileKeyCredentialResponse {
    * of a targeted account.
    */
   bytes profileKeyCredential = 1;
-}
-
-message CheckIdentityKeysRequest {
-  /**
-   * The service identifier of the account for which we want to check the associated identity key fingerprint.
-   */
-  common.ServiceIdentifier target_identifier = 1;
-  /**
-   * The most significant 4 bytes of the SHA-256 hash of the identity key associated with the target account/identity type.
-   */
-  bytes fingerprint = 2;
-}
-
-message CheckIdentityKeysResponse {
-  /**
-   * The service identifier of the account for which there is a mismatch between the client and server identity key fingerprints.
-   */
-  common.ServiceIdentifier target_identifier = 1;
-  /**
-   * The identity key that is stored by the server for the target account/identity type.
-   */
-  bytes identity_key = 2;
 }
 
 message ProfileAvatarUploadAttributes {

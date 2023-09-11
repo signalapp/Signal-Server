@@ -20,4 +20,11 @@ public class IdentityTypeUtil {
       case IDENTITY_TYPE_UNSPECIFIED, UNRECOGNIZED -> throw Status.INVALID_ARGUMENT.asRuntimeException();
     };
   }
+
+  public static org.signal.chat.common.IdentityType toGrpcIdentityType(final IdentityType identityType) {
+    return switch (identityType) {
+      case ACI -> org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI;
+      case PNI -> org.signal.chat.common.IdentityType.IDENTITY_TYPE_PNI;
+    };
+  }
 }
