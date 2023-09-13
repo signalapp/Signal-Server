@@ -49,11 +49,9 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.CancellationReason;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
 import software.amazon.awssdk.services.dynamodb.model.Delete;
-import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.Put;
-import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
 import software.amazon.awssdk.services.dynamodb.model.QueryResponse;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValuesOnConditionCheckFailure;
@@ -200,8 +198,12 @@ public class Accounts extends AbstractDynamoDbStore {
 
         final TransactWriteItem accountPut = buildAccountPut(account, uuidAttr, numberAttr, pniUuidAttr);
 
+        // Clear any "recently deleted account" record for this number since, if it existed, we've used its old ACI for
+        // the newly-created account.
+        final TransactWriteItem deletedAccountDelete = buildRemoveDeletedAccount(account.getNumber());
+
         final TransactWriteItemsRequest request = TransactWriteItemsRequest.builder()
-            .transactItems(phoneNumberConstraintPut, phoneNumberIdentifierConstraintPut, accountPut)
+            .transactItems(phoneNumberConstraintPut, phoneNumberIdentifierConstraintPut, accountPut, deletedAccountDelete)
             .build();
 
         try {
@@ -270,7 +272,11 @@ public class Accounts extends AbstractDynamoDbStore {
    * @param account the account for which to change the phone number
    * @param number the new phone number
    */
-  public void changeNumber(final Account account, final String number, final UUID phoneNumberIdentifier) {
+  public void changeNumber(final Account account,
+      final String number,
+      final UUID phoneNumberIdentifier,
+      final Optional<UUID> maybeDisplacedAccountIdentifier) {
+
     CHANGE_NUMBER_TIMER.record(() -> {
       final String originalNumber = account.getNumber();
       final UUID originalPni = account.getPhoneNumberIdentifier();
@@ -289,6 +295,10 @@ public class Accounts extends AbstractDynamoDbStore {
         writeItems.add(buildConstraintTablePut(phoneNumberConstraintTableName, uuidAttr, ATTR_ACCOUNT_E164, numberAttr));
         writeItems.add(buildDelete(phoneNumberIdentifierConstraintTableName, ATTR_PNI_UUID, originalPni));
         writeItems.add(buildConstraintTablePut(phoneNumberIdentifierConstraintTableName, uuidAttr, ATTR_PNI_UUID, pniAttr));
+        writeItems.add(buildRemoveDeletedAccount(number));
+        maybeDisplacedAccountIdentifier.ifPresent(displacedAccountIdentifier ->
+            writeItems.add(buildPutDeletedAccount(displacedAccountIdentifier, originalNumber)));
+
         writeItems.add(
             TransactWriteItem.builder()
                 .update(Update.builder()
@@ -717,21 +727,25 @@ public class Accounts extends AbstractDynamoDbStore {
             .map(Accounts::fromItem)));
   }
 
-  public void putRecentlyDeletedAccount(final UUID uuid, final String e164) {
-    db().putItem(PutItemRequest.builder()
-        .tableName(deletedAccountsTableName)
-        .item(Map.of(
-            DELETED_ACCOUNTS_KEY_ACCOUNT_E164, AttributeValues.fromString(e164),
-            DELETED_ACCOUNTS_ATTR_ACCOUNT_UUID, AttributeValues.fromUUID(uuid),
-            DELETED_ACCOUNTS_ATTR_EXPIRES, AttributeValues.fromLong(Instant.now().plus(DELETED_ACCOUNTS_TIME_TO_LIVE).getEpochSecond())))
-        .build());
+  private TransactWriteItem buildPutDeletedAccount(final UUID uuid, final String e164) {
+    return TransactWriteItem.builder()
+        .put(Put.builder()
+            .tableName(deletedAccountsTableName)
+            .item(Map.of(
+                DELETED_ACCOUNTS_KEY_ACCOUNT_E164, AttributeValues.fromString(e164),
+                DELETED_ACCOUNTS_ATTR_ACCOUNT_UUID, AttributeValues.fromUUID(uuid),
+                DELETED_ACCOUNTS_ATTR_EXPIRES, AttributeValues.fromLong(Instant.now().plus(DELETED_ACCOUNTS_TIME_TO_LIVE).getEpochSecond())))
+            .build())
+        .build();
   }
 
-  public void removeRecentlyDeletedAccount(final String e164) {
-    db().deleteItem(DeleteItemRequest.builder()
-        .tableName(deletedAccountsTableName)
-        .key(Map.of(DELETED_ACCOUNTS_KEY_ACCOUNT_E164, AttributeValues.fromString(e164)))
-        .build());
+  private TransactWriteItem buildRemoveDeletedAccount(final String e164) {
+    return TransactWriteItem.builder()
+        .delete(Delete.builder()
+            .tableName(deletedAccountsTableName)
+            .key(Map.of(DELETED_ACCOUNTS_KEY_ACCOUNT_E164, AttributeValues.fromString(e164)))
+            .build())
+        .build();
   }
 
   @Nonnull
@@ -778,7 +792,8 @@ public class Accounts extends AbstractDynamoDbStore {
       final List<TransactWriteItem> transactWriteItems = new ArrayList<>(List.of(
           buildDelete(phoneNumberConstraintTableName, ATTR_ACCOUNT_E164, account.getNumber()),
           buildDelete(accountsTableName, KEY_ACCOUNT_UUID, uuid),
-          buildDelete(phoneNumberIdentifierConstraintTableName, ATTR_PNI_UUID, account.getPhoneNumberIdentifier())
+          buildDelete(phoneNumberIdentifierConstraintTableName, ATTR_PNI_UUID, account.getPhoneNumberIdentifier()),
+          buildPutDeletedAccount(uuid, account.getNumber())
       ));
 
       account.getUsernameHash().ifPresent(usernameHash -> transactWriteItems.add(

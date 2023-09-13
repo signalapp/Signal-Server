@@ -39,12 +39,15 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.commons.lang3.RandomUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
@@ -226,6 +229,34 @@ class AccountsTest {
 
     assertPhoneNumberConstraintExists("+14151112222", account.getUuid());
     assertPhoneNumberIdentifierConstraintExists(account.getPhoneNumberIdentifier(), account.getUuid());
+  }
+
+  @Test
+  void testStoreRecentlyDeleted() {
+    final UUID originalUuid = UUID.randomUUID();
+
+    Device device = generateDevice(1);
+    Account account = generateAccount("+14151112222", originalUuid, UUID.randomUUID(), List.of(device));
+
+    boolean freshUser = accounts.create(account);
+
+    assertThat(freshUser).isTrue();
+    verifyStoredState("+14151112222", account.getUuid(), account.getPhoneNumberIdentifier(), null, account, true);
+
+    assertPhoneNumberConstraintExists("+14151112222", account.getUuid());
+    assertPhoneNumberIdentifierConstraintExists(account.getPhoneNumberIdentifier(), account.getUuid());
+
+    accounts.delete(originalUuid);
+    assertThat(accounts.findRecentlyDeletedAccountIdentifier(account.getNumber())).hasValue(originalUuid);
+
+    freshUser = accounts.create(account);
+    assertThat(freshUser).isTrue();
+    verifyStoredState("+14151112222", account.getUuid(), account.getPhoneNumberIdentifier(), null, account, true);
+
+    assertPhoneNumberConstraintExists("+14151112222", account.getUuid());
+    assertPhoneNumberIdentifierConstraintExists(account.getPhoneNumberIdentifier(), account.getUuid());
+
+    assertThat(accounts.findRecentlyDeletedAccountIdentifier(account.getNumber())).isEmpty();
   }
 
   @Test
@@ -536,6 +567,8 @@ class AccountsTest {
     accounts.create(deletedAccount);
     accounts.create(retainedAccount);
 
+    assertThat(accounts.findRecentlyDeletedAccountIdentifier(deletedAccount.getNumber())).isEmpty();
+
     assertPhoneNumberConstraintExists("+14151112222", deletedAccount.getUuid());
     assertPhoneNumberIdentifierConstraintExists(deletedAccount.getPhoneNumberIdentifier(), deletedAccount.getUuid());
     assertPhoneNumberConstraintExists("+14151112345", retainedAccount.getUuid());
@@ -547,6 +580,7 @@ class AccountsTest {
     accounts.delete(deletedAccount.getUuid());
 
     assertThat(accounts.getByAccountIdentifier(deletedAccount.getUuid())).isNotPresent();
+    assertThat(accounts.findRecentlyDeletedAccountIdentifier(deletedAccount.getNumber())).hasValue(deletedAccount.getUuid());
 
     assertPhoneNumberConstraintDoesNotExist(deletedAccount.getNumber());
     assertPhoneNumberIdentifierConstraintDoesNotExist(deletedAccount.getPhoneNumberIdentifier());
@@ -637,8 +671,10 @@ class AccountsTest {
     verifyStoredState("+14151112222", account.getUuid(), account.getPhoneNumberIdentifier(), null, account, false);
   }
 
-  @Test
-  public void testChangeNumber() {
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+  @ParameterizedTest
+  @MethodSource
+  public void testChangeNumber(final Optional<UUID> maybeDisplacedAccountIdentifier) {
     final String originalNumber = "+14151112222";
     final String targetNumber = "+14151113333";
 
@@ -662,7 +698,7 @@ class AccountsTest {
       verifyStoredState(originalNumber, account.getUuid(), account.getPhoneNumberIdentifier(), null, retrieved.get(), account);
     }
 
-    accounts.changeNumber(account, targetNumber, targetPni);
+    accounts.changeNumber(account, targetNumber, targetPni, maybeDisplacedAccountIdentifier);
 
     assertThat(accounts.getByE164(originalNumber)).isEmpty();
     assertThat(accounts.getByAccountIdentifier(originalPni)).isEmpty();
@@ -681,6 +717,15 @@ class AccountsTest {
       assertThat(retrieved.get().getPhoneNumberIdentifier()).isEqualTo(targetPni);
       assertThat(accounts.getByPhoneNumberIdentifier(targetPni)).isPresent();
     }
+
+    assertThat(accounts.findRecentlyDeletedAccountIdentifier(originalNumber)).isEqualTo(maybeDisplacedAccountIdentifier);
+  }
+
+  private static Stream<Arguments> testChangeNumber() {
+    return Stream.of(
+        Arguments.of(Optional.empty()),
+        Arguments.of(Optional.of(UUID.randomUUID()))
+    );
   }
 
   @Test
@@ -700,7 +745,7 @@ class AccountsTest {
     accounts.create(account);
     accounts.create(existingAccount);
 
-    assertThrows(TransactionCanceledException.class, () -> accounts.changeNumber(account, targetNumber, targetPni));
+    assertThrows(TransactionCanceledException.class, () -> accounts.changeNumber(account, targetNumber, targetPni, Optional.of(existingAccount.getUuid())));
 
     assertPhoneNumberConstraintExists(originalNumber, account.getUuid());
     assertPhoneNumberIdentifierConstraintExists(originalPni, account.getUuid());
@@ -736,7 +781,7 @@ class AccountsTest {
             Map.of(":uuid", AttributeValues.fromUUID(existingAccountIdentifier)))
         .build());
 
-    assertThrows(TransactionCanceledException.class, () -> accounts.changeNumber(account, targetNumber, existingPhoneNumberIdentifier));
+    assertThrows(TransactionCanceledException.class, () -> accounts.changeNumber(account, targetNumber, existingPhoneNumberIdentifier, Optional.empty()));
   }
 
   @Test
@@ -990,59 +1035,6 @@ class AccountsTest {
         () -> accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
     assertThat(account.getReservedUsernameHash()).isEmpty();
     assertThat(account.getUsernameHash()).isEmpty();
-  }
-
-  @Test
-  void testPutFindRecentlyDeletedAccount() {
-    final UUID uuid = UUID.randomUUID();
-    final String e164 = "+18005551234";
-
-    assertEquals(Optional.empty(), accounts.findRecentlyDeletedAccountIdentifier(e164));
-
-    accounts.putRecentlyDeletedAccount(uuid, e164);
-
-    assertEquals(Optional.of(uuid), accounts.findRecentlyDeletedAccountIdentifier(e164));
-  }
-
-  @Test
-  void testRemoveRecentlyDeletedAccount() {
-    final UUID uuid = UUID.randomUUID();
-    final String e164 = "+18005551234";
-
-    assertEquals(Optional.empty(), accounts.findRecentlyDeletedAccountIdentifier(e164));
-
-    accounts.putRecentlyDeletedAccount(uuid, e164);
-
-    assertEquals(Optional.of(uuid), accounts.findRecentlyDeletedAccountIdentifier(e164));
-
-    accounts.removeRecentlyDeletedAccount(e164);
-
-    assertEquals(Optional.empty(), accounts.findRecentlyDeletedAccountIdentifier(e164));
-  }
-
-  @Test
-  void testFindRecentlyDeletedE164() {
-    assertEquals(Optional.empty(), accounts.findRecentlyDeletedE164(UUID.randomUUID()));
-
-    final UUID uuid = UUID.randomUUID();
-    final String e164 = "+18005551234";
-
-    accounts.putRecentlyDeletedAccount(uuid, e164);
-
-    assertEquals(Optional.of(e164), accounts.findRecentlyDeletedE164(uuid));
-  }
-
-  @Test
-  void testFindRecentlyDeletedUUID() {
-    final String e164 = "+18005551234";
-
-    assertEquals(Optional.empty(), accounts.findRecentlyDeletedAccountIdentifier(e164));
-
-    final UUID uuid = UUID.randomUUID();
-
-    accounts.putRecentlyDeletedAccount(uuid, e164);
-
-    assertEquals(Optional.of(uuid), accounts.findRecentlyDeletedAccountIdentifier(e164));
   }
 
   @Test

@@ -255,10 +255,6 @@ public class AccountsManager {
 
         accountAttributes.recoveryPassword().ifPresent(registrationRecoveryPassword ->
             registrationRecoveryPasswordsManager.storeForCurrentNumber(account.getNumber(), registrationRecoveryPassword));
-
-        // Clear any "recently deleted account" record for this number since, if it existed, we've used its old ACI for
-        // the newly-created account.
-        accounts.removeRecentlyDeletedAccount(number);
       });
 
       return account;
@@ -311,8 +307,6 @@ public class AccountsManager {
         maybeDisplacedUuid = recentlyDeletedAci;
       }
 
-      maybeDisplacedUuid.ifPresent(displacedUuid -> accounts.putRecentlyDeletedAccount(displacedUuid, originalNumber));
-
       final UUID uuid = account.getUuid();
       final UUID phoneNumberIdentifier = phoneNumberIdentifiers.getPhoneNumberIdentifier(targetNumber);
 
@@ -324,7 +318,7 @@ public class AccountsManager {
             setPniKeys(account, pniIdentityKey, pniSignedPreKeys, pniRegistrationIds);
             return true;
           },
-          a -> accounts.changeNumber(a, targetNumber, phoneNumberIdentifier),
+          a -> accounts.changeNumber(a, targetNumber, phoneNumberIdentifier, maybeDisplacedUuid),
           () -> accounts.getByAccountIdentifier(uuid).orElseThrow(),
           AccountChangeValidator.NUMBER_CHANGE_VALIDATOR);
 
@@ -855,14 +849,7 @@ public class AccountsManager {
 
   public void delete(final Account account, final DeletionReason deletionReason) throws InterruptedException {
     try (final Timer.Context ignored = deleteTimer.time()) {
-      accountLockManager.withLock(List.of(account.getNumber()), () -> {
-        final UUID accountIdentifier = account.getUuid();
-        final String e164 = account.getNumber();
-
-        delete(account);
-
-        accounts.putRecentlyDeletedAccount(accountIdentifier, e164);
-      });
+      accountLockManager.withLock(List.of(account.getNumber()), () -> delete(account));
     } catch (final RuntimeException | InterruptedException e) {
       logger.warn("Failed to delete account", e);
       throw e;

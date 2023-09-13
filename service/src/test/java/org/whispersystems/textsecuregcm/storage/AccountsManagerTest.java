@@ -148,7 +148,7 @@ class AccountsManagerTest {
       account.setNumber(number, phoneNumberIdentifier);
 
       return null;
-    }).when(accounts).changeNumber(any(), anyString(), any());
+    }).when(accounts).changeNumber(any(), anyString(), any(), any());
 
     final SecureStorageClient storageClient = mock(SecureStorageClient.class);
     when(storageClient.deleteStoredData(any())).thenReturn(CompletableFuture.completedFuture(null));
@@ -1031,7 +1031,6 @@ class AccountsManagerTest {
     account = accountsManager.changeNumber(account, number, null, null, null, null);
 
     assertEquals(number, account.getNumber());
-    verify(accounts, never()).putRecentlyDeletedAccount(any(), any());
     verify(keysManager, never()).delete(any());
   }
 
