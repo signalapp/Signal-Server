@@ -15,10 +15,12 @@ public class AccountLockManager {
 
   private final AmazonDynamoDBLockClient lockClient;
 
+  static final String KEY_ACCOUNT_E164 = "P";
+
   public AccountLockManager(final DynamoDbClient lockDynamoDb, final String lockTableName) {
     this(new AmazonDynamoDBLockClient(
         AmazonDynamoDBLockClientOptions.builder(lockDynamoDb, lockTableName)
-            .withPartitionKeyName(DeletedAccounts.KEY_ACCOUNT_E164)
+            .withPartitionKeyName(KEY_ACCOUNT_E164)
             .withLeaseDuration(15L)
             .withHeartbeatPeriod(2L)
             .withTimeUnit(TimeUnit.SECONDS)

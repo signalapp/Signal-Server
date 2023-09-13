@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -48,9 +49,11 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.CancellationReason;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
 import software.amazon.awssdk.services.dynamodb.model.Delete;
+import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.Put;
+import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
 import software.amazon.awssdk.services.dynamodb.model.QueryResponse;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValuesOnConditionCheckFailure;
@@ -124,18 +127,23 @@ public class Accounts extends AbstractDynamoDbStore {
   // time to live; number
   static final String ATTR_TTL = "TTL";
 
+  static final String DELETED_ACCOUNTS_KEY_ACCOUNT_E164 = "P";
+  static final String DELETED_ACCOUNTS_ATTR_ACCOUNT_UUID = "U";
+  static final String DELETED_ACCOUNTS_ATTR_EXPIRES = "E";
+  static final String DELETED_ACCOUNTS_UUID_TO_E164_INDEX_NAME = "u_to_p";
+
   static final String USERNAME_LINK_TO_UUID_INDEX = "ul_to_u";
+
+  static final Duration DELETED_ACCOUNTS_TIME_TO_LIVE = Duration.ofDays(30);
 
   private final Clock clock;
 
   private final DynamoDbAsyncClient asyncClient;
 
   private final String phoneNumberConstraintTableName;
-
   private final String phoneNumberIdentifierConstraintTableName;
-
   private final String usernamesConstraintTableName;
-
+  private final String deletedAccountsTableName;
   private final String accountsTableName;
 
   private final int scanPageSize;
@@ -150,6 +158,7 @@ public class Accounts extends AbstractDynamoDbStore {
       final String phoneNumberConstraintTableName,
       final String phoneNumberIdentifierConstraintTableName,
       final String usernamesConstraintTableName,
+      final String deletedAccountsTableName,
       final int scanPageSize) {
     super(client);
     this.clock = clock;
@@ -158,6 +167,7 @@ public class Accounts extends AbstractDynamoDbStore {
     this.phoneNumberIdentifierConstraintTableName = phoneNumberIdentifierConstraintTableName;
     this.accountsTableName = accountsTableName;
     this.usernamesConstraintTableName = usernamesConstraintTableName;
+    this.deletedAccountsTableName = deletedAccountsTableName;
     this.scanPageSize = scanPageSize;
   }
 
@@ -168,10 +178,11 @@ public class Accounts extends AbstractDynamoDbStore {
       final String phoneNumberConstraintTableName,
       final String phoneNumberIdentifierConstraintTableName,
       final String usernamesConstraintTableName,
+      final String deletedAccountsTableName,
       final int scanPageSize) {
     this(Clock.systemUTC(), client, asyncClient, accountsTableName,
         phoneNumberConstraintTableName, phoneNumberIdentifierConstraintTableName, usernamesConstraintTableName,
-        scanPageSize);
+        deletedAccountsTableName, scanPageSize);
   }
 
   public boolean create(final Account account) {
@@ -706,11 +717,59 @@ public class Accounts extends AbstractDynamoDbStore {
             .map(Accounts::fromItem)));
   }
 
+  public void putRecentlyDeletedAccount(final UUID uuid, final String e164) {
+    db().putItem(PutItemRequest.builder()
+        .tableName(deletedAccountsTableName)
+        .item(Map.of(
+            DELETED_ACCOUNTS_KEY_ACCOUNT_E164, AttributeValues.fromString(e164),
+            DELETED_ACCOUNTS_ATTR_ACCOUNT_UUID, AttributeValues.fromUUID(uuid),
+            DELETED_ACCOUNTS_ATTR_EXPIRES, AttributeValues.fromLong(Instant.now().plus(DELETED_ACCOUNTS_TIME_TO_LIVE).getEpochSecond())))
+        .build());
+  }
+
+  public void removeRecentlyDeletedAccount(final String e164) {
+    db().deleteItem(DeleteItemRequest.builder()
+        .tableName(deletedAccountsTableName)
+        .key(Map.of(DELETED_ACCOUNTS_KEY_ACCOUNT_E164, AttributeValues.fromString(e164)))
+        .build());
+  }
+
   @Nonnull
   public CompletableFuture<Optional<Account>> getByAccountIdentifierAsync(final UUID uuid) {
     return AsyncTimerUtil.record(GET_BY_UUID_TIMER, () -> itemByKeyAsync(accountsTableName, KEY_ACCOUNT_UUID, AttributeValues.fromUUID(uuid))
         .thenApply(maybeItem -> maybeItem.map(Accounts::fromItem)))
         .toCompletableFuture();
+  }
+
+  public Optional<UUID> findRecentlyDeletedAccountIdentifier(final String e164) {
+    final GetItemResponse response = db().getItem(GetItemRequest.builder()
+        .tableName(deletedAccountsTableName)
+        .consistentRead(true)
+        .key(Map.of(DELETED_ACCOUNTS_KEY_ACCOUNT_E164, AttributeValues.fromString(e164)))
+        .build());
+
+    return Optional.ofNullable(AttributeValues.getUUID(response.item(), DELETED_ACCOUNTS_ATTR_ACCOUNT_UUID, null));
+  }
+
+  public Optional<String> findRecentlyDeletedE164(final UUID uuid) {
+    final QueryResponse response = db().query(QueryRequest.builder()
+        .tableName(deletedAccountsTableName)
+        .indexName(DELETED_ACCOUNTS_UUID_TO_E164_INDEX_NAME)
+        .keyConditionExpression("#uuid = :uuid")
+        .projectionExpression("#e164")
+        .expressionAttributeNames(Map.of("#uuid", DELETED_ACCOUNTS_ATTR_ACCOUNT_UUID,
+            "#e164", DELETED_ACCOUNTS_KEY_ACCOUNT_E164))
+        .expressionAttributeValues(Map.of(":uuid", AttributeValues.fromUUID(uuid))).build());
+
+    if (response.count() == 0) {
+      return Optional.empty();
+    }
+
+    if (response.count() > 1) {
+      throw new RuntimeException("Impossible result: more than one phone number returned for UUID: " + uuid);
+    }
+
+    return Optional.ofNullable(response.items().get(0).get(DELETED_ACCOUNTS_KEY_ACCOUNT_E164).s());
   }
 
   public void delete(final UUID uuid) {

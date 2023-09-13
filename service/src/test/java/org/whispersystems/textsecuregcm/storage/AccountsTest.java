@@ -98,7 +98,8 @@ class AccountsTest {
       Tables.ACCOUNTS,
       Tables.NUMBERS,
       Tables.PNI_ASSIGNMENTS,
-      Tables.USERNAMES);
+      Tables.USERNAMES,
+      Tables.DELETED_ACCOUNTS);
 
   private final TestClock clock = TestClock.pinned(Instant.EPOCH);
   private DynamicConfigurationManager<DynamicConfiguration> mockDynamicConfigManager;
@@ -121,6 +122,7 @@ class AccountsTest {
         Tables.NUMBERS.tableName(),
         Tables.PNI_ASSIGNMENTS.tableName(),
         Tables.USERNAMES.tableName(),
+        Tables.DELETED_ACCOUNTS.tableName(),
         SCAN_PAGE_SIZE);
   }
 
@@ -166,7 +168,6 @@ class AccountsTest {
         mock(PhoneNumberIdentifiers.class),
         mock(FaultTolerantRedisCluster.class),
         mock(AccountLockManager.class),
-        mock(DeletedAccounts.class),
         mock(KeysManager.class),
         mock(MessagesManager.class),
         mock(ProfilesManager.class),
@@ -442,7 +443,8 @@ class AccountsTest {
     final DynamoDbAsyncClient dynamoDbAsyncClient = mock(DynamoDbAsyncClient.class);
     accounts = new Accounts(mock(DynamoDbClient.class),
         dynamoDbAsyncClient, Tables.ACCOUNTS.tableName(),
-        Tables.NUMBERS.tableName(), Tables.PNI_ASSIGNMENTS.tableName(), Tables.USERNAMES.tableName(), SCAN_PAGE_SIZE);
+        Tables.NUMBERS.tableName(), Tables.PNI_ASSIGNMENTS.tableName(), Tables.USERNAMES.tableName(),
+        Tables.DELETED_ACCOUNTS.tableName(), SCAN_PAGE_SIZE);
 
     Exception e = TransactionConflictException.builder().build();
     e = wrapException ? new CompletionException(e) : e;
@@ -988,6 +990,59 @@ class AccountsTest {
         () -> accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
     assertThat(account.getReservedUsernameHash()).isEmpty();
     assertThat(account.getUsernameHash()).isEmpty();
+  }
+
+  @Test
+  void testPutFindRecentlyDeletedAccount() {
+    final UUID uuid = UUID.randomUUID();
+    final String e164 = "+18005551234";
+
+    assertEquals(Optional.empty(), accounts.findRecentlyDeletedAccountIdentifier(e164));
+
+    accounts.putRecentlyDeletedAccount(uuid, e164);
+
+    assertEquals(Optional.of(uuid), accounts.findRecentlyDeletedAccountIdentifier(e164));
+  }
+
+  @Test
+  void testRemoveRecentlyDeletedAccount() {
+    final UUID uuid = UUID.randomUUID();
+    final String e164 = "+18005551234";
+
+    assertEquals(Optional.empty(), accounts.findRecentlyDeletedAccountIdentifier(e164));
+
+    accounts.putRecentlyDeletedAccount(uuid, e164);
+
+    assertEquals(Optional.of(uuid), accounts.findRecentlyDeletedAccountIdentifier(e164));
+
+    accounts.removeRecentlyDeletedAccount(e164);
+
+    assertEquals(Optional.empty(), accounts.findRecentlyDeletedAccountIdentifier(e164));
+  }
+
+  @Test
+  void testFindRecentlyDeletedE164() {
+    assertEquals(Optional.empty(), accounts.findRecentlyDeletedE164(UUID.randomUUID()));
+
+    final UUID uuid = UUID.randomUUID();
+    final String e164 = "+18005551234";
+
+    accounts.putRecentlyDeletedAccount(uuid, e164);
+
+    assertEquals(Optional.of(e164), accounts.findRecentlyDeletedE164(uuid));
+  }
+
+  @Test
+  void testFindRecentlyDeletedUUID() {
+    final String e164 = "+18005551234";
+
+    assertEquals(Optional.empty(), accounts.findRecentlyDeletedAccountIdentifier(e164));
+
+    final UUID uuid = UUID.randomUUID();
+
+    accounts.putRecentlyDeletedAccount(uuid, e164);
+
+    assertEquals(Optional.of(uuid), accounts.findRecentlyDeletedAccountIdentifier(e164));
   }
 
   @Test

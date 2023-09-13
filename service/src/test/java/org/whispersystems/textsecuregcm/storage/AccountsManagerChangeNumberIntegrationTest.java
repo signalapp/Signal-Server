@@ -58,7 +58,6 @@ class AccountsManagerChangeNumberIntegrationTest {
   static final RedisClusterExtension CACHE_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
 
   private ClientPresenceManager clientPresenceManager;
-  private DeletedAccounts deletedAccounts;
 
   private AccountsManager accountsManager;
 
@@ -79,10 +78,8 @@ class AccountsManagerChangeNumberIntegrationTest {
           Tables.NUMBERS.tableName(),
           Tables.PNI_ASSIGNMENTS.tableName(),
           Tables.USERNAMES.tableName(),
+          Tables.DELETED_ACCOUNTS.tableName(),
           SCAN_PAGE_SIZE);
-
-      deletedAccounts = new DeletedAccounts(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
-          Tables.DELETED_ACCOUNTS.tableName());
 
       final AccountLockManager accountLockManager = new AccountLockManager(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
           Tables.DELETED_ACCOUNTS_LOCK.tableName());
@@ -112,7 +109,6 @@ class AccountsManagerChangeNumberIntegrationTest {
           phoneNumberIdentifiers,
           CACHE_CLUSTER_EXTENSION.getRedisCluster(),
           accountLockManager,
-          deletedAccounts,
           keysManager,
           messagesManager,
           mock(ProfilesManager.class),
@@ -145,8 +141,8 @@ class AccountsManagerChangeNumberIntegrationTest {
 
     assertEquals(secondNumber, accountsManager.getByAccountIdentifier(originalUuid).map(Account::getNumber).orElseThrow());
 
-    assertEquals(Optional.empty(), deletedAccounts.findUuid(originalNumber));
-    assertEquals(Optional.empty(), deletedAccounts.findUuid(secondNumber));
+    assertEquals(Optional.empty(), accountsManager.findRecentlyDeletedAccountIdentifier(originalNumber));
+    assertEquals(Optional.empty(), accountsManager.findRecentlyDeletedAccountIdentifier(secondNumber));
   }
 
   @Test
@@ -178,8 +174,8 @@ class AccountsManagerChangeNumberIntegrationTest {
 
     assertEquals(secondNumber, accountsManager.getByAccountIdentifier(originalUuid).map(Account::getNumber).orElseThrow());
 
-    assertEquals(Optional.empty(), deletedAccounts.findUuid(originalNumber));
-    assertEquals(Optional.empty(), deletedAccounts.findUuid(secondNumber));
+    assertEquals(Optional.empty(), accountsManager.findRecentlyDeletedAccountIdentifier(originalNumber));
+    assertEquals(Optional.empty(), accountsManager.findRecentlyDeletedAccountIdentifier(secondNumber));
 
     assertEquals(pniIdentityKey, updatedAccount.getIdentityKey(IdentityType.PNI));
 
@@ -209,8 +205,8 @@ class AccountsManagerChangeNumberIntegrationTest {
 
     assertEquals(originalNumber, accountsManager.getByAccountIdentifier(originalUuid).map(Account::getNumber).orElseThrow());
 
-    assertEquals(Optional.empty(), deletedAccounts.findUuid(originalNumber));
-    assertEquals(Optional.empty(), deletedAccounts.findUuid(secondNumber));
+    assertEquals(Optional.empty(), accountsManager.findRecentlyDeletedAccountIdentifier(originalNumber));
+    assertEquals(Optional.empty(), accountsManager.findRecentlyDeletedAccountIdentifier(secondNumber));
   }
 
   @Test
@@ -235,8 +231,8 @@ class AccountsManagerChangeNumberIntegrationTest {
 
     verify(clientPresenceManager).disconnectPresence(existingAccountUuid, Device.MASTER_ID);
 
-    assertEquals(Optional.of(existingAccountUuid), deletedAccounts.findUuid(originalNumber));
-    assertEquals(Optional.empty(), deletedAccounts.findUuid(secondNumber));
+    assertEquals(Optional.of(existingAccountUuid), accountsManager.findRecentlyDeletedAccountIdentifier(originalNumber));
+    assertEquals(Optional.empty(), accountsManager.findRecentlyDeletedAccountIdentifier(secondNumber));
 
     accountsManager.changeNumber(accountsManager.getByAccountIdentifier(originalUuid).orElseThrow(), originalNumber, null, null, null, null);
 
@@ -266,13 +262,13 @@ class AccountsManagerChangeNumberIntegrationTest {
     assertEquals(existingAccountUuid, reRegisteredAccount.getUuid());
     assertEquals(originalPni, reRegisteredAccount.getPhoneNumberIdentifier());
 
-    assertEquals(Optional.empty(), deletedAccounts.findUuid(originalNumber));
-    assertEquals(Optional.empty(), deletedAccounts.findUuid(secondNumber));
+    assertEquals(Optional.empty(), accountsManager.findRecentlyDeletedAccountIdentifier(originalNumber));
+    assertEquals(Optional.empty(), accountsManager.findRecentlyDeletedAccountIdentifier(secondNumber));
 
     final Account changedNumberReRegisteredAccount = accountsManager.changeNumber(reRegisteredAccount, secondNumber, null, null, null, null);
 
-    assertEquals(Optional.of(originalUuid), deletedAccounts.findUuid(originalNumber));
-    assertEquals(Optional.empty(), deletedAccounts.findUuid(secondNumber));
+    assertEquals(Optional.of(originalUuid), accountsManager.findRecentlyDeletedAccountIdentifier(originalNumber));
+    assertEquals(Optional.empty(), accountsManager.findRecentlyDeletedAccountIdentifier(secondNumber));
     assertEquals(secondPni, changedNumberReRegisteredAccount.getPhoneNumberIdentifier());
   }
 }

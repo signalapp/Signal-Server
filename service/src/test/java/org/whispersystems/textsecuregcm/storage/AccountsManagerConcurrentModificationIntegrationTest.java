@@ -23,7 +23,6 @@ import java.io.IOException;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -63,7 +62,8 @@ class AccountsManagerConcurrentModificationIntegrationTest {
   static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(
       Tables.ACCOUNTS,
       Tables.NUMBERS,
-      Tables.PNI_ASSIGNMENTS
+      Tables.PNI_ASSIGNMENTS,
+      Tables.DELETED_ACCOUNTS
   );
 
   private Accounts accounts;
@@ -88,6 +88,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
         Tables.NUMBERS.tableName(),
         Tables.PNI_ASSIGNMENTS.tableName(),
         Tables.USERNAMES.tableName(),
+        Tables.DELETED_ACCOUNTS.tableName(),
         SCAN_PAGE_SIZE);
 
     {
@@ -103,9 +104,6 @@ class AccountsManagerConcurrentModificationIntegrationTest {
         return null;
       }).when(accountLockManager).withLock(any(), any());
 
-      final DeletedAccounts deletedAccounts = mock(DeletedAccounts.class);
-      when(deletedAccounts.findUuid(any())).thenReturn(Optional.empty());
-
       final PhoneNumberIdentifiers phoneNumberIdentifiers = mock(PhoneNumberIdentifiers.class);
       when(phoneNumberIdentifiers.getPhoneNumberIdentifier(anyString()))
           .thenAnswer((Answer<UUID>) invocation -> UUID.randomUUID());
@@ -115,7 +113,6 @@ class AccountsManagerConcurrentModificationIntegrationTest {
           phoneNumberIdentifiers,
           RedisClusterHelper.builder().stringCommands(commands).build(),
           accountLockManager,
-          deletedAccounts,
           mock(KeysManager.class),
           mock(MessagesManager.class),
           mock(ProfilesManager.class),

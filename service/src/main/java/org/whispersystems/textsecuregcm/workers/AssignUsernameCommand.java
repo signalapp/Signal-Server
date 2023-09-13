@@ -38,7 +38,6 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountLockManager;
 import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.storage.DeletedAccounts;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.KeysManager;
 import org.whispersystems.textsecuregcm.storage.MessagesCache;
@@ -141,8 +140,6 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
     DynamoDbClient dynamoDbClient = DynamoDbFromConfig.client(configuration.getDynamoDbClientConfiguration(),
         WhisperServerService.AWSSDK_CREDENTIALS_PROVIDER);
 
-    DeletedAccounts deletedAccounts = new DeletedAccounts(dynamoDbClient,
-        configuration.getDynamoDbTables().getDeletedAccounts().getTableName());
     RegistrationRecoveryPasswords registrationRecoveryPasswords = new RegistrationRecoveryPasswords(
         configuration.getDynamoDbTables().getRegistrationRecovery().getTableName(),
         configuration.getDynamoDbTables().getRegistrationRecovery().getExpiration(),
@@ -159,6 +156,7 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
         configuration.getDynamoDbTables().getAccounts().getPhoneNumberTableName(),
         configuration.getDynamoDbTables().getAccounts().getPhoneNumberIdentifierTableName(),
         configuration.getDynamoDbTables().getAccounts().getUsernamesTableName(),
+        configuration.getDynamoDbTables().getDeletedAccounts().getTableName(),
         configuration.getDynamoDbTables().getAccounts().getScanPageSize());
     PhoneNumberIdentifiers phoneNumberIdentifiers = new PhoneNumberIdentifiers(dynamoDbClient,
         configuration.getDynamoDbTables().getPhoneNumberIdentifiers().getTableName());
@@ -206,7 +204,7 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
     AccountLockManager accountLockManager = new AccountLockManager(dynamoDbClient,
         configuration.getDynamoDbTables().getDeletedAccountsLock().getTableName());
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
-        accountLockManager, deletedAccounts, keys, messagesManager, profilesManager,
+        accountLockManager, keys, messagesManager, profilesManager,
             secureStorageClient, secureBackupClient, secureValueRecovery2Client, clientPresenceManager,
         experimentEnrollmentManager, registrationRecoveryPasswordsManager, Clock.systemUTC());
 

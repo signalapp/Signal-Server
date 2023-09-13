@@ -101,7 +101,6 @@ public class AccountsManager {
   private final PhoneNumberIdentifiers phoneNumberIdentifiers;
   private final FaultTolerantRedisCluster cacheCluster;
   private final AccountLockManager accountLockManager;
-  private final DeletedAccounts deletedAccounts;
   private final KeysManager keysManager;
   private final MessagesManager messagesManager;
   private final ProfilesManager profilesManager;
@@ -147,7 +146,6 @@ public class AccountsManager {
       final PhoneNumberIdentifiers phoneNumberIdentifiers,
       final FaultTolerantRedisCluster cacheCluster,
       final AccountLockManager accountLockManager,
-      final DeletedAccounts deletedAccounts,
       final KeysManager keysManager,
       final MessagesManager messagesManager,
       final ProfilesManager profilesManager,
@@ -162,7 +160,6 @@ public class AccountsManager {
     this.phoneNumberIdentifiers = phoneNumberIdentifiers;
     this.cacheCluster = cacheCluster;
     this.accountLockManager = accountLockManager;
-    this.deletedAccounts = deletedAccounts;
     this.keysManager = keysManager;
     this.messagesManager = messagesManager;
     this.profilesManager = profilesManager;
@@ -201,7 +198,7 @@ public class AccountsManager {
 
         // Reuse the ACI from any recently-deleted account with this number to cover cases where somebody is
         // re-registering.
-        account.setUuid(deletedAccounts.findUuid(number).orElseGet(UUID::randomUUID));
+        account.setUuid(accounts.findRecentlyDeletedAccountIdentifier(number).orElseGet(UUID::randomUUID));
         account.addDevice(device);
         account.setRegistrationLockFromAttributes(accountAttributes);
         account.setUnidentifiedAccessKey(accountAttributes.getUnidentifiedAccessKey());
@@ -261,7 +258,7 @@ public class AccountsManager {
 
         // Clear any "recently deleted account" record for this number since, if it existed, we've used its old ACI for
         // the newly-created account.
-        deletedAccounts.remove(number);
+        accounts.removeRecentlyDeletedAccount(number);
       });
 
       return account;
@@ -303,7 +300,7 @@ public class AccountsManager {
       //    of the account changing its number (which facilitates ACI consistency in cases that a party is switching
       //    back and forth between numbers).
       // 3. No account with the target number exists at all, in which case no additional action is needed.
-      final Optional<UUID> recentlyDeletedAci = deletedAccounts.findUuid(targetNumber);
+      final Optional<UUID> recentlyDeletedAci = accounts.findRecentlyDeletedAccountIdentifier(targetNumber);
       final Optional<Account> maybeExistingAccount = getByE164(targetNumber);
       final Optional<UUID> maybeDisplacedUuid;
 
@@ -314,7 +311,7 @@ public class AccountsManager {
         maybeDisplacedUuid = recentlyDeletedAci;
       }
 
-      maybeDisplacedUuid.ifPresent(displacedUuid -> deletedAccounts.put(displacedUuid, originalNumber));
+      maybeDisplacedUuid.ifPresent(displacedUuid -> accounts.putRecentlyDeletedAccount(displacedUuid, originalNumber));
 
       final UUID uuid = account.getUuid();
       final UUID phoneNumberIdentifier = phoneNumberIdentifiers.getPhoneNumberIdentifier(targetNumber);
@@ -836,6 +833,14 @@ public class AccountsManager {
     return phoneNumberIdentifiers.getPhoneNumberIdentifier(e164);
   }
 
+  public Optional<UUID> findRecentlyDeletedAccountIdentifier(final String e164) {
+    return accounts.findRecentlyDeletedAccountIdentifier(e164);
+  }
+
+  public Optional<String> findRecentlyDeletedE164(final UUID uuid) {
+    return accounts.findRecentlyDeletedE164(uuid);
+  }
+
   public AccountCrawlChunk getAllFromDynamo(int length) {
     return accounts.getAllFromStart(length);
   }
@@ -856,7 +861,7 @@ public class AccountsManager {
 
         delete(account);
 
-        deletedAccounts.put(accountIdentifier, e164);
+        accounts.putRecentlyDeletedAccount(accountIdentifier, e164);
       });
     } catch (final RuntimeException | InterruptedException e) {
       logger.warn("Failed to delete account", e);

@@ -63,21 +63,21 @@ public final class DynamoDbExtensionSchema {
         List.of()),
 
     DELETED_ACCOUNTS("deleted_accounts_test",
-        DeletedAccounts.KEY_ACCOUNT_E164,
+        Accounts.DELETED_ACCOUNTS_KEY_ACCOUNT_E164,
         null,
         List.of(
             AttributeDefinition.builder()
-                .attributeName(DeletedAccounts.KEY_ACCOUNT_E164)
+                .attributeName(Accounts.DELETED_ACCOUNTS_KEY_ACCOUNT_E164)
                 .attributeType(ScalarAttributeType.S).build(),
             AttributeDefinition.builder()
-                .attributeName(DeletedAccounts.ATTR_ACCOUNT_UUID)
+                .attributeName(Accounts.DELETED_ACCOUNTS_ATTR_ACCOUNT_UUID)
                 .attributeType(ScalarAttributeType.B)
                 .build()),
         List.of(
             GlobalSecondaryIndex.builder()
-                .indexName(DeletedAccounts.UUID_TO_E164_INDEX_NAME)
+                .indexName(Accounts.DELETED_ACCOUNTS_UUID_TO_E164_INDEX_NAME)
                 .keySchema(
-                    KeySchemaElement.builder().attributeName(DeletedAccounts.ATTR_ACCOUNT_UUID).keyType(KeyType.HASH).build()
+                    KeySchemaElement.builder().attributeName(Accounts.DELETED_ACCOUNTS_ATTR_ACCOUNT_UUID).keyType(KeyType.HASH).build()
                 )
                 .projection(Projection.builder().projectionType(ProjectionType.KEYS_ONLY).build())
                 .provisionedThroughput(ProvisionedThroughput.builder().readCapacityUnits(10L).writeCapacityUnits(10L).build())
@@ -86,10 +86,10 @@ public final class DynamoDbExtensionSchema {
     ),
   
     DELETED_ACCOUNTS_LOCK("deleted_accounts_lock_test",
-        DeletedAccounts.KEY_ACCOUNT_E164,
+        AccountLockManager.KEY_ACCOUNT_E164,
         null,
         List.of(AttributeDefinition.builder()
-            .attributeName(DeletedAccounts.KEY_ACCOUNT_E164)
+            .attributeName(AccountLockManager.KEY_ACCOUNT_E164)
             .attributeType(ScalarAttributeType.S).build()),
         List.of(), List.of()),
     

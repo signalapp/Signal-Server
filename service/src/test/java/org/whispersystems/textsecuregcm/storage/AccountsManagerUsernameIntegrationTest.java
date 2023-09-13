@@ -28,7 +28,6 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -65,6 +64,7 @@ class AccountsManagerUsernameIntegrationTest {
       Tables.ACCOUNTS,
       Tables.NUMBERS,
       Tables.USERNAMES,
+      Tables.DELETED_ACCOUNTS,
       Tables.PNI,
       Tables.PNI_ASSIGNMENTS);
 
@@ -94,6 +94,7 @@ class AccountsManagerUsernameIntegrationTest {
         Tables.NUMBERS.tableName(),
         Tables.PNI_ASSIGNMENTS.tableName(),
         Tables.USERNAMES.tableName(),
+        Tables.DELETED_ACCOUNTS.tableName(),
         SCAN_PAGE_SIZE));
 
     final AccountLockManager accountLockManager = mock(AccountLockManager.class);
@@ -104,9 +105,6 @@ class AccountsManagerUsernameIntegrationTest {
 
       return null;
     }).when(accountLockManager).withLock(any(), any());
-
-    final DeletedAccounts deletedAccounts = mock(DeletedAccounts.class);
-    when(deletedAccounts.findUuid(any())).thenReturn(Optional.empty());
 
     final PhoneNumberIdentifiers phoneNumberIdentifiers =
         new PhoneNumberIdentifiers(DYNAMO_DB_EXTENSION.getDynamoDbClient(), Tables.PNI.tableName());
@@ -119,7 +117,6 @@ class AccountsManagerUsernameIntegrationTest {
         phoneNumberIdentifiers,
         CACHE_CLUSTER_EXTENSION.getRedisCluster(),
         accountLockManager,
-        deletedAccounts,
         mock(KeysManager.class),
         mock(MessagesManager.class),
         mock(ProfilesManager.class),

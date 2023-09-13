@@ -92,7 +92,6 @@ class AccountsManagerTest {
   private static final byte[] ENCRYPTED_USERNAME_2 = Base64.getUrlDecoder().decode(BASE_64_URL_ENCRYPTED_USERNAME_2);
 
   private Accounts accounts;
-  private DeletedAccounts deletedAccounts;
   private KeysManager keysManager;
   private MessagesManager messagesManager;
   private ProfilesManager profilesManager;
@@ -125,7 +124,6 @@ class AccountsManagerTest {
   @BeforeEach
   void setup() throws InterruptedException {
     accounts = mock(Accounts.class);
-    deletedAccounts = mock(DeletedAccounts.class);
     keysManager = mock(KeysManager.class);
     messagesManager = mock(MessagesManager.class);
     profilesManager = mock(ProfilesManager.class);
@@ -151,8 +149,6 @@ class AccountsManagerTest {
 
       return null;
     }).when(accounts).changeNumber(any(), anyString(), any());
-
-    when(deletedAccounts.findUuid(anyString())).thenReturn(Optional.empty());
 
     final SecureStorageClient storageClient = mock(SecureStorageClient.class);
     when(storageClient.deleteStoredData(any())).thenReturn(CompletableFuture.completedFuture(null));
@@ -202,7 +198,6 @@ class AccountsManagerTest {
             .stringAsyncCommands(asyncCommands)
             .build(),
         accountLockManager,
-        deletedAccounts,
         keysManager,
         messagesManager,
         profilesManager,
@@ -954,7 +949,7 @@ class AccountsManagerTest {
   void testCreateAccountRecentlyDeleted() throws InterruptedException {
     final UUID recentlyDeletedUuid = UUID.randomUUID();
 
-    when(deletedAccounts.findUuid(anyString())).thenReturn(Optional.of(recentlyDeletedUuid));
+    when(accounts.findRecentlyDeletedAccountIdentifier(anyString())).thenReturn(Optional.of(recentlyDeletedUuid));
     when(accounts.create(any())).thenReturn(true);
 
     final String e164 = "+18005550123";
@@ -1036,7 +1031,7 @@ class AccountsManagerTest {
     account = accountsManager.changeNumber(account, number, null, null, null, null);
 
     assertEquals(number, account.getNumber());
-    verify(deletedAccounts, never()).put(any(), any());
+    verify(accounts, never()).putRecentlyDeletedAccount(any(), any());
     verify(keysManager, never()).delete(any());
   }
 
@@ -1052,7 +1047,6 @@ class AccountsManagerTest {
         "AccountsManager should not allow use of changeNumber with new PNI keys but without changing number");
 
     verify(accounts, never()).update(any());
-    verifyNoInteractions(deletedAccounts);
     verifyNoInteractions(keysManager);
   }
 
@@ -1210,7 +1204,6 @@ class AccountsManagerTest {
         updatedAccount.getDevices().stream().collect(Collectors.toMap(Device::getId, d -> d.getPhoneNumberIdentityRegistrationId().getAsInt())));
 
     verify(accounts).update(any());
-    verifyNoInteractions(deletedAccounts);
 
     verify(keysManager).delete(oldPni);
   }
@@ -1264,7 +1257,6 @@ class AccountsManagerTest {
         updatedAccount.getDevices().stream().collect(Collectors.toMap(Device::getId, d -> d.getPhoneNumberIdentityRegistrationId().getAsInt())));
 
     verify(accounts).update(any());
-    verifyNoInteractions(deletedAccounts);
 
     verify(keysManager).delete(oldPni);
     verify(keysManager).storeEcSignedPreKeys(oldPni, newSignedKeys);
@@ -1297,7 +1289,6 @@ class AccountsManagerTest {
         () -> accountsManager.updatePniKeys(account, pniIdentityKey, newSignedKeys, null, newRegistrationIds));
 
     verifyNoInteractions(accounts);
-    verifyNoInteractions(deletedAccounts);
     verifyNoInteractions(keysManager);
   }
 
@@ -1327,7 +1318,6 @@ class AccountsManagerTest {
         () -> accountsManager.updatePniKeys(account, pniIdentityKey, newSignedKeys, newSignedPqKeys, newRegistrationIds));
 
     verifyNoInteractions(accounts);
-    verifyNoInteractions(deletedAccounts);
     verifyNoInteractions(keysManager);
   }
 
