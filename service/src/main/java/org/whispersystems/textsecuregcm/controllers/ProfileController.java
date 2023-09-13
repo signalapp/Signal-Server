@@ -55,7 +55,6 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ServiceId;
 import org.signal.libsignal.zkgroup.InvalidInputException;
@@ -81,7 +80,6 @@ import org.whispersystems.textsecuregcm.entities.ExpiringProfileKeyCredentialPro
 import org.whispersystems.textsecuregcm.entities.ProfileAvatarUploadAttributes;
 import org.whispersystems.textsecuregcm.entities.UserCapabilities;
 import org.whispersystems.textsecuregcm.entities.VersionedProfileResponse;
-import org.whispersystems.textsecuregcm.util.ProfileHelper;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
@@ -97,6 +95,7 @@ import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.VersionedProfile;
 import org.whispersystems.textsecuregcm.util.Pair;
+import org.whispersystems.textsecuregcm.util.ProfileHelper;
 import org.whispersystems.textsecuregcm.util.Util;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
@@ -166,7 +165,7 @@ public class ProfileController {
     final Optional<VersionedProfile> currentProfile = profilesManager.get(auth.getAccount().getUuid(),
         request.getVersion());
 
-    if (StringUtils.isNotBlank(request.getPaymentAddress())) {
+    if (request.getPaymentAddress() != null && request.getPaymentAddress().length != 0) {
       final boolean hasDisallowedPrefix =
           dynamicConfigurationManager.getConfiguration().getPaymentsConfiguration().getDisallowedPrefixes().stream()
               .anyMatch(prefix -> auth.getAccount().getNumber().startsWith(prefix));
@@ -191,11 +190,11 @@ public class ProfileController {
     profilesManager.set(auth.getAccount().getUuid(),
         new VersionedProfile(
             request.getVersion(),
-            decodeFromBase64(request.getName()),
+            request.getName(),
             avatar,
-            decodeFromBase64(request.getAboutEmoji()),
-            decodeFromBase64(request.getAbout()),
-            decodeFromBase64(request.getPaymentAddress()),
+            request.getAboutEmoji(),
+            request.getAbout(),
+            request.getPaymentAddress(),
             request.getCommitment().serialize()));
 
     if (request.getAvatarChange() != CreateProfileRequest.AvatarChange.UNCHANGED) {
@@ -408,17 +407,16 @@ public class ProfileController {
       VERSION_NOT_FOUND_COUNTER.increment();
     }
 
-    final String name = maybeProfile.map(VersionedProfile::name).map(ProfileController::encodeToBase64).orElse(null);
-    final String about = maybeProfile.map(VersionedProfile::about).map(ProfileController::encodeToBase64).orElse(null);
-    final String aboutEmoji = maybeProfile.map(VersionedProfile::aboutEmoji).map(ProfileController::encodeToBase64).orElse(null);
+    final byte[] name = maybeProfile.map(VersionedProfile::name).orElse(null);
+    final byte[] about = maybeProfile.map(VersionedProfile::about).orElse(null);
+    final byte[] aboutEmoji = maybeProfile.map(VersionedProfile::aboutEmoji).orElse(null);
     final String avatar = maybeProfile.map(VersionedProfile::avatar).orElse(null);
 
     // Allow requests where either the version matches the latest version on Account or the latest version on Account
     // is empty to read the payment address.
-    final String paymentAddress = maybeProfile
+    final byte[] paymentAddress = maybeProfile
         .filter(p -> account.getCurrentProfileVersion().map(v -> v.equals(version)).orElse(true))
         .map(VersionedProfile::paymentAddress)
-        .map(ProfileController::encodeToBase64)
         .orElse(null);
 
     return new VersionedProfileResponse(

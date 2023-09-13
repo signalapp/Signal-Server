@@ -13,8 +13,8 @@ import java.util.Optional;
 import javax.annotation.Nullable;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
-import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.zkgroup.profiles.ProfileKeyCommitment;
+import org.whispersystems.textsecuregcm.util.ByteArrayBase64WithPaddingAdapter;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
 
 public class CreateProfileRequest {
@@ -24,8 +24,10 @@ public class CreateProfileRequest {
   private String version;
 
   @JsonProperty
-  @ExactlySize({108, 380})
-  private String name;
+  @JsonSerialize(using = ByteArrayBase64WithPaddingAdapter.Serializing.class)
+  @JsonDeserialize(using = ByteArrayBase64WithPaddingAdapter.Deserializing.class)
+  @ExactlySize({81, 285})
+  private byte[] name;
 
   @JsonProperty
   private boolean avatar;
@@ -34,16 +36,22 @@ public class CreateProfileRequest {
   private boolean sameAvatar;
 
   @JsonProperty
-  @ExactlySize({0, 80})
-  private String aboutEmoji;
+  @JsonSerialize(using = ByteArrayBase64WithPaddingAdapter.Serializing.class)
+  @JsonDeserialize(using = ByteArrayBase64WithPaddingAdapter.Deserializing.class)
+  @ExactlySize({0, 60})
+  private byte[] aboutEmoji;
 
   @JsonProperty
-  @ExactlySize({0, 208, 376, 720})
-  private String about;
+  @JsonSerialize(using = ByteArrayBase64WithPaddingAdapter.Serializing.class)
+  @JsonDeserialize(using = ByteArrayBase64WithPaddingAdapter.Deserializing.class)
+  @ExactlySize({0, 156, 282, 540})
+  private byte[] about;
 
   @JsonProperty
-  @ExactlySize({0, 776})
-  private String paymentAddress;
+  @JsonSerialize(using = ByteArrayBase64WithPaddingAdapter.Serializing.class)
+  @JsonDeserialize(using = ByteArrayBase64WithPaddingAdapter.Deserializing.class)
+  @ExactlySize({0, 582})
+  private byte[] paymentAddress;
 
   @JsonProperty
   @Nullable
@@ -59,8 +67,8 @@ public class CreateProfileRequest {
   }
 
   public CreateProfileRequest(
-      ProfileKeyCommitment commitment, String version, String name, String aboutEmoji, String about,
-      String paymentAddress, boolean wantsAvatar, boolean sameAvatar, List<String> badgeIds) {
+      final ProfileKeyCommitment commitment, final String version, final byte[] name, final byte[] aboutEmoji, final byte[] about,
+      final byte[] paymentAddress, final boolean wantsAvatar, final boolean sameAvatar, final List<String> badgeIds) {
     this.commitment = commitment;
     this.version = version;
     this.name = name;
@@ -80,7 +88,7 @@ public class CreateProfileRequest {
     return version;
   }
 
-  public String getName() {
+  public byte[] getName() {
     return name;
   }
 
@@ -104,16 +112,16 @@ public class CreateProfileRequest {
     return AvatarChange.UNCHANGED;
   }
 
-  public String getAboutEmoji() {
-    return StringUtils.stripToNull(aboutEmoji);
+  public byte[] getAboutEmoji() {
+    return aboutEmoji;
   }
 
-  public String getAbout() {
-    return StringUtils.stripToNull(about);
+  public byte[] getAbout() {
+    return about;
   }
 
-  public String getPaymentAddress() {
-    return StringUtils.stripToNull(paymentAddress);
+  public byte[] getPaymentAddress() {
+    return paymentAddress;
   }
 
   public Optional<List<String>> getBadges() {
