@@ -3579,15 +3579,27 @@ components:
           description: A service identifier is a tuple of a UUID and identity type
             that identifies an account and identity within the Signal service.
         name:
-          type: string
+          type: array
+          items:
+            type: string
+            format: byte
         about:
-          type: string
+          type: array
+          items:
+            type: string
+            format: byte
         aboutEmoji:
-          type: string
+          type: array
+          items:
+            type: string
+            format: byte
         avatar:
           type: string
         paymentAddress:
-          type: string
+          type: array
+          items:
+            type: string
+            format: byte
     CredentialProfileResponse:
       type: object
       properties:
@@ -3611,15 +3623,27 @@ components:
           description: A service identifier is a tuple of a UUID and identity type
             that identifies an account and identity within the Signal service.
         name:
-          type: string
+          type: array
+          items:
+            type: string
+            format: byte
         about:
-          type: string
+          type: array
+          items:
+            type: string
+            format: byte
         aboutEmoji:
-          type: string
+          type: array
+          items:
+            type: string
+            format: byte
         avatar:
           type: string
         paymentAddress:
-          type: string
+          type: array
+          items:
+            type: string
+            format: byte
     BatchIdentityCheckRequest:
       required:
       - elements
@@ -3657,17 +3681,29 @@ components:
         version:
           type: string
         name:
-          type: string
+          type: array
+          items:
+            type: string
+            format: byte
         avatar:
           type: boolean
         sameAvatar:
           type: boolean
         aboutEmoji:
-          type: string
+          type: array
+          items:
+            type: string
+            format: byte
         about:
-          type: string
+          type: array
+          items:
+            type: string
+            format: byte
         paymentAddress:
-          type: string
+          type: array
+          items:
+            type: string
+            format: byte
         badgeIds:
           type: array
           items:
