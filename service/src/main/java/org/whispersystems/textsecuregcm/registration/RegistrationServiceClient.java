@@ -69,7 +69,9 @@ public class RegistrationServiceClient implements Managed {
           .trustManager(certificateInputStream)
           .build();
 
-      this.channel = Grpc.newChannelBuilderForAddress(host, port, tlsChannelCredentials).build();
+      this.channel = Grpc.newChannelBuilderForAddress(host, port, tlsChannelCredentials)
+          .idleTimeout(1, TimeUnit.MINUTES)
+          .build();
     }
 
     this.stub = RegistrationServiceGrpc.newFutureStub(channel)
