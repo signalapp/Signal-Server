@@ -16,6 +16,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
@@ -1262,6 +1263,67 @@ class AccountsManagerTest {
 
     // only the pq key for the already-pq-enabled device should be saved
     verify(keysManager).storePqLastResort(eq(oldPni), eq(Map.of(1L, newSignedPqKeys.get(1L))));
+  }
+
+  @Test
+  void testPniNonPqToPqUpdate() throws MismatchedDevicesException {
+    final String number = "+14152222222";
+
+    List<Device> devices = List.of(DevicesHelper.createDevice(1L, 0L, 101), DevicesHelper.createDevice(2L, 0L, 102));
+    Account account = AccountsHelper.generateTestAccount(number, UUID.randomUUID(), UUID.randomUUID(), devices, new byte[16]);
+    final ECKeyPair identityKeyPair = Curve.generateKeyPair();
+    final Map<Long, ECSignedPreKey> newSignedKeys = Map.of(
+        1L, KeysHelper.signedECPreKey(1, identityKeyPair),
+        2L, KeysHelper.signedECPreKey(2, identityKeyPair));
+    final Map<Long, KEMSignedPreKey> newSignedPqKeys = Map.of(
+        1L, KeysHelper.signedKEMPreKey(3, identityKeyPair),
+        2L, KeysHelper.signedKEMPreKey(4, identityKeyPair));
+    Map<Long, Integer> newRegistrationIds = Map.of(1L, 201, 2L, 202);
+
+    UUID oldUuid = account.getUuid();
+    UUID oldPni = account.getPhoneNumberIdentifier();
+
+    when(keysManager.getPqEnabledDevices(oldPni)).thenReturn(CompletableFuture.completedFuture(List.of()));
+    when(keysManager.storeEcSignedPreKeys(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(keysManager.storePqLastResort(any(), any())).thenAnswer(
+        invocation -> {
+          assertFalse(invocation.getArgument(1, Map.class).isEmpty());
+          return CompletableFuture.completedFuture(null);
+        });
+
+    Map<Long, ECSignedPreKey> oldSignedPreKeys = account.getDevices().stream()
+        .collect(Collectors.toMap(Device::getId, d -> d.getSignedPreKey(IdentityType.ACI)));
+
+    final IdentityKey pniIdentityKey = new IdentityKey(Curve.generateKeyPair().getPublicKey());
+
+    final Account updatedAccount =
+        accountsManager.updatePniKeys(account, pniIdentityKey, newSignedKeys, newSignedPqKeys, newRegistrationIds);
+
+    // non-PNI-keys stuff should not change
+    assertEquals(oldUuid, updatedAccount.getUuid());
+    assertEquals(number, updatedAccount.getNumber());
+    assertEquals(oldPni, updatedAccount.getPhoneNumberIdentifier());
+    assertNull(updatedAccount.getIdentityKey(IdentityType.ACI));
+    assertEquals(oldSignedPreKeys, updatedAccount.getDevices().stream()
+        .collect(Collectors.toMap(Device::getId, d -> d.getSignedPreKey(IdentityType.ACI))));
+    assertEquals(Map.of(1L, 101, 2L, 102),
+        updatedAccount.getDevices().stream().collect(Collectors.toMap(Device::getId, Device::getRegistrationId)));
+
+    // PNI keys should
+    assertEquals(pniIdentityKey, updatedAccount.getIdentityKey(IdentityType.PNI));
+    assertEquals(newSignedKeys,
+        updatedAccount.getDevices().stream()
+            .collect(Collectors.toMap(Device::getId, d -> d.getSignedPreKey(IdentityType.PNI))));
+    assertEquals(newRegistrationIds,
+        updatedAccount.getDevices().stream().collect(Collectors.toMap(Device::getId, d -> d.getPhoneNumberIdentityRegistrationId().getAsInt())));
+
+    verify(accounts).update(any());
+
+    verify(keysManager).delete(oldPni);
+    verify(keysManager).storeEcSignedPreKeys(oldPni, newSignedKeys);
+
+    // no pq-enabled devices -> no pq last resort keys should be stored
+    verify(keysManager, never()).storePqLastResort(any(), any());
   }
 
   @Test

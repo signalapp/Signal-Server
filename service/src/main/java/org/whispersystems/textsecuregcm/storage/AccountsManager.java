@@ -372,7 +372,7 @@ public class AccountsManager {
     final List<Long> pqEnabledDeviceIDs = keysManager.getPqEnabledDevices(pni).join();
     keysManager.delete(pni);
     keysManager.storeEcSignedPreKeys(pni, pniSignedPreKeys).join();
-    if (pniPqLastResortPreKeys != null) {
+    if (pniPqLastResortPreKeys != null && !pqEnabledDeviceIDs.isEmpty()) {
       keysManager.storePqLastResort(pni, pqEnabledDeviceIDs.stream().collect(Collectors.toMap(Function.identity(), pniPqLastResortPreKeys::get))).join();
     }
 
