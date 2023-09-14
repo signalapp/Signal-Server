@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 import static org.whispersystems.textsecuregcm.util.MockUtils.randomSecretBytes;
 
 import com.google.common.collect.ImmutableSet;
@@ -23,9 +22,9 @@ import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccou
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.configuration.ArtServiceConfiguration;
-import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
+import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
@@ -33,7 +32,6 @@ class ArtControllerTest {
   private static final ArtServiceConfiguration ART_SERVICE_CONFIGURATION = new ArtServiceConfiguration(
       randomSecretBytes(32), randomSecretBytes(32), Duration.ofDays(1));
   private static final ExternalServiceCredentialsGenerator artCredentialsGenerator = ArtController.credentialsGenerator(ART_SERVICE_CONFIGURATION);
-  private static final RateLimiter  rateLimiter  = mock(RateLimiter.class);
   private static final RateLimiters rateLimiters = mock(RateLimiters.class);
 
   private static final ResourceExtension resources = ResourceExtension.builder()
@@ -47,9 +45,8 @@ class ArtControllerTest {
 
   @Test
   void testGetAuthToken() {
-    when(rateLimiters.getArtPackLimiter()).thenReturn(rateLimiter);
-
-    ExternalServiceCredentials token =
+    MockUtils.updateRateLimiterResponseToAllow(rateLimiters, RateLimiters.For.EXTERNAL_SERVICE_CREDENTIALS, AuthHelper.VALID_UUID);
+    final ExternalServiceCredentials token =
         resources.getJerseyTest()
             .target("/v1/art/auth")
             .request()

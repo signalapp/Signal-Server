@@ -45,7 +45,7 @@ public class ArtController {
   public ExternalServiceCredentials getAuth(final @Auth AuthenticatedAccount auth)
     throws RateLimitExceededException {
     final UUID uuid = auth.getAccount().getUuid();
-    rateLimiters.getArtPackLimiter().validate(uuid);
+    rateLimiters.forDescriptor(RateLimiters.For.EXTERNAL_SERVICE_CREDENTIALS).validate(uuid);
     return artServiceCredentialsGenerator.generateForUuid(uuid);
   }
 }

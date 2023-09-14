@@ -268,7 +268,7 @@ abstract class SecureValueRecoveryControllerBaseTest {
     return token(credentials(uuid, timeMillis));
   }
 
-  private static String token(ExternalServiceCredentials credentials) {
+  private static String token(final ExternalServiceCredentials credentials) {
     return credentials.username() + ":" + credentials.password();
   }
 

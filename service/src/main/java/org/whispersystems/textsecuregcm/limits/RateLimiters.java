@@ -33,7 +33,6 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
     TURN("turnAllocate", false, new RateLimiterConfig(60, Duration.ofSeconds(1))),
     PROFILE("profile", false, new RateLimiterConfig(4320, Duration.ofSeconds(20))),
     STICKER_PACK("stickerPack", false, new RateLimiterConfig(50, Duration.ofMinutes(72))),
-    ART_PACK("artPack", false, new RateLimiterConfig(50, Duration.ofMinutes(72))),
     USERNAME_LOOKUP("usernameLookup", false, new RateLimiterConfig(100, Duration.ofMinutes(15))),
     USERNAME_SET("usernameSet", false, new RateLimiterConfig(100, Duration.ofMinutes(15))),
     USERNAME_RESERVE("usernameReserve", false, new RateLimiterConfig(100, Duration.ofMinutes(15))),
@@ -49,7 +48,9 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
     PUSH_CHALLENGE_ATTEMPT("pushChallengeAttempt", true, new RateLimiterConfig(10, Duration.ofMinutes(144))),
     PUSH_CHALLENGE_SUCCESS("pushChallengeSuccess", true, new RateLimiterConfig(2, Duration.ofHours(12))),
     CREATE_CALL_LINK("createCallLink", false, new RateLimiterConfig(100, Duration.ofMinutes(15))),
-    INBOUND_MESSAGE_BYTES("inboundMessageBytes", true, new RateLimiterConfig(128 * 1024 * 1024, Duration.ofNanos(500_000)));
+    INBOUND_MESSAGE_BYTES("inboundMessageBytes", true, new RateLimiterConfig(128 * 1024 * 1024, Duration.ofNanos(500_000))),
+    EXTERNAL_SERVICE_CREDENTIALS("externalServiceCredentials", true, new RateLimiterConfig(100, Duration.ofMinutes(15))),
+    ;
 
     private final String id;
 
@@ -155,10 +156,6 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
 
   public RateLimiter getStickerPackLimiter() {
     return forDescriptor(For.STICKER_PACK);
-  }
-
-  public RateLimiter getArtPackLimiter() {
-    return forDescriptor(For.ART_PACK);
   }
 
   public RateLimiter getUsernameLookupLimiter() {

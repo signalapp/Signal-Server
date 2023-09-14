@@ -50,6 +50,18 @@ public final class GrpcTestUtils {
     assertEquals(expected.getCode(), exception.getStatus().getCode());
   }
 
+  public static void assertStatusInvalidArgument(final Executable serviceCall) {
+    assertStatusException(Status.INVALID_ARGUMENT, serviceCall);
+  }
+
+  public static void assertStatusUnauthenticated(final Executable serviceCall) {
+    assertStatusException(Status.UNAUTHENTICATED, serviceCall);
+  }
+
+  public static void assertStatusPermissionDenied(final Executable serviceCall) {
+    assertStatusException(Status.PERMISSION_DENIED, serviceCall);
+  }
+
   public static void assertRateLimitExceeded(
       final Duration expectedRetryAfter,
       final Executable serviceCall,

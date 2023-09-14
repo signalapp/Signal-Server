@@ -120,7 +120,7 @@ public class SecureBackupController {
           }
           final String username = info.credentials().username();
           // does this credential match the account id for the e164 provided in the request?
-          boolean match = UUIDUtil.fromStringSafe(username).filter(uuidMatches).isPresent();
+          final boolean match = UUIDUtil.fromStringSafe(username).filter(uuidMatches).isPresent();
           return match ? AuthCheckResponse.Result.MATCH : AuthCheckResponse.Result.NO_MATCH;
         }
     )));
