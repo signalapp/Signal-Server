@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.captcha;
 
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.instrument.Metrics;
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -16,15 +17,25 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import javax.ws.rs.core.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
+import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicCaptchaConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
+import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 public class HCaptchaClient implements CaptchaClient {
@@ -34,16 +45,36 @@ public class HCaptchaClient implements CaptchaClient {
   private static final String ASSESSMENT_REASON_COUNTER_NAME = name(HCaptchaClient.class, "assessmentReason");
   private static final String INVALID_REASON_COUNTER_NAME = name(HCaptchaClient.class, "invalidReason");
   private final String apiKey;
-  private final HttpClient client;
+  private final FaultTolerantHttpClient client;
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
+
+  @VisibleForTesting
+  HCaptchaClient(final String apiKey,
+      final FaultTolerantHttpClient faultTolerantHttpClient,
+      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
+    this.apiKey = apiKey;
+    this.client = faultTolerantHttpClient;
+    this.dynamicConfigurationManager = dynamicConfigurationManager;
+  }
 
   public HCaptchaClient(
       final String apiKey,
-      final HttpClient client,
+      final ScheduledExecutorService retryExecutor,
+      final CircuitBreakerConfiguration circuitBreakerConfiguration,
+      final RetryConfiguration retryConfiguration,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
-    this.apiKey = apiKey;
-    this.client = client;
-    this.dynamicConfigurationManager = dynamicConfigurationManager;
+    this(apiKey,
+        FaultTolerantHttpClient.newBuilder()
+            .withName("hcaptcha")
+            .withCircuitBreaker(circuitBreakerConfiguration)
+            .withExecutor(Executors.newCachedThreadPool())
+            .withRetryExecutor(retryExecutor)
+            .withRetry(retryConfiguration)
+            .withRetryOnException(ex -> ex instanceof IOException)
+            .withConnectTimeout(Duration.ofSeconds(10))
+            .withVersion(HttpClient.Version.HTTP_2)
+            .build(),
+        dynamicConfigurationManager);
   }
 
   @Override
@@ -82,11 +113,12 @@ public class HCaptchaClient implements CaptchaClient {
         .POST(HttpRequest.BodyPublishers.ofString(body))
         .build();
 
-    HttpResponse<String> response;
+    final HttpResponse<String> response;
     try {
-      response = this.client.send(request, HttpResponse.BodyHandlers.ofString());
-    } catch (InterruptedException e) {
-      throw new IOException(e);
+      response = this.client.sendAsync(request, HttpResponse.BodyHandlers.ofString()).join();
+    } catch (CompletionException e) {
+      logger.warn("failed to make http request to hCaptcha: {}", e.getMessage());
+      throw new IOException(ExceptionUtils.unwrap(e));
     }
 
     if (response.statusCode() != Response.Status.OK.getStatusCode()) {

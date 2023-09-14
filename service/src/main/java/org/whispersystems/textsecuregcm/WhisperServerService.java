@@ -406,6 +406,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .scheduledExecutorService(name(getClass(), "secureValueRecoveryServiceRetry-%d")).threads(1).build();
     ScheduledExecutorService storageServiceRetryExecutor = environment.lifecycle()
         .scheduledExecutorService(name(getClass(), "storageServiceRetry-%d")).threads(1).build();
+    ScheduledExecutorService hcaptchaRetryExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(getClass(), "hCaptchaRetry-%d")).threads(1).build();
 
     Scheduler messageDeliveryScheduler = Schedulers.fromExecutorService(
         ExecutorServiceMetrics.monitor(Metrics.globalRegistry,
@@ -569,9 +571,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getRecaptchaConfiguration().projectPath(),
         config.getRecaptchaConfiguration().credentialConfigurationJson(),
         dynamicConfigurationManager);
-    HttpClient hcaptchaHttpClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_2)
-        .connectTimeout(Duration.ofSeconds(10)).build();
-    HCaptchaClient hCaptchaClient = new HCaptchaClient(config.getHCaptchaConfiguration().apiKey().value(), hcaptchaHttpClient,
+    HCaptchaClient hCaptchaClient = new HCaptchaClient(
+        config.getHCaptchaConfiguration().getApiKey().value(),
+        hcaptchaRetryExecutor,
+        config.getHCaptchaConfiguration().getCircuitBreaker(),
+        config.getHCaptchaConfiguration().getRetry(),
         dynamicConfigurationManager);
     HttpClient shortCodeRetrieverHttpClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_2)
         .connectTimeout(Duration.ofSeconds(10)).build();

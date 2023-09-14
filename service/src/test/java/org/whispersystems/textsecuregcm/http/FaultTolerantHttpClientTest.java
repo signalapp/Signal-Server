@@ -11,6 +11,11 @@ import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
@@ -19,6 +24,8 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -112,6 +119,35 @@ class FaultTolerantHttpClientTest {
     assertThat(response.body()).isEqualTo("Pong!");
 
     wireMock.verify(3, getRequestedFor(urlEqualTo("/failure")));
+  }
+
+  @Test
+  void testRetryGetOnException() {
+    final HttpClient mockHttpClient = mock(HttpClient.class);
+    final FaultTolerantHttpClient client = new FaultTolerantHttpClient(
+        "test",
+        mockHttpClient,
+        retryExecutor,
+        Duration.ofSeconds(1),
+        new RetryConfiguration(),
+        throwable -> throwable instanceof IOException,
+        new CircuitBreakerConfiguration());
+
+    when(mockHttpClient.sendAsync(any(), any()))
+        .thenReturn(CompletableFuture.failedFuture(new IOException("test exception")));
+
+    HttpRequest request = HttpRequest.newBuilder()
+        .uri(URI.create("http://localhost:1234/failure"))
+        .GET()
+        .build();
+
+    try {
+      client.sendAsync(request, HttpResponse.BodyHandlers.ofString()).join();
+      throw new AssertionError("Should have failed!");
+    } catch (CompletionException e) {
+      assertThat(e.getCause()).isInstanceOf(IOException.class);
+    }
+    verify(mockHttpClient, times(3)).sendAsync(any(), any());
   }
 
   @Test

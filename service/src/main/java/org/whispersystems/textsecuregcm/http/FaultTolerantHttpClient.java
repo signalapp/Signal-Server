@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.http;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
@@ -18,12 +19,14 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.glassfish.jersey.SslConfigurator;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
 import org.whispersystems.textsecuregcm.util.CertificateUtil;
 import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
+import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 
 public class FaultTolerantHttpClient {
 
@@ -40,9 +43,10 @@ public class FaultTolerantHttpClient {
     return new Builder();
   }
 
-  private FaultTolerantHttpClient(String name, HttpClient httpClient, ScheduledExecutorService retryExecutor,
+  @VisibleForTesting
+  FaultTolerantHttpClient(String name, HttpClient httpClient, ScheduledExecutorService retryExecutor,
       Duration defaultRequestTimeout, RetryConfiguration retryConfiguration,
-      CircuitBreakerConfiguration circuitBreakerConfiguration) {
+      final Predicate<Throwable> retryOnException, CircuitBreakerConfiguration circuitBreakerConfiguration) {
 
     this.httpClient = httpClient;
     this.retryExecutor = retryExecutor;
@@ -55,9 +59,12 @@ public class FaultTolerantHttpClient {
       if (this.retryExecutor == null) {
         throw new IllegalArgumentException("retryExecutor must be specified with retryConfiguration");
       }
-      RetryConfig retryConfig = retryConfiguration.<HttpResponse>toRetryConfigBuilder()
-          .retryOnResult(o -> o.statusCode() >= 500).build();
-      this.retry = Retry.of(name + "-retry", retryConfig);
+      final RetryConfig.Builder<HttpResponse> retryConfig = retryConfiguration.<HttpResponse>toRetryConfigBuilder()
+          .retryOnResult(o -> o.statusCode() >= 500);
+      if (retryOnException != null) {
+        retryConfig.retryOnException(retryOnException);
+      }
+      this.retry = Retry.of(name + "-retry", retryConfig.build());
       CircuitBreakerUtil.registerMetrics(retry, FaultTolerantHttpClient.class);
     } else {
       this.retry = null;
@@ -101,6 +108,7 @@ public class FaultTolerantHttpClient {
     private KeyStore trustStore;
     private String securityProtocol = SECURITY_PROTOCOL_TLS_1_2;
     private RetryConfiguration retryConfiguration;
+    private Predicate<Throwable> retryOnException;
     private CircuitBreakerConfiguration circuitBreakerConfiguration;
 
     private Builder() {
@@ -161,6 +169,11 @@ public class FaultTolerantHttpClient {
       return this;
     }
 
+    public Builder withRetryOnException(final Predicate<Throwable> predicate) {
+      this.retryOnException = throwable -> predicate.test(ExceptionUtils.unwrap(throwable));
+      return this;
+    }
+
     public FaultTolerantHttpClient build() {
       if (this.circuitBreakerConfiguration == null || this.name == null || this.executor == null) {
         throw new IllegalArgumentException("Must specify circuit breaker config, name, and executor");
@@ -181,7 +194,7 @@ public class FaultTolerantHttpClient {
       builder.sslContext(sslConfigurator.createSSLContext());
 
       return new FaultTolerantHttpClient(name, builder.build(), retryExecutor, requestTimeout, retryConfiguration,
-          circuitBreakerConfiguration);
+          retryOnException, circuitBreakerConfiguration);
     }
   }
 
