@@ -3292,10 +3292,10 @@ components:
         createdTimestamp:
           type: integer
           format: int64
-        userAgent:
-          type: string
         open:
           type: boolean
+        userAgent:
+          type: string
     WebSocketSessionContext:
       type: object
       properties:
