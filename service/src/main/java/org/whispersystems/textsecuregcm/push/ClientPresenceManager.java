@@ -235,11 +235,12 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
 
   public boolean clearPresence(final UUID accountUuid, final long deviceId, final DisplacedPresenceListener listener) {
     final String presenceKey = getPresenceKey(accountUuid, deviceId);
-    if (!displacementListenersByPresenceKey.remove(presenceKey, listener)) {
+    if (displacementListenersByPresenceKey.remove(presenceKey, listener)) {
+      return clearPresence(presenceKey);
+    } else {
       displacementListenerAlreadyRemovedCounter.increment();
+      return false;
     }
-    return clearPresence(presenceKey);
-
   }
 
   private boolean clearPresence(final String presenceKey) {

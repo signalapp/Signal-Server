@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.mock;
 
 import io.lettuce.core.cluster.api.StatefulRedisClusterConnection;
@@ -161,6 +162,8 @@ class ClientPresenceManagerTest {
     assertFalse(clientPresenceManager.isPresent(accountUuid, deviceId));
 
     clientPresenceManager.setPresent(accountUuid, deviceId, NO_OP);
+    assertFalse(clientPresenceManager.clearPresence(accountUuid, deviceId,
+        ignored -> fail("this listener should never be called")));
     assertTrue(clientPresenceManager.clearPresence(accountUuid, deviceId, NO_OP));
 
     clientPresenceManager.setPresent(accountUuid, deviceId, NO_OP);
