@@ -20,6 +20,7 @@ import io.lettuce.core.cluster.SlotHash;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import io.lettuce.core.cluster.models.partitions.RedisClusterNode;
 import io.lettuce.core.cluster.pubsub.RedisClusterPubSubAdapter;
+import io.micrometer.core.instrument.Counter;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -33,8 +34,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-import java.util.stream.LongStream;
+import io.micrometer.core.instrument.Metrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
@@ -75,6 +75,7 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
   private final Meter pruneClientMeter;
   private final Meter remoteDisplacementMeter;
   private final Meter pubSubMessageMeter;
+  private final Counter displacementListenerAlreadyRemovedCounter;
 
   private static final int PRUNE_PEERS_INTERVAL_SECONDS = (int) Duration.ofSeconds(30).toSeconds();
   private static final int PRESENCE_EXPIRATION_SECONDS = (int) Duration.ofMinutes(11).toSeconds();
@@ -105,6 +106,8 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
     this.pruneClientMeter = metricRegistry.meter(name(getClass(), "pruneClient"));
     this.remoteDisplacementMeter = metricRegistry.meter(name(getClass(), "remoteDisplacement"));
     this.pubSubMessageMeter = metricRegistry.meter(name(getClass(), "pubSubMessage"));
+    this.displacementListenerAlreadyRemovedCounter = Metrics.counter(
+        name(getClass(), "displacementListenerAlreadyRemoved"));
   }
 
   @VisibleForTesting
@@ -230,8 +233,13 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
     return displacementListenersByPresenceKey.containsKey(getPresenceKey(accountUuid, deviceId));
   }
 
-  public boolean clearPresence(final UUID accountUuid, final long deviceId) {
-    return clearPresence(getPresenceKey(accountUuid, deviceId));
+  public boolean clearPresence(final UUID accountUuid, final long deviceId, final DisplacedPresenceListener listener) {
+    final String presenceKey = getPresenceKey(accountUuid, deviceId);
+    if (!displacementListenersByPresenceKey.remove(presenceKey, listener)) {
+      displacementListenerAlreadyRemovedCounter.increment();
+    }
+    return clearPresence(presenceKey);
+
   }
 
   private boolean clearPresence(final String presenceKey) {

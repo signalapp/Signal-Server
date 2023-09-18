@@ -161,14 +161,14 @@ class ClientPresenceManagerTest {
     assertFalse(clientPresenceManager.isPresent(accountUuid, deviceId));
 
     clientPresenceManager.setPresent(accountUuid, deviceId, NO_OP);
-    assertTrue(clientPresenceManager.clearPresence(accountUuid, deviceId));
+    assertTrue(clientPresenceManager.clearPresence(accountUuid, deviceId, NO_OP));
 
     clientPresenceManager.setPresent(accountUuid, deviceId, NO_OP);
     REDIS_CLUSTER_EXTENSION.getRedisCluster().useCluster(
         connection -> connection.sync().set(ClientPresenceManager.getPresenceKey(accountUuid, deviceId),
             UUID.randomUUID().toString()));
 
-    assertFalse(clientPresenceManager.clearPresence(accountUuid, deviceId));
+    assertFalse(clientPresenceManager.clearPresence(accountUuid, deviceId, NO_OP));
   }
 
   @Test

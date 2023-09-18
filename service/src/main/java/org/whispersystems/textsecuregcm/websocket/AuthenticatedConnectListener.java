@@ -181,7 +181,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
         connection.stop();
 
         RedisOperation.unchecked(
-            () -> clientPresenceManager.clearPresence(auth.getAccount().getUuid(), device.getId()));
+            () -> clientPresenceManager.clearPresence(auth.getAccount().getUuid(), device.getId(), connection));
         RedisOperation.unchecked(() -> {
           messagesManager.removeMessageAvailabilityListener(connection);
 

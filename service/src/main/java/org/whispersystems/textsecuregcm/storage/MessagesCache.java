@@ -87,6 +87,8 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
       name(MessagesCache.class, "queuePersisted"));
   private final Counter staleEphemeralMessagesCounter = Metrics.counter(
       name(MessagesCache.class, "staleEphemeralMessages"));
+  private final Counter messageAvailabilityListenerRemovedAfterAddCounter = Metrics.counter(
+      name(MessagesCache.class, "messageAvailabilityListenerRemovedAfterAdd"));
 
   static final String NEXT_SLOT_TO_PERSIST_KEY = "user_queue_persist_slot";
   private static final byte[] LOCK_VALUE = "1".getBytes(StandardCharsets.UTF_8);
@@ -401,7 +403,9 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
 
       synchronized (messageListenersByQueueName) {
         queueNamesByMessageListener.remove(listener);
-        messageListenersByQueueName.remove(queueName);
+        if (!messageListenersByQueueName.remove(queueName, listener)) {
+          messageAvailabilityListenerRemovedAfterAddCounter.increment();
+        }
       }
     }
   }
