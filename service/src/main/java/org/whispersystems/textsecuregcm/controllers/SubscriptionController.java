@@ -568,50 +568,6 @@ public class SubscriptionController {
             .thenApply(unused -> Response.ok(new SetSubscriptionLevelSuccessResponse(level)).build());
   }
 
-  public static class GetLevelsResponse {
-
-    public static class Level {
-
-      private final String name;
-      private final Badge badge;
-      private final Map<String, BigDecimal> currencies;
-
-      @JsonCreator
-      public Level(
-          @JsonProperty("name") String name,
-          @JsonProperty("badge") Badge badge,
-          @JsonProperty("currencies") Map<String, BigDecimal> currencies) {
-        this.name = name;
-        this.badge = badge;
-        this.currencies = currencies;
-      }
-
-      public String getName() {
-        return name;
-      }
-
-      public Badge getBadge() {
-        return badge;
-      }
-
-      public Map<String, BigDecimal> getCurrencies() {
-        return currencies;
-      }
-    }
-
-    private final Map<Long, Level> levels;
-
-    @JsonCreator
-    public GetLevelsResponse(
-        @JsonProperty("levels") Map<Long, Level> levels) {
-      this.levels = levels;
-    }
-
-    public Map<Long, Level> getLevels() {
-      return levels;
-    }
-  }
-
   /**
    * Comprehensive configuration for subscriptions and one-time donations
    *
@@ -655,25 +611,6 @@ public class SubscriptionController {
     return CompletableFuture.supplyAsync(() -> {
       List<Locale> acceptableLanguages = getAcceptableLanguagesForRequest(containerRequestContext);
       return Response.ok(buildGetSubscriptionConfigurationResponse(acceptableLanguages)).build();
-    });
-  }
-
-  @GET
-  @Path("/levels")
-  @Produces(MediaType.APPLICATION_JSON)
-  @Deprecated // use /configuration
-  public CompletableFuture<Response> getLevels(@Context ContainerRequestContext containerRequestContext) {
-    return CompletableFuture.supplyAsync(() -> {
-      List<Locale> acceptableLanguages = getAcceptableLanguagesForRequest(containerRequestContext);
-      GetLevelsResponse getLevelsResponse = new GetLevelsResponse(
-          subscriptionConfiguration.getLevels().entrySet().stream().collect(Collectors.toMap(Entry::getKey,
-              entry -> new GetLevelsResponse.Level(
-                  levelTranslator.translate(acceptableLanguages, entry.getValue().getBadge()),
-                  badgeTranslator.translate(acceptableLanguages, entry.getValue().getBadge()),
-                  entry.getValue().getPrices().entrySet().stream().collect(
-                      Collectors.toMap(levelEntry -> levelEntry.getKey().toUpperCase(Locale.ROOT),
-                          levelEntry -> levelEntry.getValue().amount()))))));
-      return Response.ok(getLevelsResponse).build();
     });
   }
 
@@ -725,28 +662,6 @@ public class SubscriptionController {
                   oneTimeDonationConfiguration.gift().expiration()))));
       return Response.ok(getBoostBadgesResponse).build();
     });
-  }
-
-  @GET
-  @Path("/boost/amounts")
-  @Produces(MediaType.APPLICATION_JSON)
-  @Deprecated // use /configuration
-  public CompletableFuture<Response> getBoostAmounts() {
-    return CompletableFuture.supplyAsync(() -> Response.ok(
-            oneTimeDonationConfiguration.currencies().entrySet().stream().collect(
-                Collectors.toMap(entry -> entry.getKey().toUpperCase(Locale.ROOT), entry -> entry.getValue().boosts())))
-        .build());
-  }
-
-  @GET
-  @Path("/boost/amounts/gift")
-  @Produces(MediaType.APPLICATION_JSON)
-  @Deprecated // use /configuration
-  public CompletableFuture<Response> getGiftAmounts() {
-    return CompletableFuture.supplyAsync(() -> Response.ok(
-            oneTimeDonationConfiguration.currencies().entrySet().stream().collect(
-                Collectors.toMap(entry -> entry.getKey().toUpperCase(Locale.ROOT), entry -> entry.getValue().gift())))
-        .build());
   }
 
   public static class CreateBoostRequest {

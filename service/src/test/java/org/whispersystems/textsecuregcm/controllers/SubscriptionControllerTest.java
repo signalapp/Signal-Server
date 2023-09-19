@@ -59,7 +59,6 @@ import org.whispersystems.textsecuregcm.badges.BadgeTranslator;
 import org.whispersystems.textsecuregcm.badges.LevelTranslator;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
-import org.whispersystems.textsecuregcm.controllers.SubscriptionController.GetLevelsResponse;
 import org.whispersystems.textsecuregcm.controllers.SubscriptionController.GetSubscriptionConfigurationResponse;
 import org.whispersystems.textsecuregcm.entities.Badge;
 import org.whispersystems.textsecuregcm.entities.BadgeSvg;
@@ -777,73 +776,6 @@ class SubscriptionControllerTest {
                   assertThat(level.get("badge")).doesNotContainKeys("duration");
                 });
           });
-    });
-  }
-
-  @Test
-  void testGetBoostAmounts() {
-    final Map<?, ?> boostAmounts = RESOURCE_EXTENSION.target("/v1/subscription/boost/amounts")
-        .request()
-        .get(Map.class);
-
-    assertThat(boostAmounts).isEqualTo(Map.of(
-        "USD", List.of(5.50, 6, 7, 8, 9, 10),
-        "JPY", List.of(550, 600, 700, 800, 900, 1000),
-        "BIF", List.of(5500, 6000, 7000, 8000, 9000, 10000)
-    ));
-
-    final Map<?, ?> giftAmounts = RESOURCE_EXTENSION.target("/v1/subscription/boost/amounts/gift")
-        .request()
-        .get(Map.class);
-
-    assertThat(giftAmounts).isEqualTo(Map.of(
-        "USD", 20,
-        "JPY", 2000,
-        "BIF", 20000
-    ));
-  }
-
-  @Test
-  void getLevels() {
-    when(BADGE_TRANSLATOR.translate(any(), eq("B1"))).thenReturn(new Badge("B1", "cat1", "name1", "desc1",
-        List.of("l", "m", "h", "x", "xx", "xxx"), "SVG",
-        List.of(new BadgeSvg("sl", "sd"), new BadgeSvg("ml", "md"), new BadgeSvg("ll", "ld"))));
-    when(BADGE_TRANSLATOR.translate(any(), eq("B2"))).thenReturn(new Badge("B2", "cat2", "name2", "desc2",
-        List.of("l", "m", "h", "x", "xx", "xxx"), "SVG",
-        List.of(new BadgeSvg("sl", "sd"), new BadgeSvg("ml", "md"), new BadgeSvg("ll", "ld"))));
-    when(BADGE_TRANSLATOR.translate(any(), eq("B3"))).thenReturn(new Badge("B3", "cat3", "name3", "desc3",
-        List.of("l", "m", "h", "x", "xx", "xxx"), "SVG",
-        List.of(new BadgeSvg("sl", "sd"), new BadgeSvg("ml", "md"), new BadgeSvg("ll", "ld"))));
-    when(LEVEL_TRANSLATOR.translate(any(), eq("B1"))).thenReturn("Z1");
-    when(LEVEL_TRANSLATOR.translate(any(), eq("B2"))).thenReturn("Z2");
-    when(LEVEL_TRANSLATOR.translate(any(), eq("B3"))).thenReturn("Z3");
-
-    GetLevelsResponse response = RESOURCE_EXTENSION.target("/v1/subscription/levels")
-        .request()
-        .get(GetLevelsResponse.class);
-
-    assertThat(response.getLevels()).containsKeys(5L, 15L, 35L).satisfies(longLevelMap -> {
-      assertThat(longLevelMap).extractingByKey(5L).satisfies(level -> {
-        assertThat(level.getName()).isEqualTo("Z1");
-        assertThat(level.getBadge().getId()).isEqualTo("B1");
-        assertThat(level.getCurrencies()).containsKeys("USD").extractingByKey("USD").satisfies(price -> {
-          assertThat(price).isEqualTo("5");
-        });
-      });
-      assertThat(longLevelMap).extractingByKey(15L).satisfies(level -> {
-        assertThat(level.getName()).isEqualTo("Z2");
-        assertThat(level.getBadge().getId()).isEqualTo("B2");
-        assertThat(level.getCurrencies()).containsKeys("USD").extractingByKey("USD").satisfies(price -> {
-          assertThat(price).isEqualTo("15");
-        });
-      });
-      assertThat(longLevelMap).extractingByKey(35L).satisfies(level -> {
-        assertThat(level.getName()).isEqualTo("Z3");
-        assertThat(level.getBadge().getId()).isEqualTo("B3");
-        assertThat(level.getCurrencies()).containsKeys("USD").extractingByKey("USD").satisfies(price -> {
-          assertThat(price).isEqualTo("35");
-        });
-      });
     });
   }
 
