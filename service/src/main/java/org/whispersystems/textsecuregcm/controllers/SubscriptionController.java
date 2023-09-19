@@ -5,12 +5,8 @@
 
 package org.whispersystems.textsecuregcm.controllers;
 
-import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
-
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import com.stripe.exception.StripeException;
 import io.dropwizard.auth.Auth;
@@ -84,6 +80,7 @@ import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionLevelConfiguration;
 import org.whispersystems.textsecuregcm.entities.Badge;
 import org.whispersystems.textsecuregcm.entities.PurchasableBadge;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
@@ -116,9 +113,9 @@ public class SubscriptionController {
   private final LevelTranslator levelTranslator;
   private final Map<String, CurrencyConfiguration> currencyConfiguration;
 
-  private static final String INVALID_ACCEPT_LANGUAGE_COUNTER_NAME = name(SubscriptionController.class,
+  private static final String INVALID_ACCEPT_LANGUAGE_COUNTER_NAME = MetricsUtil.name(SubscriptionController.class,
       "invalidAcceptLanguage");
-  private static final String RECEIPT_ISSUED_COUNTER_NAME = name(SubscriptionController.class, "receiptIssued");
+  private static final String RECEIPT_ISSUED_COUNTER_NAME = MetricsUtil.name(SubscriptionController.class, "receiptIssued");
   private static final String PROCESSOR_TAG_NAME = "processor";
   private static final String TYPE_TAG_NAME = "type";
 
@@ -433,61 +430,19 @@ public class SubscriptionController {
                 new ClientErrorException(Status.CONFLICT)))
         .thenApply(customer -> Response.ok().build());
   }
-  public static class SetSubscriptionLevelSuccessResponse {
 
-    private final long level;
-
-    @JsonCreator
-    public SetSubscriptionLevelSuccessResponse(
-        @JsonProperty("level") long level) {
-      this.level = level;
-    }
-
-    public long getLevel() {
-      return level;
-    }
+  public record SetSubscriptionLevelSuccessResponse(long level) {
   }
 
-  public static class SetSubscriptionLevelErrorResponse {
+  public record SetSubscriptionLevelErrorResponse(List<Error> errors) {
 
-    public static class Error {
+    public record Error(SetSubscriptionLevelErrorResponse.Error.Type type, String message) {
 
       public enum Type {
         UNSUPPORTED_LEVEL,
         UNSUPPORTED_CURRENCY,
         PAYMENT_REQUIRES_ACTION,
       }
-
-      private final Type type;
-      private final String message;
-
-      @JsonCreator
-      public Error(
-          @JsonProperty("type") Type type,
-          @JsonProperty("message") String message) {
-        this.type = type;
-        this.message = message;
-      }
-
-      public Type getType() {
-        return type;
-      }
-
-      public String getMessage() {
-        return message;
-      }
-    }
-
-    private final List<Error> errors;
-
-    @JsonCreator
-    public SetSubscriptionLevelErrorResponse(
-        @JsonProperty("errors") List<Error> errors) {
-      this.errors = errors;
-    }
-
-    public List<Error> getErrors() {
-      return errors;
     }
   }
 
@@ -614,33 +569,10 @@ public class SubscriptionController {
     });
   }
 
-  public static class GetBoostBadgesResponse {
-    public static class Level {
-      private final PurchasableBadge badge;
-
-      @JsonCreator
-      public Level(
-          @JsonProperty("badge") PurchasableBadge badge) {
-        this.badge = badge;
-      }
-
-      public PurchasableBadge getBadge() {
-        return badge;
+  public record GetBoostBadgesResponse(Map<Long, Level> levels) {
+      public record Level(PurchasableBadge badge) {
       }
     }
-
-    private final Map<Long, Level> levels;
-
-    @JsonCreator
-    public GetBoostBadgesResponse(
-        @JsonProperty("levels") Map<Long, Level> levels) {
-      this.levels = Objects.requireNonNull(levels);
-    }
-
-    public Map<Long, Level> getLevels() {
-      return levels;
-    }
-  }
 
   @GET
   @Path("/boost/badges")
@@ -686,19 +618,7 @@ public class SubscriptionController {
 
   }
 
-  public static class CreateBoostResponse {
-
-    private final String clientSecret;
-
-    @JsonCreator
-    public CreateBoostResponse(
-        @JsonProperty("clientSecret") String clientSecret) {
-      this.clientSecret = clientSecret;
-    }
-
-    public String getClientSecret() {
-      return clientSecret;
-    }
+  public record CreateBoostResponse(String clientSecret) {
   }
 
   /**
@@ -830,19 +750,7 @@ public class SubscriptionController {
     public SubscriptionProcessor processor = SubscriptionProcessor.STRIPE;
   }
 
-  public static class CreateBoostReceiptCredentialsResponse {
-
-    private final byte[] receiptCredentialResponse;
-
-    @JsonCreator
-    public CreateBoostReceiptCredentialsResponse(
-        @JsonProperty("receiptCredentialResponse") byte[] receiptCredentialResponse) {
-      this.receiptCredentialResponse = receiptCredentialResponse;
-    }
-
-    public byte[] getReceiptCredentialResponse() {
-      return receiptCredentialResponse;
-    }
+  public record CreateBoostReceiptCredentialsResponse(byte[] receiptCredentialResponse) {
   }
 
   @POST
@@ -921,99 +829,16 @@ public class SubscriptionController {
         });
   }
 
-  public static class GetSubscriptionInformationResponse {
+  public record GetSubscriptionInformationResponse(
+      SubscriptionController.GetSubscriptionInformationResponse.Subscription subscription,
+      @JsonInclude(Include.NON_NULL) ChargeFailure chargeFailure) {
 
-    public static class Subscription {
+      public record Subscription(long level, Instant billingCycleAnchor, Instant endOfCurrentPeriod, boolean active,
+                                 boolean cancelAtPeriodEnd, String currency, BigDecimal amount, String status,
+                                 SubscriptionProcessor processor) {
 
-      private final long level;
-      private final Instant billingCycleAnchor;
-      private final Instant endOfCurrentPeriod;
-      private final boolean active;
-      private final boolean cancelAtPeriodEnd;
-      private final String currency;
-      private final BigDecimal amount;
-      private final String status;
-      private final SubscriptionProcessor processor;
-
-      @JsonCreator
-      public Subscription(
-          @JsonProperty("level") long level,
-          @JsonProperty("billingCycleAnchor") Instant billingCycleAnchor,
-          @JsonProperty("endOfCurrentPeriod") Instant endOfCurrentPeriod,
-          @JsonProperty("active") boolean active,
-          @JsonProperty("cancelAtPeriodEnd") boolean cancelAtPeriodEnd,
-          @JsonProperty("currency") String currency,
-          @JsonProperty("amount") BigDecimal amount,
-          @JsonProperty("status") String status,
-          @JsonProperty("processor") SubscriptionProcessor processor) {
-        this.level = level;
-        this.billingCycleAnchor = billingCycleAnchor;
-        this.endOfCurrentPeriod = endOfCurrentPeriod;
-        this.active = active;
-        this.cancelAtPeriodEnd = cancelAtPeriodEnd;
-        this.currency = currency;
-        this.amount = amount;
-        this.status = status;
-        this.processor = processor;
-      }
-
-      public long getLevel() {
-        return level;
-      }
-
-      public Instant getBillingCycleAnchor() {
-        return billingCycleAnchor;
-      }
-
-      public Instant getEndOfCurrentPeriod() {
-        return endOfCurrentPeriod;
-      }
-
-      public boolean isActive() {
-        return active;
-      }
-
-      public boolean isCancelAtPeriodEnd() {
-        return cancelAtPeriodEnd;
-      }
-
-      public String getCurrency() {
-        return currency;
-      }
-
-      public BigDecimal getAmount() {
-        return amount;
-      }
-
-      public String getStatus() {
-        return status;
-      }
-
-      public SubscriptionProcessor getProcessor() {
-        return processor;
       }
     }
-
-    private final Subscription subscription;
-    private final ChargeFailure chargeFailure;
-
-    @JsonCreator
-    public GetSubscriptionInformationResponse(
-        @JsonProperty("subscription") Subscription subscription,
-        @JsonProperty("chargeFailure") ChargeFailure chargeFailure) {
-      this.subscription = subscription;
-      this.chargeFailure = chargeFailure;
-    }
-
-    public Subscription getSubscription() {
-      return subscription;
-    }
-
-    @JsonInclude(Include.NON_NULL)
-    public ChargeFailure getChargeFailure() {
-      return chargeFailure;
-    }
-  }
 
   @GET
   @Path("/{subscriberId}")
@@ -1049,36 +874,10 @@ public class SubscriptionController {
         });
   }
 
-  public static class GetReceiptCredentialsRequest {
-
-    private final byte[] receiptCredentialRequest;
-
-    @JsonCreator
-    public GetReceiptCredentialsRequest(
-        @JsonProperty("receiptCredentialRequest") byte[] receiptCredentialRequest) {
-      this.receiptCredentialRequest = receiptCredentialRequest;
-    }
-
-    @NotEmpty
-    public byte[] getReceiptCredentialRequest() {
-      return receiptCredentialRequest;
-    }
+  public record GetReceiptCredentialsRequest(@NotEmpty byte[] receiptCredentialRequest) {
   }
 
-  public static class GetReceiptCredentialsResponse {
-
-    private final byte[] receiptCredentialResponse;
-
-    @JsonCreator
-    public GetReceiptCredentialsResponse(
-        @JsonProperty("receiptCredentialResponse") byte[] receiptCredentialResponse) {
-      this.receiptCredentialResponse = receiptCredentialResponse;
-    }
-
-    @NotEmpty
-    public byte[] getReceiptCredentialResponse() {
-      return receiptCredentialResponse;
-    }
+  public record GetReceiptCredentialsResponse(@NotEmpty byte[] receiptCredentialResponse) {
   }
 
   @POST
@@ -1099,7 +898,7 @@ public class SubscriptionController {
             }
             ReceiptCredentialRequest receiptCredentialRequest;
             try {
-                receiptCredentialRequest = new ReceiptCredentialRequest(request.getReceiptCredentialRequest());
+                receiptCredentialRequest = new ReceiptCredentialRequest(request.receiptCredentialRequest());
             } catch (InvalidInputException e) {
                 throw new BadRequestException("invalid receipt credential request", e);
             }
@@ -1182,74 +981,59 @@ public class SubscriptionController {
     }
   }
 
-  private static class RequestData {
+  private record RequestData(@Nonnull byte[] subscriberBytes,
+                             @Nonnull byte[] subscriberUser,
+                             @Nonnull byte[] subscriberKey,
+                             @Nonnull byte[] hmac,
+                             @Nonnull Instant now) {
 
-    public final byte[] subscriberBytes;
-    public final byte[] subscriberUser;
-    public final byte[] subscriberKey;
-    public final byte[] hmac;
-    public final Instant now;
-
-    private RequestData(
-        @Nonnull byte[] subscriberBytes,
-        @Nonnull byte[] subscriberUser,
-        @Nonnull byte[] subscriberKey,
-        @Nonnull byte[] hmac,
-        @Nonnull Instant now) {
-      this.subscriberBytes = Objects.requireNonNull(subscriberBytes);
-      this.subscriberUser = Objects.requireNonNull(subscriberUser);
-      this.subscriberKey = Objects.requireNonNull(subscriberKey);
-      this.hmac = Objects.requireNonNull(hmac);
-      this.now = Objects.requireNonNull(now);
-    }
-
-    public static RequestData process(
-        Optional<AuthenticatedAccount> authenticatedAccount,
-        String subscriberId,
-        Clock clock) {
-      Instant now = clock.instant();
-      if (authenticatedAccount.isPresent()) {
-        throw new ForbiddenException("must not use authenticated connection for subscriber operations");
-      }
-      byte[] subscriberBytes = convertSubscriberIdStringToBytes(subscriberId);
-      byte[] subscriberUser = getUser(subscriberBytes);
-      byte[] subscriberKey = getKey(subscriberBytes);
-      byte[] hmac = computeHmac(subscriberUser, subscriberKey);
-      return new RequestData(subscriberBytes, subscriberUser, subscriberKey, hmac, now);
-    }
-
-    private static byte[] convertSubscriberIdStringToBytes(String subscriberId) {
-      try {
-        byte[] bytes = Base64.getUrlDecoder().decode(subscriberId);
-        if (bytes.length != 32) {
-          throw new NotFoundException();
+      public static RequestData process(
+          Optional<AuthenticatedAccount> authenticatedAccount,
+          String subscriberId,
+          Clock clock) {
+        Instant now = clock.instant();
+        if (authenticatedAccount.isPresent()) {
+          throw new ForbiddenException("must not use authenticated connection for subscriber operations");
         }
-        return bytes;
-      } catch (IllegalArgumentException e) {
-        throw new NotFoundException(e);
+        byte[] subscriberBytes = convertSubscriberIdStringToBytes(subscriberId);
+        byte[] subscriberUser = getUser(subscriberBytes);
+        byte[] subscriberKey = getKey(subscriberBytes);
+        byte[] hmac = computeHmac(subscriberUser, subscriberKey);
+        return new RequestData(subscriberBytes, subscriberUser, subscriberKey, hmac, now);
+      }
+
+      private static byte[] convertSubscriberIdStringToBytes(String subscriberId) {
+        try {
+          byte[] bytes = Base64.getUrlDecoder().decode(subscriberId);
+          if (bytes.length != 32) {
+            throw new NotFoundException();
+          }
+          return bytes;
+        } catch (IllegalArgumentException e) {
+          throw new NotFoundException(e);
+        }
+      }
+
+      private static byte[] getUser(byte[] subscriberBytes) {
+        byte[] user = new byte[16];
+        System.arraycopy(subscriberBytes, 0, user, 0, user.length);
+        return user;
+      }
+
+      private static byte[] getKey(byte[] subscriberBytes) {
+        byte[] key = new byte[16];
+        System.arraycopy(subscriberBytes, 16, key, 0, key.length);
+        return key;
+      }
+
+      private static byte[] computeHmac(byte[] subscriberUser, byte[] subscriberKey) {
+        try {
+          Mac mac = Mac.getInstance("HmacSHA256");
+          mac.init(new SecretKeySpec(subscriberKey, "HmacSHA256"));
+          return mac.doFinal(subscriberUser);
+        } catch (NoSuchAlgorithmException | InvalidKeyException e) {
+          throw new InternalServerErrorException(e);
+        }
       }
     }
-
-    private static byte[] getUser(byte[] subscriberBytes) {
-      byte[] user = new byte[16];
-      System.arraycopy(subscriberBytes, 0, user, 0, user.length);
-      return user;
-    }
-
-    private static byte[] getKey(byte[] subscriberBytes) {
-      byte[] key = new byte[16];
-      System.arraycopy(subscriberBytes, 16, key, 0, key.length);
-      return key;
-    }
-
-    private static byte[] computeHmac(byte[] subscriberUser, byte[] subscriberKey) {
-      try {
-        Mac mac = Mac.getInstance("HmacSHA256");
-        mac.init(new SecretKeySpec(subscriberKey, "HmacSHA256"));
-        return mac.doFinal(subscriberUser);
-      } catch (NoSuchAlgorithmException | InvalidKeyException e) {
-        throw new InternalServerErrorException(e);
-      }
-    }
-  }
 }

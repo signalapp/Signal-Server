@@ -342,9 +342,9 @@ class SubscriptionControllerTest {
 
       assertThat(response.readEntity(SubscriptionController.SetSubscriptionLevelErrorResponse.class))
           .satisfies(errorResponse -> {
-            assertThat(errorResponse.getErrors())
+            assertThat(errorResponse.errors())
                 .anySatisfy(error -> {
-                  assertThat(error.getType()).isEqualTo(
+                  assertThat(error.type()).isEqualTo(
                       SubscriptionController.SetSubscriptionLevelErrorResponse.Error.Type.PAYMENT_REQUIRES_ACTION);
                 });
           });
@@ -559,7 +559,7 @@ class SubscriptionControllerTest {
     assertThat(response.getStatus()).isEqualTo(200);
 
     assertThat(response.readEntity(SubscriptionController.SetSubscriptionLevelSuccessResponse.class))
-        .extracting(SubscriptionController.SetSubscriptionLevelSuccessResponse::getLevel)
+        .extracting(SubscriptionController.SetSubscriptionLevelSuccessResponse::level)
         .isEqualTo(level);
   }
 
@@ -628,7 +628,7 @@ class SubscriptionControllerTest {
     assertThat(response.getStatus()).isEqualTo(200);
 
     assertThat(response.readEntity(SubscriptionController.SetSubscriptionLevelSuccessResponse.class))
-        .extracting(SubscriptionController.SetSubscriptionLevelSuccessResponse::getLevel)
+        .extracting(SubscriptionController.SetSubscriptionLevelSuccessResponse::level)
         .isEqualTo(requestLevel);
   }
 
