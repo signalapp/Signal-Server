@@ -5,14 +5,11 @@
 
 package org.whispersystems.textsecuregcm.websocket;
 
-import static com.codahale.metrics.MetricRegistry.name;
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
-import com.codahale.metrics.Counter;
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.SharedMetricRegistries;
-import com.codahale.metrics.Timer;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
+import io.micrometer.core.instrument.Timer;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
@@ -23,7 +20,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
-import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
@@ -33,7 +29,6 @@ import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
-import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
 import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
@@ -43,17 +38,9 @@ import reactor.core.scheduler.Scheduler;
 
 public class AuthenticatedConnectListener implements WebSocketConnectListener {
 
-  private static final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  private static final Timer durationTimer = metricRegistry.timer(
-      name(WebSocketConnection.class, "connected_duration"));
-  private static final Timer unauthenticatedDurationTimer = metricRegistry.timer(
-      name(WebSocketConnection.class, "unauthenticated_connection_duration"));
-  private static final Counter openWebsocketCounter = metricRegistry.counter(
-      name(WebSocketConnection.class, "open_websockets"));
-
   private static final String OPEN_WEBSOCKET_COUNTER_NAME =
-      MetricsUtil.name(WebSocketConnection.class, "openWebsockets");
-  private static final String CONNECTED_DURATION_TIMER_NAME = MetricsUtil.name(AuthenticatedConnectListener.class,
+      name(WebSocketConnection.class, "openWebsockets");
+  private static final String CONNECTED_DURATION_TIMER_NAME = name(AuthenticatedConnectListener.class,
       "connectedDuration");
 
   private static final String AUTHENTICATED_TAG_NAME = "authenticated";
@@ -72,13 +59,13 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
 
   private final Map<ClientPlatform, AtomicInteger> openAuthenticatedWebsocketsByClientPlatform;
   private final Map<ClientPlatform, AtomicInteger> openUnauthenticatedWebsocketsByClientPlatform;
-  private final Map<ClientPlatform, io.micrometer.core.instrument.Timer> durationTimersByClientPlatform;
-  private final Map<ClientPlatform, io.micrometer.core.instrument.Timer> unauthenticatedDurationTimersByClientPlatform;
+  private final Map<ClientPlatform, Timer> durationTimersByClientPlatform;
+  private final Map<ClientPlatform, Timer> unauthenticatedDurationTimersByClientPlatform;
 
   private final AtomicInteger openAuthenticatedWebsocketsFromUnknownPlatforms;
   private final AtomicInteger openUnauthenticatedWebsocketsFromUnknownPlatforms;
-  private final io.micrometer.core.instrument.Timer durationTimerForUnknownPlatforms;
-  private final io.micrometer.core.instrument.Timer unauthenticatedDurationTimerForUnknownPlatforms;
+  private final Timer durationTimerForUnknownPlatforms;
+  private final Timer unauthenticatedDurationTimerForUnknownPlatforms;
 
   public AuthenticatedConnectListener(ReceiptSender receiptSender,
       MessagesManager messagesManager,
@@ -144,13 +131,12 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
     final boolean authenticated = (context.getAuthenticated() != null);
     final String userAgent = context.getClient().getUserAgent();
     final AtomicInteger openWebsocketAtomicInteger = getOpenWebsocketCounter(userAgent, authenticated);
-    final io.micrometer.core.instrument.Timer connectionTimer = getConnectionTimer(userAgent, authenticated);
+    final Timer connectionTimer = getConnectionTimer(userAgent, authenticated);
 
     if (authenticated) {
       final AuthenticatedAccount auth = context.getAuthenticated(AuthenticatedAccount.class);
       final Device device = auth.getAuthenticatedDevice();
-      final Timer.Context timer = durationTimer.time();
-      final io.micrometer.core.instrument.Timer.Sample sample = io.micrometer.core.instrument.Timer.start();
+      final Timer.Sample sample = Timer.start();
       final WebSocketConnection connection = new WebSocketConnection(receiptSender,
           messagesManager, auth, device,
           context.getClient(),
@@ -159,7 +145,6 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
           clientReleaseManager);
 
       openWebsocketAtomicInteger.incrementAndGet();
-      openWebsocketCounter.inc();
 
       pushNotificationManager.handleMessagesRetrieved(auth.getAccount(), device, userAgent);
 
@@ -167,9 +152,6 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
 
       context.addWebsocketClosedListener((closingContext, statusCode, reason) -> {
         openWebsocketAtomicInteger.decrementAndGet();
-        openWebsocketCounter.dec();
-
-        timer.stop();
         sample.stop(connectionTimer);
 
         final ScheduledFuture<?> renewPresenceFuture = renewPresenceFutureReference.get();
@@ -209,16 +191,10 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
         context.getClient().close(1011, "Unexpected error initializing connection");
       }
     } else {
-
       openWebsocketAtomicInteger.incrementAndGet();
-      openWebsocketCounter.inc();
-
-      final Timer.Context timer = unauthenticatedDurationTimer.time();
-      final io.micrometer.core.instrument.Timer.Sample sample = io.micrometer.core.instrument.Timer.start();
+      final Timer.Sample sample = Timer.start();
       context.addWebsocketClosedListener((context1, statusCode, reason) -> {
         openWebsocketAtomicInteger.decrementAndGet();
-        openWebsocketCounter.dec();
-        timer.stop();
         sample.stop(connectionTimer);
       });
     }
@@ -237,7 +213,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
     }
   }
 
-  private io.micrometer.core.instrument.Timer getConnectionTimer(final String userAgentString,
+  private Timer getConnectionTimer(final String userAgentString,
       final boolean authenticated) {
     try {
       final ClientPlatform platform = UserAgentUtil.parseUserAgentString(userAgentString).getPlatform();
