@@ -100,6 +100,9 @@ public class Account {
   @JsonProperty("inCds")
   private boolean discoverableByPhoneNumber = true;
 
+  @JsonProperty("bcr")
+  private byte[] backupCredentialRequest;
+
   @JsonProperty
   private int version;
 
@@ -484,6 +487,14 @@ public class Account {
     requireNotStale();
 
     this.version = version;
+  }
+
+  public byte[] getBackupCredentialRequest() {
+    return backupCredentialRequest;
+  }
+
+  public void setBackupCredentialRequest(final byte[] backupCredentialRequest) {
+    this.backupCredentialRequest = backupCredentialRequest;
   }
 
 

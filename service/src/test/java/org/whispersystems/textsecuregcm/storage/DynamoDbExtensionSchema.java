@@ -5,7 +5,9 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
+import java.util.Collections;
 import java.util.List;
+import org.whispersystems.textsecuregcm.backup.BackupManager;
 import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
 import software.amazon.awssdk.services.dynamodb.model.GlobalSecondaryIndex;
 import software.amazon.awssdk.services.dynamodb.model.KeySchemaElement;
@@ -47,6 +49,14 @@ public final class DynamoDbExtensionSchema {
         ),
         List.of()),
 
+    BACKUPS("backups_test",
+        BackupManager.KEY_BACKUP_ID_HASH,
+        null,
+        List.of(AttributeDefinition.builder()
+            .attributeName(BackupManager.KEY_BACKUP_ID_HASH)
+            .attributeType(ScalarAttributeType.B).build()),
+        Collections.emptyList(), Collections.emptyList()),
+
     CLIENT_RELEASES("client_releases_test",
         ClientReleases.ATTR_PLATFORM,
         ClientReleases.ATTR_VERSION,
@@ -84,7 +94,7 @@ public final class DynamoDbExtensionSchema {
                 .build()),
         List.of()
     ),
-  
+
     DELETED_ACCOUNTS_LOCK("deleted_accounts_lock_test",
         AccountLockManager.KEY_ACCOUNT_E164,
         null,
@@ -92,7 +102,7 @@ public final class DynamoDbExtensionSchema {
             .attributeName(AccountLockManager.KEY_ACCOUNT_E164)
             .attributeType(ScalarAttributeType.S).build()),
         List.of(), List.of()),
-    
+
     NUMBERS("numbers_test",
         Accounts.ATTR_ACCOUNT_E164,
         null,
@@ -233,7 +243,7 @@ public final class DynamoDbExtensionSchema {
                 .attributeType(ScalarAttributeType.S)
                 .build()),
         List.of(), List.of()),
-        
+
     PUSH_CHALLENGES("push_challenge_test",
         PushChallengeDynamoDb.KEY_ACCOUNT_UUID,
         null,
@@ -251,7 +261,7 @@ public final class DynamoDbExtensionSchema {
             .attributeType(ScalarAttributeType.B)
             .build()),
         List.of(), List.of()),
-  
+
     REGISTRATION_RECOVERY_PASSWORDS("registration_recovery_passwords_test",
         RegistrationRecoveryPasswords.KEY_E164,
         null,

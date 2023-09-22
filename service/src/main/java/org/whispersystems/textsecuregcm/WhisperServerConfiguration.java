@@ -224,7 +224,12 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @NotNull
   @JsonProperty
-  private GenericZkConfig genericZkConfig;
+  private GenericZkConfig callingZkConfig;
+
+  @Valid
+  @NotNull
+  @JsonProperty
+  private GenericZkConfig backupsZkConfig;
 
   @Valid
   @NotNull
@@ -435,8 +440,12 @@ public class WhisperServerConfiguration extends Configuration {
     return zkConfig;
   }
 
-  public GenericZkConfig getGenericZkConfig() {
-    return genericZkConfig;
+  public GenericZkConfig getCallingZkConfig() {
+    return callingZkConfig;
+  }
+
+  public GenericZkConfig getBackupsZkConfig() {
+    return backupsZkConfig;
   }
 
   public RemoteConfigConfiguration getRemoteConfigConfiguration() {

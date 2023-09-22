@@ -85,6 +85,8 @@ dynamoDbTables:
     phoneNumberTableName: Example_Accounts_PhoneNumbers
     phoneNumberIdentifierTableName: Example_Accounts_PhoneNumberIdentifiers
     usernamesTableName: Example_Accounts_Usernames
+  backups:
+    tableName: Example_Backups
   clientReleases:
     tableName: Example_ClientReleases
   deletedAccounts:
@@ -266,8 +268,11 @@ zkConfig:
   serverPublic: ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
   serverSecret: secret://zkConfig.serverSecret
 
-genericZkConfig:
-  serverSecret: secret://genericZkConfig.serverSecret
+callingZkConfig:
+  serverSecret: secret://callingZkConfig.serverSecret
+
+backupsZkConfig:
+  serverSecret: secret://backupsZkConfig.serverSecret
 
 appConfig:
   application: example

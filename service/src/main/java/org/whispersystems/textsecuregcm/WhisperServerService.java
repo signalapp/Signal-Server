@@ -76,6 +76,9 @@ import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
 import org.whispersystems.textsecuregcm.auth.WebsocketRefreshApplicationEventListener;
 import org.whispersystems.textsecuregcm.auth.grpc.BasicCredentialAuthenticationInterceptor;
+import org.whispersystems.textsecuregcm.backup.BackupAuthManager;
+import org.whispersystems.textsecuregcm.backup.BackupManager;
+import org.whispersystems.textsecuregcm.backup.TusBackupCredentialGenerator;
 import org.whispersystems.textsecuregcm.badges.ConfiguredProfileBadgeConverter;
 import org.whispersystems.textsecuregcm.badges.ResourceBundleLevelTranslator;
 import org.whispersystems.textsecuregcm.captcha.CaptchaChecker;
@@ -92,6 +95,7 @@ import org.whispersystems.textsecuregcm.controllers.ArtController;
 import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV2;
 import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV3;
 import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV4;
+import org.whispersystems.textsecuregcm.controllers.ArchiveController;
 import org.whispersystems.textsecuregcm.controllers.CallLinkController;
 import org.whispersystems.textsecuregcm.controllers.CertificateController;
 import org.whispersystems.textsecuregcm.controllers.ChallengeController;
@@ -137,6 +141,7 @@ import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.CompletionExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.DeviceLimitExceededExceptionMapper;
+import org.whispersystems.textsecuregcm.mappers.GrpcStatusRuntimeExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.IOExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.ImpossiblePhoneNumberExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.InvalidWebsocketAddressExceptionMapper;
@@ -638,10 +643,17 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getCdnConfiguration().region());
 
     ServerSecretParams zkSecretParams = new ServerSecretParams(config.getZkConfig().serverSecret().value());
-    GenericServerSecretParams genericZkSecretParams = new GenericServerSecretParams(config.getGenericZkConfig().serverSecret().value());
+    GenericServerSecretParams callingGenericZkSecretParams = new GenericServerSecretParams(config.getCallingZkConfig().serverSecret().value());
+    GenericServerSecretParams backupsGenericZkSecretParams = new GenericServerSecretParams(config.getBackupsZkConfig().serverSecret().value());
     ServerZkProfileOperations zkProfileOperations = new ServerZkProfileOperations(zkSecretParams);
     ServerZkAuthOperations zkAuthOperations = new ServerZkAuthOperations(zkSecretParams);
     ServerZkReceiptOperations zkReceiptOperations = new ServerZkReceiptOperations(zkSecretParams);
+
+    TusBackupCredentialGenerator tusBackupCredentialGenerator = new TusBackupCredentialGenerator(config.getTus());
+    BackupAuthManager backupAuthManager = new BackupAuthManager(dynamicConfigurationManager, rateLimiters, accountsManager, backupsGenericZkSecretParams, clock);
+    BackupManager backupManager = new BackupManager(backupsGenericZkSecretParams, tusBackupCredentialGenerator, dynamoDbAsyncClient,
+        config.getDynamoDbTables().getBackups().getTableName(),
+        clock);
 
     AuthFilter<BasicCredentials, AuthenticatedAccount> accountAuthFilter = new BasicCredentialAuthFilter.Builder<AuthenticatedAccount>().setAuthenticator(
         accountAuthenticator).buildAuthFilter();
@@ -767,8 +779,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new AttachmentControllerV2(rateLimiters, config.getAwsAttachmentsConfiguration().accessKey().value(), config.getAwsAttachmentsConfiguration().accessSecret().value(), config.getAwsAttachmentsConfiguration().region(), config.getAwsAttachmentsConfiguration().bucket()),
         new AttachmentControllerV3(rateLimiters, gcsAttachmentGenerator),
         new AttachmentControllerV4(rateLimiters, gcsAttachmentGenerator, new TusAttachmentGenerator(config.getTus()), experimentEnrollmentManager),
-        new CallLinkController(rateLimiters, genericZkSecretParams),
-        new CertificateController(new CertificateGenerator(config.getDeliveryCertificate().certificate().value(), config.getDeliveryCertificate().ecPrivateKey(), config.getDeliveryCertificate().expiresDays()), zkAuthOperations, genericZkSecretParams, clock),
+        new ArchiveController(backupAuthManager, backupManager),
+        new CallLinkController(rateLimiters, callingGenericZkSecretParams),
+        new CertificateController(new CertificateGenerator(config.getDeliveryCertificate().certificate().value(), config.getDeliveryCertificate().ecPrivateKey(), config.getDeliveryCertificate().expiresDays()), zkAuthOperations, callingGenericZkSecretParams, clock),
         new ChallengeController(rateLimitChallengeManager),
         new DeviceController(config.getLinkDeviceSecretConfiguration().secret().value(), accountsManager, messagesManager, keys, rateLimiters,
             rateLimitersCluster, config.getMaxDevices(), clock),
@@ -869,6 +882,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     List.of(
         new LoggingUnhandledExceptionMapper(),
         new CompletionExceptionMapper(),
+        new GrpcStatusRuntimeExceptionMapper(),
         new IOExceptionMapper(),
         new RateLimitExceededExceptionMapper(),
         new InvalidWebsocketAddressExceptionMapper(),
