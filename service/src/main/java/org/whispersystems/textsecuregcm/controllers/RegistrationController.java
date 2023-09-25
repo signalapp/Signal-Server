@@ -130,16 +130,16 @@ public class RegistrationController {
       REREGISTRATION_IDLE_DAYS_DISTRIBUTION.record(timeSinceLastSeen.toDays());
     });
 
-    if (existingAccount.isPresent()) {
-      registrationLockVerificationManager.verifyRegistrationLock(existingAccount.get(),
-          registrationRequest.accountAttributes().getRegistrationLock(),
-          userAgent, RegistrationLockVerificationManager.Flow.REGISTRATION, verificationType);
-    }
-
     if (!registrationRequest.skipDeviceTransfer() && existingAccount.map(Account::isTransferSupported).orElse(false)) {
       // If a device transfer is possible, clients must explicitly opt out of a transfer (i.e. after prompting the user)
       // before we'll let them create a new account "from scratch"
       throw new WebApplicationException(Response.status(409, "device transfer available").build());
+    }
+
+    if (existingAccount.isPresent()) {
+      registrationLockVerificationManager.verifyRegistrationLock(existingAccount.get(),
+          registrationRequest.accountAttributes().getRegistrationLock(),
+          userAgent, RegistrationLockVerificationManager.Flow.REGISTRATION, verificationType);
     }
 
     Account account = accounts.create(number, password, signalAgent, registrationRequest.accountAttributes(),

@@ -23,9 +23,12 @@ import io.dropwizard.testing.junit5.ResourceExtension;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Base64;
+import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
@@ -45,9 +48,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junitpioneer.jupiter.cartesian.ArgumentSets;
+import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
@@ -315,32 +319,57 @@ class RegistrationControllerTest {
     }
   }
 
-  @ParameterizedTest
-  @EnumSource(RegistrationLockError.class)
-  void registrationLock(final RegistrationLockError error) throws Exception {
+  @CartesianTest
+  @CartesianTest.MethodFactory("registrationLockAndDeviceTransfer")
+  void registrationLockAndDeviceTransfer(
+      final boolean deviceTransferSupported,
+      @Nullable final RegistrationLockError error)
+      throws Exception {
     when(registrationServiceClient.getSession(any(), any()))
         .thenReturn(
             CompletableFuture.completedFuture(
                 Optional.of(new RegistrationServiceSession(new byte[16], NUMBER, true, null, null, null,
                     SESSION_EXPIRATION_SECONDS))));
 
-    when(accountsManager.getByE164(any())).thenReturn(Optional.of(mock(Account.class)));
+    final Account account = mock(Account.class);
+    when(accountsManager.getByE164(any())).thenReturn(Optional.of(account));
+    when(account.isTransferSupported()).thenReturn(deviceTransferSupported);
 
-    final Exception e = switch (error) {
+    final int expectedStatus;
+    if (deviceTransferSupported) {
+      expectedStatus = 409;
+    } else if (error != null) {
+      final Exception e = switch (error) {
       case MISMATCH -> new WebApplicationException(error.getExpectedStatus());
       case RATE_LIMITED -> new RateLimitExceededException(null, true);
     };
-    doThrow(e)
-        .when(registrationLockVerificationManager).verifyRegistrationLock(any(), any(), any(), any(), any());
+      doThrow(e)
+          .when(registrationLockVerificationManager).verifyRegistrationLock(any(), any(), any(), any(), any());
+      expectedStatus = error.getExpectedStatus();
+    } else {
+      when(accountsManager.create(any(), any(), any(), any(), any()))
+          .thenReturn(mock(Account.class));
+      expectedStatus = 200;
+    }
 
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/registration")
         .request()
         .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
     try (Response response = request.post(Entity.json(requestJson("sessionId")))) {
-      assertEquals(error.getExpectedStatus(), response.getStatus());
+      assertEquals(expectedStatus, response.getStatus());
     }
   }
+
+  @SuppressWarnings("unused")
+  static ArgumentSets registrationLockAndDeviceTransfer() {
+    final Set<RegistrationLockError> registrationLockErrors = new HashSet<>(EnumSet.allOf(RegistrationLockError.class));
+    registrationLockErrors.add(null);
+
+    return ArgumentSets.argumentsForFirstParameter(true, false)
+        .argumentsForNextParameter(registrationLockErrors);
+  }
+
 
   @ParameterizedTest
   @CsvSource({
