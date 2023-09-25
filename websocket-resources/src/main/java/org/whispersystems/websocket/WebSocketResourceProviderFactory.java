@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.websocket;
@@ -57,7 +57,7 @@ public class WebSocketResourceProviderFactory<T extends Principal> extends WebSo
       if (authenticator.isPresent()) {
         AuthenticationResult<T> authenticationResult = authenticator.get().authenticate(request);
 
-        if (authenticationResult.getUser().isEmpty() && authenticationResult.isRequired()) {
+        if (authenticationResult.getUser().isEmpty() && authenticationResult.credentialsPresented()) {
           response.sendForbidden("Unauthorized");
           return null;
         } else {

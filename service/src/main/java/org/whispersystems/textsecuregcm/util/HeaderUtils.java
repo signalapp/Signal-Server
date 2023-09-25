@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.util;
 
 import static java.util.Objects.requireNonNull;
 
+import io.dropwizard.auth.basic.BasicCredentials;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Optional;
@@ -62,5 +63,39 @@ public final class HeaderUtils {
               : null;
         })
         .filter(StringUtils::isNotBlank);
+  }
+
+  /**
+   * Parses a Base64-encoded value of the `Authorization` header
+   * in the form of `Basic dXNlcm5hbWU6cGFzc3dvcmQ=`.
+   * Note: parsing logic is copied from {@link io.dropwizard.auth.basic.BasicCredentialAuthFilter#getCredentials(String)}.
+   */
+  public static Optional<BasicCredentials> basicCredentialsFromAuthHeader(final String authHeader) {
+    final int space = authHeader.indexOf(' ');
+    if (space <= 0) {
+      return Optional.empty();
+    }
+
+    final String method = authHeader.substring(0, space);
+    if (!"Basic".equalsIgnoreCase(method)) {
+      return Optional.empty();
+    }
+
+    final String decoded;
+    try {
+      decoded = new String(Base64.getDecoder().decode(authHeader.substring(space + 1)), StandardCharsets.UTF_8);
+    } catch (IllegalArgumentException e) {
+      return Optional.empty();
+    }
+
+    // Decoded credentials is 'username:password'
+    final int i = decoded.indexOf(':');
+    if (i <= 0) {
+      return Optional.empty();
+    }
+
+    final String username = decoded.substring(0, i);
+    final String password = decoded.substring(i + 1);
+    return Optional.of(new BasicCredentials(username, password));
   }
 }

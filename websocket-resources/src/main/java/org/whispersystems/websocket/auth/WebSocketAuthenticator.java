@@ -1,33 +1,32 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.websocket.auth;
 
-import org.eclipse.jetty.websocket.api.UpgradeRequest;
-
 import java.security.Principal;
 import java.util.Optional;
+import org.eclipse.jetty.websocket.api.UpgradeRequest;
 
 public interface WebSocketAuthenticator<T extends Principal> {
   AuthenticationResult<T> authenticate(UpgradeRequest request) throws AuthenticationException;
 
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-  public class AuthenticationResult<T> {
+  class AuthenticationResult<T> {
     private final Optional<T> user;
-    private final boolean     required;
+    private final boolean credentialsPresented;
 
-    public AuthenticationResult(Optional<T> user, boolean required) {
-      this.user     = user;
-      this.required = required;
+    public AuthenticationResult(final Optional<T> user, final boolean credentialsPresented) {
+      this.user = user;
+      this.credentialsPresented = credentialsPresented;
     }
 
     public Optional<T> getUser() {
       return user;
     }
 
-    public boolean isRequired() {
-      return required;
+    public boolean credentialsPresented() {
+      return credentialsPresented;
     }
   }
 }

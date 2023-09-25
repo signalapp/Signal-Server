@@ -18,6 +18,7 @@ import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.BaseAccountAuthenticator;
+import org.whispersystems.textsecuregcm.util.HeaderUtils;
 
 /**
  * A basic credential authentication interceptor enforces the presence of a valid username and password on every call.
@@ -39,7 +40,7 @@ public class BasicCredentialAuthenticationInterceptor implements ServerIntercept
 
   @VisibleForTesting
   static final Metadata.Key<String> BASIC_CREDENTIALS =
-      Metadata.Key.of("x-signal-basic-auth-credentials", Metadata.ASCII_STRING_MARSHALLER);
+      Metadata.Key.of("x-signal-auth", Metadata.ASCII_STRING_MARSHALLER);
 
   private static final Metadata EMPTY_TRAILERS = new Metadata();
 
@@ -48,17 +49,20 @@ public class BasicCredentialAuthenticationInterceptor implements ServerIntercept
   }
 
   @Override
-  public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(final ServerCall<ReqT, RespT> call,
+  public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
+      final ServerCall<ReqT, RespT> call,
       final Metadata headers,
       final ServerCallHandler<ReqT, RespT> next) {
 
-    final String credentialString = headers.get(BASIC_CREDENTIALS);
+    final String authHeader = headers.get(BASIC_CREDENTIALS);
 
-    if (StringUtils.isNotBlank(credentialString)) {
-      try {
-        final BasicCredentials credentials = extractBasicCredentials(credentialString);
+    if (StringUtils.isNotBlank(authHeader)) {
+      final Optional<BasicCredentials> maybeCredentials = HeaderUtils.basicCredentialsFromAuthHeader(authHeader);
+      if (maybeCredentials.isEmpty()) {
+        call.close(Status.UNAUTHENTICATED.withDescription("Could not parse credentials"), EMPTY_TRAILERS);
+      } else {
         final Optional<AuthenticatedAccount> maybeAuthenticatedAccount =
-            baseAccountAuthenticator.authenticate(credentials, false);
+            baseAccountAuthenticator.authenticate(maybeCredentials.get(), false);
 
         if (maybeAuthenticatedAccount.isPresent()) {
           final AuthenticatedAccount authenticatedAccount = maybeAuthenticatedAccount.get();
@@ -71,24 +75,11 @@ public class BasicCredentialAuthenticationInterceptor implements ServerIntercept
         } else {
           call.close(Status.UNAUTHENTICATED.withDescription("Credentials not accepted"), EMPTY_TRAILERS);
         }
-      } catch (final IllegalArgumentException e) {
-        call.close(Status.UNAUTHENTICATED.withDescription("Could not parse credentials"), EMPTY_TRAILERS);
       }
     } else {
       call.close(Status.UNAUTHENTICATED.withDescription("No credentials provided"), EMPTY_TRAILERS);
     }
 
     return new ServerCall.Listener<>() {};
-  }
-
-  @VisibleForTesting
-  static BasicCredentials extractBasicCredentials(final String credentials) {
-    if (credentials.indexOf(':') < 0) {
-      throw new IllegalArgumentException("Credentials do not include a username and password part");
-    }
-
-    final String[] pieces = credentials.split(":", 2);
-
-    return new BasicCredentials(pieces[0], pieces[1]);
   }
 }

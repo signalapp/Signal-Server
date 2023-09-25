@@ -13,7 +13,6 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import io.dropwizard.auth.basic.BasicCredentials;
 import io.grpc.CallCredentials;
 import io.grpc.ManagedChannel;
 import io.grpc.Metadata;
@@ -30,7 +29,6 @@ import java.util.stream.Stream;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -41,6 +39,7 @@ import org.whispersystems.textsecuregcm.auth.BaseAccountAuthenticator;
 import org.whispersystems.textsecuregcm.grpc.EchoServiceImpl;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.Pair;
 
 class BasicCredentialAuthenticationInterceptorTest {
@@ -122,8 +121,10 @@ class BasicCredentialAuthenticationInterceptorTest {
     malformedCredentialHeaders.put(BasicCredentialAuthenticationInterceptor.BASIC_CREDENTIALS, "Incorrect");
 
     final Metadata structurallyValidCredentialHeaders = new Metadata();
-    structurallyValidCredentialHeaders.put(BasicCredentialAuthenticationInterceptor.BASIC_CREDENTIALS,
-        UUID.randomUUID() + ":" + RandomStringUtils.randomAlphanumeric(16));
+    structurallyValidCredentialHeaders.put(
+        BasicCredentialAuthenticationInterceptor.BASIC_CREDENTIALS,
+        HeaderUtils.basicAuthHeader(UUID.randomUUID().toString(), RandomStringUtils.randomAlphanumeric(16))
+    );
 
     return Stream.of(
         Arguments.of(new Metadata(), true, false),
@@ -131,23 +132,5 @@ class BasicCredentialAuthenticationInterceptorTest {
         Arguments.of(structurallyValidCredentialHeaders, false, false),
         Arguments.of(structurallyValidCredentialHeaders, true, true)
     );
-  }
-
-  @Test
-  void extractBasicCredentials() {
-    final String username = UUID.randomUUID().toString();
-    final String password = RandomStringUtils.random(16);
-
-    final BasicCredentials basicCredentials =
-        BasicCredentialAuthenticationInterceptor.extractBasicCredentials(username + ":" + password);
-
-    assertEquals(username, basicCredentials.getUsername());
-    assertEquals(password, basicCredentials.getPassword());
-  }
-
-  @Test
-  void extractBasicCredentialsIllegalArgument() {
-    assertThrows(IllegalArgumentException.class,
-        () -> BasicCredentialAuthenticationInterceptor.extractBasicCredentials("This does not include a password"));
   }
 }
