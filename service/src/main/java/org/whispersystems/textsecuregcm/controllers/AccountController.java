@@ -255,7 +255,7 @@ public class AccountController {
     return new AccountIdentityResponse(auth.getAccount().getUuid(),
         auth.getAccount().getNumber(),
         auth.getAccount().getPhoneNumberIdentifier(),
-        auth.getAccount().getUsernameHash().orElse(null),
+        auth.getAccount().getUsernameHash().filter(h -> h.length > 0).orElse(null),
         auth.getAccount().isStorageSupported());
   }
 
