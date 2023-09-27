@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import static com.codahale.metrics.MetricRegistry.name;
+import static io.micrometer.core.instrument.Metrics.counter;
 
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.Meter;
@@ -14,6 +15,9 @@ import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.lifecycle.Managed;
+import io.micrometer.core.instrument.Counter;
+import software.amazon.awssdk.services.dynamodb.model.ItemCollectionSizeLimitExceededException;
+
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -43,6 +47,7 @@ public class MessagePersister implements Managed {
   private final Timer persistQueueTimer = metricRegistry.timer(name(MessagePersister.class, "persistQueue"));
   private final Meter persistQueueExceptionMeter = metricRegistry.meter(
       name(MessagePersister.class, "persistQueueException"));
+  private final Counter oversizedQueueCounter = counter(name(MessagePersister.class, "persistQueueOversized"));
   private final Histogram queueCountHistogram = metricRegistry.histogram(name(MessagePersister.class, "queueCount"));
   private final Histogram queueSizeHistogram = metricRegistry.histogram(name(MessagePersister.class, "queueSize"));
 
@@ -137,6 +142,9 @@ public class MessagePersister implements Managed {
         try {
           persistQueue(accountUuid, deviceId);
         } catch (final Exception e) {
+          if (e instanceof ItemCollectionSizeLimitExceededException) {
+            oversizedQueueCounter.increment();
+          }
           persistQueueExceptionMeter.mark();
           logger.warn("Failed to persist queue {}::{}; will schedule for retry", accountUuid, deviceId, e);
 
