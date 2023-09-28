@@ -614,6 +614,10 @@ public class SubscriptionController {
     public String returnUrl;
     @NotEmpty
     public String cancelUrl;
+
+    public CreatePayPalBoostRequest() {
+      super.paymentMethod = PaymentMethod.PAYPAL;
+    }
   }
 
   record CreatePayPalBoostResponse(String approvalUrl, String paymentId) {

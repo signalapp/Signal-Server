@@ -67,6 +67,7 @@ import org.whispersystems.textsecuregcm.mappers.SubscriptionProcessorExceptionMa
 import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
+import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager.PayPalOneTimePaymentApprovalDetails;
 import org.whispersystems.textsecuregcm.subscriptions.ChargeFailure;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
@@ -228,6 +229,30 @@ class SubscriptionControllerTest {
     final Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/create")
         .request()
         .post(Entity.json("{\"currency\": \"USD\", \"amount\": 300, \"level\": null}"));
+    assertThat(response.getStatus()).isEqualTo(200);
+  }
+
+  @Test
+  void testCreateBoostPayPal() {
+    final PayPalOneTimePaymentApprovalDetails payPalOneTimePaymentApprovalDetails = mock(PayPalOneTimePaymentApprovalDetails.class);
+    when(BRAINTREE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.PAYPAL))
+        .thenReturn(Set.of("usd", "jpy", "bif", "eur"));
+    when(BRAINTREE_MANAGER.createOneTimePayment(anyString(), anyLong(), anyString(), anyString(), anyString()))
+        .thenReturn(CompletableFuture.completedFuture(payPalOneTimePaymentApprovalDetails));
+    when(payPalOneTimePaymentApprovalDetails.approvalUrl()).thenReturn("approvalUrl");
+    when(payPalOneTimePaymentApprovalDetails.paymentId()).thenReturn("someId");
+
+    final Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/paypal/create")
+        .request()
+        .post(Entity.json("""
+              {
+                "currency": "USD",
+                "amount": 300,
+                "cancelUrl": "cancelUrl",
+                "returnUrl": "returnUrl"
+              }
+            """
+        ));
     assertThat(response.getStatus()).isEqualTo(200);
   }
 
