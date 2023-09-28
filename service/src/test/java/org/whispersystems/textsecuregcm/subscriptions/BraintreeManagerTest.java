@@ -29,7 +29,7 @@ class BraintreeManagerTest {
   void setup() {
     braintreeGateway = mock(BraintreeGateway.class);
     braintreeManager = new BraintreeManager(braintreeGateway,
-        Set.of("usd"),
+        Map.of(PaymentMethod.CARD, Set.of("usd")),
         Map.of("usd", "usdMerchant"),
         mock(BraintreeGraphqlClient.class),
         Executors.newSingleThreadExecutor());

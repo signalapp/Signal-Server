@@ -19,9 +19,7 @@ public interface SubscriptionProcessorManager {
 
   boolean supportsPaymentMethod(PaymentMethod paymentMethod);
 
-  boolean supportsCurrency(String currency);
-
-  Set<String> getSupportedCurrencies();
+  Set<String> getSupportedCurrenciesForPaymentMethod(PaymentMethod paymentMethod);
 
   CompletableFuture<PaymentDetails> getPaymentDetails(String paymentId);
 

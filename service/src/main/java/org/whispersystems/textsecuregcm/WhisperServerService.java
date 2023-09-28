@@ -455,12 +455,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getAdminEventLoggingConfiguration().logName());
 
     StripeManager stripeManager = new StripeManager(config.getStripe().apiKey().value(), subscriptionProcessorExecutor,
-        config.getStripe().idempotencyKeyGenerator().value(), config.getStripe().boostDescription(), config.getStripe()
-        .supportedCurrencies());
+        config.getStripe().idempotencyKeyGenerator().value(), config.getStripe().boostDescription(), config.getStripe().supportedCurrenciesByPaymentMethod());
     BraintreeManager braintreeManager = new BraintreeManager(config.getBraintree().merchantId(),
         config.getBraintree().publicKey(), config.getBraintree().privateKey().value(),
         config.getBraintree().environment(),
-        config.getBraintree().supportedCurrencies(), config.getBraintree().merchantAccounts(),
+        config.getBraintree().supportedCurrenciesByPaymentMethod(), config.getBraintree().merchantAccounts(),
         config.getBraintree().graphqlUrl(), config.getBraintree().circuitBreaker(), subscriptionProcessorExecutor,
         subscriptionProcessorRetryExecutor);
 

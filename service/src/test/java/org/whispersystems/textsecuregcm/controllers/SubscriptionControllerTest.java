@@ -68,6 +68,7 @@ import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
 import org.whispersystems.textsecuregcm.subscriptions.ChargeFailure;
+import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessor;
@@ -98,9 +99,11 @@ class SubscriptionControllerTest {
           when(manager.supportsPaymentMethod(any()))
               .thenCallRealMethod();
         });
-    when(STRIPE_MANAGER.getSupportedCurrencies())
-        .thenReturn(Set.of("usd", "jpy", "bif"));
-    when(BRAINTREE_MANAGER.getSupportedCurrencies())
+    when(STRIPE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.CARD))
+        .thenReturn(Set.of("usd", "jpy", "bif", "eur"));
+    when(STRIPE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.SEPA_DEBIT))
+        .thenReturn(Set.of("eur"));
+    when(BRAINTREE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.PAYPAL))
         .thenReturn(Set.of("usd", "jpy"));
   }
 
@@ -134,7 +137,8 @@ class SubscriptionControllerTest {
 
   @Test
   void testCreateBoostPaymentIntentAmountBelowCurrencyMinimum() {
-    when(STRIPE_MANAGER.supportsCurrency("usd")).thenReturn(true);
+    when(STRIPE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.CARD))
+        .thenReturn(Set.of("usd", "jpy", "bif", "eur"));
     final Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/create")
         .request()
         .post(Entity.json("""
@@ -146,16 +150,58 @@ class SubscriptionControllerTest {
             """));
     assertThat(response.getStatus()).isEqualTo(400);
     assertThat(response.hasEntity()).isTrue();
-    assertThat(response.readEntity(Map.class))
-        .isNotNull()
-        .containsAllEntriesOf(Map.of(
-            "error", "amount_below_currency_minimum",
-            "minimum", "2.50"
-        ));
+    final Map responseMap = response.readEntity(Map.class);
+    assertThat(responseMap.get("error")).isEqualTo("amount_below_currency_minimum");
+    assertThat(responseMap.get("minimum")).isEqualTo("2.50");
+  }
+
+  @Test
+  void testCreateBoostPaymentIntentAmountAboveSepaLimit() {
+    when(STRIPE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.SEPA_DEBIT))
+        .thenReturn(Set.of("eur"));
+    final Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/create")
+        .request()
+        .post(Entity.json("""
+              {
+                "currency": "EUR",
+                "amount": 1000001,
+                "level": null,
+                "paymentMethod": "SEPA_DEBIT"
+              }
+            """));
+    assertThat(response.getStatus()).isEqualTo(400);
+    assertThat(response.hasEntity()).isTrue();
+
+    final Map responseMap = response.readEntity(Map.class);
+    assertThat(responseMap.get("error")).isEqualTo("amount_above_sepa_limit");
+    assertThat(responseMap.get("maximum")).isEqualTo("10000");
+  }
+
+  @Test
+  void testCreateBoostPaymentIntentUnsupportedCurrency() {
+    when(STRIPE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.SEPA_DEBIT))
+        .thenReturn(Set.of("eur"));
+    final Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/create")
+        .request()
+        .post(Entity.json("""
+              {
+                "currency": "USD",
+                "amount": 3000,
+                "level": null,
+                "paymentMethod": "SEPA_DEBIT"
+              }
+            """));
+    assertThat(response.getStatus()).isEqualTo(400);
+    assertThat(response.hasEntity()).isTrue();
+
+    final Map responseMap = response.readEntity(Map.class);
+    assertThat(responseMap.get("error")).isEqualTo("unsupported_currency");
   }
 
   @Test
   void testCreateBoostPaymentIntentLevelAmountMismatch() {
+    when(STRIPE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.CARD))
+        .thenReturn(Set.of("usd", "jpy", "bif", "eur"));
     final Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/create")
         .request()
         .post(Entity.json("""
@@ -171,9 +217,10 @@ class SubscriptionControllerTest {
 
   @Test
   void testCreateBoostPaymentIntent() {
+    when(STRIPE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.CARD))
+        .thenReturn(Set.of("usd", "jpy", "bif", "eur"));
     when(STRIPE_MANAGER.createPaymentIntent(anyString(), anyLong(), anyLong()))
         .thenReturn(CompletableFuture.completedFuture(PAYMENT_INTENT));
-    when(STRIPE_MANAGER.supportsCurrency("usd")).thenReturn(true);
 
     String clientSecret = "some_client_secret";
     when(PAYMENT_INTENT.getClientSecret()).thenReturn(clientSecret);
@@ -643,7 +690,6 @@ class SubscriptionControllerTest {
 
   @Test
   void getSubscriptionConfiguration() {
-
     when(BADGE_TRANSLATOR.translate(any(), eq("B1"))).thenReturn(new Badge("B1", "cat1", "name1", "desc1",
         List.of("l", "m", "h", "x", "xx", "xxx"), "SVG",
         List.of(new BadgeSvg("sl", "sd"), new BadgeSvg("ml", "md"), new BadgeSvg("ll", "ld"))));
@@ -667,7 +713,7 @@ class SubscriptionControllerTest {
         .request()
         .get(GetSubscriptionConfigurationResponse.class);
 
-    assertThat(response.currencies()).containsKeys("usd", "jpy", "bif").satisfies(currencyMap -> {
+    assertThat(response.currencies()).containsKeys("usd", "jpy", "bif", "eur").satisfies(currencyMap -> {
       assertThat(currencyMap).extractingByKey("usd").satisfies(currency -> {
         assertThat(currency.minimum()).isEqualByComparingTo(
             BigDecimal.valueOf(2.5).setScale(2, RoundingMode.HALF_EVEN));
@@ -708,6 +754,19 @@ class SubscriptionControllerTest {
         assertThat(currency.subscription()).isEqualTo(
             Map.of("5", BigDecimal.valueOf(5000), "15", BigDecimal.valueOf(15000), "35", BigDecimal.valueOf(35000)));
         assertThat(currency.supportedPaymentMethods()).isEqualTo(List.of("CARD"));
+      });
+
+      assertThat(currencyMap).extractingByKey("eur").satisfies(currency -> {
+        assertThat(currency.minimum()).isEqualByComparingTo(
+            BigDecimal.valueOf(3));
+        assertThat(currency.oneTime()).isEqualTo(
+            Map.of("1",
+                List.of(BigDecimal.valueOf(5), BigDecimal.valueOf(10),
+                    BigDecimal.valueOf(20), BigDecimal.valueOf(30), BigDecimal.valueOf(50), BigDecimal.valueOf(100)), "100",
+                List.of(BigDecimal.valueOf(5))));
+        assertThat(currency.subscription()).isEqualTo(
+            Map.of("5", BigDecimal.valueOf(5), "15", BigDecimal.valueOf(15),"35", BigDecimal.valueOf(35)));
+        assertThat(currency.supportedPaymentMethods()).isEqualTo(List.of("CARD", "SEPA_DEBIT"));
       });
     });
 
@@ -821,6 +880,11 @@ class SubscriptionControllerTest {
                 processorIds:
                   STRIPE: S1
                   BRAINTREE: O1
+              eur:
+                amount: '5'
+                processorIds:
+                  STRIPE: A1
+                  BRAINTREE: B1
           15:
             badge: B2
             prices:
@@ -839,6 +903,11 @@ class SubscriptionControllerTest {
                 processorIds:
                   STRIPE: S2
                   BRAINTREE: O2
+              eur:
+                amount: '15'
+                processorIds:
+                  STRIPE: A2
+                  BRAINTREE: B2
           35:
             badge: B3
             prices:
@@ -857,6 +926,11 @@ class SubscriptionControllerTest {
                 processorIds:
                   STRIPE: S3
                   BRAINTREE: O3
+              eur:
+                amount: '35'
+                processorIds:
+                  STRIPE: A3
+                  BRAINTREE: B3
         """;
 
     private static final String ONETIME_CONFIG_YAML = """
@@ -879,6 +953,16 @@ class SubscriptionControllerTest {
               - '8'
               - '9'
               - '10'
+          eur:
+            minimum: '3'
+            gift: '5'
+            boosts:
+              - '5'
+              - '10'
+              - '20'
+              - '30'
+              - '50'
+              - '100'
           jpy:
             minimum: '250'
             gift: '2000'
@@ -899,6 +983,7 @@ class SubscriptionControllerTest {
               - '8000'
               - '9000'
               - '10000'
+        sepaMaxTransactionSizeEuros: '10000'
         """;
 
   }

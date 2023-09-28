@@ -12,6 +12,7 @@ import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretString;
+import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
 
 /**
  * @param merchantId          the Braintree merchant ID
@@ -27,7 +28,7 @@ public record BraintreeConfiguration(@NotBlank String merchantId,
                                      @NotBlank String publicKey,
                                      @NotNull SecretString privateKey,
                                      @NotBlank String environment,
-                                     @NotEmpty Set<@NotBlank String> supportedCurrencies,
+                                     @Valid @NotEmpty Map<PaymentMethod, Set<@NotBlank String>> supportedCurrenciesByPaymentMethod,
                                      @NotBlank String graphqlUrl,
                                      @NotEmpty Map<String, String> merchantAccounts,
                                      @NotNull

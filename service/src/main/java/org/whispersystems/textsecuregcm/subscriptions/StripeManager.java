@@ -77,14 +77,14 @@ public class StripeManager implements SubscriptionProcessorManager {
   private final Executor executor;
   private final byte[] idempotencyKeyGenerator;
   private final String boostDescription;
-  private final Set<String> supportedCurrencies;
+  private final Map<PaymentMethod, Set<String>> supportedCurrenciesByPaymentMethod;
 
   public StripeManager(
       @Nonnull String apiKey,
       @Nonnull Executor executor,
       @Nonnull byte[] idempotencyKeyGenerator,
       @Nonnull String boostDescription,
-      @Nonnull Set<String> supportedCurrencies) {
+      @Nonnull Map<PaymentMethod, Set<String>> supportedCurrenciesByPaymentMethod) {
     if (Strings.isNullOrEmpty(apiKey)) {
       throw new IllegalArgumentException("apiKey cannot be empty");
     }
@@ -95,7 +95,7 @@ public class StripeManager implements SubscriptionProcessorManager {
       throw new IllegalArgumentException("idempotencyKeyGenerator cannot be empty");
     }
     this.boostDescription = Objects.requireNonNull(boostDescription);
-    this.supportedCurrencies = supportedCurrencies;
+    this.supportedCurrenciesByPaymentMethod = supportedCurrenciesByPaymentMethod;
   }
 
   @Override
@@ -105,12 +105,7 @@ public class StripeManager implements SubscriptionProcessorManager {
 
   @Override
   public boolean supportsPaymentMethod(PaymentMethod paymentMethod) {
-    return paymentMethod == PaymentMethod.CARD;
-  }
-
-  @Override
-  public boolean supportsCurrency(final String currency) {
-    return supportedCurrencies.contains(currency);
+    return paymentMethod == PaymentMethod.CARD || paymentMethod == PaymentMethod.SEPA_DEBIT;
   }
 
   private RequestOptions commonOptions() {
@@ -184,8 +179,8 @@ public class StripeManager implements SubscriptionProcessorManager {
   }
 
   @Override
-  public Set<String> getSupportedCurrencies() {
-    return supportedCurrencies;
+  public Set<String> getSupportedCurrenciesForPaymentMethod(final PaymentMethod paymentMethod) {
+    return supportedCurrenciesByPaymentMethod.getOrDefault(paymentMethod, Collections.emptySet());
   }
 
   /**

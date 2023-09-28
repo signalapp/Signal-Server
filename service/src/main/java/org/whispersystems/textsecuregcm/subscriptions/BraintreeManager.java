@@ -55,13 +55,13 @@ public class BraintreeManager implements SubscriptionProcessorManager {
   private final BraintreeGateway braintreeGateway;
   private final BraintreeGraphqlClient braintreeGraphqlClient;
   private final Executor executor;
-  private final Set<String> supportedCurrencies;
+  private final Map<PaymentMethod, Set<String>> supportedCurrenciesByPaymentMethod;
   private final Map<String, String> currenciesToMerchantAccounts;
 
   public BraintreeManager(final String braintreeMerchantId, final String braintreePublicKey,
       final String braintreePrivateKey,
       final String braintreeEnvironment,
-      final Set<String> supportedCurrencies,
+      final Map<PaymentMethod, Set<String>> supportedCurrenciesByPaymentMethod,
       final Map<String, String> currenciesToMerchantAccounts,
       final String graphqlUri,
       final CircuitBreakerConfiguration circuitBreakerConfiguration,
@@ -70,7 +70,7 @@ public class BraintreeManager implements SubscriptionProcessorManager {
 
     this(new BraintreeGateway(braintreeEnvironment, braintreeMerchantId, braintreePublicKey,
             braintreePrivateKey),
-        supportedCurrencies,
+        supportedCurrenciesByPaymentMethod,
         currenciesToMerchantAccounts,
         new BraintreeGraphqlClient(FaultTolerantHttpClient.newBuilder()
             .withName("braintree-graphql")
@@ -86,19 +86,20 @@ public class BraintreeManager implements SubscriptionProcessorManager {
   }
 
   @VisibleForTesting
-  BraintreeManager(final BraintreeGateway braintreeGateway, final Set<String> supportedCurrencies,
+  BraintreeManager(final BraintreeGateway braintreeGateway,
+      final Map<PaymentMethod, Set<String>> supportedCurrenciesByPaymentMethod,
       final Map<String, String> currenciesToMerchantAccounts, final BraintreeGraphqlClient braintreeGraphqlClient,
       final Executor executor) {
     this.braintreeGateway = braintreeGateway;
-    this.supportedCurrencies = supportedCurrencies;
+    this.supportedCurrenciesByPaymentMethod = supportedCurrenciesByPaymentMethod;
     this.currenciesToMerchantAccounts = currenciesToMerchantAccounts;
     this.braintreeGraphqlClient = braintreeGraphqlClient;
     this.executor = executor;
   }
 
   @Override
-  public Set<String> getSupportedCurrencies() {
-    return supportedCurrencies;
+  public Set<String> getSupportedCurrenciesForPaymentMethod(final PaymentMethod paymentMethod) {
+    return supportedCurrenciesByPaymentMethod.getOrDefault(paymentMethod, Collections.emptySet());
   }
 
   @Override
@@ -109,11 +110,6 @@ public class BraintreeManager implements SubscriptionProcessorManager {
   @Override
   public boolean supportsPaymentMethod(final PaymentMethod paymentMethod) {
     return paymentMethod == PaymentMethod.PAYPAL;
-  }
-
-  @Override
-  public boolean supportsCurrency(final String currency) {
-    return supportedCurrencies.contains(currency.toLowerCase(Locale.ROOT));
   }
 
   @Override

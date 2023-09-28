@@ -14,4 +14,8 @@ public enum PaymentMethod {
    * A PayPal account
    */
   PAYPAL,
+  /**
+   * A SEPA debit account
+   */
+  SEPA_DEBIT,
 }

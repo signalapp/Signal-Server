@@ -55,10 +55,12 @@ stripe:
   idempotencyKeyGenerator: secret://stripe.idempotencyKeyGenerator
   boostDescription: >
     Example
-  supportedCurrencies:
-    - xts
-  # - ...
-  # - Nth supported currency
+  supportedCurrenciesByPaymentMethod:
+    CARD:
+      - usd
+      - eur
+    SEPA_DEBIT:
+      - eur
 
 
 braintree:
@@ -70,10 +72,9 @@ braintree:
   merchantAccounts:
     # ISO 4217 currency code and its corresponding sub-merchant account
     'xts': unset
-  supportedCurrencies:
-    - xts
-  # - ...
-  # - Nth supported currency
+  supportedCurrenciesByPaymentMethod:
+    PAYPAL:
+      - usd
 
 dynamoDbClientConfiguration:
   region: us-west-2 # AWS Region
@@ -367,6 +368,7 @@ subscription: # configuration for Stripe subscriptions
             BRAINTREE: plan_example # braintree Plan ID
 
 oneTimeDonations:
+  sepaMaxTransactionSizeEuros: '10000'
   boost:
     level: 1
     expiration: P90D

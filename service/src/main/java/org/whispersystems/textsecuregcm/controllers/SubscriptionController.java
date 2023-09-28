@@ -118,6 +118,7 @@ public class SubscriptionController {
   private static final String RECEIPT_ISSUED_COUNTER_NAME = MetricsUtil.name(SubscriptionController.class, "receiptIssued");
   private static final String PROCESSOR_TAG_NAME = "processor";
   private static final String TYPE_TAG_NAME = "type";
+  private static final String EURO_CURRENCY_CODE = "EUR";
 
   public SubscriptionController(
       @Nonnull Clock clock,
@@ -170,8 +171,8 @@ public class SubscriptionController {
 
           final List<String> supportedPaymentMethods = Arrays.stream(PaymentMethod.values())
               .filter(paymentMethod -> subscriptionProcessorManagers.stream()
-                  .anyMatch(manager -> manager.getSupportedCurrencies().contains(currency)
-                      && manager.supportsPaymentMethod(paymentMethod)))
+                  .anyMatch(manager -> manager.supportsPaymentMethod(paymentMethod)
+                      && manager.getSupportedCurrenciesForPaymentMethod(paymentMethod).contains(currency)))
               .map(PaymentMethod::name)
               .collect(Collectors.toList());
 
@@ -377,7 +378,7 @@ public class SubscriptionController {
 
   private SubscriptionProcessorManager getManagerForPaymentMethod(PaymentMethod paymentMethod) {
     return switch (paymentMethod) {
-      case CARD -> stripeManager;
+      case CARD, SEPA_DEBIT -> stripeManager;
       case PAYPAL -> braintreeManager;
     };
   }
@@ -604,6 +605,7 @@ public class SubscriptionController {
     @Min(1)
     public long amount;
     public Long level;
+    public PaymentMethod paymentMethod = PaymentMethod.CARD;
   }
 
   public static class CreatePayPalBoostRequest extends CreateBoostRequest {
@@ -651,15 +653,14 @@ public class SubscriptionController {
   }
 
   /**
-   * Validates that the currency and amount in the request are supported by the {@code manager} and exceed the minimum
-   * permitted amount
+   * Validates that the currency is supported by the {@code manager} and {@code request.paymentMethod}
+   * and that the amount meets minimum and maximum constraints.
    *
    * @throws BadRequestException indicates validation failed. Inspect {@code response.error} for details
    */
   private void validateRequestCurrencyAmount(CreateBoostRequest request, BigDecimal amount,
       SubscriptionProcessorManager manager) {
-
-    if (!manager.supportsCurrency(request.currency.toLowerCase(Locale.ROOT))) {
+    if (!manager.getSupportedCurrenciesForPaymentMethod(request.paymentMethod).contains(request.currency.toLowerCase(Locale.ROOT))) {
       throw new BadRequestException(Response.status(Status.BAD_REQUEST)
           .entity(Map.of("error", "unsupported_currency")).build());
     }
@@ -674,6 +675,16 @@ public class SubscriptionController {
           .entity(Map.of(
               "error", "amount_below_currency_minimum",
               "minimum", minCurrencyAmountMajorUnits.toString())).build());
+    }
+
+    if (request.paymentMethod == PaymentMethod.SEPA_DEBIT &&
+        amount.compareTo(SubscriptionCurrencyUtil.convertConfiguredAmountToApiAmount(
+            EURO_CURRENCY_CODE,
+            oneTimeDonationConfiguration.sepaMaxTransactionSizeEuros())) > 0) {
+      throw new BadRequestException(Response.status(Status.BAD_REQUEST)
+          .entity(Map.of(
+              "error", "amount_above_sepa_limit",
+              "maximum", oneTimeDonationConfiguration.sepaMaxTransactionSizeEuros().toString())).build());
     }
   }
 

@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.configuration;
 
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.Map;
 import javax.validation.Valid;
@@ -18,7 +19,8 @@ import javax.validation.constraints.Positive;
  */
 public record OneTimeDonationConfiguration(@Valid ExpiringLevelConfiguration boost,
                                            @Valid ExpiringLevelConfiguration gift,
-                                           Map<String, @Valid OneTimeDonationCurrencyConfiguration> currencies) {
+                                           Map<String, @Valid OneTimeDonationCurrencyConfiguration> currencies,
+                                           BigDecimal sepaMaxTransactionSizeEuros) {
 
   /**
    * @param badge      the numeric donation level ID
