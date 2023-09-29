@@ -1984,6 +1984,7 @@ paths:
           enum:
           - CARD
           - PAYPAL
+          - SEPA_DEBIT
       responses:
         default:
           description: default response
@@ -2779,14 +2780,14 @@ components:
     ECPublicKey:
       type: object
       properties:
+        type:
+          type: integer
+          format: int32
         publicKeyBytes:
           type: array
           items:
             type: string
             format: byte
-        type:
-          type: integer
-          format: int32
     ECSignedPreKey:
       type: object
       properties:
@@ -3857,6 +3858,12 @@ components:
         level:
           type: integer
           format: int64
+        paymentMethod:
+          type: string
+          enum:
+          - CARD
+          - PAYPAL
+          - SEPA_DEBIT
         payerId:
           type: string
         paymentId:
@@ -3877,6 +3884,12 @@ components:
         level:
           type: integer
           format: int64
+        paymentMethod:
+          type: string
+          enum:
+          - CARD
+          - PAYPAL
+          - SEPA_DEBIT
     CreateBoostReceiptCredentialsRequest:
       required:
       - paymentIntentId
@@ -3912,6 +3925,12 @@ components:
         level:
           type: integer
           format: int64
+        paymentMethod:
+          type: string
+          enum:
+          - CARD
+          - PAYPAL
+          - SEPA_DEBIT
         returnUrl:
           type: string
         cancelUrl:
