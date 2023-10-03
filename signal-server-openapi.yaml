@@ -3221,13 +3221,13 @@ components:
     WebSocketClient:
       type: object
       properties:
-        createdTimestamp:
-          type: integer
-          format: int64
         userAgent:
           type: string
         open:
           type: boolean
+        createdTimestamp:
+          type: integer
+          format: int64
     WebSocketSessionContext:
       type: object
       properties:
