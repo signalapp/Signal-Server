@@ -9,7 +9,10 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import io.dropwizard.Application;
 import io.dropwizard.cli.EnvironmentCommand;
 import io.dropwizard.setup.Environment;
+
+import java.util.List;
 import java.util.UUID;
+import net.sourceforge.argparse4j.impl.Arguments;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
@@ -32,8 +35,9 @@ public class UnlinkDeviceCommand extends EnvironmentCommand<WhisperServerConfigu
     super.configure(subparser);
 
     subparser.addArgument("-d", "--deviceId")
-        .dest("deviceId")
+        .dest("deviceIds")
         .type(Long.class)
+        .action(Arguments.append())
         .required(true);
 
     subparser.addArgument("-u", "--uuid")
@@ -48,33 +52,40 @@ public class UnlinkDeviceCommand extends EnvironmentCommand<WhisperServerConfigu
       final WhisperServerConfiguration configuration) throws Exception {
     environment.getObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
-    final UUID aci = UUID.fromString(namespace.getString("uuid").trim());
-    final long deviceId = namespace.getLong("deviceId");
+    final CommandStopListener commandStopListener = new CommandStopListener(configuration.getCommandStopListener());
+    try {
+      commandStopListener.start();
 
-    final CommandDependencies deps = CommandDependencies.build("unlink-device", environment, configuration);
+      final UUID aci = UUID.fromString(namespace.getString("uuid").trim());
+      final List<Long> deviceIds = namespace.getList("deviceIds");
 
-    Account account = deps.accountsManager().getByAccountIdentifier(aci)
-        .orElseThrow(() -> new IllegalArgumentException("account id " + aci +" does not exist"));
+      final CommandDependencies deps = CommandDependencies.build("unlink-device", environment, configuration);
 
-    if (deviceId == Device.MASTER_ID) {
-      throw new IllegalArgumentException("cannot delete primary device");
+      Account account = deps.accountsManager().getByAccountIdentifier(aci)
+          .orElseThrow(() -> new IllegalArgumentException("account id " + aci + " does not exist"));
+
+      if (deviceIds.contains(Device.MASTER_ID)) {
+        throw new IllegalArgumentException("cannot delete primary device");
+      }
+
+      for (long deviceId : deviceIds) {
+        /** see {@link org.whispersystems.textsecuregcm.controllers.DeviceController#removeDevice} */
+        System.out.format("Removing device %s::%d\n", aci, deviceId);
+        account = deps.accountsManager().update(account, a -> a.removeDevice(deviceId));
+
+        System.out.format("Removing keys for device %s::%d\n", aci, deviceId);
+        deps.keysManager().delete(account.getUuid(), deviceId).join();
+
+        System.out.format("Clearing additional messages for %s::%d\n", aci, deviceId);
+        deps.messagesManager().clear(account.getUuid(), deviceId).join();
+
+        System.out.format("Clearing presence state for %s::%d\n", aci, deviceId);
+        deps.clientPresenceManager().disconnectPresence(aci, deviceId);
+
+        System.out.format("Device %s::%d successfully removed\n", aci, deviceId);
+      }
+    } finally {
+      commandStopListener.stop();
     }
-
-    /** see {@link org.whispersystems.textsecuregcm.controllers.DeviceController#removeDevice} */
-    System.out.format("Removing device %s::%d\n", aci, deviceId);
-    account = deps.accountsManager().update(account, a -> a.removeDevice(deviceId));
-
-    System.out.format("Removing keys for device %s::%d\n", aci, deviceId);
-    deps.keysManager().delete(account.getUuid(), deviceId).join();
-
-    System.out.format("Clearing additional messages for %s::%d\n", aci, deviceId);
-    deps.messagesManager().clear(account.getUuid(), deviceId).join();
-
-    System.out.format("Clearing presence state for %s::%d\n", aci, deviceId);
-    deps.clientPresenceManager().disconnectPresence(aci, deviceId);
-
-    System.out.format("Device %s::%d successfully removed\n", aci, deviceId);
-
-
   }
 }
