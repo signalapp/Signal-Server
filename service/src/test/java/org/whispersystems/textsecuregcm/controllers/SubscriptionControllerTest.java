@@ -42,6 +42,7 @@ import java.util.function.Predicate;
 import java.util.stream.Stream;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.Response;
+import org.apache.http.HttpHeaders;
 import org.assertj.core.api.InstanceOfAssertFactories;
 import org.glassfish.jersey.server.ServerProperties;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
@@ -92,22 +93,6 @@ class SubscriptionControllerTest {
   private static final StripeManager STRIPE_MANAGER = mock(StripeManager.class);
   private static final BraintreeManager BRAINTREE_MANAGER = mock(BraintreeManager.class);
   private static final PaymentIntent PAYMENT_INTENT = mock(PaymentIntent.class);
-
-  static {
-    // this behavior is required by the SubscriptionController constructor
-    List.of(STRIPE_MANAGER, BRAINTREE_MANAGER)
-        .forEach(manager -> {
-          when(manager.supportsPaymentMethod(any()))
-              .thenCallRealMethod();
-        });
-    when(STRIPE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.CARD))
-        .thenReturn(Set.of("usd", "jpy", "bif", "eur"));
-    when(STRIPE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.SEPA_DEBIT))
-        .thenReturn(Set.of("eur"));
-    when(BRAINTREE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.PAYPAL))
-        .thenReturn(Set.of("usd", "jpy"));
-  }
-
   private static final ServerZkReceiptOperations ZK_OPS = mock(ServerZkReceiptOperations.class);
   private static final IssuedReceiptsManager ISSUED_RECEIPTS_MANAGER = mock(IssuedReceiptsManager.class);
   private static final BadgeTranslator BADGE_TRANSLATOR = mock(BadgeTranslator.class);
@@ -134,6 +119,18 @@ class SubscriptionControllerTest {
 
     when(STRIPE_MANAGER.getProcessor()).thenReturn(SubscriptionProcessor.STRIPE);
     when(BRAINTREE_MANAGER.getProcessor()).thenReturn(SubscriptionProcessor.BRAINTREE);
+
+    List.of(STRIPE_MANAGER, BRAINTREE_MANAGER)
+        .forEach(manager -> {
+          when(manager.supportsPaymentMethod(any()))
+              .thenCallRealMethod();
+        });
+    when(STRIPE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.CARD))
+        .thenReturn(Set.of("usd", "jpy", "bif", "eur"));
+    when(STRIPE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.SEPA_DEBIT))
+        .thenReturn(Set.of("eur"));
+    when(BRAINTREE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.PAYPAL))
+        .thenReturn(Set.of("usd", "jpy"));
   }
 
   @Test
@@ -713,8 +710,9 @@ class SubscriptionControllerTest {
     );
   }
 
-  @Test
-  void getSubscriptionConfiguration() {
+  @ParameterizedTest
+  @MethodSource
+  void getSubscriptionConfiguration(final String userAgent, final boolean expectSepa) {
     when(BADGE_TRANSLATOR.translate(any(), eq("B1"))).thenReturn(new Badge("B1", "cat1", "name1", "desc1",
         List.of("l", "m", "h", "x", "xx", "xxx"), "SVG",
         List.of(new BadgeSvg("sl", "sd"), new BadgeSvg("ml", "md"), new BadgeSvg("ll", "ld"))));
@@ -736,6 +734,7 @@ class SubscriptionControllerTest {
 
     GetSubscriptionConfigurationResponse response = RESOURCE_EXTENSION.target("/v1/subscription/configuration")
         .request()
+        .header(HttpHeaders.USER_AGENT, userAgent)
         .get(GetSubscriptionConfigurationResponse.class);
 
     assertThat(response.currencies()).containsKeys("usd", "jpy", "bif", "eur").satisfies(currencyMap -> {
@@ -791,7 +790,8 @@ class SubscriptionControllerTest {
                 List.of(BigDecimal.valueOf(5))));
         assertThat(currency.subscription()).isEqualTo(
             Map.of("5", BigDecimal.valueOf(5), "15", BigDecimal.valueOf(15),"35", BigDecimal.valueOf(35)));
-        assertThat(currency.supportedPaymentMethods()).isEqualTo(List.of("CARD", "SEPA_DEBIT"));
+        final List<String> expectedPaymentMethods = expectSepa ? List.of("CARD", "SEPA_DEBIT") : List.of("CARD");
+        assertThat(currency.supportedPaymentMethods()).isEqualTo(expectedPaymentMethods);
       });
     });
 
@@ -841,6 +841,7 @@ class SubscriptionControllerTest {
     // subscription levels are Badge, while one-time levels are PurchasableBadge, which adds `duration`
     Map<String, Object> genericResponse = RESOURCE_EXTENSION.target("/v1/subscription/configuration")
         .request()
+        .header(HttpHeaders.USER_AGENT, userAgent)
         .get(Map.class);
 
     assertThat(genericResponse.get("levels")).satisfies(levels -> {
@@ -861,6 +862,19 @@ class SubscriptionControllerTest {
                 });
           });
     });
+  }
+
+  private static Stream<Arguments> getSubscriptionConfiguration() {
+    return Stream.of(
+        Arguments.of("Signal-iOS/6.44.0.8", false),
+        Arguments.of("Signal-iOS/6.45.0.0", true),
+        Arguments.of("Signal-iOS/6.45.0.2", true),
+        Arguments.of("Signal-iOS/6.46.0.0", true),
+        Arguments.of("Signal-Android/1.2.3", true),
+        Arguments.of(null, true),
+        Arguments.of("", true),
+        Arguments.of("definitely not a parseable user agent", true)
+    );
   }
 
   /**
