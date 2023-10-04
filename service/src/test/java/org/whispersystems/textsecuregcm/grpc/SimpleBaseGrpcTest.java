@@ -59,7 +59,8 @@ public abstract class SimpleBaseGrpcTest<SERVICE extends BindableService, STUB e
 
   private AutoCloseable mocksCloseable;
 
-  private MockAuthenticationInterceptor mockAuthenticationInterceptor;
+  private final MockAuthenticationInterceptor mockAuthenticationInterceptor = new MockAuthenticationInterceptor();
+  private final MockRemoteAddressInterceptor mockRemoteAddressInterceptor = new MockRemoteAddressInterceptor();
 
   private SERVICE service;
 
@@ -112,9 +113,9 @@ public abstract class SimpleBaseGrpcTest<SERVICE extends BindableService, STUB e
   protected void baseSetup() {
     mocksCloseable = MockitoAnnotations.openMocks(this);
     service = requireNonNull(createServiceBeforeEachTest(), "created service must not be `null`");
-    mockAuthenticationInterceptor = GrpcTestUtils.setupAuthenticatedExtension(
-        GRPC_SERVER_EXTENSION_AUTHENTICATED, AUTHENTICATED_ACI, AUTHENTICATED_DEVICE_ID, service);
-    GrpcTestUtils.setupUnauthenticatedExtension(GRPC_SERVER_EXTENSION_UNAUTHENTICATED, service);
+    GrpcTestUtils.setupAuthenticatedExtension(
+        GRPC_SERVER_EXTENSION_AUTHENTICATED, mockAuthenticationInterceptor, mockRemoteAddressInterceptor, AUTHENTICATED_ACI, AUTHENTICATED_DEVICE_ID, service);
+    GrpcTestUtils.setupUnauthenticatedExtension(GRPC_SERVER_EXTENSION_UNAUTHENTICATED, mockRemoteAddressInterceptor, service);
     try {
       authenticatedServiceStub = createStub(GRPC_SERVER_EXTENSION_AUTHENTICATED.getChannel());
       unauthenticatedServiceStub = createStub(GRPC_SERVER_EXTENSION_UNAUTHENTICATED.getChannel());
@@ -142,5 +143,9 @@ public abstract class SimpleBaseGrpcTest<SERVICE extends BindableService, STUB e
 
   protected STUB unauthenticatedServiceStub() {
     return unauthenticatedServiceStub;
+  }
+
+  protected MockRemoteAddressInterceptor getMockRemoteAddressInterceptor() {
+    return mockRemoteAddressInterceptor;
   }
 }

@@ -28,7 +28,7 @@ public class MockRemoteAddressInterceptor implements ServerInterceptor {
       final Metadata headers,
       final ServerCallHandler<ReqT, RespT> next) {
 
-    return remoteAddress != null
+    return remoteAddress == null
         ? next.startCall(serverCall, headers)
         : Contexts.interceptCall(
             Context.current().withValue(RemoteAddressUtil.REMOTE_ADDRESS_CONTEXT_KEY, remoteAddress),

@@ -26,23 +26,24 @@ public final class GrpcTestUtils {
     // noop
   }
 
-  public static MockAuthenticationInterceptor setupAuthenticatedExtension(
+  public static void setupAuthenticatedExtension(
       final GrpcServerExtension extension,
+      final MockAuthenticationInterceptor mockAuthenticationInterceptor,
+      final MockRemoteAddressInterceptor mockRemoteAddressInterceptor,
       final UUID authenticatedAci,
       final long authenticatedDeviceId,
       final BindableService service) {
-    final MockAuthenticationInterceptor mockAuthenticationInterceptor = new MockAuthenticationInterceptor();
     mockAuthenticationInterceptor.setAuthenticatedDevice(authenticatedAci, authenticatedDeviceId);
     extension.getServiceRegistry()
-        .addService(ServerInterceptors.intercept(service, mockAuthenticationInterceptor, new ErrorMappingInterceptor()));
-    return mockAuthenticationInterceptor;
+        .addService(ServerInterceptors.intercept(service, mockRemoteAddressInterceptor, mockAuthenticationInterceptor, new ErrorMappingInterceptor()));
   }
 
   public static void setupUnauthenticatedExtension(
       final GrpcServerExtension extension,
+      final MockRemoteAddressInterceptor mockRemoteAddressInterceptor,
       final BindableService service) {
     extension.getServiceRegistry()
-        .addService(ServerInterceptors.intercept(service, new ErrorMappingInterceptor()));
+        .addService(ServerInterceptors.intercept(service, mockRemoteAddressInterceptor, new ErrorMappingInterceptor()));
   }
 
   public static void assertStatusException(final Status expected, final Executable serviceCall) {
