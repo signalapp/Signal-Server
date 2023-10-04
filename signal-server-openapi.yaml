@@ -96,7 +96,19 @@ paths:
         default:
           description: default response
           content:
-            '*/*': {}
+            '*/*':
+              schema:
+                type: object
+                properties:
+                  completedExceptionally:
+                    type: boolean
+                  numberOfDependents:
+                    type: integer
+                    format: int32
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
       security:
       - authenticatedAccount: []
   /v1/accounts/apn:
@@ -2165,6 +2177,11 @@ paths:
       tags:
       - Subscriptions
       operationId: getConfiguration
+      parameters:
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
       responses:
         default:
           description: default response
@@ -2780,14 +2797,14 @@ components:
     ECPublicKey:
       type: object
       properties:
-        type:
-          type: integer
-          format: int32
         publicKeyBytes:
           type: array
           items:
             type: string
             format: byte
+        type:
+          type: integer
+          format: int32
     ECSignedPreKey:
       type: object
       properties:
@@ -3221,13 +3238,13 @@ components:
     WebSocketClient:
       type: object
       properties:
+        createdTimestamp:
+          type: integer
+          format: int64
         userAgent:
           type: string
         open:
           type: boolean
-        createdTimestamp:
-          type: integer
-          format: int64
     WebSocketSessionContext:
       type: object
       properties:
