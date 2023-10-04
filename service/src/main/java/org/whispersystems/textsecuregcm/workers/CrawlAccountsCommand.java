@@ -125,16 +125,13 @@ public class CrawlAccountsCommand extends EnvironmentCommand<WhisperServerConfig
         );
       }
       case ACCOUNT_CLEANER -> {
-        final ExecutorService accountDeletionExecutor = environment.lifecycle()
-            .executorService(name(getClass(), "accountCleaner-%d")).maxThreads(workers).minThreads(workers).build();
-
         final AccountDatabaseCrawlerCache accountDatabaseCrawlerCache = new AccountDatabaseCrawlerCache(
             cacheCluster, AccountDatabaseCrawlerCache.ACCOUNT_CLEANER_PREFIX);
 
         yield new AccountDatabaseCrawler("Account cleaner crawler",
             accountsManager,
             accountDatabaseCrawlerCache,
-            List.of(new AccountCleaner(accountsManager, accountDeletionExecutor)),
+            List.of(new AccountCleaner(accountsManager)),
             configuration.getAccountDatabaseCrawlerConfiguration().getChunkSize()
         );
       }

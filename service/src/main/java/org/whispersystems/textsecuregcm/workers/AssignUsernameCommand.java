@@ -114,6 +114,8 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
         .executorService(name(getClass(), "secureValueRecoveryService-%d")).maxThreads(1).minThreads(1).build();
     ExecutorService storageServiceExecutor = environment.lifecycle()
         .executorService(name(getClass(), "storageService-%d")).maxThreads(1).minThreads(1).build();
+    ExecutorService accountLockExecutor = environment.lifecycle()
+        .executorService(name(getClass(), "accountLock-%d")).minThreads(1).maxThreads(1).build();
     ScheduledExecutorService secureValueRecoveryServiceRetryExecutor = environment.lifecycle()
         .scheduledExecutorService(name(getClass(), "secureValueRecoveryServiceRetry-%d")).threads(1).build();
     ScheduledExecutorService storageServiceRetryExecutor = environment.lifecycle()
@@ -206,7 +208,7 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
         accountLockManager, keys, messagesManager, profilesManager,
             secureStorageClient, secureBackupClient, secureValueRecovery2Client, clientPresenceManager,
-        experimentEnrollmentManager, registrationRecoveryPasswordsManager, Clock.systemUTC());
+        experimentEnrollmentManager, registrationRecoveryPasswordsManager, accountLockExecutor, Clock.systemUTC());
 
     final String usernameHash = namespace.getString("usernameHash");
     final String encryptedUsername = namespace.getString("encryptedUsername");

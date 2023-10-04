@@ -47,9 +47,8 @@ public class ProfilesManager {
         .thenCompose(ignored -> redisSetAsync(uuid, versionedProfile));
   }
 
-  public void deleteAll(UUID uuid) {
-    redisDelete(uuid);
-    profiles.deleteAll(uuid);
+  public CompletableFuture<Void> deleteAll(UUID uuid) {
+    return CompletableFuture.allOf(redisDelete(uuid), profiles.deleteAll(uuid));
   }
 
   public Optional<VersionedProfile> get(UUID uuid, String version) {
@@ -132,8 +131,10 @@ public class ProfilesManager {
     }
   }
 
-  private void redisDelete(UUID uuid) {
-    cacheCluster.useCluster(connection -> connection.sync().del(getCacheKey(uuid)));
+  private CompletableFuture<Void> redisDelete(UUID uuid) {
+    return cacheCluster.withCluster(connection -> connection.async().del(getCacheKey(uuid)))
+        .toCompletableFuture()
+        .thenRun(Util.NOOP);
   }
 
   private String getCacheKey(UUID uuid) {

@@ -29,6 +29,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.function.Supplier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -106,6 +109,13 @@ class AccountsManagerUsernameIntegrationTest {
       return null;
     }).when(accountLockManager).withLock(any(), any());
 
+    when(accountLockManager.withLockAsync(any(), any(), any())).thenAnswer(invocation -> {
+      final Supplier<CompletableFuture<?>> taskSupplier = invocation.getArgument(1);
+      taskSupplier.get().join();
+
+      return CompletableFuture.completedFuture(null);
+    });
+
     final PhoneNumberIdentifiers phoneNumberIdentifiers =
         new PhoneNumberIdentifiers(DYNAMO_DB_EXTENSION.getDynamoDbClient(), Tables.PNI.tableName());
 
@@ -126,6 +136,7 @@ class AccountsManagerUsernameIntegrationTest {
         mock(ClientPresenceManager.class),
         experimentEnrollmentManager,
         mock(RegistrationRecoveryPasswordsManager.class),
+        mock(Executor.class),
         mock(Clock.class));
   }
 

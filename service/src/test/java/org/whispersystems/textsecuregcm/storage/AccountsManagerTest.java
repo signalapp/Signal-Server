@@ -16,7 +16,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
@@ -46,7 +45,9 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
@@ -140,6 +141,7 @@ class AccountsManagerTest {
     when(asyncCommands.setex(any(), anyLong(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
 
     when(accounts.updateAsync(any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(accounts.delete(any())).thenReturn(CompletableFuture.completedFuture(null));
 
     doAnswer((Answer<Void>) invocation -> {
       final Account account = invocation.getArgument(0, Account.class);
@@ -188,8 +190,21 @@ class AccountsManagerTest {
       return null;
     }).when(accountLockManager).withLock(any(), any());
 
+    when(accountLockManager.withLockAsync(any(), any(), any())).thenAnswer(invocation -> {
+      final Supplier<CompletableFuture<?>> taskSupplier = invocation.getArgument(1);
+      taskSupplier.get().join();
+
+      return CompletableFuture.completedFuture(null);
+    });
+
+    final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager =
+        mock(RegistrationRecoveryPasswordsManager.class);
+
+    when(registrationRecoveryPasswordsManager.removeForNumber(anyString())).thenReturn(CompletableFuture.completedFuture(null));
+
     when(keysManager.delete(any())).thenReturn(CompletableFuture.completedFuture(null));
     when(messagesManager.clear(any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(profilesManager.deleteAll(any())).thenReturn(CompletableFuture.completedFuture(null));
 
     accountsManager = new AccountsManager(
         accounts,
@@ -207,7 +222,8 @@ class AccountsManagerTest {
         svr2Client,
         clientPresenceManager,
         enrollmentManager,
-        mock(RegistrationRecoveryPasswordsManager.class),
+        registrationRecoveryPasswordsManager,
+        mock(Executor.class),
         mock(Clock.class));
   }
 

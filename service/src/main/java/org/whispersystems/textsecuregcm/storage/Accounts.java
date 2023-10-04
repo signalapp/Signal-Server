@@ -40,6 +40,7 @@ import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
+import org.whispersystems.textsecuregcm.util.Util;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.ParallelFlux;
 import reactor.core.scheduler.Scheduler;
@@ -786,23 +787,28 @@ public class Accounts extends AbstractDynamoDbStore {
     return Optional.ofNullable(response.items().get(0).get(DELETED_ACCOUNTS_KEY_ACCOUNT_E164).s());
   }
 
-  public void delete(final UUID uuid) {
-    DELETE_TIMER.record(() -> getByAccountIdentifier(uuid).ifPresent(account -> {
+  public CompletableFuture<Void> delete(final UUID uuid) {
+    final Timer.Sample sample = Timer.start();
 
-      final List<TransactWriteItem> transactWriteItems = new ArrayList<>(List.of(
-          buildDelete(phoneNumberConstraintTableName, ATTR_ACCOUNT_E164, account.getNumber()),
-          buildDelete(accountsTableName, KEY_ACCOUNT_UUID, uuid),
-          buildDelete(phoneNumberIdentifierConstraintTableName, ATTR_PNI_UUID, account.getPhoneNumberIdentifier()),
-          buildPutDeletedAccount(uuid, account.getNumber())
-      ));
+    return getByAccountIdentifierAsync(uuid)
+        .thenCompose(maybeAccount -> maybeAccount.map(account -> {
+              final List<TransactWriteItem> transactWriteItems = new ArrayList<>(List.of(
+                  buildDelete(phoneNumberConstraintTableName, ATTR_ACCOUNT_E164, account.getNumber()),
+                  buildDelete(accountsTableName, KEY_ACCOUNT_UUID, uuid),
+                  buildDelete(phoneNumberIdentifierConstraintTableName, ATTR_PNI_UUID, account.getPhoneNumberIdentifier()),
+                  buildPutDeletedAccount(uuid, account.getNumber())
+              ));
 
-      account.getUsernameHash().ifPresent(usernameHash -> transactWriteItems.add(
-          buildDelete(usernamesConstraintTableName, ATTR_USERNAME_HASH, usernameHash)));
+              account.getUsernameHash().ifPresent(usernameHash -> transactWriteItems.add(
+                  buildDelete(usernamesConstraintTableName, ATTR_USERNAME_HASH, usernameHash)));
 
-      final TransactWriteItemsRequest request = TransactWriteItemsRequest.builder()
-          .transactItems(transactWriteItems).build();
-      db().transactWriteItems(request);
-    }));
+              return asyncClient.transactWriteItems(TransactWriteItemsRequest.builder()
+                  .transactItems(transactWriteItems)
+                  .build())
+                  .thenRun(Util.NOOP);
+            })
+            .orElseGet(() -> CompletableFuture.completedFuture(null)))
+            .thenRun(() -> sample.stop(DELETE_TIMER));
   }
 
   ParallelFlux<Account> getAll(final int segments, final Scheduler scheduler) {

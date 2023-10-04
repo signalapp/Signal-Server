@@ -84,7 +84,7 @@ public class ProfilesTest {
   void testDeleteReset() throws InvalidInputException {
     profiles.set(ACI, validProfile);
 
-    profiles.deleteAll(ACI);
+    profiles.deleteAll(ACI).join();
 
     final String version = "someVersion";
     final byte[] name = ProfileTestHelper.generateRandomByteArray(81);
@@ -242,7 +242,7 @@ public class ProfilesTest {
     profiles.set(ACI, profileOne);
     profiles.set(ACI, profileTwo);
 
-    profiles.deleteAll(ACI);
+    profiles.deleteAll(ACI).join();
 
     Optional<VersionedProfile> retrieved = profiles.get(ACI, versionOne);
 

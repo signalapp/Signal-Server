@@ -12,12 +12,18 @@ import com.amazonaws.services.dynamodbv2.ReleaseLockOptions;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class AccountLockManagerTest {
 
   private AmazonDynamoDBLockClient lockClient;
+  private ExecutorService executor;
 
   private AccountLockManager accountLockManager;
 
@@ -30,8 +36,17 @@ class AccountLockManagerTest {
   @BeforeEach
   void setUp() {
     lockClient = mock(AmazonDynamoDBLockClient.class);
+    executor = Executors.newSingleThreadExecutor();
 
     accountLockManager = new AccountLockManager(lockClient);
+  }
+
+  @AfterEach
+  void tearDown() throws InterruptedException {
+    executor.shutdown();
+
+    //noinspection ResultOfMethodCallIgnored
+    executor.awaitTermination(1, TimeUnit.SECONDS);
   }
 
   @Test
@@ -57,6 +72,36 @@ class AccountLockManagerTest {
     final Runnable task = mock(Runnable.class);
 
     assertThrows(IllegalArgumentException.class, () -> accountLockManager.withLock(Collections.emptyList(), () -> {}));
+    verify(task, never()).run();
+  }
+
+  @Test
+  void withLockAsync() throws InterruptedException {
+    accountLockManager.withLockAsync(List.of(FIRST_NUMBER, SECOND_NUMBER),
+        () -> CompletableFuture.completedFuture(null), executor).join();
+
+    verify(lockClient, times(2)).acquireLock(any());
+    verify(lockClient, times(2)).releaseLock(any(ReleaseLockOptions.class));
+  }
+
+  @Test
+  void withLockAsyncTaskThrowsException() throws InterruptedException {
+    assertThrows(RuntimeException.class,
+        () -> accountLockManager.withLockAsync(List.of(FIRST_NUMBER, SECOND_NUMBER),
+            () -> CompletableFuture.failedFuture(new RuntimeException()), executor).join());
+
+    verify(lockClient, times(2)).acquireLock(any());
+    verify(lockClient, times(2)).releaseLock(any(ReleaseLockOptions.class));
+  }
+
+  @Test
+  void withLockAsyncEmptyList() {
+    final Runnable task = mock(Runnable.class);
+
+    assertThrows(IllegalArgumentException.class,
+        () -> accountLockManager.withLockAsync(Collections.emptyList(),
+            () -> CompletableFuture.completedFuture(null), executor));
+
     verify(task, never()).run();
   }
 }

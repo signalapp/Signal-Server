@@ -12,8 +12,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,11 +23,9 @@ public class AccountCleaner extends AccountDatabaseCrawlerListener {
   private static final Counter DELETED_ACCOUNT_COUNTER = Metrics.counter(name(AccountCleaner.class, "deletedAccounts"));
 
   private final AccountsManager accountsManager;
-  private final Executor deletionExecutor;
 
-  public AccountCleaner(final AccountsManager accountsManager, final Executor deletionExecutor) {
+  public AccountCleaner(final AccountsManager accountsManager) {
     this.accountsManager = accountsManager;
-    this.deletionExecutor = deletionExecutor;
   }
 
   @Override
@@ -44,13 +40,7 @@ public class AccountCleaner extends AccountDatabaseCrawlerListener {
   protected void onCrawlChunk(Optional<UUID> fromUuid, List<Account> chunkAccounts) {
     final List<CompletableFuture<Void>> deletionFutures = chunkAccounts.stream()
         .filter(AccountCleaner::isExpired)
-        .map(account -> CompletableFuture.runAsync(() -> {
-              try {
-                accountsManager.delete(account, AccountsManager.DeletionReason.EXPIRED);
-              } catch (final InterruptedException e) {
-                throw new CompletionException(e);
-              }
-            }, deletionExecutor)
+        .map(account -> accountsManager.delete(account, AccountsManager.DeletionReason.EXPIRED)
             .whenComplete((ignored, throwable) -> {
               if (throwable != null) {
                 log.warn("Failed to delete account {}", account.getUuid(), throwable);

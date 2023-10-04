@@ -15,10 +15,8 @@ import static org.mockito.Mockito.when;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.storage.AccountsManager.DeletionReason;
@@ -35,11 +33,10 @@ class AccountCleanerTest {
   private final Device  undeletedDisabledDevice  = mock(Device.class );
   private final Device  undeletedEnabledDevice   = mock(Device.class );
 
-  private ExecutorService deletionExecutor;
-
-
   @BeforeEach
   void setup() {
+    when(accountsManager.delete(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+
     when(deletedDisabledDevice.isEnabled()).thenReturn(false);
     when(deletedDisabledDevice.getGcmId()).thenReturn(null);
     when(deletedDisabledDevice.getApnId()).thenReturn(null);
@@ -66,19 +63,11 @@ class AccountCleanerTest {
     when(undeletedEnabledAccount.getNumber()).thenReturn("+14153333333");
     when(undeletedEnabledAccount.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(179));
     when(undeletedEnabledAccount.getUuid()).thenReturn(UUID.randomUUID());
-
-    deletionExecutor = Executors.newFixedThreadPool(2);
-  }
-
-  @AfterEach
-  void tearDown() throws InterruptedException {
-    deletionExecutor.shutdown();
-    deletionExecutor.awaitTermination(2, TimeUnit.SECONDS);
   }
 
   @Test
-  void testAccounts() throws InterruptedException {
-    AccountCleaner accountCleaner = new AccountCleaner(accountsManager, deletionExecutor);
+  void testAccounts() {
+    AccountCleaner accountCleaner = new AccountCleaner(accountsManager);
     accountCleaner.onCrawlStart();
     accountCleaner.timeAndProcessCrawlChunk(Optional.empty(),
         Arrays.asList(deletedDisabledAccount, undeletedDisabledAccount, undeletedEnabledAccount));

@@ -37,6 +37,7 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.client.Invocation;
@@ -815,7 +816,7 @@ class AccountControllerTest {
   }
 
   @Test
-  void testDeleteAccount() throws InterruptedException {
+  void testDeleteAccount() {
     Response response =
             resources.getJerseyTest()
                      .target("/v1/accounts/me")
@@ -828,18 +829,18 @@ class AccountControllerTest {
   }
 
   @Test
-  void testDeleteAccountInterrupted() throws InterruptedException {
-    doThrow(InterruptedException.class).when(accountsManager).delete(any(), any());
+  void testDeleteAccountException() {
+    when(accountsManager.delete(any(), any())).thenReturn(CompletableFuture.failedFuture(new RuntimeException("OH NO")));
 
-    Response response =
-        resources.getJerseyTest()
-            .target("/v1/accounts/me")
-            .request()
-            .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .delete();
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/me")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .delete()) {
 
-    assertThat(response.getStatus()).isEqualTo(500);
-    verify(accountsManager).delete(AuthHelper.VALID_ACCOUNT, AccountsManager.DeletionReason.USER_REQUEST);
+      assertThat(response.getStatus()).isEqualTo(500);
+      verify(accountsManager).delete(AuthHelper.VALID_ACCOUNT, AccountsManager.DeletionReason.USER_REQUEST);
+    }
   }
 
   @Test

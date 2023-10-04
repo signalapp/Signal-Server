@@ -443,6 +443,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .maxThreads(2)
         .minThreads(2)
         .build();
+    ExecutorService accountLockExecutor = environment.lifecycle()
+        .executorService(name(getClass(), "accountLock-%d"))
+        .minThreads(8)
+        .maxThreads(8)
+        .build();
     ScheduledExecutorService subscriptionProcessorRetryExecutor = environment.lifecycle()
         .scheduledExecutorService(name(getClass(), "subscriptionProcessorRetry-%d")).threads(1).build();
 
@@ -518,7 +523,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         accountLockManager, keys, messagesManager, profilesManager,
         secureStorageClient, secureBackupClient, secureValueRecovery2Client,
         clientPresenceManager,
-        experimentEnrollmentManager, registrationRecoveryPasswordsManager, clock);
+        experimentEnrollmentManager, registrationRecoveryPasswordsManager, accountLockExecutor, clock);
     RemoteConfigsManager remoteConfigsManager = new RemoteConfigsManager(remoteConfigs);
     APNSender apnSender = new APNSender(apnSenderExecutor, config.getApnConfiguration());
     FcmSender fcmSender = new FcmSender(fcmSenderExecutor, config.getFcmConfiguration().credentials().value());

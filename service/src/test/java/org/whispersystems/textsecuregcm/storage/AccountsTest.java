@@ -36,6 +36,7 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
@@ -180,6 +181,7 @@ class AccountsTest {
         mock(ClientPresenceManager.class),
         mock(ExperimentEnrollmentManager.class),
         mock(RegistrationRecoveryPasswordsManager.class),
+        mock(Executor.class),
         mock(Clock.class));
 
     final Account account = nextRandomAccount();
@@ -246,7 +248,7 @@ class AccountsTest {
     assertPhoneNumberConstraintExists("+14151112222", account.getUuid());
     assertPhoneNumberIdentifierConstraintExists(account.getPhoneNumberIdentifier(), account.getUuid());
 
-    accounts.delete(originalUuid);
+    accounts.delete(originalUuid).join();
     assertThat(accounts.findRecentlyDeletedAccountIdentifier(account.getNumber())).hasValue(originalUuid);
 
     freshUser = accounts.create(account);
@@ -577,7 +579,7 @@ class AccountsTest {
     assertThat(accounts.getByAccountIdentifier(deletedAccount.getUuid())).isPresent();
     assertThat(accounts.getByAccountIdentifier(retainedAccount.getUuid())).isPresent();
 
-    accounts.delete(deletedAccount.getUuid());
+    accounts.delete(deletedAccount.getUuid()).join();
 
     assertThat(accounts.getByAccountIdentifier(deletedAccount.getUuid())).isNotPresent();
     assertThat(accounts.findRecentlyDeletedAccountIdentifier(deletedAccount.getNumber())).hasValue(deletedAccount.getUuid());

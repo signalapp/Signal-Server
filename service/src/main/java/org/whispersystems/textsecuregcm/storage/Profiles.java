@@ -22,6 +22,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.whispersystems.textsecuregcm.util.AsyncTimerUtil;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.Util;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
@@ -30,7 +32,6 @@ import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
-import software.amazon.awssdk.services.dynamodb.paginators.QueryIterable;
 
 public class Profiles {
 
@@ -76,6 +77,8 @@ public class Profiles {
   private static final Timer GET_PROFILE_TIMER = Metrics.timer(name(Profiles.class, "get"));
   private static final Timer DELETE_PROFILES_TIMER = Metrics.timer(name(Profiles.class, "delete"));
   private static final String PARSE_BYTE_ARRAY_COUNTER_NAME = name(Profiles.class, "parseByteArray");
+
+  private static final int MAX_CONCURRENCY = 32;
 
   public Profiles(final DynamoDbClient dynamoDbClient,
       final DynamoDbAsyncClient dynamoDbAsyncClient,
@@ -244,27 +247,28 @@ public class Profiles {
     return AttributeValues.extractByteArray(attributeValue, PARSE_BYTE_ARRAY_COUNTER_NAME);
   }
 
-  public void deleteAll(final UUID uuid) {
-    DELETE_PROFILES_TIMER.record(() -> {
-      final AttributeValue uuidAttributeValue = AttributeValues.fromUUID(uuid);
+  public CompletableFuture<Void> deleteAll(final UUID uuid) {
+    final Timer.Sample sample = Timer.start();
 
-      final QueryIterable queryIterable = dynamoDbClient.queryPaginator(QueryRequest.builder()
-          .tableName(tableName)
-          .keyConditionExpression("#uuid = :uuid")
-          .expressionAttributeNames(Map.of("#uuid", KEY_ACCOUNT_UUID))
-          .expressionAttributeValues(Map.of(":uuid", uuidAttributeValue))
-          .projectionExpression(ATTR_VERSION)
-          .consistentRead(true)
-          .build());
+    final AttributeValue uuidAttributeValue = AttributeValues.fromUUID(uuid);
 
-      CompletableFuture.allOf(queryIterable.items().stream()
-          .map(item -> dynamoDbAsyncClient.deleteItem(DeleteItemRequest.builder()
-              .tableName(tableName)
-              .key(Map.of(
-                  KEY_ACCOUNT_UUID, uuidAttributeValue,
-                  ATTR_VERSION, item.get(ATTR_VERSION)))
-              .build()))
-          .toArray(CompletableFuture[]::new)).join();
-    });
+    return Flux.from(dynamoDbAsyncClient.queryPaginator(QueryRequest.builder()
+                .tableName(tableName)
+                .keyConditionExpression("#uuid = :uuid")
+                .expressionAttributeNames(Map.of("#uuid", KEY_ACCOUNT_UUID))
+                .expressionAttributeValues(Map.of(":uuid", uuidAttributeValue))
+                .projectionExpression(ATTR_VERSION)
+                .consistentRead(true)
+                .build())
+            .items())
+        .flatMap(item -> Mono.fromFuture(() -> dynamoDbAsyncClient.deleteItem(DeleteItemRequest.builder()
+            .tableName(tableName)
+            .key(Map.of(
+                KEY_ACCOUNT_UUID, uuidAttributeValue,
+                ATTR_VERSION, item.get(ATTR_VERSION)))
+            .build())), MAX_CONCURRENCY)
+        .doOnComplete(() -> sample.stop(DELETE_PROFILES_TIMER))
+        .then()
+        .toFuture();
   }
 }

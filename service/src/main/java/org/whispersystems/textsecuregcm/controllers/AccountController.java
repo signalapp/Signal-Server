@@ -12,6 +12,7 @@ import java.util.Base64;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nullable;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
@@ -505,8 +506,8 @@ public class AccountController {
 
   @DELETE
   @Path("/me")
-  public void deleteAccount(@Auth DisabledPermittedAuthenticatedAccount auth) throws InterruptedException {
-    accounts.delete(auth.getAccount(), AccountsManager.DeletionReason.USER_REQUEST);
+  public CompletableFuture<Void> deleteAccount(@Auth DisabledPermittedAuthenticatedAccount auth) throws InterruptedException {
+    return accounts.delete(auth.getAccount(), AccountsManager.DeletionReason.USER_REQUEST);
   }
 
   private void clearUsernameLink(final Account account) {

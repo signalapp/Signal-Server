@@ -30,6 +30,7 @@ import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -104,6 +105,13 @@ class AccountsManagerConcurrentModificationIntegrationTest {
         return null;
       }).when(accountLockManager).withLock(any(), any());
 
+      when(accountLockManager.withLockAsync(any(), any(), any())).thenAnswer(invocation -> {
+        final Supplier<CompletableFuture<?>> taskSupplier = invocation.getArgument(1);
+        taskSupplier.get().join();
+
+        return CompletableFuture.completedFuture(null);
+      });
+
       final PhoneNumberIdentifiers phoneNumberIdentifiers = mock(PhoneNumberIdentifiers.class);
       when(phoneNumberIdentifiers.getPhoneNumberIdentifier(anyString()))
           .thenAnswer((Answer<UUID>) invocation -> UUID.randomUUID());
@@ -122,6 +130,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
           mock(ClientPresenceManager.class),
           mock(ExperimentEnrollmentManager.class),
           mock(RegistrationRecoveryPasswordsManager.class),
+          mock(Executor.class),
           mock(Clock.class)
       );
     }

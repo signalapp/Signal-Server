@@ -35,6 +35,7 @@ import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -110,6 +111,7 @@ public class AccountsManager {
   private final ClientPresenceManager clientPresenceManager;
   private final ExperimentEnrollmentManager experimentEnrollmentManager;
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
+  private final Executor accountLockExecutor;
   private final Clock clock;
 
   private static final ObjectWriter ACCOUNT_REDIS_JSON_WRITER = SystemMapper.jsonMapper()
@@ -155,6 +157,7 @@ public class AccountsManager {
       final ClientPresenceManager clientPresenceManager,
       final ExperimentEnrollmentManager experimentEnrollmentManager,
       final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
+      final Executor accountLockExecutor,
       final Clock clock) {
     this.accounts = accounts;
     this.phoneNumberIdentifiers = phoneNumberIdentifiers;
@@ -169,6 +172,7 @@ public class AccountsManager {
     this.clientPresenceManager = clientPresenceManager;
     this.experimentEnrollmentManager = experimentEnrollmentManager;
     this.registrationRecoveryPasswordsManager = requireNonNull(registrationRecoveryPasswordsManager);
+    this.accountLockExecutor = accountLockExecutor;
     this.clock = requireNonNull(clock);
   }
 
@@ -234,7 +238,7 @@ public class AccountsManager {
               keysManager.delete(account.getPhoneNumberIdentifier()));
 
           messagesManager.clear(actualUuid).join();
-          profilesManager.deleteAll(actualUuid);
+          profilesManager.deleteAll(actualUuid).join();
 
           deleteKeysFuture.join();
 
@@ -301,7 +305,7 @@ public class AccountsManager {
       final Optional<UUID> maybeDisplacedUuid;
 
       if (maybeExistingAccount.isPresent()) {
-        delete(maybeExistingAccount.get());
+        delete(maybeExistingAccount.get()).join();
         maybeDisplacedUuid = maybeExistingAccount.map(Account::getUuid);
       } else {
         maybeDisplacedUuid = recentlyDeletedAci;
@@ -847,50 +851,39 @@ public class AccountsManager {
     return accounts.getAll(segments, scheduler);
   }
 
-  public void delete(final Account account, final DeletionReason deletionReason) throws InterruptedException {
-    try (final Timer.Context ignored = deleteTimer.time()) {
-      accountLockManager.withLock(List.of(account.getNumber()), () -> delete(account));
-    } catch (final RuntimeException | InterruptedException e) {
-      logger.warn("Failed to delete account", e);
-      throw e;
-    }
+  public CompletableFuture<Void> delete(final Account account, final DeletionReason deletionReason) {
+    @SuppressWarnings("resource") final Timer.Context timerContext = deleteTimer.time();
 
-    Metrics.counter(DELETE_COUNTER_NAME,
-        COUNTRY_CODE_TAG_NAME, Util.getCountryCode(account.getNumber()),
-        DELETION_REASON_TAG_NAME, deletionReason.tagValue)
-        .increment();
+    return accountLockManager.withLockAsync(List.of(account.getNumber()), () -> delete(account), accountLockExecutor)
+        .whenComplete((ignored, throwable) -> {
+          timerContext.close();
+
+          if (throwable == null) {
+            Metrics.counter(DELETE_COUNTER_NAME,
+                    COUNTRY_CODE_TAG_NAME, Util.getCountryCode(account.getNumber()),
+                    DELETION_REASON_TAG_NAME, deletionReason.tagValue)
+                .increment();
+          } else {
+            logger.warn("Failed to delete account", throwable);
+          }
+        });
   }
 
-  private void delete(final Account account) {
-    final CompletableFuture<Void> deleteStorageServiceDataFuture = secureStorageClient.deleteStoredData(
-        account.getUuid());
-    final CompletableFuture<Void> deleteBackupServiceDataFuture = secureBackupClient.deleteBackups(account.getUuid());
-    final CompletableFuture<Void> deleteSecureValueRecoveryServiceDataFuture = secureValueRecovery2Client.deleteBackups(
-        account.getUuid());
-
-    final CompletableFuture<Void> deleteKeysFuture = CompletableFuture.allOf(
-        keysManager.delete(account.getUuid()),
-        keysManager.delete(account.getPhoneNumberIdentifier()));
-
-    final CompletableFuture<Void> deleteMessagesFuture = CompletableFuture.allOf(
-        messagesManager.clear(account.getUuid()),
-        messagesManager.clear(account.getPhoneNumberIdentifier()));
-
-    profilesManager.deleteAll(account.getUuid());
-    registrationRecoveryPasswordsManager.removeForNumber(account.getNumber());
-
-    deleteKeysFuture.join();
-    deleteMessagesFuture.join();
-    deleteStorageServiceDataFuture.join();
-    deleteBackupServiceDataFuture.join();
-    deleteSecureValueRecoveryServiceDataFuture.join();
-
-    accounts.delete(account.getUuid());
-    redisDelete(account);
-
-    RedisOperation.unchecked(() ->
-        account.getDevices().forEach(device ->
-            clientPresenceManager.disconnectPresence(account.getUuid(), device.getId())));
+  private CompletableFuture<Void> delete(final Account account) {
+    return CompletableFuture.allOf(
+            secureStorageClient.deleteStoredData(account.getUuid()),
+            secureBackupClient.deleteBackups(account.getUuid()),
+            secureValueRecovery2Client.deleteBackups(account.getUuid()),
+            keysManager.delete(account.getUuid()),
+            keysManager.delete(account.getPhoneNumberIdentifier()),
+            messagesManager.clear(account.getUuid()),
+            messagesManager.clear(account.getPhoneNumberIdentifier()),
+            profilesManager.deleteAll(account.getUuid()),
+            registrationRecoveryPasswordsManager.removeForNumber(account.getNumber()))
+        .thenCompose(ignored -> CompletableFuture.allOf(accounts.delete(account.getUuid()), redisDeleteAsync(account)))
+        .thenRun(() -> RedisOperation.unchecked(() ->
+            account.getDevices().forEach(device ->
+                clientPresenceManager.disconnectPresence(account.getUuid(), device.getId()))));
   }
 
   private String getUsernameHashAccountMapKey(byte[] usernameHash) {

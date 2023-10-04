@@ -20,6 +20,10 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -58,6 +62,7 @@ class AccountsManagerChangeNumberIntegrationTest {
   static final RedisClusterExtension CACHE_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
 
   private ClientPresenceManager clientPresenceManager;
+  private ExecutorService accountLockExecutor;
 
   private AccountsManager accountsManager;
 
@@ -80,6 +85,8 @@ class AccountsManagerChangeNumberIntegrationTest {
           Tables.USERNAMES.tableName(),
           Tables.DELETED_ACCOUNTS.tableName(),
           SCAN_PAGE_SIZE);
+
+      accountLockExecutor = Executors.newSingleThreadExecutor();
 
       final AccountLockManager accountLockManager = new AccountLockManager(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
           Tables.DELETED_ACCOUNTS_LOCK.tableName());
@@ -104,6 +111,15 @@ class AccountsManagerChangeNumberIntegrationTest {
       final MessagesManager messagesManager = mock(MessagesManager.class);
       when(messagesManager.clear(any())).thenReturn(CompletableFuture.completedFuture(null));
 
+      final ProfilesManager profilesManager = mock(ProfilesManager.class);
+      when(profilesManager.deleteAll(any())).thenReturn(CompletableFuture.completedFuture(null));
+
+      final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager =
+          mock(RegistrationRecoveryPasswordsManager.class);
+
+      when(registrationRecoveryPasswordsManager.removeForNumber(any()))
+          .thenReturn(CompletableFuture.completedFuture(null));
+
       accountsManager = new AccountsManager(
           accounts,
           phoneNumberIdentifiers,
@@ -111,15 +127,24 @@ class AccountsManagerChangeNumberIntegrationTest {
           accountLockManager,
           keysManager,
           messagesManager,
-          mock(ProfilesManager.class),
+          profilesManager,
           secureStorageClient,
           secureBackupClient,
           svr2Client,
           clientPresenceManager,
           mock(ExperimentEnrollmentManager.class),
-          mock(RegistrationRecoveryPasswordsManager.class),
+          registrationRecoveryPasswordsManager,
+          accountLockExecutor,
           mock(Clock.class));
     }
+  }
+
+  @AfterEach
+  void tearDown() throws InterruptedException {
+    accountLockExecutor.shutdown();
+
+    //noinspection ResultOfMethodCallIgnored
+    accountLockExecutor.awaitTermination(1, TimeUnit.SECONDS);
   }
 
   @Test
