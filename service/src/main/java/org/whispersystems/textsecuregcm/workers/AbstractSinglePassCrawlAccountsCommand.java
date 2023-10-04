@@ -24,6 +24,7 @@ import reactor.core.scheduler.Schedulers;
 public abstract class AbstractSinglePassCrawlAccountsCommand extends EnvironmentCommand<WhisperServerConfiguration> {
 
   private CommandDependencies commandDependencies;
+  private Namespace namespace;
 
   private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -53,14 +54,19 @@ public abstract class AbstractSinglePassCrawlAccountsCommand extends Environment
     return commandDependencies;
   }
 
+  protected Namespace getNamespace() {
+    return namespace;
+  }
+
   @Override
   protected void run(final Environment environment, final Namespace namespace,
       final WhisperServerConfiguration configuration) throws Exception {
 
     UncaughtExceptionHandler.register();
-
     MetricsUtil.configureRegistries(configuration, environment);
-    commandDependencies = CommandDependencies.build(getName(), environment, configuration);
+
+    this.namespace = namespace;
+    this.commandDependencies = CommandDependencies.build(getName(), environment, configuration);
 
     final int segments = Objects.requireNonNull(namespace.getInt(SEGMENT_COUNT));
 
@@ -75,7 +81,6 @@ public abstract class AbstractSinglePassCrawlAccountsCommand extends Environment
     } finally {
       commandStopListener.stop();
     }
-
   }
 
   @Override
