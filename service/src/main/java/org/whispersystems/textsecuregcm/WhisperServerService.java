@@ -199,6 +199,7 @@ import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.storage.VerificationSessionManager;
 import org.whispersystems.textsecuregcm.storage.VerificationSessions;
+import org.whispersystems.textsecuregcm.subscriptions.BankMandateTranslator;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
 import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
@@ -294,6 +295,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         clock, config.getBadges(), headerControlledResourceBundleLookup);
     ResourceBundleLevelTranslator resourceBundleLevelTranslator = new ResourceBundleLevelTranslator(
         headerControlledResourceBundleLookup);
+    BankMandateTranslator bankMandateTranslator = new BankMandateTranslator(headerControlledResourceBundleLookup);
 
     DynamoDbAsyncClient dynamoDbAsyncClient = DynamoDbFromConfig.asyncClient(config.getDynamoDbClientConfiguration(),
         AWSSDK_CREDENTIALS_PROVIDER);
@@ -804,7 +806,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     if (config.getSubscription() != null && config.getOneTimeDonations() != null) {
       commonControllers.add(new SubscriptionController(clock, config.getSubscription(), config.getOneTimeDonations(),
           subscriptionManager, stripeManager, braintreeManager, zkReceiptOperations, issuedReceiptsManager, profileBadgeConverter,
-          resourceBundleLevelTranslator));
+          resourceBundleLevelTranslator, bankMandateTranslator));
     }
 
     for (Object controller : commonControllers) {

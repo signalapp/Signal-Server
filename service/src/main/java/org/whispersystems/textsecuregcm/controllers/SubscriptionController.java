@@ -87,6 +87,8 @@ import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager.GetResult;
+import org.whispersystems.textsecuregcm.subscriptions.BankMandateTranslator;
+import org.whispersystems.textsecuregcm.subscriptions.BankTransferType;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
 import org.whispersystems.textsecuregcm.subscriptions.ChargeFailure;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
@@ -117,6 +119,7 @@ public class SubscriptionController {
   private final IssuedReceiptsManager issuedReceiptsManager;
   private final BadgeTranslator badgeTranslator;
   private final LevelTranslator levelTranslator;
+  private final BankMandateTranslator bankMandateTranslator;
   private static final String INVALID_ACCEPT_LANGUAGE_COUNTER_NAME = MetricsUtil.name(SubscriptionController.class,
       "invalidAcceptLanguage");
   private static final String RECEIPT_ISSUED_COUNTER_NAME = MetricsUtil.name(SubscriptionController.class, "receiptIssued");
@@ -135,7 +138,8 @@ public class SubscriptionController {
       @Nonnull ServerZkReceiptOperations zkReceiptOperations,
       @Nonnull IssuedReceiptsManager issuedReceiptsManager,
       @Nonnull BadgeTranslator badgeTranslator,
-      @Nonnull LevelTranslator levelTranslator) {
+      @Nonnull LevelTranslator levelTranslator,
+      @Nonnull BankMandateTranslator bankMandateTranslator) {
     this.clock = Objects.requireNonNull(clock);
     this.subscriptionConfiguration = Objects.requireNonNull(subscriptionConfiguration);
     this.oneTimeDonationConfiguration = Objects.requireNonNull(oneTimeDonationConfiguration);
@@ -146,6 +150,7 @@ public class SubscriptionController {
     this.issuedReceiptsManager = Objects.requireNonNull(issuedReceiptsManager);
     this.badgeTranslator = Objects.requireNonNull(badgeTranslator);
     this.levelTranslator = Objects.requireNonNull(levelTranslator);
+    this.bankMandateTranslator = Objects.requireNonNull(bankMandateTranslator);
   }
 
   private Map<String, CurrencyConfiguration> buildCurrencyConfiguration(@Nullable final UserAgent userAgent) {
@@ -586,6 +591,20 @@ public class SubscriptionController {
       return Response.ok(buildGetSubscriptionConfigurationResponse(acceptableLanguages, userAgent)).build();
     });
   }
+
+  @GET
+  @Path("/bank_mandate/{bankTransferType}")
+  @Produces(MediaType.APPLICATION_JSON)
+  public CompletableFuture<Response> getBankMandate(final @Context ContainerRequestContext containerRequestContext,
+      final @PathParam("bankTransferType") BankTransferType bankTransferType) {
+    return CompletableFuture.supplyAsync(() -> {
+      List<Locale> acceptableLanguages = getAcceptableLanguagesForRequest(containerRequestContext);
+      return Response.ok(new GetBankMandateResponse(
+          bankMandateTranslator.translate(acceptableLanguages, bankTransferType))).build();
+    });
+  }
+
+  public record GetBankMandateResponse(String mandate) {}
 
   public record GetBoostBadgesResponse(Map<Long, Level> levels) {
       public record Level(PurchasableBadge badge) {

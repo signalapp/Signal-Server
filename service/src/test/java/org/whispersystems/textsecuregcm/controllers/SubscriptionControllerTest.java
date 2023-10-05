@@ -60,6 +60,7 @@ import org.whispersystems.textsecuregcm.badges.BadgeTranslator;
 import org.whispersystems.textsecuregcm.badges.LevelTranslator;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
+import org.whispersystems.textsecuregcm.controllers.SubscriptionController.GetBankMandateResponse;
 import org.whispersystems.textsecuregcm.controllers.SubscriptionController.GetSubscriptionConfigurationResponse;
 import org.whispersystems.textsecuregcm.entities.Badge;
 import org.whispersystems.textsecuregcm.entities.BadgeSvg;
@@ -67,6 +68,7 @@ import org.whispersystems.textsecuregcm.mappers.CompletionExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.SubscriptionProcessorExceptionMapper;
 import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
+import org.whispersystems.textsecuregcm.subscriptions.BankMandateTranslator;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager.PayPalOneTimePaymentApprovalDetails;
 import org.whispersystems.textsecuregcm.subscriptions.ChargeFailure;
@@ -97,9 +99,10 @@ class SubscriptionControllerTest {
   private static final IssuedReceiptsManager ISSUED_RECEIPTS_MANAGER = mock(IssuedReceiptsManager.class);
   private static final BadgeTranslator BADGE_TRANSLATOR = mock(BadgeTranslator.class);
   private static final LevelTranslator LEVEL_TRANSLATOR = mock(LevelTranslator.class);
+  private static final BankMandateTranslator BANK_MANDATE_TRANSLATOR = mock(BankMandateTranslator.class);
   private static final SubscriptionController SUBSCRIPTION_CONTROLLER = new SubscriptionController(
       CLOCK, SUBSCRIPTION_CONFIG, ONETIME_CONFIG, SUBSCRIPTION_MANAGER, STRIPE_MANAGER, BRAINTREE_MANAGER, ZK_OPS,
-      ISSUED_RECEIPTS_MANAGER, BADGE_TRANSLATOR, LEVEL_TRANSLATOR);
+      ISSUED_RECEIPTS_MANAGER, BADGE_TRANSLATOR, LEVEL_TRANSLATOR, BANK_MANDATE_TRANSLATOR);
   private static final ResourceExtension RESOURCE_EXTENSION = ResourceExtension.builder()
       .addProperty(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE)
       .addProvider(AuthHelper.getAuthFilter())
@@ -708,6 +711,24 @@ class SubscriptionControllerTest {
         Arguments.of("usd", 5, "usd", 15, true),
         Arguments.of("usd", 5, "jpy", 15, true)
     );
+  }
+
+  @Test
+  void testGetBankMandate() {
+    when(BANK_MANDATE_TRANSLATOR.translate(any(), any())).thenReturn("bankMandate");
+    final Response response = RESOURCE_EXTENSION.target("/v1/subscription/bank_mandate/sepa_debit")
+        .request()
+        .get();
+    assertThat(response.getStatus()).isEqualTo(200);
+    assertThat(response.readEntity(GetBankMandateResponse.class).mandate()).isEqualTo("bankMandate");
+  }
+
+  @Test
+  void testGetBankMandateInvalidBankTransferType() {
+    final Response response = RESOURCE_EXTENSION.target("/v1/subscription/ach")
+        .request()
+        .get();
+    assertThat(response.getStatus()).isEqualTo(404);
   }
 
   @ParameterizedTest
