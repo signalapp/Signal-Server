@@ -2149,6 +2149,36 @@ paths:
       security:
       - authenticatedAccount: []
       - {}
+  /v1/subscription/bank_mandate/{bankTransferType}:
+    get:
+      tags:
+      - Subscriptions
+      operationId: getBankMandate
+      parameters:
+      - name: bankTransferType
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - SEPA_DEBIT
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  completedExceptionally:
+                    type: boolean
+                  numberOfDependents:
+                    type: integer
+                    format: int32
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
   /v1/subscription/boost/badges:
     get:
       tags:
@@ -2797,14 +2827,14 @@ components:
     ECPublicKey:
       type: object
       properties:
+        type:
+          type: integer
+          format: int32
         publicKeyBytes:
           type: array
           items:
             type: string
             format: byte
-        type:
-          type: integer
-          format: int32
     ECSignedPreKey:
       type: object
       properties:
@@ -3238,13 +3268,13 @@ components:
     WebSocketClient:
       type: object
       properties:
-        createdTimestamp:
-          type: integer
-          format: int64
         userAgent:
           type: string
         open:
           type: boolean
+        createdTimestamp:
+          type: integer
+          format: int64
     WebSocketSessionContext:
       type: object
       properties:
