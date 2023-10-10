@@ -106,7 +106,6 @@ import org.whispersystems.textsecuregcm.controllers.ProfileController;
 import org.whispersystems.textsecuregcm.controllers.ProvisioningController;
 import org.whispersystems.textsecuregcm.controllers.RegistrationController;
 import org.whispersystems.textsecuregcm.controllers.RemoteConfigController;
-import org.whispersystems.textsecuregcm.controllers.SecureBackupController;
 import org.whispersystems.textsecuregcm.controllers.SecureStorageController;
 import org.whispersystems.textsecuregcm.controllers.SecureValueRecovery2Controller;
 import org.whispersystems.textsecuregcm.controllers.StickerController;
@@ -165,7 +164,6 @@ import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
 import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
-import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.spam.FilterSpam;
@@ -474,8 +472,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getDirectoryV2Configuration().getDirectoryV2ClientConfiguration());
     ExternalServiceCredentialsGenerator storageCredentialsGenerator = SecureStorageController.credentialsGenerator(
         config.getSecureStorageServiceConfiguration());
-    ExternalServiceCredentialsGenerator backupCredentialsGenerator = SecureBackupController.credentialsGenerator(
-        config.getSecureBackupServiceConfiguration());
     ExternalServiceCredentialsGenerator paymentsCredentialsGenerator = PaymentsController.credentialsGenerator(
         config.getPaymentsServiceConfiguration());
     ExternalServiceCredentialsGenerator artCredentialsGenerator = ArtController.credentialsGenerator(
@@ -498,9 +494,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getRegistrationServiceConfiguration().identityTokenAudience(),
         config.getRegistrationServiceConfiguration().registrationCaCertificate(),
         registrationCallbackExecutor);
-    SecureBackupClient secureBackupClient = new SecureBackupClient(backupCredentialsGenerator,
-        secureValueRecoveryServiceExecutor, secureValueRecoveryServiceRetryExecutor,
-        config.getSecureBackupServiceConfiguration());
     SecureValueRecovery2Client secureValueRecovery2Client = new SecureValueRecovery2Client(svr2CredentialsGenerator,
         secureValueRecoveryServiceExecutor, secureValueRecoveryServiceRetryExecutor, config.getSvr2Configuration());
     SecureStorageClient secureStorageClient = new SecureStorageClient(storageCredentialsGenerator,
@@ -523,7 +516,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getDynamoDbTables().getDeletedAccountsLock().getTableName());
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
         accountLockManager, keys, messagesManager, profilesManager,
-        secureStorageClient, secureBackupClient, secureValueRecovery2Client,
+        secureStorageClient, secureValueRecovery2Client,
         clientPresenceManager,
         experimentEnrollmentManager, registrationRecoveryPasswordsManager, accountLockExecutor, clock);
     RemoteConfigsManager remoteConfigsManager = new RemoteConfigsManager(remoteConfigs);
@@ -551,7 +544,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getDynamoDbTables().getSubscriptions().getTableName(), dynamoDbAsyncClient);
 
     final RegistrationLockVerificationManager registrationLockVerificationManager = new RegistrationLockVerificationManager(
-        accountsManager, clientPresenceManager, backupCredentialsGenerator, svr2CredentialsGenerator, registrationRecoveryPasswordsManager, pushNotificationManager, rateLimiters);
+        accountsManager, clientPresenceManager, svr2CredentialsGenerator, registrationRecoveryPasswordsManager, pushNotificationManager, rateLimiters);
     final PhoneVerificationTokenManager phoneVerificationTokenManager = new PhoneVerificationTokenManager(
         registrationServiceClient, registrationRecoveryPasswordsManager);
 
@@ -793,7 +786,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             config.getRemoteConfigConfiguration().audiences(),
             new GoogleIdTokenVerifier.Builder(new ApacheHttpTransport(), new GsonFactory()),
             config.getRemoteConfigConfiguration().globalConfig()),
-        new SecureBackupController(backupCredentialsGenerator, accountsManager),
         new SecureStorageController(storageCredentialsGenerator),
         new SecureValueRecovery2Controller(svr2CredentialsGenerator, accountsManager),
         new StickerController(rateLimiters, config.getCdnConfiguration().accessKey().value(),

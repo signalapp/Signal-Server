@@ -41,7 +41,6 @@ import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
-import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
@@ -131,7 +130,6 @@ class AccountsManagerUsernameIntegrationTest {
         mock(MessagesManager.class),
         mock(ProfilesManager.class),
         mock(SecureStorageClient.class),
-        mock(SecureBackupClient.class),
         mock(SecureValueRecovery2Client.class),
         mock(ClientPresenceManager.class),
         experimentEnrollmentManager,

@@ -71,7 +71,6 @@ import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
-import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
@@ -156,9 +155,6 @@ class AccountsManagerTest {
     final SecureStorageClient storageClient = mock(SecureStorageClient.class);
     when(storageClient.deleteStoredData(any())).thenReturn(CompletableFuture.completedFuture(null));
 
-    final SecureBackupClient backupClient = mock(SecureBackupClient.class);
-    when(backupClient.deleteBackups(any())).thenReturn(CompletableFuture.completedFuture(null));
-
     final SecureValueRecovery2Client svr2Client = mock(SecureValueRecovery2Client.class);
     when(svr2Client.deleteBackups(any())).thenReturn(CompletableFuture.completedFuture(null));
 
@@ -218,7 +214,6 @@ class AccountsManagerTest {
         messagesManager,
         profilesManager,
         storageClient,
-        backupClient,
         svr2Client,
         clientPresenceManager,
         enrollmentManager,

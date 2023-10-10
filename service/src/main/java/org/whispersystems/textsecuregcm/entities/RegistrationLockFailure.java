@@ -13,8 +13,6 @@ import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 public record RegistrationLockFailure(
     @Schema(description = "Time remaining in milliseconds before the existing registration lock expires")
     long timeRemaining,
-    @Schema(description = "Credentials that can be used with SVR1")
-    ExternalServiceCredentials backupCredentials,
     @Schema(description = "Credentials that can be used with SVR2")
     ExternalServiceCredentials svr2Credentials) {
 }

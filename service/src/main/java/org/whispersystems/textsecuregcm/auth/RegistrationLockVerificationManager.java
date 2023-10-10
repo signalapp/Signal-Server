@@ -54,7 +54,6 @@ public class RegistrationLockVerificationManager {
 
   private final AccountsManager accounts;
   private final ClientPresenceManager clientPresenceManager;
-  private final ExternalServiceCredentialsGenerator svr1CredentialGenerator;
   private final ExternalServiceCredentialsGenerator svr2CredentialGenerator;
   private final RateLimiters rateLimiters;
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
@@ -62,14 +61,12 @@ public class RegistrationLockVerificationManager {
 
   public RegistrationLockVerificationManager(
       final AccountsManager accounts, final ClientPresenceManager clientPresenceManager,
-      final ExternalServiceCredentialsGenerator svr1CredentialGenerator,
       final ExternalServiceCredentialsGenerator svr2CredentialGenerator,
       final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
       final PushNotificationManager pushNotificationManager,
       final RateLimiters rateLimiters) {
     this.accounts = accounts;
     this.clientPresenceManager = clientPresenceManager;
-    this.svr1CredentialGenerator = svr1CredentialGenerator;
     this.svr2CredentialGenerator = svr2CredentialGenerator;
     this.registrationRecoveryPasswordsManager = registrationRecoveryPasswordsManager;
     this.pushNotificationManager = pushNotificationManager;
@@ -141,7 +138,6 @@ public class RegistrationLockVerificationManager {
       // Freezing the existing account credentials will definitively start the reglock timeout.
       // Until the timeout, the current reglock can still be supplied,
       // along with phone number verification, to restore access.
-      final ExternalServiceCredentials existingSvr1Credentials = svr1CredentialGenerator.generateForUuid(account.getUuid());
       final ExternalServiceCredentials existingSvr2Credentials = svr2CredentialGenerator.generateForUuid(account.getUuid());
 
       final Account updatedAccount;
@@ -173,7 +169,6 @@ public class RegistrationLockVerificationManager {
 
       throw new WebApplicationException(Response.status(FAILURE_HTTP_STATUS)
           .entity(new RegistrationLockFailure(existingRegistrationLock.getTimeRemaining().toMillis(),
-              existingRegistrationLock.needsFailureCredentials() ? existingSvr1Credentials : null,
               existingRegistrationLock.needsFailureCredentials() ? existingSvr2Credentials : null))
           .build());
     }

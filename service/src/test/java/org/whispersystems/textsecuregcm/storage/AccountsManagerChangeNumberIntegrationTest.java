@@ -38,7 +38,6 @@ import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
-import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
@@ -94,9 +93,6 @@ class AccountsManagerChangeNumberIntegrationTest {
       final SecureStorageClient secureStorageClient = mock(SecureStorageClient.class);
       when(secureStorageClient.deleteStoredData(any())).thenReturn(CompletableFuture.completedFuture(null));
 
-      final SecureBackupClient secureBackupClient = mock(SecureBackupClient.class);
-      when(secureBackupClient.deleteBackups(any())).thenReturn(CompletableFuture.completedFuture(null));
-
       final SecureValueRecovery2Client svr2Client = mock(SecureValueRecovery2Client.class);
       when(svr2Client.deleteBackups(any())).thenReturn(CompletableFuture.completedFuture(null));
 
@@ -129,7 +125,6 @@ class AccountsManagerChangeNumberIntegrationTest {
           messagesManager,
           profilesManager,
           secureStorageClient,
-          secureBackupClient,
           svr2Client,
           clientPresenceManager,
           mock(ExperimentEnrollmentManager.class),

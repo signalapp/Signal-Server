@@ -25,13 +25,11 @@ import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.WhisperServerService;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
-import org.whispersystems.textsecuregcm.controllers.SecureBackupController;
 import org.whispersystems.textsecuregcm.controllers.SecureStorageController;
 import org.whispersystems.textsecuregcm.controllers.SecureValueRecovery2Controller;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
-import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -121,8 +119,6 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
     ScheduledExecutorService storageServiceRetryExecutor = environment.lifecycle()
         .scheduledExecutorService(name(getClass(), "storageServiceRetry-%d")).threads(1).build();
 
-    ExternalServiceCredentialsGenerator backupCredentialsGenerator = SecureBackupController.credentialsGenerator(
-        configuration.getSecureBackupServiceConfiguration());
     ExternalServiceCredentialsGenerator storageCredentialsGenerator = SecureStorageController.credentialsGenerator(
         configuration.getSecureStorageServiceConfiguration());
     ExternalServiceCredentialsGenerator secureValueRecoveryCredentialsGenerator = SecureValueRecovery2Controller.credentialsGenerator(
@@ -183,9 +179,6 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
         configuration.getClientPresenceClusterConfiguration(), redisClusterClientResources);
     FaultTolerantRedisCluster rateLimitersCluster = new FaultTolerantRedisCluster("rate_limiters",
         configuration.getRateLimitersCluster(), redisClusterClientResources);
-    SecureBackupClient secureBackupClient = new SecureBackupClient(backupCredentialsGenerator,
-        secureValueRecoveryExecutor,
-        secureValueRecoveryServiceRetryExecutor, configuration.getSecureBackupServiceConfiguration());
     SecureValueRecovery2Client secureValueRecovery2Client = new SecureValueRecovery2Client(
         secureValueRecoveryCredentialsGenerator, secureValueRecoveryExecutor, secureValueRecoveryServiceRetryExecutor,
         configuration.getSvr2Configuration());
@@ -207,7 +200,7 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
         configuration.getDynamoDbTables().getDeletedAccountsLock().getTableName());
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
         accountLockManager, keys, messagesManager, profilesManager,
-            secureStorageClient, secureBackupClient, secureValueRecovery2Client, clientPresenceManager,
+            secureStorageClient, secureValueRecovery2Client, clientPresenceManager,
         experimentEnrollmentManager, registrationRecoveryPasswordsManager, accountLockExecutor, Clock.systemUTC());
 
     final String usernameHash = namespace.getString("usernameHash");

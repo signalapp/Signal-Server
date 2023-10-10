@@ -58,7 +58,6 @@ import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.RedisOperation;
-import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.util.Constants;
@@ -106,7 +105,6 @@ public class AccountsManager {
   private final MessagesManager messagesManager;
   private final ProfilesManager profilesManager;
   private final SecureStorageClient secureStorageClient;
-  private final SecureBackupClient secureBackupClient;
   private final SecureValueRecovery2Client secureValueRecovery2Client;
   private final ClientPresenceManager clientPresenceManager;
   private final ExperimentEnrollmentManager experimentEnrollmentManager;
@@ -152,7 +150,6 @@ public class AccountsManager {
       final MessagesManager messagesManager,
       final ProfilesManager profilesManager,
       final SecureStorageClient secureStorageClient,
-      final SecureBackupClient secureBackupClient,
       final SecureValueRecovery2Client secureValueRecovery2Client,
       final ClientPresenceManager clientPresenceManager,
       final ExperimentEnrollmentManager experimentEnrollmentManager,
@@ -167,7 +164,6 @@ public class AccountsManager {
     this.messagesManager = messagesManager;
     this.profilesManager = profilesManager;
     this.secureStorageClient = secureStorageClient;
-    this.secureBackupClient = secureBackupClient;
     this.secureValueRecovery2Client = secureValueRecovery2Client;
     this.clientPresenceManager = clientPresenceManager;
     this.experimentEnrollmentManager = experimentEnrollmentManager;
@@ -872,7 +868,6 @@ public class AccountsManager {
   private CompletableFuture<Void> delete(final Account account) {
     return CompletableFuture.allOf(
             secureStorageClient.deleteStoredData(account.getUuid()),
-            secureBackupClient.deleteBackups(account.getUuid()),
             secureValueRecovery2Client.deleteBackups(account.getUuid()),
             keysManager.delete(account.getUuid()),
             keysManager.delete(account.getPhoneNumberIdentifier()),
