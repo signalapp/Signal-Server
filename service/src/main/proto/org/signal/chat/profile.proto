@@ -303,38 +303,13 @@ message ProfileAvatarUploadAttributes {
 
 message UserCapabilities {
   /**
-   * Whether all devices linked to the account support the groups v1 migration.
-   */
-  bool gv1_migration = 1;
-  /**
-   * Whether all devices linked to the account support sender keys.
-   */
-  bool sender_key = 2;
-  /**
-   * Whether all devices linked to the account support announcement groups
-   * (groups where only the admin can send messages or start calls).
-   */
-  bool announcement_group = 3;
-  /**
-   * Whether all devices linked to the account support changing phone number.
-   */
-  bool change_number = 4;
-  /**
-   * Whether all devices linked to the account support stories.
-   */
-  bool stories = 5;
-  /**
-   * Whether all devices linked to the account support gift badges.
-   */
-  bool gift_badges = 6;
-  /**
    * Whether all devices linked to the account support MobileCoin payments.
    */
-  bool payment_activation = 7;
+  bool payment_activation = 1;
   /**
    * Whether all devices linked to the account support phone number privacy.
    */
-  bool pni = 8;
+  bool pni = 2;
 }
 
 message Badge {

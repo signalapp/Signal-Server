@@ -81,12 +81,6 @@ public class ProfileGrpcHelper {
   @VisibleForTesting
   static UserCapabilities buildUserCapabilities(final org.whispersystems.textsecuregcm.entities.UserCapabilities capabilities) {
     return UserCapabilities.newBuilder()
-        .setGv1Migration(capabilities.gv1Migration())
-        .setSenderKey(capabilities.senderKey())
-        .setAnnouncementGroup(capabilities.announcementGroup())
-        .setChangeNumber(capabilities.changeNumber())
-        .setStories(capabilities.stories())
-        .setGiftBadges(capabilities.giftBadges())
         .setPaymentActivation(capabilities.paymentActivation())
         .setPni(capabilities.pni())
         .build();
