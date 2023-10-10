@@ -144,8 +144,8 @@ public interface SubscriptionProcessorManager {
 
   record SubscriptionInformation(SubscriptionPrice price, long level, Instant billingCycleAnchor,
                                  Instant endOfCurrentPeriod, boolean active, boolean cancelAtPeriodEnd,
-                                 SubscriptionStatus status,
-                                 ChargeFailure chargeFailure) {
+                                 SubscriptionStatus status, PaymentMethod paymentMethod, boolean paymentProcessing,
+                                 @Nullable ChargeFailure chargeFailure) {
 
   }
 

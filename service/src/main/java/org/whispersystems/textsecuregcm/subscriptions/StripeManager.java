@@ -67,10 +67,12 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.util.Conversions;
 
 public class StripeManager implements SubscriptionProcessorManager {
-
+  private static final Logger logger = LoggerFactory.getLogger(StripeManager.class);
   private static final String METADATA_KEY_LEVEL = "level";
 
   private final StripeClient stripeClient;
@@ -483,17 +485,30 @@ public class StripeManager implements SubscriptionProcessorManager {
     return getPriceForSubscription(subscription).thenCompose(price ->
             getLevelForPrice(price).thenApply(level -> {
               ChargeFailure chargeFailure = null;
+              boolean paymentProcessing = false;
+              PaymentMethod paymentMethod = null;
 
-              if (subscription.getLatestInvoiceObject() != null && subscription.getLatestInvoiceObject().getChargeObject() != null &&
-                      (subscription.getLatestInvoiceObject().getChargeObject().getFailureCode() != null || subscription.getLatestInvoiceObject().getChargeObject().getFailureMessage() != null)) {
-                Charge charge = subscription.getLatestInvoiceObject().getChargeObject();
-                Charge.Outcome outcome = charge.getOutcome();
-                chargeFailure = new ChargeFailure(
+              if (subscription.getLatestInvoiceObject() != null) {
+                final Invoice invoice = subscription.getLatestInvoiceObject();
+                paymentProcessing = "open".equals(invoice.getStatus());
+
+                if (invoice.getChargeObject() != null) {
+                  final Charge charge = invoice.getChargeObject();
+                  if (charge.getFailureCode() != null || charge.getFailureMessage() != null) {
+                    Charge.Outcome outcome = charge.getOutcome();
+                    chargeFailure = new ChargeFailure(
                         charge.getFailureCode(),
                         charge.getFailureMessage(),
                         outcome != null ? outcome.getNetworkStatus() : null,
                         outcome != null ? outcome.getReason() : null,
                         outcome != null ? outcome.getType() : null);
+                  }
+
+                  if (charge.getPaymentMethodDetails() != null
+                      && charge.getPaymentMethodDetails().getType() != null) {
+                    paymentMethod = getPaymentMethodFromStripeString(charge.getPaymentMethodDetails().getType(), invoice.getId());
+                  }
+                }
               }
 
               return new SubscriptionInformation(
@@ -504,9 +519,22 @@ public class StripeManager implements SubscriptionProcessorManager {
                   Objects.equals(subscription.getStatus(), "active"),
                   subscription.getCancelAtPeriodEnd(),
                   getSubscriptionStatus(subscription.getStatus()),
+                  paymentMethod,
+                  paymentProcessing,
                   chargeFailure
               );
             }));
+  }
+
+  private static PaymentMethod getPaymentMethodFromStripeString(final String paymentMethodString, final String invoiceId) {
+    return switch (paymentMethodString) {
+      case "sepa_debit" -> PaymentMethod.SEPA_DEBIT;
+      case "card" -> PaymentMethod.CARD;
+      default -> {
+        logger.error("Unexpected payment method from Stripe: {}, invoice id: {}", paymentMethodString, invoiceId);
+        yield PaymentMethod.UNKNOWN;
+      }
+    };
   }
 
   private Subscription getSubscription(Object subscriptionObj) {

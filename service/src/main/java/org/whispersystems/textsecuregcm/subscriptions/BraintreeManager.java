@@ -426,12 +426,17 @@ public class BraintreeManager implements SubscriptionProcessorManager {
       final Instant anchor = subscription.getFirstBillingDate().toInstant();
       final Instant endOfCurrentPeriod = subscription.getBillingPeriodEndDate().toInstant();
 
-      final ChargeFailure chargeFailure = getLatestTransactionForSubscription(subscription).map(transaction -> {
-        if (getPaymentStatus(transaction.getStatus()).equals(PaymentStatus.SUCCEEDED)) {
-          return null;
+      boolean paymentProcessing = false;
+      ChargeFailure chargeFailure = null;
+
+      final Optional<Transaction> latestTransaction = getLatestTransactionForSubscription(subscription);
+
+      if (latestTransaction.isPresent()){
+        paymentProcessing = isPaymentProcessing(latestTransaction.get().getStatus());
+        if (!getPaymentStatus(latestTransaction.get().getStatus()).equals(PaymentStatus.SUCCEEDED)) {
+          chargeFailure = createChargeFailure(latestTransaction.get());
         }
-        return createChargeFailure(transaction);
-      }).orElse(null);
+      }
 
       return new SubscriptionInformation(
           new SubscriptionPrice(plan.getCurrencyIsoCode().toUpperCase(Locale.ROOT),
@@ -442,9 +447,23 @@ public class BraintreeManager implements SubscriptionProcessorManager {
           Subscription.Status.ACTIVE == subscription.getStatus(),
           !subscription.neverExpires(),
           getSubscriptionStatus(subscription.getStatus()),
+          latestTransaction.map(this::getPaymentMethodFromTransaction).orElse(PaymentMethod.PAYPAL),
+          paymentProcessing,
           chargeFailure
       );
     }, executor);
+  }
+
+  private PaymentMethod getPaymentMethodFromTransaction(Transaction transaction) {
+    if (transaction.getPayPalDetails() != null) {
+      return PaymentMethod.PAYPAL;
+    }
+    logger.error("Unexpected payment method from Braintree: {}, transaction id {}", transaction.getPaymentInstrumentType(), transaction.getId());
+    return PaymentMethod.UNKNOWN;
+  }
+
+  private static boolean isPaymentProcessing(final Transaction.Status status) {
+    return status == Transaction.Status.SETTLEMENT_PENDING;
   }
 
   private ChargeFailure createChargeFailure(Transaction transaction) {

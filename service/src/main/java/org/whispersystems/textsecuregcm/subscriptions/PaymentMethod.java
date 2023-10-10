@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.subscriptions;
 
 public enum PaymentMethod {
+  UNKNOWN,
   /**
    * A credit card or debit card, including those from Apple Pay and Google Pay
    */

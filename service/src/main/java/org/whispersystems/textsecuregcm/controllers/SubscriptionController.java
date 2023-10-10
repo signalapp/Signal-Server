@@ -394,6 +394,7 @@ public class SubscriptionController {
     return switch (paymentMethod) {
       case CARD, SEPA_DEBIT -> stripeManager;
       case PAYPAL -> braintreeManager;
+      case UNKNOWN -> throw new BadRequestException("Invalid payment method");
     };
   }
 
@@ -886,7 +887,7 @@ public class SubscriptionController {
 
       public record Subscription(long level, Instant billingCycleAnchor, Instant endOfCurrentPeriod, boolean active,
                                  boolean cancelAtPeriodEnd, String currency, BigDecimal amount, String status,
-                                 SubscriptionProcessor processor) {
+                                 SubscriptionProcessor processor, PaymentMethod paymentMethod, boolean paymentProcessing) {
 
       }
     }
@@ -919,7 +920,9 @@ public class SubscriptionController {
                             subscriptionInformation.price().currency(),
                             subscriptionInformation.price().amount(),
                             subscriptionInformation.status().getApiValue(),
-                            manager.getProcessor()),
+                            manager.getProcessor(),
+                            subscriptionInformation.paymentMethod(),
+                            subscriptionInformation.paymentProcessing()),
                         subscriptionInformation.chargeFailure()
                     )).build()));
         });
