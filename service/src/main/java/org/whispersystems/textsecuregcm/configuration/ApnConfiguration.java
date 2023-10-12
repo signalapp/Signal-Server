@@ -9,8 +9,8 @@ import javax.validation.constraints.NotNull;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretString;
 
 
-public record ApnConfiguration(@NotBlank String teamId,
-                               @NotBlank String keyId,
+public record ApnConfiguration(@NotNull SecretString teamId,
+                               @NotNull SecretString keyId,
                                @NotNull SecretString signingKey,
                                @NotBlank String bundleId,
                                boolean sandbox) {

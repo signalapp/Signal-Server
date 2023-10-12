@@ -208,8 +208,8 @@ accountDatabaseCrawler:
 apn: # Apple Push Notifications configuration
   sandbox: true
   bundleId: com.example.textsecuregcm
-  keyId: unset
-  teamId: unset
+  keyId: secret://apn.keyId
+  teamId: secret://apn.teamId
   signingKey: secret://apn.signingKey
 
 fcm: # FCM configuration
