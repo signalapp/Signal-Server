@@ -1998,6 +1998,7 @@ paths:
           - CARD
           - PAYPAL
           - SEPA_DEBIT
+          - IDEAL
       responses:
         default:
           description: default response
@@ -3269,13 +3270,13 @@ components:
     WebSocketClient:
       type: object
       properties:
+        open:
+          type: boolean
+        userAgent:
+          type: string
         createdTimestamp:
           type: integer
           format: int64
-        userAgent:
-          type: string
-        open:
-          type: boolean
     WebSocketSessionContext:
       type: object
       properties:
@@ -3913,6 +3914,7 @@ components:
           - CARD
           - PAYPAL
           - SEPA_DEBIT
+          - IDEAL
         payerId:
           type: string
         paymentId:
@@ -3940,6 +3942,7 @@ components:
           - CARD
           - PAYPAL
           - SEPA_DEBIT
+          - IDEAL
     CreateBoostReceiptCredentialsRequest:
       required:
       - paymentIntentId
@@ -3982,6 +3985,7 @@ components:
           - CARD
           - PAYPAL
           - SEPA_DEBIT
+          - IDEAL
         returnUrl:
           type: string
         cancelUrl:
