@@ -107,7 +107,9 @@ public class StripeManager implements SubscriptionProcessorManager {
 
   @Override
   public boolean supportsPaymentMethod(PaymentMethod paymentMethod) {
-    return paymentMethod == PaymentMethod.CARD || paymentMethod == PaymentMethod.SEPA_DEBIT;
+    return paymentMethod == PaymentMethod.CARD
+        || paymentMethod == PaymentMethod.SEPA_DEBIT
+        || paymentMethod == PaymentMethod.IDEAL;
   }
 
   private RequestOptions commonOptions() {

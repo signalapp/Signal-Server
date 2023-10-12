@@ -19,4 +19,8 @@ public enum PaymentMethod {
    * A SEPA debit account
    */
   SEPA_DEBIT,
+  /**
+   * An iDEAL account
+   */
+  IDEAL,
 }

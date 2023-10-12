@@ -190,10 +190,10 @@ public class SubscriptionController {
         }));
   }
 
-  // This logic to exclude some iOS client versions from receiving SEPA_DEBIT
+  // This logic to exclude some iOS client versions from receiving SEPA_DEBIT or IDEAL
   // as a supported payment method can be removed after 01-23-24.
   private boolean excludePaymentMethod(@Nullable final UserAgent userAgent, final PaymentMethod paymentMethod) {
-    return paymentMethod == PaymentMethod.SEPA_DEBIT
+    return (paymentMethod == PaymentMethod.SEPA_DEBIT || paymentMethod == PaymentMethod.IDEAL)
         && userAgent != null
         && userAgent.getPlatform() == ClientPlatform.IOS
         && userAgent.getVersion().isLowerThanOrEqualTo(LAST_PROBLEMATIC_IOS_VERSION);
@@ -392,7 +392,7 @@ public class SubscriptionController {
 
   private SubscriptionProcessorManager getManagerForPaymentMethod(PaymentMethod paymentMethod) {
     return switch (paymentMethod) {
-      case CARD, SEPA_DEBIT -> stripeManager;
+      case CARD, SEPA_DEBIT, IDEAL -> stripeManager;
       case PAYPAL -> braintreeManager;
       case UNKNOWN -> throw new BadRequestException("Invalid payment method");
     };

@@ -132,6 +132,8 @@ class SubscriptionControllerTest {
         .thenReturn(Set.of("usd", "jpy", "bif", "eur"));
     when(STRIPE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.SEPA_DEBIT))
         .thenReturn(Set.of("eur"));
+    when(STRIPE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.IDEAL))
+        .thenReturn(Set.of("eur"));
     when(BRAINTREE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.PAYPAL))
         .thenReturn(Set.of("usd", "jpy"));
   }
@@ -733,7 +735,7 @@ class SubscriptionControllerTest {
 
   @ParameterizedTest
   @MethodSource
-  void getSubscriptionConfiguration(final String userAgent, final boolean expectSepa) {
+  void getSubscriptionConfiguration(final String userAgent, final boolean expectNonCardPaymentMethods) {
     when(BADGE_TRANSLATOR.translate(any(), eq("B1"))).thenReturn(new Badge("B1", "cat1", "name1", "desc1",
         List.of("l", "m", "h", "x", "xx", "xxx"), "SVG",
         List.of(new BadgeSvg("sl", "sd"), new BadgeSvg("ml", "md"), new BadgeSvg("ll", "ld"))));
@@ -811,7 +813,7 @@ class SubscriptionControllerTest {
                 List.of(BigDecimal.valueOf(5))));
         assertThat(currency.subscription()).isEqualTo(
             Map.of("5", BigDecimal.valueOf(5), "15", BigDecimal.valueOf(15),"35", BigDecimal.valueOf(35)));
-        final List<String> expectedPaymentMethods = expectSepa ? List.of("CARD", "SEPA_DEBIT") : List.of("CARD");
+        final List<String> expectedPaymentMethods = expectNonCardPaymentMethods ? List.of("CARD", "SEPA_DEBIT", "IDEAL") : List.of("CARD");
         assertThat(currency.supportedPaymentMethods()).isEqualTo(expectedPaymentMethods);
       });
     });
