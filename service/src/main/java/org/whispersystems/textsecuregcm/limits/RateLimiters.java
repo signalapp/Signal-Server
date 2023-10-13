@@ -28,6 +28,7 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
     ATTACHMENT("attachmentCreate", false, new RateLimiterConfig(50, Duration.ofMillis(1200))),
     PRE_KEYS("prekeys", false, new RateLimiterConfig(6, Duration.ofMinutes(10))),
     MESSAGES("messages", false, new RateLimiterConfig(60, Duration.ofSeconds(1))),
+    STORIES("stories", false, new RateLimiterConfig(5_000, Duration.ofSeconds(8))),
     ALLOCATE_DEVICE("allocateDevice", false, new RateLimiterConfig(2, Duration.ofMinutes(2))),
     VERIFY_DEVICE("verifyDevice", false, new RateLimiterConfig(6, Duration.ofMinutes(10))),
     TURN("turnAllocate", false, new RateLimiterConfig(60, Duration.ofSeconds(1))),
@@ -212,5 +213,9 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
 
   public RateLimiter getInboundMessageBytes() {
     return forDescriptor(For.INBOUND_MESSAGE_BYTES);
+  }
+
+  public RateLimiter getStoriesLimiter() {
+    return forDescriptor(For.STORIES);
   }
 }

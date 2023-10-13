@@ -220,6 +220,7 @@ class MessageControllerTest {
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
 
     when(rateLimiters.getMessagesLimiter()).thenReturn(rateLimiter);
+    when(rateLimiters.getStoriesLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getInboundMessageBytes()).thenReturn(rateLimiter);
   }
 

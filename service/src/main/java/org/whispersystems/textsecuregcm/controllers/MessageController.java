@@ -136,6 +136,8 @@ public class MessageController {
   private static final String CONTENT_SIZE_DISTRIBUTION_NAME = name(MessageController.class, "messageContentSize");
   private static final String OUTGOING_MESSAGE_LIST_SIZE_BYTES_DISTRIBUTION_NAME = name(MessageController.class, "outgoingMessageListSizeBytes");
   private static final String RATE_LIMITED_MESSAGE_COUNTER_NAME = name(MessageController.class, "rateLimitedMessage");
+  private static final String RATE_LIMITED_STORIES_COUNTER_NAME = name(MessageController.class, "rateLimitedStory");
+
   private static final String REJECT_INVALID_ENVELOPE_TYPE = name(MessageController.class, "rejectInvalidEnvelopeType");
 
   private static final String EPHEMERAL_TAG_NAME = "ephemeral";
@@ -276,7 +278,7 @@ public class MessageController {
       }
 
       if (isStory) {
-        checkStoryRateLimit(destination.get());
+        checkStoryRateLimit(destination.get(), userAgent);
       }
 
       final Set<Long> excludedDeviceIds;
@@ -413,7 +415,7 @@ public class MessageController {
     accountsByServiceIdentifier.forEach((serviceIdentifier, account) -> {
 
       if (isStory) {
-        checkStoryRateLimit(account);
+        checkStoryRateLimit(account, userAgent);
       }
 
       Set<Long> deviceIds = accountToDeviceIdAndRegistrationIdMap
@@ -732,10 +734,11 @@ public class MessageController {
     }
   }
 
-  private void checkStoryRateLimit(Account destination) {
+  private void checkStoryRateLimit(Account destination, String userAgent) {
     try {
-      rateLimiters.getMessagesLimiter().validate(destination.getUuid());
+      rateLimiters.getStoriesLimiter().validate(destination.getUuid());
     } catch (final RateLimitExceededException e) {
+      Metrics.counter(RATE_LIMITED_STORIES_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent))).increment();
     }
   }
 
