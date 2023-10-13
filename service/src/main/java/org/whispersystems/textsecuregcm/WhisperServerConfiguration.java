@@ -47,7 +47,6 @@ import org.whispersystems.textsecuregcm.configuration.RedisConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RegistrationServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RemoteConfigConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ReportMessageConfiguration;
-import org.whispersystems.textsecuregcm.configuration.SecureBackupServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SecureStorageServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SecureValueRecovery2Configuration;
 import org.whispersystems.textsecuregcm.configuration.ShortCodeExpanderConfiguration;
@@ -212,11 +211,6 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @JsonProperty
   private SecureStorageServiceConfiguration storageService;
-
-  @Valid
-  @NotNull
-  @JsonProperty
-  private SecureBackupServiceConfiguration backupService;
 
   @Valid
   @NotNull
@@ -437,10 +431,6 @@ public class WhisperServerConfiguration extends Configuration {
     }
 
     return results;
-  }
-
-  public SecureBackupServiceConfiguration getSecureBackupServiceConfiguration() {
-    return backupService;
   }
 
   public PaymentsServiceConfiguration getPaymentsServiceConfiguration() {
