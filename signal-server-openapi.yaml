@@ -60,7 +60,17 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UsernameHashResponse'
+                type: object
+                properties:
+                  completedExceptionally:
+                    type: boolean
+                  numberOfDependents:
+                    type: integer
+                    format: int32
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
         "401":
           description: Account authentication check failed.
         "409":
@@ -180,6 +190,20 @@ paths:
       responses:
         "204":
           description: Username successfully deleted.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  completedExceptionally:
+                    type: boolean
+                  numberOfDependents:
+                    type: integer
+                    format: int32
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
         "401":
           description: Account authentication check failed.
       security:
@@ -269,7 +293,17 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AccountIdentifierResponse'
+                type: object
+                properties:
+                  completedExceptionally:
+                    type: boolean
+                  numberOfDependents:
+                    type: integer
+                    format: int32
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
         "400":
           description: Request must not be authenticated.
         "404":
@@ -299,7 +333,17 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/EncryptedUsername'
+                type: object
+                properties:
+                  completedExceptionally:
+                    type: boolean
+                  numberOfDependents:
+                    type: integer
+                    format: int32
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
         "400":
           description: Request must not be authenticated.
         "404":
@@ -361,7 +405,17 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ReserveUsernameHashResponse'
+                type: object
+                properties:
+                  completedExceptionally:
+                    type: boolean
+                  numberOfDependents:
+                    type: integer
+                    format: int32
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
         "401":
           description: Account authentication check failed.
         "409":
@@ -1690,59 +1744,11 @@ paths:
           description: default response
           content:
             application/json: {}
-  /v1/backup/auth/check:
-    post:
-      tags:
-      - Secure Value Recovery
-      summary: Check SVR credentials
-      description: |
-        Over time, clients may wind up with multiple sets of KBS authentication credentials in cloud storage.
-        To determine which set is most current and should be used to communicate with SVR to retrieve a master key
-        (from which a registration recovery password can be derived), clients should call this endpoint
-        with a list of stored credentials. The response will identify which (if any) set of credentials are appropriate for communicating with SVR.
-      operationId: authCheck
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AuthCheckRequest'
-        required: true
-      responses:
-        "200":
-          description: '`JSON` with the check results.'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthCheckResponse'
-        "422":
-          description: Provided list of KBS credentials could not be parsed
-        "400":
-          description: '`POST` request body is not a valid `JSON`'
-  /v1/backup/auth:
-    get:
-      tags:
-      - Secure Value Recovery
-      summary: Generate credentials for SVR
-      description: |
-        Generate SVR service credentials. Generated credentials have an expiration time of 30 days
-        (however, the TTL is fully controlled by the server side and may change even for already generated credentials).
-      operationId: getAuth_2
-      responses:
-        "200":
-          description: '`JSON` with generated credentials.'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ExternalServiceCredentials'
-        "401":
-          description: Account authentication check failed.
-      security:
-      - authenticatedAccount: []
   /v1/storage/auth:
     get:
       tags:
       - Secure Storage
-      operationId: getAuth_3
+      operationId: getAuth_2
       responses:
         default:
           description: default response
@@ -1762,7 +1768,7 @@ paths:
         To determine which set is most current and should be used to communicate with SVR2 to retrieve a master key
         (from which a registration recovery password can be derived), clients should call this endpoint
         with a list of stored credentials. The response will identify which (if any) set of credentials are appropriate for communicating with SVR2.
-      operationId: authCheck_1
+      operationId: authCheck
       requestBody:
         content:
           application/json:
@@ -1788,7 +1794,7 @@ paths:
       description: |
         Generate SVR2 service credentials. Generated credentials have an expiration time of 30 days
         (however, the TTL is fully controlled by the server side and may change even for already generated credentials).
-      operationId: getAuth_4
+      operationId: getAuth_3
       responses:
         "200":
           description: '`JSON` with generated credentials.'
@@ -2502,16 +2508,6 @@ components:
       type: object
       description: A service identifier is a tuple of a UUID and identity type that
         identifies an account and identity within the Signal service.
-    UsernameHashResponse:
-      type: object
-      properties:
-        usernameHash:
-          type: string
-          description: "The hash of the confirmed username, as supplied in the request"
-        usernameLinkHandle:
-          type: string
-          description: A handle that can be included in username links to retrieve
-            the stored encrypted username
     ConfirmUsernameHashRequest:
       type: object
       properties:
@@ -2566,32 +2562,6 @@ components:
           type: array
           items:
             type: string
-    AccountIdentifierResponse:
-      required:
-      - uuid
-      type: object
-      properties:
-        uuid:
-          type: string
-          description: An identifier for an account based on the account's ACI
-    EncryptedUsername:
-      required:
-      - usernameLinkEncryptedValue
-      type: object
-      properties:
-        usernameLinkEncryptedValue:
-          maxLength: 128
-          minLength: 1
-          type: string
-          description: the URL-safe base64 encoding of the encrypted username
-    ReserveUsernameHashResponse:
-      type: object
-      properties:
-        usernameHash:
-          type: array
-          items:
-            type: string
-            format: byte
     ReserveUsernameHashRequest:
       required:
       - usernameHashes
@@ -2713,6 +2683,16 @@ components:
           description: A handle that can be included in username links to retrieve
             the stored encrypted username
           format: uuid
+    EncryptedUsername:
+      required:
+      - usernameLinkEncryptedValue
+      type: object
+      properties:
+        usernameLinkEncryptedValue:
+          maxLength: 128
+          minLength: 1
+          type: string
+          description: the URL-safe base64 encoding of the encrypted username
     MismatchedDevices:
       type: object
       properties:
@@ -2755,8 +2735,6 @@ components:
           description: Time remaining in milliseconds before the existing registration
             lock expires
           format: int64
-        backupCredentials:
-          $ref: '#/components/schemas/ExternalServiceCredentials'
         svr2Credentials:
           $ref: '#/components/schemas/ExternalServiceCredentials'
       description: A token provided to the client via a push payload
@@ -3270,13 +3248,13 @@ components:
     WebSocketClient:
       type: object
       properties:
-        open:
-          type: boolean
-        userAgent:
-          type: string
         createdTimestamp:
           type: integer
           format: int64
+        userAgent:
+          type: string
+        open:
+          type: boolean
     WebSocketSessionContext:
       type: object
       properties:
