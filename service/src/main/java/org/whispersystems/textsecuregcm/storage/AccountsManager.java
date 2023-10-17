@@ -196,9 +196,12 @@ public class AccountsManager {
 
         account.setNumber(number, phoneNumberIdentifiers.getPhoneNumberIdentifier(number));
 
+        final Optional<UUID> maybeRecentlyDeletedAccountIdentifier =
+            accounts.findRecentlyDeletedAccountIdentifier(number);
+
         // Reuse the ACI from any recently-deleted account with this number to cover cases where somebody is
         // re-registering.
-        account.setUuid(accounts.findRecentlyDeletedAccountIdentifier(number).orElseGet(UUID::randomUUID));
+        account.setUuid(maybeRecentlyDeletedAccountIdentifier.orElseGet(UUID::randomUUID));
         account.addDevice(device);
         account.setRegistrationLockFromAttributes(accountAttributes);
         account.setUnidentifiedAccessKey(accountAttributes.getUnidentifiedAccessKey());
@@ -245,10 +248,10 @@ public class AccountsManager {
 
         if (freshUser) {
           tags = Tags.of("type", "new");
-        } else if (!originalUuid.equals(actualUuid)) {
-          tags = Tags.of("type", "re-registration");
-        } else {
+        } else if (maybeRecentlyDeletedAccountIdentifier.isPresent()) {
           tags = Tags.of("type", "recently-deleted");
+        } else {
+          tags = Tags.of("type", "re-registration");
         }
 
         Metrics.counter(CREATE_COUNTER_NAME, tags).increment();
