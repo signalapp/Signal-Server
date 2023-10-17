@@ -250,9 +250,7 @@ public class AccountsManager {
         final Tags tags;
 
         if (freshUser) {
-          tags = Tags.of("type", "new");
-        } else if (maybeRecentlyDeletedAccountIdentifier.isPresent()) {
-          tags = Tags.of("type", "recently-deleted");
+          tags = Tags.of("type", maybeRecentlyDeletedAccountIdentifier.isPresent() ? "recently-deleted" : "new");
         } else {
           tags = Tags.of("type", "re-registration");
         }
