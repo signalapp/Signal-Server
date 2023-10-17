@@ -43,6 +43,7 @@ import javax.ws.rs.client.Entity;
 import javax.ws.rs.client.Invocation;
 import javax.ws.rs.core.Response;
 import org.apache.commons.lang3.RandomUtils;
+import org.glassfish.jersey.server.ServerProperties;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -97,7 +98,6 @@ class AccountControllerTest {
   private static final String SENDER_OLD         = "+14151111111";
   private static final String SENDER_PIN         = "+14153333333";
   private static final String SENDER_OVER_PIN    = "+14154444444";
-  private static final String SENDER_OVER_PREFIX = "+14156666666";
   private static final String SENDER_PREAUTH     = "+14157777777";
   private static final String SENDER_REG_LOCK    = "+14158888888";
   private static final String SENDER_HAS_STORAGE = "+14159999999";
@@ -105,14 +105,12 @@ class AccountControllerTest {
   private static final String BASE_64_URL_USERNAME_HASH_1 = "9p6Tip7BFefFOJzv4kv4GyXEYsBVfk_WbjNejdlOvQE";
   private static final String BASE_64_URL_USERNAME_HASH_2 = "NLUom-CHwtemcdvOTTXdmXmzRIV7F05leS8lwkVK_vc";
   private static final String BASE_64_URL_ENCRYPTED_USERNAME_1 = "md1votbj9r794DsqTNrBqA";
-  private static final String BASE_64_URL_ENCRYPTED_USERNAME_2 = "9hrqVLy59bzgPse-S9NUsA";
 
   private static final String INVALID_BASE_64_URL_USERNAME_HASH = "fA+VkNbvB6dVfx/6NpaRSK6mvhhAUBgDNWFaD7+7gvs=";
   private static final String TOO_SHORT_BASE_64_URL_USERNAME_HASH = "P2oMuxx0xgGxSpTO0ACq3IztEOBDaV9t9YFu4bAGpQ";
   private static final byte[] USERNAME_HASH_1 = Base64.getUrlDecoder().decode(BASE_64_URL_USERNAME_HASH_1);
   private static final byte[] USERNAME_HASH_2 = Base64.getUrlDecoder().decode(BASE_64_URL_USERNAME_HASH_2);
   private static final byte[] ENCRYPTED_USERNAME_1 = Base64.getUrlDecoder().decode(BASE_64_URL_ENCRYPTED_USERNAME_1);
-  private static final byte[] ENCRYPTED_USERNAME_2 = Base64.getUrlDecoder().decode(BASE_64_URL_ENCRYPTED_USERNAME_2);
   private static final byte[] INVALID_USERNAME_HASH = Base64.getDecoder().decode(INVALID_BASE_64_URL_USERNAME_HASH);
   private static final byte[] TOO_SHORT_USERNAME_HASH = Base64.getUrlDecoder().decode(TOO_SHORT_BASE_64_URL_USERNAME_HASH);
   private static final String BASE_64_URL_ZK_PROOF = "2kambOgmdeeIO0faCMgR6HR4G2BQ5bnhXdIe9ZuZY0NmQXSra5BzDBQ7jzy1cvoEqUHYLpBYMrXudkYPJaWoQg";
@@ -142,6 +140,7 @@ class AccountControllerTest {
   private byte[] registration_lock_key = new byte[32];
 
   private static final ResourceExtension resources = ResourceExtension.builder()
+      .addProperty(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE)
       .addProvider(AuthHelper.getAuthFilter())
       .addProvider(
           new PolymorphicAuthValueFactoryProvider.Binder<>(
@@ -180,6 +179,8 @@ class AccountControllerTest {
     when(rateLimiters.getUsernameLookupLimiter()).thenReturn(usernameLookupLimiter);
     when(rateLimiters.forDescriptor(eq(RateLimiters.For.USERNAME_LOOKUP))).thenReturn(usernameLookupLimiter);
     when(rateLimiters.forDescriptor(eq(RateLimiters.For.CHECK_ACCOUNT_EXISTENCE))).thenReturn(checkAccountExistence);
+
+    when(usernameSetLimiter.validateAsync(any(UUID.class))).thenReturn(CompletableFuture.completedFuture(null));
 
     when(senderPinAccount.getLastSeen()).thenReturn(System.currentTimeMillis());
     when(senderPinAccount.getRegistrationLock()).thenReturn(
@@ -492,19 +493,21 @@ class AccountControllerTest {
       final boolean passRateLimiting,
       final boolean validUuidInput,
       final boolean locateLinkByUuid,
-      final int expectedStatus) throws Exception {
+      final int expectedStatus) {
 
     MockUtils.updateRateLimiterResponseToAllow(
         rateLimiters, RateLimiters.For.USERNAME_LINK_LOOKUP_PER_IP, NICE_HOST);
     MockUtils.updateRateLimiterResponseToFail(
         rateLimiters, RateLimiters.For.USERNAME_LINK_LOOKUP_PER_IP, RATE_LIMITED_IP_HOST, Duration.ofMinutes(10), false);
 
+    when(accountsManager.getByUsernameLinkHandle(any())).thenReturn(CompletableFuture.completedFuture(Optional.empty()));
+
     final String uuid = validUuidInput ? UUID.randomUUID().toString() : "invalid-uuid";
 
     if (validUuidInput && locateLinkByUuid) {
       final Account account = mock(Account.class);
-      doReturn(Optional.of(RandomUtils.nextBytes(16))).when(account).getEncryptedUsername();
-      doReturn(Optional.of(account)).when(accountsManager).getByUsernameLinkHandle(eq(UUID.fromString(uuid)));
+      when(account.getEncryptedUsername()).thenReturn(Optional.of(RandomUtils.nextBytes(16)));
+      when(accountsManager.getByUsernameLinkHandle(UUID.fromString(uuid))).thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
     }
 
     final Invocation.Builder builder = resources.getJerseyTest()
@@ -521,9 +524,9 @@ class AccountControllerTest {
   }
 
   @Test
-  void testReserveUsernameHash() throws UsernameHashNotAvailableException {
+  void testReserveUsernameHash() {
     when(accountsManager.reserveUsernameHash(any(), any()))
-        .thenReturn(new AccountsManager.UsernameReservation(null, USERNAME_HASH_1));
+        .thenReturn(CompletableFuture.completedFuture(new AccountsManager.UsernameReservation(null, USERNAME_HASH_1)));
     Response response =
         resources.getJerseyTest()
             .target("/v1/accounts/username_hash/reserve")
@@ -536,9 +539,9 @@ class AccountControllerTest {
   }
 
   @Test
-  void testReserveUsernameHashUnavailable() throws UsernameHashNotAvailableException {
+  void testReserveUsernameHashUnavailable() {
     when(accountsManager.reserveUsernameHash(any(), anyList()))
-        .thenThrow(new UsernameHashNotAvailableException());
+        .thenReturn(CompletableFuture.failedFuture(new UsernameHashNotAvailableException()));
     Response response =
         resources.getJerseyTest()
             .target("/v1/accounts/username_hash/reserve")
@@ -608,13 +611,14 @@ class AccountControllerTest {
   }
 
   @Test
-  void testConfirmUsernameHash()
-      throws UsernameHashNotAvailableException, UsernameReservationNotFoundException, BaseUsernameException {
+  void testConfirmUsernameHash() throws BaseUsernameException {
     Account account = mock(Account.class);
     final UUID uuid = UUID.randomUUID();
     when(account.getUsernameHash()).thenReturn(Optional.of(USERNAME_HASH_1));
     when(account.getUsernameLinkHandle()).thenReturn(uuid);
-    when(accountsManager.confirmReservedUsernameHash(any(), eq(USERNAME_HASH_1), eq(ENCRYPTED_USERNAME_1))).thenReturn(account);
+    when(accountsManager.confirmReservedUsernameHash(any(), eq(USERNAME_HASH_1), eq(ENCRYPTED_USERNAME_1)))
+        .thenReturn(CompletableFuture.completedFuture(account));
+
     Response response =
         resources.getJerseyTest()
             .target("/v1/accounts/username_hash/confirm")
@@ -630,13 +634,15 @@ class AccountControllerTest {
   }
 
   @Test
-  void testConfirmUsernameHashOld()
-      throws UsernameHashNotAvailableException, UsernameReservationNotFoundException, BaseUsernameException {
+  void testConfirmUsernameHashOld() throws BaseUsernameException {
     Account account = mock(Account.class);
-    final UUID uuid = UUID.randomUUID();
     when(account.getUsernameHash()).thenReturn(Optional.of(USERNAME_HASH_1));
     when(account.getUsernameLinkHandle()).thenReturn(null);
-    when(accountsManager.confirmReservedUsernameHash(any(), eq(USERNAME_HASH_1), eq(null))).thenReturn(account);
+    when(accountsManager.confirmReservedUsernameHash(any(), eq(USERNAME_HASH_1), eq(null)))
+        .thenReturn(CompletableFuture.completedFuture(account));
+
+
+
     Response response =
         resources.getJerseyTest()
             .target("/v1/accounts/username_hash/confirm")
@@ -652,10 +658,10 @@ class AccountControllerTest {
   }
 
   @Test
-  void testConfirmUnreservedUsernameHash()
-      throws UsernameHashNotAvailableException, UsernameReservationNotFoundException, BaseUsernameException {
+  void testConfirmUnreservedUsernameHash() throws BaseUsernameException {
     when(accountsManager.confirmReservedUsernameHash(any(), eq(USERNAME_HASH_1), any()))
-        .thenThrow(new UsernameReservationNotFoundException());
+        .thenReturn(CompletableFuture.failedFuture(new UsernameReservationNotFoundException()));
+
     Response response =
         resources.getJerseyTest()
             .target("/v1/accounts/username_hash/confirm")
@@ -667,10 +673,10 @@ class AccountControllerTest {
   }
 
   @Test
-  void testConfirmLapsedUsernameHash()
-      throws UsernameHashNotAvailableException, UsernameReservationNotFoundException, BaseUsernameException {
+  void testConfirmLapsedUsernameHash() throws BaseUsernameException {
     when(accountsManager.confirmReservedUsernameHash(any(), eq(USERNAME_HASH_1), any()))
-        .thenThrow(new UsernameHashNotAvailableException());
+        .thenReturn(CompletableFuture.failedFuture(new UsernameHashNotAvailableException()));
+
     Response response =
         resources.getJerseyTest()
             .target("/v1/accounts/username_hash/confirm")
@@ -728,6 +734,9 @@ class AccountControllerTest {
 
   @Test
   void testDeleteUsername() {
+    when(accountsManager.clearUsernameHash(any()))
+        .thenAnswer(invocation -> CompletableFuture.completedFuture(invocation.getArgument(0)));
+
     Response response =
         resources.getJerseyTest()
                  .target("/v1/accounts/username_hash/")
@@ -927,7 +936,7 @@ class AccountControllerTest {
     final UUID uuid = UUID.randomUUID();
     when(account.getUuid()).thenReturn(uuid);
 
-    when(accountsManager.getByUsernameHash(any())).thenReturn(Optional.of(account));
+    when(accountsManager.getByUsernameHash(any())).thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
     Response response = resources.getJerseyTest()
         .target(String.format("v1/accounts/username_hash/%s", BASE_64_URL_USERNAME_HASH_1))
         .request()
@@ -939,7 +948,7 @@ class AccountControllerTest {
 
   @Test
   void testLookupUsernameDoesNotExist() {
-    when(accountsManager.getByUsernameHash(any())).thenReturn(Optional.empty());
+    when(accountsManager.getByUsernameHash(any())).thenReturn(CompletableFuture.completedFuture(Optional.empty()));
     assertThat(resources.getJerseyTest()
         .target(String.format("v1/accounts/username_hash/%s", BASE_64_URL_USERNAME_HASH_1))
         .request()

@@ -23,15 +23,18 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -454,42 +457,46 @@ public class AccountsManager {
    *
    * @param account the account to update
    * @param requestedUsernameHashes the list of username hashes to attempt to reserve
-   * @return the reserved username hash and an updated Account object
-   * @throws UsernameHashNotAvailableException no username hash is available
+   * @return a future that yields the reserved username hash and an updated Account object on success; may fail with a
+   * {@link UsernameHashNotAvailableException} if none of the given username hashes are available
    */
-  public UsernameReservation reserveUsernameHash(final Account account, final List<byte[]> requestedUsernameHashes) throws UsernameHashNotAvailableException {
+  public CompletableFuture<UsernameReservation> reserveUsernameHash(final Account account, final List<byte[]> requestedUsernameHashes) {
     if (!experimentEnrollmentManager.isEnrolled(account.getUuid(), USERNAME_EXPERIMENT_NAME)) {
-      throw new UsernameHashNotAvailableException();
+      return CompletableFuture.failedFuture(new UsernameHashNotAvailableException());
     }
 
-    redisDelete(account);
+    final AtomicReference<byte[]> reservedUsernameHash = new AtomicReference<>();
 
-    class Reserver implements AccountPersister {
-      byte[] reservedUsernameHash;
+    return redisDeleteAsync(account)
+        .thenCompose(ignored -> updateWithRetriesAsync(
+            account,
+            a -> true,
+            a -> checkAndReserveNextUsernameHash(a, new ArrayDeque<>(requestedUsernameHashes))
+                .thenAccept(reservedUsernameHash::set),
+            () -> accounts.getByAccountIdentifierAsync(account.getUuid()).thenApply(Optional::orElseThrow),
+            AccountChangeValidator.USERNAME_CHANGE_VALIDATOR,
+            MAX_UPDATE_ATTEMPTS))
+        .thenApply(updatedAccount -> new UsernameReservation(updatedAccount, reservedUsernameHash.get()));
+  }
 
-      @Override
-      public void persistAccount(final Account account) throws UsernameHashNotAvailableException {
-        for (byte[] usernameHash : requestedUsernameHashes) {
-          if (accounts.usernameHashAvailable(usernameHash)) {
-            reservedUsernameHash = usernameHash;
-            accounts.reserveUsernameHash(
-              account,
-              usernameHash,
-              USERNAME_HASH_RESERVATION_TTL_MINUTES);
-            return;
+  private CompletableFuture<byte[]> checkAndReserveNextUsernameHash(final Account account, final Queue<byte[]> requestedUsernameHashes) {
+    final byte[] usernameHash;
+
+    try {
+      usernameHash = requestedUsernameHashes.remove();
+    } catch (final NoSuchElementException e) {
+      return CompletableFuture.failedFuture(new UsernameHashNotAvailableException());
+    }
+
+    return accounts.usernameHashAvailable(usernameHash)
+        .thenCompose(usernameHashAvailable -> {
+          if (usernameHashAvailable) {
+            return accounts.reserveUsernameHash(account, usernameHash, USERNAME_HASH_RESERVATION_TTL_MINUTES)
+                .thenApply(ignored -> usernameHash);
+          } else {
+            return checkAndReserveNextUsernameHash(account, requestedUsernameHashes);
           }
-        }
-        throw new UsernameHashNotAvailableException();
-      }
-    }
-    final Reserver reserver = new Reserver();
-    final Account updatedAccount = failableUpdateWithRetries(
-        account,
-        a -> true,
-        reserver,
-        () -> accounts.getByAccountIdentifier(account.getUuid()).orElseThrow(),
-        AccountChangeValidator.USERNAME_CHANGE_VALIDATOR);
-    return new UsernameReservation(updatedAccount, reserver.reservedUsernameHash);
+        });
   }
 
   /**
@@ -498,50 +505,54 @@ public class AccountsManager {
    * @param account the account to update
    * @param reservedUsernameHash the previously reserved username hash
    * @param encryptedUsername the encrypted form of the previously reserved username for the username link
-   * @return the updated account with the username hash field set
-   * @throws UsernameHashNotAvailableException if the reserved username hash has been taken (because the reservation expired)
-   * @throws UsernameReservationNotFoundException if `reservedUsernameHash` was not reserved in the account
+   * @return a future that yields the updated account with the username hash field set; may fail with a
+   * {@link UsernameHashNotAvailableException} if the reserved username hash has been taken (because the reservation
+   * expired) or a {@link UsernameReservationNotFoundException} if {@code reservedUsernameHash} was not reserved in the
+   * account
    */
-  public Account confirmReservedUsernameHash(final Account account, final byte[] reservedUsernameHash, @Nullable final byte[] encryptedUsername) throws UsernameHashNotAvailableException, UsernameReservationNotFoundException {
+  public CompletableFuture<Account> confirmReservedUsernameHash(final Account account, final byte[] reservedUsernameHash, @Nullable final byte[] encryptedUsername) {
     if (!experimentEnrollmentManager.isEnrolled(account.getUuid(), USERNAME_EXPERIMENT_NAME)) {
-      throw new UsernameHashNotAvailableException();
+      return CompletableFuture.failedFuture(new UsernameHashNotAvailableException());
     }
+
     if (account.getUsernameHash().map(currentUsernameHash -> Arrays.equals(currentUsernameHash, reservedUsernameHash)).orElse(false)) {
       // the client likely already succeeded and is retrying
-      return account;
+      return CompletableFuture.completedFuture(account);
     }
 
     if (!account.getReservedUsernameHash().map(oldHash -> Arrays.equals(oldHash, reservedUsernameHash)).orElse(false)) {
       // no such reservation existed, either there was no previous call to reserveUsername
       // or the reservation changed
-      throw new UsernameReservationNotFoundException();
+      return CompletableFuture.failedFuture(new UsernameReservationNotFoundException());
     }
 
-    redisDelete(account);
+    return redisDeleteAsync(account)
+        .thenCompose(ignored -> updateWithRetriesAsync(
+            account,
+            a -> true,
+            a -> accounts.usernameHashAvailable(Optional.of(account.getUuid()), reservedUsernameHash)
+                .thenCompose(usernameHashAvailable -> {
+                  if (!usernameHashAvailable) {
+                    return CompletableFuture.failedFuture(new UsernameHashNotAvailableException());
+                  }
 
-    return failableUpdateWithRetries(
-        account,
-        a -> true,
-        a -> {
-          // though we know this username hash was reserved, the reservation could have lapsed
-          if (!accounts.usernameHashAvailable(Optional.of(account.getUuid()), reservedUsernameHash)) {
-            throw new UsernameHashNotAvailableException();
-          }
-          accounts.confirmUsernameHash(a, reservedUsernameHash, encryptedUsername);
-        },
-        () -> accounts.getByAccountIdentifier(account.getUuid()).orElseThrow(),
-        AccountChangeValidator.USERNAME_CHANGE_VALIDATOR);
+                  return accounts.confirmUsernameHash(a, reservedUsernameHash, encryptedUsername);
+                }),
+            () -> accounts.getByAccountIdentifierAsync(account.getUuid()).thenApply(Optional::orElseThrow),
+            AccountChangeValidator.USERNAME_CHANGE_VALIDATOR,
+            MAX_UPDATE_ATTEMPTS
+        ));
   }
 
-  public Account clearUsernameHash(final Account account) {
-    redisDelete(account);
-
-    return updateWithRetries(
-        account,
-        a -> true,
-        accounts::clearUsernameHash,
-        () -> accounts.getByAccountIdentifier(account.getUuid()).orElseThrow(),
-        AccountChangeValidator.USERNAME_CHANGE_VALIDATOR);
+  public CompletableFuture<Account> clearUsernameHash(final Account account) {
+    return redisDeleteAsync(account)
+        .thenCompose(ignored -> updateWithRetriesAsync(
+            account,
+            a -> true,
+            accounts::clearUsernameHash,
+            () -> accounts.getByAccountIdentifierAsync(account.getUuid()).thenApply(Optional::orElseThrow),
+            AccountChangeValidator.USERNAME_CHANGE_VALIDATOR,
+            MAX_UPDATE_ATTEMPTS));
   }
 
   public Account update(Account account, Consumer<Account> updater) {
@@ -780,18 +791,18 @@ public class AccountsManager {
     );
   }
 
-  public Optional<Account> getByUsernameLinkHandle(final UUID usernameLinkHandle) {
-    return checkRedisThenAccounts(
+  public CompletableFuture<Optional<Account>> getByUsernameLinkHandle(final UUID usernameLinkHandle) {
+    return checkRedisThenAccountsAsync(
         getByUsernameLinkHandleTimer,
-        () -> redisGetBySecondaryKey(getAccountMapKey(usernameLinkHandle.toString()), redisUsernameLinkHandleGetTimer),
+        () -> redisGetBySecondaryKeyAsync(getAccountMapKey(usernameLinkHandle.toString()), redisUsernameLinkHandleGetTimer),
         () -> accounts.getByUsernameLinkHandle(usernameLinkHandle)
     );
   }
 
-  public Optional<Account> getByUsernameHash(final byte[] usernameHash) {
-    return checkRedisThenAccounts(
+  public CompletableFuture<Optional<Account>> getByUsernameHash(final byte[] usernameHash) {
+    return checkRedisThenAccountsAsync(
         getByUsernameHashTimer,
-        () -> redisGetBySecondaryKey(getUsernameHashAccountMapKey(usernameHash), redisUsernameHashGetTimer),
+        () -> redisGetBySecondaryKeyAsync(getUsernameHashAccountMapKey(usernameHash), redisUsernameHashGetTimer),
         () -> accounts.getByUsernameHash(usernameHash)
     );
   }

@@ -16,6 +16,7 @@ import java.time.Clock;
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -51,6 +52,7 @@ import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.storage.UsernameHashNotAvailableException;
 import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundException;
 import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
+import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
@@ -210,17 +212,23 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
     accountsManager.getByAccountIdentifier(accountIdentifier).ifPresentOrElse(account -> {
           try {
             final AccountsManager.UsernameReservation reservation = accountsManager.reserveUsernameHash(account,
-                List.of(Base64.getUrlDecoder().decode(usernameHash)));
+                List.of(Base64.getUrlDecoder().decode(usernameHash))).join();
             final Account result = accountsManager.confirmReservedUsernameHash(
                 account,
                 reservation.reservedUsernameHash(),
-                encryptedUsername == null ? null : Base64.getUrlDecoder().decode(encryptedUsername));
+                encryptedUsername == null ? null : Base64.getUrlDecoder().decode(encryptedUsername)).join();
             System.out.println("New username hash: " + Base64.getUrlEncoder().encodeToString(result.getUsernameHash().orElseThrow()));
             System.out.println("New username link handle: " + result.getUsernameLinkHandle().toString());
-          } catch (final UsernameHashNotAvailableException e) {
-            throw new IllegalArgumentException("Username hash already taken");
-          } catch (final UsernameReservationNotFoundException e) {
-            throw new IllegalArgumentException("Username hash reservation not found");
+          } catch (final CompletionException e) {
+            if (ExceptionUtils.unwrap(e) instanceof UsernameHashNotAvailableException) {
+              throw new IllegalArgumentException("Username hash already taken");
+            }
+
+            if (ExceptionUtils.unwrap(e) instanceof UsernameReservationNotFoundException) {
+              throw new IllegalArgumentException("Username hash reservation not found");
+            }
+
+            throw e;
           }
         },
         () -> {

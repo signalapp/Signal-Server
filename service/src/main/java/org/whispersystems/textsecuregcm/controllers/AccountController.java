@@ -22,6 +22,7 @@ import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.HEAD;
 import javax.ws.rs.HeaderParam;
+import javax.ws.rs.NotFoundException;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -61,6 +62,7 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.UsernameHashNotAvailableException;
 import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundException;
+import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.UsernameHashZkProofVerifier;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -271,9 +273,10 @@ public class AccountController {
   )
   @ApiResponse(responseCode = "204", description = "Username successfully deleted.", useReturnTypeSchema = true)
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
-  public void deleteUsernameHash(@Auth final AuthenticatedAccount auth) {
+  public CompletableFuture<Void> deleteUsernameHash(@Auth final AuthenticatedAccount auth) {
     clearUsernameLink(auth.getAccount());
-    accounts.clearUsernameHash(auth.getAccount());
+    return accounts.clearUsernameHash(auth.getAccount())
+        .thenRun(Util.NOOP);
   }
 
   @PUT
@@ -292,7 +295,7 @@ public class AccountController {
   @ApiResponse(responseCode = "409", description = "All username hashes from the list are taken.")
   @ApiResponse(responseCode = "422", description = "Invalid request format.")
   @ApiResponse(responseCode = "429", description = "Ratelimited.")
-  public ReserveUsernameHashResponse reserveUsernameHash(
+  public CompletableFuture<ReserveUsernameHashResponse> reserveUsernameHash(
       @Auth final AuthenticatedAccount auth,
       @NotNull @Valid final ReserveUsernameHashRequest usernameRequest) throws RateLimitExceededException {
 
@@ -304,15 +307,15 @@ public class AccountController {
       }
     }
 
-    try {
-      final AccountsManager.UsernameReservation reservation = accounts.reserveUsernameHash(
-          auth.getAccount(),
-          usernameRequest.usernameHashes()
-      );
-      return new ReserveUsernameHashResponse(reservation.reservedUsernameHash());
-    } catch (final UsernameHashNotAvailableException e) {
-      throw new WebApplicationException(Status.CONFLICT);
-    }
+    return accounts.reserveUsernameHash(auth.getAccount(), usernameRequest.usernameHashes())
+        .thenApply(reservation -> new ReserveUsernameHashResponse(reservation.reservedUsernameHash()))
+        .exceptionally(throwable -> {
+          if (ExceptionUtils.unwrap(throwable) instanceof UsernameHashNotAvailableException) {
+            throw new WebApplicationException(Status.CONFLICT);
+          }
+
+          throw ExceptionUtils.wrap(throwable);
+        });
   }
 
   @PUT
@@ -332,10 +335,9 @@ public class AccountController {
   @ApiResponse(responseCode = "410", description = "Username hash not available (username can't be used).")
   @ApiResponse(responseCode = "422", description = "Invalid request format.")
   @ApiResponse(responseCode = "429", description = "Ratelimited.")
-  public UsernameHashResponse confirmUsernameHash(
+  public CompletableFuture<UsernameHashResponse> confirmUsernameHash(
       @Auth final AuthenticatedAccount auth,
-      @NotNull @Valid final ConfirmUsernameHashRequest confirmRequest) throws RateLimitExceededException {
-    rateLimiters.getUsernameSetLimiter().validate(auth.getAccount().getUuid());
+      @NotNull @Valid final ConfirmUsernameHashRequest confirmRequest) {
 
     try {
       usernameHashZkProofVerifier.verifyProof(confirmRequest.zkProof(), confirmRequest.usernameHash());
@@ -343,20 +345,26 @@ public class AccountController {
       throw new WebApplicationException(Response.status(422).build());
     }
 
-    try {
-      final Account account = accounts.confirmReservedUsernameHash(
-          auth.getAccount(),
-          confirmRequest.usernameHash(),
-          confirmRequest.encryptedUsername());
-      final UUID linkHandle = account.getUsernameLinkHandle();
-      return new UsernameHashResponse(
-          account.getUsernameHash().orElseThrow(() -> new IllegalStateException("Could not get username after setting")),
-          linkHandle);
-    } catch (final UsernameReservationNotFoundException e) {
-      throw new WebApplicationException(Status.CONFLICT);
-    } catch (final UsernameHashNotAvailableException e) {
-      throw new WebApplicationException(Status.GONE);
-    }
+    return rateLimiters.getUsernameSetLimiter().validateAsync(auth.getAccount().getUuid())
+        .thenCompose(ignored -> accounts.confirmReservedUsernameHash(
+            auth.getAccount(),
+            confirmRequest.usernameHash(),
+            confirmRequest.encryptedUsername()))
+        .thenApply(updatedAccount -> new UsernameHashResponse(updatedAccount.getUsernameHash()
+            .orElseThrow(() -> new IllegalStateException("Could not get username after setting")),
+            updatedAccount.getUsernameLinkHandle()))
+        .exceptionally(throwable -> {
+          if (ExceptionUtils.unwrap(throwable) instanceof UsernameReservationNotFoundException) {
+            throw new WebApplicationException(Status.CONFLICT);
+          }
+
+          if (ExceptionUtils.unwrap(throwable) instanceof UsernameHashNotAvailableException) {
+            throw new WebApplicationException(Status.GONE);
+          }
+
+          throw ExceptionUtils.wrap(throwable);
+        })
+        .toCompletableFuture();
   }
 
   @GET
@@ -372,9 +380,9 @@ public class AccountController {
   @ApiResponse(responseCode = "200", description = "Account found for the given username.", useReturnTypeSchema = true)
   @ApiResponse(responseCode = "400", description = "Request must not be authenticated.")
   @ApiResponse(responseCode = "404", description = "Account not fount for the given username.")
-  public AccountIdentifierResponse lookupUsernameHash(
+  public CompletableFuture<AccountIdentifierResponse> lookupUsernameHash(
       @Auth final Optional<AuthenticatedAccount> maybeAuthenticatedAccount,
-      @PathParam("usernameHash") final String usernameHash) throws RateLimitExceededException {
+      @PathParam("usernameHash") final String usernameHash) {
 
     requireNotAuthenticated(maybeAuthenticatedAccount);
     final byte[] hash;
@@ -388,12 +396,10 @@ public class AccountController {
       throw new WebApplicationException(Response.status(422).build());
     }
 
-    return accounts
-        .getByUsernameHash(hash)
-        .map(Account::getUuid)
+    return accounts.getByUsernameHash(hash).thenApply(maybeAccount -> maybeAccount.map(Account::getUuid)
         .map(AciServiceIdentifier::new)
         .map(AccountIdentifierResponse::new)
-        .orElseThrow(() -> new WebApplicationException(Status.NOT_FOUND));
+        .orElseThrow(() -> new WebApplicationException(Status.NOT_FOUND)));
   }
 
   @PUT
@@ -464,16 +470,16 @@ public class AccountController {
   @ApiResponse(responseCode = "404", description = "Username link was not found for the given handle.")
   @ApiResponse(responseCode = "422", description = "Invalid request format.")
   @ApiResponse(responseCode = "429", description = "Ratelimited.")
-  public EncryptedUsername lookupUsernameLink(
+  public CompletableFuture<EncryptedUsername> lookupUsernameLink(
       @Auth final Optional<AuthenticatedAccount> maybeAuthenticatedAccount,
       @PathParam("uuid") final UUID usernameLinkHandle) {
-    final Optional<byte[]> maybeEncryptedUsername = accounts.getByUsernameLinkHandle(usernameLinkHandle)
-        .flatMap(Account::getEncryptedUsername);
+
     requireNotAuthenticated(maybeAuthenticatedAccount);
-    if (maybeEncryptedUsername.isEmpty()) {
-      throw new WebApplicationException(Status.NOT_FOUND);
-    }
-    return new EncryptedUsername(maybeEncryptedUsername.get());
+
+    return accounts.getByUsernameLinkHandle(usernameLinkHandle)
+        .thenApply(maybeAccount -> maybeAccount.flatMap(Account::getEncryptedUsername)
+            .map(EncryptedUsername::new)
+            .orElseThrow(NotFoundException::new));
   }
 
   @Operation(

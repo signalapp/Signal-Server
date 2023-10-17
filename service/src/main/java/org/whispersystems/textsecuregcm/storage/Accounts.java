@@ -28,7 +28,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -346,75 +345,83 @@ public class Accounts extends AbstractDynamoDbStore {
   /**
    * Reserve a username hash under the account UUID
    */
-  public void reserveUsernameHash(
+  public CompletableFuture<Void> reserveUsernameHash(
       final Account account,
       final byte[] reservedUsernameHash,
       final Duration ttl) {
-    final long startNanos = System.nanoTime();
+
+    final Timer.Sample sample = Timer.start();
+
     // if there is an existing old reservation it will be cleaned up via ttl
     final Optional<byte[]> maybeOriginalReservation = account.getReservedUsernameHash();
     account.setReservedUsernameHash(reservedUsernameHash);
-
-    boolean succeeded = false;
 
     final long expirationTime = clock.instant().plus(ttl).getEpochSecond();
 
     // Use account UUID as a "reservation token" - by providing this, the client proves ownership of the hash
     final UUID uuid = account.getUuid();
+    final byte[] accountJsonBytes;
+
     try {
-      final List<TransactWriteItem> writeItems = new ArrayList<>();
-
-      writeItems.add(TransactWriteItem.builder()
-          .put(Put.builder()
-              .tableName(usernamesConstraintTableName)
-              .item(Map.of(
-                  KEY_ACCOUNT_UUID, AttributeValues.fromUUID(uuid),
-                  ATTR_USERNAME_HASH, AttributeValues.fromByteArray(reservedUsernameHash),
-                  ATTR_TTL, AttributeValues.fromLong(expirationTime),
-                  ATTR_CONFIRMED, AttributeValues.fromBool(false)))
-              .conditionExpression("attribute_not_exists(#username_hash) OR (#ttl < :now)")
-              .expressionAttributeNames(Map.of("#username_hash", ATTR_USERNAME_HASH, "#ttl", ATTR_TTL))
-              .expressionAttributeValues(Map.of(":now", AttributeValues.fromLong(clock.instant().getEpochSecond())))
-              .returnValuesOnConditionCheckFailure(ReturnValuesOnConditionCheckFailure.ALL_OLD)
-              .build())
-          .build());
-
-      writeItems.add(
-          TransactWriteItem.builder()
-              .update(Update.builder()
-                  .tableName(accountsTableName)
-                  .key(Map.of(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(uuid)))
-                  .updateExpression("SET #data = :data ADD #version :version_increment")
-                  .conditionExpression("#version = :version")
-                  .expressionAttributeNames(Map.of("#data", ATTR_ACCOUNT_DATA, "#version", ATTR_VERSION))
-                  .expressionAttributeValues(Map.of(
-                      ":data", accountDataAttributeValue(account),
-                      ":version", AttributeValues.fromInt(account.getVersion()),
-                      ":version_increment", AttributeValues.fromInt(1)))
-                  .build())
-              .build());
-
-      final TransactWriteItemsRequest request = TransactWriteItemsRequest.builder()
-          .transactItems(writeItems)
-          .build();
-
-      db().transactWriteItems(request);
-
-      account.setVersion(account.getVersion() + 1);
-      succeeded = true;
+      accountJsonBytes = SystemMapper.jsonMapper().writeValueAsBytes(account);
     } catch (final JsonProcessingException e) {
       throw new IllegalArgumentException(e);
-    } catch (final TransactionCanceledException e) {
-      if (e.cancellationReasons().stream().map(CancellationReason::code).anyMatch(CONDITIONAL_CHECK_FAILED::equals)) {
-        throw new ContestedOptimisticLockException();
-      }
-      throw e;
-    } finally {
-      if (!succeeded) {
-        account.setReservedUsernameHash(maybeOriginalReservation.orElse(null));
-      }
-      RESERVE_USERNAME_TIMER.record(System.nanoTime() - startNanos, TimeUnit.NANOSECONDS);
     }
+
+    final List<TransactWriteItem> writeItems = new ArrayList<>();
+
+    writeItems.add(TransactWriteItem.builder()
+        .put(Put.builder()
+            .tableName(usernamesConstraintTableName)
+            .item(Map.of(
+                KEY_ACCOUNT_UUID, AttributeValues.fromUUID(uuid),
+                ATTR_USERNAME_HASH, AttributeValues.fromByteArray(reservedUsernameHash),
+                ATTR_TTL, AttributeValues.fromLong(expirationTime),
+                ATTR_CONFIRMED, AttributeValues.fromBool(false)))
+            .conditionExpression("attribute_not_exists(#username_hash) OR (#ttl < :now)")
+            .expressionAttributeNames(Map.of("#username_hash", ATTR_USERNAME_HASH, "#ttl", ATTR_TTL))
+            .expressionAttributeValues(Map.of(":now", AttributeValues.fromLong(clock.instant().getEpochSecond())))
+            .returnValuesOnConditionCheckFailure(ReturnValuesOnConditionCheckFailure.ALL_OLD)
+            .build())
+        .build());
+
+    writeItems.add(
+        TransactWriteItem.builder()
+            .update(Update.builder()
+                .tableName(accountsTableName)
+                .key(Map.of(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(uuid)))
+                .updateExpression("SET #data = :data ADD #version :version_increment")
+                .conditionExpression("#version = :version")
+                .expressionAttributeNames(Map.of("#data", ATTR_ACCOUNT_DATA, "#version", ATTR_VERSION))
+                .expressionAttributeValues(Map.of(
+                    ":data", AttributeValues.fromByteArray(accountJsonBytes),
+                    ":version", AttributeValues.fromInt(account.getVersion()),
+                    ":version_increment", AttributeValues.fromInt(1)))
+                .build())
+            .build());
+
+    return asyncClient.transactWriteItems(TransactWriteItemsRequest.builder()
+            .transactItems(writeItems)
+            .build())
+        .exceptionally(throwable -> {
+          if (ExceptionUtils.unwrap(throwable) instanceof TransactionCanceledException e) {
+            if (e.cancellationReasons().stream().map(CancellationReason::code).anyMatch(CONDITIONAL_CHECK_FAILED::equals)) {
+              throw new ContestedOptimisticLockException();
+            }
+          }
+
+          throw ExceptionUtils.wrap(throwable);
+        })
+        .whenComplete((response, throwable) -> {
+          sample.stop(RESERVE_USERNAME_TIMER);
+
+          if (throwable == null) {
+            account.setVersion(account.getVersion() + 1);
+          } else {
+            account.setReservedUsernameHash(maybeOriginalReservation.orElse(null));
+          }
+        })
+        .thenRun(() -> {});
   }
 
   /**
@@ -422,22 +429,24 @@ public class Accounts extends AbstractDynamoDbStore {
    *
    * @param account to update
    * @param usernameHash believed to be available
-   * @throws ContestedOptimisticLockException if the account has been updated or the username has taken by someone else
+   * @return a future that completes once the username hash has been confirmed; may fail with an
+   * {@link ContestedOptimisticLockException} if the account has been updated or the username has taken by someone else
    */
-  public void confirmUsernameHash(final Account account, final byte[] usernameHash, @Nullable final byte[] encryptedUsername)
-      throws ContestedOptimisticLockException {
-    final long startNanos = System.nanoTime();
+  public CompletableFuture<Void> confirmUsernameHash(final Account account, final byte[] usernameHash, @Nullable final byte[] encryptedUsername) {
+    final Timer.Sample sample = Timer.start();
 
     final Optional<byte[]> maybeOriginalUsernameHash = account.getUsernameHash();
     final Optional<byte[]> maybeOriginalReservationHash = account.getReservedUsernameHash();
     final Optional<UUID> maybeOriginalUsernameLinkHandle = Optional.ofNullable(account.getUsernameLinkHandle());
     final Optional<byte[]> maybeOriginalEncryptedUsername = account.getEncryptedUsername();
 
+    final UUID newLinkHandle = UUID.randomUUID();
+
     account.setUsernameHash(usernameHash);
     account.setReservedUsernameHash(null);
-    account.setUsernameLinkDetails(encryptedUsername == null ? null : UUID.randomUUID(), encryptedUsername);
+    account.setUsernameLinkDetails(encryptedUsername == null ? null : newLinkHandle, encryptedUsername);
 
-    boolean succeeded = false;
+    final TransactWriteItemsRequest request;
 
     try {
       final List<TransactWriteItem> writeItems = new ArrayList<>();
@@ -493,83 +502,92 @@ public class Accounts extends AbstractDynamoDbStore {
       maybeOriginalUsernameHash.ifPresent(originalUsernameHash -> writeItems.add(
           buildDelete(usernamesConstraintTableName, ATTR_USERNAME_HASH, originalUsernameHash)));
 
-      final TransactWriteItemsRequest request = TransactWriteItemsRequest.builder()
+      request = TransactWriteItemsRequest.builder()
           .transactItems(writeItems)
           .build();
-
-      db().transactWriteItems(request);
-
-      account.setVersion(account.getVersion() + 1);
-      succeeded = true;
     } catch (final JsonProcessingException e) {
       throw new IllegalArgumentException(e);
-    } catch (final TransactionCanceledException e) {
-      if (e.cancellationReasons().stream().map(CancellationReason::code).anyMatch(CONDITIONAL_CHECK_FAILED::equals)) {
-        throw new ContestedOptimisticLockException();
-      }
-      throw e;
     } finally {
-      if (!succeeded) {
-        account.setUsernameHash(maybeOriginalUsernameHash.orElse(null));
-        account.setReservedUsernameHash(maybeOriginalReservationHash.orElse(null));
-        account.setUsernameLinkDetails(maybeOriginalUsernameLinkHandle.orElse(null), maybeOriginalEncryptedUsername.orElse(null));
-      }
-      SET_USERNAME_TIMER.record(System.nanoTime() - startNanos, TimeUnit.NANOSECONDS);
+      account.setUsernameLinkDetails(maybeOriginalUsernameLinkHandle.orElse(null), maybeOriginalEncryptedUsername.orElse(null));
+      account.setReservedUsernameHash(maybeOriginalReservationHash.orElse(null));
+      account.setUsernameHash(maybeOriginalUsernameHash.orElse(null));
     }
-  }
 
-  public void clearUsernameHash(final Account account) {
-    account.getUsernameHash().ifPresent(usernameHash -> {
-      CLEAR_USERNAME_HASH_TIMER.record(() -> {
-        account.setUsernameHash(null);
-
-        boolean succeeded = false;
-
-        try {
-          final List<TransactWriteItem> writeItems = new ArrayList<>();
-
-          writeItems.add(
-              TransactWriteItem.builder()
-                  .update(Update.builder()
-                      .tableName(accountsTableName)
-                      .key(Map.of(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid())))
-                      .updateExpression("SET #data = :data REMOVE #username_hash ADD #version :version_increment")
-                      .conditionExpression("#version = :version")
-                      .expressionAttributeNames(Map.of("#data", ATTR_ACCOUNT_DATA,
-                          "#username_hash", ATTR_USERNAME_HASH,
-                          "#version", ATTR_VERSION))
-                      .expressionAttributeValues(Map.of(
-                          ":data", accountDataAttributeValue(account),
-                          ":version", AttributeValues.fromInt(account.getVersion()),
-                          ":version_increment", AttributeValues.fromInt(1)))
-                      .build())
-                  .build());
-
-          writeItems.add(buildDelete(usernamesConstraintTableName, ATTR_USERNAME_HASH, usernameHash));
-
-          final TransactWriteItemsRequest request = TransactWriteItemsRequest.builder()
-              .transactItems(writeItems)
-              .build();
-
-          db().transactWriteItems(request);
+    return asyncClient.transactWriteItems(request)
+        .thenRun(() -> {
+          account.setUsernameHash(usernameHash);
+          account.setReservedUsernameHash(null);
+          account.setUsernameLinkDetails(encryptedUsername == null ? null : newLinkHandle, encryptedUsername);
 
           account.setVersion(account.getVersion() + 1);
-          succeeded = true;
-        } catch (final JsonProcessingException e) {
-          throw new IllegalArgumentException(e);
-        } catch (final TransactionCanceledException e) {
-          if (conditionalCheckFailed(e.cancellationReasons().get(0))) {
-            throw new ContestedOptimisticLockException();
+        })
+        .exceptionally(throwable -> {
+          if (ExceptionUtils.unwrap(throwable) instanceof TransactionCanceledException transactionCanceledException) {
+            if (transactionCanceledException.cancellationReasons().stream().map(CancellationReason::code).anyMatch(CONDITIONAL_CHECK_FAILED::equals)) {
+              throw new ContestedOptimisticLockException();
+            }
           }
 
-          throw e;
-        } finally {
-          if (!succeeded) {
-            account.setUsernameHash(usernameHash);
-          }
-        }
-      });
-    });
+          throw ExceptionUtils.wrap(throwable);
+        })
+        .whenComplete((ignored, throwable) -> sample.stop(SET_USERNAME_TIMER));
+  }
+
+  public CompletableFuture<Void> clearUsernameHash(final Account account) {
+    return account.getUsernameHash().map(usernameHash -> {
+      final Timer.Sample sample = Timer.start();
+
+      final TransactWriteItemsRequest request;
+
+      try {
+        final List<TransactWriteItem> writeItems = new ArrayList<>();
+
+        account.setUsernameHash(null);
+
+        writeItems.add(
+            TransactWriteItem.builder()
+                .update(Update.builder()
+                    .tableName(accountsTableName)
+                    .key(Map.of(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid())))
+                    .updateExpression("SET #data = :data REMOVE #username_hash ADD #version :version_increment")
+                    .conditionExpression("#version = :version")
+                    .expressionAttributeNames(Map.of("#data", ATTR_ACCOUNT_DATA,
+                        "#username_hash", ATTR_USERNAME_HASH,
+                        "#version", ATTR_VERSION))
+                    .expressionAttributeValues(Map.of(
+                        ":data", accountDataAttributeValue(account),
+                        ":version", AttributeValues.fromInt(account.getVersion()),
+                        ":version_increment", AttributeValues.fromInt(1)))
+                    .build())
+                .build());
+
+        writeItems.add(buildDelete(usernamesConstraintTableName, ATTR_USERNAME_HASH, usernameHash));
+
+        request = TransactWriteItemsRequest.builder()
+            .transactItems(writeItems)
+            .build();
+      } catch (final JsonProcessingException e) {
+        throw new IllegalArgumentException(e);
+      } finally {
+        account.setUsernameHash(usernameHash);
+      }
+
+      return asyncClient.transactWriteItems(request)
+          .thenAccept(ignored -> {
+            account.setUsernameHash(null);
+            account.setVersion(account.getVersion() + 1);
+          })
+          .exceptionally(throwable -> {
+            if (ExceptionUtils.unwrap(throwable) instanceof TransactionCanceledException transactionCanceledException) {
+              if (conditionalCheckFailed(transactionCanceledException.cancellationReasons().get(0))) {
+                throw new ContestedOptimisticLockException();
+              }
+            }
+
+            throw ExceptionUtils.wrap(throwable);
+          })
+          .whenComplete((ignored, throwable) -> sample.stop(CLEAR_USERNAME_HASH_TIMER));
+    }).orElseGet(() -> CompletableFuture.completedFuture(null));
   }
 
   @Nonnull
@@ -655,29 +673,26 @@ public class Accounts extends AbstractDynamoDbStore {
     }
   }
 
-  public boolean usernameHashAvailable(final byte[] username) {
+  public CompletableFuture<Boolean> usernameHashAvailable(final byte[] username) {
     return usernameHashAvailable(Optional.empty(), username);
   }
 
-  public boolean usernameHashAvailable(final Optional<UUID> accountUuid, final byte[] usernameHash) {
-    final Optional<Map<String, AttributeValue>> usernameHashItem = itemByKey(
-        usernamesConstraintTableName, ATTR_USERNAME_HASH, AttributeValues.fromByteArray(usernameHash));
+  public CompletableFuture<Boolean> usernameHashAvailable(final Optional<UUID> accountUuid, final byte[] usernameHash) {
+    return itemByKeyAsync(usernamesConstraintTableName, ATTR_USERNAME_HASH, AttributeValues.fromByteArray(usernameHash))
+        .thenApply(maybeUsernameHashItem -> maybeUsernameHashItem
+            .map(item -> {
+              if (AttributeValues.getLong(item, ATTR_TTL, Long.MAX_VALUE) < clock.instant().getEpochSecond()) {
+                // username hash was reserved, but has expired
+                return true;
+              }
 
-    if (usernameHashItem.isEmpty()) {
-      // username hash is free
-      return true;
-    }
-    final Map<String, AttributeValue> item = usernameHashItem.get();
-
-    if (AttributeValues.getLong(item, ATTR_TTL, Long.MAX_VALUE) < clock.instant().getEpochSecond()) {
-      // username hash was reserved, but has expired
-      return true;
-    }
-
-    // username hash is reserved by us
-    return !AttributeValues.getBool(item, ATTR_CONFIRMED, true) && accountUuid
-        .map(AttributeValues.getUUID(item, KEY_ACCOUNT_UUID, new UUID(0, 0))::equals)
-        .orElse(false);
+              // username hash is reserved by us
+              return !AttributeValues.getBool(item, ATTR_CONFIRMED, true) && accountUuid
+                  .map(AttributeValues.getUUID(item, KEY_ACCOUNT_UUID, new UUID(0, 0))::equals)
+                  .orElse(false);
+            })
+            // If no item was found, then the username hash is free
+            .orElse(true));
   }
 
   @Nonnull
@@ -704,9 +719,8 @@ public class Accounts extends AbstractDynamoDbStore {
   }
 
   @Nonnull
-  public Optional<Account> getByUsernameHash(final byte[] usernameHash) {
-    return getByIndirectLookup(
-        GET_BY_USERNAME_HASH_TIMER,
+  public CompletableFuture<Optional<Account>> getByUsernameHash(final byte[] usernameHash) {
+    return getByIndirectLookupAsync(GET_BY_USERNAME_HASH_TIMER,
         usernamesConstraintTableName,
         ATTR_USERNAME_HASH,
         AttributeValues.fromByteArray(usernameHash),
@@ -715,10 +729,12 @@ public class Accounts extends AbstractDynamoDbStore {
   }
 
   @Nonnull
-  public Optional<Account> getByUsernameLinkHandle(final UUID usernameLinkHandle) {
-    return requireNonNull(GET_BY_USERNAME_LINK_HANDLE_TIMER.record(() ->
-        itemByGsiKey(accountsTableName, USERNAME_LINK_TO_UUID_INDEX, ATTR_USERNAME_LINK_UUID, AttributeValues.fromUUID(usernameLinkHandle))
-            .map(Accounts::fromItem)));
+  public CompletableFuture<Optional<Account>> getByUsernameLinkHandle(final UUID usernameLinkHandle) {
+    final Timer.Sample sample = Timer.start();
+
+    return itemByGsiKeyAsync(accountsTableName, USERNAME_LINK_TO_UUID_INDEX, ATTR_USERNAME_LINK_UUID, AttributeValues.fromUUID(usernameLinkHandle))
+        .thenApply(maybeItem -> maybeItem.map(Accounts::fromItem))
+        .whenComplete((account, throwable) -> sample.stop(GET_BY_USERNAME_LINK_HANDLE_TIMER));
   }
 
   @Nonnull
@@ -943,6 +959,35 @@ public class Accounts extends AbstractDynamoDbStore {
 
     final AttributeValue primaryKeyValue = response.items().get(0).get(KEY_ACCOUNT_UUID);
     return itemByKey(table, KEY_ACCOUNT_UUID, primaryKeyValue);
+  }
+
+  @Nonnull
+  private CompletableFuture<Optional<Map<String, AttributeValue>>> itemByGsiKeyAsync(final String table, final String indexName, final String keyName, final AttributeValue keyValue) {
+    return asyncClient.query(QueryRequest.builder()
+        .tableName(table)
+        .indexName(indexName)
+        .keyConditionExpression("#gsiKey = :gsiValue")
+        .projectionExpression("#uuid")
+        .expressionAttributeNames(Map.of(
+            "#gsiKey", keyName,
+            "#uuid", KEY_ACCOUNT_UUID))
+        .expressionAttributeValues(Map.of(
+            ":gsiValue", keyValue))
+        .build())
+        .thenCompose(response -> {
+          if (response.count() == 0) {
+            return CompletableFuture.completedFuture(Optional.empty());
+          }
+
+          if (response.count() > 1) {
+            return CompletableFuture.failedFuture(new IllegalStateException(
+                "More than one row located for GSI [%s], key-value pair [%s, %s]"
+                    .formatted(indexName, keyName, keyValue)));
+          }
+
+          final AttributeValue primaryKeyValue = response.items().get(0).get(KEY_ACCOUNT_UUID);
+          return itemByKeyAsync(table, KEY_ACCOUNT_UUID, primaryKeyValue);
+        });
   }
 
   @Nonnull
