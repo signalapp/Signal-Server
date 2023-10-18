@@ -537,22 +537,27 @@ public class Accounts extends AbstractDynamoDbStore {
     return account.getUsernameHash().map(usernameHash -> {
       final Timer.Sample sample = Timer.start();
 
+      @Nullable final UUID originalLinkHandle = account.getUsernameLinkHandle();
+      @Nullable final byte[] originalEncryptedUsername = account.getEncryptedUsername().orElse(null);
+
       final TransactWriteItemsRequest request;
 
       try {
         final List<TransactWriteItem> writeItems = new ArrayList<>();
 
         account.setUsernameHash(null);
+        account.setUsernameLinkDetails(null, null);
 
         writeItems.add(
             TransactWriteItem.builder()
                 .update(Update.builder()
                     .tableName(accountsTableName)
                     .key(Map.of(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid())))
-                    .updateExpression("SET #data = :data REMOVE #username_hash ADD #version :version_increment")
+                    .updateExpression("SET #data = :data REMOVE #username_hash, #username_link ADD #version :version_increment")
                     .conditionExpression("#version = :version")
                     .expressionAttributeNames(Map.of("#data", ATTR_ACCOUNT_DATA,
                         "#username_hash", ATTR_USERNAME_HASH,
+                        "#username_link", ATTR_USERNAME_LINK_UUID,
                         "#version", ATTR_VERSION))
                     .expressionAttributeValues(Map.of(
                         ":data", accountDataAttributeValue(account),
@@ -570,11 +575,14 @@ public class Accounts extends AbstractDynamoDbStore {
         throw new IllegalArgumentException(e);
       } finally {
         account.setUsernameHash(usernameHash);
+        account.setUsernameLinkDetails(originalLinkHandle, originalEncryptedUsername);
       }
 
       return asyncClient.transactWriteItems(request)
           .thenAccept(ignored -> {
             account.setUsernameHash(null);
+            account.setUsernameLinkDetails(null, null);
+
             account.setVersion(account.getVersion() + 1);
           })
           .exceptionally(throwable -> {

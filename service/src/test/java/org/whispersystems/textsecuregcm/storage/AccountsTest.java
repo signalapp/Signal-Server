@@ -837,7 +837,11 @@ class AccountsTest {
 
     assertThat(accounts.getByUsernameHash(USERNAME_HASH_1).join()).isEmpty();
     assertThat(accounts.getByAccountIdentifier(account.getUuid()))
-        .hasValueSatisfying(clearedAccount -> assertThat(clearedAccount.getUsernameHash()).isEmpty());
+        .hasValueSatisfying(clearedAccount -> {
+          assertThat(clearedAccount.getUsernameHash()).isEmpty();
+          assertThat(clearedAccount.getUsernameLinkHandle()).isNull();
+          assertThat(clearedAccount.getEncryptedUsername().isEmpty());
+        });
   }
 
   @Test

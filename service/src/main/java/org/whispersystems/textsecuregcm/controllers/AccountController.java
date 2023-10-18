@@ -274,7 +274,6 @@ public class AccountController {
   @ApiResponse(responseCode = "204", description = "Username successfully deleted.", useReturnTypeSchema = true)
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
   public CompletableFuture<Void> deleteUsernameHash(@Auth final AuthenticatedAccount auth) {
-    clearUsernameLink(auth.getAccount());
     return accounts.clearUsernameHash(auth.getAccount())
         .thenRun(Util.NOOP);
   }
