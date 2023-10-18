@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.storage;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
@@ -27,10 +28,12 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Supplier;
+import org.apache.commons.lang3.RandomUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -298,5 +301,35 @@ class AccountsManagerUsernameIntegrationTest {
     account = accountsManager.confirmReservedUsernameHash(account, reservation2.reservedUsernameHash(), ENCRYPTED_USERNAME_2).join();
     assertArrayEquals(account.getUsernameHash().orElseThrow(), USERNAME_HASH_2);
     assertArrayEquals(account.getEncryptedUsername().orElseThrow(), ENCRYPTED_USERNAME_2);
+  }
+
+  @Test
+  public void testUsernameLinks() throws InterruptedException {
+    Account account = accountsManager.create("+18005551111", "password", null, new AccountAttributes(), new ArrayList<>());
+    account.setUsernameHash(RandomUtils.nextBytes(16));
+    accounts.create(account);
+
+    final UUID linkHandle = UUID.randomUUID();
+    final byte[] encryptedUsername = RandomUtils.nextBytes(32);
+    accountsManager.update(account, a -> a.setUsernameLinkDetails(linkHandle, encryptedUsername));
+
+    final Optional<Account> maybeAccount = accountsManager.getByUsernameLinkHandle(linkHandle).join();
+    assertTrue(maybeAccount.isPresent());
+    assertTrue(maybeAccount.get().getEncryptedUsername().isPresent());
+    assertArrayEquals(encryptedUsername, maybeAccount.get().getEncryptedUsername().get());
+
+    // making some unrelated change and updating account to check that username link data is still there
+    final Optional<Account> accountToChange = accountsManager.getByAccountIdentifier(account.getUuid());
+    assertTrue(accountToChange.isPresent());
+    accountsManager.update(accountToChange.get(), a -> a.setDiscoverableByPhoneNumber(!a.isDiscoverableByPhoneNumber()));
+    final Optional<Account> accountAfterChange = accountsManager.getByUsernameLinkHandle(linkHandle).join();
+    assertTrue(accountAfterChange.isPresent());
+    assertTrue(accountAfterChange.get().getEncryptedUsername().isPresent());
+    assertArrayEquals(encryptedUsername, accountAfterChange.get().getEncryptedUsername().get());
+
+    // now deleting the link
+    final Optional<Account> accountToDeleteLink = accountsManager.getByAccountIdentifier(account.getUuid());
+    accountsManager.update(accountToDeleteLink.orElseThrow(), a -> a.setUsernameLinkDetails(null, null));
+    assertTrue(accounts.getByUsernameLinkHandle(linkHandle).join().isEmpty());
   }
 }

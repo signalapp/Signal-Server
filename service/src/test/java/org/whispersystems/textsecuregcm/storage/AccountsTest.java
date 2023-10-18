@@ -22,7 +22,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.uuid.UUIDComparator;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
-import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -35,14 +34,12 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.RandomUtils;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -51,12 +48,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
-import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
-import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
-import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
@@ -131,7 +123,7 @@ class AccountsTest {
   }
 
   @Test
-  public void testStoreAndLookupUsernameLink() throws Exception {
+  public void testStoreAndLookupUsernameLink() {
     final Account account = nextRandomAccount();
     account.setUsernameHash(RandomUtils.nextBytes(16));
     accounts.create(account);
@@ -163,54 +155,6 @@ class AccountsTest {
     accounts.update(account);
     assertTrue(accounts.getByUsernameLinkHandle(linkHandle1).join().isEmpty());
     assertTrue(accounts.getByUsernameLinkHandle(linkHandle2).join().isEmpty());
-  }
-
-  @Test
-  @Disabled
-  // TODO: @Sergey: what's the story with this test?
-  public void testUsernameLinksViaAccountsManager() {
-    final AccountsManager accountsManager = new AccountsManager(
-        accounts,
-        mock(PhoneNumberIdentifiers.class),
-        mock(FaultTolerantRedisCluster.class),
-        mock(AccountLockManager.class),
-        mock(KeysManager.class),
-        mock(MessagesManager.class),
-        mock(ProfilesManager.class),
-        mock(SecureStorageClient.class),
-        mock(SecureValueRecovery2Client.class),
-        mock(ClientPresenceManager.class),
-        mock(ExperimentEnrollmentManager.class),
-        mock(RegistrationRecoveryPasswordsManager.class),
-        mock(Executor.class),
-        mock(Clock.class));
-
-    final Account account = nextRandomAccount();
-    account.setUsernameHash(RandomUtils.nextBytes(16));
-    accounts.create(account);
-
-    final UUID linkHandle = UUID.randomUUID();
-    final byte[] encryptedUsername = RandomUtils.nextBytes(32);
-    accountsManager.update(account, a -> a.setUsernameLinkDetails(linkHandle, encryptedUsername));
-
-    final Optional<Account> maybeAccount = accountsManager.getByUsernameLinkHandle(linkHandle).join();
-    assertTrue(maybeAccount.isPresent());
-    assertTrue(maybeAccount.get().getEncryptedUsername().isPresent());
-    assertArrayEquals(encryptedUsername, maybeAccount.get().getEncryptedUsername().get());
-
-    // making some unrelated change and updating account to check that username link data is still there
-    final Optional<Account> accountToChange = accountsManager.getByAccountIdentifier(account.getUuid());
-    assertTrue(accountToChange.isPresent());
-    accountsManager.update(accountToChange.get(), a -> a.setDiscoverableByPhoneNumber(!a.isDiscoverableByPhoneNumber()));
-    final Optional<Account> accountAfterChange = accountsManager.getByUsernameLinkHandle(linkHandle).join();
-    assertTrue(accountAfterChange.isPresent());
-    assertTrue(accountAfterChange.get().getEncryptedUsername().isPresent());
-    assertArrayEquals(encryptedUsername, accountAfterChange.get().getEncryptedUsername().get());
-
-    // now deleting the link
-    final Optional<Account> accountToDeleteLink = accountsManager.getByAccountIdentifier(account.getUuid());
-    accountsManager.update(accountToDeleteLink.get(), a -> a.setUsernameLinkDetails(null, null));
-    assertTrue(accounts.getByUsernameLinkHandle(linkHandle).join().isEmpty());
   }
 
   @Test
