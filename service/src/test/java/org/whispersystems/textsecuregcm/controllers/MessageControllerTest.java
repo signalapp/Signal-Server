@@ -80,6 +80,7 @@ import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
+import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicInboundMessageByteLimitConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountMismatchedDevices;
@@ -1170,7 +1171,7 @@ class MessageControllerTest {
     // This looks weird, but there is a method to the madness.
     // new bytes[16] is equivalent to UNIDENTIFIED_ACCESS_BYTES ^ UNIDENTIFIED_ACCESS_BYTES
     // (i.e. we need to XOR all the access keys together)
-    String accessBytes = Base64.getEncoder().encodeToString(new byte[16]);
+    String accessBytes = Base64.getEncoder().encodeToString(new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
 
     // start building the request
     Invocation.Builder bldr = resources

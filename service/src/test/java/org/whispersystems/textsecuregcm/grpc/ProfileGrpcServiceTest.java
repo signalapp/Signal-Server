@@ -78,6 +78,7 @@ import org.signal.libsignal.zkgroup.profiles.ProfileKeyCredentialRequest;
 import org.signal.libsignal.zkgroup.profiles.ProfileKeyCredentialRequestContext;
 import org.signal.libsignal.zkgroup.profiles.ServerZkProfileOperations;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessChecksum;
+import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.badges.ProfileBadgeConverter;
 import org.whispersystems.textsecuregcm.configuration.BadgeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
@@ -394,7 +395,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
             .setUuid(ByteString.copyFrom(UUIDUtil.toBytes(targetUuid)))
             .build())
         .build();
-    final byte[] unidentifiedAccessKey = new byte[16];
+    final byte[] unidentifiedAccessKey = new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH];
     new SecureRandom().nextBytes(unidentifiedAccessKey);
     final ECKeyPair identityKeyPair = Curve.generateKeyPair();
     final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());

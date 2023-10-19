@@ -10,6 +10,8 @@ import java.security.MessageDigest;
 
 public class UnidentifiedAccessUtil {
 
+  public static final int UNIDENTIFIED_ACCESS_KEY_LENGTH = 16;
+
   private UnidentifiedAccessUtil() {
   }
 

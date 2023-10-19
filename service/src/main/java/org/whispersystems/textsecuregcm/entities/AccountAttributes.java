@@ -11,6 +11,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import javax.annotation.Nullable;
 import javax.validation.constraints.Size;
+import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
@@ -34,7 +35,7 @@ public class AccountAttributes {
   private String registrationLock;
 
   @JsonProperty
-  @ExactlySize({0, 16})
+  @ExactlySize({0, UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH})
   private byte[] unidentifiedAccessKey;
 
   @JsonProperty

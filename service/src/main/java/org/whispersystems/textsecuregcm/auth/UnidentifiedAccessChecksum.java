@@ -14,7 +14,7 @@ public class UnidentifiedAccessChecksum {
 
   public static byte[] generateFor(byte[] unidentifiedAccessKey) {
     try {
-      if (unidentifiedAccessKey.length != 16) {
+      if (unidentifiedAccessKey.length != UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH) {
         throw new IllegalArgumentException("Invalid UAK length: " + unidentifiedAccessKey.length);
       }
 

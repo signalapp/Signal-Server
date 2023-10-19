@@ -42,6 +42,7 @@ import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.InvalidKeyException;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
+import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.entities.ECPreKey;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
@@ -79,7 +80,7 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
     final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
     final UUID identifier = UUID.randomUUID();
 
-    final byte[] unidentifiedAccessKey = new byte[16];
+    final byte[] unidentifiedAccessKey = new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH];
     new SecureRandom().nextBytes(unidentifiedAccessKey);
 
     when(targetDevice.getId()).thenReturn(Device.MASTER_ID);
@@ -142,7 +143,7 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
     final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
     final UUID identifier = UUID.randomUUID();
 
-    final byte[] unidentifiedAccessKey = new byte[16];
+    final byte[] unidentifiedAccessKey = new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH];
     new SecureRandom().nextBytes(unidentifiedAccessKey);
 
     when(targetAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
@@ -187,7 +188,7 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
   void getPreKeysDeviceNotFound(final long deviceId) {
     final UUID accountIdentifier = UUID.randomUUID();
 
-    final byte[] unidentifiedAccessKey = new byte[16];
+    final byte[] unidentifiedAccessKey = new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH];
     new SecureRandom().nextBytes(unidentifiedAccessKey);
 
     final Account targetAccount = mock(Account.class);

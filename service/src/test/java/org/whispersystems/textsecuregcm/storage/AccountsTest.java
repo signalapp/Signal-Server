@@ -47,6 +47,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
@@ -1032,7 +1033,7 @@ class AccountsTest {
   }
 
   private static Account generateAccount(String number, UUID uuid, final UUID pni, List<Device> devices) {
-    final byte[] unidentifiedAccessKey = new byte[16];
+    final byte[] unidentifiedAccessKey = new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH];
     final Random random = new Random(System.currentTimeMillis());
     Arrays.fill(unidentifiedAccessKey, (byte) random.nextInt(255));
 

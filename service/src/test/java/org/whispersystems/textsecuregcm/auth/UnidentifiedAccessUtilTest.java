@@ -35,7 +35,7 @@ class UnidentifiedAccessUtilTest {
   }
 
   private static Stream<Arguments> checkUnidentifiedAccess() {
-    final byte[] uak = new byte[16];
+    final byte[] uak = new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH];
     new SecureRandom().nextBytes(uak);
 
     final byte[] incorrectUak = new byte[uak.length + 1];

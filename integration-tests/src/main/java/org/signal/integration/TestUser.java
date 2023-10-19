@@ -20,6 +20,7 @@ import org.signal.libsignal.protocol.IdentityKeyPair;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import org.signal.libsignal.protocol.state.SignedPreKeyRecord;
 import org.signal.libsignal.protocol.util.KeyHelper;
+import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.storage.Device;
 
@@ -54,7 +55,7 @@ public class TestUser {
     // registration id
     final int registrationId = KeyHelper.generateRegistrationId(false);
     // uak
-    final byte[] unidentifiedAccessKey = RandomUtils.nextBytes(16);
+    final byte[] unidentifiedAccessKey = RandomUtils.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
 
     return new TestUser(
         registrationId,

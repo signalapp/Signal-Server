@@ -40,6 +40,7 @@ import org.mockito.stubbing.Answer;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
+import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
@@ -142,7 +143,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
       final Account account = accountsManager.update(
           accountsManager.create("+14155551212", "password", null, new AccountAttributes(), new ArrayList<>()),
           a -> {
-            a.setUnidentifiedAccessKey(new byte[16]);
+            a.setUnidentifiedAccessKey(new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
             a.removeDevice(1);
             a.addDevice(DevicesHelper.createDevice(1));
           });

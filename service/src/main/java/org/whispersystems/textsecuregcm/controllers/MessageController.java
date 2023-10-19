@@ -67,6 +67,7 @@ import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.CombinedUnidentifiedSenderAccessKeys;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
+import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountMismatchedDevices;
 import org.whispersystems.textsecuregcm.entities.AccountStaleDevices;
@@ -492,8 +493,8 @@ public class MessageController {
       throw new WebApplicationException(Status.UNAUTHORIZED);
     }
     AtomicBoolean throwUnauthorized = new AtomicBoolean(false);
-    byte[] empty = new byte[16];
-    final Optional<byte[]> UNRESTRICTED_UNIDENTIFIED_ACCESS_KEY = Optional.of(new byte[16]);
+    byte[] empty = new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH];
+    final Optional<byte[]> UNRESTRICTED_UNIDENTIFIED_ACCESS_KEY = Optional.of(new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
     byte[] combinedUnknownAccessKeys = destinationAccounts.stream()
         .map(account -> {
           if (account.isUnrestrictedUnidentifiedAccess()) {
@@ -509,7 +510,7 @@ public class MessageController {
           }
           return accessKey.get();
         })
-        .reduce(new byte[16], (bytes, bytes2) -> {
+        .reduce(new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH], (bytes, bytes2) -> {
           if (bytes.length != bytes2.length) {
             throwUnauthorized.set(true);
             return bytes;
