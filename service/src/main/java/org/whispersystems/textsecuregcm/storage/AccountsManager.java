@@ -660,7 +660,7 @@ public class AccountsManager {
       final Supplier<Account> retriever,
       final AccountChangeValidator changeValidator) throws UsernameHashNotAvailableException {
 
-    Account originalAccount = cloneAccountAsNotStale(account);
+    Account originalAccount = AccountUtil.cloneAccountAsNotStale(account);
 
     if (!updater.apply(account)) {
       return account;
@@ -674,7 +674,7 @@ public class AccountsManager {
       try {
         persister.persistAccount(account);
 
-        final Account updatedAccount = cloneAccountAsNotStale(account);
+        final Account updatedAccount = AccountUtil.cloneAccountAsNotStale(account);
         account.markStale();
 
         changeValidator.validateChange(originalAccount, updatedAccount);
@@ -684,7 +684,7 @@ public class AccountsManager {
         tries++;
 
         account = retriever.get();
-        originalAccount = cloneAccountAsNotStale(account);
+        originalAccount = AccountUtil.cloneAccountAsNotStale(account);
 
         if (!updater.apply(account)) {
           return account;
@@ -702,7 +702,7 @@ public class AccountsManager {
       final AccountChangeValidator changeValidator,
       final int remainingTries) {
 
-    final Account originalAccount = cloneAccountAsNotStale(account);
+    final Account originalAccount = AccountUtil.cloneAccountAsNotStale(account);
 
     if (!updater.apply(account)) {
       return CompletableFuture.completedFuture(account);
@@ -711,7 +711,7 @@ public class AccountsManager {
     if (remainingTries > 0) {
       return persister.apply(account)
           .thenApply(ignored -> {
-            final Account updatedAccount = cloneAccountAsNotStale(account);
+            final Account updatedAccount = AccountUtil.cloneAccountAsNotStale(account);
             account.markStale();
 
             changeValidator.validateChange(originalAccount, updatedAccount);
@@ -729,16 +729,6 @@ public class AccountsManager {
     }
 
     return CompletableFuture.failedFuture(new OptimisticLockRetryLimitExceededException());
-  }
-
-  private static Account cloneAccountAsNotStale(final Account account) {
-    try {
-      return SystemMapper.jsonMapper().readValue(
-          SystemMapper.jsonMapper().writeValueAsBytes(account), Account.class);
-    } catch (final IOException e) {
-      // this should really, truly, never happen
-      throw new IllegalArgumentException(e);
-    }
   }
 
   public Account updateDevice(Account account, long deviceId, Consumer<Device> deviceUpdater) {
