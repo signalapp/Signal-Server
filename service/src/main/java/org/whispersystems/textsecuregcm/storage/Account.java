@@ -19,6 +19,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
+import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,7 +31,6 @@ import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 import org.whispersystems.textsecuregcm.util.ByteArrayBase64UrlAdapter;
 import org.whispersystems.textsecuregcm.util.IdentityKeyAdapter;
-import org.whispersystems.textsecuregcm.util.Util;
 
 @JsonFilter("Account")
 public class Account {
@@ -415,7 +415,7 @@ public class Account {
   }
 
   public void setRegistrationLockFromAttributes(final AccountAttributes attributes) {
-    if (!Util.isEmpty(attributes.getRegistrationLock())) {
+    if (StringUtils.isNotEmpty(attributes.getRegistrationLock())) {
       final SaltedTokenHash credentials = SaltedTokenHash.generateFor(attributes.getRegistrationLock());
       setRegistrationLock(credentials.hash(), credentials.salt());
     } else {

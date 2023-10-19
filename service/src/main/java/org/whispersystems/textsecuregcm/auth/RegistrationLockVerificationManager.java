@@ -18,6 +18,7 @@ import java.util.List;
 import javax.annotation.Nullable;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
+import org.apache.commons.lang3.StringUtils;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.PhoneVerificationRequest;
 import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
@@ -30,7 +31,6 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
-import org.whispersystems.textsecuregcm.util.Util;
 
 public class RegistrationLockVerificationManager {
   public enum Flow {
@@ -106,7 +106,7 @@ public class RegistrationLockVerificationManager {
         throw new RuntimeException("Unexpected status: " + existingRegistrationLock.getStatus());
     }
 
-    if (!Util.isEmpty(clientRegistrationLock)) {
+    if (StringUtils.isNotEmpty(clientRegistrationLock)) {
       rateLimiters.getPinLimiter().validate(account.getNumber());
     }
 

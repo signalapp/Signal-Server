@@ -96,14 +96,6 @@ public class Util {
     return number.substring(0, 1 + countryCode.length() + prefixLength);
   }
 
-  public static boolean isEmpty(String param) {
-    return param == null || param.length() == 0;
-  }
-
-  public static boolean nonEmpty(String param) {
-    return !isEmpty(param);
-  }
-
   public static byte[] truncate(byte[] element, int length) {
     byte[] result = new byte[length];
     System.arraycopy(element, 0, result, 0, result.length);

@@ -18,6 +18,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
@@ -81,13 +82,13 @@ public class PushFeedbackProcessor extends AccountDatabaseCrawlerListener {
                   for (Device device : a.getDevices()) {
                     if (deviceNeedsUpdate(device)) {
                       if (deviceExpired(device)) {
-                        if (!Util.isEmpty(device.getApnId())) {
+                        if (StringUtils.isNotEmpty(device.getApnId())) {
                           if (device.getId() == 1) {
                             device.setUserAgent("OWI");
                           } else {
                             device.setUserAgent("OWP");
                           }
-                        } else if (!Util.isEmpty(device.getGcmId())) {
+                        } else if (StringUtils.isNotEmpty(device.getGcmId())) {
                           device.setUserAgent("OWA");
                         }
                         device.setGcmId(null);

@@ -61,6 +61,7 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
@@ -226,7 +227,7 @@ public class MessageController {
     for (final IncomingMessage message : messages.messages()) {
       int contentLength = 0;
 
-      if (!Util.isEmpty(message.content())) {
+      if (StringUtils.isNotEmpty(message.content())) {
         contentLength += message.content().length();
       }
 
@@ -782,7 +783,7 @@ public class MessageController {
   }
 
   public static Optional<byte[]> getMessageContent(IncomingMessage message) {
-    if (Util.isEmpty(message.content())) return Optional.empty();
+    if (StringUtils.isEmpty(message.content())) return Optional.empty();
 
     try {
       return Optional.of(Base64.getDecoder().decode(message.content()));
