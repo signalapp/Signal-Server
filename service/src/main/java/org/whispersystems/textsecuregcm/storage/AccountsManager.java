@@ -837,14 +837,6 @@ public class AccountsManager {
     return accounts.findRecentlyDeletedE164(uuid);
   }
 
-  public AccountCrawlChunk getAllFromDynamo(int length) {
-    return accounts.getAllFromStart(length);
-  }
-
-  public AccountCrawlChunk getAllFromDynamo(UUID uuid, int length) {
-    return accounts.getAllFrom(uuid, length);
-  }
-
   public ParallelFlux<Account> streamAllFromDynamo(final int segments, final Scheduler scheduler) {
     return accounts.getAll(segments, scheduler);
   }

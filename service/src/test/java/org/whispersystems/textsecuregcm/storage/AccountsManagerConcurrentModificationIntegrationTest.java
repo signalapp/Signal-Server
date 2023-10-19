@@ -57,8 +57,6 @@ import org.whispersystems.textsecuregcm.util.Pair;
 
 class AccountsManagerConcurrentModificationIntegrationTest {
 
-  private static final int SCAN_PAGE_SIZE = 1;
-
   @RegisterExtension
   static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(
       Tables.ACCOUNTS,
@@ -89,8 +87,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
         Tables.NUMBERS.tableName(),
         Tables.PNI_ASSIGNMENTS.tableName(),
         Tables.USERNAMES.tableName(),
-        Tables.DELETED_ACCOUNTS.tableName(),
-        SCAN_PAGE_SIZE);
+        Tables.DELETED_ACCOUNTS.tableName());
 
     {
       //noinspection unchecked

@@ -85,7 +85,6 @@ dynamoDbTables:
     phoneNumberTableName: Example_Accounts_PhoneNumbers
     phoneNumberIdentifierTableName: Example_Accounts_PhoneNumberIdentifiers
     usernamesTableName: Example_Accounts_Usernames
-    scanPageSize: 100
   clientReleases:
     tableName: Example_ClientReleases
   deletedAccounts:
@@ -201,9 +200,6 @@ gcpAttachments: # GCP Storage configuration
 tus:
   uploadUri: https://example.org/upload
   userAuthenticationTokenSharedSecret: secret://tus.userAuthenticationTokenSharedSecret
-
-accountDatabaseCrawler:
-  chunkSize: 10           # accounts per run
 
 apn: # Apple Push Notifications configuration
   sandbox: true

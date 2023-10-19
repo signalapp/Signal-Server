@@ -94,8 +94,6 @@ public class Accounts extends AbstractDynamoDbStore {
   private static final Timer GET_BY_USERNAME_LINK_HANDLE_TIMER = Metrics.timer(name(Accounts.class, "getByUsernameLinkHandle"));
   private static final Timer GET_BY_PNI_TIMER = Metrics.timer(name(Accounts.class, "getByPni"));
   private static final Timer GET_BY_UUID_TIMER = Metrics.timer(name(Accounts.class, "getByUuid"));
-  private static final Timer GET_ALL_FROM_START_TIMER = Metrics.timer(name(Accounts.class, "getAllFrom"));
-  private static final Timer GET_ALL_FROM_OFFSET_TIMER = Metrics.timer(name(Accounts.class, "getAllFromOffset"));
   private static final Timer DELETE_TIMER = Metrics.timer(name(Accounts.class, "delete"));
 
   private static final String CONDITIONAL_CHECK_FAILED = "ConditionalCheckFailed";
@@ -144,9 +142,6 @@ public class Accounts extends AbstractDynamoDbStore {
   private final String deletedAccountsTableName;
   private final String accountsTableName;
 
-  private final int scanPageSize;
-
-
   @VisibleForTesting
   public Accounts(
       final Clock clock,
@@ -156,8 +151,7 @@ public class Accounts extends AbstractDynamoDbStore {
       final String phoneNumberConstraintTableName,
       final String phoneNumberIdentifierConstraintTableName,
       final String usernamesConstraintTableName,
-      final String deletedAccountsTableName,
-      final int scanPageSize) {
+      final String deletedAccountsTableName) {
     super(client);
     this.clock = clock;
     this.asyncClient = asyncClient;
@@ -166,7 +160,6 @@ public class Accounts extends AbstractDynamoDbStore {
     this.accountsTableName = accountsTableName;
     this.usernamesConstraintTableName = usernamesConstraintTableName;
     this.deletedAccountsTableName = deletedAccountsTableName;
-    this.scanPageSize = scanPageSize;
   }
 
   public Accounts(
@@ -176,11 +169,10 @@ public class Accounts extends AbstractDynamoDbStore {
       final String phoneNumberConstraintTableName,
       final String phoneNumberIdentifierConstraintTableName,
       final String usernamesConstraintTableName,
-      final String deletedAccountsTableName,
-      final int scanPageSize) {
+      final String deletedAccountsTableName) {
     this(Clock.systemUTC(), client, asyncClient, accountsTableName,
         phoneNumberConstraintTableName, phoneNumberIdentifierConstraintTableName, usernamesConstraintTableName,
-        deletedAccountsTableName, scanPageSize);
+        deletedAccountsTableName);
   }
 
   public boolean create(final Account account) {
@@ -857,23 +849,6 @@ public class Accounts extends AbstractDynamoDbStore {
   }
 
   @Nonnull
-  public AccountCrawlChunk getAllFrom(final UUID from, final int maxCount) {
-    final ScanRequest.Builder scanRequestBuilder = ScanRequest.builder()
-        .limit(scanPageSize)
-        .exclusiveStartKey(Map.of(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(from)));
-
-    return scanForChunk(scanRequestBuilder, maxCount, GET_ALL_FROM_OFFSET_TIMER);
-  }
-
-  @Nonnull
-  public AccountCrawlChunk getAllFromStart(final int maxCount) {
-    final ScanRequest.Builder scanRequestBuilder = ScanRequest.builder()
-        .limit(scanPageSize);
-
-    return scanForChunk(scanRequestBuilder, maxCount, GET_ALL_FROM_START_TIMER);
-  }
-
-  @Nonnull
   private Optional<Account> getByIndirectLookup(
       final Timer timer,
       final String tableName,
@@ -1101,14 +1076,6 @@ public class Accounts extends AbstractDynamoDbStore {
             .key(Map.of(keyName, keyValue))
             .build())
         .build();
-  }
-
-  @Nonnull
-  private AccountCrawlChunk scanForChunk(final ScanRequest.Builder scanRequestBuilder, final int maxCount, final Timer timer) {
-    scanRequestBuilder.tableName(accountsTableName);
-    final List<Map<String, AttributeValue>> items = requireNonNull(timer.record(() -> scan(scanRequestBuilder.build(), maxCount)));
-    final List<Account> accounts = items.stream().map(Accounts::fromItem).toList();
-    return new AccountCrawlChunk(accounts, accounts.size() > 0 ? accounts.get(accounts.size() - 1).getUuid() : null);
   }
 
   @Nonnull

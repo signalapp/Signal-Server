@@ -17,11 +17,15 @@ import static org.mockito.Mockito.when;
 import com.google.common.net.HttpHeaders;
 import com.google.protobuf.ByteString;
 import com.vdurmont.semver4j.Semver;
+import io.grpc.ManagedChannel;
+import io.grpc.Server;
+import io.grpc.StatusRuntimeException;
+import io.grpc.inprocess.InProcessChannelBuilder;
+import io.grpc.inprocess.InProcessServerBuilder;
 import java.io.IOException;
 import java.util.EnumMap;
 import java.util.Set;
 import java.util.stream.Stream;
-
 import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -30,8 +34,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.signal.chat.rpc.EchoServiceGrpc;
 import org.signal.chat.rpc.EchoRequest;
+import org.signal.chat.rpc.EchoServiceGrpc;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicRemoteDeprecationConfiguration;
 import org.whispersystems.textsecuregcm.grpc.EchoServiceImpl;
@@ -39,15 +43,6 @@ import org.whispersystems.textsecuregcm.grpc.StatusConstants;
 import org.whispersystems.textsecuregcm.grpc.UserAgentInterceptor;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
-
-import io.grpc.Metadata;
-import io.grpc.ManagedChannel;
-import io.grpc.Server;
-import io.grpc.ServerBuilder;
-import io.grpc.StatusRuntimeException;
-import io.grpc.inprocess.InProcessServerBuilder;
-import io.grpc.inprocess.InProcessChannelBuilder;
-import io.grpc.stub.MetadataUtils;
 
 class RemoteDeprecationFilterTest {
 

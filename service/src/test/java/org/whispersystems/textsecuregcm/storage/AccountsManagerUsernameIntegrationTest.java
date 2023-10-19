@@ -58,7 +58,6 @@ class AccountsManagerUsernameIntegrationTest {
   private static final String BASE_64_URL_USERNAME_HASH_2 = "NLUom-CHwtemcdvOTTXdmXmzRIV7F05leS8lwkVK_vc";
   private static final String BASE_64_URL_ENCRYPTED_USERNAME_1 = "md1votbj9r794DsqTNrBqA";
   private static final String BASE_64_URL_ENCRYPTED_USERNAME_2 = "9hrqVLy59bzgPse-S9NUsA";
-  private static final int SCAN_PAGE_SIZE = 1;
   private static final byte[] USERNAME_HASH_1 = Base64.getUrlDecoder().decode(BASE_64_URL_USERNAME_HASH_1);
   private static final byte[] USERNAME_HASH_2 = Base64.getUrlDecoder().decode(BASE_64_URL_USERNAME_HASH_2);
   private static final byte[] ENCRYPTED_USERNAME_1 = Base64.getUrlDecoder().decode(BASE_64_URL_ENCRYPTED_USERNAME_1);
@@ -99,8 +98,7 @@ class AccountsManagerUsernameIntegrationTest {
         Tables.NUMBERS.tableName(),
         Tables.PNI_ASSIGNMENTS.tableName(),
         Tables.USERNAMES.tableName(),
-        Tables.DELETED_ACCOUNTS.tableName(),
-        SCAN_PAGE_SIZE));
+        Tables.DELETED_ACCOUNTS.tableName()));
 
     final AccountLockManager accountLockManager = mock(AccountLockManager.class);
 

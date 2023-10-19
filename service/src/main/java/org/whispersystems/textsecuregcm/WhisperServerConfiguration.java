@@ -16,7 +16,6 @@ import java.util.Set;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import org.whispersystems.textsecuregcm.attachments.TusConfiguration;
-import org.whispersystems.textsecuregcm.configuration.AccountDatabaseCrawlerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AdminEventLoggingConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ApnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AppConfigConfiguration;
@@ -131,11 +130,6 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @JsonProperty
   private SecureValueRecovery2Configuration svr2;
-
-  @NotNull
-  @Valid
-  @JsonProperty
-  private AccountDatabaseCrawlerConfiguration accountDatabaseCrawler;
 
   @NotNull
   @Valid
@@ -372,10 +366,6 @@ public class WhisperServerConfiguration extends Configuration {
 
   public SecureStorageServiceConfiguration getSecureStorageServiceConfiguration() {
     return storageService;
-  }
-
-  public AccountDatabaseCrawlerConfiguration getAccountDatabaseCrawlerConfiguration() {
-    return accountDatabaseCrawler;
   }
 
   public MessageCacheConfiguration getMessageCacheConfiguration() {

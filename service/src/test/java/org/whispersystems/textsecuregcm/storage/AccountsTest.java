@@ -19,7 +19,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.uuid.UUIDComparator;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.Duration;
@@ -85,8 +84,6 @@ class AccountsTest {
   private static final byte[] ENCRYPTED_USERNAME_1 = Base64.getUrlDecoder().decode(BASE_64_URL_ENCRYPTED_USERNAME_1);
   private static final byte[] ENCRYPTED_USERNAME_2 = Base64.getUrlDecoder().decode(BASE_64_URL_ENCRYPTED_USERNAME_2);
 
-  private static final int SCAN_PAGE_SIZE = 1;
-
   private static final AtomicInteger ACCOUNT_COUNTER = new AtomicInteger(1);
 
 
@@ -119,8 +116,7 @@ class AccountsTest {
         Tables.NUMBERS.tableName(),
         Tables.PNI_ASSIGNMENTS.tableName(),
         Tables.USERNAMES.tableName(),
-        Tables.DELETED_ACCOUNTS.tableName(),
-        SCAN_PAGE_SIZE);
+        Tables.DELETED_ACCOUNTS.tableName());
   }
 
   @Test
@@ -423,7 +419,7 @@ class AccountsTest {
     accounts = new Accounts(mock(DynamoDbClient.class),
         dynamoDbAsyncClient, Tables.ACCOUNTS.tableName(),
         Tables.NUMBERS.tableName(), Tables.PNI_ASSIGNMENTS.tableName(), Tables.USERNAMES.tableName(),
-        Tables.DELETED_ACCOUNTS.tableName(), SCAN_PAGE_SIZE);
+        Tables.DELETED_ACCOUNTS.tableName());
 
     Exception e = TransactionConflictException.builder().build();
     e = wrapException ? new CompletionException(e) : e;
@@ -434,55 +430,6 @@ class AccountsTest {
     Account account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID());
 
     assertThatThrownBy(() -> accounts.update(account)).isInstanceOfAny(ContestedOptimisticLockException.class);
-  }
-
-  @Test
-  void testRetrieveFrom() {
-    List<Account> users = new ArrayList<>();
-
-    for (int i = 1; i <= 100; i++) {
-      Account account = generateAccount("+1" + String.format("%03d", i), UUID.randomUUID(), UUID.randomUUID());
-      users.add(account);
-      accounts.create(account);
-    }
-
-    users.sort((account, t1) -> UUIDComparator.staticCompare(account.getUuid(), t1.getUuid()));
-
-    AccountCrawlChunk retrieved = accounts.getAllFromStart(10);
-    assertThat(retrieved.getAccounts().size()).isEqualTo(10);
-
-    for (int i = 0; i < retrieved.getAccounts().size(); i++) {
-      final Account retrievedAccount = retrieved.getAccounts().get(i);
-
-      final Account expectedAccount = users.stream()
-          .filter(account -> account.getUuid().equals(retrievedAccount.getUuid()))
-          .findAny()
-          .orElseThrow();
-
-      verifyStoredState(expectedAccount.getNumber(), expectedAccount.getUuid(), expectedAccount.getPhoneNumberIdentifier(), null, retrievedAccount, expectedAccount);
-
-      users.remove(expectedAccount);
-    }
-
-    for (int j = 0; j < 9; j++) {
-      retrieved = accounts.getAllFrom(retrieved.getLastUuid().orElseThrow(), 10);
-      assertThat(retrieved.getAccounts().size()).isEqualTo(10);
-
-      for (int i = 0; i < retrieved.getAccounts().size(); i++) {
-        final Account retrievedAccount = retrieved.getAccounts().get(i);
-
-        final Account expectedAccount = users.stream()
-            .filter(account -> account.getUuid().equals(retrievedAccount.getUuid()))
-            .findAny()
-            .orElseThrow();
-
-        verifyStoredState(expectedAccount.getNumber(), expectedAccount.getUuid(), expectedAccount.getPhoneNumberIdentifier(), null, retrievedAccount, expectedAccount);
-
-        users.remove(expectedAccount);
-      }
-    }
-
-    assertThat(users).isEmpty();
   }
 
   @Test

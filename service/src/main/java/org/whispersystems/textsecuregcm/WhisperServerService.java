@@ -212,7 +212,6 @@ import org.whispersystems.textsecuregcm.websocket.WebSocketAccountAuthenticator;
 import org.whispersystems.textsecuregcm.workers.AssignUsernameCommand;
 import org.whispersystems.textsecuregcm.workers.CertificateCommand;
 import org.whispersystems.textsecuregcm.workers.CheckDynamicConfigurationCommand;
-import org.whispersystems.textsecuregcm.workers.CrawlAccountsCommand;
 import org.whispersystems.textsecuregcm.workers.DeleteUserCommand;
 import org.whispersystems.textsecuregcm.workers.MessagePersisterServiceCommand;
 import org.whispersystems.textsecuregcm.workers.MigrateSignedECPreKeysCommand;
@@ -270,7 +269,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     bootstrap.addCommand(new SetUserDiscoverabilityCommand());
     bootstrap.addCommand(new AssignUsernameCommand());
     bootstrap.addCommand(new UnlinkDeviceCommand());
-    bootstrap.addCommand(new CrawlAccountsCommand());
     bootstrap.addCommand(new ScheduledApnPushNotificationSenderServiceCommand());
     bootstrap.addCommand(new MessagePersisterServiceCommand());
     bootstrap.addCommand(new MigrateSignedECPreKeysCommand());
@@ -329,8 +327,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getDynamoDbTables().getAccounts().getPhoneNumberTableName(),
         config.getDynamoDbTables().getAccounts().getPhoneNumberIdentifierTableName(),
         config.getDynamoDbTables().getAccounts().getUsernamesTableName(),
-        config.getDynamoDbTables().getDeletedAccounts().getTableName(),
-        config.getDynamoDbTables().getAccounts().getScanPageSize());
+        config.getDynamoDbTables().getDeletedAccounts().getTableName());
     ClientReleases clientReleases = new ClientReleases(dynamoDbAsyncClient,
         config.getDynamoDbTables().getClientReleases().getTableName());
     PhoneNumberIdentifiers phoneNumberIdentifiers = new PhoneNumberIdentifiers(dynamoDbClient,
