@@ -769,10 +769,10 @@ class SubscriptionControllerTest {
 
   @Test
   void testGetBankMandateInvalidBankTransferType() {
-    final Response response = RESOURCE_EXTENSION.target("/v1/subscription/ach")
+    final Response response = RESOURCE_EXTENSION.target("/v1/subscription/bank_mandate/ach")
         .request()
         .get();
-    assertThat(response.getStatus()).isEqualTo(404);
+    assertThat(response.getStatus()).isEqualTo(400);
   }
 
   @ParameterizedTest
