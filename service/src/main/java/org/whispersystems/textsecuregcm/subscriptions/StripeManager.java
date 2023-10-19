@@ -31,6 +31,7 @@ import com.stripe.param.PaymentIntentCreateParams;
 import com.stripe.param.PaymentIntentRetrieveParams;
 import com.stripe.param.PriceRetrieveParams;
 import com.stripe.param.SetupIntentCreateParams;
+import com.stripe.param.SetupIntentRetrieveParams;
 import com.stripe.param.SubscriptionCancelParams;
 import com.stripe.param.SubscriptionCreateParams;
 import com.stripe.param.SubscriptionItemListParams;
@@ -63,7 +64,9 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import javax.ws.rs.ClientErrorException;
 import javax.ws.rs.InternalServerErrorException;
+import javax.ws.rs.NotFoundException;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
@@ -630,6 +633,33 @@ public class StripeManager implements SubscriptionProcessorManager {
             throw new CompletionException(e);
           }
         }, executor);
+  }
+
+  public CompletableFuture<String> getGeneratedSepaIdFromSetupIntent(String setupIntentId) {
+    return CompletableFuture.supplyAsync(() -> {
+      SetupIntentRetrieveParams params = SetupIntentRetrieveParams.builder()
+          .addExpand("latest_attempt")
+          .build();
+      try {
+        final SetupIntent setupIntent = stripeClient.setupIntents().retrieve(setupIntentId, params, commonOptions());
+        if (setupIntent.getLatestAttemptObject() == null
+            || setupIntent.getLatestAttemptObject().getPaymentMethodDetails() == null
+            || setupIntent.getLatestAttemptObject().getPaymentMethodDetails().getIdeal() == null
+            || setupIntent.getLatestAttemptObject().getPaymentMethodDetails().getIdeal().getGeneratedSepaDebit() == null) {
+          // This usually indicates that the client has made requests out of order, either by not confirming
+          // the SetupIntent or not having the user authorize the transaction.
+          logger.debug("setupIntent {} missing expected fields", setupIntentId);
+          throw new ClientErrorException(Status.CONFLICT);
+        }
+        return setupIntent.getLatestAttemptObject().getPaymentMethodDetails().getIdeal().getGeneratedSepaDebit();
+      } catch (StripeException e) {
+        if (e.getStatusCode() == 404) {
+          throw new NotFoundException();
+        }
+        logger.error("unexpected error from Stripe when retrieving setupIntent {}", setupIntentId, e);
+        throw new CompletionException(e);
+      }
+    }, executor);
   }
 
   /**

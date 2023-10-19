@@ -435,16 +435,7 @@ public class SubscriptionController {
 
     final SubscriptionProcessorManager manager = getManagerForProcessor(processor);
 
-    return subscriptionManager.get(requestData.subscriberUser, requestData.hmac)
-        .thenApply(this::requireRecordFromGetResult)
-        .thenCompose(record -> record.getProcessorCustomer()
-            .map(processorCustomer -> manager.setDefaultPaymentMethodForCustomer(processorCustomer.customerId(),
-                paymentMethodToken, record.subscriptionId))
-            .orElseThrow(() ->
-                // a missing customer ID indicates the client made requests out of order,
-                // and needs to call create_payment_method to create a customer for the given payment method
-                new ClientErrorException(Status.CONFLICT)))
-        .thenApply(customer -> Response.ok().build());
+    return setDefaultPaymentMethod(manager, paymentMethodToken, requestData);
   }
 
   public record SetSubscriptionLevelSuccessResponse(long level) {
@@ -987,6 +978,33 @@ public class SubscriptionController {
         });
   }
 
+  @POST
+  @Path("/{subscriberId}/default_payment_method_for_ideal/{setupIntentId}")
+  @Produces(MediaType.APPLICATION_JSON)
+  public CompletableFuture<Response> setDefaultPaymentMethodForIdeal(
+      @Auth Optional<AuthenticatedAccount> authenticatedAccount,
+      @PathParam("subscriberId") String subscriberId,
+      @PathParam("setupIntentId") @NotEmpty String setupIntentId) {
+    RequestData requestData = RequestData.process(authenticatedAccount, subscriberId, clock);
+
+    return stripeManager.getGeneratedSepaIdFromSetupIntent(setupIntentId)
+        .thenCompose(generatedSepaId -> setDefaultPaymentMethod(stripeManager, generatedSepaId, requestData));
+  }
+
+  private CompletableFuture<Response> setDefaultPaymentMethod(final SubscriptionProcessorManager manager,
+      final String paymentMethodId,
+      final RequestData requestData) {
+    return subscriptionManager.get(requestData.subscriberUser, requestData.hmac)
+        .thenApply(this::requireRecordFromGetResult)
+        .thenCompose(record -> record.getProcessorCustomer()
+            .map(processorCustomer -> manager.setDefaultPaymentMethodForCustomer(processorCustomer.customerId(),
+                paymentMethodId, record.subscriptionId))
+            .orElseThrow(() ->
+                // a missing customer ID indicates the client made requests out of order,
+                // and needs to call create_payment_method to create a customer for the given payment method
+                new ClientErrorException(Status.CONFLICT)))
+        .thenApply(customer -> Response.ok().build());
+  }
     private Instant receiptExpirationWithGracePeriod(Instant itemExpiration) {
         return itemExpiration.plus(subscriptionConfiguration.getBadgeGracePeriod())
                 .truncatedTo(ChronoUnit.DAYS)
