@@ -40,7 +40,7 @@ class OutgoingMessageEntityTest {
         MessageProtos.Envelope.Type.CIPHERTEXT_VALUE,
         messageTimestamp,
         sourceIdentifier,
-        sourceIdentifier != null ? (int) Device.MASTER_ID : 0,
+        sourceIdentifier != null ? (int) Device.PRIMARY_ID : 0,
         destinationIdentifier,
         updatedPni,
         messageContent,

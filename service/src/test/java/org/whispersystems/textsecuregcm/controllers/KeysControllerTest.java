@@ -285,7 +285,7 @@ class KeysControllerTest {
     verify(AuthHelper.VALID_DEVICE).setSignedPreKey(eq(test));
     verify(AuthHelper.VALID_DEVICE, never()).setPhoneNumberIdentitySignedPreKey(any());
     verify(accounts).updateDevice(eq(AuthHelper.VALID_ACCOUNT), anyLong(), any());
-    verify(KEYS).storeEcSignedPreKeys(AuthHelper.VALID_UUID, Map.of(Device.MASTER_ID, test));
+    verify(KEYS).storeEcSignedPreKeys(AuthHelper.VALID_UUID, Map.of(Device.PRIMARY_ID, test));
   }
 
   @Test
@@ -304,7 +304,7 @@ class KeysControllerTest {
     verify(AuthHelper.VALID_DEVICE).setPhoneNumberIdentitySignedPreKey(eq(replacementKey));
     verify(AuthHelper.VALID_DEVICE, never()).setSignedPreKey(any());
     verify(accounts).updateDevice(eq(AuthHelper.VALID_ACCOUNT), anyLong(), any());
-    verify(KEYS).storeEcSignedPreKeys(AuthHelper.VALID_PNI, Map.of(Device.MASTER_ID, replacementKey));
+    verify(KEYS).storeEcSignedPreKeys(AuthHelper.VALID_PNI, Map.of(Device.PRIMARY_ID, replacementKey));
   }
 
   @Test

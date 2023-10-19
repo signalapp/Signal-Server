@@ -137,11 +137,11 @@ public class DeviceController {
   @ChangesDeviceEnabledState
   public void removeDevice(@Auth AuthenticatedAccount auth, @PathParam("device_id") long deviceId) {
     Account account = auth.getAccount();
-    if (auth.getAuthenticatedDevice().getId() != Device.MASTER_ID) {
+    if (auth.getAuthenticatedDevice().getId() != Device.PRIMARY_ID) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 
-    if (deviceId == Device.MASTER_ID) {
+    if (deviceId == Device.PRIMARY_ID) {
       throw new ForbiddenException();
     }
 
@@ -175,7 +175,7 @@ public class DeviceController {
       throw new DeviceLimitExceededException(account.getDevices().size(), MAX_DEVICES);
     }
 
-    if (auth.getAuthenticatedDevice().getId() != Device.MASTER_ID) {
+    if (auth.getAuthenticatedDevice().getId() != Device.PRIMARY_ID) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 

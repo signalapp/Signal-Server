@@ -256,7 +256,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   public static void recordMessageDeliveryDuration(long timestamp, Device messageDestinationDevice) {
     final long messageDeliveryDuration = System.currentTimeMillis() - timestamp;
     messageTime.update(messageDeliveryDuration);
-    if (messageDestinationDevice.isMaster()) {
+    if (messageDestinationDevice.isPrimary()) {
       primaryDeviceMessageTime.update(messageDeliveryDuration);
     }
   }

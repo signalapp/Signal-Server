@@ -1530,8 +1530,8 @@ class AccountsManagerTest {
 
     assertEquals(originalAccount.getDevices().size(), parsedAccount.getDevices().size());
 
-    final Device originalDevice = originalAccount.getMasterDevice().orElseThrow();
-    final Device parsedDevice = parsedAccount.getMasterDevice().orElseThrow();
+    final Device originalDevice = originalAccount.getPrimaryDevice().orElseThrow();
+    final Device parsedDevice = parsedAccount.getPrimaryDevice().orElseThrow();
 
     assertEquals(originalDevice.getId(), parsedDevice.getId());
     assertEquals(originalDevice.getSignedPreKey(IdentityType.ACI), parsedDevice.getSignedPreKey(IdentityType.ACI));
@@ -1549,7 +1549,7 @@ class AccountsManagerTest {
 
   private static Device generateTestDevice(final long lastSeen) {
     final Device device = new Device();
-    device.setId(Device.MASTER_ID);
+    device.setId(Device.PRIMARY_ID);
     device.setFetchesMessages(true);
     device.setSignedPreKey(KeysHelper.signedECPreKey(1, Curve.generateKeyPair()));
     device.setLastSeen(lastSeen);

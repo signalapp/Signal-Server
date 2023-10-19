@@ -68,7 +68,7 @@ class BaseAccountAuthenticatorTest {
 
   private static Device generateTestDevice(final long lastSeen) {
     final Device device = new Device();
-    device.setId(Device.MASTER_ID);
+    device.setId(Device.PRIMARY_ID);
     device.setLastSeen(lastSeen);
 
     return device;
@@ -374,8 +374,8 @@ class BaseAccountAuthenticatorTest {
 
   private static Stream<Arguments> testGetIdentifierAndDeviceId() {
     return Stream.of(
-        Arguments.of("", "", Device.MASTER_ID),
-        Arguments.of("test", "test", Device.MASTER_ID),
+        Arguments.of("", "", Device.PRIMARY_ID),
+        Arguments.of("test", "test", Device.PRIMARY_ID),
         Arguments.of("test.7", "test", 7));
   }
 

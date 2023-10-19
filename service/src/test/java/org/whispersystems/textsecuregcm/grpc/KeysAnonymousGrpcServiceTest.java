@@ -83,9 +83,9 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
     final byte[] unidentifiedAccessKey = new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH];
     new SecureRandom().nextBytes(unidentifiedAccessKey);
 
-    when(targetDevice.getId()).thenReturn(Device.MASTER_ID);
+    when(targetDevice.getId()).thenReturn(Device.PRIMARY_ID);
     when(targetDevice.isEnabled()).thenReturn(true);
-    when(targetAccount.getDevice(Device.MASTER_ID)).thenReturn(Optional.of(targetDevice));
+    when(targetAccount.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(targetDevice));
 
     when(targetAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
     when(targetAccount.getIdentifier(IdentityType.ACI)).thenReturn(identifier);
@@ -97,8 +97,8 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
     final ECSignedPreKey ecSignedPreKey = KeysHelper.signedECPreKey(2, identityKeyPair);
     final KEMSignedPreKey kemSignedPreKey = KeysHelper.signedKEMPreKey(3, identityKeyPair);
 
-    when(keysManager.takeEC(identifier, Device.MASTER_ID)).thenReturn(CompletableFuture.completedFuture(Optional.of(ecPreKey)));
-    when(keysManager.takePQ(identifier, Device.MASTER_ID)).thenReturn(CompletableFuture.completedFuture(Optional.of(kemSignedPreKey)));
+    when(keysManager.takeEC(identifier, Device.PRIMARY_ID)).thenReturn(CompletableFuture.completedFuture(Optional.of(ecPreKey)));
+    when(keysManager.takePQ(identifier, Device.PRIMARY_ID)).thenReturn(CompletableFuture.completedFuture(Optional.of(kemSignedPreKey)));
     when(targetDevice.getSignedPreKey(IdentityType.ACI)).thenReturn(ecSignedPreKey);
 
     final GetPreKeysResponse response = unauthenticatedServiceStub().getPreKeys(GetPreKeysAnonymousRequest.newBuilder()
@@ -108,13 +108,13 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
                 .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
                 .setUuid(UUIDUtil.toByteString(identifier))
                 .build())
-            .setDeviceId(Device.MASTER_ID)
+            .setDeviceId(Device.PRIMARY_ID)
             .build())
         .build());
 
     final GetPreKeysResponse expectedResponse = GetPreKeysResponse.newBuilder()
         .setIdentityKey(ByteString.copyFrom(identityKey.serialize()))
-        .putPreKeys(Device.MASTER_ID, GetPreKeysResponse.PreKeyBundle.newBuilder()
+        .putPreKeys(Device.PRIMARY_ID, GetPreKeysResponse.PreKeyBundle.newBuilder()
             .setEcOneTimePreKey(EcPreKey.newBuilder()
                 .setKeyId(ecPreKey.keyId())
                 .setPublicKey(ByteString.copyFrom(ecPreKey.serializedPublicKey()))
@@ -158,7 +158,7 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
                 .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
                 .setUuid(UUIDUtil.toByteString(identifier))
                 .build())
-            .setDeviceId(Device.MASTER_ID)
+            .setDeviceId(Device.PRIMARY_ID)
             .build())
         .build()));
   }

@@ -171,7 +171,7 @@ class AuthEnablementRefreshRequirementProviderTest {
   void testDeviceEnabledChanged(final Map<Long, Boolean> initialEnabled, final Map<Long, Boolean> finalEnabled) {
     assert initialEnabled.size() == finalEnabled.size();
 
-    assert account.getMasterDevice().orElseThrow().isEnabled();
+    assert account.getPrimaryDevice().orElseThrow().isEnabled();
 
     initialEnabled.forEach((deviceId, enabled) ->
         DevicesHelper.setEnabled(account.getDevice(deviceId).orElseThrow(), enabled));
@@ -211,7 +211,7 @@ class AuthEnablementRefreshRequirementProviderTest {
 
   @Test
   void testDeviceAdded() {
-    assert account.getMasterDevice().orElseThrow().isEnabled();
+    assert account.getPrimaryDevice().orElseThrow().isEnabled();
 
     final int initialDeviceCount = account.getDevices().size();
 
@@ -235,7 +235,7 @@ class AuthEnablementRefreshRequirementProviderTest {
   @ParameterizedTest
   @ValueSource(ints = {1, 2})
   void testDeviceRemoved(final int removedDeviceCount) {
-    assert account.getMasterDevice().orElseThrow().isEnabled();
+    assert account.getPrimaryDevice().orElseThrow().isEnabled();
 
     final List<Long> initialDeviceIds = account.getDevices().stream().map(Device::getId).collect(Collectors.toList());
 
@@ -266,8 +266,8 @@ class AuthEnablementRefreshRequirementProviderTest {
   }
 
   @Test
-  void testMasterDeviceDisabledAndDeviceRemoved() {
-    assert account.getMasterDevice().orElseThrow().isEnabled();
+  void testPrimaryDeviceDisabledAndDeviceRemoved() {
+    assert account.getPrimaryDevice().orElseThrow().isEnabled();
 
     final Set<Long> initialDeviceIds = account.getDevices().stream().map(Device::getId).collect(Collectors.toSet());
 
@@ -275,7 +275,7 @@ class AuthEnablementRefreshRequirementProviderTest {
     assertTrue(initialDeviceIds.remove(deletedDeviceId));
 
     final Response response = resources.getJerseyTest()
-        .target("/v1/test/account/disableMasterDeviceAndDeleteDevice/" + deletedDeviceId)
+        .target("/v1/test/account/disablePrimaryDeviceAndDeleteDevice/" + deletedDeviceId)
         .request()
         .header("Authorization",
             "Basic " + Base64.getEncoder().encodeToString("user:pass".getBytes(StandardCharsets.UTF_8)))
@@ -415,7 +415,7 @@ class AuthEnablementRefreshRequirementProviderTest {
     @ChangesDeviceEnabledState
     public String setAccountEnabled(@Auth TestPrincipal principal, @PathParam("enabled") final boolean enabled) {
 
-      final Device device = principal.getAccount().getMasterDevice().orElseThrow();
+      final Device device = principal.getAccount().getPrimaryDevice().orElseThrow();
 
       DevicesHelper.setEnabled(device, enabled);
 
@@ -469,11 +469,11 @@ class AuthEnablementRefreshRequirementProviderTest {
     }
 
     @POST
-    @Path("/account/disableMasterDeviceAndDeleteDevice/{deviceId}")
+    @Path("/account/disablePrimaryDeviceAndDeleteDevice/{deviceId}")
     @ChangesDeviceEnabledState
-    public String disableMasterDeviceAndRemoveDevice(@Auth TestPrincipal auth, @PathParam("deviceId") long deviceId) {
+    public String disablePrimaryDeviceAndRemoveDevice(@Auth TestPrincipal auth, @PathParam("deviceId") long deviceId) {
 
-      DevicesHelper.setEnabled(auth.getAccount().getMasterDevice().orElseThrow(), false);
+      DevicesHelper.setEnabled(auth.getAccount().getPrimaryDevice().orElseThrow(), false);
 
       auth.getAccount().removeDevice(deviceId);
 

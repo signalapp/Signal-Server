@@ -35,8 +35,8 @@ import org.whispersystems.textsecuregcm.util.TestClock;
 
 class AccountTest {
 
-  private final Device oldMasterDevice = mock(Device.class);
-  private final Device recentMasterDevice = mock(Device.class);
+  private final Device oldPrimaryDevice = mock(Device.class);
+  private final Device recentPrimaryDevice = mock(Device.class);
   private final Device agingSecondaryDevice = mock(Device.class);
   private final Device recentSecondaryDevice = mock(Device.class);
   private final Device oldSecondaryDevice = mock(Device.class);
@@ -71,13 +71,13 @@ class AccountTest {
 
   @BeforeEach
   void setup() {
-    when(oldMasterDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(366));
-    when(oldMasterDevice.isEnabled()).thenReturn(true);
-    when(oldMasterDevice.getId()).thenReturn(Device.MASTER_ID);
+    when(oldPrimaryDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(366));
+    when(oldPrimaryDevice.isEnabled()).thenReturn(true);
+    when(oldPrimaryDevice.getId()).thenReturn(Device.PRIMARY_ID);
 
-    when(recentMasterDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(1));
-    when(recentMasterDevice.isEnabled()).thenReturn(true);
-    when(recentMasterDevice.getId()).thenReturn(Device.MASTER_ID);
+    when(recentPrimaryDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(1));
+    when(recentPrimaryDevice.isEnabled()).thenReturn(true);
+    when(recentPrimaryDevice.getId()).thenReturn(Device.PRIMARY_ID);
 
     when(agingSecondaryDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(31));
     when(agingSecondaryDevice.isEnabled()).thenReturn(false);
@@ -178,69 +178,69 @@ class AccountTest {
 
   @Test
   void testIsEnabled() {
-    final Device enabledMasterDevice = mock(Device.class);
+    final Device enabledPrimaryDevice = mock(Device.class);
     final Device enabledLinkedDevice = mock(Device.class);
-    final Device disabledMasterDevice = mock(Device.class);
+    final Device disabledPrimaryDevice = mock(Device.class);
     final Device disabledLinkedDevice = mock(Device.class);
 
-    when(enabledMasterDevice.isEnabled()).thenReturn(true);
+    when(enabledPrimaryDevice.isEnabled()).thenReturn(true);
     when(enabledLinkedDevice.isEnabled()).thenReturn(true);
-    when(disabledMasterDevice.isEnabled()).thenReturn(false);
+    when(disabledPrimaryDevice.isEnabled()).thenReturn(false);
     when(disabledLinkedDevice.isEnabled()).thenReturn(false);
 
-    when(enabledMasterDevice.getId()).thenReturn(1L);
+    when(enabledPrimaryDevice.getId()).thenReturn(1L);
     when(enabledLinkedDevice.getId()).thenReturn(2L);
-    when(disabledMasterDevice.getId()).thenReturn(1L);
+    when(disabledPrimaryDevice.getId()).thenReturn(1L);
     when(disabledLinkedDevice.getId()).thenReturn(2L);
 
-    assertTrue(AccountsHelper.generateTestAccount("+14151234567", List.of(enabledMasterDevice)).isEnabled());
-    assertTrue(AccountsHelper.generateTestAccount("+14151234567", List.of(enabledMasterDevice, enabledLinkedDevice)).isEnabled());
-    assertTrue(AccountsHelper.generateTestAccount("+14151234567", List.of(enabledMasterDevice, disabledLinkedDevice)).isEnabled());
-    assertFalse(AccountsHelper.generateTestAccount("+14151234567", List.of(disabledMasterDevice)).isEnabled());
-    assertFalse(AccountsHelper.generateTestAccount("+14151234567", List.of(disabledMasterDevice, enabledLinkedDevice)).isEnabled());
-    assertFalse(AccountsHelper.generateTestAccount("+14151234567", List.of(disabledMasterDevice, disabledLinkedDevice)).isEnabled());
+    assertTrue(AccountsHelper.generateTestAccount("+14151234567", List.of(enabledPrimaryDevice)).isEnabled());
+    assertTrue(AccountsHelper.generateTestAccount("+14151234567", List.of(enabledPrimaryDevice, enabledLinkedDevice)).isEnabled());
+    assertTrue(AccountsHelper.generateTestAccount("+14151234567", List.of(enabledPrimaryDevice, disabledLinkedDevice)).isEnabled());
+    assertFalse(AccountsHelper.generateTestAccount("+14151234567", List.of(disabledPrimaryDevice)).isEnabled());
+    assertFalse(AccountsHelper.generateTestAccount("+14151234567", List.of(disabledPrimaryDevice, enabledLinkedDevice)).isEnabled());
+    assertFalse(AccountsHelper.generateTestAccount("+14151234567", List.of(disabledPrimaryDevice, disabledLinkedDevice)).isEnabled());
   }
 
   @Test
   void testIsTransferSupported() {
-    final Device transferCapableMasterDevice = mock(Device.class);
-    final Device nonTransferCapableMasterDevice = mock(Device.class);
+    final Device transferCapablePrimaryDevice = mock(Device.class);
+    final Device nonTransferCapablePrimaryDevice = mock(Device.class);
     final Device transferCapableLinkedDevice = mock(Device.class);
 
     final DeviceCapabilities transferCapabilities = mock(DeviceCapabilities.class);
     final DeviceCapabilities nonTransferCapabilities = mock(DeviceCapabilities.class);
 
-    when(transferCapableMasterDevice.getId()).thenReturn(1L);
-    when(transferCapableMasterDevice.isMaster()).thenReturn(true);
-    when(transferCapableMasterDevice.getCapabilities()).thenReturn(transferCapabilities);
+    when(transferCapablePrimaryDevice.getId()).thenReturn(1L);
+    when(transferCapablePrimaryDevice.isPrimary()).thenReturn(true);
+    when(transferCapablePrimaryDevice.getCapabilities()).thenReturn(transferCapabilities);
 
-    when(nonTransferCapableMasterDevice.getId()).thenReturn(1L);
-    when(nonTransferCapableMasterDevice.isMaster()).thenReturn(true);
-    when(nonTransferCapableMasterDevice.getCapabilities()).thenReturn(nonTransferCapabilities);
+    when(nonTransferCapablePrimaryDevice.getId()).thenReturn(1L);
+    when(nonTransferCapablePrimaryDevice.isPrimary()).thenReturn(true);
+    when(nonTransferCapablePrimaryDevice.getCapabilities()).thenReturn(nonTransferCapabilities);
 
     when(transferCapableLinkedDevice.getId()).thenReturn(2L);
-    when(transferCapableLinkedDevice.isMaster()).thenReturn(false);
+    when(transferCapableLinkedDevice.isPrimary()).thenReturn(false);
     when(transferCapableLinkedDevice.getCapabilities()).thenReturn(transferCapabilities);
 
     when(transferCapabilities.transfer()).thenReturn(true);
     when(nonTransferCapabilities.transfer()).thenReturn(false);
 
     {
-      final Account transferableMasterAccount =
-              AccountsHelper.generateTestAccount("+14152222222", UUID.randomUUID(), UUID.randomUUID(), List.of(transferCapableMasterDevice), "1234".getBytes());
+      final Account transferablePrimaryAccount =
+              AccountsHelper.generateTestAccount("+14152222222", UUID.randomUUID(), UUID.randomUUID(), List.of(transferCapablePrimaryDevice), "1234".getBytes());
 
-      assertTrue(transferableMasterAccount.isTransferSupported());
+      assertTrue(transferablePrimaryAccount.isTransferSupported());
     }
 
     {
-      final Account nonTransferableMasterAccount =
-              AccountsHelper.generateTestAccount("+14152222222", UUID.randomUUID(), UUID.randomUUID(), List.of(nonTransferCapableMasterDevice), "1234".getBytes());
+      final Account nonTransferablePrimaryAccount =
+              AccountsHelper.generateTestAccount("+14152222222", UUID.randomUUID(), UUID.randomUUID(), List.of(nonTransferCapablePrimaryDevice), "1234".getBytes());
 
-      assertFalse(nonTransferableMasterAccount.isTransferSupported());
+      assertFalse(nonTransferablePrimaryAccount.isTransferSupported());
     }
 
     {
-      final Account transferableLinkedAccount = AccountsHelper.generateTestAccount("+14152222222", UUID.randomUUID(), UUID.randomUUID(), List.of(nonTransferCapableMasterDevice, transferCapableLinkedDevice), "1234".getBytes());
+      final Account transferableLinkedAccount = AccountsHelper.generateTestAccount("+14152222222", UUID.randomUUID(), UUID.randomUUID(), List.of(nonTransferCapablePrimaryDevice, transferCapableLinkedDevice), "1234".getBytes());
 
       assertFalse(transferableLinkedAccount.isTransferSupported());
     }
@@ -248,7 +248,7 @@ class AccountTest {
 
   @Test
   void testDiscoverableByPhoneNumber() {
-    final Account account = AccountsHelper.generateTestAccount("+14152222222", UUID.randomUUID(), UUID.randomUUID(), List.of(recentMasterDevice),
+    final Account account = AccountsHelper.generateTestAccount("+14152222222", UUID.randomUUID(), UUID.randomUUID(), List.of(recentPrimaryDevice),
         "1234".getBytes());
 
     assertTrue(account.isDiscoverableByPhoneNumber(),
@@ -303,7 +303,7 @@ class AccountTest {
   @Test
   void getNextDeviceId() {
 
-    final List<Device> devices = List.of(createDevice(Device.MASTER_ID));
+    final List<Device> devices = List.of(createDevice(Device.PRIMARY_ID));
 
     final Account account = AccountsHelper.generateTestAccount("+14151234567", UUID.randomUUID(), UUID.randomUUID(), devices, new byte[0]);
 
@@ -326,8 +326,8 @@ class AccountTest {
 
   @Test
   void replaceDevice() {
-    final Device firstDevice = createDevice(Device.MASTER_ID);
-    final Device secondDevice = createDevice(Device.MASTER_ID);
+    final Device firstDevice = createDevice(Device.PRIMARY_ID);
+    final Device secondDevice = createDevice(Device.PRIMARY_ID);
     final Account account = AccountsHelper.generateTestAccount("+14151234567", UUID.randomUUID(), UUID.randomUUID(), List.of(firstDevice), new byte[0]);
 
     assertEquals(List.of(firstDevice), account.getDevices());
@@ -339,7 +339,7 @@ class AccountTest {
 
   @Test
   void addAndRemoveBadges() {
-    final Account account = AccountsHelper.generateTestAccount("+14151234567", UUID.randomUUID(), UUID.randomUUID(), List.of(createDevice(Device.MASTER_ID)), new byte[0]);
+    final Account account = AccountsHelper.generateTestAccount("+14151234567", UUID.randomUUID(), UUID.randomUUID(), List.of(createDevice(Device.PRIMARY_ID)), new byte[0]);
     final Clock clock = TestClock.pinned(Instant.ofEpochSecond(40));
 
     account.addBadge(clock, new AccountBadge("foo", Instant.ofEpochSecond(42), false));

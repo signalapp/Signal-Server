@@ -186,7 +186,7 @@ public class AccountsManager {
 
       accountLockManager.withLock(List.of(number), () -> {
         Device device = new Device();
-        device.setId(Device.MASTER_ID);
+        device.setId(Device.PRIMARY_ID);
         device.setAuthTokenHash(SaltedTokenHash.generateFor(password));
         device.setFetchesMessages(accountAttributes.getFetchesMessages());
         device.setRegistrationId(accountAttributes.getRegistrationId());
@@ -423,13 +423,13 @@ public class AccountsManager {
       throw new IllegalArgumentException("Signed pre-keys and registration IDs must both be null or both be non-null");
     }
 
-    // Check that all including master ID are in signed pre-keys
+    // Check that all including primary ID are in signed pre-keys
     DestinationDeviceValidator.validateCompleteDeviceList(
         account,
         pniSignedPreKeys.keySet(),
         Collections.emptySet());
 
-    // Check that all including master ID are in Pq pre-keys
+    // Check that all including primary ID are in Pq pre-keys
     if (pniPqLastResortPreKeys != null) {
       DestinationDeviceValidator.validateCompleteDeviceList(
           account,

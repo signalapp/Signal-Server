@@ -171,7 +171,7 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
         final StatefulRedisConnection<String, String> connection = waitClient.connect()) {
       // CLUSTER INFO gives us a big blob of key-value pairs, but the one we're interested in is `cluster_state`.
       // According to https://redis.io/commands/cluster-info, `cluster_state:ok` means that the node is ready to
-      // receive queries, all slots are assigned, and a majority of master nodes are reachable.
+      // receive queries, all slots are assigned, and a majority of leader nodes are reachable.
 
       final int sleepMillis = 500;
       int tries = 0;

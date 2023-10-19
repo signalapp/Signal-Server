@@ -64,7 +64,7 @@ public class UnlinkDeviceCommand extends EnvironmentCommand<WhisperServerConfigu
       Account account = deps.accountsManager().getByAccountIdentifier(aci)
           .orElseThrow(() -> new IllegalArgumentException("account id " + aci + " does not exist"));
 
-      if (deviceIds.contains(Device.MASTER_ID)) {
+      if (deviceIds.contains(Device.PRIMARY_ID)) {
         throw new IllegalArgumentException("cannot delete primary device");
       }
 

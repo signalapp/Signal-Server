@@ -168,8 +168,8 @@ class AccountsManagerConcurrentModificationIntegrationTest {
         modifyAccount(uuid, account -> account.setUnidentifiedAccessKey(unidentifiedAccessKey)),
         modifyAccount(uuid, account -> account.setRegistrationLock(credentials.hash(), credentials.salt())),
         modifyAccount(uuid, account -> account.setUnrestrictedUnidentifiedAccess(unrestrictedUnidentifiedAccess)),
-        modifyDevice(uuid, Device.MASTER_ID, device -> device.setLastSeen(lastSeen)),
-        modifyDevice(uuid, Device.MASTER_ID, device -> device.setName("deviceName"))
+        modifyDevice(uuid, Device.PRIMARY_ID, device -> device.setLastSeen(lastSeen)),
+        modifyDevice(uuid, Device.PRIMARY_ID, device -> device.setName("deviceName"))
     ).join();
 
     final Account managerAccount = accountsManager.getByAccountIdentifier(uuid).orElseThrow();

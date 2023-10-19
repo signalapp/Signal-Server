@@ -19,7 +19,7 @@ import org.whispersystems.textsecuregcm.util.Util;
 
 public class Device {
 
-  public static final long MASTER_ID = 1;
+  public static final long PRIMARY_ID = 1;
   public static final int MAXIMUM_DEVICE_ID = 256;
   public static final int MAX_REGISTRATION_ID = 0x3FFF;
   public static final List<Long> ALL_POSSIBLE_DEVICE_IDS = LongStream.range(1, MAXIMUM_DEVICE_ID).boxed().collect(Collectors.toList());
@@ -199,8 +199,8 @@ public class Device {
   public boolean isEnabled() {
     boolean hasChannel = fetchesMessages || !Util.isEmpty(getApnId()) || !Util.isEmpty(getGcmId());
 
-    return (id == MASTER_ID && hasChannel && signedPreKey != null) ||
-           (id != MASTER_ID && hasChannel && signedPreKey != null && lastSeen > (System.currentTimeMillis() - TimeUnit.DAYS.toMillis(30)));
+    return (id == PRIMARY_ID && hasChannel && signedPreKey != null) ||
+           (id != PRIMARY_ID && hasChannel && signedPreKey != null && lastSeen > (System.currentTimeMillis() - TimeUnit.DAYS.toMillis(30)));
   }
 
   public boolean getFetchesMessages() {
@@ -211,8 +211,8 @@ public class Device {
     this.fetchesMessages = fetchesMessages;
   }
 
-  public boolean isMaster() {
-    return getId() == MASTER_ID;
+  public boolean isPrimary() {
+    return getId() == PRIMARY_ID;
   }
 
   public int getRegistrationId() {

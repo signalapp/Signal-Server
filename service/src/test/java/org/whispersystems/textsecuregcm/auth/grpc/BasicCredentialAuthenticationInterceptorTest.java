@@ -85,7 +85,7 @@ class BasicCredentialAuthenticationInterceptorTest {
       when(account.getUuid()).thenReturn(UUID.randomUUID());
 
       final Device device = mock(Device.class);
-      when(device.getId()).thenReturn(Device.MASTER_ID);
+      when(device.getId()).thenReturn(Device.PRIMARY_ID);
 
       when(baseAccountAuthenticator.authenticate(any(), anyBoolean()))
           .thenReturn(Optional.of(new AuthenticatedAccount(() -> new Pair<>(account, device))));

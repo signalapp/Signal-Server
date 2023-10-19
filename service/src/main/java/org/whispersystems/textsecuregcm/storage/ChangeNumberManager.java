@@ -100,11 +100,11 @@ public class ChangeNumberManager {
 
   private void validateDeviceMessages(final Account account,
       final List<IncomingMessage> deviceMessages) throws MismatchedDevicesException, StaleDevicesException {
-    // Check that all except master ID are in device messages
+    // Check that all except primary ID are in device messages
     DestinationDeviceValidator.validateCompleteDeviceList(
         account,
         deviceMessages.stream().map(IncomingMessage::destinationDeviceId).collect(Collectors.toSet()),
-        Set.of(Device.MASTER_ID));
+        Set.of(Device.PRIMARY_ID));
 
     // check that all sync messages are to the current registration ID for the matching device
     DestinationDeviceValidator.validateRegistrationIds(
@@ -140,7 +140,7 @@ public class ChangeNumberManager {
           .setDestinationUuid(new AciServiceIdentifier(sourceAndDestinationAccount.getUuid()).toServiceIdentifierString())
           .setContent(ByteString.copyFrom(contents.get()))
           .setSourceUuid(new AciServiceIdentifier(sourceAndDestinationAccount.getUuid()).toServiceIdentifierString())
-          .setSourceDevice((int) Device.MASTER_ID)
+          .setSourceDevice((int) Device.PRIMARY_ID)
           .setUpdatedPni(sourceAndDestinationAccount.getPhoneNumberIdentifier().toString())
           .setUrgent(true)
           .build();

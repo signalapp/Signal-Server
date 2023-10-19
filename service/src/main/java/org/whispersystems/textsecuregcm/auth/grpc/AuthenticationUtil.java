@@ -53,7 +53,7 @@ public class AuthenticationUtil {
   public static AuthenticatedDevice requireAuthenticatedPrimaryDevice() {
     final AuthenticatedDevice authenticatedDevice = requireAuthenticatedDevice();
 
-    if (authenticatedDevice.deviceId() != Device.MASTER_ID) {
+    if (authenticatedDevice.deviceId() != Device.PRIMARY_ID) {
       throw Status.PERMISSION_DENIED.asRuntimeException();
     }
 

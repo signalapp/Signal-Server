@@ -49,7 +49,7 @@ class PhoneNumberChangeRefreshRequirementProviderTest {
     when(account.getUuid()).thenReturn(ACCOUNT_UUID);
     when(account.getNumber()).thenReturn(NUMBER);
     when(account.getDevices()).thenReturn(List.of(device));
-    when(device.getId()).thenReturn(Device.MASTER_ID);
+    when(device.getId()).thenReturn(Device.PRIMARY_ID);
 
     request = mock(ContainerRequest.class);
 
@@ -81,7 +81,7 @@ class PhoneNumberChangeRefreshRequirementProviderTest {
 
     provider.handleRequestFiltered(requestEvent);
     when(account.getNumber()).thenReturn(CHANGED_NUMBER);
-    assertEquals(List.of(new Pair<>(ACCOUNT_UUID, Device.MASTER_ID)), provider.handleRequestFinished(requestEvent));
+    assertEquals(List.of(new Pair<>(ACCOUNT_UUID, Device.PRIMARY_ID)), provider.handleRequestFinished(requestEvent));
   }
 
   @Test

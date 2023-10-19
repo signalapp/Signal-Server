@@ -94,7 +94,7 @@ public class AccountControllerV2 {
       @NotNull @Valid final ChangeNumberRequest request, @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent)
       throws RateLimitExceededException, InterruptedException {
 
-    if (!authenticatedAccount.getAuthenticatedDevice().isMaster()) {
+    if (!authenticatedAccount.getAuthenticatedDevice().isPrimary()) {
       throw new ForbiddenException();
     }
 
@@ -170,7 +170,7 @@ public class AccountControllerV2 {
   public AccountIdentityResponse distributePhoneNumberIdentityKeys(@Auth final AuthenticatedAccount authenticatedAccount,
       @NotNull @Valid final PhoneNumberIdentityKeyDistributionRequest request) {
 
-    if (!authenticatedAccount.getAuthenticatedDevice().isMaster()) {
+    if (!authenticatedAccount.getAuthenticatedDevice().isPrimary()) {
       throw new ForbiddenException();
     }
 

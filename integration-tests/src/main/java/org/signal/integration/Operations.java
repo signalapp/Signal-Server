@@ -88,9 +88,9 @@ public final class Operations {
     user.setPniUuid(registrationResponse.pni());
 
     // upload pre-key
-    final TestUser.PreKeySetPublicView preKeySetPublicView = user.preKeys(Device.MASTER_ID, false);
+    final TestUser.PreKeySetPublicView preKeySetPublicView = user.preKeys(Device.PRIMARY_ID, false);
     apiPut("/v2/keys", preKeySetPublicView)
-        .authorized(user, Device.MASTER_ID)
+        .authorized(user, Device.PRIMARY_ID)
         .executeExpectSuccess();
 
     return user;
@@ -233,7 +233,7 @@ public final class Operations {
     }
 
     public RequestBuilder authorized(final TestUser user) {
-      return authorized(user, Device.MASTER_ID);
+      return authorized(user, Device.PRIMARY_ID);
     }
 
     public RequestBuilder authorized(final TestUser user, final long deviceId) {

@@ -232,10 +232,10 @@ public class Account {
     return devices;
   }
 
-  public Optional<Device> getMasterDevice() {
+  public Optional<Device> getPrimaryDevice() {
     requireNotStale();
 
-    return getDevice(Device.MASTER_ID);
+    return getDevice(Device.PRIMARY_ID);
   }
 
   public Optional<Device> getDevice(final long deviceId) {
@@ -253,7 +253,7 @@ public class Account {
   public boolean isTransferSupported() {
     requireNotStale();
 
-    return getMasterDevice().map(Device::getCapabilities).map(Device.DeviceCapabilities::transfer).orElse(false);
+    return getPrimaryDevice().map(Device::getCapabilities).map(Device.DeviceCapabilities::transfer).orElse(false);
   }
 
   public boolean isPniSupported() {
@@ -275,13 +275,13 @@ public class Account {
   public boolean isEnabled() {
     requireNotStale();
 
-    return getMasterDevice().map(Device::isEnabled).orElse(false);
+    return getPrimaryDevice().map(Device::isEnabled).orElse(false);
   }
 
   public long getNextDeviceId() {
     requireNotStale();
 
-    long candidateId = Device.MASTER_ID + 1;
+    long candidateId = Device.PRIMARY_ID + 1;
 
     while (getDevice(candidateId).isPresent()) {
       candidateId++;

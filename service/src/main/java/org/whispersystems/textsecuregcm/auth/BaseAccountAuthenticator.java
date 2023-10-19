@@ -60,7 +60,7 @@ public class BaseAccountAuthenticator {
 
     if (deviceIdSeparatorIndex == -1) {
       identifier = basicUsername;
-      deviceId = Device.MASTER_ID;
+      deviceId = Device.PRIMARY_ID;
     } else {
       identifier = basicUsername.substring(0, deviceIdSeparatorIndex);
       deviceId = Long.parseLong(basicUsername.substring(deviceIdSeparatorIndex + 1));
@@ -113,7 +113,7 @@ public class BaseAccountAuthenticator {
       } else {
         Metrics.counter(ENABLED_NOT_REQUIRED_AUTHENTICATION_COUNTER_NAME,
                 ENABLED_TAG_NAME, String.valueOf(device.get().isEnabled() && account.get().isEnabled()),
-                IS_PRIMARY_DEVICE_TAG, String.valueOf(device.get().isMaster()))
+                IS_PRIMARY_DEVICE_TAG, String.valueOf(device.get().isPrimary()))
             .increment();
       }
 
@@ -162,7 +162,7 @@ public class BaseAccountAuthenticator {
     //   (1) each account will only update last-seen at most once per day
     //   (2) these updates will occur throughout the day rather than all occurring at UTC midnight.
     if (device.getLastSeen() < todayInMillisWithOffset) {
-      Metrics.summary(DAYS_SINCE_LAST_SEEN_DISTRIBUTION_NAME, IS_PRIMARY_DEVICE_TAG, String.valueOf(device.isMaster()))
+      Metrics.summary(DAYS_SINCE_LAST_SEEN_DISTRIBUTION_NAME, IS_PRIMARY_DEVICE_TAG, String.valueOf(device.isPrimary()))
           .record(Duration.ofMillis(todayInMillisWithOffset - device.getLastSeen()).toDays());
 
       return accountsManager.updateDeviceLastSeen(account, device, Util.todayInMillis(clock));

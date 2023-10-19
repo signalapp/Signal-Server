@@ -26,7 +26,7 @@ class BasicAuthorizationHeaderTest {
 
       assertEquals("aladdin", header.getUsername());
       assertEquals("opensesame", header.getPassword());
-      assertEquals(Device.MASTER_ID, header.getDeviceId());
+      assertEquals(Device.PRIMARY_ID, header.getDeviceId());
     }
 
     {

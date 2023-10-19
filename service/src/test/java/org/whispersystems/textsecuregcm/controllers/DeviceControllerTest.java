@@ -92,7 +92,7 @@ class DeviceControllerTest {
   private static RedisAdvancedClusterCommands<String, String> commands = mock(RedisAdvancedClusterCommands.class);
   private static Account account = mock(Account.class);
   private static Account maxedAccount = mock(Account.class);
-  private static Device masterDevice = mock(Device.class);
+  private static Device primaryDevice = mock(Device.class);
   private static ClientPresenceManager clientPresenceManager = mock(ClientPresenceManager.class);
   private static Map<String, Integer> deviceConfiguration = new HashMap<>();
   private static TestClock testClock = TestClock.now();
@@ -132,7 +132,7 @@ class DeviceControllerTest {
     when(rateLimiters.getAllocateDeviceLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getVerifyDeviceLimiter()).thenReturn(rateLimiter);
 
-    when(masterDevice.getId()).thenReturn(1L);
+    when(primaryDevice.getId()).thenReturn(1L);
 
     when(account.getNextDeviceId()).thenReturn(42L);
     when(account.getNumber()).thenReturn(AuthHelper.VALID_NUMBER);
@@ -165,7 +165,7 @@ class DeviceControllerTest {
         commands,
         account,
         maxedAccount,
-        masterDevice,
+        primaryDevice,
         clientPresenceManager
     );
 
@@ -175,7 +175,7 @@ class DeviceControllerTest {
   @Test
   void validDeviceRegisterTest() {
     final Device existingDevice = mock(Device.class);
-    when(existingDevice.getId()).thenReturn(Device.MASTER_ID);
+    when(existingDevice.getId()).thenReturn(Device.PRIMARY_ID);
     when(existingDevice.isEnabled()).thenReturn(true);
     when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(existingDevice));
 
@@ -205,7 +205,7 @@ class DeviceControllerTest {
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
 
     final Device existingDevice = mock(Device.class);
-    when(existingDevice.getId()).thenReturn(Device.MASTER_ID);
+    when(existingDevice.getId()).thenReturn(Device.PRIMARY_ID);
     when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(existingDevice));
 
     final String verificationToken = deviceController.generateVerificationToken(AuthHelper.VALID_UUID);
@@ -228,7 +228,7 @@ class DeviceControllerTest {
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
 
     final Device existingDevice = mock(Device.class);
-    when(existingDevice.getId()).thenReturn(Device.MASTER_ID);
+    when(existingDevice.getId()).thenReturn(Device.PRIMARY_ID);
     when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(existingDevice));
 
     VerificationCode deviceCode = resources.getJerseyTest()
@@ -272,7 +272,7 @@ class DeviceControllerTest {
                         final Optional<String> expectedGcmToken) {
 
     final Device existingDevice = mock(Device.class);
-    when(existingDevice.getId()).thenReturn(Device.MASTER_ID);
+    when(existingDevice.getId()).thenReturn(Device.PRIMARY_ID);
     when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(existingDevice));
 
     VerificationCode deviceCode = resources.getJerseyTest()
@@ -358,7 +358,7 @@ class DeviceControllerTest {
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
 
     final Device existingDevice = mock(Device.class);
-    when(existingDevice.getId()).thenReturn(Device.MASTER_ID);
+    when(existingDevice.getId()).thenReturn(Device.PRIMARY_ID);
     when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(existingDevice));
 
     final Optional<ECSignedPreKey> aciSignedPreKey;
@@ -405,7 +405,7 @@ class DeviceControllerTest {
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
 
     final Device existingDevice = mock(Device.class);
-    when(existingDevice.getId()).thenReturn(Device.MASTER_ID);
+    when(existingDevice.getId()).thenReturn(Device.PRIMARY_ID);
     when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(existingDevice));
 
     VerificationCode deviceCode = resources.getJerseyTest()
@@ -466,7 +466,7 @@ class DeviceControllerTest {
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
 
     final Device existingDevice = mock(Device.class);
-    when(existingDevice.getId()).thenReturn(Device.MASTER_ID);
+    when(existingDevice.getId()).thenReturn(Device.PRIMARY_ID);
     when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(existingDevice));
 
     VerificationCode deviceCode = resources.getJerseyTest()
@@ -524,7 +524,7 @@ class DeviceControllerTest {
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
 
     final Device existingDevice = mock(Device.class);
-    when(existingDevice.getId()).thenReturn(Device.MASTER_ID);
+    when(existingDevice.getId()).thenReturn(Device.PRIMARY_ID);
     when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(existingDevice));
 
     VerificationCode deviceCode = resources.getJerseyTest()
@@ -765,7 +765,7 @@ class DeviceControllerTest {
 
     try (final Response response = resources
         .getJerseyTest()
-        .target("/v1/devices/" + Device.MASTER_ID)
+        .target("/v1/devices/" + Device.PRIMARY_ID)
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")

@@ -154,7 +154,7 @@ public class KeysController {
           .and(HAS_IDENTITY_KEY_TAG_NAME, String.valueOf(hasIdentityKey))
           .and(IDENTITY_TYPE_TAG_NAME, usePhoneNumberIdentity ? "pni" : "aci");
 
-      if (!device.isMaster()) {
+      if (!device.isPrimary()) {
         Metrics.counter(IDENTITY_KEY_CHANGE_FORBIDDEN_COUNTER_NAME, tags).increment();
 
         throw new ForbiddenException();

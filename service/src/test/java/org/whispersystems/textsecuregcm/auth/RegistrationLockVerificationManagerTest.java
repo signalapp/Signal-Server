@@ -69,7 +69,7 @@ class RegistrationLockVerificationManagerTest {
         .thenReturn(mock(ExternalServiceCredentials.class));
 
     final Device device = mock(Device.class);
-    when(device.getId()).thenReturn(Device.MASTER_ID);
+    when(device.getId()).thenReturn(Device.PRIMARY_ID);
 
     AccountsHelper.setupMockUpdate(accountsManager);
 
@@ -104,7 +104,7 @@ class RegistrationLockVerificationManagerTest {
             } else {
               verify(registrationRecoveryPasswordsManager, never()).removeForNumber(account.getNumber());
             }
-            verify(clientPresenceManager).disconnectAllPresences(account.getUuid(), List.of(Device.MASTER_ID));
+            verify(clientPresenceManager).disconnectAllPresences(account.getUuid(), List.of(Device.PRIMARY_ID));
             try {
               verify(pushNotificationManager).sendAttemptLoginNotification(any(), eq("failedRegistrationLock"));
             } catch (NotPushRegisteredException npre) {}
@@ -127,7 +127,7 @@ class RegistrationLockVerificationManagerTest {
             verify(pushNotificationManager, never()).sendAttemptLoginNotification(any(), eq("failedRegistrationLock"));
           } catch (NotPushRegisteredException npre) {}
           verify(registrationRecoveryPasswordsManager, never()).removeForNumber(account.getNumber());
-          verify(clientPresenceManager, never()).disconnectAllPresences(account.getUuid(), List.of(Device.MASTER_ID));
+          verify(clientPresenceManager, never()).disconnectAllPresences(account.getUuid(), List.of(Device.PRIMARY_ID));
         });
       }
     };
@@ -165,7 +165,7 @@ class RegistrationLockVerificationManagerTest {
 
     verify(account, never()).lockAuthTokenHash();
     verify(registrationRecoveryPasswordsManager, never()).removeForNumber(account.getNumber());
-    verify(clientPresenceManager, never()).disconnectAllPresences(account.getUuid(), List.of(Device.MASTER_ID));
+    verify(clientPresenceManager, never()).disconnectAllPresences(account.getUuid(), List.of(Device.PRIMARY_ID));
   }
 
   static Stream<Arguments> testSuccess() {

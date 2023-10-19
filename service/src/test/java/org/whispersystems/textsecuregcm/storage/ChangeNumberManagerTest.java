@@ -158,7 +158,7 @@ public class ChangeNumberManagerTest {
 
     assertEquals(aci, UUID.fromString(envelope.getDestinationUuid()));
     assertEquals(aci, UUID.fromString(envelope.getSourceUuid()));
-    assertEquals(Device.MASTER_ID, envelope.getSourceDevice());
+    assertEquals(Device.PRIMARY_ID, envelope.getSourceDevice());
     assertEquals(updatedPhoneNumberIdentifiersByAccount.get(account), UUID.fromString(envelope.getUpdatedPni()));
   }
 
@@ -203,7 +203,7 @@ public class ChangeNumberManagerTest {
 
     assertEquals(aci, UUID.fromString(envelope.getDestinationUuid()));
     assertEquals(aci, UUID.fromString(envelope.getSourceUuid()));
-    assertEquals(Device.MASTER_ID, envelope.getSourceDevice());
+    assertEquals(Device.PRIMARY_ID, envelope.getSourceDevice());
     assertEquals(updatedPhoneNumberIdentifiersByAccount.get(account), UUID.fromString(envelope.getUpdatedPni()));
   }
 
@@ -246,7 +246,7 @@ public class ChangeNumberManagerTest {
 
     assertEquals(aci, UUID.fromString(envelope.getDestinationUuid()));
     assertEquals(aci, UUID.fromString(envelope.getSourceUuid()));
-    assertEquals(Device.MASTER_ID, envelope.getSourceDevice());
+    assertEquals(Device.PRIMARY_ID, envelope.getSourceDevice());
     assertFalse(updatedPhoneNumberIdentifiersByAccount.containsKey(account));
   }
 
@@ -286,7 +286,7 @@ public class ChangeNumberManagerTest {
 
     assertEquals(aci, UUID.fromString(envelope.getDestinationUuid()));
     assertEquals(aci, UUID.fromString(envelope.getSourceUuid()));
-    assertEquals(Device.MASTER_ID, envelope.getSourceDevice());
+    assertEquals(Device.PRIMARY_ID, envelope.getSourceDevice());
     assertFalse(updatedPhoneNumberIdentifiersByAccount.containsKey(account));
   }
 
@@ -327,7 +327,7 @@ public class ChangeNumberManagerTest {
 
     assertEquals(aci, UUID.fromString(envelope.getDestinationUuid()));
     assertEquals(aci, UUID.fromString(envelope.getSourceUuid()));
-    assertEquals(Device.MASTER_ID, envelope.getSourceDevice());
+    assertEquals(Device.PRIMARY_ID, envelope.getSourceDevice());
     assertFalse(updatedPhoneNumberIdentifiersByAccount.containsKey(account));
   }
 

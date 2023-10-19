@@ -19,13 +19,13 @@ class DeviceTest {
 
   @ParameterizedTest
   @MethodSource
-  void testIsEnabled(final boolean master, final boolean fetchesMessages, final String apnId, final String gcmId,
+  void testIsEnabled(final boolean primary, final boolean fetchesMessages, final String apnId, final String gcmId,
       final ECSignedPreKey signedPreKey, final Duration timeSinceLastSeen, final boolean expectEnabled) {
 
     final long lastSeen = System.currentTimeMillis() - timeSinceLastSeen.toMillis();
 
     final Device device = new Device();
-    device.setId(master ? Device.MASTER_ID : Device.MASTER_ID + 1);
+    device.setId(primary ? Device.PRIMARY_ID : Device.PRIMARY_ID + 1);
     device.setFetchesMessages(fetchesMessages);
     device.setApnId(apnId);
     device.setGcmId(gcmId);
@@ -38,7 +38,7 @@ class DeviceTest {
 
   private static Stream<Arguments> testIsEnabled() {
     return Stream.of(
-        //             master fetchesMessages apnId     gcmId     signedPreKey              lastSeen             expectEnabled
+        //             primary fetchesMessages apnId     gcmId     signedPreKey              lastSeen             expectEnabled
         Arguments.of(true, false, null, null, null, Duration.ofDays(60), false),
         Arguments.of(true, false, null, null, null, Duration.ofDays(1), false),
         Arguments.of(true, false, null, null, mock(ECSignedPreKey.class), Duration.ofDays(60), false),

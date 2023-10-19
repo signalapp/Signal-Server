@@ -158,7 +158,7 @@ public class RegistrationController {
         a.setIdentityKey(registrationRequest.aciIdentityKey().get());
         a.setPhoneNumberIdentityKey(registrationRequest.pniIdentityKey().get());
 
-        final Device device = a.getMasterDevice().orElseThrow();
+        final Device device = a.getPrimaryDevice().orElseThrow();
 
         device.setSignedPreKey(registrationRequest.deviceActivationRequest().aciSignedPreKey().get());
         device.setPhoneNumberIdentitySignedPreKey(registrationRequest.deviceActivationRequest().pniSignedPreKey().get());
@@ -173,13 +173,13 @@ public class RegistrationController {
 
         CompletableFuture.allOf(
                 keysManager.storeEcSignedPreKeys(a.getUuid(),
-                    Map.of(Device.MASTER_ID, registrationRequest.deviceActivationRequest().aciSignedPreKey().get())),
+                    Map.of(Device.PRIMARY_ID, registrationRequest.deviceActivationRequest().aciSignedPreKey().get())),
                 keysManager.storePqLastResort(a.getUuid(),
-                    Map.of(Device.MASTER_ID, registrationRequest.deviceActivationRequest().aciPqLastResortPreKey().get())),
+                    Map.of(Device.PRIMARY_ID, registrationRequest.deviceActivationRequest().aciPqLastResortPreKey().get())),
                 keysManager.storeEcSignedPreKeys(a.getPhoneNumberIdentifier(),
-                    Map.of(Device.MASTER_ID, registrationRequest.deviceActivationRequest().pniSignedPreKey().get())),
+                    Map.of(Device.PRIMARY_ID, registrationRequest.deviceActivationRequest().pniSignedPreKey().get())),
                 keysManager.storePqLastResort(a.getPhoneNumberIdentifier(),
-                    Map.of(Device.MASTER_ID, registrationRequest.deviceActivationRequest().pniPqLastResortPreKey().get())))
+                    Map.of(Device.PRIMARY_ID, registrationRequest.deviceActivationRequest().pniPqLastResortPreKey().get())))
             .join();
       });
     }

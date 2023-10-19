@@ -38,7 +38,7 @@ public class MessagingTest {
     try {
       final byte[] expectedContent = "Hello, World!".getBytes(StandardCharsets.UTF_8);
       final String contentBase64 = Base64.getEncoder().encodeToString(expectedContent);
-      final IncomingMessage message = new IncomingMessage(1, Device.MASTER_ID, userB.registrationId(), contentBase64);
+      final IncomingMessage message = new IncomingMessage(1, Device.PRIMARY_ID, userB.registrationId(), contentBase64);
       final IncomingMessageList messages = new IncomingMessageList(List.of(message), false, true, System.currentTimeMillis());
 
       final Pair<Integer, SendMessageResponse> sendMessage = Operations

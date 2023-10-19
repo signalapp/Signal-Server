@@ -684,7 +684,7 @@ class RegistrationControllerTest {
     final Account account = MockUtils.buildMock(Account.class, a -> {
       when(a.getUuid()).thenReturn(accountIdentifier);
       when(a.getPhoneNumberIdentifier()).thenReturn(phoneNumberIdentifier);
-      when(a.getMasterDevice()).thenReturn(Optional.of(device));
+      when(a.getPrimaryDevice()).thenReturn(Optional.of(device));
     });
 
     when(accountsManager.create(any(), any(), any(), any(), any())).thenReturn(account);
@@ -715,10 +715,10 @@ class RegistrationControllerTest {
     verify(device).setSignedPreKey(expectedAciSignedPreKey);
     verify(device).setPhoneNumberIdentitySignedPreKey(expectedPniSignedPreKey);
 
-    verify(keysManager).storeEcSignedPreKeys(accountIdentifier, Map.of(Device.MASTER_ID, expectedAciSignedPreKey));
-    verify(keysManager).storeEcSignedPreKeys(phoneNumberIdentifier, Map.of(Device.MASTER_ID, expectedPniSignedPreKey));
-    verify(keysManager).storePqLastResort(accountIdentifier, Map.of(Device.MASTER_ID, expectedAciPqLastResortPreKey));
-    verify(keysManager).storePqLastResort(phoneNumberIdentifier, Map.of(Device.MASTER_ID, expectedPniPqLastResortPreKey));
+    verify(keysManager).storeEcSignedPreKeys(accountIdentifier, Map.of(Device.PRIMARY_ID, expectedAciSignedPreKey));
+    verify(keysManager).storeEcSignedPreKeys(phoneNumberIdentifier, Map.of(Device.PRIMARY_ID, expectedPniSignedPreKey));
+    verify(keysManager).storePqLastResort(accountIdentifier, Map.of(Device.PRIMARY_ID, expectedAciPqLastResortPreKey));
+    verify(keysManager).storePqLastResort(phoneNumberIdentifier, Map.of(Device.PRIMARY_ID, expectedPniPqLastResortPreKey));
 
     expectedApnsToken.ifPresentOrElse(expectedToken -> verify(device).setApnId(expectedToken),
         () -> verify(device, never()).setApnId(any()));

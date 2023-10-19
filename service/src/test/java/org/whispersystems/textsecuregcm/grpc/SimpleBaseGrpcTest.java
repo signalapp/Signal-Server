@@ -55,7 +55,7 @@ public abstract class SimpleBaseGrpcTest<SERVICE extends BindableService, STUB e
 
   protected static final UUID AUTHENTICATED_ACI = UUID.randomUUID();
 
-  protected static final long AUTHENTICATED_DEVICE_ID = Device.MASTER_ID;
+  protected static final long AUTHENTICATED_DEVICE_ID = Device.PRIMARY_ID;
 
   private AutoCloseable mocksCloseable;
 

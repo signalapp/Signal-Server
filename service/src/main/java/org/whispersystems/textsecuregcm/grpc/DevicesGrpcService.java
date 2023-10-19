@@ -75,7 +75,7 @@ public class DevicesGrpcService extends ReactorDevicesGrpc.DevicesImplBase {
 
   @Override
   public Mono<RemoveDeviceResponse> removeDevice(final RemoveDeviceRequest request) {
-    if (request.getId() == Device.MASTER_ID) {
+    if (request.getId() == Device.PRIMARY_ID) {
       throw Status.INVALID_ARGUMENT.withDescription("Cannot remove primary device").asRuntimeException();
     }
 
@@ -181,7 +181,7 @@ public class DevicesGrpcService extends ReactorDevicesGrpc.DevicesImplBase {
         .map(maybeAccount -> maybeAccount.orElseThrow(Status.UNAUTHENTICATED::asRuntimeException))
         .flatMap(account -> Mono.fromFuture(() -> accountsManager.updateDeviceAsync(account, authenticatedDevice.deviceId(), device -> {
           if (StringUtils.isNotBlank(device.getApnId()) || StringUtils.isNotBlank(device.getVoipApnId())) {
-            device.setUserAgent(device.isMaster() ? "OWI" : "OWP");
+            device.setUserAgent(device.isPrimary() ? "OWI" : "OWP");
           } else if (StringUtils.isNotBlank(device.getGcmId())) {
             device.setUserAgent("OWA");
           }

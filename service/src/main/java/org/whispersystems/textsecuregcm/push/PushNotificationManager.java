@@ -62,7 +62,7 @@ public class PushNotificationManager {
   public void sendRateLimitChallengeNotification(final Account destination, final String challengeToken)
       throws NotPushRegisteredException {
 
-    final Device device = destination.getDevice(Device.MASTER_ID).orElseThrow(NotPushRegisteredException::new);
+    final Device device = destination.getDevice(Device.PRIMARY_ID).orElseThrow(NotPushRegisteredException::new);
     final Pair<String, PushNotification.TokenType> tokenAndType = getToken(device);
 
     sendNotification(new PushNotification(tokenAndType.first(), tokenAndType.second(),
@@ -70,7 +70,7 @@ public class PushNotificationManager {
   }
 
   public void sendAttemptLoginNotification(final Account destination, final String context) throws NotPushRegisteredException {
-    final Device device = destination.getDevice(Device.MASTER_ID).orElseThrow(NotPushRegisteredException::new);
+    final Device device = destination.getDevice(Device.PRIMARY_ID).orElseThrow(NotPushRegisteredException::new);
     final Pair<String, PushNotification.TokenType> tokenAndType = getToken(device);
 
     sendNotification(new PushNotification(tokenAndType.first(), tokenAndType.second(),

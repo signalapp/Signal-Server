@@ -82,7 +82,7 @@ public class TestUser {
     this.unidentifiedAccessKey = unidentifiedAccessKey;
     this.accountPassword = accountPassword;
     this.registrationPassword = registrationPassword;
-    devices.put(Device.MASTER_ID, TestDevice.create(Device.MASTER_ID, aciIdentityKey, pniIdentityKey));
+    devices.put(Device.PRIMARY_ID, TestDevice.create(Device.PRIMARY_ID, aciIdentityKey, pniIdentityKey));
   }
 
   public int registrationId() {

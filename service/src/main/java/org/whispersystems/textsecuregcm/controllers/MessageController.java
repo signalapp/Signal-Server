@@ -693,7 +693,7 @@ public class MessageController {
 
       messageSender.sendMessage(destinationAccount, destinationDevice, envelope, online);
     } catch (NotPushRegisteredException e) {
-      if (destinationDevice.isMaster()) throw new NoSuchUserException(e);
+      if (destinationDevice.isPrimary()) throw new NoSuchUserException(e);
       else                              logger.debug("Not registered", e);
     }
   }
@@ -727,7 +727,7 @@ public class MessageController {
 
       messageSender.sendMessage(destinationAccount, destinationDevice, messageBuilder.build(), online);
     } catch (NotPushRegisteredException e) {
-      if (destinationDevice.isMaster()) {
+      if (destinationDevice.isPrimary()) {
         throw new NoSuchUserException(e);
       } else {
         logger.debug("Not registered", e);
