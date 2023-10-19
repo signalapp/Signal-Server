@@ -10,7 +10,6 @@ import com.google.i18n.phonenumbers.PhoneNumberUtil.PhoneNumberFormat;
 import com.google.i18n.phonenumbers.Phonenumber.PhoneNumber;
 import java.time.Clock;
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
@@ -19,7 +18,6 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import javax.annotation.Nonnull;
 import org.apache.commons.lang3.StringUtils;
 
 public class Util {
@@ -113,43 +111,6 @@ public class Util {
     return result;
   }
 
-  public static byte[][] split(byte[] input, int firstLength, int secondLength) {
-    byte[][] parts = new byte[2][];
-
-    parts[0] = new byte[firstLength];
-    System.arraycopy(input, 0, parts[0], 0, firstLength);
-
-    parts[1] = new byte[secondLength];
-    System.arraycopy(input, firstLength, parts[1], 0, secondLength);
-
-    return parts;
-  }
-
-  public static byte[][] split(byte[] input, int firstLength, int secondLength, int thirdLength, int fourthLength) {
-    byte[][] parts = new byte[4][];
-
-    parts[0] = new byte[firstLength];
-    System.arraycopy(input, 0, parts[0], 0, firstLength);
-
-    parts[1] = new byte[secondLength];
-    System.arraycopy(input, firstLength, parts[1], 0, secondLength);
-
-    parts[2] = new byte[thirdLength];
-    System.arraycopy(input, firstLength + secondLength, parts[2], 0, thirdLength);
-
-    parts[3] = new byte[fourthLength];
-    System.arraycopy(input, firstLength + secondLength + thirdLength, parts[3], 0, fourthLength);
-
-    return parts;
-  }
-
-  public static final long DAY_IN_MILLIS = 86400000L;
-  public static final long WEEK_IN_MILLIS = DAY_IN_MILLIS * 7;
-
-  public static int currentDaysSinceEpoch(@Nonnull Clock clock) {
-    return Math.toIntExact(clock.millis() / DAY_IN_MILLIS);
-  }
-
   public static void sleep(long i) {
     try {
       Thread.sleep(i);
@@ -162,18 +123,6 @@ public class Util {
     } catch (InterruptedException e) {
       throw new AssertionError(e);
     }
-  }
-
-  public static void wait(Object object, long timeoutMs) {
-    try {
-      object.wait(timeoutMs);
-    } catch (InterruptedException e) {
-      throw new AssertionError(e);
-    }
-  }
-
-  public static int hashCode(Object... objects) {
-    return Arrays.hashCode(objects);
   }
 
   public static long todayInMillis() {
