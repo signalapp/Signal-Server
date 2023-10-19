@@ -802,8 +802,10 @@ public class SubscriptionController {
     public SubscriptionProcessor processor = SubscriptionProcessor.STRIPE;
   }
 
-  public record CreateBoostReceiptCredentialsResponse(byte[] receiptCredentialResponse) {
+  public record CreateBoostReceiptCredentialsSuccessResponse(byte[] receiptCredentialResponse) {
   }
+
+  public record CreateBoostReceiptCredentialsErrorResponse(@JsonInclude(Include.NON_NULL) ChargeFailure chargeFailure) {}
 
   @POST
   @Path("/boost/receipt_credentials")
@@ -824,7 +826,8 @@ public class SubscriptionController {
             case PROCESSING -> throw new WebApplicationException(Status.NO_CONTENT);
             case SUCCEEDED -> {
             }
-            default -> throw new WebApplicationException(Status.PAYMENT_REQUIRED);
+            default -> throw new WebApplicationException(Response.status(Status.PAYMENT_REQUIRED)
+                .entity(new CreateBoostReceiptCredentialsErrorResponse(paymentDetails.chargeFailure())).build());
           }
 
           long level = oneTimeDonationConfiguration.boost().level();
@@ -875,7 +878,7 @@ public class SubscriptionController {
                             Tag.of(TYPE_TAG_NAME, "boost"),
                             UserAgentTagUtil.getPlatformTag(userAgent)))
                     .increment();
-                return Response.ok(new CreateBoostReceiptCredentialsResponse(receiptCredentialResponse.serialize()))
+                return Response.ok(new CreateBoostReceiptCredentialsSuccessResponse(receiptCredentialResponse.serialize()))
                     .build();
               });
         });

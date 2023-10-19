@@ -117,11 +117,15 @@ public class BraintreeManager implements SubscriptionProcessorManager {
     return CompletableFuture.supplyAsync(() -> {
       try {
         final Transaction transaction = braintreeGateway.transaction().find(paymentId);
-
+        ChargeFailure chargeFailure = null;
+        if (!getPaymentStatus(transaction.getStatus()).equals(PaymentStatus.SUCCEEDED)) {
+          chargeFailure = createChargeFailure(transaction);
+        }
         return new PaymentDetails(transaction.getGraphQLId(),
             transaction.getCustomFields(),
             getPaymentStatus(transaction.getStatus()),
-            transaction.getCreatedAt().toInstant());
+            transaction.getCreatedAt().toInstant(),
+            chargeFailure);
 
       } catch (final NotFoundException e) {
         return null;
@@ -433,7 +437,7 @@ public class BraintreeManager implements SubscriptionProcessorManager {
 
       if (latestTransaction.isPresent()){
         paymentProcessing = isPaymentProcessing(latestTransaction.get().getStatus());
-        if (!getPaymentStatus(latestTransaction.get().getStatus()).equals(PaymentStatus.SUCCEEDED)) {
+        if (getPaymentStatus(latestTransaction.get().getStatus()) != PaymentStatus.SUCCEEDED) {
           chargeFailure = createChargeFailure(latestTransaction.get());
         }
       }
@@ -470,7 +474,10 @@ public class BraintreeManager implements SubscriptionProcessorManager {
 
     final String code;
     final String message;
-    if (transaction.getProcessorResponseCode() != null) {
+    if (transaction.getStatus() == Transaction.Status.VOIDED) {
+      code = "voided";
+      message = "voided";
+    } else if (transaction.getProcessorResponseCode() != null) {
       code = transaction.getProcessorResponseCode();
       message = transaction.getProcessorResponseText();
     } else if (transaction.getGatewayRejectionReason() != null) {

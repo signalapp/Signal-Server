@@ -28,6 +28,7 @@ import com.stripe.param.CustomerUpdateParams;
 import com.stripe.param.CustomerUpdateParams.InvoiceSettings;
 import com.stripe.param.InvoiceListParams;
 import com.stripe.param.PaymentIntentCreateParams;
+import com.stripe.param.PaymentIntentRetrieveParams;
 import com.stripe.param.PriceRetrieveParams;
 import com.stripe.param.SetupIntentCreateParams;
 import com.stripe.param.SubscriptionCancelParams;
@@ -216,12 +217,23 @@ public class StripeManager implements SubscriptionProcessorManager {
   public CompletableFuture<PaymentDetails> getPaymentDetails(String paymentIntentId) {
     return CompletableFuture.supplyAsync(() -> {
       try {
-        final PaymentIntent paymentIntent = stripeClient.paymentIntents().retrieve(paymentIntentId, commonOptions());
+        final PaymentIntentRetrieveParams params = PaymentIntentRetrieveParams.builder()
+            .addExpand("latest_charge").build();
+        final PaymentIntent paymentIntent = stripeClient.paymentIntents().retrieve(paymentIntentId, params, commonOptions());
+
+        ChargeFailure chargeFailure = null;
+        if (paymentIntent.getLatestChargeObject() != null) {
+          final Charge charge = paymentIntent.getLatestChargeObject();
+          if (charge.getFailureCode() != null || charge.getFailureMessage() != null) {
+            chargeFailure = createChargeFailure(charge);
+          }
+        }
 
         return new PaymentDetails(paymentIntent.getId(),
             paymentIntent.getMetadata() == null ? Collections.emptyMap() : paymentIntent.getMetadata(),
             getPaymentStatusForStatus(paymentIntent.getStatus()),
-            Instant.ofEpochSecond(paymentIntent.getCreated()));
+            Instant.ofEpochSecond(paymentIntent.getCreated()),
+            chargeFailure);
       } catch (StripeException e) {
         if (e.getStatusCode() == 404) {
           return null;
@@ -479,6 +491,16 @@ public class StripeManager implements SubscriptionProcessorManager {
     }, executor);
   }
 
+  private static ChargeFailure createChargeFailure(final Charge charge) {
+    Charge.Outcome outcome = charge.getOutcome();
+    return new ChargeFailure(
+        charge.getFailureCode(),
+        charge.getFailureMessage(),
+        outcome != null ? outcome.getNetworkStatus() : null,
+        outcome != null ? outcome.getReason() : null,
+        outcome != null ? outcome.getType() : null);
+  }
+
   @Override
   public CompletableFuture<SubscriptionInformation> getSubscriptionInformation(Object subscriptionObj) {
 
@@ -497,13 +519,7 @@ public class StripeManager implements SubscriptionProcessorManager {
                 if (invoice.getChargeObject() != null) {
                   final Charge charge = invoice.getChargeObject();
                   if (charge.getFailureCode() != null || charge.getFailureMessage() != null) {
-                    Charge.Outcome outcome = charge.getOutcome();
-                    chargeFailure = new ChargeFailure(
-                        charge.getFailureCode(),
-                        charge.getFailureMessage(),
-                        outcome != null ? outcome.getNetworkStatus() : null,
-                        outcome != null ? outcome.getReason() : null,
-                        outcome != null ? outcome.getType() : null);
+                    chargeFailure = createChargeFailure(charge);
                   }
 
                   if (charge.getPaymentMethodDetails() != null

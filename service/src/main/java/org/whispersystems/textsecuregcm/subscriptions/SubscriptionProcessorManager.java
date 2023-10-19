@@ -60,7 +60,8 @@ public interface SubscriptionProcessorManager {
   record PaymentDetails(String id,
                         Map<String, String> customMetadata,
                         PaymentStatus status,
-                        Instant created) {
+                        Instant created,
+                        @Nullable ChargeFailure chargeFailure) {
 
   }
 

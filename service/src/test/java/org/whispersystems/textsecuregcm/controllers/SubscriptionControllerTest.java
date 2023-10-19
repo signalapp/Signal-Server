@@ -31,6 +31,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -265,6 +266,47 @@ class SubscriptionControllerTest {
         // invalid, request body should have receiptCredentialRequest
         .post(Entity.json("{\"paymentIntentId\": \"foo\"}"));
     assertThat(response.getStatus()).isEqualTo(422);
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void createBoostReceiptPaymentRequired(final ChargeFailure chargeFailure, boolean expectChargeFailure) {
+    when(STRIPE_MANAGER.getPaymentDetails(any())).thenReturn(CompletableFuture.completedFuture(new SubscriptionProcessorManager.PaymentDetails(
+        "id",
+        Collections.emptyMap(),
+        SubscriptionProcessorManager.PaymentStatus.FAILED,
+        Instant.now(),
+        chargeFailure)
+    ));
+    Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/receipt_credentials")
+        .request()
+        .post(Entity.json("""
+            {
+              "paymentIntentId": "foo",
+              "receiptCredentialRequest": "abcd",
+              "processor": "STRIPE"
+            }
+          """));
+    assertThat(response.getStatus()).isEqualTo(402);
+
+    if (expectChargeFailure) {
+      assertThat(response.readEntity(SubscriptionController.CreateBoostReceiptCredentialsErrorResponse.class).chargeFailure()).isEqualTo(chargeFailure);
+    } else {
+      assertThat(response.readEntity(String.class)).isEqualTo("{}");
+    }
+  }
+
+  private static Stream<Arguments> createBoostReceiptPaymentRequired() {
+    return Stream.of(
+        Arguments.of(new ChargeFailure(
+            "generic_decline",
+            "some failure message",
+            null,
+            null,
+            null
+        ), true),
+        Arguments.of(null, false)
+    );
   }
 
   @Test
