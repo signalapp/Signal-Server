@@ -73,7 +73,12 @@ public class DynamicConfigurationManager<T> {
   public T getConfiguration() {
     synchronized (this) {
       while (!initialized) {
-        Util.wait(this);
+        try {
+          this.wait();
+        } catch (final InterruptedException e) {
+          logger.warn("Interrupted while waiting for initial configuration", e);
+          throw new RuntimeException(e);
+        }
       }
     }
     return configuration.get();

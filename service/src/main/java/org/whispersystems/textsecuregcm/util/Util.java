@@ -117,14 +117,6 @@ public class Util {
     } catch (InterruptedException ie) {}
   }
 
-  public static void wait(Object object) {
-    try {
-      object.wait();
-    } catch (InterruptedException e) {
-      throw new AssertionError(e);
-    }
-  }
-
   public static long todayInMillis() {
     return todayInMillis(Clock.systemUTC());
   }
