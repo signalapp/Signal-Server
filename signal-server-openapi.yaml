@@ -62,15 +62,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
         "401":
           description: Account authentication check failed.
         "409":
@@ -110,15 +110,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
       security:
       - authenticatedAccount: []
   /v1/accounts/apn:
@@ -195,15 +195,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
         "401":
           description: Account authentication check failed.
       security:
@@ -295,15 +295,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
         "400":
           description: Request must not be authenticated.
         "404":
@@ -335,15 +335,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
         "400":
           description: Request must not be authenticated.
         "404":
@@ -407,15 +407,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
         "401":
           description: Account authentication check failed.
         "409":
@@ -1172,15 +1172,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
         "401":
           description: Account authentication check failed.
       security:
@@ -1269,15 +1269,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
       security:
       - authenticatedAccount: []
   /v1/messages/uuid/{uuid}:
@@ -1300,15 +1300,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
       security:
       - authenticatedAccount: []
   /v1/messages/report/{source}/{messageGuid}:
@@ -1581,15 +1581,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
   /v1/profile:
     put:
       tags:
@@ -1848,15 +1848,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
   /v1/subscription/boost/create:
     post:
       tags:
@@ -1876,15 +1876,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
   /v1/subscription/boost/receipt_credentials:
     post:
       tags:
@@ -1909,15 +1909,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
   /v1/subscription/boost/paypal/create:
     post:
       tags:
@@ -1937,15 +1937,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
   /v1/subscription/{subscriberId}/create_payment_method/paypal:
     post:
       tags:
@@ -1971,15 +1971,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2013,15 +2013,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2054,15 +2054,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2085,15 +2085,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2115,15 +2115,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2145,15 +2145,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2178,15 +2178,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
   /v1/subscription/boost/badges:
     get:
       tags:
@@ -2200,15 +2200,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
       deprecated: true
   /v1/subscription/configuration:
     get:
@@ -2228,15 +2228,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
   /v1/subscription/{subscriberId}/default_payment_method/{paymentMethodId}:
     post:
       tags:
@@ -2261,16 +2261,52 @@ paths:
               schema:
                 type: object
                 properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+      deprecated: true
+      security:
+      - authenticatedAccount: []
+      - {}
+  /v1/subscription/{subscriberId}/default_payment_method_for_ideal/{setupIntentId}:
+    post:
+      tags:
+      - Subscriptions
+      operationId: setDefaultPaymentMethodForIdeal
+      parameters:
+      - name: subscriberId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: setupIntentId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
                   cancelled:
                     type: boolean
                   done:
                     type: boolean
-      deprecated: true
+                  completedExceptionally:
+                    type: boolean
+                  numberOfDependents:
+                    type: integer
+                    format: int32
       security:
       - authenticatedAccount: []
       - {}
@@ -2306,15 +2342,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2353,15 +2389,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  cancelled:
+                    type: boolean
+                  done:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
