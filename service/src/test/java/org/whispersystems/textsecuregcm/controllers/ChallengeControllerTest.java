@@ -22,18 +22,29 @@ import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.ws.rs.client.Entity;
+import javax.ws.rs.container.ContainerRequestContext;
+import javax.ws.rs.container.ContainerRequestFilter;
+import javax.ws.rs.core.Feature;
+import javax.ws.rs.core.FeatureContext;
 import javax.ws.rs.core.Response;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
+import org.whispersystems.textsecuregcm.spam.PushChallengeConfigProvider;
+import org.whispersystems.textsecuregcm.spam.ScoreThreshold;
+import org.whispersystems.textsecuregcm.spam.ScoreThresholdProvider;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
@@ -44,10 +55,24 @@ class ChallengeControllerTest {
 
   private static final ChallengeController challengeController = new ChallengeController(rateLimitChallengeManager);
 
+  private static final AtomicReference<Float> scoreThreshold = new AtomicReference<>();
+
   private static final ResourceExtension EXTENSION = ResourceExtension.builder()
       .addProvider(AuthHelper.getAuthFilter())
       .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(
           Set.of(AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)))
+      .addProvider(ScoreThresholdProvider.ScoreThresholdFeature.class)
+      .addProvider(PushChallengeConfigProvider.PushChallengeConfigFeature.class)
+      .addProvider(new Feature() {
+          public boolean configure(FeatureContext featureContext) {
+            featureContext.register(new ContainerRequestFilter() {
+                public void filter(ContainerRequestContext requestContext) {
+                  requestContext.setProperty(ScoreThreshold.PROPERTY_NAME, scoreThreshold.get());
+                }
+              });
+            return true;
+          }
+        })
       .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(new RateLimitExceededExceptionMapper())
@@ -57,6 +82,7 @@ class ChallengeControllerTest {
   @AfterEach
   void teardown() {
     reset(rateLimitChallengeManager);
+    scoreThreshold.set(null);
   }
 
   @Test
@@ -99,8 +125,9 @@ class ChallengeControllerTest {
     assertEquals(String.valueOf(retryAfter.toSeconds()), response.getHeaderString("Retry-After"));
   }
 
-  @Test
-  void testHandleRecaptcha() throws RateLimitExceededException, IOException {
+  @ParameterizedTest
+  @ValueSource(booleans = { true, false } )
+  void testHandleRecaptcha(boolean hasThreshold) throws RateLimitExceededException, IOException {
     final String recaptchaChallengeJson = """
         {
           "type": "recaptcha",
@@ -109,9 +136,13 @@ class ChallengeControllerTest {
         }
         """;
 
-    when(rateLimitChallengeManager.answerRecaptchaChallenge(any(), any(), any(), any()))
+    when(rateLimitChallengeManager.answerRecaptchaChallenge(any(), any(), any(), any(), any()))
         .thenReturn(true);
 
+
+    if (hasThreshold) {
+      scoreThreshold.set(Float.valueOf(0.5f));
+    }
     final Response response = EXTENSION.target("/v1/challenge")
         .request()
         .header(HttpHeaders.X_FORWARDED_FOR, "10.0.0.1")
@@ -120,7 +151,7 @@ class ChallengeControllerTest {
 
     assertEquals(200, response.getStatus());
 
-    verify(rateLimitChallengeManager).answerRecaptchaChallenge(eq(AuthHelper.VALID_ACCOUNT), eq("The value of the solved captcha token"), eq("10.0.0.1"), anyString());
+    verify(rateLimitChallengeManager).answerRecaptchaChallenge(eq(AuthHelper.VALID_ACCOUNT), eq("The value of the solved captcha token"), eq("10.0.0.1"), anyString(), eq(hasThreshold ? Optional.of(0.5f) : Optional.empty()));
   }
 
   @Test
@@ -132,8 +163,7 @@ class ChallengeControllerTest {
           "captcha": "The value of the solved captcha token"
         }
         """;
-
-    when(rateLimitChallengeManager.answerRecaptchaChallenge(eq(AuthHelper.VALID_ACCOUNT), eq("The value of the solved captcha token"), eq("10.0.0.1"), anyString()))
+   when(rateLimitChallengeManager.answerRecaptchaChallenge(eq(AuthHelper.VALID_ACCOUNT), eq("The value of the solved captcha token"), eq("10.0.0.1"), anyString(), any()))
         .thenReturn(false);
 
     final Response response = EXTENSION.target("/v1/challenge")
@@ -157,7 +187,7 @@ class ChallengeControllerTest {
 
     final Duration retryAfter = Duration.ofMinutes(17);
     doThrow(new RateLimitExceededException(retryAfter, true)).when(rateLimitChallengeManager)
-        .answerRecaptchaChallenge(any(), any(), any(), any());
+        .answerRecaptchaChallenge(any(), any(), any(), any(), any());
 
     final Response response = EXTENSION.target("/v1/challenge")
         .request()

@@ -167,6 +167,7 @@ import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.spam.FilterSpam;
+import org.whispersystems.textsecuregcm.spam.PushChallengeConfigProvider;
 import org.whispersystems.textsecuregcm.spam.RateLimitChallengeListener;
 import org.whispersystems.textsecuregcm.spam.ReportSpamTokenProvider;
 import org.whispersystems.textsecuregcm.spam.ScoreThresholdProvider;
@@ -848,9 +849,14 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
   private void registerProviders(Environment environment,
       WebSocketEnvironment<AuthenticatedAccount> webSocketEnvironment,
       WebSocketEnvironment<AuthenticatedAccount> provisioningEnvironment) {
-    environment.jersey().register(ScoreThresholdProvider.ScoreThresholdFeature.class);
-    webSocketEnvironment.jersey().register(ScoreThresholdProvider.ScoreThresholdFeature.class);
-    provisioningEnvironment.jersey().register(ScoreThresholdProvider.ScoreThresholdFeature.class);
+    List.of(
+        ScoreThresholdProvider.ScoreThresholdFeature.class,
+        PushChallengeConfigProvider.PushChallengeConfigFeature.class)
+    .forEach(feature -> {
+          environment.jersey().register(feature);
+          webSocketEnvironment.jersey().register(feature);
+          provisioningEnvironment.jersey().register(feature);
+    });
   }
 
   private void registerExceptionMappers(Environment environment,

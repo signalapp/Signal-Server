@@ -14,6 +14,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
+
 import org.whispersystems.textsecuregcm.captcha.Action;
 import org.whispersystems.textsecuregcm.captcha.CaptchaChecker;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
@@ -64,12 +66,12 @@ public class RateLimitChallengeManager {
     }
   }
 
-  public boolean answerRecaptchaChallenge(final Account account, final String captcha, final String mostRecentProxyIp, final String userAgent)
+  public boolean answerRecaptchaChallenge(final Account account, final String captcha, final String mostRecentProxyIp, final String userAgent, final Optional<Float> scoreThreshold)
       throws RateLimitExceededException, IOException {
 
     rateLimiters.getRecaptchaChallengeAttemptLimiter().validate(account.getUuid());
 
-    final boolean challengeSuccess = captchaChecker.verify(Action.CHALLENGE, captcha, mostRecentProxyIp).isValid();
+    final boolean challengeSuccess = captchaChecker.verify(Action.CHALLENGE, captcha, mostRecentProxyIp).isValid(scoreThreshold);
 
     final Tags tags = Tags.of(
         Tag.of(SOURCE_COUNTRY_TAG_NAME, Util.getCountryCode(account.getNumber())),
