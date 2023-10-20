@@ -854,6 +854,11 @@ paths:
         Clients may retry the PUT in the event of an HTTP/5xx response (except HTTP/508) from the server, but must
         implement an exponential back-off system and limit the total number of retries.
       operationId: requestPushChallenge
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              $ref: '#/components/schemas/PushChallengeConfig'
       responses:
         "200":
           description: |
@@ -3180,6 +3185,14 @@ components:
           type: string
       discriminator:
         propertyName: type
+    ScoreThreshold:
+      type: object
+      properties:
+        scoreThreshold:
+          type: number
+          format: float
+    PushChallengeConfig:
+      type: object
     VerificationCode:
       type: object
       properties:
@@ -3284,13 +3297,13 @@ components:
     WebSocketClient:
       type: object
       properties:
-        createdTimestamp:
-          type: integer
-          format: int64
         userAgent:
           type: string
         open:
           type: boolean
+        createdTimestamp:
+          type: integer
+          format: int64
     WebSocketSessionContext:
       type: object
       properties:
@@ -4102,12 +4115,6 @@ components:
           - voice
         client:
           type: string
-    ScoreThreshold:
-      type: object
-      properties:
-        scoreThreshold:
-          type: number
-          format: float
     SubmitVerificationCodeRequest:
       required:
       - code
