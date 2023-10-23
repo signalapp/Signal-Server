@@ -10,11 +10,17 @@
   <modelVersion>4.0.0</modelVersion>
   <artifactId>service</artifactId>
 
+  <properties>
+    <firebase-admin.version>9.2.0</firebase-admin.version>
+    <java-uuid-generator.version>4.3.0</java-uuid-generator.version>
+    <sqlite4java.version>1.0.392</sqlite4java.version>
+  </properties>
+
   <dependencies>
     <dependency>
       <groupId>io.swagger.core.v3</groupId>
       <artifactId>swagger-jaxrs2</artifactId>
-      <version>2.2.8</version>
+      <version>${swagger.version}</version>
       <exclusions>
         <!-- org.yaml:snakeyaml is causing a dependency convergence error -->
         <exclusion>
@@ -208,7 +214,7 @@
     <dependency>
       <groupId>com.google.firebase</groupId>
       <artifactId>firebase-admin</artifactId>
-      <version>9.1.1</version>
+      <version>${firebase-admin.version}</version>
     </dependency>
 
     <dependency>
@@ -392,7 +398,7 @@
     <dependency>
       <groupId>com.almworks.sqlite4java</groupId>
       <artifactId>sqlite4java</artifactId>
-      <version>1.0.392</version>
+      <version>${sqlite4java.version}</version>
       <scope>test</scope>
     </dependency>
 
@@ -429,7 +435,7 @@
     <dependency>
       <groupId>com.fasterxml.uuid</groupId>
       <artifactId>java-uuid-generator</artifactId>
-      <version>4.2.0</version>
+      <version>${java-uuid-generator.version}</version>
       <scope>test</scope>
     </dependency>
 
@@ -442,7 +448,7 @@
     <dependency>
       <groupId>io.github.ganadist.sqlite4java</groupId>
       <artifactId>libsqlite4java-osx-aarch64</artifactId>
-      <version>1.0.392</version>
+      <version>${sqlite4java.version}</version>
       <type>dylib</type>
       <scope>test</scope>
     </dependency>
