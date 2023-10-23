@@ -262,7 +262,7 @@ public class MessageController {
         OptionalAccess.verify(source.map(AuthenticatedAccount::getAccount), accessKey, destination);
       }
 
-      boolean needsSync = !isSyncMessage && source.isPresent() && source.get().getAccount().getEnabledDeviceCount() > 1;
+      boolean needsSync = !isSyncMessage && source.isPresent() && source.get().getAccount().hasEnabledLinkedDevice();
 
       // We return 200 when stories are sent to a non-existent account. Since story sends bypass OptionalAccess.verify
       // we leak information about whether a destination UUID exists if we return any other code (e.g. 404) from

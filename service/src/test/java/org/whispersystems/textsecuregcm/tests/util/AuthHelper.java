@@ -11,15 +11,22 @@ import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.i18n.phonenumbers.PhoneNumberUtil;
+import com.google.i18n.phonenumbers.Phonenumber;
 import io.dropwizard.auth.AuthFilter;
 import io.dropwizard.auth.PolymorphicAuthDynamicFeature;
 import io.dropwizard.auth.basic.BasicCredentialAuthFilter;
 import io.dropwizard.auth.basic.BasicCredentials;
 import java.security.Principal;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
+import org.junit.jupiter.api.extension.AfterEachCallback;
+import org.junit.jupiter.api.extension.ExtensionContext;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
@@ -90,6 +97,8 @@ public class AuthHelper {
   private static SaltedTokenHash DISABLED_CREDENTIALS        = mock(SaltedTokenHash.class);
   private static SaltedTokenHash UNDISCOVERABLE_CREDENTIALS  = mock(SaltedTokenHash.class);
 
+  private static final Collection<TestAccount> EXTENSION_TEST_ACCOUNTS = new HashSet<>();
+
   public static PolymorphicAuthDynamicFeature<? extends Principal> getAuthFilter() {
     when(VALID_CREDENTIALS.verify("foo")).thenReturn(true);
     when(VALID_CREDENTIALS_TWO.verify("baz")).thenReturn(true);
@@ -138,7 +147,7 @@ public class AuthHelper {
     when(VALID_ACCOUNT_3.getPrimaryDevice()).thenReturn(Optional.of(VALID_DEVICE_3_PRIMARY));
     when(VALID_ACCOUNT_3.getDevice(2L)).thenReturn(Optional.of(VALID_DEVICE_3_LINKED));
 
-    when(VALID_ACCOUNT_TWO.getEnabledDeviceCount()).thenReturn(6);
+    when(VALID_ACCOUNT_TWO.hasEnabledLinkedDevice()).thenReturn(true);
 
     when(VALID_ACCOUNT.getNumber()).thenReturn(VALID_NUMBER);
     when(VALID_ACCOUNT.getUuid()).thenReturn(VALID_UUID);
@@ -261,6 +270,11 @@ public class AuthHelper {
       when(accountsManager.getByE164(number)).thenReturn(Optional.of(account));
       when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
     }
+
+    private void teardown(final AccountsManager accountsManager) {
+      when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.empty());
+      when(accountsManager.getByE164(number)).thenReturn(Optional.empty());
+    }
   }
 
   private static TestAccount[] generateTestAccounts() {
@@ -271,5 +285,36 @@ public class AuthHelper {
       testAccounts[i] = new TestAccount("+" + currentNumber, getRandomUUID(random), "TestAccountPassword-" + currentNumber);
     }
     return testAccounts;
+  }
+
+  /**
+   * JUnit 5 extension for creating {@link TestAccount}s scoped to a single test
+   */
+  public static class AuthFilterExtension implements AfterEachCallback {
+
+    public TestAccount createTestAccount() {
+      final UUID uuid = UUID.randomUUID();
+      final String region = new ArrayList<>((PhoneNumberUtil.getInstance().getSupportedRegions())).get(
+          EXTENSION_TEST_ACCOUNTS.size());
+      final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().getExampleNumber(region);
+
+      final TestAccount testAccount = new TestAccount(
+          PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164), uuid,
+          "extension-password-" + region);
+      testAccount.setup(ACCOUNTS_MANAGER);
+
+      EXTENSION_TEST_ACCOUNTS.add(testAccount);
+
+      return testAccount;
+    }
+
+    @Override
+    public void afterEach(final ExtensionContext context) {
+      EXTENSION_TEST_ACCOUNTS.forEach(testAccount -> {
+        testAccount.teardown(ACCOUNTS_MANAGER);
+      });
+
+      EXTENSION_TEST_ACCOUNTS.clear();
+    }
   }
 }

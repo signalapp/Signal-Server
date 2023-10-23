@@ -171,8 +171,8 @@ public class DeviceController {
       maxDeviceLimit = maxDeviceConfiguration.get(account.getNumber());
     }
 
-    if (account.getEnabledDeviceCount() >= maxDeviceLimit) {
-      throw new DeviceLimitExceededException(account.getDevices().size(), MAX_DEVICES);
+    if (account.getDevices().size() >= maxDeviceLimit) {
+      throw new DeviceLimitExceededException(account.getDevices().size(), maxDeviceLimit);
     }
 
     if (auth.getAuthenticatedDevice().getId() != Device.PRIMARY_ID) {
@@ -386,8 +386,8 @@ public class DeviceController {
       maxDeviceLimit = maxDeviceConfiguration.get(account.getNumber());
     }
 
-    if (account.getEnabledDeviceCount() >= maxDeviceLimit) {
-      throw new DeviceLimitExceededException(account.getDevices().size(), MAX_DEVICES);
+    if (account.getDevices().size() >= maxDeviceLimit) {
+      throw new DeviceLimitExceededException(account.getDevices().size(), maxDeviceLimit);
     }
 
     final DeviceCapabilities capabilities = accountAttributes.getCapabilities();

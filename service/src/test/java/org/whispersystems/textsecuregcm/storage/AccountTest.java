@@ -27,8 +27,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.util.TestClock;
@@ -379,5 +383,50 @@ class AccountTest {
     assertTrue(maybeJsonFilterAnnotation.isPresent());
     final JsonFilter jsonFilterAnnotation = (JsonFilter) maybeJsonFilterAnnotation.get();
     assertEquals(Account.class.getSimpleName(), jsonFilterAnnotation.value());
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  public void testHasEnabledLinkedDevice(final Account account, final boolean expect) {
+    assertEquals(expect, account.hasEnabledLinkedDevice());
+  }
+
+  static Stream<Arguments> testHasEnabledLinkedDevice() {
+    final Device enabledPrimary = mock(Device.class);
+    when(enabledPrimary.isEnabled()).thenReturn(true);
+    when(enabledPrimary.getId()).thenReturn(Device.PRIMARY_ID);
+
+    final Device disabledPrimary = mock(Device.class);
+    when(disabledPrimary.getId()).thenReturn(Device.PRIMARY_ID);
+
+    final long linked1DeviceId = Device.PRIMARY_ID + 1;
+    final Device enabledLinked1 = mock(Device.class);
+    when(enabledLinked1.isEnabled()).thenReturn(true);
+    when(enabledLinked1.getId()).thenReturn(linked1DeviceId);
+
+    final Device disabledLinked1 = mock(Device.class);
+    when(disabledLinked1.getId()).thenReturn(linked1DeviceId);
+
+    final long linked2DeviceId = Device.PRIMARY_ID + 2;
+    final Device enabledLinked2 = mock(Device.class);
+    when(enabledLinked2.isEnabled()).thenReturn(true);
+    when(enabledLinked2.getId()).thenReturn(linked2DeviceId);
+
+    final Device disabledLinked2 = mock(Device.class);
+    when(disabledLinked2.getId()).thenReturn(linked2DeviceId);
+
+    return Stream.of(
+        Arguments.of(AccountsHelper.generateTestAccount("+14155550123", List.of(enabledPrimary)), false),
+        Arguments.of(AccountsHelper.generateTestAccount("+14155550123", List.of(enabledPrimary, disabledLinked1)),
+            false),
+        Arguments.of(AccountsHelper.generateTestAccount("+14155550123",
+            List.of(enabledPrimary, disabledLinked1, disabledLinked2)), false),
+        Arguments.of(AccountsHelper.generateTestAccount("+14155550123",
+            List.of(enabledPrimary, enabledLinked1, disabledLinked2)), true),
+        Arguments.of(AccountsHelper.generateTestAccount("+14155550123",
+            List.of(enabledPrimary, disabledLinked1, enabledLinked2)), true),
+        Arguments.of(AccountsHelper.generateTestAccount("+14155550123",
+            List.of(disabledLinked2, enabledLinked1, enabledLinked2)), true)
+    );
   }
 }

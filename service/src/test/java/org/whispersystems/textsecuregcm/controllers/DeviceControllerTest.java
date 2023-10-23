@@ -35,6 +35,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
@@ -44,6 +45,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -106,6 +108,9 @@ class DeviceControllerTest {
       RedisClusterHelper.builder().stringCommands(commands).build(),
       deviceConfiguration,
       testClock);
+
+  @RegisterExtension
+  public static final AuthHelper.AuthFilterExtension AUTH_FILTER_EXTENSION = new AuthHelper.AuthFilterExtension();
 
   private static final ResourceExtension resources = ResourceExtension.builder()
       .addProvider(AuthHelper.getAuthFilter())
@@ -630,10 +635,17 @@ class DeviceControllerTest {
 
   @Test
   void maxDevicesTest() {
+    final AuthHelper.TestAccount testAccount = AUTH_FILTER_EXTENSION.createTestAccount();
+
+    final List<Device> devices = IntStream.range(0, DeviceController.MAX_DEVICES + 1)
+        .mapToObj(i -> mock(Device.class))
+        .toList();
+    when(testAccount.account.getDevices()).thenReturn(devices);
+
     Response response = resources.getJerseyTest()
         .target("/v1/devices/provisioning/code")
         .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
+        .header("Authorization", testAccount.getAuthHeader())
         .get();
 
     assertEquals(411, response.getStatus());

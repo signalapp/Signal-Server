@@ -290,16 +290,12 @@ public class Account {
     return candidateId;
   }
 
-  public int getEnabledDeviceCount() {
+  public boolean hasEnabledLinkedDevice() {
     requireNotStale();
 
-    int count = 0;
-
-    for (final Device device : devices) {
-      if (device.isEnabled()) count++;
-    }
-
-    return count;
+    return devices.stream()
+        .filter(d -> Device.PRIMARY_ID != d.getId())
+        .anyMatch(Device::isEnabled);
   }
 
   public void setIdentityKey(final IdentityKey identityKey) {
