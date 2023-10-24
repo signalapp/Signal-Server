@@ -20,6 +20,7 @@ import reactor.core.publisher.Flux;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -39,6 +40,8 @@ class ProcessPushNotificationFeedbackCommandTest {
   private Clock clock;
 
   private ProcessPushNotificationFeedbackCommand processPushNotificationFeedbackCommand;
+
+  private static final Instant CURRENT_TIME = Instant.now();
 
   private static class TestProcessPushNotificationFeedbackCommand extends ProcessPushNotificationFeedbackCommand {
 
@@ -80,7 +83,7 @@ class ProcessPushNotificationFeedbackCommandTest {
           return CompletableFuture.completedFuture(account);
         });
 
-    clock = Clock.fixed(Instant.now(), ZoneId.systemDefault());
+    clock = Clock.fixed(CURRENT_TIME, ZoneId.systemDefault());
 
     processPushNotificationFeedbackCommand =
         new TestProcessPushNotificationFeedbackCommand(clock, accountsManager, true);
@@ -95,6 +98,7 @@ class ProcessPushNotificationFeedbackCommandTest {
     final Account accountWithActiveDevice = mock(Account.class);
     {
       final Device device = mock(Device.class);
+      when(device.isEnabled()).thenReturn(true);
 
       when(accountWithActiveDevice.getDevices()).thenReturn(List.of(device));
     }
@@ -102,31 +106,44 @@ class ProcessPushNotificationFeedbackCommandTest {
     final Account accountWithUninstalledDevice = mock(Account.class);
     {
       final Device uninstalledDevice = mock(Device.class);
+      when(uninstalledDevice.isEnabled()).thenReturn(true);
       when(uninstalledDevice.getUninstalledFeedbackTimestamp())
           .thenReturn(clock.instant().minus(ProcessPushNotificationFeedbackCommand.MAX_TOKEN_REFRESH_DELAY.multipliedBy(2)).toEpochMilli());
 
       when(accountWithUninstalledDevice.getDevices()).thenReturn(List.of(uninstalledDevice));
     }
 
+    final Account accountWithAlreadyDisabledUninstalledDevice = mock(Account.class);
+    {
+      final Device previouslyDisabledUninstalledDevice = mock(Device.class);
+      when(previouslyDisabledUninstalledDevice.isEnabled()).thenReturn(false);
+      when(previouslyDisabledUninstalledDevice.getUninstalledFeedbackTimestamp())
+          .thenReturn(clock.instant().minus(ProcessPushNotificationFeedbackCommand.MAX_TOKEN_REFRESH_DELAY.multipliedBy(2)).toEpochMilli());
+
+      when(accountWithAlreadyDisabledUninstalledDevice.getDevices()).thenReturn(List.of(previouslyDisabledUninstalledDevice));
+    }
+
     processPushNotificationFeedbackCommand.crawlAccounts(
-        Flux.just(accountWithActiveDevice, accountWithUninstalledDevice).parallel());
+        Flux.just(accountWithActiveDevice, accountWithUninstalledDevice, accountWithAlreadyDisabledUninstalledDevice)
+            .parallel());
 
     if (isDryRun) {
       verify(accountsManager, never()).updateAsync(any(), any());
     } else {
       verify(accountsManager, never()).updateAsync(eq(accountWithActiveDevice), any());
       verify(accountsManager).updateAsync(eq(accountWithUninstalledDevice), any());
+      verify(accountsManager, never()).updateAsync(eq(accountWithAlreadyDisabledUninstalledDevice), any());
     }
   }
 
   @Test
-  void deviceNeedsUpdate() {
+  void pushFeedbackIntervalElapsed() {
     {
       final Device deviceWithMaturePushNotificationFeedback = mock(Device.class);
       when(deviceWithMaturePushNotificationFeedback.getUninstalledFeedbackTimestamp())
           .thenReturn(clock.instant().minus(ProcessPushNotificationFeedbackCommand.MAX_TOKEN_REFRESH_DELAY.multipliedBy(2)).toEpochMilli());
 
-      assertTrue(processPushNotificationFeedbackCommand.deviceNeedsUpdate(deviceWithMaturePushNotificationFeedback));
+      assertTrue(processPushNotificationFeedbackCommand.pushFeedbackIntervalElapsed(deviceWithMaturePushNotificationFeedback));
     }
 
     {
@@ -134,13 +151,13 @@ class ProcessPushNotificationFeedbackCommandTest {
       when(deviceWithRecentPushNotificationFeedback.getUninstalledFeedbackTimestamp())
           .thenReturn(clock.instant().minus(ProcessPushNotificationFeedbackCommand.MAX_TOKEN_REFRESH_DELAY.dividedBy(2)).toEpochMilli());
 
-      assertFalse(processPushNotificationFeedbackCommand.deviceNeedsUpdate(deviceWithRecentPushNotificationFeedback));
+      assertFalse(processPushNotificationFeedbackCommand.pushFeedbackIntervalElapsed(deviceWithRecentPushNotificationFeedback));
     }
 
     {
       final Device deviceWithoutPushNotificationFeedback = mock(Device.class);
 
-      assertFalse(processPushNotificationFeedbackCommand.deviceNeedsUpdate(deviceWithoutPushNotificationFeedback));
+      assertFalse(processPushNotificationFeedbackCommand.pushFeedbackIntervalElapsed(deviceWithoutPushNotificationFeedback));
     }
   }
 
@@ -162,6 +179,72 @@ class ProcessPushNotificationFeedbackCommandTest {
 
       assertFalse(processPushNotificationFeedbackCommand.deviceExpired(activeDevice));
     }
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void deviceNeedsUpdate(final Device device, final boolean expectNeedsUpdate) {
+    assertEquals(expectNeedsUpdate, processPushNotificationFeedbackCommand.deviceNeedsUpdate(device));
+  }
+
+  private static List<Arguments> deviceNeedsUpdate() {
+    final long maturePushFeedbackTimestamp =
+        CURRENT_TIME.minus(ProcessPushNotificationFeedbackCommand.MAX_TOKEN_REFRESH_DELAY.multipliedBy(2))
+            .toEpochMilli();
+
+    final List<Arguments> arguments = new ArrayList<>();
+
+    {
+      // Device is active, enabled, and has no push feedback
+      final Device device = mock(Device.class);
+      when(device.isEnabled()).thenReturn(true);
+      when(device.getUninstalledFeedbackTimestamp()).thenReturn(0L);
+      when(device.getLastSeen()).thenReturn(CURRENT_TIME.toEpochMilli());
+
+      arguments.add(Arguments.of(device, false));
+    }
+
+    {
+      // Device is active, but not enabled, and has no push feedback
+      final Device device = mock(Device.class);
+      when(device.isEnabled()).thenReturn(false);
+      when(device.getUninstalledFeedbackTimestamp()).thenReturn(0L);
+      when(device.getLastSeen()).thenReturn(CURRENT_TIME.toEpochMilli());
+
+      arguments.add(Arguments.of(device, false));
+    }
+
+    {
+      // Device is active, enabled, and has "mature" push feedback
+      final Device device = mock(Device.class);
+      when(device.isEnabled()).thenReturn(true);
+      when(device.getUninstalledFeedbackTimestamp()).thenReturn(maturePushFeedbackTimestamp);
+      when(device.getLastSeen()).thenReturn(CURRENT_TIME.toEpochMilli());
+
+      arguments.add(Arguments.of(device, true));
+    }
+
+    {
+      // Device is active, but not enabled, and has "mature" push feedback
+      final Device device = mock(Device.class);
+      when(device.isEnabled()).thenReturn(false);
+      when(device.getUninstalledFeedbackTimestamp()).thenReturn(maturePushFeedbackTimestamp);
+      when(device.getLastSeen()).thenReturn(CURRENT_TIME.toEpochMilli());
+
+      arguments.add(Arguments.of(device, true));
+    }
+
+    {
+      // Device is inactive, not enabled, and has "mature" push feedback
+      final Device device = mock(Device.class);
+      when(device.isEnabled()).thenReturn(false);
+      when(device.getUninstalledFeedbackTimestamp()).thenReturn(maturePushFeedbackTimestamp);
+      when(device.getLastSeen()).thenReturn(maturePushFeedbackTimestamp);
+
+      arguments.add(Arguments.of(device, false));
+    }
+
+    return arguments;
   }
 
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")

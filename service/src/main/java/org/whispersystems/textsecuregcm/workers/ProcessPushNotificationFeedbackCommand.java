@@ -112,7 +112,7 @@ public class ProcessPushNotificationFeedbackCommand extends AbstractSinglePassCr
   }
 
   @VisibleForTesting
-  boolean deviceNeedsUpdate(final Device device) {
+  boolean pushFeedbackIntervalElapsed(final Device device) {
     // After we get an indication that a device may have uninstalled the Signal app (`uninstalledFeedbackTimestamp` is
     // non-zero), check back in after a few days to see what ultimately happened.
     return device.getUninstalledFeedbackTimestamp() != 0 &&
@@ -127,6 +127,11 @@ public class ProcessPushNotificationFeedbackCommand extends AbstractSinglePassCr
     // seen the device recently, though, we assume that the "uninstalled" hint was either incorrect or the device has
     // since reinstalled the app and provided new push tokens.
     return Instant.ofEpochMilli(device.getLastSeen()).plus(MAX_TOKEN_REFRESH_DELAY).isBefore(clock.instant());
+  }
+
+  @VisibleForTesting
+  boolean deviceNeedsUpdate(final Device device) {
+    return pushFeedbackIntervalElapsed(device) && (device.isEnabled() || device.getLastSeen() > device.getUninstalledFeedbackTimestamp());
   }
 
   @VisibleForTesting
