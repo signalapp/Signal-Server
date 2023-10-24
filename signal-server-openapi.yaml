@@ -60,17 +60,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  completedExceptionally:
-                    type: boolean
-                  numberOfDependents:
-                    type: integer
-                    format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
+                $ref: '#/components/schemas/UsernameHashResponse'
         "401":
           description: Account authentication check failed.
         "409":
@@ -109,16 +99,6 @@ paths:
             '*/*':
               schema:
                 type: object
-                properties:
-                  completedExceptionally:
-                    type: boolean
-                  numberOfDependents:
-                    type: integer
-                    format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
       security:
       - authenticatedAccount: []
   /v1/accounts/apn:
@@ -194,16 +174,6 @@ paths:
             application/json:
               schema:
                 type: object
-                properties:
-                  completedExceptionally:
-                    type: boolean
-                  numberOfDependents:
-                    type: integer
-                    format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
         "401":
           description: Account authentication check failed.
       security:
@@ -293,17 +263,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  completedExceptionally:
-                    type: boolean
-                  numberOfDependents:
-                    type: integer
-                    format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
+                $ref: '#/components/schemas/AccountIdentifierResponse'
         "400":
           description: Request must not be authenticated.
         "404":
@@ -333,17 +293,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  completedExceptionally:
-                    type: boolean
-                  numberOfDependents:
-                    type: integer
-                    format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
+                $ref: '#/components/schemas/EncryptedUsername'
         "400":
           description: Request must not be authenticated.
         "404":
@@ -405,17 +355,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  completedExceptionally:
-                    type: boolean
-                  numberOfDependents:
-                    type: integer
-                    format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
+                $ref: '#/components/schemas/ReserveUsernameHashResponse'
         "401":
           description: Account authentication check failed.
         "409":
@@ -1058,12 +998,8 @@ paths:
         default:
           description: default response
           content:
-            application/json:
-              schema:
-                type: object
-            text/plain:
-              schema:
-                type: object
+            application/json: {}
+            text/plain: {}
       security:
       - authenticatedAccount: []
   /v1/keepalive:
@@ -1175,17 +1111,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  completedExceptionally:
-                    type: boolean
-                  numberOfDependents:
-                    type: integer
-                    format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
+                $ref: '#/components/schemas/PreKeyCount'
         "401":
           description: Account authentication check failed.
       security:
@@ -1304,16 +1230,6 @@ paths:
             '*/*':
               schema:
                 type: object
-                properties:
-                  completedExceptionally:
-                    type: boolean
-                  numberOfDependents:
-                    type: integer
-                    format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
       security:
       - authenticatedAccount: []
   /v1/messages/report/{source}/{messageGuid}:
@@ -1584,17 +1500,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  completedExceptionally:
-                    type: boolean
-                  numberOfDependents:
-                    type: integer
-                    format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
+                $ref: '#/components/schemas/BatchIdentityCheckResponse'
   /v1/profile:
     put:
       tags:
@@ -1849,19 +1755,7 @@ paths:
         default:
           description: default response
           content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  completedExceptionally:
-                    type: boolean
-                  numberOfDependents:
-                    type: integer
-                    format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
+            application/json: {}
   /v1/subscription/boost/create:
     post:
       tags:
@@ -1877,19 +1771,7 @@ paths:
         default:
           description: default response
           content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  completedExceptionally:
-                    type: boolean
-                  numberOfDependents:
-                    type: integer
-                    format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
+            application/json: {}
   /v1/subscription/boost/receipt_credentials:
     post:
       tags:
@@ -1910,19 +1792,7 @@ paths:
         default:
           description: default response
           content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  completedExceptionally:
-                    type: boolean
-                  numberOfDependents:
-                    type: integer
-                    format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
+            application/json: {}
   /v1/subscription/boost/paypal/create:
     post:
       tags:
@@ -1938,19 +1808,7 @@ paths:
         default:
           description: default response
           content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  completedExceptionally:
-                    type: boolean
-                  numberOfDependents:
-                    type: integer
-                    format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
+            application/json: {}
   /v1/subscription/{subscriberId}/create_payment_method/paypal:
     post:
       tags:
@@ -2086,19 +1944,7 @@ paths:
         default:
           description: default response
           content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  completedExceptionally:
-                    type: boolean
-                  numberOfDependents:
-                    type: integer
-                    format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
+            application/json: {}
       security:
       - authenticatedAccount: []
       - {}
@@ -2116,19 +1962,7 @@ paths:
         default:
           description: default response
           content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  completedExceptionally:
-                    type: boolean
-                  numberOfDependents:
-                    type: integer
-                    format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
+            application/json: {}
       security:
       - authenticatedAccount: []
       - {}
@@ -2146,19 +1980,7 @@ paths:
         default:
           description: default response
           content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  completedExceptionally:
-                    type: boolean
-                  numberOfDependents:
-                    type: integer
-                    format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
+            application/json: {}
       security:
       - authenticatedAccount: []
       - {}
@@ -2179,19 +2001,7 @@ paths:
         default:
           description: default response
           content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  completedExceptionally:
-                    type: boolean
-                  numberOfDependents:
-                    type: integer
-                    format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
+            application/json: {}
   /v1/subscription/boost/badges:
     get:
       tags:
@@ -2201,19 +2011,7 @@ paths:
         default:
           description: default response
           content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  completedExceptionally:
-                    type: boolean
-                  numberOfDependents:
-                    type: integer
-                    format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
+            application/json: {}
       deprecated: true
   /v1/subscription/configuration:
     get:
@@ -2229,19 +2027,7 @@ paths:
         default:
           description: default response
           content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  completedExceptionally:
-                    type: boolean
-                  numberOfDependents:
-                    type: integer
-                    format: int32
-                  cancelled:
-                    type: boolean
-                  done:
-                    type: boolean
+            application/json: {}
   /v1/subscription/{subscriberId}/default_payment_method/{paymentMethodId}:
     post:
       tags:
@@ -2549,6 +2335,16 @@ components:
       type: object
       description: A service identifier is a tuple of a UUID and identity type that
         identifies an account and identity within the Signal service.
+    UsernameHashResponse:
+      type: object
+      properties:
+        usernameHash:
+          type: string
+          description: "The hash of the confirmed username, as supplied in the request"
+        usernameLinkHandle:
+          type: string
+          description: A handle that can be included in username links to retrieve
+            the stored encrypted username
     ConfirmUsernameHashRequest:
       type: object
       properties:
@@ -2603,6 +2399,32 @@ components:
           type: array
           items:
             type: string
+    AccountIdentifierResponse:
+      required:
+      - uuid
+      type: object
+      properties:
+        uuid:
+          type: string
+          description: An identifier for an account based on the account's ACI
+    EncryptedUsername:
+      required:
+      - usernameLinkEncryptedValue
+      type: object
+      properties:
+        usernameLinkEncryptedValue:
+          maxLength: 128
+          minLength: 1
+          type: string
+          description: the URL-safe base64 encoding of the encrypted username
+    ReserveUsernameHashResponse:
+      type: object
+      properties:
+        usernameHash:
+          type: array
+          items:
+            type: string
+            format: byte
     ReserveUsernameHashRequest:
       required:
       - usernameHashes
@@ -2724,16 +2546,6 @@ components:
           description: A handle that can be included in username links to retrieve
             the stored encrypted username
           format: uuid
-    EncryptedUsername:
-      required:
-      - usernameLinkEncryptedValue
-      type: object
-      properties:
-        usernameLinkEncryptedValue:
-          maxLength: 128
-          minLength: 1
-          type: string
-          description: the URL-safe base64 encoding of the encrypted username
     MismatchedDevices:
       type: object
       properties:
@@ -2848,14 +2660,14 @@ components:
     ECPublicKey:
       type: object
       properties:
+        type:
+          type: integer
+          format: int32
         publicKeyBytes:
           type: array
           items:
             type: string
             format: byte
-        type:
-          type: integer
-          format: int32
     ECSignedPreKey:
       type: object
       properties:
@@ -3297,13 +3109,13 @@ components:
     WebSocketClient:
       type: object
       properties:
-        createdTimestamp:
-          type: integer
-          format: int64
         userAgent:
           type: string
         open:
           type: boolean
+        createdTimestamp:
+          type: integer
+          format: int64
     WebSocketSessionContext:
       type: object
       properties:
@@ -3364,6 +3176,19 @@ components:
           items:
             type: string
             format: byte
+    PreKeyCount:
+      type: object
+      properties:
+        count:
+          type: integer
+          description: the number of stored unsigned elliptic-curve prekeys for this
+            device
+          format: int32
+        pqCount:
+          type: integer
+          description: the number of stored one-time post-quantum prekeys for this
+            device
+          format: int32
     PreKeyState:
       required:
       - identityKey
@@ -3652,14 +3477,10 @@ components:
           items:
             type: string
             format: byte
-    BatchIdentityCheckRequest:
-      required:
-      - elements
+    BatchIdentityCheckResponse:
       type: object
       properties:
         elements:
-          maxItems: 1000
-          minItems: 0
           type: array
           items:
             $ref: '#/components/schemas/Element'
@@ -3680,6 +3501,17 @@ components:
           items:
             type: string
             format: byte
+    BatchIdentityCheckRequest:
+      required:
+      - elements
+      type: object
+      properties:
+        elements:
+          maxItems: 1000
+          minItems: 0
+          type: array
+          items:
+            $ref: '#/components/schemas/Element'
     CreateProfileRequest:
       required:
       - commitment
@@ -3883,6 +3715,8 @@ components:
           description: "A list of SVR auth values, previously retrieved from `/v1/backup/auth`;\
             \ may contain at most 10."
           items:
+            maxLength: 10
+            minLength: 0
             type: string
             description: "A list of SVR auth values, previously retrieved from `/v1/backup/auth`;\
               \ may contain at most 10."
