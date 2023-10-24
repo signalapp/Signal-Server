@@ -124,17 +124,19 @@ public class KeysGrpcService extends ReactorKeysGrpc.KeysImplBase {
     final ServiceIdentifier targetIdentifier =
         ServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getTargetIdentifier());
 
+    final byte deviceId = DeviceIdUtil.validate(request.getDeviceId());
+
     final String rateLimitKey = authenticatedDevice.accountIdentifier() + "." +
         authenticatedDevice.deviceId() + "__" +
         targetIdentifier.uuid() + "." +
-        request.getDeviceId();
+        deviceId;
 
     return rateLimiters.getPreKeysLimiter().validateReactive(rateLimitKey)
         .then(Mono.fromFuture(() -> accountsManager.getByServiceIdentifierAsync(targetIdentifier))
             .flatMap(Mono::justOrEmpty))
         .switchIfEmpty(Mono.error(Status.NOT_FOUND.asException()))
         .flatMap(targetAccount ->
-            KeysGrpcHelper.getPreKeys(targetAccount, targetIdentifier.identityType(), request.getDeviceId(), keysManager));
+            KeysGrpcHelper.getPreKeys(targetAccount, targetIdentifier.identityType(), deviceId, keysManager));
   }
 
   @Override

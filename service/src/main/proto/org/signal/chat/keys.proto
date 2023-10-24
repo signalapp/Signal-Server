@@ -154,7 +154,7 @@ message GetPreKeysRequest {
    * retrieve pre-keys. If not set, pre-keys are returned for all devices
    * associated with the targeted account.
    */
-  uint64 device_id = 2;
+  uint32 device_id = 2;
 }
 
 message GetPreKeysAnonymousRequest {
@@ -199,7 +199,7 @@ message GetPreKeysResponse {
   /**
    * A map of device IDs to pre-key "bundles" for the targeted account.
    */
-  map<uint64, PreKeyBundle> pre_keys = 2;
+  map<uint32, PreKeyBundle> pre_keys = 2;
 }
 
 message SetOneTimeEcPreKeysRequest {
@@ -276,4 +276,3 @@ message CheckIdentityKeyResponse {
    */
   bytes identity_key = 2;
 }
-

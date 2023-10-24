@@ -141,8 +141,8 @@ class AccountsManagerConcurrentModificationIntegrationTest {
           accountsManager.create("+14155551212", "password", null, new AccountAttributes(), new ArrayList<>()),
           a -> {
             a.setUnidentifiedAccessKey(new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
-            a.removeDevice(1);
-            a.addDevice(DevicesHelper.createDevice(1));
+            a.removeDevice(Device.PRIMARY_ID);
+            a.addDevice(DevicesHelper.createDevice(Device.PRIMARY_ID));
           });
 
       uuid = account.getUuid();
@@ -212,7 +212,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
     }, mutationExecutor);
   }
 
-  private CompletableFuture<?> modifyDevice(final UUID uuid, final long deviceId, final Consumer<Device> deviceMutation) {
+  private CompletableFuture<?> modifyDevice(final UUID uuid, final byte deviceId, final Consumer<Device> deviceMutation) {
 
     return CompletableFuture.runAsync(() -> {
       final Account account = accountsManager.getByAccountIdentifier(uuid).orElseThrow();

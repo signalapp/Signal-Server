@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -42,7 +42,7 @@ class MessageSenderTest {
   private MessageSender messageSender;
 
   private static final UUID ACCOUNT_UUID = UUID.randomUUID();
-  private static final long DEVICE_ID = 1L;
+  private static final byte DEVICE_ID = 1;
 
   @BeforeEach
   void setUp() {
@@ -73,7 +73,7 @@ class MessageSenderTest {
     ArgumentCaptor<MessageProtos.Envelope> envelopeArgumentCaptor = ArgumentCaptor.forClass(
         MessageProtos.Envelope.class);
 
-    verify(messagesManager).insert(any(), anyLong(), envelopeArgumentCaptor.capture());
+    verify(messagesManager).insert(any(), anyByte(), envelopeArgumentCaptor.capture());
 
     assertTrue(envelopeArgumentCaptor.getValue().getEphemeral());
 
@@ -87,7 +87,7 @@ class MessageSenderTest {
 
     messageSender.sendMessage(account, device, message, true);
 
-    verify(messagesManager, never()).insert(any(), anyLong(), any());
+    verify(messagesManager, never()).insert(any(), anyByte(), any());
     verifyNoInteractions(pushNotificationManager);
   }
 

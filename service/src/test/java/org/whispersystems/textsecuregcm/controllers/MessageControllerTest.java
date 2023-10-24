@@ -135,15 +135,15 @@ class MessageControllerTest {
   private static final String SINGLE_DEVICE_RECIPIENT = "+14151111111";
   private static final UUID   SINGLE_DEVICE_UUID      = UUID.fromString("11111111-1111-1111-1111-111111111111");
   private static final UUID   SINGLE_DEVICE_PNI       = UUID.fromString("11111111-0000-0000-0000-111111111111");
-  private static final int SINGLE_DEVICE_ID1 = 1;
+  private static final byte SINGLE_DEVICE_ID1 = 1;
   private static final int SINGLE_DEVICE_REG_ID1 = 111;
 
   private static final String MULTI_DEVICE_RECIPIENT = "+14152222222";
   private static final UUID MULTI_DEVICE_UUID = UUID.fromString("22222222-2222-2222-2222-222222222222");
   private static final UUID MULTI_DEVICE_PNI = UUID.fromString("22222222-0000-0000-0000-222222222222");
-  private static final int MULTI_DEVICE_ID1 = 1;
-  private static final int MULTI_DEVICE_ID2 = 2;
-  private static final int MULTI_DEVICE_ID3 = 3;
+  private static final byte MULTI_DEVICE_ID1 = 1;
+  private static final byte MULTI_DEVICE_ID2 = 2;
+  private static final byte MULTI_DEVICE_ID3 = 3;
   private static final int MULTI_DEVICE_REG_ID1 = 222;
   private static final int MULTI_DEVICE_REG_ID2 = 333;
   private static final int MULTI_DEVICE_REG_ID3 = 444;
@@ -225,7 +225,8 @@ class MessageControllerTest {
     when(rateLimiters.getInboundMessageBytes()).thenReturn(rateLimiter);
   }
 
-  private static Device generateTestDevice(final long id, final int registrationId, final int pniRegistrationId, final ECSignedPreKey signedPreKey, final long createdAt, final long lastSeen) {
+  private static Device generateTestDevice(final byte id, final int registrationId, final int pniRegistrationId,
+      final ECSignedPreKey signedPreKey, final long createdAt, final long lastSeen) {
     final Device device = new Device();
     device.setId(id);
     device.setRegistrationId(registrationId);
@@ -526,13 +527,14 @@ class MessageControllerTest {
     final UUID updatedPniOne = UUID.randomUUID();
 
     List<Envelope> envelopes = List.of(
-        generateEnvelope(messageGuidOne, Envelope.Type.CIPHERTEXT_VALUE, timestampOne, sourceUuid, 2,
+        generateEnvelope(messageGuidOne, Envelope.Type.CIPHERTEXT_VALUE, timestampOne, sourceUuid, (byte) 2,
             AuthHelper.VALID_UUID, updatedPniOne, "hi there".getBytes(), 0, false),
-        generateEnvelope(messageGuidTwo, Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE, timestampTwo, sourceUuid, 2,
+        generateEnvelope(messageGuidTwo, Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE, timestampTwo, sourceUuid,
+            (byte) 2,
             AuthHelper.VALID_UUID, null, null, 0, true)
     );
 
-    when(messagesManager.getMessagesForDevice(eq(AuthHelper.VALID_UUID), eq(1L), anyBoolean()))
+    when(messagesManager.getMessagesForDevice(eq(AuthHelper.VALID_UUID), eq((byte) 1), anyBoolean()))
         .thenReturn(Mono.just(new Pair<>(envelopes, false)));
 
     final String userAgent = "Test-UA";
@@ -580,13 +582,13 @@ class MessageControllerTest {
     final long timestampTwo = 313388;
 
     final List<Envelope> messages = List.of(
-        generateEnvelope(UUID.randomUUID(), Envelope.Type.CIPHERTEXT_VALUE, timestampOne, UUID.randomUUID(), 2,
+        generateEnvelope(UUID.randomUUID(), Envelope.Type.CIPHERTEXT_VALUE, timestampOne, UUID.randomUUID(), (byte) 2,
             AuthHelper.VALID_UUID, null, "hi there".getBytes(), 0),
         generateEnvelope(UUID.randomUUID(), Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE, timestampTwo,
-            UUID.randomUUID(), 2, AuthHelper.VALID_UUID, null, null, 0)
+            UUID.randomUUID(), (byte) 2, AuthHelper.VALID_UUID, null, null, 0)
     );
 
-    when(messagesManager.getMessagesForDevice(eq(AuthHelper.VALID_UUID), eq(1L), anyBoolean()))
+    when(messagesManager.getMessagesForDevice(eq(AuthHelper.VALID_UUID), eq((byte) 1), anyBoolean()))
         .thenReturn(Mono.just(new Pair<>(messages, false)));
 
     Response response =
@@ -606,24 +608,24 @@ class MessageControllerTest {
     UUID sourceUuid = UUID.randomUUID();
 
     UUID uuid1 = UUID.randomUUID();
-    when(messagesManager.delete(AuthHelper.VALID_UUID, 1, uuid1, null))
+    when(messagesManager.delete(AuthHelper.VALID_UUID, (byte) 1, uuid1, null))
         .thenReturn(
             CompletableFuture.completedFuture(Optional.of(generateEnvelope(uuid1, Envelope.Type.CIPHERTEXT_VALUE,
-                timestamp, sourceUuid, 1, AuthHelper.VALID_UUID, null, "hi".getBytes(), 0))));
+                timestamp, sourceUuid, (byte) 1, AuthHelper.VALID_UUID, null, "hi".getBytes(), 0))));
 
     UUID uuid2 = UUID.randomUUID();
-    when(messagesManager.delete(AuthHelper.VALID_UUID, 1, uuid2, null))
+    when(messagesManager.delete(AuthHelper.VALID_UUID, (byte) 1, uuid2, null))
         .thenReturn(
             CompletableFuture.completedFuture(Optional.of(generateEnvelope(
                 uuid2, Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE,
-                System.currentTimeMillis(), sourceUuid, 1, AuthHelper.VALID_UUID, null, null, 0))));
+                System.currentTimeMillis(), sourceUuid, (byte) 1, AuthHelper.VALID_UUID, null, null, 0))));
 
     UUID uuid3 = UUID.randomUUID();
-    when(messagesManager.delete(AuthHelper.VALID_UUID, 1, uuid3, null))
+    when(messagesManager.delete(AuthHelper.VALID_UUID, (byte) 1, uuid3, null))
         .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
 
     UUID uuid4 = UUID.randomUUID();
-    when(messagesManager.delete(AuthHelper.VALID_UUID, 1, uuid4, null))
+    when(messagesManager.delete(AuthHelper.VALID_UUID, (byte) 1, uuid4, null))
         .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Oh No")));
 
     Response response = resources.getJerseyTest()
@@ -633,7 +635,7 @@ class MessageControllerTest {
         .delete();
 
     assertThat("Good Response Code", response.getStatus(), is(equalTo(204)));
-    verify(receiptSender).sendReceipt(eq(new AciServiceIdentifier(AuthHelper.VALID_UUID)), eq(1L),
+    verify(receiptSender).sendReceipt(eq(new AciServiceIdentifier(AuthHelper.VALID_UUID)), eq((byte) 1),
         eq(new AciServiceIdentifier(sourceUuid)), eq(timestamp));
 
     response = resources.getJerseyTest()
@@ -879,7 +881,7 @@ class MessageControllerTest {
             .request()
             .header(OptionalAccess.UNIDENTIFIED, Base64.getEncoder().encodeToString(UNIDENTIFIED_ACCESS_BYTES))
             .put(Entity.entity(new IncomingMessageList(
-                    List.of(new IncomingMessage(1, 1L, 1, new String(contentBytes))), false, true,
+                    List.of(new IncomingMessage(1, (byte) 1, 1, new String(contentBytes))), false, true,
                     System.currentTimeMillis()),
                 MediaType.APPLICATION_JSON_TYPE));
 
@@ -919,7 +921,7 @@ class MessageControllerTest {
     );
   }
 
-  private static void writePayloadDeviceId(ByteBuffer bb, long deviceId) {
+  private static void writePayloadDeviceId(ByteBuffer bb, byte deviceId) {
     long x = deviceId;
     // write the device-id in the 7-bit varint format we use, least significant bytes first.
     do {
@@ -1155,7 +1157,7 @@ class MessageControllerTest {
     if (known) {
       r1 = new Recipient(new AciServiceIdentifier(SINGLE_DEVICE_UUID), SINGLE_DEVICE_ID1, SINGLE_DEVICE_REG_ID1, new byte[48]);
     } else {
-      r1 = new Recipient(new AciServiceIdentifier(UUID.randomUUID()), 999, 999, new byte[48]);
+      r1 = new Recipient(new AciServiceIdentifier(UUID.randomUUID()), (byte) 99, 999, new byte[48]);
     }
 
     Recipient r2 = new Recipient(new AciServiceIdentifier(MULTI_DEVICE_UUID), MULTI_DEVICE_ID1, MULTI_DEVICE_REG_ID1, new byte[48]);
@@ -1250,7 +1252,7 @@ class MessageControllerTest {
             SystemMapper.jsonMapper().getTypeFactory().constructCollectionType(List.class, AccountMismatchedDevices.class));
 
     assertEquals(List.of(new AccountMismatchedDevices(serviceIdentifier,
-            new MismatchedDevices(Collections.emptyList(), List.of((long) MULTI_DEVICE_ID3)))),
+            new MismatchedDevices(Collections.emptyList(), List.of(MULTI_DEVICE_ID3)))),
         mismatchedDevices);
   }
 
@@ -1298,7 +1300,8 @@ class MessageControllerTest {
 
     assertEquals(1, staleDevices.size());
     assertEquals(serviceIdentifier, staleDevices.get(0).uuid());
-    assertEquals(Set.of((long) MULTI_DEVICE_ID1, (long) MULTI_DEVICE_ID2), new HashSet<>(staleDevices.get(0).devices().staleDevices()));
+    assertEquals(Set.of(MULTI_DEVICE_ID1, MULTI_DEVICE_ID2),
+        new HashSet<>(staleDevices.get(0).devices().staleDevices()));
   }
 
   private static Stream<Arguments> sendMultiRecipientMessageStaleDevices() {
@@ -1380,12 +1383,12 @@ class MessageControllerTest {
   }
 
   private static Envelope generateEnvelope(UUID guid, int type, long timestamp, UUID sourceUuid,
-      int sourceDevice, UUID destinationUuid, UUID updatedPni, byte[] content, long serverTimestamp) {
+      byte sourceDevice, UUID destinationUuid, UUID updatedPni, byte[] content, long serverTimestamp) {
     return generateEnvelope(guid, type, timestamp, sourceUuid, sourceDevice, destinationUuid, updatedPni, content, serverTimestamp, false);
   }
 
   private static Envelope generateEnvelope(UUID guid, int type, long timestamp, UUID sourceUuid,
-      int sourceDevice, UUID destinationUuid, UUID updatedPni, byte[] content, long serverTimestamp, boolean story) {
+      byte sourceDevice, UUID destinationUuid, UUID updatedPni, byte[] content, long serverTimestamp, boolean story) {
 
     final MessageProtos.Envelope.Builder builder = MessageProtos.Envelope.newBuilder()
         .setType(MessageProtos.Envelope.Type.forNumber(type))
@@ -1413,14 +1416,14 @@ class MessageControllerTest {
 
   private static Recipient genRecipient(Random rng) {
     UUID u1 = UUID.randomUUID(); // non-null
-    long d1 = rng.nextLong() & 0x3fffffffffffffffL + 1; // 1 to 4611686018427387903
+    byte d1 = (byte) (rng.nextInt(127) + 1); // 1 to 127
     int dr1 = rng.nextInt() & 0xffff; // 0 to 65535
     byte[] perKeyBytes = new byte[48]; // size=48, non-null
     rng.nextBytes(perKeyBytes);
     return new Recipient(new AciServiceIdentifier(u1), d1, dr1, perKeyBytes);
   }
 
-  private static void roundTripVarint(long expected, byte [] bytes) throws Exception {
+  private static void roundTripVarint(byte expected, byte[] bytes) throws Exception {
     ByteBuffer bb = ByteBuffer.wrap(bytes);
     writePayloadDeviceId(bb, expected);
     InputStream stream = new ByteArrayInputStream(bytes, 0, bb.position());
@@ -1434,15 +1437,17 @@ class MessageControllerTest {
     byte[] bytes = new byte[12];
 
     // some static test cases
-    for (long i = 1L; i <= 10L; i++) {
+    for (byte i = 1; i <= 10; i++) {
       roundTripVarint(i, bytes);
     }
-    roundTripVarint(Long.MAX_VALUE, bytes);
+    roundTripVarint(Byte.MAX_VALUE, bytes);
 
     for (int i = 0; i < 1000; i++) {
       // we need to ensure positive device IDs
-      long start = rng.nextLong() & Long.MAX_VALUE;
-      if (start == 0L) start = 1L;
+      byte start = (byte) rng.nextInt(128);
+      if (start == 0L) {
+        start = 1;
+      }
 
       // run the test for this case
       roundTripVarint(start, bytes);

@@ -21,6 +21,7 @@ import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import io.lettuce.core.cluster.models.partitions.RedisClusterNode;
 import io.lettuce.core.cluster.pubsub.RedisClusterPubSubAdapter;
 import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Metrics;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -34,7 +35,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import io.micrometer.core.instrument.Metrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
@@ -162,7 +162,8 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
         connection -> connection.sync().upstream().commands().unsubscribe(getManagerPresenceChannel(managerId)));
   }
 
-  public void setPresent(final UUID accountUuid, final long deviceId, final DisplacedPresenceListener displacementListener) {
+  public void setPresent(final UUID accountUuid, final byte deviceId,
+      final DisplacedPresenceListener displacementListener) {
 
     try (final Timer.Context ignored = setPresenceTimer.time()) {
       final String presenceKey = getPresenceKey(accountUuid, deviceId);
@@ -182,12 +183,12 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
     }
   }
 
-  public void renewPresence(final UUID accountUuid, final long deviceId) {
+  public void renewPresence(final UUID accountUuid, final byte deviceId) {
     renewPresenceScript.execute(List.of(getPresenceKey(accountUuid, deviceId)),
         List.of(managerId, String.valueOf(PRESENCE_EXPIRATION_SECONDS)));
   }
 
-  public void disconnectAllPresences(final UUID accountUuid, final List<Long> deviceIds) {
+  public void disconnectAllPresences(final UUID accountUuid, final List<Byte> deviceIds) {
 
     List<String> presenceKeys = new ArrayList<>();
     deviceIds.forEach(deviceId -> {
@@ -208,7 +209,7 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
     disconnectAllPresences(accountUuid, Device.ALL_POSSIBLE_DEVICE_IDS);
   }
 
-  public void disconnectPresence(final UUID accountUuid, final long deviceId) {
+  public void disconnectPresence(final UUID accountUuid, final byte deviceId) {
     disconnectAllPresences(accountUuid, List.of(deviceId));
   }
 
@@ -222,18 +223,18 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
     clearPresence(presenceKey);
   }
 
-  public boolean isPresent(final UUID accountUuid, final long deviceId) {
+  public boolean isPresent(final UUID accountUuid, final byte deviceId) {
     try (final Timer.Context ignored = checkPresenceTimer.time()) {
       return presenceCluster.withCluster(connection ->
           connection.sync().exists(getPresenceKey(accountUuid, deviceId))) == 1;
     }
   }
 
-  public boolean isLocallyPresent(final UUID accountUuid, final long deviceId) {
+  public boolean isLocallyPresent(final UUID accountUuid, final byte deviceId) {
     return displacementListenersByPresenceKey.containsKey(getPresenceKey(accountUuid, deviceId));
   }
 
-  public boolean clearPresence(final UUID accountUuid, final long deviceId, final DisplacedPresenceListener listener) {
+  public boolean clearPresence(final UUID accountUuid, final byte deviceId, final DisplacedPresenceListener listener) {
     final String presenceKey = getPresenceKey(accountUuid, deviceId);
     if (displacementListenersByPresenceKey.remove(presenceKey, listener)) {
       return clearPresence(presenceKey);
@@ -337,7 +338,7 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
   }
 
   @VisibleForTesting
-  static String getPresenceKey(final UUID accountUuid, final long deviceId) {
+  static String getPresenceKey(final UUID accountUuid, final byte deviceId) {
     return "presence::{" + accountUuid.toString() + "::" + deviceId + "}";
   }
 

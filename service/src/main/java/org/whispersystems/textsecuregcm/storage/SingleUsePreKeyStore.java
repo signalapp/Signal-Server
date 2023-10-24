@@ -36,11 +36,11 @@ import software.amazon.awssdk.services.dynamodb.model.Select;
 
 /**
  * A single-use pre-key store stores single-use pre-keys of a specific type. Keys returned by a single-use pre-key
- * store's {@link #take(UUID, long)} method are guaranteed to be returned exactly once, and repeated calls will never
+ * store's {@link #take(UUID, byte)} method are guaranteed to be returned exactly once, and repeated calls will never
  * yield the same key.
  * <p/>
  * Each {@link Account} may have one or more {@link Device devices}. Clients <em>should</em> regularly check their
- * supply of single-use pre-keys (see {@link #getCount(UUID, long)}) and upload new keys when their supply runs low. In
+ * supply of single-use pre-keys (see {@link #getCount(UUID, byte)}) and upload new keys when their supply runs low. In
  * the event that a party wants to begin a session with a device that has no single-use pre-keys remaining, that party
  * may fall back to using the device's repeated-use ("last-resort") signed pre-key instead.
  */
@@ -91,7 +91,7 @@ public abstract class SingleUsePreKeyStore<K extends PreKey<?>> {
    * @return a future that completes when all previously-stored keys have been removed and the given collection of
    * pre-keys has been stored in its place
    */
-  public CompletableFuture<Void> store(final UUID identifier, final long deviceId, final List<K> preKeys) {
+  public CompletableFuture<Void> store(final UUID identifier, final byte deviceId, final List<K> preKeys) {
     final Timer.Sample sample = Timer.start();
 
     return Mono.fromFuture(() -> delete(identifier, deviceId))
@@ -103,7 +103,7 @@ public abstract class SingleUsePreKeyStore<K extends PreKey<?>> {
         .thenRun(() -> sample.stop(storeKeyBatchTimer));
   }
 
-  private CompletableFuture<Void> store(final UUID identifier, final long deviceId, final K preKey) {
+  private CompletableFuture<Void> store(final UUID identifier, final byte deviceId, final K preKey) {
     final Timer.Sample sample = Timer.start();
 
     return dynamoDbAsyncClient.putItem(PutItemRequest.builder()
@@ -124,7 +124,7 @@ public abstract class SingleUsePreKeyStore<K extends PreKey<?>> {
    * @return a future that yields a single-use pre-key if one is available or empty if no single-use pre-keys are
    * available for the target device
    */
-  public CompletableFuture<Optional<K>> take(final UUID identifier, final long deviceId) {
+  public CompletableFuture<Optional<K>> take(final UUID identifier, final byte deviceId) {
     final Timer.Sample sample = Timer.start();
     final AttributeValue partitionKey = getPartitionKey(identifier);
     final AtomicInteger keysConsidered = new AtomicInteger(0);
@@ -169,7 +169,7 @@ public abstract class SingleUsePreKeyStore<K extends PreKey<?>> {
    * @return a future that yields the approximate number of single-use pre-keys currently available for the target
    * device
    */
-  public CompletableFuture<Integer> getCount(final UUID identifier, final long deviceId) {
+  public CompletableFuture<Integer> getCount(final UUID identifier, final byte deviceId) {
     final Timer.Sample sample = Timer.start();
 
     // Getting an accurate count from DynamoDB can be very confusing. See:
@@ -230,7 +230,7 @@ public abstract class SingleUsePreKeyStore<K extends PreKey<?>> {
 
    * @return a future that completes when all single-use pre-keys have been removed for the target device
    */
-  public CompletableFuture<Void> delete(final UUID identifier, final long deviceId) {
+  public CompletableFuture<Void> delete(final UUID identifier, final byte deviceId) {
     final Timer.Sample sample = Timer.start();
 
     return deleteItems(getPartitionKey(identifier), Flux.from(dynamoDbAsyncClient.queryPaginator(QueryRequest.builder()
@@ -267,20 +267,20 @@ public abstract class SingleUsePreKeyStore<K extends PreKey<?>> {
     return AttributeValues.fromUUID(accountUuid);
   }
 
-  protected static AttributeValue getSortKey(final long deviceId, final long keyId) {
+  protected static AttributeValue getSortKey(final byte deviceId, final long keyId) {
     final ByteBuffer byteBuffer = ByteBuffer.wrap(new byte[16]);
     byteBuffer.putLong(deviceId);
     byteBuffer.putLong(keyId);
     return AttributeValues.fromByteBuffer(byteBuffer.flip());
   }
 
-  private static AttributeValue getSortKeyPrefix(final long deviceId) {
+  private static AttributeValue getSortKeyPrefix(final byte deviceId) {
     final ByteBuffer byteBuffer = ByteBuffer.wrap(new byte[8]);
     byteBuffer.putLong(deviceId);
     return AttributeValues.fromByteBuffer(byteBuffer.flip());
   }
 
-  protected abstract Map<String, AttributeValue> getItemFromPreKey(final UUID identifier, final long deviceId,
+  protected abstract Map<String, AttributeValue> getItemFromPreKey(final UUID identifier, final byte deviceId,
       final K preKey);
 
   protected abstract K getPreKeyFromItem(final Map<String, AttributeValue> item);

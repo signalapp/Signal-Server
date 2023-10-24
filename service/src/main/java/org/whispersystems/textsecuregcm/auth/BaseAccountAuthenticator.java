@@ -52,9 +52,9 @@ public class BaseAccountAuthenticator {
     this.clock             = clock;
   }
 
-  static Pair<String, Long> getIdentifierAndDeviceId(final String basicUsername) {
+  static Pair<String, Byte> getIdentifierAndDeviceId(final String basicUsername) {
     final String identifier;
-    final long deviceId;
+    final byte deviceId;
 
     final int deviceIdSeparatorIndex = basicUsername.indexOf(DEVICE_ID_SEPARATOR);
 
@@ -63,7 +63,7 @@ public class BaseAccountAuthenticator {
       deviceId = Device.PRIMARY_ID;
     } else {
       identifier = basicUsername.substring(0, deviceIdSeparatorIndex);
-      deviceId = Long.parseLong(basicUsername.substring(deviceIdSeparatorIndex + 1));
+      deviceId = Byte.parseByte(basicUsername.substring(deviceIdSeparatorIndex + 1));
     }
 
     return new Pair<>(identifier, deviceId);
@@ -75,9 +75,9 @@ public class BaseAccountAuthenticator {
 
     try {
       final UUID accountUuid;
-      final long deviceId;
+      final byte deviceId;
       {
-        final Pair<String, Long> identifierAndDeviceId = getIdentifierAndDeviceId(basicCredentials.getUsername());
+        final Pair<String, Byte> identifierAndDeviceId = getIdentifierAndDeviceId(basicCredentials.getUsername());
 
         accountUuid = UUID.fromString(identifierAndDeviceId.first());
         deviceId = identifierAndDeviceId.second();

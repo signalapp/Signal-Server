@@ -8,7 +8,7 @@ package org.whispersystems.textsecuregcm.grpc;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
@@ -151,7 +151,7 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
       preKeys.add(new ECPreKey(keyId, Curve.generateKeyPair().getPublicKey()));
     }
 
-    when(keysManager.storeEcOneTimePreKeys(any(), anyLong(), any()))
+    when(keysManager.storeEcOneTimePreKeys(any(), anyByte(), any()))
         .thenReturn(CompletableFuture.completedFuture(null));
 
     //noinspection ResultOfMethodCallIgnored
@@ -222,7 +222,7 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
       preKeys.add(KeysHelper.signedKEMPreKey(keyId, identityKeyPair));
     }
 
-    when(keysManager.storeKemOneTimePreKeys(any(), anyLong(), any()))
+    when(keysManager.storeKemOneTimePreKeys(any(), anyByte(), any()))
         .thenReturn(CompletableFuture.completedFuture(null));
 
     //noinspection ResultOfMethodCallIgnored
@@ -294,9 +294,9 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
   @ParameterizedTest
   @EnumSource(value = org.signal.chat.common.IdentityType.class, names = {"IDENTITY_TYPE_ACI", "IDENTITY_TYPE_PNI"})
   void setSignedPreKey(final org.signal.chat.common.IdentityType identityType) {
-    when(accountsManager.updateDeviceAsync(any(), anyLong(), any())).thenAnswer(invocation -> {
+    when(accountsManager.updateDeviceAsync(any(), anyByte(), any())).thenAnswer(invocation -> {
       final Account account = invocation.getArgument(0);
-      final long deviceId = invocation.getArgument(1);
+      final byte deviceId = invocation.getArgument(1);
       final Consumer<Device> deviceUpdater = invocation.getArgument(2);
 
       account.getDevice(deviceId).ifPresent(deviceUpdater);
@@ -477,13 +477,16 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
     when(accountsManager.getByServiceIdentifierAsync(argThat(serviceIdentifier -> serviceIdentifier.uuid().equals(identifier))))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(targetAccount)));
 
-    final Map<Long, ECPreKey> ecOneTimePreKeys = new HashMap<>();
-    final Map<Long, KEMSignedPreKey> kemPreKeys = new HashMap<>();
-    final Map<Long, ECSignedPreKey> ecSignedPreKeys = new HashMap<>();
+    final Map<Byte, ECPreKey> ecOneTimePreKeys = new HashMap<>();
+    final Map<Byte, KEMSignedPreKey> kemPreKeys = new HashMap<>();
+    final Map<Byte, ECSignedPreKey> ecSignedPreKeys = new HashMap<>();
 
-    final Map<Long, Device> devices = new HashMap<>();
+    final Map<Byte, Device> devices = new HashMap<>();
 
-    for (final long deviceId : List.of(1, 2)) {
+    final byte deviceId1 = 1;
+    final byte deviceId2 = 2;
+
+    for (final byte deviceId : List.of(deviceId1, deviceId2)) {
       ecOneTimePreKeys.put(deviceId, new ECPreKey(1, Curve.generateKeyPair().getPublicKey()));
       kemPreKeys.put(deviceId, KeysHelper.signedKEMPreKey(2, identityKeyPair));
       ecSignedPreKeys.put(deviceId, KeysHelper.signedECPreKey(3, identityKeyPair));
@@ -518,18 +521,18 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
           .setIdentityKey(ByteString.copyFrom(identityKey.serialize()))
           .putPreKeys(1, GetPreKeysResponse.PreKeyBundle.newBuilder()
               .setEcSignedPreKey(EcSignedPreKey.newBuilder()
-                  .setKeyId(ecSignedPreKeys.get(1L).keyId())
-                  .setPublicKey(ByteString.copyFrom(ecSignedPreKeys.get(1L).serializedPublicKey()))
-                  .setSignature(ByteString.copyFrom(ecSignedPreKeys.get(1L).signature()))
+                  .setKeyId(ecSignedPreKeys.get(deviceId1).keyId())
+                  .setPublicKey(ByteString.copyFrom(ecSignedPreKeys.get(deviceId1).serializedPublicKey()))
+                  .setSignature(ByteString.copyFrom(ecSignedPreKeys.get(deviceId1).signature()))
                   .build())
               .setEcOneTimePreKey(EcPreKey.newBuilder()
-                  .setKeyId(ecOneTimePreKeys.get(1L).keyId())
-                  .setPublicKey(ByteString.copyFrom(ecOneTimePreKeys.get(1L).serializedPublicKey()))
+                  .setKeyId(ecOneTimePreKeys.get(deviceId1).keyId())
+                  .setPublicKey(ByteString.copyFrom(ecOneTimePreKeys.get(deviceId1).serializedPublicKey()))
                   .build())
               .setKemOneTimePreKey(KemSignedPreKey.newBuilder()
-                  .setKeyId(kemPreKeys.get(1L).keyId())
-                  .setPublicKey(ByteString.copyFrom(kemPreKeys.get(1L).serializedPublicKey()))
-                  .setSignature(ByteString.copyFrom(kemPreKeys.get(1L).signature()))
+                  .setKeyId(kemPreKeys.get(deviceId1).keyId())
+                  .setPublicKey(ByteString.copyFrom(kemPreKeys.get(deviceId1).serializedPublicKey()))
+                  .setSignature(ByteString.copyFrom(kemPreKeys.get(deviceId1).signature()))
                   .build())
               .build())
           .build();
@@ -537,8 +540,8 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
       assertEquals(expectedResponse, response);
     }
 
-    when(keysManager.takeEC(identifier, 2)).thenReturn(CompletableFuture.completedFuture(Optional.empty()));
-    when(keysManager.takePQ(identifier, 2)).thenReturn(CompletableFuture.completedFuture(Optional.empty()));
+    when(keysManager.takeEC(identifier, deviceId2)).thenReturn(CompletableFuture.completedFuture(Optional.empty()));
+    when(keysManager.takePQ(identifier, deviceId2)).thenReturn(CompletableFuture.completedFuture(Optional.empty()));
 
     {
       final GetPreKeysResponse response = authenticatedServiceStub().getPreKeys(GetPreKeysRequest.newBuilder()
@@ -552,25 +555,25 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
           .setIdentityKey(ByteString.copyFrom(identityKey.serialize()))
           .putPreKeys(1, GetPreKeysResponse.PreKeyBundle.newBuilder()
               .setEcSignedPreKey(EcSignedPreKey.newBuilder()
-                  .setKeyId(ecSignedPreKeys.get(1L).keyId())
-                  .setPublicKey(ByteString.copyFrom(ecSignedPreKeys.get(1L).serializedPublicKey()))
-                  .setSignature(ByteString.copyFrom(ecSignedPreKeys.get(1L).signature()))
+                  .setKeyId(ecSignedPreKeys.get(deviceId1).keyId())
+                  .setPublicKey(ByteString.copyFrom(ecSignedPreKeys.get(deviceId1).serializedPublicKey()))
+                  .setSignature(ByteString.copyFrom(ecSignedPreKeys.get(deviceId1).signature()))
                   .build())
               .setEcOneTimePreKey(EcPreKey.newBuilder()
-                  .setKeyId(ecOneTimePreKeys.get(1L).keyId())
-                  .setPublicKey(ByteString.copyFrom(ecOneTimePreKeys.get(1L).serializedPublicKey()))
+                  .setKeyId(ecOneTimePreKeys.get(deviceId1).keyId())
+                  .setPublicKey(ByteString.copyFrom(ecOneTimePreKeys.get(deviceId1).serializedPublicKey()))
                   .build())
               .setKemOneTimePreKey(KemSignedPreKey.newBuilder()
-                  .setKeyId(kemPreKeys.get(1L).keyId())
-                  .setPublicKey(ByteString.copyFrom(kemPreKeys.get(1L).serializedPublicKey()))
-                  .setSignature(ByteString.copyFrom(kemPreKeys.get(1L).signature()))
+                  .setKeyId(kemPreKeys.get(deviceId1).keyId())
+                  .setPublicKey(ByteString.copyFrom(kemPreKeys.get(deviceId1).serializedPublicKey()))
+                  .setSignature(ByteString.copyFrom(kemPreKeys.get(deviceId1).signature()))
                   .build())
               .build())
           .putPreKeys(2, GetPreKeysResponse.PreKeyBundle.newBuilder()
               .setEcSignedPreKey(EcSignedPreKey.newBuilder()
-                  .setKeyId(ecSignedPreKeys.get(2L).keyId())
-                  .setPublicKey(ByteString.copyFrom(ecSignedPreKeys.get(2L).serializedPublicKey()))
-                  .setSignature(ByteString.copyFrom(ecSignedPreKeys.get(2L).signature()))
+                  .setKeyId(ecSignedPreKeys.get(deviceId2).keyId())
+                  .setPublicKey(ByteString.copyFrom(ecSignedPreKeys.get(deviceId2).serializedPublicKey()))
+                  .setSignature(ByteString.copyFrom(ecSignedPreKeys.get(deviceId2).signature()))
                   .build())
               .build())
           .build();
@@ -593,15 +596,15 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
   }
 
   @ParameterizedTest
-  @ValueSource(longs = {KeysGrpcHelper.ALL_DEVICES, 1})
-  void getPreKeysDeviceNotFound(final long deviceId) {
+  @ValueSource(bytes = {KeysGrpcHelper.ALL_DEVICES, 1})
+  void getPreKeysDeviceNotFound(final byte deviceId) {
     final UUID accountIdentifier = UUID.randomUUID();
 
     final Account targetAccount = mock(Account.class);
     when(targetAccount.getUuid()).thenReturn(accountIdentifier);
     when(targetAccount.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(Curve.generateKeyPair().getPublicKey()));
     when(targetAccount.getDevices()).thenReturn(Collections.emptyList());
-    when(targetAccount.getDevice(anyLong())).thenReturn(Optional.empty());
+    when(targetAccount.getDevice(anyByte())).thenReturn(Optional.empty());
 
     when(accountsManager.getByServiceIdentifierAsync(new AciServiceIdentifier(accountIdentifier)))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(targetAccount)));
@@ -621,7 +624,7 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
     when(targetAccount.getUuid()).thenReturn(UUID.randomUUID());
     when(targetAccount.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(Curve.generateKeyPair().getPublicKey()));
     when(targetAccount.getDevices()).thenReturn(Collections.emptyList());
-    when(targetAccount.getDevice(anyLong())).thenReturn(Optional.empty());
+    when(targetAccount.getDevice(anyByte())).thenReturn(Optional.empty());
 
     when(accountsManager.getByServiceIdentifierAsync(any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(targetAccount)));

@@ -43,7 +43,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.LongStream;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
@@ -89,7 +89,7 @@ class AuthEnablementRefreshRequirementProviderTest {
   private final ApplicationEventListener applicationEventListener = mock(ApplicationEventListener.class);
 
   private final Account account = new Account();
-  private final Device authenticatedDevice = DevicesHelper.createDevice(1L);
+  private final Device authenticatedDevice = DevicesHelper.createDevice(Device.PRIMARY_ID);
 
   private final Supplier<Optional<TestPrincipal>> principalSupplier = () -> Optional.of(
       new TestPrincipal("test", account, authenticatedDevice));
@@ -126,7 +126,8 @@ class AuthEnablementRefreshRequirementProviderTest {
     final UUID uuid = UUID.randomUUID();
     account.setUuid(uuid);
     account.addDevice(authenticatedDevice);
-    LongStream.range(2, 4).forEach(deviceId -> account.addDevice(DevicesHelper.createDevice(deviceId)));
+    IntStream.range(2, 4)
+        .forEach(deviceId -> account.addDevice(DevicesHelper.createDevice((byte) deviceId)));
 
     when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
 
@@ -137,22 +138,22 @@ class AuthEnablementRefreshRequirementProviderTest {
   @Test
   void testBuildDevicesEnabled() {
 
-    final long disabledDeviceId = 3L;
+    final byte disabledDeviceId = 3;
 
     final Account account = mock(Account.class);
 
     final List<Device> devices = new ArrayList<>();
     when(account.getDevices()).thenReturn(devices);
 
-    LongStream.range(1, 5)
+    IntStream.range(1, 5)
         .forEach(id -> {
           final Device device = mock(Device.class);
-          when(device.getId()).thenReturn(id);
+          when(device.getId()).thenReturn((byte) id);
           when(device.isEnabled()).thenReturn(id != disabledDeviceId);
           devices.add(device);
         });
 
-    final Map<Long, Boolean> devicesEnabled = AuthEnablementRefreshRequirementProvider.buildDevicesEnabledMap(account);
+    final Map<Byte, Boolean> devicesEnabled = AuthEnablementRefreshRequirementProvider.buildDevicesEnabledMap(account);
 
     assertEquals(4, devicesEnabled.size());
 
@@ -168,7 +169,7 @@ class AuthEnablementRefreshRequirementProviderTest {
 
   @ParameterizedTest
   @MethodSource
-  void testDeviceEnabledChanged(final Map<Long, Boolean> initialEnabled, final Map<Long, Boolean> finalEnabled) {
+  void testDeviceEnabledChanged(final Map<Byte, Boolean> initialEnabled, final Map<Byte, Boolean> finalEnabled) {
     assert initialEnabled.size() == finalEnabled.size();
 
     assert account.getPrimaryDevice().orElseThrow().isEnabled();
@@ -199,13 +200,16 @@ class AuthEnablementRefreshRequirementProviderTest {
   }
 
   static Stream<Arguments> testDeviceEnabledChanged() {
+    final byte deviceId1 = Device.PRIMARY_ID;
+    final byte deviceId2 = 2;
+    final byte deviceId3 = 3;
     return Stream.of(
-        Arguments.of(Map.of(1L, false, 2L, false), Map.of(1L, true, 2L, false)),
-        Arguments.of(Map.of(2L, false, 3L, false), Map.of(2L, true, 3L, true)),
-        Arguments.of(Map.of(2L, true, 3L, true), Map.of(2L, false, 3L, false)),
-        Arguments.of(Map.of(2L, true, 3L, true), Map.of(2L, true, 3L, true)),
-        Arguments.of(Map.of(2L, false, 3L, true), Map.of(2L, true, 3L, true)),
-        Arguments.of(Map.of(2L, true, 3L, false), Map.of(2L, true, 3L, true))
+        Arguments.of(Map.of(deviceId1, false, deviceId2, false), Map.of(deviceId1, true, deviceId2, false)),
+        Arguments.of(Map.of(deviceId2, false, deviceId3, false), Map.of(deviceId2, true, deviceId3, true)),
+        Arguments.of(Map.of(deviceId2, true, deviceId3, true), Map.of(deviceId2, false, deviceId3, false)),
+        Arguments.of(Map.of(deviceId2, true, deviceId3, true), Map.of(deviceId2, true, deviceId3, true)),
+        Arguments.of(Map.of(deviceId2, false, deviceId3, true), Map.of(deviceId2, true, deviceId3, true)),
+        Arguments.of(Map.of(deviceId2, true, deviceId3, false), Map.of(deviceId2, true, deviceId3, true))
     );
   }
 
@@ -227,9 +231,9 @@ class AuthEnablementRefreshRequirementProviderTest {
 
     assertEquals(initialDeviceCount + addedDeviceNames.size(), account.getDevices().size());
 
-    verify(clientPresenceManager).disconnectPresence(account.getUuid(), 1);
-    verify(clientPresenceManager).disconnectPresence(account.getUuid(), 2);
-    verify(clientPresenceManager).disconnectPresence(account.getUuid(), 3);
+    verify(clientPresenceManager).disconnectPresence(account.getUuid(), (byte) 1);
+    verify(clientPresenceManager).disconnectPresence(account.getUuid(), (byte) 2);
+    verify(clientPresenceManager).disconnectPresence(account.getUuid(), (byte) 3);
   }
 
   @ParameterizedTest
@@ -237,13 +241,13 @@ class AuthEnablementRefreshRequirementProviderTest {
   void testDeviceRemoved(final int removedDeviceCount) {
     assert account.getPrimaryDevice().orElseThrow().isEnabled();
 
-    final List<Long> initialDeviceIds = account.getDevices().stream().map(Device::getId).collect(Collectors.toList());
+    final List<Byte> initialDeviceIds = account.getDevices().stream().map(Device::getId).toList();
 
-    final List<Long> deletedDeviceIds = account.getDevices().stream()
+    final List<Byte> deletedDeviceIds = account.getDevices().stream()
         .map(Device::getId)
-        .filter(deviceId -> deviceId != 1L)
+        .filter(deviceId -> deviceId != Device.PRIMARY_ID)
         .limit(removedDeviceCount)
-        .collect(Collectors.toList());
+        .toList();
 
     assert deletedDeviceIds.size() == removedDeviceCount;
 
@@ -269,9 +273,9 @@ class AuthEnablementRefreshRequirementProviderTest {
   void testPrimaryDeviceDisabledAndDeviceRemoved() {
     assert account.getPrimaryDevice().orElseThrow().isEnabled();
 
-    final Set<Long> initialDeviceIds = account.getDevices().stream().map(Device::getId).collect(Collectors.toSet());
+    final Set<Byte> initialDeviceIds = account.getDevices().stream().map(Device::getId).collect(Collectors.toSet());
 
-    final long deletedDeviceId = 2L;
+    final byte deletedDeviceId = 2;
     assertTrue(initialDeviceIds.remove(deletedDeviceId));
 
     final Response response = resources.getJerseyTest()
@@ -427,11 +431,11 @@ class AuthEnablementRefreshRequirementProviderTest {
     @POST
     @Path("/account/devices/enabled")
     @ChangesDeviceEnabledState
-    public String setEnabled(@Auth TestPrincipal principal, Map<Long, Boolean> deviceIdsEnabled) {
+    public String setEnabled(@Auth TestPrincipal principal, Map<Byte, Boolean> deviceIdsEnabled) {
 
       final StringBuilder response = new StringBuilder();
 
-      for (Entry<Long, Boolean> deviceIdEnabled : deviceIdsEnabled.entrySet()) {
+      for (Entry<Byte, Boolean> deviceIdEnabled : deviceIdsEnabled.entrySet()) {
         final Device device = principal.getAccount().getDevice(deviceIdEnabled.getKey()).orElseThrow();
         DevicesHelper.setEnabled(device, deviceIdEnabled.getValue());
 
@@ -462,7 +466,7 @@ class AuthEnablementRefreshRequirementProviderTest {
     public String removeDevices(@Auth TestPrincipal auth, @PathParam("deviceIds") String deviceIds) {
 
       Arrays.stream(deviceIds.split(","))
-          .map(Long::valueOf)
+          .map(Byte::valueOf)
           .forEach(auth.getAccount()::removeDevice);
 
       return "Removed device(s) " + deviceIds;
@@ -471,7 +475,7 @@ class AuthEnablementRefreshRequirementProviderTest {
     @POST
     @Path("/account/disablePrimaryDeviceAndDeleteDevice/{deviceId}")
     @ChangesDeviceEnabledState
-    public String disablePrimaryDeviceAndRemoveDevice(@Auth TestPrincipal auth, @PathParam("deviceId") long deviceId) {
+    public String disablePrimaryDeviceAndRemoveDevice(@Auth TestPrincipal auth, @PathParam("deviceId") byte deviceId) {
 
       DevicesHelper.setEnabled(auth.getAccount().getPrimaryDevice().orElseThrow(), false);
 

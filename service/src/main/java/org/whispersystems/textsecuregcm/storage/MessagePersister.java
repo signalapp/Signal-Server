@@ -137,7 +137,7 @@ public class MessagePersister implements Managed {
 
       for (final String queue : queuesToPersist) {
         final UUID accountUuid = MessagesCache.getAccountUuidFromQueueName(queue);
-        final long deviceId = MessagesCache.getDeviceIdFromQueueName(queue);
+        final byte deviceId = MessagesCache.getDeviceIdFromQueueName(queue);
 
         try {
           persistQueue(accountUuid, deviceId);
@@ -161,7 +161,7 @@ public class MessagePersister implements Managed {
   }
 
   @VisibleForTesting
-  void persistQueue(final UUID accountUuid, final long deviceId) throws MessagePersistenceException {
+  void persistQueue(final UUID accountUuid, final byte deviceId) throws MessagePersistenceException {
     final Optional<Account> maybeAccount = accountsManager.getByAccountIdentifier(accountUuid);
 
     if (maybeAccount.isEmpty()) {

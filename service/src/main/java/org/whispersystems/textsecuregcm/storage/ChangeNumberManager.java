@@ -43,10 +43,10 @@ public class ChangeNumberManager {
 
   public Account changeNumber(final Account account, final String number,
       @Nullable final IdentityKey pniIdentityKey,
-      @Nullable final Map<Long, ECSignedPreKey> deviceSignedPreKeys,
-      @Nullable final Map<Long, KEMSignedPreKey> devicePqLastResortPreKeys,
+      @Nullable final Map<Byte, ECSignedPreKey> deviceSignedPreKeys,
+      @Nullable final Map<Byte, KEMSignedPreKey> devicePqLastResortPreKeys,
       @Nullable final List<IncomingMessage> deviceMessages,
-      @Nullable final Map<Long, Integer> pniRegistrationIds)
+      @Nullable final Map<Byte, Integer> pniRegistrationIds)
       throws InterruptedException, MismatchedDevicesException, StaleDevicesException {
 
     if (ObjectUtils.allNotNull(pniIdentityKey, deviceSignedPreKeys, deviceMessages, pniRegistrationIds)) {
@@ -83,10 +83,10 @@ public class ChangeNumberManager {
 
   public Account updatePniKeys(final Account account,
       final IdentityKey pniIdentityKey,
-      final Map<Long, ECSignedPreKey> deviceSignedPreKeys,
-      @Nullable final Map<Long, KEMSignedPreKey> devicePqLastResortPreKeys,
+      final Map<Byte, ECSignedPreKey> deviceSignedPreKeys,
+      @Nullable final Map<Byte, KEMSignedPreKey> devicePqLastResortPreKeys,
       final List<IncomingMessage> deviceMessages,
-      final Map<Long, Integer> pniRegistrationIds) throws MismatchedDevicesException, StaleDevicesException {
+      final Map<Byte, Integer> pniRegistrationIds) throws MismatchedDevicesException, StaleDevicesException {
     validateDeviceMessages(account, deviceMessages);
 
     // Don't try to be smart about ignoring unnecessary retries. If we make literally no change we will skip the ddb

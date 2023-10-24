@@ -18,9 +18,9 @@ import org.whispersystems.textsecuregcm.util.Pair;
 public class MockAuthenticationInterceptor implements ServerInterceptor {
 
   @Nullable
-  private Pair<UUID, Long> authenticatedDevice;
+  private Pair<UUID, Byte> authenticatedDevice;
 
-  public void setAuthenticatedDevice(final UUID accountIdentifier, final long deviceId) {
+  public void setAuthenticatedDevice(final UUID accountIdentifier, final byte deviceId) {
     authenticatedDevice = new Pair<>(accountIdentifier, deviceId);
   }
 

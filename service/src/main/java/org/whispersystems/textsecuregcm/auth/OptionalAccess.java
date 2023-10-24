@@ -29,7 +29,7 @@ public class OptionalAccess {
       verify(requestAccount, accessKey, targetAccount);
 
       if (!deviceSelector.equals("*")) {
-        long deviceId = Long.parseLong(deviceSelector);
+        byte deviceId = Byte.parseByte(deviceSelector);
 
         Optional<Device> targetDevice = targetAccount.get().getDevice(deviceId);
 

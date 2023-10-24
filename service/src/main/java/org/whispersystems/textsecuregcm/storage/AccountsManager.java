@@ -268,9 +268,9 @@ public class AccountsManager {
   public Account changeNumber(final Account account,
                               final String targetNumber,
                               @Nullable final IdentityKey pniIdentityKey,
-                              @Nullable final Map<Long, ECSignedPreKey> pniSignedPreKeys,
-                              @Nullable final Map<Long, KEMSignedPreKey> pniPqLastResortPreKeys,
-                              @Nullable final Map<Long, Integer> pniRegistrationIds) throws InterruptedException, MismatchedDevicesException {
+      @Nullable final Map<Byte, ECSignedPreKey> pniSignedPreKeys,
+      @Nullable final Map<Byte, KEMSignedPreKey> pniPqLastResortPreKeys,
+      @Nullable final Map<Byte, Integer> pniRegistrationIds) throws InterruptedException, MismatchedDevicesException {
 
     final String originalNumber = account.getNumber();
     final UUID originalPhoneNumberIdentifier = account.getPhoneNumberIdentifier();
@@ -369,9 +369,9 @@ public class AccountsManager {
 
   public Account updatePniKeys(final Account account,
       final IdentityKey pniIdentityKey,
-      final Map<Long, ECSignedPreKey> pniSignedPreKeys,
-      @Nullable final Map<Long, KEMSignedPreKey> pniPqLastResortPreKeys,
-      final Map<Long, Integer> pniRegistrationIds) throws MismatchedDevicesException {
+      final Map<Byte, ECSignedPreKey> pniSignedPreKeys,
+      @Nullable final Map<Byte, KEMSignedPreKey> pniPqLastResortPreKeys,
+      final Map<Byte, Integer> pniRegistrationIds) throws MismatchedDevicesException {
     validateDevices(account, pniSignedPreKeys, pniPqLastResortPreKeys, pniRegistrationIds);
 
     final UUID pni = account.getPhoneNumberIdentifier();
@@ -395,8 +395,8 @@ public class AccountsManager {
 
   private boolean setPniKeys(final Account account,
       @Nullable final IdentityKey pniIdentityKey,
-      @Nullable final Map<Long, ECSignedPreKey> pniSignedPreKeys,
-      @Nullable final Map<Long, Integer> pniRegistrationIds) {
+      @Nullable final Map<Byte, ECSignedPreKey> pniSignedPreKeys,
+      @Nullable final Map<Byte, Integer> pniRegistrationIds) {
     if (ObjectUtils.allNull(pniIdentityKey, pniSignedPreKeys, pniRegistrationIds)) {
       return false;
     } else if (!ObjectUtils.allNotNull(pniIdentityKey, pniSignedPreKeys, pniRegistrationIds)) {
@@ -424,9 +424,9 @@ public class AccountsManager {
   }
 
   private void validateDevices(final Account account,
-      @Nullable final Map<Long, ECSignedPreKey> pniSignedPreKeys,
-      @Nullable final Map<Long, KEMSignedPreKey> pniPqLastResortPreKeys,
-      @Nullable final Map<Long, Integer> pniRegistrationIds) throws MismatchedDevicesException {
+      @Nullable final Map<Byte, ECSignedPreKey> pniSignedPreKeys,
+      @Nullable final Map<Byte, KEMSignedPreKey> pniPqLastResortPreKeys,
+      @Nullable final Map<Byte, Integer> pniRegistrationIds) throws MismatchedDevicesException {
     if (pniSignedPreKeys == null && pniRegistrationIds == null) {
       return;
     } else if (pniSignedPreKeys == null || pniRegistrationIds == null) {
@@ -580,7 +580,7 @@ public class AccountsManager {
   }
 
   /**
-   * Specialized version of {@link #updateDevice(Account, long, Consumer)} that minimizes potentially contentious and
+   * Specialized version of {@link #updateDevice(Account, byte, Consumer)} that minimizes potentially contentious and
    * redundant updates of {@code device.lastSeen}
    */
   public Account updateDeviceLastSeen(Account account, Device device, final long lastSeen) {
@@ -741,7 +741,7 @@ public class AccountsManager {
     return CompletableFuture.failedFuture(new OptimisticLockRetryLimitExceededException());
   }
 
-  public Account updateDevice(Account account, long deviceId, Consumer<Device> deviceUpdater) {
+  public Account updateDevice(Account account, byte deviceId, Consumer<Device> deviceUpdater) {
     return update(account, a -> {
       a.getDevice(deviceId).ifPresent(deviceUpdater);
       // assume that all updaters passed to the public method actually modify the device
@@ -749,7 +749,8 @@ public class AccountsManager {
     });
   }
 
-  public CompletableFuture<Account> updateDeviceAsync(final Account account, final long deviceId, final Consumer<Device> deviceUpdater) {
+  public CompletableFuture<Account> updateDeviceAsync(final Account account, final byte deviceId,
+      final Consumer<Device> deviceUpdater) {
     return updateAsync(account, a -> {
       a.getDevice(deviceId).ifPresent(deviceUpdater);
       // assume that all updaters passed to the public method actually modify the device

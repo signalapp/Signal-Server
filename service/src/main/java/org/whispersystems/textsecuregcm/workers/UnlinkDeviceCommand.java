@@ -36,7 +36,7 @@ public class UnlinkDeviceCommand extends EnvironmentCommand<WhisperServerConfigu
 
     subparser.addArgument("-d", "--deviceId")
         .dest("deviceIds")
-        .type(Long.class)
+        .type(Byte.class)
         .action(Arguments.append())
         .required(true);
 
@@ -57,7 +57,7 @@ public class UnlinkDeviceCommand extends EnvironmentCommand<WhisperServerConfigu
       commandStopListener.start();
 
       final UUID aci = UUID.fromString(namespace.getString("uuid").trim());
-      final List<Long> deviceIds = namespace.getList("deviceIds");
+      final List<Byte> deviceIds = namespace.getList("deviceIds");
 
       final CommandDependencies deps = CommandDependencies.build("unlink-device", environment, configuration);
 
@@ -68,7 +68,7 @@ public class UnlinkDeviceCommand extends EnvironmentCommand<WhisperServerConfigu
         throw new IllegalArgumentException("cannot delete primary device");
       }
 
-      for (long deviceId : deviceIds) {
+      for (byte deviceId : deviceIds) {
         /** see {@link org.whispersystems.textsecuregcm.controllers.DeviceController#removeDevice} */
         System.out.format("Removing device %s::%d\n", aci, deviceId);
         account = deps.accountsManager().update(account, a -> a.removeDevice(deviceId));

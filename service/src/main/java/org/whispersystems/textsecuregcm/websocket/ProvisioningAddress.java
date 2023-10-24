@@ -10,7 +10,7 @@ import java.util.Base64;
 
 public class ProvisioningAddress extends WebsocketAddress {
 
-  public ProvisioningAddress(String address, int id) {
+  public ProvisioningAddress(String address, byte id) {
     super(address, id);
   }
 
@@ -26,6 +26,6 @@ public class ProvisioningAddress extends WebsocketAddress {
     byte[] random = new byte[16];
     new SecureRandom().nextBytes(random);
 
-    return new ProvisioningAddress(Base64.getUrlEncoder().withoutPadding().encodeToString(random), 0);
+    return new ProvisioningAddress(Base64.getUrlEncoder().withoutPadding().encodeToString(random), (byte) 0);
   }
 }

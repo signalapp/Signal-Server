@@ -12,9 +12,9 @@ import java.util.List;
 
 public record MismatchedDevices(@JsonProperty
                                 @Schema(description = "Devices present on the account but absent in the request")
-                                List<Long> missingDevices,
+                                List<Byte> missingDevices,
 
                                 @JsonProperty
                                 @Schema(description = "Devices absent on the request but present in the account")
-                                List<Long> extraDevices) {
+                                List<Byte> extraDevices) {
 }

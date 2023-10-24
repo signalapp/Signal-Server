@@ -217,7 +217,7 @@ public class AccountController {
       @HeaderParam(HeaderUtils.X_SIGNAL_AGENT) String userAgent,
       @NotNull @Valid AccountAttributes attributes) {
     final Account account = disabledPermittedAuth.getAccount();
-    final long deviceId = disabledPermittedAuth.getAuthenticatedDevice().getId();
+    final byte deviceId = disabledPermittedAuth.getAuthenticatedDevice().getId();
 
     final Account updatedAccount = accounts.update(account, a -> {
       a.getDevice(deviceId).ifPresent(d -> {

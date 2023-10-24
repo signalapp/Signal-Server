@@ -31,7 +31,7 @@ public class RepeatedUseECSignedPreKeyStore extends RepeatedUseSignedPreKeyStore
   }
 
   @Override
-  protected Map<String, AttributeValue> getItemFromPreKey(final UUID accountUuid, final long deviceId, final ECSignedPreKey signedPreKey) {
+  protected Map<String, AttributeValue> getItemFromPreKey(final UUID accountUuid, final byte deviceId, final ECSignedPreKey signedPreKey) {
 
     return Map.of(
         KEY_ACCOUNT_UUID, getPartitionKey(accountUuid),
@@ -54,7 +54,7 @@ public class RepeatedUseECSignedPreKeyStore extends RepeatedUseSignedPreKeyStore
     }
   }
 
-  public CompletableFuture<Boolean> storeIfAbsent(final UUID identifier, final long deviceId, final ECSignedPreKey signedPreKey) {
+  public CompletableFuture<Boolean> storeIfAbsent(final UUID identifier, final byte deviceId, final ECSignedPreKey signedPreKey) {
     return dynamoDbAsyncClient.putItem(PutItemRequest.builder()
             .tableName(tableName)
             .item(getItemFromPreKey(identifier, deviceId, signedPreKey))

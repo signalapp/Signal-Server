@@ -21,7 +21,7 @@ public class RepeatedUseKEMSignedPreKeyStore extends RepeatedUseSignedPreKeyStor
   }
 
   @Override
-  protected Map<String, AttributeValue> getItemFromPreKey(final UUID accountUuid, final long deviceId, final KEMSignedPreKey signedPreKey) {
+  protected Map<String, AttributeValue> getItemFromPreKey(final UUID accountUuid, final byte deviceId, final KEMSignedPreKey signedPreKey) {
 
     return Map.of(
         KEY_ACCOUNT_UUID, getPartitionKey(accountUuid),

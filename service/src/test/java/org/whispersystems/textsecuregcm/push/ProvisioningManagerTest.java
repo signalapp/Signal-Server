@@ -1,6 +1,16 @@
 package org.whispersystems.textsecuregcm.push;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.after;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.verify;
+
 import com.google.protobuf.ByteString;
+import java.time.Duration;
+import java.util.Random;
+import java.util.function.Consumer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -10,17 +20,6 @@ import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguratio
 import org.whispersystems.textsecuregcm.redis.RedisSingletonExtension;
 import org.whispersystems.textsecuregcm.storage.PubSubProtos;
 import org.whispersystems.textsecuregcm.websocket.ProvisioningAddress;
-
-import java.time.Duration;
-import java.util.Random;
-import java.util.function.Consumer;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.after;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.timeout;
-import static org.mockito.Mockito.verify;
 
 class ProvisioningManagerTest {
 
@@ -44,7 +43,7 @@ class ProvisioningManagerTest {
 
   @Test
   void sendProvisioningMessage() {
-    final ProvisioningAddress address = new ProvisioningAddress("address", 0);
+    final ProvisioningAddress address = new ProvisioningAddress("address", (byte) 0);
 
     final byte[] content = new byte[16];
     new Random().nextBytes(content);
@@ -65,7 +64,7 @@ class ProvisioningManagerTest {
 
   @Test
   void removeListener() {
-    final ProvisioningAddress address = new ProvisioningAddress("address", 0);
+    final ProvisioningAddress address = new ProvisioningAddress("address", (byte) 0);
 
     final byte[] content = new byte[16];
     new Random().nextBytes(content);

@@ -60,7 +60,7 @@ public class MessagesManager {
     this.messageDeletionExecutor = messageDeletionExecutor;
   }
 
-  public void insert(UUID destinationUuid, long destinationDevice, Envelope message) {
+  public void insert(UUID destinationUuid, byte destinationDevice, Envelope message) {
     final UUID messageGuid = UUID.randomUUID();
 
     messagesCache.insert(messageGuid, destinationUuid, destinationDevice, message);
@@ -70,11 +70,11 @@ public class MessagesManager {
     }
   }
 
-  public boolean hasCachedMessages(final UUID destinationUuid, final long destinationDevice) {
+  public boolean hasCachedMessages(final UUID destinationUuid, final byte destinationDevice) {
     return messagesCache.hasMessages(destinationUuid, destinationDevice);
   }
 
-  public Mono<Pair<List<Envelope>, Boolean>> getMessagesForDevice(UUID destinationUuid, long destinationDevice,
+  public Mono<Pair<List<Envelope>, Boolean>> getMessagesForDevice(UUID destinationUuid, byte destinationDevice,
       boolean cachedMessagesOnly) {
 
     return Flux.from(
@@ -84,13 +84,13 @@ public class MessagesManager {
         .map(envelopes -> new Pair<>(envelopes, envelopes.size() >= RESULT_SET_CHUNK_SIZE));
   }
 
-  public Publisher<Envelope> getMessagesForDeviceReactive(UUID destinationUuid, long destinationDevice,
+  public Publisher<Envelope> getMessagesForDeviceReactive(UUID destinationUuid, byte destinationDevice,
       final boolean cachedMessagesOnly) {
 
     return getMessagesForDevice(destinationUuid, destinationDevice, null, cachedMessagesOnly);
   }
 
-  private Publisher<Envelope> getMessagesForDevice(UUID destinationUuid, long destinationDevice,
+  private Publisher<Envelope> getMessagesForDevice(UUID destinationUuid, byte destinationDevice,
       @Nullable Integer limit, final boolean cachedMessagesOnly) {
 
     final Publisher<Envelope> dynamoPublisher =
@@ -108,13 +108,13 @@ public class MessagesManager {
         messagesDynamoDb.deleteAllMessagesForAccount(destinationUuid));
   }
 
-  public CompletableFuture<Void> clear(UUID destinationUuid, long deviceId) {
+  public CompletableFuture<Void> clear(UUID destinationUuid, byte deviceId) {
     return CompletableFuture.allOf(
         messagesCache.clear(destinationUuid, deviceId),
         messagesDynamoDb.deleteAllMessagesForDevice(destinationUuid, deviceId));
   }
 
-  public CompletableFuture<Optional<Envelope>> delete(UUID destinationUuid, long destinationDeviceId, UUID guid,
+  public CompletableFuture<Optional<Envelope>> delete(UUID destinationUuid, byte destinationDeviceId, UUID guid,
       @Nullable Long serverTimestamp) {
     return messagesCache.remove(destinationUuid, destinationDeviceId, guid)
         .thenComposeAsync(removed -> {
@@ -140,7 +140,7 @@ public class MessagesManager {
    */
   public int persistMessages(
       final UUID destinationUuid,
-      final long destinationDeviceId,
+      final byte destinationDeviceId,
       final List<Envelope> messages) {
 
     final List<Envelope> nonEphemeralMessages = messages.stream()
@@ -165,7 +165,7 @@ public class MessagesManager {
 
   public void addMessageAvailabilityListener(
       final UUID destinationUuid,
-      final long destinationDeviceId,
+      final byte destinationDeviceId,
       final MessageAvailabilityListener listener) {
     messagesCache.addMessageAvailabilityListener(destinationUuid, destinationDeviceId, listener);
   }

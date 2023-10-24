@@ -42,12 +42,12 @@ public class KeysManager {
     this.dynamicConfigurationManager = dynamicConfigurationManager;
   }
 
-  public CompletableFuture<Void> store(final UUID identifier, final long deviceId, final List<ECPreKey> keys) {
+  public CompletableFuture<Void> store(final UUID identifier, final byte deviceId, final List<ECPreKey> keys) {
     return store(identifier, deviceId, keys, null, null, null);
   }
 
   public CompletableFuture<Void> store(
-      final UUID identifier, final long deviceId,
+      final UUID identifier, final byte deviceId,
       @Nullable final List<ECPreKey> ecKeys,
       @Nullable final List<KEMSignedPreKey> pqKeys,
       @Nullable final ECSignedPreKey ecSignedPreKey,
@@ -63,7 +63,8 @@ public class KeysManager {
       storeFutures.add(pqPreKeys.store(identifier, deviceId, pqKeys));
     }
 
-    if (ecSignedPreKey != null && dynamicConfigurationManager.getConfiguration().getEcPreKeyMigrationConfiguration().storeEcSignedPreKeys()) {
+    if (ecSignedPreKey != null && dynamicConfigurationManager.getConfiguration().getEcPreKeyMigrationConfiguration()
+        .storeEcSignedPreKeys()) {
       storeFutures.add(ecSignedPreKeys.store(identifier, deviceId, ecSignedPreKey));
     }
 
@@ -74,7 +75,7 @@ public class KeysManager {
     return CompletableFuture.allOf(storeFutures.toArray(new CompletableFuture[0]));
   }
 
-  public CompletableFuture<Void> storeEcSignedPreKeys(final UUID identifier, final Map<Long, ECSignedPreKey> keys) {
+  public CompletableFuture<Void> storeEcSignedPreKeys(final UUID identifier, final Map<Byte, ECSignedPreKey> keys) {
     if (dynamicConfigurationManager.getConfiguration().getEcPreKeyMigrationConfiguration().storeEcSignedPreKeys()) {
       return ecSignedPreKeys.store(identifier, keys);
     } else {
@@ -82,27 +83,30 @@ public class KeysManager {
     }
   }
 
-  public CompletableFuture<Boolean> storeEcSignedPreKeyIfAbsent(final UUID identifier, final long deviceId, final ECSignedPreKey signedPreKey) {
+  public CompletableFuture<Boolean> storeEcSignedPreKeyIfAbsent(final UUID identifier, final byte deviceId,
+          final ECSignedPreKey signedPreKey) {
     return ecSignedPreKeys.storeIfAbsent(identifier, deviceId, signedPreKey);
   }
 
-  public CompletableFuture<Void> storePqLastResort(final UUID identifier, final Map<Long, KEMSignedPreKey> keys) {
+  public CompletableFuture<Void> storePqLastResort(final UUID identifier, final Map<Byte, KEMSignedPreKey> keys) {
     return pqLastResortKeys.store(identifier, keys);
   }
 
-  public CompletableFuture<Void> storeEcOneTimePreKeys(final UUID identifier, final long deviceId, final List<ECPreKey> preKeys) {
+  public CompletableFuture<Void> storeEcOneTimePreKeys(final UUID identifier, final byte deviceId,
+          final List<ECPreKey> preKeys) {
     return ecPreKeys.store(identifier, deviceId, preKeys);
   }
 
-  public CompletableFuture<Void> storeKemOneTimePreKeys(final UUID identifier, final long deviceId, final List<KEMSignedPreKey> preKeys) {
+  public CompletableFuture<Void> storeKemOneTimePreKeys(final UUID identifier, final byte deviceId,
+          final List<KEMSignedPreKey> preKeys) {
     return pqPreKeys.store(identifier, deviceId, preKeys);
   }
 
-  public CompletableFuture<Optional<ECPreKey>> takeEC(final UUID identifier, final long deviceId) {
+  public CompletableFuture<Optional<ECPreKey>> takeEC(final UUID identifier, final byte deviceId) {
     return ecPreKeys.take(identifier, deviceId);
   }
 
-  public CompletableFuture<Optional<KEMSignedPreKey>> takePQ(final UUID identifier, final long deviceId) {
+  public CompletableFuture<Optional<KEMSignedPreKey>> takePQ(final UUID identifier, final byte deviceId) {
     return pqPreKeys.take(identifier, deviceId)
         .thenCompose(maybeSingleUsePreKey -> maybeSingleUsePreKey
             .map(singleUsePreKey -> CompletableFuture.completedFuture(maybeSingleUsePreKey))
@@ -110,26 +114,26 @@ public class KeysManager {
   }
 
   @VisibleForTesting
-  CompletableFuture<Optional<KEMSignedPreKey>> getLastResort(final UUID identifier, final long deviceId) {
+  CompletableFuture<Optional<KEMSignedPreKey>> getLastResort(final UUID identifier, final byte deviceId) {
     return pqLastResortKeys.find(identifier, deviceId);
   }
 
-  public CompletableFuture<Optional<ECSignedPreKey>> getEcSignedPreKey(final UUID identifier, final long deviceId) {
+  public CompletableFuture<Optional<ECSignedPreKey>> getEcSignedPreKey(final UUID identifier, final byte deviceId) {
     return ecSignedPreKeys.find(identifier, deviceId);
   }
 
-  public CompletableFuture<List<Long>> getPqEnabledDevices(final UUID identifier) {
+  public CompletableFuture<List<Byte>> getPqEnabledDevices(final UUID identifier) {
     return pqLastResortKeys.getDeviceIdsWithKeys(identifier).collectList().toFuture();
   }
 
-  public CompletableFuture<Integer> getEcCount(final UUID identifier, final long deviceId) {
+  public CompletableFuture<Integer> getEcCount(final UUID identifier, final byte deviceId) {
     return ecPreKeys.getCount(identifier, deviceId);
   }
 
-  public CompletableFuture<Integer> getPqCount(final UUID identifier, final long deviceId) {
+  public CompletableFuture<Integer> getPqCount(final UUID identifier, final byte deviceId) {
     return pqPreKeys.getCount(identifier, deviceId);
   }
-  
+
   public CompletableFuture<Void> delete(final UUID accountUuid) {
     return CompletableFuture.allOf(
             ecPreKeys.delete(accountUuid),
@@ -140,7 +144,7 @@ public class KeysManager {
             pqLastResortKeys.delete(accountUuid));
   }
 
-  public CompletableFuture<Void> delete(final UUID accountUuid, final long deviceId) {
+  public CompletableFuture<Void> delete(final UUID accountUuid, final byte deviceId) {
     return CompletableFuture.allOf(
             ecPreKeys.delete(accountUuid, deviceId),
             pqPreKeys.delete(accountUuid, deviceId),

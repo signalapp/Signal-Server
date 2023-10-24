@@ -40,7 +40,7 @@ public record MultiRecipientMessage(
                           @JsonSerialize(using = ServiceIdentifierAdapter.ServiceIdentifierSerializer.class)
                           @JsonDeserialize(using = ServiceIdentifierAdapter.ServiceIdentifierDeserializer.class)
                           ServiceIdentifier uuid,
-                          @Min(1) long deviceId,
+                          @Min(1) byte deviceId,
                           @Min(0) @Max(65535) int registrationId,
                           @Size(min = 48, max = 48) @NotNull byte[] perRecipientKeyMaterial) {
 

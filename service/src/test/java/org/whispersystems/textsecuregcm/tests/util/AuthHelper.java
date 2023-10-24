@@ -121,12 +121,12 @@ public class AuthHelper {
     when(VALID_DEVICE_3_PRIMARY.isPrimary()).thenReturn(true);
     when(VALID_DEVICE_3_LINKED.isPrimary()).thenReturn(false);
 
-    when(VALID_DEVICE.getId()).thenReturn(1L);
-    when(VALID_DEVICE_TWO.getId()).thenReturn(1L);
-    when(DISABLED_DEVICE.getId()).thenReturn(1L);
-    when(UNDISCOVERABLE_DEVICE.getId()).thenReturn(1L);
-    when(VALID_DEVICE_3_PRIMARY.getId()).thenReturn(1L);
-    when(VALID_DEVICE_3_LINKED.getId()).thenReturn(2L);
+    when(VALID_DEVICE.getId()).thenReturn(Device.PRIMARY_ID);
+    when(VALID_DEVICE_TWO.getId()).thenReturn(Device.PRIMARY_ID);
+    when(DISABLED_DEVICE.getId()).thenReturn(Device.PRIMARY_ID);
+    when(UNDISCOVERABLE_DEVICE.getId()).thenReturn(Device.PRIMARY_ID);
+    when(VALID_DEVICE_3_PRIMARY.getId()).thenReturn(Device.PRIMARY_ID);
+    when(VALID_DEVICE_3_LINKED.getId()).thenReturn((byte) 2);
 
     when(VALID_DEVICE.isEnabled()).thenReturn(true);
     when(VALID_DEVICE_TWO.isEnabled()).thenReturn(true);
@@ -135,17 +135,17 @@ public class AuthHelper {
     when(VALID_DEVICE_3_PRIMARY.isEnabled()).thenReturn(true);
     when(VALID_DEVICE_3_LINKED.isEnabled()).thenReturn(true);
 
-    when(VALID_ACCOUNT.getDevice(1L)).thenReturn(Optional.of(VALID_DEVICE));
+    when(VALID_ACCOUNT.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(VALID_DEVICE));
     when(VALID_ACCOUNT.getPrimaryDevice()).thenReturn(Optional.of(VALID_DEVICE));
-    when(VALID_ACCOUNT_TWO.getDevice(eq(1L))).thenReturn(Optional.of(VALID_DEVICE_TWO));
+    when(VALID_ACCOUNT_TWO.getDevice(eq(Device.PRIMARY_ID))).thenReturn(Optional.of(VALID_DEVICE_TWO));
     when(VALID_ACCOUNT_TWO.getPrimaryDevice()).thenReturn(Optional.of(VALID_DEVICE_TWO));
-    when(DISABLED_ACCOUNT.getDevice(eq(1L))).thenReturn(Optional.of(DISABLED_DEVICE));
+    when(DISABLED_ACCOUNT.getDevice(eq(Device.PRIMARY_ID))).thenReturn(Optional.of(DISABLED_DEVICE));
     when(DISABLED_ACCOUNT.getPrimaryDevice()).thenReturn(Optional.of(DISABLED_DEVICE));
-    when(UNDISCOVERABLE_ACCOUNT.getDevice(eq(1L))).thenReturn(Optional.of(UNDISCOVERABLE_DEVICE));
+    when(UNDISCOVERABLE_ACCOUNT.getDevice(eq(Device.PRIMARY_ID))).thenReturn(Optional.of(UNDISCOVERABLE_DEVICE));
     when(UNDISCOVERABLE_ACCOUNT.getPrimaryDevice()).thenReturn(Optional.of(UNDISCOVERABLE_DEVICE));
-    when(VALID_ACCOUNT_3.getDevice(1L)).thenReturn(Optional.of(VALID_DEVICE_3_PRIMARY));
+    when(VALID_ACCOUNT_3.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(VALID_DEVICE_3_PRIMARY));
     when(VALID_ACCOUNT_3.getPrimaryDevice()).thenReturn(Optional.of(VALID_DEVICE_3_PRIMARY));
-    when(VALID_ACCOUNT_3.getDevice(2L)).thenReturn(Optional.of(VALID_DEVICE_3_LINKED));
+    when(VALID_ACCOUNT_3.getDevice((byte) 2)).thenReturn(Optional.of(VALID_DEVICE_3_LINKED));
 
     when(VALID_ACCOUNT_TWO.hasEnabledLinkedDevice()).thenReturn(true);
 
@@ -212,7 +212,7 @@ public class AuthHelper {
         DisabledPermittedAuthenticatedAccount.class, disabledPermittedAccountAuthFilter));
   }
 
-  public static String getAuthHeader(UUID uuid, long deviceId, String password) {
+  public static String getAuthHeader(UUID uuid, byte deviceId, String password) {
     return HeaderUtils.basicAuthHeader(uuid.toString() + "." + deviceId, password);
   }
 
@@ -260,9 +260,9 @@ public class AuthHelper {
       when(saltedTokenHash.verify(password)).thenReturn(true);
       when(device.getAuthTokenHash()).thenReturn(saltedTokenHash);
       when(device.isPrimary()).thenReturn(true);
-      when(device.getId()).thenReturn(1L);
+      when(device.getId()).thenReturn(Device.PRIMARY_ID);
       when(device.isEnabled()).thenReturn(true);
-      when(account.getDevice(1L)).thenReturn(Optional.of(device));
+      when(account.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(device));
       when(account.getPrimaryDevice()).thenReturn(Optional.of(device));
       when(account.getNumber()).thenReturn(number);
       when(account.getUuid()).thenReturn(uuid);

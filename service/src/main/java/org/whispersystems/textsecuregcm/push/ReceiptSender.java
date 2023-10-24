@@ -34,7 +34,7 @@ public class ReceiptSender {
     ;
   }
 
-  public void sendReceipt(ServiceIdentifier sourceIdentifier, long sourceDeviceId, AciServiceIdentifier destinationIdentifier, long messageId) {
+  public void sendReceipt(ServiceIdentifier sourceIdentifier, byte sourceDeviceId, AciServiceIdentifier destinationIdentifier, long messageId) {
     if (sourceIdentifier.equals(destinationIdentifier)) {
       return;
     }

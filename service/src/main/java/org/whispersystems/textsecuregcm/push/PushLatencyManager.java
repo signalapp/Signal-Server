@@ -74,7 +74,7 @@ public class PushLatencyManager {
     this.clock = clock;
   }
 
-  void recordPushSent(final UUID accountUuid, final long deviceId, final boolean isVoip, final boolean isUrgent) {
+  void recordPushSent(final UUID accountUuid, final byte deviceId, final boolean isVoip, final boolean isUrgent) {
     try {
       final String recordJson = SystemMapper.jsonMapper().writeValueAsString(
           new PushRecord(Instant.now(clock), isVoip ? PushType.VOIP : PushType.STANDARD, Optional.of(isUrgent)));
@@ -89,7 +89,7 @@ public class PushLatencyManager {
     }
   }
 
-  void recordQueueRead(final UUID accountUuid, final long deviceId, final String userAgentString) {
+  void recordQueueRead(final UUID accountUuid, final byte deviceId, final String userAgentString) {
     takePushRecord(accountUuid, deviceId).thenAccept(pushRecord -> {
       if (pushRecord != null) {
         final Duration latency = Duration.between(pushRecord.timestamp(), Instant.now());
@@ -114,7 +114,7 @@ public class PushLatencyManager {
   }
 
   @VisibleForTesting
-  CompletableFuture<PushRecord> takePushRecord(final UUID accountUuid, final long deviceId) {
+  CompletableFuture<PushRecord> takePushRecord(final UUID accountUuid, final byte deviceId) {
     final String key = getFirstUnacknowledgedPushKey(accountUuid, deviceId);
 
     return redisCluster.withCluster(connection -> {
@@ -141,7 +141,7 @@ public class PushLatencyManager {
     });
   }
 
-  private static String getFirstUnacknowledgedPushKey(final UUID accountUuid, final long deviceId) {
+  private static String getFirstUnacknowledgedPushKey(final UUID accountUuid, final byte deviceId) {
     return "push_latency::v2::" + accountUuid.toString() + "::" + deviceId;
   }
 }

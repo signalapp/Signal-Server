@@ -7,5 +7,5 @@ package org.whispersystems.textsecuregcm.auth.grpc;
 
 import java.util.UUID;
 
-public record AuthenticatedDevice(UUID accountIdentifier, long deviceId) {
+public record AuthenticatedDevice(UUID accountIdentifier, byte deviceId) {
 }

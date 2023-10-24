@@ -25,7 +25,7 @@ class RefreshingAccountAndDeviceSupplierTest {
     final AccountsManager accountsManager = mock(AccountsManager.class);
 
     final UUID uuid = UUID.randomUUID();
-    final long deviceId = 2L;
+    final byte deviceId = 2;
 
     final Account initialAccount = mock(Account.class);
     final Device initialDevice = mock(Device.class);

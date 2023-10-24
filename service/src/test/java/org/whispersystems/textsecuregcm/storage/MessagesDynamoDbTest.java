@@ -98,7 +98,7 @@ class MessagesDynamoDbTest {
   @Test
   void testSimpleFetchAfterInsert() {
     final UUID destinationUuid = UUID.randomUUID();
-    final int destinationDeviceId = random.nextInt(255) + 1;
+    final byte destinationDeviceId = (byte) (random.nextInt(Device.MAXIMUM_DEVICE_ID) + 1);
     messagesDynamoDb.store(List.of(MESSAGE1, MESSAGE2, MESSAGE3), destinationUuid, destinationDeviceId);
 
     final List<MessageProtos.Envelope> messagesStored = load(destinationUuid, destinationDeviceId,
@@ -116,11 +116,12 @@ class MessagesDynamoDbTest {
   @ValueSource(ints = {10, 100, 100, 1_000, 3_000})
   void testLoadManyAfterInsert(final int messageCount) {
     final UUID destinationUuid = UUID.randomUUID();
-    final int destinationDeviceId = random.nextInt(255) + 1;
+    final byte destinationDeviceId = (byte) (random.nextInt(Device.MAXIMUM_DEVICE_ID) + 1);
 
     final List<MessageProtos.Envelope> messages = new ArrayList<>(messageCount);
     for (int i = 0; i < messageCount; i++) {
-      messages.add(MessageHelper.createMessage(UUID.randomUUID(), 1, destinationUuid, (i + 1L) * 1000, "message " + i));
+      messages.add(MessageHelper.createMessage(UUID.randomUUID(), Device.PRIMARY_ID, destinationUuid, (i + 1L) * 1000,
+          "message " + i));
     }
 
     messagesDynamoDb.store(messages, destinationUuid, destinationDeviceId);
@@ -148,18 +149,20 @@ class MessagesDynamoDbTest {
   void testLimitedLoad() {
     final int messageCount = 200;
     final UUID destinationUuid = UUID.randomUUID();
-    final int destinationDeviceId = random.nextInt(255) + 1;
+    final byte destinationDeviceId = (byte) (random.nextInt(Device.MAXIMUM_DEVICE_ID) + 1);
 
     final List<MessageProtos.Envelope> messages = new ArrayList<>(messageCount);
     for (int i = 0; i < messageCount; i++) {
-      messages.add(MessageHelper.createMessage(UUID.randomUUID(), 1, destinationUuid, (i + 1L) * 1000, "message " + i));
+      messages.add(MessageHelper.createMessage(UUID.randomUUID(), Device.PRIMARY_ID, destinationUuid, (i + 1L) * 1000,
+          "message " + i));
     }
 
     messagesDynamoDb.store(messages, destinationUuid, destinationDeviceId);
 
     final int messageLoadLimit = 100;
     final int halfOfMessageLoadLimit = messageLoadLimit / 2;
-    final Publisher<?> fetchedMessages = messagesDynamoDb.load(destinationUuid, destinationDeviceId, messageLoadLimit);
+    final Publisher<?> fetchedMessages = messagesDynamoDb.load(destinationUuid, destinationDeviceId,
+        messageLoadLimit);
 
     StepVerifier.setDefaultTimeout(Duration.ofSeconds(10));
 
@@ -170,7 +173,7 @@ class MessagesDynamoDbTest {
         .thenRequest(halfOfMessageLoadLimit)
         .expectNextCount(halfOfMessageLoadLimit)
         // the first 100 should be fetched and buffered, but further requests should fail
-        .then(() -> DYNAMO_DB_EXTENSION.stopServer())
+        .then(DYNAMO_DB_EXTENSION::stopServer)
         .thenRequest(halfOfMessageLoadLimit)
         .expectNextCount(halfOfMessageLoadLimit)
         // we’ve consumed all the buffered messages, so a single request will fail
@@ -183,22 +186,23 @@ class MessagesDynamoDbTest {
   void testDeleteForDestination() {
     final UUID destinationUuid = UUID.randomUUID();
     final UUID secondDestinationUuid = UUID.randomUUID();
-    messagesDynamoDb.store(List.of(MESSAGE1), destinationUuid, 1);
-    messagesDynamoDb.store(List.of(MESSAGE2), secondDestinationUuid, 1);
-    messagesDynamoDb.store(List.of(MESSAGE3), destinationUuid, 2);
+    messagesDynamoDb.store(List.of(MESSAGE1), destinationUuid, Device.PRIMARY_ID);
+    messagesDynamoDb.store(List.of(MESSAGE2), secondDestinationUuid, Device.PRIMARY_ID);
+    final byte deviceId2 = 2;
+    messagesDynamoDb.store(List.of(MESSAGE3), destinationUuid, deviceId2);
 
-    assertThat(load(destinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
+    assertThat(load(destinationUuid, (byte) 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
         .element(0).isEqualTo(MESSAGE1);
-    assertThat(load(destinationUuid, 2, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
+    assertThat(load(destinationUuid, deviceId2, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
         .element(0).isEqualTo(MESSAGE3);
-    assertThat(load(secondDestinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
+    assertThat(load(secondDestinationUuid, (byte) 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
         .hasSize(1).element(0).isEqualTo(MESSAGE2);
 
     messagesDynamoDb.deleteAllMessagesForAccount(destinationUuid).join();
 
-    assertThat(load(destinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().isEmpty();
-    assertThat(load(destinationUuid, 2, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().isEmpty();
-    assertThat(load(secondDestinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
+    assertThat(load(destinationUuid, Device.PRIMARY_ID, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().isEmpty();
+    assertThat(load(destinationUuid, deviceId2, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().isEmpty();
+    assertThat(load(secondDestinationUuid, Device.PRIMARY_ID, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
         .hasSize(1).element(0).isEqualTo(MESSAGE2);
   }
 
@@ -206,23 +210,26 @@ class MessagesDynamoDbTest {
   void testDeleteForDestinationDevice() {
     final UUID destinationUuid = UUID.randomUUID();
     final UUID secondDestinationUuid = UUID.randomUUID();
-    messagesDynamoDb.store(List.of(MESSAGE1), destinationUuid, 1);
-    messagesDynamoDb.store(List.of(MESSAGE2), secondDestinationUuid, 1);
-    messagesDynamoDb.store(List.of(MESSAGE3), destinationUuid, 2);
+    messagesDynamoDb.store(List.of(MESSAGE1), destinationUuid, Device.PRIMARY_ID);
+    messagesDynamoDb.store(List.of(MESSAGE2), secondDestinationUuid, Device.PRIMARY_ID);
+    final byte destinationDeviceId2 = 2;
+    messagesDynamoDb.store(List.of(MESSAGE3), destinationUuid, destinationDeviceId2);
 
-    assertThat(load(destinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
+    assertThat(load(destinationUuid, Device.PRIMARY_ID, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
         .element(0).isEqualTo(MESSAGE1);
-    assertThat(load(destinationUuid, 2, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
+    assertThat(load(destinationUuid, destinationDeviceId2, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
+        .hasSize(1)
         .element(0).isEqualTo(MESSAGE3);
-    assertThat(load(secondDestinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
+    assertThat(load(secondDestinationUuid, Device.PRIMARY_ID, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
         .hasSize(1).element(0).isEqualTo(MESSAGE2);
 
-    messagesDynamoDb.deleteAllMessagesForDevice(destinationUuid, 2).join();
+    messagesDynamoDb.deleteAllMessagesForDevice(destinationUuid, destinationDeviceId2).join();
 
-    assertThat(load(destinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
+    assertThat(load(destinationUuid, Device.PRIMARY_ID, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
         .element(0).isEqualTo(MESSAGE1);
-    assertThat(load(destinationUuid, 2, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().isEmpty();
-    assertThat(load(secondDestinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
+    assertThat(load(destinationUuid, destinationDeviceId2, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
+        .isEmpty();
+    assertThat(load(secondDestinationUuid, Device.PRIMARY_ID, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
         .hasSize(1).element(0).isEqualTo(MESSAGE2);
   }
 
@@ -230,15 +237,17 @@ class MessagesDynamoDbTest {
   void testDeleteMessageByDestinationAndGuid() throws Exception {
     final UUID destinationUuid = UUID.randomUUID();
     final UUID secondDestinationUuid = UUID.randomUUID();
-    messagesDynamoDb.store(List.of(MESSAGE1), destinationUuid, 1);
-    messagesDynamoDb.store(List.of(MESSAGE2), secondDestinationUuid, 1);
-    messagesDynamoDb.store(List.of(MESSAGE3), destinationUuid, 2);
+    messagesDynamoDb.store(List.of(MESSAGE1), destinationUuid, Device.PRIMARY_ID);
+    messagesDynamoDb.store(List.of(MESSAGE2), secondDestinationUuid, Device.PRIMARY_ID);
+    final byte destinationDeviceId2 = 2;
+    messagesDynamoDb.store(List.of(MESSAGE3), destinationUuid, destinationDeviceId2);
 
-    assertThat(load(destinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
+    assertThat(load(destinationUuid, Device.PRIMARY_ID, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
         .element(0).isEqualTo(MESSAGE1);
-    assertThat(load(destinationUuid, 2, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
+    assertThat(load(destinationUuid, destinationDeviceId2, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
+        .hasSize(1)
         .element(0).isEqualTo(MESSAGE3);
-    assertThat(load(secondDestinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
+    assertThat(load(secondDestinationUuid, Device.PRIMARY_ID, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
         .hasSize(1).element(0).isEqualTo(MESSAGE2);
 
     final Optional<MessageProtos.Envelope> deletedMessage = messagesDynamoDb.deleteMessageByDestinationAndGuid(
@@ -247,11 +256,12 @@ class MessagesDynamoDbTest {
 
     assertThat(deletedMessage).isPresent();
 
-    assertThat(load(destinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
+    assertThat(load(destinationUuid, Device.PRIMARY_ID, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
         .element(0).isEqualTo(MESSAGE1);
-    assertThat(load(destinationUuid, 2, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
+    assertThat(load(destinationUuid, destinationDeviceId2, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
+        .hasSize(1)
         .element(0).isEqualTo(MESSAGE3);
-    assertThat(load(secondDestinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
+    assertThat(load(secondDestinationUuid, Device.PRIMARY_ID, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
         .isEmpty();
 
     final Optional<MessageProtos.Envelope> alreadyDeletedMessage = messagesDynamoDb.deleteMessageByDestinationAndGuid(
@@ -266,29 +276,32 @@ class MessagesDynamoDbTest {
   void testDeleteSingleMessage() throws Exception {
     final UUID destinationUuid = UUID.randomUUID();
     final UUID secondDestinationUuid = UUID.randomUUID();
-    messagesDynamoDb.store(List.of(MESSAGE1), destinationUuid, 1);
-    messagesDynamoDb.store(List.of(MESSAGE2), secondDestinationUuid, 1);
-    messagesDynamoDb.store(List.of(MESSAGE3), destinationUuid, 2);
+    messagesDynamoDb.store(List.of(MESSAGE1), destinationUuid, Device.PRIMARY_ID);
+    messagesDynamoDb.store(List.of(MESSAGE2), secondDestinationUuid, Device.PRIMARY_ID);
+    final byte destinationDeviceId2 = 2;
+    messagesDynamoDb.store(List.of(MESSAGE3), destinationUuid, destinationDeviceId2);
 
-    assertThat(load(destinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
+    assertThat(load(destinationUuid, Device.PRIMARY_ID, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
         .element(0).isEqualTo(MESSAGE1);
-    assertThat(load(destinationUuid, 2, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
+    assertThat(load(destinationUuid, destinationDeviceId2, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
+        .hasSize(1)
         .element(0).isEqualTo(MESSAGE3);
-    assertThat(load(secondDestinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
+    assertThat(load(secondDestinationUuid, Device.PRIMARY_ID, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
         .hasSize(1).element(0).isEqualTo(MESSAGE2);
 
-    messagesDynamoDb.deleteMessage(secondDestinationUuid, 1,
+    messagesDynamoDb.deleteMessage(secondDestinationUuid, Device.PRIMARY_ID,
         UUID.fromString(MESSAGE2.getServerGuid()), MESSAGE2.getServerTimestamp()).get(1, TimeUnit.SECONDS);
 
-    assertThat(load(destinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
+    assertThat(load(destinationUuid, Device.PRIMARY_ID, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
         .element(0).isEqualTo(MESSAGE1);
-    assertThat(load(destinationUuid, 2, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
+    assertThat(load(destinationUuid, destinationDeviceId2, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
+        .hasSize(1)
         .element(0).isEqualTo(MESSAGE3);
-    assertThat(load(secondDestinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
+    assertThat(load(secondDestinationUuid, Device.PRIMARY_ID, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
         .isEmpty();
   }
 
-  private List<MessageProtos.Envelope> load(final UUID destinationUuid, final long destinationDeviceId,
+  private List<MessageProtos.Envelope> load(final UUID destinationUuid, final byte destinationDeviceId,
       final int count) {
     return Flux.from(messagesDynamoDb.load(destinationUuid, destinationDeviceId, count))
         .take(count, true)

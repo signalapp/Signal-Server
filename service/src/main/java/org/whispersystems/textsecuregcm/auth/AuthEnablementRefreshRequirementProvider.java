@@ -47,7 +47,7 @@ public class AuthEnablementRefreshRequirementProvider implements WebsocketRefres
   }
 
   @VisibleForTesting
-  static Map<Long, Boolean> buildDevicesEnabledMap(final Account account) {
+  static Map<Byte, Boolean> buildDevicesEnabledMap(final Account account) {
     return account.getDevices().stream().collect(Collectors.toMap(Device::getId, Device::isEnabled));
   }
 
@@ -68,17 +68,17 @@ public class AuthEnablementRefreshRequirementProvider implements WebsocketRefres
   }
 
   @Override
-  public List<Pair<UUID, Long>> handleRequestFinished(final RequestEvent requestEvent) {
+  public List<Pair<UUID, Byte>> handleRequestFinished(final RequestEvent requestEvent) {
     // Now that the request is finished, check whether `isEnabled` changed for any of the devices. If the value did
     // change or if a devices was added or removed, all devices must disconnect and reauthenticate.
     if (requestEvent.getContainerRequest().getProperty(DEVICES_ENABLED) != null) {
 
-      @SuppressWarnings("unchecked") final Map<Long, Boolean> initialDevicesEnabled =
-          (Map<Long, Boolean>) requestEvent.getContainerRequest().getProperty(DEVICES_ENABLED);
+      @SuppressWarnings("unchecked") final Map<Byte, Boolean> initialDevicesEnabled =
+          (Map<Byte, Boolean>) requestEvent.getContainerRequest().getProperty(DEVICES_ENABLED);
 
       return accountsManager.getByAccountIdentifier((UUID) requestEvent.getContainerRequest().getProperty(ACCOUNT_UUID)).map(account -> {
-        final Set<Long> deviceIdsToDisplace;
-        final Map<Long, Boolean> currentDevicesEnabled = buildDevicesEnabledMap(account);
+        final Set<Byte> deviceIdsToDisplace;
+        final Map<Byte, Boolean> currentDevicesEnabled = buildDevicesEnabledMap(account);
 
         if (!initialDevicesEnabled.equals(currentDevicesEnabled)) {
           deviceIdsToDisplace = new HashSet<>(initialDevicesEnabled.keySet());

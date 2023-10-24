@@ -17,7 +17,7 @@ import org.whispersystems.textsecuregcm.storage.Device;
 public class AuthenticationUtil {
 
   static final Context.Key<UUID> CONTEXT_AUTHENTICATED_ACCOUNT_IDENTIFIER_KEY = Context.key("authenticated-aci");
-  static final Context.Key<Long> CONTEXT_AUTHENTICATED_DEVICE_IDENTIFIER_KEY = Context.key("authenticated-device-id");
+  static final Context.Key<Byte> CONTEXT_AUTHENTICATED_DEVICE_IDENTIFIER_KEY = Context.key("authenticated-device-id");
 
   /**
    * Returns the account/device authenticated in the current gRPC context or throws an "unauthenticated" exception if
@@ -30,7 +30,7 @@ public class AuthenticationUtil {
    */
   public static AuthenticatedDevice requireAuthenticatedDevice() {
     @Nullable final UUID accountIdentifier = CONTEXT_AUTHENTICATED_ACCOUNT_IDENTIFIER_KEY.get();
-    @Nullable final Long deviceId = CONTEXT_AUTHENTICATED_DEVICE_IDENTIFIER_KEY.get();
+    @Nullable final Byte deviceId = CONTEXT_AUTHENTICATED_DEVICE_IDENTIFIER_KEY.get();
 
     if (accountIdentifier != null && deviceId != null) {
       return new AuthenticatedDevice(accountIdentifier, deviceId);

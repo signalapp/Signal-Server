@@ -34,11 +34,11 @@ class CertificateGeneratorTest {
         final CertificateGenerator certificateGenerator = new CertificateGenerator(Base64.getDecoder().decode(SIGNING_CERTIFICATE), Curve.decodePrivatePoint(Base64.getDecoder().decode(SIGNING_KEY)), 1);
 
       when(account.getIdentityKey(IdentityType.ACI)).thenReturn(IDENTITY_KEY);
-        when(account.getUuid()).thenReturn(UUID.randomUUID());
-        when(account.getNumber()).thenReturn("+18005551234");
-        when(device.getId()).thenReturn(4L);
+      when(account.getUuid()).thenReturn(UUID.randomUUID());
+      when(account.getNumber()).thenReturn("+18005551234");
+      when(device.getId()).thenReturn((byte) 4);
 
-        assertTrue(certificateGenerator.createFor(account, device, true).length > 0);
-        assertTrue(certificateGenerator.createFor(account, device, false).length > 0);
+      assertTrue(certificateGenerator.createFor(account, device, true).length > 0);
+      assertTrue(certificateGenerator.createFor(account, device, false).length > 0);
     }
 }

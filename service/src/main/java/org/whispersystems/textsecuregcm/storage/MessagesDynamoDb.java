@@ -83,11 +83,13 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
     this.messageDeletionScheduler = Schedulers.fromExecutor(messageDeletionExecutor);
   }
 
-  public void store(final List<MessageProtos.Envelope> messages, final UUID destinationAccountUuid, final long destinationDeviceId) {
+  public void store(final List<MessageProtos.Envelope> messages, final UUID destinationAccountUuid,
+      final byte destinationDeviceId) {
     storeTimer.record(() -> writeInBatches(messages, (messageBatch) -> storeBatch(messageBatch, destinationAccountUuid, destinationDeviceId)));
   }
 
-  private void storeBatch(final List<MessageProtos.Envelope> messages, final UUID destinationAccountUuid, final long destinationDeviceId) {
+  private void storeBatch(final List<MessageProtos.Envelope> messages, final UUID destinationAccountUuid,
+      final byte destinationDeviceId) {
     if (messages.size() > DYNAMO_DB_MAX_BATCH_SIZE) {
       throw new IllegalArgumentException("Maximum batch size of " + DYNAMO_DB_MAX_BATCH_SIZE + " exceeded with " + messages.size() + " messages");
     }
@@ -112,7 +114,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
     executeTableWriteItemsUntilComplete(Map.of(tableName, writeItems));
   }
 
-  public Publisher<MessageProtos.Envelope> load(final UUID destinationAccountUuid, final long destinationDeviceId,
+  public Publisher<MessageProtos.Envelope> load(final UUID destinationAccountUuid, final byte destinationDeviceId,
       final Integer limit) {
 
     final AttributeValue partitionKey = convertPartitionKey(destinationAccountUuid);
@@ -191,7 +193,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
   }
 
   public CompletableFuture<Optional<MessageProtos.Envelope>> deleteMessage(final UUID destinationAccountUuid,
-      final long destinationDeviceId, final UUID messageUuid, final long serverTimestamp) {
+      final byte destinationDeviceId, final UUID messageUuid, final long serverTimestamp) {
 
     final AttributeValue partitionKey = convertPartitionKey(destinationAccountUuid);
     final AttributeValue sortKey = convertSortKey(destinationDeviceId, serverTimestamp, messageUuid);
@@ -240,7 +242,8 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
         .toFuture();
   }
 
-  public CompletableFuture<Void> deleteAllMessagesForDevice(final UUID destinationAccountUuid, final long destinationDeviceId) {
+  public CompletableFuture<Void> deleteAllMessagesForDevice(final UUID destinationAccountUuid,
+      final byte destinationDeviceId) {
     final Timer.Sample sample = Timer.start();
     final AttributeValue partitionKey = convertPartitionKey(destinationAccountUuid);
 
@@ -284,8 +287,10 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
     return AttributeValues.fromUUID(destinationAccountUuid);
   }
 
-  private static AttributeValue convertSortKey(final long destinationDeviceId, final long serverTimestamp, final UUID messageUuid) {
+  private static AttributeValue convertSortKey(final byte destinationDeviceId, final long serverTimestamp,
+      final UUID messageUuid) {
     ByteBuffer byteBuffer = ByteBuffer.wrap(new byte[32]);
+    // for compatibility - destinationDeviceId was previously `long`
     byteBuffer.putLong(destinationDeviceId);
     byteBuffer.putLong(serverTimestamp);
     byteBuffer.putLong(messageUuid.getMostSignificantBits());
@@ -293,8 +298,9 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
     return AttributeValues.fromByteBuffer(byteBuffer.flip());
   }
 
-  private static AttributeValue convertDestinationDeviceIdToSortKeyPrefix(final long destinationDeviceId) {
+  private static AttributeValue convertDestinationDeviceIdToSortKeyPrefix(final byte destinationDeviceId) {
     ByteBuffer byteBuffer = ByteBuffer.wrap(new byte[8]);
+    // for compatibility - destinationDeviceId was previously `long`
     byteBuffer.putLong(destinationDeviceId);
     return AttributeValues.fromByteBuffer(byteBuffer.flip());
   }

@@ -7,7 +7,7 @@ package org.whispersystems.textsecuregcm.grpc;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -88,7 +88,7 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
           return CompletableFuture.completedFuture(account);
         });
 
-    when(accountsManager.updateDeviceAsync(any(), anyLong(), any()))
+    when(accountsManager.updateDeviceAsync(any(), anyByte(), any()))
         .thenAnswer(invocation -> {
           final Account account = invocation.getArgument(0);
           final Device device = account.getDevice(invocation.getArgument(1)).orElseThrow();
@@ -99,8 +99,8 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
           return CompletableFuture.completedFuture(account);
         });
 
-    when(keysManager.delete(any(), anyLong())).thenReturn(CompletableFuture.completedFuture(null));
-    when(messagesManager.clear(any(), anyLong())).thenReturn(CompletableFuture.completedFuture(null));
+    when(keysManager.delete(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
+    when(messagesManager.clear(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
 
     return new DevicesGrpcService(accountsManager, keysManager, messagesManager);
   }
@@ -120,7 +120,7 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
     final String linkedDeviceName = "A linked device";
 
     final Device linkedDevice = mock(Device.class);
-    when(linkedDevice.getId()).thenReturn(Device.PRIMARY_ID + 1);
+    when(linkedDevice.getId()).thenReturn((byte) (Device.PRIMARY_ID + 1));
     when(linkedDevice.getCreated()).thenReturn(linkedDeviceCreated.toEpochMilli());
     when(linkedDevice.getLastSeen()).thenReturn(linkedDeviceLastSeen.toEpochMilli());
     when(linkedDevice.getName())
@@ -147,7 +147,7 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
 
   @Test
   void removeDevice() {
-    final long deviceId = 17;
+    final byte deviceId = 17;
 
     final RemoveDeviceResponse ignored = authenticatedServiceStub().removeDevice(RemoveDeviceRequest.newBuilder()
         .setId(deviceId)
@@ -167,15 +167,15 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
 
   @Test
   void removeDeviceNonPrimaryAuthenticated() {
-    mockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, Device.PRIMARY_ID + 1);
+    mockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, (byte) (Device.PRIMARY_ID + 1));
     assertStatusException(Status.PERMISSION_DENIED, () -> authenticatedServiceStub().removeDevice(RemoveDeviceRequest.newBuilder()
         .setId(17)
         .build()));
   }
 
   @ParameterizedTest
-  @ValueSource(longs = {Device.PRIMARY_ID, Device.PRIMARY_ID + 1})
-  void setDeviceName(final long deviceId) {
+  @ValueSource(bytes = {Device.PRIMARY_ID, Device.PRIMARY_ID + 1})
+  void setDeviceName(final byte deviceId) {
     mockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, deviceId);
 
     final Device device = mock(Device.class);
@@ -212,7 +212,7 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
 
   @ParameterizedTest
   @MethodSource
-  void setPushToken(final long deviceId,
+  void setPushToken(final byte deviceId,
       final SetPushTokenRequest request,
       @Nullable final String expectedApnsToken,
       @Nullable final String expectedApnsVoipToken,
@@ -238,7 +238,7 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
 
     final Stream.Builder<Arguments> streamBuilder = Stream.builder();
 
-    for (final long deviceId : new long[] { Device.PRIMARY_ID, Device.PRIMARY_ID + 1 }) {
+    for (final byte deviceId : new byte[]{Device.PRIMARY_ID, Device.PRIMARY_ID + 1}) {
       streamBuilder.add(Arguments.of(deviceId,
           SetPushTokenRequest.newBuilder()
               .setApnsTokenRequest(SetPushTokenRequest.ApnsTokenRequest.newBuilder()
@@ -284,7 +284,7 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
 
     final SetPushTokenResponse ignored = authenticatedServiceStub().setPushToken(request);
 
-    verify(accountsManager, never()).updateDevice(any(), anyLong(), any());
+    verify(accountsManager, never()).updateDevice(any(), anyByte(), any());
   }
 
   private static Stream<Arguments> setPushTokenUnchanged() {
@@ -323,7 +323,7 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
     final Device device = mock(Device.class);
     when(authenticatedAccount.getDevice(AUTHENTICATED_DEVICE_ID)).thenReturn(Optional.of(device));
     assertStatusException(Status.INVALID_ARGUMENT, () -> authenticatedServiceStub().setPushToken(request));
-    verify(accountsManager, never()).updateDevice(any(), anyLong(), any());
+    verify(accountsManager, never()).updateDevice(any(), anyByte(), any());
   }
 
   private static Stream<Arguments> setPushTokenIllegalArgument() {
@@ -342,7 +342,7 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
 
   @ParameterizedTest
   @MethodSource
-  void clearPushToken(final long deviceId,
+  void clearPushToken(final byte deviceId,
       @Nullable final String apnsToken,
       @Nullable final String apnsVoipToken,
       @Nullable final String fcmToken,
@@ -379,17 +379,17 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
         Arguments.of(Device.PRIMARY_ID, null, "apns-voip-token", null, "OWI"),
         Arguments.of(Device.PRIMARY_ID, null, null, "fcm-token", "OWA"),
         Arguments.of(Device.PRIMARY_ID, null, null, null, null),
-        Arguments.of(Device.PRIMARY_ID + 1, "apns-token", null, null, "OWP"),
-        Arguments.of(Device.PRIMARY_ID + 1, "apns-token", "apns-voip-token", null, "OWP"),
-        Arguments.of(Device.PRIMARY_ID + 1, null, "apns-voip-token", null, "OWP"),
-        Arguments.of(Device.PRIMARY_ID + 1, null, null, "fcm-token", "OWA"),
-        Arguments.of(Device.PRIMARY_ID + 1, null, null, null, null)
+        Arguments.of((byte) (Device.PRIMARY_ID + 1), "apns-token", null, null, "OWP"),
+        Arguments.of((byte) (Device.PRIMARY_ID + 1), "apns-token", "apns-voip-token", null, "OWP"),
+        Arguments.of((byte) (Device.PRIMARY_ID + 1), null, "apns-voip-token", null, "OWP"),
+        Arguments.of((byte) (Device.PRIMARY_ID + 1), null, null, "fcm-token", "OWA"),
+        Arguments.of((byte) (Device.PRIMARY_ID + 1), null, null, null, null)
     );
   }
 
   @CartesianTest
   void setCapabilities(
-      @CartesianTest.Values(longs = {Device.PRIMARY_ID, Device.PRIMARY_ID + 1}) final long deviceId,
+      @CartesianTest.Values(bytes = {Device.PRIMARY_ID, Device.PRIMARY_ID + 1}) final byte deviceId,
       @CartesianTest.Values(booleans = {true, false}) final boolean storage,
       @CartesianTest.Values(booleans = {true, false}) final boolean transfer,
       @CartesianTest.Values(booleans = {true, false}) final boolean pni,

@@ -170,7 +170,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
   @Test
   void deleteAccountLinkedDevice() {
-    getMockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, Device.PRIMARY_ID + 1);
+    getMockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, (byte) (Device.PRIMARY_ID + 1));
 
     //noinspection ResultOfMethodCallIgnored
     GrpcTestUtils.assertStatusException(Status.PERMISSION_DENIED,
@@ -215,7 +215,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
   @Test
   void setRegistrationLockLinkedDevice() {
-    getMockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, Device.PRIMARY_ID + 1);
+    getMockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, (byte) (Device.PRIMARY_ID + 1));
 
     //noinspection ResultOfMethodCallIgnored
     GrpcTestUtils.assertStatusException(Status.PERMISSION_DENIED,
@@ -240,7 +240,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
   @Test
   void clearRegistrationLockLinkedDevice() {
-    getMockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, Device.PRIMARY_ID + 1);
+    getMockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, (byte) (Device.PRIMARY_ID + 1));
 
     //noinspection ResultOfMethodCallIgnored
     GrpcTestUtils.assertStatusException(Status.PERMISSION_DENIED,

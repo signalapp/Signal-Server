@@ -8,7 +8,7 @@ package org.whispersystems.textsecuregcm.grpc;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.whispersystems.textsecuregcm.grpc.GrpcTestUtils.assertStatusException;
@@ -184,8 +184,8 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
   }
 
   @ParameterizedTest
-  @ValueSource(longs = {KeysGrpcHelper.ALL_DEVICES, 1})
-  void getPreKeysDeviceNotFound(final long deviceId) {
+  @ValueSource(bytes = {KeysGrpcHelper.ALL_DEVICES, 1})
+  void getPreKeysDeviceNotFound(final byte deviceId) {
     final UUID accountIdentifier = UUID.randomUUID();
 
     final byte[] unidentifiedAccessKey = new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH];
@@ -195,7 +195,7 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
     when(targetAccount.getUuid()).thenReturn(accountIdentifier);
     when(targetAccount.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(Curve.generateKeyPair().getPublicKey()));
     when(targetAccount.getDevices()).thenReturn(Collections.emptyList());
-    when(targetAccount.getDevice(anyLong())).thenReturn(Optional.empty());
+    when(targetAccount.getDevice(anyByte())).thenReturn(Optional.empty());
     when(targetAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
 
     when(accountsManager.getByServiceIdentifierAsync(new AciServiceIdentifier(accountIdentifier)))

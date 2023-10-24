@@ -78,18 +78,19 @@ public class DevicesGrpcService extends ReactorDevicesGrpc.DevicesImplBase {
     if (request.getId() == Device.PRIMARY_ID) {
       throw Status.INVALID_ARGUMENT.withDescription("Cannot remove primary device").asRuntimeException();
     }
+    final byte deviceId = DeviceIdUtil.validate(request.getId());
 
     final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedPrimaryDevice();
 
     return Mono.fromFuture(() -> accountsManager.getByAccountIdentifierAsync(authenticatedDevice.accountIdentifier()))
         .map(maybeAccount -> maybeAccount.orElseThrow(Status.UNAUTHENTICATED::asRuntimeException))
         .flatMap(account -> Flux.merge(
-                Mono.fromFuture(() -> messagesManager.clear(account.getUuid(), request.getId())),
-                Mono.fromFuture(() -> keysManager.delete(account.getUuid(), request.getId())))
-            .then(Mono.fromFuture(() -> accountsManager.updateAsync(account, a -> a.removeDevice(request.getId()))))
+                Mono.fromFuture(() -> messagesManager.clear(account.getUuid(), deviceId)),
+                Mono.fromFuture(() -> keysManager.delete(account.getUuid(), deviceId)))
+            .then(Mono.fromFuture(() -> accountsManager.updateAsync(account, a -> a.removeDevice(deviceId))))
             // Some messages may have arrived while we were performing the other updates; make a best effort to clear
             // those out, too
-            .then(Mono.fromFuture(() -> messagesManager.clear(account.getUuid(), request.getId()))))
+            .then(Mono.fromFuture(() -> messagesManager.clear(account.getUuid(), deviceId))))
         .thenReturn(RemoveDeviceResponse.newBuilder().build());
   }
 

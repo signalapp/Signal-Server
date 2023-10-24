@@ -11,10 +11,10 @@ import org.whispersystems.textsecuregcm.util.Pair;
 public class BasicAuthorizationHeader {
 
   private final String username;
-  private final long deviceId;
+  private final byte deviceId;
   private final String password;
 
-  private BasicAuthorizationHeader(final String username, final long deviceId, final String password) {
+  private BasicAuthorizationHeader(final String username, final byte deviceId, final String password) {
     this.username = username;
     this.deviceId = deviceId;
     this.password = password;
@@ -59,9 +59,9 @@ public class BasicAuthorizationHeader {
       final String usernameComponent = credentials.substring(0, credentialSeparatorIndex);
 
       final String username;
-      final long deviceId;
+      final byte deviceId;
       {
-        final Pair<String, Long> identifierAndDeviceId =
+        final Pair<String, Byte> identifierAndDeviceId =
             BaseAccountAuthenticator.getIdentifierAndDeviceId(usernameComponent);
 
         username = identifierAndDeviceId.first();

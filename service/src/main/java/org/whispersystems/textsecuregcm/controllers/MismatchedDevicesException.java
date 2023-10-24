@@ -9,19 +9,19 @@ import java.util.List;
 
 public class MismatchedDevicesException extends Exception {
 
-  private final List<Long> missingDevices;
-  private final List<Long> extraDevices;
+  private final List<Byte> missingDevices;
+  private final List<Byte> extraDevices;
 
-  public MismatchedDevicesException(List<Long> missingDevices, List<Long> extraDevices) {
+  public MismatchedDevicesException(List<Byte> missingDevices, List<Byte> extraDevices) {
     this.missingDevices = missingDevices;
     this.extraDevices   = extraDevices;
   }
 
-  public List<Long> getMissingDevices() {
+  public List<Byte> getMissingDevices() {
     return missingDevices;
   }
 
-  public List<Long> getExtraDevices() {
+  public List<Byte> getExtraDevices() {
     return extraDevices;
   }
 }

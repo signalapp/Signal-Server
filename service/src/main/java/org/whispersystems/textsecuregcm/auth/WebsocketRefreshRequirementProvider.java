@@ -30,5 +30,5 @@ public interface WebsocketRefreshRequirementProvider {
    * @return a list of pairs of account UUID/device ID pairs identifying websockets that need to be refreshed as a
    * result of the observed request
    */
-  List<Pair<UUID, Long>> handleRequestFinished(RequestEvent requestEvent);
+  List<Pair<UUID, Byte>> handleRequestFinished(RequestEvent requestEvent);
 }

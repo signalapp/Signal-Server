@@ -283,7 +283,7 @@ public class MessageController {
         checkStoryRateLimit(destination.get(), userAgent);
       }
 
-      final Set<Long> excludedDeviceIds;
+      final Set<Byte> excludedDeviceIds;
 
       if (isSyncMessage) {
         excludedDeviceIds = Set.of(source.get().getAuthenticatedDevice().getId());
@@ -346,7 +346,7 @@ public class MessageController {
   /**
    * Build mapping of accounts to devices/registration IDs.
    */
-  private Map<Account, Set<Pair<Long, Integer>>> buildDeviceIdAndRegistrationIdMap(
+  private Map<Account, Set<Pair<Byte, Integer>>> buildDeviceIdAndRegistrationIdMap(
       MultiRecipientMessage multiRecipientMessage,
       Map<ServiceIdentifier, Account> accountsByServiceIdentifier) {
 
@@ -403,7 +403,7 @@ public class MessageController {
       checkAccessKeys(accessKeys, accountsByServiceIdentifier.values());
     }
 
-    final Map<Account, Set<Pair<Long, Integer>>> accountToDeviceIdAndRegistrationIdMap =
+    final Map<Account, Set<Pair<Byte, Integer>>> accountToDeviceIdAndRegistrationIdMap =
         buildDeviceIdAndRegistrationIdMap(multiRecipientMessage, accountsByServiceIdentifier);
 
     // We might filter out all the recipients of a story (if none have enabled stories).
@@ -420,7 +420,7 @@ public class MessageController {
         checkStoryRateLimit(account, userAgent);
       }
 
-      Set<Long> deviceIds = accountToDeviceIdAndRegistrationIdMap
+      Set<Byte> deviceIds = accountToDeviceIdAndRegistrationIdMap
         .getOrDefault(account, Collections.emptySet())
         .stream()
         .map(Pair::first)
@@ -678,7 +678,7 @@ public class MessageController {
 
       try {
         Account sourceAccount = source.map(AuthenticatedAccount::getAccount).orElse(null);
-        Long sourceDeviceId = source.map(account -> account.getAuthenticatedDevice().getId()).orElse(null);
+        Byte sourceDeviceId = source.map(account -> account.getAuthenticatedDevice().getId()).orElse(null);
         envelope = incomingMessage.toEnvelope(
             destinationIdentifier,
             sourceAccount,

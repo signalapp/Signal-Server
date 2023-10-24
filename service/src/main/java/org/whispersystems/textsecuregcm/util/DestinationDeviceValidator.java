@@ -8,7 +8,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -24,7 +23,7 @@ public class DestinationDeviceValidator {
    * @see #validateRegistrationIds(Account, Stream, boolean)
    */
   public static <T> void validateRegistrationIds(final Account account, final Collection<T> messages,
-      Function<T, Long> getDeviceId, Function<T, Integer> getRegistrationId, boolean usePhoneNumberIdentity)
+      Function<T, Byte> getDeviceId, Function<T, Integer> getRegistrationId, boolean usePhoneNumberIdentity)
       throws StaleDevicesException {
     validateRegistrationIds(account,
         messages.stream().map(m -> new Pair<>(getDeviceId.apply(m), getRegistrationId.apply(m))),
@@ -47,13 +46,13 @@ public class DestinationDeviceValidator {
    *                               account does not have a corresponding device or if the registration IDs do not match
    */
   public static void validateRegistrationIds(final Account account,
-      final Stream<Pair<Long, Integer>> deviceIdAndRegistrationIdStream,
+      final Stream<Pair<Byte, Integer>> deviceIdAndRegistrationIdStream,
       final boolean usePhoneNumberIdentity) throws StaleDevicesException {
 
-    final List<Long> staleDevices = deviceIdAndRegistrationIdStream
+    final List<Byte> staleDevices = deviceIdAndRegistrationIdStream
         .filter(deviceIdAndRegistrationId -> deviceIdAndRegistrationId.second() > 0)
         .filter(deviceIdAndRegistrationId -> {
-          final long deviceId = deviceIdAndRegistrationId.first();
+          final byte deviceId = deviceIdAndRegistrationId.first();
           final int registrationId = deviceIdAndRegistrationId.second();
           boolean registrationIdMatches = account.getDevice(deviceId)
               .map(device -> registrationId == (usePhoneNumberIdentity
@@ -86,19 +85,19 @@ public class DestinationDeviceValidator {
    *                                    account
    */
   public static void validateCompleteDeviceList(final Account account,
-      final Set<Long> messageDeviceIds,
-      final Set<Long> excludedDeviceIds) throws MismatchedDevicesException {
+      final Set<Byte> messageDeviceIds,
+      final Set<Byte> excludedDeviceIds) throws MismatchedDevicesException {
 
-    final Set<Long> accountDeviceIds = account.getDevices().stream()
+    final Set<Byte> accountDeviceIds = account.getDevices().stream()
         .filter(Device::isEnabled)
         .map(Device::getId)
         .filter(deviceId -> !excludedDeviceIds.contains(deviceId))
         .collect(Collectors.toSet());
 
-    final Set<Long> missingDeviceIds = new HashSet<>(accountDeviceIds);
+    final Set<Byte> missingDeviceIds = new HashSet<>(accountDeviceIds);
     missingDeviceIds.removeAll(messageDeviceIds);
 
-    final Set<Long> extraDeviceIds = new HashSet<>(messageDeviceIds);
+    final Set<Byte> extraDeviceIds = new HashSet<>(messageDeviceIds);
     extraDeviceIds.removeAll(accountDeviceIds);
 
     if (!missingDeviceIds.isEmpty() || !extraDeviceIds.isEmpty()) {

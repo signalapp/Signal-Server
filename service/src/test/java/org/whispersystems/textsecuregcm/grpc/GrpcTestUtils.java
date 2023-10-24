@@ -31,7 +31,7 @@ public final class GrpcTestUtils {
       final MockAuthenticationInterceptor mockAuthenticationInterceptor,
       final MockRemoteAddressInterceptor mockRemoteAddressInterceptor,
       final UUID authenticatedAci,
-      final long authenticatedDeviceId,
+      final byte authenticatedDeviceId,
       final BindableService service) {
     mockAuthenticationInterceptor.setAuthenticatedDevice(authenticatedAci, authenticatedDeviceId);
     extension.getServiceRegistry()

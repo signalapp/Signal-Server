@@ -155,7 +155,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
     }
   }
 
-  public long insert(final UUID guid, final UUID destinationUuid, final long destinationDevice,
+  public long insert(final UUID guid, final UUID destinationUuid, final byte destinationDevice,
       final MessageProtos.Envelope message) {
     final MessageProtos.Envelope messageWithGuid = message.toBuilder().setServerGuid(guid.toString()).build();
     return (long) insertTimer.record(() ->
@@ -168,7 +168,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
   }
 
   public CompletableFuture<Optional<MessageProtos.Envelope>> remove(final UUID destinationUuid,
-      final long destinationDevice,
+      final byte destinationDevice,
       final UUID messageGuid) {
 
     return remove(destinationUuid, destinationDevice, List.of(messageGuid))
@@ -177,7 +177,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
 
   @SuppressWarnings("unchecked")
   public CompletableFuture<List<MessageProtos.Envelope>> remove(final UUID destinationUuid,
-      final long destinationDevice,
+      final byte destinationDevice,
       final List<UUID> messageGuids) {
 
     return removeByGuidScript.executeBinaryAsync(List.of(getMessageQueueKey(destinationUuid, destinationDevice),
@@ -202,12 +202,12 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
         }, messageDeletionExecutorService);
   }
 
-  public boolean hasMessages(final UUID destinationUuid, final long destinationDevice) {
+  public boolean hasMessages(final UUID destinationUuid, final byte destinationDevice) {
     return readDeleteCluster.withBinaryCluster(
         connection -> connection.sync().zcard(getMessageQueueKey(destinationUuid, destinationDevice)) > 0);
   }
 
-  public Publisher<MessageProtos.Envelope> get(final UUID destinationUuid, final long destinationDevice) {
+  public Publisher<MessageProtos.Envelope> get(final UUID destinationUuid, final byte destinationDevice) {
 
     final long earliestAllowableEphemeralTimestamp =
         clock.millis() - MAX_EPHEMERAL_MESSAGE_DELAY.toMillis();
@@ -238,7 +238,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
     return message.hasEphemeral() && message.getEphemeral() && message.getTimestamp() < earliestAllowableTimestamp;
   }
 
-  private void discardStaleEphemeralMessages(final UUID destinationUuid, final long destinationDevice,
+  private void discardStaleEphemeralMessages(final UUID destinationUuid, final byte destinationDevice,
       Flux<MessageProtos.Envelope> staleEphemeralMessages) {
     staleEphemeralMessages
         .map(e -> UUID.fromString(e.getServerGuid()))
@@ -251,7 +251,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
   }
 
   @VisibleForTesting
-  Flux<MessageProtos.Envelope> getAllMessages(final UUID destinationUuid, final long destinationDevice) {
+  Flux<MessageProtos.Envelope> getAllMessages(final UUID destinationUuid, final byte destinationDevice) {
 
     // fetch messages by page
     return getNextMessagePage(destinationUuid, destinationDevice, -1)
@@ -284,7 +284,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
         });
   }
 
-  private Flux<Pair<List<byte[]>, Long>> getNextMessagePage(final UUID destinationUuid, final long destinationDevice,
+  private Flux<Pair<List<byte[]>, Long>> getNextMessagePage(final UUID destinationUuid, final byte destinationDevice,
       long messageId) {
 
     return getItemsScript.executeBinaryReactive(
@@ -315,7 +315,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
   }
 
   @VisibleForTesting
-  List<MessageProtos.Envelope> getMessagesToPersist(final UUID accountUuid, final long destinationDevice,
+  List<MessageProtos.Envelope> getMessagesToPersist(final UUID accountUuid, final byte destinationDevice,
       final int limit) {
     return getMessagesTimer.record(() -> {
       final List<ScoredValue<byte[]>> scoredMessages = readDeleteCluster.withBinaryCluster(
@@ -336,16 +336,14 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
   }
 
   public CompletableFuture<Void> clear(final UUID destinationUuid) {
-    final CompletableFuture<?>[] clearFutures = new CompletableFuture[Device.MAXIMUM_DEVICE_ID];
-
-    for (int deviceId = 0; deviceId < Device.MAXIMUM_DEVICE_ID; deviceId++) {
-      clearFutures[deviceId] = clear(destinationUuid, deviceId);
-    }
-
-    return CompletableFuture.allOf(clearFutures);
+    return CompletableFuture.allOf(
+        Device.ALL_POSSIBLE_DEVICE_IDS.stream()
+            .map(deviceId -> clear(destinationUuid, deviceId))
+            .toList()
+            .toArray(CompletableFuture[]::new));
   }
 
-  public CompletableFuture<Void> clear(final UUID destinationUuid, final long deviceId) {
+  public CompletableFuture<Void> clear(final UUID destinationUuid, final byte deviceId) {
     final Timer.Sample sample = Timer.start();
 
     return removeQueueScript.executeBinaryAsync(List.of(getMessageQueueKey(destinationUuid, deviceId),
@@ -368,23 +366,23 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
             String.valueOf(limit))));
   }
 
-  void addQueueToPersist(final UUID accountUuid, final long deviceId) {
+  void addQueueToPersist(final UUID accountUuid, final byte deviceId) {
     readDeleteCluster.useBinaryCluster(connection -> connection.sync()
         .zadd(getQueueIndexKey(accountUuid, deviceId), ZAddArgs.Builder.nx(), System.currentTimeMillis(),
             getMessageQueueKey(accountUuid, deviceId)));
   }
 
-  void lockQueueForPersistence(final UUID accountUuid, final long deviceId) {
+  void lockQueueForPersistence(final UUID accountUuid, final byte deviceId) {
     readDeleteCluster.useBinaryCluster(
         connection -> connection.sync().setex(getPersistInProgressKey(accountUuid, deviceId), 30, LOCK_VALUE));
   }
 
-  void unlockQueueForPersistence(final UUID accountUuid, final long deviceId) {
+  void unlockQueueForPersistence(final UUID accountUuid, final byte deviceId) {
     readDeleteCluster.useBinaryCluster(
         connection -> connection.sync().del(getPersistInProgressKey(accountUuid, deviceId)));
   }
 
-  public void addMessageAvailabilityListener(final UUID destinationUuid, final long deviceId,
+  public void addMessageAvailabilityListener(final UUID destinationUuid, final byte deviceId,
       final MessageAvailabilityListener listener) {
     final String queueName = getQueueName(destinationUuid, deviceId);
 
@@ -500,7 +498,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
   }
 
   @VisibleForTesting
-  static String getQueueName(final UUID accountUuid, final long deviceId) {
+  static String getQueueName(final UUID accountUuid, final byte deviceId) {
     return accountUuid + "::" + deviceId;
   }
 
@@ -513,15 +511,15 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
   }
 
   @VisibleForTesting
-  static byte[] getMessageQueueKey(final UUID accountUuid, final long deviceId) {
+  static byte[] getMessageQueueKey(final UUID accountUuid, final byte deviceId) {
     return ("user_queue::{" + accountUuid.toString() + "::" + deviceId + "}").getBytes(StandardCharsets.UTF_8);
   }
 
-  private static byte[] getMessageQueueMetadataKey(final UUID accountUuid, final long deviceId) {
+  private static byte[] getMessageQueueMetadataKey(final UUID accountUuid, final byte deviceId) {
     return ("user_queue_metadata::{" + accountUuid.toString() + "::" + deviceId + "}").getBytes(StandardCharsets.UTF_8);
   }
 
-  private static byte[] getQueueIndexKey(final UUID accountUuid, final long deviceId) {
+  private static byte[] getQueueIndexKey(final UUID accountUuid, final byte deviceId) {
     return getQueueIndexKey(SlotHash.getSlot(accountUuid.toString() + "::" + deviceId));
   }
 
@@ -529,7 +527,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
     return ("user_queue_index::{" + RedisClusterUtil.getMinimalHashTag(slot) + "}").getBytes(StandardCharsets.UTF_8);
   }
 
-  private static byte[] getPersistInProgressKey(final UUID accountUuid, final long deviceId) {
+  private static byte[] getPersistInProgressKey(final UUID accountUuid, final byte deviceId) {
     return ("user_queue_persisting::{" + accountUuid + "::" + deviceId + "}").getBytes(StandardCharsets.UTF_8);
   }
 
@@ -539,7 +537,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
     return UUID.fromString(queueName.substring(startOfHashTag + 1, queueName.indexOf("::", startOfHashTag)));
   }
 
-  static long getDeviceIdFromQueueName(final String queueName) {
-    return Long.parseLong(queueName.substring(queueName.lastIndexOf("::") + 2, queueName.lastIndexOf('}')));
+  static byte getDeviceIdFromQueueName(final String queueName) {
+    return Byte.parseByte(queueName.substring(queueName.lastIndexOf("::") + 2, queueName.lastIndexOf('}')));
   }
 }

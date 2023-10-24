@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -68,7 +69,7 @@ public class ChangeNumberManagerTest {
       when(updatedAccount.getNumber()).thenReturn(number);
       when(updatedAccount.getPhoneNumberIdentifier()).thenReturn(updatedPni);
       when(updatedAccount.getDevices()).thenReturn(devices);
-      for (long i = 1; i <= 3; i++) {
+      for (byte i = 1; i <= 3; i++) {
         final Optional<Device> d = account.getDevice(i);
         when(updatedAccount.getDevice(i)).thenReturn(d);
       }
@@ -87,7 +88,7 @@ public class ChangeNumberManagerTest {
       when(updatedAccount.getUuid()).thenReturn(uuid);
       when(updatedAccount.getPhoneNumberIdentifier()).thenReturn(pni);
       when(updatedAccount.getDevices()).thenReturn(devices);
-      for (long i = 1; i <= 3; i++) {
+      for (byte i = 1; i <= 3; i++) {
         final Optional<Device> d = account.getDevice(i);
         when(updatedAccount.getDevice(i)).thenReturn(d);
       }
@@ -102,7 +103,7 @@ public class ChangeNumberManagerTest {
     when(account.getNumber()).thenReturn("+18005551234");
     changeNumberManager.changeNumber(account, "+18025551234", null, null, null, null, null);
     verify(accountsManager).changeNumber(account, "+18025551234", null, null, null, null);
-    verify(accountsManager, never()).updateDevice(any(), eq(1L), any());
+    verify(accountsManager, never()).updateDevice(any(), anyByte(), any());
     verify(messageSender, never()).sendMessage(eq(account), any(), any(), eq(false));
   }
 
@@ -112,7 +113,8 @@ public class ChangeNumberManagerTest {
     when(account.getNumber()).thenReturn("+18005551234");
     final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
     final IdentityKey pniIdentityKey = new IdentityKey(Curve.generateKeyPair().getPublicKey());
-    final Map<Long, ECSignedPreKey> prekeys = Map.of(1L, KeysHelper.signedECPreKey(1, pniIdentityKeyPair));
+    final Map<Byte, ECSignedPreKey> prekeys = Map.of(Device.PRIMARY_ID,
+        KeysHelper.signedECPreKey(1, pniIdentityKeyPair));
 
     changeNumberManager.changeNumber(account, "+18025551234", pniIdentityKey, prekeys, null, Collections.emptyList(), Collections.emptyMap());
     verify(accountsManager).changeNumber(account, "+18025551234", pniIdentityKey, prekeys, null, Collections.emptyMap());
@@ -133,18 +135,21 @@ public class ChangeNumberManagerTest {
 
     final Device d2 = mock(Device.class);
     when(d2.isEnabled()).thenReturn(true);
-    when(d2.getId()).thenReturn(2L);
+    final byte deviceId2 = 2;
+    when(d2.getId()).thenReturn(deviceId2);
 
-    when(account.getDevice(2L)).thenReturn(Optional.of(d2));
+    when(account.getDevice(deviceId2)).thenReturn(Optional.of(d2));
     when(account.getDevices()).thenReturn(List.of(d2));
 
     final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
     final IdentityKey pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());
-    final Map<Long, ECSignedPreKey> prekeys = Map.of(1L, KeysHelper.signedECPreKey(1, pniIdentityKeyPair), 2L, KeysHelper.signedECPreKey(2, pniIdentityKeyPair));
-    final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 19);
+    final Map<Byte, ECSignedPreKey> prekeys = Map.of(Device.PRIMARY_ID,
+        KeysHelper.signedECPreKey(1, pniIdentityKeyPair),
+        deviceId2, KeysHelper.signedECPreKey(2, pniIdentityKeyPair));
+    final Map<Byte, Integer> registrationIds = Map.of(Device.PRIMARY_ID, 17, deviceId2, 19);
 
     final IncomingMessage msg = mock(IncomingMessage.class);
-    when(msg.destinationDeviceId()).thenReturn(2L);
+    when(msg.destinationDeviceId()).thenReturn(deviceId2);
     when(msg.content()).thenReturn(Base64.getEncoder().encodeToString(new byte[]{1}));
 
     changeNumberManager.changeNumber(account, changedE164, pniIdentityKey, prekeys, null, List.of(msg), registrationIds);
@@ -177,19 +182,23 @@ public class ChangeNumberManagerTest {
 
     final Device d2 = mock(Device.class);
     when(d2.isEnabled()).thenReturn(true);
-    when(d2.getId()).thenReturn(2L);
+    final byte deviceId2 = 2;
+    when(d2.getId()).thenReturn(deviceId2);
 
-    when(account.getDevice(2L)).thenReturn(Optional.of(d2));
+    when(account.getDevice(deviceId2)).thenReturn(Optional.of(d2));
     when(account.getDevices()).thenReturn(List.of(d2));
 
     final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
     final IdentityKey pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());
-    final Map<Long, ECSignedPreKey> prekeys = Map.of(1L, KeysHelper.signedECPreKey(1, pniIdentityKeyPair), 2L, KeysHelper.signedECPreKey(2, pniIdentityKeyPair));
-    final Map<Long, KEMSignedPreKey> pqPrekeys = Map.of(3L, KeysHelper.signedKEMPreKey(3, pniIdentityKeyPair), 4L, KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair));
-    final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 19);
+    final Map<Byte, ECSignedPreKey> prekeys = Map.of(Device.PRIMARY_ID,
+        KeysHelper.signedECPreKey(1, pniIdentityKeyPair),
+        deviceId2, KeysHelper.signedECPreKey(2, pniIdentityKeyPair));
+    final Map<Byte, KEMSignedPreKey> pqPrekeys = Map.of((byte) 3, KeysHelper.signedKEMPreKey(3, pniIdentityKeyPair),
+        (byte) 4, KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair));
+    final Map<Byte, Integer> registrationIds = Map.of(Device.PRIMARY_ID, 17, deviceId2, 19);
 
     final IncomingMessage msg = mock(IncomingMessage.class);
-    when(msg.destinationDeviceId()).thenReturn(2L);
+    when(msg.destinationDeviceId()).thenReturn(deviceId2);
     when(msg.content()).thenReturn(Base64.getEncoder().encodeToString(new byte[]{1}));
 
     changeNumberManager.changeNumber(account, changedE164, pniIdentityKey, prekeys, pqPrekeys, List.of(msg), registrationIds);
@@ -220,19 +229,23 @@ public class ChangeNumberManagerTest {
 
     final Device d2 = mock(Device.class);
     when(d2.isEnabled()).thenReturn(true);
-    when(d2.getId()).thenReturn(2L);
+    final byte deviceId2 = 2;
+    when(d2.getId()).thenReturn(deviceId2);
 
-    when(account.getDevice(2L)).thenReturn(Optional.of(d2));
+    when(account.getDevice(deviceId2)).thenReturn(Optional.of(d2));
     when(account.getDevices()).thenReturn(List.of(d2));
 
     final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
     final IdentityKey pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());
-    final Map<Long, ECSignedPreKey> prekeys = Map.of(1L, KeysHelper.signedECPreKey(1, pniIdentityKeyPair), 2L, KeysHelper.signedECPreKey(2, pniIdentityKeyPair));
-    final Map<Long, KEMSignedPreKey> pqPrekeys = Map.of(3L, KeysHelper.signedKEMPreKey(3, pniIdentityKeyPair), 4L, KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair));
-    final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 19);
+    final Map<Byte, ECSignedPreKey> prekeys = Map.of(Device.PRIMARY_ID,
+        KeysHelper.signedECPreKey(1, pniIdentityKeyPair),
+        deviceId2, KeysHelper.signedECPreKey(2, pniIdentityKeyPair));
+    final Map<Byte, KEMSignedPreKey> pqPrekeys = Map.of((byte) 3, KeysHelper.signedKEMPreKey(3, pniIdentityKeyPair),
+        (byte) 4, KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair));
+    final Map<Byte, Integer> registrationIds = Map.of(Device.PRIMARY_ID, 17, deviceId2, 19);
 
     final IncomingMessage msg = mock(IncomingMessage.class);
-    when(msg.destinationDeviceId()).thenReturn(2L);
+    when(msg.destinationDeviceId()).thenReturn(deviceId2);
     when(msg.content()).thenReturn(Base64.getEncoder().encodeToString(new byte[]{1}));
 
     changeNumberManager.changeNumber(account, originalE164, pniIdentityKey, prekeys, pqPrekeys, List.of(msg), registrationIds);
@@ -261,18 +274,21 @@ public class ChangeNumberManagerTest {
 
     final Device d2 = mock(Device.class);
     when(d2.isEnabled()).thenReturn(true);
-    when(d2.getId()).thenReturn(2L);
+    final byte deviceId2 = 2;
+    when(d2.getId()).thenReturn(deviceId2);
 
-    when(account.getDevice(2L)).thenReturn(Optional.of(d2));
+    when(account.getDevice(deviceId2)).thenReturn(Optional.of(d2));
     when(account.getDevices()).thenReturn(List.of(d2));
 
     final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
     final IdentityKey pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());
-    final Map<Long, ECSignedPreKey> prekeys = Map.of(1L, KeysHelper.signedECPreKey(1, pniIdentityKeyPair), 2L, KeysHelper.signedECPreKey(2, pniIdentityKeyPair));
-    final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 19);
+    final Map<Byte, ECSignedPreKey> prekeys = Map.of(Device.PRIMARY_ID,
+        KeysHelper.signedECPreKey(1, pniIdentityKeyPair),
+        deviceId2, KeysHelper.signedECPreKey(2, pniIdentityKeyPair));
+    final Map<Byte, Integer> registrationIds = Map.of(Device.PRIMARY_ID, 17, deviceId2, 19);
 
     final IncomingMessage msg = mock(IncomingMessage.class);
-    when(msg.destinationDeviceId()).thenReturn(2L);
+    when(msg.destinationDeviceId()).thenReturn(deviceId2);
     when(msg.content()).thenReturn(Base64.getEncoder().encodeToString(new byte[]{1}));
 
     changeNumberManager.updatePniKeys(account, pniIdentityKey, prekeys, null, List.of(msg), registrationIds);
@@ -301,19 +317,23 @@ public class ChangeNumberManagerTest {
 
     final Device d2 = mock(Device.class);
     when(d2.isEnabled()).thenReturn(true);
-    when(d2.getId()).thenReturn(2L);
+    final byte deviceId2 = 2;
+    when(d2.getId()).thenReturn(deviceId2);
 
-    when(account.getDevice(2L)).thenReturn(Optional.of(d2));
+    when(account.getDevice(deviceId2)).thenReturn(Optional.of(d2));
     when(account.getDevices()).thenReturn(List.of(d2));
 
     final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
     final IdentityKey pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());
-    final Map<Long, ECSignedPreKey> prekeys = Map.of(1L, KeysHelper.signedECPreKey(1, pniIdentityKeyPair), 2L, KeysHelper.signedECPreKey(2, pniIdentityKeyPair));
-    final Map<Long, KEMSignedPreKey> pqPrekeys = Map.of(3L, KeysHelper.signedKEMPreKey(3, pniIdentityKeyPair), 4L, KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair));
-    final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 19);
+    final Map<Byte, ECSignedPreKey> prekeys = Map.of(Device.PRIMARY_ID,
+        KeysHelper.signedECPreKey(1, pniIdentityKeyPair),
+        deviceId2, KeysHelper.signedECPreKey(2, pniIdentityKeyPair));
+    final Map<Byte, KEMSignedPreKey> pqPrekeys = Map.of((byte) 3, KeysHelper.signedKEMPreKey(3, pniIdentityKeyPair),
+        (byte) 4, KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair));
+    final Map<Byte, Integer> registrationIds = Map.of(Device.PRIMARY_ID, 17, deviceId2, 19);
 
     final IncomingMessage msg = mock(IncomingMessage.class);
-    when(msg.destinationDeviceId()).thenReturn(2L);
+    when(msg.destinationDeviceId()).thenReturn(deviceId2);
     when(msg.content()).thenReturn(Base64.getEncoder().encodeToString(new byte[]{1}));
 
     changeNumberManager.updatePniKeys(account, pniIdentityKey, prekeys, pqPrekeys, List.of(msg), registrationIds);
@@ -338,11 +358,11 @@ public class ChangeNumberManagerTest {
 
     final List<Device> devices = new ArrayList<>();
 
-    for (int i = 1; i <= 3; i++) {
+    for (byte i = 1; i <= 3; i++) {
       final Device device = mock(Device.class);
-      when(device.getId()).thenReturn((long) i);
+      when(device.getId()).thenReturn(i);
       when(device.isEnabled()).thenReturn(true);
-      when(device.getRegistrationId()).thenReturn(i);
+      when(device.getRegistrationId()).thenReturn((int) i);
 
       devices.add(device);
       when(account.getDevice(i)).thenReturn(Optional.of(device));
@@ -350,15 +370,21 @@ public class ChangeNumberManagerTest {
 
     when(account.getDevices()).thenReturn(devices);
 
+    final byte destinationDeviceId2 = 2;
+    final byte destinationDeviceId3 = 3;
     final List<IncomingMessage> messages = List.of(
-        new IncomingMessage(1, 2, 1, "foo"),
-        new IncomingMessage(1, 3, 1, "foo"));
+        new IncomingMessage(1, destinationDeviceId2, 1, "foo"),
+        new IncomingMessage(1, destinationDeviceId3, 1, "foo"));
 
     final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
     final ECPublicKey pniIdentityKey = pniIdentityKeyPair.getPublicKey();
 
-    final Map<Long, ECSignedPreKey> preKeys = Map.of(1L, KeysHelper.signedECPreKey(1, pniIdentityKeyPair), 2L, KeysHelper.signedECPreKey(2, pniIdentityKeyPair), 3L, KeysHelper.signedECPreKey(3, pniIdentityKeyPair));
-    final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 47, 3L, 89);
+    final Map<Byte, ECSignedPreKey> preKeys = Map.of(Device.PRIMARY_ID,
+        KeysHelper.signedECPreKey(1, pniIdentityKeyPair),
+        destinationDeviceId2, KeysHelper.signedECPreKey(2, pniIdentityKeyPair),
+        destinationDeviceId3, KeysHelper.signedECPreKey(3, pniIdentityKeyPair));
+    final Map<Byte, Integer> registrationIds = Map.of(Device.PRIMARY_ID, 17, destinationDeviceId2, 47,
+        destinationDeviceId3, 89);
 
     assertThrows(StaleDevicesException.class,
         () -> changeNumberManager.changeNumber(account, "+18005559876", new IdentityKey(Curve.generateKeyPair().getPublicKey()), preKeys, null, messages, registrationIds));
@@ -371,11 +397,11 @@ public class ChangeNumberManagerTest {
 
     final List<Device> devices = new ArrayList<>();
 
-    for (int i = 1; i <= 3; i++) {
+    for (byte i = 1; i <= 3; i++) {
       final Device device = mock(Device.class);
-      when(device.getId()).thenReturn((long) i);
+      when(device.getId()).thenReturn(i);
       when(device.isEnabled()).thenReturn(true);
-      when(device.getRegistrationId()).thenReturn(i);
+      when(device.getRegistrationId()).thenReturn((int) i);
 
       devices.add(device);
       when(account.getDevice(i)).thenReturn(Optional.of(device));
@@ -383,15 +409,21 @@ public class ChangeNumberManagerTest {
 
     when(account.getDevices()).thenReturn(devices);
 
+    final byte destinationDeviceId2 = 2;
+    final byte destinationDeviceId3 = 3;
     final List<IncomingMessage> messages = List.of(
-        new IncomingMessage(1, 2, 1, "foo"),
-        new IncomingMessage(1, 3, 1, "foo"));
+        new IncomingMessage(1, destinationDeviceId2, 1, "foo"),
+        new IncomingMessage(1, destinationDeviceId3, 1, "foo"));
 
     final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
     final ECPublicKey pniIdentityKey = pniIdentityKeyPair.getPublicKey();
 
-    final Map<Long, ECSignedPreKey> preKeys = Map.of(1L, KeysHelper.signedECPreKey(1, pniIdentityKeyPair), 2L, KeysHelper.signedECPreKey(2, pniIdentityKeyPair), 3L, KeysHelper.signedECPreKey(3, pniIdentityKeyPair));
-    final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 47, 3L, 89);
+    final Map<Byte, ECSignedPreKey> preKeys = Map.of(Device.PRIMARY_ID,
+        KeysHelper.signedECPreKey(1, pniIdentityKeyPair),
+        destinationDeviceId2, KeysHelper.signedECPreKey(2, pniIdentityKeyPair),
+        destinationDeviceId3, KeysHelper.signedECPreKey(3, pniIdentityKeyPair));
+    final Map<Byte, Integer> registrationIds = Map.of(Device.PRIMARY_ID, 17, destinationDeviceId2, 47,
+        destinationDeviceId3, 89);
 
     assertThrows(StaleDevicesException.class,
         () -> changeNumberManager.updatePniKeys(account, new IdentityKey(Curve.generateKeyPair().getPublicKey()), preKeys, null, messages, registrationIds));
@@ -404,11 +436,11 @@ public class ChangeNumberManagerTest {
 
     final List<Device> devices = new ArrayList<>();
 
-    for (int i = 1; i <= 3; i++) {
+    for (byte i = 1; i <= 3; i++) {
       final Device device = mock(Device.class);
-      when(device.getId()).thenReturn((long) i);
+      when(device.getId()).thenReturn(i);
       when(device.isEnabled()).thenReturn(true);
-      when(device.getRegistrationId()).thenReturn(i);
+      when(device.getRegistrationId()).thenReturn((int) i);
 
       devices.add(device);
       when(account.getDevice(i)).thenReturn(Optional.of(device));
@@ -416,11 +448,13 @@ public class ChangeNumberManagerTest {
 
     when(account.getDevices()).thenReturn(devices);
 
+    final byte destinationDeviceId2 = 2;
+    final byte destinationDeviceId3 = 3;
     final List<IncomingMessage> messages = List.of(
-        new IncomingMessage(1, 2, 2, "foo"),
-        new IncomingMessage(1, 3, 3, "foo"));
+        new IncomingMessage(1, destinationDeviceId2, 2, "foo"),
+        new IncomingMessage(1, destinationDeviceId3, 3, "foo"));
 
-    final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 47, 3L, 89);
+    final Map<Byte, Integer> registrationIds = Map.of((byte) 1, 17, destinationDeviceId2, 47, destinationDeviceId3, 89);
 
     assertThrows(IllegalArgumentException.class,
         () -> changeNumberManager.changeNumber(account, "+18005559876", new IdentityKey(Curve.generateKeyPair().getPublicKey()), null, null, messages, registrationIds));

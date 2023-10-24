@@ -32,7 +32,7 @@ class OptionalAccessTest {
   void testUnidentifiedMissingTargetDevice() {
     Account account = mock(Account.class);
     when(account.isEnabled()).thenReturn(true);
-    when(account.getDevice(eq(10))).thenReturn(Optional.empty());
+    when(account.getDevice(eq((byte) 10))).thenReturn(Optional.empty());
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of("1234".getBytes()));
 
     try {
@@ -46,7 +46,7 @@ class OptionalAccessTest {
   void testUnidentifiedBadTargetDevice() {
     Account account = mock(Account.class);
     when(account.isEnabled()).thenReturn(true);
-    when(account.getDevice(eq(10))).thenReturn(Optional.empty());
+    when(account.getDevice(eq((byte) 10))).thenReturn(Optional.empty());
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of("1234".getBytes()));
 
     try {

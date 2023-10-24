@@ -27,11 +27,11 @@ import reactor.util.function.Tuples;
 class KeysGrpcHelper {
 
   @VisibleForTesting
-  static final long ALL_DEVICES = 0;
+  static final byte ALL_DEVICES = 0;
 
   static Mono<GetPreKeysResponse> getPreKeys(final Account targetAccount,
       final IdentityType identityType,
-      final long targetDeviceId,
+      final byte targetDeviceId,
       final KeysManager keysManager) {
 
     final Flux<Device> devices = targetDeviceId == ALL_DEVICES
@@ -73,7 +73,8 @@ class KeysGrpcHelper {
 
                 return builder;
               })
-              .map(builder -> Tuples.of(device.getId(), builder.build()));
+              // Cast device IDs to `int` to match data types in the response object’s protobuf definition
+              .map(builder -> Tuples.of((int) device.getId(), builder.build()));
             })
         .collectMap(Tuple2::getT1, Tuple2::getT2)
         .map(preKeyBundles -> GetPreKeysResponse.newBuilder()

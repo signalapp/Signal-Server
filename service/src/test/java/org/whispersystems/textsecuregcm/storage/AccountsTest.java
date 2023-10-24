@@ -11,6 +11,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -74,6 +75,9 @@ import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 
 @Timeout(value = 10, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
 class AccountsTest {
+
+  private static final byte DEVICE_ID_1 = 1;
+  private static final byte DEVICE_ID_2 = 2;
 
   private static final String BASE_64_URL_USERNAME_HASH_1 = "9p6Tip7BFefFOJzv4kv4GyXEYsBVfk_WbjNejdlOvQE";
   private static final String BASE_64_URL_USERNAME_HASH_2 = "NLUom-CHwtemcdvOTTXdmXmzRIV7F05leS8lwkVK_vc";
@@ -156,7 +160,7 @@ class AccountsTest {
 
   @Test
   void testStore() {
-    Device device = generateDevice(1);
+    Device device = generateDevice(DEVICE_ID_1);
     Account account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID(), List.of(device));
 
     boolean freshUser = accounts.create(account);
@@ -179,7 +183,7 @@ class AccountsTest {
   void testStoreRecentlyDeleted() {
     final UUID originalUuid = UUID.randomUUID();
 
-    Device device = generateDevice(1);
+    Device device = generateDevice(DEVICE_ID_1);
     Account account = generateAccount("+14151112222", originalUuid, UUID.randomUUID(), List.of(device));
 
     boolean freshUser = accounts.create(account);
@@ -205,7 +209,7 @@ class AccountsTest {
 
   @Test
   void testStoreMulti() {
-    final List<Device> devices = List.of(generateDevice(1), generateDevice(2));
+    final List<Device> devices = List.of(generateDevice(DEVICE_ID_1), generateDevice(DEVICE_ID_2));
     final Account account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID(), devices);
 
     accounts.create(account);
@@ -218,13 +222,13 @@ class AccountsTest {
 
   @Test
   void testRetrieve() {
-    final List<Device> devicesFirst = List.of(generateDevice(1), generateDevice(2));
+    final List<Device> devicesFirst = List.of(generateDevice(DEVICE_ID_1), generateDevice(DEVICE_ID_2));
 
     UUID uuidFirst = UUID.randomUUID();
     UUID pniFirst = UUID.randomUUID();
     Account accountFirst = generateAccount("+14151112222", uuidFirst, pniFirst, devicesFirst);
 
-    final List<Device> devicesSecond = List.of(generateDevice(1), generateDevice(2));
+    final List<Device> devicesSecond = List.of(generateDevice(DEVICE_ID_1), generateDevice(DEVICE_ID_2));
 
     UUID uuidSecond = UUID.randomUUID();
     UUID pniSecond = UUID.randomUUID();
@@ -263,7 +267,7 @@ class AccountsTest {
 
   @Test
   void testRetrieveNoPni() throws JsonProcessingException {
-    final List<Device> devices = List.of(generateDevice(1), generateDevice(2));
+    final List<Device> devices = List.of(generateDevice(DEVICE_ID_1), generateDevice(DEVICE_ID_2));
     final UUID uuid = UUID.randomUUID();
     final Account account = generateAccount("+14151112222", uuid, null, devices);
 
@@ -321,7 +325,7 @@ class AccountsTest {
 
   @Test
   void testOverwrite() {
-    Device device = generateDevice(1);
+    Device device = generateDevice(DEVICE_ID_1);
     UUID firstUuid = UUID.randomUUID();
     UUID firstPni = UUID.randomUUID();
     Account account = generateAccount("+14151112222", firstUuid, firstPni, List.of(device));
@@ -346,7 +350,7 @@ class AccountsTest {
 
     UUID secondUuid = UUID.randomUUID();
 
-    device = generateDevice(1);
+    device = generateDevice(DEVICE_ID_1);
     account = generateAccount("+14151112222", secondUuid, UUID.randomUUID(), List.of(device));
 
     final boolean freshUser = accounts.create(account);
@@ -356,7 +360,7 @@ class AccountsTest {
     assertPhoneNumberConstraintExists("+14151112222", firstUuid);
     assertPhoneNumberIdentifierConstraintExists(firstPni, firstUuid);
 
-    device = generateDevice(1);
+    device = generateDevice(DEVICE_ID_1);
     Account invalidAccount = generateAccount("+14151113333", firstUuid, UUID.randomUUID(), List.of(device));
 
     assertThatThrownBy(() -> accounts.create(invalidAccount));
@@ -364,7 +368,7 @@ class AccountsTest {
 
   @Test
   void testUpdate() {
-    Device  device  = generateDevice (1                                            );
+    Device device = generateDevice(DEVICE_ID_1);
     Account account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID(), List.of(device));
 
     accounts.create(account);
@@ -389,7 +393,7 @@ class AccountsTest {
     assertThat(retrieved.isPresent()).isTrue();
     verifyStoredState("+14151112222", account.getUuid(), account.getPhoneNumberIdentifier(), null, account, true);
 
-    device = generateDevice(1);
+    device = generateDevice(DEVICE_ID_1);
     Account unknownAccount = generateAccount("+14151113333", UUID.randomUUID(), UUID.randomUUID(), List.of(device));
 
     assertThatThrownBy(() -> accounts.update(unknownAccount)).isInstanceOfAny(ConditionalCheckFailedException.class);
@@ -452,10 +456,10 @@ class AccountsTest {
 
   @Test
   void testDelete() {
-    final Device deletedDevice = generateDevice(1);
+    final Device deletedDevice = generateDevice(DEVICE_ID_1);
     final Account deletedAccount = generateAccount("+14151112222", UUID.randomUUID(),
         UUID.randomUUID(), List.of(deletedDevice));
-    final Device retainedDevice = generateDevice(1);
+    final Device retainedDevice = generateDevice(DEVICE_ID_1);
     final Account retainedAccount = generateAccount("+14151112345", UUID.randomUUID(),
         UUID.randomUUID(), List.of(retainedDevice));
 
@@ -485,7 +489,7 @@ class AccountsTest {
 
     {
       final Account recreatedAccount = generateAccount(deletedAccount.getNumber(), UUID.randomUUID(),
-          UUID.randomUUID(), List.of(generateDevice(1)));
+          UUID.randomUUID(), List.of(generateDevice(DEVICE_ID_1)));
 
       final boolean freshUser = accounts.create(recreatedAccount);
 
@@ -501,7 +505,7 @@ class AccountsTest {
 
   @Test
   void testMissing() {
-    Device  device  = generateDevice (1                                            );
+    Device device = generateDevice(DEVICE_ID_1);
     Account account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID(), List.of(device));
 
     accounts.create(account);
@@ -518,7 +522,7 @@ class AccountsTest {
     assertThat(accounts.getByAccountIdentifierAsync(UUID.randomUUID()).join()).isEmpty();
 
     final Account account =
-        generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID(), List.of(generateDevice(1)));
+        generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID(), List.of(generateDevice(DEVICE_ID_1)));
 
     accounts.create(account);
 
@@ -530,7 +534,7 @@ class AccountsTest {
     assertThat(accounts.getByPhoneNumberIdentifierAsync(UUID.randomUUID()).join()).isEmpty();
 
     final Account account =
-        generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID(), List.of(generateDevice(1)));
+        generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID(), List.of(generateDevice(DEVICE_ID_1)));
 
     accounts.create(account);
 
@@ -544,7 +548,7 @@ class AccountsTest {
     assertThat(accounts.getByE164Async(e164).join()).isEmpty();
 
     final Account account =
-        generateAccount(e164, UUID.randomUUID(), UUID.randomUUID(), List.of(generateDevice(1)));
+        generateAccount(e164, UUID.randomUUID(), UUID.randomUUID(), List.of(generateDevice(DEVICE_ID_1)));
 
     accounts.create(account);
 
@@ -553,7 +557,7 @@ class AccountsTest {
 
   @Test
   void testCanonicallyDiscoverableSet() {
-    Device device = generateDevice(1);
+    Device device = generateDevice(DEVICE_ID_1);
     Account account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID(), List.of(device));
     account.setDiscoverableByPhoneNumber(false);
     accounts.create(account);
@@ -576,7 +580,7 @@ class AccountsTest {
     final UUID originalPni = UUID.randomUUID();
     final UUID targetPni = UUID.randomUUID();
 
-    final Device device = generateDevice(1);
+    final Device device = generateDevice(DEVICE_ID_1);
     final Account account = generateAccount(originalNumber, UUID.randomUUID(), originalPni, List.of(device));
 
     accounts.create(account);
@@ -631,10 +635,10 @@ class AccountsTest {
     final UUID originalPni = UUID.randomUUID();
     final UUID targetPni = UUID.randomUUID();
 
-    final Device existingDevice = generateDevice(1);
+    final Device existingDevice = generateDevice(DEVICE_ID_1);
     final Account existingAccount = generateAccount(targetNumber, UUID.randomUUID(), targetPni, List.of(existingDevice));
 
-    final Device device = generateDevice(1);
+    final Device device = generateDevice(DEVICE_ID_1);
     final Account account = generateAccount(originalNumber, UUID.randomUUID(), originalPni, List.of(device));
 
     accounts.create(account);
@@ -653,7 +657,7 @@ class AccountsTest {
     final String originalNumber = "+14151112222";
     final String targetNumber = "+14151113333";
 
-    final Device device = generateDevice(1);
+    final Device device = generateDevice(DEVICE_ID_1);
     final Account account = generateAccount(originalNumber, UUID.randomUUID(), UUID.randomUUID(), List.of(device));
 
     accounts.create(account);
@@ -969,7 +973,48 @@ class AccountsTest {
     assertThat(accounts.getByUsernameHash(USERNAME_HASH_1).join()).isPresent();
   }
 
-  private static Device generateDevice(long id) {
+  @Test
+  public void testInvalidDeviceIdDeserialization() throws Exception {
+    final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
+    final Device device2 = generateDevice((byte) 64);
+    account.addDevice(device2);
+
+    accounts.create(account);
+
+    final GetItemResponse response = DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient().getItem(GetItemRequest.builder()
+        .tableName(Tables.ACCOUNTS.tableName())
+        .key(Map.of(Accounts.KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid())))
+        .build()).join();
+
+    final Map<?, ?> accountData = SystemMapper.jsonMapper()
+        .readValue(response.item().get(Accounts.ATTR_ACCOUNT_DATA).b().asByteArray(), Map.class);
+
+    final List<Map<Object, Object>> devices = (List<Map<Object, Object>>) accountData.get("devices");
+    assertEquals(Integer.valueOf(device2.getId()), devices.get(1).get("id"));
+
+    devices.get(1).put("id", Byte.MAX_VALUE + 5);
+
+    DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient().updateItem(UpdateItemRequest.builder()
+        .tableName(Tables.ACCOUNTS.tableName())
+        .key(Map.of(Accounts.KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid())))
+        .updateExpression("SET #data = :data")
+        .expressionAttributeNames(Map.of("#data", Accounts.ATTR_ACCOUNT_DATA))
+        .expressionAttributeValues(
+            Map.of(":data", AttributeValues.fromByteArray(SystemMapper.jsonMapper().writeValueAsBytes(accountData))))
+        .build()).join();
+
+    final CompletionException e = assertThrows(CompletionException.class,
+        () -> accounts.getByAccountIdentifierAsync(account.getUuid()).join());
+
+    Throwable cause = e.getCause();
+    while (cause.getCause() != null) {
+      cause = cause.getCause();
+    }
+
+    assertInstanceOf(DeviceIdDeserializer.DeviceIdDeserializationException.class, cause);
+  }
+
+  private static Device generateDevice(byte id) {
     return DevicesHelper.createDevice(id);
   }
 
@@ -979,7 +1024,7 @@ class AccountsTest {
   }
 
   private static Account generateAccount(String number, UUID uuid, final UUID pni) {
-    Device device = generateDevice(1);
+    Device device = generateDevice(DEVICE_ID_1);
     return generateAccount(number, uuid, pni, List.of(device));
   }
 

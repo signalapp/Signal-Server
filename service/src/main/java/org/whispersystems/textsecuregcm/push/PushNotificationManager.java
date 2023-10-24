@@ -47,7 +47,7 @@ public class PushNotificationManager {
     this.pushLatencyManager = pushLatencyManager;
   }
 
-  public void sendNewMessageNotification(final Account destination, final long destinationDeviceId, final boolean urgent) throws NotPushRegisteredException {
+  public void sendNewMessageNotification(final Account destination, final byte destinationDeviceId, final boolean urgent) throws NotPushRegisteredException {
     final Device device = destination.getDevice(destinationDeviceId).orElseThrow(NotPushRegisteredException::new);
     final Pair<String, PushNotification.TokenType> tokenAndType = getToken(device);
 

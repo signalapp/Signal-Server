@@ -30,7 +30,7 @@ public class TestUser {
 
   private final IdentityKeyPair aciIdentityKey;
 
-  private final Map<Long, TestDevice> devices = new ConcurrentHashMap<>();
+  private final Map<Byte, TestDevice> devices = new ConcurrentHashMap<>();
 
   private final byte[] unidentifiedAccessKey;
 
@@ -147,7 +147,7 @@ public class TestUser {
     this.registrationPassword = registrationPassword;
   }
 
-  public PreKeySetPublicView preKeys(final long deviceId, final boolean pni) {
+  public PreKeySetPublicView preKeys(final byte deviceId, final boolean pni) {
     final IdentityKeyPair identity = pni
         ? pniIdentityKey
         : aciIdentityKey;

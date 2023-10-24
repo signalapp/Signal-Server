@@ -12,7 +12,7 @@ public class PreKeyResponseItem {
 
   @JsonProperty
   @Schema(description="the device ID of the device to which this item pertains")
-  private long deviceId;
+  private byte deviceId;
 
   @JsonProperty
   @Schema(description="the registration ID for the device")
@@ -33,7 +33,8 @@ public class PreKeyResponseItem {
 
   public PreKeyResponseItem() {}
 
-  public PreKeyResponseItem(long deviceId, int registrationId, ECSignedPreKey signedPreKey, ECPreKey preKey, KEMSignedPreKey pqPreKey) {
+  public PreKeyResponseItem(byte deviceId, int registrationId, ECSignedPreKey signedPreKey, ECPreKey preKey,
+      KEMSignedPreKey pqPreKey) {
     this.deviceId = deviceId;
     this.registrationId = registrationId;
     this.signedPreKey = signedPreKey;
@@ -62,7 +63,7 @@ public class PreKeyResponseItem {
   }
 
   @VisibleForTesting
-  public long getDeviceId() {
+  public byte getDeviceId() {
     return deviceId;
   }
 }

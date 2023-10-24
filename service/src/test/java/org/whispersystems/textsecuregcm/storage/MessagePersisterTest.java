@@ -9,8 +9,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
@@ -61,7 +61,7 @@ class MessagePersisterTest {
 
   private static final UUID DESTINATION_ACCOUNT_UUID = UUID.randomUUID();
   private static final String DESTINATION_ACCOUNT_NUMBER = "+18005551234";
-  private static final long DESTINATION_DEVICE_ID = 7;
+  private static final byte DESTINATION_DEVICE_ID = 7;
 
   private static final Duration PERSIST_DELAY = Duration.ofMinutes(5);
 
@@ -90,9 +90,9 @@ class MessagePersisterTest {
     messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager,
         dynamicConfigurationManager, PERSIST_DELAY, 1);
 
-    doAnswer(invocation -> {
+    when(messagesManager.persistMessages(any(UUID.class), anyByte(), any())).thenAnswer(invocation -> {
       final UUID destinationUuid = invocation.getArgument(0);
-      final long destinationDeviceId = invocation.getArgument(1);
+      final byte destinationDeviceId = invocation.getArgument(1);
       final List<MessageProtos.Envelope> messages = invocation.getArgument(2);
 
       messagesDynamoDb.store(messages, destinationUuid, destinationDeviceId);
@@ -101,8 +101,8 @@ class MessagePersisterTest {
         messagesCache.remove(destinationUuid, destinationDeviceId, UUID.fromString(message.getServerGuid())).get();
       }
 
-      return null;
-    }).when(messagesManager).persistMessages(any(UUID.class), anyLong(), any());
+      return messages.size();
+    });
   }
 
   @AfterEach
@@ -153,7 +153,7 @@ class MessagePersisterTest {
 
     messagePersister.persistNextQueues(now);
 
-    verify(messagesDynamoDb, never()).store(any(), any(), anyLong());
+    verify(messagesDynamoDb, never()).store(any(), any(), anyByte());
   }
 
   @Test
@@ -166,7 +166,7 @@ class MessagePersisterTest {
     for (int i = 0; i < queueCount; i++) {
       final String queueName = generateRandomQueueNameForSlot(slot);
       final UUID accountUuid = MessagesCache.getAccountUuidFromQueueName(queueName);
-      final long deviceId = MessagesCache.getDeviceIdFromQueueName(queueName);
+      final byte deviceId = MessagesCache.getDeviceIdFromQueueName(queueName);
       final String accountNumber = "+1" + RandomStringUtils.randomNumeric(10);
 
       final Account account = mock(Account.class);
@@ -183,7 +183,7 @@ class MessagePersisterTest {
 
     final ArgumentCaptor<List<MessageProtos.Envelope>> messagesCaptor = ArgumentCaptor.forClass(List.class);
 
-    verify(messagesDynamoDb, atLeastOnce()).store(messagesCaptor.capture(), any(UUID.class), anyLong());
+    verify(messagesDynamoDb, atLeastOnce()).store(messagesCaptor.capture(), any(UUID.class), anyByte());
     assertEquals(queueCount * messagesPerQueue, messagesCaptor.getAllValues().stream().mapToInt(List::size).sum());
   }
 
@@ -219,7 +219,7 @@ class MessagePersisterTest {
     setNextSlotToPersist(SlotHash.getSlot(queueName));
 
     // returning `0` indicates something not working correctly
-    when(messagesManager.persistMessages(any(UUID.class), anyLong(), anyList())).thenReturn(0);
+    when(messagesManager.persistMessages(any(UUID.class), anyByte(), anyList())).thenReturn(0);
 
     assertTimeoutPreemptively(Duration.ofSeconds(1), () ->
         assertThrows(MessagePersistenceException.class,
@@ -228,22 +228,23 @@ class MessagePersisterTest {
 
   @SuppressWarnings("SameParameterValue")
   private static String generateRandomQueueNameForSlot(final int slot) {
-    final UUID uuid = UUID.randomUUID();
 
-    final String queueNameBase = "user_queue::{" + uuid + "::";
+    while (true) {
 
-    for (int deviceId = 0; deviceId < Integer.MAX_VALUE; deviceId++) {
-      final String queueName = queueNameBase + deviceId + "}";
+      final UUID uuid = UUID.randomUUID();
+      final String queueNameBase = "user_queue::{" + uuid + "::";
 
-      if (SlotHash.getSlot(queueName) == slot) {
-        return queueName;
+      for (byte deviceId = 1; deviceId < Device.MAXIMUM_DEVICE_ID; deviceId++) {
+        final String queueName = queueNameBase + deviceId + "}";
+
+        if (SlotHash.getSlot(queueName) == slot) {
+          return queueName;
+        }
       }
     }
-
-    throw new IllegalStateException("Could not find a queue name for slot " + slot);
   }
 
-  private void insertMessages(final UUID accountUuid, final long deviceId, final int messageCount,
+  private void insertMessages(final UUID accountUuid, final byte deviceId, final int messageCount,
       final Instant firstMessageTimestamp) {
     for (int i = 0; i < messageCount; i++) {
       final UUID messageGuid = UUID.randomUUID();

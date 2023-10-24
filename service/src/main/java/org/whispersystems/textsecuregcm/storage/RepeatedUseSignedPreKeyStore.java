@@ -67,7 +67,7 @@ public abstract class RepeatedUseSignedPreKeyStore<K extends SignedPreKey<?>> {
    *
    * @return a future that completes once the key has been stored
    */
-  public CompletableFuture<Void> store(final UUID identifier, final long deviceId, final K signedPreKey) {
+  public CompletableFuture<Void> store(final UUID identifier, final byte deviceId, final K signedPreKey) {
     final Timer.Sample sample = Timer.start();
 
     return dynamoDbAsyncClient.putItem(PutItemRequest.builder()
@@ -87,13 +87,13 @@ public abstract class RepeatedUseSignedPreKeyStore<K extends SignedPreKey<?>> {
    *
    * @return a future that completes once all keys have been stored
    */
-  public CompletableFuture<Void> store(final UUID identifier, final Map<Long, K> signedPreKeysByDeviceId) {
+  public CompletableFuture<Void> store(final UUID identifier, final Map<Byte, K> signedPreKeysByDeviceId) {
     final Timer.Sample sample = Timer.start();
 
     return dynamoDbAsyncClient.transactWriteItems(TransactWriteItemsRequest.builder()
             .transactItems(signedPreKeysByDeviceId.entrySet().stream()
                 .map(entry -> {
-                  final long deviceId = entry.getKey();
+                  final byte deviceId = entry.getKey();
                   final K signedPreKey = entry.getValue();
 
                   return TransactWriteItem.builder()
@@ -117,7 +117,7 @@ public abstract class RepeatedUseSignedPreKeyStore<K extends SignedPreKey<?>> {
    * @return a future that yields an optional signed pre-key if one is available for the target device or empty if no
    * key could be found for the target device
    */
-  public CompletableFuture<Optional<K>> find(final UUID identifier, final long deviceId) {
+  public CompletableFuture<Optional<K>> find(final UUID identifier, final byte deviceId) {
     final Timer.Sample sample = Timer.start();
 
     final CompletableFuture<Optional<K>> findFuture = dynamoDbAsyncClient.getItem(GetItemRequest.builder()
@@ -165,7 +165,7 @@ public abstract class RepeatedUseSignedPreKeyStore<K extends SignedPreKey<?>> {
    *
    * @return a future that completes once the repeated-use pre-key has been removed from the target device
    */
-  public CompletableFuture<Void> delete(final UUID identifier, final long deviceId) {
+  public CompletableFuture<Void> delete(final UUID identifier, final byte deviceId) {
     final Timer.Sample sample = Timer.start();
 
     return dynamoDbAsyncClient.deleteItem(DeleteItemRequest.builder()
@@ -175,7 +175,7 @@ public abstract class RepeatedUseSignedPreKeyStore<K extends SignedPreKey<?>> {
         .thenRun(() -> sample.stop(deleteForDeviceTimer));
   }
 
-  public Flux<Long> getDeviceIdsWithKeys(final UUID identifier) {
+  public Flux<Byte> getDeviceIdsWithKeys(final UUID identifier) {
     return Flux.from(dynamoDbAsyncClient.queryPaginator(QueryRequest.builder()
             .tableName(tableName)
             .keyConditionExpression("#uuid = :uuid")
@@ -186,10 +186,10 @@ public abstract class RepeatedUseSignedPreKeyStore<K extends SignedPreKey<?>> {
             .consistentRead(true)
             .build())
         .items())
-        .map(item -> Long.parseLong(item.get(KEY_DEVICE_ID).n()));
+        .map(item -> Byte.parseByte(item.get(KEY_DEVICE_ID).n()));
   }
 
-  protected static Map<String, AttributeValue> getPrimaryKey(final UUID identifier, final long deviceId) {
+  protected static Map<String, AttributeValue> getPrimaryKey(final UUID identifier, final byte deviceId) {
     return Map.of(
         KEY_ACCOUNT_UUID, getPartitionKey(identifier),
         KEY_DEVICE_ID, getSortKey(deviceId));
@@ -199,11 +199,12 @@ public abstract class RepeatedUseSignedPreKeyStore<K extends SignedPreKey<?>> {
     return AttributeValues.fromUUID(accountUuid);
   }
 
-  protected static AttributeValue getSortKey(final long deviceId) {
-    return AttributeValues.fromLong(deviceId);
+  protected static AttributeValue getSortKey(final byte deviceId) {
+    return AttributeValues.fromInt(deviceId);
   }
 
-  protected abstract Map<String, AttributeValue> getItemFromPreKey(final UUID accountUuid, final long deviceId, final K signedPreKey);
+  protected abstract Map<String, AttributeValue> getItemFromPreKey(final UUID accountUuid, final byte deviceId,
+      final K signedPreKey);
 
   protected abstract K getPreKeyFromItem(final Map<String, AttributeValue> item);
 }

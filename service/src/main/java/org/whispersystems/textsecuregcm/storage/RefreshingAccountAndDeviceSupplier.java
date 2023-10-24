@@ -14,7 +14,7 @@ public class RefreshingAccountAndDeviceSupplier implements Supplier<Pair<Account
   private Device device;
   private final AccountsManager accountsManager;
 
-  public RefreshingAccountAndDeviceSupplier(Account account, long deviceId, AccountsManager accountsManager) {
+  public RefreshingAccountAndDeviceSupplier(Account account, byte deviceId, AccountsManager accountsManager) {
     this.account = account;
     this.device = account.getDevice(deviceId)
         .orElseThrow(() -> new RefreshingAccountAndDeviceNotFoundException("Could not find device"));

@@ -50,8 +50,8 @@ class RepeatedUseECSignedPreKeyStoreTest extends RepeatedUseSignedPreKeyStoreTes
   @Test
   void storeIfAbsent() {
     final UUID identifier = UUID.randomUUID();
-    final long deviceIdWithExistingKey = 1;
-    final long deviceIdWithoutExistingKey = deviceIdWithExistingKey + 1;
+    final byte deviceIdWithExistingKey = 1;
+    final byte deviceIdWithoutExistingKey = deviceIdWithExistingKey + 1;
 
     final ECSignedPreKey originalSignedPreKey = generateSignedPreKey();
 

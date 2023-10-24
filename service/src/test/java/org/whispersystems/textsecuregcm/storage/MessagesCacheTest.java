@@ -85,7 +85,7 @@ class MessagesCacheTest {
 
     private static final UUID DESTINATION_UUID = UUID.randomUUID();
 
-    private static final int DESTINATION_DEVICE_ID = 7;
+    private static final byte DESTINATION_DEVICE_ID = 7;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -311,7 +311,7 @@ class MessagesCacheTest {
     void testClearQueueForDevice(final boolean sealedSender) {
       final int messageCount = 100;
 
-      for (final int deviceId : new int[]{DESTINATION_DEVICE_ID, DESTINATION_DEVICE_ID + 1}) {
+      for (final byte deviceId : new byte[]{DESTINATION_DEVICE_ID, DESTINATION_DEVICE_ID + 1}) {
         for (int i = 0; i < messageCount; i++) {
           final UUID messageGuid = UUID.randomUUID();
           final MessageProtos.Envelope message = generateRandomMessage(messageGuid, sealedSender);
@@ -323,7 +323,7 @@ class MessagesCacheTest {
       messagesCache.clear(DESTINATION_UUID, DESTINATION_DEVICE_ID).join();
 
       assertEquals(Collections.emptyList(), get(DESTINATION_UUID, DESTINATION_DEVICE_ID, messageCount));
-      assertEquals(messageCount, get(DESTINATION_UUID, DESTINATION_DEVICE_ID + 1, messageCount).size());
+      assertEquals(messageCount, get(DESTINATION_UUID, (byte) (DESTINATION_DEVICE_ID + 1), messageCount).size());
     }
 
     @ParameterizedTest
@@ -331,7 +331,7 @@ class MessagesCacheTest {
     void testClearQueueForAccount(final boolean sealedSender) {
       final int messageCount = 100;
 
-      for (final int deviceId : new int[]{DESTINATION_DEVICE_ID, DESTINATION_DEVICE_ID + 1}) {
+      for (final byte deviceId : new byte[]{DESTINATION_DEVICE_ID, DESTINATION_DEVICE_ID + 1}) {
         for (int i = 0; i < messageCount; i++) {
           final UUID messageGuid = UUID.randomUUID();
           final MessageProtos.Envelope message = generateRandomMessage(messageGuid, sealedSender);
@@ -343,7 +343,7 @@ class MessagesCacheTest {
       messagesCache.clear(DESTINATION_UUID).join();
 
       assertEquals(Collections.emptyList(), get(DESTINATION_UUID, DESTINATION_DEVICE_ID, messageCount));
-      assertEquals(Collections.emptyList(), get(DESTINATION_UUID, DESTINATION_DEVICE_ID + 1, messageCount));
+      assertEquals(Collections.emptyList(), get(DESTINATION_UUID, (byte) (DESTINATION_DEVICE_ID + 1), messageCount));
     }
 
     @Test
@@ -531,7 +531,7 @@ class MessagesCacheTest {
       });
     }
 
-    private List<MessageProtos.Envelope> get(final UUID destinationUuid, final long destinationDeviceId,
+    private List<MessageProtos.Envelope> get(final UUID destinationUuid, final byte destinationDeviceId,
         final int messageCount) {
       return Flux.from(messagesCache.get(destinationUuid, destinationDeviceId))
           .take(messageCount, true)
@@ -605,7 +605,7 @@ class MessagesCacheTest {
           .thenReturn(Flux.from(emptyFinalPagePublisher))
           .thenReturn(Flux.empty());
 
-      final Flux<?> allMessages = messagesCache.getAllMessages(UUID.randomUUID(), 1L);
+      final Flux<?> allMessages = messagesCache.getAllMessages(UUID.randomUUID(), Device.PRIMARY_ID);
 
       // Why initialValue = 3?
       // 1. messagesCache.getAllMessages() above produces the first call
@@ -691,7 +691,7 @@ class MessagesCacheTest {
       when(asyncCommands.evalsha(any(), any(), any(), any()))
           .thenReturn((RedisFuture) removeSuccess);
 
-      final Publisher<?> allMessages = messagesCache.get(UUID.randomUUID(), 1L);
+      final Publisher<?> allMessages = messagesCache.get(UUID.randomUUID(), Device.PRIMARY_ID);
 
       StepVerifier.setDefaultTimeout(Duration.ofSeconds(5));
 
@@ -752,7 +752,7 @@ class MessagesCacheTest {
         .setDestinationUuid(UUID.randomUUID().toString());
 
     if (!sealedSender) {
-      envelopeBuilder.setSourceDevice(random.nextInt(256))
+      envelopeBuilder.setSourceDevice(random.nextInt(Device.MAXIMUM_DEVICE_ID) + 1)
           .setSourceUuid(UUID.randomUUID().toString());
     }
 

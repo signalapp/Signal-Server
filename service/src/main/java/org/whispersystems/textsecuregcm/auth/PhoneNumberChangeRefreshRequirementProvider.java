@@ -26,7 +26,7 @@ public class PhoneNumberChangeRefreshRequirementProvider implements WebsocketRef
   }
 
   @Override
-  public List<Pair<UUID, Long>> handleRequestFinished(final RequestEvent requestEvent) {
+  public List<Pair<UUID, Byte>> handleRequestFinished(final RequestEvent requestEvent) {
     final String initialNumber = (String) requestEvent.getContainerRequest().getProperty(INITIAL_NUMBER_KEY);
 
     if (initialNumber != null) {

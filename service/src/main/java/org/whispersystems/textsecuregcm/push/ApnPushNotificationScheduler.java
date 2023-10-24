@@ -300,7 +300,7 @@ public class ApnPushNotificationScheduler implements Managed {
   }
 
   @VisibleForTesting
-  static Optional<Pair<String, Long>> getSeparated(String encoded) {
+  static Optional<Pair<String, Byte>> getSeparated(String encoded) {
     try {
       if (encoded == null) return Optional.empty();
 
@@ -311,7 +311,7 @@ public class ApnPushNotificationScheduler implements Managed {
         return Optional.empty();
       }
 
-      return Optional.of(new Pair<>(parts[0], Long.parseLong(parts[1])));
+      return Optional.of(new Pair<>(parts[0], Byte.parseByte(parts[1])));
     } catch (NumberFormatException e) {
       logger.warn("Badly formatted: " + encoded, e);
       return Optional.empty();
@@ -338,7 +338,7 @@ public class ApnPushNotificationScheduler implements Managed {
 
       final Optional<Account> maybeAccount = accountsManager.getByAccountIdentifier(UUID.fromString(parts[0]));
 
-      return maybeAccount.flatMap(account -> account.getDevice(Long.parseLong(parts[1])))
+      return maybeAccount.flatMap(account -> account.getDevice(Byte.parseByte(parts[1])))
           .map(device -> new Pair<>(maybeAccount.get(), device));
 
     } catch (final NumberFormatException e) {

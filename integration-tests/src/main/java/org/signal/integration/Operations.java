@@ -236,7 +236,7 @@ public final class Operations {
       return authorized(user, Device.PRIMARY_ID);
     }
 
-    public RequestBuilder authorized(final TestUser user, final long deviceId) {
+    public RequestBuilder authorized(final TestUser user, final byte deviceId) {
       final String username = "%s.%d".formatted(user.aciUuid().toString(), deviceId);
       return authorized(username, user.accountPassword());
     }

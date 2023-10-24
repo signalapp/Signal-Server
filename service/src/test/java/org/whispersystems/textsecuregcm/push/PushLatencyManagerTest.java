@@ -35,7 +35,7 @@ class PushLatencyManagerTest {
   @MethodSource
   void testTakeRecord(final boolean isVoip, final boolean isUrgent) throws ExecutionException, InterruptedException {
     final UUID accountUuid = UUID.randomUUID();
-    final long deviceId = 1;
+    final byte deviceId = 1;
 
     final Instant pushTimestamp = Instant.now();
 

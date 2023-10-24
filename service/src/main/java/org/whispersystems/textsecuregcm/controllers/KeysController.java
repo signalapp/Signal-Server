@@ -332,7 +332,7 @@ public class KeysController {
       return account.getDevices().stream().filter(Device::isEnabled).toList();
     }
     try {
-      long id = Long.parseLong(deviceId);
+      byte id = Byte.parseByte(deviceId);
       return account.getDevice(id).filter(Device::isEnabled).map(List::of).orElse(List.of());
     } catch (NumberFormatException e) {
       throw new WebApplicationException(Response.status(422).build());

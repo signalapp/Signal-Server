@@ -223,7 +223,7 @@ public class Account {
     this.devices.add(device);
   }
 
-  public void removeDevice(final long deviceId) {
+  public void removeDevice(final byte deviceId) {
     requireNotStale();
 
     this.devices.removeIf(device -> device.getId() == deviceId);
@@ -241,7 +241,7 @@ public class Account {
     return getDevice(Device.PRIMARY_ID);
   }
 
-  public Optional<Device> getDevice(final long deviceId) {
+  public Optional<Device> getDevice(final byte deviceId) {
     requireNotStale();
 
     return devices.stream().filter(device -> device.getId() == deviceId).findFirst();
@@ -281,13 +281,17 @@ public class Account {
     return getPrimaryDevice().map(Device::isEnabled).orElse(false);
   }
 
-  public long getNextDeviceId() {
+  public byte getNextDeviceId() {
     requireNotStale();
 
-    long candidateId = Device.PRIMARY_ID + 1;
+    byte candidateId = Device.PRIMARY_ID + 1;
 
     while (getDevice(candidateId).isPresent()) {
       candidateId++;
+    }
+
+    if (candidateId <= Device.PRIMARY_ID) {
+      throw new RuntimeException("device ID overflow");
     }
 
     return candidateId;

@@ -9,13 +9,14 @@ import java.util.List;
 
 
 public class StaleDevicesException extends Exception {
-  private final List<Long> staleDevices;
 
-  public StaleDevicesException(List<Long> staleDevices) {
+  private final List<Byte> staleDevices;
+
+  public StaleDevicesException(List<Byte> staleDevices) {
     this.staleDevices = staleDevices;
   }
 
-  public List<Long> getStaleDevices() {
+  public List<Byte> getStaleDevices() {
     return staleDevices;
   }
 }

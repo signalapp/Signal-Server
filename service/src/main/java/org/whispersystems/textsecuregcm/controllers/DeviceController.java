@@ -135,7 +135,7 @@ public class DeviceController {
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/{device_id}")
   @ChangesDeviceEnabledState
-  public void removeDevice(@Auth AuthenticatedAccount auth, @PathParam("device_id") long deviceId) {
+  public void removeDevice(@Auth AuthenticatedAccount auth, @PathParam("device_id") byte deviceId) {
     Account account = auth.getAccount();
     if (auth.getAuthenticatedDevice().getId() != Device.PRIMARY_ID) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
@@ -256,7 +256,7 @@ public class DeviceController {
   @Path("/capabilities")
   public void setCapabilities(@Auth AuthenticatedAccount auth, @NotNull @Valid DeviceCapabilities capabilities) {
     assert (auth.getAuthenticatedDevice() != null);
-    final long deviceId = auth.getAuthenticatedDevice().getId();
+    final byte deviceId = auth.getAuthenticatedDevice().getId();
     accounts.updateDevice(auth.getAccount(), deviceId, d -> d.setCapabilities(capabilities));
   }
 

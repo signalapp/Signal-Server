@@ -35,7 +35,7 @@ import org.whispersystems.textsecuregcm.storage.Device;
 @ExtendWith(DropwizardExtensionsSupport.class)
 class DestinationDeviceValidatorTest {
 
-  static Account mockAccountWithDeviceAndRegId(final Map<Long, Integer> registrationIdsByDeviceId) {
+  static Account mockAccountWithDeviceAndRegId(final Map<Byte, Integer> registrationIdsByDeviceId) {
     final Account account = mock(Account.class);
 
     registrationIdsByDeviceId.forEach((deviceId, registrationId) -> {
@@ -48,31 +48,34 @@ class DestinationDeviceValidatorTest {
   }
 
   static Stream<Arguments> validateRegistrationIdsSource() {
+    final byte id1 = 1;
+    final byte id2 = 2;
+    final byte id3 = 3;
     return Stream.of(
         arguments(
-            mockAccountWithDeviceAndRegId(Map.of(1L, 0xFFFF, 2L, 0xDEAD, 3L, 0xBEEF)),
-            Map.of(1L, 0xFFFF, 2L, 0xDEAD, 3L, 0xBEEF),
+            mockAccountWithDeviceAndRegId(Map.of(id1, 0xFFFF, id2, 0xDEAD, id3, 0xBEEF)),
+            Map.of(id1, 0xFFFF, id2, 0xDEAD, id3, 0xBEEF),
             null),
         arguments(
-            mockAccountWithDeviceAndRegId(Map.of(1L, 42)),
-            Map.of(1L, 1492),
-            Set.of(1L)),
+            mockAccountWithDeviceAndRegId(Map.of(id1, 42)),
+            Map.of(id1, 1492),
+            Set.of(id1)),
         arguments(
-            mockAccountWithDeviceAndRegId(Map.of(1L, 42)),
-            Map.of(1L, 42),
+            mockAccountWithDeviceAndRegId(Map.of(id1, 42)),
+            Map.of(id1, 42),
             null),
         arguments(
-            mockAccountWithDeviceAndRegId(Map.of(1L, 42)),
-            Map.of(1L, 0),
+            mockAccountWithDeviceAndRegId(Map.of(id1, 42)),
+            Map.of(id1, 0),
             null),
         arguments(
-            mockAccountWithDeviceAndRegId(Map.of(1L, 42, 2L, 255)),
-            Map.of(1L, 0, 2L, 42),
-            Set.of(2L)),
+            mockAccountWithDeviceAndRegId(Map.of(id1, 42, id2, 255)),
+            Map.of(id1, 0, id2, 42),
+            Set.of(id2)),
         arguments(
-            mockAccountWithDeviceAndRegId(Map.of(1L, 42, 2L, 256)),
-            Map.of(1L, 41, 2L, 257),
-            Set.of(1L, 2L))
+            mockAccountWithDeviceAndRegId(Map.of(id1, 42, id2, 256)),
+            Map.of(id1, 41, id2, 257),
+            Set.of(id1, id2))
     );
   }
 
@@ -80,8 +83,8 @@ class DestinationDeviceValidatorTest {
   @MethodSource("validateRegistrationIdsSource")
   void testValidateRegistrationIds(
       Account account,
-      Map<Long, Integer> registrationIdsByDeviceId,
-      Set<Long> expectedStaleDeviceIds) throws Exception {
+      Map<Byte, Integer> registrationIdsByDeviceId,
+      Set<Byte> expectedStaleDeviceIds) throws Exception {
     if (expectedStaleDeviceIds != null) {
       Assertions.assertThat(assertThrows(StaleDevicesException.class,
               () -> DestinationDeviceValidator.validateRegistrationIds(
@@ -98,7 +101,7 @@ class DestinationDeviceValidatorTest {
     }
   }
 
-  static Account mockAccountWithDeviceAndEnabled(final Map<Long, Boolean> enabledStateByDeviceId) {
+  static Account mockAccountWithDeviceAndEnabled(final Map<Byte, Boolean> enabledStateByDeviceId) {
     final Account account = mock(Account.class);
     final List<Device> devices = new ArrayList<>();
 
@@ -117,51 +120,54 @@ class DestinationDeviceValidatorTest {
   }
 
   static Stream<Arguments> validateCompleteDeviceListSource() {
+    final byte id1 = 1;
+    final byte id2 = 2;
+    final byte id3 = 3;
     return Stream.of(
         arguments(
-            mockAccountWithDeviceAndEnabled(Map.of(1L, true, 2L, false, 3L, true)),
-            Set.of(1L, 3L),
+            mockAccountWithDeviceAndEnabled(Map.of(id1, true, id2, false, id3, true)),
+            Set.of(id1, id3),
             null,
             null,
             Collections.emptySet()),
         arguments(
-            mockAccountWithDeviceAndEnabled(Map.of(1L, true, 2L, false, 3L, true)),
-            Set.of(1L, 2L, 3L),
+            mockAccountWithDeviceAndEnabled(Map.of(id1, true, id2, false, id3, true)),
+            Set.of(id1, id2, id3),
             null,
-            Set.of(2L),
+            Set.of(id2),
             Collections.emptySet()),
         arguments(
-            mockAccountWithDeviceAndEnabled(Map.of(1L, true, 2L, false, 3L, true)),
-            Set.of(1L),
-            Set.of(3L),
+            mockAccountWithDeviceAndEnabled(Map.of(id1, true, id2, false, id3, true)),
+            Set.of(id1),
+            Set.of(id3),
             null,
             Collections.emptySet()),
         arguments(
-            mockAccountWithDeviceAndEnabled(Map.of(1L, true, 2L, false, 3L, true)),
-            Set.of(1L, 2L),
-            Set.of(3L),
-            Set.of(2L),
+            mockAccountWithDeviceAndEnabled(Map.of(id1, true, id2, false, id3, true)),
+            Set.of(id1, id2),
+            Set.of(id3),
+            Set.of(id2),
             Collections.emptySet()),
         arguments(
-            mockAccountWithDeviceAndEnabled(Map.of(1L, true, 2L, false, 3L, true)),
-            Set.of(1L),
-            Set.of(3L),
-            Set.of(1L),
-            Set.of(1L)
+            mockAccountWithDeviceAndEnabled(Map.of(id1, true, id2, false, id3, true)),
+            Set.of(id1),
+            Set.of(id3),
+            Set.of(id1),
+            Set.of(id1)
         ),
         arguments(
-            mockAccountWithDeviceAndEnabled(Map.of(1L, true, 2L, false, 3L, true)),
-            Set.of(2L),
-            Set.of(3L),
-            Set.of(2L),
-            Set.of(1L)
+            mockAccountWithDeviceAndEnabled(Map.of(id1, true, id2, false, id3, true)),
+            Set.of(id2),
+            Set.of(id3),
+            Set.of(id2),
+            Set.of(id1)
         ),
         arguments(
-            mockAccountWithDeviceAndEnabled(Map.of(1L, true, 2L, false, 3L, true)),
-            Set.of(3L),
+            mockAccountWithDeviceAndEnabled(Map.of(id1, true, id2, false, id3, true)),
+            Set.of(id3),
             null,
             null,
-            Set.of(1L)
+            Set.of(id1)
         )
     );
   }
@@ -170,10 +176,10 @@ class DestinationDeviceValidatorTest {
   @MethodSource("validateCompleteDeviceListSource")
   void testValidateCompleteDeviceList(
       Account account,
-      Set<Long> deviceIds,
-      Collection<Long> expectedMissingDeviceIds,
-      Collection<Long> expectedExtraDeviceIds,
-      Set<Long> excludedDeviceIds) throws Exception {
+      Set<Byte> deviceIds,
+      Collection<Byte> expectedMissingDeviceIds,
+      Collection<Byte> expectedExtraDeviceIds,
+      Set<Byte> excludedDeviceIds) throws Exception {
 
     if (expectedMissingDeviceIds != null || expectedExtraDeviceIds != null) {
       final MismatchedDevicesException mismatchedDevicesException = assertThrows(MismatchedDevicesException.class,

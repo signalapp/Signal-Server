@@ -178,8 +178,8 @@ class AccountsManagerChangeNumberIntegrationTest {
     final UUID originalPni = account.getPhoneNumberIdentifier();
 
     final IdentityKey pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());
-    final Map<Long, ECSignedPreKey> preKeys = Map.of(Device.PRIMARY_ID, rotatedSignedPreKey);
-    final Map<Long, Integer> registrationIds = Map.of(Device.PRIMARY_ID, rotatedPniRegistrationId);
+    final Map<Byte, ECSignedPreKey> preKeys = Map.of(Device.PRIMARY_ID, rotatedSignedPreKey);
+    final Map<Byte, Integer> registrationIds = Map.of(Device.PRIMARY_ID, rotatedPniRegistrationId);
 
     final Account updatedAccount = accountsManager.changeNumber(account, secondNumber, pniIdentityKey, preKeys, null, registrationIds);
 

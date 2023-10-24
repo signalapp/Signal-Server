@@ -103,7 +103,7 @@ class WebSocketConnectionIntegrationTest {
 
     when(account.getNumber()).thenReturn("+18005551234");
     when(account.getUuid()).thenReturn(UUID.randomUUID());
-    when(device.getId()).thenReturn(1L);
+    when(device.getId()).thenReturn(Device.PRIMARY_ID);
   }
 
   @AfterEach

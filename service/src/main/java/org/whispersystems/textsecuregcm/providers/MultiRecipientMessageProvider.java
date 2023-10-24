@@ -83,7 +83,14 @@ public class MultiRecipientMessageProvider implements MessageBodyReader<MultiRec
     MultiRecipientMessage.Recipient[] recipients = new MultiRecipientMessage.Recipient[Math.toIntExact(count)];
     for (int i = 0; i < Math.toIntExact(count); i++) {
       ServiceIdentifier identifier = readIdentifier(entityStream, version);
-      long deviceId = readVarint(entityStream);
+      final byte deviceId;
+      {
+        long deviceIdLong = readVarint(entityStream);
+        if (deviceIdLong > Byte.MAX_VALUE) {
+          throw new BadRequestException("Invalid device ID");
+        }
+        deviceId = (byte) deviceIdLong;
+      }
       int registrationId = readU16(entityStream);
       byte[] perRecipientKeyMaterial = entityStream.readNBytes(48);
       if (perRecipientKeyMaterial.length != 48) {

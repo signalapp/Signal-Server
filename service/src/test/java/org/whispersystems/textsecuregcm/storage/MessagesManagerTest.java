@@ -34,7 +34,7 @@ class MessagesManagerTest {
 
     final UUID destinationUuid = UUID.randomUUID();
 
-    messagesManager.insert(destinationUuid, 1L, message);
+    messagesManager.insert(destinationUuid, Device.PRIMARY_ID, message);
 
     verify(reportMessageManager).store(eq(sourceAci.toString()), any(UUID.class));
 
@@ -42,7 +42,7 @@ class MessagesManagerTest {
         .setSourceUuid(destinationUuid.toString())
         .build();
 
-    messagesManager.insert(destinationUuid, 1L, syncMessage);
+    messagesManager.insert(destinationUuid, Device.PRIMARY_ID, syncMessage);
 
     verifyNoMoreInteractions(reportMessageManager);
   }

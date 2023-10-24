@@ -6,11 +6,12 @@ package org.whispersystems.textsecuregcm.storage;
 
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import java.util.stream.LongStream;
+import java.util.stream.IntStream;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
@@ -19,13 +20,15 @@ import org.whispersystems.textsecuregcm.identity.IdentityType;
 
 public class Device {
 
-  public static final long PRIMARY_ID = 1;
-  public static final int MAXIMUM_DEVICE_ID = 256;
+  public static final byte PRIMARY_ID = 1;
+  public static final byte MAXIMUM_DEVICE_ID = Byte.MAX_VALUE;
   public static final int MAX_REGISTRATION_ID = 0x3FFF;
-  public static final List<Long> ALL_POSSIBLE_DEVICE_IDS = LongStream.range(1, MAXIMUM_DEVICE_ID).boxed().collect(Collectors.toList());
+  public static final List<Byte> ALL_POSSIBLE_DEVICE_IDS = IntStream.range(Device.PRIMARY_ID, MAXIMUM_DEVICE_ID).boxed()
+      .map(Integer::byteValue).collect(Collectors.toList());
 
+  @JsonDeserialize(using = DeviceIdDeserializer.class)
   @JsonProperty
-  private long    id;
+  private byte id;
 
   @JsonProperty
   private String  name;
@@ -135,11 +138,11 @@ public class Device {
     }
   }
 
-  public long getId() {
+  public byte getId() {
     return id;
   }
 
-  public void setId(long id) {
+  public void setId(byte id) {
     this.id = id;
   }
 

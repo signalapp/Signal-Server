@@ -157,7 +157,7 @@ public class RegistrationLockVerificationManager {
         registrationRecoveryPasswordsManager.removeForNumber(updatedAccount.getNumber());
       }
 
-      final List<Long> deviceIds = updatedAccount.getDevices().stream().map(Device::getId).toList();
+      final List<Byte> deviceIds = updatedAccount.getDevices().stream().map(Device::getId).toList();
       clientPresenceManager.disconnectAllPresences(updatedAccount.getUuid(), deviceIds);
 
       try {

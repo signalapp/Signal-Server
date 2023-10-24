@@ -76,7 +76,7 @@ class ClientPresenceManagerTest {
   @Test
   void testIsPresent() {
     final UUID accountUuid = UUID.randomUUID();
-    final long deviceId = 1;
+    final byte deviceId = 1;
 
     assertFalse(clientPresenceManager.isPresent(accountUuid, deviceId));
 
@@ -87,7 +87,7 @@ class ClientPresenceManagerTest {
   @Test
   void testIsLocallyPresent() {
     final UUID accountUuid = UUID.randomUUID();
-    final long deviceId = 1;
+    final byte deviceId = 1;
 
     assertFalse(clientPresenceManager.isLocallyPresent(accountUuid, deviceId));
 
@@ -100,7 +100,7 @@ class ClientPresenceManagerTest {
   @Test
   void testLocalDisplacement() {
     final UUID accountUuid = UUID.randomUUID();
-    final long deviceId = 1;
+    final byte deviceId = 1;
 
     final AtomicInteger displacementCounter = new AtomicInteger(0);
     final DisplacedPresenceListener displacementListener = connectedElsewhere -> displacementCounter.incrementAndGet();
@@ -117,7 +117,7 @@ class ClientPresenceManagerTest {
   @Test
   void testRemoteDisplacement() {
     final UUID accountUuid = UUID.randomUUID();
-    final long deviceId = 1;
+    final byte deviceId = 1;
 
     final CompletableFuture<?> displaced = new CompletableFuture<>();
 
@@ -135,7 +135,7 @@ class ClientPresenceManagerTest {
   @Test
   void testRemoteDisplacementAfterTopologyChange() {
     final UUID accountUuid = UUID.randomUUID();
-    final long deviceId = 1;
+    final byte deviceId = 1;
 
     final CompletableFuture<?> displaced = new CompletableFuture<>();
 
@@ -157,7 +157,7 @@ class ClientPresenceManagerTest {
   @Test
   void testClearPresence() {
     final UUID accountUuid = UUID.randomUUID();
-    final long deviceId = 1;
+    final byte deviceId = 1;
 
     assertFalse(clientPresenceManager.isPresent(accountUuid, deviceId));
 
@@ -210,7 +210,7 @@ class ClientPresenceManagerTest {
   @Test
   void testInitialPresenceExpiration() {
     final UUID accountUuid = UUID.randomUUID();
-    final long deviceId = 1;
+    final byte deviceId = 1;
 
     clientPresenceManager.setPresent(accountUuid, deviceId, NO_OP);
 
@@ -225,7 +225,7 @@ class ClientPresenceManagerTest {
   @Test
   void testRenewPresence() {
     final UUID accountUuid = UUID.randomUUID();
-    final long deviceId = 1;
+    final byte deviceId = 1;
 
     final String presenceKey = ClientPresenceManager.getPresenceKey(accountUuid, deviceId);
 
@@ -252,7 +252,7 @@ class ClientPresenceManagerTest {
   @Test
   void testExpiredPresence() {
     final UUID accountUuid = UUID.randomUUID();
-    final long deviceId = 1;
+    final byte deviceId = 1;
 
     clientPresenceManager.setPresent(accountUuid, deviceId, NO_OP);
 
@@ -266,7 +266,7 @@ class ClientPresenceManagerTest {
   }
 
   private void addClientPresence(final String managerId) {
-    final String clientPresenceKey = ClientPresenceManager.getPresenceKey(UUID.randomUUID(), 7);
+    final String clientPresenceKey = ClientPresenceManager.getPresenceKey(UUID.randomUUID(), (byte) 7);
 
     REDIS_CLUSTER_EXTENSION.getRedisCluster().useCluster(connection -> {
       connection.sync().set(clientPresenceKey, managerId);
@@ -278,17 +278,17 @@ class ClientPresenceManagerTest {
   void testClearAllOnStop() {
     final int localAccounts = 10;
     final UUID[] localUuids = new UUID[localAccounts];
-    final long[] localDeviceIds = new long[localAccounts];
+    final byte[] localDeviceIds = new byte[localAccounts];
 
     for (int i = 0; i < localAccounts; i++) {
       localUuids[i] = UUID.randomUUID();
-      localDeviceIds[i] = i;
+      localDeviceIds[i] = (byte) i;
 
       clientPresenceManager.setPresent(localUuids[i], localDeviceIds[i], NO_OP);
     }
 
     final UUID displacedAccountUuid = UUID.randomUUID();
-    final long displacedAccountDeviceId = 7;
+    final byte displacedAccountDeviceId = 7;
 
     clientPresenceManager.setPresent(displacedAccountUuid, displacedAccountDeviceId, NO_OP);
     REDIS_CLUSTER_EXTENSION.getRedisCluster().useCluster(connection -> connection.sync()
@@ -299,7 +299,7 @@ class ClientPresenceManagerTest {
 
     for (int i = 0; i < localAccounts; i++) {
       localUuids[i] = UUID.randomUUID();
-      localDeviceIds[i] = i;
+      localDeviceIds[i] = (byte) i;
 
       assertFalse(clientPresenceManager.isPresent(localUuids[i], localDeviceIds[i]));
     }
@@ -346,7 +346,7 @@ class ClientPresenceManagerTest {
     @Test
     void testSetPresentRemotely() {
       final UUID uuid1 = UUID.randomUUID();
-      final long deviceId = 1L;
+      final byte deviceId = 1;
 
       final CompletableFuture<?> displaced = new CompletableFuture<>();
       final DisplacedPresenceListener listener1 = connectedElsewhere -> displaced.complete(null);
@@ -360,7 +360,7 @@ class ClientPresenceManagerTest {
     @Test
     void testDisconnectPresenceLocally() {
       final UUID uuid1 = UUID.randomUUID();
-      final long deviceId = 1L;
+      final byte deviceId = 1;
 
       final CompletableFuture<?> displaced = new CompletableFuture<>();
       final DisplacedPresenceListener listener1 = connectedElsewhere -> displaced.complete(null);
@@ -374,7 +374,7 @@ class ClientPresenceManagerTest {
     @Test
     void testDisconnectPresenceRemotely() {
       final UUID uuid1 = UUID.randomUUID();
-      final long deviceId = 1L;
+      final byte deviceId = 1;
 
       final CompletableFuture<?> displaced = new CompletableFuture<>();
       final DisplacedPresenceListener listener1 = connectedElsewhere -> displaced.complete(null);

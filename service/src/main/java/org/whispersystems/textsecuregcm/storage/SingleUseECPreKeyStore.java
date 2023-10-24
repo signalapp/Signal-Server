@@ -24,7 +24,7 @@ public class SingleUseECPreKeyStore extends SingleUsePreKeyStore<ECPreKey> {
   }
 
   @Override
-  protected Map<String, AttributeValue> getItemFromPreKey(final UUID identifier, final long deviceId, final ECPreKey preKey) {
+  protected Map<String, AttributeValue> getItemFromPreKey(final UUID identifier, final byte deviceId, final ECPreKey preKey) {
     return Map.of(
         KEY_ACCOUNT_UUID, getPartitionKey(identifier),
         KEY_DEVICE_ID_KEY_ID, getSortKey(deviceId, preKey.keyId()),

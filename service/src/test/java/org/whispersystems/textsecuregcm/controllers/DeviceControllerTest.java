@@ -8,7 +8,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.eq;
@@ -99,6 +99,8 @@ class DeviceControllerTest {
   private static Map<String, Integer> deviceConfiguration = new HashMap<>();
   private static TestClock testClock = TestClock.now();
 
+  private static final byte NEXT_DEVICE_ID = 42;
+
   private static DeviceController deviceController = new DeviceController(
       generateLinkDeviceSecret(),
       accountsManager,
@@ -137,9 +139,9 @@ class DeviceControllerTest {
     when(rateLimiters.getAllocateDeviceLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getVerifyDeviceLimiter()).thenReturn(rateLimiter);
 
-    when(primaryDevice.getId()).thenReturn(1L);
+    when(primaryDevice.getId()).thenReturn(Device.PRIMARY_ID);
 
-    when(account.getNextDeviceId()).thenReturn(42L);
+    when(account.getNextDeviceId()).thenReturn(NEXT_DEVICE_ID);
     when(account.getNumber()).thenReturn(AuthHelper.VALID_NUMBER);
     when(account.getUuid()).thenReturn(AuthHelper.VALID_UUID);
     when(account.getPhoneNumberIdentifier()).thenReturn(AuthHelper.VALID_PNI);
@@ -154,9 +156,9 @@ class DeviceControllerTest {
     AccountsHelper.setupMockUpdate(accountsManager);
 
     when(keysManager.storePqLastResort(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
-    when(keysManager.delete(any(), anyLong())).thenReturn(CompletableFuture.completedFuture(null));
+    when(keysManager.delete(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
 
-    when(messagesManager.clear(any(), anyLong())).thenReturn(CompletableFuture.completedFuture(null));
+    when(messagesManager.clear(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
   }
 
   @AfterEach
@@ -199,9 +201,9 @@ class DeviceControllerTest {
                 MediaType.APPLICATION_JSON_TYPE),
             DeviceResponse.class);
 
-    assertThat(response.getDeviceId()).isEqualTo(42L);
+    assertThat(response.getDeviceId()).isEqualTo(NEXT_DEVICE_ID);
 
-    verify(messagesManager).clear(eq(AuthHelper.VALID_UUID), eq(42L));
+    verify(messagesManager).clear(eq(AuthHelper.VALID_UUID), eq(NEXT_DEVICE_ID));
     verify(commands).set(anyString(), anyString(), any());
   }
 
@@ -315,7 +317,7 @@ class DeviceControllerTest {
         .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
         .put(Entity.entity(request, MediaType.APPLICATION_JSON_TYPE), DeviceResponse.class);
 
-    assertThat(response.getDeviceId()).isEqualTo(42L);
+    assertThat(response.getDeviceId()).isEqualTo(NEXT_DEVICE_ID);
 
     final ArgumentCaptor<Device> deviceCaptor = ArgumentCaptor.forClass(Device.class);
     verify(account).addDevice(deviceCaptor.capture());
@@ -335,7 +337,7 @@ class DeviceControllerTest {
     expectedGcmToken.ifPresentOrElse(expectedToken -> assertEquals(expectedToken, device.getGcmId()),
         () -> assertNull(device.getGcmId()));
 
-    verify(messagesManager).clear(eq(AuthHelper.VALID_UUID), eq(42L));
+    verify(messagesManager).clear(eq(AuthHelper.VALID_UUID), eq(NEXT_DEVICE_ID));
     verify(keysManager).storeEcSignedPreKeys(AuthHelper.VALID_UUID, Map.of(response.getDeviceId(), aciSignedPreKey.get()));
     verify(keysManager).storeEcSignedPreKeys(AuthHelper.VALID_PNI, Map.of(response.getDeviceId(), pniSignedPreKey.get()));
     verify(keysManager).storePqLastResort(AuthHelper.VALID_UUID, Map.of(response.getDeviceId(), aciPqLastResortPreKey.get()));
@@ -751,7 +753,7 @@ class DeviceControllerTest {
     // this is a static mock, so it might have previous invocations
     clearInvocations(AuthHelper.VALID_ACCOUNT);
 
-    final long deviceId = 2;
+    final byte deviceId = 2;
 
     final Response response = resources
         .getJerseyTest()
@@ -785,10 +787,10 @@ class DeviceControllerTest {
 
       assertThat(response.getStatus()).isEqualTo(403);
 
-      verify(messagesManager, never()).clear(any(), anyLong());
+      verify(messagesManager, never()).clear(any(), anyByte());
       verify(accountsManager, never()).update(eq(AuthHelper.VALID_ACCOUNT), any());
-      verify(AuthHelper.VALID_ACCOUNT, never()).removeDevice(anyLong());
-      verify(keysManager, never()).delete(any(), anyLong());
+      verify(AuthHelper.VALID_ACCOUNT, never()).removeDevice(anyByte());
+      verify(keysManager, never()).delete(any(), anyByte());
     }
   }
 

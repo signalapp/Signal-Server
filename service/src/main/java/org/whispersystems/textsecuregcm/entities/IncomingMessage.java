@@ -12,11 +12,11 @@ import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Account;
 
-public record IncomingMessage(int type, long destinationDeviceId, int destinationRegistrationId, String content) {
+public record IncomingMessage(int type, byte destinationDeviceId, int destinationRegistrationId, String content) {
 
   public MessageProtos.Envelope toEnvelope(final ServiceIdentifier destinationIdentifier,
       @Nullable Account sourceAccount,
-      @Nullable Long sourceDeviceId,
+      @Nullable Byte sourceDeviceId,
       final long timestamp,
       final boolean story,
       final boolean urgent,

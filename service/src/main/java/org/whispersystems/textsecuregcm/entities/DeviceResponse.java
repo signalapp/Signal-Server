@@ -18,12 +18,12 @@ public class DeviceResponse {
   private UUID pni;
 
   @JsonProperty
-  private long deviceId;
+  private byte deviceId;
 
   @VisibleForTesting
   public DeviceResponse() {}
 
-  public DeviceResponse(UUID uuid, UUID pni, long deviceId) {
+  public DeviceResponse(UUID uuid, UUID pni, byte deviceId) {
     this.uuid = uuid;
     this.pni = pni;
     this.deviceId = deviceId;
@@ -37,7 +37,7 @@ public class DeviceResponse {
     return pni;
   }
 
-  public long getDeviceId() {
+  public byte getDeviceId() {
     return deviceId;
   }
 }

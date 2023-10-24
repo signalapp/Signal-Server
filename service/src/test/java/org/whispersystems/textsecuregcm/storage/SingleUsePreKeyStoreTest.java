@@ -5,24 +5,15 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 import org.whispersystems.textsecuregcm.entities.PreKey;
-import software.amazon.awssdk.core.SdkBytes;
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
 abstract class SingleUsePreKeyStoreTest<K extends PreKey<?>> {
 
@@ -37,7 +28,7 @@ abstract class SingleUsePreKeyStoreTest<K extends PreKey<?>> {
     final SingleUsePreKeyStore<K> preKeyStore = getPreKeyStore();
 
     final UUID accountIdentifier = UUID.randomUUID();
-    final long deviceId = 1;
+    final byte deviceId = 1;
 
     assertEquals(Optional.empty(), preKeyStore.take(accountIdentifier, deviceId).join());
 
@@ -58,7 +49,7 @@ abstract class SingleUsePreKeyStoreTest<K extends PreKey<?>> {
     final SingleUsePreKeyStore<K> preKeyStore = getPreKeyStore();
 
     final UUID accountIdentifier = UUID.randomUUID();
-    final long deviceId = 1;
+    final byte deviceId = 1;
 
     assertEquals(0, preKeyStore.getCount(accountIdentifier, deviceId).join());
 
@@ -78,7 +69,7 @@ abstract class SingleUsePreKeyStoreTest<K extends PreKey<?>> {
     final SingleUsePreKeyStore<K> preKeyStore = getPreKeyStore();
 
     final UUID accountIdentifier = UUID.randomUUID();
-    final long deviceId = 1;
+    final byte deviceId = 1;
 
     assertEquals(0, preKeyStore.getCount(accountIdentifier, deviceId).join());
     assertDoesNotThrow(() -> preKeyStore.delete(accountIdentifier, deviceId).join());
@@ -90,12 +81,12 @@ abstract class SingleUsePreKeyStoreTest<K extends PreKey<?>> {
     }
 
     preKeyStore.store(accountIdentifier, deviceId, preKeys).join();
-    preKeyStore.store(accountIdentifier, deviceId + 1, preKeys).join();
+    preKeyStore.store(accountIdentifier, (byte) (deviceId + 1), preKeys).join();
 
     assertDoesNotThrow(() -> preKeyStore.delete(accountIdentifier, deviceId).join());
 
     assertEquals(0, preKeyStore.getCount(accountIdentifier, deviceId).join());
-    assertEquals(KEY_COUNT, preKeyStore.getCount(accountIdentifier, deviceId + 1).join());
+    assertEquals(KEY_COUNT, preKeyStore.getCount(accountIdentifier, (byte) (deviceId + 1)).join());
   }
 
   @Test
@@ -103,7 +94,7 @@ abstract class SingleUsePreKeyStoreTest<K extends PreKey<?>> {
     final SingleUsePreKeyStore<K> preKeyStore = getPreKeyStore();
 
     final UUID accountIdentifier = UUID.randomUUID();
-    final long deviceId = 1;
+    final byte deviceId = 1;
 
     assertEquals(0, preKeyStore.getCount(accountIdentifier, deviceId).join());
     assertDoesNotThrow(() -> preKeyStore.delete(accountIdentifier).join());
@@ -115,11 +106,11 @@ abstract class SingleUsePreKeyStoreTest<K extends PreKey<?>> {
     }
 
     preKeyStore.store(accountIdentifier, deviceId, preKeys).join();
-    preKeyStore.store(accountIdentifier, deviceId + 1, preKeys).join();
+    preKeyStore.store(accountIdentifier, (byte) (deviceId + 1), preKeys).join();
 
     assertDoesNotThrow(() -> preKeyStore.delete(accountIdentifier).join());
 
     assertEquals(0, preKeyStore.getCount(accountIdentifier, deviceId).join());
-    assertEquals(0, preKeyStore.getCount(accountIdentifier, deviceId + 1).join());
+    assertEquals(0, preKeyStore.getCount(accountIdentifier, (byte) (deviceId + 1)).join());
   }
 }

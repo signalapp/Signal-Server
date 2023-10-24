@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
@@ -162,7 +163,7 @@ class WebSocketConnectionTest {
         createMessage(senderOneUuid, accountUuid, 2222, "second"),
         createMessage(senderTwoUuid, accountUuid, 3333, "third"));
 
-    final long deviceId = 2L;
+    final byte deviceId = 2;
     when(device.getId()).thenReturn(deviceId);
 
     when(account.getNumber()).thenReturn("+14152222222");
@@ -178,7 +179,7 @@ class WebSocketConnectionTest {
     when(accountsManager.getByE164("sender1")).thenReturn(Optional.of(sender1));
     when(accountsManager.getByE164("sender2")).thenReturn(Optional.empty());
 
-    when(messagesManager.delete(any(), anyLong(), any(), any())).thenReturn(
+    when(messagesManager.delete(any(), anyByte(), any(), any())).thenReturn(
         CompletableFuture.completedFuture(Optional.empty()));
 
     String userAgent = HttpHeaders.USER_AGENT;
@@ -232,10 +233,10 @@ class WebSocketConnectionTest {
 
     when(account.getNumber()).thenReturn("+18005551234");
     when(account.getUuid()).thenReturn(accountUuid);
-    when(device.getId()).thenReturn(1L);
+    when(device.getId()).thenReturn(Device.PRIMARY_ID);
     when(client.isOpen()).thenReturn(true);
 
-    when(messagesManager.getMessagesForDeviceReactive(eq(accountUuid), eq(1L), anyBoolean()))
+    when(messagesManager.getMessagesForDeviceReactive(eq(accountUuid), eq(Device.PRIMARY_ID), anyBoolean()))
         .thenReturn(Flux.empty())
         .thenReturn(Flux.just(createMessage(UUID.randomUUID(), UUID.randomUUID(), 1111, "first")))
         .thenReturn(Flux.just(createMessage(UUID.randomUUID(), UUID.randomUUID(), 2222, "second")))
@@ -310,7 +311,7 @@ class WebSocketConnectionTest {
 
     final List<Envelope> pendingMessages = List.of(firstMessage, secondMessage);
 
-    final long deviceId = 2L;
+    final byte deviceId = 2;
     when(device.getId()).thenReturn(deviceId);
 
     when(account.getNumber()).thenReturn("+14152222222");
@@ -326,7 +327,7 @@ class WebSocketConnectionTest {
     when(accountsManager.getByE164("sender1")).thenReturn(Optional.of(sender1));
     when(accountsManager.getByE164("sender2")).thenReturn(Optional.empty());
 
-    when(messagesManager.delete(any(), anyLong(), any(), any())).thenReturn(
+    when(messagesManager.delete(any(), anyByte(), any(), any())).thenReturn(
         CompletableFuture.completedFuture(Optional.empty()));
 
     String userAgent = HttpHeaders.USER_AGENT;
@@ -374,14 +375,14 @@ class WebSocketConnectionTest {
 
     when(account.getNumber()).thenReturn("+18005551234");
     when(account.getUuid()).thenReturn(UUID.randomUUID());
-    when(device.getId()).thenReturn(1L);
+    when(device.getId()).thenReturn(Device.PRIMARY_ID);
     when(client.isOpen()).thenReturn(true);
 
     final AtomicBoolean threadWaiting = new AtomicBoolean(false);
     final AtomicBoolean returnMessageList = new AtomicBoolean(false);
 
     when(
-        messagesManager.getMessagesForDeviceReactive(account.getUuid(), 1L, false))
+        messagesManager.getMessagesForDeviceReactive(account.getUuid(), Device.PRIMARY_ID, false))
         .thenAnswer(invocation -> {
           synchronized (threadWaiting) {
             threadWaiting.set(true);
@@ -428,7 +429,7 @@ class WebSocketConnectionTest {
       }
     });
 
-    verify(messagesManager).getMessagesForDeviceReactive(any(UUID.class), anyLong(), eq(false));
+    verify(messagesManager).getMessagesForDeviceReactive(any(UUID.class), anyByte(), eq(false));
   }
 
   @Test
@@ -440,7 +441,7 @@ class WebSocketConnectionTest {
     when(account.getNumber()).thenReturn("+18005551234");
     final UUID accountUuid = UUID.randomUUID();
     when(account.getUuid()).thenReturn(accountUuid);
-    when(device.getId()).thenReturn(1L);
+    when(device.getId()).thenReturn(Device.PRIMARY_ID);
     when(client.isOpen()).thenReturn(true);
 
     final List<Envelope> firstPageMessages =
@@ -450,10 +451,10 @@ class WebSocketConnectionTest {
     final List<Envelope> secondPageMessages =
         List.of(createMessage(UUID.randomUUID(), UUID.randomUUID(), 3333, "third"));
 
-    when(messagesManager.getMessagesForDeviceReactive(eq(accountUuid), eq(1L), eq(false)))
+    when(messagesManager.getMessagesForDeviceReactive(eq(accountUuid), eq(Device.PRIMARY_ID), eq(false)))
         .thenReturn(Flux.fromStream(Stream.concat(firstPageMessages.stream(), secondPageMessages.stream())));
 
-    when(messagesManager.delete(eq(accountUuid), eq(1L), any(), any()))
+    when(messagesManager.delete(eq(accountUuid), eq(Device.PRIMARY_ID), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(null));
 
     final WebSocketResponseMessage successResponse = mock(WebSocketResponseMessage.class);
@@ -492,18 +493,18 @@ class WebSocketConnectionTest {
     when(account.getNumber()).thenReturn("+18005551234");
     final UUID accountUuid = UUID.randomUUID();
     when(account.getUuid()).thenReturn(accountUuid);
-    when(device.getId()).thenReturn(1L);
+    when(device.getId()).thenReturn(Device.PRIMARY_ID);
     when(client.isOpen()).thenReturn(true);
 
     final UUID senderUuid = UUID.randomUUID();
     final List<Envelope> messages = List.of(
         createMessage(senderUuid, UUID.randomUUID(), 1111L, "message the first"));
 
-    when(messagesManager.getMessagesForDeviceReactive(account.getUuid(), 1L, false))
+    when(messagesManager.getMessagesForDeviceReactive(account.getUuid(), Device.PRIMARY_ID, false))
         .thenReturn(Flux.fromIterable(messages))
         .thenReturn(Flux.empty());
 
-    when(messagesManager.delete(eq(accountUuid), eq(1L), any(UUID.class), any()))
+    when(messagesManager.delete(eq(accountUuid), eq(Device.PRIMARY_ID), any(UUID.class), any()))
         .thenReturn(CompletableFuture.completedFuture(null));
 
     final WebSocketResponseMessage successResponse = mock(WebSocketResponseMessage.class);
@@ -555,10 +556,10 @@ class WebSocketConnectionTest {
 
     when(account.getNumber()).thenReturn("+18005551234");
     when(account.getUuid()).thenReturn(accountUuid);
-    when(device.getId()).thenReturn(1L);
+    when(device.getId()).thenReturn(Device.PRIMARY_ID);
     when(client.isOpen()).thenReturn(true);
 
-    when(messagesManager.getMessagesForDeviceReactive(eq(accountUuid), eq(1L), anyBoolean()))
+    when(messagesManager.getMessagesForDeviceReactive(eq(accountUuid), eq(Device.PRIMARY_ID), anyBoolean()))
         .thenReturn(Flux.empty());
 
     final WebSocketResponseMessage successResponse = mock(WebSocketResponseMessage.class);
@@ -583,7 +584,7 @@ class WebSocketConnectionTest {
 
     when(account.getNumber()).thenReturn("+18005551234");
     when(account.getUuid()).thenReturn(accountUuid);
-    when(device.getId()).thenReturn(1L);
+    when(device.getId()).thenReturn(Device.PRIMARY_ID);
     when(client.isOpen()).thenReturn(true);
 
     final List<Envelope> firstPageMessages =
@@ -593,12 +594,12 @@ class WebSocketConnectionTest {
     final List<Envelope> secondPageMessages =
         List.of(createMessage(UUID.randomUUID(), UUID.randomUUID(), 3333, "third"));
 
-    when(messagesManager.getMessagesForDeviceReactive(eq(accountUuid), eq(1L), anyBoolean()))
+    when(messagesManager.getMessagesForDeviceReactive(eq(accountUuid), eq(Device.PRIMARY_ID), anyBoolean()))
         .thenReturn(Flux.fromIterable(firstPageMessages))
         .thenReturn(Flux.fromIterable(secondPageMessages))
         .thenReturn(Flux.empty());
 
-    when(messagesManager.delete(eq(accountUuid), eq(1L), any(), any()))
+    when(messagesManager.delete(eq(accountUuid), eq(Device.PRIMARY_ID), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(null));
 
     final WebSocketResponseMessage successResponse = mock(WebSocketResponseMessage.class);
@@ -640,10 +641,10 @@ class WebSocketConnectionTest {
 
     when(account.getNumber()).thenReturn("+18005551234");
     when(account.getUuid()).thenReturn(accountUuid);
-    when(device.getId()).thenReturn(1L);
+    when(device.getId()).thenReturn(Device.PRIMARY_ID);
     when(client.isOpen()).thenReturn(true);
 
-    when(messagesManager.getMessagesForDeviceReactive(eq(accountUuid), eq(1L), anyBoolean()))
+    when(messagesManager.getMessagesForDeviceReactive(eq(accountUuid), eq(Device.PRIMARY_ID), anyBoolean()))
         .thenReturn(Flux.empty());
 
     final WebSocketResponseMessage successResponse = mock(WebSocketResponseMessage.class);
@@ -672,10 +673,10 @@ class WebSocketConnectionTest {
 
     when(account.getNumber()).thenReturn("+18005551234");
     when(account.getUuid()).thenReturn(accountUuid);
-    when(device.getId()).thenReturn(1L);
+    when(device.getId()).thenReturn(Device.PRIMARY_ID);
     when(client.isOpen()).thenReturn(true);
 
-    when(messagesManager.getMessagesForDeviceReactive(eq(accountUuid), eq(1L), anyBoolean()))
+    when(messagesManager.getMessagesForDeviceReactive(eq(accountUuid), eq(Device.PRIMARY_ID), anyBoolean()))
         .thenReturn(Flux.empty());
 
     final WebSocketResponseMessage successResponse = mock(WebSocketResponseMessage.class);
@@ -695,7 +696,7 @@ class WebSocketConnectionTest {
   void testRetrieveMessageException() {
     UUID accountUuid = UUID.randomUUID();
 
-    when(device.getId()).thenReturn(2L);
+    when(device.getId()).thenReturn((byte) 2);
 
     when(account.getNumber()).thenReturn("+14152222222");
     when(account.getUuid()).thenReturn(accountUuid);
@@ -725,7 +726,7 @@ class WebSocketConnectionTest {
   void testRetrieveMessageExceptionClientDisconnected() {
     UUID accountUuid = UUID.randomUUID();
 
-    when(device.getId()).thenReturn(2L);
+    when(device.getId()).thenReturn((byte) 2);
 
     when(account.getNumber()).thenReturn("+14152222222");
     when(account.getUuid()).thenReturn(accountUuid);
@@ -748,7 +749,7 @@ class WebSocketConnectionTest {
   void testReactivePublisherLimitRate() {
     final UUID accountUuid = UUID.randomUUID();
 
-    final long deviceId = 2L;
+    final byte deviceId = 2;
     when(device.getId()).thenReturn(deviceId);
 
     when(account.getNumber()).thenReturn("+14152222222");
@@ -767,7 +768,7 @@ class WebSocketConnectionTest {
     final WebSocketResponseMessage successResponse = mock(WebSocketResponseMessage.class);
     when(successResponse.getStatus()).thenReturn(200);
     when(client.sendRequest(any(), any(), any(), any())).thenReturn(CompletableFuture.completedFuture(successResponse));
-    when(messagesManager.delete(any(), anyLong(), any(), any())).thenReturn(
+    when(messagesManager.delete(any(), anyByte(), any(), any())).thenReturn(
         CompletableFuture.completedFuture(Optional.empty()));
 
     WebSocketConnection connection = new WebSocketConnection(receiptSender, messagesManager, auth, device, client,
@@ -798,7 +799,7 @@ class WebSocketConnectionTest {
   void testReactivePublisherDisposedWhenConnectionStopped() {
     final UUID accountUuid = UUID.randomUUID();
 
-    final long deviceId = 2L;
+    final byte deviceId = 2;
     when(device.getId()).thenReturn(deviceId);
 
     when(account.getNumber()).thenReturn("+14152222222");
@@ -824,7 +825,7 @@ class WebSocketConnectionTest {
     final WebSocketResponseMessage successResponse = mock(WebSocketResponseMessage.class);
     when(successResponse.getStatus()).thenReturn(200);
     when(client.sendRequest(any(), any(), any(), any())).thenReturn(CompletableFuture.completedFuture(successResponse));
-    when(messagesManager.delete(any(), anyLong(), any(), any())).thenReturn(
+    when(messagesManager.delete(any(), anyByte(), any(), any())).thenReturn(
         CompletableFuture.completedFuture(Optional.empty()));
 
     WebSocketConnection connection = new WebSocketConnection(receiptSender, messagesManager, auth, device, client,

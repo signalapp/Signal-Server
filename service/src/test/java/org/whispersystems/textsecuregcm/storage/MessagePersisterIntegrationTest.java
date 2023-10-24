@@ -124,17 +124,19 @@ class MessagePersisterIntegrationTest {
 
         final MessageProtos.Envelope message = generateRandomMessage(messageGuid, timestamp);
 
-        messagesCache.insert(messageGuid, account.getUuid(), 1, message);
+        messagesCache.insert(messageGuid, account.getUuid(), Device.PRIMARY_ID, message);
         expectedMessages.add(message);
       }
 
       REDIS_CLUSTER_EXTENSION.getRedisCluster()
           .useCluster(connection -> connection.sync().set(MessagesCache.NEXT_SLOT_TO_PERSIST_KEY,
-              String.valueOf(SlotHash.getSlot(MessagesCache.getMessageQueueKey(account.getUuid(), 1)) - 1)));
+              String.valueOf(
+                  SlotHash.getSlot(MessagesCache.getMessageQueueKey(account.getUuid(), Device.PRIMARY_ID)) - 1)));
 
       final AtomicBoolean messagesPersisted = new AtomicBoolean(false);
 
-      messagesManager.addMessageAvailabilityListener(account.getUuid(), 1, new MessageAvailabilityListener() {
+      messagesManager.addMessageAvailabilityListener(account.getUuid(), Device.PRIMARY_ID,
+          new MessageAvailabilityListener() {
         @Override
         public boolean handleNewMessagesAvailable() {
           return true;

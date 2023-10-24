@@ -160,7 +160,7 @@ class AccountControllerV2Test {
             }
             when(updatedAccount.getDevices()).thenReturn(devices);
 
-            for (long i = 1; i <= 3; i++) {
+            for (byte i = 1; i <= 3; i++) {
               final Optional<Device> d = account.getDevice(i);
               when(updatedAccount.getDevice(i)).thenReturn(d);
             }
@@ -481,7 +481,7 @@ class AccountControllerV2Test {
             when(updatedAccount.getPhoneNumberIdentifier()).thenReturn(pni);
             when(updatedAccount.getDevices()).thenReturn(devices);
 
-            for (long i = 1; i <= 3; i++) {
+            for (byte i = 1; i <= 3; i++) {
               final Optional<Device> d = account.getDevice(i);
               when(updatedAccount.getDevice(i)).thenReturn(d);
             }
@@ -661,7 +661,7 @@ class AccountControllerV2Test {
       assertEquals(account.isUnrestrictedUnidentifiedAccess(),
           structuredResponse.data().account().allowSealedSenderFromAnyone());
 
-      final Set<Long> deviceIds = account.getDevices().stream().map(Device::getId).collect(Collectors.toSet());
+      final Set<Byte> deviceIds = account.getDevices().stream().map(Device::getId).collect(Collectors.toSet());
 
       // all devices should be present
       structuredResponse.data().devices().forEach(deviceDataReport -> {
@@ -704,8 +704,8 @@ class AccountControllerV2Test {
               buildTestAccountForDataReport(UUID.randomUUID(), exampleNumber1,
                   true, true,
                   Collections.emptyList(),
-                  List.of(new DeviceData(1, account1Device1LastSeen, account1Device1Created, null),
-                      new DeviceData(2, account1Device2LastSeen, account1Device2Created, "OWP"))),
+                  List.of(new DeviceData(Device.PRIMARY_ID, account1Device1LastSeen, account1Device1Created, null),
+                      new DeviceData((byte) 2, account1Device2LastSeen, account1Device2Created, "OWP"))),
               String.format("""
                       # Account
                       Phone number: %s
@@ -730,7 +730,7 @@ class AccountControllerV2Test {
               buildTestAccountForDataReport(UUID.randomUUID(), account2PhoneNumber,
                   false, true,
                   List.of(new AccountBadge("badge_a", badgeAExpiration, true)),
-                  List.of(new DeviceData(1, account2Device1LastSeen, account2Device1Created, "OWI"))),
+                  List.of(new DeviceData(Device.PRIMARY_ID, account2Device1LastSeen, account2Device1Created, "OWI"))),
               String.format("""
                       # Account
                       Phone number: %s
@@ -756,7 +756,7 @@ class AccountControllerV2Test {
                   List.of(
                       new AccountBadge("badge_b", badgeBExpiration, true),
                       new AccountBadge("badge_c", badgeCExpiration, false)),
-                  List.of(new DeviceData(1, account3Device1LastSeen, account3Device1Created, "OWA"))),
+                  List.of(new DeviceData(Device.PRIMARY_ID, account3Device1LastSeen, account3Device1Created, "OWA"))),
               String.format("""
                       # Account
                       Phone number: %s
@@ -825,7 +825,7 @@ class AccountControllerV2Test {
       return account;
     }
 
-    private record DeviceData(long id, Instant lastSeen, Instant created, @Nullable String userAgent) {
+    private record DeviceData(byte id, Instant lastSeen, Instant created, @Nullable String userAgent) {
 
     }
 

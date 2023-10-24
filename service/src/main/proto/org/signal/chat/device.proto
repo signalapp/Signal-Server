@@ -55,7 +55,7 @@ message GetDevicesResponse {
     /**
      * The identifier for the device within an account.
      */
-    uint64 id = 1;
+    uint32 id = 1;
 
     /**
      * A sequence of bytes that encodes an encrypted human-readable name for
@@ -86,7 +86,7 @@ message RemoveDeviceRequest {
   /**
    * The identifier for the device to remove from the authenticated account.
    */
-  uint64 id = 1;
+  uint32 id = 1;
 }
 
 message SetDeviceNameRequest {

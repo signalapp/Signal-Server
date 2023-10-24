@@ -12,5 +12,5 @@ import java.util.List;
 
 public record StaleDevices(@JsonProperty
                            @Schema(description = "Devices that are no longer active")
-                           List<Long> staleDevices) {
+                           List<Byte> staleDevices) {
 }

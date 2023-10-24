@@ -150,7 +150,7 @@ class BaseAccountAuthenticatorTest {
   @Test
   void testAuthenticate() {
     final UUID uuid = UUID.randomUUID();
-    final long deviceId = 1;
+    final byte deviceId = 1;
     final String password = "12345";
 
     final Account account = mock(Account.class);
@@ -180,7 +180,7 @@ class BaseAccountAuthenticatorTest {
   @Test
   void testAuthenticateNonDefaultDevice() {
     final UUID uuid = UUID.randomUUID();
-    final long deviceId = 2;
+    final byte deviceId = 2;
     final String password = "12345";
 
     final Account account = mock(Account.class);
@@ -214,7 +214,7 @@ class BaseAccountAuthenticatorTest {
       @CartesianTest.Values(booleans = {true, false}) final boolean deviceEnabled,
       @CartesianTest.Values(booleans = {true, false}) final boolean authenticatedDeviceIsPrimary) {
     final UUID uuid = UUID.randomUUID();
-    final long deviceId = authenticatedDeviceIsPrimary ? 1 : 2;
+    final byte deviceId = (byte) (authenticatedDeviceIsPrimary ? 1 : 2);
     final String password = "12345";
 
     final Account account = mock(Account.class);
@@ -253,7 +253,7 @@ class BaseAccountAuthenticatorTest {
   @Test
   void testAuthenticateV1() {
     final UUID uuid = UUID.randomUUID();
-    final long deviceId = 1;
+    final byte deviceId = 1;
     final String password = "12345";
 
     final Account account = mock(Account.class);
@@ -290,7 +290,7 @@ class BaseAccountAuthenticatorTest {
   @Test
   void testAuthenticateDeviceNotFound() {
     final UUID uuid = UUID.randomUUID();
-    final long deviceId = 1;
+    final byte deviceId = 1;
     final String password = "12345";
 
     final Account account = mock(Account.class);
@@ -312,13 +312,13 @@ class BaseAccountAuthenticatorTest {
         baseAccountAuthenticator.authenticate(new BasicCredentials(uuid + "." + (deviceId + 1), password), true);
 
     assertThat(maybeAuthenticatedAccount).isEmpty();
-    verify(account).getDevice(deviceId + 1);
+    verify(account).getDevice((byte) (deviceId + 1));
   }
 
   @Test
   void testAuthenticateIncorrectPassword() {
     final UUID uuid = UUID.randomUUID();
-    final long deviceId = 1;
+    final byte deviceId = 1;
     final String password = "12345";
 
     final Account account = mock(Account.class);
@@ -365,8 +365,9 @@ class BaseAccountAuthenticatorTest {
 
   @ParameterizedTest
   @MethodSource
-  void testGetIdentifierAndDeviceId(final String username, final String expectedIdentifier, final long expectedDeviceId) {
-    final Pair<String, Long> identifierAndDeviceId = BaseAccountAuthenticator.getIdentifierAndDeviceId(username);
+  void testGetIdentifierAndDeviceId(final String username, final String expectedIdentifier,
+      final byte expectedDeviceId) {
+    final Pair<String, Byte> identifierAndDeviceId = BaseAccountAuthenticator.getIdentifierAndDeviceId(username);
 
     assertEquals(expectedIdentifier, identifierAndDeviceId.first());
     assertEquals(expectedDeviceId, identifierAndDeviceId.second());
@@ -376,7 +377,7 @@ class BaseAccountAuthenticatorTest {
     return Stream.of(
         Arguments.of("", "", Device.PRIMARY_ID),
         Arguments.of("test", "test", Device.PRIMARY_ID),
-        Arguments.of("test.7", "test", 7));
+        Arguments.of("test.7", "test", (byte) 7));
   }
 
   @ParameterizedTest

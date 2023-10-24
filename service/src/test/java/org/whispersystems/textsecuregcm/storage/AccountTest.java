@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -85,15 +86,16 @@ class AccountTest {
 
     when(agingSecondaryDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(31));
     when(agingSecondaryDevice.isEnabled()).thenReturn(false);
-    when(agingSecondaryDevice.getId()).thenReturn(2L);
+    final byte deviceId2 = 2;
+    when(agingSecondaryDevice.getId()).thenReturn(deviceId2);
 
     when(recentSecondaryDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(1));
     when(recentSecondaryDevice.isEnabled()).thenReturn(true);
-    when(recentSecondaryDevice.getId()).thenReturn(2L);
+    when(recentSecondaryDevice.getId()).thenReturn(deviceId2);
 
     when(oldSecondaryDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(366));
     when(oldSecondaryDevice.isEnabled()).thenReturn(false);
-    when(oldSecondaryDevice.getId()).thenReturn(2L);
+    when(oldSecondaryDevice.getId()).thenReturn(deviceId2);
 
     when(senderKeyCapableDevice.getCapabilities()).thenReturn(
         new DeviceCapabilities(true, true, false, false));
@@ -143,17 +145,17 @@ class AccountTest {
         new DeviceCapabilities(true, true, false, false));
     when(pniIncapableExpiredDevice.isEnabled()).thenReturn(false);
 
-    when(storiesCapableDevice.getId()).thenReturn(1L);
+    when(storiesCapableDevice.getId()).thenReturn(Device.PRIMARY_ID);
     when(storiesCapableDevice.getCapabilities()).thenReturn(
         new DeviceCapabilities(true, true, false, false));
     when(storiesCapableDevice.isEnabled()).thenReturn(true);
 
-    when(storiesCapableDevice.getId()).thenReturn(2L);
+    when(storiesCapableDevice.getId()).thenReturn(deviceId2);
     when(storiesIncapableDevice.getCapabilities()).thenReturn(
         new DeviceCapabilities(true, true, false, false));
     when(storiesIncapableDevice.isEnabled()).thenReturn(true);
 
-    when(storiesCapableDevice.getId()).thenReturn(3L);
+    when(storiesCapableDevice.getId()).thenReturn((byte) 3);
     when(storiesIncapableExpiredDevice.getCapabilities()).thenReturn(
         new DeviceCapabilities(true, true, false, false));
     when(storiesIncapableExpiredDevice.isEnabled()).thenReturn(false);
@@ -192,10 +194,11 @@ class AccountTest {
     when(disabledPrimaryDevice.isEnabled()).thenReturn(false);
     when(disabledLinkedDevice.isEnabled()).thenReturn(false);
 
-    when(enabledPrimaryDevice.getId()).thenReturn(1L);
-    when(enabledLinkedDevice.getId()).thenReturn(2L);
-    when(disabledPrimaryDevice.getId()).thenReturn(1L);
-    when(disabledLinkedDevice.getId()).thenReturn(2L);
+    when(enabledPrimaryDevice.getId()).thenReturn(Device.PRIMARY_ID);
+    final byte deviceId2 = 2;
+    when(enabledLinkedDevice.getId()).thenReturn(deviceId2);
+    when(disabledPrimaryDevice.getId()).thenReturn(Device.PRIMARY_ID);
+    when(disabledLinkedDevice.getId()).thenReturn(deviceId2);
 
     assertTrue(AccountsHelper.generateTestAccount("+14151234567", List.of(enabledPrimaryDevice)).isEnabled());
     assertTrue(AccountsHelper.generateTestAccount("+14151234567", List.of(enabledPrimaryDevice, enabledLinkedDevice)).isEnabled());
@@ -214,15 +217,15 @@ class AccountTest {
     final DeviceCapabilities transferCapabilities = mock(DeviceCapabilities.class);
     final DeviceCapabilities nonTransferCapabilities = mock(DeviceCapabilities.class);
 
-    when(transferCapablePrimaryDevice.getId()).thenReturn(1L);
+    when(transferCapablePrimaryDevice.getId()).thenReturn(Device.PRIMARY_ID);
     when(transferCapablePrimaryDevice.isPrimary()).thenReturn(true);
     when(transferCapablePrimaryDevice.getCapabilities()).thenReturn(transferCapabilities);
 
-    when(nonTransferCapablePrimaryDevice.getId()).thenReturn(1L);
+    when(nonTransferCapablePrimaryDevice.getId()).thenReturn(Device.PRIMARY_ID);
     when(nonTransferCapablePrimaryDevice.isPrimary()).thenReturn(true);
     when(nonTransferCapablePrimaryDevice.getCapabilities()).thenReturn(nonTransferCapabilities);
 
-    when(transferCapableLinkedDevice.getId()).thenReturn(2L);
+    when(transferCapableLinkedDevice.getId()).thenReturn((byte) 2);
     when(transferCapableLinkedDevice.isPrimary()).thenReturn(false);
     when(transferCapableLinkedDevice.getCapabilities()).thenReturn(transferCapabilities);
 
@@ -311,21 +314,31 @@ class AccountTest {
 
     final Account account = AccountsHelper.generateTestAccount("+14151234567", UUID.randomUUID(), UUID.randomUUID(), devices, new byte[0]);
 
-    assertThat(account.getNextDeviceId()).isEqualTo(2L);
+    final byte deviceId2 = 2;
+    assertThat(account.getNextDeviceId()).isEqualTo(deviceId2);
 
-    account.addDevice(createDevice(2L));
+    account.addDevice(createDevice(deviceId2));
 
-    assertThat(account.getNextDeviceId()).isEqualTo(3L);
+    final byte deviceId3 = 3;
+    assertThat(account.getNextDeviceId()).isEqualTo(deviceId3);
 
-    account.addDevice(createDevice(3L));
+    account.addDevice(createDevice(deviceId3));
 
-    setEnabled(account.getDevice(2L).orElseThrow(), false);
+    setEnabled(account.getDevice(deviceId2).orElseThrow(), false);
 
-    assertThat(account.getNextDeviceId()).isEqualTo(4L);
+    assertThat(account.getNextDeviceId()).isEqualTo((byte) 4);
 
-    account.removeDevice(2L);
+    account.removeDevice(deviceId2);
 
-    assertThat(account.getNextDeviceId()).isEqualTo(2L);
+    assertThat(account.getNextDeviceId()).isEqualTo(deviceId2);
+
+    while (account.getNextDeviceId() < Device.MAXIMUM_DEVICE_ID) {
+      account.addDevice(createDevice(account.getNextDeviceId()));
+    }
+
+    account.addDevice(createDevice(Device.MAXIMUM_DEVICE_ID));
+
+    assertThatThrownBy(account::getNextDeviceId).isInstanceOf(RuntimeException.class);
   }
 
   @Test
@@ -399,7 +412,7 @@ class AccountTest {
     final Device disabledPrimary = mock(Device.class);
     when(disabledPrimary.getId()).thenReturn(Device.PRIMARY_ID);
 
-    final long linked1DeviceId = Device.PRIMARY_ID + 1;
+    final byte linked1DeviceId = Device.PRIMARY_ID + 1;
     final Device enabledLinked1 = mock(Device.class);
     when(enabledLinked1.isEnabled()).thenReturn(true);
     when(enabledLinked1.getId()).thenReturn(linked1DeviceId);
@@ -407,7 +420,7 @@ class AccountTest {
     final Device disabledLinked1 = mock(Device.class);
     when(disabledLinked1.getId()).thenReturn(linked1DeviceId);
 
-    final long linked2DeviceId = Device.PRIMARY_ID + 2;
+    final byte linked2DeviceId = Device.PRIMARY_ID + 2;
     final Device enabledLinked2 = mock(Device.class);
     when(enabledLinked2.isEnabled()).thenReturn(true);
     when(enabledLinked2.getId()).thenReturn(linked2DeviceId);

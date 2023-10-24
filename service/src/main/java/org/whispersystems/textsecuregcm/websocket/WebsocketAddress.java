@@ -10,9 +10,9 @@ import org.whispersystems.textsecuregcm.storage.PubSubAddress;
 public class WebsocketAddress implements PubSubAddress {
 
   private final String number;
-  private final long   deviceId;
+  private final byte deviceId;
 
-  public WebsocketAddress(String number, long deviceId) {
+  public WebsocketAddress(String number, byte deviceId) {
     this.number    = number;
     this.deviceId  = deviceId;
   }
@@ -26,7 +26,7 @@ public class WebsocketAddress implements PubSubAddress {
       }
 
       this.number   = parts[0];
-      this.deviceId = Long.parseLong(parts[1]);
+      this.deviceId = Byte.parseByte(parts[1]);
     } catch (NumberFormatException e) {
       throw new InvalidWebsocketAddressException(e);
     }
@@ -36,7 +36,7 @@ public class WebsocketAddress implements PubSubAddress {
     return number;
   }
 
-  public long getDeviceId() {
+  public byte getDeviceId() {
     return deviceId;
   }
 

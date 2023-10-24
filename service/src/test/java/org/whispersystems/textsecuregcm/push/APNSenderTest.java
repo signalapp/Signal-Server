@@ -54,7 +54,7 @@ class APNSenderTest {
     apnsClient = mock(ApnsClient.class);
     apnSender = new APNSender(new SynchronousExecutorService(), apnsClient, BUNDLE_ID);
 
-    when(destinationAccount.getDevice(1)).thenReturn(Optional.of(destinationDevice));
+    when(destinationAccount.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(destinationDevice));
     when(destinationDevice.getApnId()).thenReturn(DESTINATION_DEVICE_TOKEN);
   }
 

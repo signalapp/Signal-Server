@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.tests.util;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
@@ -61,9 +62,9 @@ public class AccountsHelper {
       return markStale ? copyAndMarkStale(account) : account;
     });
 
-    when(mockAccountsManager.updateDevice(any(), anyLong(), any())).thenAnswer(answer -> {
+    when(mockAccountsManager.updateDevice(any(), anyByte(), any())).thenAnswer(answer -> {
       final Account account = answer.getArgument(0, Account.class);
-      final Long deviceId = answer.getArgument(1, Long.class);
+      final byte deviceId = answer.getArgument(1, Byte.class);
       account.getDevice(deviceId).ifPresent(answer.getArgument(2, Consumer.class));
 
       return markStale ? copyAndMarkStale(account) : account;

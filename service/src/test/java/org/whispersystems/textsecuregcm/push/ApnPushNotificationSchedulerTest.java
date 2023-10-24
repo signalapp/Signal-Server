@@ -30,7 +30,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -54,7 +53,7 @@ class ApnPushNotificationSchedulerTest {
 
   private static final UUID ACCOUNT_UUID = UUID.randomUUID();
   private static final String ACCOUNT_NUMBER = "+18005551234";
-  private static final long DEVICE_ID = 1L;
+  private static final byte DEVICE_ID = 1;
   private static final String APN_ID = RandomStringUtils.randomAlphanumeric(32);
   private static final String VOIP_APN_ID = RandomStringUtils.randomAlphanumeric(32);
 
@@ -98,12 +97,12 @@ class ApnPushNotificationSchedulerTest {
     final List<String> pendingDestinations = apnPushNotificationScheduler.getPendingDestinationsForRecurringVoipNotifications(SlotHash.getSlot(endpoint), 2);
     assertEquals(1, pendingDestinations.size());
 
-    final Optional<Pair<String, Long>> maybeUuidAndDeviceId = ApnPushNotificationScheduler.getSeparated(
+    final Optional<Pair<String, Byte>> maybeUuidAndDeviceId = ApnPushNotificationScheduler.getSeparated(
         pendingDestinations.get(0));
 
     assertTrue(maybeUuidAndDeviceId.isPresent());
     assertEquals(ACCOUNT_UUID.toString(), maybeUuidAndDeviceId.get().first());
-    assertEquals(DEVICE_ID, (long) maybeUuidAndDeviceId.get().second());
+    assertEquals(DEVICE_ID, maybeUuidAndDeviceId.get().second());
 
     assertTrue(
         apnPushNotificationScheduler.getPendingDestinationsForRecurringVoipNotifications(SlotHash.getSlot(endpoint), 1).isEmpty());
@@ -235,8 +234,6 @@ class ApnPushNotificationSchedulerTest {
     when(redisCluster.withCluster(any())).thenReturn(0L);
 
     final AccountsManager accountsManager = mock(AccountsManager.class);
-
-    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
 
     apnPushNotificationScheduler = new ApnPushNotificationScheduler(redisCluster, apnSender,
         accountsManager, dedicatedThreadCount);

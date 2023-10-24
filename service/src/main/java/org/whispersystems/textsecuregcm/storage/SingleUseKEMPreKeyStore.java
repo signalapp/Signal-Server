@@ -21,7 +21,7 @@ public class SingleUseKEMPreKeyStore extends SingleUsePreKeyStore<KEMSignedPreKe
   }
 
   @Override
-  protected Map<String, AttributeValue> getItemFromPreKey(final UUID identifier, final long deviceId, final KEMSignedPreKey signedPreKey) {
+  protected Map<String, AttributeValue> getItemFromPreKey(final UUID identifier, final byte deviceId, final KEMSignedPreKey signedPreKey) {
     return Map.of(
         KEY_ACCOUNT_UUID, getPartitionKey(identifier),
         KEY_DEVICE_ID_KEY_ID, getSortKey(deviceId, signedPreKey.keyId()),

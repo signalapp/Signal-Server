@@ -16,13 +16,13 @@ import org.signal.libsignal.protocol.state.SignedPreKeyRecord;
 
 public class TestDevice {
 
-  private final long deviceId;
+  private final byte deviceId;
 
   private final Map<Integer, Pair<IdentityKeyPair, SignedPreKeyRecord>> signedPreKeys = new ConcurrentHashMap<>();
 
 
   public static TestDevice create(
-      final long deviceId,
+      final byte deviceId,
       final IdentityKeyPair aciIdentityKeyPair,
       final IdentityKeyPair pniIdentityKeyPair) {
     final TestDevice device = new TestDevice(deviceId);
@@ -31,11 +31,11 @@ public class TestDevice {
     return device;
   }
 
-  public TestDevice(final long deviceId) {
+  public TestDevice(final byte deviceId) {
     this.deviceId = deviceId;
   }
 
-  public long deviceId() {
+  public byte deviceId() {
     return deviceId;
   }
 

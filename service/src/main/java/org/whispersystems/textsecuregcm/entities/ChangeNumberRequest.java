@@ -54,7 +54,7 @@ public record ChangeNumberRequest(
     @Schema(description="""
         A new signed elliptic-curve prekey for each enabled device on the account, including this one.
         Each must be accompanied by a valid signature from the new identity key in this request.""")
-    @NotNull @Valid Map<Long, @NotNull @Valid ECSignedPreKey> devicePniSignedPrekeys,
+    @NotNull @Valid Map<Byte, @NotNull @Valid ECSignedPreKey> devicePniSignedPrekeys,
 
     @Schema(description="""
         A new signed post-quantum last-resort prekey for each enabled device on the account, including this one.
@@ -62,10 +62,10 @@ public record ChangeNumberRequest(
         If present, must contain one prekey per enabled device including this one.
         Prekeys for devices that did not previously have any post-quantum prekeys stored will be silently dropped.
         Each must be accompanied by a valid signature from the new identity key in this request.""")
-    @Valid Map<Long, @NotNull @Valid KEMSignedPreKey> devicePniPqLastResortPrekeys,
+    @Valid Map<Byte, @NotNull @Valid KEMSignedPreKey> devicePniPqLastResortPrekeys,
 
     @Schema(description="the new phone-number-identity registration ID for each enabled device on the account, including this one")
-    @NotNull Map<Long, Integer> pniRegistrationIds) implements PhoneVerificationRequest {
+    @NotNull Map<Byte, Integer> pniRegistrationIds) implements PhoneVerificationRequest {
 
   @AssertTrue
   public boolean isSignatureValidOnEachSignedPreKey() {

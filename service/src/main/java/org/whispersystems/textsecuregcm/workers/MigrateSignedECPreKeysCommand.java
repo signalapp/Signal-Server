@@ -41,7 +41,7 @@ public class MigrateSignedECPreKeysCommand extends AbstractSinglePassCrawlAccoun
 
     accounts.flatMap(account -> Flux.fromIterable(account.getDevices())
             .flatMap(device -> {
-              final List<Tuple3<UUID, Long, ECSignedPreKey>> keys = new ArrayList<>(2);
+              final List<Tuple3<UUID, Byte, ECSignedPreKey>> keys = new ArrayList<>(2);
 
               if (device.getSignedPreKey(IdentityType.ACI) != null) {
                 keys.add(Tuples.of(account.getUuid(), device.getId(), device.getSignedPreKey(IdentityType.ACI)));

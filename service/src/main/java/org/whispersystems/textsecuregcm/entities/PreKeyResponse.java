@@ -40,7 +40,7 @@ public class PreKeyResponse {
 
   @VisibleForTesting
   @JsonIgnore
-  public PreKeyResponseItem getDevice(int deviceId) {
+  public PreKeyResponseItem getDevice(byte deviceId) {
     for (PreKeyResponseItem device : devices) {
       if (device.getDeviceId() == deviceId) return device;
     }
