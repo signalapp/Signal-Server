@@ -119,6 +119,8 @@ import org.whispersystems.textsecuregcm.filters.RemoteDeprecationFilter;
 import org.whispersystems.textsecuregcm.filters.RequestStatisticsFilter;
 import org.whispersystems.textsecuregcm.filters.TimestampResponseFilter;
 import org.whispersystems.textsecuregcm.grpc.AcceptLanguageInterceptor;
+import org.whispersystems.textsecuregcm.grpc.AccountsAnonymousGrpcService;
+import org.whispersystems.textsecuregcm.grpc.AccountsGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ErrorMappingInterceptor;
 import org.whispersystems.textsecuregcm.grpc.ExternalServiceCredentialsAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ExternalServiceCredentialsGrpcService;
@@ -650,6 +652,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new BasicCredentialAuthenticationInterceptor(new BaseAccountAuthenticator(accountsManager));
 
     final ServerBuilder<?> grpcServer = ServerBuilder.forPort(config.getGrpcPort())
+        .addService(ServerInterceptors.intercept(new AccountsGrpcService(accountsManager, rateLimiters, usernameHashZkProofVerifier, registrationRecoveryPasswordsManager), basicCredentialAuthenticationInterceptor))
+        .addService(new AccountsAnonymousGrpcService(accountsManager, rateLimiters))
         .addService(ExternalServiceCredentialsGrpcService.createForAllExternalServices(config, rateLimiters))
         .addService(ExternalServiceCredentialsAnonymousGrpcService.create(accountsManager, config))
         .addService(ServerInterceptors.intercept(new KeysGrpcService(accountsManager, keys, rateLimiters), basicCredentialAuthenticationInterceptor))

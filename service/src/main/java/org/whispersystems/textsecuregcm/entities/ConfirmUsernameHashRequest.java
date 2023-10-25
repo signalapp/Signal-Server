@@ -31,6 +31,6 @@ public record ConfirmUsernameHashRequest(
     @Nullable
     @JsonSerialize(using = ByteArrayBase64UrlAdapter.Serializing.class)
     @JsonDeserialize(using = ByteArrayBase64UrlAdapter.Deserializing.class)
-    @Size(min = 1, max = 128)
+    @Size(min = 1, max = AccountController.MAXIMUM_USERNAME_CIPHERTEXT_LENGTH)
     byte[] encryptedUsername
 ) {}

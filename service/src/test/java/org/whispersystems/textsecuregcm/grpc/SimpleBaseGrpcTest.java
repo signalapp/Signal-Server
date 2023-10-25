@@ -148,4 +148,8 @@ public abstract class SimpleBaseGrpcTest<SERVICE extends BindableService, STUB e
   protected MockRemoteAddressInterceptor getMockRemoteAddressInterceptor() {
     return mockRemoteAddressInterceptor;
   }
+
+  protected MockAuthenticationInterceptor getMockAuthenticationInterceptor() {
+    return mockAuthenticationInterceptor;
+  }
 }

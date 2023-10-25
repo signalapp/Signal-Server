@@ -16,7 +16,9 @@ public record EncryptedUsername(
     @JsonSerialize(using = ByteArrayBase64UrlAdapter.Serializing.class)
     @JsonDeserialize(using = ByteArrayBase64UrlAdapter.Deserializing.class)
     @NotNull
-    @Size(min = 1, max = 128)
+    @Size(min = 1, max = EncryptedUsername.MAX_SIZE)
     @Schema(type = "string", description = "the URL-safe base64 encoding of the encrypted username")
     byte[] usernameLinkEncryptedValue) {
+
+  public static final int MAX_SIZE = 128;
 }

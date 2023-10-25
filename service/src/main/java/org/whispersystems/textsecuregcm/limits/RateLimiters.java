@@ -167,6 +167,10 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
     return forDescriptor(For.USERNAME_LINK_LOOKUP_PER_IP);
   }
 
+  public RateLimiter getUsernameLinkOperationLimiter() {
+    return forDescriptor(For.USERNAME_LINK_OPERATION);
+  }
+
   public RateLimiter getUsernameSetLimiter() {
     return forDescriptor(For.USERNAME_SET);
   }

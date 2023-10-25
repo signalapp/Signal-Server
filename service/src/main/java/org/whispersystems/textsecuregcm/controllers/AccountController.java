@@ -73,6 +73,7 @@ import org.whispersystems.textsecuregcm.util.Util;
 public class AccountController {
   public static final int MAXIMUM_USERNAME_HASHES_LIST_LENGTH = 20;
   public static final int USERNAME_HASH_LENGTH = 32;
+  public static final int MAXIMUM_USERNAME_CIPHERTEXT_LENGTH = 128;
 
   private final AccountsManager accounts;
   private final RateLimiters rateLimiters;

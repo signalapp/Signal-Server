@@ -28,8 +28,20 @@ message ServiceIdentifier {
 }
 
 message AccountIdentifiers {
+  /**
+   * A list of service identifiers for the identified account.
+   */
   repeated ServiceIdentifier service_identifiers = 1;
+
+  /**
+   * The phone number associated with the identified account.
+   */
   string e164 = 2;
+
+  /**
+   * The username hash (if any) associated with the identified account. May be
+   * empty if no username is associated with the identified account.
+   */
   bytes username_hash = 3;
 }
 

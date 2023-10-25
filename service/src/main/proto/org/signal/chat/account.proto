@@ -7,6 +7,101 @@ package org.signal.chat.account;
 import "org/signal/chat/common.proto";
 
 /**
+ * Provides methods for working with Signal accounts.
+ */
+service Accounts {
+  /**
+   * Returns basic identifiers for the authenticated account.
+   */
+  rpc GetAccountIdentity(GetAccountIdentityRequest) returns (GetAccountIdentityResponse) {}
+
+  /**
+   * Deletes the authenticated account, purging all associated data in the
+   * process.
+   */
+  rpc DeleteAccount(DeleteAccountRequest) returns (DeleteAccountResponse) {}
+
+  /**
+   * Sets the registration lock secret for the authenticated account. To remove
+   * a registration lock, please use `ClearRegistrationLock`.
+   */
+  rpc SetRegistrationLock(SetRegistrationLockRequest) returns (SetRegistrationLockResponse) {}
+
+  /**
+   * Removes any registration lock credentials from the authenticated account.
+   */
+  rpc ClearRegistrationLock(ClearRegistrationLockRequest) returns (ClearRegistrationLockResponse) {}
+
+  /**
+   * Attempts to reserve one of multiple given username hashes. Reserved
+   * usernames may be claimed later via `ConfirmUsernameHash`. This RPC may
+   * fail with a `RESOURCE_EXHAUSTED` status if a rate limit for modifying
+   * usernames has been exceeded, in which case a `retry-after` header
+   * containing an ISO 8601 duration string will be present in the response
+   * trailers.
+   */
+  rpc ReserveUsernameHash(ReserveUsernameHashRequest) returns (ReserveUsernameHashResponse) {}
+
+  /**
+   * Sets the username hash/encrypted username to a previously-reserved value
+   * (see `ReserveUsernameHash`). This RPC may fail with a status of
+   * `FAILED_PRECONDITION` if no reserved username hash was foudn for the given
+   * account or `NOT_FOUND` if the reservation has lapsed and been claimed by
+   * another caller. It may also  fail with a `RESOURCE_EXHAUSTED` if a rate
+   * limit for modifying usernames has been exceeded, in which case a
+   * `retry-after` header containing an ISO 8601 duration string will be present
+   * in the response trailers.
+   */
+  rpc ConfirmUsernameHash(ConfirmUsernameHashRequest) returns (ConfirmUsernameHashResponse) {}
+
+  /**
+   * Clears the current username hash, ciphertext, and link for the
+   * authenticated user.
+   */
+  rpc DeleteUsernameHash(DeleteUsernameHashRequest) returns (DeleteUsernameHashResponse) {}
+
+  /**
+   * Generates a new link handle for the given username ciphertext, displacing
+   * any previously-existing link handle.
+   *
+   * This RPC may fail with a status of `FAILED_PRECONDITION` if the
+   * authenticated account does not have a username. It may also fail with
+   * `RESOURCE_EXHAUSTED` if a rate limit for modifying username links has been
+   * exceeded, in which case a `retry-after` header containing an ISO 8601
+   * duration string will be present in the response trailers.
+   */
+  rpc SetUsernameLink(SetUsernameLinkRequest) returns (SetUsernameLinkResponse) {}
+
+  /**
+   * Clears any username link associated with the authenticated account. This
+   * RPC may fail with `RESOURCE_EXHAUSTED` if a rate limit for modifying
+   * username links has been exceeded, in which case a `retry-after` header
+   * containing an ISO 8601 duration string will be present in the response
+   * trailers.
+   */
+  rpc DeleteUsernameLink(DeleteUsernameLinkRequest) returns (DeleteUsernameLinkResponse) {}
+
+  /**
+   * Configures "unidentified access" keys and preferences for the authenticated
+   * account. Other users permitted to interact with this account anonymously
+   * may take actions like fetching pre-keys and profiles for this account or
+   * sending sealed-sender messages without providing identifying credentials.
+   */
+  rpc ConfigureUnidentifiedAccess(ConfigureUnidentifiedAccessRequest) returns (ConfigureUnidentifiedAccessResponse) {}
+
+  /**
+   * Sets whether the authenticated account may be discovered by phone number
+   * via the Contact Discovery Service (CDS).
+   */
+  rpc SetDiscoverableByPhoneNumber(SetDiscoverableByPhoneNumberRequest) returns (SetDiscoverableByPhoneNumberResponse) {}
+
+  /**
+   * Sets the registration recovery password for the authenticated account.
+   */
+  rpc SetRegistrationRecoveryPassword(SetRegistrationRecoveryPasswordRequest) returns (SetRegistrationRecoveryPasswordResponse) {}
+}
+
+/**
  * Provides methods for looking up Signal accounts. Callers must not provide
  * identifying credentials when calling methods in this service.
  */
@@ -29,6 +124,172 @@ service AccountsAnonymous {
    * the given link handle.
    */
   rpc LookupUsernameLink(LookupUsernameLinkRequest) returns (LookupUsernameLinkResponse) {}
+}
+
+message GetAccountIdentityRequest {
+}
+
+message GetAccountIdentityResponse {
+  /**
+   * A set of account identifiers for the authenticated account.
+   */
+  common.AccountIdentifiers account_identifiers = 1;
+}
+
+message DeleteAccountRequest {
+}
+
+message DeleteAccountResponse {
+}
+
+message SetRegistrationLockRequest {
+  /**
+   * The new registration lock secret for the authenticated account.
+   */
+  bytes registration_lock = 1;
+}
+
+message SetRegistrationLockResponse {
+}
+
+message ClearRegistrationLockRequest {
+}
+
+message ClearRegistrationLockResponse {
+}
+
+message ReserveUsernameHashRequest {
+  /**
+   * A prioritized list of username hashes to attempt to reserve.
+   */
+  repeated bytes username_hashes = 1;
+}
+
+message ReserveUsernameHashResponse {
+  oneof response {
+    /**
+     * The first username hash that was available (and actually reserved).
+     */
+    bytes username_hash = 1;
+
+    /**
+     * An error indicating why a username hash could not be reserved.
+     */
+    ReserveUsernameHashError error = 2;
+  }
+}
+
+message ReserveUsernameHashError {
+  ReserveUsernameHashErrorType error_type = 1;
+}
+
+enum ReserveUsernameHashErrorType {
+  RESERVE_USERNAME_HASH_ERROR_TYPE_UNSPECIFIED = 0;
+
+  /**
+   * Indicates that, of all of the candidate hashes provided, none were
+   * available. Callers may generate a new set of hashes and and retry.
+   */
+  RESERVE_USERNAME_HASH_ERROR_TYPE_NO_HASHES_AVAILABLE = 1;
+}
+
+message ConfirmUsernameHashRequest {
+  /**
+   * The username hash to claim for the authenticated account.
+   */
+  bytes username_hash = 1;
+
+  /**
+   * A zero-knowledge proof that the given username hash was generated by the
+   * Signal username algorithm.
+   */
+  bytes zk_proof = 2;
+
+  /**
+   * The ciphertext of the chosen username for use in public-facing contexts
+   * (e.g. links and QR codes).
+   */
+  bytes username_ciphertext = 3;
+}
+
+message ConfirmUsernameHashResponse {
+  /**
+   * The newly-confirmed username hash.
+   */
+  bytes username_hash = 1;
+
+  /**
+   * The server-generated username link handle for the newly-confirmed username.
+   */
+  bytes username_link_handle = 2;
+}
+
+message DeleteUsernameHashRequest {
+}
+
+message DeleteUsernameHashResponse {
+}
+
+message SetUsernameLinkRequest {
+  /**
+   * The username ciphertext for which to generate a new link handle.
+   */
+  bytes username_ciphertext = 1;
+}
+
+message SetUsernameLinkResponse {
+  /**
+   * A new link handle for the given username ciphertext.
+   */
+  bytes username_link_handle = 1;
+}
+
+message DeleteUsernameLinkRequest {
+}
+
+message DeleteUsernameLinkResponse {
+}
+
+message ConfigureUnidentifiedAccessRequest {
+  /**
+   * The key that other users must provide to interact with this account
+   * anonymously (i.e. to retrieve keys or profiles or to send messages) unless
+   * unrestricted unidentified access is permitted. Must be present if
+   * unrestricted unidentified access is not allowed.
+   */
+  bytes unidentified_access_key = 1;
+
+  /**
+   * If `true`, any user may interact with this account anonymously without
+   * providing an unidentified access key. Otherwise, users must provide the
+   * given unidentified access key to interact with this account anonymously.
+   */
+  bool allow_unrestricted_unidentified_access = 2;
+}
+
+message ConfigureUnidentifiedAccessResponse {
+}
+
+message SetDiscoverableByPhoneNumberRequest {
+  /**
+   * If true, the authenticated account may be discovered by phone number via
+   * the Contact Discovery Service (CDS). Otherwise, other users must discover
+   * this account by other means (i.e. by username).
+   */
+  bool discoverable_by_phone_number = 1;
+}
+
+message SetDiscoverableByPhoneNumberResponse {
+}
+
+message SetRegistrationRecoveryPasswordRequest {
+  /**
+   * The new registration recovery password for the authenticated account.
+   */
+  bytes registration_recovery_password = 1;
+}
+
+message SetRegistrationRecoveryPasswordResponse {
 }
 
 message CheckAccountExistenceRequest {
