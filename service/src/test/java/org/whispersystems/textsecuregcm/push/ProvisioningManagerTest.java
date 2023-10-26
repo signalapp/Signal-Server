@@ -43,7 +43,7 @@ class ProvisioningManagerTest {
 
   @Test
   void sendProvisioningMessage() {
-    final ProvisioningAddress address = new ProvisioningAddress("address", (byte) 0);
+    final ProvisioningAddress address = ProvisioningAddress.create("address");
 
     final byte[] content = new byte[16];
     new Random().nextBytes(content);
@@ -64,7 +64,7 @@ class ProvisioningManagerTest {
 
   @Test
   void removeListener() {
-    final ProvisioningAddress address = new ProvisioningAddress("address", (byte) 0);
+    final ProvisioningAddress address = ProvisioningAddress.create("address");
 
     final byte[] content = new byte[16];
     new Random().nextBytes(content);

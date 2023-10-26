@@ -10,8 +10,14 @@ import java.util.Base64;
 
 public class ProvisioningAddress extends WebsocketAddress {
 
-  public ProvisioningAddress(String address, byte id) {
-    super(address, id);
+  public static byte DEVICE_ID = 0;
+
+  public static ProvisioningAddress create(String address) {
+    return new ProvisioningAddress(address, DEVICE_ID);
+  }
+
+  private ProvisioningAddress(String address, byte deviceId) {
+    super(address, deviceId);
   }
 
   public ProvisioningAddress(String serialized) throws InvalidWebsocketAddressException {
@@ -26,6 +32,6 @@ public class ProvisioningAddress extends WebsocketAddress {
     byte[] random = new byte[16];
     new SecureRandom().nextBytes(random);
 
-    return new ProvisioningAddress(Base64.getUrlEncoder().withoutPadding().encodeToString(random), (byte) 0);
+    return create(Base64.getUrlEncoder().withoutPadding().encodeToString(random));
   }
 }

@@ -93,7 +93,7 @@ class ProvisioningControllerTest {
           provisioningMessageCaptor.capture());
 
       assertEquals(destination, provisioningAddressCaptor.getValue().getAddress());
-      assertEquals(0, provisioningAddressCaptor.getValue().getDeviceId());
+      assertEquals(ProvisioningAddress.DEVICE_ID, provisioningAddressCaptor.getValue().getDeviceId());
 
       assertArrayEquals(messageBody, provisioningMessageCaptor.getValue());
     }

@@ -47,7 +47,7 @@ public class ProvisioningController {
 
     rateLimiters.getMessagesLimiter().validate(auth.getAccount().getUuid());
 
-    if (!provisioningManager.sendProvisioningMessage(new ProvisioningAddress(destinationName, (byte) 0),
+    if (!provisioningManager.sendProvisioningMessage(ProvisioningAddress.create(destinationName),
         Base64.getMimeDecoder().decode(message.body()))) {
       throw new WebApplicationException(Response.Status.NOT_FOUND);
     }
