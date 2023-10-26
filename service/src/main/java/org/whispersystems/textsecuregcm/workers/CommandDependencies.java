@@ -77,12 +77,11 @@ record CommandDependencies(
     ScheduledExecutorService recurringJobExecutor = environment.lifecycle()
         .scheduledExecutorService(name(name, "recurringJob-%d")).threads(2).build();
     Scheduler messageDeliveryScheduler = Schedulers.fromExecutorService(
-        environment.lifecycle().executorService("messageDelivery").maxThreads(4)
-            .build());
+        environment.lifecycle().executorService("messageDelivery").minThreads(4).maxThreads(4).build());
     ExecutorService keyspaceNotificationDispatchExecutor = environment.lifecycle()
-        .executorService(name(name, "keyspaceNotification-%d")).maxThreads(4).build();
+        .executorService(name(name, "keyspaceNotification-%d")).minThreads(4).maxThreads(4).build();
     ExecutorService messageDeletionExecutor = environment.lifecycle()
-        .executorService(name(name, "messageDeletion-%d")).maxThreads(4).build();
+        .executorService(name(name, "messageDeletion-%d")).minThreads(4).maxThreads(4).build();
     ExecutorService secureValueRecoveryServiceExecutor = environment.lifecycle()
         .executorService(name(name, "secureValueRecoveryService-%d")).maxThreads(8).minThreads(8).build();
     ExecutorService storageServiceExecutor = environment.lifecycle()
