@@ -560,6 +560,290 @@ paths:
             application/json: {}
       security:
       - authenticatedAccount: []
+  /v1/archives/upload/form:
+    get:
+      tags:
+      - Archive
+      summary: Fetch message backup upload form
+      description: Retrieve an upload form that can be used to perform a resumable
+        upload of a message backup.
+      operationId: backup
+      parameters:
+      - name: X-Signal-ZK-Auth
+        in: header
+        description: Presentation of a ZK backup auth credential acquired from /v1/archives/auth
+          as a base64 encoded string
+        required: true
+        schema:
+          type: string
+      - name: X-Signal-ZK-Auth-Signature
+        in: header
+        description: Signature of the ZK auth credential's presentation as a base64
+          encoded string
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageBackupResponse'
+        "429":
+          description: Rate limited.
+        "403":
+          description: Forbidden. The request had insufficient permissions to perform
+            the requested action
+        "401":
+          description: The provided backup auth credential presentation could not
+            be verified
+        "400":
+          description: Bad arguments. The request may have been made on an authenticated
+            channel
+      security:
+      - authenticatedAccount: []
+      - {}
+  /v1/archives:
+    get:
+      tags:
+      - Archive
+      summary: Fetch backup info
+      description: Retrieve information about the currently stored backup
+      operationId: backupInfo
+      parameters:
+      - name: X-Signal-ZK-Auth
+        in: header
+        description: Presentation of a ZK backup auth credential acquired from /v1/archives/auth
+          as a base64 encoded string
+        required: true
+        schema:
+          type: string
+      - name: X-Signal-ZK-Auth-Signature
+        in: header
+        description: Signature of the ZK auth credential's presentation as a base64
+          encoded string
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackupInfoResponse'
+        "404":
+          description: No existing backups found
+        "429":
+          description: Rate limited.
+        "403":
+          description: Forbidden. The request had insufficient permissions to perform
+            the requested action
+        "401":
+          description: The provided backup auth credential presentation could not
+            be verified
+        "400":
+          description: Bad arguments. The request may have been made on an authenticated
+            channel
+      security:
+      - authenticatedAccount: []
+      - {}
+    post:
+      tags:
+      - Archive
+      summary: Refresh backup
+      description: |
+        Indicate that this backup is still active. Clients must periodically upload new backups or perform a refresh
+        via a POST request. If a backup is not refreshed, after 30 days it may be deleted.
+      operationId: refresh
+      parameters:
+      - name: X-Signal-ZK-Auth
+        in: header
+        description: Presentation of a ZK backup auth credential acquired from /v1/archives/auth
+          as a base64 encoded string
+        required: true
+        schema:
+          type: string
+      - name: X-Signal-ZK-Auth-Signature
+        in: header
+        description: Signature of the ZK auth credential's presentation as a base64
+          encoded string
+        required: true
+        schema:
+          type: string
+      responses:
+        "204":
+          description: The backup was successfully refreshed
+        "429":
+          description: Rate limited.
+        "403":
+          description: Forbidden. The request had insufficient permissions to perform
+            the requested action
+        "401":
+          description: The provided backup auth credential presentation could not
+            be verified
+        "400":
+          description: Bad arguments. The request may have been made on an authenticated
+            channel
+      security:
+      - authenticatedAccount: []
+      - {}
+  /v1/archives/auth:
+    get:
+      tags:
+      - Archive
+      summary: 'Fetch ZK credentials '
+      description: |
+        After setting a blinded backup-id with PUT /v1/archives/, this fetches credentials that can be used to perform
+        operations against that backup-id. Clients may (and should) request up to 7 days of credentials at a time.
+
+        The redemptionStart and redemptionEnd seconds must be UTC day aligned, and must not span more than 7 days.
+      operationId: getBackupZKCredentials
+      parameters:
+      - name: redemptionStartSeconds
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int32
+      - name: redemptionEndSeconds
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackupAuthCredentialsResponse'
+        "400":
+          description: The start/end did not meet alignment/duration requirements
+        "404":
+          description: Could not find an existing blinded backup id
+        "429":
+          description: Rate limited.
+      security:
+      - authenticatedAccount: []
+  /v1/archives/auth/read:
+    get:
+      tags:
+      - Archive
+      summary: Get CDN read credentials
+      description: Retrieve credentials used to read objects stored on the backup
+        cdn
+      operationId: readAuth
+      parameters:
+      - name: X-Signal-ZK-Auth
+        in: header
+        description: Presentation of a ZK backup auth credential acquired from /v1/archives/auth
+          as a base64 encoded string
+        required: true
+        schema:
+          type: string
+      - name: X-Signal-ZK-Auth-Signature
+        in: header
+        description: Signature of the ZK auth credential's presentation as a base64
+          encoded string
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadAuthResponse'
+        "429":
+          description: Rate limited.
+        "403":
+          description: Forbidden. The request had insufficient permissions to perform
+            the requested action
+        "401":
+          description: The provided backup auth credential presentation could not
+            be verified
+        "400":
+          description: Bad arguments. The request may have been made on an authenticated
+            channel
+      security:
+      - authenticatedAccount: []
+      - {}
+  /v1/archives/backupid:
+    put:
+      tags:
+      - Archive
+      summary: Set backup id
+      description: |
+        Set a (blinded) backup-id for the account. Each account may have a single active backup-id that can be used
+        to store and retrieve backups. Once the backup-id is set, BackupAuthCredentials can be generated
+        using /v1/archives/auth.
+
+        The blinded backup-id and the key-pair used to blind it should be derived from a recoverable secret.
+      operationId: setBackupId
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetBackupIdRequest'
+        required: true
+      responses:
+        "204":
+          description: The backup-id was set
+        "400":
+          description: The provided backup auth credential request was invalid
+        "429":
+          description: Rate limited. Too many attempts to change the backup-id have
+            been made
+      security:
+      - authenticatedAccount: []
+  /v1/archives/keys:
+    put:
+      tags:
+      - Archive
+      summary: Set public key
+      description: |
+        Permanently set the public key of an ED25519 key-pair for the backup-id. All requests that provide a anonymous
+        BackupAuthCredentialPresentation (including this one!) must also sign the presentation with the private key
+        corresponding to the provided public key.
+      operationId: setPublicKey
+      parameters:
+      - name: X-Signal-ZK-Auth
+        in: header
+        description: Presentation of a ZK backup auth credential acquired from /v1/archives/auth
+          as a base64 encoded string
+        required: true
+        schema:
+          type: string
+      - name: X-Signal-ZK-Auth-Signature
+        in: header
+        description: Signature of the ZK auth credential's presentation as a base64
+          encoded string
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetPublicKeyRequest'
+        required: true
+      responses:
+        "204":
+          description: The public key was set
+        "429":
+          description: Rate limited.
+        "403":
+          description: Forbidden. The request had insufficient permissions to perform
+            the requested action
+        "401":
+          description: The provided backup auth credential presentation could not
+            be verified
+        "400":
+          description: Bad arguments. The request may have been made on an authenticated
+            channel
+      security:
+      - authenticatedAccount: []
+      - {}
   /v1/art/auth:
     get:
       tags:
@@ -2660,14 +2944,14 @@ components:
     ECPublicKey:
       type: object
       properties:
+        type:
+          type: integer
+          format: int32
         publicKeyBytes:
           type: array
           items:
             type: string
             format: byte
-        type:
-          type: integer
-          format: int32
     ECSignedPreKey:
       type: object
       properties:
@@ -2849,6 +3133,96 @@ components:
       properties:
         discoverableByPhoneNumber:
           type: boolean
+    MessageBackupResponse:
+      type: object
+      properties:
+        cdn:
+          type: integer
+          description: Indicates the CDN type. 3 indicates resumable uploads using
+            TUS
+          format: int32
+        key:
+          type: string
+          description: The location within the specified cdn where the finished upload
+            can be found.
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+            description: A map of headers to include with all upload requests. Potentially
+              contains time-limited upload credentials
+          description: A map of headers to include with all upload requests. Potentially
+            contains time-limited upload credentials
+        signedUploadLocation:
+          type: string
+          description: The URL to upload to with the appropriate protocol
+    BackupInfoResponse:
+      type: object
+      properties:
+        cdn:
+          type: integer
+          description: "If present, the CDN type where the message backup is stored"
+          format: int32
+        backupDir:
+          type: string
+          description: "If present, the directory of your backup data on the cdn."
+        backupName:
+          type: string
+          description: "If present, the name of the most recent message backup on\
+            \ the cdn. The backup is at /backupDir/backupName"
+        usedSpace:
+          type: integer
+          description: The amount of space used to store media
+          format: int64
+    BackupAuthCredential:
+      type: object
+      properties:
+        credential:
+          type: array
+          description: A base64 encoded BackupAuthCredential
+          items:
+            type: string
+            description: A base64 encoded BackupAuthCredential
+            format: byte
+        redemptionTime:
+          type: integer
+          description: The day on which this credential is valid. Seconds since epoch
+            truncated to day boundary
+          format: int64
+      description: A list of BackupAuthCredentials and their validity periods
+    BackupAuthCredentialsResponse:
+      type: object
+      properties:
+        credentials:
+          type: array
+          description: A list of BackupAuthCredentials and their validity periods
+          items:
+            $ref: '#/components/schemas/BackupAuthCredential'
+    ReadAuthResponse:
+      type: object
+      properties:
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+            description: Auth headers to include with cdn read requests
+          description: Auth headers to include with cdn read requests
+    SetBackupIdRequest:
+      required:
+      - backupAuthCredentialRequest
+      type: object
+      properties:
+        backupAuthCredentialRequest:
+          type: string
+          description: |
+            A BackupAuthCredentialRequest containing a blinded encrypted backup-id, encoded as a base64 string
+    SetPublicKeyRequest:
+      type: object
+      properties:
+        backupIdPublicKey:
+          type: string
+          description: "The public key, serialized in libsignal's elliptic-curve public\
+            \ key format and then base64-encoded."
     AttachmentDescriptorV2:
       type: object
       properties:
@@ -3109,13 +3483,13 @@ components:
     WebSocketClient:
       type: object
       properties:
-        createdTimestamp:
-          type: integer
-          format: int64
         userAgent:
           type: string
         open:
           type: boolean
+        createdTimestamp:
+          type: integer
+          format: int64
     WebSocketSessionContext:
       type: object
       properties:
@@ -3550,16 +3924,16 @@ components:
             type: string
         commitment:
           $ref: '#/components/schemas/ProfileKeyCommitment'
+        badges:
+          type: array
+          items:
+            type: string
         avatarChange:
           type: string
           enum:
           - UNCHANGED
           - CLEAR
           - UPDATE
-        badges:
-          type: array
-          items:
-            type: string
     ProfileKeyCommitment:
       type: object
       properties:
