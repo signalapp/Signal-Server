@@ -6,6 +6,7 @@ package org.whispersystems.websocket;
 
 import static java.util.Optional.ofNullable;
 
+import com.google.common.net.HttpHeaders;
 import io.dropwizard.jersey.jackson.JacksonMessageBodyProvider;
 import java.io.IOException;
 import java.security.Principal;
@@ -90,7 +91,7 @@ public class WebSocketResourceProviderFactory<T extends Principal> extends WebSo
   }
 
   private String getRemoteAddress(ServletUpgradeRequest request) {
-    String forwardedFor = request.getHeader("X-Forwarded-For");
+    String forwardedFor = request.getHeader(HttpHeaders.X_FORWARDED_FOR);
 
     if (forwardedFor == null || forwardedFor.isBlank()) {
       return request.getRemoteAddress();

@@ -5,6 +5,7 @@
 package org.whispersystems.websocket;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.net.HttpHeaders;
 import com.google.protobuf.UninitializedMessageException;
 import org.eclipse.jetty.websocket.api.MessageTooLargeException;
 import org.eclipse.jetty.websocket.api.RemoteEndpoint;
@@ -201,7 +202,7 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
 
   @VisibleForTesting
   static boolean shouldIncludeRequestMessageHeader(final String header) {
-    return !"X-Forwarded-For".equalsIgnoreCase(header.trim());
+    return !HttpHeaders.X_FORWARDED_FOR.equalsIgnoreCase(header.trim());
   }
 
   private void handleResponse(WebSocketResponseMessage responseMessage) {

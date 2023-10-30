@@ -653,13 +653,13 @@ class WebSocketResourceProviderTest {
     assertThat(WebSocketResourceProvider.shouldIncludeUpgradeRequestHeader("Connection")).isFalse();
     assertThat(WebSocketResourceProvider.shouldIncludeUpgradeRequestHeader("Sec-WebSocket-Key")).isFalse();
     assertThat(WebSocketResourceProvider.shouldIncludeUpgradeRequestHeader(HttpHeaders.USER_AGENT)).isTrue();
-    assertThat(WebSocketResourceProvider.shouldIncludeUpgradeRequestHeader("X-Forwarded-For")).isTrue();
+    assertThat(WebSocketResourceProvider.shouldIncludeUpgradeRequestHeader(HttpHeaders.X_FORWARDED_FOR)).isTrue();
     assertThat(WebSocketResourceProvider.shouldIncludeUpgradeRequestHeader("X-Signal-Receive-Stories")).isTrue();
   }
 
   @Test
   void testShouldIncludeRequestMessageHeader() {
-    assertThat(WebSocketResourceProvider.shouldIncludeRequestMessageHeader("X-Forwarded-For")).isFalse();
+    assertThat(WebSocketResourceProvider.shouldIncludeRequestMessageHeader(HttpHeaders.X_FORWARDED_FOR)).isFalse();
     assertThat(WebSocketResourceProvider.shouldIncludeRequestMessageHeader(HttpHeaders.USER_AGENT)).isTrue();
     assertThat(WebSocketResourceProvider.shouldIncludeRequestMessageHeader("X-Signal-Receive-Stories")).isTrue();
   }
@@ -673,16 +673,16 @@ class WebSocketResourceProviderTest {
         "Sec-WebSocket-Key", List.of("dGhlIHNhbXBsZSBub25jZQ=="),
         "Sec-WebSocket-Protocol", List.of("chat, superchat"),
         "Sec-WebSocket-Version", List.of("13"),
-        "X-Forwarded-For", List.of("127.0.0.1"),
+        HttpHeaders.X_FORWARDED_FOR, List.of("127.0.0.1"),
         HttpHeaders.USER_AGENT, List.of("Upgrade request user agent"));
 
     final Map<String, String> requestMessageHeaders = Map.of(
-        "X-Forwarded-For", "192.168.0.1",
+        HttpHeaders.X_FORWARDED_FOR, "192.168.0.1",
         HttpHeaders.USER_AGENT, "Request message user agent");
 
     final Map<String, List<String>> expectedHeaders = Map.of(
         "Host", List.of("server.example.com"),
-        "X-Forwarded-For", List.of("127.0.0.1"),
+        HttpHeaders.X_FORWARDED_FOR, List.of("127.0.0.1"),
         HttpHeaders.USER_AGENT, List.of("Request message user agent"));
 
     assertThat(WebSocketResourceProvider.getCombinedHeaders(upgradeRequestHeaders, requestMessageHeaders)).isEqualTo(
