@@ -193,7 +193,6 @@ public class MessageController {
   public Response sendMessage(@Auth Optional<AuthenticatedAccount> source,
       @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
       @HeaderParam(HttpHeaders.USER_AGENT) String userAgent,
-      @HeaderParam(HttpHeaders.X_FORWARDED_FOR) String forwardedFor,
       @PathParam("destination") ServiceIdentifier destinationIdentifier,
       @QueryParam("story") boolean isStory,
       @NotNull @Valid IncomingMessageList messages,
@@ -375,7 +374,6 @@ public class MessageController {
   public Response sendMultiRecipientMessage(
       @HeaderParam(OptionalAccess.UNIDENTIFIED) @Nullable CombinedUnidentifiedSenderAccessKeys accessKeys,
       @HeaderParam(HttpHeaders.USER_AGENT) String userAgent,
-      @HeaderParam(HttpHeaders.X_FORWARDED_FOR) String forwardedFor,
       @QueryParam("online") boolean online,
       @QueryParam("ts") long timestamp,
       @QueryParam("urgent") @DefaultValue("true") final boolean isUrgent,
