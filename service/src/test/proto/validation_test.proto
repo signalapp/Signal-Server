@@ -1,0 +1,80 @@
+/*
+ * Copyright 2023 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
+syntax = "proto3";
+
+option java_multiple_files = true;
+
+package org.signal.chat.rpc;
+
+import "org/signal/chat/require.proto";
+import "google/protobuf/empty.proto";
+
+service ValidationTestService {
+  rpc ValidationsEndpoint (ValidationsRequest) returns (ValidationsResponse) {}
+}
+
+service AuthService {
+  option (require.auth) = AUTH_ONLY_AUTHENTICATED;
+
+  rpc AuthenticatedMethod (google.protobuf.Empty) returns (google.protobuf.Empty) {}
+}
+
+service AnonymousService {
+  option (require.auth) = AUTH_ONLY_ANONYMOUS;
+
+  rpc AnonymousMethod (google.protobuf.Empty) returns (google.protobuf.Empty) {}
+}
+
+message ValidationsRequest {
+  optional string number = 1 [(require.e164) = true];
+
+  optional string fixedSizeString = 2 [(require.exactlySize) = 5];
+  optional string rangeSizeString = 3 [(require.size) = {min: 3, max: 8}];
+
+  optional bytes fixedSizeBytes = 4 [(require.exactlySize) = 5];
+  optional bytes rangeSizeBytes = 5 [(require.size) = {min: 3, max: 8}];
+
+  repeated string fixedSizeList = 6 [(require.exactlySize) = 5];
+  repeated string rangeSizeList = 7 [(require.size) = {min: 3, max: 8}];
+
+  bytes withMinBytes = 8 [(require.size).min = 3];
+  string withMinString = 9 [(require.size).min = 3];
+
+  bytes withMaxBytes = 10 [(require.size).max = 8];
+  string withMaxString = 11 [(require.size).max = 8];
+
+  optional string exactlySizeVariants = 12 [(require.exactlySize) = 2, (require.exactlySize) = 4];
+  optional string exactlySizeVariantsWithZero = 13 [(require.exactlySize) = 0, (require.exactlySize) = 4];
+
+  optional string nonEmptyStringOptional = 14 [(require.nonEmpty) = true];
+  optional bytes nonEmptyBytesOptional = 15 [(require.nonEmpty) = true];
+  string nonEmptyString = 16 [(require.nonEmpty) = true];
+  bytes nonEmptyBytes = 17 [(require.nonEmpty) = true];
+  repeated string nonEmptyList = 18 [(require.nonEmpty) = true];
+
+  optional Color colorOptional = 19 [(require.specified) = true];
+  Color color = 20 [(require.specified) = true];
+
+  int32 i32 = 21 [(require.range).max = 100];
+  uint32 ui32 = 22 [(require.range).max = 100];
+  int32 i32range = 23 [(require.range) = {min: 10, max: 20}];
+  optional int32 i32OptRange = 24 [(require.range) = {min: 10, max: 20}];
+}
+
+message MessageWithInvalidRangeConstraint {
+  int32 i32 = 1 [(require.range) = {min: 10, max: 5}];
+}
+
+enum Color {
+  COLOR_UNSPECIFIED = 0;
+  COLOR_RED = 1;
+  COLOR_GREEN = 2;
+  COLOR_BLUE = 3;
+}
+
+message ValidationsResponse {
+}
+
