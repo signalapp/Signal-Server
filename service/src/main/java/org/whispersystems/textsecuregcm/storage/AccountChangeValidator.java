@@ -5,12 +5,10 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.util.Optionals;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
-import java.util.Arrays;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 class AccountChangeValidator {
