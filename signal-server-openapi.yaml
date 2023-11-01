@@ -1489,9 +1489,9 @@ paths:
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
                   cancelled:
+                    type: boolean
+                  done:
                     type: boolean
       security:
       - authenticatedAccount: []
@@ -2123,9 +2123,9 @@ paths:
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
                   cancelled:
+                    type: boolean
+                  done:
                     type: boolean
       security:
       - authenticatedAccount: []
@@ -2165,9 +2165,9 @@ paths:
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
                   cancelled:
+                    type: boolean
+                  done:
                     type: boolean
       security:
       - authenticatedAccount: []
@@ -2206,9 +2206,9 @@ paths:
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
                   cancelled:
+                    type: boolean
+                  done:
                     type: boolean
       security:
       - authenticatedAccount: []
@@ -2341,9 +2341,9 @@ paths:
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
                   cancelled:
+                    type: boolean
+                  done:
                     type: boolean
       deprecated: true
       security:
@@ -2378,9 +2378,9 @@ paths:
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
                   cancelled:
+                    type: boolean
+                  done:
                     type: boolean
       security:
       - authenticatedAccount: []
@@ -2422,9 +2422,9 @@ paths:
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
                   cancelled:
+                    type: boolean
+                  done:
                     type: boolean
       security:
       - authenticatedAccount: []
@@ -2469,9 +2469,9 @@ paths:
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
                   cancelled:
+                    type: boolean
+                  done:
                     type: boolean
       security:
       - authenticatedAccount: []
