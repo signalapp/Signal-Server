@@ -34,6 +34,17 @@ public class DevicesHelper {
     return device;
   }
 
+  public static Device createDisabledDevice(final long deviceId, final int registrationId) {
+    final Device device = new Device();
+    device.setId(deviceId);
+    device.setUserAgent("OWT");
+    device.setRegistrationId(registrationId);
+
+    setEnabled(device, false);
+
+    return device;
+  }
+
   public static void setEnabled(Device device, boolean enabled) {
     if (enabled) {
       device.setSignedPreKey(KeysHelper.signedECPreKey(RANDOM.nextLong(), Curve.generateKeyPair()));

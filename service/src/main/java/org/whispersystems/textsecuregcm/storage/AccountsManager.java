@@ -336,12 +336,16 @@ public class AccountsManager {
       keysManager.storeEcSignedPreKeys(phoneNumberIdentifier, pniSignedPreKeys);
 
       if (pniPqLastResortPreKeys != null) {
-        keysManager.storePqLastResort(
-            phoneNumberIdentifier,
-            keysManager.getPqEnabledDevices(uuid).join().stream().collect(
-                Collectors.toMap(
-                    Function.identity(),
-                    pniPqLastResortPreKeys::get)));
+        keysManager.getPqEnabledDevices(uuid).thenCompose(
+            deviceIds -> keysManager.storePqLastResort(
+                phoneNumberIdentifier,
+                deviceIds.stream()
+                    .filter(pniPqLastResortPreKeys::containsKey)
+                    .collect(
+                        Collectors.toMap(
+                            Function.identity(),
+                            pniPqLastResortPreKeys::get))))
+            .join();
       }
     });
 
@@ -373,11 +377,17 @@ public class AccountsManager {
     final UUID pni = account.getPhoneNumberIdentifier();
     final Account updatedAccount = update(account, a -> { return setPniKeys(a, pniIdentityKey, pniSignedPreKeys, pniRegistrationIds); });
 
-    final List<Long> pqEnabledDeviceIDs = keysManager.getPqEnabledDevices(pni).join();
     keysManager.delete(pni);
     keysManager.storeEcSignedPreKeys(pni, pniSignedPreKeys).join();
-    if (pniPqLastResortPreKeys != null && !pqEnabledDeviceIDs.isEmpty()) {
-      keysManager.storePqLastResort(pni, pqEnabledDeviceIDs.stream().collect(Collectors.toMap(Function.identity(), pniPqLastResortPreKeys::get))).join();
+    if (pniPqLastResortPreKeys != null) {
+      keysManager.getPqEnabledDevices(pni)
+          .thenCompose(
+              deviceIds -> keysManager.storePqLastResort(
+                  pni,
+                  deviceIds.stream()
+                      .filter(pniPqLastResortPreKeys::containsKey)
+                      .collect(Collectors.toMap(Function.identity(), pniPqLastResortPreKeys::get))))
+          .join();
     }
 
     return updatedAccount;

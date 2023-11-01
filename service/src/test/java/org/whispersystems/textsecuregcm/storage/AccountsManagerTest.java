@@ -1118,9 +1118,13 @@ class AccountsManagerTest {
 
     final Account existingAccount = AccountsHelper.generateTestAccount(targetNumber, existingAccountUuid, targetPni, new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
     when(accounts.getByE164(targetNumber)).thenReturn(Optional.of(existingAccount));
-    when(keysManager.getPqEnabledDevices(uuid)).thenReturn(CompletableFuture.completedFuture(List.of(1L)));
+    when(keysManager.getPqEnabledDevices(uuid)).thenReturn(CompletableFuture.completedFuture(List.of(1L, 3L)));
+    when(keysManager.storePqLastResort(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
-    final List<Device> devices = List.of(DevicesHelper.createDevice(1L, 0L, 101), DevicesHelper.createDevice(2L, 0L, 102));
+    final List<Device> devices = List.of(
+        DevicesHelper.createDevice(1L, 0L, 101),
+        DevicesHelper.createDevice(2L, 0L, 102),
+        DevicesHelper.createDisabledDevice(3L, 103));
     final Account account = AccountsHelper.generateTestAccount(originalNumber, uuid, originalPni, devices, new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
     final Account updatedAccount = accountsManager.changeNumber(
         account, targetNumber, new IdentityKey(Curve.generateKeyPair().getPublicKey()), newSignedKeys, newSignedPqKeys, newRegistrationIds);
@@ -1306,11 +1310,7 @@ class AccountsManagerTest {
 
     when(keysManager.getPqEnabledDevices(oldPni)).thenReturn(CompletableFuture.completedFuture(List.of()));
     when(keysManager.storeEcSignedPreKeys(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
-    when(keysManager.storePqLastResort(any(), any())).thenAnswer(
-        invocation -> {
-          assertFalse(invocation.getArgument(1, Map.class).isEmpty());
-          return CompletableFuture.completedFuture(null);
-        });
+    when(keysManager.storePqLastResort(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
     Map<Long, ECSignedPreKey> oldSignedPreKeys = account.getDevices().stream()
         .collect(Collectors.toMap(Device::getId, d -> d.getSignedPreKey(IdentityType.ACI)));
@@ -1342,9 +1342,7 @@ class AccountsManagerTest {
 
     verify(keysManager).delete(oldPni);
     verify(keysManager).storeEcSignedPreKeys(oldPni, newSignedKeys);
-
-    // no pq-enabled devices -> no pq last resort keys should be stored
-    verify(keysManager, never()).storePqLastResort(any(), any());
+    verify(keysManager).storePqLastResort(any(), argThat(Map::isEmpty));
   }
 
   @Test
