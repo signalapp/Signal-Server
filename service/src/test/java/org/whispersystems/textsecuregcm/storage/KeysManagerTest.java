@@ -265,6 +265,9 @@ class KeysManagerTest {
         "storing new last-resort keys should leave untouched ones alone");
     assertEquals(4L, keysManager.getLastResort(ACCOUNT_UUID, deviceId3).join().get().keyId(),
         "storing new last-resort keys should overwrite old ones");
+
+    keysManager.storePqLastResort(ACCOUNT_UUID, Map.of()).join();
+    assertEquals(3, keysManager.getPqEnabledDevices(ACCOUNT_UUID).join().size(), "storing zero last-resort keys should be a no-op");
   }
 
   @Test

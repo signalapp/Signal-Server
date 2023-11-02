@@ -88,6 +88,10 @@ public abstract class RepeatedUseSignedPreKeyStore<K extends SignedPreKey<?>> {
    * @return a future that completes once all keys have been stored
    */
   public CompletableFuture<Void> store(final UUID identifier, final Map<Byte, K> signedPreKeysByDeviceId) {
+    if (signedPreKeysByDeviceId.isEmpty()) {
+      return CompletableFuture.completedFuture(null);
+    }
+
     final Timer.Sample sample = Timer.start();
 
     return dynamoDbAsyncClient.transactWriteItems(TransactWriteItemsRequest.builder()
