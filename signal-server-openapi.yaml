@@ -1187,8 +1187,8 @@ paths:
         in: path
         required: true
         schema:
-          type: integer
-          format: int64
+          type: string
+          format: byte
       responses:
         default:
           description: default response
@@ -1489,9 +1489,9 @@ paths:
                   numberOfDependents:
                     type: integer
                     format: int32
-                  cancelled:
-                    type: boolean
                   done:
+                    type: boolean
+                  cancelled:
                     type: boolean
       security:
       - authenticatedAccount: []
@@ -2123,9 +2123,9 @@ paths:
                   numberOfDependents:
                     type: integer
                     format: int32
-                  cancelled:
-                    type: boolean
                   done:
+                    type: boolean
+                  cancelled:
                     type: boolean
       security:
       - authenticatedAccount: []
@@ -2165,9 +2165,9 @@ paths:
                   numberOfDependents:
                     type: integer
                     format: int32
-                  cancelled:
-                    type: boolean
                   done:
+                    type: boolean
+                  cancelled:
                     type: boolean
       security:
       - authenticatedAccount: []
@@ -2206,9 +2206,9 @@ paths:
                   numberOfDependents:
                     type: integer
                     format: int32
-                  cancelled:
-                    type: boolean
                   done:
+                    type: boolean
+                  cancelled:
                     type: boolean
       security:
       - authenticatedAccount: []
@@ -2341,9 +2341,9 @@ paths:
                   numberOfDependents:
                     type: integer
                     format: int32
-                  cancelled:
-                    type: boolean
                   done:
+                    type: boolean
+                  cancelled:
                     type: boolean
       deprecated: true
       security:
@@ -2378,9 +2378,9 @@ paths:
                   numberOfDependents:
                     type: integer
                     format: int32
-                  cancelled:
-                    type: boolean
                   done:
+                    type: boolean
+                  cancelled:
                     type: boolean
       security:
       - authenticatedAccount: []
@@ -2422,9 +2422,9 @@ paths:
                   numberOfDependents:
                     type: integer
                     format: int32
-                  cancelled:
-                    type: boolean
                   done:
+                    type: boolean
+                  cancelled:
                     type: boolean
       security:
       - authenticatedAccount: []
@@ -2469,9 +2469,9 @@ paths:
                   numberOfDependents:
                     type: integer
                     format: int32
-                  cancelled:
-                    type: boolean
                   done:
+                    type: boolean
+                  cancelled:
                     type: boolean
       security:
       - authenticatedAccount: []
@@ -2837,16 +2837,16 @@ components:
           type: array
           description: Devices present on the account but absent in the request
           items:
-            type: integer
+            type: string
             description: Devices present on the account but absent in the request
-            format: int64
+            format: byte
         extraDevices:
           type: array
           description: Devices absent on the request but present in the account
           items:
-            type: integer
+            type: string
             description: Devices absent on the request but present in the account
-            format: int64
+            format: byte
     StaleDevices:
       type: object
       properties:
@@ -2854,9 +2854,9 @@ components:
           type: array
           description: Devices that are no longer active
           items:
-            type: integer
+            type: string
             description: Devices that are no longer active
-            format: int64
+            format: byte
     ExternalServiceCredentials:
       type: object
       properties:
@@ -2991,8 +2991,8 @@ components:
           type: integer
           format: int32
         destinationDeviceId:
-          type: integer
-          format: int64
+          type: string
+          format: byte
         destinationRegistrationId:
           type: integer
           format: int32
@@ -3116,8 +3116,8 @@ components:
       type: object
       properties:
         id:
-          type: integer
-          format: int64
+          type: string
+          format: byte
         lastSeen:
           type: string
           format: date-time
@@ -3415,8 +3415,8 @@ components:
           type: string
           format: uuid
         deviceId:
-          type: integer
-          format: int64
+          type: string
+          format: byte
     BasicAuthorizationHeader:
       type: object
       properties:
@@ -3528,9 +3528,9 @@ components:
       type: object
       properties:
         deviceId:
-          type: integer
+          type: string
           description: the device ID of the device to which this item pertains
-          format: int64
+          format: byte
         registrationId:
           type: integer
           description: the registration ID for the device
@@ -3655,9 +3655,8 @@ components:
           description: A service identifier is a tuple of a UUID and identity type
             that identifies an account and identity within the Signal service.
         deviceId:
-          minimum: 1
-          type: integer
-          format: int64
+          type: string
+          format: byte
         registrationId:
           maximum: 65535
           minimum: 0
