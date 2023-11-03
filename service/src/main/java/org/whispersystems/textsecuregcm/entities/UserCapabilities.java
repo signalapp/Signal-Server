@@ -39,8 +39,7 @@ public record UserCapabilities(
         true,
         true,
 
-        // Hardcode payment activation flag to false until all clients support the flow
-        false,
+        account.isPaymentActivationSupported(),
 
         // Although originally intended to indicate that clients support phone number identifiers, the scope of this
         // flag has expanded to cover phone number privacy in general
