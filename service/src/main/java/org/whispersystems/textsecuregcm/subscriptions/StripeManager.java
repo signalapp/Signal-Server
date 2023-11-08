@@ -593,7 +593,14 @@ public class StripeManager implements SubscriptionProcessorManager {
       throw new WebApplicationException(Status.NO_CONTENT);
     }
     if (!StringUtils.equalsIgnoreCase("paid", latestSubscriptionInvoice.getStatus())) {
-      throw new WebApplicationException(Status.PAYMENT_REQUIRED);
+      final Response.ResponseBuilder responseBuilder = Response.status(Status.PAYMENT_REQUIRED);
+      if (latestSubscriptionInvoice.getChargeObject() != null) {
+        final Charge charge = latestSubscriptionInvoice.getChargeObject();
+        if (charge.getFailureCode() != null || charge.getFailureMessage() != null) {
+          responseBuilder.entity(Map.of("chargeFailure", createChargeFailure(charge)));
+        }
+      }
+      throw new WebApplicationException(responseBuilder.build());
     }
 
     return getInvoiceLineItemsForInvoice(latestSubscriptionInvoice).thenCompose(invoiceLineItems -> {
