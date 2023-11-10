@@ -20,7 +20,7 @@ import javax.validation.constraints.Positive;
 public record OneTimeDonationConfiguration(@Valid ExpiringLevelConfiguration boost,
                                            @Valid ExpiringLevelConfiguration gift,
                                            Map<String, @Valid OneTimeDonationCurrencyConfiguration> currencies,
-                                           BigDecimal sepaMaxTransactionSizeEuros) {
+                                           BigDecimal sepaMaximumEuros) {
 
   /**
    * @param badge      the numeric donation level ID

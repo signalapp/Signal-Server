@@ -342,7 +342,7 @@ subscription: # configuration for Stripe subscriptions
             BRAINTREE: plan_example # braintree Plan ID
 
 oneTimeDonations:
-  sepaMaxTransactionSizeEuros: '10000'
+  sepaMaximumEuros: '10000'
   boost:
     level: 1
     expiration: P90D

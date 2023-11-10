@@ -802,6 +802,7 @@ class SubscriptionControllerTest {
         .header(HttpHeaders.USER_AGENT, userAgent)
         .get(GetSubscriptionConfigurationResponse.class);
 
+    assertThat(response.sepaMaximumEuros()).isEqualTo("10000");
     assertThat(response.currencies()).containsKeys("usd", "jpy", "bif", "eur").satisfies(currencyMap -> {
       assertThat(currencyMap).extractingByKey("usd").satisfies(currency -> {
         assertThat(currency.minimum()).isEqualByComparingTo(
@@ -1087,7 +1088,7 @@ class SubscriptionControllerTest {
               - '8000'
               - '9000'
               - '10000'
-        sepaMaxTransactionSizeEuros: '10000'
+        sepaMaximumEuros: '10000'
         """;
 
   }

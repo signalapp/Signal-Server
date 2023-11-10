@@ -229,7 +229,7 @@ public class SubscriptionController {
                 giftBadge,
                 oneTimeDonationConfiguration.gift().expiration())));
 
-    return new GetSubscriptionConfigurationResponse(buildCurrencyConfiguration(userAgent), levels);
+    return new GetSubscriptionConfigurationResponse(buildCurrencyConfiguration(userAgent), levels, oneTimeDonationConfiguration.sepaMaximumEuros().toString());
   }
 
   @DELETE
@@ -537,7 +537,8 @@ public class SubscriptionController {
    * @param levels     map of numeric level IDs to level-specific configuration
    */
   public record GetSubscriptionConfigurationResponse(Map<String, CurrencyConfiguration> currencies,
-                                                     Map<String, LevelConfiguration> levels) {
+                                                     Map<String, LevelConfiguration> levels,
+                                                     String sepaMaximumEuros) {
 
   }
 
@@ -712,11 +713,11 @@ public class SubscriptionController {
     if (request.paymentMethod == PaymentMethod.SEPA_DEBIT &&
         amount.compareTo(SubscriptionCurrencyUtil.convertConfiguredAmountToApiAmount(
             EURO_CURRENCY_CODE,
-            oneTimeDonationConfiguration.sepaMaxTransactionSizeEuros())) > 0) {
+            oneTimeDonationConfiguration.sepaMaximumEuros())) > 0) {
       throw new BadRequestException(Response.status(Status.BAD_REQUEST)
           .entity(Map.of(
               "error", "amount_above_sepa_limit",
-              "maximum", oneTimeDonationConfiguration.sepaMaxTransactionSizeEuros().toString())).build());
+              "maximum", oneTimeDonationConfiguration.sepaMaximumEuros().toString())).build());
     }
   }
 
