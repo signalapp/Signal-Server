@@ -568,21 +568,9 @@ public class StripeManager implements SubscriptionProcessorManager {
 
   @Override
   public CompletableFuture<ReceiptItem> getReceiptItem(String subscriptionId) {
-    return getLatestInvoiceForSubscription(subscriptionId)
+    return getSubscription(subscriptionId)
+        .thenApply(stripeSubscription -> getSubscription(stripeSubscription).getLatestInvoiceObject())
         .thenCompose(invoice -> convertInvoiceToReceipt(invoice, subscriptionId));
-  }
-
-  public CompletableFuture<Invoice> getLatestInvoiceForSubscription(String subscriptionId) {
-    return CompletableFuture.supplyAsync(() -> {
-      SubscriptionRetrieveParams params = SubscriptionRetrieveParams.builder()
-          .addExpand("latest_invoice")
-          .build();
-      try {
-        return stripeClient.subscriptions().retrieve(subscriptionId, params, commonOptions()).getLatestInvoiceObject();
-      } catch (StripeException e) {
-        throw new CompletionException(e);
-      }
-    }, executor);
   }
 
   private CompletableFuture<ReceiptItem> convertInvoiceToReceipt(Invoice latestSubscriptionInvoice, String subscriptionId) {
