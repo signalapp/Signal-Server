@@ -229,7 +229,7 @@ public class SubscriptionController {
                 giftBadge,
                 oneTimeDonationConfiguration.gift().expiration())));
 
-    return new GetSubscriptionConfigurationResponse(buildCurrencyConfiguration(userAgent), levels, oneTimeDonationConfiguration.sepaMaximumEuros().toString());
+    return new GetSubscriptionConfigurationResponse(buildCurrencyConfiguration(userAgent), levels, oneTimeDonationConfiguration.sepaMaximumEuros());
   }
 
   @DELETE
@@ -538,7 +538,7 @@ public class SubscriptionController {
    */
   public record GetSubscriptionConfigurationResponse(Map<String, CurrencyConfiguration> currencies,
                                                      Map<String, LevelConfiguration> levels,
-                                                     String sepaMaximumEuros) {
+                                                     BigDecimal sepaMaximumEuros) {
 
   }
 
