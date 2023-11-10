@@ -114,8 +114,7 @@ public class APNSender implements Managed, PushNotificationSender {
           .build();
 
       case RATE_LIMIT_CHALLENGE -> new SimpleApnsPayloadBuilder()
-          .setSound("default")
-          .setLocalizedAlertMessage("APN_Message")
+          .setContentAvailable(true)
           .addCustomProperty("rateLimitChallenge", notification.data())
           .build();
     };
