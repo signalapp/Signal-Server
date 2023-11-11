@@ -288,18 +288,18 @@ class DeviceControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get(VerificationCode.class);
 
-    final Optional<ECSignedPreKey> aciSignedPreKey;
-    final Optional<ECSignedPreKey> pniSignedPreKey;
-    final Optional<KEMSignedPreKey> aciPqLastResortPreKey;
-    final Optional<KEMSignedPreKey> pniPqLastResortPreKey;
+    final ECSignedPreKey aciSignedPreKey;
+    final ECSignedPreKey pniSignedPreKey;
+    final KEMSignedPreKey aciPqLastResortPreKey;
+    final KEMSignedPreKey pniPqLastResortPreKey;
 
     final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
     final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
 
-    aciSignedPreKey = Optional.of(KeysHelper.signedECPreKey(1, aciIdentityKeyPair));
-    pniSignedPreKey = Optional.of(KeysHelper.signedECPreKey(2, pniIdentityKeyPair));
-    aciPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair));
-    pniPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair));
+    aciSignedPreKey = KeysHelper.signedECPreKey(1, aciIdentityKeyPair);
+    pniSignedPreKey = KeysHelper.signedECPreKey(2, pniIdentityKeyPair);
+    aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair);
+    pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair);
 
     when(account.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
     when(account.getIdentityKey(IdentityType.PNI)).thenReturn(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
@@ -324,8 +324,8 @@ class DeviceControllerTest {
 
     final Device device = deviceCaptor.getValue();
 
-    assertEquals(aciSignedPreKey.get(), device.getSignedPreKey(IdentityType.ACI));
-    assertEquals(pniSignedPreKey.get(), device.getSignedPreKey(IdentityType.PNI));
+    assertEquals(aciSignedPreKey, device.getSignedPreKey(IdentityType.ACI));
+    assertEquals(pniSignedPreKey, device.getSignedPreKey(IdentityType.PNI));
     assertEquals(fetchesMessages, device.getFetchesMessages());
 
     expectedApnsToken.ifPresentOrElse(expectedToken -> assertEquals(expectedToken, device.getApnId()),
@@ -338,14 +338,13 @@ class DeviceControllerTest {
         () -> assertNull(device.getGcmId()));
 
     verify(messagesManager).clear(eq(AuthHelper.VALID_UUID), eq(NEXT_DEVICE_ID));
-    verify(keysManager).storeEcSignedPreKeys(AuthHelper.VALID_UUID, Map.of(response.getDeviceId(), aciSignedPreKey.get()));
-    verify(keysManager).storeEcSignedPreKeys(AuthHelper.VALID_PNI, Map.of(response.getDeviceId(), pniSignedPreKey.get()));
-    verify(keysManager).storePqLastResort(AuthHelper.VALID_UUID, Map.of(response.getDeviceId(), aciPqLastResortPreKey.get()));
-    verify(keysManager).storePqLastResort(AuthHelper.VALID_PNI, Map.of(response.getDeviceId(), pniPqLastResortPreKey.get()));
+    verify(keysManager).storeEcSignedPreKeys(AuthHelper.VALID_UUID, Map.of(response.getDeviceId(), aciSignedPreKey));
+    verify(keysManager).storeEcSignedPreKeys(AuthHelper.VALID_PNI, Map.of(response.getDeviceId(), pniSignedPreKey));
+    verify(keysManager).storePqLastResort(AuthHelper.VALID_UUID, Map.of(response.getDeviceId(), aciPqLastResortPreKey));
+    verify(keysManager).storePqLastResort(AuthHelper.VALID_PNI, Map.of(response.getDeviceId(), pniPqLastResortPreKey));
     verify(commands).set(anyString(), anyString(), any());
   }
-
-
+  
   private static Stream<Arguments> linkDeviceAtomic() {
     final String apnsToken = "apns-token";
     final String apnsVoipToken = "apns-voip-token";
@@ -368,18 +367,18 @@ class DeviceControllerTest {
     when(existingDevice.getId()).thenReturn(Device.PRIMARY_ID);
     when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(existingDevice));
 
-    final Optional<ECSignedPreKey> aciSignedPreKey;
-    final Optional<ECSignedPreKey> pniSignedPreKey;
-    final Optional<KEMSignedPreKey> aciPqLastResortPreKey;
-    final Optional<KEMSignedPreKey> pniPqLastResortPreKey;
+    final ECSignedPreKey aciSignedPreKey;
+    final ECSignedPreKey pniSignedPreKey;
+    final KEMSignedPreKey aciPqLastResortPreKey;
+    final KEMSignedPreKey pniPqLastResortPreKey;
 
     final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
     final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
 
-    aciSignedPreKey = Optional.of(KeysHelper.signedECPreKey(1, aciIdentityKeyPair));
-    pniSignedPreKey = Optional.of(KeysHelper.signedECPreKey(2, pniIdentityKeyPair));
-    aciPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair));
-    pniPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair));
+    aciSignedPreKey = KeysHelper.signedECPreKey(1, aciIdentityKeyPair);
+    pniSignedPreKey = KeysHelper.signedECPreKey(2, pniIdentityKeyPair);
+    aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair);
+    pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair);
 
     when(account.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
     when(account.getIdentityKey(IdentityType.PNI)).thenReturn(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
@@ -421,18 +420,18 @@ class DeviceControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get(VerificationCode.class);
 
-    final Optional<ECSignedPreKey> aciSignedPreKey;
-    final Optional<ECSignedPreKey> pniSignedPreKey;
-    final Optional<KEMSignedPreKey> aciPqLastResortPreKey;
-    final Optional<KEMSignedPreKey> pniPqLastResortPreKey;
+    final ECSignedPreKey aciSignedPreKey;
+    final ECSignedPreKey pniSignedPreKey;
+    final KEMSignedPreKey aciPqLastResortPreKey;
+    final KEMSignedPreKey pniPqLastResortPreKey;
 
     final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
     final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
 
-    aciSignedPreKey = Optional.of(KeysHelper.signedECPreKey(1, aciIdentityKeyPair));
-    pniSignedPreKey = Optional.of(KeysHelper.signedECPreKey(2, pniIdentityKeyPair));
-    aciPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair));
-    pniPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair));
+    aciSignedPreKey = KeysHelper.signedECPreKey(1, aciIdentityKeyPair);
+    pniSignedPreKey = KeysHelper.signedECPreKey(2, pniIdentityKeyPair);
+    aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair);
+    pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair);
 
     when(account.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
     when(account.getIdentityKey(IdentityType.PNI)).thenReturn(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
@@ -465,10 +464,10 @@ class DeviceControllerTest {
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   void linkDeviceAtomicMissingProperty(final IdentityKey aciIdentityKey,
                                        final IdentityKey pniIdentityKey,
-                                       final Optional<ECSignedPreKey> aciSignedPreKey,
-                                       final Optional<ECSignedPreKey> pniSignedPreKey,
-                                       final Optional<KEMSignedPreKey> aciPqLastResortPreKey,
-                                       final Optional<KEMSignedPreKey> pniPqLastResortPreKey) {
+                                       final ECSignedPreKey aciSignedPreKey,
+                                       final ECSignedPreKey pniSignedPreKey,
+                                       final KEMSignedPreKey aciPqLastResortPreKey,
+                                       final KEMSignedPreKey pniPqLastResortPreKey) {
 
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
 
@@ -503,19 +502,19 @@ class DeviceControllerTest {
     final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
     final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
 
-    final Optional<ECSignedPreKey> aciSignedPreKey = Optional.of(KeysHelper.signedECPreKey(1, aciIdentityKeyPair));
-    final Optional<ECSignedPreKey> pniSignedPreKey = Optional.of(KeysHelper.signedECPreKey(2, pniIdentityKeyPair));
-    final Optional<KEMSignedPreKey> aciPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair));
-    final Optional<KEMSignedPreKey> pniPqLastResortPreKey = Optional.of(KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair));
+    final ECSignedPreKey aciSignedPreKey = KeysHelper.signedECPreKey(1, aciIdentityKeyPair);
+    final ECSignedPreKey pniSignedPreKey = KeysHelper.signedECPreKey(2, pniIdentityKeyPair);
+    final KEMSignedPreKey aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair);
+    final KEMSignedPreKey pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair);
 
     final IdentityKey aciIdentityKey = new IdentityKey(aciIdentityKeyPair.getPublicKey());
     final IdentityKey pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());
 
     return Stream.of(
-        Arguments.of(aciIdentityKey, pniIdentityKey, Optional.empty(), pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey),
-        Arguments.of(aciIdentityKey, pniIdentityKey, aciSignedPreKey, Optional.empty(), aciPqLastResortPreKey, pniPqLastResortPreKey),
-        Arguments.of(aciIdentityKey, pniIdentityKey, aciSignedPreKey, pniSignedPreKey, Optional.empty(), pniPqLastResortPreKey),
-        Arguments.of(aciIdentityKey, pniIdentityKey, aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, Optional.empty())
+        Arguments.of(aciIdentityKey, pniIdentityKey, null, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey),
+        Arguments.of(aciIdentityKey, pniIdentityKey, aciSignedPreKey, null, aciPqLastResortPreKey, pniPqLastResortPreKey),
+        Arguments.of(aciIdentityKey, pniIdentityKey, aciSignedPreKey, pniSignedPreKey, null, pniPqLastResortPreKey),
+        Arguments.of(aciIdentityKey, pniIdentityKey, aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, null)
     );
   }
 
@@ -545,7 +544,7 @@ class DeviceControllerTest {
 
     final LinkDeviceRequest request = new LinkDeviceRequest(deviceCode.verificationCode(),
         new AccountAttributes(true, 1234, null, null, true, null),
-        new DeviceActivationRequest(Optional.of(aciSignedPreKey), Optional.of(pniSignedPreKey), Optional.of(aciPqLastResortPreKey), Optional.of(pniPqLastResortPreKey), Optional.empty(), Optional.empty()));
+        new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, Optional.empty(), Optional.empty()));
 
     try (final Response response = resources.getJerseyTest()
         .target("/v1/devices/link")

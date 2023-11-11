@@ -64,7 +64,6 @@ public class RegistrationController {
   private static final String COUNTRY_CODE_TAG_NAME = "countryCode";
   private static final String REGION_CODE_TAG_NAME = "regionCode";
   private static final String VERIFICATION_TYPE_TAG_NAME = "verification";
-  private static final String ACCOUNT_ACTIVATED_TAG_NAME = "accountActivated";
   private static final String INVALID_ACCOUNT_ATTRS_COUNTER_NAME = name(RegistrationController.class, "invalidAccountAttrs");
 
   private final AccountsManager accounts;
@@ -145,50 +144,39 @@ public class RegistrationController {
     Account account = accounts.create(number, password, signalAgent, registrationRequest.accountAttributes(),
         existingAccount.map(Account::getBadges).orElseGet(ArrayList::new));
 
-    // If the request includes all the information we need to fully "activate" the account, we should do so
-    if (registrationRequest.supportsAtomicAccountCreation()) {
-      assert registrationRequest.aciIdentityKey().isPresent();
-      assert registrationRequest.pniIdentityKey().isPresent();
-      assert registrationRequest.deviceActivationRequest().aciSignedPreKey().isPresent();
-      assert registrationRequest.deviceActivationRequest().pniSignedPreKey().isPresent();
-      assert registrationRequest.deviceActivationRequest().aciPqLastResortPreKey().isPresent();
-      assert registrationRequest.deviceActivationRequest().pniPqLastResortPreKey().isPresent();
+    account = accounts.update(account, a -> {
+      a.setIdentityKey(registrationRequest.aciIdentityKey());
+      a.setPhoneNumberIdentityKey(registrationRequest.pniIdentityKey());
 
-      account = accounts.update(account, a -> {
-        a.setIdentityKey(registrationRequest.aciIdentityKey().get());
-        a.setPhoneNumberIdentityKey(registrationRequest.pniIdentityKey().get());
+      final Device device = a.getPrimaryDevice().orElseThrow();
 
-        final Device device = a.getPrimaryDevice().orElseThrow();
+      device.setSignedPreKey(registrationRequest.deviceActivationRequest().aciSignedPreKey());
+      device.setPhoneNumberIdentitySignedPreKey(registrationRequest.deviceActivationRequest().pniSignedPreKey());
 
-        device.setSignedPreKey(registrationRequest.deviceActivationRequest().aciSignedPreKey().get());
-        device.setPhoneNumberIdentitySignedPreKey(registrationRequest.deviceActivationRequest().pniSignedPreKey().get());
-
-        registrationRequest.deviceActivationRequest().apnToken().ifPresent(apnRegistrationId -> {
-          device.setApnId(apnRegistrationId.apnRegistrationId());
-          device.setVoipApnId(apnRegistrationId.voipRegistrationId());
-        });
-
-        registrationRequest.deviceActivationRequest().gcmToken().ifPresent(gcmRegistrationId ->
-            device.setGcmId(gcmRegistrationId.gcmRegistrationId()));
-
-        CompletableFuture.allOf(
-                keysManager.storeEcSignedPreKeys(a.getUuid(),
-                    Map.of(Device.PRIMARY_ID, registrationRequest.deviceActivationRequest().aciSignedPreKey().get())),
-                keysManager.storePqLastResort(a.getUuid(),
-                    Map.of(Device.PRIMARY_ID, registrationRequest.deviceActivationRequest().aciPqLastResortPreKey().get())),
-                keysManager.storeEcSignedPreKeys(a.getPhoneNumberIdentifier(),
-                    Map.of(Device.PRIMARY_ID, registrationRequest.deviceActivationRequest().pniSignedPreKey().get())),
-                keysManager.storePqLastResort(a.getPhoneNumberIdentifier(),
-                    Map.of(Device.PRIMARY_ID, registrationRequest.deviceActivationRequest().pniPqLastResortPreKey().get())))
-            .join();
+      registrationRequest.deviceActivationRequest().apnToken().ifPresent(apnRegistrationId -> {
+        device.setApnId(apnRegistrationId.apnRegistrationId());
+        device.setVoipApnId(apnRegistrationId.voipRegistrationId());
       });
-    }
+
+      registrationRequest.deviceActivationRequest().gcmToken().ifPresent(gcmRegistrationId ->
+          device.setGcmId(gcmRegistrationId.gcmRegistrationId()));
+
+      CompletableFuture.allOf(
+              keysManager.storeEcSignedPreKeys(a.getUuid(),
+                  Map.of(Device.PRIMARY_ID, registrationRequest.deviceActivationRequest().aciSignedPreKey())),
+              keysManager.storePqLastResort(a.getUuid(),
+                  Map.of(Device.PRIMARY_ID, registrationRequest.deviceActivationRequest().aciPqLastResortPreKey())),
+              keysManager.storeEcSignedPreKeys(a.getPhoneNumberIdentifier(),
+                  Map.of(Device.PRIMARY_ID, registrationRequest.deviceActivationRequest().pniSignedPreKey())),
+              keysManager.storePqLastResort(a.getPhoneNumberIdentifier(),
+                  Map.of(Device.PRIMARY_ID, registrationRequest.deviceActivationRequest().pniPqLastResortPreKey())))
+          .join();
+    });
 
     Metrics.counter(ACCOUNT_CREATED_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
             Tag.of(COUNTRY_CODE_TAG_NAME, Util.getCountryCode(number)),
             Tag.of(REGION_CODE_TAG_NAME, Util.getRegion(number)),
-            Tag.of(VERIFICATION_TYPE_TAG_NAME, verificationType.name()),
-            Tag.of(ACCOUNT_ACTIVATED_TAG_NAME, String.valueOf(account.isEnabled()))))
+            Tag.of(VERIFICATION_TYPE_TAG_NAME, verificationType.name())))
         .increment();
 
     return new AccountIdentityResponse(account.getUuid(),

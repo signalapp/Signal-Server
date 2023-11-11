@@ -19,7 +19,7 @@ import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.NotNull;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
-import org.whispersystems.textsecuregcm.util.OptionalIdentityKeyAdapter;
+import org.whispersystems.textsecuregcm.util.IdentityKeyAdapter;
 
 public record RegistrationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, description = """
                                   The ID of an existing verification session as it appears in a verification session
@@ -50,31 +50,26 @@ public record RegistrationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT
                                   """)
                                   boolean skipDeviceTransfer,
 
-                                  @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, description = """
-                                  If true, indicates that this is a request for "atomic" registration. If any properties
-                                  needed for atomic account creation are not present, the request will fail. If false,
-                                  atomic account creation can still occur, but only if all required fields are present.
+                                  @NotNull
+                                  @Valid
+                                  @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = """
+                                  The ACI-associated identity key for the account, encoded as a base64 string.
                                   """)
-                                  boolean requireAtomic,
+                                  @JsonSerialize(using = IdentityKeyAdapter.Serializer.class)
+                                  @JsonDeserialize(using = IdentityKeyAdapter.Deserializer.class)
+                                  IdentityKey aciIdentityKey,
 
-                                  @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, description = """
-                                  The ACI-associated identity key for the account, encoded as a base64 string. If
-                                  provided, an account will be created "atomically," and all other properties needed for
-                                  atomic account creation must also be present.
+                                  @NotNull
+                                  @Valid
+                                  @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = """
+                                  The PNI-associated identity key for the account, encoded as a base64 string.
                                   """)
-                                  @JsonSerialize(using = OptionalIdentityKeyAdapter.Serializer.class)
-                                  @JsonDeserialize(using = OptionalIdentityKeyAdapter.Deserializer.class)
-                                  Optional<IdentityKey> aciIdentityKey,
+                                  @JsonSerialize(using = IdentityKeyAdapter.Serializer.class)
+                                  @JsonDeserialize(using = IdentityKeyAdapter.Deserializer.class)
+                                  IdentityKey pniIdentityKey,
 
-                                  @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, description = """
-                                  The PNI-associated identity key for the account, encoded as a base64 string. If
-                                  provided, an account will be created "atomically," and all other properties needed for
-                                  atomic account creation must also be present.
-                                  """)
-                                  @JsonSerialize(using = OptionalIdentityKeyAdapter.Serializer.class)
-                                  @JsonDeserialize(using = OptionalIdentityKeyAdapter.Deserializer.class)
-                                  Optional<IdentityKey> pniIdentityKey,
-
+                                  @NotNull
+                                  @Valid
                                   @JsonUnwrapped
                                   @JsonProperty(access = JsonProperty.Access.READ_ONLY)
                                   DeviceActivationRequest deviceActivationRequest) implements PhoneVerificationRequest {
@@ -85,65 +80,37 @@ public record RegistrationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT
       @JsonProperty("recoveryPassword") byte[] recoveryPassword,
       @JsonProperty("accountAttributes") AccountAttributes accountAttributes,
       @JsonProperty("skipDeviceTransfer") boolean skipDeviceTransfer,
-      @JsonProperty("requireAtomic") boolean requireAtomic,
-      @JsonProperty("aciIdentityKey") Optional<IdentityKey> aciIdentityKey,
-      @JsonProperty("pniIdentityKey") Optional<IdentityKey> pniIdentityKey,
-      @JsonProperty("aciSignedPreKey") Optional<@Valid ECSignedPreKey> aciSignedPreKey,
-      @JsonProperty("pniSignedPreKey") Optional<@Valid ECSignedPreKey> pniSignedPreKey,
-      @JsonProperty("aciPqLastResortPreKey") Optional<@Valid KEMSignedPreKey> aciPqLastResortPreKey,
-      @JsonProperty("pniPqLastResortPreKey") Optional<@Valid KEMSignedPreKey> pniPqLastResortPreKey,
+      @JsonProperty("aciIdentityKey") @NotNull @Valid IdentityKey aciIdentityKey,
+      @JsonProperty("pniIdentityKey") @NotNull @Valid IdentityKey pniIdentityKey,
+      @JsonProperty("aciSignedPreKey") @NotNull @Valid ECSignedPreKey aciSignedPreKey,
+      @JsonProperty("pniSignedPreKey") @NotNull @Valid ECSignedPreKey pniSignedPreKey,
+      @JsonProperty("aciPqLastResortPreKey") @NotNull @Valid KEMSignedPreKey aciPqLastResortPreKey,
+      @JsonProperty("pniPqLastResortPreKey") @NotNull @Valid KEMSignedPreKey pniPqLastResortPreKey,
       @JsonProperty("apnToken") Optional<@Valid ApnRegistrationId> apnToken,
       @JsonProperty("gcmToken") Optional<@Valid GcmRegistrationId> gcmToken) {
 
     // This may seem a little verbose, but at the time of writing, Jackson struggles with `@JsonUnwrapped` members in
     // records, and this is a workaround. Please see
     // https://github.com/FasterXML/jackson-databind/issues/3726#issuecomment-1525396869 for additional context.
-    this(sessionId, recoveryPassword, accountAttributes, skipDeviceTransfer, requireAtomic, aciIdentityKey, pniIdentityKey,
+    this(sessionId, recoveryPassword, accountAttributes, skipDeviceTransfer, aciIdentityKey, pniIdentityKey,
         new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, apnToken, gcmToken));
   }
 
   @AssertTrue
   public boolean isEverySignedKeyValid() {
-    return validatePreKeySignature(aciIdentityKey(), deviceActivationRequest().aciSignedPreKey())
-        && validatePreKeySignature(pniIdentityKey(), deviceActivationRequest().pniSignedPreKey())
-        && validatePreKeySignature(aciIdentityKey(), deviceActivationRequest().aciPqLastResortPreKey())
-        && validatePreKeySignature(pniIdentityKey(), deviceActivationRequest().pniPqLastResortPreKey());
-  }
+    if (deviceActivationRequest().aciSignedPreKey() == null ||
+        deviceActivationRequest().pniSignedPreKey() == null ||
+        deviceActivationRequest().aciPqLastResortPreKey() == null ||
+        deviceActivationRequest().pniPqLastResortPreKey() == null) {
+      return false;
+    }
 
-  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-  private static boolean validatePreKeySignature(final Optional<IdentityKey> maybeIdentityKey,
-      final Optional<? extends SignedPreKey<?>> maybeSignedPreKey) {
-
-    return maybeSignedPreKey.map(signedPreKey -> maybeIdentityKey
-            .map(identityKey -> PreKeySignatureValidator.validatePreKeySignatures(identityKey, List.of(signedPreKey)))
-            .orElse(false))
-        .orElse(true);
-  }
-
-  @AssertTrue
-  public boolean isCompleteRequest() {
-    final boolean hasNoAtomicAccountCreationParameters =
-        aciIdentityKey().isEmpty()
-            && pniIdentityKey().isEmpty()
-            && deviceActivationRequest().aciSignedPreKey().isEmpty()
-            && deviceActivationRequest().pniSignedPreKey().isEmpty()
-            && deviceActivationRequest().aciPqLastResortPreKey().isEmpty()
-            && deviceActivationRequest().pniPqLastResortPreKey().isEmpty();
-
-    return supportsAtomicAccountCreation() || (!requireAtomic() && hasNoAtomicAccountCreationParameters);
-  }
-
-  public boolean supportsAtomicAccountCreation() {
-    return hasExactlyOneMessageDeliveryChannel()
-        && aciIdentityKey().isPresent()
-        && pniIdentityKey().isPresent()
-        && deviceActivationRequest().aciSignedPreKey().isPresent()
-        && deviceActivationRequest().pniSignedPreKey().isPresent()
-        && deviceActivationRequest().aciPqLastResortPreKey().isPresent()
-        && deviceActivationRequest().pniPqLastResortPreKey().isPresent();
+    return PreKeySignatureValidator.validatePreKeySignatures(aciIdentityKey(), List.of(deviceActivationRequest().aciSignedPreKey(), deviceActivationRequest().aciPqLastResortPreKey()))
+        && PreKeySignatureValidator.validatePreKeySignatures(pniIdentityKey(), List.of(deviceActivationRequest().pniSignedPreKey(), deviceActivationRequest().pniPqLastResortPreKey()));
   }
 
   @VisibleForTesting
+  @AssertTrue
   boolean hasExactlyOneMessageDeliveryChannel() {
     if (accountAttributes.getFetchesMessages()) {
       return deviceActivationRequest().apnToken().isEmpty() && deviceActivationRequest().gcmToken().isEmpty();

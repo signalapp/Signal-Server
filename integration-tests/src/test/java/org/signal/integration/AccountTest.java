@@ -18,7 +18,6 @@ import org.signal.libsignal.usernames.Username;
 import org.whispersystems.textsecuregcm.entities.AccountIdentifierResponse;
 import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
 import org.whispersystems.textsecuregcm.entities.ConfirmUsernameHashRequest;
-import org.whispersystems.textsecuregcm.entities.EncryptedUsername;
 import org.whispersystems.textsecuregcm.entities.ReserveUsernameHashRequest;
 import org.whispersystems.textsecuregcm.entities.ReserveUsernameHashResponse;
 import org.whispersystems.textsecuregcm.entities.UsernameHashResponse;
@@ -41,7 +40,7 @@ public class AccountTest {
 
   @Test
   public void testCreateAccountAtomic() throws Exception {
-    final TestUser user = Operations.newRegisteredUserAtomic("+19995550201");
+    final TestUser user = Operations.newRegisteredUser("+19995550201");
     try {
       final Pair<Integer, AccountIdentityResponse> execute = Operations.apiGet("/v1/accounts/whoami")
           .authorized(user)

@@ -77,12 +77,12 @@ public class DeviceController {
   static final int MAX_DEVICES = 6;
 
   private final Key verificationTokenKey;
-  private final AccountsManager       accounts;
-  private final MessagesManager       messages;
+  private final AccountsManager accounts;
+  private final MessagesManager messages;
   private final KeysManager keys;
-  private final RateLimiters          rateLimiters;
+  private final RateLimiters rateLimiters;
   private final FaultTolerantRedisCluster usedTokenCluster;
-  private final Map<String, Integer>  maxDeviceConfiguration;
+  private final Map<String, Integer> maxDeviceConfiguration;
 
   private final Clock clock;
 
@@ -217,8 +217,8 @@ public class DeviceController {
   @ChangesDeviceEnabledState
   @Operation(summary = "Link a device to an account",
       description = """
-      Links a device to an account identified by a given phone number.
-      """)
+          Links a device to an account identified by a given phone number.
+          """)
   @ApiResponse(responseCode = "200", description = "The new device was linked to the calling account", useReturnTypeSchema = true)
   @ApiResponse(responseCode = "403", description = "The given account was not found or the given verification code was incorrect")
   @ApiResponse(responseCode = "411", description = "The given account already has its maximum number of linked devices")
@@ -227,8 +227,8 @@ public class DeviceController {
       name = "Retry-After",
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
   public DeviceResponse linkDevice(@HeaderParam(HttpHeaders.AUTHORIZATION) BasicAuthorizationHeader authorizationHeader,
-                                   @NotNull @Valid LinkDeviceRequest linkDeviceRequest,
-                                   @Context ContainerRequest containerRequest)
+      @NotNull @Valid LinkDeviceRequest linkDeviceRequest,
+      @Context ContainerRequest containerRequest)
       throws RateLimitExceededException, DeviceLimitExceededException {
 
     final Pair<Account, Device> accountAndDevice = createDevice(authorizationHeader.getPassword(),
@@ -296,7 +296,8 @@ public class DeviceController {
       return Optional.empty();
     }
 
-    final byte[] expectedSignature = getInitializedMac().doFinal(claimsAndSignature[0].getBytes(StandardCharsets.UTF_8));
+    final byte[] expectedSignature = getInitializedMac().doFinal(
+        claimsAndSignature[0].getBytes(StandardCharsets.UTF_8));
     final byte[] providedSignature;
 
     try {
@@ -345,10 +346,10 @@ public class DeviceController {
   }
 
   private Pair<Account, Device> createDevice(final String password,
-                                     final String verificationCode,
-                                     final AccountAttributes accountAttributes,
-                                     final ContainerRequest containerRequest,
-                                     final Optional<DeviceActivationRequest> maybeDeviceActivationRequest)
+      final String verificationCode,
+      final AccountAttributes accountAttributes,
+      final ContainerRequest containerRequest,
+      final Optional<DeviceActivationRequest> maybeDeviceActivationRequest)
       throws RateLimitExceededException, DeviceLimitExceededException {
 
     final Optional<UUID> maybeAciFromToken = checkVerificationToken(verificationCode);
@@ -359,16 +360,11 @@ public class DeviceController {
     rateLimiters.getVerifyDeviceLimiter().validate(account.getUuid());
 
     maybeDeviceActivationRequest.ifPresent(deviceActivationRequest -> {
-      assert deviceActivationRequest.aciSignedPreKey().isPresent();
-      assert deviceActivationRequest.pniSignedPreKey().isPresent();
-      assert deviceActivationRequest.aciPqLastResortPreKey().isPresent();
-      assert deviceActivationRequest.pniPqLastResortPreKey().isPresent();
-
-      final boolean allKeysValid = PreKeySignatureValidator.validatePreKeySignatures(account.getIdentityKey(
-              IdentityType.ACI),
-          List.of(deviceActivationRequest.aciSignedPreKey().get(), deviceActivationRequest.aciPqLastResortPreKey().get()))
-          && PreKeySignatureValidator.validatePreKeySignatures(account.getIdentityKey(IdentityType.PNI),
-          List.of(deviceActivationRequest.pniSignedPreKey().get(), deviceActivationRequest.pniPqLastResortPreKey().get()));
+      final boolean allKeysValid =
+          PreKeySignatureValidator.validatePreKeySignatures(account.getIdentityKey(IdentityType.ACI),
+              List.of(deviceActivationRequest.aciSignedPreKey(), deviceActivationRequest.aciPqLastResortPreKey()))
+              && PreKeySignatureValidator.validatePreKeySignatures(account.getIdentityKey(IdentityType.PNI),
+              List.of(deviceActivationRequest.pniSignedPreKey(), deviceActivationRequest.pniPqLastResortPreKey()));
 
       if (!allKeysValid) {
         throw new WebApplicationException(Response.status(422).build());
@@ -406,8 +402,8 @@ public class DeviceController {
     device.setCapabilities(accountAttributes.getCapabilities());
 
     maybeDeviceActivationRequest.ifPresent(deviceActivationRequest -> {
-      device.setSignedPreKey(deviceActivationRequest.aciSignedPreKey().get());
-      device.setPhoneNumberIdentitySignedPreKey(deviceActivationRequest.pniSignedPreKey().get());
+      device.setSignedPreKey(deviceActivationRequest.aciSignedPreKey());
+      device.setPhoneNumberIdentitySignedPreKey(deviceActivationRequest.pniSignedPreKey());
 
       deviceActivationRequest.apnToken().ifPresent(apnRegistrationId -> {
         device.setApnId(apnRegistrationId.apnRegistrationId());
@@ -431,13 +427,13 @@ public class DeviceController {
 
       maybeDeviceActivationRequest.ifPresent(deviceActivationRequest -> CompletableFuture.allOf(
               keys.storeEcSignedPreKeys(a.getUuid(),
-                  Map.of(device.getId(), deviceActivationRequest.aciSignedPreKey().get())),
+                  Map.of(device.getId(), deviceActivationRequest.aciSignedPreKey())),
               keys.storePqLastResort(a.getUuid(),
-                  Map.of(device.getId(), deviceActivationRequest.aciPqLastResortPreKey().get())),
+                  Map.of(device.getId(), deviceActivationRequest.aciPqLastResortPreKey())),
               keys.storeEcSignedPreKeys(a.getPhoneNumberIdentifier(),
-                  Map.of(device.getId(), deviceActivationRequest.pniSignedPreKey().get())),
+                  Map.of(device.getId(), deviceActivationRequest.pniSignedPreKey())),
               keys.storePqLastResort(a.getPhoneNumberIdentifier(),
-                  Map.of(device.getId(), deviceActivationRequest.pniPqLastResortPreKey().get())))
+                  Map.of(device.getId(), deviceActivationRequest.pniPqLastResortPreKey())))
           .join());
 
       a.addDevice(device);

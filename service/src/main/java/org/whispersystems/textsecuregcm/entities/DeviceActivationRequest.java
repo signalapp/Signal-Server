@@ -3,52 +3,52 @@ package org.whispersystems.textsecuregcm.entities;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import javax.validation.Valid;
+import javax.validation.constraints.NotNull;
 
 import java.util.Optional;
 
-public record DeviceActivationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, description = """
-                                  A signed EC pre-key to be associated with this account's ACI. If provided, an account
-                                  will be created "atomically," and all other properties needed for atomic account
-                                  creation must also be present.
-                                  """)
-                                Optional<@Valid ECSignedPreKey> aciSignedPreKey,
+public record DeviceActivationRequest(
+    @NotNull
+    @Valid
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = """
+        A signed EC pre-key to be associated with this account's ACI.
+        """)
+    ECSignedPreKey aciSignedPreKey,
 
-                                      @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, description = """
-                                  A signed EC pre-key to be associated with this account's PNI. If provided, an account
-                                  will be created "atomically," and all other properties needed for atomic account
-                                  creation must also be present.
-                                  """)
-                                Optional<@Valid ECSignedPreKey> pniSignedPreKey,
+    @NotNull
+    @Valid
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = """
+        A signed EC pre-key to be associated with this account's PNI.
+        """)
+    ECSignedPreKey pniSignedPreKey,
 
-                                      @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, description = """
-                                  A signed Kyber-1024 "last resort" pre-key to be associated with this account's ACI. If
-                                  provided, an account will be created "atomically," and all other properties needed for
-                                  atomic account creation must also be present.
-                                  """)
-                                Optional<@Valid KEMSignedPreKey> aciPqLastResortPreKey,
+    @NotNull
+    @Valid
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = """
+        A signed Kyber-1024 "last resort" pre-key to be associated with this account's ACI.
+        """)
+    KEMSignedPreKey aciPqLastResortPreKey,
 
-                                      @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, description = """
-                                  A signed Kyber-1024 "last resort" pre-key to be associated with this account's PNI. If
-                                  provided, an account will be created "atomically," and all other properties needed for
-                                  atomic account creation must also be present.
-                                  """)
-                                Optional<@Valid KEMSignedPreKey> pniPqLastResortPreKey,
+    @NotNull
+    @Valid
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = """
+        A signed Kyber-1024 "last resort" pre-key to be associated with this account's PNI.
+        """)
+    KEMSignedPreKey pniPqLastResortPreKey,
 
-                                      @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, description = """
-                                  An APNs token set for the account's primary device. If provided, the account's primary
-                                  device will be notified of new messages via push notifications to the given token. If
-                                  creating an account "atomically," callers must provide exactly one of an APNs token
-                                  set, an FCM token, or an `AccountAttributes` entity with `fetchesMessages` set to
-                                  `true`.
-                                  """)
-                                Optional<@Valid ApnRegistrationId> apnToken,
+    @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, description = """
+        An APNs token set for the account's primary device. If provided, the account's primary
+        device will be notified of new messages via push notifications to the given token.
+        Callers must provide exactly one of an APNs token set, an FCM token, or an
+        `AccountAttributes` entity with `fetchesMessages` set to `true`.
+        """)
+    Optional<@Valid ApnRegistrationId> apnToken,
 
-                                      @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, description = """
-                                  An FCM/GCM token for the account's primary device. If provided, the account's primary
-                                  device will be notified of new messages via push notifications to the given token. If
-                                  creating an account "atomically," callers must provide exactly one of an APNs token
-                                  set, an FCM token, or an `AccountAttributes` entity with `fetchesMessages` set to
-                                  `true`.
-                                  """)
-                                Optional<@Valid GcmRegistrationId> gcmToken) {
+    @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, description = """
+        An FCM/GCM token for the account's primary device. If provided, the account's primary
+        device will be notified of new messages via push notifications to the given token.
+        Callers must provide exactly one of an APNs token set, an FCM token, or an
+        `AccountAttributes` entity with `fetchesMessages` set to `true`.
+        """)
+    Optional<@Valid GcmRegistrationId> gcmToken) {
 }

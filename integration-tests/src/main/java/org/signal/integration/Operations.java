@@ -75,36 +75,6 @@ public final class Operations {
 
     INTEGRATION_TOOLS.populateRecoveryPassword(number, registrationPassword).join();
 
-    // register account
-    final RegistrationRequest registrationRequest = new RegistrationRequest(
-        null, registrationPassword, accountAttributes, true, false,
-        Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
-
-    final AccountIdentityResponse registrationResponse = apiPost("/v1/registration", registrationRequest)
-        .authorized(number, accountPassword)
-        .executeExpectSuccess(AccountIdentityResponse.class);
-
-    user.setAciUuid(registrationResponse.uuid());
-    user.setPniUuid(registrationResponse.pni());
-
-    // upload pre-key
-    final TestUser.PreKeySetPublicView preKeySetPublicView = user.preKeys(Device.PRIMARY_ID, false);
-    apiPut("/v2/keys", preKeySetPublicView)
-        .authorized(user, Device.PRIMARY_ID)
-        .executeExpectSuccess();
-
-    return user;
-  }
-
-  public static TestUser newRegisteredUserAtomic(final String number) {
-    final byte[] registrationPassword = RandomUtils.nextBytes(32);
-    final String accountPassword = Base64.getEncoder().encodeToString(RandomUtils.nextBytes(32));
-
-    final TestUser user = TestUser.create(number, accountPassword, registrationPassword);
-    final AccountAttributes accountAttributes = user.accountAttributes();
-
-    INTEGRATION_TOOLS.populateRecoveryPassword(number, registrationPassword).join();
-
     final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
     final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
 
@@ -113,13 +83,12 @@ public final class Operations {
         registrationPassword,
         accountAttributes,
         true,
-        true,
-        Optional.of(new IdentityKey(aciIdentityKeyPair.getPublicKey())),
-        Optional.of(new IdentityKey(pniIdentityKeyPair.getPublicKey())),
-        Optional.of(generateSignedECPreKey(1, aciIdentityKeyPair)),
-        Optional.of(generateSignedECPreKey(2, pniIdentityKeyPair)),
-        Optional.of(generateSignedKEMPreKey(3, aciIdentityKeyPair)),
-        Optional.of(generateSignedKEMPreKey(4, pniIdentityKeyPair)),
+        new IdentityKey(aciIdentityKeyPair.getPublicKey()),
+        new IdentityKey(pniIdentityKeyPair.getPublicKey()),
+        generateSignedECPreKey(1, aciIdentityKeyPair),
+        generateSignedECPreKey(2, pniIdentityKeyPair),
+        generateSignedKEMPreKey(3, aciIdentityKeyPair),
+        generateSignedKEMPreKey(4, pniIdentityKeyPair),
         Optional.empty(),
         Optional.empty());
 

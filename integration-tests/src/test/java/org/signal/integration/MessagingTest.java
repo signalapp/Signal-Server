@@ -11,8 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
 import org.apache.commons.lang3.tuple.Pair;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.entities.IncomingMessage;
 import org.whispersystems.textsecuregcm.entities.IncomingMessageList;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntityList;
@@ -21,19 +20,10 @@ import org.whispersystems.textsecuregcm.storage.Device;
 
 public class MessagingTest {
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  public void testSendMessageUnsealed(final boolean atomicAccountCreation) throws Exception {
-    final TestUser userA;
-    final TestUser userB;
-
-    if (atomicAccountCreation) {
-      userA = Operations.newRegisteredUserAtomic("+19995550102");
-      userB = Operations.newRegisteredUserAtomic("+19995550103");
-    } else {
-      userA = Operations.newRegisteredUser("+19995550104");
-      userB = Operations.newRegisteredUser("+19995550105");
-    }
+  @Test
+  public void testSendMessageUnsealed() {
+    final TestUser userA = Operations.newRegisteredUser("+19995550102");
+    final TestUser userB = Operations.newRegisteredUser("+19995550103");
 
     try {
       final byte[] expectedContent = "Hello, World!".getBytes(StandardCharsets.UTF_8);

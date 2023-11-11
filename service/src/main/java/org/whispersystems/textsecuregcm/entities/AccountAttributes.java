@@ -122,4 +122,9 @@ public class AccountAttributes {
     this.recoveryPassword = recoveryPassword;
     return this;
   }
+
+  @VisibleForTesting
+  public void setPhoneNumberIdentityRegistrationId(final Integer phoneNumberIdentityRegistrationId) {
+    this.phoneNumberIdentityRegistrationId = phoneNumberIdentityRegistrationId;
+  }
 }

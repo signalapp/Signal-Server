@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 import javax.validation.Valid;
 import javax.validation.constraints.AssertTrue;
+import javax.validation.constraints.NotNull;
 import java.util.Optional;
 
 public record LinkDeviceRequest(@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = """
@@ -17,6 +18,8 @@ public record LinkDeviceRequest(@Schema(requiredMode = Schema.RequiredMode.REQUI
 
                                 AccountAttributes accountAttributes,
 
+                                @NotNull
+                                @Valid
                                 @JsonUnwrapped
                                 @JsonProperty(access = JsonProperty.Access.READ_ONLY)
                                 DeviceActivationRequest deviceActivationRequest) {
@@ -25,23 +28,15 @@ public record LinkDeviceRequest(@Schema(requiredMode = Schema.RequiredMode.REQUI
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   public LinkDeviceRequest(@JsonProperty("verificationCode") String verificationCode,
                            @JsonProperty("accountAttributes") AccountAttributes accountAttributes,
-                           @JsonProperty("aciSignedPreKey") Optional<@Valid ECSignedPreKey> aciSignedPreKey,
-                           @JsonProperty("pniSignedPreKey") Optional<@Valid ECSignedPreKey> pniSignedPreKey,
-                           @JsonProperty("aciPqLastResortPreKey") Optional<@Valid KEMSignedPreKey> aciPqLastResortPreKey,
-                           @JsonProperty("pniPqLastResortPreKey") Optional<@Valid KEMSignedPreKey> pniPqLastResortPreKey,
+                           @JsonProperty("aciSignedPreKey") @NotNull @Valid ECSignedPreKey aciSignedPreKey,
+                           @JsonProperty("pniSignedPreKey") @NotNull @Valid ECSignedPreKey pniSignedPreKey,
+                           @JsonProperty("aciPqLastResortPreKey") @NotNull @Valid KEMSignedPreKey aciPqLastResortPreKey,
+                           @JsonProperty("pniPqLastResortPreKey") @NotNull @Valid KEMSignedPreKey pniPqLastResortPreKey,
                            @JsonProperty("apnToken") Optional<@Valid ApnRegistrationId> apnToken,
                            @JsonProperty("gcmToken") Optional<@Valid GcmRegistrationId> gcmToken) {
 
     this(verificationCode, accountAttributes,
         new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, apnToken, gcmToken));
-  }
-
-  @AssertTrue
-  public boolean hasAllRequiredFields() {
-    return deviceActivationRequest().aciSignedPreKey().isPresent()
-        && deviceActivationRequest().pniSignedPreKey().isPresent()
-        && deviceActivationRequest().aciPqLastResortPreKey().isPresent()
-        && deviceActivationRequest().pniPqLastResortPreKey().isPresent();
   }
 
   @AssertTrue
