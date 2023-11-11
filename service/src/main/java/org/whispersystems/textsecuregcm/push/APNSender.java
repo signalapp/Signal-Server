@@ -108,8 +108,7 @@ public class APNSender implements Managed, PushNotificationSender {
           .build();
 
       case CHALLENGE -> new SimpleApnsPayloadBuilder()
-          .setSound("default")
-          .setLocalizedAlertMessage("APN_Message")
+          .setContentAvailable(true)
           .addCustomProperty("challenge", notification.data())
           .build();
 
