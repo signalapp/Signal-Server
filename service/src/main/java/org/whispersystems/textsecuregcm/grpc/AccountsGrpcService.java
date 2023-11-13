@@ -267,7 +267,12 @@ public class AccountsGrpcService extends ReactorAccountsGrpc.AccountsImplBase {
                 .asRuntimeException());
           }
 
-          final UUID linkHandle = UUID.randomUUID();
+          final UUID linkHandle;
+          if (request.getKeepLinkHandle() && account.getUsernameLinkHandle() != null) {
+            linkHandle = account.getUsernameLinkHandle();
+          } else {
+            linkHandle = UUID.randomUUID();
+          }
 
           return Mono.fromFuture(() -> accountsManager.updateAsync(account, a -> a.setUsernameLinkDetails(linkHandle, request.getUsernameCiphertext().toByteArray())))
               .thenReturn(linkHandle);

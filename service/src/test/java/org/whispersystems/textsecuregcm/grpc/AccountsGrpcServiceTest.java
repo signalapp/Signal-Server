@@ -521,10 +521,13 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     verify(accountsManager).clearUsernameHash(account);
   }
 
-  @Test
-  void setUsernameLink() {
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void setUsernameLink(final boolean keepLink) {
     final Account account = mock(Account.class);
+    final UUID oldHandle = UUID.randomUUID();
     when(account.getUsernameHash()).thenReturn(Optional.of(new byte[AccountController.USERNAME_HASH_LENGTH]));
+    when(account.getUsernameLinkHandle()).thenReturn(oldHandle);
 
     when(accountsManager.getByAccountIdentifierAsync(AUTHENTICATED_ACI))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
@@ -535,12 +538,14 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     final SetUsernameLinkResponse response =
         authenticatedServiceStub().setUsernameLink(SetUsernameLinkRequest.newBuilder()
             .setUsernameCiphertext(ByteString.copyFrom(usernameCiphertext))
+            .setKeepLinkHandle(keepLink)
             .build());
 
     final ArgumentCaptor<UUID> linkHandleCaptor = ArgumentCaptor.forClass(UUID.class);
 
     verify(account).setUsernameLinkDetails(linkHandleCaptor.capture(), eq(usernameCiphertext));
 
+    assertEquals(keepLink, oldHandle.equals(linkHandleCaptor.getValue()));
     final SetUsernameLinkResponse expectedResponse = SetUsernameLinkResponse.newBuilder()
         .setUsernameLinkHandle(UUIDUtil.toByteString(linkHandleCaptor.getValue()))
         .build();

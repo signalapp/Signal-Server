@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.entities;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -18,7 +19,17 @@ public record EncryptedUsername(
     @NotNull
     @Size(min = 1, max = EncryptedUsername.MAX_SIZE)
     @Schema(type = "string", description = "the URL-safe base64 encoding of the encrypted username")
-    byte[] usernameLinkEncryptedValue) {
+    byte[] usernameLinkEncryptedValue,
+
+    @JsonProperty
+    @Schema(type = "boolean", description = "if set and the account already has an encrypted-username link handle, reuse the same link handle rather than generating a new one. The response will still have the link handle.")
+    boolean keepLinkHandle
+) {
 
   public static final int MAX_SIZE = 128;
+
+  public EncryptedUsername(final byte[] usernameLinkEncryptedValue) {
+    this(usernameLinkEncryptedValue, false);
+  }
+
 }

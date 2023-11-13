@@ -61,8 +61,9 @@ service Accounts {
   rpc DeleteUsernameHash(DeleteUsernameHashRequest) returns (DeleteUsernameHashResponse) {}
 
   /**
-   * Generates a new link handle for the given username ciphertext, displacing
-   * any previously-existing link handle.
+   * Associates the given username ciphertext with the account, replacing any
+   * previously stored ciphertext. A new link handle will optionally be created,
+   * and the link handle to use will be returned in any event.
    *
    * This RPC may fail with a status of `FAILED_PRECONDITION` if the
    * authenticated account does not have a username. It may also fail with
@@ -235,6 +236,13 @@ message SetUsernameLinkRequest {
    * The username ciphertext for which to generate a new link handle.
    */
   bytes username_ciphertext = 1;
+
+  /**
+   * If true and the account already had an encrypted username stored, the
+   * existing link handle will be reused. Otherwise a new link handle will be
+   * created.
+   */
+  bool keep_link_handle = 2;
 }
 
 message SetUsernameLinkResponse {

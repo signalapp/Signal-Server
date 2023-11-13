@@ -410,9 +410,8 @@ public class AccountController {
       summary = "Set username link",
       description = """
           Authenticated endpoint. For the given encrypted username generates a username link handle.
-          Username link handle could be used to lookup the encrypted username.
-          An account can only have one username link at a time. Calling this endpoint will reset previously stored
-          encrypted username and deactivate previous link handle.
+          The username link handle can be used to lookup the encrypted username.
+          An account can only have one username link at a time; this endpoint overwrites the previous encrypted username if there was one.
           """
   )
   @ApiResponse(responseCode = "200", description = "Username Link updated successfully.", useReturnTypeSchema = true)
@@ -426,12 +425,19 @@ public class AccountController {
     // check ratelimiter for username link operations
     rateLimiters.forDescriptor(RateLimiters.For.USERNAME_LINK_OPERATION).validate(auth.getAccount().getUuid());
 
+    final Account account = auth.getAccount();
+
     // check if username hash is set for the account
-    if (auth.getAccount().getUsernameHash().isEmpty()) {
+    if (account.getUsernameHash().isEmpty()) {
       throw new WebApplicationException(Status.CONFLICT);
     }
 
-    final UUID usernameLinkHandle = UUID.randomUUID();
+    final UUID usernameLinkHandle;
+    if (encryptedUsername.keepLinkHandle() && account.getUsernameLinkHandle() != null) {
+      usernameLinkHandle = account.getUsernameLinkHandle();
+    } else {
+      usernameLinkHandle = UUID.randomUUID();
+    }
     updateUsernameLink(auth.getAccount(), usernameLinkHandle, encryptedUsername.usernameLinkEncryptedValue());
     return new UsernameLinkHandle(usernameLinkHandle);
   }

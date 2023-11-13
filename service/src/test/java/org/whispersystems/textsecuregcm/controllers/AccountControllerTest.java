@@ -52,6 +52,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
 import org.signal.libsignal.usernames.BaseUsernameException;
@@ -71,6 +72,7 @@ import org.whispersystems.textsecuregcm.entities.RegistrationLock;
 import org.whispersystems.textsecuregcm.entities.ReserveUsernameHashRequest;
 import org.whispersystems.textsecuregcm.entities.ReserveUsernameHashResponse;
 import org.whispersystems.textsecuregcm.entities.UsernameHashResponse;
+import org.whispersystems.textsecuregcm.entities.UsernameLinkHandle;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimitByIpFilter;
@@ -998,4 +1000,24 @@ class AccountControllerTest {
         .get()
         .getStatus()).isEqualTo(422);
   }
+
+  @ParameterizedTest
+  @ValueSource(booleans = { true, false })
+  void testPutUsernameLink(boolean keepLink) {
+    when(rateLimiters.forDescriptor(eq(RateLimiters.For.USERNAME_LINK_OPERATION))).thenReturn(mock(RateLimiter.class));
+
+    final UUID oldLinkHandle = UUID.randomUUID();
+    when(AuthHelper.VALID_ACCOUNT.getUsernameLinkHandle()).thenReturn(oldLinkHandle);
+
+    final byte[] encryptedUsername = "some encrypted goop".getBytes();
+    final UsernameLinkHandle newHandle = resources.getJerseyTest()
+        .target("/v1/accounts/username_link")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .put(Entity.json(new EncryptedUsername(encryptedUsername, keepLink)), UsernameLinkHandle.class);
+
+    assertThat(newHandle.usernameLinkHandle().equals(oldLinkHandle)).isEqualTo(keepLink);
+    verify(AuthHelper.VALID_ACCOUNT).setUsernameLinkDetails(eq(newHandle.usernameLinkHandle()), eq(encryptedUsername));
+  }
+
 }
