@@ -25,6 +25,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,13 +40,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.Mockito;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
-import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
+import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
@@ -70,7 +71,11 @@ class AccountsManagerUsernameIntegrationTest {
       Tables.USERNAMES,
       Tables.DELETED_ACCOUNTS,
       Tables.PNI,
-      Tables.PNI_ASSIGNMENTS);
+      Tables.PNI_ASSIGNMENTS,
+      Tables.EC_KEYS,
+      Tables.PQ_KEYS,
+      Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS,
+      Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS);
 
   @RegisterExtension
   static RedisClusterExtension CACHE_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
@@ -90,6 +95,14 @@ class AccountsManagerUsernameIntegrationTest {
 
     DynamicConfiguration dynamicConfiguration = new DynamicConfiguration();
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
+
+    final KeysManager keysManager = new KeysManager(
+        DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
+        Tables.EC_KEYS.tableName(),
+        Tables.PQ_KEYS.tableName(),
+        Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS.tableName(),
+        Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS.tableName(),
+        dynamicConfigurationManager);
 
     accounts = Mockito.spy(new Accounts(
         DYNAMO_DB_EXTENSION.getDynamoDbClient(),
@@ -122,12 +135,13 @@ class AccountsManagerUsernameIntegrationTest {
     final ExperimentEnrollmentManager experimentEnrollmentManager = mock(ExperimentEnrollmentManager.class);
     when(experimentEnrollmentManager.isEnrolled(any(UUID.class), eq(AccountsManager.USERNAME_EXPERIMENT_NAME)))
         .thenReturn(true);
+
     accountsManager = new AccountsManager(
         accounts,
         phoneNumberIdentifiers,
         CACHE_CLUSTER_EXTENSION.getRedisCluster(),
         accountLockManager,
-        mock(KeysManager.class),
+        keysManager,
         mock(MessagesManager.class),
         mock(ProfilesManager.class),
         mock(SecureStorageClient.class),
@@ -141,8 +155,8 @@ class AccountsManagerUsernameIntegrationTest {
 
   @Test
   void testNoUsernames() throws InterruptedException {
-    Account account = accountsManager.create("+18005551111", "password", null, new AccountAttributes(),
-        new ArrayList<>());
+    final Account account = AccountsHelper.createAccount(accountsManager, "+18005551111");
+
     List<byte[]> usernameHashes = List.of(USERNAME_HASH_1, USERNAME_HASH_2);
     int i = 0;
     for (byte[] hash : usernameHashes) {
@@ -169,8 +183,8 @@ class AccountsManagerUsernameIntegrationTest {
 
   @Test
   void testReserveUsernameSnatched() throws InterruptedException, UsernameHashNotAvailableException {
-    final Account account = accountsManager.create("+18005551111", "password", null, new AccountAttributes(),
-        new ArrayList<>());
+    final Account account = AccountsHelper.createAccount(accountsManager, "+18005551111");
+
     ArrayList<byte[]> usernameHashes = new ArrayList<>(Arrays.asList(USERNAME_HASH_1, USERNAME_HASH_2));
     for (byte[] hash : usernameHashes) {
       DYNAMO_DB_EXTENSION.getDynamoDbClient().putItem(PutItemRequest.builder()
@@ -205,10 +219,8 @@ class AccountsManagerUsernameIntegrationTest {
   }
 
   @Test
-  public void testReserveConfirmClear()
-      throws InterruptedException, UsernameHashNotAvailableException, UsernameReservationNotFoundException {
-    Account account = accountsManager.create("+18005551111", "password", null, new AccountAttributes(),
-        new ArrayList<>());
+  public void testReserveConfirmClear() throws InterruptedException {
+    Account account = AccountsHelper.createAccount(accountsManager, "+18005551111");
 
     // reserve
     AccountsManager.UsernameReservation reservation =
@@ -236,11 +248,8 @@ class AccountsManagerUsernameIntegrationTest {
   }
 
   @Test
-  public void testReservationLapsed()
-      throws InterruptedException, UsernameHashNotAvailableException, UsernameReservationNotFoundException {
-
-    final Account account = accountsManager.create("+18005551111", "password", null, new AccountAttributes(),
-        new ArrayList<>());
+  public void testReservationLapsed() throws InterruptedException {
+    final Account account = AccountsHelper.createAccount(accountsManager, "+18005551111");
 
     AccountsManager.UsernameReservation reservation1 =
         accountsManager.reserveUsernameHash(account, List.of(USERNAME_HASH_1)).join();
@@ -256,8 +265,8 @@ class AccountsManagerUsernameIntegrationTest {
         .build());
 
     // a different account should be able to reserve it
-    Account account2 = accountsManager.create("+18005552222", "password", null, new AccountAttributes(),
-        new ArrayList<>());
+    Account account2 = AccountsHelper.createAccount(accountsManager, "+18005552222");
+
     final AccountsManager.UsernameReservation reservation2 =
         accountsManager.reserveUsernameHash(account2, List.of(USERNAME_HASH_1)).join();
     assertArrayEquals(reservation2.reservedUsernameHash(), USERNAME_HASH_1);
@@ -271,8 +280,7 @@ class AccountsManagerUsernameIntegrationTest {
 
   @Test
   void testUsernameSetReserveAnotherClearSetReserved() throws InterruptedException {
-    Account account = accountsManager.create("+18005551111", "password", null, new AccountAttributes(),
-        new ArrayList<>());
+    Account account = AccountsHelper.createAccount(accountsManager, "+18005551111");
 
     // Set username hash
     final AccountsManager.UsernameReservation reservation1 =
@@ -303,9 +311,10 @@ class AccountsManagerUsernameIntegrationTest {
 
   @Test
   public void testUsernameLinks() throws InterruptedException {
-    Account account = accountsManager.create("+18005551111", "password", null, new AccountAttributes(), new ArrayList<>());
+    final Account account = AccountsHelper.createAccount(accountsManager, "+18005551111");
+
     account.setUsernameHash(RandomUtils.nextBytes(16));
-    accounts.create(account);
+    accounts.create(account, ignored -> Collections.emptyList());
 
     final UUID linkHandle = UUID.randomUUID();
     final byte[] encryptedUsername = RandomUtils.nextBytes(32);

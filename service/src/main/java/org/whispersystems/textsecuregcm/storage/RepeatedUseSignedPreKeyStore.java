@@ -112,6 +112,15 @@ public abstract class RepeatedUseSignedPreKeyStore<K extends SignedPreKey<?>> {
         .thenRun(() -> sample.stop(storeKeyBatchTimer));
   }
 
+  TransactWriteItem buildTransactWriteItem(final UUID identifier, final byte deviceId, final K preKey) {
+    return TransactWriteItem.builder()
+        .put(Put.builder()
+            .tableName(tableName)
+            .item(getItemFromPreKey(identifier, deviceId, preKey))
+            .build())
+        .build();
+  }
+
   /**
    * Finds a repeated-use pre-key for a specific device.
    *
@@ -142,14 +151,19 @@ public abstract class RepeatedUseSignedPreKeyStore<K extends SignedPreKey<?>> {
    * Clears all repeated-use pre-keys associated with the given account/identity.
    *
    * @param identifier the identifier for the account/identity for which to clear repeated-use pre-keys
+   * @param excludePrimaryDevice whether to exclude the primary device from repeated-use key deletion; this is intended
+   *                             for cases when a user "re-registers" and displaces an existing account record and has
+   *                             provided new repeated-use keys for the primary device in the process of creating the
+   *                             new account
    *
    * @return a future that completes once repeated-use pre-keys have been cleared from all devices associated with the
    * target account/identity
    */
-  public CompletableFuture<Void> delete(final UUID identifier) {
+  public CompletableFuture<Void> delete(final UUID identifier, final boolean excludePrimaryDevice) {
     final Timer.Sample sample = Timer.start();
 
     return getDeviceIdsWithKeys(identifier)
+        .filter(deviceId -> deviceId != Device.PRIMARY_ID || !excludePrimaryDevice)
         .map(deviceId -> DeleteItemRequest.builder()
             .tableName(tableName)
             .key(getPrimaryKey(identifier, deviceId))

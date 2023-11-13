@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -201,6 +202,7 @@ class AccountsManagerTest {
     when(registrationRecoveryPasswordsManager.removeForNumber(anyString())).thenReturn(CompletableFuture.completedFuture(null));
 
     when(keysManager.delete(any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(keysManager.delete(any(), anyBoolean())).thenReturn(CompletableFuture.completedFuture(null));
     when(messagesManager.clear(any())).thenReturn(CompletableFuture.completedFuture(null));
     when(profilesManager.deleteAll(any())).thenReturn(CompletableFuture.completedFuture(null));
 
@@ -853,7 +855,7 @@ class AccountsManagerTest {
     when(commands.get(eq("Account3::" + uuid))).thenReturn(null);
     when(accounts.getByAccountIdentifier(uuid)).thenReturn(Optional.empty())
         .thenReturn(Optional.of(account));
-    when(accounts.create(any())).thenThrow(ContestedOptimisticLockException.class);
+    when(accounts.create(any(), any())).thenThrow(ContestedOptimisticLockException.class);
 
     accountsManager.update(account, a -> {
     });
@@ -930,14 +932,15 @@ class AccountsManagerTest {
 
   @Test
   void testCreateFreshAccount() throws InterruptedException {
-    when(accounts.create(any())).thenReturn(true);
+    when(accounts.create(any(), any())).thenReturn(true);
 
     final String e164 = "+18005550123";
     final AccountAttributes attributes = new AccountAttributes(false, 0, null, null, true, null);
-    accountsManager.create(e164, "password", null, attributes, new ArrayList<>());
 
-    verify(accounts).create(argThat(account -> e164.equals(account.getNumber())));
-    verifyNoInteractions(keysManager);
+    createAccount(e164, attributes);
+
+    verify(accounts).create(argThat(account -> e164.equals(account.getNumber())), any());
+
     verifyNoInteractions(messagesManager);
     verifyNoInteractions(profilesManager);
   }
@@ -946,22 +949,23 @@ class AccountsManagerTest {
   void testReregisterAccount() throws InterruptedException {
     final UUID existingUuid = UUID.randomUUID();
 
-    when(accounts.create(any())).thenAnswer(invocation -> {
+    when(accounts.create(any(), any())).thenAnswer(invocation -> {
       invocation.getArgument(0, Account.class).setUuid(existingUuid);
       return false;
     });
 
     final String e164 = "+18005550123";
     final AccountAttributes attributes = new AccountAttributes(false, 0, null, null, true, null);
-    accountsManager.create(e164, "password", null, attributes, new ArrayList<>());
+
+    createAccount(e164, attributes);
 
     assertTrue(phoneNumberIdentifiersByE164.containsKey(e164));
 
     verify(accounts)
-        .create(argThat(account -> e164.equals(account.getNumber()) && existingUuid.equals(account.getUuid())));
+        .create(argThat(account -> e164.equals(account.getNumber()) && existingUuid.equals(account.getUuid())), any());
 
-    verify(keysManager).delete(existingUuid);
-    verify(keysManager).delete(phoneNumberIdentifiersByE164.get(e164));
+    verify(keysManager).delete(existingUuid, true);
+    verify(keysManager).delete(phoneNumberIdentifiersByE164.get(e164), true);
     verify(messagesManager).clear(existingUuid);
     verify(profilesManager).deleteAll(existingUuid);
     verify(clientPresenceManager).disconnectAllPresencesForUuid(existingUuid);
@@ -972,14 +976,17 @@ class AccountsManagerTest {
     final UUID recentlyDeletedUuid = UUID.randomUUID();
 
     when(accounts.findRecentlyDeletedAccountIdentifier(anyString())).thenReturn(Optional.of(recentlyDeletedUuid));
-    when(accounts.create(any())).thenReturn(true);
+    when(accounts.create(any(), any())).thenReturn(true);
 
     final String e164 = "+18005550123";
     final AccountAttributes attributes = new AccountAttributes(false, 0, null, null, true, null);
-    accountsManager.create(e164, "password", null, attributes, new ArrayList<>());
+
+    createAccount(e164, attributes);
 
     verify(accounts).create(
-        argThat(account -> e164.equals(account.getNumber()) && recentlyDeletedUuid.equals(account.getUuid())));
+        argThat(account -> e164.equals(account.getNumber()) && recentlyDeletedUuid.equals(account.getUuid())),
+        any());
+
     verifyNoInteractions(keysManager);
     verifyNoInteractions(messagesManager);
     verifyNoInteractions(profilesManager);
@@ -989,7 +996,7 @@ class AccountsManagerTest {
   @ValueSource(booleans = {true, false})
   void testCreateWithDiscoverability(final boolean discoverable) throws InterruptedException {
     final AccountAttributes attributes = new AccountAttributes(false, 0, null, null, discoverable, null);
-    final Account account = accountsManager.create("+18005550123", "password", null, attributes, new ArrayList<>());
+    final Account account = createAccount("+18005550123", attributes);
 
     assertEquals(discoverable, account.isDiscoverableByPhoneNumber());
   }
@@ -1000,7 +1007,7 @@ class AccountsManagerTest {
     final AccountAttributes attributes = new AccountAttributes(false, 0, null, null, true,
         new DeviceCapabilities(hasStorage, false, false, false));
 
-    final Account account = accountsManager.create("+18005550123", "password", null, attributes, new ArrayList<>());
+    final Account account = createAccount("+18005550123", attributes);
 
     assertEquals(hasStorage, account.isStorageSupported());
   }
@@ -1571,5 +1578,24 @@ class AccountsManagerTest {
     device.setLastSeen(lastSeen);
 
     return device;
+  }
+
+  private Account createAccount(final String e164, final AccountAttributes accountAttributes) throws InterruptedException {
+    final ECKeyPair aciKeyPair = Curve.generateKeyPair();
+    final ECKeyPair pniKeyPair = Curve.generateKeyPair();
+
+    return accountsManager.create(e164,
+        "password",
+        null,
+        accountAttributes,
+        new ArrayList<>(),
+        new IdentityKey(aciKeyPair.getPublicKey()),
+        new IdentityKey(pniKeyPair.getPublicKey()),
+        KeysHelper.signedECPreKey(1, aciKeyPair),
+        KeysHelper.signedECPreKey(2, pniKeyPair),
+        KeysHelper.signedKEMPreKey(3, aciKeyPair),
+        KeysHelper.signedKEMPreKey(4, pniKeyPair),
+        Optional.empty(),
+        Optional.empty());
   }
 }

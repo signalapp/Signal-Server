@@ -342,8 +342,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getDynamoDbTables().getPhoneNumberIdentifiers().getTableName());
     Profiles profiles = new Profiles(dynamoDbClient, dynamoDbAsyncClient,
         config.getDynamoDbTables().getProfiles().getTableName());
-    KeysManager keys = new KeysManager(
-            dynamoDbAsyncClient,
+    KeysManager keysManager = new KeysManager(
+        dynamoDbAsyncClient,
         config.getDynamoDbTables().getEcKeys().getTableName(),
         config.getDynamoDbTables().getKemKeys().getTableName(),
         config.getDynamoDbTables().getEcSignedPreKeys().getTableName(),
@@ -525,7 +525,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     AccountLockManager accountLockManager = new AccountLockManager(dynamoDbClient,
         config.getDynamoDbTables().getDeletedAccountsLock().getTableName());
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
-        accountLockManager, keys, messagesManager, profilesManager,
+        accountLockManager, keysManager, messagesManager, profilesManager,
         secureStorageClient, secureValueRecovery2Client,
         clientPresenceManager,
         experimentEnrollmentManager, registrationRecoveryPasswordsManager, accountLockExecutor, clock);
@@ -669,8 +669,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .addService(new AccountsAnonymousGrpcService(accountsManager, rateLimiters))
         .addService(ExternalServiceCredentialsGrpcService.createForAllExternalServices(config, rateLimiters))
         .addService(ExternalServiceCredentialsAnonymousGrpcService.create(accountsManager, config))
-        .addService(ServerInterceptors.intercept(new KeysGrpcService(accountsManager, keys, rateLimiters), basicCredentialAuthenticationInterceptor))
-        .addService(new KeysAnonymousGrpcService(accountsManager, keys))
+        .addService(ServerInterceptors.intercept(new KeysGrpcService(accountsManager, keysManager, rateLimiters), basicCredentialAuthenticationInterceptor))
+        .addService(new KeysAnonymousGrpcService(accountsManager, keysManager))
         .addService(new PaymentsGrpcService(currencyManager))
         .addService(ServerInterceptors.intercept(new ProfileGrpcService(clock, accountsManager, profilesManager, dynamicConfigurationManager,
                 config.getBadges(), asyncCdnS3Client, profileCdnPolicyGenerator, profileCdnPolicySigner, profileBadgeConverter, rateLimiters, zkProfileOperations, config.getCdnConfiguration().bucket()), basicCredentialAuthenticationInterceptor))
@@ -725,7 +725,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             turnTokenGenerator,
             registrationRecoveryPasswordsManager, usernameHashZkProofVerifier));
 
-    environment.jersey().register(new KeysController(rateLimiters, keys, accountsManager));
+    environment.jersey().register(new KeysController(rateLimiters, keysManager, accountsManager));
 
     boolean registeredSpamFilter = false;
     ReportSpamTokenProvider reportSpamTokenProvider = null;
@@ -784,7 +784,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new CallLinkController(rateLimiters, callingGenericZkSecretParams),
         new CertificateController(new CertificateGenerator(config.getDeliveryCertificate().certificate().value(), config.getDeliveryCertificate().ecPrivateKey(), config.getDeliveryCertificate().expiresDays()), zkAuthOperations, callingGenericZkSecretParams, clock),
         new ChallengeController(rateLimitChallengeManager),
-        new DeviceController(config.getLinkDeviceSecretConfiguration().secret().value(), accountsManager, messagesManager, keys, rateLimiters,
+        new DeviceController(config.getLinkDeviceSecretConfiguration().secret().value(), accountsManager, messagesManager, keysManager, rateLimiters,
             rateLimitersCluster, config.getMaxDevices(), clock),
         new DirectoryV2Controller(directoryV2CredentialsGenerator),
         new DonationController(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager, config.getBadges(),
@@ -799,7 +799,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             config.getCdnConfiguration().bucket(), zkProfileOperations, batchIdentityCheckExecutor),
         new ProvisioningController(rateLimiters, provisioningManager),
         new RegistrationController(accountsManager, phoneVerificationTokenManager, registrationLockVerificationManager,
-            keys, rateLimiters),
+            rateLimiters),
         new RemoteConfigController(remoteConfigsManager, adminEventLogger,
             config.getRemoteConfigConfiguration().authorizedUsers(),
             config.getRemoteConfigConfiguration().requiredHostedDomain(),

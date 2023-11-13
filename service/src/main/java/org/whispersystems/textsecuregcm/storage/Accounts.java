@@ -19,6 +19,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,6 +29,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -157,6 +159,7 @@ public class Accounts extends AbstractDynamoDbStore {
       final String phoneNumberIdentifierConstraintTableName,
       final String usernamesConstraintTableName,
       final String deletedAccountsTableName) {
+
     super(client);
     this.clock = clock;
     this.asyncClient = asyncClient;
@@ -175,12 +178,14 @@ public class Accounts extends AbstractDynamoDbStore {
       final String phoneNumberIdentifierConstraintTableName,
       final String usernamesConstraintTableName,
       final String deletedAccountsTableName) {
+
     this(Clock.systemUTC(), client, asyncClient, accountsTableName,
         phoneNumberConstraintTableName, phoneNumberIdentifierConstraintTableName, usernamesConstraintTableName,
         deletedAccountsTableName);
   }
 
-  public boolean create(final Account account) {
+  public boolean create(final Account account, final Function<Account, Collection<TransactWriteItem>> additionalWriteItemsFunction) {
+
     return CREATE_TIMER.record(() -> {
       try {
         final AttributeValue uuidAttr = AttributeValues.fromUUID(account.getUuid());
@@ -199,8 +204,13 @@ public class Accounts extends AbstractDynamoDbStore {
         // the newly-created account.
         final TransactWriteItem deletedAccountDelete = buildRemoveDeletedAccount(account.getNumber());
 
+        final Collection<TransactWriteItem> writeItems = new ArrayList<>(
+            List.of(phoneNumberConstraintPut, phoneNumberIdentifierConstraintPut, accountPut, deletedAccountDelete));
+
+        writeItems.addAll(additionalWriteItemsFunction.apply(account));
+
         final TransactWriteItemsRequest request = TransactWriteItemsRequest.builder()
-            .transactItems(phoneNumberConstraintPut, phoneNumberIdentifierConstraintPut, accountPut, deletedAccountDelete)
+            .transactItems(writeItems)
             .build();
 
         try {
@@ -229,7 +239,8 @@ public class Accounts extends AbstractDynamoDbStore {
             account.setUuid(UUIDUtil.fromByteBuffer(actualAccountUuid));
             final Account existingAccount = getByAccountIdentifier(account.getUuid()).orElseThrow();
             account.setNumber(existingAccount.getNumber(), existingAccount.getPhoneNumberIdentifier());
-            joinAndUnwrapUpdateFuture(reclaimAccount(existingAccount, account));
+            joinAndUnwrapUpdateFuture(reclaimAccount(existingAccount, account, additionalWriteItemsFunction.apply(account)));
+
             return false;
           }
 
@@ -254,7 +265,7 @@ public class Accounts extends AbstractDynamoDbStore {
    * @param existingAccount the existing account in the accounts table
    * @param accountToCreate a new account, with the same number and identifier as existingAccount
    */
-  private CompletionStage<Void> reclaimAccount(final Account existingAccount, final Account accountToCreate) {
+  private CompletionStage<Void> reclaimAccount(final Account existingAccount, final Account accountToCreate, final Collection<TransactWriteItem> additionalWriteItems) {
     if (!existingAccount.getUuid().equals(accountToCreate.getUuid()) ||
         !existingAccount.getNumber().equals(accountToCreate.getNumber())) {
       throw new IllegalArgumentException("reclaimed accounts must match");
@@ -310,6 +321,7 @@ public class Accounts extends AbstractDynamoDbStore {
             .build());
       }
       writeItems.add(UpdateAccountSpec.forAccount(accountsTableName, accountToCreate).transactItem());
+      writeItems.addAll(additionalWriteItems);
 
       return asyncClient.transactWriteItems(TransactWriteItemsRequest.builder().transactItems(writeItems).build())
           .thenApply(response -> {

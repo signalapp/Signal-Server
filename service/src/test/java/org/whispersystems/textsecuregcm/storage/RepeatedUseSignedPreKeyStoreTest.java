@@ -5,14 +5,16 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import org.junit.jupiter.api.Test;
-import org.whispersystems.textsecuregcm.entities.SignedPreKey;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 abstract class RepeatedUseSignedPreKeyStoreTest<K extends SignedPreKey<?>> {
 
@@ -50,38 +52,47 @@ abstract class RepeatedUseSignedPreKeyStoreTest<K extends SignedPreKey<?>> {
   }
 
   @Test
-  void delete() {
+  void deleteForDevice() {
     final RepeatedUseSignedPreKeyStore<K> keys = getKeyStore();
 
-    assertDoesNotThrow(() -> keys.delete(UUID.randomUUID()).join());
-
+    final UUID identifier = UUID.randomUUID();
     final byte deviceId2 = 2;
-    {
-      final UUID identifier = UUID.randomUUID();
-      final Map<Byte, K> signedPreKeys = Map.of(
-          Device.PRIMARY_ID, generateSignedPreKey(),
-          deviceId2, generateSignedPreKey()
-      );
+    final Map<Byte, K> signedPreKeys = Map.of(
+        Device.PRIMARY_ID, generateSignedPreKey(),
+        deviceId2, generateSignedPreKey()
+    );
 
-      keys.store(identifier, signedPreKeys).join();
-      keys.delete(identifier, Device.PRIMARY_ID).join();
+    keys.store(identifier, signedPreKeys).join();
+    keys.delete(identifier, Device.PRIMARY_ID).join();
 
+    assertEquals(Optional.empty(), keys.find(identifier, Device.PRIMARY_ID).join());
+    assertEquals(Optional.of(signedPreKeys.get(deviceId2)), keys.find(identifier, deviceId2).join());
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void deleteForAllDevices(final boolean excludePrimaryDevice) {
+    final RepeatedUseSignedPreKeyStore<K> keys = getKeyStore();
+
+    assertDoesNotThrow(() -> keys.delete(UUID.randomUUID(), excludePrimaryDevice).join());
+
+    final byte deviceId2 = Device.PRIMARY_ID + 1;
+
+    final UUID identifier = UUID.randomUUID();
+    final Map<Byte, K> signedPreKeys = Map.of(
+        Device.PRIMARY_ID, generateSignedPreKey(),
+        deviceId2, generateSignedPreKey()
+    );
+
+    keys.store(identifier, signedPreKeys).join();
+    keys.delete(identifier, excludePrimaryDevice).join();
+
+    if (excludePrimaryDevice) {
+      assertTrue(keys.find(identifier, Device.PRIMARY_ID).join().isPresent());
+    } else {
       assertEquals(Optional.empty(), keys.find(identifier, Device.PRIMARY_ID).join());
-      assertEquals(Optional.of(signedPreKeys.get(deviceId2)), keys.find(identifier, deviceId2).join());
     }
 
-    {
-      final UUID identifier = UUID.randomUUID();
-      final Map<Byte, K> signedPreKeys = Map.of(
-          Device.PRIMARY_ID, generateSignedPreKey(),
-          deviceId2, generateSignedPreKey()
-      );
-
-      keys.store(identifier, signedPreKeys).join();
-      keys.delete(identifier).join();
-
-      assertEquals(Optional.empty(), keys.find(identifier, Device.PRIMARY_ID).join());
-      assertEquals(Optional.empty(), keys.find(identifier, deviceId2).join());
-    }
+    assertEquals(Optional.empty(), keys.find(identifier, deviceId2).join());
   }
 }

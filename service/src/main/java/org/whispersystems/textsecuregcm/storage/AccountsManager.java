@@ -53,7 +53,9 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
+import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
+import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
@@ -175,17 +177,26 @@ public class AccountsManager {
     this.clock = requireNonNull(clock);
   }
 
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   public Account create(final String number,
       final String password,
       final String signalAgent,
       final AccountAttributes accountAttributes,
-      final List<AccountBadge> accountBadges) throws InterruptedException {
+      final List<AccountBadge> accountBadges,
+      final IdentityKey aciIdentityKey,
+      final IdentityKey pniIdentityKey,
+      final ECSignedPreKey aciSignedPreKey,
+      final ECSignedPreKey pniSignedPreKey,
+      final KEMSignedPreKey aciPqLastResortPreKey,
+      final KEMSignedPreKey pniPqLastResortPreKey,
+      final Optional<ApnRegistrationId> maybeApnRegistrationId,
+      final Optional<GcmRegistrationId> maybeGcmRegistrationId) throws InterruptedException {
 
     try (Timer.Context ignored = createTimer.time()) {
       final Account account = new Account();
 
       accountLockManager.withLock(List.of(number), () -> {
-        Device device = new Device();
+        final Device device = new Device();
         device.setId(Device.PRIMARY_ID);
         device.setAuthTokenHash(SaltedTokenHash.generateFor(password));
         device.setFetchesMessages(accountAttributes.getFetchesMessages());
@@ -196,6 +207,16 @@ public class AccountsManager {
         device.setCreated(System.currentTimeMillis());
         device.setLastSeen(Util.todayInMillis());
         device.setUserAgent(signalAgent);
+        device.setSignedPreKey(aciSignedPreKey);
+        device.setPhoneNumberIdentitySignedPreKey(pniSignedPreKey);
+
+        maybeApnRegistrationId.ifPresent(apnRegistrationId -> {
+          device.setApnId(apnRegistrationId.apnRegistrationId());
+          device.setVoipApnId(apnRegistrationId.voipRegistrationId());
+        });
+
+        maybeGcmRegistrationId.ifPresent(gcmRegistrationId ->
+            device.setGcmId(gcmRegistrationId.gcmRegistrationId()));
 
         account.setNumber(number, phoneNumberIdentifiers.getPhoneNumberIdentifier(number));
 
@@ -205,6 +226,8 @@ public class AccountsManager {
         // Reuse the ACI from any recently-deleted account with this number to cover cases where somebody is
         // re-registering.
         account.setUuid(maybeRecentlyDeletedAccountIdentifier.orElseGet(UUID::randomUUID));
+        account.setIdentityKey(aciIdentityKey);
+        account.setPhoneNumberIdentityKey(pniIdentityKey);
         account.addDevice(device);
         account.setRegistrationLockFromAttributes(accountAttributes);
         account.setUnidentifiedAccessKey(accountAttributes.getUnidentifiedAccessKey());
@@ -214,7 +237,14 @@ public class AccountsManager {
 
         final UUID originalUuid = account.getUuid();
 
-        boolean freshUser = accounts.create(account);
+        final boolean freshUser = accounts.create(account,
+            a -> keysManager.buildWriteItemsForRepeatedUseKeys(a.getIdentifier(IdentityType.ACI),
+                a.getIdentifier(IdentityType.PNI),
+                Device.PRIMARY_ID,
+                aciSignedPreKey,
+                pniSignedPreKey,
+                aciPqLastResortPreKey,
+                pniPqLastResortPreKey));
 
         // create() sometimes updates the UUID, if there was a number conflict.
         // for metrics, we want secondary to run with the same original UUID
@@ -235,9 +265,11 @@ public class AccountsManager {
         // confident that everything has already been deleted. In the second case, though, we're taking over an existing
         // account and need to clear out messages and keys that may have been stored for the old account.
         if (!originalUuid.equals(actualUuid)) {
+          // We exclude the primary device's repeated-use keys from deletion because new keys were provided as part of
+          // the account creation process, and we don't want to delete the keys that just got added.
           final CompletableFuture<Void> deleteKeysFuture = CompletableFuture.allOf(
-              keysManager.delete(actualUuid),
-              keysManager.delete(account.getPhoneNumberIdentifier()));
+              keysManager.delete(actualUuid, true),
+              keysManager.delete(account.getPhoneNumberIdentifier(), true));
 
           messagesManager.clear(actualUuid).join();
           profilesManager.deleteAll(actualUuid).join();

@@ -18,6 +18,7 @@ import org.whispersystems.textsecuregcm.entities.ECPreKey;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
+import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
 
 public class KeysManager {
 
@@ -73,6 +74,20 @@ public class KeysManager {
     }
 
     return CompletableFuture.allOf(storeFutures.toArray(new CompletableFuture[0]));
+  }
+
+  public List<TransactWriteItem> buildWriteItemsForRepeatedUseKeys(final UUID accountIdentifier,
+      final UUID phoneNumberIdentifier,
+      final byte deviceId,
+      final ECSignedPreKey aciSignedPreKey,
+      final ECSignedPreKey pniSignedPreKey,
+      final KEMSignedPreKey aciPqLastResortPreKey,
+      final KEMSignedPreKey pniLastResortPreKey) {
+
+    return List.of(ecSignedPreKeys.buildTransactWriteItem(accountIdentifier, deviceId, aciSignedPreKey),
+        ecSignedPreKeys.buildTransactWriteItem(phoneNumberIdentifier, deviceId, pniSignedPreKey),
+        pqLastResortKeys.buildTransactWriteItem(accountIdentifier, deviceId, aciPqLastResortPreKey),
+        pqLastResortKeys.buildTransactWriteItem(phoneNumberIdentifier, deviceId, pniLastResortPreKey));
   }
 
   public CompletableFuture<Void> storeEcSignedPreKeys(final UUID identifier, final Map<Byte, ECSignedPreKey> keys) {
@@ -134,14 +149,18 @@ public class KeysManager {
     return pqPreKeys.getCount(identifier, deviceId);
   }
 
-  public CompletableFuture<Void> delete(final UUID accountUuid) {
+  public CompletableFuture<Void> delete(final UUID identifier) {
+    return delete(identifier, false);
+  }
+
+  public CompletableFuture<Void> delete(final UUID identifier, final boolean excludePrimaryDevice) {
     return CompletableFuture.allOf(
-            ecPreKeys.delete(accountUuid),
-            pqPreKeys.delete(accountUuid),
-            dynamicConfigurationManager.getConfiguration().getEcPreKeyMigrationConfiguration().deleteEcSignedPreKeys()
-                ? ecSignedPreKeys.delete(accountUuid)
-                : CompletableFuture.completedFuture(null),
-            pqLastResortKeys.delete(accountUuid));
+        ecPreKeys.delete(identifier),
+        pqPreKeys.delete(identifier),
+        dynamicConfigurationManager.getConfiguration().getEcPreKeyMigrationConfiguration().deleteEcSignedPreKeys()
+            ? ecSignedPreKeys.delete(identifier, excludePrimaryDevice)
+            : CompletableFuture.completedFuture(null),
+        pqLastResortKeys.delete(identifier, excludePrimaryDevice));
   }
 
   public CompletableFuture<Void> delete(final UUID accountUuid, final byte deviceId) {

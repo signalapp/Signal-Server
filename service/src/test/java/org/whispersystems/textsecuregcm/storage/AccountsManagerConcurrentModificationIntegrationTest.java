@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -39,6 +40,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.Curve;
+import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
@@ -51,6 +53,7 @@ import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
 import org.whispersystems.textsecuregcm.tests.util.JsonHelpers;
+import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
 import org.whispersystems.textsecuregcm.util.Pair;
 
@@ -62,8 +65,11 @@ class AccountsManagerConcurrentModificationIntegrationTest {
       Tables.ACCOUNTS,
       Tables.NUMBERS,
       Tables.PNI_ASSIGNMENTS,
-      Tables.DELETED_ACCOUNTS
-  );
+      Tables.DELETED_ACCOUNTS,
+      Tables.EC_KEYS,
+      Tables.PQ_KEYS,
+      Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS,
+      Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS);
 
   private Accounts accounts;
 
@@ -79,6 +85,14 @@ class AccountsManagerConcurrentModificationIntegrationTest {
     @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
         mock(DynamicConfigurationManager.class);
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(new DynamicConfiguration());
+
+    final KeysManager keysManager = new KeysManager(
+        DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
+        Tables.EC_KEYS.tableName(),
+        Tables.PQ_KEYS.tableName(),
+        Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS.tableName(),
+        Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS.tableName(),
+        dynamicConfigurationManager);
 
     accounts = new Accounts(
         DYNAMO_DB_EXTENSION.getDynamoDbClient(),
@@ -134,11 +148,25 @@ class AccountsManagerConcurrentModificationIntegrationTest {
 
   @Test
   void testConcurrentUpdate() throws IOException, InterruptedException {
-
     final UUID uuid;
     {
+      final ECKeyPair aciKeyPair = Curve.generateKeyPair();
+      final ECKeyPair pniKeyPair = Curve.generateKeyPair();
+
       final Account account = accountsManager.update(
-          accountsManager.create("+14155551212", "password", null, new AccountAttributes(), new ArrayList<>()),
+          accountsManager.create("+14155551212",
+              "password",
+              null,
+              new AccountAttributes(),
+              new ArrayList<>(),
+              new IdentityKey(aciKeyPair.getPublicKey()),
+              new IdentityKey(pniKeyPair.getPublicKey()),
+              KeysHelper.signedECPreKey(1, aciKeyPair),
+              KeysHelper.signedECPreKey(2, pniKeyPair),
+              KeysHelper.signedKEMPreKey(3, aciKeyPair),
+              KeysHelper.signedKEMPreKey(4, pniKeyPair),
+              Optional.empty(),
+              Optional.empty()),
           a -> {
             a.setUnidentifiedAccessKey(new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
             a.removeDevice(Device.PRIMARY_ID);

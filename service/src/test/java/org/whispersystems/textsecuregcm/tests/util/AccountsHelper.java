@@ -15,13 +15,19 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 import org.mockito.MockingDetails;
 import org.mockito.stubbing.Stubbing;
+import org.signal.libsignal.protocol.IdentityKey;
+import org.signal.libsignal.protocol.ecc.Curve;
+import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
+import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -150,4 +156,30 @@ public class AccountsHelper {
     return argThat(other -> other.getUuid().equals(value.getUuid()));
   }
 
+  public static Account createAccount(final AccountsManager accountsManager, final String e164)
+      throws InterruptedException {
+
+    return createAccount(accountsManager, e164, new AccountAttributes());
+  }
+
+  public static Account createAccount(final AccountsManager accountsManager, final String e164, final AccountAttributes accountAttributes)
+      throws InterruptedException {
+
+    final ECKeyPair aciKeyPair = Curve.generateKeyPair();
+    final ECKeyPair pniKeyPair = Curve.generateKeyPair();
+
+    return accountsManager.create(e164,
+        "password",
+        null,
+        accountAttributes,
+        new ArrayList<>(),
+        new IdentityKey(aciKeyPair.getPublicKey()),
+        new IdentityKey(pniKeyPair.getPublicKey()),
+        KeysHelper.signedECPreKey(1, aciKeyPair),
+        KeysHelper.signedECPreKey(2, pniKeyPair),
+        KeysHelper.signedKEMPreKey(3, aciKeyPair),
+        KeysHelper.signedKEMPreKey(4, pniKeyPair),
+        Optional.empty(),
+        Optional.empty());
+  }
 }

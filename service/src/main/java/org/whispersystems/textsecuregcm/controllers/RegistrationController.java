@@ -20,9 +20,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import javax.ws.rs.Consumes;
@@ -45,8 +43,6 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.KeysManager;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -69,18 +65,16 @@ public class RegistrationController {
   private final AccountsManager accounts;
   private final PhoneVerificationTokenManager phoneVerificationTokenManager;
   private final RegistrationLockVerificationManager registrationLockVerificationManager;
-  private final KeysManager keysManager;
   private final RateLimiters rateLimiters;
 
   public RegistrationController(final AccountsManager accounts,
                                 final PhoneVerificationTokenManager phoneVerificationTokenManager,
                                 final RegistrationLockVerificationManager registrationLockVerificationManager,
-                                final KeysManager keysManager,
                                 final RateLimiters rateLimiters) {
+
     this.accounts = accounts;
     this.phoneVerificationTokenManager = phoneVerificationTokenManager;
     this.registrationLockVerificationManager = registrationLockVerificationManager;
-    this.keysManager = keysManager;
     this.rateLimiters = rateLimiters;
   }
 
@@ -141,37 +135,19 @@ public class RegistrationController {
           userAgent, RegistrationLockVerificationManager.Flow.REGISTRATION, verificationType);
     }
 
-    Account account = accounts.create(number, password, signalAgent, registrationRequest.accountAttributes(),
-        existingAccount.map(Account::getBadges).orElseGet(ArrayList::new));
-
-    account = accounts.update(account, a -> {
-      a.setIdentityKey(registrationRequest.aciIdentityKey());
-      a.setPhoneNumberIdentityKey(registrationRequest.pniIdentityKey());
-
-      final Device device = a.getPrimaryDevice().orElseThrow();
-
-      device.setSignedPreKey(registrationRequest.deviceActivationRequest().aciSignedPreKey());
-      device.setPhoneNumberIdentitySignedPreKey(registrationRequest.deviceActivationRequest().pniSignedPreKey());
-
-      registrationRequest.deviceActivationRequest().apnToken().ifPresent(apnRegistrationId -> {
-        device.setApnId(apnRegistrationId.apnRegistrationId());
-        device.setVoipApnId(apnRegistrationId.voipRegistrationId());
-      });
-
-      registrationRequest.deviceActivationRequest().gcmToken().ifPresent(gcmRegistrationId ->
-          device.setGcmId(gcmRegistrationId.gcmRegistrationId()));
-
-      CompletableFuture.allOf(
-              keysManager.storeEcSignedPreKeys(a.getUuid(),
-                  Map.of(Device.PRIMARY_ID, registrationRequest.deviceActivationRequest().aciSignedPreKey())),
-              keysManager.storePqLastResort(a.getUuid(),
-                  Map.of(Device.PRIMARY_ID, registrationRequest.deviceActivationRequest().aciPqLastResortPreKey())),
-              keysManager.storeEcSignedPreKeys(a.getPhoneNumberIdentifier(),
-                  Map.of(Device.PRIMARY_ID, registrationRequest.deviceActivationRequest().pniSignedPreKey())),
-              keysManager.storePqLastResort(a.getPhoneNumberIdentifier(),
-                  Map.of(Device.PRIMARY_ID, registrationRequest.deviceActivationRequest().pniPqLastResortPreKey())))
-          .join();
-    });
+    final Account account = accounts.create(number,
+        password,
+        signalAgent,
+        registrationRequest.accountAttributes(),
+        existingAccount.map(Account::getBadges).orElseGet(ArrayList::new),
+        registrationRequest.aciIdentityKey(),
+        registrationRequest.pniIdentityKey(),
+        registrationRequest.deviceActivationRequest().aciSignedPreKey(),
+        registrationRequest.deviceActivationRequest().pniSignedPreKey(),
+        registrationRequest.deviceActivationRequest().aciPqLastResortPreKey(),
+        registrationRequest.deviceActivationRequest().pniPqLastResortPreKey(),
+        registrationRequest.deviceActivationRequest().apnToken(),
+        registrationRequest.deviceActivationRequest().gcmToken());
 
     Metrics.counter(ACCOUNT_CREATED_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
             Tag.of(COUNTRY_CODE_TAG_NAME, Util.getCountryCode(number)),

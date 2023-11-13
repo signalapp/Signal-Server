@@ -14,7 +14,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Clock;
-import java.util.ArrayList;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -41,6 +40,7 @@ import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
+import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 
 class AccountsManagerChangeNumberIntegrationTest {
@@ -53,7 +53,11 @@ class AccountsManagerChangeNumberIntegrationTest {
       Tables.NUMBERS,
       Tables.PNI,
       Tables.PNI_ASSIGNMENTS,
-      Tables.USERNAMES);
+      Tables.USERNAMES,
+      Tables.EC_KEYS,
+      Tables.PQ_KEYS,
+      Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS,
+      Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS);
 
   @RegisterExtension
   static final RedisClusterExtension CACHE_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
@@ -72,6 +76,14 @@ class AccountsManagerChangeNumberIntegrationTest {
 
       DynamicConfiguration dynamicConfiguration = new DynamicConfiguration();
       when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
+
+      final KeysManager keysManager = new KeysManager(
+          DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
+          Tables.EC_KEYS.tableName(),
+          Tables.PQ_KEYS.tableName(),
+          Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS.tableName(),
+          Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS.tableName(),
+          dynamicConfigurationManager);
 
       final Accounts accounts = new Accounts(
           DYNAMO_DB_EXTENSION.getDynamoDbClient(),
@@ -97,9 +109,6 @@ class AccountsManagerChangeNumberIntegrationTest {
 
       final PhoneNumberIdentifiers phoneNumberIdentifiers =
           new PhoneNumberIdentifiers(DYNAMO_DB_EXTENSION.getDynamoDbClient(), Tables.PNI.tableName());
-
-      final KeysManager keysManager = mock(KeysManager.class);
-      when(keysManager.delete(any())).thenReturn(CompletableFuture.completedFuture(null));
 
       final MessagesManager messagesManager = mock(MessagesManager.class);
       when(messagesManager.clear(any())).thenReturn(CompletableFuture.completedFuture(null));
@@ -143,8 +152,8 @@ class AccountsManagerChangeNumberIntegrationTest {
   void testChangeNumber() throws InterruptedException, MismatchedDevicesException {
     final String originalNumber = "+18005551111";
     final String secondNumber = "+18005552222";
+    final Account account = AccountsHelper.createAccount(accountsManager, originalNumber);
 
-    final Account account = accountsManager.create(originalNumber, "password", null, new AccountAttributes(), new ArrayList<>());
     final UUID originalUuid = account.getUuid();
     final UUID originalPni = account.getPhoneNumberIdentifier();
 
@@ -167,17 +176,17 @@ class AccountsManagerChangeNumberIntegrationTest {
     final String originalNumber = "+18005551111";
     final String secondNumber = "+18005552222";
     final int rotatedPniRegistrationId = 17;
-    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
-    final ECSignedPreKey rotatedSignedPreKey = KeysHelper.signedECPreKey(1L, pniIdentityKeyPair);
-
+    final ECKeyPair rotatedPniIdentityKeyPair = Curve.generateKeyPair();
+    final ECSignedPreKey rotatedSignedPreKey = KeysHelper.signedECPreKey(1L, rotatedPniIdentityKeyPair);
     final AccountAttributes accountAttributes = new AccountAttributes(true, rotatedPniRegistrationId + 1, "test", null, true, new Device.DeviceCapabilities(false, false, false, false));
-    final Account account = accountsManager.create(originalNumber, "password", null, accountAttributes, new ArrayList<>());
-    account.getPrimaryDevice().orElseThrow().setSignedPreKey(KeysHelper.signedECPreKey(1, pniIdentityKeyPair));
+    final Account account = AccountsHelper.createAccount(accountsManager, originalNumber, accountAttributes);
+
+    account.getPrimaryDevice().orElseThrow().setSignedPreKey(KeysHelper.signedECPreKey(1, rotatedPniIdentityKeyPair));
 
     final UUID originalUuid = account.getUuid();
     final UUID originalPni = account.getPhoneNumberIdentifier();
 
-    final IdentityKey pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());
+    final IdentityKey pniIdentityKey = new IdentityKey(rotatedPniIdentityKeyPair.getPublicKey());
     final Map<Byte, ECSignedPreKey> preKeys = Map.of(Device.PRIMARY_ID, rotatedSignedPreKey);
     final Map<Byte, Integer> registrationIds = Map.of(Device.PRIMARY_ID, rotatedPniRegistrationId);
 
@@ -207,7 +216,8 @@ class AccountsManagerChangeNumberIntegrationTest {
     final String originalNumber = "+18005551111";
     final String secondNumber = "+18005552222";
 
-    Account account = accountsManager.create(originalNumber, "password", null, new AccountAttributes(), new ArrayList<>());
+    Account account = AccountsHelper.createAccount(accountsManager, originalNumber);
+
     final UUID originalUuid = account.getUuid();
     final UUID originalPni = account.getPhoneNumberIdentifier();
 
@@ -231,10 +241,12 @@ class AccountsManagerChangeNumberIntegrationTest {
     final String originalNumber = "+18005551111";
     final String secondNumber = "+18005552222";
 
-    final Account account = accountsManager.create(originalNumber, "password", null, new AccountAttributes(), new ArrayList<>());
+    final Account account = AccountsHelper.createAccount(accountsManager, originalNumber);
+
     final UUID originalUuid = account.getUuid();
 
-    final Account existingAccount = accountsManager.create(secondNumber, "password", null, new AccountAttributes(), new ArrayList<>());
+    final Account existingAccount = AccountsHelper.createAccount(accountsManager, secondNumber);
+
     final UUID existingAccountUuid = existingAccount.getUuid();
 
     accountsManager.changeNumber(account, secondNumber, null, null, null, null);
@@ -253,8 +265,7 @@ class AccountsManagerChangeNumberIntegrationTest {
 
     accountsManager.changeNumber(accountsManager.getByAccountIdentifier(originalUuid).orElseThrow(), originalNumber, null, null, null, null);
 
-    final Account existingAccount2 = accountsManager.create(secondNumber, "password", null, new AccountAttributes(),
-        new ArrayList<>());
+    final Account existingAccount2 = AccountsHelper.createAccount(accountsManager, secondNumber);
 
     assertEquals(existingAccountUuid, existingAccount2.getUuid());
   }
@@ -264,17 +275,19 @@ class AccountsManagerChangeNumberIntegrationTest {
     final String originalNumber = "+18005551111";
     final String secondNumber = "+18005552222";
 
-    final Account account = accountsManager.create(originalNumber, "password", null, new AccountAttributes(), new ArrayList<>());
+    final Account account = AccountsHelper.createAccount(accountsManager, originalNumber);
+
     final UUID originalUuid = account.getUuid();
     final UUID originalPni = account.getPhoneNumberIdentifier();
 
-    final Account existingAccount = accountsManager.create(secondNumber, "password", null, new AccountAttributes(), new ArrayList<>());
+    final Account existingAccount = AccountsHelper.createAccount(accountsManager, secondNumber);
+
     final UUID existingAccountUuid = existingAccount.getUuid();
 
     final Account changedNumberAccount = accountsManager.changeNumber(account, secondNumber, null, null, null, null);
     final UUID secondPni = changedNumberAccount.getPhoneNumberIdentifier();
 
-    final Account reRegisteredAccount = accountsManager.create(originalNumber, "password", null, new AccountAttributes(), new ArrayList<>());
+    final Account reRegisteredAccount = AccountsHelper.createAccount(accountsManager, originalNumber);
 
     assertEquals(existingAccountUuid, reRegisteredAccount.getUuid());
     assertEquals(originalPni, reRegisteredAccount.getPhoneNumberIdentifier());
