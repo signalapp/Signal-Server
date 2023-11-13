@@ -185,9 +185,8 @@ paths:
       summary: Set username link
       description: |
         Authenticated endpoint. For the given encrypted username generates a username link handle.
-        Username link handle could be used to lookup the encrypted username.
-        An account can only have one username link at a time. Calling this endpoint will reset previously stored
-        encrypted username and deactivate previous link handle.
+        The username link handle can be used to lookup the encrypted username.
+        An account can only have one username link at a time; this endpoint overwrites the previous encrypted username if there was one.
       operationId: updateUsernameLink
       requestBody:
         content:
@@ -2701,6 +2700,11 @@ components:
           minLength: 1
           type: string
           description: the URL-safe base64 encoding of the encrypted username
+        keepLinkHandle:
+          type: boolean
+          description: "if set and the account already has an encrypted-username link\
+            \ handle, reuse the same link handle rather than generating a new one.\
+            \ The response will still have the link handle."
     ReserveUsernameHashResponse:
       type: object
       properties:
@@ -2944,14 +2948,14 @@ components:
     ECPublicKey:
       type: object
       properties:
+        type:
+          type: integer
+          format: int32
         publicKeyBytes:
           type: array
           items:
             type: string
             format: byte
-        type:
-          type: integer
-          format: int32
     ECSignedPreKey:
       type: object
       properties:
@@ -3483,13 +3487,13 @@ components:
     WebSocketClient:
       type: object
       properties:
+        userAgent:
+          type: string
+        open:
+          type: boolean
         createdTimestamp:
           type: integer
           format: int64
-        open:
-          type: boolean
-        userAgent:
-          type: string
     WebSocketSessionContext:
       type: object
       properties:
