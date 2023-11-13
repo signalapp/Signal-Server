@@ -78,6 +78,8 @@ public class Accounts extends AbstractDynamoDbStore {
 
   private static final Logger log = LoggerFactory.getLogger(Accounts.class);
 
+  private static final Duration USERNAME_RECLAIM_TTL = Duration.ofDays(3);
+
   static final List<String> ACCOUNT_FIELDS_TO_EXCLUDE_FROM_SERIALIZATION = List.of("uuid", "usernameLinkHandle");
 
   private static final ObjectWriter ACCOUNT_DDB_JSON_WRITER = SystemMapper.jsonMapper()
@@ -89,6 +91,7 @@ public class Accounts extends AbstractDynamoDbStore {
   private static final Timer RESERVE_USERNAME_TIMER = Metrics.timer(name(Accounts.class, "reserveUsername"));
   private static final Timer CLEAR_USERNAME_HASH_TIMER = Metrics.timer(name(Accounts.class, "clearUsernameHash"));
   private static final Timer UPDATE_TIMER = Metrics.timer(name(Accounts.class, "update"));
+  private static final Timer RECLAIM_TIMER = Metrics.timer(name(Accounts.class, "reclaim"));
   private static final Timer GET_BY_NUMBER_TIMER = Metrics.timer(name(Accounts.class, "getByNumber"));
   private static final Timer GET_BY_USERNAME_HASH_TIMER = Metrics.timer(name(Accounts.class, "getByUsernameHash"));
   private static final Timer GET_BY_USERNAME_LINK_HANDLE_TIMER = Metrics.timer(name(Accounts.class, "getByUsernameLinkHandle"));
@@ -118,6 +121,8 @@ public class Accounts extends AbstractDynamoDbStore {
   static final String ATTR_USERNAME_HASH = "N";
   // confirmed; bool
   static final String ATTR_CONFIRMED = "F";
+  // reclaimable; bool. Indicates that on confirmation the username link should be preserved
+  static final String ATTR_RECLAIMABLE = "R";
   // unidentified access key; byte[] or null
   static final String ATTR_UAK = "UAK";
   // time to live; number
@@ -222,16 +227,9 @@ public class Accounts extends AbstractDynamoDbStore {
 
             final ByteBuffer actualAccountUuid = reason.item().get(KEY_ACCOUNT_UUID).b().asByteBuffer();
             account.setUuid(UUIDUtil.fromByteBuffer(actualAccountUuid));
-
             final Account existingAccount = getByAccountIdentifier(account.getUuid()).orElseThrow();
-
-            // It's up to the client to delete this username hash if they can't retrieve and decrypt the plaintext username from storage service
-            existingAccount.getUsernameHash().ifPresent(account::setUsernameHash);
             account.setNumber(existingAccount.getNumber(), existingAccount.getPhoneNumberIdentifier());
-            account.setVersion(existingAccount.getVersion());
-
-            update(account);
-
+            joinAndUnwrapUpdateFuture(reclaimAccount(existingAccount, account));
             return false;
           }
 
@@ -246,8 +244,88 @@ public class Accounts extends AbstractDynamoDbStore {
       } catch (final JsonProcessingException e) {
         throw new IllegalArgumentException(e);
       }
-
       return true;
+    });
+  }
+
+  /**
+   * Copies over any account attributes that should be preserved when a new account reclaims an account identifier.
+   *
+   * @param existingAccount the existing account in the accounts table
+   * @param accountToCreate a new account, with the same number and identifier as existingAccount
+   */
+  private CompletionStage<Void> reclaimAccount(final Account existingAccount, final Account accountToCreate) {
+    if (!existingAccount.getUuid().equals(accountToCreate.getUuid()) ||
+        !existingAccount.getNumber().equals(accountToCreate.getNumber())) {
+      throw new IllegalArgumentException("reclaimed accounts must match");
+    }
+    return AsyncTimerUtil.record(RECLAIM_TIMER, () -> {
+
+      accountToCreate.setVersion(existingAccount.getVersion());
+
+      final List<TransactWriteItem> writeItems = new ArrayList<>();
+
+      // If we're reclaiming an account that already has a username, we'd like to give the re-registering client
+      // an opportunity to reclaim their original username and link. We do this by:
+      //   1. marking the usernameHash as reserved for the aci
+      //   2. saving the username link id, but not the encrypted username. The link will be broken until the client
+      //      reclaims their username
+      //
+      // If we partially reclaim the account but fail (for example, we update the account but the client goes away
+      // before creation is finished), we might be reclaiming the account we already reclaimed. In that case, we
+      // should copy over the reserved username and link verbatim
+      if (existingAccount.getReservedUsernameHash().isPresent() &&
+          existingAccount.getUsernameLinkHandle() != null &&
+          existingAccount.getUsernameHash().isEmpty() &&
+          existingAccount.getEncryptedUsername().isEmpty()) {
+        // reclaiming a partially reclaimed account
+        accountToCreate.setReservedUsernameHash(existingAccount.getReservedUsernameHash().get());
+        accountToCreate.setUsernameLinkHandle(existingAccount.getUsernameLinkHandle());
+      } else if (existingAccount.getUsernameHash().isPresent()) {
+        // reclaiming an account with a username
+        final byte[] usernameHash = existingAccount.getUsernameHash().get();
+        final long expirationTime = clock.instant().plus(USERNAME_RECLAIM_TTL).getEpochSecond();
+        accountToCreate.setReservedUsernameHash(usernameHash);
+        accountToCreate.setUsernameLinkHandle(existingAccount.getUsernameLinkHandle());
+
+        writeItems.add(TransactWriteItem.builder()
+            .put(Put.builder()
+                .tableName(usernamesConstraintTableName)
+                .item(Map.of(
+                    KEY_ACCOUNT_UUID, AttributeValues.fromUUID(accountToCreate.getUuid()),
+                    ATTR_USERNAME_HASH, AttributeValues.fromByteArray(usernameHash),
+                    ATTR_TTL, AttributeValues.fromLong(expirationTime),
+                    ATTR_CONFIRMED, AttributeValues.fromBool(false),
+                    ATTR_RECLAIMABLE, AttributeValues.fromBool(true)))
+                .conditionExpression("attribute_not_exists(#username_hash) OR (#ttl < :now) OR #uuid = :uuid")
+                .expressionAttributeNames(Map.of(
+                    "#username_hash", ATTR_USERNAME_HASH,
+                    "#ttl", ATTR_TTL,
+                    "#uuid", KEY_ACCOUNT_UUID))
+                .expressionAttributeValues(Map.of(
+                    ":now", AttributeValues.fromLong(clock.instant().getEpochSecond()),
+                    ":uuid", AttributeValues.fromUUID(accountToCreate.getUuid())))
+                .returnValuesOnConditionCheckFailure(ReturnValuesOnConditionCheckFailure.ALL_OLD)
+                .build())
+            .build());
+      }
+      writeItems.add(UpdateAccountSpec.forAccount(accountsTableName, accountToCreate).transactItem());
+
+      return asyncClient.transactWriteItems(TransactWriteItemsRequest.builder().transactItems(writeItems).build())
+          .thenApply(response -> {
+            accountToCreate.setVersion(accountToCreate.getVersion() + 1);
+            return (Void) null;
+          })
+          .exceptionally(throwable -> {
+            final Throwable unwrapped = ExceptionUtils.unwrap(throwable);
+            if (unwrapped instanceof TransactionCanceledException te) {
+              if (te.cancellationReasons().stream().anyMatch(Accounts::conditionalCheckFailed)) {
+                throw new ContestedOptimisticLockException();
+              }
+            }
+            // rethrow
+            throw CompletableFutureUtils.errorAsCompletionException(throwable);
+          });
     });
   }
 
@@ -369,7 +447,8 @@ public class Accounts extends AbstractDynamoDbStore {
                 KEY_ACCOUNT_UUID, AttributeValues.fromUUID(uuid),
                 ATTR_USERNAME_HASH, AttributeValues.fromByteArray(reservedUsernameHash),
                 ATTR_TTL, AttributeValues.fromLong(expirationTime),
-                ATTR_CONFIRMED, AttributeValues.fromBool(false)))
+                ATTR_CONFIRMED, AttributeValues.fromBool(false),
+                ATTR_RECLAIMABLE, AttributeValues.fromBool(false)))
             .conditionExpression("attribute_not_exists(#username_hash) OR (#ttl < :now)")
             .expressionAttributeNames(Map.of("#username_hash", ATTR_USERNAME_HASH, "#ttl", ATTR_TTL))
             .expressionAttributeValues(Map.of(":now", AttributeValues.fromLong(clock.instant().getEpochSecond())))
@@ -426,32 +505,36 @@ public class Accounts extends AbstractDynamoDbStore {
    */
   public CompletableFuture<Void> confirmUsernameHash(final Account account, final byte[] usernameHash, @Nullable final byte[] encryptedUsername) {
     final Timer.Sample sample = Timer.start();
-    final UUID newLinkHandle = UUID.randomUUID();
 
-    final TransactWriteItemsRequest request;
+    return pickLinkHandle(account, usernameHash)
+        .thenCompose(linkHandle -> {
+          final TransactWriteItemsRequest request;
+          try {
+            final Account updatedAccount = AccountUtil.cloneAccountAsNotStale(account);
+            updatedAccount.setUsernameHash(usernameHash);
+            updatedAccount.setReservedUsernameHash(null);
+            updatedAccount.setUsernameLinkDetails(encryptedUsername == null ? null : linkHandle, encryptedUsername);
 
-    try {
-      final Account updatedAccount = AccountUtil.cloneAccountAsNotStale(account);
-      updatedAccount.setUsernameHash(usernameHash);
-      updatedAccount.setReservedUsernameHash(null);
-      updatedAccount.setUsernameLinkDetails(encryptedUsername == null ? null : newLinkHandle, encryptedUsername);
+            request = buildConfirmUsernameHashRequest(updatedAccount, account.getUsernameHash());
+          } catch (final JsonProcessingException e) {
+            throw new IllegalArgumentException(e);
+          }
 
-      request = buildConfirmUsernameHashRequest(updatedAccount, account.getUsernameHash());
-    } catch (final JsonProcessingException e) {
-      throw new IllegalArgumentException(e);
-    }
-
-    return asyncClient.transactWriteItems(request)
-        .thenRun(() -> {
+          return asyncClient.transactWriteItems(request).thenApply(ignored -> linkHandle);
+        })
+        .thenApply(linkHandle -> {
           account.setUsernameHash(usernameHash);
           account.setReservedUsernameHash(null);
-          account.setUsernameLinkDetails(encryptedUsername == null ? null : newLinkHandle, encryptedUsername);
+          account.setUsernameLinkDetails(encryptedUsername == null ? null : linkHandle, encryptedUsername);
 
           account.setVersion(account.getVersion() + 1);
+          return (Void) null;
         })
         .exceptionally(throwable -> {
-          if (ExceptionUtils.unwrap(throwable) instanceof TransactionCanceledException transactionCanceledException) {
-            if (transactionCanceledException.cancellationReasons().stream().map(CancellationReason::code).anyMatch(CONDITIONAL_CHECK_FAILED::equals)) {
+          if (ExceptionUtils.unwrap(
+              throwable) instanceof TransactionCanceledException transactionCanceledException) {
+            if (transactionCanceledException.cancellationReasons().stream().map(CancellationReason::code)
+                .anyMatch(CONDITIONAL_CHECK_FAILED::equals)) {
               throw new ContestedOptimisticLockException();
             }
           }
@@ -461,7 +544,31 @@ public class Accounts extends AbstractDynamoDbStore {
         .whenComplete((ignored, throwable) -> sample.stop(SET_USERNAME_TIMER));
   }
 
-  private TransactWriteItemsRequest buildConfirmUsernameHashRequest(final Account updatedAccount, final Optional<byte[]> maybeOriginalUsernameHash)
+  private CompletableFuture<UUID> pickLinkHandle(final Account account, final byte[] usernameHash) {
+    if (account.getUsernameLinkHandle() == null) {
+      // There's no old link handle, so we can just use a randomly generated link handle
+      return CompletableFuture.completedFuture(UUID.randomUUID());
+    }
+
+    // Otherwise, there's an existing link handle. If this is the result of an account being re-registered, we should
+    // preserve the link handle.
+    return asyncClient.getItem(GetItemRequest.builder()
+            .tableName(usernamesConstraintTableName)
+            .key(Map.of(ATTR_USERNAME_HASH, AttributeValues.b(usernameHash)))
+            .projectionExpression(ATTR_RECLAIMABLE).build())
+        .thenApply(response -> {
+          if (response.hasItem() && AttributeValues.getBool(response.item(), ATTR_RECLAIMABLE, false)) {
+            // this username reservation indicates it's a username waiting to be "reclaimed"
+            return account.getUsernameLinkHandle();
+          }
+          // There was no existing username reservation, or this was a standard "new" username. Either way, we should
+          // generate a new link handle.
+          return UUID.randomUUID();
+        });
+  }
+
+  private TransactWriteItemsRequest buildConfirmUsernameHashRequest(final Account updatedAccount,
+      final Optional<byte[]> maybeOriginalUsernameHash)
       throws JsonProcessingException {
 
     final List<TransactWriteItem> writeItems = new ArrayList<>();
@@ -593,10 +700,42 @@ public class Accounts extends AbstractDynamoDbStore {
         .build();
   }
 
-  @Nonnull
-  public CompletionStage<Void> updateAsync(final Account account) {
-    return AsyncTimerUtil.record(UPDATE_TIMER, () -> {
-      final UpdateItemRequest updateItemRequest;
+
+  /**
+   * A ddb update that can be used as part of a transaction or single-item update statement.
+   */
+  record UpdateAccountSpec(
+      String tableName,
+      Map<String, AttributeValue> key,
+      Map<String, String> attrNames,
+      Map<String, AttributeValue> attrValues,
+      String updateExpression,
+      String conditionExpression) {
+    UpdateItemRequest updateItemRequest() {
+      return UpdateItemRequest.builder()
+          .tableName(tableName)
+          .key(key)
+          .updateExpression(updateExpression)
+          .conditionExpression(conditionExpression)
+          .expressionAttributeNames(attrNames)
+          .expressionAttributeValues(attrValues)
+          .build();
+    }
+
+    TransactWriteItem transactItem() {
+      return TransactWriteItem.builder().update(Update.builder()
+          .tableName(tableName)
+          .key(key)
+          .updateExpression(updateExpression)
+          .conditionExpression(conditionExpression)
+          .expressionAttributeNames(attrNames)
+          .expressionAttributeValues(attrValues)
+          .build()).build();
+    }
+
+    static UpdateAccountSpec forAccount(
+        final String accountTableName,
+        final Account account) {
       try {
         // username, e164, and pni cannot be modified through this method
         final Map<String, String> attrNames = new HashMap<>(Map.of(
@@ -618,28 +757,53 @@ public class Accounts extends AbstractDynamoDbStore {
           attrValues.put(":uak", AttributeValues.fromByteArray(account.getUnidentifiedAccessKey().get()));
           updateExpressionBuilder.append(", #uak = :uak");
         }
+
+        // If the account has a username/handle pair, we should add it to the top level attributes.
+        // When we remove an encryptedUsername but preserve the link (re-registration), it's possible that the account
+        // has a usernameLinkHandle but not an encrypted username. In this case there should already be a top-level
+        // usernameLink attribute.
         if (account.getEncryptedUsername().isPresent() && account.getUsernameLinkHandle() != null) {
           attrNames.put("#ul", ATTR_USERNAME_LINK_UUID);
           attrValues.put(":ul", AttributeValues.fromUUID(account.getUsernameLinkHandle()));
           updateExpressionBuilder.append(", #ul = :ul");
         }
-        updateExpressionBuilder.append(" ADD #version :version_increment");
-        if (account.getEncryptedUsername().isEmpty() || account.getUsernameLinkHandle() == null) {
-          attrNames.put("#ul", ATTR_USERNAME_LINK_UUID);
-          updateExpressionBuilder.append(" REMOVE #ul");
-        }
 
-        updateItemRequest = UpdateItemRequest.builder()
-            .tableName(accountsTableName)
-            .key(Map.of(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid())))
-            .updateExpression(updateExpressionBuilder.toString())
-            .conditionExpression("attribute_exists(#number) AND #version = :version")
-            .expressionAttributeNames(attrNames)
-            .expressionAttributeValues(attrValues)
-            .build();
+        // Some operations may remove the usernameLink or the usernameHash (re-registration, clear username link, and
+        // clear username hash). Since these also have top-level ddb attributes, we need to make sure to remove those
+        // as well.
+        final List<String> removes = new ArrayList<>();
+        if (account.getUsernameLinkHandle() == null) {
+          attrNames.put("#ul", ATTR_USERNAME_LINK_UUID);
+          removes.add("#ul");
+        }
+        if (account.getUsernameHash().isEmpty()) {
+          attrNames.put("#username_hash", ATTR_USERNAME_HASH);
+          removes.add("#username_hash");
+        }
+        if (!removes.isEmpty()) {
+          updateExpressionBuilder.append(" REMOVE %s".formatted(String.join(",", removes)));
+        }
+        updateExpressionBuilder.append(" ADD #version :version_increment");
+
+        return new UpdateAccountSpec(
+            accountTableName,
+            Map.of(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid())),
+            attrNames,
+            attrValues,
+            updateExpressionBuilder.toString(),
+            "attribute_exists(#number) AND #version = :version");
       } catch (final JsonProcessingException e) {
         throw new IllegalArgumentException(e);
       }
+    }
+  }
+
+  @Nonnull
+  public CompletionStage<Void> updateAsync(final Account account) {
+    return AsyncTimerUtil.record(UPDATE_TIMER, () -> {
+      final UpdateItemRequest updateItemRequest = UpdateAccountSpec
+          .forAccount(accountsTableName, account)
+          .updateItemRequest();
 
       return asyncClient.updateItem(updateItemRequest)
           .thenApply(response -> {
@@ -662,9 +826,9 @@ public class Accounts extends AbstractDynamoDbStore {
     });
   }
 
-  public void update(final Account account) throws ContestedOptimisticLockException {
+  private static void joinAndUnwrapUpdateFuture(CompletionStage<Void> future) {
     try {
-      updateAsync(account).toCompletableFuture().join();
+      future.toCompletableFuture().join();
     } catch (final CompletionException e) {
       // unwrap CompletionExceptions, throw as long is it's unchecked
       Throwables.throwIfUnchecked(ExceptionUtils.unwrap(e));
@@ -674,6 +838,10 @@ public class Accounts extends AbstractDynamoDbStore {
       log.error("Unexpected checked exception thrown from dynamo update", e);
       throw e;
     }
+  }
+
+  public void update(final Account account) throws ContestedOptimisticLockException {
+    joinAndUnwrapUpdateFuture(updateAsync(account));
   }
 
   public CompletableFuture<Boolean> usernameHashAvailable(final byte[] username) {

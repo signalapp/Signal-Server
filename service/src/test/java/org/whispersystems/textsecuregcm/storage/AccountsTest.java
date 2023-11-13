@@ -34,6 +34,7 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
@@ -45,6 +46,7 @@ import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
@@ -323,6 +325,75 @@ class AccountsTest {
     verifyStoredState("+14151112222", uuid, null, null, retrieved.get(), account);
   }
 
+  // State before the account is re-registered
+  enum UsernameStatus {
+    NONE,
+    RESERVED,
+    RESERVED_WITH_SAVED_LINK,
+    CONFIRMED
+  }
+
+  @ParameterizedTest
+  @EnumSource(UsernameStatus.class)
+  void reclaimAccountWithNoUsername(UsernameStatus usernameStatus) {
+    Device device = generateDevice(DEVICE_ID_1);
+    UUID firstUuid = UUID.randomUUID();
+    UUID firstPni = UUID.randomUUID();
+    Account account = generateAccount("+14151112222", firstUuid, firstPni, List.of(device));
+    accounts.create(account);
+
+    final byte[] usernameHash = randomBytes(32);
+    final byte[] encryptedUsername = randomBytes(32);
+    switch (usernameStatus) {
+      case NONE:
+        break;
+      case RESERVED:
+        accounts.reserveUsernameHash(account, randomBytes(32), Duration.ofMinutes(1)).join();
+        break;
+      case RESERVED_WITH_SAVED_LINK:
+        // give the account a username
+        accounts.reserveUsernameHash(account, usernameHash, Duration.ofMinutes(1)).join();
+        accounts.confirmUsernameHash(account, usernameHash, encryptedUsername).join();
+
+        // simulate a failed re-reg: we give the account a reclaimable username, but we'll try
+        // re-registering again later in the test case
+        account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID(), List.of(generateDevice(DEVICE_ID_1)));
+        accounts.create(account);
+        break;
+      case CONFIRMED:
+        accounts.reserveUsernameHash(account, usernameHash, Duration.ofMinutes(1)).join();
+        accounts.confirmUsernameHash(account, usernameHash, encryptedUsername).join();
+        break;
+    }
+
+    Optional<UUID> preservedLink = Optional.ofNullable(account.getUsernameLinkHandle());
+
+    // re-register the account
+    account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID(), List.of(generateDevice(DEVICE_ID_1)));
+    accounts.create(account);
+
+    // If we had a username link, or we had previously saved a username link from another re-registration, make sure
+    // we preserve it
+    accounts.confirmUsernameHash(account, usernameHash, encryptedUsername).join();
+
+    boolean shouldReuseLink = switch (usernameStatus) {
+      case RESERVED_WITH_SAVED_LINK, CONFIRMED -> true;
+      case NONE, RESERVED -> false;
+    };
+
+    // If we had a reclaimable username, make sure we preserved the link.
+    assertThat(account.getUsernameLinkHandle().equals(preservedLink.orElse(null)))
+        .isEqualTo(shouldReuseLink);
+
+
+    // in all cases, we should now have usernameHash, usernameLink, and encryptedUsername set
+    assertThat(account.getUsernameHash()).isNotEmpty();
+    assertThat(account.getEncryptedUsername()).isNotEmpty();
+    assertThat(account.getUsernameLinkHandle()).isNotNull();
+    assertThat(account.getReservedUsernameHash()).isEmpty();
+
+  }
+
   @Test
   void testOverwrite() {
     Device device = generateDevice(DEVICE_ID_1);
@@ -332,14 +403,12 @@ class AccountsTest {
 
     accounts.create(account);
 
-    final SecureRandom byteGenerator = new SecureRandom();
-    final byte[] usernameHash = new byte[32];
-    byteGenerator.nextBytes(usernameHash);
-    final byte[] encryptedUsername = new byte[16];
-    byteGenerator.nextBytes(encryptedUsername);
+    final byte[] usernameHash = randomBytes(32);
+    final byte[] encryptedUsername = randomBytes(16);
 
     // Set up the existing account to have a username hash
     accounts.confirmUsernameHash(account, usernameHash, encryptedUsername).join();
+    final UUID usernameLinkHandle = account.getUsernameLinkHandle();
 
     verifyStoredState("+14151112222", account.getUuid(), account.getPhoneNumberIdentifier(), usernameHash, account, true);
 
@@ -355,14 +424,35 @@ class AccountsTest {
 
     final boolean freshUser = accounts.create(account);
     assertThat(freshUser).isFalse();
-    verifyStoredState("+14151112222", firstUuid, firstPni, usernameHash, account, true);
+    // usernameHash should be unset
+    verifyStoredState("+14151112222", firstUuid, firstPni, null, account, true);
+
+    // username should become 'reclaimable'
+    Map<String, AttributeValue> item = readAccount(firstUuid);
+    Account result = Accounts.fromItem(item);
+    assertThat(AttributeValues.getUUID(item, Accounts.ATTR_USERNAME_LINK_UUID, null))
+        .isEqualTo(usernameLinkHandle)
+        .isEqualTo(result.getUsernameLinkHandle());
+    assertThat(result.getUsernameHash()).isEmpty();
+    assertThat(result.getEncryptedUsername()).isEmpty();
+    assertArrayEquals(result.getReservedUsernameHash().get(), usernameHash);
+
+    // should keep the same usernameLink, now encryptedUsername should be set
+    accounts.confirmUsernameHash(result, usernameHash, encryptedUsername).join();
+    item = readAccount(firstUuid);
+    result = Accounts.fromItem(item);
+    assertThat(AttributeValues.getUUID(item, Accounts.ATTR_USERNAME_LINK_UUID, null))
+        .isEqualTo(usernameLinkHandle)
+        .isEqualTo(result.getUsernameLinkHandle());
+    assertArrayEquals(result.getEncryptedUsername().get(), encryptedUsername);
+    assertArrayEquals(result.getUsernameHash().get(), usernameHash);
+    assertThat(result.getReservedUsernameHash()).isEmpty();
 
     assertPhoneNumberConstraintExists("+14151112222", firstUuid);
     assertPhoneNumberIdentifierConstraintExists(firstPni, firstUuid);
 
     device = generateDevice(DEVICE_ID_1);
     Account invalidAccount = generateAccount("+14151113333", firstUuid, UUID.randomUUID(), List.of(device));
-
     assertThatThrownBy(() -> accounts.create(invalidAccount));
   }
 
@@ -1078,6 +1168,17 @@ class AccountsTest {
     assertThat(pniConstraintResponse.hasItem()).isFalse();
   }
 
+  private Map<String, AttributeValue> readAccount(final UUID uuid) {
+    final DynamoDbClient db = DYNAMO_DB_EXTENSION.getDynamoDbClient();
+
+    final GetItemResponse get = db.getItem(GetItemRequest.builder()
+        .tableName(Tables.ACCOUNTS.tableName())
+        .key(Map.of(Accounts.KEY_ACCOUNT_UUID, AttributeValues.fromUUID(uuid)))
+        .consistentRead(true)
+        .build());
+    return get.item();
+  }
+
   private void verifyStoredState(String number, UUID uuid, UUID pni, byte[] usernameHash, Account expecting, boolean canonicallyDiscoverable) {
     final DynamoDbClient db = DYNAMO_DB_EXTENSION.getDynamoDbClient();
 
@@ -1130,5 +1231,11 @@ class AccountsTest {
       assertThat(resultDevice.getName()).isEqualTo(expectingDevice.getName());
       assertThat(resultDevice.getCreated()).isEqualTo(expectingDevice.getCreated());
     }
+  }
+
+  private static byte[] randomBytes(int count) {
+    byte[] bytes = new byte[count];
+    ThreadLocalRandom.current().nextBytes(bytes);
+    return bytes;
   }
 }
