@@ -20,7 +20,6 @@ public record PushNotification(String deviceToken,
   public enum NotificationType {
     NOTIFICATION,
     ATTEMPT_LOGIN_NOTIFICATION_HIGH_PRIORITY,
-    @Deprecated ATTEMPT_LOGIN_NOTIFICATION_LOW_PRIORITY, // Temporary support for iOS clients; can be removed after 2023-06-12
     CHALLENGE,
     RATE_LIMIT_CHALLENGE
   }

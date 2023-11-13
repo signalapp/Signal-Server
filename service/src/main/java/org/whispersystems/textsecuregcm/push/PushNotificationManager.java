@@ -76,13 +76,6 @@ public class PushNotificationManager {
     sendNotification(new PushNotification(tokenAndType.first(), tokenAndType.second(),
         PushNotification.NotificationType.ATTEMPT_LOGIN_NOTIFICATION_HIGH_PRIORITY,
         context, destination, device, true));
-
-    // This is a workaround for older iOS clients who need a low priority push to trigger the logout notification
-    if (tokenAndType.second() == PushNotification.TokenType.APN) {
-      sendNotification(new PushNotification(tokenAndType.first(), tokenAndType.second(),
-          PushNotification.NotificationType.ATTEMPT_LOGIN_NOTIFICATION_LOW_PRIORITY,
-          context, destination, device, false));
-    }
   }
 
   public void handleMessagesRetrieved(final Account account, final Device device, final String userAgent) {

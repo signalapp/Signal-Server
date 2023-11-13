@@ -115,8 +115,6 @@ class PushNotificationManagerTest {
       when(device.getApnId()).thenReturn(deviceToken);
       when(apnSender.sendNotification(any()))
           .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(true, null, false)));
-      when(apnPushNotificationScheduler.scheduleBackgroundNotification(account, device))
-          .thenReturn(CompletableFuture.completedFuture(null));
     } else {
       when(device.getGcmId()).thenReturn(deviceToken);
       when(fcmSender.sendNotification(any()))
@@ -129,7 +127,6 @@ class PushNotificationManagerTest {
     if (isApn){
       verify(apnSender).sendNotification(new PushNotification(deviceToken, PushNotification.TokenType.APN,
           PushNotification.NotificationType.ATTEMPT_LOGIN_NOTIFICATION_HIGH_PRIORITY, "someContext", account, device, true));
-      verify(apnPushNotificationScheduler).scheduleBackgroundNotification(account, device);
     } else {
       verify(fcmSender, times(1)).sendNotification(new PushNotification(deviceToken, PushNotification.TokenType.FCM,
           PushNotification.NotificationType.ATTEMPT_LOGIN_NOTIFICATION_HIGH_PRIORITY, "someContext", account, device, true));

@@ -102,11 +102,6 @@ public class APNSender implements Managed, PushNotificationSender {
           .addCustomProperty("attemptLoginContext", notification.data())
           .build();
 
-      case ATTEMPT_LOGIN_NOTIFICATION_LOW_PRIORITY -> new SimpleApnsPayloadBuilder()
-          .setContentAvailable(true)
-          .addCustomProperty("attemptLoginContext", notification.data())
-          .build();
-
       case CHALLENGE -> new SimpleApnsPayloadBuilder()
           .setContentAvailable(true)
           .addCustomProperty("challenge", notification.data())
