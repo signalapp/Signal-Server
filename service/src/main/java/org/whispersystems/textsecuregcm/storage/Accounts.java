@@ -807,14 +807,17 @@ public class Accounts extends AbstractDynamoDbStore {
             account.setVersion(AttributeValues.getInt(response.attributes(), "V", account.getVersion() + 1));
             return (Void) null;
           })
-          .exceptionally(throwable -> {
+          .exceptionallyCompose(throwable -> {
             final Throwable unwrapped = ExceptionUtils.unwrap(throwable);
             if (unwrapped instanceof TransactionConflictException) {
               throw new ContestedOptimisticLockException();
             } else if (unwrapped instanceof ConditionalCheckFailedException e) {
               // the exception doesn't give details about which condition failed,
               // but we can infer it was an optimistic locking failure if the UUID is known
-              throw getByAccountIdentifier(account.getUuid()).isPresent() ? new ContestedOptimisticLockException() : e;
+              return getByAccountIdentifierAsync(account.getUuid())
+                  .thenAccept(refreshedAccount -> {
+                    throw refreshedAccount.isPresent() ? new ContestedOptimisticLockException() : e;
+                  });
             } else {
               // rethrow
               throw CompletableFutureUtils.errorAsCompletionException(throwable);
