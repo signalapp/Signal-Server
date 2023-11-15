@@ -635,9 +635,6 @@ public class Accounts extends AbstractDynamoDbStore {
     return account.getUsernameHash().map(usernameHash -> {
       final Timer.Sample sample = Timer.start();
 
-      @Nullable final UUID originalLinkHandle = account.getUsernameLinkHandle();
-      @Nullable final byte[] originalEncryptedUsername = account.getEncryptedUsername().orElse(null);
-
       final TransactWriteItemsRequest request;
 
       try {
