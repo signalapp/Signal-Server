@@ -74,6 +74,7 @@ import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
+import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class KeysControllerTest {
@@ -235,9 +236,9 @@ class KeysControllerTest {
 
     when(rateLimiters.getPreKeysLimiter()).thenReturn(rateLimiter);
 
-    when(KEYS.store(any(), anyByte(), any(), any(), any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(KEYS.store(any(), anyByte(), any(), any(), any(), any())).thenReturn(CompletableFutureTestUtil.almostCompletedFuture(null));
     when(KEYS.getEcSignedPreKey(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(Optional.empty()));
-    when(KEYS.storeEcSignedPreKeys(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(KEYS.storeEcSignedPreKeys(any(), any())).thenReturn(CompletableFutureTestUtil.almostCompletedFuture(null));
 
     when(KEYS.takeEC(EXISTS_UUID, sampleDeviceId)).thenReturn(
         CompletableFuture.completedFuture(Optional.of(SAMPLE_KEY)));

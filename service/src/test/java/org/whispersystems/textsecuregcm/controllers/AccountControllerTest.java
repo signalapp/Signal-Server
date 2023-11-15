@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.client.Invocation;
@@ -90,6 +91,7 @@ import org.whispersystems.textsecuregcm.storage.UsernameHashNotAvailableExceptio
 import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundException;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
+import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
 import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.UsernameHashZkProofVerifier;
@@ -737,7 +739,7 @@ class AccountControllerTest {
   @Test
   void testDeleteUsername() {
     when(accountsManager.clearUsernameHash(any()))
-        .thenAnswer(invocation -> CompletableFuture.completedFuture(invocation.getArgument(0)));
+        .thenAnswer(invocation -> CompletableFutureTestUtil.almostCompletedFuture(invocation.getArgument(0)));
 
     Response response =
         resources.getJerseyTest()
@@ -746,6 +748,7 @@ class AccountControllerTest {
                  .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                  .delete();
 
+    assertThat(response.readEntity(String.class)).isEqualTo("");
     assertThat(response.getStatus()).isEqualTo(204);
     verify(accountsManager).clearUsernameHash(AuthHelper.VALID_ACCOUNT);
   }
@@ -828,6 +831,8 @@ class AccountControllerTest {
 
   @Test
   void testDeleteAccount() {
+    when(accountsManager.delete(any(), any())).thenReturn(CompletableFutureTestUtil.almostCompletedFuture(null));
+
     Response response =
             resources.getJerseyTest()
                      .target("/v1/accounts/me")

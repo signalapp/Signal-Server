@@ -16,8 +16,12 @@ import java.util.Locale;
 import java.util.Locale.LanguageRange;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import javax.ws.rs.core.Response;
+
 import org.apache.commons.lang3.StringUtils;
 
 public class Util {
@@ -27,6 +31,12 @@ public class Util {
   private static final PhoneNumberUtil PHONE_NUMBER_UTIL = PhoneNumberUtil.getInstance();
 
   public static final Runnable NOOP = () -> {};
+
+  // Use `CompletableFuture#thenApply(ASYNC_EMPTY_RESPONSE) to convert futures to
+  // CompletableFuture<Response> instead of using NOOP to convert them to CompletableFuture<Void>
+  // for jersey controllers; https://github.com/eclipse-ee4j/jersey/issues/3901 causes controllers
+  // returning Void futures to behave differently than synchronous controllers returning void
+  public static final Function<Object, Response> ASYNC_EMPTY_RESPONSE = ignored -> Response.noContent().build();
 
   /**
    * Checks that the given number is a valid, E164-normalized phone number.

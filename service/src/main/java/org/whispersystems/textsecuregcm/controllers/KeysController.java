@@ -121,7 +121,7 @@ public class KeysController {
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
   @ApiResponse(responseCode = "403", description = "Attempt to change identity key from a non-primary device.")
   @ApiResponse(responseCode = "422", description = "Invalid request format.")
-  public CompletableFuture<Void> setKeys(@Auth final DisabledPermittedAuthenticatedAccount disabledPermittedAuth,
+  public CompletableFuture<Response> setKeys(@Auth final DisabledPermittedAuthenticatedAccount disabledPermittedAuth,
       @RequestBody @NotNull @Valid final PreKeyState preKeys,
 
       @Parameter(allowEmptyValue=true)
@@ -189,7 +189,8 @@ public class KeysController {
     }
 
     return keys.store(getIdentifier(account, identityType), device.getId(),
-        preKeys.getPreKeys(), preKeys.getPqPreKeys(), preKeys.getSignedPreKey(), preKeys.getPqLastResortPreKey());
+        preKeys.getPreKeys(), preKeys.getPqPreKeys(), preKeys.getSignedPreKey(), preKeys.getPqLastResortPreKey())
+        .thenApply(Util.ASYNC_EMPTY_RESPONSE);
   }
 
   @GET
@@ -299,7 +300,7 @@ public class KeysController {
   @ApiResponse(responseCode = "200", description = "Indicates that new prekey was successfully stored.")
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
   @ApiResponse(responseCode = "422", description = "Invalid request format.")
-  public CompletableFuture<Void> setSignedKey(@Auth final AuthenticatedAccount auth,
+  public CompletableFuture<Response> setSignedKey(@Auth final AuthenticatedAccount auth,
       @Valid final ECSignedPreKey signedPreKey,
       @QueryParam("identity") final Optional<String> identityType) {
 
@@ -314,7 +315,8 @@ public class KeysController {
     });
 
     return keys.storeEcSignedPreKeys(getIdentifier(auth.getAccount(), identityType),
-        Map.of(device.getId(), signedPreKey));
+        Map.of(device.getId(), signedPreKey))
+        .thenApply(Util.ASYNC_EMPTY_RESPONSE);
   }
 
   private static boolean usePhoneNumberIdentity(final Optional<String> identityType) {

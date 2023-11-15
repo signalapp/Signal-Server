@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.TimeUnit;
 
 public class CompletableFutureTestUtil {
 
@@ -24,4 +25,9 @@ public class CompletableFutureTestUtil {
     final CompletionException completionException = assertThrows(CompletionException.class, completableFuture::join, message);
     assertTrue(ExceptionUtils.unwrap(completionException).getClass().isAssignableFrom(expectedCause), message);
   }
+
+  public static <T> CompletableFuture<T> almostCompletedFuture(T result) {
+    return new CompletableFuture<T>().completeOnTimeout(result, 5, TimeUnit.MILLISECONDS);
+  }
+
 }

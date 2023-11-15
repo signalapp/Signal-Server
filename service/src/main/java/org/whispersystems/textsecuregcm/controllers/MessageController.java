@@ -581,7 +581,7 @@ public class MessageController {
   @Timed
   @DELETE
   @Path("/uuid/{uuid}")
-  public CompletableFuture<Void> removePendingMessage(@Auth AuthenticatedAccount auth, @PathParam("uuid") UUID uuid) {
+  public CompletableFuture<Response> removePendingMessage(@Auth AuthenticatedAccount auth, @PathParam("uuid") UUID uuid) {
     return messagesManager.delete(
             auth.getAccount().getUuid(),
             auth.getAuthenticatedDevice().getId(),
@@ -603,7 +603,8 @@ public class MessageController {
               }
             }
           });
-        });
+        })
+        .thenApply(Util.ASYNC_EMPTY_RESPONSE);
   }
 
   @Timed

@@ -274,9 +274,9 @@ public class AccountController {
   )
   @ApiResponse(responseCode = "204", description = "Username successfully deleted.", useReturnTypeSchema = true)
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
-  public CompletableFuture<Void> deleteUsernameHash(@Auth final AuthenticatedAccount auth) {
+  public CompletableFuture<Response> deleteUsernameHash(@Auth final AuthenticatedAccount auth) {
     return accounts.clearUsernameHash(auth.getAccount())
-        .thenRun(Util.NOOP);
+        .thenApply(Util.ASYNC_EMPTY_RESPONSE);
   }
 
   @PUT
@@ -518,8 +518,8 @@ public class AccountController {
 
   @DELETE
   @Path("/me")
-  public CompletableFuture<Void> deleteAccount(@Auth DisabledPermittedAuthenticatedAccount auth) throws InterruptedException {
-    return accounts.delete(auth.getAccount(), AccountsManager.DeletionReason.USER_REQUEST);
+  public CompletableFuture<Response> deleteAccount(@Auth DisabledPermittedAuthenticatedAccount auth) throws InterruptedException {
+    return accounts.delete(auth.getAccount(), AccountsManager.DeletionReason.USER_REQUEST).thenApply(Util.ASYNC_EMPTY_RESPONSE);
   }
 
   private void clearUsernameLink(final Account account) {
