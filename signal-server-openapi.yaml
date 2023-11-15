@@ -96,9 +96,7 @@ paths:
         default:
           description: default response
           content:
-            '*/*':
-              schema:
-                type: object
+            '*/*': {}
       security:
       - authenticatedAccount: []
   /v1/accounts/apn:
@@ -170,10 +168,6 @@ paths:
       responses:
         "204":
           description: Username successfully deleted.
-          content:
-            application/json:
-              schema:
-                type: object
         "401":
           description: Account authentication check failed.
       security:
@@ -1510,9 +1504,7 @@ paths:
         default:
           description: default response
           content:
-            '*/*':
-              schema:
-                type: object
+            '*/*': {}
       security:
       - authenticatedAccount: []
   /v1/messages/report/{source}/{messageGuid}:
