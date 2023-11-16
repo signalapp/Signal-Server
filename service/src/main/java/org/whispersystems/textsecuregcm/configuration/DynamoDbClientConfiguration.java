@@ -5,37 +5,27 @@
 
 package org.whispersystems.textsecuregcm.configuration;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Duration;
-import javax.validation.constraints.NotEmpty;
+import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Positive;
 
-public class DynamoDbClientConfiguration {
+public record DynamoDbClientConfiguration(@NotBlank String region,
+                                          @NotNull Duration clientExecutionTimeout,
+                                          @NotNull Duration clientRequestTimeout,
+                                          @Positive int maxConnections) {
 
-  private final String region;
-  private final Duration clientExecutionTimeout;
-  private final Duration clientRequestTimeout;
+  public DynamoDbClientConfiguration {
+    if (clientExecutionTimeout == null) {
+      clientExecutionTimeout = Duration.ofSeconds(30);
+    }
 
-  @JsonCreator
-  public DynamoDbClientConfiguration(
-      @JsonProperty("region") final String region,
-      @JsonProperty("clientExcecutionTimeout") final Duration clientExecutionTimeout,
-      @JsonProperty("clientRequestTimeout") final Duration clientRequestTimeout) {
-    this.region = region;
-    this.clientExecutionTimeout = clientExecutionTimeout != null ? clientExecutionTimeout : Duration.ofSeconds(30);
-    this.clientRequestTimeout = clientRequestTimeout != null ? clientRequestTimeout : Duration.ofSeconds(10);
-  }
+    if (clientRequestTimeout == null) {
+      clientRequestTimeout = Duration.ofSeconds(10);
+    }
 
-  @NotEmpty
-  public String getRegion() {
-    return region;
-  }
-
-  public Duration getClientExecutionTimeout() {
-    return clientExecutionTimeout;
-  }
-
-  public Duration getClientRequestTimeout() {
-    return clientRequestTimeout;
+    if (maxConnections == 0) {
+      maxConnections = 50;
+    }
   }
 }
