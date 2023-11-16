@@ -523,27 +523,35 @@ public class BraintreeManager implements SubscriptionProcessorManager {
 
   @Override
   public CompletableFuture<ReceiptItem> getReceiptItem(String subscriptionId) {
+    return getSubscription(subscriptionId)
+        .thenApply(BraintreeManager::getSubscription)
+        .thenApply(subscription -> getLatestTransactionForSubscription(subscription)
+            .map(transaction -> {
+              if (!getPaymentStatus(transaction.getStatus()).equals(PaymentStatus.SUCCEEDED)) {
+                final SubscriptionStatus subscriptionStatus = getSubscriptionStatus(subscription.getStatus());
+                if (subscriptionStatus.equals(SubscriptionStatus.ACTIVE) || subscriptionStatus.equals(SubscriptionStatus.PAST_DUE)) {
+                  throw new WebApplicationException(Response.Status.NO_CONTENT);
+                }
 
-    return getLatestTransactionForSubscription(subscriptionId).thenApply(maybeTransaction -> maybeTransaction.map(transaction -> {
+                throw new WebApplicationException(Response.status(Response.Status.PAYMENT_REQUIRED)
+                    .entity(Map.of("chargeFailure", createChargeFailure(transaction)))
+                    .build());
+              }
 
-      if (!getPaymentStatus(transaction.getStatus()).equals(PaymentStatus.SUCCEEDED)) {
-        throw new WebApplicationException(Response.Status.PAYMENT_REQUIRED);
-      }
+              final Instant expiration = transaction.getSubscriptionDetails().getBillingPeriodEndDate().toInstant();
+              final Plan plan = braintreeGateway.plan().find(transaction.getPlanId());
 
-      final Instant expiration = transaction.getSubscriptionDetails().getBillingPeriodEndDate().toInstant();
-      final Plan plan = braintreeGateway.plan().find(transaction.getPlanId());
+              final BraintreePlanMetadata metadata;
+              try {
+                metadata = SystemMapper.jsonMapper().readValue(plan.getDescription(), BraintreePlanMetadata.class);
 
-      final BraintreePlanMetadata metadata;
-      try {
-        metadata = SystemMapper.jsonMapper().readValue(plan.getDescription(), BraintreePlanMetadata.class);
+              } catch (JsonProcessingException e) {
+                throw new RuntimeException(e);
+              }
 
-      } catch (JsonProcessingException e) {
-        throw new RuntimeException(e);
-      }
-
-      return new ReceiptItem(transaction.getId(), expiration, metadata.level());
-
-    }).orElseThrow(() -> new WebApplicationException(Response.Status.NO_CONTENT)));
+              return new ReceiptItem(transaction.getId(), expiration, metadata.level());
+            })
+            .orElseThrow(() -> new WebApplicationException(Response.Status.NO_CONTENT)));
   }
 
   private static Subscription getSubscription(Object subscriptionObj) {
@@ -551,12 +559,6 @@ public class BraintreeManager implements SubscriptionProcessorManager {
       throw new IllegalArgumentException("Invalid subscription object: " + subscriptionObj.getClass().getName());
     }
     return subscription;
-  }
-
-  public CompletableFuture<Optional<Transaction>> getLatestTransactionForSubscription(String subscriptionId) {
-    return getSubscription(subscriptionId)
-            .thenApply(BraintreeManager::getSubscription)
-            .thenApply(this::getLatestTransactionForSubscription);
   }
 
   private Optional<Transaction> getLatestTransactionForSubscription(Subscription subscription) {
