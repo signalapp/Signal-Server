@@ -132,7 +132,6 @@ public class MessageController {
   private final ReportSpamTokenProvider reportSpamTokenProvider;
   private final ClientReleaseManager clientReleaseManager;
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
-
   private static final String REJECT_OVERSIZE_MESSAGE_COUNTER = name(MessageController.class, "rejectOversizeMessage");
   private static final String SENT_MESSAGE_COUNTER_NAME = name(MessageController.class, "sentMessages");
   private static final String CONTENT_SIZE_DISTRIBUTION_NAME = name(MessageController.class, "messageContentSize");
@@ -279,7 +278,7 @@ public class MessageController {
       }
 
       if (isStory) {
-        checkStoryRateLimit(destination.get(), userAgent);
+        rateLimiters.getStoriesLimiter().validate(destination.get().getUuid());
       }
 
       final Set<Byte> excludedDeviceIds;
@@ -378,7 +377,7 @@ public class MessageController {
       @QueryParam("ts") long timestamp,
       @QueryParam("urgent") @DefaultValue("true") final boolean isUrgent,
       @QueryParam("story") boolean isStory,
-      @NotNull @Valid MultiRecipientMessage multiRecipientMessage) {
+      @NotNull @Valid MultiRecipientMessage multiRecipientMessage) throws RateLimitExceededException {
 
     final Map<ServiceIdentifier, Account> accountsByServiceIdentifier = new HashMap<>();
 
@@ -412,17 +411,20 @@ public class MessageController {
 
     Collection<AccountMismatchedDevices> accountMismatchedDevices = new ArrayList<>();
     Collection<AccountStaleDevices> accountStaleDevices = new ArrayList<>();
-    accountsByServiceIdentifier.forEach((serviceIdentifier, account) -> {
+
+    for (Map.Entry<ServiceIdentifier, Account> entry : accountsByServiceIdentifier.entrySet()) {
+      final ServiceIdentifier serviceIdentifier = entry.getKey();
+      final Account account = entry.getValue();
 
       if (isStory) {
-        checkStoryRateLimit(account, userAgent);
+        rateLimiters.getStoriesLimiter().validate(account.getUuid());
       }
 
       Set<Byte> deviceIds = accountToDeviceIdAndRegistrationIdMap
-        .getOrDefault(account, Collections.emptySet())
-        .stream()
-        .map(Pair::first)
-        .collect(Collectors.toSet());
+          .getOrDefault(account, Collections.emptySet())
+          .stream()
+          .map(Pair::first)
+          .collect(Collectors.toSet());
 
       try {
         DestinationDeviceValidator.validateCompleteDeviceList(account, deviceIds, Collections.emptySet());
@@ -439,7 +441,8 @@ public class MessageController {
       } catch (StaleDevicesException e) {
         accountStaleDevices.add(new AccountStaleDevices(serviceIdentifier, new StaleDevices(e.getStaleDevices())));
       }
-    });
+    }
+
     if (!accountMismatchedDevices.isEmpty()) {
       return Response
           .status(409)
@@ -732,14 +735,6 @@ public class MessageController {
       } else {
         logger.debug("Not registered", e);
       }
-    }
-  }
-
-  private void checkStoryRateLimit(Account destination, String userAgent) {
-    try {
-      rateLimiters.getStoriesLimiter().validate(destination.getUuid());
-    } catch (final RateLimitExceededException e) {
-      Metrics.counter(RATE_LIMITED_STORIES_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent))).increment();
     }
   }
 
