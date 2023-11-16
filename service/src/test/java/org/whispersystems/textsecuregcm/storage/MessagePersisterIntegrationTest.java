@@ -32,7 +32,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
+import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
+import org.whispersystems.textsecuregcm.storage.KeysManager;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
@@ -83,7 +85,8 @@ class MessagePersisterIntegrationTest {
     messagesManager = new MessagesManager(messagesDynamoDb, messagesCache, mock(ReportMessageManager.class),
         messageDeletionExecutorService);
     messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager,
-        dynamicConfigurationManager, PERSIST_DELAY, 1);
+        mock(ClientPresenceManager.class), mock(KeysManager.class), dynamicConfigurationManager, PERSIST_DELAY, 1,
+        Executors.newSingleThreadExecutor());
 
     account = mock(Account.class);
 

@@ -9,12 +9,23 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.internal.exceptions.Reporter.noMoreInteractionsWanted;
+import static org.mockito.internal.exceptions.Reporter.wantedButNotInvoked;
+import static org.mockito.internal.invocation.InvocationMarker.markVerified;
+import static org.mockito.internal.invocation.InvocationsFinder.findFirstUnverified;
+import static org.mockito.internal.invocation.InvocationsFinder.findInvocations;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Predicate;
+
 import org.apache.commons.lang3.RandomUtils;
 import org.mockito.Mockito;
+import org.mockito.invocation.Invocation;
+import org.mockito.invocation.MatchableInvocation;
+import org.mockito.verification.VerificationMode;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretBytes;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
@@ -154,4 +165,30 @@ public final class MockUtils {
     }
     return new SecretBytes(bytes);
   }
+
+  /**
+   * modeled after {@link org.mockito.Mockito#only()}, verifies that the matched invocation is the only invocation of
+   * this method
+   */
+  public static VerificationMode exactly() {
+    return data -> {
+      MatchableInvocation target = data.getTarget();
+      final List<Invocation> allInvocations = data.getAllInvocations();
+      List<Invocation> chunk = findInvocations(allInvocations, target);
+      List<Invocation> otherInvocations = allInvocations.stream()
+          .filter(target::hasSameMethod)
+          .filter(Predicate.not(target::matches))
+          .toList();
+
+      if (!otherInvocations.isEmpty()) {
+        Invocation unverified = findFirstUnverified(otherInvocations);
+        throw noMoreInteractionsWanted(unverified, (List) allInvocations);
+      }
+      if (chunk.isEmpty()) {
+        throw wantedButNotInvoked(target);
+      }
+      markVerified(chunk.get(0), target);
+    };
+  }
+
 }

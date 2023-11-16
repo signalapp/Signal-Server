@@ -62,9 +62,14 @@ public class MessagePersisterServiceCommand extends ServerCommand<WhisperServerC
 
     final MessagePersister messagePersister = new MessagePersister(deps.messagesCache(), deps.messagesManager(),
         deps.accountsManager(),
+        deps.clientPresenceManager(),
+        deps.keysManager(),
         dynamicConfigurationManager,
         Duration.ofMinutes(configuration.getMessageCacheConfiguration().getPersistDelayMinutes()),
-        namespace.getInt(WORKER_COUNT));
+        namespace.getInt(WORKER_COUNT),
+        environment.lifecycle().executorService("messagePersisterUnlinkDeviceExecutor-%d")
+            .maxThreads(2)
+            .build());
 
     environment.lifecycle().manage(deps.messagesCache());
     environment.lifecycle().manage(messagePersister);

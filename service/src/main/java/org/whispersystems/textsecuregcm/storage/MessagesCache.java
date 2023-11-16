@@ -12,6 +12,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import io.dropwizard.lifecycle.Managed;
 import io.lettuce.core.ScoredValue;
 import io.lettuce.core.ScriptOutputType;
+import io.lettuce.core.SetArgs;
 import io.lettuce.core.ZAddArgs;
 import io.lettuce.core.cluster.SlotHash;
 import io.lettuce.core.cluster.models.partitions.RedisClusterNode;
@@ -382,6 +383,20 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
         connection -> connection.sync().del(getPersistInProgressKey(accountUuid, deviceId)));
   }
 
+  boolean lockAccountForMessagePersisterCleanup(final UUID accountUuid) {
+    return readDeleteCluster.withBinaryCluster(
+        connection -> "OK".equals(
+            connection.sync().set(
+                getUnlinkInProgressKey(accountUuid),
+                LOCK_VALUE,
+                new SetArgs().ex(MessagePersister.UNLINK_TIMEOUT.toSeconds()).nx())));
+  }
+
+  void unlockAccountForMessagePersisterCleanup(final UUID accountUuid) {
+    readDeleteCluster.useBinaryCluster(
+        connection -> connection.sync().del(getUnlinkInProgressKey(accountUuid)));
+  }
+
   public void addMessageAvailabilityListener(final UUID destinationUuid, final byte deviceId,
       final MessageAvailabilityListener listener) {
     final String queueName = getQueueName(destinationUuid, deviceId);
@@ -529,6 +544,10 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
 
   private static byte[] getPersistInProgressKey(final UUID accountUuid, final byte deviceId) {
     return ("user_queue_persisting::{" + accountUuid + "::" + deviceId + "}").getBytes(StandardCharsets.UTF_8);
+  }
+
+  private static byte[] getUnlinkInProgressKey(final UUID accountUuid) {
+    return ("user_account_unlinking::{" + accountUuid + "}").getBytes(StandardCharsets.UTF_8);
   }
 
   static UUID getAccountUuidFromQueueName(final String queueName) {

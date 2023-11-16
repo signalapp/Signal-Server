@@ -102,6 +102,10 @@ public class MessagesManager {
         .tap(Micrometer.metrics(Metrics.globalRegistry));
   }
 
+  public Mono<Long> getEarliestUndeliveredTimestampForDevice(UUID destinationUuid, byte destinationDevice) {
+    return Mono.from(messagesDynamoDb.load(destinationUuid, destinationDevice, 1)).map(Envelope::getServerTimestamp);
+  }
+
   public CompletableFuture<Void> clear(UUID destinationUuid) {
     return CompletableFuture.allOf(
         messagesCache.clear(destinationUuid),
