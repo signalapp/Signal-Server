@@ -1477,15 +1477,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
   /v1/messages/uuid/{uuid}:
@@ -2101,15 +2101,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2143,15 +2143,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2184,15 +2184,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2319,15 +2319,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       deprecated: true
       security:
       - authenticatedAccount: []
@@ -2356,15 +2356,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2400,15 +2400,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2447,15 +2447,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2932,14 +2932,14 @@ components:
     ECPublicKey:
       type: object
       properties:
-        type:
-          type: integer
-          format: int32
         publicKeyBytes:
           type: array
           items:
             type: string
             format: byte
+        type:
+          type: integer
+          format: int32
     ECSignedPreKey:
       type: object
       properties:
@@ -3911,16 +3911,16 @@ components:
             type: string
         commitment:
           $ref: '#/components/schemas/ProfileKeyCommitment'
-        badges:
-          type: array
-          items:
-            type: string
         avatarChange:
           type: string
           enum:
           - UNCHANGED
           - CLEAR
           - UPDATE
+        badges:
+          type: array
+          items:
+            type: string
     ProfileKeyCommitment:
       type: object
       properties:
