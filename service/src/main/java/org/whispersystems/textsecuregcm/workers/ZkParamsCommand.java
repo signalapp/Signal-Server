@@ -5,14 +5,13 @@
 
 package org.whispersystems.textsecuregcm.workers;
 
+import io.dropwizard.core.cli.Command;
+import io.dropwizard.core.setup.Bootstrap;
+import java.util.Base64;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 import org.signal.libsignal.zkgroup.ServerPublicParams;
 import org.signal.libsignal.zkgroup.ServerSecretParams;
-
-import io.dropwizard.cli.Command;
-import io.dropwizard.setup.Bootstrap;
-import java.util.Base64;
 
 public class ZkParamsCommand extends Command {
 

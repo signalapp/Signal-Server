@@ -6,10 +6,10 @@ package org.whispersystems.websocket.logging.layout.converters;
 
 import ch.qos.logback.core.CoreConstants;
 import ch.qos.logback.core.util.CachingDateFormatter;
-import org.whispersystems.websocket.logging.WebsocketEvent;
-
+import java.time.ZoneId;
 import java.util.List;
-import java.util.TimeZone;
+import java.util.Optional;
+import org.whispersystems.websocket.logging.WebsocketEvent;
 
 public class DateConverter extends WebSocketEventConverter {
 
@@ -28,7 +28,15 @@ public class DateConverter extends WebSocketEventConverter {
     }
 
     try {
-      cachingDateFormatter = new CachingDateFormatter(datePattern);
+      List<String> optionList = getOptionList();
+
+      Optional<ZoneId> timeZone = Optional.empty();
+      // if the option list contains a TZ option, then set it.
+      if (optionList != null && optionList.size() > 1) {
+        timeZone = Optional.of(ZoneId.of((String) optionList.get(1)));
+      }
+
+      cachingDateFormatter = new CachingDateFormatter(datePattern, timeZone.orElse(null));
       // maximumCacheValidity = CachedDateFormat.getMaximumCacheValidity(pattern);
     } catch (IllegalArgumentException e) {
       addWarn("Could not instantiate SimpleDateFormat with pattern " + datePattern, e);
@@ -36,13 +44,7 @@ public class DateConverter extends WebSocketEventConverter {
       cachingDateFormatter = new CachingDateFormatter(CoreConstants.CLF_DATE_PATTERN);
     }
 
-    List optionList = getOptionList();
 
-    // if the option list contains a TZ option, then set it.
-    if (optionList != null && optionList.size() > 1) {
-      TimeZone tz = TimeZone.getTimeZone((String) optionList.get(1));
-      cachingDateFormatter.setTimeZone(tz);
-    }
   }
 
   @Override

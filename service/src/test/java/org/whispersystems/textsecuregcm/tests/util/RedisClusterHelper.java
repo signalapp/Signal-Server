@@ -50,24 +50,6 @@ public class RedisClusterHelper {
       return null;
     }).when(cluster).useCluster(any(Consumer.class));
 
-    when(cluster.withCluster(any(Function.class))).thenAnswer(invocation -> {
-      return invocation.getArgument(0, Function.class).apply(stringConnection);
-    });
-
-    doAnswer(invocation -> {
-      invocation.getArgument(0, Consumer.class).accept(stringConnection);
-      return null;
-    }).when(cluster).useCluster(any(Consumer.class));
-
-    when(cluster.withBinaryCluster(any(Function.class))).thenAnswer(invocation -> {
-      return invocation.getArgument(0, Function.class).apply(binaryConnection);
-    });
-
-    doAnswer(invocation -> {
-      invocation.getArgument(0, Consumer.class).accept(binaryConnection);
-      return null;
-    }).when(cluster).useBinaryCluster(any(Consumer.class));
-
     when(cluster.withBinaryCluster(any(Function.class))).thenAnswer(invocation -> {
       return invocation.getArgument(0, Function.class).apply(binaryConnection);
     });

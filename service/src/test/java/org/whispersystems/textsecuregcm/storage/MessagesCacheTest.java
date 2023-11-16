@@ -679,7 +679,7 @@ class MessagesCacheTest {
       pages.add(generatePage());
       pages.add(generateStaleEphemeralPage());
 
-      when(reactiveCommands.evalsha(any(), any(), any(), any()))
+      when(reactiveCommands.evalsha(any(), any(), any(byte[][].class), any(byte[][].class)))
           .thenReturn(Flux.just(pages.pop()))
           .thenReturn(Flux.just(pages.pop()))
           .thenReturn(Flux.just(pages.pop()))
@@ -688,7 +688,7 @@ class MessagesCacheTest {
       final AsyncCommand<?, ?, ?> removeSuccess = new AsyncCommand<>(mock(RedisCommand.class));
       removeSuccess.complete();
 
-      when(asyncCommands.evalsha(any(), any(), any(), any()))
+      when(asyncCommands.evalsha(any(), any(), any(byte[][].class), any(byte[][].class)))
           .thenReturn((RedisFuture) removeSuccess);
 
       final Publisher<?> allMessages = messagesCache.get(UUID.randomUUID(), Device.PRIMARY_ID);
@@ -696,9 +696,9 @@ class MessagesCacheTest {
       StepVerifier.setDefaultTimeout(Duration.ofSeconds(5));
 
       // async commands are used for remove(), and nothing should happen until we are subscribed
-      verify(asyncCommands, never()).evalsha(any(), any(), any(byte[][].class), any(byte[].class));
+      verify(asyncCommands, never()).evalsha(any(), any(), any(byte[][].class), any(byte[][].class));
       // the reactive commands will be called once, to prep the first page fetch (but no remote request would actually be sent)
-      verify(reactiveCommands, times(1)).evalsha(any(), any(), any(byte[][].class), any(byte[].class));
+      verify(reactiveCommands, times(1)).evalsha(any(), any(), any(byte[][].class), any(byte[][].class));
 
       StepVerifier.create(allMessages)
           .expectSubscription()
@@ -708,7 +708,7 @@ class MessagesCacheTest {
           .verify();
 
       assertTrue(pages.isEmpty());
-      verify(asyncCommands, atLeast(1)).evalsha(any(), any(), any(), any());
+      verify(asyncCommands, atLeast(1)).evalsha(any(), any(), any(byte[][].class), any(byte[][].class));
     }
 
     private List<byte[]> generatePage() {

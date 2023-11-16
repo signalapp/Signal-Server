@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.util.logging;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.matches;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
@@ -20,8 +21,10 @@ import io.dropwizard.jersey.DropwizardResourceConfig;
 import io.dropwizard.jersey.jackson.JacksonMessageBodyProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.security.Principal;
+import java.time.Duration;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +43,7 @@ import javax.ws.rs.core.Response;
 import org.eclipse.jetty.websocket.api.RemoteEndpoint;
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.UpgradeRequest;
+import org.eclipse.jetty.websocket.api.WriteCallback;
 import org.glassfish.jersey.server.ApplicationHandler;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.server.ServerProperties;
@@ -159,7 +163,7 @@ class LoggingUnhandledExceptionMapperTest {
   }
 
   private WebSocketResourceProvider<TestPrincipal> createWebsocketProvider(final String userAgentHeader,
-      final Session session, final Consumer<ByteBuffer> responseHandler) {
+      final Session session, final Consumer<ByteBuffer> responseHandler) throws IOException {
     ResourceConfig resourceConfig = new DropwizardResourceConfig();
     resourceConfig.register(exceptionMapper);
     resourceConfig.register(new TestController());
@@ -170,14 +174,14 @@ class LoggingUnhandledExceptionMapperTest {
     ApplicationHandler applicationHandler = new ApplicationHandler(resourceConfig);
     WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
     WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1", applicationHandler,
-        requestLog, new TestPrincipal("foo"), new ProtobufWebSocketMessageFactory(), Optional.empty(), 30000);
+        requestLog, new TestPrincipal("foo"), new ProtobufWebSocketMessageFactory(), Optional.empty(),
+        Duration.ofMillis(30000));
 
     RemoteEndpoint remoteEndpoint = mock(RemoteEndpoint.class);
-    when(remoteEndpoint.sendBytesByFuture(any()))
-        .thenAnswer(answer -> {
-          responseHandler.accept(answer.getArgument(0, ByteBuffer.class));
-          return CompletableFuture.completedFuture(null);
-        });
+    doAnswer(answer -> {
+      responseHandler.accept(answer.getArgument(0, ByteBuffer.class));
+      return null;
+    }).when(remoteEndpoint).sendBytes(any(), any(WriteCallback.class));
     UpgradeRequest request = mock(UpgradeRequest.class);
 
     when(session.getUpgradeRequest()).thenReturn(request);

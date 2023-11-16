@@ -5,12 +5,11 @@
 
 package org.whispersystems.textsecuregcm.tests.util;
 
-import static io.dropwizard.testing.FixtureHelpers.fixture;
-
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
+import io.dropwizard.util.Resources;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 public class JsonHelpers {
@@ -26,6 +25,7 @@ public class JsonHelpers {
   }
 
   public static String jsonFixture(String filename) throws IOException {
-    return objectMapper.writeValueAsString(objectMapper.readValue(fixture(filename), JsonNode.class));
+    return objectMapper.writeValueAsString(
+        objectMapper.readValue(Resources.getResource(filename), JsonNode.class));
   }
 }

@@ -42,14 +42,18 @@
     <braintree.version>3.27.0</braintree.version>
     <commons-csv.version>1.10.0</commons-csv.version>
     <commons-io.version>2.14.0</commons-io.version>
-    <dropwizard.version>2.1.9</dropwizard.version>
+    <dropwizard.version>3.0.4</dropwizard.version>
     <dropwizard-metrics-datadog.version>1.1.13</dropwizard-metrics-datadog.version>
     <google-cloud-libraries.version>26.25.0</google-cloud-libraries.version>
     <grpc.version>1.58.0</grpc.version> <!-- should be kept in sync with the value from Google libraries-bom -->
     <gson.version>2.10.1</gson.version>
-    <jackson.version>2.13.5</jackson.version>
+    <!-- several libraries (AWS, Google Cloud) use Apache http components transitively, and we need to align them -->
+    <httpcore.version>4.4.16</httpcore.version>
+    <httpclient.version>4.5.14</httpclient.version>
+    <jackson.version>2.16.0</jackson.version>
     <jaxb.version>2.3.1</jaxb.version>
     <junit-pioneer.version>2.1.0</junit-pioneer.version>
+    <jsr305.version>3.0.2</jsr305.version>
     <kotlin.version>1.9.10</kotlin.version>
     <kotlinx-serialization.version>1.5.1</kotlinx-serialization.version>
     <lettuce.version>6.2.6.RELEASE</lettuce.version>
@@ -66,7 +70,7 @@
     <reactor-bom.version>2022.0.12</reactor-bom.version> <!-- 3.5.x, see https://github.com/reactor/reactor#bom-versioning-scheme -->
     <resilience4j.version>1.7.0</resilience4j.version>
     <semver4j.version>3.1.0</semver4j.version>
-    <slf4j.version>1.7.36</slf4j.version>
+    <slf4j.version>2.0.9</slf4j.version>
     <stripe.version>23.10.0</stripe.version>
     <swagger.version>2.2.17</swagger.version>
     <vavr.version>0.10.4</vavr.version>
@@ -263,6 +267,11 @@
         <version>${braintree.version}</version>
       </dependency>
       <dependency>
+        <groupId>com.google.code.findbugs</groupId>
+        <artifactId>jsr305</artifactId>
+        <version>${jsr305.version}</version>
+      </dependency>
+      <dependency>
         <groupId>com.google.code.gson</groupId>
         <artifactId>gson</artifactId>
         <version>${gson.version}</version>
@@ -285,6 +294,16 @@
         <type>pom</type>
         <scope>import</scope>
       </dependency>
+      <dependency>
+        <groupId>org.apache.httpcomponents</groupId>
+        <artifactId>httpcore</artifactId>
+        <version>${httpcore.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.httpcomponents</groupId>
+        <artifactId>httpclient</artifactId>
+        <version>${httpclient.version}</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 
@@ -296,9 +315,10 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>com.github.tomakehurst</groupId>
-      <artifactId>wiremock-jre8</artifactId>
-      <version>2.35.1</version>
+      <groupId>org.wiremock</groupId>
+      <!-- use standalone until Dropwizard 4 + jakarta.* -->
+      <artifactId>wiremock-standalone</artifactId>
+      <version>3.3.1</version>
       <scope>test</scope>
       <exclusions>
         <exclusion>

@@ -5,7 +5,7 @@
 package org.whispersystems.textsecuregcm;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.dropwizard.Configuration;
+import io.dropwizard.core.Configuration;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.HashSet;

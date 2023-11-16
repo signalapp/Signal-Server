@@ -22,8 +22,10 @@ import io.dropwizard.jersey.jackson.JacksonMessageBodyProvider;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.security.Principal;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -36,6 +38,7 @@ import javax.ws.rs.Path;
 import org.eclipse.jetty.websocket.api.RemoteEndpoint;
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.UpgradeRequest;
+import org.eclipse.jetty.websocket.api.WriteCallback;
 import org.glassfish.jersey.server.ApplicationHandler;
 import org.glassfish.jersey.server.ContainerRequest;
 import org.glassfish.jersey.server.ContainerResponse;
@@ -121,7 +124,7 @@ class MetricsRequestEventListenerTest {
   }
 
   @Test
-  void testActualRouteMessageSuccess() throws InvalidProtocolBufferException {
+  void testActualRouteMessageSuccess() throws IOException {
     final MetricsApplicationEventListener applicationEventListener = mock(MetricsApplicationEventListener.class);
     when(applicationEventListener.onRequest(any())).thenReturn(listener);
 
@@ -140,7 +143,7 @@ class MetricsRequestEventListenerTest {
         new TestPrincipal("foo"),
         new ProtobufWebSocketMessageFactory(),
         Optional.empty(),
-        30000);
+        Duration.ofMillis(30000));
 
     final Session session = mock(Session.class);
     final RemoteEndpoint remoteEndpoint = mock(RemoteEndpoint.class);
@@ -163,7 +166,7 @@ class MetricsRequestEventListenerTest {
     provider.onWebSocketBinary(message, 0, message.length);
 
     final ArgumentCaptor<ByteBuffer> responseBytesCaptor = ArgumentCaptor.forClass(ByteBuffer.class);
-    verify(remoteEndpoint).sendBytesByFuture(responseBytesCaptor.capture());
+    verify(remoteEndpoint).sendBytes(responseBytesCaptor.capture(), any(WriteCallback.class));
 
     SubProtocol.WebSocketResponseMessage response = getResponse(responseBytesCaptor);
 
@@ -187,7 +190,7 @@ class MetricsRequestEventListenerTest {
   }
 
   @Test
-  void testActualRouteMessageSuccessNoUserAgent() throws InvalidProtocolBufferException {
+  void testActualRouteMessageSuccessNoUserAgent() throws IOException {
     final MetricsApplicationEventListener applicationEventListener = mock(MetricsApplicationEventListener.class);
     when(applicationEventListener.onRequest(any())).thenReturn(listener);
 
@@ -200,8 +203,10 @@ class MetricsRequestEventListenerTest {
 
     final ApplicationHandler applicationHandler = new ApplicationHandler(resourceConfig);
     final WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
-    final WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1", applicationHandler,
-        requestLog, new TestPrincipal("foo"), new ProtobufWebSocketMessageFactory(), Optional.empty(), 30000);
+    final WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1",
+        applicationHandler,
+        requestLog, new TestPrincipal("foo"), new ProtobufWebSocketMessageFactory(), Optional.empty(),
+        Duration.ofMillis(30000));
 
     final Session session = mock(Session.class);
     final RemoteEndpoint remoteEndpoint = mock(RemoteEndpoint.class);
@@ -222,7 +227,7 @@ class MetricsRequestEventListenerTest {
     provider.onWebSocketBinary(message, 0, message.length);
 
     final ArgumentCaptor<ByteBuffer> responseBytesCaptor = ArgumentCaptor.forClass(ByteBuffer.class);
-    verify(remoteEndpoint).sendBytesByFuture(responseBytesCaptor.capture());
+    verify(remoteEndpoint).sendBytes(responseBytesCaptor.capture(), any(WriteCallback.class));
 
     SubProtocol.WebSocketResponseMessage response = getResponse(responseBytesCaptor);
 

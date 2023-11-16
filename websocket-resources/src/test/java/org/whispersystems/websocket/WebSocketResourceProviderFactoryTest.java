@@ -20,10 +20,9 @@ import java.util.Optional;
 import javax.security.auth.Subject;
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.UpgradeRequest;
-import org.eclipse.jetty.websocket.api.WebSocketPolicy;
-import org.eclipse.jetty.websocket.servlet.ServletUpgradeRequest;
-import org.eclipse.jetty.websocket.servlet.ServletUpgradeResponse;
-import org.eclipse.jetty.websocket.servlet.WebSocketServletFactory;
+import org.eclipse.jetty.websocket.server.JettyServerUpgradeRequest;
+import org.eclipse.jetty.websocket.server.JettyServerUpgradeResponse;
+import org.eclipse.jetty.websocket.server.JettyWebSocketServletFactory;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,8 +36,8 @@ public class WebSocketResourceProviderFactoryTest {
   private ResourceConfig jerseyEnvironment;
   private WebSocketEnvironment<Account> environment;
   private WebSocketAuthenticator<Account> authenticator;
-  private ServletUpgradeRequest request;
-  private ServletUpgradeResponse response;
+  private JettyServerUpgradeRequest request;
+  private JettyServerUpgradeResponse response;
 
   @BeforeEach
   void setup() {
@@ -47,8 +46,8 @@ public class WebSocketResourceProviderFactoryTest {
     environment = mock(WebSocketEnvironment.class);
     //noinspection unchecked
     authenticator = mock(WebSocketAuthenticator.class);
-    request = mock(ServletUpgradeRequest.class);
-    response = mock(ServletUpgradeResponse.class);
+    request = mock(JettyServerUpgradeRequest.class);
+    response = mock(JettyServerUpgradeResponse.class);
 
   }
 
@@ -111,9 +110,8 @@ public class WebSocketResourceProviderFactoryTest {
 
   @Test
   void testConfigure() {
-    WebSocketServletFactory servletFactory = mock(WebSocketServletFactory.class);
+    JettyWebSocketServletFactory servletFactory = mock(JettyWebSocketServletFactory.class);
     when(environment.jersey()).thenReturn(jerseyEnvironment);
-    when(servletFactory.getPolicy()).thenReturn(mock(WebSocketPolicy.class));
 
     WebSocketResourceProviderFactory<Account> factory = new WebSocketResourceProviderFactory<>(environment,
         Account.class,

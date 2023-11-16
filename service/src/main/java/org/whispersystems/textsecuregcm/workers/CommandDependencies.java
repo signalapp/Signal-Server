@@ -8,7 +8,7 @@ package org.whispersystems.textsecuregcm.workers;
 import static com.codahale.metrics.MetricRegistry.name;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
-import io.dropwizard.setup.Environment;
+import io.dropwizard.core.setup.Environment;
 import io.lettuce.core.resource.ClientResources;
 import java.io.IOException;
 import java.security.cert.CertificateException;

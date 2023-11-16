@@ -5,7 +5,7 @@
 package org.whispersystems.websocket.logging;
 
 import ch.qos.logback.core.AsyncAppenderBase;
-import io.dropwizard.logging.async.AsyncAppenderFactory;
+import io.dropwizard.logging.common.async.AsyncAppenderFactory;
 
 public class AsyncWebsocketEventAppenderFactory implements AsyncAppenderFactory<WebsocketEvent> {
   @Override

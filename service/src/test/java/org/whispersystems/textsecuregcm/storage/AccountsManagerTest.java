@@ -137,7 +137,7 @@ class AccountsManagerTest {
 
     //noinspection unchecked
     asyncCommands = mock(RedisAdvancedClusterAsyncCommands.class);
-    when(asyncCommands.del(any())).thenReturn(MockRedisFuture.completedFuture(0L));
+    when(asyncCommands.del(any(String[].class))).thenReturn(MockRedisFuture.completedFuture(0L));
     when(asyncCommands.get(any())).thenReturn(MockRedisFuture.completedFuture(null));
     when(asyncCommands.setex(any(), anyLong(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
 

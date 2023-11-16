@@ -5,8 +5,8 @@
 
 package org.whispersystems.textsecuregcm.workers;
 
-import io.dropwizard.cli.Command;
-import io.dropwizard.setup.Bootstrap;
+import io.dropwizard.core.cli.Command;
+import io.dropwizard.core.setup.Bootstrap;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;

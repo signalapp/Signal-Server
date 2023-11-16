@@ -7,10 +7,28 @@ package org.whispersystems.websocket;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.net.HttpHeaders;
 import com.google.protobuf.UninitializedMessageException;
-import org.eclipse.jetty.websocket.api.MessageTooLargeException;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.net.URI;
+import java.nio.ByteBuffer;
+import java.security.Principal;
+import java.time.Duration;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import javax.ws.rs.core.MultivaluedMap;
+import javax.ws.rs.core.Response;
 import org.eclipse.jetty.websocket.api.RemoteEndpoint;
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.WebSocketListener;
+import org.eclipse.jetty.websocket.api.WriteCallback;
+import org.eclipse.jetty.websocket.api.exceptions.MessageTooLargeException;
 import org.glassfish.jersey.internal.MapPropertiesDelegate;
 import org.glassfish.jersey.server.ApplicationHandler;
 import org.glassfish.jersey.server.ContainerRequest;
@@ -27,23 +45,6 @@ import org.whispersystems.websocket.session.ContextPrincipal;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
 import org.whispersystems.websocket.setup.WebSocketConnectListener;
 
-import javax.ws.rs.core.MultivaluedMap;
-import javax.ws.rs.core.Response;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.net.URI;
-import java.nio.ByteBuffer;
-import java.security.Principal;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class WebSocketResourceProvider<T extends Principal> implements WebSocketListener {
@@ -57,44 +58,44 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
 
   private final Map<Long, CompletableFuture<WebSocketResponseMessage>> requestMap = new ConcurrentHashMap<>();
 
-  private final T                                  authenticated;
-  private final WebSocketMessageFactory            messageFactory;
+  private final T authenticated;
+  private final WebSocketMessageFactory messageFactory;
   private final Optional<WebSocketConnectListener> connectListener;
-  private final ApplicationHandler                 jerseyHandler;
-  private final WebsocketRequestLog                requestLog;
-  private final long                               idleTimeoutMillis;
-  private final String                             remoteAddress;
+  private final ApplicationHandler jerseyHandler;
+  private final WebsocketRequestLog requestLog;
+  private final Duration idleTimeout;
+  private final String remoteAddress;
 
-  private Session                 session;
-  private RemoteEndpoint          remoteEndpoint;
+  private Session session;
+  private RemoteEndpoint remoteEndpoint;
   private WebSocketSessionContext context;
 
   private static final Set<String> EXCLUDED_UPGRADE_REQUEST_HEADERS = Set.of("connection", "upgrade");
 
-  public WebSocketResourceProvider(String                             remoteAddress,
-                                   ApplicationHandler                 jerseyHandler,
-                                   WebsocketRequestLog                requestLog,
-                                   T                                  authenticated,
-                                   WebSocketMessageFactory            messageFactory,
-                                   Optional<WebSocketConnectListener> connectListener,
-                                   long                               idleTimeoutMillis)
-  {
-    this.remoteAddress     = remoteAddress;
-    this.jerseyHandler     = jerseyHandler;
-    this.requestLog        = requestLog;
-    this.authenticated     = authenticated;
-    this.messageFactory    = messageFactory;
-    this.connectListener   = connectListener;
-    this.idleTimeoutMillis = idleTimeoutMillis;
+  public WebSocketResourceProvider(String remoteAddress,
+      ApplicationHandler jerseyHandler,
+      WebsocketRequestLog requestLog,
+      T authenticated,
+      WebSocketMessageFactory messageFactory,
+      Optional<WebSocketConnectListener> connectListener,
+      Duration idleTimeout) {
+    this.remoteAddress = remoteAddress;
+    this.jerseyHandler = jerseyHandler;
+    this.requestLog = requestLog;
+    this.authenticated = authenticated;
+    this.messageFactory = messageFactory;
+    this.connectListener = connectListener;
+    this.idleTimeout = idleTimeout;
   }
 
   @Override
   public void onWebSocketConnect(Session session) {
-    this.session        = session;
+    this.session = session;
     this.remoteEndpoint = session.getRemote();
-    this.context        = new WebSocketSessionContext(new WebSocketClient(session, remoteEndpoint, messageFactory, requestMap));
+    this.context = new WebSocketSessionContext(
+        new WebSocketClient(session, remoteEndpoint, messageFactory, requestMap));
     this.context.setAuthenticated(authenticated);
-    this.session.setIdleTimeout(idleTimeoutMillis);
+    this.session.setIdleTimeout(idleTimeout);
 
     connectListener.ifPresent(listener -> listener.onWebSocketConnect(this.context));
   }
@@ -129,12 +130,12 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
           handleResponse(webSocketMessage.getResponseMessage());
           break;
         default:
-          close(session, 1018, "Badly formatted");
+          close(session, 1007, "Badly formatted");
           break;
       }
     } catch (UninitializedMessageException | InvalidMessageException e) {
       logger.debug("Parsing", e);
-      close(session, 1018, "Badly formatted");
+      close(session, 1007, "Badly formatted");
     }
   }
 
@@ -159,23 +160,36 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
   }
 
   private void handleRequest(WebSocketRequestMessage requestMessage) {
-    ContainerRequest containerRequest = new ContainerRequest(null, URI.create(requestMessage.getPath()), requestMessage.getVerb(), new WebSocketSecurityContext(new ContextPrincipal(context)), new MapPropertiesDelegate(new HashMap<>()), jerseyHandler.getConfiguration());
+    ContainerRequest containerRequest = new ContainerRequest(null, URI.create(requestMessage.getPath()),
+        requestMessage.getVerb(), new WebSocketSecurityContext(new ContextPrincipal(context)),
+        new MapPropertiesDelegate(new HashMap<>()), jerseyHandler.getConfiguration());
     containerRequest.headers(getCombinedHeaders(session.getUpgradeRequest().getHeaders(), requestMessage.getHeaders()));
 
     if (requestMessage.getBody().isPresent()) {
       containerRequest.setEntityStream(new ByteArrayInputStream(requestMessage.getBody().get()));
     }
 
-    ByteArrayOutputStream                responseBody     = new ByteArrayOutputStream();
-    CompletableFuture<ContainerResponse> responseFuture   = (CompletableFuture<ContainerResponse>) jerseyHandler.apply(containerRequest, responseBody);
+    ByteArrayOutputStream responseBody = new ByteArrayOutputStream();
+    CompletableFuture<ContainerResponse> responseFuture = (CompletableFuture<ContainerResponse>) jerseyHandler.apply(
+        containerRequest, responseBody);
 
     responseFuture.thenAccept(response -> {
-      sendResponse(requestMessage, response, responseBody);
+      try {
+        sendResponse(requestMessage, response, responseBody);
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
       requestLog.log(remoteAddress, containerRequest, response);
     }).exceptionally(exception -> {
-      logger.warn("Websocket Error: " + requestMessage.getVerb() + " " + requestMessage.getPath() + "\n" + requestMessage.getBody(), exception);
-      sendErrorResponse(requestMessage, Response.status(500).build());
-      requestLog.log(remoteAddress, containerRequest, new ContainerResponse(containerRequest, Response.status(500).build()));
+      logger.warn("Websocket Error: " + requestMessage.getVerb() + " " + requestMessage.getPath() + "\n"
+          + requestMessage.getBody(), exception);
+      try {
+        sendErrorResponse(requestMessage, Response.status(500).build());
+      } catch (IOException e) {
+        logger.warn("Failed to send error response", e);
+      }
+      requestLog.log(remoteAddress, containerRequest,
+          new ContainerResponse(containerRequest, Response.status(500).build()));
       return null;
     });
   }
@@ -217,7 +231,8 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
     session.close(status, message);
   }
 
-  private void sendResponse(WebSocketRequestMessage requestMessage, ContainerResponse response, ByteArrayOutputStream responseBody) {
+  private void sendResponse(WebSocketRequestMessage requestMessage, ContainerResponse response,
+      ByteArrayOutputStream responseBody) throws IOException {
     if (requestMessage.hasRequestId()) {
       byte[] body = responseBody.toByteArray();
 
@@ -226,25 +241,25 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
       }
 
       byte[] responseBytes = messageFactory.createResponse(requestMessage.getRequestId(),
-                                                           response.getStatus(),
-                                                           response.getStatusInfo().getReasonPhrase(),
-                                                           getHeaderList(response.getStringHeaders()),
-                                                           Optional.ofNullable(body))
-                                           .toByteArray();
+              response.getStatus(),
+              response.getStatusInfo().getReasonPhrase(),
+              getHeaderList(response.getStringHeaders()),
+              Optional.ofNullable(body))
+          .toByteArray();
 
-      remoteEndpoint.sendBytesByFuture(ByteBuffer.wrap(responseBytes));
+      remoteEndpoint.sendBytes(ByteBuffer.wrap(responseBytes), WriteCallback.NOOP);
     }
   }
 
-  private void sendErrorResponse(WebSocketRequestMessage requestMessage, Response error) {
+  private void sendErrorResponse(WebSocketRequestMessage requestMessage, Response error) throws IOException {
     if (requestMessage.hasRequestId()) {
       WebSocketMessage response = messageFactory.createResponse(requestMessage.getRequestId(),
-                                                                error.getStatus(),
-                                                                "Error response",
-                                                                getHeaderList(error.getStringHeaders()),
-                                                                Optional.empty());
+          error.getStatus(),
+          "Error response",
+          getHeaderList(error.getStringHeaders()),
+          Optional.empty());
 
-      remoteEndpoint.sendBytesByFuture(ByteBuffer.wrap(response.toByteArray()));
+      remoteEndpoint.sendBytes(ByteBuffer.wrap(response.toByteArray()), WriteCallback.NOOP);
     }
   }
 

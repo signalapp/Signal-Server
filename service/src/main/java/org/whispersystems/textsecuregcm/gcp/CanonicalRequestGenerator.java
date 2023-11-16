@@ -5,9 +5,6 @@
 
 package org.whispersystems.textsecuregcm.gcp;
 
-import io.dropwizard.util.Strings;
-
-import javax.annotation.Nonnull;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -16,6 +13,8 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.Locale;
+import javax.annotation.Nonnull;
+import org.apache.commons.lang3.StringUtils;
 
 public class CanonicalRequestGenerator {
   private static final DateTimeFormatter SIMPLE_UTC_DATE = DateTimeFormatter.ofPattern("yyyyMMdd", Locale.US).withZone(ZoneOffset.UTC);
@@ -43,7 +42,7 @@ public class CanonicalRequestGenerator {
     final StringBuilder result = new StringBuilder("POST\n");
 
     final StringBuilder resourcePathBuilder = new StringBuilder();
-    if (!Strings.isNullOrEmpty(pathPrefix)) {
+    if (StringUtils.isNotEmpty(pathPrefix)) {
       resourcePathBuilder.append(pathPrefix);
     }
     resourcePathBuilder.append('/').append(URLEncoder.encode(key, StandardCharsets.UTF_8));

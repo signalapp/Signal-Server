@@ -7,9 +7,10 @@ package org.whispersystems.textsecuregcm.workers;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
-import io.dropwizard.Application;
-import io.dropwizard.cli.ServerCommand;
-import io.dropwizard.setup.Environment;
+import io.dropwizard.core.Application;
+import io.dropwizard.core.cli.ServerCommand;
+import io.dropwizard.core.setup.Environment;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;

@@ -6,7 +6,8 @@ package org.whispersystems.websocket.setup;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.dropwizard.jersey.DropwizardResourceConfig;
-import io.dropwizard.setup.Environment;
+import io.dropwizard.core.setup.Environment;
+import java.time.Duration;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.whispersystems.websocket.auth.WebSocketAuthenticator;
 import org.whispersystems.websocket.configuration.WebSocketConfiguration;
@@ -19,31 +20,31 @@ import java.security.Principal;
 
 public class WebSocketEnvironment<T extends Principal> {
 
-  private final ResourceConfig        jerseyConfig;
-  private final ObjectMapper          objectMapper;
-  private final Validator             validator;
-  private final WebsocketRequestLog   requestLog;
-  private final long                  idleTimeoutMillis;
+  private final ResourceConfig jerseyConfig;
+  private final ObjectMapper objectMapper;
+  private final Validator validator;
+  private final WebsocketRequestLog requestLog;
+  private final Duration idleTimeout;
 
   private WebSocketAuthenticator<T> authenticator;
-  private WebSocketMessageFactory   messageFactory;
-  private WebSocketConnectListener  connectListener;
+  private WebSocketMessageFactory messageFactory;
+  private WebSocketConnectListener connectListener;
 
   public WebSocketEnvironment(Environment environment, WebSocketConfiguration configuration) {
-    this(environment, configuration, 60000);
+    this(environment, configuration, Duration.ofMillis(60000));
   }
 
-  public WebSocketEnvironment(Environment environment, WebSocketConfiguration configuration, long idleTimeoutMillis) {
-    this(environment, configuration.getRequestLog().build("websocket"), idleTimeoutMillis);
+  public WebSocketEnvironment(Environment environment, WebSocketConfiguration configuration, Duration idleTimeout) {
+    this(environment, configuration.getRequestLog().build("websocket"), idleTimeout);
   }
 
-  public WebSocketEnvironment(Environment environment, WebsocketRequestLog requestLog, long idleTimeoutMillis) {
-    this.jerseyConfig             = new DropwizardResourceConfig(environment.metrics());
-    this.objectMapper             = environment.getObjectMapper();
-    this.validator                = environment.getValidator();
-    this.requestLog               = requestLog;
-    this.messageFactory           = new ProtobufWebSocketMessageFactory();
-    this.idleTimeoutMillis        = idleTimeoutMillis;
+  public WebSocketEnvironment(Environment environment, WebsocketRequestLog requestLog, Duration idleTimeout) {
+    this.jerseyConfig = new DropwizardResourceConfig(environment.metrics());
+    this.objectMapper = environment.getObjectMapper();
+    this.validator = environment.getValidator();
+    this.requestLog = requestLog;
+    this.messageFactory = new ProtobufWebSocketMessageFactory();
+    this.idleTimeout = idleTimeout;
   }
 
   public ResourceConfig jersey() {
@@ -58,8 +59,8 @@ public class WebSocketEnvironment<T extends Principal> {
     this.authenticator = authenticator;
   }
 
-  public long getIdleTimeoutMillis() {
-    return idleTimeoutMillis;
+  public Duration getIdleTimeout() {
+    return idleTimeout;
   }
 
   public ObjectMapper getObjectMapper() {

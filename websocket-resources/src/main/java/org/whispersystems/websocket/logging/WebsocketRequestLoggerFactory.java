@@ -15,12 +15,12 @@ import java.util.List;
 
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.LoggerContext;
-import io.dropwizard.logging.AppenderFactory;
-import io.dropwizard.logging.ConsoleAppenderFactory;
-import io.dropwizard.logging.async.AsyncAppenderFactory;
-import io.dropwizard.logging.filter.LevelFilterFactory;
-import io.dropwizard.logging.filter.NullLevelFilterFactory;
-import io.dropwizard.logging.layout.LayoutFactory;
+import io.dropwizard.logging.common.AppenderFactory;
+import io.dropwizard.logging.common.ConsoleAppenderFactory;
+import io.dropwizard.logging.common.async.AsyncAppenderFactory;
+import io.dropwizard.logging.common.filter.LevelFilterFactory;
+import io.dropwizard.logging.common.filter.NullLevelFilterFactory;
+import io.dropwizard.logging.common.layout.LayoutFactory;
 
 public class WebsocketRequestLoggerFactory {
 

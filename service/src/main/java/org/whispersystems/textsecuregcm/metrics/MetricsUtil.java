@@ -7,7 +7,7 @@ package org.whispersystems.textsecuregcm.metrics;
 
 import com.codahale.metrics.SharedMetricRegistries;
 import com.google.common.annotations.VisibleForTesting;
-import io.dropwizard.setup.Environment;
+import io.dropwizard.core.setup.Environment;
 import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;

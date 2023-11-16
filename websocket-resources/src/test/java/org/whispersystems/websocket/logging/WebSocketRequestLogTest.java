@@ -11,7 +11,7 @@ import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.core.OutputStreamAppender;
 import ch.qos.logback.core.spi.DeferredProcessingAware;
 import com.google.common.net.HttpHeaders;
-import io.dropwizard.logging.AbstractOutputStreamAppenderFactory;
+import io.dropwizard.logging.common.AbstractOutputStreamAppenderFactory;
 import java.io.ByteArrayOutputStream;
 import java.net.URI;
 import java.util.ArrayList;

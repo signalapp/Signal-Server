@@ -19,7 +19,6 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.protobuf.InvalidProtocolBufferException;
 import io.dropwizard.auth.Auth;
 import io.dropwizard.auth.PolymorphicAuthDynamicFeature;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
@@ -28,9 +27,11 @@ import io.dropwizard.jersey.DropwizardResourceConfig;
 import io.dropwizard.jersey.jackson.JacksonMessageBodyProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.Principal;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -57,6 +58,7 @@ import javax.ws.rs.core.Response;
 import org.eclipse.jetty.websocket.api.RemoteEndpoint;
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.UpgradeRequest;
+import org.eclipse.jetty.websocket.api.WriteCallback;
 import org.glassfish.jersey.server.ApplicationHandler;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.server.monitoring.ApplicationEventListener;
@@ -337,7 +339,7 @@ class AuthEnablementRefreshRequirementProviderTest {
 
       provider = new WebSocketResourceProvider<>("127.0.0.1", applicationHandler,
           requestLog, new TestPrincipal("test", account, authenticatedDevice), new ProtobufWebSocketMessageFactory(),
-          Optional.empty(), 30000);
+          Optional.empty(), Duration.ofMillis(30000));
 
       remoteEndpoint = mock(RemoteEndpoint.class);
       Session session = mock(Session.class);
@@ -363,9 +365,9 @@ class AuthEnablementRefreshRequirementProviderTest {
     }
 
     private SubProtocol.WebSocketResponseMessage verifyAndGetResponse(final RemoteEndpoint remoteEndpoint)
-        throws InvalidProtocolBufferException {
+        throws IOException {
       ArgumentCaptor<ByteBuffer> responseBytesCaptor = ArgumentCaptor.forClass(ByteBuffer.class);
-      verify(remoteEndpoint).sendBytesByFuture(responseBytesCaptor.capture());
+      verify(remoteEndpoint).sendBytes(responseBytesCaptor.capture(), any(WriteCallback.class));
 
       return SubProtocol.WebSocketMessage.parseFrom(responseBytesCaptor.getValue().array()).getResponse();
     }

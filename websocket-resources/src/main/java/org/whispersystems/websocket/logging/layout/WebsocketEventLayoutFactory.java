@@ -6,7 +6,7 @@ package org.whispersystems.websocket.logging.layout;
 
 import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.core.pattern.PatternLayoutBase;
-import io.dropwizard.logging.layout.LayoutFactory;
+import io.dropwizard.logging.common.layout.LayoutFactory;
 import org.whispersystems.websocket.logging.WebsocketEvent;
 
 import java.util.TimeZone;
