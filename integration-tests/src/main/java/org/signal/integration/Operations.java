@@ -133,6 +133,13 @@ public final class Operations {
     return user;
   }
 
+  public record PrescribedVerificationNumber(String number, String verificationCode) {}
+  public static PrescribedVerificationNumber prescribedVerificationNumber() {
+      return new PrescribedVerificationNumber(
+          CONFIG.prescribedRegistrationNumber(),
+          CONFIG.prescribedRegistrationCode());
+  }
+
   public static void deleteUser(final TestUser user) {
     apiDelete("/v1/accounts/me").authorized(user).executeExpectSuccess();
   }

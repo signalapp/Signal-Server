@@ -10,5 +10,7 @@ import org.whispersystems.textsecuregcm.configuration.DynamoDbClientConfiguratio
 public record Config(String domain,
                      String rootCert,
                      DynamoDbClientConfiguration dynamoDbClientConfiguration,
-                     DynamoDbTables dynamoDbTables) {
+                     DynamoDbTables dynamoDbTables,
+                     String prescribedRegistrationNumber,
+                     String prescribedRegistrationCode) {
 }
