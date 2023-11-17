@@ -532,7 +532,7 @@ public class BraintreeManager implements SubscriptionProcessorManager {
         .thenApply(subscription -> getLatestTransactionForSubscription(subscription)
             .map(transaction -> {
               if (!getPaymentStatus(transaction.getStatus()).equals(PaymentStatus.SUCCEEDED)) {
-                final SubscriptionStatus subscriptionStatus = getSubscriptionStatus(subscription.getStatus());
+                final SubscriptionStatus subscriptionStatus = getSubscriptionStatus(subscription.getStatus(), true);
                 if (subscriptionStatus.equals(SubscriptionStatus.ACTIVE) || subscriptionStatus.equals(SubscriptionStatus.PAST_DUE)) {
                   throw new WebApplicationException(Response.Status.NO_CONTENT);
                 }
