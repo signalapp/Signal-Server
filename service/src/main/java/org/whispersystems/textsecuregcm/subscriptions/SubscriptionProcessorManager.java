@@ -84,7 +84,7 @@ public interface SubscriptionProcessorManager {
     INCOMPLETE("incomplete"),
 
     /**
-     * Payment on the latest renewal either failed or wasn't attempted.
+     * Payment on the latest renewal failed but there are processor retries left, or payment wasn't attempted.
      */
     PAST_DUE("past_due"),
 

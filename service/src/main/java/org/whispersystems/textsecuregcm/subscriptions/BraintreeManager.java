@@ -220,9 +220,11 @@ public class BraintreeManager implements SubscriptionProcessorManager {
     }
   }
 
-  private static SubscriptionStatus getSubscriptionStatus(final Subscription.Status status) {
+  private static SubscriptionStatus getSubscriptionStatus(final Subscription.Status status, final boolean latestTransactionFailed) {
     return switch (status) {
-      case ACTIVE -> SubscriptionStatus.ACTIVE;
+      // Stripe returns a PAST_DUE status if the subscription's most recent payment failed.
+      // This check ensures that Braintree is consistent with Stripe.
+      case ACTIVE -> latestTransactionFailed ? SubscriptionStatus.PAST_DUE : SubscriptionStatus.ACTIVE;
       case CANCELED, EXPIRED -> SubscriptionStatus.CANCELED;
       case PAST_DUE -> SubscriptionStatus.PAST_DUE;
       case PENDING -> SubscriptionStatus.INCOMPLETE;
@@ -435,9 +437,11 @@ public class BraintreeManager implements SubscriptionProcessorManager {
 
       final Optional<Transaction> latestTransaction = getLatestTransactionForSubscription(subscription);
 
+      boolean latestTransactionFailed = false;
       if (latestTransaction.isPresent()){
         paymentProcessing = isPaymentProcessing(latestTransaction.get().getStatus());
         if (getPaymentStatus(latestTransaction.get().getStatus()) != PaymentStatus.SUCCEEDED) {
+          latestTransactionFailed = true;
           chargeFailure = createChargeFailure(latestTransaction.get());
         }
       }
@@ -450,7 +454,7 @@ public class BraintreeManager implements SubscriptionProcessorManager {
           endOfCurrentPeriod,
           Subscription.Status.ACTIVE == subscription.getStatus(),
           !subscription.neverExpires(),
-          getSubscriptionStatus(subscription.getStatus()),
+          getSubscriptionStatus(subscription.getStatus(), latestTransactionFailed),
           latestTransaction.map(this::getPaymentMethodFromTransaction).orElse(PaymentMethod.PAYPAL),
           paymentProcessing,
           chargeFailure
