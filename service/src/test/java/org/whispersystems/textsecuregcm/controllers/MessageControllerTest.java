@@ -32,6 +32,7 @@ import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.jsonFixtur
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.protobuf.ByteString;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
@@ -166,7 +167,7 @@ class MessageControllerTest {
   private static final RateLimiter rateLimiter = mock(RateLimiter.class);
   private static final PushNotificationManager pushNotificationManager = mock(PushNotificationManager.class);
   private static final ReportMessageManager reportMessageManager = mock(ReportMessageManager.class);
-  private static final ExecutorService multiRecipientMessageExecutor = mock(ExecutorService.class);
+  private static final ExecutorService multiRecipientMessageExecutor = MoreExecutors.newDirectExecutorService();
   private static final Scheduler messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
   private static final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
 
@@ -252,8 +253,7 @@ class MessageControllerTest {
         rateLimiter,
         cardinalityEstimator,
         pushNotificationManager,
-        reportMessageManager,
-        multiRecipientMessageExecutor
+        reportMessageManager
     );
   }
 
@@ -990,19 +990,6 @@ class MessageControllerTest {
     // set up the entity to use in our PUT request
     Entity<InputStream> entity = Entity.entity(stream, MultiRecipientMessageProvider.MEDIA_TYPE);
 
-    when(multiRecipientMessageExecutor.invokeAll(any()))
-        .thenAnswer(answer -> {
-          final List<Callable> tasks = answer.getArgument(0, List.class);
-          tasks.forEach(c -> {
-            try {
-              c.call();
-            } catch (Exception e) {
-              throw new RuntimeException(e);
-            }
-          });
-          return null;
-        });
-
     // start building the request
     Invocation.Builder bldr = resources
         .getJerseyTest()
@@ -1108,6 +1095,32 @@ class MessageControllerTest {
         Arguments.of(SINGLE_DEVICE_UUID, true, true, false, true),
         Arguments.of(SINGLE_DEVICE_UUID, true, false, false, true)
     );
+  }
+
+  @Test
+  void testMultiRecipientMessageToAccountsSomeOfWhichDoNotExist() throws Exception {
+    UUID badUUID = UUID.fromString("33333333-3333-3333-3333-333333333333");
+    when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(badUUID))).thenReturn(Optional.empty());
+
+    final List<Recipient> recipients = List.of(
+        new Recipient(new AciServiceIdentifier(SINGLE_DEVICE_UUID), SINGLE_DEVICE_ID1, SINGLE_DEVICE_REG_ID1,
+            new byte[48]),
+        new Recipient(new AciServiceIdentifier(badUUID), (byte) 1, 1, new byte[48]));
+
+    Response response = resources
+        .getJerseyTest()
+        .target("/v1/messages/multi_recipient")
+        .queryParam("online", true)
+        .queryParam("ts", 1700000000000L)
+        .queryParam("story", true)
+        .queryParam("urgent", false)
+        .request()
+        .header(HttpHeaders.USER_AGENT, "cluck cluck, i'm a parrot")
+        .header(OptionalAccess.UNIDENTIFIED, Base64.getEncoder().encodeToString(UNIDENTIFIED_ACCESS_BYTES))
+        .put(Entity.entity(initializeMultiPayload(recipients, new byte[2048], true),
+            MultiRecipientMessageProvider.MEDIA_TYPE));
+
+    checkGoodMultiRecipientResponse(response, 1);
   }
 
   @ParameterizedTest
@@ -1316,19 +1329,6 @@ class MessageControllerTest {
   void sendMultiRecipientMessage404(final ServiceIdentifier serviceIdentifier)
       throws NotPushRegisteredException, InterruptedException {
 
-    when(multiRecipientMessageExecutor.invokeAll(any()))
-        .thenAnswer(answer -> {
-          final List<Callable> tasks = answer.getArgument(0, List.class);
-          tasks.forEach(c -> {
-            try {
-              c.call();
-            } catch (Exception e) {
-              throw new RuntimeException(e);
-            }
-          });
-          return null;
-        });
-
     final List<Recipient> recipients = List.of(
         new Recipient(serviceIdentifier, MULTI_DEVICE_ID1, MULTI_DEVICE_REG_ID1, new byte[48]),
         new Recipient(serviceIdentifier, MULTI_DEVICE_ID2, MULTI_DEVICE_REG_ID2, new byte[48]));
@@ -1371,14 +1371,12 @@ class MessageControllerTest {
   private void checkBadMultiRecipientResponse(Response response, int expectedCode) throws Exception {
     assertThat("Unexpected response", response.getStatus(), is(equalTo(expectedCode)));
     verify(messageSender, never()).sendMessage(any(), any(), any(), anyBoolean());
-    verify(multiRecipientMessageExecutor, never()).invokeAll(any());
   }
 
   private void checkGoodMultiRecipientResponse(Response response, int expectedCount) throws Exception {
     assertThat("Unexpected response", response.getStatus(), is(equalTo(200)));
     ArgumentCaptor<List<Callable<Void>>> captor = ArgumentCaptor.forClass(List.class);
-    verify(multiRecipientMessageExecutor, times(1)).invokeAll(captor.capture());
-    assert (captor.getValue().size() == expectedCount);
+    verify(messageSender, times(expectedCount)).sendMessage(any(), any(), any(), anyBoolean());
     SendMultiRecipientMessageResponse smrmr = response.readEntity(SendMultiRecipientMessageResponse.class);
     assert (smrmr.uuids404().isEmpty());
   }

@@ -32,8 +32,9 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.Callable;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
@@ -466,25 +467,37 @@ public class MessageController {
           Tag.of(EPHEMERAL_TAG_NAME, String.valueOf(online)),
           Tag.of(SENDER_TYPE_TAG_NAME, SENDER_TYPE_UNIDENTIFIED)));
 
-      multiRecipientMessageExecutor.invokeAll(Arrays.stream(multiRecipientMessage.recipients())
-          .map(recipient -> (Callable<Void>) () -> {
-            Account destinationAccount = accountsByServiceIdentifier.get(recipient.uuid());
+      CompletableFuture.allOf(
+          Arrays.stream(multiRecipientMessage.recipients())
+              // If we're sending a story, some recipients might not map to existing accounts
+              .filter(recipient -> accountsByServiceIdentifier.containsKey(recipient.uuid()))
+              .map(
+                  recipient -> CompletableFuture.runAsync(
+                      () -> {
+                        Account destinationAccount = accountsByServiceIdentifier.get(recipient.uuid());
 
-            // we asserted this must exist in validateCompleteDeviceList
-            Device destinationDevice = destinationAccount.getDevice(recipient.deviceId()).orElseThrow();
-            sentMessageCounter.increment();
-            try {
-              sendCommonPayloadMessage(destinationAccount, destinationDevice, timestamp, online, isStory, isUrgent,
-                  recipient, multiRecipientMessage.commonPayload());
-            } catch (NoSuchUserException e) {
-              uuids404.add(recipient.uuid());
-            }
-            return null;
-          })
-          .collect(Collectors.toList()));
+                        // we asserted this must exist in validateCompleteDeviceList
+                        Device destinationDevice = destinationAccount.getDevice(recipient.deviceId()).orElseThrow();
+                        sentMessageCounter.increment();
+                        try {
+                          sendCommonPayloadMessage(destinationAccount, destinationDevice, timestamp, online, isStory, isUrgent,
+                              recipient, multiRecipientMessage.commonPayload());
+                        } catch (NoSuchUserException e) {
+                          uuids404.add(recipient.uuid());
+                        }
+                      },
+                      multiRecipientMessageExecutor))
+              .toArray(CompletableFuture[]::new))
+          .get();
     } catch (InterruptedException e) {
       logger.error("interrupted while delivering multi-recipient messages", e);
       return Response.serverError().entity("interrupted during delivery").build();
+    } catch (CancellationException e) {
+      logger.error("cancelled while delivering multi-recipient messages", e);
+      return Response.serverError().entity("delivery cancelled").build();
+    } catch (ExecutionException e) {
+      logger.error("partial failure while delivering multi-recipient messages", e.getCause());
+      return Response.serverError().entity("failure during delivery").build();
     }
     return Response.ok(new SendMultiRecipientMessageResponse(uuids404)).build();
   }
