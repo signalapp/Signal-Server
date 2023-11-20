@@ -4,7 +4,11 @@
  */
 package org.whispersystems.textsecuregcm.controllers;
 
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
+
 import io.dropwizard.auth.Auth;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tags;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -56,6 +60,7 @@ import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimitedByIp;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -75,6 +80,7 @@ public class AccountController {
   public static final int USERNAME_HASH_LENGTH = 32;
   public static final int MAXIMUM_USERNAME_CIPHERTEXT_LENGTH = 128;
 
+  private static final String INVALID_REGISTRATION_ID = name(AccountController.class, "invalidRegistrationId");
   private final AccountsManager accounts;
   private final RateLimiters rateLimiters;
   private final TurnTokenGenerator turnTokenGenerator;
@@ -218,6 +224,10 @@ public class AccountController {
       @NotNull @Valid AccountAttributes attributes) {
     final Account account = disabledPermittedAuth.getAccount();
     final byte deviceId = disabledPermittedAuth.getAuthenticatedDevice().getId();
+
+    if (!AccountsManager.validNewAccountAttributes(attributes)) {
+      Metrics.counter(INVALID_REGISTRATION_ID, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent))).increment();
+    }
 
     final Account updatedAccount = accounts.update(account, a -> {
       a.getDevice(deviceId).ifPresent(d -> {
