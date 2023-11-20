@@ -21,7 +21,10 @@ public class IOExceptionMapper implements ExceptionMapper<IOException> {
   public Response toResponse(IOException e) {
     if (!(e.getCause() instanceof java.util.concurrent.TimeoutException)) {
       logger.warn("IOExceptionMapper", e);
+    } else if (e.getCause().getMessage().startsWith("Idle timeout expired")) {
+      return Response.status(Response.Status.REQUEST_TIMEOUT).build();
     }
+
     return Response.status(503).build();
   }
 }
