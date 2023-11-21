@@ -100,6 +100,9 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   static final int MESSAGE_PUBLISHER_LIMIT_RATE = 100;
 
   @VisibleForTesting
+  static final int MESSAGE_SENDER_MAX_CONCURRENCY = 256;
+
+  @VisibleForTesting
   static final int MAX_CONSECUTIVE_RETRIES = 5;
   private static final long RETRY_DELAY_MILLIS = 1_000;
   private static final int RETRY_DELAY_JITTER_MILLIS = 500;
@@ -372,8 +375,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
                     },
                     // otherwise just emit nothing
                     e -> Mono.empty()
-                )
-        )
+                ), MESSAGE_SENDER_MAX_CONCURRENCY)
         .subscribeOn(messageDeliveryScheduler)
         .subscribe(
             // no additional consumer of values - it is Flux<Void> by now
