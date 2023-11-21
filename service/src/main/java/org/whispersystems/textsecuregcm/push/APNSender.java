@@ -121,8 +121,12 @@ public class APNSender implements Managed, PushNotificationSender {
       pushType = notification.urgent() ? PushType.ALERT : PushType.BACKGROUND;
     }
 
-    final DeliveryPriority deliveryPriority =
-        (notification.urgent() || isVoip) ? DeliveryPriority.IMMEDIATE : DeliveryPriority.CONSERVE_POWER;
+    final DeliveryPriority deliveryPriority = switch (notification.notificationType()) {
+      case NOTIFICATION ->
+          (notification.urgent() || isVoip) ? DeliveryPriority.IMMEDIATE : DeliveryPriority.CONSERVE_POWER;
+      case ATTEMPT_LOGIN_NOTIFICATION_HIGH_PRIORITY -> DeliveryPriority.IMMEDIATE;
+      case CHALLENGE, RATE_LIMIT_CHALLENGE -> DeliveryPriority.CONSERVE_POWER;
+    };
 
     final String collapseId =
         (notification.notificationType() == PushNotification.NotificationType.NOTIFICATION && notification.urgent() && !isVoip)
