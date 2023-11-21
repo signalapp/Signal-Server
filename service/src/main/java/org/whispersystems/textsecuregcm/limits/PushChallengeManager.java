@@ -88,9 +88,9 @@ public class PushChallengeManager {
 
     final String platform = account.getPrimaryDevice().map(primaryDevice -> {
       if (StringUtils.isNotBlank(primaryDevice.getGcmId())) {
-        return ClientPlatform.IOS.name().toLowerCase();
-      } else if (StringUtils.isNotBlank(primaryDevice.getApnId())) {
         return ClientPlatform.ANDROID.name().toLowerCase();
+      } else if (StringUtils.isNotBlank(primaryDevice.getApnId())) {
+        return ClientPlatform.IOS.name().toLowerCase();
       } else {
         return "unknown";
       }
