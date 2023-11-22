@@ -103,7 +103,7 @@ public class APNSender implements Managed, PushNotificationSender {
           .build();
 
       case CHALLENGE -> new SimpleApnsPayloadBuilder()
-          .setContentAvailable(true)
+          .setLocalizedAlertMessage("APN_Message")
           .addCustomProperty("challenge", notification.data())
           .build();
 
@@ -125,7 +125,8 @@ public class APNSender implements Managed, PushNotificationSender {
       case NOTIFICATION ->
           (notification.urgent() || isVoip) ? DeliveryPriority.IMMEDIATE : DeliveryPriority.CONSERVE_POWER;
       case ATTEMPT_LOGIN_NOTIFICATION_HIGH_PRIORITY -> DeliveryPriority.IMMEDIATE;
-      case CHALLENGE, RATE_LIMIT_CHALLENGE -> DeliveryPriority.CONSERVE_POWER;
+      case CHALLENGE -> DeliveryPriority.IMMEDIATE;
+      case RATE_LIMIT_CHALLENGE -> DeliveryPriority.CONSERVE_POWER;
     };
 
     final String collapseId =
