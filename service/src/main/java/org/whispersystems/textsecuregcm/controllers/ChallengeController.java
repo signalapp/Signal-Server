@@ -19,6 +19,7 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.io.IOException;
+import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 import javax.ws.rs.BadRequestException;
 import javax.ws.rs.Consumes;
@@ -27,6 +28,7 @@ import javax.ws.rs.POST;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
+import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
@@ -48,12 +50,15 @@ import org.whispersystems.textsecuregcm.util.HeaderUtils;
 public class ChallengeController {
 
   private final RateLimitChallengeManager rateLimitChallengeManager;
+  private final boolean useRemoteAddress;
 
   private static final String CHALLENGE_RESPONSE_COUNTER_NAME = name(ChallengeController.class, "challengeResponse");
   private static final String CHALLENGE_TYPE_TAG = "type";
 
-  public ChallengeController(final RateLimitChallengeManager rateLimitChallengeManager) {
+  public ChallengeController(final RateLimitChallengeManager rateLimitChallengeManager,
+      final boolean useRemoteAddress) {
     this.rateLimitChallengeManager = rateLimitChallengeManager;
+    this.useRemoteAddress = useRemoteAddress;
   }
 
   @PUT
@@ -79,6 +84,7 @@ public class ChallengeController {
   public Response handleChallengeResponse(@Auth final AuthenticatedAccount auth,
       @Valid final AnswerChallengeRequest answerRequest,
       @HeaderParam(HttpHeaders.X_FORWARDED_FOR) final String forwardedFor,
+      @Context HttpServletRequest request,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
       @Extract final ScoreThreshold captchaScoreThreshold,
       @Extract final PushChallengeConfig pushChallengeConfig) throws RateLimitExceededException, IOException {
@@ -96,11 +102,13 @@ public class ChallengeController {
       } else if (answerRequest instanceof AnswerRecaptchaChallengeRequest recaptchaChallengeRequest) {
         tags = tags.and(CHALLENGE_TYPE_TAG, "recaptcha");
 
-        final String mostRecentProxy = HeaderUtils.getMostRecentProxy(forwardedFor).orElseThrow(() -> new BadRequestException());
+        final String remoteAddress = useRemoteAddress
+            ? request.getRemoteAddr()
+            : HeaderUtils.getMostRecentProxy(forwardedFor).orElseThrow(BadRequestException::new);
         boolean success = rateLimitChallengeManager.answerRecaptchaChallenge(
             auth.getAccount(),
             recaptchaChallengeRequest.getCaptcha(),
-            mostRecentProxy,
+            remoteAddress,
             userAgent,
             captchaScoreThreshold.getScoreThreshold());
 

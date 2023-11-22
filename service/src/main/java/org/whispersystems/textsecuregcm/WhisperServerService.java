@@ -39,6 +39,7 @@ import java.time.Duration;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -299,6 +300,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     UncaughtExceptionHandler.register();
 
     MetricsUtil.configureRegistries(config, environment);
+
+    final boolean useRemoteAddress = Optional.ofNullable(
+            System.getenv("SIGNAL_USE_REMOTE_ADDRESS"))
+        .isPresent();
 
     HeaderControlledResourceBundleLookup headerControlledResourceBundleLookup =
         new HeaderControlledResourceBundleLookup();
@@ -800,7 +805,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new ArchiveController(backupAuthManager, backupManager),
         new CallLinkController(rateLimiters, callingGenericZkSecretParams),
         new CertificateController(new CertificateGenerator(config.getDeliveryCertificate().certificate().value(), config.getDeliveryCertificate().ecPrivateKey(), config.getDeliveryCertificate().expiresDays()), zkAuthOperations, callingGenericZkSecretParams, clock),
-        new ChallengeController(rateLimitChallengeManager),
+        new ChallengeController(rateLimitChallengeManager, useRemoteAddress),
         new DeviceController(config.getLinkDeviceSecretConfiguration().secret().value(), accountsManager, messagesManager, keysManager, rateLimiters,
             rateLimitersCluster, config.getMaxDevices(), clock),
         new DirectoryV2Controller(directoryV2CredentialsGenerator),
@@ -831,7 +836,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             config.getCdnConfiguration().bucket()),
         new VerificationController(registrationServiceClient, new VerificationSessionManager(verificationSessions),
             pushNotificationManager, registrationCaptchaManager, registrationRecoveryPasswordsManager, rateLimiters,
-            accountsManager, clock)
+            accountsManager, useRemoteAddress, clock)
     );
     if (config.getSubscription() != null && config.getOneTimeDonations() != null) {
       commonControllers.add(new SubscriptionController(clock, config.getSubscription(), config.getOneTimeDonations(),

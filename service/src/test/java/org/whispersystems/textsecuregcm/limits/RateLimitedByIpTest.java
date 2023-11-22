@@ -64,7 +64,7 @@ public class RateLimitedByIpTest {
       .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(new Controller())
-      .addProvider(new RateLimitByIpFilter(RATE_LIMITERS))
+      .addProvider(new RateLimitByIpFilter(RATE_LIMITERS, true))
       .build();
 
   @Test

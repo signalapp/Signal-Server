@@ -31,6 +31,7 @@ import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
+import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import javax.ws.rs.BadRequestException;
@@ -48,6 +49,7 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.ServerErrorException;
 import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.Context;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -116,6 +118,7 @@ public class VerificationController {
   private final RateLimiters rateLimiters;
   private final AccountsManager accountsManager;
 
+  private final boolean useRemoteAddress;
   private final Clock clock;
 
   public VerificationController(final RegistrationServiceClient registrationServiceClient,
@@ -125,6 +128,7 @@ public class VerificationController {
       final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
       final RateLimiters rateLimiters,
       final AccountsManager accountsManager,
+      final boolean useRemoteAddress,
       final Clock clock) {
     this.registrationServiceClient = registrationServiceClient;
     this.verificationSessionManager = verificationSessionManager;
@@ -133,6 +137,7 @@ public class VerificationController {
     this.registrationRecoveryPasswordsManager = registrationRecoveryPasswordsManager;
     this.rateLimiters = rateLimiters;
     this.accountsManager = accountsManager;
+    this.useRemoteAddress = useRemoteAddress;
     this.clock = clock;
   }
 
@@ -194,10 +199,13 @@ public class VerificationController {
   public VerificationSessionResponse updateSession(@PathParam("sessionId") final String encodedSessionId,
       @HeaderParam(com.google.common.net.HttpHeaders.X_FORWARDED_FOR) String forwardedFor,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
+      @Context HttpServletRequest request,
       @NotNull @Valid final UpdateVerificationSessionRequest updateVerificationSessionRequest,
       @NotNull @Extract final ScoreThreshold captchaScoreThreshold) {
 
-    final String sourceHost = HeaderUtils.getMostRecentProxy(forwardedFor).orElseThrow();
+    final String sourceHost = useRemoteAddress
+        ? request.getRemoteAddr()
+        : HeaderUtils.getMostRecentProxy(forwardedFor).orElseThrow();
 
     final Pair<String, PushNotification.TokenType> pushTokenAndType = validateAndExtractPushToken(
         updateVerificationSessionRequest);

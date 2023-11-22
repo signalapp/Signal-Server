@@ -53,7 +53,8 @@ class ChallengeControllerTest {
 
   private static final RateLimitChallengeManager rateLimitChallengeManager = mock(RateLimitChallengeManager.class);
 
-  private static final ChallengeController challengeController = new ChallengeController(rateLimitChallengeManager);
+  private static final ChallengeController challengeController = new ChallengeController(rateLimitChallengeManager,
+      true);
 
   private static final AtomicReference<Float> scoreThreshold = new AtomicReference<>();
 

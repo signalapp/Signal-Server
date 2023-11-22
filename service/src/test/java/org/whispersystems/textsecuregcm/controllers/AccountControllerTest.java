@@ -38,7 +38,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.client.Invocation;
@@ -153,7 +152,7 @@ class AccountControllerTest {
       .addProvider(new RateLimitExceededExceptionMapper())
       .addProvider(new ImpossiblePhoneNumberExceptionMapper())
       .addProvider(new NonNormalizedPhoneNumberExceptionMapper())
-      .addProvider(new RateLimitByIpFilter(rateLimiters))
+      .addProvider(new RateLimitByIpFilter(rateLimiters, true))
       .addProvider(ScoreThresholdProvider.ScoreThresholdFeature.class)
       .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
