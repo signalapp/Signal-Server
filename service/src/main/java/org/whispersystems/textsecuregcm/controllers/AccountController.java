@@ -231,7 +231,7 @@ public class AccountController {
         d.setLastSeen(Util.todayInMillis());
         d.setCapabilities(attributes.getCapabilities());
         d.setRegistrationId(attributes.getRegistrationId());
-        attributes.getPhoneNumberIdentityRegistrationId().ifPresent(d::setPhoneNumberIdentityRegistrationId);
+        d.setPhoneNumberIdentityRegistrationId(attributes.getPhoneNumberIdentityRegistrationId());
         d.setUserAgent(userAgent);
       });
 

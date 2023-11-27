@@ -396,7 +396,7 @@ public class DeviceController {
     device.setAuthTokenHash(SaltedTokenHash.generateFor(password));
     device.setFetchesMessages(accountAttributes.getFetchesMessages());
     device.setRegistrationId(accountAttributes.getRegistrationId());
-    accountAttributes.getPhoneNumberIdentityRegistrationId().ifPresent(device::setPhoneNumberIdentityRegistrationId);
+    device.setPhoneNumberIdentityRegistrationId(accountAttributes.getPhoneNumberIdentityRegistrationId());
     device.setLastSeen(Util.todayInMillis());
     device.setCreated(System.currentTimeMillis());
     device.setCapabilities(accountAttributes.getCapabilities());

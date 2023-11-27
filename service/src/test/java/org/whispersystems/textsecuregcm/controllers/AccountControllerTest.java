@@ -762,7 +762,7 @@ class AccountControllerTest {
                     .target("/v1/accounts/attributes/")
                     .request()
                     .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                    .put(Entity.json(new AccountAttributes(false, 2222, null, null, true, null)));
+                    .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, true, null)));
 
     assertThat(response.getStatus()).isEqualTo(204);
   }
@@ -774,7 +774,7 @@ class AccountControllerTest {
                     .target("/v1/accounts/attributes/")
                     .request()
                     .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.UNDISCOVERABLE_UUID, AuthHelper.UNDISCOVERABLE_PASSWORD))
-                    .put(Entity.json(new AccountAttributes(false, 2222, null, null, true, null)));
+                    .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, true, null)));
 
     assertThat(response.getStatus()).isEqualTo(204);
   }
@@ -787,7 +787,7 @@ class AccountControllerTest {
             .target("/v1/accounts/attributes/")
             .request()
             .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.UNDISCOVERABLE_UUID, AuthHelper.UNDISCOVERABLE_PASSWORD))
-            .put(Entity.json(new AccountAttributes(false, 2222, null, null, true, null)
+            .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, true, null)
                 .withRecoveryPassword(recoveryPassword)));
 
     assertThat(response.getStatus()).isEqualTo(204);
@@ -801,7 +801,7 @@ class AccountControllerTest {
                     .target("/v1/accounts/attributes/")
                     .request()
                     .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                    .put(Entity.json(new AccountAttributes(false, 2222, null, null, false, null)));
+                    .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, false, null)));
 
     assertThat(response.getStatus()).isEqualTo(204);
   }
@@ -813,7 +813,7 @@ class AccountControllerTest {
             .target("/v1/accounts/attributes/")
             .request()
             .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.json(new AccountAttributes(false, 2222, null, null, false, null)
+            .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, false, null)
                 .withUnidentifiedAccessKey(new byte[7])));
 
     assertThat(response.getStatus()).isEqualTo(422);

@@ -28,6 +28,8 @@ public class TestUser {
 
   private final int registrationId;
 
+  private final int pniRegistrationId;
+
   private final IdentityKeyPair aciIdentityKey;
 
   private final Map<Byte, TestDevice> devices = new ConcurrentHashMap<>();
@@ -54,11 +56,13 @@ public class TestUser {
     final IdentityKeyPair pniIdentityKey = IdentityKeyPair.generate();
     // registration id
     final int registrationId = KeyHelper.generateRegistrationId(false);
+    final int pniRegistrationId = KeyHelper.generateRegistrationId(false);
     // uak
     final byte[] unidentifiedAccessKey = RandomUtils.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
 
     return new TestUser(
         registrationId,
+        pniRegistrationId,
         aciIdentityKey,
         phoneNumber,
         pniIdentityKey,
@@ -69,6 +73,7 @@ public class TestUser {
 
   public TestUser(
       final int registrationId,
+      final int pniRegistrationId,
       final IdentityKeyPair aciIdentityKey,
       final String phoneNumber,
       final IdentityKeyPair pniIdentityKey,
@@ -76,6 +81,7 @@ public class TestUser {
       final String accountPassword,
       final byte[] registrationPassword) {
     this.registrationId = registrationId;
+    this.pniRegistrationId = pniRegistrationId;
     this.aciIdentityKey = aciIdentityKey;
     this.phoneNumber = phoneNumber;
     this.pniIdentityKey = pniIdentityKey;
@@ -118,7 +124,7 @@ public class TestUser {
   }
 
   public AccountAttributes accountAttributes() {
-    return new AccountAttributes(true, registrationId, "", "", true, new Device.DeviceCapabilities(false, false, false, false))
+    return new AccountAttributes(true, registrationId, pniRegistrationId, "", "", true, new Device.DeviceCapabilities(false, false, false, false))
         .withUnidentifiedAccessKey(unidentifiedAccessKey)
         .withRecoveryPassword(registrationPassword);
   }

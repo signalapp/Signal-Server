@@ -200,7 +200,7 @@ public class AccountsManager {
         device.setAuthTokenHash(SaltedTokenHash.generateFor(password));
         device.setFetchesMessages(accountAttributes.getFetchesMessages());
         device.setRegistrationId(accountAttributes.getRegistrationId());
-        accountAttributes.getPhoneNumberIdentityRegistrationId().ifPresent(device::setPhoneNumberIdentityRegistrationId);
+        device.setPhoneNumberIdentityRegistrationId(accountAttributes.getPhoneNumberIdentityRegistrationId());
         device.setName(accountAttributes.getName());
         device.setCapabilities(accountAttributes.getCapabilities());
         device.setCreated(System.currentTimeMillis());

@@ -935,7 +935,7 @@ class AccountsManagerTest {
     when(accounts.create(any(), any())).thenReturn(true);
 
     final String e164 = "+18005550123";
-    final AccountAttributes attributes = new AccountAttributes(false, 0, null, null, true, null);
+    final AccountAttributes attributes = new AccountAttributes(false, 1, 2, null, null, true, null);
 
     createAccount(e164, attributes);
 
@@ -955,7 +955,7 @@ class AccountsManagerTest {
     });
 
     final String e164 = "+18005550123";
-    final AccountAttributes attributes = new AccountAttributes(false, 0, null, null, true, null);
+    final AccountAttributes attributes = new AccountAttributes(false, 1, 2, null, null, true, null);
 
     createAccount(e164, attributes);
 
@@ -979,7 +979,7 @@ class AccountsManagerTest {
     when(accounts.create(any(), any())).thenReturn(true);
 
     final String e164 = "+18005550123";
-    final AccountAttributes attributes = new AccountAttributes(false, 0, null, null, true, null);
+    final AccountAttributes attributes = new AccountAttributes(false, 1, 2, null, null, true, null);
 
     createAccount(e164, attributes);
 
@@ -995,7 +995,7 @@ class AccountsManagerTest {
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
   void testCreateWithDiscoverability(final boolean discoverable) throws InterruptedException {
-    final AccountAttributes attributes = new AccountAttributes(false, 0, null, null, discoverable, null);
+    final AccountAttributes attributes = new AccountAttributes(false, 1, 2, null, null, discoverable, null);
     final Account account = createAccount("+18005550123", attributes);
 
     assertEquals(discoverable, account.isDiscoverableByPhoneNumber());
@@ -1004,8 +1004,8 @@ class AccountsManagerTest {
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
   void testCreateWithStorageCapability(final boolean hasStorage) throws InterruptedException {
-    final AccountAttributes attributes = new AccountAttributes(false, 0, null, null, true,
-        new DeviceCapabilities(hasStorage, false, false, false));
+    final AccountAttributes attributes = new AccountAttributes(false, 1, 2, null, null,
+            true, new DeviceCapabilities(hasStorage, false, false, false));
 
     final Account account = createAccount("+18005550123", attributes);
 

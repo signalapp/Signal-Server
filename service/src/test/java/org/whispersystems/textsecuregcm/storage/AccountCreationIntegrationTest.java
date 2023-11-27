@@ -174,12 +174,10 @@ public class AccountCreationIntegrationTest {
 
     final AccountAttributes accountAttributes = new AccountAttributes(deliveryChannels.fetchesMessages(),
         registrationId,
+        pniRegistrationId,
         deviceName,
         registrationLockSecret,
-        discoverableByPhoneNumber,
-        deviceCapabilities);
-
-    accountAttributes.setPhoneNumberIdentityRegistrationId(pniRegistrationId);
+        discoverableByPhoneNumber, deviceCapabilities);
 
     final List<AccountBadge> badges = new ArrayList<>(List.of(new AccountBadge(
         RandomStringUtils.randomAlphabetic(8),
@@ -259,7 +257,7 @@ public class AccountCreationIntegrationTest {
       final Account originalAccount = accountsManager.create(number,
           RandomStringUtils.randomAlphanumeric(16),
           "OWI",
-          new AccountAttributes(true, 1, "name", "registration-lock", false, new Device.DeviceCapabilities(false, false, false, false)),
+          new AccountAttributes(true, 1, 1, "name", "registration-lock", false, new Device.DeviceCapabilities(false, false, false, false)),
           Collections.emptyList(),
           new IdentityKey(aciKeyPair.getPublicKey()),
           new IdentityKey(pniKeyPair.getPublicKey()),
@@ -288,12 +286,11 @@ public class AccountCreationIntegrationTest {
 
     final AccountAttributes accountAttributes = new AccountAttributes(deliveryChannels.fetchesMessages(),
         registrationId,
+        pniRegistrationId,
         deviceName,
         registrationLockSecret,
         discoverableByPhoneNumber,
         deviceCapabilities);
-
-    accountAttributes.setPhoneNumberIdentityRegistrationId(pniRegistrationId);
 
     final List<AccountBadge> badges = new ArrayList<>(List.of(new AccountBadge(
         RandomStringUtils.randomAlphabetic(8),

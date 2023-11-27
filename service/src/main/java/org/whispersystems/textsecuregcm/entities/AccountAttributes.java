@@ -10,7 +10,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.Optional;
-import java.util.OptionalInt;
 import javax.annotation.Nullable;
 import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.Size;
@@ -28,7 +27,7 @@ public class AccountAttributes {
   private int registrationId;
 
   @JsonProperty("pniRegistrationId")
-  private Integer phoneNumberIdentityRegistrationId;
+  private int phoneNumberIdentityRegistrationId;
 
   @JsonProperty
   @Size(max = 204, message = "This field must be less than 50 characters")
@@ -62,12 +61,14 @@ public class AccountAttributes {
   public AccountAttributes(
       final boolean fetchesMessages,
       final int registrationId,
+      final int phoneNumberIdentifierRegistrationId,
       final String name,
       final String registrationLock,
       final boolean discoverableByPhoneNumber,
       final DeviceCapabilities capabilities) {
     this.fetchesMessages = fetchesMessages;
     this.registrationId = registrationId;
+    this.phoneNumberIdentityRegistrationId = phoneNumberIdentifierRegistrationId;
     this.name = name;
     this.registrationLock = registrationLock;
     this.discoverableByPhoneNumber = discoverableByPhoneNumber;
@@ -82,8 +83,8 @@ public class AccountAttributes {
     return registrationId;
   }
 
-  public OptionalInt getPhoneNumberIdentityRegistrationId() {
-    return phoneNumberIdentityRegistrationId != null ? OptionalInt.of(phoneNumberIdentityRegistrationId) : OptionalInt.empty();
+  public int getPhoneNumberIdentityRegistrationId() {
+    return phoneNumberIdentityRegistrationId;
   }
 
   public String getName() {
@@ -133,7 +134,6 @@ public class AccountAttributes {
 
   @AssertTrue
   public boolean isEachRegistrationIdValid() {
-    return validRegistrationId(registrationId) &&
-        (phoneNumberIdentityRegistrationId == null || validRegistrationId(phoneNumberIdentityRegistrationId));
+    return validRegistrationId(registrationId) && validRegistrationId(phoneNumberIdentityRegistrationId);
   }
 }

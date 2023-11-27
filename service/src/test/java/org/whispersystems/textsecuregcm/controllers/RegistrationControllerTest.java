@@ -141,8 +141,8 @@ class RegistrationControllerTest {
   static Stream<Arguments> invalidRegistrationId() {
     return Stream.of(
         Arguments.of(Optional.of(1), Optional.of(1), 200),
-        Arguments.of(Optional.of(1), Optional.empty(), 200),
-        Arguments.of(Optional.of(0x3FFF), Optional.empty(), 200),
+        Arguments.of(Optional.of(1), Optional.empty(), 422),
+        Arguments.of(Optional.of(0x3FFF), Optional.empty(), 422),
         Arguments.of(Optional.empty(), Optional.of(1), 422),
         Arguments.of(Optional.of(Integer.MAX_VALUE), Optional.empty(), 422),
         Arguments.of(Optional.of(0x3FFF + 1), Optional.empty(), 422),
@@ -170,7 +170,7 @@ class RegistrationControllerTest {
     when(accountsManager.create(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(account);
 
-    final String json = requestJson("sessionId", new byte[0], true, registrationId.orElse(0), pniRegistrationId);
+    final String json = requestJson("sessionId", new byte[0], true, registrationId.orElse(0), pniRegistrationId.orElse(0));
 
     try (Response response = request.post(Entity.json(json))) {
       assertEquals(statusCode, response.getStatus());
@@ -409,7 +409,7 @@ class RegistrationControllerTest {
         .target("/v1/registration")
         .request()
         .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
-    try (Response response = request.post(Entity.json(requestJson("sessionId", new byte[0], skipDeviceTransfer, 1, Optional.of(2))))) {
+    try (Response response = request.post(Entity.json(requestJson("sessionId", new byte[0], skipDeviceTransfer, 1, 2)))) {
       assertEquals(expectedStatus, response.getStatus());
     }
   }
@@ -477,10 +477,10 @@ class RegistrationControllerTest {
     }
 
     final AccountAttributes fetchesMessagesAccountAttributes =
-        new AccountAttributes(true, 1, "test", null, true, new Device.DeviceCapabilities(false, false, false, false));
+        new AccountAttributes(true, 1, 1, "test", null, true, new Device.DeviceCapabilities(false, false, false, false));
 
     final AccountAttributes pushAccountAttributes =
-        new AccountAttributes(false, 1, "test", null, true, new Device.DeviceCapabilities(false, false, false, false));
+        new AccountAttributes(false, 1, 1, "test", null, true, new Device.DeviceCapabilities(false, false, false, false));
 
     return Stream.of(
         // "Fetches messages" is true, but an APNs token is provided
@@ -566,7 +566,7 @@ class RegistrationControllerTest {
     }
 
     final AccountAttributes accountAttributes =
-        new AccountAttributes(true, 1, "test", null, true, new Device.DeviceCapabilities(false, false, false, false));
+        new AccountAttributes(true, 1, 1, "test", null, true, new Device.DeviceCapabilities(false, false, false, false));
 
     return Stream.of(
         // Signed PNI EC pre-key is missing
@@ -746,10 +746,10 @@ class RegistrationControllerTest {
     }
 
     final AccountAttributes fetchesMessagesAccountAttributes =
-        new AccountAttributes(true, 1, "test", null, true, new Device.DeviceCapabilities(false, false, false, false));
+        new AccountAttributes(true, 1, 1, "test", null, true, new Device.DeviceCapabilities(false, false, false, false));
 
     final AccountAttributes pushAccountAttributes =
-        new AccountAttributes(false, 1, "test", null, true, new Device.DeviceCapabilities(false, false, false, false));
+        new AccountAttributes(false, 1, 1, "test", null, true, new Device.DeviceCapabilities(false, false, false, false));
 
     final String apnsToken = "apns-token";
     final String apnsVoipToken = "apns-voip-token";
@@ -853,7 +853,7 @@ class RegistrationControllerTest {
       final byte[] recoveryPassword,
       final boolean skipDeviceTransfer,
       final int registrationId,
-      @SuppressWarnings("OptionalUsedAsFieldOrParameterType") final Optional<Integer> pniRegistrationId) {
+      int pniRegistrationId) {
 
     final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
     final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
@@ -861,10 +861,8 @@ class RegistrationControllerTest {
     final IdentityKey aciIdentityKey = new IdentityKey(aciIdentityKeyPair.getPublicKey());
     final IdentityKey pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());
 
-    final AccountAttributes accountAttributes = new AccountAttributes(true, registrationId, "name", "reglock", true,
-        new Device.DeviceCapabilities(true, true, true, true));
-
-    pniRegistrationId.ifPresent(accountAttributes::setPhoneNumberIdentityRegistrationId);
+    final AccountAttributes accountAttributes = new AccountAttributes(true, registrationId, pniRegistrationId, "name", "reglock",
+            true, new Device.DeviceCapabilities(true, true, true, true));
 
     final RegistrationRequest request = new RegistrationRequest(
         Base64.getEncoder().encodeToString(sessionId.getBytes(StandardCharsets.UTF_8)),
@@ -892,14 +890,14 @@ class RegistrationControllerTest {
    * Valid request JSON with the given session ID
    */
   private static String requestJson(final String sessionId) {
-    return requestJson(sessionId, new byte[0], false, 1, Optional.of(2));
+    return requestJson(sessionId, new byte[0], false, 1, 2);
   }
 
   /**
    * Valid request JSON with the given Recovery Password
    */
   private static String requestJsonRecoveryPassword(final byte[] recoveryPassword) {
-    return requestJson("", recoveryPassword, false, 1, Optional.of(2));
+    return requestJson("", recoveryPassword, false, 1, 2);
   }
 
   /**

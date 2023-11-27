@@ -196,8 +196,8 @@ class DeviceControllerTest {
         .target("/v1/devices/" + deviceCode.verificationCode())
         .request()
         .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
-        .put(Entity.entity(new AccountAttributes(false, 1234, null,
-                    null, true, null),
+        .put(Entity.entity(new AccountAttributes(false, 1234, 5678,
+                    null, null, true, null),
                 MediaType.APPLICATION_JSON_TYPE),
             DeviceResponse.class);
 
@@ -223,8 +223,8 @@ class DeviceControllerTest {
             .target("/v1/devices/" + verificationToken)
             .request()
             .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
-            .put(Entity.entity(new AccountAttributes(false, 1234, null,
-                                    null, true, null),
+            .put(Entity.entity(new AccountAttributes(false, 1234, 5678,
+                    null, null, true, null),
                             MediaType.APPLICATION_JSON_TYPE));
 
     assertEquals(Response.Status.FORBIDDEN.getStatusCode(), response.getStatus());
@@ -261,8 +261,8 @@ class DeviceControllerTest {
         .target("/v1/devices/" + verificationToken)
         .request()
         .header("Authorization", "This is not a valid authorization header")
-        .put(Entity.entity(new AccountAttributes(false, 1234, null,
-                null, true, null),
+        .put(Entity.entity(new AccountAttributes(false, 1234, 5678,
+                null, null, true, null),
             MediaType.APPLICATION_JSON_TYPE));
 
     assertEquals(401, response.getStatus());
@@ -308,7 +308,7 @@ class DeviceControllerTest {
     when(keysManager.storePqLastResort(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
     final LinkDeviceRequest request = new LinkDeviceRequest(deviceCode.verificationCode(),
-        new AccountAttributes(fetchesMessages, 1234, null, null, true, null),
+        new AccountAttributes(fetchesMessages, 1234, 5678, null, null, true, null),
         new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, apnRegistrationId, gcmRegistrationId));
 
     final DeviceResponse response = resources.getJerseyTest()
@@ -389,7 +389,7 @@ class DeviceControllerTest {
     when(commands.get(anyString())).thenReturn("");
 
     final LinkDeviceRequest request = new LinkDeviceRequest(deviceController.generateVerificationToken(AuthHelper.VALID_UUID),
-            new AccountAttributes(false, 1234, null, null, true, null),
+            new AccountAttributes(false, 1234, 5678, null, null, true, null),
             new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, Optional.empty(), Optional.of(new GcmRegistrationId("gcm-id"))));
 
     try (final Response response = resources.getJerseyTest()
@@ -437,7 +437,7 @@ class DeviceControllerTest {
     when(account.getIdentityKey(IdentityType.PNI)).thenReturn(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
 
     final LinkDeviceRequest request = new LinkDeviceRequest(deviceCode.verificationCode(),
-        new AccountAttributes(fetchesMessages, 1234, null, null, true, null),
+        new AccountAttributes(fetchesMessages, 1234, 5678, null, null, true, null),
         new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, apnRegistrationId, gcmRegistrationId));
 
     try (final Response response = resources.getJerseyTest()
@@ -485,7 +485,7 @@ class DeviceControllerTest {
     when(account.getIdentityKey(IdentityType.PNI)).thenReturn(pniIdentityKey);
 
     final LinkDeviceRequest request = new LinkDeviceRequest(deviceCode.verificationCode(),
-        new AccountAttributes(true, 1234, null, null, true, null),
+        new AccountAttributes(true, 1234, 5678, null, null, true, null),
         new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, Optional.empty(), Optional.empty()));
 
     try (final Response response = resources.getJerseyTest()
@@ -543,7 +543,7 @@ class DeviceControllerTest {
     when(account.getIdentityKey(IdentityType.PNI)).thenReturn(pniIdentityKey);
 
     final LinkDeviceRequest request = new LinkDeviceRequest(deviceCode.verificationCode(),
-        new AccountAttributes(true, 1234, null, null, true, null),
+        new AccountAttributes(true, 1234, 5678, null, null, true, null),
         new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, Optional.empty(), Optional.empty()));
 
     try (final Response response = resources.getJerseyTest()
@@ -578,7 +578,7 @@ class DeviceControllerTest {
 
   @ParameterizedTest
   @MethodSource
-  void linkDeviceRegistrationId(final int registrationId, final int expectedStatusCode) {
+  void linkDeviceRegistrationId(final int registrationId, final int pniRegistrationId, final int expectedStatusCode) {
     final Device existingDevice = mock(Device.class);
     when(existingDevice.getId()).thenReturn(Device.PRIMARY_ID);
     when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(existingDevice));
@@ -604,7 +604,7 @@ class DeviceControllerTest {
     when(keysManager.storePqLastResort(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
     final LinkDeviceRequest request = new LinkDeviceRequest(deviceCode.verificationCode(),
-        new AccountAttributes(false, registrationId, null, null, true, null),
+        new AccountAttributes(false, registrationId, pniRegistrationId, null, null, true, null),
         new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, Optional.of(new ApnRegistrationId("apn", null)), Optional.empty()));
 
     try (final Response response = resources.getJerseyTest()
@@ -618,11 +618,15 @@ class DeviceControllerTest {
 
   private static Stream<Arguments> linkDeviceRegistrationId() {
     return Stream.of(
-        Arguments.of(0x3FFF, 200),
-        Arguments.of(0, 422),
-        Arguments.of(-1, 422),
-        Arguments.of(0x3FFF + 1, 422),
-        Arguments.of(Integer.MAX_VALUE, 422)
+        Arguments.of(0x3FFF, 0x3FFF, 200),
+        Arguments.of(0, 0x3FFF, 422),
+        Arguments.of(-1, 0x3FFF, 422),
+        Arguments.of(0x3FFF + 1, 0x3FFF, 422),
+        Arguments.of(Integer.MAX_VALUE, 0x3FFF, 422),
+        Arguments.of(0x3FFF, 0, 422),
+        Arguments.of(0x3FFF, -1, 422),
+        Arguments.of(0x3FFF, 0x3FFF + 1, 422),
+        Arguments.of(0x3FFF, Integer.MAX_VALUE, 422)
     );
   }
 
@@ -661,7 +665,7 @@ class DeviceControllerTest {
         .target("/v1/devices/" + deviceCode.verificationCode() + "-incorrect")
         .request()
         .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
-        .put(Entity.entity(new AccountAttributes(false, 1234, null, null, true, null),
+        .put(Entity.entity(new AccountAttributes(false, 1234, 5678, null, null, true, null),
             MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(403);
@@ -676,7 +680,7 @@ class DeviceControllerTest {
         .request()
         .header("Authorization",
             AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER_TWO, AuthHelper.VALID_PASSWORD_TWO))
-        .put(Entity.entity(new AccountAttributes(false, 1234, null, null, true, null),
+        .put(Entity.entity(new AccountAttributes(false, 1234, 5678, null, null, true, null),
             MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(403);
@@ -711,7 +715,7 @@ class DeviceControllerTest {
         .target("/v1/devices/" + verificationToken)
         .request()
         .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
-        .put(Entity.entity(new AccountAttributes(false, 1234,
+        .put(Entity.entity(new AccountAttributes(false, 1234, 5678,
                 "this is a really long name that is longer than 80 characters it's so long that it's even longer than 204 characters. that's a lot of characters. we're talking lots and lots and lots of characters. 12345678",
                 null, true, null),
             MediaType.APPLICATION_JSON_TYPE));
@@ -725,7 +729,7 @@ class DeviceControllerTest {
     DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true,
         false, true);
     AccountAttributes accountAttributes =
-        new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
+        new AccountAttributes(false, 1234, 5678, null, null, true, deviceCapabilities);
 
     final String verificationToken = deviceController.generateVerificationToken(AuthHelper.VALID_UUID);
 
@@ -739,7 +743,7 @@ class DeviceControllerTest {
     assertThat(response.getStatus()).isEqualTo(409);
 
     deviceCapabilities = new DeviceCapabilities(true, true, true, true);
-    accountAttributes = new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
+    accountAttributes = new AccountAttributes(false, 1234, 5678, null, null, true, deviceCapabilities);
     response = resources
         .getJerseyTest()
         .target("/v1/devices/" + verificationToken)
@@ -782,7 +786,7 @@ class DeviceControllerTest {
   void deviceDowngradePaymentActivationTest(boolean paymentActivation) {
     // Update when we start returning true value of capability & restricting downgrades
     DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, true, paymentActivation);
-    AccountAttributes accountAttributes = new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
+    AccountAttributes accountAttributes = new AccountAttributes(false, 1234, 5678, null, null, true, deviceCapabilities);
 
     final String verificationToken = deviceController.generateVerificationToken(AuthHelper.VALID_UUID);
 
