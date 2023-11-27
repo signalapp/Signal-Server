@@ -1477,15 +1477,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
   /v1/messages/uuid/{uuid}:
@@ -2101,15 +2101,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2143,15 +2143,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2184,15 +2184,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2319,15 +2319,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       deprecated: true
       security:
       - authenticatedAccount: []
@@ -2356,15 +2356,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2400,15 +2400,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2447,15 +2447,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2773,10 +2773,9 @@ components:
           type: string
       description: |
         An APNs token set for the account's primary device. If provided, the account's primary
-        device will be notified of new messages via push notifications to the given token. If
-        creating an account "atomically," callers must provide exactly one of an APNs token
-        set, an FCM token, or an `AccountAttributes` entity with `fetchesMessages` set to
-        `true`.
+        device will be notified of new messages via push notifications to the given token.
+        Callers must provide exactly one of an APNs token set, an FCM token, or an
+        `AccountAttributes` entity with `fetchesMessages` set to `true`.
     GcmRegistrationId:
       required:
       - gcmRegistrationId
@@ -2786,10 +2785,9 @@ components:
           type: string
       description: |
         An FCM/GCM token for the account's primary device. If provided, the account's primary
-        device will be notified of new messages via push notifications to the given token. If
-        creating an account "atomically," callers must provide exactly one of an APNs token
-        set, an FCM token, or an `AccountAttributes` entity with `fetchesMessages` set to
-        `true`.
+        device will be notified of new messages via push notifications to the given token.
+        Callers must provide exactly one of an APNs token set, an FCM token, or an
+        `AccountAttributes` entity with `fetchesMessages` set to `true`.
     DeviceName:
       required:
       - deviceName
@@ -2932,14 +2930,14 @@ components:
     ECPublicKey:
       type: object
       properties:
-        type:
-          type: integer
-          format: int32
         publicKeyBytes:
           type: array
           items:
             type: string
             format: byte
+        type:
+          type: integer
+          format: int32
     ECSignedPreKey:
       type: object
       properties:
@@ -2958,9 +2956,7 @@ components:
           description: |
             The signature of the serialized `publicKey` with the account (or phone-number identity)'s identity key, base64-encoded.
       description: |
-        A signed EC pre-key to be associated with this account's PNI. If provided, an account
-        will be created "atomically," and all other properties needed for atomic account
-        creation must also be present.
+        A signed EC pre-key to be associated with this account's PNI.
     IdentityKey:
       type: object
       properties:
@@ -2969,9 +2965,7 @@ components:
         fingerprint:
           type: string
       description: |
-        The PNI-associated identity key for the account, encoded as a base64 string. If
-        provided, an account will be created "atomically," and all other properties needed for
-        atomic account creation must also be present.
+        The PNI-associated identity key for the account, encoded as a base64 string.
     IncomingMessage:
       type: object
       properties:
@@ -3005,9 +2999,7 @@ components:
           description: |
             The signature of the serialized `publicKey` with the account (or phone-number identity)'s identity key, base64-encoded.
       description: |
-        A signed Kyber-1024 "last resort" pre-key to be associated with this account's PNI. If
-        provided, an account will be created "atomically," and all other properties needed for
-        atomic account creation must also be present.
+        A signed Kyber-1024 "last resort" pre-key to be associated with this account's PNI.
     PhoneNumberIdentityKeyDistributionRequest:
       required:
       - deviceMessages
@@ -3416,6 +3408,11 @@ components:
         password:
           type: string
     DeviceActivationRequest:
+      required:
+      - aciPqLastResortPreKey
+      - aciSignedPreKey
+      - pniPqLastResortPreKey
+      - pniSignedPreKey
       type: object
       properties:
         aciSignedPreKey:
@@ -3432,6 +3429,10 @@ components:
           $ref: '#/components/schemas/GcmRegistrationId'
     LinkDeviceRequest:
       required:
+      - aciPqLastResortPreKey
+      - aciSignedPreKey
+      - pniPqLastResortPreKey
+      - pniSignedPreKey
       - verificationCode
       type: object
       properties:
@@ -3471,13 +3472,13 @@ components:
     WebSocketClient:
       type: object
       properties:
+        createdTimestamp:
+          type: integer
+          format: int64
         userAgent:
           type: string
         open:
           type: boolean
-        createdTimestamp:
-          type: integer
-          format: int64
     WebSocketSessionContext:
       type: object
       properties:
@@ -3939,6 +3940,12 @@ components:
     RegistrationRequest:
       required:
       - accountAttributes
+      - aciIdentityKey
+      - aciPqLastResortPreKey
+      - aciSignedPreKey
+      - pniIdentityKey
+      - pniPqLastResortPreKey
+      - pniSignedPreKey
       - skipDeviceTransfer
       type: object
       properties:
@@ -3970,12 +3977,6 @@ components:
             false and if a device transfer is technically possible, the registration request will
             fail with an HTTP/409 response indicating that the client should prompt the user to
             transfer data from an existing device.
-        requireAtomic:
-          type: boolean
-          description: |
-            If true, indicates that this is a request for "atomic" registration. If any properties
-            needed for atomic account creation are not present, the request will fail. If false,
-            atomic account creation can still occur, but only if all required fields are present.
         aciIdentityKey:
           $ref: '#/components/schemas/IdentityKey'
         pniIdentityKey:
@@ -3993,8 +3994,6 @@ components:
         gcmToken:
           $ref: '#/components/schemas/GcmRegistrationId'
         everySignedKeyValid:
-          type: boolean
-        completeRequest:
           type: boolean
         valid:
           type: boolean
