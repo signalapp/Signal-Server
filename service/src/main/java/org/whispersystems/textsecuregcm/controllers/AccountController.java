@@ -230,8 +230,6 @@ public class AccountController {
         d.setName(attributes.getName());
         d.setLastSeen(Util.todayInMillis());
         d.setCapabilities(attributes.getCapabilities());
-        d.setRegistrationId(attributes.getRegistrationId());
-        d.setPhoneNumberIdentityRegistrationId(attributes.getPhoneNumberIdentityRegistrationId());
         d.setUserAgent(userAgent);
       });
 
