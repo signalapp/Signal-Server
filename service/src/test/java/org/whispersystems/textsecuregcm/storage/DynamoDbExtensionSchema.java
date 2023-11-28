@@ -7,7 +7,7 @@ package org.whispersystems.textsecuregcm.storage;
 
 import java.util.Collections;
 import java.util.List;
-import org.whispersystems.textsecuregcm.backup.BackupManager;
+import org.whispersystems.textsecuregcm.backup.BackupsDb;
 import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
 import software.amazon.awssdk.services.dynamodb.model.GlobalSecondaryIndex;
 import software.amazon.awssdk.services.dynamodb.model.KeySchemaElement;
@@ -50,11 +50,23 @@ public final class DynamoDbExtensionSchema {
         List.of()),
 
     BACKUPS("backups_test",
-        BackupManager.KEY_BACKUP_ID_HASH,
+        BackupsDb.KEY_BACKUP_ID_HASH,
         null,
         List.of(AttributeDefinition.builder()
-            .attributeName(BackupManager.KEY_BACKUP_ID_HASH)
+            .attributeName(BackupsDb.KEY_BACKUP_ID_HASH)
             .attributeType(ScalarAttributeType.B).build()),
+        Collections.emptyList(), Collections.emptyList()),
+
+    BACKUP_MEDIA("backups_media_test",
+        BackupsDb.KEY_BACKUP_ID_HASH,
+        BackupsDb.KEY_MEDIA_ID,
+        List.of(
+            AttributeDefinition.builder()
+                .attributeName(BackupsDb.KEY_BACKUP_ID_HASH)
+                .attributeType(ScalarAttributeType.B).build(),
+            AttributeDefinition.builder()
+                .attributeName(BackupsDb.KEY_MEDIA_ID)
+                .attributeType(ScalarAttributeType.B).build()),
         Collections.emptyList(), Collections.emptyList()),
 
     CLIENT_RELEASES("client_releases_test",

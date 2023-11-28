@@ -16,10 +16,10 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TusBackupCredentialGeneratorTest {
+public class Cdn3BackupCredentialGeneratorTest {
   @Test
   public void uploadGenerator() {
-    TusBackupCredentialGenerator generator = new TusBackupCredentialGenerator(new TusConfiguration(
+    Cdn3BackupCredentialGenerator generator = new Cdn3BackupCredentialGenerator(new TusConfiguration(
         new SecretBytes(RandomUtils.nextBytes(32)),
         "https://example.org/upload"));
 
@@ -33,7 +33,7 @@ public class TusBackupCredentialGeneratorTest {
 
   @Test
   public void readCredential() {
-    TusBackupCredentialGenerator generator = new TusBackupCredentialGenerator(new TusConfiguration(
+    Cdn3BackupCredentialGenerator generator = new Cdn3BackupCredentialGenerator(new TusConfiguration(
         new SecretBytes(RandomUtils.nextBytes(32)),
         "https://example.org/upload"));
 

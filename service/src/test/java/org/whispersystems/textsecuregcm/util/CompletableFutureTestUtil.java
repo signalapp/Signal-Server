@@ -17,13 +17,16 @@ public class CompletableFutureTestUtil {
   private CompletableFutureTestUtil() {
   }
 
-  public static <T extends Throwable> void assertFailsWithCause(final Class<T> expectedCause, final CompletableFuture<?> completableFuture) {
-    assertFailsWithCause(expectedCause, completableFuture, null);
+  public static <T extends Throwable> T assertFailsWithCause(final Class<T> expectedCause, final CompletableFuture<?> completableFuture) {
+    return assertFailsWithCause(expectedCause, completableFuture, null);
   }
 
-  public static <T extends Throwable> void assertFailsWithCause(final Class<T> expectedCause, final CompletableFuture<?> completableFuture, final String message) {
+  public static <T extends Throwable> T assertFailsWithCause(final Class<T> expectedCause, final CompletableFuture<?> completableFuture, final String message) {
     final CompletionException completionException = assertThrows(CompletionException.class, completableFuture::join, message);
-    assertTrue(ExceptionUtils.unwrap(completionException).getClass().isAssignableFrom(expectedCause), message);
+    final Throwable unwrapped = ExceptionUtils.unwrap(completionException);
+    final String compError = "Expected failure " + expectedCause + " was " + unwrapped.getClass();
+    assertTrue(unwrapped.getClass().isAssignableFrom(expectedCause), message == null ? compError : message + " : " + compError);
+    return expectedCause.cast(unwrapped);
   }
 
   public static <T> CompletableFuture<T> almostCompletedFuture(T result) {

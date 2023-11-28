@@ -7,19 +7,15 @@ package org.whispersystems.textsecuregcm.backup;
 
 import io.grpc.Status;
 import io.micrometer.core.instrument.Metrics;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+import java.net.URI;
 import java.time.Clock;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Base64;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.HexFormat;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
+import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.protocol.InvalidKeyException;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import org.signal.libsignal.zkgroup.GenericServerSecretParams;
@@ -29,65 +25,47 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedBackupUser;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
-import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
-import org.whispersystems.textsecuregcm.util.Util;
-import software.amazon.awssdk.core.SdkBytes;
-import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
-import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
-import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
-import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 
 public class BackupManager {
-
   private static final Logger logger = LoggerFactory.getLogger(BackupManager.class);
 
   static final String MESSAGE_BACKUP_NAME = "messageBackup";
-  private static final int BACKUP_CDN = 3;
+  private static final long MAX_TOTAL_BACKUP_MEDIA_BYTES = 1024L * 1024L * 1024L * 50L;
+  private static final long MAX_MEDIA_OBJECT_SIZE = 1024L * 1024L * 101L;
   private static final String ZK_AUTHN_COUNTER_NAME = MetricsUtil.name(BackupManager.class, "authentication");
-  private static final String ZK_AUTHZ_FAILURE_COUNTER_NAME = MetricsUtil.name(BackupManager.class, "authorizationFailure");
+  private static final String ZK_AUTHZ_FAILURE_COUNTER_NAME = MetricsUtil.name(BackupManager.class,
+      "authorizationFailure");
   private static final String SUCCESS_TAG_NAME = "success";
   private static final String FAILURE_REASON_TAG_NAME = "reason";
 
+  private final BackupsDb backupsDb;
   private final GenericServerSecretParams serverSecretParams;
-  private final TusBackupCredentialGenerator tusBackupCredentialGenerator;
-  private final DynamoDbAsyncClient dynamoClient;
-  private final String backupTableName;
+  private final Cdn3BackupCredentialGenerator cdn3BackupCredentialGenerator;
+  private final RemoteStorageManager remoteStorageManager;
+  private final Map<Integer, String> attachmentCdnBaseUris;
   private final Clock clock;
 
-  // The backups table
-
-  // B: 16 bytes that identifies the backup
-  public static final String KEY_BACKUP_ID_HASH = "U";
-  // N: Time in seconds since epoch of the last backup refresh. This timestamp must be periodically updated to avoid
-  // garbage collection of archive objects.
-  public static final String ATTR_LAST_REFRESH = "R";
-  // N: Time in seconds since epoch of the last backup media refresh. This timestamp can only be updated if the client
-  // has BackupTier.MEDIA, and must be periodically updated to avoid garbage collection of media objects.
-  public static final String ATTR_LAST_MEDIA_REFRESH = "MR";
-  // B: A 32 byte public key that should be used to sign the presentation used to authenticate requests against the
-  // backup-id
-  public static final String ATTR_PUBLIC_KEY = "P";
-  // N: Bytes consumed by this backup
-  public static final String ATTR_MEDIA_BYTES_USED = "MB";
-  // N: Number of media objects in the backup
-  public static final String ATTR_MEDIA_COUNT = "MC";
-  // N: The cdn number where the message backup is stored
-  public static final String ATTR_CDN = "CDN";
 
   public BackupManager(
+      final BackupsDb backupsDb,
       final GenericServerSecretParams serverSecretParams,
-      final TusBackupCredentialGenerator tusBackupCredentialGenerator,
-      final DynamoDbAsyncClient dynamoClient,
-      final String backupTableName,
+      final Cdn3BackupCredentialGenerator cdn3BackupCredentialGenerator,
+      final RemoteStorageManager remoteStorageManager,
+      final Map<Integer, String> attachmentCdnBaseUris,
       final Clock clock) {
+    this.backupsDb = backupsDb;
     this.serverSecretParams = serverSecretParams;
-    this.dynamoClient = dynamoClient;
-    this.tusBackupCredentialGenerator = tusBackupCredentialGenerator;
-    this.backupTableName = backupTableName;
+    this.cdn3BackupCredentialGenerator = cdn3BackupCredentialGenerator;
+    this.remoteStorageManager = remoteStorageManager;
     this.clock = clock;
+    // strip trailing "/" for easier URI construction
+    this.attachmentCdnBaseUris = attachmentCdnBaseUris.entrySet().stream().collect(Collectors.toMap(
+        Map.Entry::getKey,
+        entry -> StringUtils.removeEnd(entry.getValue(), "/")
+    ));
   }
+
 
   /**
    * Set the public key for the backup-id.
@@ -114,30 +92,16 @@ public class BackupManager {
           .withDescription("credential does not support setting public key")
           .asRuntimeException();
     }
-
-    final byte[] hashedBackupId = hashedBackupId(presentation.getBackupId());
-    return dynamoClient.updateItem(UpdateItemRequest.builder()
-            .tableName(backupTableName)
-            .key(Map.of(KEY_BACKUP_ID_HASH, AttributeValues.b(hashedBackupId)))
-            .updateExpression("SET #publicKey = :publicKey")
-            .expressionAttributeNames(Map.of("#publicKey", ATTR_PUBLIC_KEY))
-            .expressionAttributeValues(Map.of(":publicKey", AttributeValues.b(publicKey.serialize())))
-            .conditionExpression("attribute_not_exists(#publicKey) OR #publicKey = :publicKey")
-            .build())
-        .exceptionally(throwable -> {
-          // There was already a row for this backup-id and it contained a different publicKey
-          if (ExceptionUtils.unwrap(throwable) instanceof ConditionalCheckFailedException) {
-            Metrics.counter(ZK_AUTHN_COUNTER_NAME,
-                    SUCCESS_TAG_NAME, String.valueOf(false),
-                    FAILURE_REASON_TAG_NAME, "public_key_conflict")
-                .increment();
-            throw Status.UNAUTHENTICATED
-                .withDescription("public key does not match existing public key for the backup-id")
-                .asRuntimeException();
-          }
-          throw ExceptionUtils.wrap(throwable);
-        })
-        .thenRun(Util.NOOP);
+    return backupsDb.setPublicKey(presentation.getBackupId(), backupTier, publicKey)
+        .exceptionally(ExceptionUtils.exceptionallyHandler(PublicKeyConflictException.class, ex -> {
+          Metrics.counter(ZK_AUTHN_COUNTER_NAME,
+                  SUCCESS_TAG_NAME, String.valueOf(false),
+                  FAILURE_REASON_TAG_NAME, "public_key_conflict")
+              .increment();
+          throw Status.UNAUTHENTICATED
+              .withDescription("public key does not match existing public key for the backup-id")
+              .asRuntimeException();
+        }));
   }
 
 
@@ -151,31 +115,12 @@ public class BackupManager {
    */
   public CompletableFuture<MessageBackupUploadDescriptor> createMessageBackupUploadDescriptor(
       final AuthenticatedBackupUser backupUser) {
-    final byte[] hashedBackupId = hashedBackupId(backupUser);
-    final String encodedBackupId = encodeForCdn(hashedBackupId);
-
-    final long refreshTimeSecs = clock.instant().getEpochSecond();
-
-    final List<String> updates = new ArrayList<>(List.of("#cdn = :cdn", "#lastRefresh = :expiration"));
-    final Map<String, String> expressionAttributeNames = new HashMap<>(Map.of(
-        "#cdn", ATTR_CDN,
-        "#lastRefresh", ATTR_LAST_REFRESH));
-    if (backupUser.backupTier().compareTo(BackupTier.MEDIA) >= 0) {
-      updates.add("#lastMediaRefresh = :expiration");
-      expressionAttributeNames.put("#lastMediaRefresh", ATTR_LAST_MEDIA_REFRESH);
-    }
+    final String encodedBackupId = encodeBackupIdForCdn(backupUser);
 
     // this could race with concurrent updates, but the only effect would be last-writer-wins on the timestamp
-    return dynamoClient.updateItem(UpdateItemRequest.builder()
-            .tableName(backupTableName)
-            .key(Map.of(KEY_BACKUP_ID_HASH, AttributeValues.b(hashedBackupId)))
-            .updateExpression("SET %s".formatted(String.join(",", updates)))
-            .expressionAttributeNames(expressionAttributeNames)
-            .expressionAttributeValues(Map.of(
-                ":cdn", AttributeValues.n(BACKUP_CDN),
-                ":expiration", AttributeValues.n(refreshTimeSecs)))
-            .build())
-        .thenApply(result -> tusBackupCredentialGenerator.generateUpload(encodedBackupId, MESSAGE_BACKUP_NAME));
+    return backupsDb
+        .addMessageBackup(backupUser)
+        .thenApply(result -> cdn3BackupCredentialGenerator.generateUpload(encodedBackupId, MESSAGE_BACKUP_NAME));
   }
 
   /**
@@ -190,23 +135,8 @@ public class BackupManager {
           .withDescription("credential does not support ttl operation")
           .asRuntimeException();
     }
-    final long refreshTimeSecs = clock.instant().getEpochSecond();
     // update message backup TTL
-    final List<String> updates = new ArrayList<>(Collections.singletonList("#lastRefresh = :expiration"));
-    final Map<String, String> expressionAttributeNames = new HashMap<>(Map.of("#lastRefresh", ATTR_LAST_REFRESH));
-    if (backupUser.backupTier().compareTo(BackupTier.MEDIA) >= 0) {
-      // update media TTL
-      expressionAttributeNames.put("#lastMediaRefresh", ATTR_LAST_MEDIA_REFRESH);
-      updates.add("#lastMediaRefresh = :expiration");
-    }
-    return dynamoClient.updateItem(UpdateItemRequest.builder()
-            .tableName(backupTableName)
-            .key(Map.of(KEY_BACKUP_ID_HASH, AttributeValues.b(hashedBackupId(backupUser))))
-            .updateExpression("SET %s".formatted(String.join(",", updates)))
-            .expressionAttributeNames(expressionAttributeNames)
-            .expressionAttributeValues(Map.of(":expiration", AttributeValues.n(refreshTimeSecs)))
-            .build())
-        .thenRun(Util.NOOP);
+    return backupsDb.ttlRefresh(backupUser);
   }
 
   public record BackupInfo(int cdn, String backupSubdir, String messageBackupKey, Optional<Long> mediaUsedSpace) {}
@@ -223,31 +153,107 @@ public class BackupManager {
       throw Status.PERMISSION_DENIED.withDescription("credential does not support info operation")
           .asRuntimeException();
     }
-    return backupInfoHelper(backupUser);
+    return backupsDb.describeBackup(backupUser)
+        .thenApply(backupDescription -> new BackupInfo(
+            backupDescription.cdn(),
+            encodeBackupIdForCdn(backupUser),
+            MESSAGE_BACKUP_NAME,
+            backupDescription.mediaUsedSpace()));
   }
 
-  private CompletableFuture<BackupInfo> backupInfoHelper(final AuthenticatedBackupUser backupUser) {
-    return dynamoClient.getItem(GetItemRequest.builder()
-            .tableName(backupTableName)
-            .key(Map.of(KEY_BACKUP_ID_HASH, AttributeValues.b(hashedBackupId(backupUser))))
-            .projectionExpression("#cdn,#bytesUsed")
-            .expressionAttributeNames(Map.of("#cdn", ATTR_CDN, "#bytesUsed", ATTR_MEDIA_BYTES_USED))
-            .build())
-        .thenApply(response -> {
-          if (!response.hasItem()) {
-            throw Status.NOT_FOUND.withDescription("Backup not found").asRuntimeException();
-          }
-          final int cdn = AttributeValues.get(response.item(), ATTR_CDN)
-              .map(AttributeValue::n)
-              .map(Integer::parseInt)
-              .orElseThrow(() -> Status.NOT_FOUND.withDescription("Stored backup not found").asRuntimeException());
+  /**
+   * Check if there is enough capacity to store the requested amount of media
+   *
+   * @param backupUser  an already ZK authenticated backup user
+   * @param mediaLength the desired number of media bytes to store
+   * @return true if mediaLength bytes can be stored
+   */
+  public CompletableFuture<Boolean> canStoreMedia(final AuthenticatedBackupUser backupUser, final long mediaLength) {
+    if (backupUser.backupTier().compareTo(BackupTier.MEDIA) < 0) {
+      Metrics.counter(ZK_AUTHZ_FAILURE_COUNTER_NAME).increment();
+      throw Status.PERMISSION_DENIED
+          .withDescription("credential does not support storing media")
+          .asRuntimeException();
+    }
+    return backupsDb.describeBackup(backupUser)
+        .thenApply(info -> info.mediaUsedSpace()
+            .filter(usedSpace -> MAX_TOTAL_BACKUP_MEDIA_BYTES - usedSpace >= mediaLength)
+            .isPresent());
+  }
 
-          final Optional<Long> mediaUsed = AttributeValues.get(response.item(), ATTR_MEDIA_BYTES_USED)
-              .map(AttributeValue::n)
-              .map(Long::parseLong);
+  public record StorageDescriptor(int cdn, byte[] key) {}
 
-          return new BackupInfo(cdn, encodeForCdn(hashedBackupId(backupUser)), MESSAGE_BACKUP_NAME, mediaUsed);
-        });
+  /**
+   * Copy an encrypted object to the backup cdn, adding a layer of encryption
+   * <p>
+   * Implementation notes: <p> This method guarantees that any object that gets successfully copied to the backup cdn
+   * will also have an entry for the user in the database. <p>
+   * <p>
+   * However, the converse isn't true; there may be entries in the database that have not made it to the cdn. On list,
+   * these entries are checked against the cdn and removed.
+   *
+   * @return A stage that completes successfully with location of the twice-encrypted object on the backup cdn. The
+   * returned CompletionStage can be completed exceptionally with the following exceptions.
+   * <ul>
+   *  <li> {@link InvalidLengthException} If the expectedSourceLength does not match the length of the sourceUri </li>
+   *  <li> {@link SourceObjectNotFoundException} If the no object at sourceUri is found </li>
+   *  <li> {@link java.io.IOException} If there was a generic IO issue </li>
+   * </ul>
+   */
+  public CompletableFuture<StorageDescriptor> copyToBackup(
+      final AuthenticatedBackupUser backupUser,
+      final int sourceCdn,
+      final String sourceKey,
+      final int sourceLength,
+      final MediaEncryptionParameters encryptionParameters,
+      final byte[] destinationMediaId) {
+    if (backupUser.backupTier().compareTo(BackupTier.MEDIA) < 0) {
+      Metrics.counter(ZK_AUTHZ_FAILURE_COUNTER_NAME).increment();
+      throw Status.PERMISSION_DENIED
+          .withDescription("credential does not support storing media")
+          .asRuntimeException();
+    }
+    if (sourceLength > MAX_MEDIA_OBJECT_SIZE) {
+      throw Status.INVALID_ARGUMENT
+          .withDescription("Invalid sourceObject size")
+          .asRuntimeException();
+    }
+
+    final MessageBackupUploadDescriptor dst = cdn3BackupCredentialGenerator.generateUpload(
+        encodeBackupIdForCdn(backupUser),
+        encodeForCdn(destinationMediaId));
+
+    return this.backupsDb
+        // Write the ddb updates before actually updating backing storage
+        .trackMedia(backupUser, destinationMediaId, sourceLength)
+
+        // copy the objects. On a failure, make a best-effort attempt to reverse the ddb transaction. If cleanup fails
+        // the client may be left with some cleanup to do if they don't eventually upload the media id.
+        .thenCompose(ignored -> remoteStorageManager
+            // actually perform the copy
+            .copy(attachmentReadUri(sourceCdn, sourceKey), sourceLength, encryptionParameters, dst)
+            // best effort: on failure, untrack the copied media
+            .exceptionallyCompose(copyError -> backupsDb.untrackMedia(backupUser, destinationMediaId, sourceLength)
+                .thenCompose(ignoredSuccess -> CompletableFuture.failedFuture(copyError))))
+
+        // indicates where the backup was stored
+        .thenApply(ignore -> new StorageDescriptor(dst.cdn(), destinationMediaId));
+
+  }
+
+  /**
+   * Construct the URI for an attachment with the specified key
+   *
+   * @param cdn where the attachment is located
+   * @param key the attachment key
+   * @return A {@link URI} where the attachment can be retrieved
+   */
+  private URI attachmentReadUri(final int cdn, final String key) {
+    final String baseUri = attachmentCdnBaseUris.get(cdn);
+    if (baseUri == null) {
+      throw Status.INVALID_ARGUMENT.withDescription("Unknown cdn " + cdn).asRuntimeException();
+    }
+    return URI.create("%s/%s".formatted(baseUri, key));
   }
 
   /**
@@ -264,8 +270,8 @@ public class BackupManager {
           .asRuntimeException();
 
     }
-    final String encodedBackupId = encodeForCdn(hashedBackupId(backupUser));
-    return tusBackupCredentialGenerator.readHeaders(encodedBackupId);
+    final String encodedBackupId = encodeBackupIdForCdn(backupUser);
+    return cdn3BackupCredentialGenerator.readHeaders(encodedBackupId);
   }
 
   /**
@@ -284,27 +290,17 @@ public class BackupManager {
   public CompletableFuture<AuthenticatedBackupUser> authenticateBackupUser(
       final BackupAuthCredentialPresentation presentation,
       final byte[] signature) {
-    final byte[] hashedBackupId = hashedBackupId(presentation.getBackupId());
-    return dynamoClient.getItem(GetItemRequest.builder()
-            .tableName(backupTableName)
-            .key(Map.of(KEY_BACKUP_ID_HASH, AttributeValues.b(hashedBackupId)))
-            .projectionExpression("#publicKey")
-            .expressionAttributeNames(Map.of("#publicKey", ATTR_PUBLIC_KEY))
-            .build())
-        .thenApply(response -> {
-          if (!response.hasItem()) {
-            Metrics.counter(ZK_AUTHN_COUNTER_NAME,
-                    SUCCESS_TAG_NAME, String.valueOf(false),
-                    FAILURE_REASON_TAG_NAME, "missing_public_key")
-                .increment();
-            throw Status.NOT_FOUND.withDescription("Backup not found").asRuntimeException();
-          }
-          final byte[] publicKeyBytes = AttributeValues.get(response.item(), ATTR_PUBLIC_KEY)
-              .map(AttributeValue::b)
-              .map(SdkBytes::asByteArray)
-              .orElseThrow(() -> Status.INTERNAL
-                  .withDescription("Stored backup missing public key")
-                  .asRuntimeException());
+    return backupsDb
+        .retrievePublicKey(presentation.getBackupId())
+        .thenApply(optionalPublicKey -> {
+          final byte[] publicKeyBytes = optionalPublicKey
+              .orElseThrow(() -> {
+                Metrics.counter(ZK_AUTHN_COUNTER_NAME,
+                        SUCCESS_TAG_NAME, String.valueOf(false),
+                        FAILURE_REASON_TAG_NAME, "missing_public_key")
+                    .increment();
+                return Status.NOT_FOUND.withDescription("Backup not found").asRuntimeException();
+              });
           try {
             final ECPublicKey publicKey = new ECPublicKey(publicKeyBytes);
             return new AuthenticatedBackupUser(
@@ -316,7 +312,7 @@ public class BackupManager {
                     FAILURE_REASON_TAG_NAME, "invalid_public_key")
                 .increment();
             logger.error("Invalid publicKey for backupId hash {}",
-                HexFormat.of().formatHex(hashedBackupId), e);
+                HexFormat.of().formatHex(BackupsDb.hashedBackupId(presentation.getBackupId())), e);
             throw Status.INTERNAL
                 .withCause(e)
                 .withDescription("Could not deserialize stored public key")
@@ -373,19 +369,12 @@ public class BackupManager {
         });
   }
 
-  private static byte[] hashedBackupId(final AuthenticatedBackupUser backupId) {
-    return hashedBackupId(backupId.backupId());
-  }
-
-  private static byte[] hashedBackupId(final byte[] backupId) {
-    try {
-      return Arrays.copyOf(MessageDigest.getInstance("SHA-256").digest(backupId), 16);
-    } catch (NoSuchAlgorithmException e) {
-      throw new AssertionError(e);
-    }
+  private static String encodeBackupIdForCdn(final AuthenticatedBackupUser backupUser) {
+    return encodeForCdn(BackupsDb.hashedBackupId(backupUser.backupId()));
   }
 
   private static String encodeForCdn(final byte[] bytes) {
     return Base64.getUrlEncoder().encodeToString(bytes);
   }
+
 }

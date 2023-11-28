@@ -7,6 +7,8 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
@@ -22,11 +24,13 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.client.Invocation;
@@ -54,6 +58,8 @@ import org.whispersystems.textsecuregcm.backup.BackupAuthManager;
 import org.whispersystems.textsecuregcm.backup.BackupAuthTestUtil;
 import org.whispersystems.textsecuregcm.backup.BackupManager;
 import org.whispersystems.textsecuregcm.backup.BackupTier;
+import org.whispersystems.textsecuregcm.backup.InvalidLengthException;
+import org.whispersystems.textsecuregcm.backup.SourceObjectNotFoundException;
 import org.whispersystems.textsecuregcm.mappers.CompletionExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.GrpcStatusRuntimeExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
@@ -96,6 +102,22 @@ public class ArchiveControllerTest {
       GET,    v1/archives/upload/form,
       POST,   v1/archives/,
       PUT,    v1/archives/keys, '{"backupIdPublicKey": "aaaaa"}'
+      PUT,    v1/archives/media, '{
+        "sourceAttachment": {"cdn": 3, "key": "abc"},
+        "objectLength": 10,
+        "mediaId": "aaaaaaaaaaaaaaaaaaaa",
+        "hmacKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "encryptionKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "iv": "aaaaaaaaaaaaaaaaaaaaaa"
+      }'
+      PUT,    v1/archives/media/batch, '{"items": [{
+        "sourceAttachment": {"cdn": 3, "key": "abc"},
+        "objectLength": 10,
+        "mediaId": "aaaaaaaaaaaaaaaaaaaa",
+        "hmacKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "encryptionKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "iv": "aaaaaaaaaaaaaaaaaaaaaa"
+      }]}'
       """)
   public void anonymousAuthOnly(final String method, final String path, final String body)
       throws VerificationFailedException {
@@ -268,5 +290,140 @@ public class ArchiveControllerTest {
     assertThat(response.backupName()).isEqualTo("filename");
     assertThat(response.cdn()).isEqualTo(1);
     assertThat(response.usedSpace()).isNull();
+  }
+
+  @Test
+  public void putMediaBatchSuccess() throws VerificationFailedException {
+    final BackupAuthCredentialPresentation presentation = backupAuthTestUtil.getPresentation(
+        BackupTier.MEDIA, backupKey, aci);
+    when(backupManager.authenticateBackupUser(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(
+            new AuthenticatedBackupUser(presentation.getBackupId(), BackupTier.MEDIA)));
+    when(backupManager.canStoreMedia(any(), anyLong())).thenReturn(CompletableFuture.completedFuture(true));
+    when(backupManager.copyToBackup(any(), anyInt(), any(), anyInt(), any(), any()))
+        .thenAnswer(invocation -> {
+          byte[] mediaId = invocation.getArgument(5, byte[].class);
+          return CompletableFuture.completedFuture(new BackupManager.StorageDescriptor(1, mediaId));
+        });
+
+    final byte[][] mediaIds = new byte[][]{RandomUtils.nextBytes(15), RandomUtils.nextBytes(15)};
+
+    final Response r = resources.getJerseyTest()
+        .target("v1/archives/media/batch")
+        .request()
+        .header("X-Signal-ZK-Auth", Base64.getEncoder().encodeToString(presentation.serialize()))
+        .header("X-Signal-ZK-Auth-Signature", "aaa")
+        .put(Entity.json(new ArchiveController.CopyMediaBatchRequest(List.of(
+            new ArchiveController.CopyMediaRequest(
+                new ArchiveController.RemoteAttachment(3, "abc"),
+                100,
+                mediaIds[0],
+                RandomUtils.nextBytes(32),
+                RandomUtils.nextBytes(32),
+                RandomUtils.nextBytes(16)),
+
+            new ArchiveController.CopyMediaRequest(
+                new ArchiveController.RemoteAttachment(3, "def"),
+                200,
+                mediaIds[1],
+                RandomUtils.nextBytes(32),
+                RandomUtils.nextBytes(32),
+                RandomUtils.nextBytes(16))
+        ))));
+    assertThat(r.getStatus()).isEqualTo(207);
+    final ArchiveController.CopyMediaBatchResponse copyResponse = r.readEntity(
+        ArchiveController.CopyMediaBatchResponse.class);
+    assertThat(copyResponse.responses()).hasSize(2);
+    for (int i = 0; i < 2; i++) {
+      final ArchiveController.CopyMediaBatchResponse.Entry response = copyResponse.responses().get(i);
+      assertThat(response.cdn()).isEqualTo(1);
+      assertThat(response.mediaId()).isEqualTo(mediaIds[i]);
+      assertThat(response.status()).isEqualTo(200);
+    }
+  }
+
+  @Test
+  public void putMediaBatchPartialFailure() throws VerificationFailedException {
+
+    final BackupAuthCredentialPresentation presentation = backupAuthTestUtil.getPresentation(
+        BackupTier.MEDIA, backupKey, aci);
+    when(backupManager.authenticateBackupUser(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(
+            new AuthenticatedBackupUser(presentation.getBackupId(), BackupTier.MEDIA)));
+
+    final byte[][] mediaIds = IntStream.range(0, 3).mapToObj(i -> RandomUtils.nextBytes(15)).toArray(byte[][]::new);
+    when(backupManager.canStoreMedia(any(), anyLong())).thenReturn(CompletableFuture.completedFuture(true));
+
+    when(backupManager.copyToBackup(any(), anyInt(), any(), anyInt(), any(), eq(mediaIds[0])))
+        .thenReturn(CompletableFuture.completedFuture(new BackupManager.StorageDescriptor(1, mediaIds[0])));
+    when(backupManager.copyToBackup(any(), anyInt(), any(), anyInt(), any(), eq(mediaIds[1])))
+        .thenReturn(CompletableFuture.failedFuture(new SourceObjectNotFoundException()));
+    when(backupManager.copyToBackup(any(), anyInt(), any(), anyInt(), any(), eq(mediaIds[2])))
+        .thenReturn(CompletableFuture.failedFuture(new InvalidLengthException("bad length")));
+
+    final List<ArchiveController.CopyMediaRequest> copyRequests = Arrays.stream(mediaIds)
+        .map(mediaId -> new ArchiveController.CopyMediaRequest(
+            new ArchiveController.RemoteAttachment(3, "abc"),
+            100,
+            mediaId,
+            RandomUtils.nextBytes(32),
+            RandomUtils.nextBytes(32),
+            RandomUtils.nextBytes(16))
+        ).toList();
+
+    Response r = resources.getJerseyTest()
+        .target("v1/archives/media/batch")
+        .request()
+        .header("X-Signal-ZK-Auth", Base64.getEncoder().encodeToString(presentation.serialize()))
+        .header("X-Signal-ZK-Auth-Signature", "aaa")
+        .put(Entity.json(new ArchiveController.CopyMediaBatchRequest(copyRequests)));
+    assertThat(r.getStatus()).isEqualTo(207);
+    final ArchiveController.CopyMediaBatchResponse copyResponse = r.readEntity(
+        ArchiveController.CopyMediaBatchResponse.class);
+
+    assertThat(copyResponse.responses()).hasSize(3);
+
+    final ArchiveController.CopyMediaBatchResponse.Entry r1 = copyResponse.responses().get(0);
+    assertThat(r1.cdn()).isEqualTo(1);
+    assertThat(r1.mediaId()).isEqualTo(mediaIds[0]);
+    assertThat(r1.status()).isEqualTo(200);
+
+    final ArchiveController.CopyMediaBatchResponse.Entry r2 = copyResponse.responses().get(1);
+    assertThat(r2.mediaId()).isEqualTo(mediaIds[1]);
+    assertThat(r2.status()).isEqualTo(410);
+    assertThat(r2.failureReason()).isNotBlank();
+
+    final ArchiveController.CopyMediaBatchResponse.Entry r3 = copyResponse.responses().get(2);
+    assertThat(r3.mediaId()).isEqualTo(mediaIds[2]);
+    assertThat(r3.status()).isEqualTo(400);
+    assertThat(r3.failureReason()).isNotBlank();
+  }
+
+  @Test
+  public void putMediaBatchOutOfSpace() throws VerificationFailedException {
+    final BackupAuthCredentialPresentation presentation = backupAuthTestUtil.getPresentation(
+        BackupTier.MEDIA, backupKey, aci);
+    when(backupManager.authenticateBackupUser(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(
+            new AuthenticatedBackupUser(presentation.getBackupId(), BackupTier.MEDIA)));
+
+    when(backupManager.canStoreMedia(any(), eq(1L + 2L + 3L)))
+        .thenReturn(CompletableFuture.completedFuture(false));
+
+    final Response response = resources.getJerseyTest()
+        .target("v1/archives/media/batch")
+        .request()
+        .header("X-Signal-ZK-Auth", Base64.getEncoder().encodeToString(presentation.serialize()))
+        .header("X-Signal-ZK-Auth-Signature", "aaa")
+        .put(Entity.json(new ArchiveController.CopyMediaBatchRequest(IntStream.range(0, 3)
+            .mapToObj(i -> new ArchiveController.CopyMediaRequest(
+                new ArchiveController.RemoteAttachment(3, "abc"),
+                i + 1,
+                RandomUtils.nextBytes(15),
+                RandomUtils.nextBytes(32),
+                RandomUtils.nextBytes(32),
+                RandomUtils.nextBytes(16))
+            ).toList())));
+    assertThat(response.getStatus()).isEqualTo(413);
   }
 }

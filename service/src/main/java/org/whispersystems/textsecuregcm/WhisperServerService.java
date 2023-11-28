@@ -79,7 +79,9 @@ import org.whispersystems.textsecuregcm.auth.WebsocketRefreshApplicationEventLis
 import org.whispersystems.textsecuregcm.auth.grpc.BasicCredentialAuthenticationInterceptor;
 import org.whispersystems.textsecuregcm.backup.BackupAuthManager;
 import org.whispersystems.textsecuregcm.backup.BackupManager;
-import org.whispersystems.textsecuregcm.backup.TusBackupCredentialGenerator;
+import org.whispersystems.textsecuregcm.backup.BackupsDb;
+import org.whispersystems.textsecuregcm.backup.Cdn3BackupCredentialGenerator;
+import org.whispersystems.textsecuregcm.backup.Cdn3RemoteStorageManager;
 import org.whispersystems.textsecuregcm.badges.ConfiguredProfileBadgeConverter;
 import org.whispersystems.textsecuregcm.badges.ResourceBundleLevelTranslator;
 import org.whispersystems.textsecuregcm.captcha.CaptchaChecker;
@@ -420,6 +422,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .scheduledExecutorService(name(getClass(), "storageServiceRetry-%d")).threads(1).build();
     ScheduledExecutorService hcaptchaRetryExecutor = environment.lifecycle()
         .scheduledExecutorService(name(getClass(), "hCaptchaRetry-%d")).threads(1).build();
+    ScheduledExecutorService remoteStorageExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(getClass(), "remoteStorageRetry-%d")).threads(1).build();
 
     Scheduler messageDeliveryScheduler = Schedulers.fromExecutorService(
         ExecutorServiceMetrics.monitor(Metrics.globalRegistry,
@@ -650,10 +654,23 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ServerZkAuthOperations zkAuthOperations = new ServerZkAuthOperations(zkSecretParams);
     ServerZkReceiptOperations zkReceiptOperations = new ServerZkReceiptOperations(zkSecretParams);
 
-    TusBackupCredentialGenerator tusBackupCredentialGenerator = new TusBackupCredentialGenerator(config.getTus());
+    Cdn3BackupCredentialGenerator cdn3BackupCredentialGenerator = new Cdn3BackupCredentialGenerator(config.getTus());
     BackupAuthManager backupAuthManager = new BackupAuthManager(dynamicConfigurationManager, rateLimiters, accountsManager, backupsGenericZkSecretParams, clock);
-    BackupManager backupManager = new BackupManager(backupsGenericZkSecretParams, tusBackupCredentialGenerator, dynamoDbAsyncClient,
+    BackupsDb backupsDb = new BackupsDb(
+        dynamoDbAsyncClient,
         config.getDynamoDbTables().getBackups().getTableName(),
+        config.getDynamoDbTables().getBackupMedia().getTableName(),
+        clock);
+    BackupManager backupManager = new BackupManager(
+        backupsDb,
+        backupsGenericZkSecretParams,
+        cdn3BackupCredentialGenerator,
+        new Cdn3RemoteStorageManager(
+            remoteStorageExecutor,
+            config.getClientCdn().getCircuitBreaker(),
+            config.getClientCdn().getRetry(),
+            config.getClientCdn().getCaCertificates()),
+        config.getClientCdn().getAttachmentUrls(),
         clock);
 
     AuthFilter<BasicCredentials, AuthenticatedAccount> accountAuthFilter = new BasicCredentialAuthFilter.Builder<AuthenticatedAccount>().setAuthenticator(

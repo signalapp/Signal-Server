@@ -16,13 +16,13 @@ import java.time.Clock;
 import java.util.Base64;
 import java.util.Map;
 
-public class TusBackupCredentialGenerator {
+public class Cdn3BackupCredentialGenerator {
 
-  private static final int BACKUP_CDN = 3;
+  public static final String CDN_PATH = "backups";
+  public static final int BACKUP_CDN = 3;
 
   private static String READ_PERMISSION = "read";
   private static String WRITE_PERMISSION = "write";
-  private static String CDN_PATH = "backups";
   private static String PERMISSION_SEPARATOR = "$";
 
   // Write entities will be of the form 'write$backups/<string>
@@ -35,7 +35,7 @@ public class TusBackupCredentialGenerator {
   private final ExternalServiceCredentialsGenerator credentialsGenerator;
   private final String tusUri;
 
-  public TusBackupCredentialGenerator(final TusConfiguration cfg) {
+  public Cdn3BackupCredentialGenerator(final TusConfiguration cfg) {
     this.tusUri = cfg.uploadUri();
     this.credentialsGenerator = credentialsGenerator(Clock.systemUTC(), cfg);
   }

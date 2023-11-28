@@ -24,6 +24,7 @@ import org.whispersystems.textsecuregcm.configuration.AwsAttachmentsConfiguratio
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BraintreeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.CdnConfiguration;
+import org.whispersystems.textsecuregcm.configuration.ClientCdnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ClientReleaseConfiguration;
 import org.whispersystems.textsecuregcm.configuration.CommandStopListenerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DogstatsdConfiguration;
@@ -100,6 +101,11 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @JsonProperty
   private CdnConfiguration cdn;
+
+  @NotNull
+  @Valid
+  @JsonProperty
+  private ClientCdnConfiguration clientCdn;
 
   @NotNull
   @Valid
@@ -403,6 +409,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public CdnConfiguration getCdnConfiguration() {
     return cdn;
+  }
+
+  public ClientCdnConfiguration getClientCdn() {
+    return clientCdn;
   }
 
   public DogstatsdConfiguration getDatadogConfiguration() {

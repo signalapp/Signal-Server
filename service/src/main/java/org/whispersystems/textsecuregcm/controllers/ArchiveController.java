@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.io.IOException;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -26,8 +27,11 @@ import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 import javax.annotation.Nullable;
 import javax.validation.Valid;
+import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Size;
 import javax.ws.rs.BadRequestException;
+import javax.ws.rs.ClientErrorException;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
@@ -37,15 +41,27 @@ import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.backups.BackupAuthCredentialPresentation;
 import org.signal.libsignal.zkgroup.backups.BackupAuthCredentialRequest;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedBackupUser;
 import org.whispersystems.textsecuregcm.backup.BackupAuthManager;
 import org.whispersystems.textsecuregcm.backup.BackupManager;
+import org.whispersystems.textsecuregcm.backup.InvalidLengthException;
+import org.whispersystems.textsecuregcm.backup.MediaEncryptionParameters;
+import org.whispersystems.textsecuregcm.backup.SourceObjectNotFoundException;
 import org.whispersystems.textsecuregcm.util.BackupAuthCredentialAdapter;
+import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
+import org.whispersystems.textsecuregcm.util.ByteArrayBase64UrlAdapter;
 import org.whispersystems.textsecuregcm.util.ECPublicKeyAdapter;
+import org.whispersystems.textsecuregcm.util.ExactlySize;
+import org.whispersystems.textsecuregcm.util.ExceptionUtils;
+import org.whispersystems.textsecuregcm.util.Util;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 @Path("/v1/archives")
 @Tag(name = "Archive")
@@ -72,6 +88,7 @@ public class ArchiveController {
       @JsonSerialize(using = BackupAuthCredentialAdapter.CredentialRequestSerializer.class)
       @NotNull BackupAuthCredentialRequest backupAuthCredentialRequest) {}
 
+
   @PUT
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
@@ -88,10 +105,12 @@ public class ArchiveController {
   @ApiResponse(responseCode = "204", description = "The backup-id was set")
   @ApiResponse(responseCode = "400", description = "The provided backup auth credential request was invalid")
   @ApiResponse(responseCode = "429", description = "Rate limited. Too many attempts to change the backup-id have been made")
-  public CompletionStage<Void> setBackupId(
+  public CompletionStage<Response> setBackupId(
       @Auth final AuthenticatedAccount account,
       @Valid @NotNull final SetBackupIdRequest setBackupIdRequest) throws RateLimitExceededException {
-    return this.backupAuthManager.commitBackupId(account.getAccount(), setBackupIdRequest.backupAuthCredentialRequest);
+    return this.backupAuthManager
+        .commitBackupId(account.getAccount(), setBackupIdRequest.backupAuthCredentialRequest)
+        .thenApply(Util.ASYNC_EMPTY_RESPONSE);
   }
 
   public record BackupAuthCredentialsResponse(
@@ -274,7 +293,7 @@ public class ArchiveController {
   @ApiResponseZkAuth
   @ApiResponse(responseCode = "204", description = "The public key was set")
   @ApiResponse(responseCode = "429", description = "Rate limited.")
-  public CompletionStage<Void> setPublicKey(
+  public CompletionStage<Response> setPublicKey(
       @Auth final Optional<AuthenticatedAccount> account,
 
       @Parameter(description = BackupAuthCredentialPresentationHeader.DESCRIPTION, schema = @Schema(implementation = String.class))
@@ -286,9 +305,9 @@ public class ArchiveController {
       @HeaderParam(X_SIGNAL_ZK_AUTH_SIGNATURE) final BackupAuthCredentialPresentationSignature signature,
 
       @NotNull SetPublicKeyRequest setPublicKeyRequest) {
-    return backupManager.setPublicKey(
-        presentation.presentation, signature.signature,
-        setPublicKeyRequest.backupIdPublicKey);
+    return backupManager
+        .setPublicKey(presentation.presentation, signature.signature, setPublicKeyRequest.backupIdPublicKey)
+        .thenApply(Util.ASYNC_EMPTY_RESPONSE);
   }
 
 
@@ -333,6 +352,233 @@ public class ArchiveController {
             result.signedUploadLocation()));
   }
 
+  public record RemoteAttachment(
+      @Schema(description = "The attachment cdn")
+      @NotNull
+      Integer cdn,
+      @NotBlank
+      @Schema(description = "The attachment key")
+      String key) {}
+
+  public record CopyMediaRequest(
+      @Schema(description = "The object on the attachment CDN to copy")
+      @NotNull
+      RemoteAttachment sourceAttachment,
+
+      @Schema(description = "The length of the source attachment before the encryption applied by the copy operation")
+      @NotNull
+      int objectLength,
+
+      @Schema(description = "mediaId to copy on to the backup CDN in URL-safe base64", implementation = String.class)
+      @JsonSerialize(using = ByteArrayBase64UrlAdapter.Serializing.class)
+      @JsonDeserialize(using = ByteArrayBase64UrlAdapter.Deserializing.class)
+      @NotNull
+      @ExactlySize(15)
+      byte[] mediaId,
+
+      @Schema(description = "A 32-byte key for the MAC, base64 encoded", implementation = String.class)
+      @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
+      @NotNull
+      @ExactlySize(32)
+      byte[] hmacKey,
+
+      @Schema(description = "A 32-byte encryption key for AES, base64 encoded", implementation = String.class)
+      @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
+      @NotNull
+      @ExactlySize(32)
+      byte[] encryptionKey,
+
+      @Schema(description = "A 16-byte IV for AES, base64 encoded", implementation = String.class)
+      @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
+      @NotNull
+      @ExactlySize(16)
+      byte[] iv) {}
+
+  public record CopyMediaResponse(
+      @Schema(description = "The backup cdn where this media object is stored")
+      @NotNull
+      Integer cdn) {}
+
+  @PUT
+  @Path("/media/")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  @Operation(
+      summary = "Backup media",
+      description = """
+          Copy and re-encrypt media from the attachments cdn into the backup cdn.
+
+          The original, already encrypted, attachment will be encrypted with the provided key material before being copied
+
+          If the destination media already exists, the copy will be skipped and a 200 will be returned.
+          """)
+  @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = CopyMediaResponse.class)))
+  @ApiResponse(responseCode = "400", description = "The provided object length was incorrect")
+  @ApiResponse(responseCode = "413", description = "All media capacity has been consumed. Free some space to continue.")
+  @ApiResponse(responseCode = "410", description = "The source object was not found.")
+  @ApiResponse(responseCode = "429", description = "Rate limited.")
+  @ApiResponseZkAuth
+  public CompletionStage<CopyMediaResponse> copyMedia(@Auth final Optional<AuthenticatedAccount> account,
+
+      @Parameter(description = BackupAuthCredentialPresentationHeader.DESCRIPTION, schema = @Schema(implementation = String.class))
+      @NotNull
+      @HeaderParam(X_SIGNAL_ZK_AUTH) final ArchiveController.BackupAuthCredentialPresentationHeader presentation,
+
+      @Parameter(description = BackupAuthCredentialPresentationSignature.DESCRIPTION, schema = @Schema(implementation = String.class))
+      @NotNull
+      @HeaderParam(X_SIGNAL_ZK_AUTH_SIGNATURE) final BackupAuthCredentialPresentationSignature signature,
+
+      @NotNull
+      @Valid final ArchiveController.CopyMediaRequest copyMediaRequest) {
+    if (account.isPresent()) {
+      throw new BadRequestException("must not use authenticated connection for anonymous operations");
+    }
+
+    final AuthenticatedBackupUser backupUser = backupManager.authenticateBackupUser(
+        presentation.presentation, signature.signature).join();
+
+    final boolean fits = backupManager.canStoreMedia(backupUser, copyMediaRequest.objectLength()).join();
+    if (!fits) {
+      throw new ClientErrorException("Media quota exhausted", Response.Status.REQUEST_ENTITY_TOO_LARGE);
+    }
+    return copyMediaImpl(backupUser, copyMediaRequest)
+        .thenApply(result -> new CopyMediaResponse(result.cdn()))
+        .exceptionally(e -> {
+          final Throwable unwrapped = ExceptionUtils.unwrap(e);
+          if (unwrapped instanceof SourceObjectNotFoundException) {
+            throw new ClientErrorException("Source object not found " + unwrapped.getMessage(), Response.Status.GONE);
+          } else if (unwrapped instanceof InvalidLengthException) {
+            throw new BadRequestException("Invalid length " + unwrapped.getMessage());
+          } else {
+            throw ExceptionUtils.wrap(e);
+          }
+        });
+  }
+
+  private CompletionStage<BackupManager.StorageDescriptor> copyMediaImpl(final AuthenticatedBackupUser backupUser,
+      final CopyMediaRequest copyMediaRequest) {
+    return this.backupManager.copyToBackup(
+        backupUser,
+        copyMediaRequest.sourceAttachment.cdn,
+        copyMediaRequest.sourceAttachment.key,
+        copyMediaRequest.objectLength,
+        new MediaEncryptionParameters(
+            copyMediaRequest.encryptionKey,
+            copyMediaRequest.hmacKey,
+            copyMediaRequest.iv),
+        copyMediaRequest.mediaId);
+  }
+
+
+  public record CopyMediaBatchRequest(
+      @Schema(description = "A list of media objects to copy from the attachments CDN to the backup CDN")
+      @NotNull
+      @Size(min = 1, max = 1000)
+      List<CopyMediaRequest> items) {}
+
+  public record CopyMediaBatchResponse(
+
+      @Schema(description = "Detailed outcome information for each copy request in the batch")
+      List<Entry> responses) {
+
+    public record Entry(
+        @Schema(description = """
+            The outcome of the copy attempt.
+            A 200 indicates the object was successfully copied.
+            A 400 indicates an invalid argument in the request
+            A 410 indicates that the source object was not found
+            """)
+        int status,
+
+        @Schema(description = "On a copy failure, a detailed failure reason")
+        String failureReason,
+
+        @Schema(description = "The backup cdn where this media object is stored")
+        Integer cdn,
+
+        @Schema(description = "The mediaId of the object in URL-safe base64", implementation = String.class)
+        @JsonSerialize(using = ByteArrayBase64UrlAdapter.Serializing.class)
+        @JsonDeserialize(using = ByteArrayBase64UrlAdapter.Deserializing.class)
+        @NotNull
+        @ExactlySize(15)
+        byte[] mediaId) {}
+  }
+
+  @PUT
+  @Path("/media/batch")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  @Operation(
+      summary = "Batched backup media",
+      description = """
+          Copy and re-encrypt media from the attachments cdn into the backup cdn.
+
+          The original already encrypted attachment will be encrypted with the provided key material before being copied
+
+          If the batch request is processed at all, a 207 will be returned and the outcome of each constituent copy will
+          be provided as a separate entry in the response.
+          """)
+  @ApiResponse(responseCode = "207", description = """
+      The request was processed and each operation's outcome must be inspected individually. This does NOT necessarily 
+      indicate the operation was a success.
+      """, content = @Content(schema = @Schema(implementation = CopyMediaBatchResponse.class)))
+  @ApiResponse(responseCode = "413", description = "All media capacity has been consumed. Free some space to continue.")
+  @ApiResponse(responseCode = "429", description = "Rate limited.")
+  @ApiResponseZkAuth
+  public CompletionStage<Response> copyMedia(
+      @Auth final Optional<AuthenticatedAccount> account,
+
+      @Parameter(description = BackupAuthCredentialPresentationHeader.DESCRIPTION, schema = @Schema(implementation = String.class))
+      @NotNull
+      @HeaderParam(X_SIGNAL_ZK_AUTH) final ArchiveController.BackupAuthCredentialPresentationHeader presentation,
+
+      @Parameter(description = BackupAuthCredentialPresentationSignature.DESCRIPTION, schema = @Schema(implementation = String.class))
+      @NotNull
+      @HeaderParam(X_SIGNAL_ZK_AUTH_SIGNATURE) final BackupAuthCredentialPresentationSignature signature,
+
+      @NotNull
+      @Valid final ArchiveController.CopyMediaBatchRequest copyMediaRequest) {
+
+    if (account.isPresent()) {
+      throw new BadRequestException("must not use authenticated connection for anonymous operations");
+    }
+
+    final AuthenticatedBackupUser backupUser = backupManager.authenticateBackupUser(
+        presentation.presentation, signature.signature).join();
+
+    // If the entire batch won't fit in the user's remaining quota, reject the whole request.
+    final long expectedStorage = copyMediaRequest.items().stream().mapToLong(CopyMediaRequest::objectLength).sum();
+    final boolean fits = backupManager.canStoreMedia(backupUser, expectedStorage).join();
+    if (!fits) {
+      throw new ClientErrorException("Media quota exhausted", Response.Status.REQUEST_ENTITY_TOO_LARGE);
+    }
+
+    return Flux.fromIterable(copyMediaRequest.items)
+        // Operate sequentially, waiting for one copy to finish before starting the next one. At least right now,
+        // copying concurrently will introduce contention over the metadata.
+        .concatMap(request -> Mono
+            .fromCompletionStage(copyMediaImpl(backupUser, request))
+            .map(result -> new CopyMediaBatchResponse.Entry(200, null, result.cdn(), result.key()))
+            .onErrorResume(throwable -> ExceptionUtils.unwrap(throwable) instanceof IOException, throwable -> {
+              final Throwable unwrapped = ExceptionUtils.unwrap(throwable);
+
+              int status;
+              String error;
+              if (unwrapped instanceof SourceObjectNotFoundException) {
+                status = 410;
+                error = "Source object not found " + unwrapped.getMessage();
+              } else if (unwrapped instanceof InvalidLengthException) {
+                status = 400;
+                error = "Invalid length " + unwrapped.getMessage();
+              } else {
+                throw ExceptionUtils.wrap(throwable);
+              }
+              return Mono.just(new CopyMediaBatchResponse.Entry(status, error, null, request.mediaId));
+            }))
+        .collectList()
+        .map(list -> Response.status(207).entity(new CopyMediaBatchResponse(list)).build())
+        .toFuture();
+  }
 
   @POST
   @Produces(MediaType.APPLICATION_JSON)
@@ -345,7 +591,7 @@ public class ArchiveController {
   @ApiResponse(responseCode = "204", description = "The backup was successfully refreshed")
   @ApiResponse(responseCode = "429", description = "Rate limited.")
   @ApiResponseZkAuth
-  public CompletionStage<Void> refresh(
+  public CompletionStage<Response> refresh(
       @Auth final Optional<AuthenticatedAccount> account,
 
       @Parameter(description = BackupAuthCredentialPresentationHeader.DESCRIPTION, schema = @Schema(implementation = String.class))
@@ -360,6 +606,7 @@ public class ArchiveController {
     }
     return backupManager
         .authenticateBackupUser(presentation.presentation, signature.signature)
-        .thenCompose(backupManager::ttlRefresh);
+        .thenCompose(backupManager::ttlRefresh)
+        .thenApply(Util.ASYNC_EMPTY_RESPONSE);
   }
 }
