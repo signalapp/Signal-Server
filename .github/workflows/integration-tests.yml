@@ -7,6 +7,7 @@ on:
 
 jobs:
   build:
+    if: ${{ vars.INTEGRATION_TESTS_BUCKET != '' }}
     runs-on: ubuntu-latest
     permissions:
       id-token: write
