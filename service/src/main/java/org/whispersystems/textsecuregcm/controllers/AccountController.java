@@ -8,7 +8,6 @@ import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Tags;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -227,10 +226,6 @@ public class AccountController {
       @NotNull @Valid AccountAttributes attributes) {
     final Account account = disabledPermittedAuth.getAccount();
     final byte deviceId = disabledPermittedAuth.getAuthenticatedDevice().getId();
-
-    if (!AccountsManager.validNewAccountAttributes(attributes)) {
-      Metrics.counter(INVALID_REGISTRATION_ID, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent))).increment();
-    }
 
     final Account updatedAccount = accounts.update(account, a -> {
       a.getDevice(deviceId).ifPresent(d -> {

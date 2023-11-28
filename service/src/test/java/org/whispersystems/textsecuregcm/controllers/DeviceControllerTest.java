@@ -576,6 +576,56 @@ class DeviceControllerTest {
     );
   }
 
+  @ParameterizedTest
+  @MethodSource
+  void linkDeviceRegistrationId(final int registrationId, final int expectedStatusCode) {
+    final Device existingDevice = mock(Device.class);
+    when(existingDevice.getId()).thenReturn(Device.PRIMARY_ID);
+    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(existingDevice));
+
+    VerificationCode deviceCode = resources.getJerseyTest()
+        .target("/v1/devices/provisioning/code")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .get(VerificationCode.class);
+
+    final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+
+    final ECSignedPreKey aciSignedPreKey = KeysHelper.signedECPreKey(1, aciIdentityKeyPair);
+    final ECSignedPreKey pniSignedPreKey = KeysHelper.signedECPreKey(2, pniIdentityKeyPair);
+    final KEMSignedPreKey aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair);
+    final KEMSignedPreKey pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair);
+
+    when(account.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
+    when(account.getIdentityKey(IdentityType.PNI)).thenReturn(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
+
+    when(keysManager.storeEcSignedPreKeys(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(keysManager.storePqLastResort(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+
+    final LinkDeviceRequest request = new LinkDeviceRequest(deviceCode.verificationCode(),
+        new AccountAttributes(false, registrationId, null, null, true, null),
+        new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, Optional.of(new ApnRegistrationId("apn", null)), Optional.empty()));
+
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/devices/link")
+        .request()
+        .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
+        .put(Entity.entity(request, MediaType.APPLICATION_JSON_TYPE))) {
+      assertEquals(expectedStatusCode, response.getStatus());
+    }
+  }
+
+  private static Stream<Arguments> linkDeviceRegistrationId() {
+    return Stream.of(
+        Arguments.of(0x3FFF, 200),
+        Arguments.of(0, 422),
+        Arguments.of(-1, 422),
+        Arguments.of(0x3FFF + 1, 422),
+        Arguments.of(Integer.MAX_VALUE, 422)
+    );
+  }
+
   private static ECSignedPreKey ecSignedPreKeyWithBadSignature(final ECSignedPreKey signedPreKey) {
     return new ECSignedPreKey(signedPreKey.keyId(),
         signedPreKey.publicKey(),

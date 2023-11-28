@@ -56,7 +56,6 @@ public class ChangeNumberManager {
       throw new IllegalArgumentException("PNI identity key, signed pre-keys, device messages, and registration IDs must be all null or all non-null");
     }
 
-
     if (number.equals(account.getNumber())) {
       // The client has gotten confused/desynchronized with us about their own phone number, most likely due to losing
       // our OK response to an immediately preceding change-number request, and are sending a change they don't realize

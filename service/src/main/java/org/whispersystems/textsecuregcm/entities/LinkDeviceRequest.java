@@ -16,6 +16,7 @@ public record LinkDeviceRequest(@Schema(requiredMode = Schema.RequiredMode.REQUI
                                 """)
                                 String verificationCode,
 
+                                @Valid
                                 AccountAttributes accountAttributes,
 
                                 @NotNull

@@ -33,7 +33,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -384,21 +383,6 @@ public class AccountsManager {
     });
 
     return updatedAccount.get();
-  }
-
-  public static boolean validNewAccountAttributes(final AccountAttributes accountAttributes) {
-    if (!validRegistrationId(accountAttributes.getRegistrationId())) {
-      return false;
-    }
-    final OptionalInt pniRegistrationId = accountAttributes.getPhoneNumberIdentityRegistrationId();
-    if (pniRegistrationId.isPresent() && !validRegistrationId(pniRegistrationId.getAsInt())) {
-      return false;
-    }
-    return true;
-  }
-
-  private static boolean validRegistrationId(int registrationId) {
-    return registrationId > 0 && registrationId <= Device.MAX_REGISTRATION_ID;
   }
 
   public Account updatePniKeys(final Account account,

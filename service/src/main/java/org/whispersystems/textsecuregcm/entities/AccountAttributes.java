@@ -4,12 +4,15 @@
  */
 package org.whispersystems.textsecuregcm.entities;
 
+import static org.whispersystems.textsecuregcm.util.RegistrationIdValidator.validRegistrationId;
+
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.Optional;
 import java.util.OptionalInt;
 import javax.annotation.Nullable;
+import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.Size;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
@@ -126,5 +129,11 @@ public class AccountAttributes {
   @VisibleForTesting
   public void setPhoneNumberIdentityRegistrationId(final Integer phoneNumberIdentityRegistrationId) {
     this.phoneNumberIdentityRegistrationId = phoneNumberIdentityRegistrationId;
+  }
+
+  @AssertTrue
+  public boolean isEachRegistrationIdValid() {
+    return validRegistrationId(registrationId) &&
+        (phoneNumberIdentityRegistrationId == null || validRegistrationId(phoneNumberIdentityRegistrationId));
   }
 }

@@ -265,6 +265,36 @@ class AccountControllerV2Test {
       }
     }
 
+    @ParameterizedTest
+    @MethodSource
+    void invalidRegistrationId(final Integer pniRegistrationId, final int expectedStatusCode) {
+      when(registrationServiceClient.getSession(any(), any()))
+          .thenReturn(CompletableFuture.completedFuture(
+              Optional.of(new RegistrationServiceSession(new byte[16], NEW_NUMBER, true, null, null, null,
+                  SESSION_EXPIRATION_SECONDS))));
+      final ChangeNumberRequest changeNumberRequest = new ChangeNumberRequest(encodeSessionId("session"),
+          null, NEW_NUMBER, "123", new IdentityKey(Curve.generateKeyPair().getPublicKey()),
+          Collections.emptyList(), Collections.emptyMap(), null, Map.of((byte) 1, pniRegistrationId));
+
+      final Response response = resources.getJerseyTest()
+          .target("/v2/accounts/number")
+          .request()
+          .header(HttpHeaders.AUTHORIZATION,
+              AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+          .put(Entity.entity(changeNumberRequest, MediaType.APPLICATION_JSON_TYPE));
+      assertEquals(expectedStatusCode, response.getStatus());
+    }
+
+    private static Stream<Arguments> invalidRegistrationId() {
+      return Stream.of(
+          Arguments.of(0x3FFF, 200),
+          Arguments.of(0, 422),
+          Arguments.of(-1, 422),
+          Arguments.of(0x3FFF + 1, 422),
+          Arguments.of(Integer.MAX_VALUE, 422)
+      );
+    }
+
     @Test
     void rateLimitedNumber() throws Exception {
       doThrow(new RateLimitExceededException(null, true))
@@ -398,13 +428,20 @@ class AccountControllerV2Test {
      * Valid request JSON with the given Recovery Password
      */
     private static String requestJsonRecoveryPassword(final byte[] recoveryPassword, final String newNumber) {
-      return requestJson("", recoveryPassword, newNumber);
+      return requestJson("", recoveryPassword, newNumber, 123);
+    }
+
+    /**
+     * Valid request JSON with the given pniRegistrationId
+     */
+    private static String requestJsonRegistrationIds(final Integer pniRegistrationId) {
+      return requestJson("", new byte[0], "+18005551234", pniRegistrationId);
     }
 
     /**
      * Valid request JSON with the give session ID and recovery password
      */
-    private static String requestJson(final String sessionId, final byte[] recoveryPassword, final String newNumber) {
+    private static String requestJson(final String sessionId, final byte[] recoveryPassword, final String newNumber, final Integer pniRegistrationId) {
       return String.format("""
           {
             "sessionId": "%s",
@@ -414,16 +451,16 @@ class AccountControllerV2Test {
             "pniIdentityKey": "%s",
             "deviceMessages": [],
             "devicePniSignedPrekeys": {},
-            "pniRegistrationIds": {}
+            "pniRegistrationIds": {"1": %d}
           }
-          """, encodeSessionId(sessionId), encodeRecoveryPassword(recoveryPassword), newNumber, Base64.getEncoder().encodeToString(IDENTITY_KEY.serialize()));
+          """, encodeSessionId(sessionId), encodeRecoveryPassword(recoveryPassword), newNumber, Base64.getEncoder().encodeToString(IDENTITY_KEY.serialize()), pniRegistrationId);
     }
 
     /**
      * Valid request JSON with the give session ID
      */
     private static String requestJson(final String sessionId, final String newNumber) {
-      return requestJson(sessionId, new byte[0], newNumber);
+      return requestJson(sessionId, new byte[0], newNumber, 123);
     }
 
     /**

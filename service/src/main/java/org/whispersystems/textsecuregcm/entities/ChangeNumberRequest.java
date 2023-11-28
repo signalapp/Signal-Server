@@ -21,6 +21,7 @@ import javax.validation.constraints.NotNull;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
 import org.whispersystems.textsecuregcm.util.IdentityKeyAdapter;
+import org.whispersystems.textsecuregcm.util.RegistrationIdValidator;
 
 public record ChangeNumberRequest(
     @Schema(description="""
@@ -77,5 +78,10 @@ public record ChangeNumberRequest(
       spks.addAll(devicePniPqLastResortPrekeys.values());
     }
     return spks.isEmpty() || PreKeySignatureValidator.validatePreKeySignatures(pniIdentityKey, spks);
+  }
+
+  @AssertTrue
+  public boolean isEachPniRegistrationIdValid() {
+    return pniRegistrationIds == null || pniRegistrationIds.values().stream().allMatch(RegistrationIdValidator::validRegistrationId);
   }
 }

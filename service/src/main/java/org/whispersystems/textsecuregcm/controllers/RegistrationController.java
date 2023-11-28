@@ -107,10 +107,6 @@ public class RegistrationController {
     final String password = authorizationHeader.getPassword();
 
     RateLimiter.adaptLegacyException(() -> rateLimiters.getRegistrationLimiter().validate(number));
-    if (!AccountsManager.validNewAccountAttributes(registrationRequest.accountAttributes())) {
-      Metrics.counter(INVALID_ACCOUNT_ATTRS_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent))).increment();
-      throw new WebApplicationException(Response.status(422, "account attributes invalid").build());
-    }
 
     final PhoneVerificationRequest.VerificationType verificationType = phoneVerificationTokenManager.verify(number,
         registrationRequest);
