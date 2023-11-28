@@ -279,13 +279,15 @@ public class AccountsManager {
           clientPresenceManager.disconnectAllPresencesForUuid(actualUuid);
         }
 
-        final Tags tags;
+        Tags tags;
 
         if (freshUser) {
           tags = Tags.of("type", maybeRecentlyDeletedAccountIdentifier.isPresent() ? "recently-deleted" : "new");
         } else {
           tags = Tags.of("type", "re-registration");
         }
+
+        tags = tags.and("pniRegistrationIdPresent", String.valueOf(accountAttributes.getPhoneNumberIdentityRegistrationId().isPresent()));
 
         Metrics.counter(CREATE_COUNTER_NAME, tags).increment();
 

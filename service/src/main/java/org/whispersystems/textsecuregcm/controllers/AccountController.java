@@ -60,6 +60,7 @@ import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimitedByIp;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -86,6 +87,8 @@ public class AccountController {
   private final TurnTokenGenerator turnTokenGenerator;
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
   private final UsernameHashZkProofVerifier usernameHashZkProofVerifier;
+
+  private static final String SET_ATTRIBUTES_COUNTER_NAME = MetricsUtil.name(AccountController.class, "setAttributes");
 
   public AccountController(
       AccountsManager accounts,
@@ -249,6 +252,10 @@ public class AccountController {
     // if registration recovery password was sent to us, store it (or refresh its expiration)
     attributes.recoveryPassword().ifPresent(registrationRecoveryPassword ->
         registrationRecoveryPasswordsManager.storeForCurrentNumber(updatedAccount.getNumber(), registrationRecoveryPassword));
+
+    Metrics.counter(SET_ATTRIBUTES_COUNTER_NAME,
+            "pniRegistrationIdPresent", String.valueOf(attributes.getPhoneNumberIdentityRegistrationId().isPresent()))
+        .increment();
   }
 
   @GET
