@@ -488,10 +488,13 @@ class AccountControllerTest {
       final boolean locateLinkByUuid,
       final int expectedStatus) {
 
-    MockUtils.updateRateLimiterResponseToAllow(
-        rateLimiters, RateLimiters.For.USERNAME_LINK_LOOKUP_PER_IP, NICE_HOST);
-    MockUtils.updateRateLimiterResponseToFail(
-        rateLimiters, RateLimiters.For.USERNAME_LINK_LOOKUP_PER_IP, RATE_LIMITED_IP_HOST, Duration.ofMinutes(10), false);
+    if (passRateLimiting) {
+      MockUtils.updateRateLimiterResponseToAllow(
+          rateLimiters, RateLimiters.For.USERNAME_LINK_LOOKUP_PER_IP, "127.0.0.1");
+    } else {
+      MockUtils.updateRateLimiterResponseToFail(
+          rateLimiters, RateLimiters.For.USERNAME_LINK_LOOKUP_PER_IP, "127.0.0.1", Duration.ofMinutes(10), false);
+    }
 
     when(accountsManager.getByUsernameLinkHandle(any())).thenReturn(CompletableFuture.completedFuture(Optional.empty()));
 
@@ -509,9 +512,7 @@ class AccountControllerTest {
     if (!stayUnauthenticated) {
       builder.header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD));
     }
-    final Response get = builder
-        .header(HttpHeaders.X_FORWARDED_FOR, passRateLimiting ? NICE_HOST : RATE_LIMITED_IP_HOST)
-        .get();
+    final Response get = builder.get();
 
     assertEquals(expectedStatus, get.getStatus());
   }
@@ -864,21 +865,18 @@ class AccountControllerTest {
     assertThat(resources.getJerseyTest()
         .target(String.format("/v1/accounts/account/%s", accountIdentifier))
         .request()
-        .header(HttpHeaders.X_FORWARDED_FOR, "127.0.0.1")
         .head()
         .getStatus()).isEqualTo(200);
 
     assertThat(resources.getJerseyTest()
         .target(String.format("/v1/accounts/account/PNI:%s", phoneNumberIdentifier))
         .request()
-        .header(HttpHeaders.X_FORWARDED_FOR, "127.0.0.1")
         .head()
         .getStatus()).isEqualTo(200);
 
     assertThat(resources.getJerseyTest()
         .target(String.format("/v1/accounts/account/%s", UUID.randomUUID()))
         .request()
-        .header(HttpHeaders.X_FORWARDED_FOR, "127.0.0.1")
         .head()
         .getStatus()).isEqualTo(404);
   }
@@ -896,23 +894,10 @@ class AccountControllerTest {
     final Response response = resources.getJerseyTest()
         .target(String.format("/v1/accounts/account/%s", accountIdentifier))
         .request()
-        .header(HttpHeaders.X_FORWARDED_FOR, "127.0.0.1")
         .head();
 
     assertThat(response.getStatus()).isEqualTo(413);
     assertThat(response.getHeaderString("Retry-After")).isEqualTo(String.valueOf(expectedRetryAfter.toSeconds()));
-  }
-
-  @Test
-  void testAccountExistsNoForwardedFor() throws RateLimitExceededException {
-    final Response response = resources.getJerseyTest()
-        .target(String.format("/v1/accounts/account/%s", UUID.randomUUID()))
-        .request()
-        .header(HttpHeaders.X_FORWARDED_FOR, "")
-        .head();
-
-    assertThat(response.getStatus()).isEqualTo(413);
-    assertThat(Long.parseLong(response.getHeaderString("Retry-After"))).isNotNegative();
   }
 
   @Test
@@ -921,7 +906,6 @@ class AccountControllerTest {
         .target(String.format("/v1/accounts/account/%s", UUID.randomUUID()))
         .request()
         .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .header(HttpHeaders.X_FORWARDED_FOR, "127.0.0.1")
         .head()
         .getStatus()).isEqualTo(400);
   }
@@ -936,7 +920,6 @@ class AccountControllerTest {
     Response response = resources.getJerseyTest()
         .target(String.format("v1/accounts/username_hash/%s", BASE_64_URL_USERNAME_HASH_1))
         .request()
-        .header(HttpHeaders.X_FORWARDED_FOR, "127.0.0.1")
         .get();
     assertThat(response.getStatus()).isEqualTo(200);
     assertThat(response.readEntity(AccountIdentifierResponse.class).uuid().uuid()).isEqualTo(uuid);
@@ -948,7 +931,6 @@ class AccountControllerTest {
     assertThat(resources.getJerseyTest()
         .target(String.format("v1/accounts/username_hash/%s", BASE_64_URL_USERNAME_HASH_1))
         .request()
-        .header(HttpHeaders.X_FORWARDED_FOR, "127.0.0.1")
         .get().getStatus()).isEqualTo(404);
   }
 
@@ -960,7 +942,6 @@ class AccountControllerTest {
     final Response response = resources.getJerseyTest()
         .target(String.format("v1/accounts/username_hash/%s", BASE_64_URL_USERNAME_HASH_1))
         .request()
-        .header(HttpHeaders.X_FORWARDED_FOR, "127.0.0.1")
         .get();
 
     assertThat(response.getStatus()).isEqualTo(413);
@@ -973,7 +954,6 @@ class AccountControllerTest {
         .target(String.format("/v1/accounts/username_hash/%s", USERNAME_HASH_1))
         .request()
         .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .header(HttpHeaders.X_FORWARDED_FOR, "127.0.0.1")
         .get()
         .getStatus()).isEqualTo(400);
   }
@@ -983,14 +963,12 @@ class AccountControllerTest {
     assertThat(resources.getJerseyTest()
         .target(String.format("/v1/accounts/username_hash/%s", INVALID_USERNAME_HASH))
         .request()
-        .header(HttpHeaders.X_FORWARDED_FOR, "127.0.0.1")
         .get()
         .getStatus()).isEqualTo(422);
 
     assertThat(resources.getJerseyTest()
         .target(String.format("/v1/accounts/username_hash/%s", TOO_SHORT_USERNAME_HASH))
         .request()
-        .header(HttpHeaders.X_FORWARDED_FOR, "127.0.0.1")
         .get()
         .getStatus()).isEqualTo(422);
   }

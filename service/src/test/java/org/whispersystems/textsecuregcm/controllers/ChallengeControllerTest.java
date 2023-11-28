@@ -146,13 +146,14 @@ class ChallengeControllerTest {
     }
     final Response response = EXTENSION.target("/v1/challenge")
         .request()
-        .header(HttpHeaders.X_FORWARDED_FOR, "10.0.0.1")
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .put(Entity.json(recaptchaChallengeJson));
 
     assertEquals(200, response.getStatus());
 
-    verify(rateLimitChallengeManager).answerRecaptchaChallenge(eq(AuthHelper.VALID_ACCOUNT), eq("The value of the solved captcha token"), eq("10.0.0.1"), anyString(), eq(hasThreshold ? Optional.of(0.5f) : Optional.empty()));
+    verify(rateLimitChallengeManager).answerRecaptchaChallenge(eq(AuthHelper.VALID_ACCOUNT),
+        eq("The value of the solved captcha token"), eq("127.0.0.1"), anyString(),
+        eq(hasThreshold ? Optional.of(0.5f) : Optional.empty()));
   }
 
   @Test
@@ -164,12 +165,12 @@ class ChallengeControllerTest {
           "captcha": "The value of the solved captcha token"
         }
         """;
-   when(rateLimitChallengeManager.answerRecaptchaChallenge(eq(AuthHelper.VALID_ACCOUNT), eq("The value of the solved captcha token"), eq("10.0.0.1"), anyString(), any()))
+    when(rateLimitChallengeManager.answerRecaptchaChallenge(eq(AuthHelper.VALID_ACCOUNT),
+        eq("The value of the solved captcha token"), eq("127.0.0.1"), anyString(), any()))
         .thenReturn(false);
 
     final Response response = EXTENSION.target("/v1/challenge")
         .request()
-        .header(HttpHeaders.X_FORWARDED_FOR, "10.0.0.1")
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .put(Entity.json(recaptchaChallengeJson));
 
@@ -192,31 +193,11 @@ class ChallengeControllerTest {
 
     final Response response = EXTENSION.target("/v1/challenge")
         .request()
-        .header(HttpHeaders.X_FORWARDED_FOR, "10.0.0.1")
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .put(Entity.json(recaptchaChallengeJson));
 
     assertEquals(413, response.getStatus());
     assertEquals(String.valueOf(retryAfter.toSeconds()), response.getHeaderString("Retry-After"));
-  }
-
-  @Test
-  void testHandleRecaptchaNoForwardedFor() {
-    final String recaptchaChallengeJson = """
-        {
-          "type": "recaptcha",
-          "token": "A server-generated token",
-          "captcha": "The value of the solved captcha token"
-        }
-        """;
-
-    final Response response = EXTENSION.target("/v1/challenge")
-        .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .put(Entity.json(recaptchaChallengeJson));
-
-    assertEquals(400, response.getStatus());
-    verifyNoInteractions(rateLimitChallengeManager);
   }
 
   @Test

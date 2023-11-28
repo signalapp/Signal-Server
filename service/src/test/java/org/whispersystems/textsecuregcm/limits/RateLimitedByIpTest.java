@@ -6,6 +6,11 @@
 package org.whispersystems.textsecuregcm.limits;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.google.common.net.HttpHeaders;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
@@ -17,7 +22,6 @@ import javax.ws.rs.core.Response;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mockito;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -25,17 +29,9 @@ import org.whispersystems.textsecuregcm.util.SystemMapper;
 @ExtendWith(DropwizardExtensionsSupport.class)
 public class RateLimitedByIpTest {
 
-  private static final String IP = "70.130.130.200";
-
-  private static final String VALID_X_FORWARDED_FOR = "1.1.1.1," + IP;
-
-  private static final String INVALID_X_FORWARDED_FOR = "1.1.1.1,";
+  private static final String IP = "127.0.0.1";
 
   private static final Duration RETRY_AFTER = Duration.ofSeconds(100);
-
-  private static final Duration RETRY_AFTER_INVALID_HEADER = RateLimitByIpFilter.INVALID_HEADER_EXCEPTION
-      .getRetryDuration()
-      .orElseThrow();
 
 
   @Path("/test")
@@ -55,10 +51,10 @@ public class RateLimitedByIpTest {
     }
   }
 
-  private static final RateLimiter RATE_LIMITER = Mockito.mock(RateLimiter.class);
+  private static final RateLimiter RATE_LIMITER = mock(RateLimiter.class);
 
   private static final RateLimiters RATE_LIMITERS = MockUtils.buildMock(RateLimiters.class, rl ->
-      Mockito.when(rl.forDescriptor(Mockito.eq(RateLimiters.For.BACKUP_AUTH_CHECK))).thenReturn(RATE_LIMITER));
+      when(rl.forDescriptor(eq(RateLimiters.For.BACKUP_AUTH_CHECK))).thenReturn(RATE_LIMITER));
 
   private static final ResourceExtension RESOURCES = ResourceExtension.builder()
       .setMapper(SystemMapper.jsonMapper())
@@ -69,49 +65,29 @@ public class RateLimitedByIpTest {
 
   @Test
   public void testRateLimits() throws Exception {
-    Mockito.doNothing().when(RATE_LIMITER).validate(Mockito.eq(IP));
-    validateSuccess("/test/strict", VALID_X_FORWARDED_FOR);
-    Mockito.doThrow(new RateLimitExceededException(RETRY_AFTER, true)).when(RATE_LIMITER).validate(Mockito.eq(IP));
-    validateFailure("/test/strict", VALID_X_FORWARDED_FOR, RETRY_AFTER);
-    Mockito.doNothing().when(RATE_LIMITER).validate(Mockito.eq(IP));
-    validateSuccess("/test/strict", VALID_X_FORWARDED_FOR);
-    Mockito.doThrow(new RateLimitExceededException(RETRY_AFTER, true)).when(RATE_LIMITER).validate(Mockito.eq(IP));
-    validateFailure("/test/strict", VALID_X_FORWARDED_FOR, RETRY_AFTER);
+    doNothing().when(RATE_LIMITER).validate(eq(IP));
+    validateSuccess("/test/strict");
+    doThrow(new RateLimitExceededException(RETRY_AFTER, true)).when(RATE_LIMITER).validate(eq(IP));
+    validateFailure("/test/strict", RETRY_AFTER);
+    doNothing().when(RATE_LIMITER).validate(eq(IP));
+    validateSuccess("/test/strict");
+    doThrow(new RateLimitExceededException(RETRY_AFTER, true)).when(RATE_LIMITER).validate(eq(IP));
+    validateFailure("/test/strict", RETRY_AFTER);
   }
 
-  @Test
-  public void testInvalidHeader() throws Exception {
-    Mockito.doNothing().when(RATE_LIMITER).validate(Mockito.eq(IP));
-    validateSuccess("/test/strict", VALID_X_FORWARDED_FOR);
-    validateFailure("/test/strict", INVALID_X_FORWARDED_FOR, RETRY_AFTER_INVALID_HEADER);
-    validateFailure("/test/strict", "", RETRY_AFTER_INVALID_HEADER);
-
-    validateSuccess("/test/loose", VALID_X_FORWARDED_FOR);
-    validateSuccess("/test/loose", INVALID_X_FORWARDED_FOR);
-    validateSuccess("/test/loose", "");
-
-    // also checking that even if rate limiter is failing -- it doesn't matter in the case of invalid IP
-    Mockito.doThrow(new RateLimitExceededException(RETRY_AFTER, true)).when(RATE_LIMITER).validate(Mockito.anyString());
-    validateFailure("/test/loose", VALID_X_FORWARDED_FOR, RETRY_AFTER);
-    validateSuccess("/test/loose", INVALID_X_FORWARDED_FOR);
-    validateSuccess("/test/loose", "");
-  }
-
-  private static void validateSuccess(final String path, final String xff) {
+  private static void validateSuccess(final String path) {
     final Response response = RESOURCES.getJerseyTest()
         .target(path)
         .request()
-        .header(HttpHeaders.X_FORWARDED_FOR, xff)
         .get();
 
     assertEquals(200, response.getStatus());
   }
 
-  private static void validateFailure(final String path, final String xff, final Duration expectedRetryAfter) {
+  private static void validateFailure(final String path, final Duration expectedRetryAfter) {
     final Response response = RESOURCES.getJerseyTest()
         .target(path)
         .request()
-        .header(HttpHeaders.X_FORWARDED_FOR, xff)
         .get();
 
     assertEquals(413, response.getStatus());
