@@ -369,10 +369,6 @@ paths:
         in: header
         schema:
           type: string
-      - name: User-Agent
-        in: header
-        schema:
-          type: string
       requestBody:
         content:
           application/json:
@@ -2864,15 +2860,8 @@ components:
         eachRegistrationIdValid:
           type: boolean
         pniRegistrationId:
-          type: object
-          properties:
-            empty:
-              type: boolean
-            present:
-              type: boolean
-            asInt:
-              type: integer
-              format: int32
+          type: integer
+          format: int32
     DeviceCapabilities:
       type: object
       properties:
@@ -3054,14 +3043,14 @@ components:
     ECPublicKey:
       type: object
       properties:
-        type:
-          type: integer
-          format: int32
         publicKeyBytes:
           type: array
           items:
             type: string
             format: byte
+        type:
+          type: integer
+          format: int32
     ECSignedPreKey:
       type: object
       properties:
