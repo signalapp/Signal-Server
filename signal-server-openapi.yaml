@@ -369,6 +369,10 @@ paths:
         in: header
         schema:
           type: string
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
       requestBody:
         content:
           application/json:
@@ -2857,6 +2861,8 @@ components:
           items:
             type: string
             format: byte
+        eachRegistrationIdValid:
+          type: boolean
         pniRegistrationId:
           type: object
           properties:
@@ -3040,6 +3046,8 @@ components:
           description: "the new phone-number-identity registration ID for each enabled\
             \ device on the account, including this one"
         signatureValidOnEachSignedPreKey:
+          type: boolean
+        eachPniRegistrationIdValid:
           type: boolean
         valid:
           type: boolean
@@ -3685,13 +3693,13 @@ components:
     WebSocketClient:
       type: object
       properties:
+        createdTimestamp:
+          type: integer
+          format: int64
         userAgent:
           type: string
         open:
           type: boolean
-        createdTimestamp:
-          type: integer
-          format: int64
     WebSocketSessionContext:
       type: object
       properties:
