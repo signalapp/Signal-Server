@@ -113,20 +113,27 @@ public class APNSender implements Managed, PushNotificationSender {
           .build();
     };
 
-    final PushType pushType;
-
-    if (isVoip) {
-      pushType = PushType.VOIP;
-    } else {
-      pushType = notification.urgent() ? PushType.ALERT : PushType.BACKGROUND;
-    }
-
-    final DeliveryPriority deliveryPriority = switch (notification.notificationType()) {
-      case NOTIFICATION ->
-          (notification.urgent() || isVoip) ? DeliveryPriority.IMMEDIATE : DeliveryPriority.CONSERVE_POWER;
-      case ATTEMPT_LOGIN_NOTIFICATION_HIGH_PRIORITY -> DeliveryPriority.IMMEDIATE;
-      case CHALLENGE, RATE_LIMIT_CHALLENGE -> DeliveryPriority.CONSERVE_POWER;
+    final PushType pushType = switch (notification.notificationType()) {
+      case NOTIFICATION -> {
+        if (isVoip) {
+          yield PushType.VOIP;
+        } else {
+          yield notification.urgent() ? PushType.ALERT : PushType.BACKGROUND;
+        }
+      }
+      case ATTEMPT_LOGIN_NOTIFICATION_HIGH_PRIORITY -> PushType.ALERT;
+      case CHALLENGE, RATE_LIMIT_CHALLENGE -> PushType.BACKGROUND;
     };
+
+    final DeliveryPriority deliveryPriority;
+
+    if (pushType == PushType.BACKGROUND) {
+      deliveryPriority = DeliveryPriority.CONSERVE_POWER;
+    } else {
+      deliveryPriority = (notification.urgent() || isVoip)
+          ? DeliveryPriority.IMMEDIATE
+          : DeliveryPriority.CONSERVE_POWER;
+    }
 
     final String collapseId =
         (notification.notificationType() == PushNotification.NotificationType.NOTIFICATION && notification.urgent() && !isVoip)
