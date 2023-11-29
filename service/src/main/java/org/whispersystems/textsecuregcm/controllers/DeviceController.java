@@ -8,8 +8,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.Auth;
 import io.lettuce.core.SetArgs;
-import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Tags;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -61,7 +59,6 @@ import org.whispersystems.textsecuregcm.entities.LinkDeviceRequest;
 import org.whispersystems.textsecuregcm.entities.PreKeySignatureValidator;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -88,8 +85,6 @@ public class DeviceController {
   private final Map<String, Integer> maxDeviceConfiguration;
 
   private final Clock clock;
-
-  private static final String LINK_DEVICE_COUNTER_NAME = MetricsUtil.name(DeviceController.class, "linkDevice");
 
   private static final String VERIFICATION_TOKEN_ALGORITHM = "HmacSHA256";
 
@@ -448,10 +443,6 @@ public class DeviceController {
       usedTokenCluster.useCluster(connection ->
           connection.sync().set(getUsedTokenKey(verificationCode), "", new SetArgs().ex(TOKEN_EXPIRATION_DURATION)));
     }
-
-    Metrics.counter(LINK_DEVICE_COUNTER_NAME,
-            "pniRegistrationIdPresent", String.valueOf(accountAttributes.getPhoneNumberIdentityRegistrationId().isPresent()))
-        .increment();
 
     return new Pair<>(updatedAccount, device);
   }
