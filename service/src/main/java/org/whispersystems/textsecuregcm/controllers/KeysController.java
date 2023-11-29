@@ -138,15 +138,15 @@ public class KeysController {
 
     final boolean usePhoneNumberIdentity = usePhoneNumberIdentity(identityType);
 
-    if (preKeys.getSignedPreKey() != null &&
-        !preKeys.getSignedPreKey().equals(usePhoneNumberIdentity ? device.getSignedPreKey(IdentityType.PNI)
+    if (preKeys.signedPreKey() != null &&
+        !preKeys.signedPreKey().equals(usePhoneNumberIdentity ? device.getSignedPreKey(IdentityType.PNI)
             : device.getSignedPreKey(IdentityType.ACI))) {
       updateAccount = true;
     }
 
     final IdentityKey oldIdentityKey =
         usePhoneNumberIdentity ? account.getIdentityKey(IdentityType.PNI) : account.getIdentityKey(IdentityType.ACI);
-    if (!Objects.equals(preKeys.getIdentityKey(), oldIdentityKey)) {
+    if (!Objects.equals(preKeys.identityKey(), oldIdentityKey)) {
       updateAccount = true;
 
       final boolean hasIdentityKey = oldIdentityKey != null;
@@ -170,26 +170,26 @@ public class KeysController {
 
     if (updateAccount) {
       account = accounts.update(account, a -> {
-        if (preKeys.getSignedPreKey() != null) {
+        if (preKeys.signedPreKey() != null) {
           a.getDevice(device.getId()).ifPresent(d -> {
             if (usePhoneNumberIdentity) {
-              d.setPhoneNumberIdentitySignedPreKey(preKeys.getSignedPreKey());
+              d.setPhoneNumberIdentitySignedPreKey(preKeys.signedPreKey());
             } else {
-              d.setSignedPreKey(preKeys.getSignedPreKey());
+              d.setSignedPreKey(preKeys.signedPreKey());
             }
           });
         }
 
         if (usePhoneNumberIdentity) {
-          a.setPhoneNumberIdentityKey(preKeys.getIdentityKey());
+          a.setPhoneNumberIdentityKey(preKeys.identityKey());
         } else {
-          a.setIdentityKey(preKeys.getIdentityKey());
+          a.setIdentityKey(preKeys.identityKey());
         }
       });
     }
 
     return keys.store(getIdentifier(account, identityType), device.getId(),
-        preKeys.getPreKeys(), preKeys.getPqPreKeys(), preKeys.getSignedPreKey(), preKeys.getPqLastResortPreKey())
+        preKeys.preKeys(), preKeys.pqPreKeys(), preKeys.signedPreKey(), preKeys.pqLastResortPreKey())
         .thenApply(Util.ASYNC_EMPTY_RESPONSE);
   }
 

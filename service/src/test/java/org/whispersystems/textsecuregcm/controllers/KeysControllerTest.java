@@ -732,7 +732,7 @@ class KeysControllerTest {
     final ECSignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, identityKeyPair);
     final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
 
-    PreKeyState preKeyState = new PreKeyState(identityKey, signedPreKey, List.of(preKey));
+    final PreKeyState preKeyState = new PreKeyState(List.of(preKey), signedPreKey, null, null, identityKey);
 
     Response response =
         resources.getJerseyTest()
@@ -763,7 +763,8 @@ class KeysControllerTest {
     final KEMSignedPreKey pqLastResortPreKey = KeysHelper.signedKEMPreKey(31340, identityKeyPair);
     final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
 
-    PreKeyState preKeyState = new PreKeyState(identityKey, signedPreKey, List.of(preKey), List.of(pqPreKey), pqLastResortPreKey);
+    final PreKeyState preKeyState =
+        new PreKeyState(List.of(preKey), signedPreKey, List.of(pqPreKey), pqLastResortPreKey, identityKey);
 
     Response response =
         resources.getJerseyTest()
@@ -866,7 +867,7 @@ class KeysControllerTest {
     final ECSignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, identityKeyPair);
     final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
 
-    PreKeyState preKeyState = new PreKeyState(identityKey, signedPreKey, List.of(preKey));
+    final PreKeyState preKeyState = new PreKeyState(List.of(preKey), signedPreKey, null, null, identityKey);
 
     Response response =
         resources.getJerseyTest()
@@ -898,7 +899,8 @@ class KeysControllerTest {
     final KEMSignedPreKey pqLastResortPreKey = KeysHelper.signedKEMPreKey(31340, identityKeyPair);
     final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
 
-    PreKeyState preKeyState = new PreKeyState(identityKey, signedPreKey, List.of(preKey), List.of(pqPreKey), pqLastResortPreKey);
+    final PreKeyState preKeyState =
+        new PreKeyState(List.of(preKey), signedPreKey, List.of(pqPreKey), pqLastResortPreKey, identityKey);
 
     Response response =
         resources.getJerseyTest()
@@ -926,7 +928,7 @@ class KeysControllerTest {
   @Test
   void putPrekeyWithInvalidSignature() {
     final ECSignedPreKey badSignedPreKey = KeysHelper.signedECPreKey(1, Curve.generateKeyPair());
-    PreKeyState preKeyState = new PreKeyState(IDENTITY_KEY, badSignedPreKey, List.of());
+    final PreKeyState preKeyState = new PreKeyState(List.of(), badSignedPreKey, null, null, IDENTITY_KEY);
     Response response =
         resources.getJerseyTest()
             .target("/v2/keys")
@@ -945,7 +947,7 @@ class KeysControllerTest {
     final ECSignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, identityKeyPair);
     final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
 
-    PreKeyState preKeyState = new PreKeyState(identityKey, signedPreKey, List.of(preKey));
+    final PreKeyState preKeyState = new PreKeyState(List.of(preKey), signedPreKey, null, null, identityKey);
 
     Response response =
         resources.getJerseyTest()
@@ -975,9 +977,9 @@ class KeysControllerTest {
     final ECPreKey preKey = KeysHelper.ecPreKey(31337);
     final ECSignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, IDENTITY_KEY_PAIR);
 
-    List<ECPreKey> preKeys = List.of(preKey);
+    final List<ECPreKey> preKeys = List.of(preKey);
 
-    PreKeyState preKeyState = new PreKeyState(IDENTITY_KEY, signedPreKey, preKeys);
+    final PreKeyState preKeyState = new PreKeyState(preKeys, signedPreKey, null, null, IDENTITY_KEY);
 
     Response response =
         resources.getJerseyTest()
