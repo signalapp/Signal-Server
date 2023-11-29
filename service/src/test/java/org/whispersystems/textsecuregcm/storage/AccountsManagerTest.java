@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -928,6 +929,47 @@ class AccountsManagerTest {
     accountsManager.updateDeviceAsync(account, account.getNextDeviceId(), unknownDeviceUpdater).join();
 
     verify(unknownDeviceUpdater, never()).accept(any(Device.class));
+  }
+
+  @Test
+  void testRemoveDevice() {
+    final Device primaryDevice = new Device();
+    primaryDevice.setId(Device.PRIMARY_ID);
+
+    final Device linkedDevice = new Device();
+    linkedDevice.setId((byte) (Device.PRIMARY_ID + 1));
+
+    Account account = AccountsHelper.generateTestAccount("+14152222222", List.of(primaryDevice, linkedDevice));
+
+    when(keysManager.delete(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
+    when(messagesManager.clear(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
+
+    assertTrue(account.getDevice(linkedDevice.getId()).isPresent());
+
+    account = accountsManager.removeDevice(account, linkedDevice.getId()).join();
+
+    assertFalse(account.getDevice(linkedDevice.getId()).isPresent());
+    verify(messagesManager, times(2)).clear(account.getUuid(), linkedDevice.getId());
+    verify(keysManager).delete(account.getUuid(), linkedDevice.getId());
+    verify(clientPresenceManager).disconnectPresence(account.getUuid(), linkedDevice.getId());
+  }
+
+  @Test
+  void testRemovePrimaryDevice() {
+    final Device primaryDevice = new Device();
+    primaryDevice.setId(Device.PRIMARY_ID);
+
+    final Account account = AccountsHelper.generateTestAccount("+14152222222", List.of(primaryDevice));
+
+    when(keysManager.delete(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
+    when(messagesManager.clear(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
+
+    assertThrows(IllegalArgumentException.class, () -> accountsManager.removeDevice(account, Device.PRIMARY_ID));
+
+    assertTrue(account.getPrimaryDevice().isPresent());
+    verify(messagesManager, never()).clear(any(), anyByte());
+    verify(keysManager, never()).delete(any(), anyByte());
+    verify(clientPresenceManager, never()).disconnectPresence(any(), anyByte());
   }
 
   @Test

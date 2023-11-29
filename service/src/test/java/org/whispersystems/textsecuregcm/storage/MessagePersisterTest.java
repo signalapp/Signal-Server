@@ -6,7 +6,6 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.mockito.ArgumentMatchers.any;
@@ -17,8 +16,6 @@ import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.whispersystems.textsecuregcm.util.MockUtils.exactly;
@@ -49,8 +46,6 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfigurati
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
-import org.whispersystems.textsecuregcm.storage.KeysManager;
-
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
@@ -93,6 +88,9 @@ class MessagePersisterTest {
     destinationAccount = mock(Account.class);;
 
     when(accountsManager.getByAccountIdentifier(DESTINATION_ACCOUNT_UUID)).thenReturn(Optional.of(destinationAccount));
+    when(accountsManager.removeDevice(any(), anyByte()))
+        .thenAnswer(invocation -> CompletableFuture.completedFuture(invocation.getArgument(0)));
+
     when(destinationAccount.getUuid()).thenReturn(DESTINATION_ACCOUNT_UUID);
     when(destinationAccount.getNumber()).thenReturn(DESTINATION_ACCOUNT_NUMBER);
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(new DynamicConfiguration());

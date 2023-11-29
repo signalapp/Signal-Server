@@ -135,8 +135,7 @@ public class DeviceController {
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/{device_id}")
   @ChangesDeviceEnabledState
-  public void removeDevice(@Auth AuthenticatedAccount auth, @PathParam("device_id") byte deviceId) {
-    Account account = auth.getAccount();
+  public CompletableFuture<Response> removeDevice(@Auth AuthenticatedAccount auth, @PathParam("device_id") byte deviceId) {
     if (auth.getAuthenticatedDevice().getId() != Device.PRIMARY_ID) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
@@ -145,14 +144,7 @@ public class DeviceController {
       throw new ForbiddenException();
     }
 
-    final CompletableFuture<Void> deleteKeysFuture = keys.delete(account.getUuid(), deviceId);
-
-    messages.clear(account.getUuid(), deviceId).join();
-    account = accounts.update(account, a -> a.removeDevice(deviceId));
-    // ensure any messages that came in after the first clear() are also removed
-    messages.clear(account.getUuid(), deviceId).join();
-
-    deleteKeysFuture.join();
+    return accounts.removeDevice(auth.getAccount(), deviceId).thenApply(Util.ASYNC_EMPTY_RESPONSE);
   }
 
   @GET

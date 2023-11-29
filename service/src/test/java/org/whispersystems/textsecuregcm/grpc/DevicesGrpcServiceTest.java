@@ -149,13 +149,14 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
   void removeDevice() {
     final byte deviceId = 17;
 
+    when(accountsManager.removeDevice(any(), anyByte()))
+        .thenReturn(CompletableFuture.completedFuture(authenticatedAccount));
+
     final RemoveDeviceResponse ignored = authenticatedServiceStub().removeDevice(RemoveDeviceRequest.newBuilder()
         .setId(deviceId)
         .build());
 
-    verify(messagesManager, times(2)).clear(AUTHENTICATED_ACI, deviceId);
-    verify(keysManager).delete(AUTHENTICATED_ACI, deviceId);
-    verify(authenticatedAccount).removeDevice(deviceId);
+    verify(accountsManager).removeDevice(authenticatedAccount, deviceId);
   }
 
   @Test
@@ -163,6 +164,8 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
     assertStatusException(Status.INVALID_ARGUMENT, () -> authenticatedServiceStub().removeDevice(RemoveDeviceRequest.newBuilder()
         .setId(1)
         .build()));
+
+    verify(accountsManager, never()).removeDevice(any(), anyByte());
   }
 
   @Test
@@ -171,6 +174,8 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
     assertStatusException(Status.PERMISSION_DENIED, () -> authenticatedServiceStub().removeDevice(RemoveDeviceRequest.newBuilder()
         .setId(17)
         .build()));
+
+    verify(accountsManager, never()).removeDevice(any(), anyByte());
   }
 
   @ParameterizedTest

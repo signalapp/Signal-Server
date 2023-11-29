@@ -71,18 +71,7 @@ public class UnlinkDeviceCommand extends EnvironmentCommand<WhisperServerConfigu
       for (byte deviceId : deviceIds) {
         /** see {@link org.whispersystems.textsecuregcm.controllers.DeviceController#removeDevice} */
         System.out.format("Removing device %s::%d\n", aci, deviceId);
-        account = deps.accountsManager().update(account, a -> a.removeDevice(deviceId));
-
-        System.out.format("Removing keys for device %s::%d\n", aci, deviceId);
-        deps.keysManager().delete(account.getUuid(), deviceId).join();
-
-        System.out.format("Clearing additional messages for %s::%d\n", aci, deviceId);
-        deps.messagesManager().clear(account.getUuid(), deviceId).join();
-
-        System.out.format("Clearing presence state for %s::%d\n", aci, deviceId);
-        deps.clientPresenceManager().disconnectPresence(aci, deviceId);
-
-        System.out.format("Device %s::%d successfully removed\n", aci, deviceId);
+        deps.accountsManager().removeDevice(account, deviceId).join();
       }
     } finally {
       commandStopListener.stop();

@@ -296,6 +296,25 @@ public class AccountsManager {
     }
   }
 
+  public CompletableFuture<Account> removeDevice(final Account account, final byte deviceId) {
+    if (deviceId == Device.PRIMARY_ID) {
+      throw new IllegalArgumentException("Cannot remove primary device");
+    }
+
+    return CompletableFuture.allOf(
+            keysManager.delete(account.getUuid(), deviceId),
+            messagesManager.clear(account.getUuid(), deviceId))
+        .thenCompose(ignored -> updateAsync(account, (Consumer<Account>) a -> a.removeDevice(deviceId)))
+        // ensure any messages that came in after the first clear() are also removed
+        .thenCompose(updatedAccount -> messagesManager.clear(account.getUuid(), deviceId)
+            .thenApply(ignored -> updatedAccount))
+        .whenComplete((ignored, throwable) -> {
+          if (throwable == null) {
+            clientPresenceManager.disconnectPresence(account.getUuid(), deviceId);
+          }
+        });
+  }
+
   public Account changeNumber(final Account account,
                               final String targetNumber,
                               @Nullable final IdentityKey pniIdentityKey,

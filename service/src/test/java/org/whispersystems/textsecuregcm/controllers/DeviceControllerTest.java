@@ -15,7 +15,6 @@ import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -801,12 +800,15 @@ class DeviceControllerTest {
   }
 
   @Test
-  void deviceRemovalClearsMessagesAndKeys() {
+  void removeDevice() {
 
     // this is a static mock, so it might have previous invocations
     clearInvocations(AuthHelper.VALID_ACCOUNT);
 
     final byte deviceId = 2;
+
+    when(accountsManager.removeDevice(AuthHelper.VALID_ACCOUNT, deviceId))
+        .thenReturn(CompletableFuture.completedFuture(AuthHelper.VALID_ACCOUNT));
 
     final Response response = resources
         .getJerseyTest()
@@ -819,10 +821,7 @@ class DeviceControllerTest {
     assertThat(response.getStatus()).isEqualTo(204);
     assertThat(response.hasEntity()).isFalse();
 
-    verify(messagesManager, times(2)).clear(AuthHelper.VALID_UUID, deviceId);
-    verify(accountsManager, times(1)).update(eq(AuthHelper.VALID_ACCOUNT), any());
-    verify(AuthHelper.VALID_ACCOUNT).removeDevice(deviceId);
-    verify(keysManager).delete(AuthHelper.VALID_UUID, deviceId);
+    verify(accountsManager).removeDevice(AuthHelper.VALID_ACCOUNT, deviceId);
   }
 
   @Test
@@ -840,10 +839,7 @@ class DeviceControllerTest {
 
       assertThat(response.getStatus()).isEqualTo(403);
 
-      verify(messagesManager, never()).clear(any(), anyByte());
-      verify(accountsManager, never()).update(eq(AuthHelper.VALID_ACCOUNT), any());
-      verify(AuthHelper.VALID_ACCOUNT, never()).removeDevice(anyByte());
-      verify(keysManager, never()).delete(any(), anyByte());
+      verify(accountsManager, never()).removeDevice(any(), anyByte());
     }
   }
 

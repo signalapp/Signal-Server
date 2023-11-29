@@ -16,11 +16,6 @@ import com.codahale.metrics.Timer;
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.lifecycle.Managed;
 import io.micrometer.core.instrument.Counter;
-import reactor.core.publisher.Flux;
-import reactor.util.function.Tuple2;
-import reactor.util.function.Tuples;
-import software.amazon.awssdk.services.dynamodb.model.ItemCollectionSizeLimitExceededException;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Comparator;
@@ -29,12 +24,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
-import java.util.stream.Collectors;
-
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
@@ -42,6 +32,10 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Util;
+import reactor.core.publisher.Flux;
+import reactor.util.function.Tuple2;
+import reactor.util.function.Tuples;
+import software.amazon.awssdk.services.dynamodb.model.ItemCollectionSizeLimitExceededException;
 
 public class MessagePersister implements Managed {
 
@@ -276,7 +270,7 @@ public class MessagePersister implements Managed {
                     messagesManager.clear(account.getUuid(), deviceToDelete.getId()))
                 .orTimeout((UNLINK_TIMEOUT.toSeconds() * 3) / 4, TimeUnit.SECONDS)
                 .join();
-            accountsManager.update(updatedAccount, a -> a.removeDevice(deviceToDelete.getId()));
+            accountsManager.removeDevice(updatedAccount, deviceToDelete.getId()).join();
           } finally {
             messagesCache.unlockAccountForMessagePersisterCleanup(account.getUuid());
             if (deviceToDelete.getId() != destinationDeviceId) {              // no point in persisting a device we just purged
