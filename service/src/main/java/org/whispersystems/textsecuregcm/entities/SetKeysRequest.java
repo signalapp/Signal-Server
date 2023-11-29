@@ -15,7 +15,7 @@ import javax.validation.constraints.NotNull;
 import java.util.ArrayList;
 import java.util.List;
 
-public record PreKeyState(
+public record SetKeysRequest(
     @Valid
     @Schema(description = """
         A list of unsigned elliptic-curve prekeys to use for this device. If present and not empty, replaces all stored

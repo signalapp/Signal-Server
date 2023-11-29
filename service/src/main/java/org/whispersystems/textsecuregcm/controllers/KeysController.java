@@ -54,7 +54,7 @@ import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.PreKeyCount;
 import org.whispersystems.textsecuregcm.entities.PreKeyResponse;
 import org.whispersystems.textsecuregcm.entities.PreKeyResponseItem;
-import org.whispersystems.textsecuregcm.entities.PreKeyState;
+import org.whispersystems.textsecuregcm.entities.SetKeysRequest;
 import org.whispersystems.textsecuregcm.experiment.Experiment;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
@@ -122,7 +122,7 @@ public class KeysController {
   @ApiResponse(responseCode = "403", description = "Attempt to change identity key from a non-primary device.")
   @ApiResponse(responseCode = "422", description = "Invalid request format.")
   public CompletableFuture<Response> setKeys(@Auth final DisabledPermittedAuthenticatedAccount disabledPermittedAuth,
-      @RequestBody @NotNull @Valid final PreKeyState preKeys,
+      @RequestBody @NotNull @Valid final SetKeysRequest preKeys,
 
       @Parameter(allowEmptyValue=true)
       @Schema(

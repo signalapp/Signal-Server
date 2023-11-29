@@ -56,7 +56,7 @@ import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.PreKeyCount;
 import org.whispersystems.textsecuregcm.entities.PreKeyResponse;
-import org.whispersystems.textsecuregcm.entities.PreKeyState;
+import org.whispersystems.textsecuregcm.entities.SetKeysRequest;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
@@ -732,14 +732,14 @@ class KeysControllerTest {
     final ECSignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, identityKeyPair);
     final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
 
-    final PreKeyState preKeyState = new PreKeyState(List.of(preKey), signedPreKey, null, null, identityKey);
+    final SetKeysRequest setKeysRequest = new SetKeysRequest(List.of(preKey), signedPreKey, null, null, identityKey);
 
     Response response =
         resources.getJerseyTest()
                  .target("/v2/keys")
                  .request()
                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                 .put(Entity.entity(preKeyState, MediaType.APPLICATION_JSON_TYPE));
+                 .put(Entity.entity(setKeysRequest, MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(204);
 
@@ -763,15 +763,15 @@ class KeysControllerTest {
     final KEMSignedPreKey pqLastResortPreKey = KeysHelper.signedKEMPreKey(31340, identityKeyPair);
     final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
 
-    final PreKeyState preKeyState =
-        new PreKeyState(List.of(preKey), signedPreKey, List.of(pqPreKey), pqLastResortPreKey, identityKey);
+    final SetKeysRequest setKeysRequest =
+        new SetKeysRequest(List.of(preKey), signedPreKey, List.of(pqPreKey), pqLastResortPreKey, identityKey);
 
     Response response =
         resources.getJerseyTest()
                  .target("/v2/keys")
                  .request()
                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                 .put(Entity.entity(preKeyState, MediaType.APPLICATION_JSON_TYPE));
+                 .put(Entity.entity(setKeysRequest, MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(204);
 
@@ -867,7 +867,7 @@ class KeysControllerTest {
     final ECSignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, identityKeyPair);
     final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
 
-    final PreKeyState preKeyState = new PreKeyState(List.of(preKey), signedPreKey, null, null, identityKey);
+    final SetKeysRequest setKeysRequest = new SetKeysRequest(List.of(preKey), signedPreKey, null, null, identityKey);
 
     Response response =
         resources.getJerseyTest()
@@ -875,7 +875,7 @@ class KeysControllerTest {
             .queryParam("identity", "pni")
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.entity(preKeyState, MediaType.APPLICATION_JSON_TYPE));
+            .put(Entity.entity(setKeysRequest, MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(204);
 
@@ -899,8 +899,8 @@ class KeysControllerTest {
     final KEMSignedPreKey pqLastResortPreKey = KeysHelper.signedKEMPreKey(31340, identityKeyPair);
     final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
 
-    final PreKeyState preKeyState =
-        new PreKeyState(List.of(preKey), signedPreKey, List.of(pqPreKey), pqLastResortPreKey, identityKey);
+    final SetKeysRequest setKeysRequest =
+        new SetKeysRequest(List.of(preKey), signedPreKey, List.of(pqPreKey), pqLastResortPreKey, identityKey);
 
     Response response =
         resources.getJerseyTest()
@@ -908,7 +908,7 @@ class KeysControllerTest {
             .queryParam("identity", "pni")
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.entity(preKeyState, MediaType.APPLICATION_JSON_TYPE));
+            .put(Entity.entity(setKeysRequest, MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(204);
 
@@ -928,14 +928,14 @@ class KeysControllerTest {
   @Test
   void putPrekeyWithInvalidSignature() {
     final ECSignedPreKey badSignedPreKey = KeysHelper.signedECPreKey(1, Curve.generateKeyPair());
-    final PreKeyState preKeyState = new PreKeyState(List.of(), badSignedPreKey, null, null, IDENTITY_KEY);
+    final SetKeysRequest setKeysRequest = new SetKeysRequest(List.of(), badSignedPreKey, null, null, IDENTITY_KEY);
     Response response =
         resources.getJerseyTest()
             .target("/v2/keys")
             .queryParam("identity", "aci")
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.entity(preKeyState, MediaType.APPLICATION_JSON_TYPE));
+            .put(Entity.entity(setKeysRequest, MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(422);
   }
@@ -947,14 +947,14 @@ class KeysControllerTest {
     final ECSignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, identityKeyPair);
     final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
 
-    final PreKeyState preKeyState = new PreKeyState(List.of(preKey), signedPreKey, null, null, identityKey);
+    final SetKeysRequest setKeysRequest = new SetKeysRequest(List.of(preKey), signedPreKey, null, null, identityKey);
 
     Response response =
         resources.getJerseyTest()
             .target("/v2/keys")
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_UUID, AuthHelper.DISABLED_PASSWORD))
-            .put(Entity.entity(preKeyState, MediaType.APPLICATION_JSON_TYPE));
+            .put(Entity.entity(setKeysRequest, MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(204);
 
@@ -979,7 +979,7 @@ class KeysControllerTest {
 
     final List<ECPreKey> preKeys = List.of(preKey);
 
-    final PreKeyState preKeyState = new PreKeyState(preKeys, signedPreKey, null, null, IDENTITY_KEY);
+    final SetKeysRequest setKeysRequest = new SetKeysRequest(preKeys, signedPreKey, null, null, IDENTITY_KEY);
 
     Response response =
         resources.getJerseyTest()
@@ -987,7 +987,7 @@ class KeysControllerTest {
                  .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_3, SAMPLE_DEVICE_ID2,
                 AuthHelper.VALID_PASSWORD_3_LINKED))
-                 .put(Entity.entity(preKeyState, MediaType.APPLICATION_JSON_TYPE));
+                 .put(Entity.entity(setKeysRequest, MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(403);
   }
