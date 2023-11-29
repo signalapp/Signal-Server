@@ -61,11 +61,14 @@ public class RemoteConfigController {
 
   private final GoogleIdTokenVerifier googleIdTokenVerifier;
 
+  private final Clock clock;
+
   private static final String GLOBAL_CONFIG_PREFIX = "global.";
 
   public RemoteConfigController(RemoteConfigsManager remoteConfigsManager, AdminEventLogger adminEventLogger,
       Set<String> configAuthUsers, String requiredHostedDomain, List<String> audience,
-      final GoogleIdTokenVerifier.Builder googleIdTokenVerifierBuilder, Map<String, String> globalConfig) {
+      final GoogleIdTokenVerifier.Builder googleIdTokenVerifierBuilder, Map<String, String> globalConfig,
+      final Clock clock) {
     this.remoteConfigsManager = remoteConfigsManager;
     this.adminEventLogger = Objects.requireNonNull(adminEventLogger);
     this.configAuthUsers = configAuthUsers;
@@ -73,6 +76,8 @@ public class RemoteConfigController {
 
     this.requiredHostedDomain = requiredHostedDomain;
     this.googleIdTokenVerifier = googleIdTokenVerifierBuilder.setAudience(audience).build();
+
+    this.clock = clock;
   }
 
   @GET
@@ -90,7 +95,7 @@ public class RemoteConfigController {
             config.getUuids());
         return new UserRemoteConfig(config.getName(), inBucket,
             inBucket ? config.getValue() : config.getDefaultValue());
-      }), globalConfigStream).collect(Collectors.toList()), Clock.systemUTC().instant());
+      }), globalConfigStream).collect(Collectors.toList()), clock.instant());
     } catch (NoSuchAlgorithmException e) {
       throw new AssertionError(e);
     }

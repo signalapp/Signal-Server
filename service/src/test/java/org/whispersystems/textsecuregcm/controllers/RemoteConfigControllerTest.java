@@ -23,6 +23,7 @@ import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -34,6 +35,8 @@ import java.util.Set;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import org.assertj.core.api.Assertions;
+import org.assertj.core.api.InstanceOfAssertFactory;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -49,6 +52,7 @@ import org.whispersystems.textsecuregcm.mappers.DeviceLimitExceededExceptionMapp
 import org.whispersystems.textsecuregcm.storage.RemoteConfig;
 import org.whispersystems.textsecuregcm.storage.RemoteConfigsManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
+import org.whispersystems.textsecuregcm.util.TestClock;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class RemoteConfigControllerTest {
@@ -67,6 +71,10 @@ class RemoteConfigControllerTest {
     when(googleIdVerificationTokenBuilder.build()).thenReturn(googleIdTokenVerifier);
   }
 
+  private static final long PINNED_EPOCH_SECONDS = 1701287216L;
+  private static final TestClock TEST_CLOCK = TestClock.pinned(Instant.ofEpochSecond(PINNED_EPOCH_SECONDS));
+
+
   private static final ResourceExtension resources = ResourceExtension.builder()
       .addProvider(AuthHelper.getAuthFilter())
       .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(
@@ -75,7 +83,7 @@ class RemoteConfigControllerTest {
       .addProvider(new DeviceLimitExceededExceptionMapper())
       .addResource(new RemoteConfigController(remoteConfigsManager, new NoOpAdminEventLogger(), remoteConfigsUsers,
           requiredHostedDomain, Collections.singletonList("aud.example.com"),
-          googleIdVerificationTokenBuilder, Map.of("maxGroupSize", "42")))
+          googleIdVerificationTokenBuilder, Map.of("maxGroupSize", "42"), TEST_CLOCK))
       .build();
 
 
@@ -151,6 +159,20 @@ class RemoteConfigControllerTest {
     assertThat(configuration.getConfig().get(8).getName()).isEqualTo("linked.config.1");
     assertThat(configuration.getConfig().get(9).getName()).isEqualTo("unlinked.config");
     assertThat(configuration.getConfig().get(10).getName()).isEqualTo("global.maxGroupSize");
+  }
+
+  @Test
+  void testServerEpochTime() {
+    Object serverEpochTime = resources.getJerseyTest()
+        .target("/v1/config/")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .get(Map.class)
+        .get("serverEpochTime");
+
+    assertThat(serverEpochTime).asInstanceOf(new InstanceOfAssertFactory<>(Number.class, Assertions::assertThat))
+        .extracting(Number::longValue)
+        .isEqualTo(PINNED_EPOCH_SECONDS);
   }
 
   @Test

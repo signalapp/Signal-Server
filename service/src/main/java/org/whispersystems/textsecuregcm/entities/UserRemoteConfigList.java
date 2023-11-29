@@ -7,10 +7,10 @@ package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
+import org.whispersystems.textsecuregcm.util.InstantAdapter;
 
 public class UserRemoteConfigList {
 
@@ -18,6 +18,7 @@ public class UserRemoteConfigList {
   private List<UserRemoteConfig> config;
 
   @JsonProperty
+  @JsonSerialize(using = InstantAdapter.EpochSecondSerializer.class)
   @JsonFormat(shape = JsonFormat.Shape.NUMBER_INT)
   private Instant serverEpochTime;
 
@@ -25,7 +26,7 @@ public class UserRemoteConfigList {
 
   public UserRemoteConfigList(List<UserRemoteConfig> config, Instant serverEpochTime) {
     this.config = config;
-    this.serverEpochTime = serverEpochTime != null ? serverEpochTime.truncatedTo(ChronoUnit.SECONDS) : null;
+    this.serverEpochTime = serverEpochTime;
   }
 
   public List<UserRemoteConfig> getConfig() {
