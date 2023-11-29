@@ -4,11 +4,10 @@
  */
 package org.whispersystems.textsecuregcm.controllers;
 
-import com.google.common.net.HttpHeaders;
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
+
 import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Tag;
-import io.micrometer.core.instrument.Tags;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -81,6 +80,7 @@ public class AccountController {
   public static final int USERNAME_HASH_LENGTH = 32;
   public static final int MAXIMUM_USERNAME_CIPHERTEXT_LENGTH = 128;
 
+  private static final String INVALID_REGISTRATION_ID = name(AccountController.class, "invalidRegistrationId");
   private final AccountsManager accounts;
   private final RateLimiters rateLimiters;
   private final TurnTokenGenerator turnTokenGenerator;
@@ -222,25 +222,10 @@ public class AccountController {
   @ChangesDeviceEnabledState
   public void setAccountAttributes(
       @Auth DisabledPermittedAuthenticatedAccount disabledPermittedAuth,
-      @HeaderParam(HeaderUtils.X_SIGNAL_AGENT) String signalAgent,
-      @HeaderParam(HttpHeaders.USER_AGENT) String userAgent,
+      @HeaderParam(HeaderUtils.X_SIGNAL_AGENT) String userAgent,
       @NotNull @Valid AccountAttributes attributes) {
     final Account account = disabledPermittedAuth.getAccount();
     final byte deviceId = disabledPermittedAuth.getAuthenticatedDevice().getId();
-
-    final boolean aciRegistrationIdChanged = account.getDevice(deviceId)
-        .map(device -> device.getRegistrationId() != attributes.getRegistrationId())
-        .orElse(false);
-
-    final boolean pniRegistrationIdChanged;
-
-    if (attributes.getPhoneNumberIdentityRegistrationId().isPresent()) {
-      pniRegistrationIdChanged = account.getDevice(deviceId)
-          .map(device -> !attributes.getPhoneNumberIdentityRegistrationId().equals(device.getPhoneNumberIdentityRegistrationId()))
-          .orElse(false);
-    } else {
-      pniRegistrationIdChanged = false;
-    }
 
     final Account updatedAccount = accounts.update(account, a -> {
       a.getDevice(deviceId).ifPresent(d -> {
@@ -250,7 +235,7 @@ public class AccountController {
         d.setCapabilities(attributes.getCapabilities());
         d.setRegistrationId(attributes.getRegistrationId());
         attributes.getPhoneNumberIdentityRegistrationId().ifPresent(d::setPhoneNumberIdentityRegistrationId);
-        d.setUserAgent(signalAgent);
+        d.setUserAgent(userAgent);
       });
 
       a.setRegistrationLockFromAttributes(attributes);
@@ -263,12 +248,8 @@ public class AccountController {
     attributes.recoveryPassword().ifPresent(registrationRecoveryPassword ->
         registrationRecoveryPasswordsManager.storeForCurrentNumber(updatedAccount.getNumber(), registrationRecoveryPassword));
 
-    final Tags tags = Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
-        Tag.of("pniRegistrationIdPresent", String.valueOf(attributes.getPhoneNumberIdentityRegistrationId().isPresent())),
-        Tag.of("aciRegistrationIdChanged", String.valueOf(aciRegistrationIdChanged)),
-        Tag.of("pniRegistrationIdChanged", String.valueOf(pniRegistrationIdChanged)));
-
-    Metrics.counter(SET_ATTRIBUTES_COUNTER_NAME, tags)
+    Metrics.counter(SET_ATTRIBUTES_COUNTER_NAME,
+            "pniRegistrationIdPresent", String.valueOf(attributes.getPhoneNumberIdentityRegistrationId().isPresent()))
         .increment();
   }
 
