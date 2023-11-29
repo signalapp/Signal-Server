@@ -445,7 +445,7 @@ public class Accounts extends AbstractDynamoDbStore {
     final byte[] accountJsonBytes;
 
     try {
-      accountJsonBytes = SystemMapper.jsonMapper().writeValueAsBytes(account);
+      accountJsonBytes = ACCOUNT_DDB_JSON_WRITER.writeValueAsBytes(account);
     } catch (final JsonProcessingException e) {
       throw new IllegalArgumentException(e);
     }
