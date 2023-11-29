@@ -7,9 +7,6 @@ package org.whispersystems.textsecuregcm;
 import static com.codahale.metrics.MetricRegistry.name;
 import static java.util.Objects.requireNonNull;
 
-import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
-import com.google.api.client.http.apache.v2.ApacheHttpTransport;
-import com.google.api.client.json.gson.GsonFactory;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.logging.LoggingOptions;
 import com.google.common.collect.ImmutableMap;
@@ -808,14 +805,20 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new AccountControllerV2(accountsManager, changeNumberManager, phoneVerificationTokenManager,
             registrationLockVerificationManager, rateLimiters),
         new ArtController(rateLimiters, artCredentialsGenerator),
-        new AttachmentControllerV2(rateLimiters, config.getAwsAttachmentsConfiguration().accessKey().value(), config.getAwsAttachmentsConfiguration().accessSecret().value(), config.getAwsAttachmentsConfiguration().region(), config.getAwsAttachmentsConfiguration().bucket()),
+        new AttachmentControllerV2(rateLimiters, config.getAwsAttachmentsConfiguration().accessKey().value(),
+            config.getAwsAttachmentsConfiguration().accessSecret().value(),
+            config.getAwsAttachmentsConfiguration().region(), config.getAwsAttachmentsConfiguration().bucket()),
         new AttachmentControllerV3(rateLimiters, gcsAttachmentGenerator),
-        new AttachmentControllerV4(rateLimiters, gcsAttachmentGenerator, new TusAttachmentGenerator(config.getTus()), experimentEnrollmentManager),
+        new AttachmentControllerV4(rateLimiters, gcsAttachmentGenerator, new TusAttachmentGenerator(config.getTus()),
+            experimentEnrollmentManager),
         new ArchiveController(backupAuthManager, backupManager),
         new CallLinkController(rateLimiters, callingGenericZkSecretParams),
-        new CertificateController(new CertificateGenerator(config.getDeliveryCertificate().certificate().value(), config.getDeliveryCertificate().ecPrivateKey(), config.getDeliveryCertificate().expiresDays()), zkAuthOperations, callingGenericZkSecretParams, clock),
+        new CertificateController(new CertificateGenerator(config.getDeliveryCertificate().certificate().value(),
+            config.getDeliveryCertificate().ecPrivateKey(), config.getDeliveryCertificate().expiresDays()),
+            zkAuthOperations, callingGenericZkSecretParams, clock),
         new ChallengeController(rateLimitChallengeManager, useRemoteAddress),
-        new DeviceController(config.getLinkDeviceSecretConfiguration().secret().value(), accountsManager, messagesManager, keysManager, rateLimiters,
+        new DeviceController(config.getLinkDeviceSecretConfiguration().secret().value(), accountsManager,
+            messagesManager, keysManager, rateLimiters,
             rateLimitersCluster, config.getMaxDevices(), clock),
         new DirectoryV2Controller(directoryV2CredentialsGenerator),
         new DonationController(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager, config.getBadges(),
@@ -831,13 +834,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new ProvisioningController(rateLimiters, provisioningManager),
         new RegistrationController(accountsManager, phoneVerificationTokenManager, registrationLockVerificationManager,
             rateLimiters),
-        new RemoteConfigController(remoteConfigsManager, adminEventLogger,
-            config.getRemoteConfigConfiguration().authorizedUsers(),
-            config.getRemoteConfigConfiguration().requiredHostedDomain(),
-            config.getRemoteConfigConfiguration().audiences(),
-            new GoogleIdTokenVerifier.Builder(new ApacheHttpTransport(), new GsonFactory()),
-            config.getRemoteConfigConfiguration().globalConfig(),
-            clock),
+        new RemoteConfigController(remoteConfigsManager, config.getRemoteConfigConfiguration().globalConfig(), clock),
         new SecureStorageController(storageCredentialsGenerator),
         new SecureValueRecovery2Controller(svr2CredentialsGenerator, accountsManager),
         new SecureValueRecovery3Controller(svr3CredentialsGenerator, accountsManager),

@@ -31,24 +31,4 @@ class RemoteConfigsManagerTest {
     // A memoized supplier should prevent multiple calls to the underlying data source
     verify(remoteConfigs, times(1)).getAll();
   }
-
-  @Test
-  void testSet() {
-    final RemoteConfig remoteConfig = mock(RemoteConfig.class);
-
-    remoteConfigsManager.set(remoteConfig);
-    remoteConfigsManager.set(remoteConfig);
-
-    verify(remoteConfigs, times(2)).set(remoteConfig);
-  }
-
-  @Test
-  void testDelete() {
-    final String name = "name";
-
-    remoteConfigsManager.delete(name);
-    remoteConfigsManager.delete(name);
-
-    verify(remoteConfigs, times(2)).delete(name);
-  }
 }
