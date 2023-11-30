@@ -10,6 +10,8 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.internal.exceptions.Reporter.noMoreInteractionsWanted;
+import static org.mockito.internal.exceptions.Reporter.tooFewActualInvocations;
+import static org.mockito.internal.exceptions.Reporter.tooManyActualInvocations;
 import static org.mockito.internal.exceptions.Reporter.wantedButNotInvoked;
 import static org.mockito.internal.invocation.InvocationMarker.markVerified;
 import static org.mockito.internal.invocation.InvocationsFinder.findFirstUnverified;
@@ -26,6 +28,7 @@ import org.mockito.Mockito;
 import org.mockito.invocation.Invocation;
 import org.mockito.invocation.MatchableInvocation;
 import org.mockito.verification.VerificationMode;
+import org.mockito.internal.verification.Times;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretBytes;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
@@ -171,10 +174,17 @@ public final class MockUtils {
    * this method
    */
   public static VerificationMode exactly() {
+    return exactly(1);
+  }
+
+  /**
+   * a combination of {@link #exactly()} and {@link org.mockito.Mockito#times(int)}, verifies that
+   * there are exactly N invocations of this method, and all of them match the given specification
+   */
+  public static VerificationMode exactly(int wantedCount) {
     return data -> {
       MatchableInvocation target = data.getTarget();
       final List<Invocation> allInvocations = data.getAllInvocations();
-      List<Invocation> chunk = findInvocations(allInvocations, target);
       List<Invocation> otherInvocations = allInvocations.stream()
           .filter(target::hasSameMethod)
           .filter(Predicate.not(target::matches))
@@ -184,10 +194,7 @@ public final class MockUtils {
         Invocation unverified = findFirstUnverified(otherInvocations);
         throw noMoreInteractionsWanted(unverified, (List) allInvocations);
       }
-      if (chunk.isEmpty()) {
-        throw wantedButNotInvoked(target);
-      }
-      markVerified(chunk.get(0), target);
+      Mockito.times(wantedCount).verify(data);
     };
   }
 
