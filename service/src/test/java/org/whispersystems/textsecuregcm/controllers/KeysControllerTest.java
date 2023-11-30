@@ -734,7 +734,9 @@ class KeysControllerTest {
     final ECSignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, identityKeyPair);
     final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
 
-    final SetKeysRequest setKeysRequest = new SetKeysRequest(List.of(preKey), signedPreKey, null, null, identityKey);
+    final SetKeysRequest setKeysRequest = new SetKeysRequest(List.of(preKey), signedPreKey, null, null);
+
+    when(AuthHelper.VALID_ACCOUNT.getIdentityKey(IdentityType.ACI)).thenReturn(identityKey);
 
     Response response =
         resources.getJerseyTest()
@@ -751,7 +753,6 @@ class KeysControllerTest {
 
     assertThat(listCaptor.getValue()).containsExactly(preKey);
 
-    verify(AuthHelper.VALID_ACCOUNT).setIdentityKey(eq(identityKey));
     verify(AuthHelper.VALID_DEVICE).setSignedPreKey(eq(signedPreKey));
     verify(accounts).update(eq(AuthHelper.VALID_ACCOUNT), any());
   }
@@ -766,7 +767,9 @@ class KeysControllerTest {
     final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
 
     final SetKeysRequest setKeysRequest =
-        new SetKeysRequest(List.of(preKey), signedPreKey, List.of(pqPreKey), pqLastResortPreKey, identityKey);
+        new SetKeysRequest(List.of(preKey), signedPreKey, List.of(pqPreKey), pqLastResortPreKey);
+
+    when(AuthHelper.VALID_ACCOUNT.getIdentityKey(IdentityType.ACI)).thenReturn(identityKey);
 
     Response response =
         resources.getJerseyTest()
@@ -785,7 +788,6 @@ class KeysControllerTest {
     assertThat(ecCaptor.getValue()).containsExactly(preKey);
     assertThat(pqCaptor.getValue()).containsExactly(pqPreKey);
 
-    verify(AuthHelper.VALID_ACCOUNT).setIdentityKey(eq(identityKey));
     verify(AuthHelper.VALID_DEVICE).setSignedPreKey(eq(signedPreKey));
     verify(accounts).update(eq(AuthHelper.VALID_ACCOUNT), any());
   }
@@ -869,7 +871,9 @@ class KeysControllerTest {
     final ECSignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, identityKeyPair);
     final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
 
-    final SetKeysRequest setKeysRequest = new SetKeysRequest(List.of(preKey), signedPreKey, null, null, identityKey);
+    final SetKeysRequest setKeysRequest = new SetKeysRequest(List.of(preKey), signedPreKey, null, null);
+
+    when(AuthHelper.VALID_ACCOUNT.getIdentityKey(IdentityType.PNI)).thenReturn(identityKey);
 
     Response response =
         resources.getJerseyTest()
@@ -887,7 +891,6 @@ class KeysControllerTest {
 
     assertThat(listCaptor.getValue()).containsExactly(preKey);
 
-    verify(AuthHelper.VALID_ACCOUNT).setPhoneNumberIdentityKey(eq(identityKey));
     verify(AuthHelper.VALID_DEVICE).setPhoneNumberIdentitySignedPreKey(eq(signedPreKey));
     verify(accounts).update(eq(AuthHelper.VALID_ACCOUNT), any());
   }
@@ -902,7 +905,9 @@ class KeysControllerTest {
     final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
 
     final SetKeysRequest setKeysRequest =
-        new SetKeysRequest(List.of(preKey), signedPreKey, List.of(pqPreKey), pqLastResortPreKey, identityKey);
+        new SetKeysRequest(List.of(preKey), signedPreKey, List.of(pqPreKey), pqLastResortPreKey);
+
+    when(AuthHelper.VALID_ACCOUNT.getIdentityKey(IdentityType.PNI)).thenReturn(identityKey);
 
     Response response =
         resources.getJerseyTest()
@@ -922,7 +927,6 @@ class KeysControllerTest {
     assertThat(ecCaptor.getValue()).containsExactly(preKey);
     assertThat(pqCaptor.getValue()).containsExactly(pqPreKey);
 
-    verify(AuthHelper.VALID_ACCOUNT).setPhoneNumberIdentityKey(eq(identityKey));
     verify(AuthHelper.VALID_DEVICE).setPhoneNumberIdentitySignedPreKey(eq(signedPreKey));
     verify(accounts).update(eq(AuthHelper.VALID_ACCOUNT), any());
   }
@@ -930,7 +934,7 @@ class KeysControllerTest {
   @Test
   void putPrekeyWithInvalidSignature() {
     final ECSignedPreKey badSignedPreKey = KeysHelper.signedECPreKey(1, Curve.generateKeyPair());
-    final SetKeysRequest setKeysRequest = new SetKeysRequest(List.of(), badSignedPreKey, null, null, IDENTITY_KEY);
+    final SetKeysRequest setKeysRequest = new SetKeysRequest(List.of(), badSignedPreKey, null, null);
     Response response =
         resources.getJerseyTest()
             .target("/v2/keys")
@@ -949,7 +953,9 @@ class KeysControllerTest {
     final ECSignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, identityKeyPair);
     final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
 
-    final SetKeysRequest setKeysRequest = new SetKeysRequest(List.of(preKey), signedPreKey, null, null, identityKey);
+    when(AuthHelper.DISABLED_ACCOUNT.getIdentityKey(IdentityType.ACI)).thenReturn(identityKey);
+
+    final SetKeysRequest setKeysRequest = new SetKeysRequest(List.of(preKey), signedPreKey, null, null);
 
     Response response =
         resources.getJerseyTest()
@@ -969,28 +975,7 @@ class KeysControllerTest {
     assertThat(capturedList.get(0).keyId()).isEqualTo(31337);
     assertThat(capturedList.get(0).publicKey()).isEqualTo(preKey.publicKey());
 
-    verify(AuthHelper.DISABLED_ACCOUNT).setIdentityKey(eq(identityKey));
     verify(AuthHelper.DISABLED_DEVICE).setSignedPreKey(eq(signedPreKey));
     verify(accounts).update(eq(AuthHelper.DISABLED_ACCOUNT), any());
-  }
-
-  @Test
-  void putIdentityKeyNonPrimary() {
-    final ECPreKey preKey = KeysHelper.ecPreKey(31337);
-    final ECSignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, IDENTITY_KEY_PAIR);
-
-    final List<ECPreKey> preKeys = List.of(preKey);
-
-    final SetKeysRequest setKeysRequest = new SetKeysRequest(preKeys, signedPreKey, null, null, IDENTITY_KEY);
-
-    Response response =
-        resources.getJerseyTest()
-                 .target("/v2/keys")
-                 .request()
-            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_3, SAMPLE_DEVICE_ID2,
-                AuthHelper.VALID_PASSWORD_3_LINKED))
-                 .put(Entity.entity(setKeysRequest, MediaType.APPLICATION_JSON_TYPE));
-
-    assertThat(response.getStatus()).isEqualTo(403);
   }
 }

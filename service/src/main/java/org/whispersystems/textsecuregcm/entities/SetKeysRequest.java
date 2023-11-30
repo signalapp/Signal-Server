@@ -4,16 +4,9 @@
  */
 package org.whispersystems.textsecuregcm.entities;
 
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import io.swagger.v3.oas.annotations.media.Schema;
-import org.signal.libsignal.protocol.IdentityKey;
-import org.whispersystems.textsecuregcm.util.IdentityKeyAdapter;
-import javax.validation.Valid;
-import javax.validation.constraints.AssertTrue;
-import javax.validation.constraints.NotNull;
-import java.util.ArrayList;
 import java.util.List;
+import javax.validation.Valid;
 
 public record SetKeysRequest(
     @Valid
@@ -46,31 +39,5 @@ public record SetKeysRequest(
         signed post-quantum last-resort prekey for the device; if absent, a stored last-resort prekey will *not* be
         deleted. If present, must have a valid signature from the identity key in this request.
         """)
-    KEMSignedPreKey pqLastResortPreKey,
-
-    @JsonSerialize(using = IdentityKeyAdapter.Serializer.class)
-    @JsonDeserialize(using = IdentityKeyAdapter.Deserializer.class)
-    @NotNull
-    @Schema(description = """
-        Required. The public identity key for this identity (account or phone-number identity). If this device is not
-        the primary device for the account, must match the existing stored identity key for this identity.
-        """)
-    IdentityKey identityKey
-) {
-
-  @AssertTrue
-  public boolean isSignatureValidOnEachSignedKey() {
-    List<SignedPreKey<?>> spks = new ArrayList<>();
-    if (pqPreKeys != null) {
-      spks.addAll(pqPreKeys);
-    }
-    if (pqLastResortPreKey != null) {
-      spks.add(pqLastResortPreKey);
-    }
-    if (signedPreKey != null) {
-      spks.add(signedPreKey);
-    }
-    return spks.isEmpty() || PreKeySignatureValidator.validatePreKeySignatures(identityKey, spks);
-  }
-
+    KEMSignedPreKey pqLastResortPreKey) {
 }

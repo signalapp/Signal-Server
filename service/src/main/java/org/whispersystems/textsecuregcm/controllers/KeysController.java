@@ -4,12 +4,8 @@
  */
 package org.whispersystems.textsecuregcm.controllers;
 
-import static com.codahale.metrics.MetricRegistry.name;
-
 import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.Auth;
-import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Tags;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.headers.Header;
@@ -17,19 +13,15 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DefaultValue;
-import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.PUT;
@@ -41,8 +33,6 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import org.signal.libsignal.protocol.IdentityKey;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.ChangesDeviceEnabledState;
@@ -54,12 +44,13 @@ import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.PreKeyCount;
 import org.whispersystems.textsecuregcm.entities.PreKeyResponse;
 import org.whispersystems.textsecuregcm.entities.PreKeyResponseItem;
+import org.whispersystems.textsecuregcm.entities.PreKeySignatureValidator;
 import org.whispersystems.textsecuregcm.entities.SetKeysRequest;
+import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.experiment.Experiment;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -75,14 +66,6 @@ public class KeysController {
   private final KeysManager keys;
   private final AccountsManager accounts;
   private final Experiment compareSignedEcPreKeysExperiment = new Experiment("compareSignedEcPreKeys");
-
-  private static final String IDENTITY_KEY_CHANGE_COUNTER_NAME = name(KeysController.class, "identityKeyChange");
-  private static final String IDENTITY_KEY_CHANGE_FORBIDDEN_COUNTER_NAME = name(KeysController.class, "identityKeyChangeForbidden");
-
-  private static final String IDENTITY_TYPE_TAG_NAME = "identityType";
-  private static final String HAS_IDENTITY_KEY_TAG_NAME = "hasIdentityKey";
-
-  private static final Logger logger = LoggerFactory.getLogger(KeysController.class);
 
   public KeysController(RateLimiters rateLimiters, KeysManager keys, AccountsManager accounts) {
     this.rateLimiters = rateLimiters;
@@ -112,78 +95,63 @@ public class KeysController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   @ChangesDeviceEnabledState
-  @Operation(summary = "Upload new prekeys",
-      description = """
-          Upload new prekeys for this device. Can also be used, from the primary device only, to set the account's identity
-          key, but this is deprecated now that accounts can be created atomically.
-      """)
+  @Operation(summary = "Upload new prekeys", description = "Upload new pre-keys for this device.")
   @ApiResponse(responseCode = "200", description = "Indicates that new keys were successfully stored.")
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
   @ApiResponse(responseCode = "403", description = "Attempt to change identity key from a non-primary device.")
   @ApiResponse(responseCode = "422", description = "Invalid request format.")
   public CompletableFuture<Response> setKeys(@Auth final DisabledPermittedAuthenticatedAccount disabledPermittedAuth,
-      @RequestBody @NotNull @Valid final SetKeysRequest preKeys,
+      @RequestBody @NotNull @Valid final SetKeysRequest setKeysRequest,
 
       @Parameter(allowEmptyValue=true)
       @Schema(
           allowableValues={"aci", "pni"},
           defaultValue="aci",
           description="whether this operation applies to the account (aci) or phone-number (pni) identity")
-      @QueryParam("identity") @DefaultValue("aci") final IdentityType identityType,
+      @QueryParam("identity") @DefaultValue("aci") final IdentityType identityType) {
 
-      @HeaderParam(HttpHeaders.USER_AGENT) String userAgent) {
     Account account = disabledPermittedAuth.getAccount();
-    Device device = disabledPermittedAuth.getAuthenticatedDevice();
-    boolean updateAccount = false;
+    final Device device = disabledPermittedAuth.getAuthenticatedDevice();
 
-    if (preKeys.signedPreKey() != null && !preKeys.signedPreKey().equals(device.getSignedPreKey(identityType))) {
-      updateAccount = true;
-    }
+    checkSignedPreKeySignatures(setKeysRequest, account.getIdentityKey(identityType));
 
-    final IdentityKey oldIdentityKey = account.getIdentityKey(identityType);
-    if (!Objects.equals(preKeys.identityKey(), oldIdentityKey)) {
-      updateAccount = true;
+    if (setKeysRequest.signedPreKey() != null &&
+        !setKeysRequest.signedPreKey().equals(device.getSignedPreKey(identityType))) {
 
-      final boolean hasIdentityKey = oldIdentityKey != null;
-      final Tags tags = Tags.of(UserAgentTagUtil.getPlatformTag(userAgent))
-          .and(HAS_IDENTITY_KEY_TAG_NAME, String.valueOf(hasIdentityKey))
-          .and(IDENTITY_TYPE_TAG_NAME, identityType.name());
-
-      if (!device.isPrimary()) {
-        Metrics.counter(IDENTITY_KEY_CHANGE_FORBIDDEN_COUNTER_NAME, tags).increment();
-
-        throw new ForbiddenException();
-      }
-      Metrics.counter(IDENTITY_KEY_CHANGE_COUNTER_NAME, tags).increment();
-
-      if (hasIdentityKey) {
-        logger.warn("Existing {} identity key changed; account age is {} days",
-            identityType,
-            Duration.between(Instant.ofEpochMilli(device.getCreated()), Instant.now()).toDays());
-      }
-    }
-
-    if (updateAccount) {
-      account = accounts.update(account, a -> {
-        if (preKeys.signedPreKey() != null) {
-          a.getDevice(device.getId()).ifPresent(d -> {
-            switch (identityType) {
-              case ACI -> d.setSignedPreKey(preKeys.signedPreKey());
-              case PNI -> d.setPhoneNumberIdentitySignedPreKey(preKeys.signedPreKey());
-            }
-          });
-        }
-
+      account = accounts.update(account, a -> a.getDevice(device.getId()).ifPresent(d -> {
         switch (identityType) {
-          case ACI -> a.setIdentityKey(preKeys.identityKey());
-          case PNI -> a.setPhoneNumberIdentityKey(preKeys.identityKey());
+          case ACI -> d.setSignedPreKey(setKeysRequest.signedPreKey());
+          case PNI -> d.setPhoneNumberIdentitySignedPreKey(setKeysRequest.signedPreKey());
         }
-      });
+      }));
     }
 
     return keys.store(account.getIdentifier(identityType), device.getId(),
-        preKeys.preKeys(), preKeys.pqPreKeys(), preKeys.signedPreKey(), preKeys.pqLastResortPreKey())
+        setKeysRequest.preKeys(), setKeysRequest.pqPreKeys(), setKeysRequest.signedPreKey(), setKeysRequest.pqLastResortPreKey())
         .thenApply(Util.ASYNC_EMPTY_RESPONSE);
+  }
+
+  private void checkSignedPreKeySignatures(final SetKeysRequest setKeysRequest, final IdentityKey identityKey) {
+    final List<SignedPreKey<?>> signedPreKeys = new ArrayList<>();
+
+    if (setKeysRequest.pqPreKeys() != null) {
+      signedPreKeys.addAll(setKeysRequest.pqPreKeys());
+    }
+
+    if (setKeysRequest.pqLastResortPreKey() != null) {
+      signedPreKeys.add(setKeysRequest.pqLastResortPreKey());
+    }
+
+    if (setKeysRequest.signedPreKey() != null) {
+      signedPreKeys.add(setKeysRequest.signedPreKey());
+    }
+
+    final boolean allSignaturesValid =
+        signedPreKeys.isEmpty() || PreKeySignatureValidator.validatePreKeySignatures(identityKey, signedPreKeys);
+
+    if (!allSignaturesValid) {
+      throw new WebApplicationException("Invalid signature", 422);
+    }
   }
 
   @GET
@@ -288,7 +256,7 @@ public class KeysController {
   @ChangesDeviceEnabledState
   @Operation(summary = "Upload a new signed prekey",
       description = """
-          Upload a new signed elliptic-curve prekey for this device. Deprecated; use PUT /v2/keys with instead.
+          Upload a new signed elliptic-curve prekey for this device. Deprecated; use PUT /v2/keys instead.
       """)
   @ApiResponse(responseCode = "200", description = "Indicates that new prekey was successfully stored.")
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
