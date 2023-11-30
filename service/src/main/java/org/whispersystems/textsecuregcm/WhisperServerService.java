@@ -116,6 +116,7 @@ import org.whispersystems.textsecuregcm.controllers.RegistrationController;
 import org.whispersystems.textsecuregcm.controllers.RemoteConfigController;
 import org.whispersystems.textsecuregcm.controllers.SecureStorageController;
 import org.whispersystems.textsecuregcm.controllers.SecureValueRecovery2Controller;
+import org.whispersystems.textsecuregcm.controllers.SecureValueRecovery3Controller;
 import org.whispersystems.textsecuregcm.controllers.StickerController;
 import org.whispersystems.textsecuregcm.controllers.SubscriptionController;
 import org.whispersystems.textsecuregcm.controllers.VerificationController;
@@ -496,7 +497,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ExternalServiceCredentialsGenerator artCredentialsGenerator = ArtController.credentialsGenerator(
         config.getArtServiceConfiguration());
     ExternalServiceCredentialsGenerator svr2CredentialsGenerator = SecureValueRecovery2Controller.credentialsGenerator(
-        config.getSvr2Configuration());
+            config.getSvr2Configuration());
+    ExternalServiceCredentialsGenerator svr3CredentialsGenerator = SecureValueRecovery3Controller.credentialsGenerator(
+        config.getSvr3Configuration());
 
     dynamicConfigurationManager.start();
 
@@ -831,6 +834,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             clock),
         new SecureStorageController(storageCredentialsGenerator),
         new SecureValueRecovery2Controller(svr2CredentialsGenerator, accountsManager),
+        new SecureValueRecovery3Controller(svr3CredentialsGenerator, accountsManager),
         new StickerController(rateLimiters, config.getCdnConfiguration().accessKey().value(),
             config.getCdnConfiguration().accessSecret().value(), config.getCdnConfiguration().region(),
             config.getCdnConfiguration().bucket()),
