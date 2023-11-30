@@ -217,6 +217,8 @@ class KeysControllerTest {
 
     when(existsAccount.getUuid()).thenReturn(EXISTS_UUID);
     when(existsAccount.getPhoneNumberIdentifier()).thenReturn(EXISTS_PNI);
+    when(existsAccount.getIdentifier(IdentityType.ACI)).thenReturn(EXISTS_UUID);
+    when(existsAccount.getIdentifier(IdentityType.PNI)).thenReturn(EXISTS_PNI);
     when(existsAccount.getDevice(sampleDeviceId)).thenReturn(Optional.of(sampleDevice));
     when(existsAccount.getDevice(sampleDevice2Id)).thenReturn(Optional.of(sampleDevice2));
     when(existsAccount.getDevice(sampleDevice3Id)).thenReturn(Optional.of(sampleDevice3));
