@@ -43,10 +43,6 @@ public class KeysManager {
     this.dynamicConfigurationManager = dynamicConfigurationManager;
   }
 
-  public CompletableFuture<Void> store(final UUID identifier, final byte deviceId, final List<ECPreKey> keys) {
-    return store(identifier, deviceId, keys, null, null, null);
-  }
-
   public CompletableFuture<Void> store(
       final UUID identifier, final byte deviceId,
       @Nullable final List<ECPreKey> ecKeys,
@@ -64,8 +60,9 @@ public class KeysManager {
       storeFutures.add(pqPreKeys.store(identifier, deviceId, pqKeys));
     }
 
-    if (ecSignedPreKey != null && dynamicConfigurationManager.getConfiguration().getEcPreKeyMigrationConfiguration()
-        .storeEcSignedPreKeys()) {
+    if (ecSignedPreKey != null
+        && dynamicConfigurationManager.getConfiguration().getEcPreKeyMigrationConfiguration().storeEcSignedPreKeys()) {
+
       storeFutures.add(ecSignedPreKeys.store(identifier, deviceId, ecSignedPreKey));
     }
 
