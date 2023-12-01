@@ -162,7 +162,7 @@ class MessageControllerTest {
   private static final byte[] UNIDENTIFIED_ACCESS_BYTES = "0123456789abcdef".getBytes();
 
   private static final String INTERNATIONAL_RECIPIENT = "+61123456789";
-  private static final UUID INTERNATIONAL_UUID = UUID.fromString("33333333-3333-3333-3333-333333333333");
+  private static final UUID INTERNATIONAL_UUID = UUID.fromString("44444444-4444-4444-4444-444444444444");
 
   @SuppressWarnings("unchecked")
   private static final RedisAdvancedClusterCommands<String, String> redisCommands  = mock(RedisAdvancedClusterCommands.class);
@@ -222,6 +222,13 @@ class MessageControllerTest {
     when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(INTERNATIONAL_UUID))).thenReturn(Optional.of(internationalAccount));
     when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(NONEXISTENT_UUID))).thenReturn(Optional.empty());
     when(accountsManager.getByServiceIdentifier(new PniServiceIdentifier(NONEXISTENT_UUID))).thenReturn(Optional.empty());
+
+    when(accountsManager.getByServiceIdentifierAsync(any())).thenReturn(CompletableFuture.completedFuture(Optional.empty()));
+    when(accountsManager.getByServiceIdentifierAsync(new AciServiceIdentifier(SINGLE_DEVICE_UUID))).thenReturn(CompletableFuture.completedFuture(Optional.of(singleDeviceAccount)));
+    when(accountsManager.getByServiceIdentifierAsync(new PniServiceIdentifier(SINGLE_DEVICE_PNI))).thenReturn(CompletableFuture.completedFuture(Optional.of(singleDeviceAccount)));
+    when(accountsManager.getByServiceIdentifierAsync(new AciServiceIdentifier(MULTI_DEVICE_UUID))).thenReturn(CompletableFuture.completedFuture(Optional.of(multiDeviceAccount)));
+    when(accountsManager.getByServiceIdentifierAsync(new PniServiceIdentifier(MULTI_DEVICE_PNI))).thenReturn(CompletableFuture.completedFuture(Optional.of(multiDeviceAccount)));
+    when(accountsManager.getByServiceIdentifierAsync(new AciServiceIdentifier(INTERNATIONAL_UUID))).thenReturn(CompletableFuture.completedFuture(Optional.of(internationalAccount)));
 
     final DynamicInboundMessageByteLimitConfiguration inboundMessageByteLimitConfiguration =
         mock(DynamicInboundMessageByteLimitConfiguration.class);
@@ -1019,8 +1026,13 @@ class MessageControllerTest {
       final UUID pni = new UUID(1L, (long) i);
       final String e164 = String.format("+1408555%04d", i);
       final Account account = AccountsHelper.generateTestAccount(e164, aci, pni, devices, UNIDENTIFIED_ACCESS_BYTES);
-      when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(aci))).thenReturn(Optional.of(account));
-      when(accountsManager.getByServiceIdentifier(new PniServiceIdentifier(pni))).thenReturn(Optional.of(account));
+
+      when(accountsManager.getByServiceIdentifierAsync(new AciServiceIdentifier(aci)))
+          .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+
+      when(accountsManager.getByServiceIdentifierAsync(new PniServiceIdentifier(pni)))
+          .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+
       devices.forEach(d -> recipients.add(new Recipient(new AciServiceIdentifier(aci), d.getId(), d.getRegistrationId(), new byte[48])));
     }
 

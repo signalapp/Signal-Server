@@ -147,6 +147,9 @@ public class MessageController {
   private final ReportSpamTokenProvider reportSpamTokenProvider;
   private final ClientReleaseManager clientReleaseManager;
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
+
+  private static final int MAX_FETCH_ACCOUNT_CONCURRENCY = 8;
+
   private static final String REJECT_OVERSIZE_MESSAGE_COUNTER = name(MessageController.class, "rejectOversizeMessage");
   private static final String SENT_MESSAGE_COUNTER_NAME = name(MessageController.class, "sentMessages");
   private static final String CONTENT_SIZE_DISTRIBUTION_NAME = name(MessageController.class, "messageContentSize");
@@ -368,7 +371,8 @@ public class MessageController {
     return Flux.fromIterable(multiRecipientMessage.getRecipients().entrySet())
         .map(e -> Tuples.of(ServiceIdentifier.fromLibsignal(e.getKey()), e.getValue()))
         .flatMap(
-            t -> Mono.justOrEmpty(accountsManager.getByServiceIdentifier(t.getT1()))
+            t -> Mono.fromFuture(() -> accountsManager.getByServiceIdentifierAsync(t.getT1()))
+                .flatMap(Mono::justOrEmpty)
                 .switchIfEmpty(isStory ? Mono.empty() : Mono.error(NotFoundException::new))
                 .map(
                     account ->
@@ -379,7 +383,8 @@ public class MessageController {
                             t.getT2().getDevicesAndRegistrationIds().collect(
                                 Collectors.toMap(Pair<Byte, Short>::first, Pair<Byte, Short>::second))))
                 // IllegalStateException is thrown by Collectors#toMap when we have multiple entries for the same device
-                .onErrorMap(e -> e instanceof IllegalStateException ? new BadRequestException() : e))
+                .onErrorMap(e -> e instanceof IllegalStateException ? new BadRequestException() : e),
+            MAX_FETCH_ACCOUNT_CONCURRENCY)
         .collectMap(MultiRecipientDeliveryData::serviceIdentifier)
         .block();
   }
