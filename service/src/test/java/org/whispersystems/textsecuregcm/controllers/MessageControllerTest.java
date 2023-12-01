@@ -138,15 +138,15 @@ import reactor.core.scheduler.Schedulers;
 class MessageControllerTest {
 
   private static final String SINGLE_DEVICE_RECIPIENT = "+14151111111";
-  private static final UUID   SINGLE_DEVICE_UUID      = UUID.fromString("11111111-1111-1111-1111-111111111111");
-  private static final UUID   SINGLE_DEVICE_PNI       = UUID.fromString("11111111-0000-0000-0000-111111111111");
+  private static final UUID   SINGLE_DEVICE_UUID = UUID.randomUUID();
+  private static final UUID   SINGLE_DEVICE_PNI = UUID.randomUUID();
   private static final byte SINGLE_DEVICE_ID1 = 1;
   private static final int SINGLE_DEVICE_REG_ID1 = 111;
   private static final int SINGLE_DEVICE_PNI_REG_ID1 = 1111;
 
   private static final String MULTI_DEVICE_RECIPIENT = "+14152222222";
-  private static final UUID MULTI_DEVICE_UUID = UUID.fromString("22222222-2222-2222-2222-222222222222");
-  private static final UUID MULTI_DEVICE_PNI = UUID.fromString("22222222-0000-0000-0000-222222222222");
+  private static final UUID MULTI_DEVICE_UUID = UUID.randomUUID();
+  private static final UUID MULTI_DEVICE_PNI = UUID.randomUUID();
   private static final byte MULTI_DEVICE_ID1 = 1;
   private static final byte MULTI_DEVICE_ID2 = 2;
   private static final byte MULTI_DEVICE_ID3 = 3;
@@ -157,12 +157,12 @@ class MessageControllerTest {
   private static final int MULTI_DEVICE_PNI_REG_ID2 = 3333;
   private static final int MULTI_DEVICE_PNI_REG_ID3 = 4444;
 
-  private static final UUID NONEXISTENT_UUID = UUID.fromString("33333333-3333-3333-3333-333333333333");
+  private static final UUID NONEXISTENT_UUID = UUID.randomUUID();
 
   private static final byte[] UNIDENTIFIED_ACCESS_BYTES = "0123456789abcdef".getBytes();
 
   private static final String INTERNATIONAL_RECIPIENT = "+61123456789";
-  private static final UUID INTERNATIONAL_UUID = UUID.fromString("44444444-4444-4444-4444-444444444444");
+  private static final UUID INTERNATIONAL_UUID = UUID.randomUUID();
 
   @SuppressWarnings("unchecked")
   private static final RedisAdvancedClusterCommands<String, String> redisCommands  = mock(RedisAdvancedClusterCommands.class);
