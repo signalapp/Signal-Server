@@ -1697,10 +1697,16 @@ paths:
     put:
       tags:
       - Messages
+      summary: Send multi-recipient sealed-sender message
+      description: |
+        Deliver a common-payload message to multiple recipients.
+        An unidentifed-access key for all recipients must be provided, unless the message is a story.
       operationId: sendMultiRecipientMessage
       parameters:
       - name: Unidentified-Access-Key
         in: header
+        description: The bitwise xor of the unidentified access keys for every recipient
+          of the message
         schema:
           $ref: '#/components/schemas/CombinedUnidentifiedSenderAccessKeys'
       - name: User-Agent
@@ -1709,33 +1715,60 @@ paths:
           type: string
       - name: online
         in: query
+        description: "If true, deliver the message only to recipients that are online\
+          \ when it is sent"
         schema:
           type: boolean
       - name: ts
         in: query
+        description: The sender's timestamp for the envelope
         schema:
           type: integer
           format: int64
       - name: urgent
         in: query
+        description: "If true, this message should cause push notifications to be\
+          \ sent to recipients"
         schema:
           type: boolean
           default: true
       - name: story
         in: query
+        description: "If true, the message is a story; access tokens are not checked\
+          \ and sending to nonexistent recipients is permitted"
         schema:
           type: boolean
       requestBody:
+        description: The sealed-sender multi-recipient message payload
         content:
           application/vnd.signal-messenger.mrm:
             schema:
               $ref: '#/components/schemas/MultiRecipientMessage'
         required: true
       responses:
-        default:
-          description: default response
+        "200":
+          description: Message was successfully sent to all recipients
+        "400":
+          description: The envelope specified delivery to the same recipient device
+            multiple times
+        "401":
+          description: The message is not a story and the unauthorized access key
+            is incorrect
+        "404":
+          description: The message is not a story and some of the recipient service
+            IDs do not correspond to registered Signal users
+        "409":
+          description: Incorrect set of devices supplied for some recipients
           content:
-            application/json: {}
+            application/json:
+              schema:
+                type: string
+        "410":
+          description: Mismatched registration ids supplied for some recipient devices
+          content:
+            application/json:
+              schema:
+                type: string
   /v1/payments/auth:
     get:
       tags:
@@ -2089,6 +2122,54 @@ paths:
         Generate SVR2 service credentials. Generated credentials have an expiration time of 30 days
         (however, the TTL is fully controlled by the server side and may change even for already generated credentials).
       operationId: getAuth_3
+      responses:
+        "200":
+          description: '`JSON` with generated credentials.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExternalServiceCredentials'
+        "401":
+          description: Account authentication check failed.
+      security:
+      - authenticatedAccount: []
+  /v3/backup/auth/check:
+    post:
+      tags:
+      - Secure Value Recovery
+      summary: Check SVR3 credentials
+      description: |
+        Over time, clients may wind up with multiple sets of SVR3 authentication credentials in cloud storage.
+        To determine which set is most current and should be used to communicate with SVR3 to retrieve a master key
+        (from which a registration recovery password can be derived), clients should call this endpoint
+        with a list of stored credentials. The response will identify which (if any) set of credentials are appropriate for communicating with SVR3.
+      operationId: authCheck_1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthCheckRequest'
+        required: true
+      responses:
+        "200":
+          description: '`JSON` with the check results.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthCheckResponse'
+        "422":
+          description: Provided list of SVR3 credentials could not be parsed
+        "400":
+          description: '`POST` request body is not a valid `JSON`'
+  /v3/backup/auth:
+    get:
+      tags:
+      - Secure Value Recovery
+      summary: Generate credentials for SVR3
+      description: |
+        Generate SVR3 service credentials. Generated credentials have an expiration time of 30 days
+        (however, the TTL is fully controlled by the server side and may change even for already generated credentials).
+      operationId: getAuth_4
       responses:
         "200":
           description: '`JSON` with generated credentials.'
@@ -3043,14 +3124,14 @@ components:
     ECPublicKey:
       type: object
       properties:
+        type:
+          type: integer
+          format: int32
         publicKeyBytes:
           type: array
           items:
             type: string
             format: byte
-        type:
-          type: integer
-          format: int32
     ECSignedPreKey:
       type: object
       properties:
@@ -3682,13 +3763,13 @@ components:
     WebSocketClient:
       type: object
       properties:
-        createdTimestamp:
-          type: integer
-          format: int64
         userAgent:
           type: string
         open:
           type: boolean
+        createdTimestamp:
+          type: integer
+          format: int64
     WebSocketSessionContext:
       type: object
       properties:
@@ -3816,6 +3897,24 @@ components:
         timestamp:
           type: integer
           format: int64
+    AccountMismatchedDevices:
+      type: object
+      properties:
+        uuid:
+          type: string
+          description: A service identifier is a tuple of a UUID and identity type
+            that identifies an account and identity within the Signal service.
+        devices:
+          $ref: '#/components/schemas/MismatchedDevices'
+    AccountStaleDevices:
+      type: object
+      properties:
+        uuid:
+          type: string
+          description: A service identifier is a tuple of a UUID and identity type
+            that identifies an account and identity within the Signal service.
+        devices:
+          $ref: '#/components/schemas/StaleDevices'
     CombinedUnidentifiedSenderAccessKeys:
       type: object
       properties:
