@@ -26,8 +26,8 @@ import org.whispersystems.textsecuregcm.configuration.CdnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ClientCdnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ClientReleaseConfiguration;
 import org.whispersystems.textsecuregcm.configuration.CommandStopListenerConfiguration;
-import org.whispersystems.textsecuregcm.configuration.DogstatsdConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DirectoryV2Configuration;
+import org.whispersystems.textsecuregcm.configuration.DogstatsdConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DynamoDbClientConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DynamoDbTables;
 import org.whispersystems.textsecuregcm.configuration.FcmConfiguration;
@@ -53,6 +53,7 @@ import org.whispersystems.textsecuregcm.configuration.ShortCodeExpanderConfigura
 import org.whispersystems.textsecuregcm.configuration.SpamFilterConfiguration;
 import org.whispersystems.textsecuregcm.configuration.StripeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
+import org.whispersystems.textsecuregcm.configuration.TlsKeyStoreConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TurnSecretConfiguration;
 import org.whispersystems.textsecuregcm.configuration.UnidentifiedDeliveryConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ZkConfig;
@@ -61,6 +62,11 @@ import org.whispersystems.websocket.configuration.WebSocketConfiguration;
 
 /** @noinspection MismatchedQueryAndUpdateOfCollection, WeakerAccess */
 public class WhisperServerConfiguration extends Configuration {
+
+  @NotNull
+  @Valid
+  @JsonProperty
+  private TlsKeyStoreConfiguration tlsKeyStore;
 
   @NotNull
   @Valid
@@ -309,6 +315,11 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @JsonProperty
   private LinkDeviceSecretConfiguration linkDevice;
+
+  public TlsKeyStoreConfiguration getTlsKeyStoreConfiguration() {
+    return tlsKeyStore;
+  }
+
 
   public StripeConfiguration getStripe() {
     return stripe;

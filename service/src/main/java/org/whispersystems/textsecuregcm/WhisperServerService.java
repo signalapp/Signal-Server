@@ -16,8 +16,10 @@ import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.auth.basic.BasicCredentialAuthFilter;
 import io.dropwizard.auth.basic.BasicCredentials;
 import io.dropwizard.core.Application;
+import io.dropwizard.core.server.DefaultServerFactory;
 import io.dropwizard.core.setup.Bootstrap;
 import io.dropwizard.core.setup.Environment;
+import io.dropwizard.jetty.HttpsConnectorFactory;
 import io.grpc.ServerBuilder;
 import io.grpc.ServerInterceptors;
 import io.lettuce.core.metrics.MicrometerCommandLatencyRecorder;
@@ -297,6 +299,15 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final boolean useRemoteAddress = Optional.ofNullable(
             System.getenv("SIGNAL_USE_REMOTE_ADDRESS"))
         .isPresent();
+
+    if (config.getServerFactory() instanceof DefaultServerFactory defaultServerFactory) {
+      defaultServerFactory.getApplicationConnectors()
+          .forEach(connectorFactory -> {
+            if (connectorFactory instanceof HttpsConnectorFactory h) {
+              h.setKeyStorePassword(config.getTlsKeyStoreConfiguration().password().value());
+            }
+          });
+    }
 
     HeaderControlledResourceBundleLookup headerControlledResourceBundleLookup =
         new HeaderControlledResourceBundleLookup();

@@ -42,6 +42,9 @@ metrics:
 
 grpcPort: 8080
 
+tlsKeyStore:
+  password: secret://tlsKeyStore.password
+
 stripe:
   apiKey: secret://stripe.apiKey
   idempotencyKeyGenerator: secret://stripe.idempotencyKeyGenerator
@@ -53,7 +56,6 @@ stripe:
       - eur
     SEPA_DEBIT:
       - eur
-
 
 braintree:
   merchantId: unset
