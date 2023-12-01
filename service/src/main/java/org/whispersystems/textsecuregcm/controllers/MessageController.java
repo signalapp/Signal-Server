@@ -112,6 +112,7 @@ import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.util.DestinationDeviceValidator;
+import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.websocket.WebSocketConnection;
 import org.whispersystems.websocket.Stories;
@@ -149,6 +150,8 @@ public class MessageController {
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
 
   private static final int MAX_FETCH_ACCOUNT_CONCURRENCY = 8;
+
+  private static final CompletableFuture<?>[] EMPTY_FUTURE_ARRAY = new CompletableFuture<?>[0];
 
   private static final String REJECT_OVERSIZE_MESSAGE_COUNTER = name(MessageController.class, "rejectOversizeMessage");
   private static final String SENT_MESSAGE_COUNTER_NAME = name(MessageController.class, "sentMessages");
@@ -447,8 +450,22 @@ public class MessageController {
       if (recipients.isEmpty()) {
         return Response.ok(new SendMultiRecipientMessageResponse(List.of())).build();
       }
-      for (MultiRecipientDeliveryData recipient : recipients.values()) {
-        rateLimiters.getStoriesLimiter().validate(recipient.account().getUuid());
+
+      try {
+        CompletableFuture.allOf(recipients.values()
+                .stream()
+                .map(recipient -> recipient.account().getUuid())
+                .map(accountIdentifier ->
+                    rateLimiters.getStoriesLimiter().validateAsync(accountIdentifier).toCompletableFuture())
+                .toList()
+                .toArray(EMPTY_FUTURE_ARRAY))
+            .join();
+      } catch (final Exception e) {
+        if (ExceptionUtils.unwrap(e) instanceof RateLimitExceededException rateLimitExceededException) {
+          throw rateLimitExceededException;
+        } else {
+          throw ExceptionUtils.wrap(e);
+        }
       }
     }
 
