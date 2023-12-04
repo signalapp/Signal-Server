@@ -20,7 +20,6 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import org.apache.commons.lang3.RandomStringUtils;
-import org.apache.commons.lang3.RandomUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,6 +39,7 @@ import org.signal.chat.rpc.ValidationTestServiceGrpc;
 import org.signal.chat.rpc.ValidationsRequest;
 import org.signal.chat.rpc.ValidationsResponse;
 import org.whispersystems.textsecuregcm.grpc.validators.ValidatorUtils;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import reactor.core.publisher.Mono;
 
 public class ValidatingInterceptorTest {
@@ -107,7 +107,7 @@ public class ValidatingInterceptorTest {
             .build()
     ));
 
-    final ByteString byteValue = ByteString.copyFrom(RandomUtils.nextBytes(size));
+    final ByteString byteValue = ByteString.copyFrom(TestRandomUtil.nextBytes(size));
     assertStatusException(Status.INVALID_ARGUMENT, () -> stub.validationsEndpoint(
         builderWithValidDefaults()
             .setFixedSizeBytes(byteValue)
@@ -184,7 +184,7 @@ public class ValidatingInterceptorTest {
             .build()
     )).getCode());
 
-    final ByteString byteValue = ByteString.copyFrom(RandomUtils.nextBytes(size));
+    final ByteString byteValue = ByteString.copyFrom(TestRandomUtil.nextBytes(size));
     assertEquals(expectedStatus.getCode(), requestStatus(() -> stub.validationsEndpoint(
         builderWithValidDefaults()
             .setRangeSizeBytes(byteValue)

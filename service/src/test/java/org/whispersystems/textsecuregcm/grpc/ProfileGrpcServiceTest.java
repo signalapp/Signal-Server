@@ -28,7 +28,6 @@ import com.google.protobuf.ByteString;
 import io.grpc.Metadata;
 import io.grpc.Status;
 import java.nio.charset.StandardCharsets;
-import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -102,6 +101,7 @@ import org.whispersystems.textsecuregcm.storage.VersionedProfile;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.ProfileTestHelper;
 import org.whispersystems.textsecuregcm.util.MockUtils;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import reactor.core.publisher.Mono;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
@@ -395,8 +395,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
             .setUuid(ByteString.copyFrom(UUIDUtil.toBytes(targetUuid)))
             .build())
         .build();
-    final byte[] unidentifiedAccessKey = new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH];
-    new SecureRandom().nextBytes(unidentifiedAccessKey);
+    final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
     final ECKeyPair identityKeyPair = Curve.generateKeyPair();
     final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
 
@@ -484,10 +483,10 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
   @MethodSource
   void getVersionedProfile(final String requestVersion, @Nullable final String accountVersion, final boolean expectResponseHasPaymentAddress) {
     final VersionedProfile profile = mock(VersionedProfile.class);
-    final byte[] name = ProfileTestHelper.generateRandomByteArray(81);
-    final byte[] emoji = ProfileTestHelper.generateRandomByteArray(60);
-    final byte[] about = ProfileTestHelper.generateRandomByteArray(156);
-    final byte[] paymentAddress = ProfileTestHelper.generateRandomByteArray(582);
+    final byte[] name = TestRandomUtil.nextBytes(81);
+    final byte[] emoji = TestRandomUtil.nextBytes(60);
+    final byte[] about = TestRandomUtil.nextBytes(156);
+    final byte[] paymentAddress = TestRandomUtil.nextBytes(582);
     final String avatar = "profiles/" + ProfileTestHelper.generateRandomBase64FromByteArray(16);
 
     final GetVersionedProfileRequest request = GetVersionedProfileRequest.newBuilder()
@@ -591,9 +590,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     final ServerZkProfileOperations serverZkProfile = new ServerZkProfileOperations(serverSecretParams);
     final ClientZkProfileOperations clientZkProfile = new ClientZkProfileOperations(serverPublicParams);
 
-    final byte[] profileKeyBytes = new byte[32];
-    new SecureRandom().nextBytes(profileKeyBytes);
-
+    final byte[] profileKeyBytes = TestRandomUtil.nextBytes(32);
     final ProfileKey profileKey = new ProfileKey(profileKeyBytes);
     final ProfileKeyCommitment profileKeyCommitment = profileKey.getCommitment(new ServiceId.Aci(targetUuid));
     final ProfileKeyCredentialRequestContext profileKeyCredentialRequestContext =

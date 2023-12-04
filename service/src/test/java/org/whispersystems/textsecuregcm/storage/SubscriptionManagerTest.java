@@ -24,11 +24,12 @@ import org.assertj.core.api.Condition;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager.GetResult;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager.Record;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessor;
-import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 class SubscriptionManagerTest {
 
@@ -47,9 +48,9 @@ class SubscriptionManagerTest {
 
   @BeforeEach
   void beforeEach() {
-    user = getRandomBytes(16);
-    password = getRandomBytes(16);
-    customer = Base64.getEncoder().encodeToString(getRandomBytes(16));
+    user = TestRandomUtil.nextBytes(16);
+    password = TestRandomUtil.nextBytes(16);
+    customer = Base64.getEncoder().encodeToString(TestRandomUtil.nextBytes(16));
     created = Instant.ofEpochSecond(NOW_EPOCH_SECONDS);
     subscriptionManager = new SubscriptionManager(
         Tables.SUBSCRIPTIONS.tableName(), DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient());
@@ -57,8 +58,8 @@ class SubscriptionManagerTest {
 
   @Test
   void testCreateOnlyOnce() {
-    byte[] password1 = getRandomBytes(16);
-    byte[] password2 = getRandomBytes(16);
+    byte[] password1 = TestRandomUtil.nextBytes(16);
+    byte[] password2 = TestRandomUtil.nextBytes(16);
     Instant created1 = Instant.ofEpochSecond(NOW_EPOCH_SECONDS);
     Instant created2 = Instant.ofEpochSecond(NOW_EPOCH_SECONDS + 1);
 
@@ -90,8 +91,8 @@ class SubscriptionManagerTest {
 
   @Test
   void testGet() {
-    byte[] wrongUser = getRandomBytes(16);
-    byte[] wrongPassword = getRandomBytes(16);
+    byte[] wrongUser = TestRandomUtil.nextBytes(16);
+    byte[] wrongPassword = TestRandomUtil.nextBytes(16);
     assertThat(subscriptionManager.create(user, password, created)).succeedsWithin(DEFAULT_TIMEOUT);
 
     assertThat(subscriptionManager.get(user, password)).succeedsWithin(DEFAULT_TIMEOUT).satisfies(getResult -> {
@@ -192,7 +193,7 @@ class SubscriptionManagerTest {
 
   @Test
   void testSubscriptionCreated() {
-    String subscriptionId = Base64.getEncoder().encodeToString(getRandomBytes(16));
+    String subscriptionId = Base64.getEncoder().encodeToString(TestRandomUtil.nextBytes(16));
     Instant subscriptionCreated = Instant.ofEpochSecond(NOW_EPOCH_SECONDS + 1);
     long level = 42;
     assertThat(subscriptionManager.create(user, password, created)).succeedsWithin(DEFAULT_TIMEOUT);
@@ -239,12 +240,6 @@ class SubscriptionManagerTest {
         new ProcessorCustomer("abc", SubscriptionProcessor.STRIPE);
 
     assertThat(processorCustomer.toDynamoBytes()).isEqualTo(new byte[]{1, 97, 98, 99});
-  }
-
-  private static byte[] getRandomBytes(int length) {
-    byte[] result = new byte[length];
-    SECURE_RANDOM.nextBytes(result);
-    return result;
   }
 
   @Nonnull

@@ -32,7 +32,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nullable;
-import org.apache.commons.lang3.RandomUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -48,6 +47,7 @@ import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
 import org.whispersystems.textsecuregcm.util.TestClock;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 
@@ -62,7 +62,7 @@ public class BackupManagerTest {
   private final BackupAuthTestUtil backupAuthTestUtil = new BackupAuthTestUtil(testClock);
   private final Cdn3BackupCredentialGenerator tusCredentialGenerator = mock(Cdn3BackupCredentialGenerator.class);
   private final RemoteStorageManager remoteStorageManager = mock(RemoteStorageManager.class);
-  private final byte[] backupKey = RandomUtils.nextBytes(32);
+  private final byte[] backupKey = TestRandomUtil.nextBytes(32);
   private final UUID aci = UUID.randomUUID();
 
   private BackupManager backupManager;
@@ -89,7 +89,7 @@ public class BackupManagerTest {
     final Instant now = Instant.ofEpochSecond(Duration.ofDays(1).getSeconds());
     testClock.pin(now);
 
-    final AuthenticatedBackupUser backupUser = backupUser(RandomUtils.nextBytes(16), backupTier);
+    final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), backupTier);
     final String encodedBackupId = Base64.getUrlEncoder().encodeToString(hashedBackupId(backupUser.backupId()));
 
     backupManager.createMessageBackupUploadDescriptor(backupUser).join();
@@ -108,7 +108,7 @@ public class BackupManagerTest {
   @ParameterizedTest
   @EnumSource(mode = EnumSource.Mode.EXCLUDE, names = {"NONE"})
   public void ttlRefresh(final BackupTier backupTier) {
-    final AuthenticatedBackupUser backupUser = backupUser(RandomUtils.nextBytes(16), backupTier);
+    final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), backupTier);
 
     final Instant tstart = Instant.ofEpochSecond(1).plus(Duration.ofDays(1));
     final Instant tnext = tstart.plus(Duration.ofSeconds(1));
@@ -133,7 +133,7 @@ public class BackupManagerTest {
     final Instant tstart = Instant.ofEpochSecond(1).plus(Duration.ofDays(1));
     final Instant tnext = tstart.plus(Duration.ofSeconds(1));
 
-    final AuthenticatedBackupUser backupUser = backupUser(RandomUtils.nextBytes(16), backupTier);
+    final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), backupTier);
 
     // create backup at t=tstart
     testClock.pin(tstart);
@@ -251,7 +251,7 @@ public class BackupManagerTest {
 
   @Test
   public void copySuccess() {
-    final AuthenticatedBackupUser backupUser = backupUser(RandomUtils.nextBytes(16), BackupTier.MEDIA);
+    final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupTier.MEDIA);
     when(tusCredentialGenerator.generateUpload(any(), any()))
         .thenReturn(new MessageBackupUploadDescriptor(3, "def", Collections.emptyMap(), ""));
     when(remoteStorageManager.copy(eq(URI.create("cdn3.example.org/attachments/abc")), eq(100), any(), any()))
@@ -279,7 +279,7 @@ public class BackupManagerTest {
 
   @Test
   public void copyFailure() {
-    final AuthenticatedBackupUser backupUser = backupUser(RandomUtils.nextBytes(16), BackupTier.MEDIA);
+    final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupTier.MEDIA);
     when(tusCredentialGenerator.generateUpload(any(), any()))
         .thenReturn(new MessageBackupUploadDescriptor(3, "def", Collections.emptyMap(), ""));
     when(remoteStorageManager.copy(eq(URI.create("cdn3.example.org/attachments/abc")), eq(100), any(), any()))

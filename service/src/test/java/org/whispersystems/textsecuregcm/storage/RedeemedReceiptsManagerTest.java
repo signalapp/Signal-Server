@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.storage;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -21,11 +20,11 @@ import org.signal.libsignal.zkgroup.receipts.ReceiptSerial;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.TestClock;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 class RedeemedReceiptsManagerTest {
 
   private static final long NOW_EPOCH_SECONDS = 1_500_000_000L;
-  private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
   @RegisterExtension
   static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(Tables.REDEEMED_RECEIPTS);
@@ -36,9 +35,7 @@ class RedeemedReceiptsManagerTest {
 
   @BeforeEach
   void beforeEach() throws InvalidInputException {
-    byte[] receiptSerialBytes = new byte[ReceiptSerial.SIZE];
-    SECURE_RANDOM.nextBytes(receiptSerialBytes);
-    receiptSerial = new ReceiptSerial(receiptSerialBytes);
+    receiptSerial = new ReceiptSerial(TestRandomUtil.nextBytes(ReceiptSerial.SIZE));
     redeemedReceiptsManager = new RedeemedReceiptsManager(
         clock,
         Tables.REDEEMED_RECEIPTS.tableName(),

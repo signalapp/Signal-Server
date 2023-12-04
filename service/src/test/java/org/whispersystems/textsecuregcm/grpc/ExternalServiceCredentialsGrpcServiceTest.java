@@ -20,7 +20,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
-import org.apache.commons.lang3.RandomUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -38,20 +37,21 @@ import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.util.MockUtils;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import reactor.core.publisher.Mono;
 
 public class ExternalServiceCredentialsGrpcServiceTest
     extends SimpleBaseGrpcTest<ExternalServiceCredentialsGrpcService, ExternalServiceCredentialsGrpc.ExternalServiceCredentialsBlockingStub> {
 
   private static final ExternalServiceCredentialsGenerator ART_CREDENTIALS_GENERATOR = Mockito.spy(ExternalServiceCredentialsGenerator
-      .builder(RandomUtils.nextBytes(32))
-      .withUserDerivationKey(RandomUtils.nextBytes(32))
+      .builder(TestRandomUtil.nextBytes(32))
+      .withUserDerivationKey(TestRandomUtil.nextBytes(32))
       .prependUsername(false)
       .truncateSignature(false)
       .build());
 
   private static final ExternalServiceCredentialsGenerator PAYMENTS_CREDENTIALS_GENERATOR = Mockito.spy(ExternalServiceCredentialsGenerator
-      .builder(RandomUtils.nextBytes(32))
+      .builder(TestRandomUtil.nextBytes(32))
       .prependUsername(true)
       .build());
 

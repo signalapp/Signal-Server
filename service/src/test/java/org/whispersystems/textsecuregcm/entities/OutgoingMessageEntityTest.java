@@ -18,6 +18,7 @@ import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 class OutgoingMessageEntityTest {
 
@@ -27,8 +28,7 @@ class OutgoingMessageEntityTest {
       final ServiceIdentifier destinationIdentifier,
       @Nullable final UUID updatedPni) {
 
-    final byte[] messageContent = new byte[16];
-    new Random().nextBytes(messageContent);
+    final byte[] messageContent = TestRandomUtil.nextBytes(16);
 
     final long messageTimestamp = System.currentTimeMillis();
     final long serverTimestamp = messageTimestamp + 17;
@@ -66,11 +66,7 @@ class OutgoingMessageEntityTest {
   void entityPreservesEnvelope() {
     final Random random = new Random();
 
-    final byte[] messageContent = new byte[16];
-    random.nextBytes(messageContent);
-
-    final byte[] reportSpamToken = new byte[8];
-    random.nextBytes(reportSpamToken);
+    final byte[] reportSpamToken = TestRandomUtil.nextBytes(8);
 
     final Account account = new Account();
     account.setUuid(UUID.randomUUID());

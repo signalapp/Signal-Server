@@ -23,7 +23,6 @@ import io.grpc.Status;
 import io.grpc.stub.MetadataUtils;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.charset.StandardCharsets;
-import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
@@ -78,6 +77,7 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.VersionedProfile;
 import org.whispersystems.textsecuregcm.tests.util.ProfileTestHelper;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
 public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileAnonymousGrpcService, ProfileAnonymousGrpc.ProfileAnonymousBlockingStub> {
@@ -121,8 +121,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
     final UUID targetUuid = UUID.randomUUID();
     final org.whispersystems.textsecuregcm.identity.ServiceIdentifier serviceIdentifier = new AciServiceIdentifier(targetUuid);
 
-    final byte[] unidentifiedAccessKey = new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH];
-    new SecureRandom().nextBytes(unidentifiedAccessKey);
+    final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
     final ECKeyPair identityKeyPair = Curve.generateKeyPair();
     final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
 
@@ -174,8 +173,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
   @ParameterizedTest
   @MethodSource
   void getUnversionedProfileUnauthenticated(final IdentityType identityType, final boolean missingUnidentifiedAccessKey, final boolean accountNotFound) {
-    final byte[] unidentifiedAccessKey = new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH];
-    new SecureRandom().nextBytes(unidentifiedAccessKey);
+    final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
 
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
     when(account.isUnrestrictedUnidentifiedAccess()).thenReturn(false);
@@ -210,14 +208,13 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
   void getVersionedProfile(final String requestVersion,
       @Nullable final String accountVersion,
       final boolean expectResponseHasPaymentAddress) {
-    final byte[] unidentifiedAccessKey = new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH];
-    new SecureRandom().nextBytes(unidentifiedAccessKey);
+    final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
 
     final VersionedProfile profile = mock(VersionedProfile.class);
-    final byte[] name = ProfileTestHelper.generateRandomByteArray(81);
-    final byte[] emoji = ProfileTestHelper.generateRandomByteArray(60);
-    final byte[] about = ProfileTestHelper.generateRandomByteArray(156);
-    final byte[] paymentAddress = ProfileTestHelper.generateRandomByteArray(582);
+    final byte[] name = TestRandomUtil.nextBytes(81);
+    final byte[] emoji = TestRandomUtil.nextBytes(60);
+    final byte[] about = TestRandomUtil.nextBytes(156);
+    final byte[] paymentAddress = TestRandomUtil.nextBytes(582);
     final String avatar = "profiles/" + ProfileTestHelper.generateRandomBase64FromByteArray(16);
 
     when(profile.name()).thenReturn(name);
@@ -269,8 +266,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
 
   @Test
   void getVersionedProfileVersionNotFound() {
-    final byte[] unidentifiedAccessKey = new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH];
-    new SecureRandom().nextBytes(unidentifiedAccessKey);
+    final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
 
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
     when(account.isUnrestrictedUnidentifiedAccess()).thenReturn(false);
@@ -296,8 +292,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
   @MethodSource
   void getVersionedProfileUnauthenticated(final boolean missingUnidentifiedAccessKey,
       final boolean accountNotFound) {
-    final byte[] unidentifiedAccessKey = new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH];
-    new SecureRandom().nextBytes(unidentifiedAccessKey);
+    final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
 
     when(account.isUnrestrictedUnidentifiedAccess()).thenReturn(false);
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
@@ -328,8 +323,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
 
   @Test
   void getVersionedProfilePniInvalidArgument() {
-    final byte[] unidentifiedAccessKey = new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH];
-    new SecureRandom().nextBytes(unidentifiedAccessKey);
+    final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
 
     final GetVersionedProfileAnonymousRequest request = GetVersionedProfileAnonymousRequest.newBuilder()
         .setUnidentifiedAccessKey(ByteString.copyFrom(unidentifiedAccessKey))
@@ -347,8 +341,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
 
   @Test
   void getExpiringProfileKeyCredential() throws InvalidInputException, VerificationFailedException {
-    final byte[] unidentifiedAccessKey = new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH];
-    new SecureRandom().nextBytes(unidentifiedAccessKey);
+    final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
     final UUID targetUuid = UUID.randomUUID();
 
     final ServerSecretParams serverSecretParams = ServerSecretParams.generate();
@@ -357,9 +350,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
     final ServerZkProfileOperations serverZkProfile = new ServerZkProfileOperations(serverSecretParams);
     final ClientZkProfileOperations clientZkProfile = new ClientZkProfileOperations(serverPublicParams);
 
-    final byte[] profileKeyBytes = new byte[32];
-    new SecureRandom().nextBytes(profileKeyBytes);
-
+    final byte[] profileKeyBytes = TestRandomUtil.nextBytes(32);
     final ProfileKey profileKey = new ProfileKey(profileKeyBytes);
     final ProfileKeyCommitment profileKeyCommitment = profileKey.getCommitment(new ServiceId.Aci(targetUuid));
     final ProfileKeyCredentialRequestContext profileKeyCredentialRequestContext =
@@ -411,8 +402,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
   @ParameterizedTest
   @MethodSource
   void getExpiringProfileKeyCredentialUnauthenticated(final boolean missingAccount, final boolean missingUnidentifiedAccessKey) {
-    final byte[] unidentifiedAccessKey = new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH];
-    new SecureRandom().nextBytes(unidentifiedAccessKey);
+    final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
     final UUID targetUuid = UUID.randomUUID();
 
     when(account.getUuid()).thenReturn(targetUuid);
@@ -450,8 +440,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
 
   @Test
   void getExpiringProfileKeyCredentialProfileNotFound() {
-    final byte[] unidentifiedAccessKey = new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH];
-    new SecureRandom().nextBytes(unidentifiedAccessKey);
+    final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
     final UUID targetUuid = UUID.randomUUID();
 
     when(account.getUuid()).thenReturn(targetUuid);
@@ -481,8 +470,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
   void getExpiringProfileKeyCredentialInvalidArgument(final IdentityType identityType, final CredentialType credentialType,
       final boolean throwZkVerificationException) throws VerificationFailedException {
     final UUID targetUuid = UUID.randomUUID();
-    final byte[] unidentifiedAccessKey = new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH];
-    new SecureRandom().nextBytes(unidentifiedAccessKey);
+    final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
 
     if (throwZkVerificationException) {
       when(serverZkProfileOperations.issueExpiringProfileKeyCredential(any(), any(), any(), any())).thenThrow(new VerificationFailedException());

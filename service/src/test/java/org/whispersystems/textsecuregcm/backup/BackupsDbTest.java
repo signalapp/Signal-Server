@@ -13,7 +13,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
-import org.apache.commons.lang3.RandomUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -22,6 +21,7 @@ import org.whispersystems.textsecuregcm.storage.DynamoDbExtension;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema;
 import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
 import org.whispersystems.textsecuregcm.util.TestClock;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 public class BackupsDbTest {
 
@@ -43,7 +43,7 @@ public class BackupsDbTest {
 
   @Test
   public void trackMediaIdempotent() {
-    final AuthenticatedBackupUser backupUser = backupUser(RandomUtils.nextBytes(16), BackupTier.MEDIA);
+    final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupTier.MEDIA);
     this.backupsDb.trackMedia(backupUser, "abc".getBytes(StandardCharsets.UTF_8), 100).join();
     assertDoesNotThrow(() ->
         this.backupsDb.trackMedia(backupUser, "abc".getBytes(StandardCharsets.UTF_8), 100).join());
@@ -51,7 +51,7 @@ public class BackupsDbTest {
 
   @Test
   public void trackMediaLengthChange() {
-    final AuthenticatedBackupUser backupUser = backupUser(RandomUtils.nextBytes(16), BackupTier.MEDIA);
+    final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupTier.MEDIA);
     this.backupsDb.trackMedia(backupUser, "abc".getBytes(StandardCharsets.UTF_8), 100).join();
     CompletableFutureTestUtil.assertFailsWithCause(InvalidLengthException.class,
         this.backupsDb.trackMedia(backupUser, "abc".getBytes(StandardCharsets.UTF_8), 99));
@@ -59,7 +59,7 @@ public class BackupsDbTest {
 
   @Test
   public void trackMediaStats() {
-    final AuthenticatedBackupUser backupUser = backupUser(RandomUtils.nextBytes(16), BackupTier.MEDIA);
+    final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupTier.MEDIA);
     // add at least one message backup so we can describe it
     backupsDb.addMessageBackup(backupUser).join();
     int total = 0;

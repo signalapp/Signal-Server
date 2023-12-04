@@ -37,7 +37,6 @@ import javax.ws.rs.client.Invocation;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import org.apache.commons.lang3.RandomUtils;
 import org.glassfish.jersey.server.ServerProperties;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.BeforeEach;
@@ -65,6 +64,7 @@ import org.whispersystems.textsecuregcm.mappers.GrpcStatusRuntimeExceptionMapper
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 public class ArchiveControllerTest {
@@ -87,7 +87,7 @@ public class ArchiveControllerTest {
       .build();
 
   private final UUID aci = UUID.randomUUID();
-  private final byte[] backupKey = RandomUtils.nextBytes(32);
+  private final byte[] backupKey = TestRandomUtil.nextBytes(32);
 
   @BeforeEach
   public void setUp() {
@@ -306,7 +306,7 @@ public class ArchiveControllerTest {
           return CompletableFuture.completedFuture(new BackupManager.StorageDescriptor(1, mediaId));
         });
 
-    final byte[][] mediaIds = new byte[][]{RandomUtils.nextBytes(15), RandomUtils.nextBytes(15)};
+    final byte[][] mediaIds = new byte[][]{TestRandomUtil.nextBytes(15), TestRandomUtil.nextBytes(15)};
 
     final Response r = resources.getJerseyTest()
         .target("v1/archives/media/batch")
@@ -318,17 +318,17 @@ public class ArchiveControllerTest {
                 new ArchiveController.RemoteAttachment(3, "abc"),
                 100,
                 mediaIds[0],
-                RandomUtils.nextBytes(32),
-                RandomUtils.nextBytes(32),
-                RandomUtils.nextBytes(16)),
+                TestRandomUtil.nextBytes(32),
+                TestRandomUtil.nextBytes(32),
+                TestRandomUtil.nextBytes(16)),
 
             new ArchiveController.CopyMediaRequest(
                 new ArchiveController.RemoteAttachment(3, "def"),
                 200,
                 mediaIds[1],
-                RandomUtils.nextBytes(32),
-                RandomUtils.nextBytes(32),
-                RandomUtils.nextBytes(16))
+                TestRandomUtil.nextBytes(32),
+                TestRandomUtil.nextBytes(32),
+                TestRandomUtil.nextBytes(16))
         ))));
     assertThat(r.getStatus()).isEqualTo(207);
     final ArchiveController.CopyMediaBatchResponse copyResponse = r.readEntity(
@@ -351,7 +351,7 @@ public class ArchiveControllerTest {
         .thenReturn(CompletableFuture.completedFuture(
             new AuthenticatedBackupUser(presentation.getBackupId(), BackupTier.MEDIA)));
 
-    final byte[][] mediaIds = IntStream.range(0, 3).mapToObj(i -> RandomUtils.nextBytes(15)).toArray(byte[][]::new);
+    final byte[][] mediaIds = IntStream.range(0, 3).mapToObj(i -> TestRandomUtil.nextBytes(15)).toArray(byte[][]::new);
     when(backupManager.canStoreMedia(any(), anyLong())).thenReturn(CompletableFuture.completedFuture(true));
 
     when(backupManager.copyToBackup(any(), anyInt(), any(), anyInt(), any(), eq(mediaIds[0])))
@@ -366,9 +366,9 @@ public class ArchiveControllerTest {
             new ArchiveController.RemoteAttachment(3, "abc"),
             100,
             mediaId,
-            RandomUtils.nextBytes(32),
-            RandomUtils.nextBytes(32),
-            RandomUtils.nextBytes(16))
+            TestRandomUtil.nextBytes(32),
+            TestRandomUtil.nextBytes(32),
+            TestRandomUtil.nextBytes(16))
         ).toList();
 
     Response r = resources.getJerseyTest()
@@ -419,10 +419,10 @@ public class ArchiveControllerTest {
             .mapToObj(i -> new ArchiveController.CopyMediaRequest(
                 new ArchiveController.RemoteAttachment(3, "abc"),
                 i + 1,
-                RandomUtils.nextBytes(15),
-                RandomUtils.nextBytes(32),
-                RandomUtils.nextBytes(32),
-                RandomUtils.nextBytes(16))
+                TestRandomUtil.nextBytes(15),
+                TestRandomUtil.nextBytes(32),
+                TestRandomUtil.nextBytes(32),
+                TestRandomUtil.nextBytes(16))
             ).toList())));
     assertThat(response.getStatus()).isEqualTo(413);
   }

@@ -1,17 +1,11 @@
 package org.whispersystems.textsecuregcm.tests.util;
 
 import java.util.Base64;
-import java.util.Random;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 public class ProfileTestHelper {
   public static String generateRandomBase64FromByteArray(final int byteArrayLength) {
-    return encodeToBase64(generateRandomByteArray(byteArrayLength));
-  }
-
-  public static byte[] generateRandomByteArray(final int length) {
-    byte[] byteArray = new byte[length];
-    new Random().nextBytes(byteArray);
-    return byteArray;
+    return encodeToBase64(TestRandomUtil.nextBytes(byteArrayLength));
   }
 
   public static String encodeToBase64(final byte[] input) {

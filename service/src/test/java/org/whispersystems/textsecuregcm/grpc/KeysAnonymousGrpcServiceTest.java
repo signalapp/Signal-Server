@@ -18,7 +18,6 @@ import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
@@ -54,6 +53,7 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.KeysManager;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import org.whispersystems.textsecuregcm.util.Util;
 import reactor.core.publisher.Flux;
@@ -80,8 +80,7 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
     final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
     final UUID identifier = UUID.randomUUID();
 
-    final byte[] unidentifiedAccessKey = new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH];
-    new SecureRandom().nextBytes(unidentifiedAccessKey);
+    final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
 
     when(targetDevice.getId()).thenReturn(Device.PRIMARY_ID);
     when(targetDevice.isEnabled()).thenReturn(true);
@@ -143,8 +142,7 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
     final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
     final UUID identifier = UUID.randomUUID();
 
-    final byte[] unidentifiedAccessKey = new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH];
-    new SecureRandom().nextBytes(unidentifiedAccessKey);
+    final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
 
     when(targetAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
     when(targetAccount.getUuid()).thenReturn(identifier);
@@ -188,8 +186,7 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
   void getPreKeysDeviceNotFound(final byte deviceId) {
     final UUID accountIdentifier = UUID.randomUUID();
 
-    final byte[] unidentifiedAccessKey = new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH];
-    new SecureRandom().nextBytes(unidentifiedAccessKey);
+    final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
 
     final Account targetAccount = mock(Account.class);
     when(targetAccount.getUuid()).thenReturn(accountIdentifier);

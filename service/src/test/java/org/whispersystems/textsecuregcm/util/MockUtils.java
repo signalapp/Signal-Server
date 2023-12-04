@@ -20,8 +20,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
-
-import org.apache.commons.lang3.RandomUtils;
 import org.mockito.Mockito;
 import org.mockito.invocation.Invocation;
 import org.mockito.invocation.MatchableInvocation;
@@ -155,7 +153,7 @@ public final class MockUtils {
   }
 
   public static SecretBytes randomSecretBytes(final int size) {
-    return new SecretBytes(RandomUtils.nextBytes(size));
+    return new SecretBytes(TestRandomUtil.nextBytes(size));
   }
 
   public static SecretBytes secretBytesOf(final int... byteVals) {

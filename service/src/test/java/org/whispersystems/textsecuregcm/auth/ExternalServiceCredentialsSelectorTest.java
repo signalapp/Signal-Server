@@ -12,13 +12,13 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
-import org.apache.commons.lang3.RandomUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsSelector.CredentialInfo;
 import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.MutableClock;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 public class ExternalServiceCredentialsSelectorTest {
 
@@ -28,15 +28,15 @@ public class ExternalServiceCredentialsSelectorTest {
 
   private static final ExternalServiceCredentialsGenerator GEN1 =
       ExternalServiceCredentialsGenerator
-          .builder(RandomUtils.nextBytes(32))
+          .builder(TestRandomUtil.nextBytes(32))
           .prependUsername(true)
           .withClock(CLOCK)
           .build();
 
   private static final ExternalServiceCredentialsGenerator GEN2 =
       ExternalServiceCredentialsGenerator
-          .builder(RandomUtils.nextBytes(32))
-          .withUserDerivationKey(RandomUtils.nextBytes(32))
+          .builder(TestRandomUtil.nextBytes(32))
+          .withUserDerivationKey(TestRandomUtil.nextBytes(32))
           .prependUsername(false)
           .withDerivedUsernameTruncateLength(16)
           .withClock(CLOCK)

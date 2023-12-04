@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.commons.lang3.RandomUtils;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.IdentityKeyPair;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
@@ -58,7 +58,7 @@ public class TestUser {
     final int registrationId = KeyHelper.generateRegistrationId(false);
     final int pniRegistrationId = KeyHelper.generateRegistrationId(false);
     // uak
-    final byte[] unidentifiedAccessKey = RandomUtils.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
+    final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
 
     return new TestUser(
         registrationId,

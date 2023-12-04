@@ -16,7 +16,6 @@ import static org.mockito.Mockito.when;
 import com.google.protobuf.ByteString;
 import io.grpc.Status;
 import java.net.InetSocketAddress;
-import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.UUID;
@@ -40,6 +39,7 @@ import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import reactor.core.publisher.Mono;
 
@@ -135,8 +135,7 @@ class AccountsAnonymousGrpcServiceTest extends
   void lookupUsernameHash() {
     final UUID accountIdentifier = UUID.randomUUID();
 
-    final byte[] usernameHash = new byte[AccountController.USERNAME_HASH_LENGTH];
-    new SecureRandom().nextBytes(usernameHash);
+    final byte[] usernameHash = TestRandomUtil.nextBytes(AccountController.USERNAME_HASH_LENGTH);
 
     final Account account = mock(Account.class);
     when(account.getUuid()).thenReturn(accountIdentifier);
@@ -201,8 +200,7 @@ class AccountsAnonymousGrpcServiceTest extends
   void lookupUsernameLink() {
     final UUID linkHandle = UUID.randomUUID();
 
-    final byte[] usernameCiphertext = new byte[32];
-    new SecureRandom().nextBytes(usernameCiphertext);
+    final byte[] usernameCiphertext = TestRandomUtil.nextBytes(32);
 
     final Account account = mock(Account.class);
     when(account.getEncryptedUsername()).thenReturn(Optional.of(usernameCiphertext));

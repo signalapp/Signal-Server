@@ -20,7 +20,6 @@ import java.security.cert.CertificateException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadLocalRandom;
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
@@ -37,13 +36,14 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
 import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 public class Cdn3RemoteStorageManagerTest {
 
-  private static byte[] HMAC_KEY = getRandomBytes(32);
-  private static byte[] AES_KEY = getRandomBytes(32);
-  private static byte[] IV = getRandomBytes(16);
+  private static byte[] HMAC_KEY = TestRandomUtil.nextBytes(32);
+  private static byte[] AES_KEY = TestRandomUtil.nextBytes(32);
+  private static byte[] IV = TestRandomUtil.nextBytes(16);
 
   @RegisterExtension
   private final WireMockExtension wireMock = WireMockExtension.newInstance()
@@ -175,11 +175,5 @@ public class Cdn3RemoteStorageManagerTest {
     }
     cipher.init(Cipher.DECRYPT_MODE, new SecretKeySpec(AES_KEY, "AES"), new IvParameterSpec(IV));
     return cipher.doFinal(encrypted, IV.length, encrypted.length - IV.length - mac.getMacLength());
-  }
-
-  private static byte[] getRandomBytes(int length) {
-    byte[] result = new byte[length];
-    ThreadLocalRandom.current().nextBytes(result);
-    return result;
   }
 }

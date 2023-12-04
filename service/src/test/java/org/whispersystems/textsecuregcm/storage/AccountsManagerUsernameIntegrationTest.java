@@ -18,7 +18,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -34,7 +33,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Supplier;
-import org.apache.commons.lang3.RandomUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -49,6 +47,7 @@ import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
@@ -196,8 +195,7 @@ class AccountsManagerUsernameIntegrationTest {
     }
 
 
-    byte[] availableHash = new byte[32];
-    new SecureRandom().nextBytes(availableHash);
+    byte[] availableHash = TestRandomUtil.nextBytes(32);
     usernameHashes.add(availableHash);
 
     // first time this is called lie and say the username is available
@@ -313,11 +311,11 @@ class AccountsManagerUsernameIntegrationTest {
   public void testUsernameLinks() throws InterruptedException {
     final Account account = AccountsHelper.createAccount(accountsManager, "+18005551111");
 
-    account.setUsernameHash(RandomUtils.nextBytes(16));
+    account.setUsernameHash(TestRandomUtil.nextBytes(16));
     accounts.create(account, ignored -> Collections.emptyList());
 
     final UUID linkHandle = UUID.randomUUID();
-    final byte[] encryptedUsername = RandomUtils.nextBytes(32);
+    final byte[] encryptedUsername = TestRandomUtil.nextBytes(32);
     accountsManager.update(account, a -> a.setUsernameLinkDetails(linkHandle, encryptedUsername));
 
     final Optional<Account> maybeAccount = accountsManager.getByUsernameLinkHandle(linkHandle).join();

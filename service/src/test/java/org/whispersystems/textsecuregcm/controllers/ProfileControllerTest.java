@@ -28,7 +28,6 @@ import io.dropwizard.testing.junit5.ResourceExtension;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -112,6 +111,7 @@ import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.ProfileTestHelper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.TestClock;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import org.whispersystems.textsecuregcm.util.Util;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
@@ -224,9 +224,9 @@ class ProfileControllerTest {
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(capabilitiesAccount));
     when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(AuthHelper.VALID_UUID))).thenReturn(Optional.of(capabilitiesAccount));
 
-    final byte[] name = ProfileTestHelper.generateRandomByteArray(81);
-    final byte[] emoji = ProfileTestHelper.generateRandomByteArray(60);
-    final byte[] about = ProfileTestHelper.generateRandomByteArray(156);
+    final byte[] name = TestRandomUtil.nextBytes(81);
+    final byte[] emoji = TestRandomUtil.nextBytes(60);
+    final byte[] about = TestRandomUtil.nextBytes(156);
 
     when(profilesManager.get(eq(AuthHelper.VALID_UUID), eq("someversion"))).thenReturn(Optional.empty());
     when(profilesManager.get(eq(AuthHelper.VALID_UUID_TWO), eq("validversion"))).thenReturn(Optional.of(new VersionedProfile(
@@ -411,7 +411,7 @@ class ProfileControllerTest {
   @Test
   void testSetProfileWantAvatarUpload() throws InvalidInputException {
     final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(AuthHelper.VALID_UUID));
-    final byte[] name = ProfileTestHelper.generateRandomByteArray(81);
+    final byte[] name = TestRandomUtil.nextBytes(81);
 
     final ProfileAvatarUploadAttributes uploadAttributes = resources.getJerseyTest()
         .target("/v1/profile/")
@@ -439,7 +439,7 @@ class ProfileControllerTest {
   @Test
   void testSetProfileWantAvatarUploadWithBadProfileSize() throws InvalidInputException {
     final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(AuthHelper.VALID_UUID));
-    final byte[] name = ProfileTestHelper.generateRandomByteArray(82);
+    final byte[] name = TestRandomUtil.nextBytes(82);
 
     try (final Response response = resources.getJerseyTest()
         .target("/v1/profile/")
@@ -455,7 +455,7 @@ class ProfileControllerTest {
   @Test
   void testSetProfileWithoutAvatarUpload() throws InvalidInputException {
     final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(AuthHelper.VALID_UUID));
-    final byte[] name = ProfileTestHelper.generateRandomByteArray(81);
+    final byte[] name = TestRandomUtil.nextBytes(81);
 
     clearInvocations(AuthHelper.VALID_ACCOUNT_TWO);
 
@@ -488,7 +488,7 @@ class ProfileControllerTest {
   @Test
   void testSetProfileWithAvatarUploadAndPreviousAvatar() throws InvalidInputException {
     final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(AuthHelper.VALID_UUID_TWO));
-    final byte[] name = ProfileTestHelper.generateRandomByteArray(81);
+    final byte[] name = TestRandomUtil.nextBytes(81);
 
     resources.getJerseyTest()
         .target("/v1/profile/")
@@ -515,7 +515,7 @@ class ProfileControllerTest {
   @Test
   void testSetProfileClearPreviousAvatar() throws InvalidInputException {
     final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(AuthHelper.VALID_UUID_TWO));
-    final byte[] name = ProfileTestHelper.generateRandomByteArray(81);
+    final byte[] name = TestRandomUtil.nextBytes(81);
 
     try (final Response response = resources.getJerseyTest()
         .target("/v1/profile/")
@@ -545,7 +545,7 @@ class ProfileControllerTest {
   @Test
   void testSetProfileWithSameAvatar() throws InvalidInputException {
     final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(AuthHelper.VALID_UUID_TWO));
-    final byte[] name = ProfileTestHelper.generateRandomByteArray(81);
+    final byte[] name = TestRandomUtil.nextBytes(81);
 
     try (final Response response = resources.getJerseyTest()
         .target("/v1/profile/")
@@ -575,7 +575,7 @@ class ProfileControllerTest {
   @Test
   void testSetProfileClearPreviousAvatarDespiteSameAvatarFlagSet() throws InvalidInputException {
     final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(AuthHelper.VALID_UUID_TWO));
-    final byte[] name = ProfileTestHelper.generateRandomByteArray(81);
+    final byte[] name = TestRandomUtil.nextBytes(81);
 
     try (final Response ignored = resources.getJerseyTest()
         .target("/v1/profile/")
@@ -603,7 +603,7 @@ class ProfileControllerTest {
   @Test
   void testSetProfileWithSameAvatarDespiteNoPreviousAvatar() throws InvalidInputException {
     final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(AuthHelper.VALID_UUID));
-    final byte[] name = ProfileTestHelper.generateRandomByteArray(81);
+    final byte[] name = TestRandomUtil.nextBytes(81);
 
     try (final Response response = resources.getJerseyTest()
         .target("/v1/profile/")
@@ -634,7 +634,7 @@ class ProfileControllerTest {
   void testSetProfileExtendedName() throws InvalidInputException {
     final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(AuthHelper.VALID_UUID_TWO));
 
-    final byte[] name = ProfileTestHelper.generateRandomByteArray(285);
+    final byte[] name = TestRandomUtil.nextBytes(285);
 
     resources.getJerseyTest()
         .target("/v1/profile/")
@@ -665,9 +665,9 @@ class ProfileControllerTest {
 
     clearInvocations(AuthHelper.VALID_ACCOUNT_TWO);
 
-    final byte[] name = ProfileTestHelper.generateRandomByteArray(81);
-    final byte[] emoji = ProfileTestHelper.generateRandomByteArray(60);
-    final byte[] about = ProfileTestHelper.generateRandomByteArray(156);
+    final byte[] name = TestRandomUtil.nextBytes(81);
+    final byte[] emoji = TestRandomUtil.nextBytes(60);
+    final byte[] about = TestRandomUtil.nextBytes(156);
 
     try (final Response response = resources.getJerseyTest()
         .target("/v1/profile/")
@@ -705,8 +705,8 @@ class ProfileControllerTest {
 
     clearInvocations(AuthHelper.VALID_ACCOUNT_TWO);
 
-    final byte[] name = ProfileTestHelper.generateRandomByteArray(81);
-    final byte[] paymentAddress = ProfileTestHelper.generateRandomByteArray(582);
+    final byte[] name = TestRandomUtil.nextBytes(81);
+    final byte[] paymentAddress = TestRandomUtil.nextBytes(582);
 
     try (final Response response = resources.getJerseyTest()
         .target("/v1/profile")
@@ -747,8 +747,8 @@ class ProfileControllerTest {
 
     clearInvocations(AuthHelper.VALID_ACCOUNT_TWO);
 
-    final byte[] name = ProfileTestHelper.generateRandomByteArray(81);
-    final byte[] paymentAddress = ProfileTestHelper.generateRandomByteArray(582);
+    final byte[] name = TestRandomUtil.nextBytes(81);
+    final byte[] paymentAddress = TestRandomUtil.nextBytes(582);
 
     try (final Response response = resources.getJerseyTest()
         .target("/v1/profile")
@@ -774,15 +774,15 @@ class ProfileControllerTest {
         .thenReturn(List.of(AuthHelper.VALID_NUMBER_TWO.substring(0, 3)));
 
     final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(AuthHelper.VALID_UUID));
-    final byte[] name = ProfileTestHelper.generateRandomByteArray(81);
-    final byte[] paymentAddress = ProfileTestHelper.generateRandomByteArray(582);
+    final byte[] name = TestRandomUtil.nextBytes(81);
+    final byte[] paymentAddress = TestRandomUtil.nextBytes(582);
 
     clearInvocations(AuthHelper.VALID_ACCOUNT_TWO);
 
     when(profilesManager.get(eq(AuthHelper.VALID_UUID_TWO), any()))
         .thenReturn(Optional.of(
             new VersionedProfile("1", name, null, null, null,
-                existingPaymentAddressOnProfile ? ProfileTestHelper.generateRandomByteArray(582) : null,
+                existingPaymentAddressOnProfile ? TestRandomUtil.nextBytes(582) : null,
                 commitment.serialize())));
 
 
@@ -825,9 +825,9 @@ class ProfileControllerTest {
 
   @Test
   void testGetProfileByVersion() throws RateLimitExceededException {
-    final byte[] name = ProfileTestHelper.generateRandomByteArray(81);
-    final byte[] emoji = ProfileTestHelper.generateRandomByteArray(60);
-    final byte[] about = ProfileTestHelper.generateRandomByteArray(156);
+    final byte[] name = TestRandomUtil.nextBytes(81);
+    final byte[] emoji = TestRandomUtil.nextBytes(60);
+    final byte[] about = TestRandomUtil.nextBytes(156);
 
     when(profilesManager.get(eq(AuthHelper.VALID_UUID_TWO), eq("validversion"))).thenReturn(Optional.of(new VersionedProfile(
         "validversion", name, "profiles/validavatar", emoji, about, null, "validcommitmnet".getBytes())));
@@ -860,8 +860,8 @@ class ProfileControllerTest {
 
     clearInvocations(AuthHelper.VALID_ACCOUNT_TWO);
 
-    final byte[] name = ProfileTestHelper.generateRandomByteArray(81);
-    final byte[] paymentAddress = ProfileTestHelper.generateRandomByteArray(582);
+    final byte[] name = TestRandomUtil.nextBytes(81);
+    final byte[] paymentAddress = TestRandomUtil.nextBytes(582);
 
     try (final Response response = resources.getJerseyTest()
         .target("/v1/profile")
@@ -880,7 +880,7 @@ class ProfileControllerTest {
 
   @Test
   void testGetProfileReturnsNoPaymentAddressIfCurrentVersionMismatch() {
-    final byte[] paymentAddress = ProfileTestHelper.generateRandomByteArray(582);
+    final byte[] paymentAddress = TestRandomUtil.nextBytes(582);
     when(profilesManager.get(AuthHelper.VALID_UUID_TWO, "validversion")).thenReturn(
         Optional.of(new VersionedProfile(null, null, null, null, null, paymentAddress, null)));
 
@@ -950,9 +950,9 @@ class ProfileControllerTest {
 
     clearInvocations(AuthHelper.VALID_ACCOUNT_TWO);
 
-    final byte[] name = ProfileTestHelper.generateRandomByteArray(81);
-    final byte[] emoji = ProfileTestHelper.generateRandomByteArray(60);
-    final byte[] about = ProfileTestHelper.generateRandomByteArray(156);
+    final byte[] name = TestRandomUtil.nextBytes(81);
+    final byte[] emoji = TestRandomUtil.nextBytes(60);
+    final byte[] about = TestRandomUtil.nextBytes(156);
 
     try (final Response response = resources.getJerseyTest()
         .target("/v1/profile/")
@@ -1063,8 +1063,7 @@ class ProfileControllerTest {
     final ServerZkProfileOperations serverZkProfile = new ServerZkProfileOperations(serverSecretParams);
     final ClientZkProfileOperations clientZkProfile = new ClientZkProfileOperations(serverPublicParams);
 
-    final byte[] profileKeyBytes = new byte[32];
-    new SecureRandom().nextBytes(profileKeyBytes);
+    final byte[] profileKeyBytes = TestRandomUtil.nextBytes(32);
 
     final ProfileKey profileKey = new ProfileKey(profileKeyBytes);
     final ProfileKeyCommitment profileKeyCommitment = profileKey.getCommitment(new ServiceId.Aci(AuthHelper.VALID_UUID));
@@ -1131,8 +1130,7 @@ class ProfileControllerTest {
 
     final ClientZkProfileOperations clientZkProfile = new ClientZkProfileOperations(serverPublicParams);
 
-    final byte[] profileKeyBytes = new byte[32];
-    new SecureRandom().nextBytes(profileKeyBytes);
+    final byte[] profileKeyBytes = TestRandomUtil.nextBytes(32);
 
     final ProfileKey profileKey = new ProfileKey(profileKeyBytes);
     final ProfileKeyCommitment profileKeyCommitment = profileKey.getCommitment(new ServiceId.Aci(AuthHelper.VALID_UUID));

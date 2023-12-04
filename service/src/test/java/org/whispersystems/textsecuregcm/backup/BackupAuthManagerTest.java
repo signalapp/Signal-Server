@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
-import org.apache.commons.lang3.RandomUtils;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.ThrowableAssert;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,7 +30,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.mockito.Mockito;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.signal.libsignal.zkgroup.backups.BackupAuthCredentialRequest;
 import org.signal.libsignal.zkgroup.backups.BackupAuthCredentialRequestContext;
@@ -42,10 +40,11 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.tests.util.ExperimentHelper;
 import org.whispersystems.textsecuregcm.util.TestClock;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 public class BackupAuthManagerTest {
   private final UUID aci = UUID.randomUUID();
-  private final byte[] backupKey = RandomUtils.nextBytes(32);
+  private final byte[] backupKey = TestRandomUtil.nextBytes(32);
   private final TestClock clock = TestClock.now();
   private final BackupAuthTestUtil backupAuthTestUtil = new BackupAuthTestUtil(clock);
 

@@ -24,7 +24,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executors;
-import org.apache.commons.lang3.RandomUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
 import org.apache.commons.lang3.tuple.Pair;
@@ -48,6 +47,7 @@ import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 public final class Operations {
 
@@ -67,8 +67,8 @@ public final class Operations {
   }
 
   public static TestUser newRegisteredUser(final String number) {
-    final byte[] registrationPassword = RandomUtils.nextBytes(32);
-    final String accountPassword = Base64.getEncoder().encodeToString(RandomUtils.nextBytes(32));
+    final byte[] registrationPassword = TestRandomUtil.nextBytes(32);
+    final String accountPassword = Base64.getEncoder().encodeToString(TestRandomUtil.nextBytes(32));
 
     final TestUser user = TestUser.create(number, accountPassword, registrationPassword);
     final AccountAttributes accountAttributes = user.accountAttributes();

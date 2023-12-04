@@ -5,22 +5,21 @@
 
 package org.whispersystems.textsecuregcm.backup;
 
-import org.apache.commons.lang3.RandomUtils;
-import org.junit.jupiter.api.Test;
-import org.whispersystems.textsecuregcm.attachments.TusConfiguration;
-import org.whispersystems.textsecuregcm.configuration.secrets.SecretBytes;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Map;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.Test;
+import org.whispersystems.textsecuregcm.attachments.TusConfiguration;
+import org.whispersystems.textsecuregcm.configuration.secrets.SecretBytes;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 public class Cdn3BackupCredentialGeneratorTest {
   @Test
   public void uploadGenerator() {
     Cdn3BackupCredentialGenerator generator = new Cdn3BackupCredentialGenerator(new TusConfiguration(
-        new SecretBytes(RandomUtils.nextBytes(32)),
+        new SecretBytes(TestRandomUtil.nextBytes(32)),
         "https://example.org/upload"));
 
     final MessageBackupUploadDescriptor messageBackupUploadDescriptor = generator.generateUpload("subdir", "key");
@@ -34,7 +33,7 @@ public class Cdn3BackupCredentialGeneratorTest {
   @Test
   public void readCredential() {
     Cdn3BackupCredentialGenerator generator = new Cdn3BackupCredentialGenerator(new TusConfiguration(
-        new SecretBytes(RandomUtils.nextBytes(32)),
+        new SecretBytes(TestRandomUtil.nextBytes(32)),
         "https://example.org/upload"));
 
     final Map<String, String> headers = generator.readHeaders("subdir");

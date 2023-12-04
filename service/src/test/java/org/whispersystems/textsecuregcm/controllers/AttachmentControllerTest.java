@@ -26,7 +26,6 @@ import java.security.spec.InvalidKeySpecException;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ThreadLocalRandom;
 import javax.ws.rs.core.Response;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.Condition;
@@ -48,6 +47,7 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class AttachmentControllerTest {
@@ -65,7 +65,7 @@ class AttachmentControllerTest {
     when(mgr.isEnrolled(AuthHelper.VALID_UUID_TWO, AttachmentControllerV4.CDN3_EXPERIMENT_NAME)).thenReturn(false);
   });
 
-  private static final byte[] TUS_SECRET = getRandomBytes(32);
+  private static final byte[] TUS_SECRET = TestRandomUtil.nextBytes(32);
   private static final String TUS_URL = "https://example.com/uploads";
 
   public static final String RSA_PRIVATE_KEY_PEM;
@@ -242,11 +242,5 @@ class AttachmentControllerTest {
                                  .get();
 
     assertThat(response.getStatus()).isEqualTo(401);
-  }
-
-  private static byte[] getRandomBytes(int length) {
-    byte[] result = new byte[length];
-    ThreadLocalRandom.current().nextBytes(result);
-    return result;
   }
 }

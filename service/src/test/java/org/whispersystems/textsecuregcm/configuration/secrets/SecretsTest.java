@@ -19,10 +19,10 @@ import java.util.Map;
 import javax.validation.Validation;
 import javax.validation.Validator;
 import javax.validation.constraints.NotEmpty;
-import org.apache.commons.lang3.RandomUtils;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 public class SecretsTest {
 
@@ -51,10 +51,10 @@ public class SecretsTest {
   @Test
   public void testDeserialization() throws Exception {
     final String secretString = "secret_string";
-    final byte[] secretBytes = RandomUtils.nextBytes(16);
+    final byte[] secretBytes = TestRandomUtil.nextBytes(16);
     final String secretBytesBase64 = Base64.getEncoder().encodeToString(secretBytes);
     final List<String> secretStringList = List.of("secret1", "secret2", "secret3");
-    final List<byte[]> secretBytesList = List.of(RandomUtils.nextBytes(16), RandomUtils.nextBytes(16), RandomUtils.nextBytes(16));
+    final List<byte[]> secretBytesList = List.of(TestRandomUtil.nextBytes(16), TestRandomUtil.nextBytes(16), TestRandomUtil.nextBytes(16));
     final List<String> secretBytesListBase64 = secretBytesList.stream().map(Base64.getEncoder()::encodeToString).toList();
     final Map<String, Secret<?>> storeMap = Map.of(
         SECRET_REF, new SecretString(secretString),

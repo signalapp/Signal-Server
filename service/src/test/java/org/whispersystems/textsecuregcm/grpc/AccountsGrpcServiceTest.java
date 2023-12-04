@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
@@ -75,6 +74,7 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.UsernameHashNotAvailableException;
 import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundException;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import org.whispersystems.textsecuregcm.util.UsernameHashZkProofVerifier;
 import reactor.core.publisher.Mono;
@@ -128,8 +128,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     final String e164 = PhoneNumberUtil.getInstance().format(
         PhoneNumberUtil.getInstance().getExampleNumber("US"), PhoneNumberUtil.PhoneNumberFormat.E164);
 
-    final byte[] usernameHash = new byte[32];
-    ThreadLocalRandom.current().nextBytes(usernameHash);
+    final byte[] usernameHash = TestRandomUtil.nextBytes(32);
 
     final Account account = mock(Account.class);
     when(account.getUuid()).thenReturn(AUTHENTICATED_ACI);
@@ -186,8 +185,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     when(accountsManager.getByAccountIdentifierAsync(AUTHENTICATED_ACI))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
 
-    final byte[] registrationLockSecret = new byte[32];
-    ThreadLocalRandom.current().nextBytes(registrationLockSecret);
+    final byte[] registrationLockSecret = TestRandomUtil.nextBytes(32);
 
     final SetRegistrationLockResponse ignored =
         authenticatedServiceStub().setRegistrationLock(SetRegistrationLockRequest.newBuilder()
@@ -256,8 +254,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     when(accountsManager.getByAccountIdentifierAsync(AUTHENTICATED_ACI))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
 
-    final byte[] usernameHash = new byte[AccountController.USERNAME_HASH_LENGTH];
-    ThreadLocalRandom.current().nextBytes(usernameHash);
+    final byte[] usernameHash = TestRandomUtil.nextBytes(AccountController.USERNAME_HASH_LENGTH);
 
     when(accountsManager.reserveUsernameHash(any(), any()))
         .thenAnswer(invocation -> {
@@ -284,8 +281,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     when(accountsManager.getByAccountIdentifierAsync(AUTHENTICATED_ACI))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
 
-    final byte[] usernameHash = new byte[AccountController.USERNAME_HASH_LENGTH];
-    ThreadLocalRandom.current().nextBytes(usernameHash);
+    final byte[] usernameHash = TestRandomUtil.nextBytes(AccountController.USERNAME_HASH_LENGTH);
 
     when(accountsManager.reserveUsernameHash(any(), any()))
         .thenReturn(CompletableFuture.failedFuture(new UsernameHashNotAvailableException()));
@@ -314,9 +310,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     final ReserveUsernameHashRequest.Builder requestBuilder = ReserveUsernameHashRequest.newBuilder();
 
     for (int i = 0; i < AccountController.MAXIMUM_USERNAME_HASHES_LIST_LENGTH + 1; i++) {
-      final byte[] usernameHash = new byte[AccountController.USERNAME_HASH_LENGTH];
-      ThreadLocalRandom.current().nextBytes(usernameHash);
-
+      final byte[] usernameHash = TestRandomUtil.nextBytes(AccountController.USERNAME_HASH_LENGTH);
       requestBuilder.addUsernameHashes(ByteString.copyFrom(usernameHash));
     }
 
@@ -332,8 +326,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     when(accountsManager.getByAccountIdentifierAsync(AUTHENTICATED_ACI))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
 
-    final byte[] usernameHash = new byte[AccountController.USERNAME_HASH_LENGTH + 1];
-    ThreadLocalRandom.current().nextBytes(usernameHash);
+    final byte[] usernameHash = TestRandomUtil.nextBytes(AccountController.USERNAME_HASH_LENGTH + 1);
 
     //noinspection ResultOfMethodCallIgnored
     GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT,
@@ -344,8 +337,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
   @Test
   void reserveUsernameHashRateLimited() {
-    final byte[] usernameHash = new byte[AccountController.USERNAME_HASH_LENGTH];
-    ThreadLocalRandom.current().nextBytes(usernameHash);
+    final byte[] usernameHash = TestRandomUtil.nextBytes(AccountController.USERNAME_HASH_LENGTH);
 
     final Duration retryAfter = Duration.ofMinutes(3);
 
@@ -362,14 +354,11 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
   @Test
   void confirmUsernameHash() {
-    final byte[] usernameHash = new byte[AccountController.USERNAME_HASH_LENGTH];
-    ThreadLocalRandom.current().nextBytes(usernameHash);
+    final byte[] usernameHash = TestRandomUtil.nextBytes(AccountController.USERNAME_HASH_LENGTH);
 
-    final byte[] usernameCiphertext = new byte[32];
-    ThreadLocalRandom.current().nextBytes(usernameCiphertext);
+    final byte[] usernameCiphertext = TestRandomUtil.nextBytes(32);
 
-    final byte[] zkProof = new byte[32];
-    ThreadLocalRandom.current().nextBytes(zkProof);
+    final byte[] zkProof = TestRandomUtil.nextBytes(32);
 
     final UUID linkHandle = UUID.randomUUID();
 
@@ -404,14 +393,11 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   @ParameterizedTest
   @MethodSource
   void confirmUsernameHashConfirmationException(final Exception confirmationException, final Status expectedStatus) {
-    final byte[] usernameHash = new byte[AccountController.USERNAME_HASH_LENGTH];
-    ThreadLocalRandom.current().nextBytes(usernameHash);
+    final byte[] usernameHash = TestRandomUtil.nextBytes(AccountController.USERNAME_HASH_LENGTH);
 
-    final byte[] usernameCiphertext = new byte[32];
-    ThreadLocalRandom.current().nextBytes(usernameCiphertext);
+    final byte[] usernameCiphertext = TestRandomUtil.nextBytes(32);
 
-    final byte[] zkProof = new byte[32];
-    ThreadLocalRandom.current().nextBytes(zkProof);
+    final byte[] zkProof = TestRandomUtil.nextBytes(32);
 
     final Account account = mock(Account.class);
 
@@ -439,14 +425,11 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
   @Test
   void confirmUsernameHashInvalidProof() throws BaseUsernameException {
-    final byte[] usernameHash = new byte[AccountController.USERNAME_HASH_LENGTH];
-    ThreadLocalRandom.current().nextBytes(usernameHash);
+    final byte[] usernameHash = TestRandomUtil.nextBytes(AccountController.USERNAME_HASH_LENGTH);
 
-    final byte[] usernameCiphertext = new byte[32];
-    ThreadLocalRandom.current().nextBytes(usernameCiphertext);
+    final byte[] usernameCiphertext = TestRandomUtil.nextBytes(32);
 
-    final byte[] zkProof = new byte[32];
-    ThreadLocalRandom.current().nextBytes(zkProof);
+    final byte[] zkProof = TestRandomUtil.nextBytes(32);
 
     final Account account = mock(Account.class);
 
@@ -532,8 +515,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     when(accountsManager.getByAccountIdentifierAsync(AUTHENTICATED_ACI))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
 
-    final byte[] usernameCiphertext = new byte[EncryptedUsername.MAX_SIZE];
-    ThreadLocalRandom.current().nextBytes(usernameCiphertext);
+    final byte[] usernameCiphertext = TestRandomUtil.nextBytes(EncryptedUsername.MAX_SIZE);
 
     final SetUsernameLinkResponse response =
         authenticatedServiceStub().setUsernameLink(SetUsernameLinkRequest.newBuilder()
@@ -561,8 +543,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     when(accountsManager.getByAccountIdentifierAsync(AUTHENTICATED_ACI))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
 
-    final byte[] usernameCiphertext = new byte[EncryptedUsername.MAX_SIZE];
-    ThreadLocalRandom.current().nextBytes(usernameCiphertext);
+    final byte[] usernameCiphertext = TestRandomUtil.nextBytes(EncryptedUsername.MAX_SIZE);
 
     //noinspection ResultOfMethodCallIgnored
     GrpcTestUtils.assertStatusException(Status.FAILED_PRECONDITION,
@@ -598,8 +579,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     when(rateLimiter.validateReactive(any(UUID.class)))
         .thenReturn(Mono.error(new RateLimitExceededException(retryAfter, false)));
 
-    final byte[] usernameCiphertext = new byte[EncryptedUsername.MAX_SIZE];
-    ThreadLocalRandom.current().nextBytes(usernameCiphertext);
+    final byte[] usernameCiphertext = TestRandomUtil.nextBytes(EncryptedUsername.MAX_SIZE);
 
     //noinspection ResultOfMethodCallIgnored
     GrpcTestUtils.assertRateLimitExceeded(retryAfter,
@@ -656,8 +636,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   }
 
   private static Stream<Arguments> configureUnidentifiedAccess() {
-    final byte[] unidentifiedAccessKey = new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH];
-    ThreadLocalRandom.current().nextBytes(unidentifiedAccessKey);
+    final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
 
     return Stream.of(
         Arguments.of(true, new byte[0], null),
@@ -715,8 +694,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     when(accountsManager.getByAccountIdentifierAsync(AUTHENTICATED_ACI))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
 
-    final byte[] registrationRecoveryPassword = new byte[32];
-    ThreadLocalRandom.current().nextBytes(registrationRecoveryPassword);
+    final byte[] registrationRecoveryPassword = TestRandomUtil.nextBytes(32);
 
     assertDoesNotThrow(() ->
         authenticatedServiceStub().setRegistrationRecoveryPassword(SetRegistrationRecoveryPasswordRequest.newBuilder()

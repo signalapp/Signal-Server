@@ -42,7 +42,6 @@ import java.util.stream.Stream;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.client.Invocation;
 import javax.ws.rs.core.Response;
-import org.apache.commons.lang3.RandomUtils;
 import org.glassfish.jersey.server.ServerProperties;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.AfterEach;
@@ -92,6 +91,7 @@ import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
 import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import org.whispersystems.textsecuregcm.util.UsernameHashZkProofVerifier;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
@@ -423,7 +423,7 @@ class AccountControllerTest {
     // make sure `update()` works
     doReturn(AuthHelper.VALID_ACCOUNT).when(accountsManager).update(any(), any());
 
-    final Response put = builder.put(Entity.json(new EncryptedUsername(RandomUtils.nextBytes(payloadSize))));
+    final Response put = builder.put(Entity.json(new EncryptedUsername(TestRandomUtil.nextBytes(payloadSize))));
 
     assertEquals(expectedStatus, put.getStatus());
   }
@@ -502,7 +502,7 @@ class AccountControllerTest {
 
     if (validUuidInput && locateLinkByUuid) {
       final Account account = mock(Account.class);
-      when(account.getEncryptedUsername()).thenReturn(Optional.of(RandomUtils.nextBytes(16)));
+      when(account.getEncryptedUsername()).thenReturn(Optional.of(TestRandomUtil.nextBytes(16)));
       when(accountsManager.getByUsernameLinkHandle(UUID.fromString(uuid))).thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
     }
 
@@ -781,7 +781,7 @@ class AccountControllerTest {
 
   @Test
   void testAccountsAttributesUpdateRecoveryPassword() {
-    final byte[] recoveryPassword = RandomUtils.nextBytes(32);
+    final byte[] recoveryPassword = TestRandomUtil.nextBytes(32);
     final Response response =
         resources.getJerseyTest()
             .target("/v1/accounts/attributes/")

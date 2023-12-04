@@ -39,7 +39,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.apache.commons.lang3.RandomUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -59,6 +58,7 @@ import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.TestClock;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import reactor.core.scheduler.Schedulers;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
@@ -128,7 +128,7 @@ class AccountsTest {
   @Test
   public void testStoreAndLookupUsernameLink() {
     final Account account = nextRandomAccount();
-    account.setUsernameHash(RandomUtils.nextBytes(16));
+    account.setUsernameHash(TestRandomUtil.nextBytes(16));
     createAccount(account);
 
     final BiConsumer<Optional<Account>, byte[]> validator = (maybeAccount, expectedEncryptedUsername) -> {
@@ -140,14 +140,14 @@ class AccountsTest {
 
     // creating a username link, storing it, checking that it can be looked up
     final UUID linkHandle1 = UUID.randomUUID();
-    final byte[] encruptedUsername1 = RandomUtils.nextBytes(32);
+    final byte[] encruptedUsername1 = TestRandomUtil.nextBytes(32);
     account.setUsernameLinkDetails(linkHandle1, encruptedUsername1);
     accounts.update(account);
     validator.accept(accounts.getByUsernameLinkHandle(linkHandle1).join(), encruptedUsername1);
 
     // updating username link, storing new one, checking that it can be looked up, checking that old one can't be looked up
     final UUID linkHandle2 = UUID.randomUUID();
-    final byte[] encruptedUsername2 = RandomUtils.nextBytes(32);
+    final byte[] encruptedUsername2 = TestRandomUtil.nextBytes(32);
     account.setUsernameLinkDetails(linkHandle2, encruptedUsername2);
     accounts.update(account);
     validator.accept(accounts.getByUsernameLinkHandle(linkHandle2).join(), encruptedUsername2);
@@ -1037,8 +1037,8 @@ class AccountsTest {
   @Test
   public void testIgnoredFieldsNotAddedToDataAttribute() throws Exception {
     final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
-    account.setUsernameHash(RandomUtils.nextBytes(32));
-    account.setUsernameLinkDetails(UUID.randomUUID(), RandomUtils.nextBytes(32));
+    account.setUsernameHash(TestRandomUtil.nextBytes(32));
+    account.setUsernameLinkDetails(UUID.randomUUID(), TestRandomUtil.nextBytes(32));
     createAccount(account);
     final Map<String, AttributeValue> accountRecord = DYNAMO_DB_EXTENSION.getDynamoDbClient()
         .getItem(GetItemRequest.builder()

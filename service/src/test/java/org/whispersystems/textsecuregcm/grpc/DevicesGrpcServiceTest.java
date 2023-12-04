@@ -25,7 +25,6 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -55,6 +54,7 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.KeysManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, DevicesGrpc.DevicesBlockingStub> {
 
@@ -186,8 +186,7 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
     final Device device = mock(Device.class);
     when(authenticatedAccount.getDevice(deviceId)).thenReturn(Optional.of(device));
 
-    final byte[] deviceName = new byte[128];
-    ThreadLocalRandom.current().nextBytes(deviceName);
+    final byte[] deviceName = TestRandomUtil.nextBytes(128);
 
     final SetDeviceNameResponse ignored = authenticatedServiceStub().setDeviceName(SetDeviceNameRequest.newBuilder()
         .setName(ByteString.copyFrom(deviceName))

@@ -12,7 +12,6 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import org.apache.commons.lang3.RandomUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -27,6 +26,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.MutableClock;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 class ExternalServiceCredentialsAnonymousGrpcServiceTest extends
     SimpleBaseGrpcTest<ExternalServiceCredentialsAnonymousGrpcService, ExternalServiceCredentialsAnonymousGrpc.ExternalServiceCredentialsAnonymousBlockingStub> {
@@ -41,8 +41,8 @@ class ExternalServiceCredentialsAnonymousGrpcServiceTest extends
   private static final MutableClock CLOCK = MockUtils.mutableClock(0);
 
   private static final ExternalServiceCredentialsGenerator SVR_CREDENTIALS_GENERATOR = Mockito.spy(ExternalServiceCredentialsGenerator
-      .builder(RandomUtils.nextBytes(32))
-      .withUserDerivationKey(RandomUtils.nextBytes(32))
+      .builder(TestRandomUtil.nextBytes(32))
+      .withUserDerivationKey(TestRandomUtil.nextBytes(32))
       .prependUsername(false)
       .withDerivedUsernameTruncateLength(16)
       .withClock(CLOCK)

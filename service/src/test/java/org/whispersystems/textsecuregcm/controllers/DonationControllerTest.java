@@ -16,7 +16,6 @@ import static org.mockito.Mockito.when;
 import com.google.common.collect.ImmutableSet;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.ResourceExtension;
-import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
@@ -46,12 +45,11 @@ import org.whispersystems.textsecuregcm.storage.RedeemedReceiptsManager;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.TestClock;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 class DonationControllerTest {
 
   private static final long nowEpochSeconds = 1_500_000_000L;
-
-  private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
   static BadgesConfiguration getBadgesConfiguration() {
     return new BadgesConfiguration(
@@ -85,11 +83,8 @@ class DonationControllerTest {
     redeemedReceiptsManager = mock(RedeemedReceiptsManager.class);
     accountsManager = mock(AccountsManager.class);
     AccountsHelper.setupMockUpdate(accountsManager);
-    receiptSerialBytes = new byte[ReceiptSerial.SIZE];
-    SECURE_RANDOM.nextBytes(receiptSerialBytes);
-    receiptSerial = new ReceiptSerial(receiptSerialBytes);
-    presentation = new byte[25];
-    SECURE_RANDOM.nextBytes(presentation);
+    receiptSerial = new ReceiptSerial(TestRandomUtil.nextBytes(ReceiptSerial.SIZE));
+    presentation = TestRandomUtil.nextBytes(25);
     receiptCredentialPresentationFactory = mock(DonationController.ReceiptCredentialPresentationFactory.class);
     receiptCredentialPresentation = mock(ReceiptCredentialPresentation.class);
 

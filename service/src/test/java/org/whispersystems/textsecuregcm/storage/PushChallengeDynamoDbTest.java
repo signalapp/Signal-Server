@@ -19,6 +19,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 class PushChallengeDynamoDbTest {
 
@@ -66,9 +67,6 @@ class PushChallengeDynamoDbTest {
   }
 
   private static byte[] generateRandomToken() {
-    final byte[] token = new byte[16];
-    RANDOM.nextBytes(token);
-
-    return token;
+    return TestRandomUtil.nextBytes(16);
   }
 }

@@ -9,7 +9,6 @@ import static org.mockito.Mockito.verify;
 
 import com.google.protobuf.ByteString;
 import java.time.Duration;
-import java.util.Random;
 import java.util.function.Consumer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,6 +18,7 @@ import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.redis.RedisSingletonExtension;
 import org.whispersystems.textsecuregcm.storage.PubSubProtos;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import org.whispersystems.textsecuregcm.websocket.ProvisioningAddress;
 
 class ProvisioningManagerTest {
@@ -45,8 +45,7 @@ class ProvisioningManagerTest {
   void sendProvisioningMessage() {
     final ProvisioningAddress address = ProvisioningAddress.create("address");
 
-    final byte[] content = new byte[16];
-    new Random().nextBytes(content);
+    final byte[] content = TestRandomUtil.nextBytes(16);
 
     @SuppressWarnings("unchecked") final Consumer<PubSubProtos.PubSubMessage> subscribedConsumer = mock(Consumer.class);
 
@@ -66,8 +65,7 @@ class ProvisioningManagerTest {
   void removeListener() {
     final ProvisioningAddress address = ProvisioningAddress.create("address");
 
-    final byte[] content = new byte[16];
-    new Random().nextBytes(content);
+    final byte[] content = TestRandomUtil.nextBytes(16);
 
     @SuppressWarnings("unchecked") final Consumer<PubSubProtos.PubSubMessage> subscribedConsumer = mock(Consumer.class);
 

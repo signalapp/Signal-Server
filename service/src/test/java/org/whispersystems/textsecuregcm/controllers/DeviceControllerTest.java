@@ -26,7 +26,6 @@ import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import java.nio.charset.StandardCharsets;
-import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
@@ -80,6 +79,7 @@ import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
 import org.whispersystems.textsecuregcm.util.TestClock;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import org.whispersystems.textsecuregcm.util.VerificationCode;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
@@ -124,10 +124,7 @@ class DeviceControllerTest {
       .build();
 
   private static byte[] generateLinkDeviceSecret() {
-    final byte[] linkDeviceSecret = new byte[32];
-    new SecureRandom().nextBytes(linkDeviceSecret);
-
-    return linkDeviceSecret;
+    return TestRandomUtil.nextBytes(32);
   }
 
   @BeforeEach
