@@ -64,6 +64,7 @@ class AccountsManagerChangeNumberIntegrationTest {
 
   private ClientPresenceManager clientPresenceManager;
   private ExecutorService accountLockExecutor;
+  private ExecutorService clientPresenceExecutor;
 
   private AccountsManager accountsManager;
 
@@ -95,6 +96,7 @@ class AccountsManagerChangeNumberIntegrationTest {
           Tables.DELETED_ACCOUNTS.tableName());
 
       accountLockExecutor = Executors.newSingleThreadExecutor();
+      clientPresenceExecutor = Executors.newSingleThreadExecutor();
 
       final AccountLockManager accountLockManager = new AccountLockManager(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
           Tables.DELETED_ACCOUNTS_LOCK.tableName());
@@ -136,6 +138,7 @@ class AccountsManagerChangeNumberIntegrationTest {
           mock(ExperimentEnrollmentManager.class),
           registrationRecoveryPasswordsManager,
           accountLockExecutor,
+          clientPresenceExecutor,
           mock(Clock.class));
     }
   }
@@ -143,9 +146,13 @@ class AccountsManagerChangeNumberIntegrationTest {
   @AfterEach
   void tearDown() throws InterruptedException {
     accountLockExecutor.shutdown();
+    clientPresenceExecutor.shutdown();
 
     //noinspection ResultOfMethodCallIgnored
     accountLockExecutor.awaitTermination(1, TimeUnit.SECONDS);
+
+    //noinspection ResultOfMethodCallIgnored
+    clientPresenceExecutor.awaitTermination(1, TimeUnit.SECONDS);
   }
 
   @Test

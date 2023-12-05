@@ -210,6 +210,34 @@ class AccountsTest {
   }
 
   @Test
+  void testStoreCleanupFailure() {
+    final Account existingAccount = nextRandomAccount();
+    createAccount(existingAccount);
+
+    verifyStoredState(existingAccount.getNumber(),
+        existingAccount.getUuid(),
+        existingAccount.getPhoneNumberIdentifier(),
+        existingAccount.getUsernameHash().orElse(null),
+        existingAccount,
+        true);
+
+    final CompletionException completionException = assertThrows(CompletionException.class,
+        () -> accounts.create(generateAccount(existingAccount.getNumber(), UUID.randomUUID(), UUID.randomUUID()),
+            ignored -> Collections.emptyList(),
+            (aci, pni) -> CompletableFuture.failedFuture(new RuntimeException("OH NO"))));
+
+    assertTrue(completionException.getCause() instanceof RuntimeException);
+
+    // If the existing account cleanup task failed, we should not overwrite the existing account record
+    verifyStoredState(existingAccount.getNumber(),
+        existingAccount.getUuid(),
+        existingAccount.getPhoneNumberIdentifier(),
+        existingAccount.getUsernameHash().orElse(null),
+        existingAccount,
+        true);
+  }
+
+  @Test
   void testStoreMulti() {
     final List<Device> devices = List.of(generateDevice(DEVICE_ID_1), generateDevice(DEVICE_ID_2));
     final Account account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID(), devices);
@@ -1113,7 +1141,8 @@ class AccountsTest {
   }
 
   private boolean createAccount(final Account account) {
-    return accounts.create(account, ignored -> Collections.emptyList());
+    return accounts.create(account, ignored -> Collections.emptyList(),
+        (ignoredAci, ignoredPni) -> CompletableFuture.completedFuture(null));
   }
 
   private static Account nextRandomAccount() {

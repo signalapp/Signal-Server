@@ -114,6 +114,7 @@ public class AccountsManager {
   private final ExperimentEnrollmentManager experimentEnrollmentManager;
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
   private final Executor accountLockExecutor;
+  private final Executor clientPresenceExecutor;
   private final Clock clock;
 
   private static final ObjectWriter ACCOUNT_REDIS_JSON_WRITER = SystemMapper.jsonMapper()
@@ -159,6 +160,7 @@ public class AccountsManager {
       final ExperimentEnrollmentManager experimentEnrollmentManager,
       final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
       final Executor accountLockExecutor,
+      final Executor clientPresenceExecutor,
       final Clock clock) {
     this.accounts = accounts;
     this.phoneNumberIdentifiers = phoneNumberIdentifiers;
@@ -173,6 +175,7 @@ public class AccountsManager {
     this.experimentEnrollmentManager = experimentEnrollmentManager;
     this.registrationRecoveryPasswordsManager = requireNonNull(registrationRecoveryPasswordsManager);
     this.accountLockExecutor = accountLockExecutor;
+    this.clientPresenceExecutor = clientPresenceExecutor;
     this.clock = requireNonNull(clock);
   }
 
@@ -243,13 +246,32 @@ public class AccountsManager {
                 aciSignedPreKey,
                 pniSignedPreKey,
                 aciPqLastResortPreKey,
-                pniPqLastResortPreKey));
+                pniPqLastResortPreKey),
+            (aci, pni) -> CompletableFuture.allOf(
+                keysManager.delete(aci),
+                keysManager.delete(pni),
+                messagesManager.clear(aci),
+                profilesManager.deleteAll(aci)
+            ).thenRunAsync(() -> clientPresenceManager.disconnectAllPresencesForUuid(aci), clientPresenceExecutor));
 
-        // create() sometimes updates the UUID, if there was a number conflict.
-        // for metrics, we want secondary to run with the same original UUID
-        final UUID actualUuid = account.getUuid();
+        if (!account.getUuid().equals(originalUuid)) {
+          // If the UUID changed, then we overwrote an existing account. We should have cleared all messages before
+          // overwriting the old account, but more may have arrived while we were working. Similarly, the old account
+          // holder could have added keys or profiles. We'll largely repeat the cleanup process after creating the
+          // account to make sure we really REALLY got everything.
+          //
+          // We exclude the primary device's repeated-use keys from deletion because new keys were provided as
+          // part of the account creation process, and we don't want to delete the keys that just got added.
+          CompletableFuture.allOf(keysManager.delete(account.getIdentifier(IdentityType.ACI), true),
+              keysManager.delete(account.getIdentifier(IdentityType.PNI), true),
+              messagesManager.clear(account.getIdentifier(IdentityType.ACI)),
+              profilesManager.deleteAll(account.getIdentifier(IdentityType.ACI)))
+              .join();
+        }
 
         redisSet(account);
+
+        final Tags tags;
 
         // In terms of previously-existing accounts, there are three possible cases:
         //
@@ -259,27 +281,6 @@ public class AccountsManager {
         //    instance to match the stored account record (i.e. originalUuid != actualUuid).
         // 3. This is a re-registration of a recently-deleted account, in which case maybeRecentlyDeletedUuid is
         //    present.
-        //
-        // All cases are mutually-exclusive. In the first case, we don't need to do anything. In the third, we can be
-        // confident that everything has already been deleted. In the second case, though, we're taking over an existing
-        // account and need to clear out messages and keys that may have been stored for the old account.
-        if (!originalUuid.equals(actualUuid)) {
-          // We exclude the primary device's repeated-use keys from deletion because new keys were provided as part of
-          // the account creation process, and we don't want to delete the keys that just got added.
-          final CompletableFuture<Void> deleteKeysFuture = CompletableFuture.allOf(
-              keysManager.delete(actualUuid, true),
-              keysManager.delete(account.getPhoneNumberIdentifier(), true));
-
-          messagesManager.clear(actualUuid).join();
-          profilesManager.deleteAll(actualUuid).join();
-
-          deleteKeysFuture.join();
-
-          clientPresenceManager.disconnectAllPresencesForUuid(actualUuid);
-        }
-
-        final Tags tags;
-
         if (freshUser) {
           tags = Tags.of("type", maybeRecentlyDeletedAccountIdentifier.isPresent() ? "recently-deleted" : "new");
         } else {

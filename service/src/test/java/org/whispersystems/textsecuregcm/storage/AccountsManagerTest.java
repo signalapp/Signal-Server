@@ -48,6 +48,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -133,6 +134,15 @@ class AccountsManagerTest {
     messagesManager = mock(MessagesManager.class);
     profilesManager = mock(ProfilesManager.class);
     clientPresenceManager = mock(ClientPresenceManager.class);
+
+    final Executor clientPresenceExecutor = mock(Executor.class);
+
+    doAnswer(invocation -> {
+      final Runnable runnable = invocation.getArgument(0);
+      runnable.run();
+
+      return null;
+    }).when(clientPresenceExecutor).execute(any());
 
     //noinspection unchecked
     commands = mock(RedisAdvancedClusterCommands.class);
@@ -224,6 +234,7 @@ class AccountsManagerTest {
         enrollmentManager,
         registrationRecoveryPasswordsManager,
         mock(Executor.class),
+        clientPresenceExecutor,
         mock(Clock.class));
   }
 
@@ -856,7 +867,7 @@ class AccountsManagerTest {
     when(commands.get(eq("Account3::" + uuid))).thenReturn(null);
     when(accounts.getByAccountIdentifier(uuid)).thenReturn(Optional.empty())
         .thenReturn(Optional.of(account));
-    when(accounts.create(any(), any())).thenThrow(ContestedOptimisticLockException.class);
+    when(accounts.create(any(), any(), any())).thenThrow(ContestedOptimisticLockException.class);
 
     accountsManager.update(account, a -> {
     });
@@ -974,14 +985,14 @@ class AccountsManagerTest {
 
   @Test
   void testCreateFreshAccount() throws InterruptedException {
-    when(accounts.create(any(), any())).thenReturn(true);
+    when(accounts.create(any(), any(), any())).thenReturn(true);
 
     final String e164 = "+18005550123";
     final AccountAttributes attributes = new AccountAttributes(false, 1, 2, null, null, true, null);
 
     createAccount(e164, attributes);
 
-    verify(accounts).create(argThat(account -> e164.equals(account.getNumber())), any());
+    verify(accounts).create(argThat(account -> e164.equals(account.getNumber())), any(), any());
 
     verifyNoInteractions(messagesManager);
     verifyNoInteractions(profilesManager);
@@ -991,25 +1002,31 @@ class AccountsManagerTest {
   void testReregisterAccount() throws InterruptedException {
     final UUID existingUuid = UUID.randomUUID();
 
-    when(accounts.create(any(), any())).thenAnswer(invocation -> {
-      invocation.getArgument(0, Account.class).setUuid(existingUuid);
-      return false;
-    });
-
     final String e164 = "+18005550123";
     final AccountAttributes attributes = new AccountAttributes(false, 1, 2, null, null, true, null);
+
+    when(accounts.create(any(), any(), any())).thenAnswer(invocation -> {
+      invocation.getArgument(0, Account.class).setUuid(existingUuid);
+
+      final BiFunction<UUID, UUID, CompletableFuture<Void>> cleanupOperation = invocation.getArgument(2);
+      cleanupOperation.apply(existingUuid, phoneNumberIdentifiersByE164.get(e164));
+
+      return false;
+    });
 
     createAccount(e164, attributes);
 
     assertTrue(phoneNumberIdentifiersByE164.containsKey(e164));
 
     verify(accounts)
-        .create(argThat(account -> e164.equals(account.getNumber()) && existingUuid.equals(account.getUuid())), any());
+        .create(argThat(account -> e164.equals(account.getNumber()) && existingUuid.equals(account.getUuid())), any(), any());
 
+    verify(keysManager).delete(existingUuid);
+    verify(keysManager).delete(phoneNumberIdentifiersByE164.get(e164));
     verify(keysManager).delete(existingUuid, true);
     verify(keysManager).delete(phoneNumberIdentifiersByE164.get(e164), true);
-    verify(messagesManager).clear(existingUuid);
-    verify(profilesManager).deleteAll(existingUuid);
+    verify(messagesManager, times(2)).clear(existingUuid);
+    verify(profilesManager, times(2)).deleteAll(existingUuid);
     verify(clientPresenceManager).disconnectAllPresencesForUuid(existingUuid);
   }
 
@@ -1018,7 +1035,7 @@ class AccountsManagerTest {
     final UUID recentlyDeletedUuid = UUID.randomUUID();
 
     when(accounts.findRecentlyDeletedAccountIdentifier(anyString())).thenReturn(Optional.of(recentlyDeletedUuid));
-    when(accounts.create(any(), any())).thenReturn(true);
+    when(accounts.create(any(), any(), any())).thenReturn(true);
 
     final String e164 = "+18005550123";
     final AccountAttributes attributes = new AccountAttributes(false, 1, 2, null, null, true, null);
@@ -1027,6 +1044,7 @@ class AccountsManagerTest {
 
     verify(accounts).create(
         argThat(account -> e164.equals(account.getNumber()) && recentlyDeletedUuid.equals(account.getUuid())),
+        any(),
         any());
 
     verifyNoInteractions(keysManager);

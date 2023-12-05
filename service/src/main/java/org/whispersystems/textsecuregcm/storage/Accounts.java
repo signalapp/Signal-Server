@@ -29,6 +29,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -36,6 +37,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.util.AsyncTimerUtil;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
@@ -184,7 +186,9 @@ public class Accounts extends AbstractDynamoDbStore {
         deletedAccountsTableName);
   }
 
-  public boolean create(final Account account, final Function<Account, Collection<TransactWriteItem>> additionalWriteItemsFunction) {
+  public boolean create(final Account account,
+      final Function<Account, Collection<TransactWriteItem>> additionalWriteItemsFunction,
+      final BiFunction<UUID, UUID, CompletableFuture<Void>> existingAccountCleanupOperation) {
 
     return CREATE_TIMER.record(() -> {
       try {
@@ -239,7 +243,10 @@ public class Accounts extends AbstractDynamoDbStore {
             account.setUuid(UUIDUtil.fromByteBuffer(actualAccountUuid));
             final Account existingAccount = getByAccountIdentifier(account.getUuid()).orElseThrow();
             account.setNumber(existingAccount.getNumber(), existingAccount.getPhoneNumberIdentifier());
-            joinAndUnwrapUpdateFuture(reclaimAccount(existingAccount, account, additionalWriteItemsFunction.apply(account)));
+
+            existingAccountCleanupOperation.apply(existingAccount.getIdentifier(IdentityType.ACI), existingAccount.getIdentifier(IdentityType.PNI))
+                .thenCompose(ignored -> reclaimAccount(existingAccount, account, additionalWriteItemsFunction.apply(account)))
+                .join();
 
             return false;
           }

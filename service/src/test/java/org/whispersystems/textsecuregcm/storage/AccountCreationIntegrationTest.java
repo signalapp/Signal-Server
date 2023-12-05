@@ -67,6 +67,7 @@ public class AccountCreationIntegrationTest {
   private static final Clock CLOCK = Clock.fixed(Instant.now(), ZoneId.systemDefault());
 
   private ExecutorService accountLockExecutor;
+  private ExecutorService clientPresenceExecutor;
 
   private AccountsManager accountsManager;
   private KeysManager keysManager;
@@ -99,6 +100,7 @@ public class AccountCreationIntegrationTest {
         DynamoDbExtensionSchema.Tables.DELETED_ACCOUNTS.tableName());
 
     accountLockExecutor = Executors.newSingleThreadExecutor();
+    clientPresenceExecutor = Executors.newSingleThreadExecutor();
 
     final AccountLockManager accountLockManager = new AccountLockManager(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
         DynamoDbExtensionSchema.Tables.DELETED_ACCOUNTS_LOCK.tableName());
@@ -139,15 +141,20 @@ public class AccountCreationIntegrationTest {
         mock(ExperimentEnrollmentManager.class),
         registrationRecoveryPasswordsManager,
         accountLockExecutor,
+        clientPresenceExecutor,
         CLOCK);
   }
 
   @AfterEach
   void tearDown() throws InterruptedException {
     accountLockExecutor.shutdown();
+    clientPresenceExecutor.shutdown();
 
     //noinspection ResultOfMethodCallIgnored
     accountLockExecutor.awaitTermination(1, TimeUnit.SECONDS);
+
+    //noinspection ResultOfMethodCallIgnored
+    clientPresenceExecutor.awaitTermination(1, TimeUnit.SECONDS);
   }
 
   @CartesianTest

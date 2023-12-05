@@ -149,6 +149,7 @@ class AccountsManagerUsernameIntegrationTest {
         experimentEnrollmentManager,
         mock(RegistrationRecoveryPasswordsManager.class),
         mock(Executor.class),
+        mock(Executor.class),
         mock(Clock.class));
   }
 
@@ -312,7 +313,8 @@ class AccountsManagerUsernameIntegrationTest {
     final Account account = AccountsHelper.createAccount(accountsManager, "+18005551111");
 
     account.setUsernameHash(TestRandomUtil.nextBytes(16));
-    accounts.create(account, ignored -> Collections.emptyList());
+    accounts.create(account, ignored -> Collections.emptyList(),
+        (ignoredAci, ignoredPni) -> CompletableFuture.completedFuture(null));
 
     final UUID linkHandle = UUID.randomUUID();
     final byte[] encryptedUsername = TestRandomUtil.nextBytes(32);

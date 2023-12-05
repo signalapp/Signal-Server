@@ -88,6 +88,8 @@ record CommandDependencies(
         .executorService(name(name, "storageService-%d")).maxThreads(8).minThreads(8).build();
     ExecutorService accountLockExecutor = environment.lifecycle()
         .executorService(name(name, "accountLock-%d")).minThreads(8).maxThreads(8).build();
+    ExecutorService clientPresenceExecutor = environment.lifecycle()
+        .executorService(name(name, "clientPresence-%d")).minThreads(8).maxThreads(8).build();
 
     ScheduledExecutorService secureValueRecoveryServiceRetryExecutor = environment.lifecycle()
         .scheduledExecutorService(name(name, "secureValueRecoveryServiceRetry-%d")).threads(1).build();
@@ -177,7 +179,8 @@ record CommandDependencies(
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
         accountLockManager, keys, messagesManager, profilesManager,
         secureStorageClient, secureValueRecovery2Client, clientPresenceManager,
-        experimentEnrollmentManager, registrationRecoveryPasswordsManager, accountLockExecutor, clock);
+        experimentEnrollmentManager, registrationRecoveryPasswordsManager, accountLockExecutor, clientPresenceExecutor,
+        clock);
 
     environment.lifecycle().manage(messagesCache);
     environment.lifecycle().manage(clientPresenceManager);

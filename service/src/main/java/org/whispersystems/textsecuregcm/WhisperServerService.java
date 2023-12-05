@@ -468,6 +468,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .minThreads(8)
         .maxThreads(8)
         .build();
+    ExecutorService clientPresenceExecutor = environment.lifecycle()
+        .executorService(name(getClass(), "clientPresence-%d"))
+        .minThreads(8)
+        .maxThreads(8)
+        .build();
     ScheduledExecutorService subscriptionProcessorRetryExecutor = environment.lifecycle()
         .scheduledExecutorService(name(getClass(), "subscriptionProcessorRetry-%d")).threads(1).build();
 
@@ -540,7 +545,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         accountLockManager, keysManager, messagesManager, profilesManager,
         secureStorageClient, secureValueRecovery2Client,
         clientPresenceManager,
-        experimentEnrollmentManager, registrationRecoveryPasswordsManager, accountLockExecutor, clock);
+        experimentEnrollmentManager, registrationRecoveryPasswordsManager, accountLockExecutor, clientPresenceExecutor,
+        clock);
     RemoteConfigsManager remoteConfigsManager = new RemoteConfigsManager(remoteConfigs);
     APNSender apnSender = new APNSender(apnSenderExecutor, config.getApnConfiguration());
     FcmSender fcmSender = new FcmSender(fcmSenderExecutor, config.getFcmConfiguration().credentials().value());
