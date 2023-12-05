@@ -188,7 +188,7 @@ class AccountsManagerChangeNumberIntegrationTest {
     final AccountAttributes accountAttributes = new AccountAttributes(true, rotatedPniRegistrationId + 1, rotatedPniRegistrationId, "test", null, true, new Device.DeviceCapabilities(false, false, false, false));
     final Account account = AccountsHelper.createAccount(accountsManager, originalNumber, accountAttributes);
 
-    account.getPrimaryDevice().orElseThrow().setSignedPreKey(KeysHelper.signedECPreKey(1, rotatedPniIdentityKeyPair));
+    account.getPrimaryDevice().setSignedPreKey(KeysHelper.signedECPreKey(1, rotatedPniIdentityKeyPair));
 
     final UUID originalUuid = account.getUuid();
     final UUID originalPni = account.getPhoneNumberIdentifier();
@@ -213,9 +213,9 @@ class AccountsManagerChangeNumberIntegrationTest {
     assertEquals(pniIdentityKey, updatedAccount.getIdentityKey(IdentityType.PNI));
 
     assertEquals(OptionalInt.of(rotatedPniRegistrationId),
-        updatedAccount.getPrimaryDevice().orElseThrow().getPhoneNumberIdentityRegistrationId());
+        updatedAccount.getPrimaryDevice().getPhoneNumberIdentityRegistrationId());
 
-    assertEquals(rotatedSignedPreKey, updatedAccount.getPrimaryDevice().orElseThrow().getSignedPreKey(IdentityType.PNI));
+    assertEquals(rotatedSignedPreKey, updatedAccount.getPrimaryDevice().getSignedPreKey(IdentityType.PNI));
   }
 
   @Test

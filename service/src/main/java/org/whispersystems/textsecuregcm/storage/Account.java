@@ -235,10 +235,11 @@ public class Account {
     return devices;
   }
 
-  public Optional<Device> getPrimaryDevice() {
+  public Device getPrimaryDevice() {
     requireNotStale();
 
-    return getDevice(Device.PRIMARY_ID);
+    return getDevice(Device.PRIMARY_ID)
+        .orElseThrow(() -> new IllegalStateException("All accounts must have a primary device"));
   }
 
   public Optional<Device> getDevice(final byte deviceId) {
@@ -256,7 +257,9 @@ public class Account {
   public boolean isTransferSupported() {
     requireNotStale();
 
-    return getPrimaryDevice().map(Device::getCapabilities).map(Device.DeviceCapabilities::transfer).orElse(false);
+    return Optional.ofNullable(getPrimaryDevice().getCapabilities())
+        .map(Device.DeviceCapabilities::transfer)
+        .orElse(false);
   }
 
   public boolean isPniSupported() {
@@ -278,7 +281,7 @@ public class Account {
   public boolean isEnabled() {
     requireNotStale();
 
-    return getPrimaryDevice().map(Device::isEnabled).orElse(false);
+    return getPrimaryDevice().isEnabled();
   }
 
   public byte getNextDeviceId() {

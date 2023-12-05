@@ -139,15 +139,15 @@ public class AuthHelper {
     when(VALID_DEVICE_3_LINKED.isEnabled()).thenReturn(true);
 
     when(VALID_ACCOUNT.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(VALID_DEVICE));
-    when(VALID_ACCOUNT.getPrimaryDevice()).thenReturn(Optional.of(VALID_DEVICE));
+    when(VALID_ACCOUNT.getPrimaryDevice()).thenReturn(VALID_DEVICE);
     when(VALID_ACCOUNT_TWO.getDevice(eq(Device.PRIMARY_ID))).thenReturn(Optional.of(VALID_DEVICE_TWO));
-    when(VALID_ACCOUNT_TWO.getPrimaryDevice()).thenReturn(Optional.of(VALID_DEVICE_TWO));
+    when(VALID_ACCOUNT_TWO.getPrimaryDevice()).thenReturn(VALID_DEVICE_TWO);
     when(DISABLED_ACCOUNT.getDevice(eq(Device.PRIMARY_ID))).thenReturn(Optional.of(DISABLED_DEVICE));
-    when(DISABLED_ACCOUNT.getPrimaryDevice()).thenReturn(Optional.of(DISABLED_DEVICE));
+    when(DISABLED_ACCOUNT.getPrimaryDevice()).thenReturn(DISABLED_DEVICE);
     when(UNDISCOVERABLE_ACCOUNT.getDevice(eq(Device.PRIMARY_ID))).thenReturn(Optional.of(UNDISCOVERABLE_DEVICE));
-    when(UNDISCOVERABLE_ACCOUNT.getPrimaryDevice()).thenReturn(Optional.of(UNDISCOVERABLE_DEVICE));
+    when(UNDISCOVERABLE_ACCOUNT.getPrimaryDevice()).thenReturn(UNDISCOVERABLE_DEVICE);
     when(VALID_ACCOUNT_3.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(VALID_DEVICE_3_PRIMARY));
-    when(VALID_ACCOUNT_3.getPrimaryDevice()).thenReturn(Optional.of(VALID_DEVICE_3_PRIMARY));
+    when(VALID_ACCOUNT_3.getPrimaryDevice()).thenReturn(VALID_DEVICE_3_PRIMARY);
     when(VALID_ACCOUNT_3.getDevice((byte) 2)).thenReturn(Optional.of(VALID_DEVICE_3_LINKED));
 
     when(VALID_ACCOUNT.getDevices()).thenReturn(List.of(VALID_DEVICE));
@@ -289,7 +289,7 @@ public class AuthHelper {
       when(device.getId()).thenReturn(Device.PRIMARY_ID);
       when(device.isEnabled()).thenReturn(true);
       when(account.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(device));
-      when(account.getPrimaryDevice()).thenReturn(Optional.of(device));
+      when(account.getPrimaryDevice()).thenReturn(device);
       when(account.getNumber()).thenReturn(number);
       when(account.getUuid()).thenReturn(uuid);
       when(account.isEnabled()).thenReturn(true);

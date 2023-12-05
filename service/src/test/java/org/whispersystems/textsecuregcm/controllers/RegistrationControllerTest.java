@@ -165,7 +165,7 @@ class RegistrationControllerTest {
                     SESSION_EXPIRATION_SECONDS))));
 
     final Account account = mock(Account.class);
-    when(account.getPrimaryDevice()).thenReturn(Optional.of(mock(Device.class)));
+    when(account.getPrimaryDevice()).thenReturn(mock(Device.class));
 
     when(accountsManager.create(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(account);
@@ -288,7 +288,7 @@ class RegistrationControllerTest {
         .thenReturn(CompletableFuture.completedFuture(true));
 
     final Account account = mock(Account.class);
-    when(account.getPrimaryDevice()).thenReturn(Optional.of(mock(Device.class)));
+    when(account.getPrimaryDevice()).thenReturn(mock(Device.class));
 
     when(accountsManager.create(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(account);
@@ -346,7 +346,7 @@ class RegistrationControllerTest {
       expectedStatus = error.getExpectedStatus();
     } else {
       final Account createdAccount = mock(Account.class);
-      when(createdAccount.getPrimaryDevice()).thenReturn(Optional.of(mock(Device.class)));
+      when(createdAccount.getPrimaryDevice()).thenReturn(mock(Device.class));
 
       when(accountsManager.create(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
           .thenReturn(createdAccount);
@@ -400,7 +400,7 @@ class RegistrationControllerTest {
     when(accountsManager.getByE164(any())).thenReturn(maybeAccount);
 
     final Account account = mock(Account.class);
-    when(account.getPrimaryDevice()).thenReturn(Optional.of(mock(Device.class)));
+    when(account.getPrimaryDevice()).thenReturn(mock(Device.class));
 
     when(accountsManager.create(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(account);
@@ -424,7 +424,7 @@ class RegistrationControllerTest {
                     SESSION_EXPIRATION_SECONDS))));
 
     final Account account = mock(Account.class);
-    when(account.getPrimaryDevice()).thenReturn(Optional.of(mock(Device.class)));
+    when(account.getPrimaryDevice()).thenReturn(mock(Device.class));
 
     when(accountsManager.create(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(account);
@@ -682,7 +682,7 @@ class RegistrationControllerTest {
     final Account account = MockUtils.buildMock(Account.class, a -> {
       when(a.getUuid()).thenReturn(accountIdentifier);
       when(a.getPhoneNumberIdentifier()).thenReturn(phoneNumberIdentifier);
-      when(a.getPrimaryDevice()).thenReturn(Optional.of(device));
+      when(a.getPrimaryDevice()).thenReturn(device);
     });
 
     when(accountsManager.create(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))

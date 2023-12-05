@@ -62,7 +62,7 @@ public class PushNotificationManager {
   public void sendRateLimitChallengeNotification(final Account destination, final String challengeToken)
       throws NotPushRegisteredException {
 
-    final Device device = destination.getDevice(Device.PRIMARY_ID).orElseThrow(NotPushRegisteredException::new);
+    final Device device = destination.getPrimaryDevice();
     final Pair<String, PushNotification.TokenType> tokenAndType = getToken(device);
 
     sendNotification(new PushNotification(tokenAndType.first(), tokenAndType.second(),

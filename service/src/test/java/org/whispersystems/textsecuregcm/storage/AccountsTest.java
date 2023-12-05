@@ -570,7 +570,7 @@ class AccountsTest {
     final String deviceName = "device-name";
 
     assertNotEquals(deviceName,
-        accounts.getByAccountIdentifier(account.getUuid()).orElseThrow().getPrimaryDevice().orElseThrow().getName());
+        accounts.getByAccountIdentifier(account.getUuid()).orElseThrow().getPrimaryDevice().getName());
 
     assertFalse(DYNAMO_DB_EXTENSION.getDynamoDbClient().getItem(GetItemRequest.builder()
             .tableName(Tables.CLIENT_RELEASES.tableName())
@@ -581,7 +581,7 @@ class AccountsTest {
             .build())
         .hasItem());
 
-    account.getPrimaryDevice().orElseThrow().setName(deviceName);
+    account.getPrimaryDevice().setName(deviceName);
 
     accounts.updateTransactionallyAsync(account, List.of(TransactWriteItem.builder()
         .put(Put.builder()
@@ -594,7 +594,7 @@ class AccountsTest {
         .build())).toCompletableFuture().join();
 
     assertEquals(deviceName,
-        accounts.getByAccountIdentifier(account.getUuid()).orElseThrow().getPrimaryDevice().orElseThrow().getName());
+        accounts.getByAccountIdentifier(account.getUuid()).orElseThrow().getPrimaryDevice().getName());
 
     assertTrue(DYNAMO_DB_EXTENSION.getDynamoDbClient().getItem(GetItemRequest.builder()
             .tableName(Tables.CLIENT_RELEASES.tableName())

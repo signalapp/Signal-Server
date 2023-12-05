@@ -391,7 +391,7 @@ public class AccountCreationIntegrationTest {
       final KEMSignedPreKey aciPqLastResortPreKey,
       final KEMSignedPreKey pniPqLastResortPreKey) {
 
-    final Device primaryDevice = account.getPrimaryDevice().orElseThrow();
+    final Device primaryDevice = account.getPrimaryDevice();
 
     assertEquals(number, account.getNumber());
     assertEquals(signalAgent, primaryDevice.getUserAgent());

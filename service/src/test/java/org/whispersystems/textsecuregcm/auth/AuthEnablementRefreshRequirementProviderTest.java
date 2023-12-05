@@ -174,7 +174,7 @@ class AuthEnablementRefreshRequirementProviderTest {
   void testDeviceEnabledChanged(final Map<Byte, Boolean> initialEnabled, final Map<Byte, Boolean> finalEnabled) {
     assert initialEnabled.size() == finalEnabled.size();
 
-    assert account.getPrimaryDevice().orElseThrow().isEnabled();
+    assert account.getPrimaryDevice().isEnabled();
 
     initialEnabled.forEach((deviceId, enabled) ->
         DevicesHelper.setEnabled(account.getDevice(deviceId).orElseThrow(), enabled));
@@ -217,7 +217,7 @@ class AuthEnablementRefreshRequirementProviderTest {
 
   @Test
   void testDeviceAdded() {
-    assert account.getPrimaryDevice().orElseThrow().isEnabled();
+    assert account.getPrimaryDevice().isEnabled();
 
     final int initialDeviceCount = account.getDevices().size();
 
@@ -241,7 +241,7 @@ class AuthEnablementRefreshRequirementProviderTest {
   @ParameterizedTest
   @ValueSource(ints = {1, 2})
   void testDeviceRemoved(final int removedDeviceCount) {
-    assert account.getPrimaryDevice().orElseThrow().isEnabled();
+    assert account.getPrimaryDevice().isEnabled();
 
     final List<Byte> initialDeviceIds = account.getDevices().stream().map(Device::getId).toList();
 
@@ -273,7 +273,7 @@ class AuthEnablementRefreshRequirementProviderTest {
 
   @Test
   void testPrimaryDeviceDisabledAndDeviceRemoved() {
-    assert account.getPrimaryDevice().orElseThrow().isEnabled();
+    assert account.getPrimaryDevice().isEnabled();
 
     final Set<Byte> initialDeviceIds = account.getDevices().stream().map(Device::getId).collect(Collectors.toSet());
 
@@ -421,7 +421,7 @@ class AuthEnablementRefreshRequirementProviderTest {
     @ChangesDeviceEnabledState
     public String setAccountEnabled(@Auth TestPrincipal principal, @PathParam("enabled") final boolean enabled) {
 
-      final Device device = principal.getAccount().getPrimaryDevice().orElseThrow();
+      final Device device = principal.getAccount().getPrimaryDevice();
 
       DevicesHelper.setEnabled(device, enabled);
 
@@ -479,7 +479,7 @@ class AuthEnablementRefreshRequirementProviderTest {
     @ChangesDeviceEnabledState
     public String disablePrimaryDeviceAndRemoveDevice(@Auth TestPrincipal auth, @PathParam("deviceId") byte deviceId) {
 
-      DevicesHelper.setEnabled(auth.getAccount().getPrimaryDevice().orElseThrow(), false);
+      DevicesHelper.setEnabled(auth.getAccount().getPrimaryDevice(), false);
 
       auth.getAccount().removeDevice(deviceId);
 

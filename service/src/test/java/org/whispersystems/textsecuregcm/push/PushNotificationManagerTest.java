@@ -93,7 +93,7 @@ class PushNotificationManagerTest {
 
     when(device.getId()).thenReturn(Device.PRIMARY_ID);
     when(device.getApnId()).thenReturn(deviceToken);
-    when(account.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(device));
+    when(account.getPrimaryDevice()).thenReturn(device);
 
     when(apnSender.sendNotification(any()))
         .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(true, null, false)));
