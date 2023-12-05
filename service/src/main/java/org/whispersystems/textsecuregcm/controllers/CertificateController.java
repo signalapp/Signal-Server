@@ -89,8 +89,8 @@ public class CertificateController {
   @Path("/auth/group")
   public GroupCredentials getGroupAuthenticationCredentials(
       @Auth AuthenticatedAccount auth,
-      @QueryParam("redemptionStartSeconds") int startSeconds,
-      @QueryParam("redemptionEndSeconds") int endSeconds,
+      @QueryParam("redemptionStartSeconds") long startSeconds,
+      @QueryParam("redemptionEndSeconds") long endSeconds,
       @QueryParam("pniAsServiceId") boolean pniAsServiceId) {
 
     final Instant startOfDay = clock.instant().truncatedTo(ChronoUnit.DAYS);

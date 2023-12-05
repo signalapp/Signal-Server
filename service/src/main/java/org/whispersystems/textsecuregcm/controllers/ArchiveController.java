@@ -141,8 +141,8 @@ public class ArchiveController {
   @ApiResponse(responseCode = "429", description = "Rate limited.")
   public CompletionStage<BackupAuthCredentialsResponse> getBackupZKCredentials(
       @Auth AuthenticatedAccount auth,
-      @NotNull @QueryParam("redemptionStartSeconds") Integer startSeconds,
-      @NotNull @QueryParam("redemptionEndSeconds") Integer endSeconds) {
+      @NotNull @QueryParam("redemptionStartSeconds") Long startSeconds,
+      @NotNull @QueryParam("redemptionEndSeconds") Long endSeconds) {
 
     return this.backupAuthManager.getBackupAuthCredentials(
             auth.getAccount(),
