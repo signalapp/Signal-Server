@@ -95,6 +95,7 @@ public class Accounts extends AbstractDynamoDbStore {
   private static final Timer RESERVE_USERNAME_TIMER = Metrics.timer(name(Accounts.class, "reserveUsername"));
   private static final Timer CLEAR_USERNAME_HASH_TIMER = Metrics.timer(name(Accounts.class, "clearUsernameHash"));
   private static final Timer UPDATE_TIMER = Metrics.timer(name(Accounts.class, "update"));
+  private static final Timer UPDATE_TRANSACTIONALLY_TIMER = Metrics.timer(name(Accounts.class, "updateTransactionally"));
   private static final Timer RECLAIM_TIMER = Metrics.timer(name(Accounts.class, "reclaim"));
   private static final Timer GET_BY_NUMBER_TIMER = Metrics.timer(name(Accounts.class, "getByNumber"));
   private static final Timer GET_BY_USERNAME_HASH_TIMER = Metrics.timer(name(Accounts.class, "getByUsernameHash"));
@@ -277,6 +278,7 @@ public class Accounts extends AbstractDynamoDbStore {
         !existingAccount.getNumber().equals(accountToCreate.getNumber())) {
       throw new IllegalArgumentException("reclaimed accounts must match");
     }
+
     return AsyncTimerUtil.record(RECLAIM_TIMER, () -> {
 
       accountToCreate.setVersion(existingAccount.getVersion());
@@ -364,7 +366,8 @@ public class Accounts extends AbstractDynamoDbStore {
   public void changeNumber(final Account account,
       final String number,
       final UUID phoneNumberIdentifier,
-      final Optional<UUID> maybeDisplacedAccountIdentifier) {
+      final Optional<UUID> maybeDisplacedAccountIdentifier,
+      final Collection<TransactWriteItem> additionalWriteItems) {
 
     CHANGE_NUMBER_TIMER.record(() -> {
       final String originalNumber = account.getNumber();
@@ -412,6 +415,8 @@ public class Accounts extends AbstractDynamoDbStore {
                         ":version_increment", AttributeValues.fromInt(1)))
                     .build())
                 .build());
+
+        writeItems.addAll(additionalWriteItems);
 
         final TransactWriteItemsRequest request = TransactWriteItemsRequest.builder()
             .transactItems(writeItems)
@@ -861,6 +866,35 @@ public class Accounts extends AbstractDynamoDbStore {
 
   public void update(final Account account) throws ContestedOptimisticLockException {
     joinAndUnwrapUpdateFuture(updateAsync(account));
+  }
+
+  public CompletionStage<Void> updateTransactionallyAsync(final Account account,
+      final Collection<TransactWriteItem> additionalWriteItems) {
+
+    return AsyncTimerUtil.record(UPDATE_TRANSACTIONALLY_TIMER, () -> {
+      final List<TransactWriteItem> writeItems = new ArrayList<>(additionalWriteItems.size() + 1);
+      writeItems.add(UpdateAccountSpec.forAccount(accountsTableName, account).transactItem());
+      writeItems.addAll(additionalWriteItems);
+
+      return asyncClient.transactWriteItems(TransactWriteItemsRequest.builder()
+              .transactItems(writeItems)
+              .build())
+          .thenApply(response -> {
+            account.setVersion(account.getVersion() + 1);
+            return (Void) null;
+          })
+          .exceptionally(throwable -> {
+            final Throwable unwrapped = ExceptionUtils.unwrap(throwable);
+
+            if (unwrapped instanceof TransactionCanceledException transactionCanceledException) {
+              if ("ConditionalCheckFailed".equals(transactionCanceledException.cancellationReasons().get(0).code())) {
+                throw new ContestedOptimisticLockException();
+              }
+            }
+
+            throw CompletableFutureUtils.errorAsCompletionException(throwable);
+          });
+    });
   }
 
   public CompletableFuture<Boolean> usernameHashAvailable(final byte[] username) {

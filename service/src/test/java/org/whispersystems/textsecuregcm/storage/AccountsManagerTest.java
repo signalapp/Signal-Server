@@ -154,6 +154,7 @@ class AccountsManagerTest {
     when(asyncCommands.setex(any(), anyLong(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
 
     when(accounts.updateAsync(any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(accounts.updateTransactionallyAsync(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
     when(accounts.delete(any())).thenReturn(CompletableFuture.completedFuture(null));
 
     doAnswer((Answer<Void>) invocation -> {
@@ -164,7 +165,7 @@ class AccountsManagerTest {
       account.setNumber(number, phoneNumberIdentifier);
 
       return null;
-    }).when(accounts).changeNumber(any(), anyString(), any(), any());
+    }).when(accounts).changeNumber(any(), anyString(), any(), any(), any());
 
     final SecureStorageClient storageClient = mock(SecureStorageClient.class);
     when(storageClient.deleteStoredData(any())).thenReturn(CompletableFuture.completedFuture(null));
@@ -1163,7 +1164,6 @@ class AccountsManagerTest {
     verify(keysManager).delete(originalPni);
     verify(keysManager, atLeastOnce()).delete(targetPni);
     verify(keysManager).delete(newPni);
-    verify(keysManager).storeEcSignedPreKeys(eq(newPni), any());
     verifyNoMoreInteractions(keysManager);
   }
 
@@ -1209,9 +1209,9 @@ class AccountsManagerTest {
     verify(keysManager).delete(newPni);
     verify(keysManager).delete(originalPni);
     verify(keysManager).getPqEnabledDevices(uuid);
-    verify(keysManager).storeEcSignedPreKeys(newPni, newSignedKeys);
-    verify(keysManager).storePqLastResort(eq(newPni),
-        eq(Map.of(Device.PRIMARY_ID, newSignedPqKeys.get(Device.PRIMARY_ID))));
+    verify(keysManager).buildWriteItemForEcSignedPreKey(eq(newPni), eq(Device.PRIMARY_ID), any());
+    verify(keysManager).buildWriteItemForEcSignedPreKey(eq(newPni), eq(deviceId2), any());
+    verify(keysManager).buildWriteItemForLastResortKey(eq(newPni), eq(Device.PRIMARY_ID), any());
     verifyNoMoreInteractions(keysManager);
   }
 
@@ -1304,9 +1304,12 @@ class AccountsManagerTest {
     assertEquals(newRegistrationIds,
         updatedAccount.getDevices().stream().collect(Collectors.toMap(Device::getId, d -> d.getPhoneNumberIdentityRegistrationId().getAsInt())));
 
-    verify(accounts).update(any());
+    verify(accounts).updateTransactionallyAsync(any(), any());
 
     verify(keysManager).delete(oldPni);
+    verify(keysManager).buildWriteItemForEcSignedPreKey(eq(oldPni), eq(Device.PRIMARY_ID), any());
+    verify(keysManager).buildWriteItemForEcSignedPreKey(eq(oldPni), eq(deviceId2), any());
+    verify(keysManager, never()).buildWriteItemForLastResortKey(any(), anyByte(), any());
   }
 
   @Test
@@ -1360,14 +1363,13 @@ class AccountsManagerTest {
     assertEquals(newRegistrationIds,
         updatedAccount.getDevices().stream().collect(Collectors.toMap(Device::getId, d -> d.getPhoneNumberIdentityRegistrationId().getAsInt())));
 
-    verify(accounts).update(any());
+    verify(accounts).updateTransactionallyAsync(any(), any());
 
     verify(keysManager).delete(oldPni);
-    verify(keysManager).storeEcSignedPreKeys(oldPni, newSignedKeys);
-
-    // only the pq key for the already-pq-enabled device should be saved
-    verify(keysManager).storePqLastResort(eq(oldPni),
-        eq(Map.of(Device.PRIMARY_ID, newSignedPqKeys.get(Device.PRIMARY_ID))));
+    verify(keysManager).buildWriteItemForEcSignedPreKey(eq(oldPni), eq(Device.PRIMARY_ID), any());
+    verify(keysManager).buildWriteItemForEcSignedPreKey(eq(oldPni), eq(deviceId2), any());
+    verify(keysManager).buildWriteItemForLastResortKey(eq(oldPni), eq(Device.PRIMARY_ID), any());
+    verify(keysManager, never()).buildWriteItemForLastResortKey(eq(oldPni), eq(deviceId2), any());
   }
 
   @Test
@@ -1420,11 +1422,12 @@ class AccountsManagerTest {
     assertEquals(newRegistrationIds,
         updatedAccount.getDevices().stream().collect(Collectors.toMap(Device::getId, d -> d.getPhoneNumberIdentityRegistrationId().getAsInt())));
 
-    verify(accounts).update(any());
+    verify(accounts).updateTransactionallyAsync(any(), any());
 
     verify(keysManager).delete(oldPni);
-    verify(keysManager).storeEcSignedPreKeys(oldPni, newSignedKeys);
-    verify(keysManager).storePqLastResort(any(), argThat(Map::isEmpty));
+    verify(keysManager).buildWriteItemForEcSignedPreKey(eq(oldPni), eq(Device.PRIMARY_ID), any());
+    verify(keysManager).buildWriteItemForEcSignedPreKey(eq(oldPni), eq(deviceId2), any());
+    verify(keysManager, never()).buildWriteItemForLastResortKey(any(), anyByte(), any());
   }
 
   @Test

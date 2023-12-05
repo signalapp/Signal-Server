@@ -27,6 +27,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -39,10 +40,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -71,6 +72,7 @@ import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.Util;
 import reactor.core.publisher.ParallelFlux;
 import reactor.core.scheduler.Scheduler;
+import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
 
 public class AccountsManager {
 
@@ -365,39 +367,25 @@ public class AccountsManager {
       final UUID uuid = account.getUuid();
       final UUID phoneNumberIdentifier = phoneNumberIdentifiers.getPhoneNumberIdentifier(targetNumber);
 
-      final Account numberChangedAccount;
-
-      numberChangedAccount = updateWithRetries(
-          account,
-          a -> {
-            setPniKeys(account, pniIdentityKey, pniSignedPreKeys, pniRegistrationIds);
-            return true;
-          },
-          a -> accounts.changeNumber(a, targetNumber, phoneNumberIdentifier, maybeDisplacedUuid),
-          () -> accounts.getByAccountIdentifier(uuid).orElseThrow(),
-          AccountChangeValidator.NUMBER_CHANGE_VALIDATOR);
-
-      updatedAccount.set(numberChangedAccount);
-
       CompletableFuture.allOf(
               keysManager.delete(phoneNumberIdentifier),
               keysManager.delete(originalPhoneNumberIdentifier))
           .join();
 
-      keysManager.storeEcSignedPreKeys(phoneNumberIdentifier, pniSignedPreKeys);
+      final Collection<TransactWriteItem> keyWriteItems =
+          buildKeyWriteItems(uuid, phoneNumberIdentifier, pniSignedPreKeys, pniPqLastResortPreKeys);
 
-      if (pniPqLastResortPreKeys != null) {
-        keysManager.getPqEnabledDevices(uuid).thenCompose(
-            deviceIds -> keysManager.storePqLastResort(
-                phoneNumberIdentifier,
-                deviceIds.stream()
-                    .filter(pniPqLastResortPreKeys::containsKey)
-                    .collect(
-                        Collectors.toMap(
-                            Function.identity(),
-                            pniPqLastResortPreKeys::get))))
-            .join();
-      }
+      final Account numberChangedAccount = updateWithRetries(
+          account,
+          a -> {
+            setPniKeys(account, pniIdentityKey, pniSignedPreKeys, pniRegistrationIds);
+            return true;
+          },
+          a -> accounts.changeNumber(a, targetNumber, phoneNumberIdentifier, maybeDisplacedUuid, keyWriteItems),
+          () -> accounts.getByAccountIdentifier(uuid).orElseThrow(),
+          AccountChangeValidator.NUMBER_CHANGE_VALIDATOR);
+
+      updatedAccount.set(numberChangedAccount);
     });
 
     return updatedAccount.get();
@@ -410,31 +398,58 @@ public class AccountsManager {
       final Map<Byte, Integer> pniRegistrationIds) throws MismatchedDevicesException {
     validateDevices(account, pniSignedPreKeys, pniPqLastResortPreKeys, pniRegistrationIds);
 
-    final UUID pni = account.getPhoneNumberIdentifier();
-    final Account updatedAccount = update(account, a -> { return setPniKeys(a, pniIdentityKey, pniSignedPreKeys, pniRegistrationIds); });
+    final UUID aci = account.getIdentifier(IdentityType.ACI);
+    final UUID pni = account.getIdentifier(IdentityType.PNI);
 
-    keysManager.delete(pni);
-    keysManager.storeEcSignedPreKeys(pni, pniSignedPreKeys).join();
+    final Collection<TransactWriteItem> keyWriteItems =
+        buildKeyWriteItems(pni, pni, pniSignedPreKeys, pniPqLastResortPreKeys);
+
+    return redisDeleteAsync(account)
+        .thenCompose(ignored -> keysManager.delete(pni))
+        .thenCompose(ignored -> updateTransactionallyWithRetriesAsync(account,
+            a -> setPniKeys(a, pniIdentityKey, pniSignedPreKeys, pniRegistrationIds),
+            accounts::updateTransactionallyAsync,
+            () -> accounts.getByAccountIdentifierAsync(aci).thenApply(Optional::orElseThrow),
+            a -> keyWriteItems,
+            AccountChangeValidator.GENERAL_CHANGE_VALIDATOR,
+            MAX_UPDATE_ATTEMPTS))
+        .join();
+  }
+
+  private Collection<TransactWriteItem> buildKeyWriteItems(
+      final UUID enabledDevicesIdentifier,
+      final UUID phoneNumberIdentifier,
+      @Nullable final Map<Byte, ECSignedPreKey> pniSignedPreKeys,
+      @Nullable final Map<Byte, KEMSignedPreKey> pniPqLastResortPreKeys) {
+
+    final List<TransactWriteItem> keyWriteItems = new ArrayList<>();
+
+    if (pniSignedPreKeys != null) {
+      pniSignedPreKeys.forEach((deviceId, signedPreKey) ->
+          keysManager.buildWriteItemForEcSignedPreKey(phoneNumberIdentifier, deviceId, signedPreKey)
+              .ifPresent(keyWriteItems::add));
+    }
+
     if (pniPqLastResortPreKeys != null) {
-      keysManager.getPqEnabledDevices(pni)
-          .thenCompose(
-              deviceIds -> keysManager.storePqLastResort(
-                  pni,
-                  deviceIds.stream()
-                      .filter(pniPqLastResortPreKeys::containsKey)
-                      .collect(Collectors.toMap(Function.identity(), pniPqLastResortPreKeys::get))))
+      keysManager.getPqEnabledDevices(enabledDevicesIdentifier)
+          .thenAccept(deviceIds -> deviceIds.stream()
+              .filter(pniPqLastResortPreKeys::containsKey)
+              .map(deviceId -> keysManager.buildWriteItemForLastResortKey(phoneNumberIdentifier,
+                  deviceId,
+                  pniPqLastResortPreKeys.get(deviceId)))
+              .forEach(keyWriteItems::add))
           .join();
     }
 
-    return updatedAccount;
+    return keyWriteItems;
   }
 
-  private boolean setPniKeys(final Account account,
+  private void setPniKeys(final Account account,
       @Nullable final IdentityKey pniIdentityKey,
       @Nullable final Map<Byte, ECSignedPreKey> pniSignedPreKeys,
       @Nullable final Map<Byte, Integer> pniRegistrationIds) {
     if (ObjectUtils.allNull(pniIdentityKey, pniSignedPreKeys, pniRegistrationIds)) {
-      return false;
+      return;
     } else if (!ObjectUtils.allNotNull(pniIdentityKey, pniSignedPreKeys, pniRegistrationIds)) {
       throw new IllegalArgumentException("PNI identity key, signed pre-keys, and registration IDs must be all null or all non-null");
     }
@@ -455,8 +470,6 @@ public class AccountsManager {
     }
 
     account.setPhoneNumberIdentityKey(pniIdentityKey);
-
-    return changed;
   }
 
   private void validateDevices(final Account account,
@@ -777,6 +790,42 @@ public class AccountsManager {
     return CompletableFuture.failedFuture(new OptimisticLockRetryLimitExceededException());
   }
 
+  private CompletionStage<Account> updateTransactionallyWithRetriesAsync(final Account account,
+      final Consumer<Account> updater,
+      final BiFunction<Account, Collection<TransactWriteItem>, CompletionStage<Void>> persister,
+      final Supplier<CompletionStage<Account>> retriever,
+      final Function<Account, Collection<TransactWriteItem>> additionalWriteItemProvider,
+      final AccountChangeValidator changeValidator,
+      final int remainingTries) {
+
+    final Account originalAccount = AccountUtil.cloneAccountAsNotStale(account);
+
+    final Collection<TransactWriteItem> additionalWriteItems = additionalWriteItemProvider.apply(account);
+    updater.accept(account);
+
+    if (remainingTries > 0) {
+      return persister.apply(account, additionalWriteItems)
+          .thenApply(ignored -> {
+            final Account updatedAccount = AccountUtil.cloneAccountAsNotStale(account);
+            account.markStale();
+
+            changeValidator.validateChange(originalAccount, updatedAccount);
+
+            return updatedAccount;
+          })
+          .exceptionallyCompose(throwable -> {
+            if (ExceptionUtils.unwrap(throwable) instanceof ContestedOptimisticLockException) {
+              return retriever.get().thenCompose(refreshedAccount ->
+                  updateTransactionallyWithRetriesAsync(refreshedAccount, updater, persister, retriever, additionalWriteItemProvider, changeValidator, remainingTries - 1));
+            } else {
+              throw ExceptionUtils.wrap(throwable);
+            }
+          });
+    }
+
+    return CompletableFuture.failedFuture(new OptimisticLockRetryLimitExceededException());
+  }
+
   public Account updateDevice(Account account, byte deviceId, Consumer<Device> deviceUpdater) {
     return update(account, a -> {
       a.getDevice(deviceId).ifPresent(deviceUpdater);
@@ -792,6 +841,22 @@ public class AccountsManager {
       // assume that all updaters passed to the public method actually modify the device
       return true;
     });
+  }
+
+  public CompletionStage<Account> updateDeviceTransactionallyAsync(final Account account,
+      final byte deviceId,
+      final Consumer<Device> deviceUpdater,
+      final Function<Device, Collection<TransactWriteItem>> additionalWriteItemProvider) {
+
+    final UUID uuid = account.getUuid();
+
+    return redisDeleteAsync(account).thenCompose(ignored -> updateTransactionallyWithRetriesAsync(account,
+        a -> a.getDevice(deviceId).ifPresent(deviceUpdater),
+        accounts::updateTransactionallyAsync,
+        () -> accounts.getByAccountIdentifierAsync(uuid).thenApply(Optional::orElseThrow),
+        a -> additionalWriteItemProvider.apply(a.getDevice(deviceId).orElseThrow()),
+        AccountChangeValidator.GENERAL_CHANGE_VALIDATOR,
+        MAX_UPDATE_ATTEMPTS));
   }
 
   public Optional<Account> getByE164(final String number) {

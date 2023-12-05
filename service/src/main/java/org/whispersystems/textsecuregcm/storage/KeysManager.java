@@ -6,13 +6,11 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import com.google.common.annotations.VisibleForTesting;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import javax.annotation.Nullable;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.ECPreKey;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
@@ -43,34 +41,20 @@ public class KeysManager {
     this.dynamicConfigurationManager = dynamicConfigurationManager;
   }
 
-  public CompletableFuture<Void> store(
-      final UUID identifier, final byte deviceId,
-      @Nullable final List<ECPreKey> ecKeys,
-      @Nullable final List<KEMSignedPreKey> pqKeys,
-      @Nullable final ECSignedPreKey ecSignedPreKey,
-      @Nullable final KEMSignedPreKey pqLastResortKey) {
+  public Optional<TransactWriteItem> buildWriteItemForEcSignedPreKey(final UUID identifier,
+      final byte deviceId,
+      final ECSignedPreKey ecSignedPreKey) {
 
-    final List<CompletableFuture<Void>> storeFutures = new ArrayList<>();
+    return dynamicConfigurationManager.getConfiguration().getEcPreKeyMigrationConfiguration().storeEcSignedPreKeys()
+        ? Optional.of(ecSignedPreKeys.buildTransactWriteItem(identifier, deviceId, ecSignedPreKey))
+        : Optional.empty();
+  }
 
-    if (ecKeys != null && !ecKeys.isEmpty()) {
-      storeFutures.add(ecPreKeys.store(identifier, deviceId, ecKeys));
-    }
+  public TransactWriteItem buildWriteItemForLastResortKey(final UUID identifier,
+      final byte deviceId,
+      final KEMSignedPreKey lastResortSignedPreKey) {
 
-    if (pqKeys != null && !pqKeys.isEmpty()) {
-      storeFutures.add(pqPreKeys.store(identifier, deviceId, pqKeys));
-    }
-
-    if (ecSignedPreKey != null
-        && dynamicConfigurationManager.getConfiguration().getEcPreKeyMigrationConfiguration().storeEcSignedPreKeys()) {
-
-      storeFutures.add(ecSignedPreKeys.store(identifier, deviceId, ecSignedPreKey));
-    }
-
-    if (pqLastResortKey != null) {
-      storeFutures.add(pqLastResortKeys.store(identifier, deviceId, pqLastResortKey));
-    }
-
-    return CompletableFuture.allOf(storeFutures.toArray(new CompletableFuture[0]));
+    return pqLastResortKeys.buildTransactWriteItem(identifier, deviceId, lastResortSignedPreKey);
   }
 
   public List<TransactWriteItem> buildWriteItemsForRepeatedUseKeys(final UUID accountIdentifier,

@@ -12,6 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -99,7 +100,10 @@ class AccountsTest {
       Tables.NUMBERS,
       Tables.PNI_ASSIGNMENTS,
       Tables.USERNAMES,
-      Tables.DELETED_ACCOUNTS);
+      Tables.DELETED_ACCOUNTS,
+
+      // This is an unrelated table used to test "tag-along" transactional updates
+      Tables.CLIENT_RELEASES);
 
   private final TestClock clock = TestClock.pinned(Instant.EPOCH);
   private DynamicConfigurationManager<DynamicConfiguration> mockDynamicConfigManager;
@@ -559,6 +563,71 @@ class AccountsTest {
   }
 
   @Test
+  void testUpdateTransactionally() {
+    final Account account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID());
+    createAccount(account);
+
+    final String deviceName = "device-name";
+
+    assertNotEquals(deviceName,
+        accounts.getByAccountIdentifier(account.getUuid()).orElseThrow().getPrimaryDevice().orElseThrow().getName());
+
+    assertFalse(DYNAMO_DB_EXTENSION.getDynamoDbClient().getItem(GetItemRequest.builder()
+            .tableName(Tables.CLIENT_RELEASES.tableName())
+            .key(Map.of(
+                ClientReleases.ATTR_PLATFORM, AttributeValues.fromString("test"),
+                ClientReleases.ATTR_VERSION, AttributeValues.fromString("test")
+            ))
+            .build())
+        .hasItem());
+
+    account.getPrimaryDevice().orElseThrow().setName(deviceName);
+
+    accounts.updateTransactionallyAsync(account, List.of(TransactWriteItem.builder()
+        .put(Put.builder()
+            .tableName(Tables.CLIENT_RELEASES.tableName())
+            .item(Map.of(
+                ClientReleases.ATTR_PLATFORM, AttributeValues.fromString("test"),
+                ClientReleases.ATTR_VERSION, AttributeValues.fromString("test")
+            ))
+            .build())
+        .build())).toCompletableFuture().join();
+
+    assertEquals(deviceName,
+        accounts.getByAccountIdentifier(account.getUuid()).orElseThrow().getPrimaryDevice().orElseThrow().getName());
+
+    assertTrue(DYNAMO_DB_EXTENSION.getDynamoDbClient().getItem(GetItemRequest.builder()
+            .tableName(Tables.CLIENT_RELEASES.tableName())
+            .key(Map.of(
+                ClientReleases.ATTR_PLATFORM, AttributeValues.fromString("test"),
+                ClientReleases.ATTR_VERSION, AttributeValues.fromString("test")
+            ))
+            .build())
+        .hasItem());
+  }
+
+  @Test
+  void testUpdateTransactionallyContestedLock() {
+    final Account account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID());
+    createAccount(account);
+
+    account.setVersion(account.getVersion() - 1);
+
+    final CompletionException completionException = assertThrows(CompletionException.class,
+        () -> accounts.updateTransactionallyAsync(account, List.of(TransactWriteItem.builder()
+            .put(Put.builder()
+                .tableName(Tables.CLIENT_RELEASES.tableName())
+                .item(Map.of(
+                    ClientReleases.ATTR_PLATFORM, AttributeValues.fromString("test"),
+                    ClientReleases.ATTR_VERSION, AttributeValues.fromString("test")
+                ))
+                .build())
+            .build())).toCompletableFuture().join());
+
+    assertTrue(completionException.getCause() instanceof ContestedOptimisticLockException);
+  }
+
+  @Test
   void testGetAll() {
     final List<Account> expectedAccounts = new ArrayList<>();
 
@@ -719,7 +788,7 @@ class AccountsTest {
       verifyStoredState(originalNumber, account.getUuid(), account.getPhoneNumberIdentifier(), null, retrieved.get(), account);
     }
 
-    accounts.changeNumber(account, targetNumber, targetPni, maybeDisplacedAccountIdentifier);
+    accounts.changeNumber(account, targetNumber, targetPni, maybeDisplacedAccountIdentifier, Collections.emptyList());
 
     assertThat(accounts.getByE164(originalNumber)).isEmpty();
     assertThat(accounts.getByAccountIdentifier(originalPni)).isEmpty();
@@ -766,7 +835,7 @@ class AccountsTest {
     createAccount(account);
     createAccount(existingAccount);
 
-    assertThrows(TransactionCanceledException.class, () -> accounts.changeNumber(account, targetNumber, targetPni, Optional.of(existingAccount.getUuid())));
+    assertThrows(TransactionCanceledException.class, () -> accounts.changeNumber(account, targetNumber, targetPni, Optional.of(existingAccount.getUuid()), Collections.emptyList()));
 
     assertPhoneNumberConstraintExists(originalNumber, account.getUuid());
     assertPhoneNumberIdentifierConstraintExists(originalPni, account.getUuid());
@@ -802,7 +871,7 @@ class AccountsTest {
             Map.of(":uuid", AttributeValues.fromUUID(existingAccountIdentifier)))
         .build());
 
-    assertThrows(TransactionCanceledException.class, () -> accounts.changeNumber(account, targetNumber, existingPhoneNumberIdentifier, Optional.empty()));
+    assertThrows(TransactionCanceledException.class, () -> accounts.changeNumber(account, targetNumber, existingPhoneNumberIdentifier, Optional.empty(), Collections.emptyList()));
   }
 
   @Test

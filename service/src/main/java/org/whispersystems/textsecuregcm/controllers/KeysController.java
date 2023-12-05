@@ -14,9 +14,11 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
@@ -67,6 +69,8 @@ public class KeysController {
   private final AccountsManager accounts;
   private final Experiment compareSignedEcPreKeysExperiment = new Experiment("compareSignedEcPreKeys");
 
+  private static final CompletableFuture<?>[] EMPTY_FUTURE_ARRAY = new CompletableFuture[0];
+
   public KeysController(RateLimiters rateLimiters, KeysManager keys, AccountsManager accounts) {
     this.rateLimiters = rateLimiters;
     this.keys = keys;
@@ -110,24 +114,51 @@ public class KeysController {
           description="whether this operation applies to the account (aci) or phone-number (pni) identity")
       @QueryParam("identity") @DefaultValue("aci") final IdentityType identityType) {
 
-    Account account = disabledPermittedAuth.getAccount();
+    final Account account = disabledPermittedAuth.getAccount();
     final Device device = disabledPermittedAuth.getAuthenticatedDevice();
+    final UUID identifier = account.getIdentifier(identityType);
 
     checkSignedPreKeySignatures(setKeysRequest, account.getIdentityKey(identityType));
+
+    final CompletableFuture<Account> updateAccountFuture;
 
     if (setKeysRequest.signedPreKey() != null &&
         !setKeysRequest.signedPreKey().equals(device.getSignedPreKey(identityType))) {
 
-      account = accounts.update(account, a -> a.getDevice(device.getId()).ifPresent(d -> {
-        switch (identityType) {
-          case ACI -> d.setSignedPreKey(setKeysRequest.signedPreKey());
-          case PNI -> d.setPhoneNumberIdentitySignedPreKey(setKeysRequest.signedPreKey());
-        }
-      }));
+      updateAccountFuture = accounts.updateDeviceTransactionallyAsync(account,
+              device.getId(),
+              d -> {
+                switch (identityType) {
+                  case ACI -> d.setSignedPreKey(setKeysRequest.signedPreKey());
+                  case PNI -> d.setPhoneNumberIdentitySignedPreKey(setKeysRequest.signedPreKey());
+                }
+              },
+              d -> keys.buildWriteItemForEcSignedPreKey(identifier, d.getId(), setKeysRequest.signedPreKey())
+                  .map(List::of)
+                  .orElseGet(Collections::emptyList))
+          .toCompletableFuture();
+    } else {
+      updateAccountFuture = CompletableFuture.completedFuture(account);
     }
 
-    return keys.store(account.getIdentifier(identityType), device.getId(),
-        setKeysRequest.preKeys(), setKeysRequest.pqPreKeys(), setKeysRequest.signedPreKey(), setKeysRequest.pqLastResortPreKey())
+    return updateAccountFuture.thenCompose(updatedAccount -> {
+          final List<CompletableFuture<Void>> storeFutures = new ArrayList<>(3);
+
+          if (setKeysRequest.preKeys() != null) {
+            storeFutures.add(keys.storeEcOneTimePreKeys(identifier, device.getId(), setKeysRequest.preKeys()));
+          }
+
+          if (setKeysRequest.pqPreKeys() != null) {
+            storeFutures.add(keys.storeKemOneTimePreKeys(identifier, device.getId(), setKeysRequest.pqPreKeys()));
+          }
+
+          if (setKeysRequest.pqLastResortPreKey() != null) {
+            storeFutures.add(
+                keys.storePqLastResort(identifier, Map.of(device.getId(), setKeysRequest.pqLastResortPreKey())));
+          }
+
+          return CompletableFuture.allOf(storeFutures.toArray(EMPTY_FUTURE_ARRAY));
+        })
         .thenApply(Util.ASYNC_EMPTY_RESPONSE);
   }
 
@@ -265,17 +296,21 @@ public class KeysController {
       @Valid final ECSignedPreKey signedPreKey,
       @QueryParam("identity") @DefaultValue("aci") final IdentityType identityType) {
 
-    Device device = auth.getAuthenticatedDevice();
+    final UUID identifier = auth.getAccount().getIdentifier(identityType);
+    final byte deviceId = auth.getAuthenticatedDevice().getId();
 
-    accounts.updateDevice(auth.getAccount(), device.getId(), d -> {
-      switch (identityType) {
-        case ACI -> d.setSignedPreKey(signedPreKey);
-        case PNI -> d.setPhoneNumberIdentitySignedPreKey(signedPreKey);
-      }
-    });
-
-    return keys.storeEcSignedPreKeys(auth.getAccount().getIdentifier(identityType),
-        Map.of(device.getId(), signedPreKey))
+    return accounts.updateDeviceTransactionallyAsync(auth.getAccount(),
+            deviceId,
+            d -> {
+              switch (identityType) {
+                case ACI -> d.setSignedPreKey(signedPreKey);
+                case PNI -> d.setPhoneNumberIdentitySignedPreKey(signedPreKey);
+              }
+            },
+            d -> keys.buildWriteItemForEcSignedPreKey(identifier, d.getId(), signedPreKey)
+                .map(List::of)
+                .orElseGet(Collections::emptyList))
+        .toCompletableFuture()
         .thenApply(Util.ASYNC_EMPTY_RESPONSE);
   }
 

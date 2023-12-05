@@ -10,7 +10,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.eq;
@@ -35,6 +34,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -236,9 +236,27 @@ class KeysControllerTest {
     when(accounts.getByServiceIdentifier(new AciServiceIdentifier(EXISTS_UUID))).thenReturn(Optional.of(existsAccount));
     when(accounts.getByServiceIdentifier(new PniServiceIdentifier(EXISTS_PNI))).thenReturn(Optional.of(existsAccount));
 
+    when(accounts.updateDeviceTransactionallyAsync(any(), anyByte(), any(), any())).thenAnswer(invocation -> {
+      final Account account = invocation.getArgument(0);
+      final byte deviceId = invocation.getArgument(1);
+      final Consumer<Device> deviceUpdater = invocation.getArgument(2);
+
+      deviceUpdater.accept(account.getDevice(deviceId).orElseThrow());
+
+      return CompletableFuture.completedFuture(account);
+    });
+
     when(rateLimiters.getPreKeysLimiter()).thenReturn(rateLimiter);
 
-    when(KEYS.store(any(), anyByte(), any(), any(), any(), any())).thenReturn(CompletableFutureTestUtil.almostCompletedFuture(null));
+    when(KEYS.storeEcOneTimePreKeys(any(), anyByte(), any()))
+        .thenReturn(CompletableFutureTestUtil.almostCompletedFuture(null));
+
+    when(KEYS.storeKemOneTimePreKeys(any(), anyByte(), any()))
+        .thenReturn(CompletableFutureTestUtil.almostCompletedFuture(null));
+
+    when(KEYS.storePqLastResort(any(), any()))
+        .thenReturn(CompletableFutureTestUtil.almostCompletedFuture(null));
+
     when(KEYS.getEcSignedPreKey(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(Optional.empty()));
     when(KEYS.storeEcSignedPreKeys(any(), any())).thenReturn(CompletableFutureTestUtil.almostCompletedFuture(null));
 
@@ -301,8 +319,7 @@ class KeysControllerTest {
 
     verify(AuthHelper.VALID_DEVICE).setSignedPreKey(eq(test));
     verify(AuthHelper.VALID_DEVICE, never()).setPhoneNumberIdentitySignedPreKey(any());
-    verify(accounts).updateDevice(eq(AuthHelper.VALID_ACCOUNT), anyByte(), any());
-    verify(KEYS).storeEcSignedPreKeys(AuthHelper.VALID_UUID, Map.of(Device.PRIMARY_ID, test));
+    verify(accounts).updateDeviceTransactionallyAsync(eq(AuthHelper.VALID_ACCOUNT), anyByte(), any(), any());
   }
 
   @Test
@@ -320,8 +337,7 @@ class KeysControllerTest {
 
     verify(AuthHelper.VALID_DEVICE).setPhoneNumberIdentitySignedPreKey(eq(replacementKey));
     verify(AuthHelper.VALID_DEVICE, never()).setSignedPreKey(any());
-    verify(accounts).updateDevice(eq(AuthHelper.VALID_ACCOUNT), anyByte(), any());
-    verify(KEYS).storeEcSignedPreKeys(AuthHelper.VALID_PNI, Map.of(Device.PRIMARY_ID, replacementKey));
+    verify(accounts).updateDeviceTransactionallyAsync(eq(AuthHelper.VALID_ACCOUNT), anyByte(), any(), any());
   }
 
   @Test
@@ -748,13 +764,13 @@ class KeysControllerTest {
     assertThat(response.getStatus()).isEqualTo(204);
 
     ArgumentCaptor<List<ECPreKey>> listCaptor = ArgumentCaptor.forClass(List.class);
-    verify(KEYS).store(eq(AuthHelper.VALID_UUID), eq(SAMPLE_DEVICE_ID), listCaptor.capture(), isNull(),
-        eq(signedPreKey), isNull());
+
+    verify(KEYS).storeEcOneTimePreKeys(eq(AuthHelper.VALID_UUID), eq(SAMPLE_DEVICE_ID), listCaptor.capture());
 
     assertThat(listCaptor.getValue()).containsExactly(preKey);
 
     verify(AuthHelper.VALID_DEVICE).setSignedPreKey(eq(signedPreKey));
-    verify(accounts).update(eq(AuthHelper.VALID_ACCOUNT), any());
+    verify(accounts).updateDeviceTransactionallyAsync(eq(AuthHelper.VALID_ACCOUNT), eq(SAMPLE_DEVICE_ID), any(), any());
   }
 
   @Test
@@ -782,14 +798,15 @@ class KeysControllerTest {
 
     ArgumentCaptor<List<ECPreKey>> ecCaptor = ArgumentCaptor.forClass(List.class);
     ArgumentCaptor<List<KEMSignedPreKey>> pqCaptor = ArgumentCaptor.forClass(List.class);
-    verify(KEYS).store(eq(AuthHelper.VALID_UUID), eq(SAMPLE_DEVICE_ID), ecCaptor.capture(), pqCaptor.capture(),
-        eq(signedPreKey), eq(pqLastResortPreKey));
+    verify(KEYS).storeEcOneTimePreKeys(eq(AuthHelper.VALID_UUID), eq(SAMPLE_DEVICE_ID), ecCaptor.capture());
+    verify(KEYS).storeKemOneTimePreKeys(eq(AuthHelper.VALID_UUID), eq(SAMPLE_DEVICE_ID), pqCaptor.capture());
+    verify(KEYS).storePqLastResort(AuthHelper.VALID_UUID, Map.of(SAMPLE_DEVICE_ID, pqLastResortPreKey));
 
     assertThat(ecCaptor.getValue()).containsExactly(preKey);
     assertThat(pqCaptor.getValue()).containsExactly(pqPreKey);
 
     verify(AuthHelper.VALID_DEVICE).setSignedPreKey(eq(signedPreKey));
-    verify(accounts).update(eq(AuthHelper.VALID_ACCOUNT), any());
+    verify(accounts).updateDeviceTransactionallyAsync(eq(AuthHelper.VALID_ACCOUNT), eq(SAMPLE_DEVICE_ID), any(), any());
   }
 
   @Test
@@ -886,13 +903,12 @@ class KeysControllerTest {
     assertThat(response.getStatus()).isEqualTo(204);
 
     ArgumentCaptor<List<ECPreKey>> listCaptor = ArgumentCaptor.forClass(List.class);
-    verify(KEYS).store(eq(AuthHelper.VALID_PNI), eq(SAMPLE_DEVICE_ID), listCaptor.capture(), isNull(), eq(signedPreKey),
-        isNull());
+    verify(KEYS).storeEcOneTimePreKeys(eq(AuthHelper.VALID_PNI), eq(SAMPLE_DEVICE_ID), listCaptor.capture());
 
     assertThat(listCaptor.getValue()).containsExactly(preKey);
 
     verify(AuthHelper.VALID_DEVICE).setPhoneNumberIdentitySignedPreKey(eq(signedPreKey));
-    verify(accounts).update(eq(AuthHelper.VALID_ACCOUNT), any());
+    verify(accounts).updateDeviceTransactionallyAsync(eq(AuthHelper.VALID_ACCOUNT), eq(SAMPLE_DEVICE_ID), any(), any());
   }
 
   @Test
@@ -921,14 +937,15 @@ class KeysControllerTest {
 
     ArgumentCaptor<List<ECPreKey>> ecCaptor = ArgumentCaptor.forClass(List.class);
     ArgumentCaptor<List<KEMSignedPreKey>> pqCaptor = ArgumentCaptor.forClass(List.class);
-    verify(KEYS).store(eq(AuthHelper.VALID_PNI), eq(SAMPLE_DEVICE_ID), ecCaptor.capture(), pqCaptor.capture(),
-        eq(signedPreKey), eq(pqLastResortPreKey));
+    verify(KEYS).storeEcOneTimePreKeys(eq(AuthHelper.VALID_PNI), eq(SAMPLE_DEVICE_ID), ecCaptor.capture());
+    verify(KEYS).storeKemOneTimePreKeys(eq(AuthHelper.VALID_PNI), eq(SAMPLE_DEVICE_ID), pqCaptor.capture());
+    verify(KEYS).storePqLastResort(AuthHelper.VALID_PNI, Map.of(SAMPLE_DEVICE_ID, pqLastResortPreKey));
 
     assertThat(ecCaptor.getValue()).containsExactly(preKey);
     assertThat(pqCaptor.getValue()).containsExactly(pqPreKey);
 
     verify(AuthHelper.VALID_DEVICE).setPhoneNumberIdentitySignedPreKey(eq(signedPreKey));
-    verify(accounts).update(eq(AuthHelper.VALID_ACCOUNT), any());
+    verify(accounts).updateDeviceTransactionallyAsync(eq(AuthHelper.VALID_ACCOUNT), eq(SAMPLE_DEVICE_ID), any(), any());
   }
 
   @Test
@@ -967,8 +984,7 @@ class KeysControllerTest {
     assertThat(response.getStatus()).isEqualTo(204);
 
     ArgumentCaptor<List<ECPreKey>> listCaptor = ArgumentCaptor.forClass(List.class);
-    verify(KEYS).store(eq(AuthHelper.DISABLED_UUID), eq(SAMPLE_DEVICE_ID), listCaptor.capture(), isNull(),
-        eq(signedPreKey), isNull());
+    verify(KEYS).storeEcOneTimePreKeys(eq(AuthHelper.DISABLED_UUID), eq(SAMPLE_DEVICE_ID), listCaptor.capture());
 
     List<ECPreKey> capturedList = listCaptor.getValue();
     assertThat(capturedList.size()).isEqualTo(1);
@@ -976,6 +992,6 @@ class KeysControllerTest {
     assertThat(capturedList.get(0).publicKey()).isEqualTo(preKey.publicKey());
 
     verify(AuthHelper.DISABLED_DEVICE).setSignedPreKey(eq(signedPreKey));
-    verify(accounts).update(eq(AuthHelper.DISABLED_ACCOUNT), any());
+    verify(accounts).updateDeviceTransactionallyAsync(eq(AuthHelper.DISABLED_ACCOUNT), eq(SAMPLE_DEVICE_ID), any(), any());
   }
 }
