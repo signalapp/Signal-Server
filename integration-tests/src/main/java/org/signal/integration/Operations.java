@@ -17,6 +17,7 @@ import java.net.URL;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
 import java.security.cert.CertificateException;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -47,7 +48,6 @@ import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
-import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 public final class Operations {
 
@@ -67,8 +67,8 @@ public final class Operations {
   }
 
   public static TestUser newRegisteredUser(final String number) {
-    final byte[] registrationPassword = TestRandomUtil.nextBytes(32);
-    final String accountPassword = Base64.getEncoder().encodeToString(TestRandomUtil.nextBytes(32));
+    final byte[] registrationPassword = randomBytes(32);
+    final String accountPassword = Base64.getEncoder().encodeToString(randomBytes(32));
 
     final TestUser user = TestUser.create(number, accountPassword, registrationPassword);
     final AccountAttributes accountAttributes = user.accountAttributes();
@@ -154,6 +154,12 @@ public final class Operations {
     } catch (final Exception e) {
       throw new RuntimeException(e);
     }
+  }
+
+  private static byte[] randomBytes(int numBytes) {
+    final byte[] bytes = new byte[numBytes];
+    new SecureRandom().nextBytes(bytes);
+    return bytes;
   }
 
   public static RequestBuilder apiGet(final String endpoint) {

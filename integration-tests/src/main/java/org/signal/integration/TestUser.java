@@ -9,12 +9,12 @@ import static java.util.Objects.requireNonNull;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import java.security.SecureRandom;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.IdentityKeyPair;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
@@ -58,7 +58,8 @@ public class TestUser {
     final int registrationId = KeyHelper.generateRegistrationId(false);
     final int pniRegistrationId = KeyHelper.generateRegistrationId(false);
     // uak
-    final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
+    final byte[] unidentifiedAccessKey = new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH];
+    new SecureRandom().nextBytes(unidentifiedAccessKey);
 
     return new TestUser(
         registrationId,

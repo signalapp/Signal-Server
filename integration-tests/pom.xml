@@ -15,13 +15,6 @@
       <groupId>org.whispersystems.textsecure</groupId>
       <artifactId>service</artifactId>
       <version>${project.version}</version>
-      <type>test-jar</type>
-    </dependency>
-
-    <dependency>
-      <groupId>org.whispersystems.textsecure</groupId>
-      <artifactId>service</artifactId>
-      <version>${project.version}</version>
     </dependency>
 
     <dependency>
