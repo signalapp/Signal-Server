@@ -82,7 +82,7 @@ public class ArchiveController {
 
   public record SetBackupIdRequest(
       @Schema(description = """
-          A BackupAuthCredentialRequest containing a blinded encrypted backup-id, encoded as a base64 string
+          A BackupAuthCredentialRequest containing a blinded encrypted backup-id, encoded in standard padded base64
           """, implementation = String.class)
       @JsonDeserialize(using = BackupAuthCredentialAdapter.CredentialRequestDeserializer.class)
       @JsonSerialize(using = BackupAuthCredentialAdapter.CredentialRequestSerializer.class)
@@ -118,7 +118,7 @@ public class ArchiveController {
       List<BackupAuthCredential> credentials) {
 
     public record BackupAuthCredential(
-        @Schema(description = "A base64 encoded BackupAuthCredential")
+        @Schema(description = "A BackupAuthCredential, encoded in standard padded base64")
         byte[] credential,
         @Schema(description = "The day on which this credential is valid. Seconds since epoch truncated to day boundary")
         long redemptionTime) {}
@@ -172,7 +172,7 @@ public class ArchiveController {
 
   public record BackupAuthCredentialPresentationHeader(BackupAuthCredentialPresentation presentation) {
 
-    private static final String DESCRIPTION = "Presentation of a ZK backup auth credential acquired from /v1/archives/auth as a base64 encoded string";
+    private static final String DESCRIPTION = "Presentation of a ZK backup auth credential acquired from /v1/archives/auth, encoded in standard padded base64";
 
     public BackupAuthCredentialPresentationHeader(final String header) {
       this(deserialize(header));
@@ -190,7 +190,7 @@ public class ArchiveController {
 
   public record BackupAuthCredentialPresentationSignature(byte[] signature) {
 
-    private static final String DESCRIPTION = "Signature of the ZK auth credential's presentation as a base64 encoded string";
+    private static final String DESCRIPTION = "Signature of the ZK auth credential's presentation, encoded in standard padded base64";
 
     public BackupAuthCredentialPresentationSignature(final String header) {
       this(Base64.getDecoder().decode(header));
@@ -276,7 +276,7 @@ public class ArchiveController {
   public record SetPublicKeyRequest(
       @JsonSerialize(using = ECPublicKeyAdapter.Serializer.class)
       @JsonDeserialize(using = ECPublicKeyAdapter.Deserializer.class)
-      @Schema(type = "string", description = "The public key, serialized in libsignal's elliptic-curve public key format and then base64-encoded.")
+      @Schema(type = "string", description = "The public key, serialized in libsignal's elliptic-curve public key format, and encoded in standard padded base64.")
       ECPublicKey backupIdPublicKey) {}
 
   @PUT
@@ -369,26 +369,26 @@ public class ArchiveController {
       @NotNull
       int objectLength,
 
-      @Schema(description = "mediaId to copy on to the backup CDN in URL-safe base64", implementation = String.class)
+      @Schema(description = "mediaId to copy on to the backup CDN, encoded in URL-safe padded base64", implementation = String.class)
       @JsonSerialize(using = ByteArrayBase64UrlAdapter.Serializing.class)
       @JsonDeserialize(using = ByteArrayBase64UrlAdapter.Deserializing.class)
       @NotNull
       @ExactlySize(15)
       byte[] mediaId,
 
-      @Schema(description = "A 32-byte key for the MAC, base64 encoded", implementation = String.class)
+      @Schema(description = "A 32-byte key for the MAC, encoded in standard padded base64", implementation = String.class)
       @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
       @NotNull
       @ExactlySize(32)
       byte[] hmacKey,
 
-      @Schema(description = "A 32-byte encryption key for AES, base64 encoded", implementation = String.class)
+      @Schema(description = "A 32-byte encryption key for AES, encoded in standard padded base64", implementation = String.class)
       @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
       @NotNull
       @ExactlySize(32)
       byte[] encryptionKey,
 
-      @Schema(description = "A 16-byte IV for AES, base64 encoded", implementation = String.class)
+      @Schema(description = "A 16-byte IV for AES, encoded in standard padded base64", implementation = String.class)
       @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
       @NotNull
       @ExactlySize(16)
@@ -496,7 +496,7 @@ public class ArchiveController {
         @Schema(description = "The backup cdn where this media object is stored")
         Integer cdn,
 
-        @Schema(description = "The mediaId of the object in URL-safe base64", implementation = String.class)
+        @Schema(description = "The mediaId of the object, encoded in URL-safe padded base64", implementation = String.class)
         @JsonSerialize(using = ByteArrayBase64UrlAdapter.Serializing.class)
         @JsonDeserialize(using = ByteArrayBase64UrlAdapter.Deserializing.class)
         @NotNull
