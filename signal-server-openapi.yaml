@@ -2896,12 +2896,9 @@ components:
           type: integer
           format: int32
         name:
-          maxItems: 225
-          minItems: 0
-          type: array
-          items:
-            type: string
-            format: byte
+          maxLength: 204
+          minLength: 0
+          type: string
         registrationLock:
           type: string
         unidentifiedAccessKey:
@@ -2968,12 +2965,9 @@ components:
       type: object
       properties:
         deviceName:
-          maxItems: 225
-          minItems: 0
-          type: array
-          items:
-            type: string
-            format: byte
+          maxLength: 300
+          minLength: 0
+          type: string
     RegistrationLock:
       required:
       - registrationLock
@@ -3109,14 +3103,14 @@ components:
     ECPublicKey:
       type: object
       properties:
-        type:
-          type: integer
-          format: int32
         publicKeyBytes:
           type: array
           items:
             type: string
             format: byte
+        type:
+          type: integer
+          format: int32
     ECSignedPreKey:
       type: object
       properties:
@@ -3651,10 +3645,7 @@ components:
           type: integer
           format: int64
         name:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
         lastSeen:
           type: integer
           format: int64
@@ -3755,13 +3746,13 @@ components:
     WebSocketClient:
       type: object
       properties:
+        createdTimestamp:
+          type: integer
+          format: int64
         userAgent:
           type: string
         open:
           type: boolean
-        createdTimestamp:
-          type: integer
-          format: int64
     WebSocketSessionContext:
       type: object
       properties:
