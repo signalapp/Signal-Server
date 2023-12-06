@@ -171,6 +171,21 @@ public class ArchiveControllerTest {
   }
 
   @Test
+  public void setMissingPublicKey() throws VerificationFailedException {
+    when(backupManager.setPublicKey(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+
+    final BackupAuthCredentialPresentation presentation = backupAuthTestUtil.getPresentation(
+        BackupTier.MEDIA, backupKey, aci);
+    final Response response = resources.getJerseyTest()
+        .target("v1/archives/keys")
+        .request()
+        .header("X-Signal-ZK-Auth", Base64.getEncoder().encodeToString(presentation.serialize()))
+        .header("X-Signal-ZK-Auth-Signature", "aaa")
+        .put(Entity.entity("{}", MediaType.APPLICATION_JSON_TYPE));
+    assertThat(response.getStatus()).isEqualTo(422);
+  }
+
+  @Test
   public void setPublicKey() throws VerificationFailedException {
     when(backupManager.setPublicKey(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 

@@ -276,6 +276,7 @@ public class ArchiveController {
   public record SetPublicKeyRequest(
       @JsonSerialize(using = ECPublicKeyAdapter.Serializer.class)
       @JsonDeserialize(using = ECPublicKeyAdapter.Deserializer.class)
+      @NotNull
       @Schema(type = "string", description = "The public key, serialized in libsignal's elliptic-curve public key format, and encoded in standard padded base64.")
       ECPublicKey backupIdPublicKey) {}
 
@@ -304,7 +305,7 @@ public class ArchiveController {
       @NotNull
       @HeaderParam(X_SIGNAL_ZK_AUTH_SIGNATURE) final BackupAuthCredentialPresentationSignature signature,
 
-      @NotNull SetPublicKeyRequest setPublicKeyRequest) {
+      @Valid @NotNull SetPublicKeyRequest setPublicKeyRequest) {
     return backupManager
         .setPublicKey(presentation.presentation, signature.signature, setPublicKeyRequest.backupIdPublicKey)
         .thenApply(Util.ASYNC_EMPTY_RESPONSE);
