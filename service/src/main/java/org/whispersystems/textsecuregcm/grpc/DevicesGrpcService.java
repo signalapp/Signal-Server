@@ -60,8 +60,8 @@ public class DevicesGrpcService extends ReactorDevicesGrpc.DevicesImplBase {
         .reduce(GetDevicesResponse.newBuilder(), (builder, device) -> {
           final GetDevicesResponse.LinkedDevice.Builder linkedDeviceBuilder = GetDevicesResponse.LinkedDevice.newBuilder();
 
-          if (StringUtils.isNotBlank(device.getName())) {
-            linkedDeviceBuilder.setName(ByteString.copyFrom(Base64.getDecoder().decode(device.getName())));
+          if (device.getName() != null) {
+            linkedDeviceBuilder.setName(ByteString.copyFrom(device.getName()));
           }
 
           return builder.addDevices(linkedDeviceBuilder
@@ -105,7 +105,7 @@ public class DevicesGrpcService extends ReactorDevicesGrpc.DevicesImplBase {
     return Mono.fromFuture(() -> accountsManager.getByAccountIdentifierAsync(authenticatedDevice.accountIdentifier()))
         .map(maybeAccount -> maybeAccount.orElseThrow(Status.UNAUTHENTICATED::asRuntimeException))
         .flatMap(account -> Mono.fromFuture(() -> accountsManager.updateDeviceAsync(account, authenticatedDevice.deviceId(),
-            device -> device.setName(Base64.getEncoder().encodeToString(request.getName().toByteArray())))))
+            device -> device.setName(request.getName().toByteArray()))))
         .thenReturn(SetDeviceNameResponse.newBuilder().build());
   }
 

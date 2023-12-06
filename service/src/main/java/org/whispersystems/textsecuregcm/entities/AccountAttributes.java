@@ -8,6 +8,7 @@ import static org.whispersystems.textsecuregcm.util.RegistrationIdValidator.vali
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -30,8 +31,10 @@ public class AccountAttributes {
   private int phoneNumberIdentityRegistrationId;
 
   @JsonProperty
-  @Size(max = 204, message = "This field must be less than 50 characters")
-  private String name;
+  @JsonSerialize(using = ByteArrayAdapter.Serializing.class)
+  @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
+  @Size(max = 225)
+  private byte[] name;
 
   @JsonProperty
   private String registrationLock;
@@ -62,7 +65,7 @@ public class AccountAttributes {
       final boolean fetchesMessages,
       final int registrationId,
       final int phoneNumberIdentifierRegistrationId,
-      final String name,
+      final byte[] name,
       final String registrationLock,
       final boolean discoverableByPhoneNumber,
       final DeviceCapabilities capabilities) {
@@ -87,7 +90,7 @@ public class AccountAttributes {
     return phoneNumberIdentityRegistrationId;
   }
 
-  public String getName() {
+  public byte[] getName() {
     return name;
   }
 

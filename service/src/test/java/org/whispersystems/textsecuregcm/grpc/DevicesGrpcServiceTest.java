@@ -10,7 +10,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.whispersystems.textsecuregcm.grpc.GrpcTestUtils.assertStatusException;
@@ -21,7 +20,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -123,8 +121,7 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
     when(linkedDevice.getId()).thenReturn((byte) (Device.PRIMARY_ID + 1));
     when(linkedDevice.getCreated()).thenReturn(linkedDeviceCreated.toEpochMilli());
     when(linkedDevice.getLastSeen()).thenReturn(linkedDeviceLastSeen.toEpochMilli());
-    when(linkedDevice.getName())
-        .thenReturn(Base64.getEncoder().encodeToString(linkedDeviceName.getBytes(StandardCharsets.UTF_8)));
+    when(linkedDevice.getName()).thenReturn(linkedDeviceName.getBytes(StandardCharsets.UTF_8));
 
     when(authenticatedAccount.getDevices()).thenReturn(List.of(primaryDevice, linkedDevice));
 
@@ -192,7 +189,7 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
         .setName(ByteString.copyFrom(deviceName))
         .build());
 
-    verify(device).setName(Base64.getEncoder().encodeToString(deviceName));
+    verify(device).setName(deviceName);
   }
 
   @ParameterizedTest
