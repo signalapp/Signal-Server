@@ -8,6 +8,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.Auth;
 import io.lettuce.core.SetArgs;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tags;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -59,6 +61,8 @@ import org.whispersystems.textsecuregcm.entities.LinkDeviceRequest;
 import org.whispersystems.textsecuregcm.entities.PreKeySignatureValidator;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
+import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -90,6 +94,9 @@ public class DeviceController {
 
   @VisibleForTesting
   static final Duration TOKEN_EXPIRATION_DURATION = Duration.ofMinutes(10);
+
+  private static final String MISSING_DEVICE_CAPABILITIES_COUNTER_NAME =
+      MetricsUtil.name(DeviceController.class, "missingDeviceCapabilities");
 
   public DeviceController(byte[] linkDeviceSecret,
       AccountsManager accounts,
@@ -175,7 +182,7 @@ public class DeviceController {
   }
 
   /**
-   * @deprecated callers should use {@link #linkDevice(BasicAuthorizationHeader, LinkDeviceRequest, ContainerRequest)}
+   * @deprecated callers should use {@link #linkDevice(BasicAuthorizationHeader, String, LinkDeviceRequest, ContainerRequest)}
    * instead
    */
   @PUT
@@ -186,6 +193,7 @@ public class DeviceController {
   @Deprecated(forRemoval = true)
   public DeviceResponse verifyDeviceToken(@PathParam("verification_code") String verificationCode,
       @HeaderParam(HttpHeaders.AUTHORIZATION) BasicAuthorizationHeader authorizationHeader,
+      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
       @NotNull @Valid AccountAttributes accountAttributes,
       @Context ContainerRequest containerRequest)
       throws RateLimitExceededException, DeviceLimitExceededException {
@@ -194,7 +202,8 @@ public class DeviceController {
         verificationCode,
         accountAttributes,
         containerRequest,
-        Optional.empty());
+        Optional.empty(),
+        userAgent);
 
     final Account account = accountAndDevice.first();
     final Device device = accountAndDevice.second();
@@ -219,6 +228,7 @@ public class DeviceController {
       name = "Retry-After",
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
   public DeviceResponse linkDevice(@HeaderParam(HttpHeaders.AUTHORIZATION) BasicAuthorizationHeader authorizationHeader,
+      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
       @NotNull @Valid LinkDeviceRequest linkDeviceRequest,
       @Context ContainerRequest containerRequest)
       throws RateLimitExceededException, DeviceLimitExceededException {
@@ -227,7 +237,8 @@ public class DeviceController {
         linkDeviceRequest.verificationCode(),
         linkDeviceRequest.accountAttributes(),
         containerRequest,
-        Optional.of(linkDeviceRequest.deviceActivationRequest()));
+        Optional.of(linkDeviceRequest.deviceActivationRequest()),
+        userAgent);
 
     final Account account = accountAndDevice.first();
     final Device device = accountAndDevice.second();
@@ -341,7 +352,8 @@ public class DeviceController {
       final String verificationCode,
       final AccountAttributes accountAttributes,
       final ContainerRequest containerRequest,
-      final Optional<DeviceActivationRequest> maybeDeviceActivationRequest)
+      final Optional<DeviceActivationRequest> maybeDeviceActivationRequest,
+      final String userAgent)
       throws RateLimitExceededException, DeviceLimitExceededException {
 
     final Optional<UUID> maybeAciFromToken = checkVerificationToken(verificationCode);
@@ -379,6 +391,14 @@ public class DeviceController {
     }
 
     final DeviceCapabilities capabilities = accountAttributes.getCapabilities();
+
+    if (capabilities == null) {
+      Metrics.counter(MISSING_DEVICE_CAPABILITIES_COUNTER_NAME,
+              Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
+                  io.micrometer.core.instrument.Tag.of("atomic", String.valueOf(maybeDeviceActivationRequest.isPresent()))))
+          .increment();
+    }
+
     if (capabilities != null && isCapabilityDowngrade(account, capabilities)) {
       throw new WebApplicationException(Response.status(409).build());
     }
