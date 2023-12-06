@@ -712,10 +712,11 @@ class DeviceControllerTest {
         .request()
         .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
         .put(Entity.entity(new AccountAttributes(false, 1234, 5678,
-                TestRandomUtil.nextBytes(226), null, true, null),
+                "this is a really long name that is longer than 80 characters it's so long that it's even longer than 204 characters. that's a lot of characters. we're talking lots and lots and lots of characters. 12345678",
+                null, true, null),
             MediaType.APPLICATION_JSON_TYPE));
 
-    assertEquals(422, response.getStatus());
+    assertEquals(response.getStatus(), 422);
     verifyNoMoreInteractions(messagesManager);
   }
 

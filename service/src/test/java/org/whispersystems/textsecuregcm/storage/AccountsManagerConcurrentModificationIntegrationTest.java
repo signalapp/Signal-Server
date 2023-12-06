@@ -20,7 +20,6 @@ import static org.mockito.Mockito.when;
 
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -196,7 +195,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
         modifyAccount(uuid, account -> account.setRegistrationLock(credentials.hash(), credentials.salt())),
         modifyAccount(uuid, account -> account.setUnrestrictedUnidentifiedAccess(unrestrictedUnidentifiedAccess)),
         modifyDevice(uuid, Device.PRIMARY_ID, device -> device.setLastSeen(lastSeen)),
-        modifyDevice(uuid, Device.PRIMARY_ID, device -> device.setName("deviceName".getBytes(StandardCharsets.UTF_8)))
+        modifyDevice(uuid, Device.PRIMARY_ID, device -> device.setName("deviceName"))
     ).join();
 
     final Account managerAccount = accountsManager.getByAccountIdentifier(uuid).orElseThrow();

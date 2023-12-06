@@ -499,7 +499,7 @@ class AccountsTest {
     assertPhoneNumberConstraintExists("+14151112222", account.getUuid());
     assertPhoneNumberIdentifierConstraintExists(account.getPhoneNumberIdentifier(), account.getUuid());
 
-    device.setName("foobar".getBytes(StandardCharsets.UTF_8));
+    device.setName("foobar");
 
     accounts.update(account);
 
@@ -567,7 +567,7 @@ class AccountsTest {
     final Account account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID());
     createAccount(account);
 
-    final byte[] deviceName = "device-name".getBytes(StandardCharsets.UTF_8);
+    final String deviceName = "device-name";
 
     assertNotEquals(deviceName,
         accounts.getByAccountIdentifier(account.getUuid()).orElseThrow().getPrimaryDevice().getName());
@@ -593,7 +593,7 @@ class AccountsTest {
             .build())
         .build())).toCompletableFuture().join();
 
-    assertArrayEquals(deviceName,
+    assertEquals(deviceName,
         accounts.getByAccountIdentifier(account.getUuid()).orElseThrow().getPrimaryDevice().getName());
 
     assertTrue(DYNAMO_DB_EXTENSION.getDynamoDbClient().getItem(GetItemRequest.builder()

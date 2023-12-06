@@ -1,6 +1,5 @@
 package org.whispersystems.textsecuregcm.storage;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -9,7 +8,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
-import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -172,7 +170,7 @@ public class AccountCreationIntegrationTest {
     final String signalAgent = RandomStringUtils.randomAlphabetic(3);
     final int registrationId = ThreadLocalRandom.current().nextInt(Device.MAX_REGISTRATION_ID);
     final int pniRegistrationId = ThreadLocalRandom.current().nextInt(Device.MAX_REGISTRATION_ID);
-    final byte[] deviceName = RandomStringUtils.randomAlphabetic(16).getBytes(StandardCharsets.UTF_8);
+    final String deviceName = RandomStringUtils.randomAlphabetic(16);
     final String registrationLockSecret = RandomStringUtils.randomAlphanumeric(16);
 
     final Device.DeviceCapabilities deviceCapabilities = new Device.DeviceCapabilities(
@@ -266,7 +264,7 @@ public class AccountCreationIntegrationTest {
       final Account originalAccount = accountsManager.create(number,
           RandomStringUtils.randomAlphanumeric(16),
           "OWI",
-          new AccountAttributes(true, 1, 1, "name".getBytes(StandardCharsets.UTF_8), "registration-lock", false, new Device.DeviceCapabilities(false, false, false, false)),
+          new AccountAttributes(true, 1, 1, "name", "registration-lock", false, new Device.DeviceCapabilities(false, false, false, false)),
           Collections.emptyList(),
           new IdentityKey(aciKeyPair.getPublicKey()),
           new IdentityKey(pniKeyPair.getPublicKey()),
@@ -284,7 +282,7 @@ public class AccountCreationIntegrationTest {
     final String signalAgent = RandomStringUtils.randomAlphabetic(3);
     final int registrationId = ThreadLocalRandom.current().nextInt(Device.MAX_REGISTRATION_ID);
     final int pniRegistrationId = ThreadLocalRandom.current().nextInt(Device.MAX_REGISTRATION_ID);
-    final byte[] deviceName = RandomStringUtils.randomAlphabetic(16).getBytes(StandardCharsets.UTF_8);
+    final String deviceName = RandomStringUtils.randomAlphabetic(16);
     final String registrationLockSecret = RandomStringUtils.randomAlphanumeric(16);
 
     final Device.DeviceCapabilities deviceCapabilities = new Device.DeviceCapabilities(
@@ -381,7 +379,7 @@ public class AccountCreationIntegrationTest {
       final DeliveryChannels deliveryChannels,
       final int registrationId,
       final int pniRegistrationId,
-      final byte[] deviceName,
+      final String deviceName,
       final boolean discoverableByPhoneNumber,
       final Device.DeviceCapabilities deviceCapabilities,
       final List<AccountBadge> badges,
@@ -400,7 +398,7 @@ public class AccountCreationIntegrationTest {
     assertEquals(deliveryChannels.fetchesMessages(), primaryDevice.getFetchesMessages());
     assertEquals(registrationId, primaryDevice.getRegistrationId());
     assertEquals(pniRegistrationId, primaryDevice.getPhoneNumberIdentityRegistrationId().orElseThrow());
-    assertArrayEquals(deviceName, primaryDevice.getName());
+    assertEquals(deviceName, primaryDevice.getName());
     assertEquals(discoverableByPhoneNumber, account.isDiscoverableByPhoneNumber());
     assertEquals(deviceCapabilities, primaryDevice.getCapabilities());
     assertEquals(badges, account.getBadges());

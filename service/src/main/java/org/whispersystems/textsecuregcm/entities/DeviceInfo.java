@@ -5,16 +5,5 @@
 
 package org.whispersystems.textsecuregcm.entities;
 
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
-
-public record DeviceInfo(long id,
-
-                         @JsonSerialize(using = ByteArrayAdapter.Serializing.class)
-                         @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
-                         byte[] name,
-
-                         long lastSeen,
-                         long created) {
+public record DeviceInfo(long id, String name, long lastSeen, long created) {
 }

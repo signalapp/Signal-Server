@@ -221,10 +221,7 @@ class AuthEnablementRefreshRequirementProviderTest {
 
     final int initialDeviceCount = account.getDevices().size();
 
-    final List<String> addedDeviceNames = List.of(
-        Base64.getEncoder().encodeToString("newDevice1".getBytes(StandardCharsets.UTF_8)),
-        Base64.getEncoder().encodeToString("newDevice2".getBytes(StandardCharsets.UTF_8)));
-
+    final List<String> addedDeviceNames = List.of("newDevice1", "newDevice2");
     final Response response = resources.getJerseyTest()
         .target("/v1/test/account/devices")
         .request()
@@ -453,7 +450,7 @@ class AuthEnablementRefreshRequirementProviderTest {
     @PUT
     @Path("/account/devices")
     @ChangesDeviceEnabledState
-    public String addDevices(@Auth TestPrincipal auth, List<byte[]> deviceNames) {
+    public String addDevices(@Auth TestPrincipal auth, List<String> deviceNames) {
 
       deviceNames.forEach(name -> {
         final Device device = DevicesHelper.createDevice(auth.getAccount().getNextDeviceId());
