@@ -12,6 +12,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
+import org.glassfish.jersey.server.ContainerResponse;
 import org.glassfish.jersey.server.monitoring.RequestEvent;
 import org.glassfish.jersey.server.monitoring.RequestEventListener;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
@@ -20,6 +21,7 @@ import org.whispersystems.textsecuregcm.util.logging.UriInfoUtil;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Gathers and reports request-level metrics.
@@ -67,7 +69,10 @@ public class MetricsRequestEventListener implements RequestEventListener {
         final List<Tag> tags = new ArrayList<>(5);
         tags.add(Tag.of(PATH_TAG, UriInfoUtil.getPathTemplate(event.getUriInfo())));
         tags.add(Tag.of(METHOD_TAG, event.getContainerRequest().getMethod()));
-        tags.add(Tag.of(STATUS_CODE_TAG, String.valueOf(event.getContainerResponse().getStatus())));
+        tags.add(Tag.of(STATUS_CODE_TAG, String.valueOf(Optional
+            .ofNullable(event.getContainerResponse())
+            .map(ContainerResponse::getStatus)
+            .orElse(499))));
         tags.add(Tag.of(TRAFFIC_SOURCE_TAG, trafficSource.name().toLowerCase()));
 
         @Nullable final String userAgent;
