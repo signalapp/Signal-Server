@@ -10,10 +10,7 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.internal.exceptions.Reporter.noMoreInteractionsWanted;
-import static org.mockito.internal.exceptions.Reporter.wantedButNotInvoked;
-import static org.mockito.internal.invocation.InvocationMarker.markVerified;
 import static org.mockito.internal.invocation.InvocationsFinder.findFirstUnverified;
-import static org.mockito.internal.invocation.InvocationsFinder.findInvocations;
 
 import java.time.Duration;
 import java.util.List;
@@ -169,10 +166,17 @@ public final class MockUtils {
    * this method
    */
   public static VerificationMode exactly() {
+    return exactly(1);
+  }
+
+  /**
+   * a combination of {@link #exactly()} and {@link org.mockito.Mockito#times(int)}, verifies that
+   * there are exactly N invocations of this method, and all of them match the given specification
+   */
+  public static VerificationMode exactly(int wantedCount) {
     return data -> {
       MatchableInvocation target = data.getTarget();
       final List<Invocation> allInvocations = data.getAllInvocations();
-      List<Invocation> chunk = findInvocations(allInvocations, target);
       List<Invocation> otherInvocations = allInvocations.stream()
           .filter(target::hasSameMethod)
           .filter(Predicate.not(target::matches))
@@ -182,10 +186,7 @@ public final class MockUtils {
         Invocation unverified = findFirstUnverified(otherInvocations);
         throw noMoreInteractionsWanted(unverified, (List) allInvocations);
       }
-      if (chunk.isEmpty()) {
-        throw wantedButNotInvoked(target);
-      }
-      markVerified(chunk.get(0), target);
+      Mockito.times(wantedCount).verify(data);
     };
   }
 
