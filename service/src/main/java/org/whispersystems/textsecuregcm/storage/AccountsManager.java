@@ -292,6 +292,8 @@ public class AccountsManager {
               .thenCompose(ignored -> accounts.updateTransactionallyAsync(account, additionalWriteItems))
               .thenApply(ignored -> new Pair<>(account, account.getDevice(nextDeviceId).orElseThrow()));
         })
+        .thenCompose(updatedAccountAndDevice -> redisDeleteAsync(updatedAccountAndDevice.first())
+            .thenApply(ignored -> updatedAccountAndDevice))
         .exceptionallyCompose(throwable -> {
           if (ExceptionUtils.unwrap(throwable) instanceof ContestedOptimisticLockException && retries > 0) {
             return addDevice(accountIdentifier, deviceSpec, retries - 1);
