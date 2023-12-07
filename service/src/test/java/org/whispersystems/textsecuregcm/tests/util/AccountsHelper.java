@@ -168,8 +168,14 @@ public class AccountsHelper {
   public static Account createAccount(final AccountsManager accountsManager, final String e164, final AccountAttributes accountAttributes)
       throws InterruptedException {
 
-    final ECKeyPair aciKeyPair = Curve.generateKeyPair();
-    final ECKeyPair pniKeyPair = Curve.generateKeyPair();
+    return createAccount(accountsManager, e164, accountAttributes, Curve.generateKeyPair(), Curve.generateKeyPair());
+  }
+
+  public static Account createAccount(final AccountsManager accountsManager,
+      final String e164,
+      final AccountAttributes accountAttributes,
+      final ECKeyPair aciKeyPair,
+      final ECKeyPair pniKeyPair) throws InterruptedException {
 
     return accountsManager.create(e164,
         accountAttributes,
