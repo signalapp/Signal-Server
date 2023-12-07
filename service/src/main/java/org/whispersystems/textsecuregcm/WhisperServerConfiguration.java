@@ -16,7 +16,6 @@ import java.util.Set;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import org.whispersystems.textsecuregcm.attachments.TusConfiguration;
-import org.whispersystems.textsecuregcm.configuration.AdminEventLoggingConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ApnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AppConfigConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ArtServiceConfiguration;
@@ -62,11 +61,6 @@ import org.whispersystems.websocket.configuration.WebSocketConfiguration;
 
 /** @noinspection MismatchedQueryAndUpdateOfCollection, WeakerAccess */
 public class WhisperServerConfiguration extends Configuration {
-
-  @NotNull
-  @Valid
-  @JsonProperty
-  private AdminEventLoggingConfiguration adminEventLoggingConfiguration;
 
   @NotNull
   @Valid
@@ -315,10 +309,6 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @JsonProperty
   private LinkDeviceSecretConfiguration linkDevice;
-
-  public AdminEventLoggingConfiguration getAdminEventLoggingConfiguration() {
-    return adminEventLoggingConfiguration;
-  }
 
   public StripeConfiguration getStripe() {
     return stripe;

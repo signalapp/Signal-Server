@@ -40,14 +40,6 @@ metrics:
         - ^lettuce\..+$
   reportOnStop: true
 
-adminEventLoggingConfiguration:
-  credentials: |
-    {
-      "key": "value"
-    }
-  projectId: some-project-id
-  logName: some-log-name
-
 grpcPort: 8080
 
 stripe:

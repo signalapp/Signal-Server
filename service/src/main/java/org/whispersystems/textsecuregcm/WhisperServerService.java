@@ -7,8 +7,6 @@ package org.whispersystems.textsecuregcm;
 import static com.codahale.metrics.MetricRegistry.name;
 import static java.util.Objects.requireNonNull;
 
-import com.google.auth.oauth2.GoogleCredentials;
-import com.google.cloud.logging.LoggingOptions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
@@ -28,9 +26,7 @@ import io.lettuce.core.resource.ClientResources;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.binder.grpc.MetricCollectingServerInterceptor;
 import io.micrometer.core.instrument.binder.jvm.ExecutorServiceMetrics;
-import java.io.ByteArrayInputStream;
 import java.net.http.HttpClient;
-import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.Collections;
@@ -50,8 +46,6 @@ import javax.servlet.ServletRegistration;
 import org.eclipse.jetty.servlets.CrossOriginFilter;
 import org.eclipse.jetty.websocket.server.config.JettyWebSocketServletContainerInitializer;
 import org.glassfish.jersey.server.ServerProperties;
-import org.signal.event.AdminEventLogger;
-import org.signal.event.GoogleCloudAdminEventLogger;
 import org.signal.i18n.HeaderControlledResourceBundleLookup;
 import org.signal.libsignal.zkgroup.GenericServerSecretParams;
 import org.signal.libsignal.zkgroup.ServerSecretParams;
@@ -472,14 +466,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .build();
     ScheduledExecutorService subscriptionProcessorRetryExecutor = environment.lifecycle()
         .scheduledExecutorService(name(getClass(), "subscriptionProcessorRetry-%d")).threads(1).build();
-
-    final AdminEventLogger adminEventLogger = new GoogleCloudAdminEventLogger(
-        LoggingOptions.newBuilder().setProjectId(config.getAdminEventLoggingConfiguration().projectId())
-            .setCredentials(GoogleCredentials.fromStream(new ByteArrayInputStream(
-                config.getAdminEventLoggingConfiguration().credentials().getBytes(StandardCharsets.UTF_8))))
-            .build().getService(),
-        config.getAdminEventLoggingConfiguration().projectId(),
-        config.getAdminEventLoggingConfiguration().logName());
 
     StripeManager stripeManager = new StripeManager(config.getStripe().apiKey().value(), subscriptionProcessorExecutor,
         config.getStripe().idempotencyKeyGenerator().value(), config.getStripe().boostDescription(), config.getStripe().supportedCurrenciesByPaymentMethod());

@@ -44,11 +44,6 @@
 
     <dependency>
       <groupId>org.whispersystems.textsecure</groupId>
-      <artifactId>event-logger</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.whispersystems.textsecure</groupId>
       <artifactId>websocket-resources</artifactId>
       <version>${project.version}</version>
     </dependency>
@@ -469,6 +464,13 @@
       <groupId>com.apollographql.apollo3</groupId>
       <artifactId>apollo-api-jvm</artifactId>
       <version>3.8.2</version>
+
+      <exclusions>
+        <exclusion>
+          <groupId>org.jetbrains</groupId>
+          <artifactId>annotations</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
   </dependencies>

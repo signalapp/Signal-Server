@@ -31,7 +31,6 @@
 
   <modules>
     <module>api-doc</module>
-    <module>event-logger</module>
     <module>integration-tests</module>
     <module>service</module>
     <module>websocket-resources</module>

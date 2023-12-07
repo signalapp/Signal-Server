@@ -5,8 +5,8 @@
 
 package org.whispersystems.textsecuregcm.controllers;
 
-import org.jetbrains.annotations.Nullable;
 import org.whispersystems.textsecuregcm.entities.RegistrationServiceSession;
+import javax.annotation.Nullable;
 import java.time.Duration;
 
 public class VerificationSessionRateLimitExceededException extends RateLimitExceededException {
