@@ -68,6 +68,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
+import org.whispersystems.textsecuregcm.storage.DeviceSpec;
 import org.whispersystems.textsecuregcm.storage.KeysManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.util.Pair;
@@ -403,60 +404,63 @@ public class DeviceController {
       throw new WebApplicationException(Response.status(409).build());
     }
 
-    final Device device = new Device();
-    device.setName(accountAttributes.getName());
-    device.setAuthTokenHash(SaltedTokenHash.generateFor(password));
-    device.setFetchesMessages(accountAttributes.getFetchesMessages());
-    device.setRegistrationId(accountAttributes.getRegistrationId());
-    device.setPhoneNumberIdentityRegistrationId(accountAttributes.getPhoneNumberIdentityRegistrationId());
-    device.setLastSeen(Util.todayInMillis());
-    device.setCreated(System.currentTimeMillis());
-    device.setCapabilities(accountAttributes.getCapabilities());
+    return maybeDeviceActivationRequest.map(deviceActivationRequest -> {
+          final String signalAgent;
 
-    maybeDeviceActivationRequest.ifPresent(deviceActivationRequest -> {
-      device.setSignedPreKey(deviceActivationRequest.aciSignedPreKey());
-      device.setPhoneNumberIdentitySignedPreKey(deviceActivationRequest.pniSignedPreKey());
+          if (deviceActivationRequest.apnToken().isPresent()) {
+            signalAgent = "OWP";
+          } else if (deviceActivationRequest.gcmToken().isPresent()) {
+            signalAgent = "OWA";
+          } else {
+            signalAgent = "OWD";
+          }
 
-      deviceActivationRequest.apnToken().ifPresent(apnRegistrationId -> {
-        device.setApnId(apnRegistrationId.apnRegistrationId());
-        device.setVoipApnId(apnRegistrationId.voipRegistrationId());
-      });
+          return accounts.addDevice(account, new DeviceSpec(accountAttributes.getName(),
+                  password,
+                  signalAgent,
+                  capabilities,
+                  accountAttributes.getRegistrationId(),
+                  accountAttributes.getPhoneNumberIdentityRegistrationId(),
+                  accountAttributes.getFetchesMessages(),
+                  deviceActivationRequest.apnToken(),
+                  deviceActivationRequest.gcmToken(),
+                  deviceActivationRequest.aciSignedPreKey(),
+                  deviceActivationRequest.pniSignedPreKey(),
+                  deviceActivationRequest.aciPqLastResortPreKey(),
+                  deviceActivationRequest.pniPqLastResortPreKey()))
+              .thenCompose(a -> usedTokenCluster.withCluster(connection -> connection.async()
+                      .set(getUsedTokenKey(verificationCode), "", new SetArgs().ex(TOKEN_EXPIRATION_DURATION)))
+                  .thenApply(ignored -> a))
+              .join();
+        })
+        .orElseGet(() -> {
+          final Device device = new Device();
+          device.setName(accountAttributes.getName());
+          device.setAuthTokenHash(SaltedTokenHash.generateFor(password));
+          device.setFetchesMessages(accountAttributes.getFetchesMessages());
+          device.setRegistrationId(accountAttributes.getRegistrationId());
+          device.setPhoneNumberIdentityRegistrationId(accountAttributes.getPhoneNumberIdentityRegistrationId());
+          device.setLastSeen(Util.todayInMillis());
+          device.setCreated(System.currentTimeMillis());
+          device.setCapabilities(accountAttributes.getCapabilities());
 
-      deviceActivationRequest.gcmToken().ifPresent(gcmRegistrationId ->
-          device.setGcmId(gcmRegistrationId.gcmRegistrationId()));
-    });
+          final Account updatedAccount = accounts.update(account, a -> {
+            device.setId(a.getNextDeviceId());
 
-    final Account updatedAccount = accounts.update(account, a -> {
-      device.setId(a.getNextDeviceId());
+            CompletableFuture.allOf(
+                    keys.delete(a.getUuid(), device.getId()),
+                    keys.delete(a.getPhoneNumberIdentifier(), device.getId()),
+                    messages.clear(a.getUuid(), device.getId()))
+                .join();
 
-      final CompletableFuture<Void> deleteKeysFuture = CompletableFuture.allOf(
-          keys.delete(a.getUuid(), device.getId()),
-          keys.delete(a.getPhoneNumberIdentifier(), device.getId()));
+            a.addDevice(device);
+          });
 
-      messages.clear(a.getUuid(), device.getId()).join();
+          usedTokenCluster.useCluster(connection ->
+              connection.sync().set(getUsedTokenKey(verificationCode), "", new SetArgs().ex(TOKEN_EXPIRATION_DURATION)));
 
-      deleteKeysFuture.join();
-
-      maybeDeviceActivationRequest.ifPresent(deviceActivationRequest -> CompletableFuture.allOf(
-              keys.storeEcSignedPreKeys(a.getUuid(),
-                  Map.of(device.getId(), deviceActivationRequest.aciSignedPreKey())),
-              keys.storePqLastResort(a.getUuid(),
-                  Map.of(device.getId(), deviceActivationRequest.aciPqLastResortPreKey())),
-              keys.storeEcSignedPreKeys(a.getPhoneNumberIdentifier(),
-                  Map.of(device.getId(), deviceActivationRequest.pniSignedPreKey())),
-              keys.storePqLastResort(a.getPhoneNumberIdentifier(),
-                  Map.of(device.getId(), deviceActivationRequest.pniPqLastResortPreKey())))
-          .join());
-
-      a.addDevice(device);
-    });
-
-    if (maybeAciFromToken.isPresent()) {
-      usedTokenCluster.useCluster(connection ->
-          connection.sync().set(getUsedTokenKey(verificationCode), "", new SetArgs().ex(TOKEN_EXPIRATION_DURATION)));
-    }
-
-    return new Pair<>(updatedAccount, device);
+          return new Pair<>(updatedAccount, device);
+        });
   }
 
   private static String getUsedTokenKey(final String token) {

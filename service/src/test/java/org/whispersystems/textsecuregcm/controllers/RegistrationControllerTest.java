@@ -9,7 +9,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -74,6 +73,7 @@ import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.DeviceSpec;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
@@ -167,7 +167,7 @@ class RegistrationControllerTest {
     final Account account = mock(Account.class);
     when(account.getPrimaryDevice()).thenReturn(mock(Device.class));
 
-    when(accountsManager.create(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+    when(accountsManager.create(any(), any(), any(), any(), any(), any()))
         .thenReturn(account);
 
     final String json = requestJson("sessionId", new byte[0], true, registrationId.orElse(0), pniRegistrationId.orElse(0));
@@ -290,7 +290,7 @@ class RegistrationControllerTest {
     final Account account = mock(Account.class);
     when(account.getPrimaryDevice()).thenReturn(mock(Device.class));
 
-    when(accountsManager.create(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+    when(accountsManager.create(any(), any(), any(), any(), any(), any()))
         .thenReturn(account);
 
     final Invocation.Builder request = resources.getJerseyTest()
@@ -348,7 +348,7 @@ class RegistrationControllerTest {
       final Account createdAccount = mock(Account.class);
       when(createdAccount.getPrimaryDevice()).thenReturn(mock(Device.class));
 
-      when(accountsManager.create(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+      when(accountsManager.create(any(), any(), any(), any(), any(), any()))
           .thenReturn(createdAccount);
 
       expectedStatus = 200;
@@ -402,7 +402,7 @@ class RegistrationControllerTest {
     final Account account = mock(Account.class);
     when(account.getPrimaryDevice()).thenReturn(mock(Device.class));
 
-    when(accountsManager.create(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+    when(accountsManager.create(any(), any(), any(), any(), any(), any()))
         .thenReturn(account);
 
     final Invocation.Builder request = resources.getJerseyTest()
@@ -426,7 +426,7 @@ class RegistrationControllerTest {
     final Account account = mock(Account.class);
     when(account.getPrimaryDevice()).thenReturn(mock(Device.class));
 
-    when(accountsManager.create(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+    when(accountsManager.create(any(), any(), any(), any(), any(), any()))
         .thenReturn(account);
 
     final Invocation.Builder request = resources.getJerseyTest()
@@ -658,16 +658,10 @@ class RegistrationControllerTest {
 
   @ParameterizedTest
   @MethodSource
-  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   void atomicAccountCreationSuccess(final RegistrationRequest registrationRequest,
       final IdentityKey expectedAciIdentityKey,
       final IdentityKey expectedPniIdentityKey,
-      final ECSignedPreKey expectedAciSignedPreKey,
-      final ECSignedPreKey expectedPniSignedPreKey,
-      final KEMSignedPreKey expectedAciPqLastResortPreKey,
-      final KEMSignedPreKey expectedPniPqLastResortPreKey,
-      final Optional<ApnRegistrationId> expectedApnRegistrationId,
-      final Optional<GcmRegistrationId> expectedGcmRegistrationId) throws InterruptedException {
+      final DeviceSpec expectedDeviceSpec) throws InterruptedException {
 
     when(registrationServiceClient.getSession(any(), any()))
         .thenReturn(
@@ -685,7 +679,7 @@ class RegistrationControllerTest {
       when(a.getPrimaryDevice()).thenReturn(device);
     });
 
-    when(accountsManager.create(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+    when(accountsManager.create(any(), any(), any(), any(), any(), any()))
         .thenReturn(account);
 
     final Invocation.Builder request = resources.getJerseyTest()
@@ -699,18 +693,11 @@ class RegistrationControllerTest {
 
     verify(accountsManager).create(
         eq(NUMBER),
-        eq(PASSWORD),
-        isNull(),
         argThat(attributes -> accountAttributesEqual(attributes, registrationRequest.accountAttributes())),
         eq(Collections.emptyList()),
         eq(expectedAciIdentityKey),
         eq(expectedPniIdentityKey),
-        eq(expectedAciSignedPreKey),
-        eq(expectedPniSignedPreKey),
-        eq(expectedAciPqLastResortPreKey),
-        eq(expectedPniPqLastResortPreKey),
-        eq(expectedApnRegistrationId),
-        eq(expectedGcmRegistrationId));
+        eq(expectedDeviceSpec));
   }
 
   private static boolean accountAttributesEqual(final AccountAttributes a, final AccountAttributes b) {
@@ -745,11 +732,17 @@ class RegistrationControllerTest {
       pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair);
     }
 
+    final byte[] deviceName = "test".getBytes(StandardCharsets.UTF_8);
+    final int registrationId = 1;
+    final int pniRegistrationId = 2;
+
+    final Device.DeviceCapabilities deviceCapabilities = new Device.DeviceCapabilities(false, false, false, false);
+
     final AccountAttributes fetchesMessagesAccountAttributes =
-        new AccountAttributes(true, 1, 1, "test".getBytes(StandardCharsets.UTF_8), null, true, new Device.DeviceCapabilities(false, false, false, false));
+        new AccountAttributes(true, registrationId, pniRegistrationId, "test".getBytes(StandardCharsets.UTF_8), null, true, new Device.DeviceCapabilities(false, false, false, false));
 
     final AccountAttributes pushAccountAttributes =
-        new AccountAttributes(false, 1, 1, "test".getBytes(StandardCharsets.UTF_8), null, true, new Device.DeviceCapabilities(false, false, false, false));
+        new AccountAttributes(false, registrationId, pniRegistrationId, "test".getBytes(StandardCharsets.UTF_8), null, true, new Device.DeviceCapabilities(false, false, false, false));
 
     final String apnsToken = "apns-token";
     final String apnsVoipToken = "apns-voip-token";
@@ -771,13 +764,20 @@ class RegistrationControllerTest {
                 Optional.empty()),
             aciIdentityKey,
             pniIdentityKey,
-            aciSignedPreKey,
-            pniSignedPreKey,
-            aciPqLastResortPreKey,
-            pniPqLastResortPreKey,
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty()),
+            new DeviceSpec(
+                deviceName,
+                PASSWORD,
+                null,
+                deviceCapabilities,
+                registrationId,
+                pniRegistrationId,
+                true,
+                Optional.empty(),
+                Optional.empty(),
+                aciSignedPreKey,
+                pniSignedPreKey,
+                aciPqLastResortPreKey,
+                pniPqLastResortPreKey)),
 
         // Has APNs tokens
         Arguments.of(new RegistrationRequest("session-id",
@@ -794,36 +794,22 @@ class RegistrationControllerTest {
                 Optional.empty()),
             aciIdentityKey,
             pniIdentityKey,
-            aciSignedPreKey,
-            pniSignedPreKey,
-            aciPqLastResortPreKey,
-            pniPqLastResortPreKey,
-            Optional.of(new ApnRegistrationId(apnsToken, apnsVoipToken)),
-            Optional.empty()),
-
-        // requires the request to be atomic
-        Arguments.of(new RegistrationRequest("session-id",
-                new byte[0],
-                pushAccountAttributes,
-                true,
-                aciIdentityKey,
-                pniIdentityKey,
+            new DeviceSpec(
+                deviceName,
+                PASSWORD,
+                null,
+                deviceCapabilities,
+                registrationId,
+                pniRegistrationId,
+                false,
+                Optional.of(new ApnRegistrationId(apnsToken, apnsVoipToken)),
+                Optional.empty(),
                 aciSignedPreKey,
                 pniSignedPreKey,
                 aciPqLastResortPreKey,
-                pniPqLastResortPreKey,
-                Optional.of(new ApnRegistrationId(apnsToken, apnsVoipToken)),
-                Optional.empty()),
-            aciIdentityKey,
-            pniIdentityKey,
-            aciSignedPreKey,
-            pniSignedPreKey,
-            aciPqLastResortPreKey,
-            pniPqLastResortPreKey,
-            Optional.of(new ApnRegistrationId(apnsToken, apnsVoipToken)),
-            Optional.empty()),
+                pniPqLastResortPreKey)),
 
-        // Fetches messages; no push tokens
+        // Has GCM token
         Arguments.of(new RegistrationRequest("session-id",
                 new byte[0],
                 pushAccountAttributes,
@@ -838,12 +824,21 @@ class RegistrationControllerTest {
                 Optional.of(new GcmRegistrationId(gcmToken))),
             aciIdentityKey,
             pniIdentityKey,
-            aciSignedPreKey,
-            pniSignedPreKey,
-            aciPqLastResortPreKey,
-            pniPqLastResortPreKey,
-            Optional.empty(),
-            Optional.of(new GcmRegistrationId(gcmToken))));
+            new DeviceSpec(
+                deviceName,
+                PASSWORD,
+                null,
+                deviceCapabilities,
+                registrationId,
+                pniRegistrationId,
+                false,
+                Optional.empty(),
+                Optional.of(new GcmRegistrationId(gcmToken)),
+                aciSignedPreKey,
+                pniSignedPreKey,
+                aciPqLastResortPreKey,
+                pniPqLastResortPreKey))
+    );
   }
 
   /**

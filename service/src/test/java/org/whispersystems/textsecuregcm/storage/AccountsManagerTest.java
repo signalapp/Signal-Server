@@ -31,12 +31,12 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import io.lettuce.core.RedisException;
 import io.lettuce.core.cluster.api.async.RedisAdvancedClusterAsyncCommands;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -85,6 +85,8 @@ import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 import org.whispersystems.textsecuregcm.tests.util.MockRedisFuture;
 import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
 import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
+import org.whispersystems.textsecuregcm.util.Pair;
+import org.whispersystems.textsecuregcm.util.TestClock;
 
 @Timeout(value = 10, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
 class AccountsManagerTest {
@@ -109,6 +111,7 @@ class AccountsManagerTest {
 
   private RedisAdvancedClusterCommands<String, String> commands;
   private RedisAdvancedClusterAsyncCommands<String, String> asyncCommands;
+  private TestClock clock;
   private AccountsManager accountsManager;
 
   private static final Answer<?> ACCOUNT_UPDATE_ANSWER = (answer) -> {
@@ -219,6 +222,8 @@ class AccountsManagerTest {
     when(messagesManager.clear(any())).thenReturn(CompletableFuture.completedFuture(null));
     when(profilesManager.deleteAll(any())).thenReturn(CompletableFuture.completedFuture(null));
 
+    clock = TestClock.now();
+
     accountsManager = new AccountsManager(
         accounts,
         phoneNumberIdentifiers,
@@ -237,7 +242,7 @@ class AccountsManagerTest {
         registrationRecoveryPasswordsManager,
         mock(Executor.class),
         clientPresenceExecutor,
-        mock(Clock.class));
+        clock);
   }
 
   @Test
@@ -1074,6 +1079,84 @@ class AccountsManagerTest {
     assertEquals(hasStorage, account.isStorageSupported());
   }
 
+  @Test
+  void testAddDevice() {
+    final String phoneNumber =
+        PhoneNumberUtil.getInstance().format(PhoneNumberUtil.getInstance().getExampleNumber("US"),
+            PhoneNumberUtil.PhoneNumberFormat.E164);
+
+    final Account account = AccountsHelper.generateTestAccount(phoneNumber, List.of(generateTestDevice(clock.millis())));
+    final UUID aci = account.getIdentifier(IdentityType.ACI);
+    final UUID pni = account.getIdentifier(IdentityType.PNI);
+
+    final byte nextDeviceId = account.getNextDeviceId();
+
+    final ECKeyPair aciKeyPair = Curve.generateKeyPair();
+    final ECKeyPair pniKeyPair = Curve.generateKeyPair();
+
+    final byte[] deviceNameCiphertext = "device-name".getBytes(StandardCharsets.UTF_8);
+    final String password = "password";
+    final String signalAgent = "OWT";
+    final DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, true, true);
+    final int aciRegistrationId = 17;
+    final int pniRegistrationId = 19;
+    final ECSignedPreKey aciSignedPreKey = KeysHelper.signedECPreKey(1, aciKeyPair);
+    final ECSignedPreKey pniSignedPreKey = KeysHelper.signedECPreKey(2, pniKeyPair);
+    final KEMSignedPreKey aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciKeyPair);
+    final KEMSignedPreKey pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniKeyPair);
+
+    when(keysManager.delete(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
+    when(messagesManager.clear(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
+    when(accounts.getByAccountIdentifierAsync(aci)).thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+    when(accounts.updateTransactionallyAsync(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+
+    clock.pin(clock.instant().plusSeconds(60));
+
+    final Pair<Account, Device> updatedAccountAndDevice = accountsManager.addDevice(account, new DeviceSpec(
+            deviceNameCiphertext,
+            password,
+            signalAgent,
+            deviceCapabilities,
+            aciRegistrationId,
+            pniRegistrationId,
+            true,
+            Optional.empty(),
+            Optional.empty(),
+            aciSignedPreKey,
+            pniSignedPreKey,
+            aciPqLastResortPreKey,
+            pniPqLastResortPreKey))
+        .join();
+
+    verify(keysManager).delete(aci, nextDeviceId);
+    verify(keysManager).delete(pni, nextDeviceId);
+    verify(messagesManager).clear(aci, nextDeviceId);
+
+    verify(keysManager).buildWriteItemsForRepeatedUseKeys(
+        aci,
+        pni,
+        nextDeviceId,
+        aciSignedPreKey,
+        pniSignedPreKey,
+        aciPqLastResortPreKey,
+        pniPqLastResortPreKey);
+
+    final Device device = updatedAccountAndDevice.second();
+
+    assertEquals(deviceNameCiphertext, device.getName());
+    assertTrue(device.getAuthTokenHash().verify(password));
+    assertEquals(signalAgent, device.getUserAgent());
+    assertEquals(deviceCapabilities, device.getCapabilities());
+    assertEquals(aciRegistrationId, device.getRegistrationId());
+    assertEquals(pniRegistrationId, device.getPhoneNumberIdentityRegistrationId().getAsInt());
+    assertTrue(device.getFetchesMessages());
+    assertNull(device.getApnId());
+    assertNull(device.getVoipApnId());
+    assertNull(device.getGcmId());
+    assertEquals(aciSignedPreKey, device.getSignedPreKey(IdentityType.ACI));
+    assertEquals(pniSignedPreKey, device.getSignedPreKey(IdentityType.PNI));
+  }
+
   @ParameterizedTest
   @MethodSource
   void testUpdateDeviceLastSeen(final boolean expectUpdate, final long initialLastSeen, final long updatedLastSeen) {
@@ -1649,17 +1732,23 @@ class AccountsManagerTest {
     final ECKeyPair pniKeyPair = Curve.generateKeyPair();
 
     return accountsManager.create(e164,
-        "password",
-        null,
         accountAttributes,
         new ArrayList<>(),
         new IdentityKey(aciKeyPair.getPublicKey()),
         new IdentityKey(pniKeyPair.getPublicKey()),
-        KeysHelper.signedECPreKey(1, aciKeyPair),
-        KeysHelper.signedECPreKey(2, pniKeyPair),
-        KeysHelper.signedKEMPreKey(3, aciKeyPair),
-        KeysHelper.signedKEMPreKey(4, pniKeyPair),
-        Optional.empty(),
-        Optional.empty());
+        new DeviceSpec(
+            accountAttributes.getName(),
+            "password",
+            null,
+            accountAttributes.getCapabilities(),
+            accountAttributes.getRegistrationId(),
+            accountAttributes.getPhoneNumberIdentityRegistrationId(),
+            accountAttributes.getFetchesMessages(),
+            Optional.empty(),
+            Optional.empty(),
+            KeysHelper.signedECPreKey(1, aciKeyPair),
+            KeysHelper.signedECPreKey(2, pniKeyPair),
+            KeysHelper.signedKEMPreKey(3, aciKeyPair),
+            KeysHelper.signedKEMPreKey(4, pniKeyPair)));
   }
 }

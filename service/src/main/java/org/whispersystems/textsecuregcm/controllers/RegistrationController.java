@@ -43,6 +43,7 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.DeviceSpec;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -140,18 +141,24 @@ public class RegistrationController {
     }
 
     final Account account = accounts.create(number,
-        password,
-        signalAgent,
         registrationRequest.accountAttributes(),
         existingAccount.map(Account::getBadges).orElseGet(ArrayList::new),
         registrationRequest.aciIdentityKey(),
         registrationRequest.pniIdentityKey(),
-        registrationRequest.deviceActivationRequest().aciSignedPreKey(),
-        registrationRequest.deviceActivationRequest().pniSignedPreKey(),
-        registrationRequest.deviceActivationRequest().aciPqLastResortPreKey(),
-        registrationRequest.deviceActivationRequest().pniPqLastResortPreKey(),
-        registrationRequest.deviceActivationRequest().apnToken(),
-        registrationRequest.deviceActivationRequest().gcmToken());
+        new DeviceSpec(
+            registrationRequest.accountAttributes().getName(),
+            password,
+            signalAgent,
+            registrationRequest.accountAttributes().getCapabilities(),
+            registrationRequest.accountAttributes().getRegistrationId(),
+            registrationRequest.accountAttributes().getPhoneNumberIdentityRegistrationId(),
+            registrationRequest.accountAttributes().getFetchesMessages(),
+            registrationRequest.deviceActivationRequest().apnToken(),
+            registrationRequest.deviceActivationRequest().gcmToken(),
+            registrationRequest.deviceActivationRequest().aciSignedPreKey(),
+            registrationRequest.deviceActivationRequest().pniSignedPreKey(),
+            registrationRequest.deviceActivationRequest().aciPqLastResortPreKey(),
+            registrationRequest.deviceActivationRequest().pniPqLastResortPreKey()));
 
     Metrics.counter(ACCOUNT_CREATED_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
             Tag.of(COUNTRY_CODE_TAG_NAME, Util.getCountryCode(number)),

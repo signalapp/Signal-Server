@@ -53,9 +53,7 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
-import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
-import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
@@ -68,6 +66,7 @@ import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.DestinationDeviceValidator;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
+import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.Util;
 import reactor.core.publisher.ParallelFlux;
@@ -132,11 +131,6 @@ public class AccountsManager {
 
   private static final int MAX_UPDATE_ATTEMPTS = 10;
 
-  @FunctionalInterface
-  private interface AccountPersister {
-    void persistAccount(Account account) throws UsernameHashNotAvailableException;
-  }
-
   public enum DeletionReason {
     ADMIN_DELETED("admin"),
     EXPIRED      ("expired"),
@@ -181,46 +175,18 @@ public class AccountsManager {
     this.clock = requireNonNull(clock);
   }
 
-  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   public Account create(final String number,
-      final String password,
-      final String signalAgent,
       final AccountAttributes accountAttributes,
       final List<AccountBadge> accountBadges,
       final IdentityKey aciIdentityKey,
       final IdentityKey pniIdentityKey,
-      final ECSignedPreKey aciSignedPreKey,
-      final ECSignedPreKey pniSignedPreKey,
-      final KEMSignedPreKey aciPqLastResortPreKey,
-      final KEMSignedPreKey pniPqLastResortPreKey,
-      final Optional<ApnRegistrationId> maybeApnRegistrationId,
-      final Optional<GcmRegistrationId> maybeGcmRegistrationId) throws InterruptedException {
+      final DeviceSpec primaryDeviceSpec) throws InterruptedException {
 
     try (Timer.Context ignored = createTimer.time()) {
       final Account account = new Account();
 
       accountLockManager.withLock(List.of(number), () -> {
-        final Device device = new Device();
-        device.setId(Device.PRIMARY_ID);
-        device.setAuthTokenHash(SaltedTokenHash.generateFor(password));
-        device.setFetchesMessages(accountAttributes.getFetchesMessages());
-        device.setRegistrationId(accountAttributes.getRegistrationId());
-        device.setPhoneNumberIdentityRegistrationId(accountAttributes.getPhoneNumberIdentityRegistrationId());
-        device.setName(accountAttributes.getName());
-        device.setCapabilities(accountAttributes.getCapabilities());
-        device.setCreated(System.currentTimeMillis());
-        device.setLastSeen(Util.todayInMillis());
-        device.setUserAgent(signalAgent);
-        device.setSignedPreKey(aciSignedPreKey);
-        device.setPhoneNumberIdentitySignedPreKey(pniSignedPreKey);
-
-        maybeApnRegistrationId.ifPresent(apnRegistrationId -> {
-          device.setApnId(apnRegistrationId.apnRegistrationId());
-          device.setVoipApnId(apnRegistrationId.voipRegistrationId());
-        });
-
-        maybeGcmRegistrationId.ifPresent(gcmRegistrationId ->
-            device.setGcmId(gcmRegistrationId.gcmRegistrationId()));
+        final Device device = primaryDeviceSpec.toDevice(Device.PRIMARY_ID, clock);
 
         account.setNumber(number, phoneNumberIdentifiers.getPhoneNumberIdentifier(number));
 
@@ -245,10 +211,10 @@ public class AccountsManager {
             a -> keysManager.buildWriteItemsForRepeatedUseKeys(a.getIdentifier(IdentityType.ACI),
                 a.getIdentifier(IdentityType.PNI),
                 Device.PRIMARY_ID,
-                aciSignedPreKey,
-                pniSignedPreKey,
-                aciPqLastResortPreKey,
-                pniPqLastResortPreKey),
+                primaryDeviceSpec.aciSignedPreKey(),
+                primaryDeviceSpec.pniSignedPreKey(),
+                primaryDeviceSpec.aciPqLastResortPreKey(),
+                primaryDeviceSpec.pniPqLastResortPreKey()),
             (aci, pni) -> CompletableFuture.allOf(
                 keysManager.delete(aci),
                 keysManager.delete(pni),
@@ -297,6 +263,42 @@ public class AccountsManager {
 
       return account;
     }
+  }
+
+  public CompletableFuture<Pair<Account, Device>> addDevice(final Account account, final DeviceSpec deviceSpec) {
+    return addDevice(account.getIdentifier(IdentityType.ACI), deviceSpec, MAX_UPDATE_ATTEMPTS);
+  }
+
+  private CompletableFuture<Pair<Account, Device>> addDevice(final UUID accountIdentifier, final DeviceSpec deviceSpec, final int retries) {
+    return accounts.getByAccountIdentifierAsync(accountIdentifier)
+        .thenApply(maybeAccount -> maybeAccount.orElseThrow(ContestedOptimisticLockException::new))
+        .thenCompose(account -> {
+          final byte nextDeviceId = account.getNextDeviceId();
+          account.addDevice(deviceSpec.toDevice(nextDeviceId, clock));
+
+          final List<TransactWriteItem> additionalWriteItems = keysManager.buildWriteItemsForRepeatedUseKeys(
+              account.getIdentifier(IdentityType.ACI),
+              account.getIdentifier(IdentityType.PNI),
+              nextDeviceId,
+              deviceSpec.aciSignedPreKey(),
+              deviceSpec.pniSignedPreKey(),
+              deviceSpec.aciPqLastResortPreKey(),
+              deviceSpec.pniPqLastResortPreKey());
+
+          return CompletableFuture.allOf(
+                  keysManager.delete(account.getUuid(), nextDeviceId),
+                  keysManager.delete(account.getPhoneNumberIdentifier(), nextDeviceId),
+                  messagesManager.clear(account.getUuid(), nextDeviceId))
+              .thenCompose(ignored -> accounts.updateTransactionallyAsync(account, additionalWriteItems))
+              .thenApply(ignored -> new Pair<>(account, account.getDevice(nextDeviceId).orElseThrow()));
+        })
+        .exceptionallyCompose(throwable -> {
+          if (ExceptionUtils.unwrap(throwable) instanceof ContestedOptimisticLockException && retries > 0) {
+            return addDevice(accountIdentifier, deviceSpec, retries - 1);
+          }
+
+          return CompletableFuture.failedFuture(throwable);
+        });
   }
 
   public CompletableFuture<Account> removeDevice(final Account account, final byte deviceId) {
@@ -705,19 +707,6 @@ public class AccountsManager {
       final Consumer<Account> persister,
       final Supplier<Account> retriever,
       final AccountChangeValidator changeValidator) {
-    try {
-      return failableUpdateWithRetries(account, updater, persister::accept, retriever, changeValidator);
-    } catch (UsernameHashNotAvailableException e) {
-      // not possible
-      throw new IllegalStateException(e);
-    }
-  }
-
-  private Account failableUpdateWithRetries(Account account,
-      final Function<Account, Boolean> updater,
-      final AccountPersister persister,
-      final Supplier<Account> retriever,
-      final AccountChangeValidator changeValidator) throws UsernameHashNotAvailableException {
 
     Account originalAccount = AccountUtil.cloneAccountAsNotStale(account);
 
@@ -731,7 +720,7 @@ public class AccountsManager {
     while (tries < maxTries) {
 
       try {
-        persister.persistAccount(account);
+        persister.accept(account);
 
         final Account updatedAccount = AccountUtil.cloneAccountAsNotStale(account);
         account.markStale();

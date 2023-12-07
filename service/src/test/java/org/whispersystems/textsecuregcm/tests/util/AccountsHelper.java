@@ -30,6 +30,7 @@ import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.DeviceSpec;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
@@ -171,17 +172,23 @@ public class AccountsHelper {
     final ECKeyPair pniKeyPair = Curve.generateKeyPair();
 
     return accountsManager.create(e164,
-        "password",
-        null,
         accountAttributes,
         new ArrayList<>(),
         new IdentityKey(aciKeyPair.getPublicKey()),
         new IdentityKey(pniKeyPair.getPublicKey()),
-        KeysHelper.signedECPreKey(1, aciKeyPair),
-        KeysHelper.signedECPreKey(2, pniKeyPair),
-        KeysHelper.signedKEMPreKey(3, aciKeyPair),
-        KeysHelper.signedKEMPreKey(4, pniKeyPair),
-        Optional.empty(),
-        Optional.empty());
+        new DeviceSpec(
+            accountAttributes.getName(),
+            "password",
+            "OWT",
+            accountAttributes.getCapabilities(),
+            accountAttributes.getRegistrationId(),
+            accountAttributes.getPhoneNumberIdentityRegistrationId(),
+            accountAttributes.getFetchesMessages(),
+            Optional.empty(),
+            Optional.empty(),
+            KeysHelper.signedECPreKey(1, aciKeyPair),
+            KeysHelper.signedECPreKey(2, pniKeyPair),
+            KeysHelper.signedKEMPreKey(3, aciKeyPair),
+            KeysHelper.signedKEMPreKey(4, pniKeyPair)));
   }
 }

@@ -87,14 +87,6 @@ class AccountsManagerConcurrentModificationIntegrationTest {
         mock(DynamicConfigurationManager.class);
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(new DynamicConfiguration());
 
-    final KeysManager keysManager = new KeysManager(
-        DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
-        Tables.EC_KEYS.tableName(),
-        Tables.PQ_KEYS.tableName(),
-        Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS.tableName(),
-        Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS.tableName(),
-        dynamicConfigurationManager);
-
     accounts = new Accounts(
         DYNAMO_DB_EXTENSION.getDynamoDbClient(),
         DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
@@ -157,18 +149,24 @@ class AccountsManagerConcurrentModificationIntegrationTest {
 
       final Account account = accountsManager.update(
           accountsManager.create("+14155551212",
-              "password",
-              null,
               new AccountAttributes(),
               new ArrayList<>(),
               new IdentityKey(aciKeyPair.getPublicKey()),
               new IdentityKey(pniKeyPair.getPublicKey()),
-              KeysHelper.signedECPreKey(1, aciKeyPair),
-              KeysHelper.signedECPreKey(2, pniKeyPair),
-              KeysHelper.signedKEMPreKey(3, aciKeyPair),
-              KeysHelper.signedKEMPreKey(4, pniKeyPair),
-              Optional.empty(),
-              Optional.empty()),
+              new DeviceSpec(
+                  null,
+                  "password",
+                  null,
+                  new Device.DeviceCapabilities(false, false, false, false),
+                  1,
+                  2,
+                  true,
+                  Optional.empty(),
+                  Optional.empty(),
+                  KeysHelper.signedECPreKey(1, aciKeyPair),
+                  KeysHelper.signedECPreKey(2, pniKeyPair),
+                  KeysHelper.signedKEMPreKey(3, aciKeyPair),
+                  KeysHelper.signedKEMPreKey(4, pniKeyPair))),
           a -> {
             a.setUnidentifiedAccessKey(new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
             a.removeDevice(Device.PRIMARY_ID);

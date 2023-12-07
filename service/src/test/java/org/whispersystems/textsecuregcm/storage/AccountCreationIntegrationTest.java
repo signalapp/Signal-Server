@@ -211,18 +211,24 @@ public class AccountCreationIntegrationTest {
         : Optional.empty();
 
     final Account account = accountsManager.create(number,
-        password,
-        signalAgent,
         accountAttributes,
         badges,
         new IdentityKey(aciKeyPair.getPublicKey()),
         new IdentityKey(pniKeyPair.getPublicKey()),
-        aciSignedPreKey,
-        pniSignedPreKey,
-        aciPqLastResortPreKey,
-        pniPqLastResortPreKey,
-        maybeApnRegistrationId,
-        maybeGcmRegistrationId);
+        new DeviceSpec(
+            deviceName,
+            password,
+            signalAgent,
+            deviceCapabilities,
+            registrationId,
+            pniRegistrationId,
+            deliveryChannels.fetchesMessages(),
+            maybeApnRegistrationId,
+            maybeGcmRegistrationId,
+            aciSignedPreKey,
+            pniSignedPreKey,
+            aciPqLastResortPreKey,
+            pniPqLastResortPreKey));
 
     assertExpectedStoredAccount(account,
         number,
@@ -264,18 +270,23 @@ public class AccountCreationIntegrationTest {
       final KEMSignedPreKey pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniKeyPair);
 
       final Account originalAccount = accountsManager.create(number,
-          RandomStringUtils.randomAlphanumeric(16),
-          "OWI",
           new AccountAttributes(true, 1, 1, "name".getBytes(StandardCharsets.UTF_8), "registration-lock", false, new Device.DeviceCapabilities(false, false, false, false)),
           Collections.emptyList(),
           new IdentityKey(aciKeyPair.getPublicKey()),
           new IdentityKey(pniKeyPair.getPublicKey()),
-          aciSignedPreKey,
-          pniSignedPreKey,
-          aciPqLastResortPreKey,
-          pniPqLastResortPreKey,
-          Optional.empty(),
-          Optional.empty());
+          new DeviceSpec(null,
+              "password?",
+              "OWI",
+              new Device.DeviceCapabilities(false, false, false, false),
+              1,
+              2,
+              true,
+              Optional.empty(),
+              Optional.empty(),
+              aciSignedPreKey,
+              pniSignedPreKey,
+              aciPqLastResortPreKey,
+              pniPqLastResortPreKey));
 
       existingAccountUuid = originalAccount.getUuid();
     }
@@ -324,18 +335,23 @@ public class AccountCreationIntegrationTest {
         : Optional.empty();
 
     final Account reregisteredAccount = accountsManager.create(number,
-        password,
-        signalAgent,
         accountAttributes,
         badges,
         new IdentityKey(aciKeyPair.getPublicKey()),
         new IdentityKey(pniKeyPair.getPublicKey()),
-        aciSignedPreKey,
-        pniSignedPreKey,
-        aciPqLastResortPreKey,
-        pniPqLastResortPreKey,
-        maybeApnRegistrationId,
-        maybeGcmRegistrationId);
+        new DeviceSpec(deviceName,
+            password,
+            signalAgent,
+            deviceCapabilities,
+            registrationId,
+            pniRegistrationId,
+            accountAttributes.getFetchesMessages(),
+            maybeApnRegistrationId,
+            maybeGcmRegistrationId,
+            aciSignedPreKey,
+            pniSignedPreKey,
+            aciPqLastResortPreKey,
+            pniPqLastResortPreKey));
 
     assertExpectedStoredAccount(reregisteredAccount,
         number,
