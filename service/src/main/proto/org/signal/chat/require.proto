@@ -61,7 +61,7 @@ extend google.protobuf.FieldOptions {
   optional bool specified  = 70002;
 
   /*
-     Requires a size/length of a field to be withing certain bounderies.
+     Requires a size/length of a field to be within certain boundaries.
      Applies to both `optional` and regular fields, i.e. if the field is not set or has a default value,
      its size considered to be zero.
 
@@ -115,7 +115,7 @@ extend google.protobuf.FieldOptions {
   optional bool e164  = 70005;
 
   /*
-     Requires an integer value to be within a certain range. The range bounderies are specified
+     Requires an integer value to be within a certain range. The range boundaries are specified
      with the values of type `int32`, which should be enough for all practical purposes.
 
      If the field is `optional`, this check allows a value to be not set.

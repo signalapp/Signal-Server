@@ -45,7 +45,7 @@ service Accounts {
   /**
    * Sets the username hash/encrypted username to a previously-reserved value
    * (see `ReserveUsernameHash`). This RPC may fail with a status of
-   * `FAILED_PRECONDITION` if no reserved username hash was foudn for the given
+   * `FAILED_PRECONDITION` if no reserved username hash was found for the given
    * account or `NOT_FOUND` if the reservation has lapsed and been claimed by
    * another caller. It may also  fail with a `RESOURCE_EXHAUSTED` if a rate
    * limit for modifying usernames has been exceeded, in which case a
