@@ -1605,15 +1605,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
   /v1/messages/uuid/{uuid}:
@@ -1996,26 +1996,6 @@ paths:
               description: "If present, an positive integer indicating the number\
                 \ of seconds before a subsequent attempt could succeed"
               style: simple
-  /v1/config/{name}:
-    delete:
-      tags:
-      - Remote Config
-      operationId: delete
-      parameters:
-      - name: Config-Token
-        in: header
-        schema:
-          type: string
-      - name: name
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        default:
-          description: default response
-          content:
-            '*/*': {}
   /v1/config:
     get:
       tags:
@@ -2030,26 +2010,6 @@ paths:
                 $ref: '#/components/schemas/UserRemoteConfigList'
       security:
       - authenticatedAccount: []
-    put:
-      tags:
-      - Remote Config
-      operationId: set
-      parameters:
-      - name: Config-Token
-        in: header
-        schema:
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RemoteConfig'
-        required: true
-      responses:
-        default:
-          description: default response
-          content:
-            application/json: {}
   /v1/storage/auth:
     get:
       tags:
@@ -2277,15 +2237,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2319,15 +2279,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2360,15 +2320,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2495,15 +2455,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       deprecated: true
       security:
       - authenticatedAccount: []
@@ -2532,15 +2492,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2576,15 +2536,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2623,15 +2583,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2896,9 +2856,12 @@ components:
           type: integer
           format: int32
         name:
-          maxLength: 204
-          minLength: 0
-          type: string
+          maxItems: 225
+          minItems: 0
+          type: array
+          items:
+            type: string
+            format: byte
         registrationLock:
           type: string
         unidentifiedAccessKey:
@@ -2965,9 +2928,12 @@ components:
       type: object
       properties:
         deviceName:
-          maxLength: 300
-          minLength: 0
-          type: string
+          maxItems: 225
+          minItems: 0
+          type: array
+          items:
+            type: string
+            format: byte
     RegistrationLock:
       required:
       - registrationLock
@@ -3103,14 +3069,14 @@ components:
     ECPublicKey:
       type: object
       properties:
+        type:
+          type: integer
+          format: int32
         publicKeyBytes:
           type: array
           items:
             type: string
             format: byte
-        type:
-          type: integer
-          format: int32
     ECSignedPreKey:
       type: object
       properties:
@@ -3645,7 +3611,10 @@ components:
           type: integer
           format: int64
         name:
-          type: string
+          type: array
+          items:
+            type: string
+            format: byte
         lastSeen:
           type: integer
           format: int64
@@ -3746,13 +3715,13 @@ components:
     WebSocketClient:
       type: object
       properties:
+        open:
+          type: boolean
+        userAgent:
+          type: string
         createdTimestamp:
           type: integer
           format: int64
-        userAgent:
-          type: string
-        open:
-          type: boolean
     WebSocketSessionContext:
       type: object
       properties:
@@ -4283,32 +4252,6 @@ components:
         serverEpochTime:
           type: string
           format: date-time
-    RemoteConfig:
-      required:
-      - percentage
-      - uuids
-      type: object
-      properties:
-        name:
-          pattern: "[A-Za-z0-9\\.]+"
-          type: string
-        percentage:
-          maximum: 100
-          minimum: 0
-          type: integer
-          format: int32
-        uuids:
-          uniqueItems: true
-          type: array
-          items:
-            type: string
-            format: uuid
-        defaultValue:
-          type: string
-        value:
-          type: string
-        hashKey:
-          type: string
     AuthCheckResponse:
       required:
       - matches
