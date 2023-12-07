@@ -200,12 +200,15 @@ class ProfileControllerTest {
     when(profileAccount.getCurrentProfileVersion()).thenReturn(Optional.empty());
     when(profileAccount.getUsernameHash()).thenReturn(Optional.of(USERNAME_HASH));
     when(profileAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of(UNIDENTIFIED_ACCESS_KEY));
+    when(profileAccount.isPniSupported()).thenReturn(true);
 
     Account capabilitiesAccount = mock(Account.class);
 
     when(capabilitiesAccount.getUuid()).thenReturn(AuthHelper.VALID_UUID);
     when(capabilitiesAccount.getIdentityKey(IdentityType.ACI)).thenReturn(ACCOUNT_IDENTITY_KEY);
     when(capabilitiesAccount.getIdentityKey(IdentityType.PNI)).thenReturn(ACCOUNT_PHONE_NUMBER_IDENTITY_KEY);
+    when(capabilitiesAccount.isPniSupported()).thenReturn(true);
+    when(capabilitiesAccount.isPaymentActivationSupported()).thenReturn(false);
     when(capabilitiesAccount.isEnabled()).thenReturn(true);
 
     when(accountsManager.getByServiceIdentifier(any())).thenReturn(Optional.empty());
@@ -389,9 +392,8 @@ class ProfileControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get(BaseProfileResponse.class);
 
-    assertThat(profile.getCapabilities().gv1Migration()).isTrue();
-    assertThat(profile.getCapabilities().senderKey()).isTrue();
-    assertThat(profile.getCapabilities().announcementGroup()).isTrue();
+    assertThat(profile.getCapabilities().pni()).isTrue();
+    assertThat(profile.getCapabilities().paymentActivation()).isFalse();
   }
 
   @Test
@@ -874,7 +876,7 @@ class ProfileControllerTest {
     assertThat(profile.getAboutEmoji()).containsExactly(emoji);
     assertThat(profile.getAvatar()).isEqualTo("profiles/validavatar");
     assertThat(profile.getPhoneNumberSharing()).containsExactly(phoneNumberSharing);
-    assertThat(profile.getBaseProfileResponse().getCapabilities().gv1Migration()).isTrue();
+    assertThat(profile.getBaseProfileResponse().getCapabilities().pni()).isTrue();
     assertThat(profile.getBaseProfileResponse().getUuid()).isEqualTo(new AciServiceIdentifier(AuthHelper.VALID_UUID_TWO));
     assertThat(profile.getBaseProfileResponse().getBadges()).hasSize(1).element(0).has(new Condition<>(
         badge -> "Test Badge".equals(badge.getName()), "has badge with expected name"));

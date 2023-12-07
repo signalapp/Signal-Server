@@ -5,40 +5,14 @@
 
 package org.whispersystems.textsecuregcm.entities;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import org.whispersystems.textsecuregcm.storage.Account;
 
 public record UserCapabilities(
-    @Deprecated(forRemoval = true)
-    @JsonProperty("gv1-migration")
-    boolean gv1Migration,
-
-    @Deprecated(forRemoval = true)
-    boolean senderKey,
-
-    @Deprecated(forRemoval = true)
-    boolean announcementGroup,
-
-    @Deprecated(forRemoval = true)
-    boolean changeNumber,
-
-    @Deprecated(forRemoval = true)
-    boolean stories,
-
-    @Deprecated(forRemoval = true)
-    boolean giftBadges,
     boolean paymentActivation,
     boolean pni) {
 
   public static UserCapabilities createForAccount(Account account) {
     return new UserCapabilities(
-        true,
-        true,
-        true,
-        true,
-        true,
-        true,
-
         account.isPaymentActivationSupported(),
 
         // Although originally intended to indicate that clients support phone number identifiers, the scope of this
