@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.identity;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.UUID;
+import org.signal.libsignal.protocol.ServiceId;
 
 /**
  * A "service identifier" is a tuple of a UUID and identity type that identifies an account and identity within the
@@ -69,5 +70,15 @@ public interface ServiceIdentifier {
     } catch (final IllegalArgumentException e) {
       return PniServiceIdentifier.fromBytes(bytes);
     }
+  }
+
+  static ServiceIdentifier fromLibsignal(final ServiceId libsignalServiceId) {
+    if (libsignalServiceId instanceof ServiceId.Aci) {
+      return new AciServiceIdentifier(libsignalServiceId.getRawUUID());
+    }
+    if (libsignalServiceId instanceof ServiceId.Pni) {
+      return new PniServiceIdentifier(libsignalServiceId.getRawUUID());
+    }
+    throw new IllegalArgumentException("unknown libsignal ServiceId type");
   }
 }

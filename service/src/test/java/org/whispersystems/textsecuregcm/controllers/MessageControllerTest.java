@@ -8,8 +8,8 @@ package org.whispersystems.textsecuregcm.controllers;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.not;
-import static org.hamcrest.collection.IsEmptyCollection.empty;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.collection.IsEmptyCollection.empty;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -19,7 +19,6 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.anyBoolean;
 import static org.mockito.Mockito.anyString;
-import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -55,7 +54,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -78,7 +76,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.ArgumentsSources;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junitpioneer.jupiter.cartesian.ArgumentSets;
@@ -981,9 +978,7 @@ class MessageControllerTest {
     bb.order(ByteOrder.BIG_ENDIAN);
 
     // first write the header
-    bb.put(explicitIdentifiers
-        ? MultiRecipientMessageProvider.EXPLICIT_ID_VERSION_IDENTIFIER
-        : MultiRecipientMessageProvider.AMBIGUOUS_ID_VERSION_IDENTIFIER);  // version byte
+    bb.put(explicitIdentifiers ? (byte) 0x23 : (byte) 0x22);  // version byte
 
     // count varint
     int nRecip = recipients.size();
@@ -1258,7 +1253,7 @@ class MessageControllerTest {
         .header(OptionalAccess.UNIDENTIFIED, Base64.getEncoder().encodeToString(UNIDENTIFIED_ACCESS_BYTES))
         .put(Entity.entity(initializeMultiPayload(recipients, new byte[2048], useExplicitIdentifier), MultiRecipientMessageProvider.MEDIA_TYPE));
 
-    checkBadMultiRecipientResponse(response, 422);
+    checkBadMultiRecipientResponse(response, 400);
   }
 
   @Test
