@@ -38,8 +38,6 @@ public record DeviceSpec(
     device.setCreated(clock.millis());
     device.setLastSeen(Util.todayInMillis());
     device.setUserAgent(signalAgent());
-    device.setSignedPreKey(aciSignedPreKey());
-    device.setPhoneNumberIdentitySignedPreKey(pniSignedPreKey());
 
     apnRegistrationId().ifPresent(apnRegistrationId -> {
       device.setApnId(apnRegistrationId.apnRegistrationId());

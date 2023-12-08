@@ -63,6 +63,7 @@ class AccountsManagerChangeNumberIntegrationTest {
   @RegisterExtension
   static final RedisClusterExtension CACHE_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
 
+  private KeysManager keysManager;
   private ClientPresenceManager clientPresenceManager;
   private ExecutorService accountLockExecutor;
   private ExecutorService clientPresenceExecutor;
@@ -79,7 +80,7 @@ class AccountsManagerChangeNumberIntegrationTest {
       DynamicConfiguration dynamicConfiguration = new DynamicConfiguration();
       when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
 
-      final KeysManager keysManager = new KeysManager(
+      keysManager = new KeysManager(
           DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
           Tables.EC_KEYS.tableName(),
           Tables.PQ_KEYS.tableName(),
@@ -189,7 +190,8 @@ class AccountsManagerChangeNumberIntegrationTest {
     final AccountAttributes accountAttributes = new AccountAttributes(true, rotatedPniRegistrationId + 1, rotatedPniRegistrationId, "test".getBytes(StandardCharsets.UTF_8), null, true, new Device.DeviceCapabilities(false, false, false, false));
     final Account account = AccountsHelper.createAccount(accountsManager, originalNumber, accountAttributes);
 
-    account.getPrimaryDevice().setSignedPreKey(KeysHelper.signedECPreKey(1, rotatedPniIdentityKeyPair));
+    keysManager.storeEcSignedPreKeys(account.getIdentifier(IdentityType.ACI),
+        Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, rotatedPniIdentityKeyPair)).join();
 
     final UUID originalUuid = account.getUuid();
     final UUID originalPni = account.getPhoneNumberIdentifier();
@@ -216,7 +218,8 @@ class AccountsManagerChangeNumberIntegrationTest {
     assertEquals(OptionalInt.of(rotatedPniRegistrationId),
         updatedAccount.getPrimaryDevice().getPhoneNumberIdentityRegistrationId());
 
-    assertEquals(rotatedSignedPreKey, updatedAccount.getPrimaryDevice().getSignedPreKey(IdentityType.PNI));
+    assertEquals(Optional.of(rotatedSignedPreKey),
+        keysManager.getEcSignedPreKey(updatedAccount.getIdentifier(IdentityType.PNI), Device.PRIMARY_ID).join());
   }
 
   @Test

@@ -18,6 +18,7 @@ import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.notNull;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
@@ -48,7 +49,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -670,7 +670,6 @@ class AccountsManagerTest {
 
     Device enabledDevice = new Device();
     enabledDevice.setFetchesMessages(true);
-    enabledDevice.setSignedPreKey(KeysHelper.signedECPreKey(1, Curve.generateKeyPair()));
     enabledDevice.setLastSeen(System.currentTimeMillis());
     final byte deviceId = account.getNextDeviceId();
     enabledDevice.setId(deviceId);
@@ -703,7 +702,6 @@ class AccountsManagerTest {
 
     Device enabledDevice = new Device();
     enabledDevice.setFetchesMessages(true);
-    enabledDevice.setSignedPreKey(KeysHelper.signedECPreKey(1, Curve.generateKeyPair()));
     enabledDevice.setLastSeen(System.currentTimeMillis());
     final byte deviceId = account.getNextDeviceId();
     enabledDevice.setId(deviceId);
@@ -747,6 +745,7 @@ class AccountsManagerTest {
     assertFalse(account.getDevice(linkedDevice.getId()).isPresent());
     verify(messagesManager, times(2)).clear(account.getUuid(), linkedDevice.getId());
     verify(keysManager, times(2)).deleteSingleUsePreKeys(account.getUuid(), linkedDevice.getId());
+    verify(keysManager).buildWriteItemsForRemovedDevice(account.getUuid(), account.getPhoneNumberIdentifier(), linkedDevice.getId());
     verify(clientPresenceManager).disconnectPresence(account.getUuid(), linkedDevice.getId());
   }
 
@@ -775,9 +774,17 @@ class AccountsManagerTest {
     final String e164 = "+18005550123";
     final AccountAttributes attributes = new AccountAttributes(false, 1, 2, null, null, true, null);
 
-    createAccount(e164, attributes);
+    final Account createdAccount = createAccount(e164, attributes);
 
     verify(accounts).create(argThat(account -> e164.equals(account.getNumber())), any());
+    verify(keysManager).buildWriteItemsForNewDevice(
+        eq(createdAccount.getUuid()),
+        eq(createdAccount.getPhoneNumberIdentifier()),
+        eq(Device.PRIMARY_ID),
+        notNull(),
+        notNull(),
+        notNull(),
+        notNull());
 
     verifyNoInteractions(messagesManager);
     verifyNoInteractions(profilesManager);
@@ -806,12 +813,21 @@ class AccountsManagerTest {
 
     when(accounts.reclaimAccount(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
-    createAccount(e164, attributes);
+    final Account reregisteredAccount = createAccount(e164, attributes);
 
     assertTrue(phoneNumberIdentifiersByE164.containsKey(e164));
 
     verify(accounts)
         .create(argThat(account -> e164.equals(account.getNumber()) && existingUuid.equals(account.getUuid())), any());
+
+    verify(keysManager).buildWriteItemsForNewDevice(
+        eq(reregisteredAccount.getUuid()),
+        eq(reregisteredAccount.getPhoneNumberIdentifier()),
+        eq(Device.PRIMARY_ID),
+        notNull(),
+        notNull(),
+        notNull(),
+        notNull());
 
     verify(keysManager, times(2)).deleteSingleUsePreKeys(existingUuid);
     verify(keysManager, times(2)).deleteSingleUsePreKeys(phoneNumberIdentifiersByE164.get(e164));
@@ -943,8 +959,6 @@ class AccountsManagerTest {
     assertNull(device.getApnId());
     assertNull(device.getVoipApnId());
     assertNull(device.getGcmId());
-    assertEquals(aciSignedPreKey, device.getSignedPreKey(IdentityType.ACI));
-    assertEquals(pniSignedPreKey, device.getSignedPreKey(IdentityType.PNI));
   }
 
   @ParameterizedTest
@@ -1142,9 +1156,6 @@ class AccountsManagerTest {
     List<Device> devices = List.of(DevicesHelper.createDevice(Device.PRIMARY_ID, 0L, 101),
         DevicesHelper.createDevice(deviceId2, 0L, 102));
 
-    devices.forEach(device ->
-        device.setSignedPreKey(KeysHelper.signedECPreKey(ThreadLocalRandom.current().nextLong(), Curve.generateKeyPair())));
-
     Account account = AccountsHelper.generateTestAccount(number, UUID.randomUUID(), UUID.randomUUID(), devices, new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
     final ECKeyPair identityKeyPair = Curve.generateKeyPair();
     Map<Byte, ECSignedPreKey> newSignedKeys = Map.of(
@@ -1154,8 +1165,6 @@ class AccountsManagerTest {
 
     UUID oldUuid = account.getUuid();
     UUID oldPni = account.getPhoneNumberIdentifier();
-    Map<Byte, ECSignedPreKey> oldSignedPreKeys = account.getDevices().stream()
-        .collect(Collectors.toMap(Device::getId, d -> d.getSignedPreKey(IdentityType.ACI)));
 
     final IdentityKey pniIdentityKey = new IdentityKey(Curve.generateKeyPair().getPublicKey());
 
@@ -1169,16 +1178,11 @@ class AccountsManagerTest {
     assertEquals(number, updatedAccount.getNumber());
     assertEquals(oldPni, updatedAccount.getPhoneNumberIdentifier());
     assertNull(updatedAccount.getIdentityKey(IdentityType.ACI));
-    assertEquals(oldSignedPreKeys, updatedAccount.getDevices().stream()
-        .collect(Collectors.toMap(Device::getId, d -> d.getSignedPreKey(IdentityType.ACI))));
     assertEquals(Map.of(Device.PRIMARY_ID, 101, deviceId2, 102),
         updatedAccount.getDevices().stream().collect(Collectors.toMap(Device::getId, Device::getRegistrationId)));
 
     // PNI stuff should
     assertEquals(pniIdentityKey, updatedAccount.getIdentityKey(IdentityType.PNI));
-    assertEquals(newSignedKeys,
-        updatedAccount.getDevices().stream()
-            .collect(Collectors.toMap(Device::getId, d -> d.getSignedPreKey(IdentityType.PNI))));
     assertEquals(newRegistrationIds,
         updatedAccount.getDevices().stream().collect(Collectors.toMap(Device::getId, d -> d.getPhoneNumberIdentityRegistrationId().getAsInt())));
 
@@ -1198,9 +1202,6 @@ class AccountsManagerTest {
     List<Device> devices = List.of(DevicesHelper.createDevice(Device.PRIMARY_ID, 0L, 101),
         DevicesHelper.createDevice(deviceId2, 0L, 102));
 
-    devices.forEach(device ->
-        device.setSignedPreKey(KeysHelper.signedECPreKey(ThreadLocalRandom.current().nextLong(), Curve.generateKeyPair())));
-
     Account account = AccountsHelper.generateTestAccount(number, UUID.randomUUID(), UUID.randomUUID(), devices, new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
     final ECKeyPair identityKeyPair = Curve.generateKeyPair();
     final Map<Byte, ECSignedPreKey> newSignedKeys = Map.of(
@@ -1219,9 +1220,6 @@ class AccountsManagerTest {
     when(keysManager.storeEcSignedPreKeys(any(), anyByte(), any())).thenReturn(CompletableFuture.completedFuture(null));
     when(keysManager.storePqLastResort(any(), anyByte(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
-    Map<Byte, ECSignedPreKey> oldSignedPreKeys = account.getDevices().stream()
-        .collect(Collectors.toMap(Device::getId, d -> d.getSignedPreKey(IdentityType.ACI)));
-
     final IdentityKey pniIdentityKey = new IdentityKey(Curve.generateKeyPair().getPublicKey());
 
     final Account updatedAccount =
@@ -1232,16 +1230,11 @@ class AccountsManagerTest {
     assertEquals(number, updatedAccount.getNumber());
     assertEquals(oldPni, updatedAccount.getPhoneNumberIdentifier());
     assertNull(updatedAccount.getIdentityKey(IdentityType.ACI));
-    assertEquals(oldSignedPreKeys, updatedAccount.getDevices().stream()
-        .collect(Collectors.toMap(Device::getId, d -> d.getSignedPreKey(IdentityType.ACI))));
     assertEquals(Map.of(Device.PRIMARY_ID, 101, deviceId2, 102),
         updatedAccount.getDevices().stream().collect(Collectors.toMap(Device::getId, Device::getRegistrationId)));
 
     // PNI keys should
     assertEquals(pniIdentityKey, updatedAccount.getIdentityKey(IdentityType.PNI));
-    assertEquals(newSignedKeys,
-        updatedAccount.getDevices().stream()
-            .collect(Collectors.toMap(Device::getId, d -> d.getSignedPreKey(IdentityType.PNI))));
     assertEquals(newRegistrationIds,
         updatedAccount.getDevices().stream().collect(Collectors.toMap(Device::getId, d -> d.getPhoneNumberIdentityRegistrationId().getAsInt())));
 
@@ -1262,9 +1255,6 @@ class AccountsManagerTest {
     List<Device> devices = List.of(DevicesHelper.createDevice(Device.PRIMARY_ID, 0L, 101),
         DevicesHelper.createDevice(deviceId2, 0L, 102));
 
-    devices.forEach(device ->
-        device.setSignedPreKey(KeysHelper.signedECPreKey(ThreadLocalRandom.current().nextLong(), Curve.generateKeyPair())));
-
     Account account = AccountsHelper.generateTestAccount(number, UUID.randomUUID(), UUID.randomUUID(), devices, new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
     final ECKeyPair identityKeyPair = Curve.generateKeyPair();
     final Map<Byte, ECSignedPreKey> newSignedKeys = Map.of(
@@ -1282,9 +1272,6 @@ class AccountsManagerTest {
     when(keysManager.storeEcSignedPreKeys(any(), anyByte(), any())).thenReturn(CompletableFuture.completedFuture(null));
     when(keysManager.storePqLastResort(any(), anyByte(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
-    Map<Byte, ECSignedPreKey> oldSignedPreKeys = account.getDevices().stream()
-        .collect(Collectors.toMap(Device::getId, d -> d.getSignedPreKey(IdentityType.ACI)));
-
     final IdentityKey pniIdentityKey = new IdentityKey(Curve.generateKeyPair().getPublicKey());
 
     final Account updatedAccount =
@@ -1295,16 +1282,11 @@ class AccountsManagerTest {
     assertEquals(number, updatedAccount.getNumber());
     assertEquals(oldPni, updatedAccount.getPhoneNumberIdentifier());
     assertNull(updatedAccount.getIdentityKey(IdentityType.ACI));
-    assertEquals(oldSignedPreKeys, updatedAccount.getDevices().stream()
-        .collect(Collectors.toMap(Device::getId, d -> d.getSignedPreKey(IdentityType.ACI))));
     assertEquals(Map.of(Device.PRIMARY_ID, 101, deviceId2, 102),
         updatedAccount.getDevices().stream().collect(Collectors.toMap(Device::getId, Device::getRegistrationId)));
 
     // PNI keys should
     assertEquals(pniIdentityKey, updatedAccount.getIdentityKey(IdentityType.PNI));
-    assertEquals(newSignedKeys,
-        updatedAccount.getDevices().stream()
-            .collect(Collectors.toMap(Device::getId, d -> d.getSignedPreKey(IdentityType.PNI))));
     assertEquals(newRegistrationIds,
         updatedAccount.getDevices().stream().collect(Collectors.toMap(Device::getId, d -> d.getPhoneNumberIdentityRegistrationId().getAsInt())));
 
@@ -1524,8 +1506,6 @@ class AccountsManagerTest {
     final Device parsedDevice = parsedAccount.getPrimaryDevice();
 
     assertEquals(originalDevice.getId(), parsedDevice.getId());
-    assertEquals(originalDevice.getSignedPreKey(IdentityType.ACI), parsedDevice.getSignedPreKey(IdentityType.ACI));
-    assertEquals(originalDevice.getSignedPreKey(IdentityType.PNI), parsedDevice.getSignedPreKey(IdentityType.PNI));
     assertEquals(originalDevice.getRegistrationId(), parsedDevice.getRegistrationId());
     assertEquals(originalDevice.getPhoneNumberIdentityRegistrationId(),
         parsedDevice.getPhoneNumberIdentityRegistrationId());
@@ -1541,7 +1521,6 @@ class AccountsManagerTest {
     final Device device = new Device();
     device.setId(Device.PRIMARY_ID);
     device.setFetchesMessages(true);
-    device.setSignedPreKey(KeysHelper.signedECPreKey(1, Curve.generateKeyPair()));
     device.setLastSeen(lastSeen);
 
     return device;

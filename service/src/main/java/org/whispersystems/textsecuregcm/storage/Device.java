@@ -17,8 +17,6 @@ import java.util.stream.IntStream;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
-import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.util.DeviceNameByteArrayAdapter;
 
 public class Device {
@@ -71,12 +69,6 @@ public class Device {
   @Nullable
   @JsonProperty("pniRegistrationId")
   private Integer phoneNumberIdentityRegistrationId;
-
-  @JsonProperty
-  private ECSignedPreKey signedPreKey;
-
-  @JsonProperty("pniSignedPreKey")
-  private ECSignedPreKey phoneNumberIdentitySignedPreKey;
 
   @JsonProperty
   private long lastSeen;
@@ -245,25 +237,6 @@ public class Device {
 
   public void setPhoneNumberIdentityRegistrationId(final int phoneNumberIdentityRegistrationId) {
     this.phoneNumberIdentityRegistrationId = phoneNumberIdentityRegistrationId;
-  }
-
-  /**
-   * @deprecated Please retrieve signed pre-keys via {@link KeysManager#getEcSignedPreKey(UUID, byte)} instead
-   */
-  @Deprecated
-  public ECSignedPreKey getSignedPreKey(final IdentityType identityType) {
-    return switch (identityType) {
-      case ACI -> signedPreKey;
-      case PNI -> phoneNumberIdentitySignedPreKey;
-    };
-  }
-
-  public void setSignedPreKey(ECSignedPreKey signedPreKey) {
-    this.signedPreKey = signedPreKey;
-  }
-
-  public void setPhoneNumberIdentitySignedPreKey(final ECSignedPreKey phoneNumberIdentitySignedPreKey) {
-    this.phoneNumberIdentitySignedPreKey = phoneNumberIdentitySignedPreKey;
   }
 
   public long getPushTimestamp() {

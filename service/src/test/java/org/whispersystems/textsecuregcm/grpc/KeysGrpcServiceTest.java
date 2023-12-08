@@ -323,17 +323,13 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
                 .build())
             .build());
 
-    switch (identityType) {
-      case IDENTITY_TYPE_ACI -> {
-        verify(authenticatedDevice).setSignedPreKey(signedPreKey);
-        verify(keysManager).storeEcSignedPreKeys(AUTHENTICATED_ACI, AUTHENTICATED_DEVICE_ID, signedPreKey);
-      }
+    final UUID expectedIdentifier = switch (identityType) {
+      case IDENTITY_TYPE_ACI -> AUTHENTICATED_ACI;
+      case IDENTITY_TYPE_PNI -> AUTHENTICATED_PNI;
+      default -> throw new IllegalArgumentException("Unexpected identity type");
+    };
 
-      case IDENTITY_TYPE_PNI -> {
-        verify(authenticatedDevice).setPhoneNumberIdentitySignedPreKey(signedPreKey);
-        verify(keysManager).storeEcSignedPreKeys(AUTHENTICATED_PNI, AUTHENTICATED_DEVICE_ID, signedPreKey);
-      }
-    }
+    verify(keysManager).storeEcSignedPreKeys(expectedIdentifier, AUTHENTICATED_DEVICE_ID, signedPreKey);
   }
 
   @ParameterizedTest

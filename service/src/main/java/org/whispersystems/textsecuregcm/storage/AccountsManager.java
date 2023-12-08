@@ -30,7 +30,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.UUID;
@@ -416,7 +415,7 @@ public class AccountsManager {
       final Account numberChangedAccount = updateWithRetries(
           account,
           a -> {
-            setPniKeys(account, pniIdentityKey, pniSignedPreKeys, pniRegistrationIds);
+            setPniKeys(account, pniIdentityKey, pniRegistrationIds);
             return true;
           },
           a -> accounts.changeNumber(a, targetNumber, phoneNumberIdentifier, maybeDisplacedUuid, keyWriteItems),
@@ -445,7 +444,7 @@ public class AccountsManager {
     return redisDeleteAsync(account)
         .thenCompose(ignored -> keysManager.deleteSingleUsePreKeys(pni))
         .thenCompose(ignored -> updateTransactionallyWithRetriesAsync(account,
-            a -> setPniKeys(a, pniIdentityKey, pniSignedPreKeys, pniRegistrationIds),
+            a -> setPniKeys(a, pniIdentityKey, pniRegistrationIds),
             accounts::updateTransactionallyAsync,
             () -> accounts.getByAccountIdentifierAsync(aci).thenApply(Optional::orElseThrow),
             a -> keyWriteItems,
@@ -483,28 +482,18 @@ public class AccountsManager {
 
   private void setPniKeys(final Account account,
       @Nullable final IdentityKey pniIdentityKey,
-      @Nullable final Map<Byte, ECSignedPreKey> pniSignedPreKeys,
       @Nullable final Map<Byte, Integer> pniRegistrationIds) {
-    if (ObjectUtils.allNull(pniIdentityKey, pniSignedPreKeys, pniRegistrationIds)) {
+
+    if (ObjectUtils.allNull(pniIdentityKey, pniRegistrationIds)) {
       return;
-    } else if (!ObjectUtils.allNotNull(pniIdentityKey, pniSignedPreKeys, pniRegistrationIds)) {
-      throw new IllegalArgumentException("PNI identity key, signed pre-keys, and registration IDs must be all null or all non-null");
+    } else if (!ObjectUtils.allNotNull(pniIdentityKey, pniRegistrationIds)) {
+      throw new IllegalArgumentException("PNI identity key and registration IDs must be all null or all non-null");
     }
 
-    boolean changed = !Objects.equals(pniIdentityKey, account.getIdentityKey(IdentityType.PNI));
-
-    for (Device device : account.getDevices()) {
-        if (!device.isEnabled()) {
-            continue;
-        }
-        ECSignedPreKey signedPreKey = pniSignedPreKeys.get(device.getId());
-        int registrationId = pniRegistrationIds.get(device.getId());
-        changed = changed ||
-            !signedPreKey.equals(device.getSignedPreKey(IdentityType.PNI)) ||
-            device.getRegistrationId() != registrationId;
-        device.setPhoneNumberIdentitySignedPreKey(signedPreKey);
-        device.setPhoneNumberIdentityRegistrationId(registrationId);
-    }
+    account.getDevices()
+        .stream()
+        .filter(Device::isEnabled)
+        .forEach(device -> device.setPhoneNumberIdentityRegistrationId(pniRegistrationIds.get(device.getId())));
 
     account.setPhoneNumberIdentityKey(pniIdentityKey);
   }

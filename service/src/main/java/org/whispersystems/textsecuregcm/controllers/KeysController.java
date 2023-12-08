@@ -15,9 +15,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -41,6 +39,7 @@ import org.signal.libsignal.protocol.IdentityKey;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
+import org.whispersystems.textsecuregcm.entities.ECPreKey;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.PreKeyCount;
@@ -60,8 +59,6 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.KeysManager;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.Util;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v2/keys")
@@ -69,16 +66,16 @@ import reactor.core.publisher.Mono;
 public class KeysController {
 
   private final RateLimiters rateLimiters;
-  private final KeysManager keys;
+  private final KeysManager keysManager;
   private final AccountsManager accounts;
 
   private static final String GET_KEYS_COUNTER_NAME = MetricsUtil.name(KeysController.class, "getKeys");
 
   private static final CompletableFuture<?>[] EMPTY_FUTURE_ARRAY = new CompletableFuture[0];
 
-  public KeysController(RateLimiters rateLimiters, KeysManager keys, AccountsManager accounts) {
+  public KeysController(RateLimiters rateLimiters, KeysManager keysManager, AccountsManager accounts) {
     this.rateLimiters = rateLimiters;
-    this.keys = keys;
+    this.keysManager = keysManager;
     this.accounts = accounts;
   }
 
@@ -92,10 +89,10 @@ public class KeysController {
       @QueryParam("identity") @DefaultValue("aci") final IdentityType identityType) {
 
     final CompletableFuture<Integer> ecCountFuture =
-        keys.getEcCount(auth.getAccount().getIdentifier(identityType), auth.getAuthenticatedDevice().getId());
+        keysManager.getEcCount(auth.getAccount().getIdentifier(identityType), auth.getAuthenticatedDevice().getId());
 
     final CompletableFuture<Integer> pqCountFuture =
-        keys.getPqCount(auth.getAccount().getIdentifier(identityType), auth.getAuthenticatedDevice().getId());
+        keysManager.getPqCount(auth.getAccount().getIdentifier(identityType), auth.getAuthenticatedDevice().getId());
 
     return ecCountFuture.thenCombine(pqCountFuture, PreKeyCount::new);
   }
@@ -124,43 +121,25 @@ public class KeysController {
 
     checkSignedPreKeySignatures(setKeysRequest, account.getIdentityKey(identityType));
 
-    final CompletableFuture<Account> updateAccountFuture;
+    final List<CompletableFuture<Void>> storeFutures = new ArrayList<>(4);
 
-    if (setKeysRequest.signedPreKey() != null &&
-        !setKeysRequest.signedPreKey().equals(device.getSignedPreKey(identityType))) {
-
-      updateAccountFuture = accounts.updateDeviceTransactionallyAsync(account,
-              device.getId(),
-              d -> {
-                switch (identityType) {
-                  case ACI -> d.setSignedPreKey(setKeysRequest.signedPreKey());
-                  case PNI -> d.setPhoneNumberIdentitySignedPreKey(setKeysRequest.signedPreKey());
-                }
-              },
-              d -> List.of(keys.buildWriteItemForEcSignedPreKey(identifier, d.getId(), setKeysRequest.signedPreKey())))
-          .toCompletableFuture();
-    } else {
-      updateAccountFuture = CompletableFuture.completedFuture(account);
+    if (setKeysRequest.preKeys() != null && !setKeysRequest.preKeys().isEmpty()) {
+      storeFutures.add(keysManager.storeEcOneTimePreKeys(identifier, device.getId(), setKeysRequest.preKeys()));
     }
 
-    return updateAccountFuture.thenCompose(updatedAccount -> {
-          final List<CompletableFuture<Void>> storeFutures = new ArrayList<>(3);
+    if (setKeysRequest.signedPreKey() != null) {
+      storeFutures.add(keysManager.storeEcSignedPreKeys(identifier, device.getId(), setKeysRequest.signedPreKey()));
+    }
 
-          if (setKeysRequest.preKeys() != null && !setKeysRequest.preKeys().isEmpty()) {
-            storeFutures.add(keys.storeEcOneTimePreKeys(identifier, device.getId(), setKeysRequest.preKeys()));
-          }
+    if (setKeysRequest.pqPreKeys() != null && !setKeysRequest.pqPreKeys().isEmpty()) {
+      storeFutures.add(keysManager.storeKemOneTimePreKeys(identifier, device.getId(), setKeysRequest.pqPreKeys()));
+    }
 
-          if (setKeysRequest.pqPreKeys() != null && !setKeysRequest.pqPreKeys().isEmpty()) {
-            storeFutures.add(keys.storeKemOneTimePreKeys(identifier, device.getId(), setKeysRequest.pqPreKeys()));
-          }
+    if (setKeysRequest.pqLastResortPreKey() != null) {
+      storeFutures.add(keysManager.storePqLastResort(identifier, device.getId(), setKeysRequest.pqLastResortPreKey()));
+    }
 
-          if (setKeysRequest.pqLastResortPreKey() != null) {
-            storeFutures.add(
-                keys.storePqLastResort(identifier, device.getId(), setKeysRequest.pqLastResortPreKey()));
-          }
-
-          return CompletableFuture.allOf(storeFutures.toArray(EMPTY_FUTURE_ARRAY));
-        })
+    return CompletableFuture.allOf(storeFutures.toArray(EMPTY_FUTURE_ARRAY))
         .thenApply(Util.ASYNC_EMPTY_RESPONSE);
   }
 
@@ -240,28 +219,41 @@ public class KeysController {
             io.micrometer.core.instrument.Tag.of("wildcardDeviceId", String.valueOf("*".equals(deviceId)))))
         .increment();
 
-    final List<PreKeyResponseItem> responseItems = Flux.fromIterable(parseDeviceId(deviceId, target))
-        .flatMap(device -> Mono.zip(
-            Mono.just(device),
-            Mono.fromFuture(() -> keys.getEcSignedPreKey(targetIdentifier.uuid(), device.getId())),
-            Mono.fromFuture(() -> keys.takeEC(targetIdentifier.uuid(), device.getId())),
-            Mono.fromFuture(() -> returnPqKey ? keys.takePQ(targetIdentifier.uuid(), device.getId())
-                : CompletableFuture.<Optional<KEMSignedPreKey>>completedFuture(Optional.empty()))
-        )).filter(keys -> keys.getT2().isPresent() || keys.getT3().isPresent() || keys.getT4().isPresent())
-        .map(deviceAndKeys -> {
-          final Device device = deviceAndKeys.getT1();
-          final int registrationId = switch (targetIdentifier.identityType()) {
-            case ACI -> device.getRegistrationId();
-            case PNI -> device.getPhoneNumberIdentityRegistrationId().orElse(device.getRegistrationId());
-          };
-          return new PreKeyResponseItem(device.getId(), registrationId,
-              deviceAndKeys.getT2().orElse(null),
-              deviceAndKeys.getT3().orElse(null),
-              deviceAndKeys.getT4().orElse(null));
-        }).collectList()
-        .timeout(Duration.ofSeconds(30))
-        .blockOptional()
-        .orElse(Collections.emptyList());
+    final List<Device> devices = parseDeviceId(deviceId, target);
+    final List<PreKeyResponseItem> responseItems = new ArrayList<>(devices.size());
+
+    final List<CompletableFuture<Void>> tasks = devices.stream().map(device -> {
+          final CompletableFuture<Optional<ECPreKey>> unsignedEcPreKeyFuture =
+              keysManager.takeEC(targetIdentifier.uuid(), device.getId());
+
+          final CompletableFuture<Optional<ECSignedPreKey>> signedEcPreKeyFuture =
+              keysManager.getEcSignedPreKey(targetIdentifier.uuid(), device.getId());
+
+          final CompletableFuture<Optional<KEMSignedPreKey>> pqPreKeyFuture = returnPqKey
+              ? keysManager.takePQ(targetIdentifier.uuid(), device.getId())
+              : CompletableFuture.completedFuture(Optional.empty());
+
+          return CompletableFuture.allOf(unsignedEcPreKeyFuture, signedEcPreKeyFuture, pqPreKeyFuture)
+              .thenAccept(ignored -> {
+                final KEMSignedPreKey pqPreKey = pqPreKeyFuture.join().orElse(null);
+                final ECPreKey unsignedEcPreKey = unsignedEcPreKeyFuture.join().orElse(null);
+                final ECSignedPreKey signedEcPreKey = signedEcPreKeyFuture.join().orElse(null);
+
+                if (signedEcPreKey != null || unsignedEcPreKey != null || pqPreKey != null) {
+                  final int registrationId = switch (targetIdentifier.identityType()) {
+                    case ACI -> device.getRegistrationId();
+                    case PNI -> device.getPhoneNumberIdentityRegistrationId().orElse(device.getRegistrationId());
+                  };
+
+                  responseItems.add(
+                      new PreKeyResponseItem(device.getId(), registrationId, signedEcPreKey, unsignedEcPreKey,
+                          pqPreKey));
+                }
+              });
+        })
+        .toList();
+
+    CompletableFuture.allOf(tasks.toArray(new CompletableFuture[0])).join();
 
     final IdentityKey identityKey = target.getIdentityKey(targetIdentifier.identityType());
 
@@ -289,16 +281,7 @@ public class KeysController {
     final UUID identifier = auth.getAccount().getIdentifier(identityType);
     final byte deviceId = auth.getAuthenticatedDevice().getId();
 
-    return accounts.updateDeviceTransactionallyAsync(auth.getAccount(),
-            deviceId,
-            d -> {
-              switch (identityType) {
-                case ACI -> d.setSignedPreKey(signedPreKey);
-                case PNI -> d.setPhoneNumberIdentitySignedPreKey(signedPreKey);
-              }
-            },
-            d -> List.of(keys.buildWriteItemForEcSignedPreKey(identifier, d.getId(), signedPreKey)))
-        .toCompletableFuture()
+    return keysManager.storeEcSignedPreKeys(identifier, deviceId, signedPreKey)
         .thenApply(Util.ASYNC_EMPTY_RESPONSE);
   }
 

@@ -12,7 +12,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
-import java.util.function.Consumer;
 import org.signal.chat.common.EcPreKey;
 import org.signal.chat.common.EcSignedPreKey;
 import org.signal.chat.common.KemSignedPreKey;
@@ -40,7 +39,6 @@ import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.KeysManager;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -191,18 +189,9 @@ public class KeysGrpcService extends ReactorKeysGrpc.KeysImplBase {
             KeysGrpcService::checkEcSignedPreKey,
             (account, signedPreKey) -> {
               final IdentityType identityType = IdentityTypeUtil.fromGrpcIdentityType(request.getIdentityType());
-
-              final Consumer<Device> deviceUpdater = switch (identityType) {
-                case ACI -> device -> device.setSignedPreKey(signedPreKey);
-                case PNI -> device -> device.setPhoneNumberIdentitySignedPreKey(signedPreKey);
-              };
-
               final UUID identifier = account.getIdentifier(identityType);
 
-              return Flux.merge(
-                      Mono.fromFuture(() -> keysManager.storeEcSignedPreKeys(identifier, authenticatedDevice.deviceId(), signedPreKey)),
-                      Mono.fromFuture(() -> accountsManager.updateDeviceAsync(account, authenticatedDevice.deviceId(), deviceUpdater)))
-                  .then();
+              return Mono.fromFuture(() -> keysManager.storeEcSignedPreKeys(identifier, authenticatedDevice.deviceId(), signedPreKey));
             }));
   }
 

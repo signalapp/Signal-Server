@@ -47,7 +47,6 @@ public class DevicesHelper {
 
   public static void setEnabled(Device device, boolean enabled) {
     if (enabled) {
-      device.setPhoneNumberIdentitySignedPreKey(KeysHelper.signedECPreKey(RANDOM.nextLong(), Curve.generateKeyPair()));
       device.setGcmId("testGcmId" + RANDOM.nextLong());
       device.setLastSeen(Util.todayInMillis());
     } else {

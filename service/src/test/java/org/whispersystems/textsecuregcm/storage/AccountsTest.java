@@ -52,7 +52,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
@@ -1372,8 +1371,6 @@ class AccountsTest {
       assertThat(resultDevice.getApnId()).isEqualTo(expectingDevice.getApnId());
       assertThat(resultDevice.getGcmId()).isEqualTo(expectingDevice.getGcmId());
       assertThat(resultDevice.getLastSeen()).isEqualTo(expectingDevice.getLastSeen());
-      assertThat(resultDevice.getSignedPreKey(IdentityType.ACI)).isEqualTo(
-          expectingDevice.getSignedPreKey(IdentityType.ACI));
       assertThat(resultDevice.getFetchesMessages()).isEqualTo(expectingDevice.getFetchesMessages());
       assertThat(resultDevice.getUserAgent()).isEqualTo(expectingDevice.getUserAgent());
       assertThat(resultDevice.getName()).isEqualTo(expectingDevice.getName());

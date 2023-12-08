@@ -100,7 +100,6 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfigurati
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicInboundMessageByteLimitConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountMismatchedDevices;
 import org.whispersystems.textsecuregcm.entities.AccountStaleDevices;
-import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.IncomingMessage;
 import org.whispersystems.textsecuregcm.entities.IncomingMessageList;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
@@ -133,7 +132,6 @@ import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
-import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.Pair;
@@ -218,13 +216,13 @@ class MessageControllerTest {
 
 
     final List<Device> singleDeviceList = List.of(
-        generateTestDevice(SINGLE_DEVICE_ID1, SINGLE_DEVICE_REG_ID1, SINGLE_DEVICE_PNI_REG_ID1, KeysHelper.signedECPreKey(333, identityKeyPair), System.currentTimeMillis(), System.currentTimeMillis())
+        generateTestDevice(SINGLE_DEVICE_ID1, SINGLE_DEVICE_REG_ID1, SINGLE_DEVICE_PNI_REG_ID1, System.currentTimeMillis(), System.currentTimeMillis())
     );
 
     final List<Device> multiDeviceList = List.of(
-        generateTestDevice(MULTI_DEVICE_ID1, MULTI_DEVICE_REG_ID1, MULTI_DEVICE_PNI_REG_ID1, KeysHelper.signedECPreKey(111, identityKeyPair), System.currentTimeMillis(), System.currentTimeMillis()),
-        generateTestDevice(MULTI_DEVICE_ID2, MULTI_DEVICE_REG_ID2, MULTI_DEVICE_PNI_REG_ID2, KeysHelper.signedECPreKey(222, identityKeyPair), System.currentTimeMillis(), System.currentTimeMillis()),
-        generateTestDevice(MULTI_DEVICE_ID3, MULTI_DEVICE_REG_ID3, MULTI_DEVICE_PNI_REG_ID3, null, System.currentTimeMillis(), System.currentTimeMillis() - TimeUnit.DAYS.toMillis(31))
+        generateTestDevice(MULTI_DEVICE_ID1, MULTI_DEVICE_REG_ID1, MULTI_DEVICE_PNI_REG_ID1, System.currentTimeMillis(), System.currentTimeMillis()),
+        generateTestDevice(MULTI_DEVICE_ID2, MULTI_DEVICE_REG_ID2, MULTI_DEVICE_PNI_REG_ID2, System.currentTimeMillis(), System.currentTimeMillis()),
+        generateTestDevice(MULTI_DEVICE_ID3, MULTI_DEVICE_REG_ID3, MULTI_DEVICE_PNI_REG_ID3, System.currentTimeMillis(), System.currentTimeMillis() - TimeUnit.DAYS.toMillis(31))
     );
 
     Account singleDeviceAccount  = AccountsHelper.generateTestAccount(SINGLE_DEVICE_RECIPIENT, SINGLE_DEVICE_UUID, SINGLE_DEVICE_PNI, singleDeviceList, UNIDENTIFIED_ACCESS_BYTES);
@@ -265,12 +263,11 @@ class MessageControllerTest {
   }
 
   private static Device generateTestDevice(final byte id, final int registrationId, final int pniRegistrationId,
-      final ECSignedPreKey signedPreKey, final long createdAt, final long lastSeen) {
+      final long createdAt, final long lastSeen) {
     final Device device = new Device();
     device.setId(id);
     device.setRegistrationId(registrationId);
     device.setPhoneNumberIdentityRegistrationId(pniRegistrationId);
-    device.setSignedPreKey(signedPreKey);
     device.setCreated(createdAt);
     device.setLastSeen(lastSeen);
     device.setGcmId("isgcm");
@@ -1045,7 +1042,7 @@ class MessageControllerTest {
           IntStream.range(1, devicesPerRecipient + 1)
           .mapToObj(
               d -> generateTestDevice(
-                  (byte) d, 100 + d, 10 * d, KeysHelper.signedECPreKey(333, identityKeyPair), System.currentTimeMillis(),
+                  (byte) d, 100 + d, 10 * d, System.currentTimeMillis(),
                   System.currentTimeMillis()))
           .collect(Collectors.toList());
       final UUID aci = new UUID(0L, (long) i);

@@ -319,36 +319,33 @@ class KeysControllerTest {
 
   @Test
   void putSignedPreKeyV2() {
-    ECSignedPreKey test = KeysHelper.signedECPreKey(9998, IDENTITY_KEY_PAIR);
-    Response response = resources.getJerseyTest()
+    final ECSignedPreKey signedPreKey = KeysHelper.signedECPreKey(9998, IDENTITY_KEY_PAIR);
+
+    try (final Response response = resources.getJerseyTest()
                                  .target("/v2/keys/signed")
                                  .request()
                                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                                 .put(Entity.entity(test, MediaType.APPLICATION_JSON_TYPE));
+                                 .put(Entity.entity(signedPreKey, MediaType.APPLICATION_JSON_TYPE))) {
 
-    assertThat(response.getStatus()).isEqualTo(204);
-
-    verify(AuthHelper.VALID_DEVICE).setSignedPreKey(eq(test));
-    verify(AuthHelper.VALID_DEVICE, never()).setPhoneNumberIdentitySignedPreKey(any());
-    verify(accounts).updateDeviceTransactionallyAsync(eq(AuthHelper.VALID_ACCOUNT), anyByte(), any(), any());
+      assertThat(response.getStatus()).isEqualTo(204);
+      verify(KEYS).storeEcSignedPreKeys(AuthHelper.VALID_UUID, AuthHelper.VALID_DEVICE.getId(), signedPreKey);
+    }
   }
 
   @Test
   void putPhoneNumberIdentitySignedPreKeyV2() {
-    final ECSignedPreKey replacementKey = KeysHelper.signedECPreKey(9998, PNI_IDENTITY_KEY_PAIR);
+    final ECSignedPreKey pniSignedPreKey = KeysHelper.signedECPreKey(9998, PNI_IDENTITY_KEY_PAIR);
 
-    Response response = resources.getJerseyTest()
+    try (final Response response = resources.getJerseyTest()
         .target("/v2/keys/signed")
         .queryParam("identity", "pni")
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .put(Entity.entity(replacementKey, MediaType.APPLICATION_JSON_TYPE));
+        .put(Entity.entity(pniSignedPreKey, MediaType.APPLICATION_JSON_TYPE))) {
 
-    assertThat(response.getStatus()).isEqualTo(204);
-
-    verify(AuthHelper.VALID_DEVICE).setPhoneNumberIdentitySignedPreKey(eq(replacementKey));
-    verify(AuthHelper.VALID_DEVICE, never()).setSignedPreKey(any());
-    verify(accounts).updateDeviceTransactionallyAsync(eq(AuthHelper.VALID_ACCOUNT), anyByte(), any(), any());
+      assertThat(response.getStatus()).isEqualTo(204);
+      verify(KEYS).storeEcSignedPreKeys(AuthHelper.VALID_PNI, AuthHelper.VALID_DEVICE.getId(), pniSignedPreKey);
+    }
   }
 
   @Test
@@ -761,8 +758,7 @@ class KeysControllerTest {
 
     assertThat(listCaptor.getValue()).containsExactly(preKey);
 
-    verify(AuthHelper.VALID_DEVICE).setSignedPreKey(eq(signedPreKey));
-    verify(accounts).updateDeviceTransactionallyAsync(eq(AuthHelper.VALID_ACCOUNT), eq(SAMPLE_DEVICE_ID), any(), any());
+    verify(KEYS).storeEcSignedPreKeys(AuthHelper.VALID_UUID, AuthHelper.VALID_DEVICE.getId(), signedPreKey);
   }
 
   @Test
@@ -786,9 +782,7 @@ class KeysControllerTest {
 
       verify(KEYS, never()).storeEcOneTimePreKeys(any(), anyByte(), any());
       verify(KEYS, never()).storeKemOneTimePreKeys(any(), anyByte(), any());
-
-      verify(AuthHelper.VALID_DEVICE).setSignedPreKey(eq(signedPreKey));
-      verify(accounts).updateDeviceTransactionallyAsync(eq(AuthHelper.VALID_ACCOUNT), eq(SAMPLE_DEVICE_ID), any(), any());
+      verify(KEYS).storeEcSignedPreKeys(AuthHelper.VALID_UUID, AuthHelper.VALID_DEVICE.getId(), signedPreKey);
     }
   }
 
@@ -824,8 +818,7 @@ class KeysControllerTest {
     assertThat(ecCaptor.getValue()).containsExactly(preKey);
     assertThat(pqCaptor.getValue()).containsExactly(pqPreKey);
 
-    verify(AuthHelper.VALID_DEVICE).setSignedPreKey(eq(signedPreKey));
-    verify(accounts).updateDeviceTransactionallyAsync(eq(AuthHelper.VALID_ACCOUNT), eq(SAMPLE_DEVICE_ID), any(), any());
+    verify(KEYS).storeEcSignedPreKeys(AuthHelper.VALID_UUID, AuthHelper.VALID_DEVICE.getId(), signedPreKey);
   }
 
   @Test
@@ -926,8 +919,7 @@ class KeysControllerTest {
 
     assertThat(listCaptor.getValue()).containsExactly(preKey);
 
-    verify(AuthHelper.VALID_DEVICE).setPhoneNumberIdentitySignedPreKey(eq(signedPreKey));
-    verify(accounts).updateDeviceTransactionallyAsync(eq(AuthHelper.VALID_ACCOUNT), eq(SAMPLE_DEVICE_ID), any(), any());
+    verify(KEYS).storeEcSignedPreKeys(AuthHelper.VALID_PNI, AuthHelper.VALID_DEVICE.getId(), signedPreKey);
   }
 
   @Test
@@ -963,8 +955,7 @@ class KeysControllerTest {
     assertThat(ecCaptor.getValue()).containsExactly(preKey);
     assertThat(pqCaptor.getValue()).containsExactly(pqPreKey);
 
-    verify(AuthHelper.VALID_DEVICE).setPhoneNumberIdentitySignedPreKey(eq(signedPreKey));
-    verify(accounts).updateDeviceTransactionallyAsync(eq(AuthHelper.VALID_ACCOUNT), eq(SAMPLE_DEVICE_ID), any(), any());
+    verify(KEYS).storeEcSignedPreKeys(AuthHelper.VALID_PNI, AuthHelper.VALID_DEVICE.getId(), signedPreKey);
   }
 
   @Test

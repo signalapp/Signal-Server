@@ -846,8 +846,6 @@ class AccountControllerV2Test {
         device.setId(deviceData.id);
         device.setAuthTokenHash(passwordTokenHash);
         device.setFetchesMessages(true);
-        device.setSignedPreKey(KeysHelper.signedECPreKey(1, aciIdentityKeyPair));
-        device.setPhoneNumberIdentitySignedPreKey(KeysHelper.signedECPreKey(2, pniIdentityKeyPair));
         device.setLastSeen(deviceData.lastSeen().toEpochMilli());
         device.setCreated(deviceData.created().toEpochMilli());
         device.setUserAgent(deviceData.userAgent());

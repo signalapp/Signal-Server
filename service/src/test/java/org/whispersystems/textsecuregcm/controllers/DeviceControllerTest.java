@@ -232,8 +232,6 @@ class DeviceControllerTest {
 
     final Device device = deviceSpecCaptor.getValue().toDevice(NEXT_DEVICE_ID, testClock);
 
-    assertEquals(aciSignedPreKey, device.getSignedPreKey(IdentityType.ACI));
-    assertEquals(pniSignedPreKey, device.getSignedPreKey(IdentityType.PNI));
     assertEquals(fetchesMessages, device.getFetchesMessages());
 
     expectedApnsToken.ifPresentOrElse(expectedToken -> assertEquals(expectedToken, device.getApnId()),
