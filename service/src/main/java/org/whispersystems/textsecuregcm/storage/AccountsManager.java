@@ -69,7 +69,7 @@ import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.Util;
-import reactor.core.publisher.ParallelFlux;
+import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Scheduler;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
 
@@ -940,7 +940,7 @@ public class AccountsManager {
     return accounts.findRecentlyDeletedE164(uuid);
   }
 
-  public ParallelFlux<Account> streamAllFromDynamo(final int segments, final Scheduler scheduler) {
+  public Flux<Account> streamAllFromDynamo(final int segments, final Scheduler scheduler) {
     return accounts.getAll(segments, scheduler);
   }
 

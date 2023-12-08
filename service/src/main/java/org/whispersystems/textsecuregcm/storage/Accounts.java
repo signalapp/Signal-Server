@@ -45,7 +45,6 @@ import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import org.whispersystems.textsecuregcm.util.Util;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.ParallelFlux;
 import reactor.core.scheduler.Scheduler;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
@@ -1058,7 +1057,7 @@ public class Accounts extends AbstractDynamoDbStore {
             .thenRun(() -> sample.stop(DELETE_TIMER));
   }
 
-  ParallelFlux<Account> getAll(final int segments, final Scheduler scheduler) {
+  Flux<Account> getAll(final int segments, final Scheduler scheduler) {
     if (segments < 1) {
       throw new IllegalArgumentException("Total number of segments must be positive");
     }
@@ -1073,7 +1072,8 @@ public class Accounts extends AbstractDynamoDbStore {
                 .totalSegments(segments)
                 .build())
             .items()
-            .map(Accounts::fromItem));
+            .map(Accounts::fromItem))
+        .sequential();
   }
 
   @Nonnull

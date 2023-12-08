@@ -73,7 +73,7 @@ class RemoveExpiredAccountsCommandTest {
     when(expiredAccount.getLastSeen())
         .thenReturn(clock.instant().minus(RemoveExpiredAccountsCommand.MAX_IDLE_DURATION).minusMillis(1).toEpochMilli());
 
-    removeExpiredAccountsCommand.crawlAccounts(Flux.just(activeAccount, expiredAccount).parallel());
+    removeExpiredAccountsCommand.crawlAccounts(Flux.just(activeAccount, expiredAccount));
 
     if (isDryRun) {
       verify(accountsManager, never()).delete(any(), any());

@@ -124,8 +124,7 @@ class ProcessPushNotificationFeedbackCommandTest {
     }
 
     processPushNotificationFeedbackCommand.crawlAccounts(
-        Flux.just(accountWithActiveDevice, accountWithUninstalledDevice, accountWithAlreadyDisabledUninstalledDevice)
-            .parallel());
+        Flux.just(accountWithActiveDevice, accountWithUninstalledDevice, accountWithAlreadyDisabledUninstalledDevice));
 
     if (isDryRun) {
       verify(accountsManager, never()).updateAsync(any(), any());

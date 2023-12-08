@@ -19,7 +19,7 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import reactor.core.publisher.Mono;
-import reactor.core.publisher.ParallelFlux;
+import reactor.core.publisher.Flux;
 
 public class RemoveExpiredAccountsCommand extends AbstractSinglePassCrawlAccountsCommand {
 
@@ -57,13 +57,12 @@ public class RemoveExpiredAccountsCommand extends AbstractSinglePassCrawlAccount
   }
 
   @Override
-  protected void crawlAccounts(final ParallelFlux<Account> accounts) {
+  protected void crawlAccounts(final Flux<Account> accounts) {
     final boolean isDryRun = getNamespace().getBoolean(DRY_RUN_ARGUMENT);
     final Counter deletedAccountCounter =
         Metrics.counter(DELETED_ACCOUNT_COUNTER_NAME, "dryRun", String.valueOf(isDryRun));
 
     accounts.filter(this::isExpired)
-        .sequential()
         .flatMap(expiredAccount -> {
           final Mono<Void> deleteAccountMono = isDryRun
               ? Mono.empty()

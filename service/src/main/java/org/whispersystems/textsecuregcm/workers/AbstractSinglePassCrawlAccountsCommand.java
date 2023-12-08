@@ -18,7 +18,7 @@ import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.util.logging.UncaughtExceptionHandler;
-import reactor.core.publisher.ParallelFlux;
+import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Schedulers;
 
 public abstract class AbstractSinglePassCrawlAccountsCommand extends EnvironmentCommand<WhisperServerConfiguration> {
@@ -103,5 +103,5 @@ public abstract class AbstractSinglePassCrawlAccountsCommand extends Environment
     logger.error("Unhandled error", throwable);
   }
 
-  protected abstract void crawlAccounts(final ParallelFlux<Account> accounts);
+  protected abstract void crawlAccounts(final Flux<Account> accounts);
 }

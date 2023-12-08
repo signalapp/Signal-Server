@@ -665,7 +665,7 @@ class AccountsTest {
     }
 
     final List<Account> retrievedAccounts =
-        accounts.getAll(2, Schedulers.parallel()).sequential().collectList().block();
+        accounts.getAll(2, Schedulers.parallel()).collectList().block();
 
     assertNotNull(retrievedAccounts);
     assertEquals(expectedAccounts.stream().map(Account::getUuid).collect(Collectors.toSet()),

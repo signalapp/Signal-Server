@@ -20,8 +20,8 @@ import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.publisher.ParallelFlux;
 
 public class ProcessPushNotificationFeedbackCommand extends AbstractSinglePassCrawlAccountsCommand {
 
@@ -62,12 +62,11 @@ public class ProcessPushNotificationFeedbackCommand extends AbstractSinglePassCr
   }
 
   @Override
-  protected void crawlAccounts(final ParallelFlux<Account> accounts) {
+  protected void crawlAccounts(final Flux<Account> accounts) {
     final boolean isDryRun = getNamespace().getBoolean(DRY_RUN_ARGUMENT);
 
     accounts
         .filter(account -> account.getDevices().stream().anyMatch(this::deviceNeedsUpdate))
-        .sequential()
         .flatMap(account -> {
           account.getDevices().stream()
               .filter(this::deviceNeedsUpdate)
