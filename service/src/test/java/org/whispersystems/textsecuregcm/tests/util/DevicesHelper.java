@@ -47,12 +47,11 @@ public class DevicesHelper {
 
   public static void setEnabled(Device device, boolean enabled) {
     if (enabled) {
-      device.setSignedPreKey(KeysHelper.signedECPreKey(RANDOM.nextLong(), Curve.generateKeyPair()));
       device.setPhoneNumberIdentitySignedPreKey(KeysHelper.signedECPreKey(RANDOM.nextLong(), Curve.generateKeyPair()));
       device.setGcmId("testGcmId" + RANDOM.nextLong());
       device.setLastSeen(Util.todayInMillis());
     } else {
-      device.setSignedPreKey(null);
+      device.setLastSeen(0);
     }
 
     // fail fast, to guard against a change to the isEnabled() implementation causing unexpected test behavior

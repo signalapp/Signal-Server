@@ -37,7 +37,6 @@ import javax.ws.rs.core.Response;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
-import org.whispersystems.textsecuregcm.auth.ChangesDeviceEnabledState;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
 import org.whispersystems.textsecuregcm.entities.ECPreKey;
@@ -96,7 +95,6 @@ public class KeysController {
   @PUT
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  @ChangesDeviceEnabledState
   @Operation(summary = "Upload new prekeys", description = "Upload new pre-keys for this device.")
   @ApiResponse(responseCode = "200", description = "Indicates that new keys were successfully stored.")
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
@@ -277,7 +275,6 @@ public class KeysController {
   @PUT
   @Path("/signed")
   @Consumes(MediaType.APPLICATION_JSON)
-  @ChangesDeviceEnabledState
   @Operation(summary = "Upload a new signed prekey",
       description = """
           Upload a new signed elliptic-curve prekey for this device. Deprecated; use PUT /v2/keys instead.

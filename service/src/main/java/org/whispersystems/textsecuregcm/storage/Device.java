@@ -207,8 +207,8 @@ public class Device {
   public boolean isEnabled() {
     boolean hasChannel = fetchesMessages || StringUtils.isNotEmpty(getApnId()) || StringUtils.isNotEmpty(getGcmId());
 
-    return (id == PRIMARY_ID && hasChannel && signedPreKey != null) ||
-           (id != PRIMARY_ID && hasChannel && signedPreKey != null && lastSeen > (System.currentTimeMillis() - TimeUnit.DAYS.toMillis(30)));
+    return (id == PRIMARY_ID && hasChannel) ||
+           (id != PRIMARY_ID && hasChannel && lastSeen > (System.currentTimeMillis() - TimeUnit.DAYS.toMillis(30)));
   }
 
   public boolean getFetchesMessages() {

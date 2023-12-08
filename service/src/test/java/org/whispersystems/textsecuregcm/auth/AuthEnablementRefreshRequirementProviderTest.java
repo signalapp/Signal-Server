@@ -202,11 +202,9 @@ class AuthEnablementRefreshRequirementProviderTest {
   }
 
   static Stream<Arguments> testDeviceEnabledChanged() {
-    final byte deviceId1 = Device.PRIMARY_ID;
     final byte deviceId2 = 2;
     final byte deviceId3 = 3;
     return Stream.of(
-        Arguments.of(Map.of(deviceId1, false, deviceId2, false), Map.of(deviceId1, true, deviceId2, false)),
         Arguments.of(Map.of(deviceId2, false, deviceId3, false), Map.of(deviceId2, true, deviceId3, true)),
         Arguments.of(Map.of(deviceId2, true, deviceId3, true), Map.of(deviceId2, false, deviceId3, false)),
         Arguments.of(Map.of(deviceId2, true, deviceId3, true), Map.of(deviceId2, true, deviceId3, true)),
@@ -270,32 +268,6 @@ class AuthEnablementRefreshRequirementProviderTest {
 
     initialDeviceIds.forEach(deviceId ->
         verify(clientPresenceManager).disconnectPresence(account.getUuid(), deviceId));
-
-    verifyNoMoreInteractions(clientPresenceManager);
-  }
-
-  @Test
-  void testPrimaryDeviceDisabledAndDeviceRemoved() {
-    assert account.getPrimaryDevice().isEnabled();
-
-    final Set<Byte> initialDeviceIds = account.getDevices().stream().map(Device::getId).collect(Collectors.toSet());
-
-    final byte deletedDeviceId = 2;
-    assertTrue(initialDeviceIds.remove(deletedDeviceId));
-
-    final Response response = resources.getJerseyTest()
-        .target("/v1/test/account/disablePrimaryDeviceAndDeleteDevice/" + deletedDeviceId)
-        .request()
-        .header("Authorization",
-            "Basic " + Base64.getEncoder().encodeToString("user:pass".getBytes(StandardCharsets.UTF_8)))
-        .post(Entity.entity("", MediaType.TEXT_PLAIN));
-
-    assertEquals(200, response.getStatus());
-
-    assertTrue(account.getDevice(deletedDeviceId).isEmpty());
-
-    initialDeviceIds.forEach(deviceId -> verify(clientPresenceManager).disconnectPresence(account.getUuid(), deviceId));
-    verify(clientPresenceManager).disconnectPresence(account.getUuid(), deletedDeviceId);
 
     verifyNoMoreInteractions(clientPresenceManager);
   }

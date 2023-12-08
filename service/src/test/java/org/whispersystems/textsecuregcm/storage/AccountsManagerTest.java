@@ -49,6 +49,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -1351,6 +1352,10 @@ class AccountsManagerTest {
 
     List<Device> devices = List.of(DevicesHelper.createDevice(Device.PRIMARY_ID, 0L, 101),
         DevicesHelper.createDevice(deviceId2, 0L, 102));
+
+    devices.forEach(device ->
+        device.setSignedPreKey(KeysHelper.signedECPreKey(ThreadLocalRandom.current().nextLong(), Curve.generateKeyPair())));
+
     Account account = AccountsHelper.generateTestAccount(number, UUID.randomUUID(), UUID.randomUUID(), devices, new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
     final ECKeyPair identityKeyPair = Curve.generateKeyPair();
     Map<Byte, ECSignedPreKey> newSignedKeys = Map.of(
@@ -1403,6 +1408,10 @@ class AccountsManagerTest {
 
     List<Device> devices = List.of(DevicesHelper.createDevice(Device.PRIMARY_ID, 0L, 101),
         DevicesHelper.createDevice(deviceId2, 0L, 102));
+
+    devices.forEach(device ->
+        device.setSignedPreKey(KeysHelper.signedECPreKey(ThreadLocalRandom.current().nextLong(), Curve.generateKeyPair())));
+
     Account account = AccountsHelper.generateTestAccount(number, UUID.randomUUID(), UUID.randomUUID(), devices, new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
     final ECKeyPair identityKeyPair = Curve.generateKeyPair();
     final Map<Byte, ECSignedPreKey> newSignedKeys = Map.of(
@@ -1463,6 +1472,10 @@ class AccountsManagerTest {
 
     List<Device> devices = List.of(DevicesHelper.createDevice(Device.PRIMARY_ID, 0L, 101),
         DevicesHelper.createDevice(deviceId2, 0L, 102));
+
+    devices.forEach(device ->
+        device.setSignedPreKey(KeysHelper.signedECPreKey(ThreadLocalRandom.current().nextLong(), Curve.generateKeyPair())));
+
     Account account = AccountsHelper.generateTestAccount(number, UUID.randomUUID(), UUID.randomUUID(), devices, new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
     final ECKeyPair identityKeyPair = Curve.generateKeyPair();
     final Map<Byte, ECSignedPreKey> newSignedKeys = Map.of(
@@ -1528,12 +1541,6 @@ class AccountsManagerTest {
         deviceId3, KeysHelper.signedECPreKey(2, identityKeyPair));
     Map<Byte, Integer> newRegistrationIds = Map.of(Device.PRIMARY_ID, 201, deviceId2, 202);
 
-    UUID oldUuid = account.getUuid();
-    UUID oldPni = account.getPhoneNumberIdentifier();
-
-    Map<Byte, ECSignedPreKey> oldSignedPreKeys = account.getDevices().stream()
-        .collect(Collectors.toMap(Device::getId, d -> d.getSignedPreKey(IdentityType.ACI)));
-
     final IdentityKey pniIdentityKey = new IdentityKey(Curve.generateKeyPair().getPublicKey());
 
     assertThrows(MismatchedDevicesException.class,
@@ -1557,12 +1564,6 @@ class AccountsManagerTest {
     final Map<Byte, KEMSignedPreKey> newSignedPqKeys = Map.of(
         Device.PRIMARY_ID, KeysHelper.signedKEMPreKey(3, identityKeyPair));
     Map<Byte, Integer> newRegistrationIds = Map.of(Device.PRIMARY_ID, 201, deviceId2, 202);
-
-    UUID oldUuid = account.getUuid();
-    UUID oldPni = account.getPhoneNumberIdentifier();
-
-    Map<Byte, ECSignedPreKey> oldSignedPreKeys = account.getDevices().stream()
-        .collect(Collectors.toMap(Device::getId, d -> d.getSignedPreKey(IdentityType.ACI)));
 
     final IdentityKey pniIdentityKey = new IdentityKey(Curve.generateKeyPair().getPublicKey());
 
