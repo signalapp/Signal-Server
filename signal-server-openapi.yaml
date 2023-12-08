@@ -1709,10 +1709,16 @@ paths:
     put:
       tags:
       - Messages
+      summary: Send multi-recipient sealed-sender message
+      description: |
+        Deliver a common-payload message to multiple recipients.
+        An unidentifed-access key for all recipients must be provided, unless the message is a story.
       operationId: sendMultiRecipientMessage
       parameters:
       - name: Unidentified-Access-Key
         in: header
+        description: The bitwise xor of the unidentified access keys for every recipient
+          of the message
         schema:
           $ref: '#/components/schemas/CombinedUnidentifiedSenderAccessKeys'
       - name: User-Agent
@@ -1721,33 +1727,61 @@ paths:
           type: string
       - name: online
         in: query
+        description: "If true, deliver the message only to recipients that are online\
+          \ when it is sent"
         schema:
           type: boolean
       - name: ts
         in: query
+        description: The sender's timestamp for the envelope
         schema:
           type: integer
           format: int64
       - name: urgent
         in: query
+        description: "If true, this message should cause push notifications to be\
+          \ sent to recipients"
         schema:
           type: boolean
           default: true
       - name: story
         in: query
+        description: "If true, the message is a story; access tokens are not checked\
+          \ and sending to nonexistent recipients is permitted"
         schema:
           type: boolean
       requestBody:
+        description: The sealed-sender multi-recipient message payload as serialized
+          by libsignal
         content:
           application/vnd.signal-messenger.mrm:
             schema:
-              $ref: '#/components/schemas/MultiRecipientMessage'
+              $ref: '#/components/schemas/SealedSenderMultiRecipientMessage'
         required: true
       responses:
-        default:
-          description: default response
+        "200":
+          description: Message was successfully sent to all recipients
+        "400":
+          description: The envelope specified delivery to the same recipient device
+            multiple times
+        "401":
+          description: The message is not a story and the unauthorized access key
+            is incorrect
+        "404":
+          description: The message is not a story and some of the recipient service
+            IDs do not correspond to registered Signal users
+        "409":
+          description: Incorrect set of devices supplied for some recipients
           content:
-            application/json: {}
+            application/json:
+              schema:
+                type: string
+        "410":
+          description: Mismatched registration ids supplied for some recipient devices
+          content:
+            application/json:
+              schema:
+                type: string
   /v1/payments/auth:
     get:
       tags:
@@ -3842,6 +3876,24 @@ components:
         timestamp:
           type: integer
           format: int64
+    AccountMismatchedDevices:
+      type: object
+      properties:
+        uuid:
+          type: string
+          description: A service identifier is a tuple of a UUID and identity type
+            that identifies an account and identity within the Signal service.
+        devices:
+          $ref: '#/components/schemas/MismatchedDevices'
+    AccountStaleDevices:
+      type: object
+      properties:
+        uuid:
+          type: string
+          description: A service identifier is a tuple of a UUID and identity type
+            that identifies an account and identity within the Signal service.
+        devices:
+          $ref: '#/components/schemas/StaleDevices'
     CombinedUnidentifiedSenderAccessKeys:
       type: object
       properties:
@@ -3850,50 +3902,36 @@ components:
           items:
             type: string
             format: byte
-    MultiRecipientMessage:
-      required:
-      - commonPayload
-      - recipients
+    Recipient:
+      type: object
+      properties:
+        devices:
+          type: array
+          items:
+            type: string
+            format: byte
+        devicesAndRegistrationIds:
+          type: object
+          properties:
+            parallel:
+              type: boolean
+    SealedSenderMultiRecipientMessage:
       type: object
       properties:
         recipients:
-          maxItems: 5000
-          minItems: 1
-          type: array
-          items:
+          type: object
+          additionalProperties:
             $ref: '#/components/schemas/Recipient'
-        commonPayload:
-          maxItems: 2147483647
-          minItems: 32
+        excludedRecipients:
           type: array
           items:
-            type: string
-            format: byte
-    Recipient:
-      required:
-      - perRecipientKeyMaterial
-      - uuid
+            $ref: '#/components/schemas/ServiceId'
+    ServiceId:
       type: object
       properties:
-        uuid:
+        rawUUID:
           type: string
-          description: A service identifier is a tuple of a UUID and identity type
-            that identifies an account and identity within the Signal service.
-        deviceId:
-          type: string
-          format: byte
-        registrationId:
-          maximum: 65535
-          minimum: 0
-          type: integer
-          format: int32
-        perRecipientKeyMaterial:
-          maxItems: 48
-          minItems: 48
-          type: array
-          items:
-            type: string
-            format: byte
+          format: uuid
     CurrencyConversionEntity:
       type: object
       properties:
