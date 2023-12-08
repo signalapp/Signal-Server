@@ -64,6 +64,7 @@ import reactor.core.scheduler.Schedulers;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.CancellationReason;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
@@ -625,6 +626,32 @@ class AccountsTest {
             .build())).toCompletableFuture().join());
 
     assertTrue(completionException.getCause() instanceof ContestedOptimisticLockException);
+  }
+
+  @Test
+  void testUpdateTransactionallyWithMockTransactionConflictException() {
+    final DynamoDbAsyncClient dynamoDbAsyncClient = mock(DynamoDbAsyncClient.class);
+
+    accounts = new Accounts(mock(DynamoDbClient.class),
+        dynamoDbAsyncClient,
+        Tables.ACCOUNTS.tableName(),
+        Tables.NUMBERS.tableName(),
+        Tables.PNI_ASSIGNMENTS.tableName(),
+        Tables.USERNAMES.tableName(),
+        Tables.DELETED_ACCOUNTS.tableName());
+
+    when(dynamoDbAsyncClient.transactWriteItems(any(TransactWriteItemsRequest.class)))
+        .thenReturn(CompletableFuture.failedFuture(TransactionCanceledException.builder()
+            .cancellationReasons(CancellationReason.builder()
+                .code("TransactionConflict")
+                .build())
+            .build()));
+
+    Account account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID());
+
+    assertThatThrownBy(() -> accounts.updateTransactionallyAsync(account, Collections.emptyList()).toCompletableFuture().join())
+        .isInstanceOfAny(CompletionException.class)
+        .hasCauseInstanceOf(ContestedOptimisticLockException.class);
   }
 
   @Test

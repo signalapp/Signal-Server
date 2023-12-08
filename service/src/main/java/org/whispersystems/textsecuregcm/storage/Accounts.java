@@ -887,7 +887,14 @@ public class Accounts extends AbstractDynamoDbStore {
             final Throwable unwrapped = ExceptionUtils.unwrap(throwable);
 
             if (unwrapped instanceof TransactionCanceledException transactionCanceledException) {
-              if ("ConditionalCheckFailed".equals(transactionCanceledException.cancellationReasons().get(0).code())) {
+              if (CONDITIONAL_CHECK_FAILED.equals(transactionCanceledException.cancellationReasons().get(0).code())) {
+                throw new ContestedOptimisticLockException();
+              }
+
+              if (transactionCanceledException.cancellationReasons()
+                  .stream()
+                  .anyMatch(reason -> TRANSACTION_CONFLICT.equals(reason.code()))) {
+
                 throw new ContestedOptimisticLockException();
               }
             }
