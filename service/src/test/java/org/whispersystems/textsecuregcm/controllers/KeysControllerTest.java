@@ -774,6 +774,33 @@ class KeysControllerTest {
   }
 
   @Test
+  void putKeysTestV2EmptySingleUseKeysList() {
+    final ECKeyPair identityKeyPair = Curve.generateKeyPair();
+    final ECSignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, identityKeyPair);
+    final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
+
+    final SetKeysRequest setKeysRequest = new SetKeysRequest(List.of(), signedPreKey, List.of(), null);
+
+    when(AuthHelper.VALID_ACCOUNT.getIdentityKey(IdentityType.ACI)).thenReturn(identityKey);
+
+    try (final Response response =
+        resources.getJerseyTest()
+            .target("/v2/keys")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(Entity.entity(setKeysRequest, MediaType.APPLICATION_JSON_TYPE))) {
+
+      assertThat(response.getStatus()).isEqualTo(204);
+
+      verify(KEYS, never()).storeEcOneTimePreKeys(any(), anyByte(), any());
+      verify(KEYS, never()).storeKemOneTimePreKeys(any(), anyByte(), any());
+
+      verify(AuthHelper.VALID_DEVICE).setSignedPreKey(eq(signedPreKey));
+      verify(accounts).updateDeviceTransactionallyAsync(eq(AuthHelper.VALID_ACCOUNT), eq(SAMPLE_DEVICE_ID), any(), any());
+    }
+  }
+
+  @Test
   void putKeysPqTestV2() {
     final ECPreKey preKey = KeysHelper.ecPreKey(31337);
     final ECKeyPair identityKeyPair = Curve.generateKeyPair();

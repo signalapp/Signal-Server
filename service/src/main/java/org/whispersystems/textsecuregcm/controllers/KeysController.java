@@ -144,11 +144,11 @@ public class KeysController {
     return updateAccountFuture.thenCompose(updatedAccount -> {
           final List<CompletableFuture<Void>> storeFutures = new ArrayList<>(3);
 
-          if (setKeysRequest.preKeys() != null) {
+          if (setKeysRequest.preKeys() != null && !setKeysRequest.preKeys().isEmpty()) {
             storeFutures.add(keys.storeEcOneTimePreKeys(identifier, device.getId(), setKeysRequest.preKeys()));
           }
 
-          if (setKeysRequest.pqPreKeys() != null) {
+          if (setKeysRequest.pqPreKeys() != null && !setKeysRequest.pqPreKeys().isEmpty()) {
             storeFutures.add(keys.storeKemOneTimePreKeys(identifier, device.getId(), setKeysRequest.pqPreKeys()));
           }
 
