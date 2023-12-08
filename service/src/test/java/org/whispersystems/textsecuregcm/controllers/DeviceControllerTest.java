@@ -16,7 +16,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableSet;
@@ -49,7 +48,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.Curve;
@@ -75,8 +73,6 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 import org.whispersystems.textsecuregcm.storage.DeviceSpec;
-import org.whispersystems.textsecuregcm.storage.KeysManager;
-import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
@@ -91,8 +87,6 @@ import org.whispersystems.textsecuregcm.util.VerificationCode;
 class DeviceControllerTest {
 
   private static AccountsManager accountsManager = mock(AccountsManager.class);
-  private static MessagesManager messagesManager = mock(MessagesManager.class);
-  private static KeysManager keysManager = mock(KeysManager.class);
   private static RateLimiters rateLimiters = mock(RateLimiters.class);
   private static RateLimiter rateLimiter = mock(RateLimiter.class);
   private static RedisAdvancedClusterCommands<String, String> commands = mock(RedisAdvancedClusterCommands.class);
@@ -109,8 +103,6 @@ class DeviceControllerTest {
   private static DeviceController deviceController = new DeviceController(
       generateLinkDeviceSecret(),
       accountsManager,
-      messagesManager,
-      keysManager,
       rateLimiters,
       RedisClusterHelper.builder()
           .stringCommands(commands)
@@ -160,19 +152,12 @@ class DeviceControllerTest {
     when(accountsManager.getByE164(AuthHelper.VALID_NUMBER_TWO)).thenReturn(Optional.of(maxedAccount));
 
     AccountsHelper.setupMockUpdate(accountsManager);
-
-    when(keysManager.storePqLastResort(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
-    when(keysManager.delete(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
-
-    when(messagesManager.clear(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
   }
 
   @AfterEach
   void teardown() {
     reset(
         accountsManager,
-        messagesManager,
-        keysManager,
         rateLimiters,
         rateLimiter,
         commands,
@@ -184,95 +169,6 @@ class DeviceControllerTest {
     );
 
     testClock.unpin();
-  }
-
-  @Test
-  void validDeviceRegisterTest() {
-    final Device existingDevice = mock(Device.class);
-    when(existingDevice.getId()).thenReturn(Device.PRIMARY_ID);
-    when(existingDevice.isEnabled()).thenReturn(true);
-    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(existingDevice));
-
-    VerificationCode deviceCode = resources.getJerseyTest()
-        .target("/v1/devices/provisioning/code")
-        .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .get(VerificationCode.class);
-
-    DeviceResponse response = resources.getJerseyTest()
-        .target("/v1/devices/" + deviceCode.verificationCode())
-        .request()
-        .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
-        .put(Entity.entity(new AccountAttributes(false, 1234, 5678,
-                    null, null, true, null),
-                MediaType.APPLICATION_JSON_TYPE),
-            DeviceResponse.class);
-
-    assertThat(response.getDeviceId()).isEqualTo(NEXT_DEVICE_ID);
-
-    verify(messagesManager).clear(eq(AuthHelper.VALID_UUID), eq(NEXT_DEVICE_ID));
-    verify(commands).set(anyString(), anyString(), any());
-  }
-
-  @Test
-  void validDeviceRegisterTestSignedTokenUsed() {
-    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
-
-    final Device existingDevice = mock(Device.class);
-    when(existingDevice.getId()).thenReturn(Device.PRIMARY_ID);
-    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(existingDevice));
-
-    final String verificationToken = deviceController.generateVerificationToken(AuthHelper.VALID_UUID);
-
-    when(commands.get(anyString())).thenReturn("");
-
-    final Response response = resources.getJerseyTest()
-            .target("/v1/devices/" + verificationToken)
-            .request()
-            .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
-            .put(Entity.entity(new AccountAttributes(false, 1234, 5678,
-                    null, null, true, null),
-                            MediaType.APPLICATION_JSON_TYPE));
-
-    assertEquals(Response.Status.FORBIDDEN.getStatusCode(), response.getStatus());
-  }
-
-  @Test
-  void verifyDeviceWithNullAccountAttributes() {
-    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
-
-    final Device existingDevice = mock(Device.class);
-    when(existingDevice.getId()).thenReturn(Device.PRIMARY_ID);
-    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(existingDevice));
-
-    VerificationCode deviceCode = resources.getJerseyTest()
-        .target("/v1/devices/provisioning/code")
-        .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .get(VerificationCode.class);
-
-    final Response response = resources.getJerseyTest()
-        .target("/v1/devices/" + deviceCode.verificationCode())
-        .request()
-        .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
-        .put(Entity.json(""));
-
-    assertThat(response.getStatus()).isNotEqualTo(500);
-  }
-
-  @Test
-  void verifyDeviceTokenBadCredentials() {
-    final String verificationToken = deviceController.generateVerificationToken(AuthHelper.VALID_UUID);
-
-    final Response response = resources.getJerseyTest()
-        .target("/v1/devices/" + verificationToken)
-        .request()
-        .header("Authorization", "This is not a valid authorization header")
-        .put(Entity.entity(new AccountAttributes(false, 1234, 5678,
-                null, null, true, null),
-            MediaType.APPLICATION_JSON_TYPE));
-
-    assertEquals(401, response.getStatus());
   }
 
   @ParameterizedTest
@@ -317,9 +213,6 @@ class DeviceControllerTest {
 
       return CompletableFuture.completedFuture(new Pair<>(a, deviceSpec.toDevice(NEXT_DEVICE_ID, testClock)));
     });
-
-    when(keysManager.storeEcSignedPreKeys(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
-    when(keysManager.storePqLastResort(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
     when(asyncCommands.set(any(), any(), any())).thenReturn(MockRedisFuture.completedFuture(null));
 
@@ -372,6 +265,44 @@ class DeviceControllerTest {
   }
 
   @Test
+  void linkDeviceAtomicBadCredentials() {
+    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
+
+    final Device primaryDevice = mock(Device.class);
+    when(primaryDevice.getId()).thenReturn(Device.PRIMARY_ID);
+    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(primaryDevice));
+
+    final ECSignedPreKey aciSignedPreKey;
+    final ECSignedPreKey pniSignedPreKey;
+    final KEMSignedPreKey aciPqLastResortPreKey;
+    final KEMSignedPreKey pniPqLastResortPreKey;
+
+    final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+
+    aciSignedPreKey = KeysHelper.signedECPreKey(1, aciIdentityKeyPair);
+    pniSignedPreKey = KeysHelper.signedECPreKey(2, pniIdentityKeyPair);
+    aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair);
+    pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair);
+
+    when(account.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
+    when(account.getIdentityKey(IdentityType.PNI)).thenReturn(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
+
+    final LinkDeviceRequest request = new LinkDeviceRequest(deviceController.generateVerificationToken(AuthHelper.VALID_UUID),
+        new AccountAttributes(false, 1234, 5678, null, null, true, null),
+        new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, Optional.empty(), Optional.of(new GcmRegistrationId("gcm-id"))));
+
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/devices/link")
+        .request()
+        .header("Authorization", "This is not a valid authorization header")
+        .put(Entity.entity(request, MediaType.APPLICATION_JSON_TYPE))) {
+
+      assertEquals(Response.Status.UNAUTHORIZED.getStatusCode(), response.getStatus());
+    }
+  }
+
+  @Test
   void linkDeviceAtomicWithVerificationTokenUsed() {
 
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
@@ -395,9 +326,6 @@ class DeviceControllerTest {
 
     when(account.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
     when(account.getIdentityKey(IdentityType.PNI)).thenReturn(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
-
-    when(keysManager.storeEcSignedPreKeys(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
-    when(keysManager.storePqLastResort(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
     when(commands.get(anyString())).thenReturn("");
 
@@ -474,7 +402,6 @@ class DeviceControllerTest {
 
   @ParameterizedTest
   @MethodSource
-  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   void linkDeviceAtomicMissingProperty(final IdentityKey aciIdentityKey,
                                        final IdentityKey pniIdentityKey,
                                        final ECSignedPreKey aciSignedPreKey,
@@ -589,6 +516,45 @@ class DeviceControllerTest {
     );
   }
 
+  @Test
+  void linkDeviceAtomicExcessiveDeviceName() {
+
+    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
+
+    final Device existingDevice = mock(Device.class);
+    when(existingDevice.getId()).thenReturn(Device.PRIMARY_ID);
+    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(existingDevice));
+
+    final ECSignedPreKey aciSignedPreKey;
+    final ECSignedPreKey pniSignedPreKey;
+    final KEMSignedPreKey aciPqLastResortPreKey;
+    final KEMSignedPreKey pniPqLastResortPreKey;
+
+    final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+
+    aciSignedPreKey = KeysHelper.signedECPreKey(1, aciIdentityKeyPair);
+    pniSignedPreKey = KeysHelper.signedECPreKey(2, pniIdentityKeyPair);
+    aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair);
+    pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair);
+
+    when(account.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
+    when(account.getIdentityKey(IdentityType.PNI)).thenReturn(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
+
+    final LinkDeviceRequest request = new LinkDeviceRequest(deviceController.generateVerificationToken(AuthHelper.VALID_UUID),
+        new AccountAttributes(false, 1234, 5678, TestRandomUtil.nextBytes(512), null, true, null),
+        new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, Optional.empty(), Optional.of(new GcmRegistrationId("gcm-id"))));
+
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/devices/link")
+        .request()
+        .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
+        .put(Entity.entity(request, MediaType.APPLICATION_JSON_TYPE))) {
+
+      assertEquals(422, response.getStatus());
+    }
+  }
+
   @ParameterizedTest
   @MethodSource
   void linkDeviceRegistrationId(final int registrationId, final int pniRegistrationId, final int expectedStatusCode) {
@@ -619,9 +585,6 @@ class DeviceControllerTest {
 
       return CompletableFuture.completedFuture(new Pair<>(a, deviceSpec.toDevice(NEXT_DEVICE_ID, testClock)));
     });
-
-    when(keysManager.storeEcSignedPreKeys(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
-    when(keysManager.storePqLastResort(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
     when(asyncCommands.set(any(), any(), any())).thenReturn(MockRedisFuture.completedFuture(null));
 
@@ -676,41 +639,6 @@ class DeviceControllerTest {
   }
 
   @Test
-  void invalidDeviceRegisterTest() {
-    VerificationCode deviceCode = resources.getJerseyTest()
-        .target("/v1/devices/provisioning/code")
-        .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .get(VerificationCode.class);
-
-    Response response = resources.getJerseyTest()
-        .target("/v1/devices/" + deviceCode.verificationCode() + "-incorrect")
-        .request()
-        .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
-        .put(Entity.entity(new AccountAttributes(false, 1234, 5678, null, null, true, null),
-            MediaType.APPLICATION_JSON_TYPE));
-
-    assertThat(response.getStatus()).isEqualTo(403);
-
-    verifyNoMoreInteractions(messagesManager);
-  }
-
-  @Test
-  void oldDeviceRegisterTest() {
-    Response response = resources.getJerseyTest()
-        .target("/v1/devices/1112223")
-        .request()
-        .header("Authorization",
-            AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER_TWO, AuthHelper.VALID_PASSWORD_TWO))
-        .put(Entity.entity(new AccountAttributes(false, 1234, 5678, null, null, true, null),
-            MediaType.APPLICATION_JSON_TYPE));
-
-    assertThat(response.getStatus()).isEqualTo(403);
-
-    verifyNoMoreInteractions(messagesManager);
-  }
-
-  @Test
   void maxDevicesTest() {
     final AuthHelper.TestAccount testAccount = AUTH_FILTER_EXTENSION.createTestAccount();
 
@@ -726,29 +654,15 @@ class DeviceControllerTest {
         .get();
 
     assertEquals(411, response.getStatus());
-    verifyNoMoreInteractions(messagesManager);
-  }
-
-  @Test
-  void longNameTest() {
-    final String verificationToken = deviceController.generateVerificationToken(AuthHelper.VALID_UUID);
-
-    Response response = resources.getJerseyTest()
-        .target("/v1/devices/" + verificationToken)
-        .request()
-        .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
-        .put(Entity.entity(new AccountAttributes(false, 1234, 5678,
-                TestRandomUtil.nextBytes(226), null, true, null),
-            MediaType.APPLICATION_JSON_TYPE));
-
-    assertEquals(422, response.getStatus());
-    verifyNoMoreInteractions(messagesManager);
+    verify(accountsManager, never()).addDevice(any(), any());
   }
 
   @ParameterizedTest
   @MethodSource
   void deviceDowngradePniTest(final boolean accountSupportsPni, final boolean deviceSupportsPni, final int expectedStatus) {
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
+    when(accountsManager.addDevice(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(new Pair<>(mock(Account.class), mock(Device.class))));
 
     final Device primaryDevice = mock(Device.class);
     when(primaryDevice.getId()).thenReturn(Device.PRIMARY_ID);
@@ -771,22 +685,10 @@ class DeviceControllerTest {
     when(account.getIdentityKey(IdentityType.PNI)).thenReturn(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
     when(account.isPniSupported()).thenReturn(accountSupportsPni);
 
-    when(accountsManager.addDevice(any(), any())).thenAnswer(invocation -> {
-      final Account a = invocation.getArgument(0);
-      final DeviceSpec deviceSpec = invocation.getArgument(1);
-
-      return CompletableFuture.completedFuture(new Pair<>(a, deviceSpec.toDevice(NEXT_DEVICE_ID, testClock)));
-    });
-
-    when(keysManager.storeEcSignedPreKeys(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
-    when(keysManager.storePqLastResort(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
-
     when(asyncCommands.set(any(), any(), any())).thenReturn(MockRedisFuture.completedFuture(null));
 
-    final AccountAttributes accountAttributes = new AccountAttributes(false, 1234, 5678, null, null, true, new DeviceCapabilities(true, true, deviceSupportsPni, true));
-
     final LinkDeviceRequest request = new LinkDeviceRequest(deviceController.generateVerificationToken(AuthHelper.VALID_UUID),
-        accountAttributes,
+        new AccountAttributes(false, 1234, 5678, null, null, true, new DeviceCapabilities(true, true, deviceSupportsPni, true)),
         new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, Optional.empty(), Optional.of(new GcmRegistrationId("gcm-id"))));
 
     try (final Response response = resources.getJerseyTest()
@@ -831,25 +733,6 @@ class DeviceControllerTest {
         .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
         .put(Entity.json(""));
     assertThat(response.getStatus()).isEqualTo(422);
-  }
-
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void deviceDowngradePaymentActivationTest(boolean paymentActivation) {
-    // Update when we start returning true value of capability & restricting downgrades
-    DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, true, paymentActivation);
-    AccountAttributes accountAttributes = new AccountAttributes(false, 1234, 5678, null, null, true, deviceCapabilities);
-
-    final String verificationToken = deviceController.generateVerificationToken(AuthHelper.VALID_UUID);
-
-    Response response = resources
-        .getJerseyTest()
-        .target("/v1/devices/" + verificationToken)
-        .request()
-        .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-        .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
-        .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
-    assertThat(response.getStatus()).isEqualTo(200);
   }
 
   @Test

@@ -49,7 +49,6 @@ import org.whispersystems.textsecuregcm.auth.AuthEnablementRefreshRequirementPro
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.BasicAuthorizationHeader;
 import org.whispersystems.textsecuregcm.auth.ChangesDeviceEnabledState;
-import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.DeviceActivationRequest;
 import org.whispersystems.textsecuregcm.entities.DeviceInfo;
@@ -65,9 +64,6 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 import org.whispersystems.textsecuregcm.storage.DeviceSpec;
-import org.whispersystems.textsecuregcm.storage.KeysManager;
-import org.whispersystems.textsecuregcm.storage.MessagesManager;
-import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.util.VerificationCode;
 
@@ -79,8 +75,6 @@ public class DeviceController {
 
   private final Key verificationTokenKey;
   private final AccountsManager accounts;
-  private final MessagesManager messages;
-  private final KeysManager keys;
   private final RateLimiters rateLimiters;
   private final FaultTolerantRedisCluster usedTokenCluster;
   private final Map<String, Integer> maxDeviceConfiguration;
@@ -94,15 +88,11 @@ public class DeviceController {
 
   public DeviceController(byte[] linkDeviceSecret,
       AccountsManager accounts,
-      MessagesManager messages,
-      KeysManager keys,
       RateLimiters rateLimiters,
       FaultTolerantRedisCluster usedTokenCluster,
       Map<String, Integer> maxDeviceConfiguration, final Clock clock) {
     this.verificationTokenKey = new SecretKeySpec(linkDeviceSecret, VERIFICATION_TOKEN_ALGORITHM);
     this.accounts = accounts;
-    this.messages = messages;
-    this.keys = keys;
     this.rateLimiters = rateLimiters;
     this.usedTokenCluster = usedTokenCluster;
     this.maxDeviceConfiguration = maxDeviceConfiguration;
@@ -175,34 +165,6 @@ public class DeviceController {
     return new VerificationCode(generateVerificationToken(account.getUuid()));
   }
 
-  /**
-   * @deprecated callers should use {@link #linkDevice(BasicAuthorizationHeader, LinkDeviceRequest, ContainerRequest)}
-   * instead
-   */
-  @PUT
-  @Produces(MediaType.APPLICATION_JSON)
-  @Consumes(MediaType.APPLICATION_JSON)
-  @Path("/{verification_code}")
-  @ChangesDeviceEnabledState
-  @Deprecated(forRemoval = true)
-  public DeviceResponse verifyDeviceToken(@PathParam("verification_code") String verificationCode,
-      @HeaderParam(HttpHeaders.AUTHORIZATION) BasicAuthorizationHeader authorizationHeader,
-      @NotNull @Valid AccountAttributes accountAttributes,
-      @Context ContainerRequest containerRequest)
-      throws RateLimitExceededException, DeviceLimitExceededException {
-
-    final Pair<Account, Device> accountAndDevice = createDevice(authorizationHeader.getPassword(),
-        verificationCode,
-        accountAttributes,
-        containerRequest,
-        Optional.empty());
-
-    final Account account = accountAndDevice.first();
-    final Device device = accountAndDevice.second();
-
-    return new DeviceResponse(account.getUuid(), account.getPhoneNumberIdentifier(), device.getId());
-  }
-
   @PUT
   @Produces(MediaType.APPLICATION_JSON)
   @Consumes(MediaType.APPLICATION_JSON)
@@ -219,21 +181,81 @@ public class DeviceController {
   @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
       name = "Retry-After",
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
-  public DeviceResponse linkDevice(@HeaderParam(HttpHeaders.AUTHORIZATION) BasicAuthorizationHeader authorizationHeader,
+  public CompletableFuture<DeviceResponse> linkDevice(@HeaderParam(HttpHeaders.AUTHORIZATION) BasicAuthorizationHeader authorizationHeader,
       @NotNull @Valid LinkDeviceRequest linkDeviceRequest,
       @Context ContainerRequest containerRequest)
       throws RateLimitExceededException, DeviceLimitExceededException {
 
-    final Pair<Account, Device> accountAndDevice = createDevice(authorizationHeader.getPassword(),
-        linkDeviceRequest.verificationCode(),
-        linkDeviceRequest.accountAttributes(),
-        containerRequest,
-        Optional.of(linkDeviceRequest.deviceActivationRequest()));
+    final Optional<UUID> maybeAciFromToken = checkVerificationToken(linkDeviceRequest.verificationCode());
 
-    final Account account = accountAndDevice.first();
-    final Device device = accountAndDevice.second();
+    final Account account = maybeAciFromToken.flatMap(accounts::getByAccountIdentifier)
+        .orElseThrow(ForbiddenException::new);
 
-    return new DeviceResponse(account.getUuid(), account.getPhoneNumberIdentifier(), device.getId());
+    final DeviceActivationRequest deviceActivationRequest = linkDeviceRequest.deviceActivationRequest();
+    final AccountAttributes accountAttributes = linkDeviceRequest.accountAttributes();
+
+    rateLimiters.getVerifyDeviceLimiter().validate(account.getUuid());
+
+    final boolean allKeysValid =
+        PreKeySignatureValidator.validatePreKeySignatures(account.getIdentityKey(IdentityType.ACI),
+            List.of(deviceActivationRequest.aciSignedPreKey(), deviceActivationRequest.aciPqLastResortPreKey()))
+            && PreKeySignatureValidator.validatePreKeySignatures(account.getIdentityKey(IdentityType.PNI),
+            List.of(deviceActivationRequest.pniSignedPreKey(), deviceActivationRequest.pniPqLastResortPreKey()));
+
+    if (!allKeysValid) {
+      throw new WebApplicationException(Response.status(422).build());
+    }
+
+    // Normally, the "do we need to refresh somebody's websockets" listener can do this on its own. In this case,
+    // we're not using the conventional authentication system, and so we need to give it a hint so it knows who the
+    // active user is and what their device states look like.
+    AuthEnablementRefreshRequirementProvider.setAccount(containerRequest, account);
+
+    int maxDeviceLimit = MAX_DEVICES;
+
+    if (maxDeviceConfiguration.containsKey(account.getNumber())) {
+      maxDeviceLimit = maxDeviceConfiguration.get(account.getNumber());
+    }
+
+    if (account.getDevices().size() >= maxDeviceLimit) {
+      throw new DeviceLimitExceededException(account.getDevices().size(), maxDeviceLimit);
+    }
+
+    final DeviceCapabilities capabilities = accountAttributes.getCapabilities();
+    if (capabilities != null && isCapabilityDowngrade(account, capabilities)) {
+      throw new WebApplicationException(Response.status(409).build());
+    }
+
+    final String signalAgent;
+
+    if (deviceActivationRequest.apnToken().isPresent()) {
+      signalAgent = "OWP";
+    } else if (deviceActivationRequest.gcmToken().isPresent()) {
+      signalAgent = "OWA";
+    } else {
+      signalAgent = "OWD";
+    }
+
+    return accounts.addDevice(account, new DeviceSpec(accountAttributes.getName(),
+            authorizationHeader.getPassword(),
+            signalAgent,
+            capabilities,
+            accountAttributes.getRegistrationId(),
+            accountAttributes.getPhoneNumberIdentityRegistrationId(),
+            accountAttributes.getFetchesMessages(),
+            deviceActivationRequest.apnToken(),
+            deviceActivationRequest.gcmToken(),
+            deviceActivationRequest.aciSignedPreKey(),
+            deviceActivationRequest.pniSignedPreKey(),
+            deviceActivationRequest.aciPqLastResortPreKey(),
+            deviceActivationRequest.pniPqLastResortPreKey()))
+        .thenCompose(a -> usedTokenCluster.withCluster(connection -> connection.async()
+                .set(getUsedTokenKey(linkDeviceRequest.verificationCode()), "", new SetArgs().ex(TOKEN_EXPIRATION_DURATION)))
+            .thenApply(ignored -> a))
+        .thenApply(accountAndDevice -> new DeviceResponse(
+            accountAndDevice.first().getIdentifier(IdentityType.ACI),
+            accountAndDevice.first().getIdentifier(IdentityType.PNI),
+            accountAndDevice.second().getId()));
   }
 
   @PUT
@@ -336,111 +358,6 @@ public class DeviceController {
 
   static boolean isCapabilityDowngrade(Account account, DeviceCapabilities capabilities) {
     return account.isPniSupported() && !capabilities.pni();
-  }
-
-  private Pair<Account, Device> createDevice(final String password,
-      final String verificationCode,
-      final AccountAttributes accountAttributes,
-      final ContainerRequest containerRequest,
-      final Optional<DeviceActivationRequest> maybeDeviceActivationRequest)
-      throws RateLimitExceededException, DeviceLimitExceededException {
-
-    final Optional<UUID> maybeAciFromToken = checkVerificationToken(verificationCode);
-
-    final Account account = maybeAciFromToken.flatMap(accounts::getByAccountIdentifier)
-        .orElseThrow(ForbiddenException::new);
-
-    rateLimiters.getVerifyDeviceLimiter().validate(account.getUuid());
-
-    maybeDeviceActivationRequest.ifPresent(deviceActivationRequest -> {
-      final boolean allKeysValid =
-          PreKeySignatureValidator.validatePreKeySignatures(account.getIdentityKey(IdentityType.ACI),
-              List.of(deviceActivationRequest.aciSignedPreKey(), deviceActivationRequest.aciPqLastResortPreKey()))
-              && PreKeySignatureValidator.validatePreKeySignatures(account.getIdentityKey(IdentityType.PNI),
-              List.of(deviceActivationRequest.pniSignedPreKey(), deviceActivationRequest.pniPqLastResortPreKey()));
-
-      if (!allKeysValid) {
-        throw new WebApplicationException(Response.status(422).build());
-      }
-    });
-
-    // Normally, the "do we need to refresh somebody's websockets" listener can do this on its own. In this case,
-    // we're not using the conventional authentication system, and so we need to give it a hint so it knows who the
-    // active user is and what their device states look like.
-    AuthEnablementRefreshRequirementProvider.setAccount(containerRequest, account);
-
-    int maxDeviceLimit = MAX_DEVICES;
-
-    if (maxDeviceConfiguration.containsKey(account.getNumber())) {
-      maxDeviceLimit = maxDeviceConfiguration.get(account.getNumber());
-    }
-
-    if (account.getDevices().size() >= maxDeviceLimit) {
-      throw new DeviceLimitExceededException(account.getDevices().size(), maxDeviceLimit);
-    }
-
-    final DeviceCapabilities capabilities = accountAttributes.getCapabilities();
-    if (capabilities != null && isCapabilityDowngrade(account, capabilities)) {
-      throw new WebApplicationException(Response.status(409).build());
-    }
-
-    return maybeDeviceActivationRequest.map(deviceActivationRequest -> {
-          final String signalAgent;
-
-          if (deviceActivationRequest.apnToken().isPresent()) {
-            signalAgent = "OWP";
-          } else if (deviceActivationRequest.gcmToken().isPresent()) {
-            signalAgent = "OWA";
-          } else {
-            signalAgent = "OWD";
-          }
-
-          return accounts.addDevice(account, new DeviceSpec(accountAttributes.getName(),
-                  password,
-                  signalAgent,
-                  capabilities,
-                  accountAttributes.getRegistrationId(),
-                  accountAttributes.getPhoneNumberIdentityRegistrationId(),
-                  accountAttributes.getFetchesMessages(),
-                  deviceActivationRequest.apnToken(),
-                  deviceActivationRequest.gcmToken(),
-                  deviceActivationRequest.aciSignedPreKey(),
-                  deviceActivationRequest.pniSignedPreKey(),
-                  deviceActivationRequest.aciPqLastResortPreKey(),
-                  deviceActivationRequest.pniPqLastResortPreKey()))
-              .thenCompose(a -> usedTokenCluster.withCluster(connection -> connection.async()
-                      .set(getUsedTokenKey(verificationCode), "", new SetArgs().ex(TOKEN_EXPIRATION_DURATION)))
-                  .thenApply(ignored -> a))
-              .join();
-        })
-        .orElseGet(() -> {
-          final Device device = new Device();
-          device.setName(accountAttributes.getName());
-          device.setAuthTokenHash(SaltedTokenHash.generateFor(password));
-          device.setFetchesMessages(accountAttributes.getFetchesMessages());
-          device.setRegistrationId(accountAttributes.getRegistrationId());
-          device.setPhoneNumberIdentityRegistrationId(accountAttributes.getPhoneNumberIdentityRegistrationId());
-          device.setLastSeen(Util.todayInMillis());
-          device.setCreated(System.currentTimeMillis());
-          device.setCapabilities(accountAttributes.getCapabilities());
-
-          final Account updatedAccount = accounts.update(account, a -> {
-            device.setId(a.getNextDeviceId());
-
-            CompletableFuture.allOf(
-                    keys.delete(a.getUuid(), device.getId()),
-                    keys.delete(a.getPhoneNumberIdentifier(), device.getId()),
-                    messages.clear(a.getUuid(), device.getId()))
-                .join();
-
-            a.addDevice(device);
-          });
-
-          usedTokenCluster.useCluster(connection ->
-              connection.sync().set(getUsedTokenKey(verificationCode), "", new SetArgs().ex(TOKEN_EXPIRATION_DURATION)));
-
-          return new Pair<>(updatedAccount, device);
-        });
   }
 
   private static String getUsedTokenKey(final String token) {
