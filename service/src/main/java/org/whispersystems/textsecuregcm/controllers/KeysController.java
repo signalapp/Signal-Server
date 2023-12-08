@@ -49,7 +49,6 @@ import org.whispersystems.textsecuregcm.entities.PreKeyResponseItem;
 import org.whispersystems.textsecuregcm.entities.PreKeySignatureValidator;
 import org.whispersystems.textsecuregcm.entities.SetKeysRequest;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
-import org.whispersystems.textsecuregcm.experiment.Experiment;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -67,7 +66,6 @@ public class KeysController {
   private final RateLimiters rateLimiters;
   private final KeysManager keys;
   private final AccountsManager accounts;
-  private final Experiment compareSignedEcPreKeysExperiment = new Experiment("compareSignedEcPreKeys");
 
   private static final CompletableFuture<?>[] EMPTY_FUTURE_ARRAY = new CompletableFuture[0];
 
@@ -237,37 +235,33 @@ public class KeysController {
     final List<PreKeyResponseItem> responseItems = new ArrayList<>(devices.size());
 
     final List<CompletableFuture<Void>> tasks = devices.stream().map(device -> {
+          final CompletableFuture<Optional<ECPreKey>> unsignedEcPreKeyFuture =
+              keys.takeEC(targetIdentifier.uuid(), device.getId());
 
-          ECSignedPreKey signedECPreKey = device.getSignedPreKey(targetIdentifier.identityType());
+          final CompletableFuture<Optional<ECSignedPreKey>> signedEcPreKeyFuture =
+              keys.getEcSignedPreKey(targetIdentifier.uuid(), device.getId());
 
-          final CompletableFuture<Optional<ECPreKey>> unsignedEcPreKeyFuture = keys.takeEC(targetIdentifier.uuid(),
-              device.getId());
           final CompletableFuture<Optional<KEMSignedPreKey>> pqPreKeyFuture = returnPqKey
               ? keys.takePQ(targetIdentifier.uuid(), device.getId())
               : CompletableFuture.completedFuture(Optional.empty());
 
-          return pqPreKeyFuture.thenCombine(unsignedEcPreKeyFuture,
-              (maybePqPreKey, maybeUnsignedEcPreKey) -> {
+          return CompletableFuture.allOf(unsignedEcPreKeyFuture, signedEcPreKeyFuture, pqPreKeyFuture)
+              .thenAccept(ignored -> {
+                final KEMSignedPreKey pqPreKey = pqPreKeyFuture.join().orElse(null);
+                final ECPreKey unsignedEcPreKey = unsignedEcPreKeyFuture.join().orElse(null);
+                final ECSignedPreKey signedEcPreKey = signedEcPreKeyFuture.join().orElse(null);
 
-                KEMSignedPreKey pqPreKey = pqPreKeyFuture.join().orElse(null);
-                ECPreKey unsignedECPreKey = unsignedEcPreKeyFuture.join().orElse(null);
-
-                compareSignedEcPreKeysExperiment.compareFutureResult(Optional.ofNullable(signedECPreKey),
-                    keys.getEcSignedPreKey(targetIdentifier.uuid(), device.getId()));
-
-                if (signedECPreKey != null || unsignedECPreKey != null || pqPreKey != null) {
+                if (signedEcPreKey != null || unsignedEcPreKey != null || pqPreKey != null) {
                   final int registrationId = switch (targetIdentifier.identityType()) {
                     case ACI -> device.getRegistrationId();
                     case PNI -> device.getPhoneNumberIdentityRegistrationId().orElse(device.getRegistrationId());
                   };
 
                   responseItems.add(
-                      new PreKeyResponseItem(device.getId(), registrationId, signedECPreKey, unsignedECPreKey,
+                      new PreKeyResponseItem(device.getId(), registrationId, signedEcPreKey, unsignedEcPreKey,
                           pqPreKey));
                 }
-
-                return null;
-              }).thenRun(Util.NOOP);
+              });
         })
         .toList();
 
@@ -278,6 +272,7 @@ public class KeysController {
     if (responseItems.isEmpty()) {
       throw new WebApplicationException(Response.Status.NOT_FOUND);
     }
+
     return new PreKeyResponse(identityKey, responseItems);
   }
 

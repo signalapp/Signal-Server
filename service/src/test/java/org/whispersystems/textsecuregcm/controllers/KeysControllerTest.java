@@ -202,14 +202,6 @@ class KeysControllerTest {
     when(sampleDevice2.isEnabled()).thenReturn(true);
     when(sampleDevice3.isEnabled()).thenReturn(false);
     when(sampleDevice4.isEnabled()).thenReturn(true);
-    when(sampleDevice.getSignedPreKey(IdentityType.ACI)).thenReturn(SAMPLE_SIGNED_KEY);
-    when(sampleDevice2.getSignedPreKey(IdentityType.ACI)).thenReturn(SAMPLE_SIGNED_KEY2);
-    when(sampleDevice3.getSignedPreKey(IdentityType.ACI)).thenReturn(SAMPLE_SIGNED_KEY3);
-    when(sampleDevice4.getSignedPreKey(IdentityType.ACI)).thenReturn(null);
-    when(sampleDevice.getSignedPreKey(IdentityType.PNI)).thenReturn(SAMPLE_SIGNED_PNI_KEY);
-    when(sampleDevice2.getSignedPreKey(IdentityType.PNI)).thenReturn(SAMPLE_SIGNED_PNI_KEY2);
-    when(sampleDevice3.getSignedPreKey(IdentityType.PNI)).thenReturn(SAMPLE_SIGNED_PNI_KEY3);
-    when(sampleDevice4.getSignedPreKey(IdentityType.PNI)).thenReturn(null);
     when(sampleDevice.getId()).thenReturn(sampleDeviceId);
     when(sampleDevice2.getId()).thenReturn(sampleDevice2Id);
     when(sampleDevice3.getId()).thenReturn(sampleDevice3Id);
@@ -260,6 +252,24 @@ class KeysControllerTest {
     when(KEYS.getEcSignedPreKey(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(Optional.empty()));
     when(KEYS.storeEcSignedPreKeys(any(), any())).thenReturn(CompletableFutureTestUtil.almostCompletedFuture(null));
 
+    when(KEYS.getEcSignedPreKey(EXISTS_UUID, sampleDeviceId))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(SAMPLE_SIGNED_KEY)));
+
+    when(KEYS.getEcSignedPreKey(EXISTS_UUID, sampleDevice2Id))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(SAMPLE_SIGNED_KEY2)));
+
+    when(KEYS.getEcSignedPreKey(EXISTS_UUID, sampleDevice3Id))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(SAMPLE_SIGNED_KEY3)));
+
+    when(KEYS.getEcSignedPreKey(EXISTS_PNI, sampleDeviceId))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(SAMPLE_SIGNED_PNI_KEY)));
+
+    when(KEYS.getEcSignedPreKey(EXISTS_PNI, sampleDevice2Id))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(SAMPLE_SIGNED_PNI_KEY2)));
+
+    when(KEYS.getEcSignedPreKey(EXISTS_PNI, sampleDevice3Id))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(SAMPLE_SIGNED_PNI_KEY3)));
+
     when(KEYS.takeEC(EXISTS_UUID, sampleDeviceId)).thenReturn(
         CompletableFuture.completedFuture(Optional.of(SAMPLE_KEY)));
     when(KEYS.takePQ(EXISTS_UUID, sampleDeviceId)).thenReturn(
@@ -272,9 +282,13 @@ class KeysControllerTest {
     when(KEYS.getEcCount(AuthHelper.VALID_UUID, sampleDeviceId)).thenReturn(CompletableFuture.completedFuture(5));
     when(KEYS.getPqCount(AuthHelper.VALID_UUID, sampleDeviceId)).thenReturn(CompletableFuture.completedFuture(5));
 
-    when(AuthHelper.VALID_DEVICE.getSignedPreKey(IdentityType.ACI)).thenReturn(VALID_DEVICE_SIGNED_KEY);
-    when(AuthHelper.VALID_DEVICE.getSignedPreKey(IdentityType.PNI)).thenReturn(VALID_DEVICE_PNI_SIGNED_KEY);
     when(AuthHelper.VALID_ACCOUNT.getIdentityKey(IdentityType.ACI)).thenReturn(null);
+
+    when(KEYS.getEcSignedPreKey(AuthHelper.VALID_UUID, AuthHelper.VALID_DEVICE.getId()))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(VALID_DEVICE_SIGNED_KEY)));
+
+    when(KEYS.getEcSignedPreKey(AuthHelper.VALID_PNI, AuthHelper.VALID_DEVICE.getId()))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(VALID_DEVICE_PNI_SIGNED_KEY)));
   }
 
   @AfterEach
@@ -365,8 +379,7 @@ class KeysControllerTest {
     assertEquals(SAMPLE_KEY, result.getDevice(SAMPLE_DEVICE_ID).getPreKey());
     assertThat(result.getDevice(SAMPLE_DEVICE_ID).getPqPreKey()).isNull();
     assertThat(result.getDevice(SAMPLE_DEVICE_ID).getRegistrationId()).isEqualTo(SAMPLE_REGISTRATION_ID);
-    assertEquals(existsAccount.getDevice(SAMPLE_DEVICE_ID).get().getSignedPreKey(IdentityType.ACI),
-        result.getDevice(SAMPLE_DEVICE_ID).getSignedPreKey());
+    assertEquals(SAMPLE_SIGNED_KEY, result.getDevice(SAMPLE_DEVICE_ID).getSignedPreKey());
 
     verify(KEYS).takeEC(EXISTS_UUID, SAMPLE_DEVICE_ID);
     verify(KEYS).getEcSignedPreKey(EXISTS_UUID, SAMPLE_DEVICE_ID);
@@ -389,8 +402,7 @@ class KeysControllerTest {
     assertEquals(SAMPLE_KEY, result.getDevice(SAMPLE_DEVICE_ID).getPreKey());
     assertThat(result.getDevice(SAMPLE_DEVICE_ID).getPqPreKey()).isNull();
     assertThat(result.getDevice(SAMPLE_DEVICE_ID).getRegistrationId()).isEqualTo(SAMPLE_REGISTRATION_ID);
-    assertEquals(existsAccount.getDevice(SAMPLE_DEVICE_ID).get().getSignedPreKey(IdentityType.ACI),
-        result.getDevice(SAMPLE_DEVICE_ID).getSignedPreKey());
+    assertEquals(SAMPLE_SIGNED_KEY, result.getDevice(SAMPLE_DEVICE_ID).getSignedPreKey());
 
     verify(KEYS).takeEC(EXISTS_UUID, SAMPLE_DEVICE_ID);
     verify(KEYS).takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID);
@@ -412,8 +424,7 @@ class KeysControllerTest {
     assertEquals(SAMPLE_KEY, result.getDevice(SAMPLE_DEVICE_ID).getPreKey());
     assertEquals(SAMPLE_PQ_KEY, result.getDevice(SAMPLE_DEVICE_ID).getPqPreKey());
     assertThat(result.getDevice(SAMPLE_DEVICE_ID).getRegistrationId()).isEqualTo(SAMPLE_REGISTRATION_ID);
-    assertEquals(existsAccount.getDevice(SAMPLE_DEVICE_ID).get().getSignedPreKey(IdentityType.ACI),
-        result.getDevice(SAMPLE_DEVICE_ID).getSignedPreKey());
+    assertEquals(SAMPLE_SIGNED_KEY, result.getDevice(SAMPLE_DEVICE_ID).getSignedPreKey());
 
     verify(KEYS).takeEC(EXISTS_UUID, SAMPLE_DEVICE_ID);
     verify(KEYS).takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID);
@@ -434,8 +445,7 @@ class KeysControllerTest {
     assertEquals(SAMPLE_KEY_PNI, result.getDevice(SAMPLE_DEVICE_ID).getPreKey());
     assertThat(result.getDevice(SAMPLE_DEVICE_ID).getPqPreKey()).isNull();
     assertThat(result.getDevice(SAMPLE_DEVICE_ID).getRegistrationId()).isEqualTo(SAMPLE_PNI_REGISTRATION_ID);
-    assertEquals(existsAccount.getDevice(SAMPLE_DEVICE_ID).get().getSignedPreKey(IdentityType.PNI),
-        result.getDevice(SAMPLE_DEVICE_ID).getSignedPreKey());
+    assertEquals(SAMPLE_SIGNED_PNI_KEY, result.getDevice(SAMPLE_DEVICE_ID).getSignedPreKey());
 
     verify(KEYS).takeEC(EXISTS_PNI, SAMPLE_DEVICE_ID);
     verify(KEYS).getEcSignedPreKey(EXISTS_PNI, SAMPLE_DEVICE_ID);
@@ -456,8 +466,7 @@ class KeysControllerTest {
     assertEquals(SAMPLE_KEY_PNI, result.getDevice(SAMPLE_DEVICE_ID).getPreKey());
     assertThat(result.getDevice(SAMPLE_DEVICE_ID).getPqPreKey()).isEqualTo(SAMPLE_PQ_KEY_PNI);
     assertThat(result.getDevice(SAMPLE_DEVICE_ID).getRegistrationId()).isEqualTo(SAMPLE_PNI_REGISTRATION_ID);
-    assertEquals(existsAccount.getDevice(SAMPLE_DEVICE_ID).get().getSignedPreKey(IdentityType.PNI),
-        result.getDevice(SAMPLE_DEVICE_ID).getSignedPreKey());
+    assertEquals(SAMPLE_SIGNED_PNI_KEY, result.getDevice(SAMPLE_DEVICE_ID).getSignedPreKey());
 
     verify(KEYS).takeEC(EXISTS_PNI, SAMPLE_DEVICE_ID);
     verify(KEYS).takePQ(EXISTS_PNI, SAMPLE_DEVICE_ID);
@@ -480,8 +489,7 @@ class KeysControllerTest {
     assertEquals(SAMPLE_KEY_PNI, result.getDevice(SAMPLE_DEVICE_ID).getPreKey());
     assertThat(result.getDevice(SAMPLE_DEVICE_ID).getPqPreKey()).isNull();
     assertThat(result.getDevice(SAMPLE_DEVICE_ID).getRegistrationId()).isEqualTo(SAMPLE_REGISTRATION_ID);
-    assertEquals(existsAccount.getDevice(SAMPLE_DEVICE_ID).get().getSignedPreKey(IdentityType.PNI),
-        result.getDevice(SAMPLE_DEVICE_ID).getSignedPreKey());
+    assertEquals(SAMPLE_SIGNED_PNI_KEY, result.getDevice(SAMPLE_DEVICE_ID).getSignedPreKey());
 
     verify(KEYS).takeEC(EXISTS_PNI, SAMPLE_DEVICE_ID);
     verify(KEYS).getEcSignedPreKey(EXISTS_PNI, SAMPLE_DEVICE_ID);
@@ -516,8 +524,7 @@ class KeysControllerTest {
     assertThat(result.getDevicesCount()).isEqualTo(1);
     assertEquals(SAMPLE_KEY, result.getDevice(SAMPLE_DEVICE_ID).getPreKey());
     assertEquals(SAMPLE_PQ_KEY, result.getDevice(SAMPLE_DEVICE_ID).getPqPreKey());
-    assertEquals(existsAccount.getDevice(SAMPLE_DEVICE_ID).get().getSignedPreKey(IdentityType.ACI),
-        result.getDevice(SAMPLE_DEVICE_ID).getSignedPreKey());
+    assertEquals(SAMPLE_SIGNED_KEY, result.getDevice(SAMPLE_DEVICE_ID).getSignedPreKey());
 
     verify(KEYS).takeEC(EXISTS_UUID, SAMPLE_DEVICE_ID);
     verify(KEYS).takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID);
