@@ -79,11 +79,6 @@ public class KeysManager {
     }
   }
 
-  public CompletableFuture<Boolean> storeEcSignedPreKeyIfAbsent(final UUID identifier, final byte deviceId,
-          final ECSignedPreKey signedPreKey) {
-    return ecSignedPreKeys.storeIfAbsent(identifier, deviceId, signedPreKey);
-  }
-
   public CompletableFuture<Void> storePqLastResort(final UUID identifier, final Map<Byte, KEMSignedPreKey> keys) {
     return pqLastResortKeys.store(identifier, keys);
   }

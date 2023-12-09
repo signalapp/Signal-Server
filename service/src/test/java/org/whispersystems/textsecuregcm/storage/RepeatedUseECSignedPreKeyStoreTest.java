@@ -5,14 +5,7 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import java.util.Optional;
-import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
@@ -45,22 +38,5 @@ class RepeatedUseECSignedPreKeyStoreTest extends RepeatedUseSignedPreKeyStoreTes
   @Override
   protected ECSignedPreKey generateSignedPreKey() {
     return KeysHelper.signedECPreKey(currentKeyId++, IDENTITY_KEY_PAIR);
-  }
-
-  @Test
-  void storeIfAbsent() {
-    final UUID identifier = UUID.randomUUID();
-    final byte deviceIdWithExistingKey = 1;
-    final byte deviceIdWithoutExistingKey = deviceIdWithExistingKey + 1;
-
-    final ECSignedPreKey originalSignedPreKey = generateSignedPreKey();
-
-    keyStore.store(identifier, deviceIdWithExistingKey, originalSignedPreKey).join();
-
-    assertFalse(keyStore.storeIfAbsent(identifier, deviceIdWithExistingKey, generateSignedPreKey()).join());
-    assertTrue(keyStore.storeIfAbsent(identifier, deviceIdWithoutExistingKey, generateSignedPreKey()).join());
-
-    assertEquals(Optional.of(originalSignedPreKey), keyStore.find(identifier, deviceIdWithExistingKey).join());
-    assertTrue(keyStore.find(identifier, deviceIdWithoutExistingKey).join().isPresent());
   }
 }
