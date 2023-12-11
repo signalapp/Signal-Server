@@ -430,8 +430,7 @@ public class AccountsManager {
 
     if (pniSignedPreKeys != null) {
       pniSignedPreKeys.forEach((deviceId, signedPreKey) ->
-          keysManager.buildWriteItemForEcSignedPreKey(phoneNumberIdentifier, deviceId, signedPreKey)
-              .ifPresent(keyWriteItems::add));
+          keyWriteItems.add(keysManager.buildWriteItemForEcSignedPreKey(phoneNumberIdentifier, deviceId, signedPreKey)));
     }
 
     if (pniPqLastResortPreKeys != null) {

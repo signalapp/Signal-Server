@@ -131,9 +131,7 @@ public class KeysController {
                   case PNI -> d.setPhoneNumberIdentitySignedPreKey(setKeysRequest.signedPreKey());
                 }
               },
-              d -> keys.buildWriteItemForEcSignedPreKey(identifier, d.getId(), setKeysRequest.signedPreKey())
-                  .map(List::of)
-                  .orElseGet(Collections::emptyList))
+              d -> List.of(keys.buildWriteItemForEcSignedPreKey(identifier, d.getId(), setKeysRequest.signedPreKey())))
           .toCompletableFuture();
     } else {
       updateAccountFuture = CompletableFuture.completedFuture(account);
@@ -302,9 +300,7 @@ public class KeysController {
                 case PNI -> d.setPhoneNumberIdentitySignedPreKey(signedPreKey);
               }
             },
-            d -> keys.buildWriteItemForEcSignedPreKey(identifier, d.getId(), signedPreKey)
-                .map(List::of)
-                .orElseGet(Collections::emptyList))
+            d -> List.of(keys.buildWriteItemForEcSignedPreKey(identifier, d.getId(), signedPreKey)))
         .toCompletableFuture()
         .thenApply(Util.ASYNC_EMPTY_RESPONSE);
   }

@@ -53,10 +53,6 @@ public class DynamicConfiguration {
 
   @JsonProperty
   @Valid
-  DynamicECPreKeyMigrationConfiguration ecPreKeyMigration = new DynamicECPreKeyMigrationConfiguration(true, false);
-
-  @JsonProperty
-  @Valid
   DynamicInboundMessageByteLimitConfiguration inboundMessageByteLimit = new DynamicInboundMessageByteLimitConfiguration(true);
 
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(
@@ -95,10 +91,6 @@ public class DynamicConfiguration {
 
   public DynamicRateLimitPolicy getRateLimitPolicy() {
     return rateLimitPolicy;
-  }
-
-  public DynamicECPreKeyMigrationConfiguration getEcPreKeyMigrationConfiguration() {
-    return ecPreKeyMigration;
   }
 
   public DynamicInboundMessageByteLimitConfiguration getInboundMessageByteLimitConfiguration() {

@@ -100,8 +100,8 @@ class AccountsManagerUsernameIntegrationTest {
         Tables.EC_KEYS.tableName(),
         Tables.PQ_KEYS.tableName(),
         Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS.tableName(),
-        Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS.tableName(),
-        dynamicConfigurationManager);
+        Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS.tableName()
+    );
 
     accounts = Mockito.spy(new Accounts(
         DYNAMO_DB_EXTENSION.getDynamoDbClient(),
