@@ -616,8 +616,8 @@ public class StripeManager implements SubscriptionProcessorManager {
     if (invoice.getStatusTransitions().getPaidAt() != null) {
       paidAt = Instant.ofEpochSecond(invoice.getStatusTransitions().getPaidAt());
     } else {
-      logger.warn("No paidAt timestamp exists for paid invoice {}, falling back to end of subscription period", invoice.getId());
-      paidAt = Instant.ofEpochSecond(subscriptionLineItem.getPeriod().getEnd());
+      logger.warn("No paidAt timestamp exists for paid invoice {}, falling back to start of subscription period", invoice.getId());
+      paidAt = Instant.ofEpochSecond(subscriptionLineItem.getPeriod().getStart());
     }
     return getProductForPrice(subscriptionLineItem.getPrice().getId()).thenApply(product -> new ReceiptItem(
         subscriptionLineItem.getId(),
