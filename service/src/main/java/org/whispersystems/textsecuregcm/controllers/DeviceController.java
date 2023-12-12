@@ -181,7 +181,7 @@ public class DeviceController {
   @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
       name = "Retry-After",
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
-  public CompletableFuture<DeviceResponse> linkDevice(@HeaderParam(HttpHeaders.AUTHORIZATION) BasicAuthorizationHeader authorizationHeader,
+  public DeviceResponse linkDevice(@HeaderParam(HttpHeaders.AUTHORIZATION) BasicAuthorizationHeader authorizationHeader,
       @NotNull @Valid LinkDeviceRequest linkDeviceRequest,
       @Context ContainerRequest containerRequest)
       throws RateLimitExceededException, DeviceLimitExceededException {
@@ -255,7 +255,8 @@ public class DeviceController {
         .thenApply(accountAndDevice -> new DeviceResponse(
             accountAndDevice.first().getIdentifier(IdentityType.ACI),
             accountAndDevice.first().getIdentifier(IdentityType.PNI),
-            accountAndDevice.second().getId()));
+            accountAndDevice.second().getId()))
+        .join();
   }
 
   @PUT
