@@ -10,11 +10,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.ForkJoinPool.ManagedBlocker;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
 import javax.validation.Valid;
@@ -36,7 +33,6 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
 import org.whispersystems.textsecuregcm.entities.RedeemReceiptRequest;
-import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountBadge;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.RedeemedReceiptsManager;
@@ -101,43 +97,24 @@ public class DonationController {
       if (badgeId == null) {
         return CompletableFuture.completedFuture(Response.serverError().entity("server does not recognize the requested receipt level").type(MediaType.TEXT_PLAIN_TYPE).build());
       }
-      final CompletionStage<Boolean> putStage = redeemedReceiptsManager.put(
-          receiptSerial, receiptExpiration.getEpochSecond(), receiptLevel, auth.getAccount().getUuid());
-      return putStage.thenApplyAsync(receiptMatched -> {
+      return redeemedReceiptsManager.put(
+              receiptSerial, receiptExpiration.getEpochSecond(), receiptLevel, auth.getAccount().getUuid())
+          .thenCompose(receiptMatched -> {
         if (!receiptMatched) {
-          return Response.status(Status.BAD_REQUEST).entity("receipt serial is already redeemed").type(MediaType.TEXT_PLAIN_TYPE).build();
+          return CompletableFuture.completedFuture(
+              Response.status(Status.BAD_REQUEST).entity("receipt serial is already redeemed")
+                  .type(MediaType.TEXT_PLAIN_TYPE).build());
         }
 
-        try {
-          ForkJoinPool.managedBlock(new ManagedBlocker() {
-            boolean done = false;
-
-            @Override
-            public boolean block() {
-              final Optional<Account> optionalAccount = accountsManager.getByAccountIdentifier(auth.getAccount().getUuid());
-              optionalAccount.ifPresent(account -> {
-                accountsManager.update(account, a -> {
+        return accountsManager.getByAccountIdentifierAsync(auth.getAccount().getUuid())
+            .thenCompose(optionalAccount ->
+                optionalAccount.map(account -> accountsManager.updateAsync(account, a -> {
                   a.addBadge(clock, new AccountBadge(badgeId, receiptExpiration, request.isVisible()));
                   if (request.isPrimary()) {
                     a.makeBadgePrimaryIfExists(clock, badgeId);
                   }
-                });
-              });
-              done = true;
-              return true;
-            }
-
-            @Override
-            public boolean isReleasable() {
-              return done;
-            }
-          });
-        } catch (InterruptedException e) {
-          Thread.currentThread().interrupt();
-          return Response.serverError().build();
-        }
-
-        return Response.ok().build();
+                })).orElse(CompletableFuture.completedFuture(null)))
+            .thenApply(ignored -> Response.ok().build());
       });
     }).thenCompose(Function.identity());
   }

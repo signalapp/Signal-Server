@@ -119,7 +119,8 @@ class DonationControllerTest {
     when(receiptCredentialPresentation.getReceiptExpirationTime()).thenReturn(receiptExpiration);
     when(redeemedReceiptsManager.put(same(receiptSerial), eq(receiptExpiration), eq(receiptLevel), eq(AuthHelper.VALID_UUID))).thenReturn(
         CompletableFuture.completedFuture(Boolean.TRUE));
-    when(accountsManager.getByAccountIdentifier(eq(AuthHelper.VALID_UUID))).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
+    when(accountsManager.getByAccountIdentifierAsync(eq(AuthHelper.VALID_UUID))).thenReturn(
+        CompletableFuture.completedFuture(Optional.of(AuthHelper.VALID_ACCOUNT)));
 
     RedeemReceiptRequest request = new RedeemReceiptRequest(presentation, true, true);
     Response response = resources.getJerseyTest()

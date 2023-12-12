@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.mockito.MockingDetails;
 import org.mockito.stubbing.Stubbing;
@@ -69,12 +70,27 @@ public class AccountsHelper {
       return markStale ? copyAndMarkStale(account) : account;
     });
 
+    when(mockAccountsManager.updateAsync(any(), any())).thenAnswer(answer -> {
+      final Account account = answer.getArgument(0, Account.class);
+      answer.getArgument(1, Consumer.class).accept(account);
+
+      return CompletableFuture.completedFuture(markStale ? copyAndMarkStale(account) : account);
+    });
+
     when(mockAccountsManager.updateDevice(any(), anyByte(), any())).thenAnswer(answer -> {
       final Account account = answer.getArgument(0, Account.class);
       final byte deviceId = answer.getArgument(1, Byte.class);
       account.getDevice(deviceId).ifPresent(answer.getArgument(2, Consumer.class));
 
       return markStale ? copyAndMarkStale(account) : account;
+    });
+
+    when(mockAccountsManager.updateDeviceAsync(any(), anyByte(), any())).thenAnswer(answer -> {
+      final Account account = answer.getArgument(0, Account.class);
+      final byte deviceId = answer.getArgument(1, Byte.class);
+      account.getDevice(deviceId).ifPresent(answer.getArgument(2, Consumer.class));
+
+      return CompletableFuture.completedFuture(markStale ? copyAndMarkStale(account) : account);
     });
 
     when(mockAccountsManager.updateDeviceLastSeen(any(), any(), anyLong())).thenAnswer(answer -> {
