@@ -186,9 +186,8 @@ public class DeviceController {
       @Context ContainerRequest containerRequest)
       throws RateLimitExceededException, DeviceLimitExceededException {
 
-    final Optional<UUID> maybeAciFromToken = checkVerificationToken(linkDeviceRequest.verificationCode());
-
-    final Account account = maybeAciFromToken.flatMap(accounts::getByAccountIdentifier)
+    final Account account = checkVerificationToken(linkDeviceRequest.verificationCode())
+        .flatMap(accounts::getByAccountIdentifier)
         .orElseThrow(ForbiddenException::new);
 
     final DeviceActivationRequest deviceActivationRequest = linkDeviceRequest.deviceActivationRequest();
@@ -211,18 +210,17 @@ public class DeviceController {
     // active user is and what their device states look like.
     AuthEnablementRefreshRequirementProvider.setAccount(containerRequest, account);
 
-    int maxDeviceLimit = MAX_DEVICES;
-
-    if (maxDeviceConfiguration.containsKey(account.getNumber())) {
-      maxDeviceLimit = maxDeviceConfiguration.get(account.getNumber());
-    }
+    final int maxDeviceLimit = maxDeviceConfiguration.getOrDefault(account.getNumber(), MAX_DEVICES);
 
     if (account.getDevices().size() >= maxDeviceLimit) {
       throw new DeviceLimitExceededException(account.getDevices().size(), maxDeviceLimit);
     }
 
     final DeviceCapabilities capabilities = accountAttributes.getCapabilities();
-    if (capabilities != null && isCapabilityDowngrade(account, capabilities)) {
+
+    if (capabilities == null) {
+      throw new WebApplicationException(Response.status(422, "Missing device capabilities").build());
+    } else if (isCapabilityDowngrade(account, capabilities)) {
       throw new WebApplicationException(Response.status(409).build());
     }
 
