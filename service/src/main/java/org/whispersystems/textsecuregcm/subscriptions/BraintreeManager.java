@@ -542,7 +542,7 @@ public class BraintreeManager implements SubscriptionProcessorManager {
                     .build());
               }
 
-              final Instant expiration = transaction.getSubscriptionDetails().getBillingPeriodEndDate().toInstant();
+              final Instant paidAt = transaction.getSubscriptionDetails().getBillingPeriodStartDate().toInstant();
               final Plan plan = braintreeGateway.plan().find(transaction.getPlanId());
 
               final BraintreePlanMetadata metadata;
@@ -553,7 +553,7 @@ public class BraintreeManager implements SubscriptionProcessorManager {
                 throw new RuntimeException(e);
               }
 
-              return new ReceiptItem(transaction.getId(), expiration, metadata.level());
+              return new ReceiptItem(transaction.getId(), paidAt, metadata.level());
             })
             .orElseThrow(() -> new WebApplicationException(Response.Status.NO_CONTENT)));
   }

@@ -367,6 +367,7 @@ badges:
     '1': TEST
 
 subscription: # configuration for Stripe subscriptions
+  badgeExpiration: P30D
   badgeGracePeriod: P15D
   levels:
     500:

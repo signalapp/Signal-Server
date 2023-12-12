@@ -20,18 +20,26 @@ import javax.validation.constraints.NotNull;
 public class SubscriptionConfiguration {
 
   private final Duration badgeGracePeriod;
+  private final Duration badgeExpiration;
   private final Map<Long, SubscriptionLevelConfiguration> levels;
 
   @JsonCreator
   public SubscriptionConfiguration(
       @JsonProperty("badgeGracePeriod") @Valid Duration badgeGracePeriod,
+      @JsonProperty("badgeExpiration") @Valid Duration badgeExpiration,
       @JsonProperty("levels") @Valid Map<@NotNull @Min(1) Long, @NotNull @Valid SubscriptionLevelConfiguration> levels) {
     this.badgeGracePeriod = badgeGracePeriod;
+    this.badgeExpiration = badgeExpiration;
     this.levels = levels;
   }
 
   public Duration getBadgeGracePeriod() {
     return badgeGracePeriod;
+  }
+
+  // This is the badge expiration time starting from when a payment successfully completes
+  public Duration getBadgeExpiration() {
+    return badgeExpiration;
   }
 
   public Map<Long, SubscriptionLevelConfiguration> getLevels() {

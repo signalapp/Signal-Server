@@ -963,7 +963,7 @@ public class SubscriptionController {
                       try {
                         receiptCredentialResponse = zkReceiptOperations.issueReceiptCredential(
                             receiptCredentialRequest,
-                            receiptExpirationWithGracePeriod(receipt.expiration()).getEpochSecond(), receipt.level());
+                            receiptExpirationWithGracePeriod(receipt.paidAt()).getEpochSecond(), receipt.level());
                       } catch (VerificationFailedException e) {
                         throw new BadRequestException("receipt credential request failed verification", e);
                       }
@@ -1006,10 +1006,11 @@ public class SubscriptionController {
                 new ClientErrorException(Status.CONFLICT)))
         .thenApply(customer -> Response.ok().build());
   }
-    private Instant receiptExpirationWithGracePeriod(Instant itemExpiration) {
-        return itemExpiration.plus(subscriptionConfiguration.getBadgeGracePeriod())
-                .truncatedTo(ChronoUnit.DAYS)
-                .plus(1, ChronoUnit.DAYS);
+    private Instant receiptExpirationWithGracePeriod(Instant paidAt) {
+        return paidAt.plus(subscriptionConfiguration.getBadgeExpiration())
+            .plus(subscriptionConfiguration.getBadgeGracePeriod())
+            .truncatedTo(ChronoUnit.DAYS)
+            .plus(1, ChronoUnit.DAYS);
     }
 
     private String getSubscriptionTemplateId(long level, String currency, SubscriptionProcessor processor) {

@@ -154,7 +154,7 @@ public interface SubscriptionProcessorManager {
 
   }
 
-  record ReceiptItem(String itemId, Instant expiration, long level) {
+  record ReceiptItem(String itemId, Instant paidAt, long level) {
 
   }
 

@@ -965,6 +965,7 @@ class SubscriptionControllerTest {
     }
 
     private static final String SUBSCRIPTION_CONFIG_YAML = """
+        badgeExpiration: P30D
         badgeGracePeriod: P15D
         levels:
           5:
