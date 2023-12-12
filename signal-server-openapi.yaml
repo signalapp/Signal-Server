@@ -1258,10 +1258,6 @@ paths:
         in: header
         schema:
           $ref: '#/components/schemas/BasicAuthorizationHeader'
-      - name: User-Agent
-        in: header
-        schema:
-          type: string
       requestBody:
         content:
           application/json:
@@ -1339,39 +1335,6 @@ paths:
             application/json: {}
       security:
       - authenticatedAccount: []
-  /v1/devices/{verification_code}:
-    put:
-      tags:
-      - Devices
-      operationId: verifyDeviceToken
-      parameters:
-      - name: verification_code
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: Authorization
-        in: header
-        schema:
-          $ref: '#/components/schemas/BasicAuthorizationHeader'
-      - name: User-Agent
-        in: header
-        schema:
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AccountAttributes'
-        required: true
-      responses:
-        default:
-          description: default response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DeviceResponse'
-      deprecated: true
   /v2/directory/auth:
     get:
       tags:
@@ -4186,16 +4149,16 @@ components:
             type: string
         commitment:
           $ref: '#/components/schemas/ProfileKeyCommitment'
+        badges:
+          type: array
+          items:
+            type: string
         avatarChange:
           type: string
           enum:
           - UNCHANGED
           - CLEAR
           - UPDATE
-        badges:
-          type: array
-          items:
-            type: string
     ProfileKeyCommitment:
       type: object
       properties:
