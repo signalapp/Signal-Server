@@ -6,6 +6,8 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.Auth;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tags;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.headers.Header;
@@ -50,6 +52,8 @@ import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
+import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -64,6 +68,8 @@ public class KeysController {
   private final RateLimiters rateLimiters;
   private final KeysManager keys;
   private final AccountsManager accounts;
+
+  private static final String GET_KEYS_COUNTER_NAME = MetricsUtil.name(KeysController.class, "getKeys");
 
   private static final CompletableFuture<?>[] EMPTY_FUTURE_ARRAY = new CompletableFuture[0];
 
@@ -225,6 +231,11 @@ public class KeysController {
           account.get().getUuid() + "." + auth.get().getAuthenticatedDevice().getId() + "__" + targetIdentifier.uuid()
               + "." + deviceId);
     }
+
+    Metrics.counter(GET_KEYS_COUNTER_NAME, Tags.of(
+            UserAgentTagUtil.getPlatformTag(userAgent),
+            io.micrometer.core.instrument.Tag.of("wildcardDeviceId", String.valueOf("*".equals(deviceId)))))
+        .increment();
 
     final List<Device> devices = parseDeviceId(deviceId, target);
     final List<PreKeyResponseItem> responseItems = new ArrayList<>(devices.size());
