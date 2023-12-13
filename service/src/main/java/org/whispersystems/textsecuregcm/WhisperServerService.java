@@ -217,6 +217,7 @@ import org.whispersystems.textsecuregcm.workers.CertificateCommand;
 import org.whispersystems.textsecuregcm.workers.CheckDynamicConfigurationCommand;
 import org.whispersystems.textsecuregcm.workers.DeleteUserCommand;
 import org.whispersystems.textsecuregcm.workers.MessagePersisterServiceCommand;
+import org.whispersystems.textsecuregcm.workers.MigrateSignedECPreKeysCommand;
 import org.whispersystems.textsecuregcm.workers.ProcessPushNotificationFeedbackCommand;
 import org.whispersystems.textsecuregcm.workers.RemoveExpiredAccountsCommand;
 import org.whispersystems.textsecuregcm.workers.ScheduledApnPushNotificationSenderServiceCommand;
@@ -273,6 +274,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     bootstrap.addCommand(new UnlinkDeviceCommand());
     bootstrap.addCommand(new ScheduledApnPushNotificationSenderServiceCommand());
     bootstrap.addCommand(new MessagePersisterServiceCommand());
+    bootstrap.addCommand(new MigrateSignedECPreKeysCommand());
     bootstrap.addCommand(new RemoveExpiredAccountsCommand(Clock.systemUTC()));
     bootstrap.addCommand(new ProcessPushNotificationFeedbackCommand(Clock.systemUTC()));
   }
