@@ -84,8 +84,8 @@ class AccountsManagerChangeNumberIntegrationTest {
           Tables.EC_KEYS.tableName(),
           Tables.PQ_KEYS.tableName(),
           Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS.tableName(),
-          Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS.tableName()
-      );
+          Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS.tableName(),
+          dynamicConfigurationManager);
 
       final Accounts accounts = new Accounts(
           DYNAMO_DB_EXTENSION.getDynamoDbClient(),

@@ -142,8 +142,8 @@ record CommandDependencies(
         configuration.getDynamoDbTables().getEcKeys().getTableName(),
         configuration.getDynamoDbTables().getKemKeys().getTableName(),
         configuration.getDynamoDbTables().getEcSignedPreKeys().getTableName(),
-        configuration.getDynamoDbTables().getKemLastResortKeys().getTableName()
-    );
+        configuration.getDynamoDbTables().getKemLastResortKeys().getTableName(),
+        dynamicConfigurationManager);
     MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(dynamoDbClient, dynamoDbAsyncClient,
         configuration.getDynamoDbTables().getMessages().getTableName(),
         configuration.getDynamoDbTables().getMessages().getExpiration(),

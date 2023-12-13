@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.ECPreKey;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
@@ -18,6 +19,8 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
 
 public class KeysManager {
+
+  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
 
   private final SingleUseECPreKeyStore ecPreKeys;
   private final SingleUseKEMPreKeyStore pqPreKeys;
@@ -29,18 +32,22 @@ public class KeysManager {
       final String ecTableName,
       final String pqTableName,
       final String ecSignedPreKeysTableName,
-      final String pqLastResortTableName) {
+      final String pqLastResortTableName,
+      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
     this.ecPreKeys = new SingleUseECPreKeyStore(dynamoDbAsyncClient, ecTableName);
     this.pqPreKeys = new SingleUseKEMPreKeyStore(dynamoDbAsyncClient, pqTableName);
     this.ecSignedPreKeys = new RepeatedUseECSignedPreKeyStore(dynamoDbAsyncClient, ecSignedPreKeysTableName);
     this.pqLastResortKeys = new RepeatedUseKEMSignedPreKeyStore(dynamoDbAsyncClient, pqLastResortTableName);
+    this.dynamicConfigurationManager = dynamicConfigurationManager;
   }
 
-  public TransactWriteItem buildWriteItemForEcSignedPreKey(final UUID identifier,
+  public Optional<TransactWriteItem> buildWriteItemForEcSignedPreKey(final UUID identifier,
       final byte deviceId,
       final ECSignedPreKey ecSignedPreKey) {
 
-    return ecSignedPreKeys.buildTransactWriteItem(identifier, deviceId, ecSignedPreKey);
+    return dynamicConfigurationManager.getConfiguration().getEcPreKeyMigrationConfiguration().storeEcSignedPreKeys()
+        ? Optional.of(ecSignedPreKeys.buildTransactWriteItem(identifier, deviceId, ecSignedPreKey))
+        : Optional.empty();
   }
 
   public TransactWriteItem buildWriteItemForLastResortKey(final UUID identifier,
@@ -65,7 +72,11 @@ public class KeysManager {
   }
 
   public CompletableFuture<Void> storeEcSignedPreKeys(final UUID identifier, final Map<Byte, ECSignedPreKey> keys) {
-    return ecSignedPreKeys.store(identifier, keys);
+    if (dynamicConfigurationManager.getConfiguration().getEcPreKeyMigrationConfiguration().storeEcSignedPreKeys()) {
+      return ecSignedPreKeys.store(identifier, keys);
+    } else {
+      return CompletableFuture.completedFuture(null);
+    }
   }
 
   public CompletableFuture<Void> storePqLastResort(final UUID identifier, final Map<Byte, KEMSignedPreKey> keys) {
@@ -122,15 +133,19 @@ public class KeysManager {
     return CompletableFuture.allOf(
         ecPreKeys.delete(identifier),
         pqPreKeys.delete(identifier),
-        ecSignedPreKeys.delete(identifier, excludePrimaryDevice),
+        dynamicConfigurationManager.getConfiguration().getEcPreKeyMigrationConfiguration().deleteEcSignedPreKeys()
+            ? ecSignedPreKeys.delete(identifier, excludePrimaryDevice)
+            : CompletableFuture.completedFuture(null),
         pqLastResortKeys.delete(identifier, excludePrimaryDevice));
   }
 
   public CompletableFuture<Void> delete(final UUID accountUuid, final byte deviceId) {
     return CompletableFuture.allOf(
-        ecPreKeys.delete(accountUuid, deviceId),
-        pqPreKeys.delete(accountUuid, deviceId),
-        ecSignedPreKeys.delete(accountUuid, deviceId),
-        pqLastResortKeys.delete(accountUuid, deviceId));
+            ecPreKeys.delete(accountUuid, deviceId),
+            pqPreKeys.delete(accountUuid, deviceId),
+            dynamicConfigurationManager.getConfiguration().getEcPreKeyMigrationConfiguration().deleteEcSignedPreKeys()
+                ? ecSignedPreKeys.delete(accountUuid, deviceId)
+                : CompletableFuture.completedFuture(null),
+            pqLastResortKeys.delete(accountUuid, deviceId));
   }
 }
