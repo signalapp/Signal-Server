@@ -50,6 +50,7 @@ import org.whispersystems.textsecuregcm.entities.PreKeyResponseItem;
 import org.whispersystems.textsecuregcm.entities.PreKeySignatureValidator;
 import org.whispersystems.textsecuregcm.entities.SetKeysRequest;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
+import org.whispersystems.textsecuregcm.experiment.Experiment;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -71,6 +72,7 @@ public class KeysController {
   private final RateLimiters rateLimiters;
   private final KeysManager keys;
   private final AccountsManager accounts;
+  private final Experiment compareSignedEcPreKeysExperiment = new Experiment("compareSignedEcPreKeys");
 
   private static final String GET_KEYS_COUNTER_NAME = MetricsUtil.name(KeysController.class, "getKeys");
 
@@ -243,13 +245,20 @@ public class KeysController {
         .increment();
 
     final List<PreKeyResponseItem> responseItems = Flux.fromIterable(parseDeviceId(deviceId, target))
-        .flatMap(device -> Mono.zip(
-            Mono.just(device),
-            Mono.fromFuture(() -> keys.getEcSignedPreKey(targetIdentifier.uuid(), device.getId())),
-            Mono.fromFuture(() -> keys.takeEC(targetIdentifier.uuid(), device.getId())),
-            Mono.fromFuture(() -> returnPqKey ? keys.takePQ(targetIdentifier.uuid(), device.getId())
-                : CompletableFuture.<Optional<KEMSignedPreKey>>completedFuture(Optional.empty()))
-        )).filter(keys -> keys.getT2().isPresent() || keys.getT3().isPresent() || keys.getT4().isPresent())
+        .flatMap(device -> {
+          final ECSignedPreKey ecSignedPreKey = device.getSignedPreKey(targetIdentifier.identityType());
+
+          compareSignedEcPreKeysExperiment.compareFutureResult(Optional.ofNullable(ecSignedPreKey),
+              keys.getEcSignedPreKey(targetIdentifier.uuid(), device.getId()));
+
+          return Mono.zip(
+              Mono.just(device),
+              Mono.just(Optional.ofNullable(ecSignedPreKey)),
+              Mono.fromFuture(() -> keys.takeEC(targetIdentifier.uuid(), device.getId())),
+              Mono.fromFuture(() -> returnPqKey ? keys.takePQ(targetIdentifier.uuid(), device.getId())
+                  : CompletableFuture.<Optional<KEMSignedPreKey>>completedFuture(Optional.empty()))
+          );
+        }).filter(keys -> keys.getT2().isPresent() || keys.getT3().isPresent() || keys.getT4().isPresent())
         .map(deviceAndKeys -> {
           final Device device = deviceAndKeys.getT1();
           final int registrationId = switch (targetIdentifier.identityType()) {
@@ -270,7 +279,6 @@ public class KeysController {
     if (responseItems.isEmpty()) {
       throw new WebApplicationException(Response.Status.NOT_FOUND);
     }
-
     return new PreKeyResponse(identityKey, responseItems);
   }
 

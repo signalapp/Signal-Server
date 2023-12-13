@@ -10,7 +10,6 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import java.util.List;
 import java.util.OptionalInt;
-import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -239,10 +238,6 @@ public class Device {
     this.phoneNumberIdentityRegistrationId = phoneNumberIdentityRegistrationId;
   }
 
-  /**
-   * @deprecated Please retrieve signed pre-keys via {@link KeysManager#getEcSignedPreKey(UUID, byte)} instead
-   */
-  @Deprecated
   public ECSignedPreKey getSignedPreKey(final IdentityType identityType) {
     return switch (identityType) {
       case ACI -> signedPreKey;

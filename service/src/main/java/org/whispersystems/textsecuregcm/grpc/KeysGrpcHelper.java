@@ -41,37 +41,41 @@ class KeysGrpcHelper {
     return devices
         .filter(Device::isEnabled)
         .switchIfEmpty(Mono.error(Status.NOT_FOUND.asException()))
-        .flatMap(device -> Flux.merge(
-                Mono.fromFuture(() -> keysManager.takeEC(targetAccount.getIdentifier(identityType), device.getId())),
-                Mono.fromFuture(() -> keysManager.getEcSignedPreKey(targetAccount.getIdentifier(identityType), device.getId())),
-                Mono.fromFuture(() -> keysManager.takePQ(targetAccount.getIdentifier(identityType), device.getId())))
-            .flatMap(Mono::justOrEmpty)
-            .reduce(GetPreKeysResponse.PreKeyBundle.newBuilder(), (builder, preKey) -> {
-              if (preKey instanceof ECPreKey ecPreKey) {
-                builder.setEcOneTimePreKey(EcPreKey.newBuilder()
-                    .setKeyId(ecPreKey.keyId())
-                    .setPublicKey(ByteString.copyFrom(ecPreKey.serializedPublicKey()))
-                    .build());
-              } else if (preKey instanceof ECSignedPreKey ecSignedPreKey) {
-                builder.setEcSignedPreKey(EcSignedPreKey.newBuilder()
-                    .setKeyId(ecSignedPreKey.keyId())
-                    .setPublicKey(ByteString.copyFrom(ecSignedPreKey.serializedPublicKey()))
-                    .setSignature(ByteString.copyFrom(ecSignedPreKey.signature()))
-                    .build());
-              } else if (preKey instanceof KEMSignedPreKey kemSignedPreKey) {
-                builder.setKemOneTimePreKey(KemSignedPreKey.newBuilder()
-                    .setKeyId(kemSignedPreKey.keyId())
-                    .setPublicKey(ByteString.copyFrom(kemSignedPreKey.serializedPublicKey()))
-                    .setSignature(ByteString.copyFrom(kemSignedPreKey.signature()))
-                    .build());
-              } else {
-                throw new AssertionError("Unexpected pre-key type: " + preKey.getClass());
-              }
+        .flatMap(device -> {
+          final ECSignedPreKey ecSignedPreKey = device.getSignedPreKey(identityType);
 
-              return builder;
+          final GetPreKeysResponse.PreKeyBundle.Builder preKeyBundleBuilder = GetPreKeysResponse.PreKeyBundle.newBuilder()
+              .setEcSignedPreKey(EcSignedPreKey.newBuilder()
+                  .setKeyId(ecSignedPreKey.keyId())
+                  .setPublicKey(ByteString.copyFrom(ecSignedPreKey.serializedPublicKey()))
+                  .setSignature(ByteString.copyFrom(ecSignedPreKey.signature()))
+                  .build());
+
+          return Flux.merge(
+                  Mono.fromFuture(() -> keysManager.takeEC(targetAccount.getIdentifier(identityType), device.getId())),
+                  Mono.fromFuture(() -> keysManager.takePQ(targetAccount.getIdentifier(identityType), device.getId())))
+              .flatMap(Mono::justOrEmpty)
+              .reduce(preKeyBundleBuilder, (builder, preKey) -> {
+                if (preKey instanceof ECPreKey ecPreKey) {
+                  builder.setEcOneTimePreKey(EcPreKey.newBuilder()
+                      .setKeyId(ecPreKey.keyId())
+                      .setPublicKey(ByteString.copyFrom(ecPreKey.serializedPublicKey()))
+                      .build());
+                } else if (preKey instanceof KEMSignedPreKey kemSignedPreKey) {
+                  preKeyBundleBuilder.setKemOneTimePreKey(KemSignedPreKey.newBuilder()
+                      .setKeyId(kemSignedPreKey.keyId())
+                      .setPublicKey(ByteString.copyFrom(kemSignedPreKey.serializedPublicKey()))
+                      .setSignature(ByteString.copyFrom(kemSignedPreKey.signature()))
+                      .build());
+                } else {
+                  throw new AssertionError("Unexpected pre-key type: " + preKey.getClass());
+                }
+
+                return builder;
+              })
+              // Cast device IDs to `int` to match data types in the response object’s protobuf definition
+              .map(builder -> Tuples.of((int) device.getId(), builder.build()));
             })
-            // Cast device IDs to `int` to match data types in the response object’s protobuf definition
-            .map(builder -> Tuples.of((int) device.getId(), builder.build())))
         .collectMap(Tuple2::getT1, Tuple2::getT2)
         .map(preKeyBundles -> GetPreKeysResponse.newBuilder()
             .setIdentityKey(ByteString.copyFrom(targetAccount.getIdentityKey(identityType).serialize()))
