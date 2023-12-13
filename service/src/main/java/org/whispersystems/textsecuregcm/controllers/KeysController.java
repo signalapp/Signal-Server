@@ -14,7 +14,6 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -253,9 +252,11 @@ public class KeysController {
                     case PNI -> device.getPhoneNumberIdentityRegistrationId().orElse(device.getRegistrationId());
                   };
 
-                  responseItems.add(
-                      new PreKeyResponseItem(device.getId(), registrationId, signedEcPreKey, unsignedEcPreKey,
-                          pqPreKey));
+                  synchronized (responseItems) {
+                    responseItems.add(
+                        new PreKeyResponseItem(device.getId(), registrationId, signedEcPreKey, unsignedEcPreKey,
+                            pqPreKey));
+                  }
                 }
               });
         })
