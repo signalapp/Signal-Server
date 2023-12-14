@@ -187,6 +187,7 @@ import org.whispersystems.textsecuregcm.storage.KeysManager;
 import org.whispersystems.textsecuregcm.storage.MessagesCache;
 import org.whispersystems.textsecuregcm.storage.MessagesDynamoDb;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
+import org.whispersystems.textsecuregcm.storage.OneTimeDonationsManager;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.Profiles;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
@@ -547,6 +548,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getDynamoDbTables().getIssuedReceipts().getExpiration(),
         dynamoDbAsyncClient,
         config.getDynamoDbTables().getIssuedReceipts().getGenerator());
+    OneTimeDonationsManager oneTimeDonationsManager = new OneTimeDonationsManager(
+        config.getDynamoDbTables().getOnetimeDonations().getTableName(), dynamoDbAsyncClient);
     RedeemedReceiptsManager redeemedReceiptsManager = new RedeemedReceiptsManager(clock,
         config.getDynamoDbTables().getRedeemedReceipts().getTableName(),
         dynamoDbAsyncClient,
@@ -832,8 +835,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     );
     if (config.getSubscription() != null && config.getOneTimeDonations() != null) {
       commonControllers.add(new SubscriptionController(clock, config.getSubscription(), config.getOneTimeDonations(),
-          subscriptionManager, stripeManager, braintreeManager, zkReceiptOperations, issuedReceiptsManager, profileBadgeConverter,
-          resourceBundleLevelTranslator, bankMandateTranslator));
+          subscriptionManager, stripeManager, braintreeManager, zkReceiptOperations, issuedReceiptsManager, oneTimeDonationsManager,
+          profileBadgeConverter, resourceBundleLevelTranslator, bankMandateTranslator));
     }
 
     for (Object controller : commonControllers) {

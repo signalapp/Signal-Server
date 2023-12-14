@@ -242,6 +242,15 @@ public final class DynamoDbExtensionSchema {
             .projection(Projection.builder().projectionType(ProjectionType.KEYS_ONLY).build())
             .build())),
 
+    ONETIME_DONATIONS("onetime_donations_test",
+        OneTimeDonationsManager.KEY_PAYMENT_INTENT_ID,
+        null,
+        List.of(AttributeDefinition.builder()
+            .attributeName(OneTimeDonationsManager.KEY_PAYMENT_INTENT_ID)
+            .attributeType(ScalarAttributeType.S)
+            .build()),
+        List.of(), List.of()),
+
     PROFILES("profiles_test",
         Profiles.KEY_ACCOUNT_UUID,
         Profiles.ATTR_VERSION,

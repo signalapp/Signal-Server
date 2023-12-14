@@ -85,6 +85,7 @@ import org.whispersystems.textsecuregcm.entities.PurchasableBadge;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
+import org.whispersystems.textsecuregcm.storage.OneTimeDonationsManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager.GetResult;
 import org.whispersystems.textsecuregcm.subscriptions.BankMandateTranslator;
@@ -117,6 +118,7 @@ public class SubscriptionController {
   private final BraintreeManager braintreeManager;
   private final ServerZkReceiptOperations zkReceiptOperations;
   private final IssuedReceiptsManager issuedReceiptsManager;
+  private final OneTimeDonationsManager oneTimeDonationsManager;
   private final BadgeTranslator badgeTranslator;
   private final LevelTranslator levelTranslator;
   private final BankMandateTranslator bankMandateTranslator;
@@ -137,6 +139,7 @@ public class SubscriptionController {
       @Nonnull BraintreeManager braintreeManager,
       @Nonnull ServerZkReceiptOperations zkReceiptOperations,
       @Nonnull IssuedReceiptsManager issuedReceiptsManager,
+      @Nonnull OneTimeDonationsManager oneTimeDonationsManager,
       @Nonnull BadgeTranslator badgeTranslator,
       @Nonnull LevelTranslator levelTranslator,
       @Nonnull BankMandateTranslator bankMandateTranslator) {
@@ -148,6 +151,7 @@ public class SubscriptionController {
     this.braintreeManager = Objects.requireNonNull(braintreeManager);
     this.zkReceiptOperations = Objects.requireNonNull(zkReceiptOperations);
     this.issuedReceiptsManager = Objects.requireNonNull(issuedReceiptsManager);
+    this.oneTimeDonationsManager = Objects.requireNonNull(oneTimeDonationsManager);
     this.badgeTranslator = Objects.requireNonNull(badgeTranslator);
     this.levelTranslator = Objects.requireNonNull(levelTranslator);
     this.bankMandateTranslator = Objects.requireNonNull(bankMandateTranslator);
@@ -852,8 +856,9 @@ public class SubscriptionController {
           final long finalLevel = level;
           return issuedReceiptsManager.recordIssuance(paymentDetails.id(), manager.getProcessor(),
                   receiptCredentialRequest, clock.instant())
-              .thenApply(unused -> {
-                Instant expiration = paymentDetails.created()
+              .thenCompose(unused -> oneTimeDonationsManager.getPaidAt(paymentDetails.id(), paymentDetails.created()))
+              .thenApply(paidAt -> {
+                Instant expiration = paidAt
                     .plus(levelExpiration)
                     .truncatedTo(ChronoUnit.DAYS)
                     .plus(1, ChronoUnit.DAYS);
