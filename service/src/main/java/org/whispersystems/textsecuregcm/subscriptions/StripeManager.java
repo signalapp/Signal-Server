@@ -285,14 +285,8 @@ public class StripeManager implements SubscriptionProcessorManager {
           } catch (StripeException e) {
 
             if (e instanceof CardException ce) {
-              throw new CompletionException(new SubscriptionProcessorException(getProcessor(),
-                  new ChargeFailure(
-                      StringUtils.defaultIfBlank(ce.getDeclineCode(), ce.getCode()),
-                      e.getStripeError().getMessage(),
-                      null,
-                      null,
-                      null
-                  )));
+              throw new CompletionException(
+                  new SubscriptionProcessorException(getProcessor(), createChargeFailureFromCardException(e, ce)));
             }
 
             throw new CompletionException(e);
@@ -308,39 +302,45 @@ public class StripeManager implements SubscriptionProcessorManager {
     final Subscription subscription = getSubscription(subscriptionObj);
 
     return CompletableFuture.supplyAsync(() -> {
-              List<SubscriptionUpdateParams.Item> items = new ArrayList<>();
+          List<SubscriptionUpdateParams.Item> items = new ArrayList<>();
           try {
             final StripeCollection<SubscriptionItem> subscriptionItems = stripeClient.subscriptionItems()
                 .list(SubscriptionItemListParams.builder().setSubscription(subscription.getId()).build(),
                     commonOptions());
             for (final SubscriptionItem item : subscriptionItems.autoPagingIterable()) {
-                items.add(SubscriptionUpdateParams.Item.builder()
-                        .setId(item.getId())
-                        .setDeleted(true)
-                        .build());
-              }
               items.add(SubscriptionUpdateParams.Item.builder()
-                      .setPrice(priceId)
-                      .build());
-              SubscriptionUpdateParams params = SubscriptionUpdateParams.builder()
-                      .putMetadata(METADATA_KEY_LEVEL, Long.toString(level))
+                  .setId(item.getId())
+                  .setDeleted(true)
+                  .build());
+            }
+            items.add(SubscriptionUpdateParams.Item.builder()
+                .setPrice(priceId)
+                .build());
+            SubscriptionUpdateParams params = SubscriptionUpdateParams.builder()
+                .putMetadata(METADATA_KEY_LEVEL, Long.toString(level))
 
-                      // since badge redemption is untrackable by design and unrevokable, subscription changes must be immediate and
-                      // not prorated
-                      .setProrationBehavior(ProrationBehavior.NONE)
-                      .setBillingCycleAnchor(BillingCycleAnchor.NOW)
-                      .setOffSession(true)
-                      .setPaymentBehavior(SubscriptionUpdateParams.PaymentBehavior.ERROR_IF_INCOMPLETE)
-                      .addAllItem(items)
-                      .build();
-                return stripeClient.subscriptions().update(subscription.getId(), params,
-                    commonOptions(
-                        generateIdempotencyKeyForSubscriptionUpdate(subscription.getCustomer(), idempotencyKey)));
-              } catch (StripeException e) {
-                throw new CompletionException(e);
-              }
-            }, executor)
-            .thenApply(subscription1 -> new SubscriptionId(subscription1.getId()));
+                // since badge redemption is untrackable by design and unrevokable, subscription changes must be immediate and
+                // not prorated
+                .setProrationBehavior(ProrationBehavior.NONE)
+                .setBillingCycleAnchor(BillingCycleAnchor.NOW)
+                .setOffSession(true)
+                .setPaymentBehavior(SubscriptionUpdateParams.PaymentBehavior.ERROR_IF_INCOMPLETE)
+                .addAllItem(items)
+                .build();
+            return stripeClient.subscriptions().update(subscription.getId(), params,
+                commonOptions(
+                    generateIdempotencyKeyForSubscriptionUpdate(subscription.getCustomer(), idempotencyKey)));
+          } catch (StripeException e) {
+
+            if (e instanceof CardException ce) {
+              throw new CompletionException(
+                  new SubscriptionProcessorException(getProcessor(), createChargeFailureFromCardException(e, ce)));
+            }
+            throw new CompletionException(e);
+          }
+
+        }, executor)
+        .thenApply(subscription1 -> new SubscriptionId(subscription1.getId()));
   }
 
   public CompletableFuture<Object> getSubscription(String subscriptionId) {
@@ -502,6 +502,16 @@ public class StripeManager implements SubscriptionProcessorManager {
         outcome != null ? outcome.getNetworkStatus() : null,
         outcome != null ? outcome.getReason() : null,
         outcome != null ? outcome.getType() : null);
+  }
+
+  private static ChargeFailure createChargeFailureFromCardException(StripeException e, CardException ce) {
+    return new ChargeFailure(
+        StringUtils.defaultIfBlank(ce.getDeclineCode(), ce.getCode()),
+        e.getStripeError().getMessage(),
+        null,
+        null,
+        null
+    );
   }
 
   @Override
