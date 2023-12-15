@@ -309,12 +309,11 @@ class AccountsManagerUsernameIntegrationTest {
   }
 
   @Test
-  public void testUsernameLinks() throws InterruptedException {
+  public void testUsernameLinks() throws InterruptedException, AccountAlreadyExistsException {
     final Account account = AccountsHelper.createAccount(accountsManager, "+18005551111");
 
     account.setUsernameHash(TestRandomUtil.nextBytes(16));
-    accounts.create(account, ignored -> Collections.emptyList(),
-        (ignoredAci, ignoredPni) -> CompletableFuture.completedFuture(null));
+    accounts.create(account, Collections.emptyList());
 
     final UUID linkHandle = UUID.randomUUID();
     final byte[] encryptedUsername = TestRandomUtil.nextBytes(32);

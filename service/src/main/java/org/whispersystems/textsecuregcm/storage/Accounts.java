@@ -14,7 +14,6 @@ import com.google.common.base.Throwables;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -29,15 +28,12 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
-import java.util.function.BiFunction;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.util.AsyncTimerUtil;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
@@ -186,84 +182,86 @@ public class Accounts extends AbstractDynamoDbStore {
         deletedAccountsTableName);
   }
 
-  public boolean create(final Account account,
-      final Function<Account, Collection<TransactWriteItem>> additionalWriteItemsFunction,
-      final BiFunction<UUID, UUID, CompletableFuture<Void>> existingAccountCleanupOperation) {
+  boolean create(final Account account, final List<TransactWriteItem> additionalWriteItems)
+      throws AccountAlreadyExistsException {
 
-    return CREATE_TIMER.record(() -> {
+    final Timer.Sample sample = Timer.start();
+
+    try {
+      final AttributeValue uuidAttr = AttributeValues.fromUUID(account.getUuid());
+      final AttributeValue numberAttr = AttributeValues.fromString(account.getNumber());
+      final AttributeValue pniUuidAttr = AttributeValues.fromUUID(account.getPhoneNumberIdentifier());
+
+      final TransactWriteItem phoneNumberConstraintPut = buildConstraintTablePutIfAbsent(
+          phoneNumberConstraintTableName, uuidAttr, ATTR_ACCOUNT_E164, numberAttr);
+
+      final TransactWriteItem phoneNumberIdentifierConstraintPut = buildConstraintTablePutIfAbsent(
+          phoneNumberIdentifierConstraintTableName, uuidAttr, ATTR_PNI_UUID, pniUuidAttr);
+
+      final TransactWriteItem accountPut = buildAccountPut(account, uuidAttr, numberAttr, pniUuidAttr);
+
+      // Clear any "recently deleted account" record for this number since, if it existed, we've used its old ACI for
+      // the newly-created account.
+      final TransactWriteItem deletedAccountDelete = buildRemoveDeletedAccount(account.getNumber());
+
+      final Collection<TransactWriteItem> writeItems = new ArrayList<>(
+          List.of(phoneNumberConstraintPut, phoneNumberIdentifierConstraintPut, accountPut, deletedAccountDelete));
+
+      writeItems.addAll(additionalWriteItems);
+
+      final TransactWriteItemsRequest request = TransactWriteItemsRequest.builder()
+          .transactItems(writeItems)
+          .build();
+
       try {
-        final AttributeValue uuidAttr = AttributeValues.fromUUID(account.getUuid());
-        final AttributeValue numberAttr = AttributeValues.fromString(account.getNumber());
-        final AttributeValue pniUuidAttr = AttributeValues.fromUUID(account.getPhoneNumberIdentifier());
+        db().transactWriteItems(request);
+      } catch (final TransactionCanceledException e) {
 
-        final TransactWriteItem phoneNumberConstraintPut = buildConstraintTablePutIfAbsent(
-            phoneNumberConstraintTableName, uuidAttr, ATTR_ACCOUNT_E164, numberAttr);
+        final CancellationReason accountCancellationReason = e.cancellationReasons().get(2);
 
-        final TransactWriteItem phoneNumberIdentifierConstraintPut = buildConstraintTablePutIfAbsent(
-            phoneNumberIdentifierConstraintTableName, uuidAttr, ATTR_PNI_UUID, pniUuidAttr);
-
-        final TransactWriteItem accountPut = buildAccountPut(account, uuidAttr, numberAttr, pniUuidAttr);
-
-        // Clear any "recently deleted account" record for this number since, if it existed, we've used its old ACI for
-        // the newly-created account.
-        final TransactWriteItem deletedAccountDelete = buildRemoveDeletedAccount(account.getNumber());
-
-        final Collection<TransactWriteItem> writeItems = new ArrayList<>(
-            List.of(phoneNumberConstraintPut, phoneNumberIdentifierConstraintPut, accountPut, deletedAccountDelete));
-
-        writeItems.addAll(additionalWriteItemsFunction.apply(account));
-
-        final TransactWriteItemsRequest request = TransactWriteItemsRequest.builder()
-            .transactItems(writeItems)
-            .build();
-
-        try {
-          db().transactWriteItems(request);
-        } catch (final TransactionCanceledException e) {
-
-          final CancellationReason accountCancellationReason = e.cancellationReasons().get(2);
-
-          if (conditionalCheckFailed(accountCancellationReason)) {
-            throw new IllegalArgumentException("account identifier present with different phone number");
-          }
-
-          final CancellationReason phoneNumberConstraintCancellationReason = e.cancellationReasons().get(0);
-          final CancellationReason phoneNumberIdentifierConstraintCancellationReason = e.cancellationReasons().get(1);
-
-          if (conditionalCheckFailed(phoneNumberConstraintCancellationReason)
-              || conditionalCheckFailed(phoneNumberIdentifierConstraintCancellationReason)) {
-
-            // In theory, both reasons should trip in tandem and either should give us the information we need. Even so,
-            // we'll be cautious here and make sure we're choosing a condition check that really failed.
-            final CancellationReason reason = conditionalCheckFailed(phoneNumberConstraintCancellationReason)
-                ? phoneNumberConstraintCancellationReason
-                : phoneNumberIdentifierConstraintCancellationReason;
-
-            final ByteBuffer actualAccountUuid = reason.item().get(KEY_ACCOUNT_UUID).b().asByteBuffer();
-            account.setUuid(UUIDUtil.fromByteBuffer(actualAccountUuid));
-            final Account existingAccount = getByAccountIdentifier(account.getUuid()).orElseThrow();
-            account.setNumber(existingAccount.getNumber(), existingAccount.getPhoneNumberIdentifier());
-
-            existingAccountCleanupOperation.apply(existingAccount.getIdentifier(IdentityType.ACI), existingAccount.getIdentifier(IdentityType.PNI))
-                .thenCompose(ignored -> reclaimAccount(existingAccount, account, additionalWriteItemsFunction.apply(account)))
-                .join();
-
-            return false;
-          }
-
-          if (TRANSACTION_CONFLICT.equals(accountCancellationReason.code())) {
-            // this should only happen if two clients manage to make concurrent create() calls
-            throw new ContestedOptimisticLockException();
-          }
-
-          // this shouldn't happen
-          throw new RuntimeException("could not create account: " + extractCancellationReasonCodes(e));
+        if (conditionalCheckFailed(accountCancellationReason)) {
+          throw new IllegalArgumentException("account identifier present with different phone number");
         }
-      } catch (final JsonProcessingException e) {
-        throw new IllegalArgumentException(e);
+
+        final CancellationReason phoneNumberConstraintCancellationReason = e.cancellationReasons().get(0);
+        final CancellationReason phoneNumberIdentifierConstraintCancellationReason = e.cancellationReasons().get(1);
+
+        if (conditionalCheckFailed(phoneNumberConstraintCancellationReason)
+            || conditionalCheckFailed(phoneNumberIdentifierConstraintCancellationReason)) {
+
+          // In theory, both reasons should trip in tandem and either should give us the information we need. Even so,
+          // we'll be cautious here and make sure we're choosing a condition check that really failed.
+          final CancellationReason reason = conditionalCheckFailed(phoneNumberConstraintCancellationReason)
+              ? phoneNumberConstraintCancellationReason
+              : phoneNumberIdentifierConstraintCancellationReason;
+
+          final UUID existingAccountUuid =
+              UUIDUtil.fromByteBuffer(reason.item().get(KEY_ACCOUNT_UUID).b().asByteBuffer());
+
+          // This is unlikely, but it could be that the existing account was deleted in between the time the transaction
+          // happened and when we tried to read the full existing account. If that happens, we can just consider this a
+          // contested lock, and retrying is likely to succeed.
+          final Account existingAccount = getByAccountIdentifier(existingAccountUuid)
+              .orElseThrow(ContestedOptimisticLockException::new);
+
+          throw new AccountAlreadyExistsException(existingAccount);
+        }
+
+        if (TRANSACTION_CONFLICT.equals(accountCancellationReason.code())) {
+          // this should only happen if two clients manage to make concurrent create() calls
+          throw new ContestedOptimisticLockException();
+        }
+
+        // this shouldn't happen
+        throw new RuntimeException("could not create account: " + extractCancellationReasonCodes(e));
       }
-      return true;
-    });
+    } catch (final JsonProcessingException e) {
+      throw new IllegalArgumentException(e);
+    } finally {
+      sample.stop(CREATE_TIMER);
+    }
+
+    return true;
   }
 
   /**
@@ -272,9 +270,13 @@ public class Accounts extends AbstractDynamoDbStore {
    * @param existingAccount the existing account in the accounts table
    * @param accountToCreate a new account, with the same number and identifier as existingAccount
    */
-  private CompletionStage<Void> reclaimAccount(final Account existingAccount, final Account accountToCreate, final Collection<TransactWriteItem> additionalWriteItems) {
+  CompletionStage<Void> reclaimAccount(final Account existingAccount,
+      final Account accountToCreate,
+      final Collection<TransactWriteItem> additionalWriteItems) {
+
     if (!existingAccount.getUuid().equals(accountToCreate.getUuid()) ||
         !existingAccount.getNumber().equals(accountToCreate.getNumber())) {
+
       throw new IllegalArgumentException("reclaimed accounts must match");
     }
 

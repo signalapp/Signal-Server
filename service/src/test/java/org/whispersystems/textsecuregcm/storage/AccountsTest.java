@@ -9,6 +9,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -215,34 +216,6 @@ class AccountsTest {
   }
 
   @Test
-  void testStoreCleanupFailure() {
-    final Account existingAccount = nextRandomAccount();
-    createAccount(existingAccount);
-
-    verifyStoredState(existingAccount.getNumber(),
-        existingAccount.getUuid(),
-        existingAccount.getPhoneNumberIdentifier(),
-        existingAccount.getUsernameHash().orElse(null),
-        existingAccount,
-        true);
-
-    final CompletionException completionException = assertThrows(CompletionException.class,
-        () -> accounts.create(generateAccount(existingAccount.getNumber(), UUID.randomUUID(), UUID.randomUUID()),
-            ignored -> Collections.emptyList(),
-            (aci, pni) -> CompletableFuture.failedFuture(new RuntimeException("OH NO"))));
-
-    assertTrue(completionException.getCause() instanceof RuntimeException);
-
-    // If the existing account cleanup task failed, we should not overwrite the existing account record
-    verifyStoredState(existingAccount.getNumber(),
-        existingAccount.getUuid(),
-        existingAccount.getPhoneNumberIdentifier(),
-        existingAccount.getUsernameHash().orElse(null),
-        existingAccount,
-        true);
-  }
-
-  @Test
   void testStoreMulti() {
     final List<Device> devices = List.of(generateDevice(DEVICE_ID_1), generateDevice(DEVICE_ID_2));
     final Account account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID(), devices);
@@ -388,10 +361,10 @@ class AccountsTest {
         accounts.reserveUsernameHash(account, usernameHash, Duration.ofMinutes(1)).join();
         accounts.confirmUsernameHash(account, usernameHash, encryptedUsername).join();
 
-        // simulate a failed re-reg: we give the account a reclaimable username, but we'll try
+        // simulate a partially-completed re-reg: we give the account a reclaimable username, but we'll try
         // re-registering again later in the test case
         account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID(), List.of(generateDevice(DEVICE_ID_1)));
-        createAccount(account);
+        reclaimAccount(account);
         break;
       case CONFIRMED:
         accounts.reserveUsernameHash(account, usernameHash, Duration.ofMinutes(1)).join();
@@ -403,7 +376,7 @@ class AccountsTest {
 
     // re-register the account
     account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID(), List.of(generateDevice(DEVICE_ID_1)));
-    createAccount(account);
+    reclaimAccount(account);
 
     // If we had a username link, or we had previously saved a username link from another re-registration, make sure
     // we preserve it
@@ -418,50 +391,63 @@ class AccountsTest {
     assertThat(account.getUsernameLinkHandle().equals(preservedLink.orElse(null)))
         .isEqualTo(shouldReuseLink);
 
-
     // in all cases, we should now have usernameHash, usernameLink, and encryptedUsername set
     assertThat(account.getUsernameHash()).isNotEmpty();
     assertThat(account.getEncryptedUsername()).isNotEmpty();
     assertThat(account.getUsernameLinkHandle()).isNotNull();
     assertThat(account.getReservedUsernameHash()).isEmpty();
+  }
 
+  private void reclaimAccount(final Account reregisteredAccount) {
+    final AccountAlreadyExistsException accountAlreadyExistsException =
+        assertThrows(AccountAlreadyExistsException.class,
+            () -> accounts.create(reregisteredAccount, Collections.emptyList()));
+
+    reregisteredAccount.setUuid(accountAlreadyExistsException.getExistingAccount().getUuid());
+    reregisteredAccount.setNumber(accountAlreadyExistsException.getExistingAccount().getNumber(),
+        accountAlreadyExistsException.getExistingAccount().getPhoneNumberIdentifier());
+
+    assertDoesNotThrow(() -> accounts.reclaimAccount(accountAlreadyExistsException.getExistingAccount(),
+        reregisteredAccount,
+        Collections.emptyList()).toCompletableFuture().join());
   }
 
   @Test
-  void testOverwrite() {
-    Device device = generateDevice(DEVICE_ID_1);
-    UUID firstUuid = UUID.randomUUID();
-    UUID firstPni = UUID.randomUUID();
-    Account account = generateAccount("+14151112222", firstUuid, firstPni, List.of(device));
+  void testReclaimAccount() {
+    final String e164 = "+14151112222";
+    final Device device = generateDevice(DEVICE_ID_1);
+    final UUID existingUuid = UUID.randomUUID();
+    final UUID existingPni = UUID.randomUUID();
+    final Account existingAccount = generateAccount(e164, existingUuid, existingPni, List.of(device));
 
-    createAccount(account);
+    createAccount(existingAccount);
 
     final byte[] usernameHash = randomBytes(32);
     final byte[] encryptedUsername = randomBytes(16);
 
     // Set up the existing account to have a username hash
-    accounts.confirmUsernameHash(account, usernameHash, encryptedUsername).join();
-    final UUID usernameLinkHandle = account.getUsernameLinkHandle();
+    accounts.confirmUsernameHash(existingAccount, usernameHash, encryptedUsername).join();
+    final UUID usernameLinkHandle = existingAccount.getUsernameLinkHandle();
 
-    verifyStoredState("+14151112222", account.getUuid(), account.getPhoneNumberIdentifier(), usernameHash, account, true);
+    verifyStoredState(e164, existingAccount.getUuid(), existingAccount.getPhoneNumberIdentifier(), usernameHash, existingAccount, true);
 
-    assertPhoneNumberConstraintExists("+14151112222", firstUuid);
-    assertPhoneNumberIdentifierConstraintExists(firstPni, firstUuid);
+    assertPhoneNumberConstraintExists(e164, existingUuid);
+    assertPhoneNumberIdentifierConstraintExists(existingPni, existingUuid);
 
-    accounts.update(account);
+    assertDoesNotThrow(() -> accounts.update(existingAccount));
 
-    UUID secondUuid = UUID.randomUUID();
+    final UUID secondUuid = UUID.randomUUID();
 
-    device = generateDevice(DEVICE_ID_1);
-    account = generateAccount("+14151112222", secondUuid, UUID.randomUUID(), List.of(device));
+    final Device secondDevice = generateDevice(DEVICE_ID_1);
+    final Account secondAccount = generateAccount(e164, secondUuid, UUID.randomUUID(), List.of(secondDevice));
 
-    final boolean freshUser = createAccount(account);
-    assertThat(freshUser).isFalse();
+    reclaimAccount(secondAccount);
+
     // usernameHash should be unset
-    verifyStoredState("+14151112222", firstUuid, firstPni, null, account, true);
+    verifyStoredState("+14151112222", existingUuid, existingPni, null, secondAccount, true);
 
     // username should become 'reclaimable'
-    Map<String, AttributeValue> item = readAccount(firstUuid);
+    Map<String, AttributeValue> item = readAccount(existingUuid);
     Account result = Accounts.fromItem(item);
     assertThat(AttributeValues.getUUID(item, Accounts.ATTR_USERNAME_LINK_UUID, null))
         .isEqualTo(usernameLinkHandle)
@@ -472,7 +458,7 @@ class AccountsTest {
 
     // should keep the same usernameLink, now encryptedUsername should be set
     accounts.confirmUsernameHash(result, usernameHash, encryptedUsername).join();
-    item = readAccount(firstUuid);
+    item = readAccount(existingUuid);
     result = Accounts.fromItem(item);
     assertThat(AttributeValues.getUUID(item, Accounts.ATTR_USERNAME_LINK_UUID, null))
         .isEqualTo(usernameLinkHandle)
@@ -481,11 +467,10 @@ class AccountsTest {
     assertArrayEquals(result.getUsernameHash().get(), usernameHash);
     assertThat(result.getReservedUsernameHash()).isEmpty();
 
-    assertPhoneNumberConstraintExists("+14151112222", firstUuid);
-    assertPhoneNumberIdentifierConstraintExists(firstPni, firstUuid);
+    assertPhoneNumberConstraintExists("+14151112222", existingUuid);
+    assertPhoneNumberIdentifierConstraintExists(existingPni, existingUuid);
 
-    device = generateDevice(DEVICE_ID_1);
-    Account invalidAccount = generateAccount("+14151113333", firstUuid, UUID.randomUUID(), List.of(device));
+    Account invalidAccount = generateAccount("+14151113333", existingUuid, UUID.randomUUID(), List.of(generateDevice(DEVICE_ID_1)));
 
     assertThatThrownBy(() -> createAccount(invalidAccount));
   }
@@ -1237,8 +1222,11 @@ class AccountsTest {
   }
 
   private boolean createAccount(final Account account) {
-    return accounts.create(account, ignored -> Collections.emptyList(),
-        (ignoredAci, ignoredPni) -> CompletableFuture.completedFuture(null));
+    try {
+      return accounts.create(account, Collections.emptyList());
+    } catch (AccountAlreadyExistsException e) {
+      throw new IllegalStateException(e);
+    }
   }
 
   private static Account nextRandomAccount() {

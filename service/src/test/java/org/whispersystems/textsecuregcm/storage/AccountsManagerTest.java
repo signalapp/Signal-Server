@@ -50,7 +50,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -868,14 +867,14 @@ class AccountsManagerTest {
   }
 
   @Test
-  void testUpdate_dynamoOptimisticLockingFailureDuringCreate() {
+  void testUpdate_dynamoOptimisticLockingFailureDuringCreate() throws AccountAlreadyExistsException {
     UUID uuid = UUID.randomUUID();
     Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
 
     when(commands.get(eq("Account3::" + uuid))).thenReturn(null);
     when(accounts.getByAccountIdentifier(uuid)).thenReturn(Optional.empty())
         .thenReturn(Optional.of(account));
-    when(accounts.create(any(), any(), any())).thenThrow(ContestedOptimisticLockException.class);
+    when(accounts.create(any(), any())).thenThrow(ContestedOptimisticLockException.class);
 
     accountsManager.update(account, a -> {
     });
@@ -992,42 +991,49 @@ class AccountsManagerTest {
   }
 
   @Test
-  void testCreateFreshAccount() throws InterruptedException {
-    when(accounts.create(any(), any(), any())).thenReturn(true);
+  void testCreateFreshAccount() throws InterruptedException, AccountAlreadyExistsException {
+    when(accounts.create(any(), any())).thenReturn(true);
 
     final String e164 = "+18005550123";
     final AccountAttributes attributes = new AccountAttributes(false, 1, 2, null, null, true, null);
 
     createAccount(e164, attributes);
 
-    verify(accounts).create(argThat(account -> e164.equals(account.getNumber())), any(), any());
+    verify(accounts).create(argThat(account -> e164.equals(account.getNumber())), any());
 
     verifyNoInteractions(messagesManager);
     verifyNoInteractions(profilesManager);
   }
 
   @Test
-  void testReregisterAccount() throws InterruptedException {
+  void testReregisterAccount() throws InterruptedException, AccountAlreadyExistsException {
     final UUID existingUuid = UUID.randomUUID();
 
     final String e164 = "+18005550123";
     final AccountAttributes attributes = new AccountAttributes(false, 1, 2, null, null, true, null);
 
-    when(accounts.create(any(), any(), any())).thenAnswer(invocation -> {
-      invocation.getArgument(0, Account.class).setUuid(existingUuid);
+    when(accounts.create(any(), any()))
+        .thenAnswer(invocation -> {
+          final Account requestedAccount = invocation.getArgument(0);
 
-      final BiFunction<UUID, UUID, CompletableFuture<Void>> cleanupOperation = invocation.getArgument(2);
-      cleanupOperation.apply(existingUuid, phoneNumberIdentifiersByE164.get(e164));
+          final Account existingAccount = mock(Account.class);
+          when(existingAccount.getUuid()).thenReturn(existingUuid);
+          when(existingAccount.getIdentifier(IdentityType.ACI)).thenReturn(existingUuid);
+          when(existingAccount.getNumber()).thenReturn(e164);
+          when(existingAccount.getPhoneNumberIdentifier()).thenReturn(requestedAccount.getIdentifier(IdentityType.PNI));
+          when(existingAccount.getIdentifier(IdentityType.PNI)).thenReturn(requestedAccount.getIdentifier(IdentityType.PNI));
 
-      return false;
-    });
+          throw new AccountAlreadyExistsException(existingAccount);
+        });
+
+    when(accounts.reclaimAccount(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
     createAccount(e164, attributes);
 
     assertTrue(phoneNumberIdentifiersByE164.containsKey(e164));
 
     verify(accounts)
-        .create(argThat(account -> e164.equals(account.getNumber()) && existingUuid.equals(account.getUuid())), any(), any());
+        .create(argThat(account -> e164.equals(account.getNumber()) && existingUuid.equals(account.getUuid())), any());
 
     verify(keysManager).delete(existingUuid);
     verify(keysManager).delete(phoneNumberIdentifiersByE164.get(e164));
@@ -1039,23 +1045,30 @@ class AccountsManagerTest {
   }
 
   @Test
-  void testCreateAccountRecentlyDeleted() throws InterruptedException {
+  void testCreateAccountRecentlyDeleted() throws InterruptedException, AccountAlreadyExistsException {
     final UUID recentlyDeletedUuid = UUID.randomUUID();
 
     when(accounts.findRecentlyDeletedAccountIdentifier(anyString())).thenReturn(Optional.of(recentlyDeletedUuid));
-    when(accounts.create(any(), any(), any())).thenReturn(true);
+    when(accounts.create(any(), any())).thenReturn(true);
 
     final String e164 = "+18005550123";
     final AccountAttributes attributes = new AccountAttributes(false, 1, 2, null, null, true, null);
 
-    createAccount(e164, attributes);
+    final Account account = createAccount(e164, attributes);
 
     verify(accounts).create(
-        argThat(account -> e164.equals(account.getNumber()) && recentlyDeletedUuid.equals(account.getUuid())),
+        argThat(a -> e164.equals(a.getNumber()) && recentlyDeletedUuid.equals(a.getUuid())),
+        any());
+
+    verify(keysManager).buildWriteItemsForRepeatedUseKeys(eq(account.getIdentifier(IdentityType.ACI)),
+        eq(account.getIdentifier(IdentityType.PNI)),
+        eq(Device.PRIMARY_ID),
+        any(),
+        any(),
         any(),
         any());
 
-    verifyNoInteractions(keysManager);
+    verifyNoMoreInteractions(keysManager);
     verifyNoInteractions(messagesManager);
     verifyNoInteractions(profilesManager);
   }

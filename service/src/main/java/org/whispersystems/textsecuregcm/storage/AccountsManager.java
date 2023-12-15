@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import io.lettuce.core.RedisException;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Tags;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.Clock;
@@ -182,80 +181,79 @@ public class AccountsManager {
       final IdentityKey pniIdentityKey,
       final DeviceSpec primaryDeviceSpec) throws InterruptedException {
 
-    try (Timer.Context ignored = createTimer.time()) {
-      final Account account = new Account();
+    final Account account = new Account();
 
+    try (Timer.Context ignoredTimerContext = createTimer.time()) {
       accountLockManager.withLock(List.of(number), () -> {
-        final Device device = primaryDeviceSpec.toDevice(Device.PRIMARY_ID, clock);
-
-        account.setNumber(number, phoneNumberIdentifiers.getPhoneNumberIdentifier(number));
-
         final Optional<UUID> maybeRecentlyDeletedAccountIdentifier =
             accounts.findRecentlyDeletedAccountIdentifier(number);
 
         // Reuse the ACI from any recently-deleted account with this number to cover cases where somebody is
         // re-registering.
+        account.setNumber(number, phoneNumberIdentifiers.getPhoneNumberIdentifier(number));
         account.setUuid(maybeRecentlyDeletedAccountIdentifier.orElseGet(UUID::randomUUID));
         account.setIdentityKey(aciIdentityKey);
         account.setPhoneNumberIdentityKey(pniIdentityKey);
-        account.addDevice(device);
+        account.addDevice(primaryDeviceSpec.toDevice(Device.PRIMARY_ID, clock));
         account.setRegistrationLockFromAttributes(accountAttributes);
         account.setUnidentifiedAccessKey(accountAttributes.getUnidentifiedAccessKey());
         account.setUnrestrictedUnidentifiedAccess(accountAttributes.isUnrestrictedUnidentifiedAccess());
         account.setDiscoverableByPhoneNumber(accountAttributes.isDiscoverableByPhoneNumber());
         account.setBadges(clock, accountBadges);
 
-        final UUID originalUuid = account.getUuid();
+        String accountCreationType = maybeRecentlyDeletedAccountIdentifier.isPresent() ? "recently-deleted" : "new";
 
-        final boolean freshUser = accounts.create(account,
-            a -> keysManager.buildWriteItemsForRepeatedUseKeys(a.getIdentifier(IdentityType.ACI),
-                a.getIdentifier(IdentityType.PNI),
-                Device.PRIMARY_ID,
-                primaryDeviceSpec.aciSignedPreKey(),
-                primaryDeviceSpec.pniSignedPreKey(),
-                primaryDeviceSpec.aciPqLastResortPreKey(),
-                primaryDeviceSpec.pniPqLastResortPreKey()),
-            (aci, pni) -> CompletableFuture.allOf(
-                keysManager.delete(aci),
-                keysManager.delete(pni),
-                messagesManager.clear(aci),
-                profilesManager.deleteAll(aci)
-            ).thenRunAsync(() -> clientPresenceManager.disconnectAllPresencesForUuid(aci), clientPresenceExecutor));
+        try {
+          accounts.create(account, keysManager.buildWriteItemsForRepeatedUseKeys(account.getIdentifier(IdentityType.ACI),
+              account.getIdentifier(IdentityType.PNI),
+              Device.PRIMARY_ID,
+              primaryDeviceSpec.aciSignedPreKey(),
+              primaryDeviceSpec.pniSignedPreKey(),
+              primaryDeviceSpec.aciPqLastResortPreKey(),
+              primaryDeviceSpec.pniPqLastResortPreKey()));
+        } catch (final AccountAlreadyExistsException e) {
+          accountCreationType = "re-registration";
 
-        if (!account.getUuid().equals(originalUuid)) {
-          // If the UUID changed, then we overwrote an existing account. We should have cleared all messages before
-          // overwriting the old account, but more may have arrived while we were working. Similarly, the old account
-          // holder could have added keys or profiles. We'll largely repeat the cleanup process after creating the
-          // account to make sure we really REALLY got everything.
-          //
-          // We exclude the primary device's repeated-use keys from deletion because new keys were provided as
-          // part of the account creation process, and we don't want to delete the keys that just got added.
-          CompletableFuture.allOf(keysManager.delete(account.getIdentifier(IdentityType.ACI), true),
-              keysManager.delete(account.getIdentifier(IdentityType.PNI), true),
-              messagesManager.clear(account.getIdentifier(IdentityType.ACI)),
-              profilesManager.deleteAll(account.getIdentifier(IdentityType.ACI)))
+          final UUID aci = e.getExistingAccount().getIdentifier(IdentityType.ACI);
+          final UUID pni = e.getExistingAccount().getIdentifier(IdentityType.PNI);
+
+          account.setUuid(aci);
+          account.setNumber(e.getExistingAccount().getNumber(), pni);
+
+          CompletableFuture.allOf(
+                  keysManager.delete(aci),
+                  keysManager.delete(pni),
+                  messagesManager.clear(aci),
+                  profilesManager.deleteAll(aci))
+              .thenRunAsync(() -> clientPresenceManager.disconnectAllPresencesForUuid(aci), clientPresenceExecutor)
+              .thenCompose(ignored -> accounts.reclaimAccount(e.getExistingAccount(),
+                  account,
+                  keysManager.buildWriteItemsForRepeatedUseKeys(account.getIdentifier(IdentityType.ACI),
+                      account.getIdentifier(IdentityType.PNI),
+                      Device.PRIMARY_ID,
+                      primaryDeviceSpec.aciSignedPreKey(),
+                      primaryDeviceSpec.pniSignedPreKey(),
+                      primaryDeviceSpec.aciPqLastResortPreKey(),
+                      primaryDeviceSpec.pniPqLastResortPreKey())))
+              .thenCompose(ignored -> {
+                // We should have cleared all messages before overwriting the old account, but more may have arrived
+                // while we were working. Similarly, the old account holder could have added keys or profiles. We'll
+                // largely repeat the cleanup process after creating the account to make sure we really REALLY got
+                // everything.
+                //
+                // We exclude the primary device's repeated-use keys from deletion because new keys were provided as
+                // part of the account creation process, and we don't want to delete the keys that just got added.
+                return CompletableFuture.allOf(keysManager.delete(aci, true),
+                        keysManager.delete(pni, true),
+                        messagesManager.clear(aci),
+                        profilesManager.deleteAll(aci));
+              })
               .join();
         }
 
         redisSet(account);
 
-        final Tags tags;
-
-        // In terms of previously-existing accounts, there are three possible cases:
-        //
-        // 1. This is a completely new account; there was no pre-existing account and no recently-deleted account
-        // 2. This is a re-registration of an existing account. The storage layer will update the existing account in
-        //    place to match the account record created above, and will update the UUID of the newly-created account
-        //    instance to match the stored account record (i.e. originalUuid != actualUuid).
-        // 3. This is a re-registration of a recently-deleted account, in which case maybeRecentlyDeletedUuid is
-        //    present.
-        if (freshUser) {
-          tags = Tags.of("type", maybeRecentlyDeletedAccountIdentifier.isPresent() ? "recently-deleted" : "new");
-        } else {
-          tags = Tags.of("type", "re-registration");
-        }
-
-        Metrics.counter(CREATE_COUNTER_NAME, tags).increment();
+        Metrics.counter(CREATE_COUNTER_NAME, "type", accountCreationType).increment();
 
         accountAttributes.recoveryPassword().ifPresent(registrationRecoveryPassword ->
             registrationRecoveryPasswordsManager.storeForCurrentNumber(account.getNumber(), registrationRecoveryPassword));
