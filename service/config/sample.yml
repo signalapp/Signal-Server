@@ -104,6 +104,7 @@ dynamoDbTables:
     expiration: P30D # Duration of time until rows expire
   onetimeDonations:
     tableName: Example_OnetimeDonations
+    expiration: P90D
   phoneNumberIdentifiers:
     tableName: Example_PhoneNumberIdentifiers
   profiles:

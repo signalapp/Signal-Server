@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.storage;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.Duration;
 import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,6 +22,7 @@ public class OnetimeDonationsManagerTest {
   void beforeEach() {
     oneTimeDonationsManager = new OneTimeDonationsManager(
         DynamoDbExtensionSchema.Tables.ONETIME_DONATIONS.tableName(),
+        Duration.ofDays(90),
         DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient());
   }
 

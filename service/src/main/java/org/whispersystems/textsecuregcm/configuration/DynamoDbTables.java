@@ -59,7 +59,7 @@ public class DynamoDbTables {
   private final Table kemKeys;
   private final Table kemLastResortKeys;
   private final TableWithExpiration messages;
-  private final Table onetimeDonations;
+  private final TableWithExpiration onetimeDonations;
   private final Table phoneNumberIdentifiers;
   private final Table profiles;
   private final Table pushChallenge;
@@ -83,7 +83,7 @@ public class DynamoDbTables {
       @JsonProperty("pqKeys") final Table kemKeys,
       @JsonProperty("pqLastResortKeys") final Table kemLastResortKeys,
       @JsonProperty("messages") final TableWithExpiration messages,
-      @JsonProperty("onetimeDonations") final Table onetimeDonations,
+      @JsonProperty("onetimeDonations") final TableWithExpiration onetimeDonations,
       @JsonProperty("phoneNumberIdentifiers") final Table phoneNumberIdentifiers,
       @JsonProperty("profiles") final Table profiles,
       @JsonProperty("pushChallenge") final Table pushChallenge,
@@ -192,7 +192,7 @@ public class DynamoDbTables {
 
   @NotNull
   @Valid
-  public Table getOnetimeDonations() {
+  public TableWithExpiration getOnetimeDonations() {
     return onetimeDonations;
   }
 

@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.storage;
 import static com.codahale.metrics.MetricRegistry.name;
 
 import io.micrometer.core.instrument.Metrics;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
@@ -21,14 +22,19 @@ import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 public class OneTimeDonationsManager {
   public static final String KEY_PAYMENT_ID = "P"; // S
   public static final String ATTR_PAID_AT = "A"; // N
+  public static final String ATTR_TTL = "E"; // N
+
   private static final String ONETIME_DONATION_NOT_FOUND_COUNTER_NAME = name(OneTimeDonationsManager.class, "onetimeDonationNotFound");
   private final String table;
+  private final Duration ttl;
   private final DynamoDbAsyncClient dynamoDbAsyncClient;
 
   public OneTimeDonationsManager(
       @Nonnull String table,
+      @Nonnull Duration ttl,
       @Nonnull DynamoDbAsyncClient dynamoDbAsyncClient) {
     this.table = Objects.requireNonNull(table);
+    this.ttl = Objects.requireNonNull(ttl);
     this.dynamoDbAsyncClient = Objects.requireNonNull(dynamoDbAsyncClient);
   }
 
@@ -55,7 +61,8 @@ public class OneTimeDonationsManager {
             .tableName(table)
             .item(Map.of(
                 KEY_PAYMENT_ID, AttributeValues.fromString(paymentId),
-                ATTR_PAID_AT, AttributeValues.fromLong(paidAt.getEpochSecond())))
+                ATTR_PAID_AT, AttributeValues.fromLong(paidAt.getEpochSecond()),
+                ATTR_TTL, AttributeValues.fromLong(paidAt.plus(ttl).getEpochSecond())))
             .build())
         .thenApply(unused -> paymentId);
   }
