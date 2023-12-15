@@ -780,8 +780,9 @@ public class SubscriptionController {
         })
         .thenCompose(unused -> braintreeManager.captureOneTimePayment(request.payerId, request.paymentId,
             request.paymentToken, request.currency, request.amount, request.level))
-        .thenApply(chargeSuccessDetails -> Response.ok(
-            new ConfirmPayPalBoostResponse(chargeSuccessDetails.paymentId())).build());
+        .thenCompose(chargeSuccessDetails -> oneTimeDonationsManager.putPaidAt(chargeSuccessDetails.paymentId(), Instant.now()))
+        .thenApply(paymentId -> Response.ok(
+            new ConfirmPayPalBoostResponse(paymentId)).build());
   }
 
   public static class CreateBoostReceiptCredentialsRequest {

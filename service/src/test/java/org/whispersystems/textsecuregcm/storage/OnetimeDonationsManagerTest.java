@@ -25,7 +25,7 @@ public class OnetimeDonationsManagerTest {
   }
 
   @Test
-  void testGetPaidAtTimestamp() {
+  void testSetGetPaidAtTimestamp() {
     final String validPaymentIntentId = "abc";
     final Instant paidAt = Instant.ofEpochSecond(1_000_000);
     final Instant fallBackTimestamp = Instant.ofEpochSecond(2_000_000);

@@ -243,10 +243,10 @@ public final class DynamoDbExtensionSchema {
             .build())),
 
     ONETIME_DONATIONS("onetime_donations_test",
-        OneTimeDonationsManager.KEY_PAYMENT_INTENT_ID,
+        OneTimeDonationsManager.KEY_PAYMENT_ID,
         null,
         List.of(AttributeDefinition.builder()
-            .attributeName(OneTimeDonationsManager.KEY_PAYMENT_INTENT_ID)
+            .attributeName(OneTimeDonationsManager.KEY_PAYMENT_ID)
             .attributeType(ScalarAttributeType.S)
             .build()),
         List.of(), List.of()),

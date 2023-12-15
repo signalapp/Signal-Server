@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.storage;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
-import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.instrument.Metrics;
 import java.time.Instant;
 import java.util.Map;
@@ -15,13 +14,12 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
-import org.whispersystems.textsecuregcm.util.Util;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 
 public class OneTimeDonationsManager {
-  public static final String KEY_PAYMENT_INTENT_ID = "P"; // S
+  public static final String KEY_PAYMENT_ID = "P"; // S
   public static final String ATTR_PAID_AT = "A"; // N
   private static final String ONETIME_DONATION_NOT_FOUND_COUNTER_NAME = name(OneTimeDonationsManager.class, "onetimeDonationNotFound");
   private final String table;
@@ -34,11 +32,11 @@ public class OneTimeDonationsManager {
     this.dynamoDbAsyncClient = Objects.requireNonNull(dynamoDbAsyncClient);
   }
 
-  public CompletableFuture<Instant> getPaidAt(final String paymentIntentId, final Instant fallbackTimestamp) {
+  public CompletableFuture<Instant> getPaidAt(final String paymentId, final Instant fallbackTimestamp) {
     final GetItemRequest getItemRequest = GetItemRequest.builder()
         .consistentRead(Boolean.TRUE)
         .tableName(table)
-        .key(Map.of(KEY_PAYMENT_INTENT_ID, AttributeValues.fromString(paymentIntentId)))
+        .key(Map.of(KEY_PAYMENT_ID, AttributeValues.fromString(paymentId)))
         .projectionExpression(ATTR_PAID_AT)
         .build();
 
@@ -52,15 +50,13 @@ public class OneTimeDonationsManager {
     });
   }
 
-  @VisibleForTesting
-  CompletableFuture<Void> putPaidAt(final String paymentIntentId, final Instant paidAt) {
+  public CompletableFuture<String> putPaidAt(final String paymentId, final Instant paidAt) {
     return dynamoDbAsyncClient.putItem(PutItemRequest.builder()
             .tableName(table)
             .item(Map.of(
-                KEY_PAYMENT_INTENT_ID, AttributeValues.fromString(paymentIntentId),
+                KEY_PAYMENT_ID, AttributeValues.fromString(paymentId),
                 ATTR_PAID_AT, AttributeValues.fromLong(paidAt.getEpochSecond())))
             .build())
-        .thenRun(Util.NOOP);
-
+        .thenApply(unused -> paymentId);
   }
 }
