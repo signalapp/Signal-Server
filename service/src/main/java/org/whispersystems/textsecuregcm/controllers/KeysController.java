@@ -38,6 +38,8 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import org.signal.libsignal.protocol.IdentityKey;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
@@ -77,6 +79,8 @@ public class KeysController {
   private static final String GET_KEYS_COUNTER_NAME = MetricsUtil.name(KeysController.class, "getKeys");
 
   private static final CompletableFuture<?>[] EMPTY_FUTURE_ARRAY = new CompletableFuture[0];
+
+  private static final Logger logger = LoggerFactory.getLogger(KeysController.class);
 
   public KeysController(RateLimiters rateLimiters, KeysManager keys, AccountsManager accounts) {
     this.rateLimiters = rateLimiters;
@@ -247,9 +251,24 @@ public class KeysController {
     final List<PreKeyResponseItem> responseItems = Flux.fromIterable(parseDeviceId(deviceId, target))
         .flatMap(device -> {
           final ECSignedPreKey ecSignedPreKey = device.getSignedPreKey(targetIdentifier.identityType());
+          final CompletableFuture<Optional<ECSignedPreKey>> signedPreKeyFuture =
+              keys.getEcSignedPreKey(targetIdentifier.uuid(), device.getId());
 
-          compareSignedEcPreKeysExperiment.compareFutureResult(Optional.ofNullable(ecSignedPreKey),
-              keys.getEcSignedPreKey(targetIdentifier.uuid(), device.getId()));
+          compareSignedEcPreKeysExperiment.compareFutureResult(Optional.ofNullable(ecSignedPreKey), signedPreKeyFuture);
+
+          signedPreKeyFuture.whenComplete((maybeSignedPreKey, throwable) -> {
+            if (throwable == null) {
+              if (!Optional.ofNullable(ecSignedPreKey).equals(maybeSignedPreKey)) {
+                logger.warn("Signed pre-keys do not match for {}, device {}. From device: {}; from table: {}",
+                    targetIdentifier,
+                    deviceId,
+                    Optional.ofNullable(ecSignedPreKey).map(ECSignedPreKey::keyId),
+                    maybeSignedPreKey.map(ECSignedPreKey::keyId));
+              }
+            } else {
+              logger.error("Failed to get signed pre-key for {}, device {}", targetIdentifier, deviceId, throwable);
+            }
+          });
 
           return Mono.zip(
               Mono.just(device),
