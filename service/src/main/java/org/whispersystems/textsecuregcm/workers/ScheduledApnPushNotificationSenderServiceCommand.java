@@ -9,8 +9,9 @@ import static com.codahale.metrics.MetricRegistry.name;
 
 import io.dropwizard.core.Application;
 import io.dropwizard.core.cli.ServerCommand;
+import io.dropwizard.core.server.DefaultServerFactory;
 import io.dropwizard.core.setup.Environment;
-import java.util.Optional;
+import io.dropwizard.jetty.HttpsConnectorFactory;
 import java.util.concurrent.ExecutorService;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
@@ -52,6 +53,15 @@ public class ScheduledApnPushNotificationSenderServiceCommand extends ServerComm
     UncaughtExceptionHandler.register();
 
     MetricsUtil.configureRegistries(configuration, environment);
+
+    if (configuration.getServerFactory() instanceof DefaultServerFactory defaultServerFactory) {
+      defaultServerFactory.getApplicationConnectors()
+          .forEach(connectorFactory -> {
+            if (connectorFactory instanceof HttpsConnectorFactory h) {
+              h.setKeyStorePassword(configuration.getTlsKeyStoreConfiguration().password().value());
+            }
+          });
+    }
 
     final CommandDependencies deps = CommandDependencies.build("scheduled-apn-sender", environment, configuration);
 
