@@ -60,6 +60,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.KeysManager;
+import org.whispersystems.textsecuregcm.util.Util;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -109,7 +110,7 @@ public class KeysController {
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
   @ApiResponse(responseCode = "403", description = "Attempt to change identity key from a non-primary device.")
   @ApiResponse(responseCode = "422", description = "Invalid request format.")
-  public void setKeys(@Auth final DisabledPermittedAuthenticatedAccount disabledPermittedAuth,
+  public CompletableFuture<Response> setKeys(@Auth final DisabledPermittedAuthenticatedAccount disabledPermittedAuth,
       @RequestBody @NotNull @Valid final SetKeysRequest setKeysRequest,
 
       @Parameter(allowEmptyValue=true)
@@ -146,7 +147,7 @@ public class KeysController {
       updateAccountFuture = CompletableFuture.completedFuture(account);
     }
 
-    updateAccountFuture.thenCompose(updatedAccount -> {
+    return updateAccountFuture.thenCompose(updatedAccount -> {
           final List<CompletableFuture<Void>> storeFutures = new ArrayList<>(3);
 
           if (setKeysRequest.preKeys() != null && !setKeysRequest.preKeys().isEmpty()) {
@@ -164,7 +165,7 @@ public class KeysController {
 
           return CompletableFuture.allOf(storeFutures.toArray(EMPTY_FUTURE_ARRAY));
         })
-        .join();
+        .thenApply(Util.ASYNC_EMPTY_RESPONSE);
   }
 
   private void checkSignedPreKeySignatures(final SetKeysRequest setKeysRequest, final IdentityKey identityKey) {
@@ -291,14 +292,14 @@ public class KeysController {
   @ApiResponse(responseCode = "200", description = "Indicates that new prekey was successfully stored.")
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
   @ApiResponse(responseCode = "422", description = "Invalid request format.")
-  public void setSignedKey(@Auth final AuthenticatedAccount auth,
+  public CompletableFuture<Response> setSignedKey(@Auth final AuthenticatedAccount auth,
       @Valid final ECSignedPreKey signedPreKey,
       @QueryParam("identity") @DefaultValue("aci") final IdentityType identityType) {
 
     final UUID identifier = auth.getAccount().getIdentifier(identityType);
     final byte deviceId = auth.getAuthenticatedDevice().getId();
 
-    accounts.updateDeviceTransactionallyAsync(auth.getAccount(),
+    return accounts.updateDeviceTransactionallyAsync(auth.getAccount(),
             deviceId,
             d -> {
               switch (identityType) {
@@ -310,7 +311,7 @@ public class KeysController {
                 .map(List::of)
                 .orElseGet(Collections::emptyList))
         .toCompletableFuture()
-        .join();
+        .thenApply(Util.ASYNC_EMPTY_RESPONSE);
   }
 
   private List<Device> parseDeviceId(String deviceId, Account account) {
