@@ -74,8 +74,8 @@
     <swagger.version>2.2.17</swagger.version>
     <vavr.version>0.10.4</vavr.version>
 
-    <!-- 17.0.8_7-jre-jammy -->
-    <docker.image.sha256>b8af44d6a7e0615a7486d7307dd54bba23ff24e3aea14893fd2795e8c436d44e</docker.image.sha256>
+    <!-- 21.0.1_12-jre-jammy -->
+    <docker.image.sha256>2d00f6910282a7a20ae7747b8f5e2371f7d55f06daed6bf60a323fcc7eaa3da8</docker.image.sha256>
 
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
@@ -433,7 +433,7 @@
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.11.0</version>
         <configuration>
-          <release>17</release>
+          <release>21</release>
         </configuration>
       </plugin>
 
