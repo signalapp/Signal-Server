@@ -8,9 +8,9 @@ package org.whispersystems.textsecuregcm.storage;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import java.time.Duration;
 import java.util.List;
 import java.util.OptionalInt;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import javax.annotation.Nullable;
@@ -27,6 +27,9 @@ public class Device {
   public static final int MAX_REGISTRATION_ID = 0x3FFF;
   public static final List<Byte> ALL_POSSIBLE_DEVICE_IDS = IntStream.range(Device.PRIMARY_ID, MAXIMUM_DEVICE_ID).boxed()
       .map(Integer::byteValue).collect(Collectors.toList());
+
+  private static final long ALLOWED_LINKED_IDLE_MILLIS = Duration.ofDays(30).toMillis();
+  private static final long ALLOWED_PRIMARY_IDLE_MILLIS = Duration.ofDays(180).toMillis();
 
   @JsonDeserialize(using = DeviceIdDeserializer.class)
   @JsonProperty
@@ -206,8 +209,13 @@ public class Device {
   public boolean isEnabled() {
     boolean hasChannel = fetchesMessages || StringUtils.isNotEmpty(getApnId()) || StringUtils.isNotEmpty(getGcmId());
 
-    return (id == PRIMARY_ID && hasChannel) ||
-           (id != PRIMARY_ID && hasChannel && lastSeen > (System.currentTimeMillis() - TimeUnit.DAYS.toMillis(30)));
+    return (id == PRIMARY_ID && hasChannel) || (id != PRIMARY_ID && hasChannel && !isExpired());
+  }
+
+  public boolean isExpired() {
+    return isPrimary()
+        ? lastSeen < (System.currentTimeMillis() - ALLOWED_PRIMARY_IDLE_MILLIS)
+        : lastSeen < (System.currentTimeMillis() - ALLOWED_LINKED_IDLE_MILLIS);
   }
 
   public boolean getFetchesMessages() {

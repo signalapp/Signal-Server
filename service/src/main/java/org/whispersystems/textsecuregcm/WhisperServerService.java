@@ -223,6 +223,7 @@ import org.whispersystems.textsecuregcm.workers.MessagePersisterServiceCommand;
 import org.whispersystems.textsecuregcm.workers.MigrateSignedECPreKeysCommand;
 import org.whispersystems.textsecuregcm.workers.ProcessPushNotificationFeedbackCommand;
 import org.whispersystems.textsecuregcm.workers.RemoveExpiredAccountsCommand;
+import org.whispersystems.textsecuregcm.workers.RemoveExpiredLinkedDevicesCommand;
 import org.whispersystems.textsecuregcm.workers.ScheduledApnPushNotificationSenderServiceCommand;
 import org.whispersystems.textsecuregcm.workers.ServerVersionCommand;
 import org.whispersystems.textsecuregcm.workers.SetRequestLoggingEnabledTask;
@@ -280,6 +281,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     bootstrap.addCommand(new MigrateSignedECPreKeysCommand());
     bootstrap.addCommand(new RemoveExpiredAccountsCommand(Clock.systemUTC()));
     bootstrap.addCommand(new ProcessPushNotificationFeedbackCommand(Clock.systemUTC()));
+    bootstrap.addCommand(new RemoveExpiredLinkedDevicesCommand());
   }
 
   @Override

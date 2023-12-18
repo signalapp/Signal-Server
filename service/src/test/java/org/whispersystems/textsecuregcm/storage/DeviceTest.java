@@ -6,14 +6,14 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.mock;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.stream.Stream;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 
 class DeviceTest {
 
@@ -56,4 +56,33 @@ class DeviceTest {
         Arguments.of(false,  true,           null,     null,     Duration.ofDays(1),  true)
     );
   }
+
+  @ParameterizedTest
+  @CsvSource({
+      "true, P1D, false",
+      "true, P30D, false",
+      "true, P31D, false",
+      "true, P180D, false",
+      "true, P181D, true",
+      "false, P1D, false",
+      "false, P30D, false",
+      "false, P31D, true",
+      "false, P180D, true",
+  })
+  public void testIsExpired(final boolean primary, final Duration timeSinceLastSeen, final boolean expectExpired) {
+
+    final long lastSeen = Instant.now()
+        .minus(timeSinceLastSeen)
+        // buffer for test runtime
+        .plusSeconds(1)
+        .toEpochMilli();
+
+    final Device device = new Device();
+    device.setId(primary ? Device.PRIMARY_ID : Device.PRIMARY_ID + 1);
+    device.setCreated(lastSeen);
+    device.setLastSeen(lastSeen);
+
+    assertEquals(expectExpired, device.isExpired());
+  }
+
 }
