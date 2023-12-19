@@ -844,7 +844,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             config.getCdnConfiguration().bucket()),
         new VerificationController(registrationServiceClient, new VerificationSessionManager(verificationSessions),
             pushNotificationManager, registrationCaptchaManager, registrationRecoveryPasswordsManager, rateLimiters,
-            accountsManager, useRemoteAddress, clock)
+            accountsManager, useRemoteAddress, dynamicConfigurationManager, clock)
     );
     if (config.getSubscription() != null && config.getOneTimeDonations() != null) {
       commonControllers.add(new SubscriptionController(clock, config.getSubscription(), config.getOneTimeDonations(),

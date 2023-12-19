@@ -59,6 +59,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.captcha.AssessmentResult;
 import org.whispersystems.textsecuregcm.captcha.RegistrationCaptchaManager;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.CreateVerificationSessionRequest;
 import org.whispersystems.textsecuregcm.entities.RegistrationServiceSession;
 import org.whispersystems.textsecuregcm.entities.SubmitVerificationCodeRequest;
@@ -72,6 +73,7 @@ import org.whispersystems.textsecuregcm.push.PushNotification;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.registration.ClientType;
 import org.whispersystems.textsecuregcm.registration.MessageTransport;
+import org.whispersystems.textsecuregcm.registration.RegistrationFraudException;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceException;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceSenderException;
@@ -81,6 +83,7 @@ import org.whispersystems.textsecuregcm.spam.Extract;
 import org.whispersystems.textsecuregcm.spam.FilterSpam;
 import org.whispersystems.textsecuregcm.spam.ScoreThreshold;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.VerificationSessionManager;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
@@ -119,6 +122,7 @@ public class VerificationController {
   private final AccountsManager accountsManager;
 
   private final boolean useRemoteAddress;
+  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private final Clock clock;
 
   public VerificationController(final RegistrationServiceClient registrationServiceClient,
@@ -129,6 +133,7 @@ public class VerificationController {
       final RateLimiters rateLimiters,
       final AccountsManager accountsManager,
       final boolean useRemoteAddress,
+      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
       final Clock clock) {
     this.registrationServiceClient = registrationServiceClient;
     this.verificationSessionManager = verificationSessionManager;
@@ -138,6 +143,7 @@ public class VerificationController {
     this.rateLimiters = rateLimiters;
     this.accountsManager = accountsManager;
     this.useRemoteAddress = useRemoteAddress;
+    this.dynamicConfigurationManager = dynamicConfigurationManager;
     this.clock = clock;
   }
 
@@ -501,10 +507,14 @@ public class VerificationController {
             })
             .orElseGet(NotFoundException::new);
 
+      } else if (unwrappedException instanceof RegistrationFraudException) {
+        if (dynamicConfigurationManager.getConfiguration().getRegistrationConfiguration().squashDeclinedAttemptErrors()) {
+          return buildResponse(registrationServiceSession, verificationSession);
+        } else {
+          throw unwrappedException.getCause();
+        }
       } else if (unwrappedException instanceof RegistrationServiceSenderException) {
-
         throw unwrappedException;
-
       } else {
         logger.error("Registration service failure", unwrappedException);
         throw new ServerErrorException(Response.Status.INTERNAL_SERVER_ERROR);

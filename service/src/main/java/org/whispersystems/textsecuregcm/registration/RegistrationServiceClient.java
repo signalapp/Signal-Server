@@ -146,6 +146,9 @@ public class RegistrationServiceClient implements Managed {
 
               case SEND_VERIFICATION_CODE_ERROR_TYPE_SENDER_REJECTED -> throw new CompletionException(
                   RegistrationServiceSenderException.rejected(response.getError().getMayRetry()));
+              case SEND_VERIFICATION_CODE_ERROR_TYPE_SUSPECTED_FRAUD ->
+                  throw new CompletionException(new RegistrationFraudException(
+                      RegistrationServiceSenderException.rejected(response.getError().getMayRetry())));
               case SEND_VERIFICATION_CODE_ERROR_TYPE_SENDER_ILLEGAL_ARGUMENT -> throw new CompletionException(
                   RegistrationServiceSenderException.illegalArgument(response.getError().getMayRetry()));
               case SEND_VERIFICATION_CODE_ERROR_TYPE_UNSPECIFIED -> throw new CompletionException(

@@ -59,6 +59,11 @@ public class DynamicConfiguration {
   @Valid
   DynamicInboundMessageByteLimitConfiguration inboundMessageByteLimit = new DynamicInboundMessageByteLimitConfiguration(true);
 
+
+  @JsonProperty
+  @Valid
+  DynamicRegistrationConfiguration registrationConfiguration = new DynamicRegistrationConfiguration(false);
+
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(
       final String experimentName) {
     return Optional.ofNullable(experiments.get(experimentName));
@@ -103,5 +108,9 @@ public class DynamicConfiguration {
 
   public DynamicInboundMessageByteLimitConfiguration getInboundMessageByteLimitConfiguration() {
     return inboundMessageByteLimit;
+  }
+
+  public DynamicRegistrationConfiguration getRegistrationConfiguration() {
+    return registrationConfiguration;
   }
 }

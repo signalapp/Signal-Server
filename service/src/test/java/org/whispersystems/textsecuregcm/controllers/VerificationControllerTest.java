@@ -56,6 +56,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.captcha.AssessmentResult;
 import org.whispersystems.textsecuregcm.captcha.RegistrationCaptchaManager;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicRegistrationConfiguration;
 import org.whispersystems.textsecuregcm.entities.RegistrationServiceSession;
 import org.whispersystems.textsecuregcm.entities.VerificationSessionResponse;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
@@ -65,6 +67,7 @@ import org.whispersystems.textsecuregcm.mappers.NonNormalizedPhoneNumberExceptio
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RegistrationServiceSenderExceptionMapper;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
+import org.whispersystems.textsecuregcm.registration.RegistrationFraudException;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceException;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceSenderException;
@@ -73,6 +76,7 @@ import org.whispersystems.textsecuregcm.registration.VerificationSession;
 import org.whispersystems.textsecuregcm.spam.ScoreThresholdProvider;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.VerificationSessionManager;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -97,6 +101,9 @@ class VerificationControllerTest {
 
   private final RateLimiter captchaLimiter = mock(RateLimiter.class);
   private final RateLimiter pushChallengeLimiter = mock(RateLimiter.class);
+  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = mock(
+      DynamicConfigurationManager.class);
+  private final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
 
   private final ResourceExtension resources = ResourceExtension.builder()
       .addProperty(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE)
@@ -110,7 +117,7 @@ class VerificationControllerTest {
       .addResource(
           new VerificationController(registrationServiceClient, verificationSessionManager, pushNotificationManager,
               registrationCaptchaManager, registrationRecoveryPasswordsManager, rateLimiters, accountsManager, true,
-              clock))
+              dynamicConfigurationManager, clock))
       .build();
 
   @BeforeEach
@@ -119,8 +126,12 @@ class VerificationControllerTest {
         .thenReturn(captchaLimiter);
     when(rateLimiters.getVerificationPushChallengeLimiter())
         .thenReturn(pushChallengeLimiter);
-
-    when(accountsManager.getByE164(any())).thenReturn(Optional.empty());
+    when(accountsManager.getByE164(any()))
+        .thenReturn(Optional.empty());
+    when(dynamicConfiguration.getRegistrationConfiguration())
+        .thenReturn(new DynamicRegistrationConfiguration(false));
+    when(dynamicConfigurationManager.getConfiguration())
+        .thenReturn(dynamicConfiguration);
   }
 
   @ParameterizedTest
@@ -1088,6 +1099,44 @@ class VerificationControllerTest {
         Arguments.of(false, "providerUnavailable", RegistrationServiceSenderException.unknown(false))
     );
   }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void fraudError(boolean shadowFailure) {
+    if (shadowFailure) {
+      when(this.dynamicConfiguration.getRegistrationConfiguration())
+          .thenReturn(new DynamicRegistrationConfiguration(true));
+    }
+    final String encodedSessionId = encodeSessionId(SESSION_ID);
+    final RegistrationServiceSession registrationServiceSession = new RegistrationServiceSession(SESSION_ID, NUMBER,
+        false, null, null, 0L,
+        SESSION_EXPIRATION_SECONDS);
+    when(registrationServiceClient.getSession(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(registrationServiceSession)));
+    when(verificationSessionManager.findForId(any()))
+        .thenReturn(CompletableFuture.completedFuture(
+            Optional.of(new VerificationSession(null, Collections.emptyList(), Collections.emptyList(), true,
+                clock.millis(), clock.millis(), registrationServiceSession.expiration()))));
+
+    when(registrationServiceClient.sendVerificationCode(any(), any(), any(), any(), any()))
+        .thenReturn(CompletableFuture.failedFuture(new CompletionException(
+            new RegistrationFraudException(RegistrationServiceSenderException.rejected(true)))));
+
+    final Invocation.Builder request = resources.getJerseyTest()
+        .target("/v1/verification/session/" + encodedSessionId + "/code")
+        .request()
+        .header(HttpHeaders.X_FORWARDED_FOR, "127.0.0.1");
+    try (Response response = request.post(Entity.json(requestVerificationCodeJson("voice", "ios")))) {
+      if (shadowFailure) {
+        assertEquals(200, response.getStatus());
+      } else {
+        assertEquals(RegistrationServiceSenderExceptionMapper.REMOTE_SERVICE_REJECTED_REQUEST_STATUS, response.getStatus());
+        final Map<String, Object> responseMap = response.readEntity(Map.class);
+        assertEquals("providerRejected", responseMap.get("reason"));
+      }
+    }
+  }
+
 
   @Test
   void verifyCodeServerError() {

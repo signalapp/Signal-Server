@@ -323,6 +323,12 @@ enum SendVerificationCodeErrorType {
    * transport.
    */
   SEND_VERIFICATION_CODE_ERROR_TYPE_TRANSPORT_NOT_ALLOWED = 6;
+
+  /**
+   * The sender declined to send the verification code due to suspected fraud
+   */
+  SEND_VERIFICATION_CODE_ERROR_TYPE_SUSPECTED_FRAUD = 7;
+
 }
 
 message CheckVerificationCodeRequest {
