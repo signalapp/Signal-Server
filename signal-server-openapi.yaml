@@ -4032,6 +4032,11 @@ components:
           items:
             type: string
             format: byte
+        phoneNumberSharing:
+          type: array
+          items:
+            type: string
+            format: byte
     CredentialProfileResponse:
       type: object
       properties:
@@ -4072,6 +4077,11 @@ components:
         avatar:
           type: string
         paymentAddress:
+          type: array
+          items:
+            type: string
+            format: byte
+        phoneNumberSharing:
           type: array
           items:
             type: string
@@ -4117,6 +4127,14 @@ components:
       - version
       type: object
       properties:
+        avatar:
+          type: boolean
+        badgeIds:
+          type: array
+          items:
+            type: string
+        commitment:
+          $ref: '#/components/schemas/ProfileKeyCommitment'
         version:
           type: string
         name:
@@ -4124,10 +4142,6 @@ components:
           items:
             type: string
             format: byte
-        avatar:
-          type: boolean
-        sameAvatar:
-          type: boolean
         aboutEmoji:
           type: array
           items:
@@ -4143,16 +4157,13 @@ components:
           items:
             type: string
             format: byte
-        badgeIds:
+        sameAvatar:
+          type: boolean
+        phoneNumberSharing:
           type: array
           items:
             type: string
-        commitment:
-          $ref: '#/components/schemas/ProfileKeyCommitment'
-        badges:
-          type: array
-          items:
-            type: string
+            format: byte
         avatarChange:
           type: string
           enum:
