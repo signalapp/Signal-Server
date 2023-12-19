@@ -5,22 +5,24 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
-import org.whispersystems.textsecuregcm.entities.SignedPreKey;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
+import org.whispersystems.textsecuregcm.entities.SignedPreKey;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.dynamodb.model.TransactWriteItemsRequest;
 
 abstract class RepeatedUseSignedPreKeyStoreTest<K extends SignedPreKey<?>> {
 
   protected abstract RepeatedUseSignedPreKeyStore<K> getKeyStore();
 
   protected abstract K generateSignedPreKey();
+
+  protected abstract DynamoDbClient getDynamoDbClient();
 
   @Test
   void storeFind() {
@@ -52,7 +54,23 @@ abstract class RepeatedUseSignedPreKeyStoreTest<K extends SignedPreKey<?>> {
   }
 
   @Test
-  void deleteForDevice() {
+  void buildTransactWriteItemForInsertion() {
+    final RepeatedUseSignedPreKeyStore<K> keys = getKeyStore();
+
+    assertEquals(Optional.empty(), keys.find(UUID.randomUUID(), Device.PRIMARY_ID).join());
+
+    final UUID identifier = UUID.randomUUID();
+    final K signedPreKey = generateSignedPreKey();
+
+    getDynamoDbClient().transactWriteItems(TransactWriteItemsRequest.builder()
+        .transactItems(keys.buildTransactWriteItemForInsertion(identifier, Device.PRIMARY_ID, signedPreKey))
+        .build());
+
+    assertEquals(Optional.of(signedPreKey), keys.find(identifier, Device.PRIMARY_ID).join());
+  }
+
+  @Test
+  void buildTransactWriteItemForDeletion() {
     final RepeatedUseSignedPreKeyStore<K> keys = getKeyStore();
 
     final UUID identifier = UUID.randomUUID();
@@ -63,36 +81,12 @@ abstract class RepeatedUseSignedPreKeyStoreTest<K extends SignedPreKey<?>> {
     );
 
     keys.store(identifier, signedPreKeys).join();
-    keys.delete(identifier, Device.PRIMARY_ID).join();
+
+    getDynamoDbClient().transactWriteItems(TransactWriteItemsRequest.builder()
+            .transactItems(keys.buildTransactWriteItemForDeletion(identifier, Device.PRIMARY_ID))
+        .build());
 
     assertEquals(Optional.empty(), keys.find(identifier, Device.PRIMARY_ID).join());
     assertEquals(Optional.of(signedPreKeys.get(deviceId2)), keys.find(identifier, deviceId2).join());
-  }
-
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void deleteForAllDevices(final boolean excludePrimaryDevice) {
-    final RepeatedUseSignedPreKeyStore<K> keys = getKeyStore();
-
-    assertDoesNotThrow(() -> keys.delete(UUID.randomUUID(), excludePrimaryDevice).join());
-
-    final byte deviceId2 = Device.PRIMARY_ID + 1;
-
-    final UUID identifier = UUID.randomUUID();
-    final Map<Byte, K> signedPreKeys = Map.of(
-        Device.PRIMARY_ID, generateSignedPreKey(),
-        deviceId2, generateSignedPreKey()
-    );
-
-    keys.store(identifier, signedPreKeys).join();
-    keys.delete(identifier, excludePrimaryDevice).join();
-
-    if (excludePrimaryDevice) {
-      assertTrue(keys.find(identifier, Device.PRIMARY_ID).join().isPresent());
-    } else {
-      assertEquals(Optional.empty(), keys.find(identifier, Device.PRIMARY_ID).join());
-    }
-
-    assertEquals(Optional.empty(), keys.find(identifier, deviceId2).join());
   }
 }

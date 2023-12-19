@@ -266,7 +266,7 @@ public class MessagePersister implements Managed {
             clientPresenceManager.disconnectPresence(account.getUuid(), deviceToDelete.getId());
             CompletableFuture
                 .allOf(
-                    keysManager.delete(account.getUuid(), deviceToDelete.getId()),
+                    keysManager.deleteSingleUsePreKeys(account.getUuid(), deviceToDelete.getId()),
                     messagesManager.clear(account.getUuid(), deviceToDelete.getId()))
                 .orTimeout((UNLINK_TIMEOUT.toSeconds() * 3) / 4, TimeUnit.SECONDS)
                 .join();

@@ -15,10 +15,9 @@ import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
-import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.Delete;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.Put;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
@@ -47,8 +46,6 @@ public abstract class RepeatedUseSignedPreKeyStore<K extends SignedPreKey<?>> {
 
   private final Timer storeSingleKeyTimer = Metrics.timer(MetricsUtil.name(getClass(), "storeSingleKey"));
   private final Timer storeKeyBatchTimer = Metrics.timer(MetricsUtil.name(getClass(), "storeKeyBatch"));
-  private final Timer deleteForDeviceTimer = Metrics.timer(MetricsUtil.name(getClass(), "deleteForDevice"));
-  private final Timer deleteForAccountTimer = Metrics.timer(MetricsUtil.name(getClass(), "deleteForAccount"));
 
   private final String findKeyTimerName = MetricsUtil.name(getClass(), "findKey");
 
@@ -112,11 +109,20 @@ public abstract class RepeatedUseSignedPreKeyStore<K extends SignedPreKey<?>> {
         .thenRun(() -> sample.stop(storeKeyBatchTimer));
   }
 
-  TransactWriteItem buildTransactWriteItem(final UUID identifier, final byte deviceId, final K preKey) {
+  TransactWriteItem buildTransactWriteItemForInsertion(final UUID identifier, final byte deviceId, final K preKey) {
     return TransactWriteItem.builder()
         .put(Put.builder()
             .tableName(tableName)
             .item(getItemFromPreKey(identifier, deviceId, preKey))
+            .build())
+        .build();
+  }
+
+  public TransactWriteItem buildTransactWriteItemForDeletion(final UUID identifier, final byte deviceId) {
+    return TransactWriteItem.builder()
+        .delete(Delete.builder()
+            .tableName(tableName)
+            .key(getPrimaryKey(identifier, deviceId))
             .build())
         .build();
   }
@@ -145,52 +151,6 @@ public abstract class RepeatedUseSignedPreKeyStore<K extends SignedPreKey<?>> {
             "keyPresent", String.valueOf(maybeSignedPreKey != null && maybeSignedPreKey.isPresent()))));
 
     return findFuture;
-  }
-
-  /**
-   * Clears all repeated-use pre-keys associated with the given account/identity.
-   *
-   * @param identifier the identifier for the account/identity for which to clear repeated-use pre-keys
-   * @param excludePrimaryDevice whether to exclude the primary device from repeated-use key deletion; this is intended
-   *                             for cases when a user "re-registers" and displaces an existing account record and has
-   *                             provided new repeated-use keys for the primary device in the process of creating the
-   *                             new account
-   *
-   * @return a future that completes once repeated-use pre-keys have been cleared from all devices associated with the
-   * target account/identity
-   */
-  public CompletableFuture<Void> delete(final UUID identifier, final boolean excludePrimaryDevice) {
-    final Timer.Sample sample = Timer.start();
-
-    return getDeviceIdsWithKeys(identifier)
-        .filter(deviceId -> deviceId != Device.PRIMARY_ID || !excludePrimaryDevice)
-        .map(deviceId -> DeleteItemRequest.builder()
-            .tableName(tableName)
-            .key(getPrimaryKey(identifier, deviceId))
-            .build())
-        .flatMap(deleteItemRequest -> Mono.fromFuture(() -> dynamoDbAsyncClient.deleteItem(deleteItemRequest)))
-        // Idiom: wait for everything to finish, but discard the results
-        .reduce(0, (a, b) -> 0)
-        .toFuture()
-        .thenRun(() -> sample.stop(deleteForAccountTimer));
-  }
-
-  /**
-   * Removes the repeated-use pre-key associated with a specific device.
-   *
-   * @param identifier the identifier for the account/identity with which the target device is associated
-   * @param deviceId the identifier for the device within the given account/identity
-   *
-   * @return a future that completes once the repeated-use pre-key has been removed from the target device
-   */
-  public CompletableFuture<Void> delete(final UUID identifier, final byte deviceId) {
-    final Timer.Sample sample = Timer.start();
-
-    return dynamoDbAsyncClient.deleteItem(DeleteItemRequest.builder()
-            .tableName(tableName)
-            .key(getPrimaryKey(identifier, deviceId))
-        .build())
-        .thenRun(() -> sample.stop(deleteForDeviceTimer));
   }
 
   public Flux<Byte> getDeviceIdsWithKeys(final UUID identifier) {

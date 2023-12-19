@@ -2,6 +2,7 @@ package org.whispersystems.textsecuregcm.storage;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -27,6 +28,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junitpioneer.jupiter.cartesian.ArgumentSets;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
@@ -34,6 +36,7 @@ import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicECPreKeyMigrationConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
@@ -47,7 +50,7 @@ import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 
-public class AccountCreationIntegrationTest {
+public class AccountCreationDeletionIntegrationTest {
 
   @RegisterExtension
   static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(
@@ -81,8 +84,10 @@ public class AccountCreationIntegrationTest {
     @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
         mock(DynamicConfigurationManager.class);
 
-    DynamicConfiguration dynamicConfiguration = new DynamicConfiguration();
+    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
+    when(dynamicConfiguration.getEcPreKeyMigrationConfiguration())
+        .thenReturn(new DynamicECPreKeyMigrationConfiguration(true, true));
 
     keysManager = new KeysManager(
         DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
@@ -248,6 +253,25 @@ public class AccountCreationIntegrationTest {
         pniSignedPreKey,
         aciPqLastResortPreKey,
         pniPqLastResortPreKey);
+
+    assertEquals(Optional.of(aciSignedPreKey), keysManager.getEcSignedPreKey(account.getUuid(), Device.PRIMARY_ID).join());
+    assertEquals(Optional.of(pniSignedPreKey), keysManager.getEcSignedPreKey(account.getPhoneNumberIdentifier(), Device.PRIMARY_ID).join());
+    assertEquals(Optional.of(aciPqLastResortPreKey), keysManager.getLastResort(account.getUuid(), Device.PRIMARY_ID).join());
+    assertEquals(Optional.of(pniPqLastResortPreKey), keysManager.getLastResort(account.getPhoneNumberIdentifier(), Device.PRIMARY_ID).join());
+  }
+
+  @SuppressWarnings("unused")
+  static ArgumentSets createAccount() {
+    return ArgumentSets
+        // deliveryChannels
+        .argumentsForFirstParameter(
+            new DeliveryChannels(true, null, null, null),
+            new DeliveryChannels(false, "apns-token", null, null),
+            new DeliveryChannels(false, "apns-token", "apns-voip-token", null),
+            new DeliveryChannels(false, null, null, "fcm-token"))
+
+        // discoverableByPhoneNumber
+        .argumentsForNextParameter(true, false);
   }
 
   @CartesianTest
@@ -375,18 +399,77 @@ public class AccountCreationIntegrationTest {
     assertEquals(existingAccountUuid, reregisteredAccount.getUuid());
   }
 
-  @SuppressWarnings("unused")
-  static ArgumentSets createAccount() {
-    return ArgumentSets
-        // deliveryChannels
-        .argumentsForFirstParameter(
-            new DeliveryChannels(true, null, null, null),
-            new DeliveryChannels(false, "apns-token", null, null),
-            new DeliveryChannels(false, "apns-token", "apns-voip-token", null),
-            new DeliveryChannels(false, null, null, "fcm-token"))
+  @Test
+  void deleteAccount() throws InterruptedException {
+    final String number = PhoneNumberUtil.getInstance().format(
+        PhoneNumberUtil.getInstance().getExampleNumber("US"),
+        PhoneNumberUtil.PhoneNumberFormat.E164);
 
-        // discoverableByPhoneNumber
-        .argumentsForNextParameter(true, false);
+    final String password = RandomStringUtils.randomAlphanumeric(16);
+    final String signalAgent = RandomStringUtils.randomAlphabetic(3);
+    final int registrationId = ThreadLocalRandom.current().nextInt(Device.MAX_REGISTRATION_ID);
+    final int pniRegistrationId = ThreadLocalRandom.current().nextInt(Device.MAX_REGISTRATION_ID);
+    final byte[] deviceName = RandomStringUtils.randomAlphabetic(16).getBytes(StandardCharsets.UTF_8);
+    final String registrationLockSecret = RandomStringUtils.randomAlphanumeric(16);
+
+    final Device.DeviceCapabilities deviceCapabilities = new Device.DeviceCapabilities(
+        ThreadLocalRandom.current().nextBoolean(),
+        ThreadLocalRandom.current().nextBoolean(),
+        ThreadLocalRandom.current().nextBoolean(),
+        ThreadLocalRandom.current().nextBoolean());
+
+    final AccountAttributes accountAttributes = new AccountAttributes(true,
+        registrationId,
+        pniRegistrationId,
+        deviceName,
+        registrationLockSecret,
+        true,
+        deviceCapabilities);
+
+    final List<AccountBadge> badges = new ArrayList<>(List.of(new AccountBadge(
+        RandomStringUtils.randomAlphabetic(8),
+        CLOCK.instant().plus(Duration.ofDays(7)),
+        true)));
+
+    final ECKeyPair aciKeyPair = Curve.generateKeyPair();
+    final ECKeyPair pniKeyPair = Curve.generateKeyPair();
+
+    final ECSignedPreKey aciSignedPreKey = KeysHelper.signedECPreKey(1, aciKeyPair);
+    final ECSignedPreKey pniSignedPreKey = KeysHelper.signedECPreKey(2, pniKeyPair);
+    final KEMSignedPreKey aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciKeyPair);
+    final KEMSignedPreKey pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniKeyPair);
+
+    final Account account = accountsManager.create(number,
+        accountAttributes,
+        badges,
+        new IdentityKey(aciKeyPair.getPublicKey()),
+        new IdentityKey(pniKeyPair.getPublicKey()),
+        new DeviceSpec(
+            deviceName,
+            password,
+            signalAgent,
+            deviceCapabilities,
+            registrationId,
+            pniRegistrationId,
+            true,
+            Optional.empty(),
+            Optional.empty(),
+            aciSignedPreKey,
+            pniSignedPreKey,
+            aciPqLastResortPreKey,
+            pniPqLastResortPreKey));
+
+    final UUID aci = account.getIdentifier(IdentityType.ACI);
+
+    assertTrue(accountsManager.getByAccountIdentifier(aci).isPresent());
+
+    accountsManager.delete(account, AccountsManager.DeletionReason.ADMIN_DELETED).join();
+
+    assertFalse(accountsManager.getByAccountIdentifier(aci).isPresent());
+    assertFalse(keysManager.getEcSignedPreKey(account.getUuid(), Device.PRIMARY_ID).join().isPresent());
+    assertFalse(keysManager.getEcSignedPreKey(account.getPhoneNumberIdentifier(), Device.PRIMARY_ID).join().isPresent());
+    assertFalse(keysManager.getLastResort(account.getUuid(), Device.PRIMARY_ID).join().isPresent());
+    assertFalse(keysManager.getLastResort(account.getPhoneNumberIdentifier(), Device.PRIMARY_ID).join().isPresent());
   }
 
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")

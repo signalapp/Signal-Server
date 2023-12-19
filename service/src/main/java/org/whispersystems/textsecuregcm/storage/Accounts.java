@@ -1035,7 +1035,7 @@ public class Accounts extends AbstractDynamoDbStore {
     return Optional.ofNullable(response.items().get(0).get(DELETED_ACCOUNTS_KEY_ACCOUNT_E164).s());
   }
 
-  public CompletableFuture<Void> delete(final UUID uuid) {
+  public CompletableFuture<Void> delete(final UUID uuid, final List<TransactWriteItem> additionalWriteItems) {
     final Timer.Sample sample = Timer.start();
 
     return getByAccountIdentifierAsync(uuid)
@@ -1049,6 +1049,8 @@ public class Accounts extends AbstractDynamoDbStore {
 
               account.getUsernameHash().ifPresent(usernameHash -> transactWriteItems.add(
                   buildDelete(usernamesConstraintTableName, ATTR_USERNAME_HASH, usernameHash)));
+
+              transactWriteItems.addAll(additionalWriteItems);
 
               return asyncClient.transactWriteItems(TransactWriteItemsRequest.builder()
                   .transactItems(transactWriteItems)

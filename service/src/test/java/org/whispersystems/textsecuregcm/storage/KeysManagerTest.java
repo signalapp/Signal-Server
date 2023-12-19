@@ -140,7 +140,7 @@ class KeysManagerTest {
   }
 
   @Test
-  void testDeleteByAccount() {
+  void testDeleteSingleUsePreKeysByAccount() {
     int keyId = 1;
 
     for (byte deviceId : new byte[] {DEVICE_ID, DEVICE_ID + 1}) {
@@ -157,18 +157,18 @@ class KeysManagerTest {
       assertTrue(keysManager.getLastResort(ACCOUNT_UUID, deviceId).join().isPresent());
     }
 
-    keysManager.delete(ACCOUNT_UUID).join();
+    keysManager.deleteSingleUsePreKeys(ACCOUNT_UUID).join();
 
     for (byte deviceId : new byte[] {DEVICE_ID, DEVICE_ID + 1}) {
       assertEquals(0, keysManager.getEcCount(ACCOUNT_UUID, deviceId).join());
       assertEquals(0, keysManager.getPqCount(ACCOUNT_UUID, deviceId).join());
-      assertFalse(keysManager.getEcSignedPreKey(ACCOUNT_UUID, deviceId).join().isPresent());
-      assertFalse(keysManager.getLastResort(ACCOUNT_UUID, deviceId).join().isPresent());
+      assertTrue(keysManager.getEcSignedPreKey(ACCOUNT_UUID, deviceId).join().isPresent());
+      assertTrue(keysManager.getLastResort(ACCOUNT_UUID, deviceId).join().isPresent());
     }
   }
 
   @Test
-  void testDeleteByAccountAndDevice() {
+  void testDeleteSingleUsePreKeysByAccountAndDevice() {
     int keyId = 1;
 
     for (byte deviceId : new byte[] {DEVICE_ID, DEVICE_ID + 1}) {
@@ -185,12 +185,12 @@ class KeysManagerTest {
       assertTrue(keysManager.getLastResort(ACCOUNT_UUID, deviceId).join().isPresent());
     }
 
-    keysManager.delete(ACCOUNT_UUID, DEVICE_ID).join();
+    keysManager.deleteSingleUsePreKeys(ACCOUNT_UUID, DEVICE_ID).join();
 
     assertEquals(0, keysManager.getEcCount(ACCOUNT_UUID, DEVICE_ID).join());
     assertEquals(0, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID).join());
-    assertFalse(keysManager.getEcSignedPreKey(ACCOUNT_UUID, DEVICE_ID).join().isPresent());
-    assertFalse(keysManager.getLastResort(ACCOUNT_UUID, DEVICE_ID).join().isPresent());
+    assertTrue(keysManager.getEcSignedPreKey(ACCOUNT_UUID, DEVICE_ID).join().isPresent());
+    assertTrue(keysManager.getLastResort(ACCOUNT_UUID, DEVICE_ID).join().isPresent());
 
     assertEquals(1, keysManager.getEcCount(ACCOUNT_UUID, (byte) (DEVICE_ID + 1)).join());
     assertEquals(1, keysManager.getPqCount(ACCOUNT_UUID, (byte) (DEVICE_ID + 1)).join());

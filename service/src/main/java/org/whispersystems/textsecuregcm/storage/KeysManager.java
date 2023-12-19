@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import com.google.common.annotations.VisibleForTesting;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -46,7 +47,7 @@ public class KeysManager {
       final ECSignedPreKey ecSignedPreKey) {
 
     return dynamicConfigurationManager.getConfiguration().getEcPreKeyMigrationConfiguration().storeEcSignedPreKeys()
-        ? Optional.of(ecSignedPreKeys.buildTransactWriteItem(identifier, deviceId, ecSignedPreKey))
+        ? Optional.of(ecSignedPreKeys.buildTransactWriteItemForInsertion(identifier, deviceId, ecSignedPreKey))
         : Optional.empty();
   }
 
@@ -54,10 +55,10 @@ public class KeysManager {
       final byte deviceId,
       final KEMSignedPreKey lastResortSignedPreKey) {
 
-    return pqLastResortKeys.buildTransactWriteItem(identifier, deviceId, lastResortSignedPreKey);
+    return pqLastResortKeys.buildTransactWriteItemForInsertion(identifier, deviceId, lastResortSignedPreKey);
   }
 
-  public List<TransactWriteItem> buildWriteItemsForRepeatedUseKeys(final UUID accountIdentifier,
+  public List<TransactWriteItem> buildWriteItemsForNewDevice(final UUID accountIdentifier,
       final UUID phoneNumberIdentifier,
       final byte deviceId,
       final ECSignedPreKey aciSignedPreKey,
@@ -65,10 +66,38 @@ public class KeysManager {
       final KEMSignedPreKey aciPqLastResortPreKey,
       final KEMSignedPreKey pniLastResortPreKey) {
 
-    return List.of(ecSignedPreKeys.buildTransactWriteItem(accountIdentifier, deviceId, aciSignedPreKey),
-        ecSignedPreKeys.buildTransactWriteItem(phoneNumberIdentifier, deviceId, pniSignedPreKey),
-        pqLastResortKeys.buildTransactWriteItem(accountIdentifier, deviceId, aciPqLastResortPreKey),
-        pqLastResortKeys.buildTransactWriteItem(phoneNumberIdentifier, deviceId, pniLastResortPreKey));
+    final List<TransactWriteItem> writeItems = new ArrayList<>(List.of(
+        pqLastResortKeys.buildTransactWriteItemForInsertion(accountIdentifier, deviceId, aciPqLastResortPreKey),
+        pqLastResortKeys.buildTransactWriteItemForInsertion(phoneNumberIdentifier, deviceId, pniLastResortPreKey)
+    ));
+
+    if (dynamicConfigurationManager.getConfiguration().getEcPreKeyMigrationConfiguration().storeEcSignedPreKeys()) {
+      writeItems.addAll(List.of(
+          ecSignedPreKeys.buildTransactWriteItemForInsertion(accountIdentifier, deviceId, aciSignedPreKey),
+          ecSignedPreKeys.buildTransactWriteItemForInsertion(phoneNumberIdentifier, deviceId, pniSignedPreKey)
+      ));
+    }
+
+    return writeItems;
+  }
+
+  public List<TransactWriteItem> buildWriteItemsForRemovedDevice(final UUID accountIdentifier,
+      final UUID phoneNumberIdentifier,
+      final byte deviceId) {
+
+    final List<TransactWriteItem> writeItems = new ArrayList<>(List.of(
+        pqLastResortKeys.buildTransactWriteItemForDeletion(accountIdentifier, deviceId),
+        pqLastResortKeys.buildTransactWriteItemForDeletion(phoneNumberIdentifier, deviceId)
+    ));
+
+    if (dynamicConfigurationManager.getConfiguration().getEcPreKeyMigrationConfiguration().deleteEcSignedPreKeys()) {
+      writeItems.addAll(List.of(
+          ecSignedPreKeys.buildTransactWriteItemForDeletion(accountIdentifier, deviceId),
+          ecSignedPreKeys.buildTransactWriteItemForDeletion(phoneNumberIdentifier, deviceId)
+      ));
+    }
+
+    return writeItems;
   }
 
   public CompletableFuture<Void> storeEcSignedPreKeys(final UUID identifier, final Map<Byte, ECSignedPreKey> keys) {
@@ -130,27 +159,17 @@ public class KeysManager {
     return pqPreKeys.getCount(identifier, deviceId);
   }
 
-  public CompletableFuture<Void> delete(final UUID identifier) {
-    return delete(identifier, false);
-  }
-
-  public CompletableFuture<Void> delete(final UUID identifier, final boolean excludePrimaryDevice) {
+  public CompletableFuture<Void> deleteSingleUsePreKeys(final UUID identifier) {
     return CompletableFuture.allOf(
         ecPreKeys.delete(identifier),
-        pqPreKeys.delete(identifier),
-        dynamicConfigurationManager.getConfiguration().getEcPreKeyMigrationConfiguration().deleteEcSignedPreKeys()
-            ? ecSignedPreKeys.delete(identifier, excludePrimaryDevice)
-            : CompletableFuture.completedFuture(null),
-        pqLastResortKeys.delete(identifier, excludePrimaryDevice));
+        pqPreKeys.delete(identifier)
+    );
   }
 
-  public CompletableFuture<Void> delete(final UUID accountUuid, final byte deviceId) {
+  public CompletableFuture<Void> deleteSingleUsePreKeys(final UUID accountUuid, final byte deviceId) {
     return CompletableFuture.allOf(
             ecPreKeys.delete(accountUuid, deviceId),
-            pqPreKeys.delete(accountUuid, deviceId),
-            dynamicConfigurationManager.getConfiguration().getEcPreKeyMigrationConfiguration().deleteEcSignedPreKeys()
-                ? ecSignedPreKeys.delete(accountUuid, deviceId)
-                : CompletableFuture.completedFuture(null),
-            pqLastResortKeys.delete(accountUuid, deviceId));
+            pqPreKeys.delete(accountUuid, deviceId)
+    );
   }
 }

@@ -18,6 +18,7 @@ import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 
 class RepeatedUseECSignedPreKeyStoreTest extends RepeatedUseSignedPreKeyStoreTest<ECSignedPreKey> {
 
@@ -45,6 +46,11 @@ class RepeatedUseECSignedPreKeyStoreTest extends RepeatedUseSignedPreKeyStoreTes
   @Override
   protected ECSignedPreKey generateSignedPreKey() {
     return KeysHelper.signedECPreKey(currentKeyId++, IDENTITY_KEY_PAIR);
+  }
+
+  @Override
+  protected DynamoDbClient getDynamoDbClient() {
+    return DYNAMO_DB_EXTENSION.getDynamoDbClient();
   }
 
   @Test

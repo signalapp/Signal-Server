@@ -14,7 +14,6 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -159,7 +158,7 @@ class AccountsManagerTest {
 
     when(accounts.updateAsync(any())).thenReturn(CompletableFuture.completedFuture(null));
     when(accounts.updateTransactionallyAsync(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
-    when(accounts.delete(any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(accounts.delete(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
     doAnswer((Answer<Void>) invocation -> {
       final Account account = invocation.getArgument(0, Account.class);
@@ -207,9 +206,7 @@ class AccountsManagerTest {
 
     when(accountLockManager.withLockAsync(any(), any(), any())).thenAnswer(invocation -> {
       final Supplier<CompletableFuture<?>> taskSupplier = invocation.getArgument(1);
-      taskSupplier.get().join();
-
-      return CompletableFuture.completedFuture(null);
+      return taskSupplier.get();
     });
 
     final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager =
@@ -217,8 +214,7 @@ class AccountsManagerTest {
 
     when(registrationRecoveryPasswordsManager.removeForNumber(anyString())).thenReturn(CompletableFuture.completedFuture(null));
 
-    when(keysManager.delete(any())).thenReturn(CompletableFuture.completedFuture(null));
-    when(keysManager.delete(any(), anyBoolean())).thenReturn(CompletableFuture.completedFuture(null));
+    when(keysManager.deleteSingleUsePreKeys(any())).thenReturn(CompletableFuture.completedFuture(null));
     when(messagesManager.clear(any())).thenReturn(CompletableFuture.completedFuture(null));
     when(profilesManager.deleteAll(any())).thenReturn(CompletableFuture.completedFuture(null));
 
@@ -959,7 +955,10 @@ class AccountsManagerTest {
 
     Account account = AccountsHelper.generateTestAccount("+14152222222", List.of(primaryDevice, linkedDevice));
 
-    when(keysManager.delete(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
+    when(accounts.getByAccountIdentifierAsync(account.getUuid()))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+
+    when(keysManager.deleteSingleUsePreKeys(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
     when(messagesManager.clear(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
 
     assertTrue(account.getDevice(linkedDevice.getId()).isPresent());
@@ -968,7 +967,7 @@ class AccountsManagerTest {
 
     assertFalse(account.getDevice(linkedDevice.getId()).isPresent());
     verify(messagesManager, times(2)).clear(account.getUuid(), linkedDevice.getId());
-    verify(keysManager).delete(account.getUuid(), linkedDevice.getId());
+    verify(keysManager, times(2)).deleteSingleUsePreKeys(account.getUuid(), linkedDevice.getId());
     verify(clientPresenceManager).disconnectPresence(account.getUuid(), linkedDevice.getId());
   }
 
@@ -979,14 +978,14 @@ class AccountsManagerTest {
 
     final Account account = AccountsHelper.generateTestAccount("+14152222222", List.of(primaryDevice));
 
-    when(keysManager.delete(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
+    when(keysManager.deleteSingleUsePreKeys(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
     when(messagesManager.clear(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
 
     assertThrows(IllegalArgumentException.class, () -> accountsManager.removeDevice(account, Device.PRIMARY_ID));
 
-    assertDoesNotThrow(() -> account.getPrimaryDevice());
+    assertDoesNotThrow(account::getPrimaryDevice);
     verify(messagesManager, never()).clear(any(), anyByte());
-    verify(keysManager, never()).delete(any(), anyByte());
+    verify(keysManager, never()).deleteSingleUsePreKeys(any(), anyByte());
     verify(clientPresenceManager, never()).disconnectPresence(any(), anyByte());
   }
 
@@ -1035,10 +1034,8 @@ class AccountsManagerTest {
     verify(accounts)
         .create(argThat(account -> e164.equals(account.getNumber()) && existingUuid.equals(account.getUuid())), any());
 
-    verify(keysManager).delete(existingUuid);
-    verify(keysManager).delete(phoneNumberIdentifiersByE164.get(e164));
-    verify(keysManager).delete(existingUuid, true);
-    verify(keysManager).delete(phoneNumberIdentifiersByE164.get(e164), true);
+    verify(keysManager, times(2)).deleteSingleUsePreKeys(existingUuid);
+    verify(keysManager, times(2)).deleteSingleUsePreKeys(phoneNumberIdentifiersByE164.get(e164));
     verify(messagesManager, times(2)).clear(existingUuid);
     verify(profilesManager, times(2)).deleteAll(existingUuid);
     verify(clientPresenceManager).disconnectAllPresencesForUuid(existingUuid);
@@ -1060,7 +1057,7 @@ class AccountsManagerTest {
         argThat(a -> e164.equals(a.getNumber()) && recentlyDeletedUuid.equals(a.getUuid())),
         any());
 
-    verify(keysManager).buildWriteItemsForRepeatedUseKeys(eq(account.getIdentifier(IdentityType.ACI)),
+    verify(keysManager).buildWriteItemsForNewDevice(eq(account.getIdentifier(IdentityType.ACI)),
         eq(account.getIdentifier(IdentityType.PNI)),
         eq(Device.PRIMARY_ID),
         any(),
@@ -1119,7 +1116,7 @@ class AccountsManagerTest {
     final KEMSignedPreKey aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciKeyPair);
     final KEMSignedPreKey pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniKeyPair);
 
-    when(keysManager.delete(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
+    when(keysManager.deleteSingleUsePreKeys(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
     when(messagesManager.clear(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
     when(accounts.getByAccountIdentifierAsync(aci)).thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
     when(accounts.updateTransactionallyAsync(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
@@ -1142,11 +1139,11 @@ class AccountsManagerTest {
             pniPqLastResortPreKey))
         .join();
 
-    verify(keysManager).delete(aci, nextDeviceId);
-    verify(keysManager).delete(pni, nextDeviceId);
+    verify(keysManager).deleteSingleUsePreKeys(aci, nextDeviceId);
+    verify(keysManager).deleteSingleUsePreKeys(pni, nextDeviceId);
     verify(messagesManager).clear(aci, nextDeviceId);
 
-    verify(keysManager).buildWriteItemsForRepeatedUseKeys(
+    verify(keysManager).buildWriteItemsForNewDevice(
         aci,
         pni,
         nextDeviceId,
@@ -1207,8 +1204,8 @@ class AccountsManagerTest {
 
     assertTrue(phoneNumberIdentifiersByE164.containsKey(targetNumber));
 
-    verify(keysManager).delete(originalPni);
-    verify(keysManager).delete(phoneNumberIdentifiersByE164.get(targetNumber));
+    verify(keysManager).deleteSingleUsePreKeys(originalPni);
+    verify(keysManager).deleteSingleUsePreKeys(phoneNumberIdentifiersByE164.get(targetNumber));
   }
 
   @Test
@@ -1219,7 +1216,7 @@ class AccountsManagerTest {
     account = accountsManager.changeNumber(account, number, null, null, null, null);
 
     assertEquals(number, account.getNumber());
-    verify(keysManager, never()).delete(any());
+    verify(keysManager, never()).deleteSingleUsePreKeys(any());
   }
 
   @Test
@@ -1258,10 +1255,10 @@ class AccountsManagerTest {
     assertTrue(phoneNumberIdentifiersByE164.containsKey(targetNumber));
     final UUID newPni = phoneNumberIdentifiersByE164.get(targetNumber);
 
-    verify(keysManager).delete(existingAccountUuid);
-    verify(keysManager).delete(originalPni);
-    verify(keysManager, atLeastOnce()).delete(targetPni);
-    verify(keysManager).delete(newPni);
+    verify(keysManager).deleteSingleUsePreKeys(existingAccountUuid);
+    verify(keysManager).deleteSingleUsePreKeys(originalPni);
+    verify(keysManager, atLeastOnce()).deleteSingleUsePreKeys(targetPni);
+    verify(keysManager).deleteSingleUsePreKeys(newPni);
     verifyNoMoreInteractions(keysManager);
   }
 
@@ -1302,10 +1299,10 @@ class AccountsManagerTest {
     assertTrue(phoneNumberIdentifiersByE164.containsKey(targetNumber));
 
     final UUID newPni = phoneNumberIdentifiersByE164.get(targetNumber);
-    verify(keysManager).delete(existingAccountUuid);
-    verify(keysManager, atLeastOnce()).delete(targetPni);
-    verify(keysManager).delete(newPni);
-    verify(keysManager).delete(originalPni);
+    verify(keysManager).deleteSingleUsePreKeys(existingAccountUuid);
+    verify(keysManager, atLeastOnce()).deleteSingleUsePreKeys(targetPni);
+    verify(keysManager).deleteSingleUsePreKeys(newPni);
+    verify(keysManager).deleteSingleUsePreKeys(originalPni);
     verify(keysManager).getPqEnabledDevices(uuid);
     verify(keysManager).buildWriteItemForEcSignedPreKey(eq(newPni), eq(Device.PRIMARY_ID), any());
     verify(keysManager).buildWriteItemForEcSignedPreKey(eq(newPni), eq(deviceId2), any());
@@ -1408,7 +1405,7 @@ class AccountsManagerTest {
 
     verify(accounts).updateTransactionallyAsync(any(), any());
 
-    verify(keysManager).delete(oldPni);
+    verify(keysManager).deleteSingleUsePreKeys(oldPni);
     verify(keysManager).buildWriteItemForEcSignedPreKey(eq(oldPni), eq(Device.PRIMARY_ID), any());
     verify(keysManager).buildWriteItemForEcSignedPreKey(eq(oldPni), eq(deviceId2), any());
     verify(keysManager, never()).buildWriteItemForLastResortKey(any(), anyByte(), any());
@@ -1471,7 +1468,7 @@ class AccountsManagerTest {
 
     verify(accounts).updateTransactionallyAsync(any(), any());
 
-    verify(keysManager).delete(oldPni);
+    verify(keysManager).deleteSingleUsePreKeys(oldPni);
     verify(keysManager).buildWriteItemForEcSignedPreKey(eq(oldPni), eq(Device.PRIMARY_ID), any());
     verify(keysManager).buildWriteItemForEcSignedPreKey(eq(oldPni), eq(deviceId2), any());
     verify(keysManager).buildWriteItemForLastResortKey(eq(oldPni), eq(Device.PRIMARY_ID), any());
@@ -1534,7 +1531,7 @@ class AccountsManagerTest {
 
     verify(accounts).updateTransactionallyAsync(any(), any());
 
-    verify(keysManager).delete(oldPni);
+    verify(keysManager).deleteSingleUsePreKeys(oldPni);
     verify(keysManager).buildWriteItemForEcSignedPreKey(eq(oldPni), eq(Device.PRIMARY_ID), any());
     verify(keysManager).buildWriteItemForEcSignedPreKey(eq(oldPni), eq(deviceId2), any());
     verify(keysManager, never()).buildWriteItemForLastResortKey(any(), anyByte(), any());

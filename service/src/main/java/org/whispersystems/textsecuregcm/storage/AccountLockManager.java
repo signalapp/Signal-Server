@@ -13,7 +13,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
-import org.whispersystems.textsecuregcm.util.Util;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 
 public class AccountLockManager {
@@ -83,8 +82,9 @@ public class AccountLockManager {
    *
    * @return a future that completes normally when the given task has executed successfully and all locks have been
    * released; the returned future may fail with an {@link InterruptedException} if interrupted while acquiring a lock
-   */  public CompletableFuture<Void> withLockAsync(final List<String> e164s,
-      final Supplier<CompletableFuture<?>> taskSupplier,
+   */
+  public <T> CompletableFuture<T> withLockAsync(final List<String> e164s,
+      final Supplier<CompletableFuture<T>> taskSupplier,
       final Executor executor) {
 
     if (e164s.isEmpty()) {
@@ -107,7 +107,6 @@ public class AccountLockManager {
         .thenCompose(ignored -> taskSupplier.get())
         .whenCompleteAsync((ignored, throwable) -> lockItems.forEach(lockItem -> lockClient.releaseLock(ReleaseLockOptions.builder(lockItem)
             .withBestEffort(true)
-            .build())), executor)
-        .thenRun(Util.NOOP);
+            .build())), executor);
   }
 }

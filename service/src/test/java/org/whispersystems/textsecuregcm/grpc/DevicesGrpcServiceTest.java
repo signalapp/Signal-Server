@@ -97,7 +97,7 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
           return CompletableFuture.completedFuture(account);
         });
 
-    when(keysManager.delete(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
+    when(keysManager.deleteSingleUsePreKeys(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
     when(messagesManager.clear(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
 
     return new DevicesGrpcService(accountsManager, keysManager, messagesManager);

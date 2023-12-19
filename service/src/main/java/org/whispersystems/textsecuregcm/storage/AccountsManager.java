@@ -43,6 +43,7 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -204,7 +205,7 @@ public class AccountsManager {
         String accountCreationType = maybeRecentlyDeletedAccountIdentifier.isPresent() ? "recently-deleted" : "new";
 
         try {
-          accounts.create(account, keysManager.buildWriteItemsForRepeatedUseKeys(account.getIdentifier(IdentityType.ACI),
+          accounts.create(account, keysManager.buildWriteItemsForNewDevice(account.getIdentifier(IdentityType.ACI),
               account.getIdentifier(IdentityType.PNI),
               Device.PRIMARY_ID,
               primaryDeviceSpec.aciSignedPreKey(),
@@ -220,21 +221,31 @@ public class AccountsManager {
           account.setUuid(aci);
           account.setNumber(e.getExistingAccount().getNumber(), pni);
 
-          CompletableFuture.allOf(
-                  keysManager.delete(aci),
-                  keysManager.delete(pni),
-                  messagesManager.clear(aci),
-                  profilesManager.deleteAll(aci))
-              .thenRunAsync(() -> clientPresenceManager.disconnectAllPresencesForUuid(aci), clientPresenceExecutor)
-              .thenCompose(ignored -> accounts.reclaimAccount(e.getExistingAccount(),
-                  account,
-                  keysManager.buildWriteItemsForRepeatedUseKeys(account.getIdentifier(IdentityType.ACI),
+          final List<TransactWriteItem> additionalWriteItems = Stream.concat(
+                  keysManager.buildWriteItemsForNewDevice(account.getIdentifier(IdentityType.ACI),
                       account.getIdentifier(IdentityType.PNI),
                       Device.PRIMARY_ID,
                       primaryDeviceSpec.aciSignedPreKey(),
                       primaryDeviceSpec.pniSignedPreKey(),
                       primaryDeviceSpec.aciPqLastResortPreKey(),
-                      primaryDeviceSpec.pniPqLastResortPreKey())))
+                      primaryDeviceSpec.pniPqLastResortPreKey()).stream(),
+                  e.getExistingAccount().getDevices()
+                      .stream()
+                      .map(Device::getId)
+                      // No need to clear the keys for the primary device since we'll just overwrite them in the same
+                      // transaction anyhow
+                      .filter(existingDeviceId -> existingDeviceId != Device.PRIMARY_ID)
+                      .flatMap(existingDeviceId ->
+                          keysManager.buildWriteItemsForRemovedDevice(aci, pni, existingDeviceId).stream()))
+              .toList();
+
+          CompletableFuture.allOf(
+                  keysManager.deleteSingleUsePreKeys(aci),
+                  keysManager.deleteSingleUsePreKeys(pni),
+                  messagesManager.clear(aci),
+                  profilesManager.deleteAll(aci))
+              .thenRunAsync(() -> clientPresenceManager.disconnectAllPresencesForUuid(aci), clientPresenceExecutor)
+              .thenCompose(ignored -> accounts.reclaimAccount(e.getExistingAccount(), account, additionalWriteItems))
               .thenCompose(ignored -> {
                 // We should have cleared all messages before overwriting the old account, but more may have arrived
                 // while we were working. Similarly, the old account holder could have added keys or profiles. We'll
@@ -243,8 +254,8 @@ public class AccountsManager {
                 //
                 // We exclude the primary device's repeated-use keys from deletion because new keys were provided as
                 // part of the account creation process, and we don't want to delete the keys that just got added.
-                return CompletableFuture.allOf(keysManager.delete(aci, true),
-                        keysManager.delete(pni, true),
+                return CompletableFuture.allOf(keysManager.deleteSingleUsePreKeys(aci),
+                        keysManager.deleteSingleUsePreKeys(pni),
                         messagesManager.clear(aci),
                         profilesManager.deleteAll(aci));
               })
@@ -264,7 +275,9 @@ public class AccountsManager {
   }
 
   public CompletableFuture<Pair<Account, Device>> addDevice(final Account account, final DeviceSpec deviceSpec) {
-    return addDevice(account.getIdentifier(IdentityType.ACI), deviceSpec, MAX_UPDATE_ATTEMPTS);
+    return accountLockManager.withLockAsync(List.of(account.getNumber()),
+        () -> addDevice(account.getIdentifier(IdentityType.ACI), deviceSpec, MAX_UPDATE_ATTEMPTS),
+        accountLockExecutor);
   }
 
   private CompletableFuture<Pair<Account, Device>> addDevice(final UUID accountIdentifier, final DeviceSpec deviceSpec, final int retries) {
@@ -274,7 +287,7 @@ public class AccountsManager {
           final byte nextDeviceId = account.getNextDeviceId();
           account.addDevice(deviceSpec.toDevice(nextDeviceId, clock));
 
-          final List<TransactWriteItem> additionalWriteItems = keysManager.buildWriteItemsForRepeatedUseKeys(
+          final List<TransactWriteItem> additionalWriteItems = keysManager.buildWriteItemsForNewDevice(
               account.getIdentifier(IdentityType.ACI),
               account.getIdentifier(IdentityType.PNI),
               nextDeviceId,
@@ -284,8 +297,8 @@ public class AccountsManager {
               deviceSpec.pniPqLastResortPreKey());
 
           return CompletableFuture.allOf(
-                  keysManager.delete(account.getUuid(), nextDeviceId),
-                  keysManager.delete(account.getPhoneNumberIdentifier(), nextDeviceId),
+                  keysManager.deleteSingleUsePreKeys(account.getUuid(), nextDeviceId),
+                  keysManager.deleteSingleUsePreKeys(account.getPhoneNumberIdentifier(), nextDeviceId),
                   messagesManager.clear(account.getUuid(), nextDeviceId))
               .thenCompose(ignored -> accounts.updateTransactionallyAsync(account, additionalWriteItems))
               .thenApply(ignored -> new Pair<>(account, account.getDevice(nextDeviceId).orElseThrow()));
@@ -306,16 +319,43 @@ public class AccountsManager {
       throw new IllegalArgumentException("Cannot remove primary device");
     }
 
-    return CompletableFuture.allOf(
-            keysManager.delete(account.getUuid(), deviceId),
+    return accountLockManager.withLockAsync(List.of(account.getNumber()),
+        () -> removeDevice(account.getIdentifier(IdentityType.ACI), deviceId, MAX_UPDATE_ATTEMPTS),
+        accountLockExecutor);
+  }
+
+  private CompletableFuture<Account> removeDevice(final UUID accountIdentifier, final byte deviceId, final int retries) {
+    return accounts.getByAccountIdentifierAsync(accountIdentifier)
+        .thenApply(maybeAccount -> maybeAccount.orElseThrow(ContestedOptimisticLockException::new))
+        .thenCompose(account ->  CompletableFuture.allOf(
+            keysManager.deleteSingleUsePreKeys(account.getUuid(), deviceId),
             messagesManager.clear(account.getUuid(), deviceId))
-        .thenCompose(ignored -> updateAsync(account, (Consumer<Account>) a -> a.removeDevice(deviceId)))
-        // ensure any messages that came in after the first clear() are also removed
-        .thenCompose(updatedAccount -> messagesManager.clear(account.getUuid(), deviceId)
-            .thenApply(ignored -> updatedAccount))
+            .thenApply(ignored -> account))
+        .thenCompose(account -> {
+          account.removeDevice(deviceId);
+
+          return accounts.updateTransactionallyAsync(account, keysManager.buildWriteItemsForRemovedDevice(
+              account.getIdentifier(IdentityType.ACI),
+              account.getIdentifier(IdentityType.PNI),
+              deviceId))
+              .thenApply(ignored -> account);
+        })
+        .thenCompose(updatedAccount -> redisDeleteAsync(updatedAccount).thenApply(ignored -> updatedAccount))
+        // Ensure any messages/single-use pre-keys that came in while we were working are also removed
+        .thenCompose(account ->  CompletableFuture.allOf(
+                keysManager.deleteSingleUsePreKeys(account.getUuid(), deviceId),
+                messagesManager.clear(account.getUuid(), deviceId))
+            .thenApply(ignored -> account))
+        .exceptionallyCompose(throwable -> {
+          if (ExceptionUtils.unwrap(throwable) instanceof ContestedOptimisticLockException && retries > 0) {
+            return removeDevice(accountIdentifier, deviceId, retries - 1);
+          }
+
+          return CompletableFuture.failedFuture(throwable);
+        })
         .whenComplete((ignored, throwable) -> {
           if (throwable == null) {
-            clientPresenceManager.disconnectPresence(account.getUuid(), deviceId);
+            clientPresenceManager.disconnectPresence(accountIdentifier, deviceId);
           }
         });
   }
@@ -370,12 +410,12 @@ public class AccountsManager {
       final UUID phoneNumberIdentifier = phoneNumberIdentifiers.getPhoneNumberIdentifier(targetNumber);
 
       CompletableFuture.allOf(
-              keysManager.delete(phoneNumberIdentifier),
-              keysManager.delete(originalPhoneNumberIdentifier))
+              keysManager.deleteSingleUsePreKeys(phoneNumberIdentifier),
+              keysManager.deleteSingleUsePreKeys(originalPhoneNumberIdentifier))
           .join();
 
       final Collection<TransactWriteItem> keyWriteItems =
-          buildKeyWriteItems(uuid, phoneNumberIdentifier, pniSignedPreKeys, pniPqLastResortPreKeys);
+          buildPniKeyWriteItems(uuid, phoneNumberIdentifier, pniSignedPreKeys, pniPqLastResortPreKeys);
 
       final Account numberChangedAccount = updateWithRetries(
           account,
@@ -404,10 +444,10 @@ public class AccountsManager {
     final UUID pni = account.getIdentifier(IdentityType.PNI);
 
     final Collection<TransactWriteItem> keyWriteItems =
-        buildKeyWriteItems(pni, pni, pniSignedPreKeys, pniPqLastResortPreKeys);
+        buildPniKeyWriteItems(pni, pni, pniSignedPreKeys, pniPqLastResortPreKeys);
 
     return redisDeleteAsync(account)
-        .thenCompose(ignored -> keysManager.delete(pni))
+        .thenCompose(ignored -> keysManager.deleteSingleUsePreKeys(pni))
         .thenCompose(ignored -> updateTransactionallyWithRetriesAsync(account,
             a -> setPniKeys(a, pniIdentityKey, pniSignedPreKeys, pniRegistrationIds),
             accounts::updateTransactionallyAsync,
@@ -418,7 +458,7 @@ public class AccountsManager {
         .join();
   }
 
-  private Collection<TransactWriteItem> buildKeyWriteItems(
+  private Collection<TransactWriteItem> buildPniKeyWriteItems(
       final UUID enabledDevicesIdentifier,
       final UUID phoneNumberIdentifier,
       @Nullable final Map<Byte, ECSignedPreKey> pniSignedPreKeys,
@@ -961,16 +1001,23 @@ public class AccountsManager {
   }
 
   private CompletableFuture<Void> delete(final Account account) {
+    final List<TransactWriteItem> additionalWriteItems =
+        account.getDevices().stream().flatMap(device -> keysManager.buildWriteItemsForRemovedDevice(
+                account.getIdentifier(IdentityType.ACI),
+                account.getIdentifier(IdentityType.PNI),
+                device.getId()).stream())
+            .toList();
+
     return CompletableFuture.allOf(
             secureStorageClient.deleteStoredData(account.getUuid()),
             secureValueRecovery2Client.deleteBackups(account.getUuid()),
-            keysManager.delete(account.getUuid()),
-            keysManager.delete(account.getPhoneNumberIdentifier()),
+            keysManager.deleteSingleUsePreKeys(account.getUuid()),
+            keysManager.deleteSingleUsePreKeys(account.getPhoneNumberIdentifier()),
             messagesManager.clear(account.getUuid()),
             messagesManager.clear(account.getPhoneNumberIdentifier()),
             profilesManager.deleteAll(account.getUuid()),
             registrationRecoveryPasswordsManager.removeForNumber(account.getNumber()))
-        .thenCompose(ignored -> CompletableFuture.allOf(accounts.delete(account.getUuid()), redisDeleteAsync(account)))
+        .thenCompose(ignored -> CompletableFuture.allOf(accounts.delete(account.getUuid(), additionalWriteItems), redisDeleteAsync(account)))
         .thenRun(() -> RedisOperation.unchecked(() ->
             account.getDevices().forEach(device ->
                 clientPresenceManager.disconnectPresence(account.getUuid(), device.getId()))));

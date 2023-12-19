@@ -1,6 +1,9 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.Mockito.mock;
@@ -12,7 +15,9 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -23,7 +28,9 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicECPreKeyMigrationConfiguration;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
@@ -32,7 +39,7 @@ import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 import org.whispersystems.textsecuregcm.util.Pair;
 
-public class LinkDeviceIntegrationTest {
+public class AddRemoveDeviceIntegrationTest {
 
   @RegisterExtension
   static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(
@@ -56,16 +63,19 @@ public class LinkDeviceIntegrationTest {
   private ExecutorService accountLockExecutor;
   private ExecutorService clientPresenceExecutor;
 
-  private AccountsManager accountsManager;
   private KeysManager keysManager;
+  private MessagesManager messagesManager;
+  private AccountsManager accountsManager;
 
   @BeforeEach
   void setUp() {
     @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
         mock(DynamicConfigurationManager.class);
 
-    DynamicConfiguration dynamicConfiguration = new DynamicConfiguration();
+    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
+    when(dynamicConfiguration.getEcPreKeyMigrationConfiguration())
+        .thenReturn(new DynamicECPreKeyMigrationConfiguration(true, true));
 
     keysManager = new KeysManager(
         DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
@@ -100,7 +110,7 @@ public class LinkDeviceIntegrationTest {
         new PhoneNumberIdentifiers(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
             DynamoDbExtensionSchema.Tables.PNI.tableName());
 
-    final MessagesManager messagesManager = mock(MessagesManager.class);
+    messagesManager = mock(MessagesManager.class);
     when(messagesManager.clear(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
 
     final ProfilesManager profilesManager = mock(ProfilesManager.class);
@@ -143,7 +153,7 @@ public class LinkDeviceIntegrationTest {
   }
 
   @Test
-  void linkDevice() throws InterruptedException {
+  void addDevice() throws InterruptedException {
     final String number = PhoneNumberUtil.getInstance().format(
         PhoneNumberUtil.getInstance().getExampleNumber("US"),
         PhoneNumberUtil.PhoneNumberFormat.E164);
@@ -176,5 +186,113 @@ public class LinkDeviceIntegrationTest {
     assertEquals(2,
         accountsManager.getByAccountIdentifier(updatedAccountAndDevice.first().getUuid()).orElseThrow().getDevices()
             .size());
+
+    final byte addedDeviceId = updatedAccountAndDevice.second().getId();
+
+    assertTrue(keysManager.getEcSignedPreKey(updatedAccountAndDevice.first().getUuid(), addedDeviceId).join().isPresent());
+    assertTrue(keysManager.getEcSignedPreKey(updatedAccountAndDevice.first().getPhoneNumberIdentifier(), addedDeviceId).join().isPresent());
+    assertTrue(keysManager.getLastResort(updatedAccountAndDevice.first().getUuid(), addedDeviceId).join().isPresent());
+    assertTrue(keysManager.getLastResort(updatedAccountAndDevice.first().getPhoneNumberIdentifier(), addedDeviceId).join().isPresent());
+  }
+
+  @Test
+  void removeDevice() throws InterruptedException {
+    final String number = PhoneNumberUtil.getInstance().format(
+        PhoneNumberUtil.getInstance().getExampleNumber("US"),
+        PhoneNumberUtil.PhoneNumberFormat.E164);
+
+    final ECKeyPair aciKeyPair = Curve.generateKeyPair();
+    final ECKeyPair pniKeyPair = Curve.generateKeyPair();
+
+    final Account account = AccountsHelper.createAccount(accountsManager, number);
+    assertEquals(1, accountsManager.getByAccountIdentifier(account.getUuid()).orElseThrow().getDevices().size());
+
+    final Pair<Account, Device> updatedAccountAndDevice =
+        accountsManager.addDevice(account, new DeviceSpec(
+                "device-name".getBytes(StandardCharsets.UTF_8),
+                "password",
+                "OWT",
+                new Device.DeviceCapabilities(true, true, true, true),
+                1,
+                2,
+                true,
+                Optional.empty(),
+                Optional.empty(),
+                KeysHelper.signedECPreKey(1, aciKeyPair),
+                KeysHelper.signedECPreKey(2, pniKeyPair),
+                KeysHelper.signedKEMPreKey(3, aciKeyPair),
+                KeysHelper.signedKEMPreKey(4, pniKeyPair)))
+            .join();
+
+    final byte addedDeviceId = updatedAccountAndDevice.second().getId();
+
+    final Account updatedAccount = accountsManager.removeDevice(updatedAccountAndDevice.first(), addedDeviceId).join();
+
+    assertEquals(1, updatedAccount.getDevices().size());
+
+    assertFalse(keysManager.getEcSignedPreKey(updatedAccount.getUuid(), addedDeviceId).join().isPresent());
+    assertFalse(keysManager.getEcSignedPreKey(updatedAccount.getPhoneNumberIdentifier(), addedDeviceId).join().isPresent());
+    assertFalse(keysManager.getLastResort(updatedAccount.getUuid(), addedDeviceId).join().isPresent());
+    assertFalse(keysManager.getLastResort(updatedAccount.getPhoneNumberIdentifier(), addedDeviceId).join().isPresent());
+
+    assertTrue(keysManager.getEcSignedPreKey(updatedAccount.getUuid(), Device.PRIMARY_ID).join().isPresent());
+    assertTrue(keysManager.getEcSignedPreKey(updatedAccount.getPhoneNumberIdentifier(), Device.PRIMARY_ID).join().isPresent());
+    assertTrue(keysManager.getLastResort(updatedAccount.getUuid(), Device.PRIMARY_ID).join().isPresent());
+    assertTrue(keysManager.getLastResort(updatedAccount.getPhoneNumberIdentifier(), Device.PRIMARY_ID).join().isPresent());
+  }
+
+  @Test
+  void removeDevicePartialFailure() throws InterruptedException {
+    final String number = PhoneNumberUtil.getInstance().format(
+        PhoneNumberUtil.getInstance().getExampleNumber("US"),
+        PhoneNumberUtil.PhoneNumberFormat.E164);
+
+    final ECKeyPair aciKeyPair = Curve.generateKeyPair();
+    final ECKeyPair pniKeyPair = Curve.generateKeyPair();
+
+    final Account account = AccountsHelper.createAccount(accountsManager, number);
+    assertEquals(1, accountsManager.getByAccountIdentifier(account.getUuid()).orElseThrow().getDevices().size());
+
+    final UUID aci = account.getIdentifier(IdentityType.ACI);
+    final UUID pni = account.getIdentifier(IdentityType.PNI);
+
+    final Pair<Account, Device> updatedAccountAndDevice =
+        accountsManager.addDevice(account, new DeviceSpec(
+                "device-name".getBytes(StandardCharsets.UTF_8),
+                "password",
+                "OWT",
+                new Device.DeviceCapabilities(true, true, true, true),
+                1,
+                2,
+                true,
+                Optional.empty(),
+                Optional.empty(),
+                KeysHelper.signedECPreKey(1, aciKeyPair),
+                KeysHelper.signedECPreKey(2, pniKeyPair),
+                KeysHelper.signedKEMPreKey(3, aciKeyPair),
+                KeysHelper.signedKEMPreKey(4, pniKeyPair)))
+            .join();
+
+    final byte addedDeviceId = updatedAccountAndDevice.second().getId();
+
+    when(messagesManager.clear(any(), anyByte()))
+        .thenReturn(CompletableFuture.failedFuture(new RuntimeException("OH NO")));
+
+    assertThrows(CompletionException.class,
+        () -> accountsManager.removeDevice(updatedAccountAndDevice.first(), addedDeviceId).join());
+
+    final Account retrievedAccount = accountsManager.getByAccountIdentifierAsync(aci).join().orElseThrow();
+
+    assertEquals(2, retrievedAccount.getDevices().size());
+
+    assertTrue(keysManager.getEcSignedPreKey(retrievedAccount.getUuid(), addedDeviceId).join().isPresent());
+    assertTrue(keysManager.getEcSignedPreKey(retrievedAccount.getPhoneNumberIdentifier(), addedDeviceId).join().isPresent());
+    assertTrue(keysManager.getLastResort(retrievedAccount.getUuid(), addedDeviceId).join().isPresent());
+    assertTrue(keysManager.getLastResort(retrievedAccount.getPhoneNumberIdentifier(), addedDeviceId).join().isPresent());
+
+    assertTrue(keysManager.getEcSignedPreKey(retrievedAccount.getUuid(), Device.PRIMARY_ID).join().isPresent());
+    assertTrue(keysManager.getEcSignedPreKey(retrievedAccount.getPhoneNumberIdentifier(), Device.PRIMARY_ID).join().isPresent());
+    assertTrue(keysManager.getLastResort(retrievedAccount.getUuid(), Device.PRIMARY_ID).join().isPresent());
+    assertTrue(keysManager.getLastResort(retrievedAccount.getPhoneNumberIdentifier(), Device.PRIMARY_ID).join().isPresent());
   }
 }

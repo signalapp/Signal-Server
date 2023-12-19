@@ -276,7 +276,7 @@ class MessagePersisterTest {
 
     when(messagesManager.persistMessages(any(UUID.class), anyByte(), anyList())).thenThrow(ItemCollectionSizeLimitExceededException.builder().build());
     when(messagesManager.clear(any(UUID.class), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
-    when(keysManager.delete(any(), eq(inactiveId))).thenReturn(CompletableFuture.completedFuture(null));
+    when(keysManager.deleteSingleUsePreKeys(any(), eq(inactiveId))).thenReturn(CompletableFuture.completedFuture(null));
 
     assertTimeoutPreemptively(Duration.ofSeconds(1), () ->
         messagePersister.persistQueue(destinationAccount, DESTINATION_DEVICE_ID));
@@ -326,7 +326,7 @@ class MessagePersisterTest {
 
     when(messagesManager.persistMessages(any(UUID.class), anyByte(), anyList())).thenThrow(ItemCollectionSizeLimitExceededException.builder().build());
     when(messagesManager.clear(any(UUID.class), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
-    when(keysManager.delete(any(), eq(deviceIdB))).thenReturn(CompletableFuture.completedFuture(null));
+    when(keysManager.deleteSingleUsePreKeys(any(), eq(deviceIdB))).thenReturn(CompletableFuture.completedFuture(null));
 
     assertTimeoutPreemptively(Duration.ofSeconds(1), () ->
         messagePersister.persistQueue(destinationAccount, DESTINATION_DEVICE_ID));
@@ -376,7 +376,7 @@ class MessagePersisterTest {
 
     when(messagesManager.persistMessages(any(UUID.class), anyByte(), anyList())).thenThrow(ItemCollectionSizeLimitExceededException.builder().build());
     when(messagesManager.clear(any(UUID.class), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
-    when(keysManager.delete(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
+    when(keysManager.deleteSingleUsePreKeys(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
 
     assertTimeoutPreemptively(Duration.ofSeconds(1), () ->
         messagePersister.persistQueue(destinationAccount, DESTINATION_DEVICE_ID));
