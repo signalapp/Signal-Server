@@ -218,6 +218,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     final byte[] validAboutEmoji = new byte[60];
     final byte[] validAbout = new byte[540];
     final byte[] validPaymentAddress = new byte[582];
+    final byte[] validPhoneNumberSharing = new byte[29];
 
     final SetProfileRequest request = SetProfileRequest.newBuilder()
         .setVersion(VERSION)
@@ -226,6 +227,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
         .setAboutEmoji(ByteString.copyFrom(validAboutEmoji))
         .setAbout(ByteString.copyFrom(validAbout))
         .setPaymentAddress(ByteString.copyFrom(validPaymentAddress))
+        .setPhoneNumberSharing(ByteString.copyFrom(validPhoneNumberSharing))
         .setCommitment(ByteString.copyFrom(commitment))
         .build();
 
@@ -244,6 +246,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     assertThat(profile.aboutEmoji()).isEqualTo(validAboutEmoji);
     assertThat(profile.about()).isEqualTo(validAbout);
     assertThat(profile.paymentAddress()).isEqualTo(validPaymentAddress);
+    assertThat(profile.phoneNumberSharing()).isEqualTo(validPhoneNumberSharing);
   }
 
   @ParameterizedTest

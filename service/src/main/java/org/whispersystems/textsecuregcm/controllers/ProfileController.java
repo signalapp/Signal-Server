@@ -163,9 +163,9 @@ public class ProfileController {
   public Response setProfile(@Auth AuthenticatedAccount auth, @NotNull @Valid CreateProfileRequest request) {
 
     final Optional<VersionedProfile> currentProfile = profilesManager.get(auth.getAccount().getUuid(),
-        request.getVersion());
+        request.version());
 
-    if (request.getPaymentAddress() != null && request.getPaymentAddress().length != 0) {
+    if (request.paymentAddress() != null && request.paymentAddress().length != 0) {
       final boolean hasDisallowedPrefix =
           dynamicConfigurationManager.getConfiguration().getPaymentsConfiguration().getDisallowedPrefixes().stream()
               .anyMatch(prefix -> auth.getAccount().getNumber().startsWith(prefix));
@@ -189,13 +189,14 @@ public class ProfileController {
 
     profilesManager.set(auth.getAccount().getUuid(),
         new VersionedProfile(
-            request.getVersion(),
-            request.getName(),
+            request.version(),
+            request.name(),
             avatar,
-            request.getAboutEmoji(),
-            request.getAbout(),
-            request.getPaymentAddress(),
-            request.getCommitment().serialize()));
+            request.aboutEmoji(),
+            request.about(),
+            request.paymentAddress(),
+            request.phoneNumberSharing(),
+            request.commitment().serialize()));
 
     if (request.getAvatarChange() != CreateProfileRequest.AvatarChange.UNCHANGED) {
       currentAvatar.ifPresent(s -> s3client.deleteObject(DeleteObjectRequest.builder()
@@ -204,13 +205,13 @@ public class ProfileController {
           .build()));
     }
 
-    final List<AccountBadge> updatedBadges = request.getBadges()
+    final List<AccountBadge> updatedBadges = request.badges()
         .map(badges -> ProfileHelper.mergeBadgeIdsWithExistingAccountBadges(clock, badgeConfigurationMap, badges, auth.getAccount().getBadges()))
         .orElseGet(() -> auth.getAccount().getBadges());
 
     accountsManager.update(auth.getAccount(), a -> {
       a.setBadges(clock, updatedBadges);
-      a.setCurrentProfileVersion(request.getVersion());
+      a.setCurrentProfileVersion(request.version());
     });
 
     if (request.getAvatarChange() == CreateProfileRequest.AvatarChange.UPDATE) {
@@ -411,6 +412,7 @@ public class ProfileController {
     final byte[] about = maybeProfile.map(VersionedProfile::about).orElse(null);
     final byte[] aboutEmoji = maybeProfile.map(VersionedProfile::aboutEmoji).orElse(null);
     final String avatar = maybeProfile.map(VersionedProfile::avatar).orElse(null);
+    final byte[] phoneNumberSharing = maybeProfile.map(VersionedProfile::phoneNumberSharing).orElse(null);
 
     // Allow requests where either the version matches the latest version on Account or the latest version on Account
     // is empty to read the payment address.
@@ -421,7 +423,7 @@ public class ProfileController {
 
     return new VersionedProfileResponse(
         buildBaseProfileResponseForAccountIdentity(account, isSelf, containerRequestContext),
-        name, about, aboutEmoji, avatar, paymentAddress);
+        name, about, aboutEmoji, avatar, paymentAddress, phoneNumberSharing);
   }
 
   private BaseProfileResponse buildBaseProfileResponseForAccountIdentity(final Account account,

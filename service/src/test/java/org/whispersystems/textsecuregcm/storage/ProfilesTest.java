@@ -48,8 +48,9 @@ public class ProfilesTest {
     final byte[] validAboutEmoji = TestRandomUtil.nextBytes(60);
     final byte[] validAbout = TestRandomUtil.nextBytes(156);
     final String avatar = "profiles/" + ProfileTestHelper.generateRandomBase64FromByteArray(16);
+    final byte[] phoneNumberSharing = TestRandomUtil.nextBytes(29);
 
-    validProfile = new VersionedProfile(version, name, avatar, validAboutEmoji, validAbout, null, commitment);
+    validProfile = new VersionedProfile(version, name, avatar, validAboutEmoji, validAbout, null, phoneNumberSharing, commitment);
   }
 
   @Test
@@ -92,10 +93,11 @@ public class ProfilesTest {
     final byte[] differentEmoji = TestRandomUtil.nextBytes(60);
     final byte[] differentAbout = TestRandomUtil.nextBytes(156);
     final byte[] paymentAddress = TestRandomUtil.nextBytes(582);
+    final byte[] phoneNumberSharing = TestRandomUtil.nextBytes(29);
     final byte[] commitment = new ProfileKey(TestRandomUtil.nextBytes(32)).getCommitment(new ServiceId.Aci(ACI)).serialize();
 
     VersionedProfile updatedProfile = new VersionedProfile(version, name, differentAvatar,
-        differentEmoji, differentAbout, paymentAddress, commitment);
+        differentEmoji, differentAbout, paymentAddress, phoneNumberSharing, commitment);
 
     profiles.set(ACI, updatedProfile);
 
@@ -115,7 +117,7 @@ public class ProfilesTest {
     final byte[] name = TestRandomUtil.nextBytes(81);
     final byte[] commitment = new ProfileKey(TestRandomUtil.nextBytes(32)).getCommitment(new ServiceId.Aci(ACI)).serialize();
 
-    VersionedProfile profile = new VersionedProfile(version, name, null, null, null, null,
+    VersionedProfile profile = new VersionedProfile(version, name, null, null, null, null, null,
         commitment);
     profiles.set(ACI, profile);
 
@@ -147,10 +149,11 @@ public class ProfilesTest {
     final byte[] differentEmoji = TestRandomUtil.nextBytes(60);
     final byte[] differentAbout = TestRandomUtil.nextBytes(156);
     final String differentAvatar = "profiles/" + ProfileTestHelper.generateRandomBase64FromByteArray(16);
+    final byte[] differentPhoneNumberSharing = TestRandomUtil.nextBytes(29);
     final byte[] differentCommitment = new ProfileKey(TestRandomUtil.nextBytes(32)).getCommitment(new ServiceId.Aci(ACI)).serialize();
 
     VersionedProfile updated = new VersionedProfile(validProfile.version(), differentName, differentAvatar, differentEmoji, differentAbout, null,
-        differentCommitment);
+        differentPhoneNumberSharing, differentCommitment);
     profiles.set(ACI, updated);
 
     retrieved = profiles.get(ACI, updated.version());
@@ -160,6 +163,7 @@ public class ProfilesTest {
     assertThat(retrieved.get().about()).isEqualTo(updated.about());
     assertThat(retrieved.get().aboutEmoji()).isEqualTo(updated.aboutEmoji());
     assertThat(retrieved.get().avatar()).isEqualTo(updated.avatar());
+    assertThat(retrieved.get().phoneNumberSharing()).isEqualTo(updated.phoneNumberSharing());
 
     // Commitment should be unchanged after an overwrite
     assertThat(retrieved.get().commitment()).isEqualTo(validProfile.commitment());
@@ -183,8 +187,8 @@ public class ProfilesTest {
     final byte[] commitmentTwo = new ProfileKey(TestRandomUtil.nextBytes(32)).getCommitment(new ServiceId.Aci(ACI)).serialize();
 
     VersionedProfile profileOne = new VersionedProfile(versionOne, nameOne, avatarOne, null, null,
-        null, commitmentOne);
-    VersionedProfile profileTwo = new VersionedProfile(versionTwo, nameTwo, avatarTwo, aboutEmoji, about, null, commitmentTwo);
+        null, null, commitmentOne);
+    VersionedProfile profileTwo = new VersionedProfile(versionTwo, nameTwo, avatarTwo, aboutEmoji, about, null, null, commitmentTwo);
 
     profiles.set(ACI, profileOne);
     profiles.set(ACI, profileTwo);
@@ -236,8 +240,8 @@ public class ProfilesTest {
     final byte[] commitmentTwo = new ProfileKey(TestRandomUtil.nextBytes(32)).getCommitment(new ServiceId.Aci(ACI)).serialize();
 
     VersionedProfile profileOne = new VersionedProfile(versionOne, nameOne, avatarOne, null, null,
-        null, commitmentOne);
-    VersionedProfile profileTwo = new VersionedProfile(versionTwo, nameTwo, avatarTwo, aboutEmoji, about, null, commitmentTwo);
+        null, null, commitmentOne);
+    VersionedProfile profileTwo = new VersionedProfile(versionTwo, nameTwo, avatarTwo, aboutEmoji, about, null, null, commitmentTwo);
 
     profiles.set(ACI, profileOne);
     profiles.set(ACI, profileTwo);
@@ -266,32 +270,37 @@ public class ProfilesTest {
     final byte[] emoji = TestRandomUtil.nextBytes(60);
     final byte[] about = TestRandomUtil.nextBytes(156);
     final byte[] paymentAddress = TestRandomUtil.nextBytes(582);
+    final byte[] phoneNumberSharing = TestRandomUtil.nextBytes(29);
     final byte[] commitment = new ProfileKey(TestRandomUtil.nextBytes(32)).getCommitment(new ServiceId.Aci(ACI)).serialize();
 
     return Stream.of(
         Arguments.of(
-            new VersionedProfile(version, name, avatar, emoji, about, paymentAddress, commitment),
-            "SET #commitment = if_not_exists(#commitment, :commitment), #name = :name, #avatar = :avatar, #about = :about, #aboutEmoji = :aboutEmoji, #paymentAddress = :paymentAddress"),
+            new VersionedProfile(version, name, avatar, emoji, about, paymentAddress, phoneNumberSharing, commitment),
+            "SET #commitment = if_not_exists(#commitment, :commitment), #name = :name, #avatar = :avatar, #about = :about, #aboutEmoji = :aboutEmoji, #paymentAddress = :paymentAddress, #phoneNumberSharing = :phoneNumberSharing"),
 
         Arguments.of(
-            new VersionedProfile(version, name, avatar, emoji, about, null, commitment),
-            "SET #commitment = if_not_exists(#commitment, :commitment), #name = :name, #avatar = :avatar, #about = :about, #aboutEmoji = :aboutEmoji REMOVE #paymentAddress"),
+            new VersionedProfile(version, name, avatar, emoji, about, paymentAddress, null, commitment),
+            "SET #commitment = if_not_exists(#commitment, :commitment), #name = :name, #avatar = :avatar, #about = :about, #aboutEmoji = :aboutEmoji, #paymentAddress = :paymentAddress REMOVE #phoneNumberSharing"),
 
         Arguments.of(
-            new VersionedProfile(version, name, avatar, emoji, null, null, commitment),
-            "SET #commitment = if_not_exists(#commitment, :commitment), #name = :name, #avatar = :avatar, #aboutEmoji = :aboutEmoji REMOVE #about, #paymentAddress"),
+            new VersionedProfile(version, name, avatar, emoji, about, null, null, commitment),
+            "SET #commitment = if_not_exists(#commitment, :commitment), #name = :name, #avatar = :avatar, #about = :about, #aboutEmoji = :aboutEmoji REMOVE #paymentAddress, #phoneNumberSharing"),
 
         Arguments.of(
-            new VersionedProfile(version, name, avatar, null, null, null, commitment),
-            "SET #commitment = if_not_exists(#commitment, :commitment), #name = :name, #avatar = :avatar REMOVE #about, #aboutEmoji, #paymentAddress"),
+            new VersionedProfile(version, name, avatar, emoji, null, null, null, commitment),
+            "SET #commitment = if_not_exists(#commitment, :commitment), #name = :name, #avatar = :avatar, #aboutEmoji = :aboutEmoji REMOVE #about, #paymentAddress, #phoneNumberSharing"),
 
         Arguments.of(
-            new VersionedProfile(version, name, null, null, null, null, commitment),
-            "SET #commitment = if_not_exists(#commitment, :commitment), #name = :name REMOVE #avatar, #about, #aboutEmoji, #paymentAddress"),
+            new VersionedProfile(version, name, avatar, null, null, null, null, commitment),
+            "SET #commitment = if_not_exists(#commitment, :commitment), #name = :name, #avatar = :avatar REMOVE #about, #aboutEmoji, #paymentAddress, #phoneNumberSharing"),
 
         Arguments.of(
-            new VersionedProfile(version, null, null, null, null, null, commitment),
-            "SET #commitment = if_not_exists(#commitment, :commitment) REMOVE #name, #avatar, #about, #aboutEmoji, #paymentAddress")
+            new VersionedProfile(version, name, null, null, null, null, null, commitment),
+            "SET #commitment = if_not_exists(#commitment, :commitment), #name = :name REMOVE #avatar, #about, #aboutEmoji, #paymentAddress, #phoneNumberSharing"),
+
+        Arguments.of(
+            new VersionedProfile(version, null, null, null, null, null, null, commitment),
+            "SET #commitment = if_not_exists(#commitment, :commitment) REMOVE #name, #avatar, #about, #aboutEmoji, #paymentAddress, #phoneNumberSharing")
     );
   }
 
@@ -308,11 +317,23 @@ public class ProfilesTest {
     final byte[] emoji = TestRandomUtil.nextBytes(60);
     final byte[] about = TestRandomUtil.nextBytes(156);
     final byte[] paymentAddress = TestRandomUtil.nextBytes(582);
+    final byte[] phoneNumberSharing = TestRandomUtil.nextBytes(29);
     final byte[] commitment = new ProfileKey(TestRandomUtil.nextBytes(32)).getCommitment(new ServiceId.Aci(ACI)).serialize();
 
     return Stream.of(
         Arguments.of(
-            new VersionedProfile(version, name, avatar, emoji, about, paymentAddress, commitment),
+            new VersionedProfile(version, name, avatar, emoji, about, paymentAddress, phoneNumberSharing, commitment),
+            Map.of(
+                ":commitment", AttributeValues.fromByteArray(commitment),
+                ":name", AttributeValues.fromByteArray(name),
+                ":avatar", AttributeValues.fromString(avatar),
+                ":aboutEmoji", AttributeValues.fromByteArray(emoji),
+                ":about", AttributeValues.fromByteArray(about),
+                ":paymentAddress", AttributeValues.fromByteArray(paymentAddress),
+                ":phoneNumberSharing", AttributeValues.fromByteArray(phoneNumberSharing))),
+
+        Arguments.of(
+            new VersionedProfile(version, name, avatar, emoji, about, paymentAddress, null, commitment),
             Map.of(
                 ":commitment", AttributeValues.fromByteArray(commitment),
                 ":name", AttributeValues.fromByteArray(name),
@@ -322,7 +343,7 @@ public class ProfilesTest {
                 ":paymentAddress", AttributeValues.fromByteArray(paymentAddress))),
 
         Arguments.of(
-            new VersionedProfile(version, name, avatar, emoji, about, null, commitment),
+            new VersionedProfile(version, name, avatar, emoji, about, null, null, commitment),
             Map.of(
                 ":commitment", AttributeValues.fromByteArray(commitment),
                 ":name", AttributeValues.fromByteArray(name),
@@ -331,7 +352,7 @@ public class ProfilesTest {
                 ":about", AttributeValues.fromByteArray(about))),
 
         Arguments.of(
-            new VersionedProfile(version, name, avatar, emoji, null, null, commitment),
+            new VersionedProfile(version, name, avatar, emoji, null, null, null, commitment),
             Map.of(
                 ":commitment", AttributeValues.fromByteArray(commitment),
                 ":name",AttributeValues.fromByteArray(name),
@@ -339,20 +360,20 @@ public class ProfilesTest {
                 ":aboutEmoji", AttributeValues.fromByteArray(emoji))),
 
         Arguments.of(
-            new VersionedProfile(version, name, avatar, null, null, null, commitment),
+            new VersionedProfile(version, name, avatar, null, null, null, null, commitment),
             Map.of(
                 ":commitment", AttributeValues.fromByteArray(commitment),
                 ":name", AttributeValues.fromByteArray(name),
                 ":avatar", AttributeValues.fromString(avatar))),
 
         Arguments.of(
-            new VersionedProfile(version, name, null, null, null, null, commitment),
+            new VersionedProfile(version, name, null, null, null, null, null, commitment),
             Map.of(
                 ":commitment", AttributeValues.fromByteArray(commitment),
                 ":name", AttributeValues.fromByteArray(name))),
 
         Arguments.of(
-            new VersionedProfile(version, null, null, null, null, null, commitment),
+            new VersionedProfile(version, null, null, null, null, null, null, commitment),
             Map.of(":commitment", AttributeValues.fromByteArray(commitment)))
     );
   }

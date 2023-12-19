@@ -48,6 +48,7 @@ public class ProfileGrpcHelper {
           maybeProfile.map(VersionedProfile::about).map(ByteString::copyFrom).ifPresent(responseBuilder::setAbout);
           maybeProfile.map(VersionedProfile::aboutEmoji).map(ByteString::copyFrom).ifPresent(responseBuilder::setAboutEmoji);
           maybeProfile.map(VersionedProfile::avatar).ifPresent(responseBuilder::setAvatar);
+          maybeProfile.map(VersionedProfile::phoneNumberSharing).map(ByteString::copyFrom).ifPresent(responseBuilder::setPhoneNumberSharing);
 
           // Allow requests where either the version matches the latest version on Account or the latest version on Account
           // is empty to read the payment address.

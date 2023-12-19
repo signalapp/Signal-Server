@@ -141,6 +141,7 @@ public class ProfileGrpcService extends ReactorProfileGrpc.ProfileImplBase {
                   request.getAboutEmoji().toByteArray(),
                   request.getAbout().toByteArray(),
                   request.getPaymentAddress().toByteArray(),
+                  request.getPhoneNumberSharing().toByteArray(),
                   request.getCommitment().toByteArray())));
 
           final List<Mono<?>> updates = new ArrayList<>(2);

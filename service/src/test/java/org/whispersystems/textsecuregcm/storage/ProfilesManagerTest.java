@@ -110,7 +110,7 @@ public class ProfilesManagerTest {
     final UUID uuid = UUID.randomUUID();
     final byte[] name = TestRandomUtil.nextBytes(81);
     final VersionedProfile profile = new VersionedProfile("someversion", name, "someavatar", null, null,
-        null, "somecommitment".getBytes());
+        null, null, "somecommitment".getBytes());
 
     when(commands.hget(eq("profiles::" + uuid), eq("someversion"))).thenReturn(null);
     when(profiles.get(eq(uuid), eq("someversion"))).thenReturn(Optional.of(profile));
@@ -133,7 +133,7 @@ public class ProfilesManagerTest {
     final UUID uuid = UUID.randomUUID();
     final byte[] name = TestRandomUtil.nextBytes(81);
     final VersionedProfile profile = new VersionedProfile("someversion", name, "someavatar", null, null,
-        null, "somecommitment".getBytes());
+        null, null, "somecommitment".getBytes());
 
     when(asyncCommands.hget(eq("profiles::" + uuid), eq("someversion"))).thenReturn(MockRedisFuture.completedFuture(null));
     when(asyncCommands.hset(eq("profiles::" + uuid), eq("someversion"), anyString())).thenReturn(MockRedisFuture.completedFuture(null));
@@ -157,7 +157,7 @@ public class ProfilesManagerTest {
     final UUID uuid = UUID.randomUUID();
     final byte[] name = TestRandomUtil.nextBytes(81);
     final VersionedProfile profile = new VersionedProfile("someversion", name, "someavatar", null, null,
-        null, "somecommitment".getBytes());
+        null, null, "somecommitment".getBytes());
 
     when(commands.hget(eq("profiles::" + uuid), eq("someversion"))).thenThrow(new RedisException("Connection lost"));
     when(profiles.get(eq(uuid), eq("someversion"))).thenReturn(Optional.of(profile));
@@ -180,7 +180,7 @@ public class ProfilesManagerTest {
     final UUID uuid = UUID.randomUUID();
     final byte[] name = TestRandomUtil.nextBytes(81);
     final VersionedProfile profile = new VersionedProfile("someversion", name, "someavatar", null, null,
-        null, "somecommitment".getBytes());
+        null, null, "somecommitment".getBytes());
 
     when(asyncCommands.hget(eq("profiles::" + uuid), eq("someversion"))).thenReturn(MockRedisFuture.failedFuture(new RedisException("Connection lost")));
     when(asyncCommands.hset(eq("profiles::" + uuid), eq("someversion"), anyString())).thenReturn(MockRedisFuture.completedFuture(null));
@@ -204,7 +204,7 @@ public class ProfilesManagerTest {
     final UUID uuid = UUID.randomUUID();
     final byte[] name = TestRandomUtil.nextBytes(81);
     final VersionedProfile profile = new VersionedProfile("someversion", name, "someavatar", null, null,
-        null, "somecommitment".getBytes());
+        null, null, "somecommitment".getBytes());
 
     profilesManager.set(uuid, profile);
 
@@ -220,7 +220,7 @@ public class ProfilesManagerTest {
     final UUID uuid = UUID.randomUUID();
     final byte[] name = TestRandomUtil.nextBytes(81);
     final VersionedProfile profile = new VersionedProfile("someversion", name, "someavatar", null, null,
-        null, "somecommitment".getBytes());
+        null, null, "somecommitment".getBytes());
 
     when(asyncCommands.hset(eq("profiles::" + uuid), eq("someversion"), anyString())).thenReturn(MockRedisFuture.completedFuture(null));
     when(profiles.setAsync(eq(uuid), eq(profile))).thenReturn(CompletableFuture.completedFuture(null));

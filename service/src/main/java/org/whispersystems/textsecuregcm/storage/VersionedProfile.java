@@ -5,14 +5,10 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
 import org.whispersystems.textsecuregcm.util.ByteArrayBase64WithPaddingAdapter;
-import java.util.Arrays;
-import java.util.Objects;
 
 public record VersionedProfile (String version,
                                 @JsonSerialize(using = ByteArrayBase64WithPaddingAdapter.Serializing.class)
@@ -32,6 +28,10 @@ public record VersionedProfile (String version,
                                 @JsonSerialize(using = ByteArrayBase64WithPaddingAdapter.Serializing.class)
                                 @JsonDeserialize(using = ByteArrayBase64WithPaddingAdapter.Deserializing.class)
                                 byte[] paymentAddress,
+
+                                @JsonSerialize(using = ByteArrayAdapter.Serializing.class)
+                                @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
+                                byte[] phoneNumberSharing,
 
                                 @JsonSerialize(using = ByteArrayAdapter.Serializing.class)
                                 @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)

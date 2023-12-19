@@ -227,10 +227,11 @@ class ProfileControllerTest {
     final byte[] name = TestRandomUtil.nextBytes(81);
     final byte[] emoji = TestRandomUtil.nextBytes(60);
     final byte[] about = TestRandomUtil.nextBytes(156);
+    final byte[] phoneNumberSharing = TestRandomUtil.nextBytes(29);
 
     when(profilesManager.get(eq(AuthHelper.VALID_UUID), eq("someversion"))).thenReturn(Optional.empty());
     when(profilesManager.get(eq(AuthHelper.VALID_UUID_TWO), eq("validversion"))).thenReturn(Optional.of(new VersionedProfile(
-        "validversion", name, "profiles/validavatar", emoji, about, null, "validcommitmnet".getBytes())));
+        "validversion", name, "profiles/validavatar", emoji, about, null, phoneNumberSharing, "validcommitment".getBytes())));
 
     clearInvocations(rateLimiter);
     clearInvocations(accountsManager);
@@ -419,7 +420,7 @@ class ProfileControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .put(Entity.entity(new CreateProfileRequest(commitment, "someversion",
             name, null, null,
-            null, true, false, List.of()), MediaType.APPLICATION_JSON_TYPE), ProfileAvatarUploadAttributes.class);
+            null, true, false, Optional.of(List.of()), null), MediaType.APPLICATION_JSON_TYPE), ProfileAvatarUploadAttributes.class);
 
     final ArgumentCaptor<VersionedProfile> profileArgumentCaptor = ArgumentCaptor.forClass(VersionedProfile.class);
 
@@ -446,7 +447,7 @@ class ProfileControllerTest {
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .put(Entity.entity(new CreateProfileRequest(commitment, "someversion", name,
-            null, null, null, true, false, List.of()), MediaType.APPLICATION_JSON_TYPE))) {
+            null, null, null, true, false, Optional.of(List.of()), null), MediaType.APPLICATION_JSON_TYPE))) {
 
       assertThat(response.getStatus()).isEqualTo(422);
     }
@@ -456,6 +457,7 @@ class ProfileControllerTest {
   void testSetProfileWithoutAvatarUpload() throws InvalidInputException {
     final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(AuthHelper.VALID_UUID));
     final byte[] name = TestRandomUtil.nextBytes(81);
+    final byte[] phoneNumberSharing = TestRandomUtil.nextBytes(29);
 
     clearInvocations(AuthHelper.VALID_ACCOUNT_TWO);
 
@@ -464,7 +466,7 @@ class ProfileControllerTest {
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
         .put(Entity.entity(new CreateProfileRequest(commitment, "anotherversion", name, null, null,
-            null, false, false, List.of()), MediaType.APPLICATION_JSON_TYPE))) {
+            null, false, false, Optional.of(List.of()), phoneNumberSharing), MediaType.APPLICATION_JSON_TYPE))) {
 
       assertThat(response.getStatus()).isEqualTo(200);
       assertThat(response.hasEntity()).isFalse();
@@ -482,6 +484,7 @@ class ProfileControllerTest {
       assertThat(profileArgumentCaptor.getValue().name()).isEqualTo(name);
       assertThat(profileArgumentCaptor.getValue().aboutEmoji()).isNull();
       assertThat(profileArgumentCaptor.getValue().about()).isNull();
+      assertThat(profileArgumentCaptor.getValue().phoneNumberSharing()).isEqualTo(phoneNumberSharing);
     }
   }
 
@@ -496,7 +499,7 @@ class ProfileControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
         .put(Entity.entity(new CreateProfileRequest(commitment, "validversion",
             name, null, null,
-            null, true, false, List.of()), MediaType.APPLICATION_JSON_TYPE), ProfileAvatarUploadAttributes.class);
+            null, true, false, Optional.of(List.of()), null), MediaType.APPLICATION_JSON_TYPE), ProfileAvatarUploadAttributes.class);
 
     final ArgumentCaptor<VersionedProfile> profileArgumentCaptor = ArgumentCaptor.forClass(VersionedProfile.class);
 
@@ -522,7 +525,7 @@ class ProfileControllerTest {
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
         .put(Entity.entity(new CreateProfileRequest(commitment, "validversion", name,
-            null, null, null, false, false, List.of()), MediaType.APPLICATION_JSON_TYPE))) {
+            null, null, null, false, false, Optional.of(List.of()), null), MediaType.APPLICATION_JSON_TYPE))) {
 
       assertThat(response.getStatus()).isEqualTo(200);
       assertThat(response.hasEntity()).isFalse();
@@ -552,7 +555,7 @@ class ProfileControllerTest {
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
         .put(Entity.entity(new CreateProfileRequest(commitment, "validversion", name,
-            null, null, null, true, true, List.of()), MediaType.APPLICATION_JSON_TYPE))) {
+            null, null, null, true, true, Optional.of(List.of()), null), MediaType.APPLICATION_JSON_TYPE))) {
 
       assertThat(response.getStatus()).isEqualTo(200);
       assertThat(response.hasEntity()).isFalse();
@@ -583,7 +586,7 @@ class ProfileControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
         .put(Entity.entity(new CreateProfileRequest(commitment, "validversion", name,
             null, null,
-            null, false, true, List.of()), MediaType.APPLICATION_JSON_TYPE))) {
+            null, false, true, Optional.of(List.of()), null), MediaType.APPLICATION_JSON_TYPE))) {
 
       final ArgumentCaptor<VersionedProfile> profileArgumentCaptor = ArgumentCaptor.forClass(VersionedProfile.class);
 
@@ -610,7 +613,7 @@ class ProfileControllerTest {
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .put(Entity.entity(new CreateProfileRequest(commitment, "validversion", name,
-            null, null, null, true, true, List.of()), MediaType.APPLICATION_JSON_TYPE))) {
+            null, null, null, true, true, Optional.of(List.of()), null), MediaType.APPLICATION_JSON_TYPE))) {
 
       assertThat(response.getStatus()).isEqualTo(200);
       assertThat(response.hasEntity()).isFalse();
@@ -642,7 +645,7 @@ class ProfileControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
         .put(Entity.entity(
             new CreateProfileRequest(commitment, "validversion", name,
-                null, null, null, true, false, List.of()),
+                null, null, null, true, false, Optional.of(List.of()), null),
             MediaType.APPLICATION_JSON_TYPE), ProfileAvatarUploadAttributes.class);
 
     final ArgumentCaptor<VersionedProfile> profileArgumentCaptor = ArgumentCaptor.forClass(VersionedProfile.class);
@@ -675,7 +678,7 @@ class ProfileControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
         .put(Entity.entity(
             new CreateProfileRequest(commitment, "anotherversion", name, emoji, about, null,
-                false, false, List.of()),
+                false, false, Optional.of(List.of()), null),
             MediaType.APPLICATION_JSON_TYPE))) {
 
       assertThat(response.getStatus()).isEqualTo(200);
@@ -715,7 +718,7 @@ class ProfileControllerTest {
         .put(Entity.entity(
             new CreateProfileRequest(commitment, "yetanotherversion", name,
                 null, null, paymentAddress, false, false,
-                List.of()), MediaType.APPLICATION_JSON_TYPE))) {
+                Optional.of(List.of()), null), MediaType.APPLICATION_JSON_TYPE))) {
 
       assertThat(response.getStatus()).isEqualTo(200);
       assertThat(response.hasEntity()).isFalse();
@@ -757,7 +760,7 @@ class ProfileControllerTest {
         .put(Entity.entity(
             new CreateProfileRequest(commitment, "yetanotherversion", name,
                 null, null, paymentAddress, false, false,
-                List.of()), MediaType.APPLICATION_JSON_TYPE))) {
+                Optional.of(List.of()), null), MediaType.APPLICATION_JSON_TYPE))) {
 
       assertThat(response.getStatus()).isEqualTo(403);
       assertThat(response.hasEntity()).isFalse();
@@ -776,6 +779,7 @@ class ProfileControllerTest {
     final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(AuthHelper.VALID_UUID));
     final byte[] name = TestRandomUtil.nextBytes(81);
     final byte[] paymentAddress = TestRandomUtil.nextBytes(582);
+    final byte[] phoneNumberSharing = TestRandomUtil.nextBytes(29);
 
     clearInvocations(AuthHelper.VALID_ACCOUNT_TWO);
 
@@ -783,6 +787,7 @@ class ProfileControllerTest {
         .thenReturn(Optional.of(
             new VersionedProfile("1", name, null, null, null,
                 existingPaymentAddressOnProfile ? TestRandomUtil.nextBytes(582) : null,
+                phoneNumberSharing,
                 commitment.serialize())));
 
 
@@ -793,7 +798,7 @@ class ProfileControllerTest {
         .put(Entity.entity(
             new CreateProfileRequest(commitment, "yetanotherversion", name,
                 null, null, paymentAddress, false, false,
-                List.of()), MediaType.APPLICATION_JSON_TYPE))) {
+                Optional.of(List.of()), null), MediaType.APPLICATION_JSON_TYPE))) {
 
       if (existingPaymentAddressOnProfile) {
         assertThat(response.getStatus()).isEqualTo(200);
@@ -824,13 +829,48 @@ class ProfileControllerTest {
   }
 
   @Test
+  void testSetProfilePhoneNumberSharing() throws Exception {
+    final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(AuthHelper.VALID_UUID));
+    final byte[] name = TestRandomUtil.nextBytes(81);
+    final byte[] phoneNumberSharing = TestRandomUtil.nextBytes(29);
+
+    clearInvocations(AuthHelper.VALID_ACCOUNT_TWO);
+
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/profile/")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
+        .put(Entity.entity(new CreateProfileRequest(commitment, "anotherversion", name, null, null,
+            null, false, false, Optional.of(List.of()), phoneNumberSharing), MediaType.APPLICATION_JSON_TYPE))) {
+
+      assertThat(response.getStatus()).isEqualTo(200);
+      assertThat(response.hasEntity()).isFalse();
+
+      final ArgumentCaptor<VersionedProfile> profileArgumentCaptor = ArgumentCaptor.forClass(VersionedProfile.class);
+
+      verify(profilesManager, times(1)).get(eq(AuthHelper.VALID_UUID_TWO), eq("anotherversion"));
+      verify(profilesManager, times(1)).set(eq(AuthHelper.VALID_UUID_TWO), profileArgumentCaptor.capture());
+
+      verifyNoMoreInteractions(s3client);
+
+      assertThat(profileArgumentCaptor.getValue().commitment()).isEqualTo(commitment.serialize());
+      assertThat(profileArgumentCaptor.getValue().avatar()).isNull();
+      assertThat(profileArgumentCaptor.getValue().version()).isEqualTo("anotherversion");
+      assertThat(profileArgumentCaptor.getValue().name()).isEqualTo(name);
+      assertThat(profileArgumentCaptor.getValue().aboutEmoji()).isNull();
+      assertThat(profileArgumentCaptor.getValue().about()).isNull();
+    }
+  }
+
+  @Test
   void testGetProfileByVersion() throws RateLimitExceededException {
     final byte[] name = TestRandomUtil.nextBytes(81);
     final byte[] emoji = TestRandomUtil.nextBytes(60);
     final byte[] about = TestRandomUtil.nextBytes(156);
+    final byte[] phoneNumberSharing = TestRandomUtil.nextBytes(29);
 
     when(profilesManager.get(eq(AuthHelper.VALID_UUID_TWO), eq("validversion"))).thenReturn(Optional.of(new VersionedProfile(
-        "validversion", name, "profiles/validavatar", emoji, about, null, "validcommitmnet".getBytes())));
+        "validversion", name, "profiles/validavatar", emoji, about, null, phoneNumberSharing, "validcommitment".getBytes())));
 
     final VersionedProfileResponse profile = resources.getJerseyTest()
         .target("/v1/profile/" + AuthHelper.VALID_UUID_TWO + "/validversion")
@@ -843,6 +883,7 @@ class ProfileControllerTest {
     assertThat(profile.getAbout()).containsExactly(about);
     assertThat(profile.getAboutEmoji()).containsExactly(emoji);
     assertThat(profile.getAvatar()).isEqualTo("profiles/validavatar");
+    assertThat(profile.getPhoneNumberSharing()).containsExactly(phoneNumberSharing);
     assertThat(profile.getBaseProfileResponse().getCapabilities().gv1Migration()).isTrue();
     assertThat(profile.getBaseProfileResponse().getUuid()).isEqualTo(new AciServiceIdentifier(AuthHelper.VALID_UUID_TWO));
     assertThat(profile.getBaseProfileResponse().getBadges()).hasSize(1).element(0).has(new Condition<>(
@@ -869,7 +910,7 @@ class ProfileControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
         .put(Entity.entity(
             new CreateProfileRequest(commitment, "someversion", name, null, null, paymentAddress, false, false,
-                List.of()), MediaType.APPLICATION_JSON_TYPE))) {
+                Optional.of(List.of()), null), MediaType.APPLICATION_JSON_TYPE))) {
 
       assertThat(response.getStatus()).isEqualTo(200);
       assertThat(response.hasEntity()).isFalse();
@@ -882,7 +923,7 @@ class ProfileControllerTest {
   void testGetProfileReturnsNoPaymentAddressIfCurrentVersionMismatch() {
     final byte[] paymentAddress = TestRandomUtil.nextBytes(582);
     when(profilesManager.get(AuthHelper.VALID_UUID_TWO, "validversion")).thenReturn(
-        Optional.of(new VersionedProfile(null, null, null, null, null, paymentAddress, null)));
+        Optional.of(new VersionedProfile(null, null, null, null, null, paymentAddress, null, null)));
 
     {
       final VersionedProfileResponse profile = resources.getJerseyTest()
@@ -959,7 +1000,7 @@ class ProfileControllerTest {
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
         .put(Entity.entity(new CreateProfileRequest(commitment, "anotherversion", name, emoji, about, null, false, false,
-            List.of("TEST2")), MediaType.APPLICATION_JSON_TYPE))) {
+            Optional.of(List.of("TEST2")), null), MediaType.APPLICATION_JSON_TYPE))) {
 
       assertThat(response.getStatus()).isEqualTo(200);
       assertThat(response.hasEntity()).isFalse();
@@ -982,7 +1023,7 @@ class ProfileControllerTest {
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
         .put(Entity.entity(new CreateProfileRequest(commitment, "anotherversion", name, emoji, about, null, false, false,
-            List.of("TEST3", "TEST2")), MediaType.APPLICATION_JSON_TYPE))) {
+            Optional.of(List.of("TEST3", "TEST2")), null), MediaType.APPLICATION_JSON_TYPE))) {
 
       assertThat(response.getStatus()).isEqualTo(200);
       assertThat(response.hasEntity()).isFalse();
@@ -1008,7 +1049,7 @@ class ProfileControllerTest {
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
         .put(Entity.entity(new CreateProfileRequest(commitment, "anotherversion", name, emoji, about, null, false, false,
-            List.of("TEST2", "TEST3")), MediaType.APPLICATION_JSON_TYPE))) {
+            Optional.of(List.of("TEST2", "TEST3")), null), MediaType.APPLICATION_JSON_TYPE))) {
 
       assertThat(response.getStatus()).isEqualTo(200);
       assertThat(response.hasEntity()).isFalse();
@@ -1034,7 +1075,7 @@ class ProfileControllerTest {
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
         .put(Entity.entity(new CreateProfileRequest(commitment, "anotherversion", name, emoji, about, null, false, false,
-            List.of("TEST1")), MediaType.APPLICATION_JSON_TYPE))) {
+            Optional.of(List.of("TEST1")), null), MediaType.APPLICATION_JSON_TYPE))) {
 
       assertThat(response.getStatus()).isEqualTo(200);
       assertThat(response.hasEntity()).isFalse();

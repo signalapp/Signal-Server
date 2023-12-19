@@ -133,6 +133,10 @@ message SetProfileRequest {
    */
   repeated string badge_ids = 7;
   /**
+   * The ciphertext of the phone-number sharing setting on the profile. 29-byte encrypted boolean.
+   */
+  bytes phone_number_sharing = 8;
+  /**
    * The profile key commitment. Used to issue a profile key credential response.
    * Must be set on the request.
    */
@@ -189,6 +193,10 @@ message GetVersionedProfileResponse {
    * The ciphertext of the MobileCoin wallet ID on the profile.
    */
   bytes payment_address = 5;
+  /**
+   * The ciphertext of the phone-number sharing setting on the profile.
+   */
+  bytes phone_number_sharing = 6;
 }
 
 message GetUnversionedProfileRequest {

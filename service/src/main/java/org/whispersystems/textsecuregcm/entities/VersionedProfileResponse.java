@@ -11,6 +11,8 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import org.whispersystems.textsecuregcm.util.ByteArrayBase64WithPaddingAdapter;
 
+// Note, this class cannot be converted into a record because @JsonUnwrapped does not work with records.
+// https://github.com/FasterXML/jackson-databind/issues/1467
 public class VersionedProfileResponse {
 
   @JsonUnwrapped
@@ -39,6 +41,11 @@ public class VersionedProfileResponse {
   @JsonDeserialize(using = ByteArrayBase64WithPaddingAdapter.Deserializing.class)
   private byte[] paymentAddress;
 
+  @JsonProperty
+  @JsonSerialize(using = ByteArrayBase64WithPaddingAdapter.Serializing.class)
+  @JsonDeserialize(using = ByteArrayBase64WithPaddingAdapter.Deserializing.class)
+  private byte[] phoneNumberSharing;
+
   public VersionedProfileResponse() {
   }
 
@@ -47,7 +54,8 @@ public class VersionedProfileResponse {
       final byte[] about,
       final byte[] aboutEmoji,
       final String avatar,
-      final byte[] paymentAddress) {
+      final byte[] paymentAddress,
+      final byte[] phoneNumberSharing) {
 
     this.baseProfileResponse = baseProfileResponse;
     this.name = name;
@@ -55,6 +63,7 @@ public class VersionedProfileResponse {
     this.aboutEmoji = aboutEmoji;
     this.avatar = avatar;
     this.paymentAddress = paymentAddress;
+    this.phoneNumberSharing = phoneNumberSharing;
   }
 
   public BaseProfileResponse getBaseProfileResponse() {
@@ -79,5 +88,9 @@ public class VersionedProfileResponse {
 
   public byte[] getPaymentAddress() {
     return paymentAddress;
+  }
+
+  public byte[] getPhoneNumberSharing() {
+    return phoneNumberSharing;
   }
 }
