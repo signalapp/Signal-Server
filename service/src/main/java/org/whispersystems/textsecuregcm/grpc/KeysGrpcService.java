@@ -200,7 +200,7 @@ public class KeysGrpcService extends ReactorKeysGrpc.KeysImplBase {
               final UUID identifier = account.getIdentifier(identityType);
 
               return Flux.merge(
-                      Mono.fromFuture(() -> keysManager.storeEcSignedPreKeys(identifier, Map.of(authenticatedDevice.deviceId(), signedPreKey))),
+                      Mono.fromFuture(() -> keysManager.storeEcSignedPreKeys(identifier, authenticatedDevice.deviceId(), signedPreKey)),
                       Mono.fromFuture(() -> accountsManager.updateDeviceAsync(account, authenticatedDevice.deviceId(), deviceUpdater)))
                   .then();
             }));
@@ -217,7 +217,7 @@ public class KeysGrpcService extends ReactorKeysGrpc.KeysImplBase {
               final UUID identifier =
                   account.getIdentifier(IdentityTypeUtil.fromGrpcIdentityType(request.getIdentityType()));
 
-              return Mono.fromFuture(() -> keysManager.storePqLastResort(identifier, Map.of(authenticatedDevice.deviceId(), lastResortKey)));
+              return Mono.fromFuture(() -> keysManager.storePqLastResort(identifier, authenticatedDevice.deviceId(), lastResortKey));
             }));
   }
 

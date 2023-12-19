@@ -97,7 +97,7 @@ class KeysManagerTest {
 
     final ECSignedPreKey signedPreKey = generateTestECSignedPreKey(1);
 
-    keysManager.storeEcSignedPreKeys(ACCOUNT_UUID, Map.of(DEVICE_ID, signedPreKey)).join();
+    keysManager.storeEcSignedPreKeys(ACCOUNT_UUID, DEVICE_ID, signedPreKey).join();
 
     assertEquals(Optional.of(signedPreKey), keysManager.getEcSignedPreKey(ACCOUNT_UUID, DEVICE_ID).join());
   }
@@ -124,7 +124,7 @@ class KeysManagerTest {
     final KEMSignedPreKey preKeyLast = generateTestKEMSignedPreKey(1001);
 
     keysManager.storeKemOneTimePreKeys(ACCOUNT_UUID, DEVICE_ID, List.of(preKey1, preKey2)).join();
-    keysManager.storePqLastResort(ACCOUNT_UUID, Map.of(DEVICE_ID, preKeyLast)).join();
+    keysManager.storePqLastResort(ACCOUNT_UUID, DEVICE_ID, preKeyLast).join();
 
     assertEquals(Optional.of(preKey1), keysManager.takePQ(ACCOUNT_UUID, DEVICE_ID).join());
     assertEquals(1, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID).join());
@@ -146,8 +146,8 @@ class KeysManagerTest {
     for (byte deviceId : new byte[] {DEVICE_ID, DEVICE_ID + 1}) {
       keysManager.storeEcOneTimePreKeys(ACCOUNT_UUID, deviceId, List.of(generateTestPreKey(keyId++))).join();
       keysManager.storeKemOneTimePreKeys(ACCOUNT_UUID, deviceId, List.of(generateTestKEMSignedPreKey(keyId++))).join();
-      keysManager.storeEcSignedPreKeys(ACCOUNT_UUID, Map.of(deviceId, generateTestECSignedPreKey(keyId++))).join();
-      keysManager.storePqLastResort(ACCOUNT_UUID, Map.of(deviceId, generateTestKEMSignedPreKey(keyId++))).join();
+      keysManager.storeEcSignedPreKeys(ACCOUNT_UUID, deviceId, generateTestECSignedPreKey(keyId++)).join();
+      keysManager.storePqLastResort(ACCOUNT_UUID, deviceId, generateTestKEMSignedPreKey(keyId++)).join();
     }
 
     for (byte deviceId : new byte[] {DEVICE_ID, DEVICE_ID + 1}) {
@@ -174,8 +174,8 @@ class KeysManagerTest {
     for (byte deviceId : new byte[] {DEVICE_ID, DEVICE_ID + 1}) {
       keysManager.storeEcOneTimePreKeys(ACCOUNT_UUID, deviceId, List.of(generateTestPreKey(keyId++))).join();
       keysManager.storeKemOneTimePreKeys(ACCOUNT_UUID, deviceId, List.of(generateTestKEMSignedPreKey(keyId++))).join();
-      keysManager.storeEcSignedPreKeys(ACCOUNT_UUID, Map.of(deviceId, generateTestECSignedPreKey(keyId++))).join();
-      keysManager.storePqLastResort(ACCOUNT_UUID, Map.of(deviceId, generateTestKEMSignedPreKey(keyId++))).join();
+      keysManager.storeEcSignedPreKeys(ACCOUNT_UUID, deviceId, generateTestECSignedPreKey(keyId++)).join();
+      keysManager.storePqLastResort(ACCOUNT_UUID, deviceId, generateTestKEMSignedPreKey(keyId++)).join();
     }
 
     for (byte deviceId : new byte[] {DEVICE_ID, DEVICE_ID + 1}) {
@@ -207,19 +207,17 @@ class KeysManagerTest {
     final byte deviceId2 = 2;
     final byte deviceId3 = 3;
 
-    keysManager.storePqLastResort(
-        ACCOUNT_UUID,
-        Map.of(DEVICE_ID, KeysHelper.signedKEMPreKey(1, identityKeyPair), (byte) 2,
-            KeysHelper.signedKEMPreKey(2, identityKeyPair))).join();
+    keysManager.storePqLastResort(ACCOUNT_UUID, DEVICE_ID, KeysHelper.signedKEMPreKey(1, identityKeyPair)).join();
+    keysManager.storePqLastResort(ACCOUNT_UUID, (byte) 2, KeysHelper.signedKEMPreKey(2, identityKeyPair)).join();
+
     assertEquals(2, keysManager.getPqEnabledDevices(ACCOUNT_UUID).join().size());
     assertEquals(1L, keysManager.getLastResort(ACCOUNT_UUID, DEVICE_ID).join().get().keyId());
     assertEquals(2L, keysManager.getLastResort(ACCOUNT_UUID, deviceId2).join().get().keyId());
     assertFalse(keysManager.getLastResort(ACCOUNT_UUID, deviceId3).join().isPresent());
 
-    keysManager.storePqLastResort(
-        ACCOUNT_UUID,
-        Map.of(DEVICE_ID, KeysHelper.signedKEMPreKey(3, identityKeyPair), deviceId3,
-            KeysHelper.signedKEMPreKey(4, identityKeyPair))).join();
+    keysManager.storePqLastResort(ACCOUNT_UUID, DEVICE_ID, KeysHelper.signedKEMPreKey(3, identityKeyPair)).join();
+    keysManager.storePqLastResort(ACCOUNT_UUID, deviceId3, KeysHelper.signedKEMPreKey(4, identityKeyPair)).join();
+
     assertEquals(3, keysManager.getPqEnabledDevices(ACCOUNT_UUID).join().size(), "storing new last-resort keys should not create duplicates");
     assertEquals(3L, keysManager.getLastResort(ACCOUNT_UUID, DEVICE_ID).join().get().keyId(),
         "storing new last-resort keys should overwrite old ones");
@@ -227,19 +225,14 @@ class KeysManagerTest {
         "storing new last-resort keys should leave untouched ones alone");
     assertEquals(4L, keysManager.getLastResort(ACCOUNT_UUID, deviceId3).join().get().keyId(),
         "storing new last-resort keys should overwrite old ones");
-
-    keysManager.storePqLastResort(ACCOUNT_UUID, Map.of()).join();
-    assertEquals(3, keysManager.getPqEnabledDevices(ACCOUNT_UUID).join().size(), "storing zero last-resort keys should be a no-op");
   }
 
   @Test
   void testGetPqEnabledDevices() {
     keysManager.storeKemOneTimePreKeys(ACCOUNT_UUID, DEVICE_ID, List.of(generateTestKEMSignedPreKey(1))).join();
-
-    keysManager.storePqLastResort(ACCOUNT_UUID, Map.of((byte) (DEVICE_ID + 1), generateTestKEMSignedPreKey(2))).join();
-
+    keysManager.storePqLastResort(ACCOUNT_UUID, (byte) (DEVICE_ID + 1), generateTestKEMSignedPreKey(2)).join();
     keysManager.storeKemOneTimePreKeys(ACCOUNT_UUID, (byte) (DEVICE_ID + 2), List.of(generateTestKEMSignedPreKey(3))).join();
-    keysManager.storePqLastResort(ACCOUNT_UUID, Map.of((byte) (DEVICE_ID + 2), generateTestKEMSignedPreKey(4))).join();
+    keysManager.storePqLastResort(ACCOUNT_UUID, (byte) (DEVICE_ID + 2), generateTestKEMSignedPreKey(4)).join();
 
     assertIterableEquals(
         Set.of((byte) (DEVICE_ID + 1), (byte) (DEVICE_ID + 2)),
@@ -250,7 +243,7 @@ class KeysManagerTest {
   void testStoreEcSignedPreKeyDisabled() {
     when(ecPreKeyMigrationConfiguration.storeEcSignedPreKeys()).thenReturn(false);
 
-    keysManager.storeEcSignedPreKeys(ACCOUNT_UUID, Map.of(DEVICE_ID, generateTestECSignedPreKey(1))).join();
+    keysManager.storeEcSignedPreKeys(ACCOUNT_UUID, DEVICE_ID, generateTestECSignedPreKey(1)).join();
     assertFalse(keysManager.getEcSignedPreKey(ACCOUNT_UUID, DEVICE_ID).join().isPresent());
   }
 

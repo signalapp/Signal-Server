@@ -8,7 +8,6 @@ package org.whispersystems.textsecuregcm.storage;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -100,9 +99,9 @@ public class KeysManager {
     return writeItems;
   }
 
-  public CompletableFuture<Void> storeEcSignedPreKeys(final UUID identifier, final Map<Byte, ECSignedPreKey> keys) {
+  public CompletableFuture<Void> storeEcSignedPreKeys(final UUID identifier, final byte deviceId, final ECSignedPreKey ecSignedPreKey) {
     if (dynamicConfigurationManager.getConfiguration().getEcPreKeyMigrationConfiguration().storeEcSignedPreKeys()) {
-      return ecSignedPreKeys.store(identifier, keys);
+      return ecSignedPreKeys.store(identifier, deviceId, ecSignedPreKey);
     } else {
       return CompletableFuture.completedFuture(null);
     }
@@ -113,8 +112,8 @@ public class KeysManager {
     return ecSignedPreKeys.storeIfAbsent(identifier, deviceId, signedPreKey);
   }
 
-  public CompletableFuture<Void> storePqLastResort(final UUID identifier, final Map<Byte, KEMSignedPreKey> keys) {
-    return pqLastResortKeys.store(identifier, keys);
+  public CompletableFuture<Void> storePqLastResort(final UUID identifier, final byte deviceId, final KEMSignedPreKey lastResortKey) {
+    return pqLastResortKeys.store(identifier, deviceId, lastResortKey);
   }
 
   public CompletableFuture<Void> storeEcOneTimePreKeys(final UUID identifier, final byte deviceId,

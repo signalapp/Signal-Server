@@ -304,7 +304,7 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
       return CompletableFuture.completedFuture(account);
     });
 
-    when(keysManager.storeEcSignedPreKeys(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(keysManager.storeEcSignedPreKeys(any(), anyByte(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
     final ECKeyPair identityKeyPair = switch (IdentityTypeUtil.fromGrpcIdentityType(identityType)) {
       case ACI -> ACI_IDENTITY_KEY_PAIR;
@@ -326,12 +326,12 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
     switch (identityType) {
       case IDENTITY_TYPE_ACI -> {
         verify(authenticatedDevice).setSignedPreKey(signedPreKey);
-        verify(keysManager).storeEcSignedPreKeys(AUTHENTICATED_ACI, Map.of(AUTHENTICATED_DEVICE_ID, signedPreKey));
+        verify(keysManager).storeEcSignedPreKeys(AUTHENTICATED_ACI, AUTHENTICATED_DEVICE_ID, signedPreKey);
       }
 
       case IDENTITY_TYPE_PNI -> {
         verify(authenticatedDevice).setPhoneNumberIdentitySignedPreKey(signedPreKey);
-        verify(keysManager).storeEcSignedPreKeys(AUTHENTICATED_PNI, Map.of(AUTHENTICATED_DEVICE_ID, signedPreKey));
+        verify(keysManager).storeEcSignedPreKeys(AUTHENTICATED_PNI, AUTHENTICATED_DEVICE_ID, signedPreKey);
       }
     }
   }
@@ -387,7 +387,7 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
   @ParameterizedTest
   @EnumSource(value = org.signal.chat.common.IdentityType.class, names = {"IDENTITY_TYPE_ACI", "IDENTITY_TYPE_PNI"})
   void setLastResortPreKey(final org.signal.chat.common.IdentityType identityType) {
-    when(keysManager.storePqLastResort(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(keysManager.storePqLastResort(any(), anyByte(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
     final ECKeyPair identityKeyPair = switch (IdentityTypeUtil.fromGrpcIdentityType(identityType)) {
       case ACI -> ACI_IDENTITY_KEY_PAIR;
@@ -412,7 +412,7 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
       case IDENTITY_TYPE_UNSPECIFIED, UNRECOGNIZED -> throw new AssertionError("Bad identity type");
     };
 
-    verify(keysManager).storePqLastResort(expectedIdentifier, Map.of(AUTHENTICATED_DEVICE_ID, lastResortPreKey));
+    verify(keysManager).storePqLastResort(expectedIdentifier, AUTHENTICATED_DEVICE_ID, lastResortPreKey);
   }
 
   @ParameterizedTest

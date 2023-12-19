@@ -164,7 +164,7 @@ public class KeysController {
 
           if (setKeysRequest.pqLastResortPreKey() != null) {
             storeFutures.add(
-                keys.storePqLastResort(identifier, Map.of(device.getId(), setKeysRequest.pqLastResortPreKey())));
+                keys.storePqLastResort(identifier, device.getId(), setKeysRequest.pqLastResortPreKey()));
           }
 
           return CompletableFuture.allOf(storeFutures.toArray(EMPTY_FUTURE_ARRAY));

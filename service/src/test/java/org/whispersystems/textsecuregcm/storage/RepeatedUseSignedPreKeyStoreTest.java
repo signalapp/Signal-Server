@@ -30,27 +30,12 @@ abstract class RepeatedUseSignedPreKeyStoreTest<K extends SignedPreKey<?>> {
 
     assertEquals(Optional.empty(), keys.find(UUID.randomUUID(), Device.PRIMARY_ID).join());
 
-    {
-      final UUID identifier = UUID.randomUUID();
-      final byte deviceId = 1;
-      final K signedPreKey = generateSignedPreKey();
+    final UUID identifier = UUID.randomUUID();
+    final byte deviceId = 1;
+    final K signedPreKey = generateSignedPreKey();
 
-      assertDoesNotThrow(() -> keys.store(identifier, deviceId, signedPreKey).join());
-      assertEquals(Optional.of(signedPreKey), keys.find(identifier, deviceId).join());
-    }
-
-    {
-      final UUID identifier = UUID.randomUUID();
-      final byte deviceId2 = 2;
-      final Map<Byte, K> signedPreKeys = Map.of(
-          Device.PRIMARY_ID, generateSignedPreKey(),
-          deviceId2, generateSignedPreKey()
-      );
-
-      assertDoesNotThrow(() -> keys.store(identifier, signedPreKeys).join());
-      assertEquals(Optional.of(signedPreKeys.get(Device.PRIMARY_ID)), keys.find(identifier, Device.PRIMARY_ID).join());
-      assertEquals(Optional.of(signedPreKeys.get(deviceId2)), keys.find(identifier, deviceId2).join());
-    }
+    assertDoesNotThrow(() -> keys.store(identifier, deviceId, signedPreKey).join());
+    assertEquals(Optional.of(signedPreKey), keys.find(identifier, deviceId).join());
   }
 
   @Test
@@ -75,18 +60,16 @@ abstract class RepeatedUseSignedPreKeyStoreTest<K extends SignedPreKey<?>> {
 
     final UUID identifier = UUID.randomUUID();
     final byte deviceId2 = 2;
-    final Map<Byte, K> signedPreKeys = Map.of(
-        Device.PRIMARY_ID, generateSignedPreKey(),
-        deviceId2, generateSignedPreKey()
-    );
+    final K retainedPreKey = generateSignedPreKey();
 
-    keys.store(identifier, signedPreKeys).join();
+    keys.store(identifier, Device.PRIMARY_ID, generateSignedPreKey()).join();
+    keys.store(identifier, deviceId2, retainedPreKey).join();
 
     getDynamoDbClient().transactWriteItems(TransactWriteItemsRequest.builder()
             .transactItems(keys.buildTransactWriteItemForDeletion(identifier, Device.PRIMARY_ID))
         .build());
 
     assertEquals(Optional.empty(), keys.find(identifier, Device.PRIMARY_ID).join());
-    assertEquals(Optional.of(signedPreKeys.get(deviceId2)), keys.find(identifier, deviceId2).join());
+    assertEquals(Optional.of(retainedPreKey), keys.find(identifier, deviceId2).join());
   }
 }

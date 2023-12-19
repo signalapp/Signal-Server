@@ -23,7 +23,6 @@ import software.amazon.awssdk.services.dynamodb.model.Put;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
-import software.amazon.awssdk.services.dynamodb.model.TransactWriteItemsRequest;
 
 /**
  * A repeated-use signed pre-key store manages storage for pre-keys that may be used more than once. Generally, these
@@ -45,7 +44,6 @@ public abstract class RepeatedUseSignedPreKeyStore<K extends SignedPreKey<?>> {
   static final String ATTR_SIGNATURE = "S";
 
   private final Timer storeSingleKeyTimer = Metrics.timer(MetricsUtil.name(getClass(), "storeSingleKey"));
-  private final Timer storeKeyBatchTimer = Metrics.timer(MetricsUtil.name(getClass(), "storeKeyBatch"));
 
   private final String findKeyTimerName = MetricsUtil.name(getClass(), "findKey");
 
@@ -72,41 +70,6 @@ public abstract class RepeatedUseSignedPreKeyStore<K extends SignedPreKey<?>> {
             .item(getItemFromPreKey(identifier, deviceId, signedPreKey))
             .build())
         .thenRun(() -> sample.stop(storeSingleKeyTimer));
-  }
-
-  /**
-   * Stores repeated-use pre-keys for a collection of devices associated with a single account/identity, displacing any
-   * previously-stored repeated-use pre-keys for the targeted devices. Note that this method is transactional; either
-   * all keys will be stored or none will.
-   *
-   * @param identifier the identifier for the account/identity with which the target devices are associated
-   * @param signedPreKeysByDeviceId a map of device identifiers to pre-keys
-   *
-   * @return a future that completes once all keys have been stored
-   */
-  public CompletableFuture<Void> store(final UUID identifier, final Map<Byte, K> signedPreKeysByDeviceId) {
-    if (signedPreKeysByDeviceId.isEmpty()) {
-      return CompletableFuture.completedFuture(null);
-    }
-
-    final Timer.Sample sample = Timer.start();
-
-    return dynamoDbAsyncClient.transactWriteItems(TransactWriteItemsRequest.builder()
-            .transactItems(signedPreKeysByDeviceId.entrySet().stream()
-                .map(entry -> {
-                  final byte deviceId = entry.getKey();
-                  final K signedPreKey = entry.getValue();
-
-                  return TransactWriteItem.builder()
-                      .put(Put.builder()
-                          .tableName(tableName)
-                          .item(getItemFromPreKey(identifier, deviceId, signedPreKey))
-                          .build())
-                      .build();
-                })
-                .toList())
-        .build())
-        .thenRun(() -> sample.stop(storeKeyBatchTimer));
   }
 
   TransactWriteItem buildTransactWriteItemForInsertion(final UUID identifier, final byte deviceId, final K preKey) {
