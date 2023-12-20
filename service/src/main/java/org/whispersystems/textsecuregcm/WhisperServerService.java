@@ -353,8 +353,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getDynamoDbTables().getEcKeys().getTableName(),
         config.getDynamoDbTables().getKemKeys().getTableName(),
         config.getDynamoDbTables().getEcSignedPreKeys().getTableName(),
-        config.getDynamoDbTables().getKemLastResortKeys().getTableName(),
-        dynamicConfigurationManager);
+        config.getDynamoDbTables().getKemLastResortKeys().getTableName()
+    );
     MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(dynamoDbClient, dynamoDbAsyncClient,
         config.getDynamoDbTables().getMessages().getTableName(),
         config.getDynamoDbTables().getMessages().getExpiration(),

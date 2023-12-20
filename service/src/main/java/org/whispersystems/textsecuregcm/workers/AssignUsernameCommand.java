@@ -168,8 +168,8 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
         configuration.getDynamoDbTables().getEcKeys().getTableName(),
         configuration.getDynamoDbTables().getKemKeys().getTableName(),
         configuration.getDynamoDbTables().getEcSignedPreKeys().getTableName(),
-        configuration.getDynamoDbTables().getKemLastResortKeys().getTableName(),
-        dynamicConfigurationManager);
+        configuration.getDynamoDbTables().getKemLastResortKeys().getTableName()
+    );
     MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(dynamoDbClient, dynamoDbAsyncClient,
         configuration.getDynamoDbTables().getMessages().getTableName(),
         configuration.getDynamoDbTables().getMessages().getExpiration(),

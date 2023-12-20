@@ -6,12 +6,10 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import com.google.common.annotations.VisibleForTesting;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.ECPreKey;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
@@ -19,8 +17,6 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
 
 public class KeysManager {
-
-  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
 
   private final SingleUseECPreKeyStore ecPreKeys;
   private final SingleUseKEMPreKeyStore pqPreKeys;
@@ -32,22 +28,18 @@ public class KeysManager {
       final String ecTableName,
       final String pqTableName,
       final String ecSignedPreKeysTableName,
-      final String pqLastResortTableName,
-      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
+      final String pqLastResortTableName) {
     this.ecPreKeys = new SingleUseECPreKeyStore(dynamoDbAsyncClient, ecTableName);
     this.pqPreKeys = new SingleUseKEMPreKeyStore(dynamoDbAsyncClient, pqTableName);
     this.ecSignedPreKeys = new RepeatedUseECSignedPreKeyStore(dynamoDbAsyncClient, ecSignedPreKeysTableName);
     this.pqLastResortKeys = new RepeatedUseKEMSignedPreKeyStore(dynamoDbAsyncClient, pqLastResortTableName);
-    this.dynamicConfigurationManager = dynamicConfigurationManager;
   }
 
-  public Optional<TransactWriteItem> buildWriteItemForEcSignedPreKey(final UUID identifier,
+  public TransactWriteItem buildWriteItemForEcSignedPreKey(final UUID identifier,
       final byte deviceId,
       final ECSignedPreKey ecSignedPreKey) {
 
-    return dynamicConfigurationManager.getConfiguration().getEcPreKeyMigrationConfiguration().storeEcSignedPreKeys()
-        ? Optional.of(ecSignedPreKeys.buildTransactWriteItemForInsertion(identifier, deviceId, ecSignedPreKey))
-        : Optional.empty();
+    return ecSignedPreKeys.buildTransactWriteItemForInsertion(identifier, deviceId, ecSignedPreKey);
   }
 
   public TransactWriteItem buildWriteItemForLastResortKey(final UUID identifier,
@@ -65,46 +57,28 @@ public class KeysManager {
       final KEMSignedPreKey aciPqLastResortPreKey,
       final KEMSignedPreKey pniLastResortPreKey) {
 
-    final List<TransactWriteItem> writeItems = new ArrayList<>(List.of(
+    return List.of(
+        ecSignedPreKeys.buildTransactWriteItemForInsertion(accountIdentifier, deviceId, aciSignedPreKey),
+        ecSignedPreKeys.buildTransactWriteItemForInsertion(phoneNumberIdentifier, deviceId, pniSignedPreKey),
         pqLastResortKeys.buildTransactWriteItemForInsertion(accountIdentifier, deviceId, aciPqLastResortPreKey),
         pqLastResortKeys.buildTransactWriteItemForInsertion(phoneNumberIdentifier, deviceId, pniLastResortPreKey)
-    ));
-
-    if (dynamicConfigurationManager.getConfiguration().getEcPreKeyMigrationConfiguration().storeEcSignedPreKeys()) {
-      writeItems.addAll(List.of(
-          ecSignedPreKeys.buildTransactWriteItemForInsertion(accountIdentifier, deviceId, aciSignedPreKey),
-          ecSignedPreKeys.buildTransactWriteItemForInsertion(phoneNumberIdentifier, deviceId, pniSignedPreKey)
-      ));
-    }
-
-    return writeItems;
+    );
   }
 
   public List<TransactWriteItem> buildWriteItemsForRemovedDevice(final UUID accountIdentifier,
       final UUID phoneNumberIdentifier,
       final byte deviceId) {
 
-    final List<TransactWriteItem> writeItems = new ArrayList<>(List.of(
+    return List.of(
+        ecSignedPreKeys.buildTransactWriteItemForDeletion(accountIdentifier, deviceId),
+        ecSignedPreKeys.buildTransactWriteItemForDeletion(phoneNumberIdentifier, deviceId),
         pqLastResortKeys.buildTransactWriteItemForDeletion(accountIdentifier, deviceId),
         pqLastResortKeys.buildTransactWriteItemForDeletion(phoneNumberIdentifier, deviceId)
-    ));
-
-    if (dynamicConfigurationManager.getConfiguration().getEcPreKeyMigrationConfiguration().deleteEcSignedPreKeys()) {
-      writeItems.addAll(List.of(
-          ecSignedPreKeys.buildTransactWriteItemForDeletion(accountIdentifier, deviceId),
-          ecSignedPreKeys.buildTransactWriteItemForDeletion(phoneNumberIdentifier, deviceId)
-      ));
-    }
-
-    return writeItems;
+    );
   }
 
   public CompletableFuture<Void> storeEcSignedPreKeys(final UUID identifier, final byte deviceId, final ECSignedPreKey ecSignedPreKey) {
-    if (dynamicConfigurationManager.getConfiguration().getEcPreKeyMigrationConfiguration().storeEcSignedPreKeys()) {
-      return ecSignedPreKeys.store(identifier, deviceId, ecSignedPreKey);
-    } else {
-      return CompletableFuture.completedFuture(null);
-    }
+    return ecSignedPreKeys.store(identifier, deviceId, ecSignedPreKey);
   }
 
   public CompletableFuture<Void> storePqLastResort(final UUID identifier, final byte deviceId, final KEMSignedPreKey lastResortKey) {
