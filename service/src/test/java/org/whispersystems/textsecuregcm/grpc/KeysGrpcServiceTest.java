@@ -494,7 +494,6 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
       final Device device = mock(Device.class);
       when(device.getId()).thenReturn(deviceId);
       when(device.isEnabled()).thenReturn(true);
-      when(device.getSignedPreKey(identityType)).thenReturn(ecSignedPreKeys.get(deviceId));
 
       devices.put(deviceId, device);
       when(targetAccount.getDevice(deviceId)).thenReturn(Optional.of(device));
@@ -503,6 +502,9 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
     when(targetAccount.getDevices()).thenReturn(new ArrayList<>(devices.values()));
 
     ecOneTimePreKeys.forEach((deviceId, preKey) -> when(keysManager.takeEC(identifier, deviceId))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(preKey))));
+
+    ecSignedPreKeys.forEach((deviceId, preKey) -> when(keysManager.getEcSignedPreKey(identifier, deviceId))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(preKey))));
 
     kemPreKeys.forEach((deviceId, preKey) -> when(keysManager.takePQ(identifier, deviceId))

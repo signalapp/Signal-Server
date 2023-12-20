@@ -38,8 +38,6 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import org.signal.libsignal.protocol.IdentityKey;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
@@ -51,7 +49,6 @@ import org.whispersystems.textsecuregcm.entities.PreKeyResponseItem;
 import org.whispersystems.textsecuregcm.entities.PreKeySignatureValidator;
 import org.whispersystems.textsecuregcm.entities.SetKeysRequest;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
-import org.whispersystems.textsecuregcm.experiment.Experiment;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -74,13 +71,10 @@ public class KeysController {
   private final RateLimiters rateLimiters;
   private final KeysManager keys;
   private final AccountsManager accounts;
-  private final Experiment compareSignedEcPreKeysExperiment = new Experiment("compareSignedEcPreKeys");
 
   private static final String GET_KEYS_COUNTER_NAME = MetricsUtil.name(KeysController.class, "getKeys");
 
   private static final CompletableFuture<?>[] EMPTY_FUTURE_ARRAY = new CompletableFuture[0];
-
-  private static final Logger logger = LoggerFactory.getLogger(KeysController.class);
 
   public KeysController(RateLimiters rateLimiters, KeysManager keys, AccountsManager accounts) {
     this.rateLimiters = rateLimiters;
@@ -247,35 +241,13 @@ public class KeysController {
         .increment();
 
     final List<PreKeyResponseItem> responseItems = Flux.fromIterable(parseDeviceId(deviceId, target))
-        .flatMap(device -> {
-          final ECSignedPreKey ecSignedPreKey = device.getSignedPreKey(targetIdentifier.identityType());
-          final CompletableFuture<Optional<ECSignedPreKey>> signedPreKeyFuture =
-              keys.getEcSignedPreKey(targetIdentifier.uuid(), device.getId());
-
-          compareSignedEcPreKeysExperiment.compareFutureResult(Optional.ofNullable(ecSignedPreKey), signedPreKeyFuture);
-
-          signedPreKeyFuture.whenComplete((maybeSignedPreKey, throwable) -> {
-            if (throwable == null) {
-              if (!Optional.ofNullable(ecSignedPreKey).equals(maybeSignedPreKey)) {
-                logger.warn("Signed pre-keys do not match for {}, device {}. From device: {}; from table: {}",
-                    targetIdentifier,
-                    deviceId,
-                    Optional.ofNullable(ecSignedPreKey).map(ECSignedPreKey::keyId),
-                    maybeSignedPreKey.map(ECSignedPreKey::keyId));
-              }
-            } else {
-              logger.error("Failed to get signed pre-key for {}, device {}", targetIdentifier, deviceId, throwable);
-            }
-          });
-
-          return Mono.zip(
-              Mono.just(device),
-              Mono.just(Optional.ofNullable(ecSignedPreKey)),
-              Mono.fromFuture(() -> keys.takeEC(targetIdentifier.uuid(), device.getId())),
-              Mono.fromFuture(() -> returnPqKey ? keys.takePQ(targetIdentifier.uuid(), device.getId())
-                  : CompletableFuture.<Optional<KEMSignedPreKey>>completedFuture(Optional.empty()))
-          );
-        }).filter(keys -> keys.getT2().isPresent() || keys.getT3().isPresent() || keys.getT4().isPresent())
+        .flatMap(device -> Mono.zip(
+            Mono.just(device),
+            Mono.fromFuture(() -> keys.getEcSignedPreKey(targetIdentifier.uuid(), device.getId())),
+            Mono.fromFuture(() -> keys.takeEC(targetIdentifier.uuid(), device.getId())),
+            Mono.fromFuture(() -> returnPqKey ? keys.takePQ(targetIdentifier.uuid(), device.getId())
+                : CompletableFuture.<Optional<KEMSignedPreKey>>completedFuture(Optional.empty()))
+        )).filter(keys -> keys.getT2().isPresent() || keys.getT3().isPresent() || keys.getT4().isPresent())
         .map(deviceAndKeys -> {
           final Device device = deviceAndKeys.getT1();
           final int registrationId = switch (targetIdentifier.identityType()) {
@@ -296,6 +268,7 @@ public class KeysController {
     if (responseItems.isEmpty()) {
       throw new WebApplicationException(Response.Status.NOT_FOUND);
     }
+
     return new PreKeyResponse(identityKey, responseItems);
   }
 

@@ -96,9 +96,14 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
     final ECSignedPreKey ecSignedPreKey = KeysHelper.signedECPreKey(2, identityKeyPair);
     final KEMSignedPreKey kemSignedPreKey = KeysHelper.signedKEMPreKey(3, identityKeyPair);
 
-    when(keysManager.takeEC(identifier, Device.PRIMARY_ID)).thenReturn(CompletableFuture.completedFuture(Optional.of(ecPreKey)));
-    when(keysManager.takePQ(identifier, Device.PRIMARY_ID)).thenReturn(CompletableFuture.completedFuture(Optional.of(kemSignedPreKey)));
-    when(targetDevice.getSignedPreKey(IdentityType.ACI)).thenReturn(ecSignedPreKey);
+    when(keysManager.takeEC(identifier, Device.PRIMARY_ID))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(ecPreKey)));
+
+    when(keysManager.takePQ(identifier, Device.PRIMARY_ID))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(kemSignedPreKey)));
+
+    when(keysManager.getEcSignedPreKey(identifier, Device.PRIMARY_ID))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(ecSignedPreKey)));
 
     final GetPreKeysResponse response = unauthenticatedServiceStub().getPreKeys(GetPreKeysAnonymousRequest.newBuilder()
         .setUnidentifiedAccessKey(ByteString.copyFrom(unidentifiedAccessKey))
