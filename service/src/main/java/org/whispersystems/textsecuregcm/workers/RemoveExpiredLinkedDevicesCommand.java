@@ -30,6 +30,9 @@ public class RemoveExpiredLinkedDevicesCommand extends AbstractSinglePassCrawlAc
       "removedDevices");
   private static final String UPDATED_ACCOUNTS_COUNTER_NAME = name(RemoveExpiredLinkedDevicesCommand.class,
       "updatedAccounts");
+
+  private static final String FAILED_ACCOUNT_UPDATES_COUNTER_NAME = name(RemoveExpiredLinkedDevicesCommand.class,
+      "failedAccountUpdates");
   private static final Logger logger = LoggerFactory.getLogger(RemoveExpiredLinkedDevicesCommand.class);
 
   public RemoveExpiredLinkedDevicesCommand() {
@@ -65,8 +68,8 @@ public class RemoveExpiredLinkedDevicesCommand extends AbstractSinglePassCrawlAc
 
           return accountUpdate.thenReturn(expiredDevices.size())
               .onErrorResume(t -> {
-                logger.warn("Failed to remove expired linked devices {}", account.getUuid(),
-                    t);
+                logger.warn("Failed to remove expired linked devices {}", account.getUuid(), t);
+                Metrics.counter(FAILED_ACCOUNT_UPDATES_COUNTER_NAME).increment();
                 return Mono.empty();
               });
 
