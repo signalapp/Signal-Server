@@ -5,25 +5,35 @@
 
 package org.whispersystems.textsecuregcm.metrics;
 
-import io.dropwizard.lifecycle.Managed;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.time.Duration;
+import org.eclipse.jetty.util.component.LifeCycle;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-public class MicrometerRegistryManager implements Managed {
+public class MicrometerRegistryManager implements LifeCycle.Listener {
+
+  private static final Logger logger = LoggerFactory.getLogger(MicrometerRegistryManager.class);
+  private static final Duration BUFFER = Duration.ofSeconds(5);
 
   private final MeterRegistry meterRegistry;
+  private final Duration waitDuration;
 
-  public MicrometerRegistryManager(final MeterRegistry meterRegistry) {
+  public MicrometerRegistryManager(final MeterRegistry meterRegistry, final Duration pollingFrequency) {
     this.meterRegistry = meterRegistry;
+    this.waitDuration = pollingFrequency.plus(BUFFER);
   }
 
   @Override
-  public void start() throws Exception {
-
+  public void lifeCycleStopped(final LifeCycle event) {
+    try {
+      logger.info("Waiting for {} to ensure final metrics are polled and published", waitDuration);
+      Thread.sleep(waitDuration.toMillis());
+    } catch (final InterruptedException e) {
+      logger.warn("Waiting interrupted", e);
+    } finally {
+      meterRegistry.close();
+    }
   }
 
-  @Override
-  public void stop() throws Exception {
-    // closing the registry publishes one final set of metrics
-    meterRegistry.close();
-  }
 }

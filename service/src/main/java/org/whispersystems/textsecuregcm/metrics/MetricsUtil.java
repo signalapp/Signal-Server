@@ -60,7 +60,8 @@ public class MetricsUtil {
       Metrics.addRegistry(dogstatsdMeterRegistry);
     }
 
-    environment.lifecycle().manage(new MicrometerRegistryManager(Metrics.globalRegistry));
+    environment.lifecycle().addEventListener(
+        new MicrometerRegistryManager(Metrics.globalRegistry, config.getDatadogConfiguration().pollingFrequency()));
     environment.lifecycle().manage(new ApplicationShutdownMonitor(Metrics.globalRegistry));
   }
 
