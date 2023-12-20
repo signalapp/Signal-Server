@@ -15,7 +15,7 @@ jobs:
       - uses: actions/setup-java@5ffc13f4174014e2d4d4572b3d74c3fa61aeb2c2 # v3.11.0
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
           cache: 'maven'
       - name: Compile and Build OpenAPI file
         run: ./mvnw compile
