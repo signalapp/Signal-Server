@@ -38,8 +38,8 @@ public class RemoveExpiredLinkedDevicesCommand extends AbstractSinglePassCrawlAc
   private static final String UPDATED_ACCOUNTS_COUNTER_NAME = name(RemoveExpiredLinkedDevicesCommand.class,
       "updatedAccounts");
 
-  private static final String FAILED_ACCOUNT_UPDATES_COUNTER_NAME = name(RemoveExpiredLinkedDevicesCommand.class,
-      "failedAccountUpdates");
+  private static final String FAILED_UPDATES_COUNTER_NAME = name(RemoveExpiredLinkedDevicesCommand.class,
+      "failedUpdates");
   private static final Logger logger = LoggerFactory.getLogger(RemoveExpiredLinkedDevicesCommand.class);
 
   public RemoveExpiredLinkedDevicesCommand() {
@@ -90,16 +90,11 @@ public class RemoveExpiredLinkedDevicesCommand extends AbstractSinglePassCrawlAc
           final Account account = accountAndExpiredDevices.getT1();
           final Set<Byte> expiredDevices = accountAndExpiredDevices.getT2();
 
-          final Mono<Void> accountUpdate = dryRun
+          final Mono<Long> accountUpdate = dryRun
               ? Mono.empty()
               : deleteDevices(account, expiredDevices);
 
-          return accountUpdate.thenReturn(expiredDevices.size())
-              .onErrorResume(t -> {
-                logger.warn("Failed to remove expired linked devices {}", account.getUuid(), t);
-                Metrics.counter(FAILED_ACCOUNT_UPDATES_COUNTER_NAME).increment();
-                return Mono.empty();
-              });
+          return accountUpdate.thenReturn(expiredDevices.size());
 
         }, maxConcurrency)
         .doOnNext(removedDevices -> {
@@ -110,13 +105,18 @@ public class RemoveExpiredLinkedDevicesCommand extends AbstractSinglePassCrawlAc
         .block();
   }
 
-  private Mono<Void> deleteDevices(final Account account, final Set<Byte> expiredDevices) {
+  private Mono<Long> deleteDevices(final Account account, final Set<Byte> expiredDevices) {
     return Flux.fromIterable(expiredDevices)
         .flatMap(deviceId ->
                 Mono.fromFuture(() -> getCommandDependencies().accountsManager().removeDevice(account, deviceId)),
             // limit concurrency to avoid contested updates
             1)
-        .then();
+        .onErrorResume(t -> {
+          logger.warn("Failed to remove expired linked device {}", account.getUuid(), t);
+          Metrics.counter(FAILED_UPDATES_COUNTER_NAME).increment();
+          return Mono.empty();
+        })
+        .count();
   }
 
   protected static Set<Byte> getExpiredLinkedDeviceIds(List<Device> devices) {
