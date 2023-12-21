@@ -1019,9 +1019,9 @@ public class AccountsManager {
             registrationRecoveryPasswordsManager.removeForNumber(account.getNumber()))
         .thenCompose(ignored -> accounts.delete(account.getUuid(), additionalWriteItems))
         .thenCompose(ignored -> redisDeleteAsync(account))
-        .thenRun(() -> RedisOperation.unchecked(() ->
+        .thenRunAsync(() -> RedisOperation.unchecked(() ->
             account.getDevices().forEach(device ->
-                clientPresenceManager.disconnectPresence(account.getUuid(), device.getId()))));
+                clientPresenceManager.disconnectPresence(account.getUuid(), device.getId()))), clientPresenceExecutor);
   }
 
   private String getUsernameHashAccountMapKey(byte[] usernameHash) {
