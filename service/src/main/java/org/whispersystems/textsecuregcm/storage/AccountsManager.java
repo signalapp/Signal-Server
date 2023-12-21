@@ -1017,7 +1017,8 @@ public class AccountsManager {
             messagesManager.clear(account.getPhoneNumberIdentifier()),
             profilesManager.deleteAll(account.getUuid()),
             registrationRecoveryPasswordsManager.removeForNumber(account.getNumber()))
-        .thenCompose(ignored -> CompletableFuture.allOf(accounts.delete(account.getUuid(), additionalWriteItems), redisDeleteAsync(account)))
+        .thenCompose(ignored -> accounts.delete(account.getUuid(), additionalWriteItems))
+        .thenCompose(ignored -> redisDeleteAsync(account))
         .thenRun(() -> RedisOperation.unchecked(() ->
             account.getDevices().forEach(device ->
                 clientPresenceManager.disconnectPresence(account.getUuid(), device.getId()))));
