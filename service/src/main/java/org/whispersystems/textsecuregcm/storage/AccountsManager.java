@@ -353,11 +353,11 @@ public class AccountsManager {
 
           return CompletableFuture.failedFuture(throwable);
         })
-        .whenComplete((ignored, throwable) -> {
+        .whenCompleteAsync((ignored, throwable) -> {
           if (throwable == null) {
-            clientPresenceManager.disconnectPresence(accountIdentifier, deviceId);
+            RedisOperation.unchecked(() -> clientPresenceManager.disconnectPresence(accountIdentifier, deviceId));
           }
-        });
+        }, clientPresenceExecutor);
   }
 
   public Account changeNumber(final Account account,
