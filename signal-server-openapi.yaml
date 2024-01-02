@@ -86,6 +86,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AccountIdentityResponse'
+      deprecated: true
       security:
       - authenticatedAccount: []
     delete:
@@ -3057,9 +3058,9 @@ components:
             format: int32
           description: "the new phone-number-identity registration ID for each enabled\
             \ device on the account, including this one"
-        eachPniRegistrationIdValid:
-          type: boolean
         signatureValidOnEachSignedPreKey:
+          type: boolean
+        eachPniRegistrationIdValid:
           type: boolean
         valid:
           type: boolean
