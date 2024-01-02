@@ -4,10 +4,7 @@
  */
 package org.whispersystems.textsecuregcm.controllers;
 
-import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
-
 import io.dropwizard.auth.Auth;
-import io.micrometer.core.instrument.Metrics;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -38,7 +35,6 @@ import org.signal.libsignal.usernames.BaseUsernameException;
 import org.whispersystems.textsecuregcm.auth.AccountAndAuthenticatedDeviceHolder;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.ChangesDeviceEnabledState;
-import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.auth.TurnToken;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
@@ -59,7 +55,6 @@ import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimitedByIp;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -79,7 +74,6 @@ public class AccountController {
   public static final int USERNAME_HASH_LENGTH = 32;
   public static final int MAXIMUM_USERNAME_CIPHERTEXT_LENGTH = 128;
 
-  private static final String INVALID_REGISTRATION_ID = name(AccountController.class, "invalidRegistrationId");
   private final AccountsManager accounts;
   private final RateLimiters rateLimiters;
   private final TurnTokenGenerator turnTokenGenerator;
@@ -112,11 +106,11 @@ public class AccountController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   @ChangesDeviceEnabledState
-  public void setGcmRegistrationId(@Auth DisabledPermittedAuthenticatedAccount disabledPermittedAuth,
+  public void setGcmRegistrationId(@Auth AuthenticatedAccount auth,
       @NotNull @Valid GcmRegistrationId registrationId) {
 
-    final Account account = disabledPermittedAuth.getAccount();
-    final Device device = disabledPermittedAuth.getAuthenticatedDevice();
+    final Account account = auth.getAccount();
+    final Device device = auth.getAuthenticatedDevice();
 
     if (Objects.equals(device.getGcmId(), registrationId.gcmRegistrationId())) {
       return;
@@ -133,9 +127,9 @@ public class AccountController {
   @DELETE
   @Path("/gcm/")
   @ChangesDeviceEnabledState
-  public void deleteGcmRegistrationId(@Auth DisabledPermittedAuthenticatedAccount disabledPermittedAuth) {
-    Account account = disabledPermittedAuth.getAccount();
-    Device device = disabledPermittedAuth.getAuthenticatedDevice();
+  public void deleteGcmRegistrationId(@Auth AuthenticatedAccount auth) {
+    Account account = auth.getAccount();
+    Device device = auth.getAuthenticatedDevice();
 
     accounts.updateDevice(account, device.getId(), d -> {
       d.setGcmId(null);
@@ -149,11 +143,11 @@ public class AccountController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   @ChangesDeviceEnabledState
-  public void setApnRegistrationId(@Auth DisabledPermittedAuthenticatedAccount disabledPermittedAuth,
+  public void setApnRegistrationId(@Auth AuthenticatedAccount auth,
       @NotNull @Valid ApnRegistrationId registrationId) {
 
-    final Account account = disabledPermittedAuth.getAccount();
-    final Device device = disabledPermittedAuth.getAuthenticatedDevice();
+    final Account account = auth.getAccount();
+    final Device device = auth.getAuthenticatedDevice();
 
     if (Objects.equals(device.getApnId(), registrationId.apnRegistrationId()) &&
         Objects.equals(device.getVoipApnId(), registrationId.voipRegistrationId())) {
@@ -172,9 +166,9 @@ public class AccountController {
   @DELETE
   @Path("/apn/")
   @ChangesDeviceEnabledState
-  public void deleteApnRegistrationId(@Auth DisabledPermittedAuthenticatedAccount disabledPermittedAuth) {
-    Account account = disabledPermittedAuth.getAccount();
-    Device device = disabledPermittedAuth.getAuthenticatedDevice();
+  public void deleteApnRegistrationId(@Auth AuthenticatedAccount auth) {
+    Account account = auth.getAccount();
+    Device device = auth.getAuthenticatedDevice();
 
     accounts.updateDevice(account, device.getId(), d -> {
       d.setApnId(null);
@@ -206,9 +200,9 @@ public class AccountController {
 
   @PUT
   @Path("/name/")
-  public void setName(@Auth DisabledPermittedAuthenticatedAccount disabledPermittedAuth, @NotNull @Valid DeviceName deviceName) {
-    Account account = disabledPermittedAuth.getAccount();
-    Device device = disabledPermittedAuth.getAuthenticatedDevice();
+  public void setName(@Auth AuthenticatedAccount auth, @NotNull @Valid DeviceName deviceName) {
+    Account account = auth.getAccount();
+    Device device = auth.getAuthenticatedDevice();
     accounts.updateDevice(account, device.getId(), d -> d.setName(deviceName.getDeviceName()));
   }
 
@@ -218,11 +212,11 @@ public class AccountController {
   @Produces(MediaType.APPLICATION_JSON)
   @ChangesDeviceEnabledState
   public void setAccountAttributes(
-      @Auth DisabledPermittedAuthenticatedAccount disabledPermittedAuth,
+      @Auth AuthenticatedAccount auth,
       @HeaderParam(HeaderUtils.X_SIGNAL_AGENT) String userAgent,
       @NotNull @Valid AccountAttributes attributes) {
-    final Account account = disabledPermittedAuth.getAccount();
-    final byte deviceId = disabledPermittedAuth.getAuthenticatedDevice().getId();
+    final Account account = auth.getAccount();
+    final byte deviceId = auth.getAuthenticatedDevice().getId();
 
     final Account updatedAccount = accounts.update(account, a -> {
       a.getDevice(deviceId).ifPresent(d -> {
@@ -246,8 +240,9 @@ public class AccountController {
 
   @GET
   @Path("/me")
+  @Deprecated() // use whoami
   @Produces(MediaType.APPLICATION_JSON)
-  public AccountIdentityResponse getMe(@Auth DisabledPermittedAuthenticatedAccount auth) {
+  public AccountIdentityResponse getMe(@Auth AuthenticatedAccount auth) {
     return buildAccountIdentityResponse(auth);
   }
 
@@ -521,7 +516,7 @@ public class AccountController {
 
   @DELETE
   @Path("/me")
-  public CompletableFuture<Response> deleteAccount(@Auth DisabledPermittedAuthenticatedAccount auth) throws InterruptedException {
+  public CompletableFuture<Response> deleteAccount(@Auth AuthenticatedAccount auth) {
     return accounts.delete(auth.getAccount(), AccountsManager.DeletionReason.USER_REQUEST).thenApply(Util.ASYNC_EMPTY_RESPONSE);
   }
 

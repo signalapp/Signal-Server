@@ -9,7 +9,6 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -35,7 +34,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.signal.chat.rpc.EchoRequest;
 import org.signal.chat.rpc.EchoServiceGrpc;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
-import org.whispersystems.textsecuregcm.auth.BaseAccountAuthenticator;
+import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.grpc.EchoServiceImpl;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -47,15 +46,15 @@ class BasicCredentialAuthenticationInterceptorTest {
   private Server server;
   private ManagedChannel managedChannel;
 
-  private BaseAccountAuthenticator baseAccountAuthenticator;
+  private AccountAuthenticator accountAuthenticator;
 
 
   @BeforeEach
   void setUp() throws IOException {
-    baseAccountAuthenticator = mock(BaseAccountAuthenticator.class);
+    accountAuthenticator = mock(AccountAuthenticator.class);
 
     final BasicCredentialAuthenticationInterceptor authenticationInterceptor =
-        new BasicCredentialAuthenticationInterceptor(baseAccountAuthenticator);
+        new BasicCredentialAuthenticationInterceptor(accountAuthenticator);
 
     final String serverName = InProcessServerBuilder.generateName();
 
@@ -87,10 +86,10 @@ class BasicCredentialAuthenticationInterceptorTest {
       final Device device = mock(Device.class);
       when(device.getId()).thenReturn(Device.PRIMARY_ID);
 
-      when(baseAccountAuthenticator.authenticate(any(), anyBoolean()))
+      when(accountAuthenticator.authenticate(any()))
           .thenReturn(Optional.of(new AuthenticatedAccount(() -> new Pair<>(account, device))));
     } else {
-      when(baseAccountAuthenticator.authenticate(any(), anyBoolean()))
+      when(accountAuthenticator.authenticate(any()))
           .thenReturn(Optional.empty());
     }
 

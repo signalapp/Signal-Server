@@ -13,8 +13,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
-import com.google.common.collect.ImmutableSet;
-import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
+import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import java.security.MessageDigest;
@@ -36,7 +35,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
-import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.entities.UserRemoteConfig;
 import org.whispersystems.textsecuregcm.entities.UserRemoteConfigList;
 import org.whispersystems.textsecuregcm.mappers.DeviceLimitExceededExceptionMapper;
@@ -56,8 +54,7 @@ class RemoteConfigControllerTest {
 
   private static final ResourceExtension resources = ResourceExtension.builder()
       .addProvider(AuthHelper.getAuthFilter())
-      .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(
-          ImmutableSet.of(AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)))
+      .addProvider(new AuthValueFactoryProvider.Binder<>(AuthenticatedAccount.class))
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addProvider(new DeviceLimitExceededExceptionMapper())
       .addResource(new RemoteConfigController(remoteConfigsManager, Map.of("maxGroupSize", "42"), TEST_CLOCK))
@@ -67,7 +64,7 @@ class RemoteConfigControllerTest {
   @BeforeEach
   void setup() throws Exception {
     when(remoteConfigsManager.getAll()).thenReturn(new LinkedList<>() {{
-      add(new RemoteConfig("android.stickers", 25, Set.of(AuthHelper.DISABLED_UUID, AuthHelper.INVALID_UUID), null,
+      add(new RemoteConfig("android.stickers", 25, Set.of(AuthHelper.VALID_UUID_3, AuthHelper.INVALID_UUID), null,
           null, null));
       add(new RemoteConfig("ios.stickers", 50, Set.of(), null, null, null));
       add(new RemoteConfig("always.true", 100, Set.of(), null, null, null));

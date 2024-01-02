@@ -22,7 +22,7 @@ import static org.whispersystems.textsecuregcm.util.AttributeValues.s;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stripe.exception.ApiException;
 import com.stripe.model.PaymentIntent;
-import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
+import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import java.math.BigDecimal;
@@ -56,7 +56,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
-import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.badges.BadgeTranslator;
 import org.whispersystems.textsecuregcm.badges.LevelTranslator;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
@@ -111,8 +110,7 @@ class SubscriptionControllerTest {
       .addProvider(AuthHelper.getAuthFilter())
       .addProvider(CompletionExceptionMapper.class)
       .addProvider(SubscriptionProcessorExceptionMapper.class)
-      .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(Set.of(
-          AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)))
+      .addProvider(new AuthValueFactoryProvider.Binder<>(AuthenticatedAccount.class))
       .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(SUBSCRIPTION_CONTROLLER)

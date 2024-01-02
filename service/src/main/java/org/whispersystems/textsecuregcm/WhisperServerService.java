@@ -7,12 +7,10 @@ package org.whispersystems.textsecuregcm;
 import static com.codahale.metrics.MetricRegistry.name;
 import static java.util.Objects.requireNonNull;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import io.dropwizard.auth.AuthDynamicFeature;
 import io.dropwizard.auth.AuthFilter;
-import io.dropwizard.auth.PolymorphicAuthDynamicFeature;
-import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
+import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.auth.basic.BasicCredentialAuthFilter;
 import io.dropwizard.auth.basic.BasicCredentials;
 import io.dropwizard.core.Application;
@@ -61,10 +59,7 @@ import org.whispersystems.textsecuregcm.attachments.GcsAttachmentGenerator;
 import org.whispersystems.textsecuregcm.attachments.TusAttachmentGenerator;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
-import org.whispersystems.textsecuregcm.auth.BaseAccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.CertificateGenerator;
-import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccountAuthenticator;
-import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.auth.PhoneVerificationTokenManager;
 import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager;
@@ -580,8 +575,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     reportMessageManager.addListener(reportedMessageMetricsListener);
 
     final AccountAuthenticator accountAuthenticator = new AccountAuthenticator(accountsManager);
-    final DisabledPermittedAccountAuthenticator disabledPermittedAccountAuthenticator = new DisabledPermittedAccountAuthenticator(
-        accountsManager);
 
     final MessageSender messageSender = new MessageSender(clientPresenceManager, messagesManager,
         pushNotificationManager,
@@ -686,13 +679,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getClientCdn().getAttachmentUrls(),
         clock);
 
-    AuthFilter<BasicCredentials, AuthenticatedAccount> accountAuthFilter = new BasicCredentialAuthFilter.Builder<AuthenticatedAccount>().setAuthenticator(
-        accountAuthenticator).buildAuthFilter();
-    AuthFilter<BasicCredentials, DisabledPermittedAuthenticatedAccount> disabledPermittedAccountAuthFilter = new BasicCredentialAuthFilter.Builder<DisabledPermittedAuthenticatedAccount>().setAuthenticator(
-        disabledPermittedAccountAuthenticator).buildAuthFilter();
-
     final BasicCredentialAuthenticationInterceptor basicCredentialAuthenticationInterceptor =
-        new BasicCredentialAuthenticationInterceptor(new BaseAccountAuthenticator(accountsManager));
+        new BasicCredentialAuthenticationInterceptor(new AccountAuthenticator(accountsManager));
 
     final ServerBuilder<?> grpcServer = ServerBuilder.forPort(config.getGrpcPort())
         .addService(ServerInterceptors.intercept(new AccountsGrpcService(accountsManager, rateLimiters, usernameHashZkProofVerifier, registrationRecoveryPasswordsManager), basicCredentialAuthenticationInterceptor))
@@ -724,14 +712,16 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     environment.lifecycle().manage(new GrpcServerManagedWrapper(grpcServer.build()));
 
+    final AuthFilter<BasicCredentials, AuthenticatedAccount> accountAuthFilter =
+        new BasicCredentialAuthFilter.Builder<AuthenticatedAccount>()
+            .setAuthenticator(accountAuthenticator)
+            .buildAuthFilter();
+
     environment.jersey().register(new RequestStatisticsFilter(TrafficSource.HTTP));
     environment.jersey().register(MultiRecipientMessageProvider.class);
     environment.jersey().register(new MetricsApplicationEventListener(TrafficSource.HTTP, clientReleaseManager));
-    environment.jersey()
-        .register(new PolymorphicAuthDynamicFeature<>(ImmutableMap.of(AuthenticatedAccount.class, accountAuthFilter,
-            DisabledPermittedAuthenticatedAccount.class, disabledPermittedAccountAuthFilter)));
-    environment.jersey().register(new PolymorphicAuthValueFactoryProvider.Binder<>(
-        ImmutableSet.of(AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)));
+    environment.jersey().register(new AuthDynamicFeature(accountAuthFilter));
+    environment.jersey().register(new AuthValueFactoryProvider.Binder<>(AuthenticatedAccount.class));
     environment.jersey().register(new WebsocketRefreshApplicationEventListener(accountsManager, clientPresenceManager));
     environment.jersey().register(new TimestampResponseFilter());
 
@@ -748,14 +738,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     webSocketEnvironment.jersey().register(MultiRecipientMessageProvider.class);
     webSocketEnvironment.jersey().register(new MetricsApplicationEventListener(TrafficSource.WEBSOCKET, clientReleaseManager));
     webSocketEnvironment.jersey().register(new KeepAliveController(clientPresenceManager));
-
-    // these should be common, but use @Auth DisabledPermittedAccount, which isn’t supported yet on websocket
-    environment.jersey().register(
-        new AccountController(accountsManager, rateLimiters,
-            turnTokenGenerator,
-            registrationRecoveryPasswordsManager, usernameHashZkProofVerifier));
-
-    environment.jersey().register(new KeysController(rateLimiters, keysManager, accountsManager));
 
     boolean registeredSpamFilter = false;
     ReportSpamTokenProvider reportSpamTokenProvider = null;
@@ -804,6 +786,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     }
 
     final List<Object> commonControllers = Lists.newArrayList(
+        new AccountController(accountsManager, rateLimiters, turnTokenGenerator, registrationRecoveryPasswordsManager,
+            usernameHashZkProofVerifier),
         new AccountControllerV2(accountsManager, changeNumberManager, phoneVerificationTokenManager,
             registrationLockVerificationManager, rateLimiters),
         new ArtController(rateLimiters, artCredentialsGenerator),
@@ -824,6 +808,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new DirectoryV2Controller(directoryV2CredentialsGenerator),
         new DonationController(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager, config.getBadges(),
             ReceiptCredentialPresentation::new),
+        new KeysController(rateLimiters, keysManager, accountsManager),
         new MessageController(rateLimiters, messageByteLimitCardinalityEstimator, messageSender, receiptSender,
             accountsManager, messagesManager, pushNotificationManager, reportMessageManager,
             multiRecipientMessageExecutor, messageDeliveryScheduler, reportSpamTokenProvider, clientReleaseManager,

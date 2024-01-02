@@ -18,9 +18,8 @@ import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HttpHeaders;
-import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
+import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import io.lettuce.core.cluster.api.async.RedisAdvancedClusterAsyncCommands;
@@ -53,7 +52,6 @@ import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
-import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.WebsocketRefreshApplicationEventListener;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
@@ -117,8 +115,7 @@ class DeviceControllerTest {
   private static final ResourceExtension resources = ResourceExtension.builder()
       .addProperty(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE)
       .addProvider(AuthHelper.getAuthFilter())
-      .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(
-          ImmutableSet.of(AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)))
+      .addProvider(new AuthValueFactoryProvider.Binder<>(AuthenticatedAccount.class))
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addProvider(new WebsocketRefreshApplicationEventListener(accountsManager, clientPresenceManager))
       .addProvider(new DeviceLimitExceededExceptionMapper())
@@ -669,17 +666,6 @@ class DeviceControllerTest {
     return new KEMSignedPreKey(signedPreKey.keyId(),
         signedPreKey.publicKey(),
         "incorrect-signature".getBytes(StandardCharsets.UTF_8));
-  }
-
-  @Test
-  void disabledDeviceRegisterTest() {
-    Response response = resources.getJerseyTest()
-        .target("/v1/devices/provisioning/code")
-        .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_UUID, AuthHelper.DISABLED_PASSWORD))
-        .get();
-
-    assertThat(response.getStatus()).isEqualTo(401);
   }
 
   @Test

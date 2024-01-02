@@ -17,7 +17,7 @@ import io.grpc.Status;
 import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
-import org.whispersystems.textsecuregcm.auth.BaseAccountAuthenticator;
+import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 
 /**
@@ -32,11 +32,11 @@ import org.whispersystems.textsecuregcm.util.HeaderUtils;
  * intended to be replaced with a more robust and efficient strategy before widespread client adoption.
  *
  * @see AuthenticationUtil
- * @see BaseAccountAuthenticator
+ * @see AccountAuthenticator
  */
 public class BasicCredentialAuthenticationInterceptor implements ServerInterceptor {
 
-  private final BaseAccountAuthenticator baseAccountAuthenticator;
+  private final AccountAuthenticator accountAuthenticator;
 
   @VisibleForTesting
   static final Metadata.Key<String> BASIC_CREDENTIALS =
@@ -44,8 +44,8 @@ public class BasicCredentialAuthenticationInterceptor implements ServerIntercept
 
   private static final Metadata EMPTY_TRAILERS = new Metadata();
 
-  public BasicCredentialAuthenticationInterceptor(final BaseAccountAuthenticator baseAccountAuthenticator) {
-    this.baseAccountAuthenticator = baseAccountAuthenticator;
+  public BasicCredentialAuthenticationInterceptor(final AccountAuthenticator accountAuthenticator) {
+    this.accountAuthenticator = accountAuthenticator;
   }
 
   @Override
@@ -62,7 +62,7 @@ public class BasicCredentialAuthenticationInterceptor implements ServerIntercept
         call.close(Status.UNAUTHENTICATED.withDescription("Could not parse credentials"), EMPTY_TRAILERS);
       } else {
         final Optional<AuthenticatedAccount> maybeAuthenticatedAccount =
-            baseAccountAuthenticator.authenticate(maybeCredentials.get(), false);
+            accountAuthenticator.authenticate(maybeCredentials.get());
 
         if (maybeAuthenticatedAccount.isPresent()) {
           final AuthenticatedAccount authenticatedAccount = maybeAuthenticatedAccount.get();

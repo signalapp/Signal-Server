@@ -32,8 +32,6 @@ import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
-import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccountAuthenticator;
-import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
@@ -68,10 +66,6 @@ public class AuthHelper {
   public static final UUID   INVALID_UUID     = UUID.randomUUID();
   public static final String INVALID_PASSWORD = "bar";
 
-  public static final String DISABLED_NUMBER = "+78888888";
-  public static final UUID   DISABLED_UUID     = UUID.randomUUID();
-  public static final String DISABLED_PASSWORD = "poof";
-
   public static final String UNDISCOVERABLE_NUMBER   = "+18005551234";
   public static final UUID   UNDISCOVERABLE_UUID     = UUID.randomUUID();
   public static final String UNDISCOVERABLE_PASSWORD = "IT'S A SECRET TO EVERYBODY.";
@@ -82,13 +76,11 @@ public class AuthHelper {
   public static AccountsManager ACCOUNTS_MANAGER       = mock(AccountsManager.class);
   public static Account         VALID_ACCOUNT          = mock(Account.class        );
   public static Account         VALID_ACCOUNT_TWO      = mock(Account.class        );
-  public static Account         DISABLED_ACCOUNT       = mock(Account.class        );
   public static Account         UNDISCOVERABLE_ACCOUNT = mock(Account.class        );
   public static Account         VALID_ACCOUNT_3        = mock(Account.class        );
 
   public static Device VALID_DEVICE           = mock(Device.class);
   public static Device VALID_DEVICE_TWO       = mock(Device.class);
-  public static Device DISABLED_DEVICE        = mock(Device.class);
   public static Device UNDISCOVERABLE_DEVICE  = mock(Device.class);
   public static Device VALID_DEVICE_3_PRIMARY = mock(Device.class);
   public static Device VALID_DEVICE_3_LINKED  = mock(Device.class);
@@ -97,7 +89,6 @@ public class AuthHelper {
   private static SaltedTokenHash VALID_CREDENTIALS_TWO       = mock(SaltedTokenHash.class);
   private static SaltedTokenHash VALID_CREDENTIALS_3_PRIMARY = mock(SaltedTokenHash.class);
   private static SaltedTokenHash VALID_CREDENTIALS_3_LINKED  = mock(SaltedTokenHash.class);
-  private static SaltedTokenHash DISABLED_CREDENTIALS        = mock(SaltedTokenHash.class);
   private static SaltedTokenHash UNDISCOVERABLE_CREDENTIALS  = mock(SaltedTokenHash.class);
 
   private static final Collection<TestAccount> EXTENSION_TEST_ACCOUNTS = new HashSet<>();
@@ -107,33 +98,28 @@ public class AuthHelper {
     when(VALID_CREDENTIALS_TWO.verify("baz")).thenReturn(true);
     when(VALID_CREDENTIALS_3_PRIMARY.verify(VALID_PASSWORD_3_PRIMARY)).thenReturn(true);
     when(VALID_CREDENTIALS_3_LINKED.verify(VALID_PASSWORD_3_LINKED)).thenReturn(true);
-    when(DISABLED_CREDENTIALS.verify(DISABLED_PASSWORD)).thenReturn(true);
     when(UNDISCOVERABLE_CREDENTIALS.verify(UNDISCOVERABLE_PASSWORD)).thenReturn(true);
 
     when(VALID_DEVICE.getAuthTokenHash()).thenReturn(VALID_CREDENTIALS);
     when(VALID_DEVICE_TWO.getAuthTokenHash()).thenReturn(VALID_CREDENTIALS_TWO);
     when(VALID_DEVICE_3_PRIMARY.getAuthTokenHash()).thenReturn(VALID_CREDENTIALS_3_PRIMARY);
     when(VALID_DEVICE_3_LINKED.getAuthTokenHash()).thenReturn(VALID_CREDENTIALS_3_LINKED);
-    when(DISABLED_DEVICE.getAuthTokenHash()).thenReturn(DISABLED_CREDENTIALS);
     when(UNDISCOVERABLE_DEVICE.getAuthTokenHash()).thenReturn(UNDISCOVERABLE_CREDENTIALS);
 
     when(VALID_DEVICE.isPrimary()).thenReturn(true);
     when(VALID_DEVICE_TWO.isPrimary()).thenReturn(true);
-    when(DISABLED_DEVICE.isPrimary()).thenReturn(true);
     when(UNDISCOVERABLE_DEVICE.isPrimary()).thenReturn(true);
     when(VALID_DEVICE_3_PRIMARY.isPrimary()).thenReturn(true);
     when(VALID_DEVICE_3_LINKED.isPrimary()).thenReturn(false);
 
     when(VALID_DEVICE.getId()).thenReturn(Device.PRIMARY_ID);
     when(VALID_DEVICE_TWO.getId()).thenReturn(Device.PRIMARY_ID);
-    when(DISABLED_DEVICE.getId()).thenReturn(Device.PRIMARY_ID);
     when(UNDISCOVERABLE_DEVICE.getId()).thenReturn(Device.PRIMARY_ID);
     when(VALID_DEVICE_3_PRIMARY.getId()).thenReturn(Device.PRIMARY_ID);
     when(VALID_DEVICE_3_LINKED.getId()).thenReturn((byte) 2);
 
     when(VALID_DEVICE.isEnabled()).thenReturn(true);
     when(VALID_DEVICE_TWO.isEnabled()).thenReturn(true);
-    when(DISABLED_DEVICE.isEnabled()).thenReturn(false);
     when(UNDISCOVERABLE_DEVICE.isPrimary()).thenReturn(true);
     when(VALID_DEVICE_3_PRIMARY.isEnabled()).thenReturn(true);
     when(VALID_DEVICE_3_LINKED.isEnabled()).thenReturn(true);
@@ -142,8 +128,6 @@ public class AuthHelper {
     when(VALID_ACCOUNT.getPrimaryDevice()).thenReturn(VALID_DEVICE);
     when(VALID_ACCOUNT_TWO.getDevice(eq(Device.PRIMARY_ID))).thenReturn(Optional.of(VALID_DEVICE_TWO));
     when(VALID_ACCOUNT_TWO.getPrimaryDevice()).thenReturn(VALID_DEVICE_TWO);
-    when(DISABLED_ACCOUNT.getDevice(eq(Device.PRIMARY_ID))).thenReturn(Optional.of(DISABLED_DEVICE));
-    when(DISABLED_ACCOUNT.getPrimaryDevice()).thenReturn(DISABLED_DEVICE);
     when(UNDISCOVERABLE_ACCOUNT.getDevice(eq(Device.PRIMARY_ID))).thenReturn(Optional.of(UNDISCOVERABLE_DEVICE));
     when(UNDISCOVERABLE_ACCOUNT.getPrimaryDevice()).thenReturn(UNDISCOVERABLE_DEVICE);
     when(VALID_ACCOUNT_3.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(VALID_DEVICE_3_PRIMARY));
@@ -152,7 +136,6 @@ public class AuthHelper {
 
     when(VALID_ACCOUNT.getDevices()).thenReturn(List.of(VALID_DEVICE));
     when(VALID_ACCOUNT_TWO.getDevices()).thenReturn(List.of(VALID_DEVICE_TWO));
-    when(DISABLED_ACCOUNT.getDevices()).thenReturn(List.of(DISABLED_DEVICE));
     when(UNDISCOVERABLE_ACCOUNT.getDevices()).thenReturn(List.of(UNDISCOVERABLE_DEVICE));
     when(VALID_ACCOUNT_3.getDevices()).thenReturn(List.of(VALID_DEVICE_3_PRIMARY, VALID_DEVICE_3_LINKED));
 
@@ -168,9 +151,6 @@ public class AuthHelper {
     when(VALID_ACCOUNT_TWO.getPhoneNumberIdentifier()).thenReturn(VALID_PNI_TWO);
     when(VALID_ACCOUNT_TWO.getIdentifier(IdentityType.ACI)).thenReturn(VALID_UUID_TWO);
     when(VALID_ACCOUNT_TWO.getPhoneNumberIdentifier()).thenReturn(VALID_PNI_TWO);
-    when(DISABLED_ACCOUNT.getNumber()).thenReturn(DISABLED_NUMBER);
-    when(DISABLED_ACCOUNT.getUuid()).thenReturn(DISABLED_UUID);
-    when(DISABLED_ACCOUNT.getIdentifier(IdentityType.ACI)).thenReturn(DISABLED_UUID);
     when(UNDISCOVERABLE_ACCOUNT.getNumber()).thenReturn(UNDISCOVERABLE_NUMBER);
     when(UNDISCOVERABLE_ACCOUNT.getUuid()).thenReturn(UNDISCOVERABLE_UUID);
     when(UNDISCOVERABLE_ACCOUNT.getIdentifier(IdentityType.ACI)).thenReturn(UNDISCOVERABLE_UUID);
@@ -182,13 +162,11 @@ public class AuthHelper {
 
     when(VALID_ACCOUNT.isEnabled()).thenReturn(true);
     when(VALID_ACCOUNT_TWO.isEnabled()).thenReturn(true);
-    when(DISABLED_ACCOUNT.isEnabled()).thenReturn(false);
     when(UNDISCOVERABLE_ACCOUNT.isEnabled()).thenReturn(true);
     when(VALID_ACCOUNT_3.isEnabled()).thenReturn(true);
 
     when(VALID_ACCOUNT.isDiscoverableByPhoneNumber()).thenReturn(true);
     when(VALID_ACCOUNT_TWO.isDiscoverableByPhoneNumber()).thenReturn(true);
-    when(DISABLED_ACCOUNT.isDiscoverableByPhoneNumber()).thenReturn(true);
     when(UNDISCOVERABLE_ACCOUNT.isDiscoverableByPhoneNumber()).thenReturn(false);
     when(VALID_ACCOUNT_3.isDiscoverableByPhoneNumber()).thenReturn(true);
 
@@ -196,7 +174,6 @@ public class AuthHelper {
     when(VALID_ACCOUNT.isIdentifiedBy(new PniServiceIdentifier(VALID_PNI))).thenReturn(true);
     when(VALID_ACCOUNT_TWO.isIdentifiedBy(new AciServiceIdentifier(VALID_UUID_TWO))).thenReturn(true);
     when(VALID_ACCOUNT_TWO.isIdentifiedBy(new PniServiceIdentifier(VALID_PNI_TWO))).thenReturn(true);
-    when(DISABLED_ACCOUNT.isIdentifiedBy(new AciServiceIdentifier(DISABLED_UUID))).thenReturn(true);
     when(UNDISCOVERABLE_ACCOUNT.isIdentifiedBy(new AciServiceIdentifier(UNDISCOVERABLE_UUID))).thenReturn(true);
     when(VALID_ACCOUNT_3.isIdentifiedBy(new AciServiceIdentifier(VALID_UUID_3))).thenReturn(true);
     when(VALID_ACCOUNT_3.isIdentifiedBy(new PniServiceIdentifier(VALID_PNI_3))).thenReturn(true);
@@ -213,9 +190,6 @@ public class AuthHelper {
     when(ACCOUNTS_MANAGER.getByAccountIdentifier(VALID_UUID_TWO)).thenReturn(Optional.of(VALID_ACCOUNT_TWO));
     when(ACCOUNTS_MANAGER.getByPhoneNumberIdentifier(VALID_PNI_TWO)).thenReturn(Optional.of(VALID_ACCOUNT_TWO));
 
-    when(ACCOUNTS_MANAGER.getByE164(DISABLED_NUMBER)).thenReturn(Optional.of(DISABLED_ACCOUNT));
-    when(ACCOUNTS_MANAGER.getByAccountIdentifier(DISABLED_UUID)).thenReturn(Optional.of(DISABLED_ACCOUNT));
-
     when(ACCOUNTS_MANAGER.getByE164(UNDISCOVERABLE_NUMBER)).thenReturn(Optional.of(UNDISCOVERABLE_ACCOUNT));
     when(ACCOUNTS_MANAGER.getByAccountIdentifier(UNDISCOVERABLE_UUID)).thenReturn(Optional.of(UNDISCOVERABLE_ACCOUNT));
 
@@ -231,11 +205,8 @@ public class AuthHelper {
 
     AuthFilter<BasicCredentials, AuthenticatedAccount> accountAuthFilter = new BasicCredentialAuthFilter.Builder<AuthenticatedAccount>().setAuthenticator(
         new AccountAuthenticator(ACCOUNTS_MANAGER)).buildAuthFilter();
-    AuthFilter<BasicCredentials, DisabledPermittedAuthenticatedAccount> disabledPermittedAccountAuthFilter = new BasicCredentialAuthFilter.Builder<DisabledPermittedAuthenticatedAccount>().setAuthenticator(
-        new DisabledPermittedAccountAuthenticator(ACCOUNTS_MANAGER)).buildAuthFilter();
 
-    return new PolymorphicAuthDynamicFeature<>(ImmutableMap.of(AuthenticatedAccount.class, accountAuthFilter,
-        DisabledPermittedAuthenticatedAccount.class, disabledPermittedAccountAuthFilter));
+    return new PolymorphicAuthDynamicFeature<>(ImmutableMap.of(AuthenticatedAccount.class, accountAuthFilter));
   }
 
   public static String getAuthHeader(UUID uuid, byte deviceId, String password) {
@@ -336,9 +307,7 @@ public class AuthHelper {
 
     @Override
     public void afterEach(final ExtensionContext context) {
-      EXTENSION_TEST_ACCOUNTS.forEach(testAccount -> {
-        testAccount.teardown(ACCOUNTS_MANAGER);
-      });
+      EXTENSION_TEST_ACCOUNTS.forEach(testAccount -> testAccount.teardown(ACCOUNTS_MANAGER));
 
       EXTENSION_TEST_ACCOUNTS.clear();
     }

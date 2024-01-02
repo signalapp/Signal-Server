@@ -38,7 +38,7 @@ import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.TestClock;
 
-class BaseAccountAuthenticatorTest {
+class AccountAuthenticatorTest {
 
   private final long               today        = 1590451200000L;
   private final long               yesterday    = today - 86_400_000L;
@@ -46,7 +46,7 @@ class BaseAccountAuthenticatorTest {
   private final long               currentTime  = today + 68_000_000L;
 
   private AccountsManager          accountsManager;
-  private BaseAccountAuthenticator baseAccountAuthenticator;
+  private AccountAuthenticator accountAuthenticator;
   private TestClock                clock;
   private Account                  acct1;
   private Account                  acct2;
@@ -56,7 +56,7 @@ class BaseAccountAuthenticatorTest {
   void setup() {
     accountsManager = mock(AccountsManager.class);
     clock = TestClock.now();
-    baseAccountAuthenticator = new BaseAccountAuthenticator(accountsManager, clock);
+    accountAuthenticator = new AccountAuthenticator(accountsManager, clock);
 
     // We use static UUIDs here because the UUID affects the "date last seen" offset
     acct1 = AccountsHelper.generateTestAccount("+14088675309", UUID.fromString("c139cb3e-f70c-4460-b221-815e8bdf778f"), UUID.randomUUID(), List.of(generateTestDevice(yesterday)), null);
@@ -81,8 +81,8 @@ class BaseAccountAuthenticatorTest {
     final Device device1 = acct1.getDevices().stream().findFirst().get();
     final Device device2 = acct2.getDevices().stream().findFirst().get();
 
-    final Account updatedAcct1 = baseAccountAuthenticator.updateLastSeen(acct1, device1);
-    final Account updatedAcct2 = baseAccountAuthenticator.updateLastSeen(acct2, device2);
+    final Account updatedAcct1 = accountAuthenticator.updateLastSeen(acct1, device1);
+    final Account updatedAcct2 = accountAuthenticator.updateLastSeen(acct2, device2);
 
     verify(accountsManager, never()).updateDeviceLastSeen(eq(acct1), any(), anyLong());
     verify(accountsManager).updateDeviceLastSeen(eq(acct2), eq(device2), anyLong());
@@ -101,8 +101,8 @@ class BaseAccountAuthenticatorTest {
     final Device device1 = acct1.getDevices().stream().findFirst().get();
     final Device device2 = acct2.getDevices().stream().findFirst().get();
 
-    final Account updatedAcct1 = baseAccountAuthenticator.updateLastSeen(acct1, device1);
-    final Account updatedAcct2 = baseAccountAuthenticator.updateLastSeen(acct2, device2);
+    final Account updatedAcct1 = accountAuthenticator.updateLastSeen(acct1, device1);
+    final Account updatedAcct2 = accountAuthenticator.updateLastSeen(acct2, device2);
 
     verify(accountsManager, never()).updateDeviceLastSeen(eq(acct1), any(), anyLong());
     verify(accountsManager, never()).updateDeviceLastSeen(eq(acct2), any(), anyLong());
@@ -121,8 +121,8 @@ class BaseAccountAuthenticatorTest {
     final Device device1 = acct1.getDevices().stream().findFirst().get();
     final Device device2 = acct2.getDevices().stream().findFirst().get();
 
-    final Account updatedAcct1 = baseAccountAuthenticator.updateLastSeen(acct1, device1);
-    final Account updatedAcct2 = baseAccountAuthenticator.updateLastSeen(acct2, device2);
+    final Account updatedAcct1 = accountAuthenticator.updateLastSeen(acct1, device1);
+    final Account updatedAcct2 = accountAuthenticator.updateLastSeen(acct2, device2);
 
     verify(accountsManager).updateDeviceLastSeen(eq(acct1), eq(device1), anyLong());
     verify(accountsManager).updateDeviceLastSeen(eq(acct2), eq(device2), anyLong());
@@ -140,7 +140,7 @@ class BaseAccountAuthenticatorTest {
 
     final Device device = oldAccount.getDevices().stream().findFirst().get();
 
-    baseAccountAuthenticator.updateLastSeen(oldAccount, device);
+    accountAuthenticator.updateLastSeen(oldAccount, device);
 
     verify(accountsManager).updateDeviceLastSeen(eq(oldAccount), eq(device), anyLong());
 
@@ -169,7 +169,7 @@ class BaseAccountAuthenticatorTest {
     when(credentials.getVersion()).thenReturn(SaltedTokenHash.CURRENT_VERSION);
 
     final Optional<AuthenticatedAccount> maybeAuthenticatedAccount =
-        baseAccountAuthenticator.authenticate(new BasicCredentials(uuid.toString(), password), true);
+        accountAuthenticator.authenticate(new BasicCredentials(uuid.toString(), password));
 
     assertThat(maybeAuthenticatedAccount).isPresent();
     assertThat(maybeAuthenticatedAccount.get().getAccount().getUuid()).isEqualTo(uuid);
@@ -199,7 +199,7 @@ class BaseAccountAuthenticatorTest {
     when(credentials.getVersion()).thenReturn(SaltedTokenHash.CURRENT_VERSION);
 
     final Optional<AuthenticatedAccount> maybeAuthenticatedAccount =
-        baseAccountAuthenticator.authenticate(new BasicCredentials(uuid + "." + deviceId, password), true);
+        accountAuthenticator.authenticate(new BasicCredentials(uuid + "." + deviceId, password));
 
     assertThat(maybeAuthenticatedAccount).isPresent();
     assertThat(maybeAuthenticatedAccount.get().getAccount().getUuid()).isEqualTo(uuid);
@@ -208,8 +208,7 @@ class BaseAccountAuthenticatorTest {
   }
 
   @CartesianTest
-  void testAuthenticateEnabledRequired(
-      @CartesianTest.Values(booleans = {true, false}) final boolean enabledRequired,
+  void testAuthenticateEnabled(
       @CartesianTest.Values(booleans = {true, false}) final boolean accountEnabled,
       @CartesianTest.Values(booleans = {true, false}) final boolean deviceEnabled,
       @CartesianTest.Values(booleans = {true, false}) final boolean authenticatedDeviceIsPrimary) {
@@ -236,18 +235,15 @@ class BaseAccountAuthenticatorTest {
     if (authenticatedDeviceIsPrimary) {
       identifier = uuid.toString();
     } else {
-      identifier = uuid.toString() + BaseAccountAuthenticator.DEVICE_ID_SEPARATOR + deviceId;
+      identifier = uuid.toString() + AccountAuthenticator.DEVICE_ID_SEPARATOR + deviceId;
     }
     final Optional<AuthenticatedAccount> maybeAuthenticatedAccount =
-        baseAccountAuthenticator.authenticate(new BasicCredentials(identifier, password), enabledRequired);
+        accountAuthenticator.authenticate(new BasicCredentials(identifier, password));
 
-    if (enabledRequired && !(accountEnabled && deviceEnabled)) {
-      assertThat(maybeAuthenticatedAccount).isEmpty();
-    } else {
-      assertThat(maybeAuthenticatedAccount).isPresent();
-      assertThat(maybeAuthenticatedAccount.get().getAccount().getUuid()).isEqualTo(uuid);
-      assertThat(maybeAuthenticatedAccount.get().getAuthenticatedDevice()).isEqualTo(authenticatedDevice);
-    }
+    assertThat(maybeAuthenticatedAccount).isPresent();
+    assertThat(maybeAuthenticatedAccount.get().getAccount().getUuid()).isEqualTo(uuid);
+    assertThat(maybeAuthenticatedAccount.get().getAuthenticatedDevice()).isEqualTo(authenticatedDevice);
+
   }
 
   @Test
@@ -272,7 +268,7 @@ class BaseAccountAuthenticatorTest {
     when(credentials.getVersion()).thenReturn(SaltedTokenHash.Version.V1);
 
     final Optional<AuthenticatedAccount> maybeAuthenticatedAccount =
-        baseAccountAuthenticator.authenticate(new BasicCredentials(uuid.toString(), password), true);
+        accountAuthenticator.authenticate(new BasicCredentials(uuid.toString(), password));
 
     assertThat(maybeAuthenticatedAccount).isPresent();
     assertThat(maybeAuthenticatedAccount.get().getAccount().getUuid()).isEqualTo(uuid);
@@ -283,7 +279,7 @@ class BaseAccountAuthenticatorTest {
   }
   @Test
   void testAuthenticateAccountNotFound() {
-    assertThat(baseAccountAuthenticator.authenticate(new BasicCredentials(UUID.randomUUID().toString(), "password"), true))
+    assertThat(accountAuthenticator.authenticate(new BasicCredentials(UUID.randomUUID().toString(), "password")))
         .isEmpty();
   }
 
@@ -309,7 +305,7 @@ class BaseAccountAuthenticatorTest {
     when(credentials.getVersion()).thenReturn(SaltedTokenHash.CURRENT_VERSION);
 
     final Optional<AuthenticatedAccount> maybeAuthenticatedAccount =
-        baseAccountAuthenticator.authenticate(new BasicCredentials(uuid + "." + (deviceId + 1), password), true);
+        accountAuthenticator.authenticate(new BasicCredentials(uuid + "." + (deviceId + 1), password));
 
     assertThat(maybeAuthenticatedAccount).isEmpty();
     verify(account).getDevice((byte) (deviceId + 1));
@@ -339,7 +335,7 @@ class BaseAccountAuthenticatorTest {
     final String incorrectPassword = password + "incorrect";
 
     final Optional<AuthenticatedAccount> maybeAuthenticatedAccount =
-        baseAccountAuthenticator.authenticate(new BasicCredentials(uuid.toString(), incorrectPassword), true);
+        accountAuthenticator.authenticate(new BasicCredentials(uuid.toString(), incorrectPassword));
 
     assertThat(maybeAuthenticatedAccount).isEmpty();
     verify(credentials).verify(incorrectPassword);
@@ -349,7 +345,7 @@ class BaseAccountAuthenticatorTest {
   @MethodSource
   void testAuthenticateMalformedCredentials(final String username) {
     final Optional<AuthenticatedAccount> maybeAuthenticatedAccount = assertDoesNotThrow(
-        () -> baseAccountAuthenticator.authenticate(new BasicCredentials(username, "password"), true));
+        () -> accountAuthenticator.authenticate(new BasicCredentials(username, "password")));
 
     assertThat(maybeAuthenticatedAccount).isEmpty();
     verify(accountsManager, never()).getByAccountIdentifier(any(UUID.class));
@@ -367,7 +363,7 @@ class BaseAccountAuthenticatorTest {
   @MethodSource
   void testGetIdentifierAndDeviceId(final String username, final String expectedIdentifier,
       final byte expectedDeviceId) {
-    final Pair<String, Byte> identifierAndDeviceId = BaseAccountAuthenticator.getIdentifierAndDeviceId(username);
+    final Pair<String, Byte> identifierAndDeviceId = AccountAuthenticator.getIdentifierAndDeviceId(username);
 
     assertEquals(expectedIdentifier, identifierAndDeviceId.first());
     assertEquals(expectedDeviceId, identifierAndDeviceId.second());
@@ -389,6 +385,6 @@ class BaseAccountAuthenticatorTest {
   })
   void testGetIdentifierAndDeviceIdMalformed(final String malformedUsername) {
     assertThrows(IllegalArgumentException.class,
-        () -> BaseAccountAuthenticator.getIdentifierAndDeviceId(malformedUsername));
+        () -> AccountAuthenticator.getIdentifierAndDeviceId(malformedUsername));
   }
 }

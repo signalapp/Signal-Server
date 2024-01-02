@@ -32,10 +32,9 @@ import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.jsonFixtur
 import static org.whispersystems.textsecuregcm.util.MockUtils.exactly;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.protobuf.ByteString;
-import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
+import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
@@ -85,7 +84,6 @@ import org.mockito.ArgumentCaptor;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
-import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
@@ -184,8 +182,7 @@ class MessageControllerTest {
   private static final ResourceExtension resources = ResourceExtension.builder()
       .addProperty(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE)
       .addProvider(AuthHelper.getAuthFilter())
-      .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(
-          ImmutableSet.of(AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)))
+      .addProvider(new AuthValueFactoryProvider.Binder<>(AuthenticatedAccount.class))
       .addProvider(RateLimitExceededExceptionMapper.class)
       .addProvider(MultiRecipientMessageProvider.class)
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
@@ -281,20 +278,6 @@ class MessageControllerTest {
   @AfterAll
   static void teardownAll() {
     messageDeliveryScheduler.dispose();
-  }
-
-  @Test
-  void testSendFromDisabledAccount() throws Exception {
-    Response response =
-        resources.getJerseyTest()
-            .target(String.format("/v1/messages/%s", SINGLE_DEVICE_UUID))
-            .request()
-            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_UUID, AuthHelper.DISABLED_PASSWORD))
-            .put(Entity.entity(SystemMapper.jsonMapper().readValue(jsonFixture("fixtures/current_message_single_device.json"),
-                    IncomingMessageList.class),
-                MediaType.APPLICATION_JSON_TYPE));
-
-    assertThat("Unauthorized response", response.getStatus(), is(equalTo(401)));
   }
 
   @Test

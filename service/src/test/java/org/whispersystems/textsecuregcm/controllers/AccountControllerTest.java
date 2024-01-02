@@ -23,9 +23,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HttpHeaders;
-import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
+import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import java.security.SecureRandom;
@@ -55,7 +54,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.signal.libsignal.usernames.BaseUsernameException;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
-import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
@@ -144,10 +142,7 @@ class AccountControllerTest {
   private static final ResourceExtension resources = ResourceExtension.builder()
       .addProperty(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE)
       .addProvider(AuthHelper.getAuthFilter())
-      .addProvider(
-          new PolymorphicAuthValueFactoryProvider.Binder<>(
-              ImmutableSet.of(AuthenticatedAccount.class,
-                  DisabledPermittedAuthenticatedAccount.class)))
+      .addProvider(new AuthValueFactoryProvider.Binder<>(AuthenticatedAccount.class))
       .addProvider(new JsonMappingExceptionMapper())
       .addProvider(new RateLimitExceededExceptionMapper())
       .addProvider(new ImpossiblePhoneNumberExceptionMapper())
@@ -231,7 +226,7 @@ class AccountControllerTest {
         senderTransfer,
         usernameZkProofVerifier);
 
-    clearInvocations(AuthHelper.DISABLED_DEVICE);
+    clearInvocations(AuthHelper.VALID_DEVICE_3_PRIMARY);
   }
 
   @Test
@@ -269,30 +264,19 @@ class AccountControllerTest {
   }
 
   @Test
-  void testSetRegistrationLockDisabled() throws Exception {
-    Response response =
-        resources.getJerseyTest()
-                 .target("/v1/accounts/registration_lock/")
-                 .request()
-                 .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.DISABLED_UUID, AuthHelper.DISABLED_PASSWORD))
-                 .put(Entity.json(new RegistrationLock("1234567890123456789012345678901234567890123456789012345678901234")));
-
-    assertThat(response.getStatus()).isEqualTo(401);
-  }
-
-  @Test
   void testSetGcmId() {
     Response response =
         resources.getJerseyTest()
             .target("/v1/accounts/gcm/")
             .request()
-            .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.DISABLED_UUID, AuthHelper.DISABLED_PASSWORD))
+            .header(HttpHeaders.AUTHORIZATION,
+                AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_3, AuthHelper.VALID_PASSWORD_3_PRIMARY))
             .put(Entity.json(new GcmRegistrationId("z000")));
 
     assertThat(response.getStatus()).isEqualTo(204);
 
-    verify(AuthHelper.DISABLED_DEVICE, times(1)).setGcmId(eq("z000"));
-    verify(accountsManager, times(1)).updateDevice(eq(AuthHelper.DISABLED_ACCOUNT), anyByte(), any());
+    verify(AuthHelper.VALID_DEVICE_3_PRIMARY, times(1)).setGcmId(eq("z000"));
+    verify(accountsManager, times(1)).updateDevice(eq(AuthHelper.VALID_ACCOUNT_3), anyByte(), any());
   }
 
   @Test
@@ -301,7 +285,8 @@ class AccountControllerTest {
         resources.getJerseyTest()
             .target("/v1/accounts/gcm/")
             .request()
-            .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.DISABLED_UUID, AuthHelper.DISABLED_PASSWORD))
+            .header(HttpHeaders.AUTHORIZATION,
+                AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_3, AuthHelper.VALID_PASSWORD_3_PRIMARY))
             .put(Entity.json("{}"));
 
     assertThat(response.getStatus()).isEqualTo(422);
@@ -314,14 +299,15 @@ class AccountControllerTest {
         resources.getJerseyTest()
             .target("/v1/accounts/apn/")
             .request()
-            .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.DISABLED_UUID, AuthHelper.DISABLED_PASSWORD))
+            .header(HttpHeaders.AUTHORIZATION,
+                AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_3, AuthHelper.VALID_PASSWORD_3_PRIMARY))
             .put(Entity.json(new ApnRegistrationId("first", "second")));
 
     assertThat(response.getStatus()).isEqualTo(204);
 
-    verify(AuthHelper.DISABLED_DEVICE, times(1)).setApnId(eq("first"));
-    verify(AuthHelper.DISABLED_DEVICE, times(1)).setVoipApnId(eq("second"));
-    verify(accountsManager, times(1)).updateDevice(eq(AuthHelper.DISABLED_ACCOUNT), anyByte(), any());
+    verify(AuthHelper.VALID_DEVICE_3_PRIMARY, times(1)).setApnId(eq("first"));
+    verify(AuthHelper.VALID_DEVICE_3_PRIMARY, times(1)).setVoipApnId(eq("second"));
+    verify(accountsManager, times(1)).updateDevice(eq(AuthHelper.VALID_ACCOUNT_3), anyByte(), any());
   }
 
   @Test
@@ -330,49 +316,31 @@ class AccountControllerTest {
         resources.getJerseyTest()
             .target("/v1/accounts/apn/")
             .request()
-            .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.DISABLED_UUID, AuthHelper.DISABLED_PASSWORD))
+            .header(HttpHeaders.AUTHORIZATION,
+                AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_3, AuthHelper.VALID_PASSWORD_3_PRIMARY))
             .put(Entity.json(new ApnRegistrationId("first", null)));
 
     assertThat(response.getStatus()).isEqualTo(204);
 
-    verify(AuthHelper.DISABLED_DEVICE, times(1)).setApnId(eq("first"));
-    verify(AuthHelper.DISABLED_DEVICE, times(1)).setVoipApnId(null);
-    verify(accountsManager, times(1)).updateDevice(eq(AuthHelper.DISABLED_ACCOUNT), anyByte(), any());
+    verify(AuthHelper.VALID_DEVICE_3_PRIMARY, times(1)).setApnId(eq("first"));
+    verify(AuthHelper.VALID_DEVICE_3_PRIMARY, times(1)).setVoipApnId(null);
+    verify(accountsManager, times(1)).updateDevice(eq(AuthHelper.VALID_ACCOUNT_3), anyByte(), any());
   }
 
   @ParameterizedTest
-  @MethodSource
-  void testWhoAmI(final String path, final boolean enabledAccount, final int expectedHttpStatusCode) {
-    final UUID aci;
-    final String password;
-    if (enabledAccount) {
-      aci = AuthHelper.VALID_UUID;
-      password = AuthHelper.VALID_PASSWORD;
-    } else {
-      aci = AuthHelper.DISABLED_UUID;
-      password = AuthHelper.DISABLED_PASSWORD;
-    }
+  @ValueSource(strings = {"/v1/accounts/whoami", "/v1/accounts/me"})
+  void testWhoAmI(final String path) {
+
 
     final Response response = resources.getJerseyTest()
         .target(path)
         .request()
-        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(aci, password))
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get();
 
-    assertThat(response.getStatus()).isEqualTo(expectedHttpStatusCode);
+    assertThat(response.getStatus()).isEqualTo(200);
 
-    if (expectedHttpStatusCode == 200) {
-      assertThat(response.readEntity(AccountIdentityResponse.class).uuid()).isEqualTo(aci);
-    }
-  }
-
-  static Stream<Arguments> testWhoAmI() {
-    return Stream.of(
-        Arguments.of("/v1/accounts/whoami", true, 200),
-        Arguments.of("/v1/accounts/whoami", false, 401),
-        Arguments.of("/v1/accounts/me", true, 200),
-        Arguments.of("/v1/accounts/me", false, 200)
-    );
+    assertThat(response.readEntity(AccountIdentityResponse.class).uuid()).isEqualTo(AuthHelper.VALID_UUID);
   }
 
   static Stream<Arguments> testSetUsernameLink() {

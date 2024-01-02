@@ -7,9 +7,7 @@ package org.signal.openapi;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static org.signal.openapi.OpenApiExtension.AUTHENTICATED_ACCOUNT;
-import static org.signal.openapi.OpenApiExtension.DISABLED_PERMITTED_AUTHENTICATED_ACCOUNT;
 import static org.signal.openapi.OpenApiExtension.OPTIONAL_AUTHENTICATED_ACCOUNT;
-import static org.signal.openapi.OpenApiExtension.OPTIONAL_DISABLED_PERMITTED_AUTHENTICATED_ACCOUNT;
 
 import com.fasterxml.jackson.annotation.JsonView;
 import com.google.common.collect.ImmutableList;
@@ -54,13 +52,13 @@ public class OpenApiReader extends Reader {
     final ResolvedParameter resolved = super.getParameters(
         type, annotations, operation, classConsumes, methodConsumes, jsonViewAnnotation);
 
-    if (resolved == AUTHENTICATED_ACCOUNT || resolved == DISABLED_PERMITTED_AUTHENTICATED_ACCOUNT) {
+    if (resolved == AUTHENTICATED_ACCOUNT) {
       operation.setSecurity(ImmutableList.<SecurityRequirement>builder()
           .addAll(firstNonNull(operation.getSecurity(), Collections.emptyList()))
           .add(new SecurityRequirement().addList(AUTHENTICATED_ACCOUNT_AUTH_SCHEMA))
           .build());
     }
-    if (resolved == OPTIONAL_AUTHENTICATED_ACCOUNT || resolved == OPTIONAL_DISABLED_PERMITTED_AUTHENTICATED_ACCOUNT) {
+    if (resolved == OPTIONAL_AUTHENTICATED_ACCOUNT) {
       operation.setSecurity(ImmutableList.<SecurityRequirement>builder()
           .addAll(firstNonNull(operation.getSecurity(), Collections.emptyList()))
           .add(new SecurityRequirement().addList(AUTHENTICATED_ACCOUNT_AUTH_SCHEMA))

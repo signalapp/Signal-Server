@@ -13,8 +13,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.google.common.collect.ImmutableSet;
-import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
+import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import java.time.Clock;
 import java.time.Instant;
@@ -34,7 +33,6 @@ import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialPresentation;
 import org.signal.libsignal.zkgroup.receipts.ReceiptSerial;
 import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
-import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.configuration.BadgeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
 import org.whispersystems.textsecuregcm.entities.BadgeSvg;
@@ -96,8 +94,7 @@ class DonationControllerTest {
 
     resources = ResourceExtension.builder()
         .addProvider(AuthHelper.getAuthFilter())
-        .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(
-            ImmutableSet.of(AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)))
+        .addProvider(new AuthValueFactoryProvider.Binder<>(AuthenticatedAccount.class))
         .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
         .addResource(new DonationController(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager,
             getBadgesConfiguration(), receiptCredentialPresentationFactory))

@@ -42,7 +42,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
-import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
@@ -114,7 +113,7 @@ public class KeysController {
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
   @ApiResponse(responseCode = "403", description = "Attempt to change identity key from a non-primary device.")
   @ApiResponse(responseCode = "422", description = "Invalid request format.")
-  public CompletableFuture<Response> setKeys(@Auth final DisabledPermittedAuthenticatedAccount disabledPermittedAuth,
+  public CompletableFuture<Response> setKeys(@Auth final AuthenticatedAccount auth,
       @RequestBody @NotNull @Valid final SetKeysRequest setKeysRequest,
 
       @Parameter(allowEmptyValue=true)
@@ -124,8 +123,8 @@ public class KeysController {
           description="whether this operation applies to the account (aci) or phone-number (pni) identity")
       @QueryParam("identity") @DefaultValue("aci") final IdentityType identityType) {
 
-    final Account account = disabledPermittedAuth.getAccount();
-    final Device device = disabledPermittedAuth.getAuthenticatedDevice();
+    final Account account = auth.getAccount();
+    final Device device = auth.getAuthenticatedDevice();
     final UUID identifier = account.getIdentifier(identityType);
 
     checkSignedPreKeySignatures(setKeysRequest, account.getIdentityKey(identityType));

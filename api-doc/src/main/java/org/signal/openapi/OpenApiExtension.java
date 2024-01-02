@@ -22,7 +22,6 @@ import java.util.ServiceLoader;
 import java.util.Set;
 import javax.ws.rs.Consumes;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
-import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 
 /**
  * One of the extension mechanisms of Swagger Core library (OpenAPI processor) is via custom implementations
@@ -41,10 +40,6 @@ public class OpenApiExtension extends AbstractOpenAPIExtension {
   public static final ResolvedParameter AUTHENTICATED_ACCOUNT = new ResolvedParameter();
 
   public static final ResolvedParameter OPTIONAL_AUTHENTICATED_ACCOUNT = new ResolvedParameter();
-
-  public static final ResolvedParameter DISABLED_PERMITTED_AUTHENTICATED_ACCOUNT = new ResolvedParameter();
-
-  public static final ResolvedParameter OPTIONAL_DISABLED_PERMITTED_AUTHENTICATED_ACCOUNT = new ResolvedParameter();
 
   /**
    * When parsing endpoint methods, Swagger will treat the first parameter not annotated as header/path/query param
@@ -71,16 +66,8 @@ public class OpenApiExtension extends AbstractOpenAPIExtension {
         return AUTHENTICATED_ACCOUNT;
       }
       if (type instanceof SimpleType simpleType
-          && simpleType.getRawClass().equals(DisabledPermittedAuthenticatedAccount.class)) {
-        return DISABLED_PERMITTED_AUTHENTICATED_ACCOUNT;
-      }
-      if (type instanceof SimpleType simpleType
           && isOptionalOfType(simpleType, AuthenticatedAccount.class)) {
         return OPTIONAL_AUTHENTICATED_ACCOUNT;
-      }
-      if (type instanceof SimpleType simpleType
-          && isOptionalOfType(simpleType, DisabledPermittedAuthenticatedAccount.class)) {
-        return OPTIONAL_DISABLED_PERMITTED_AUTHENTICATED_ACCOUNT;
       }
     }
 

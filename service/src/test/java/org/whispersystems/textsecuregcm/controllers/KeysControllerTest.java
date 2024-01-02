@@ -22,8 +22,7 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import com.google.common.collect.ImmutableSet;
-import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
+import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import java.time.Duration;
@@ -49,7 +48,6 @@ import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
-import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
 import org.whispersystems.textsecuregcm.entities.ECPreKey;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
@@ -135,8 +133,7 @@ class KeysControllerTest {
       .addProperty(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE)
       .addProvider(AuthHelper.getAuthFilter())
       .addProvider(CompletionExceptionMapper.class)
-      .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(
-          AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)))
+      .addProvider(new AuthValueFactoryProvider.Binder<>(AuthenticatedAccount.class))
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(new ServerRejectedExceptionMapper())
       .addResource(new KeysController(rateLimiters, KEYS, accounts))
@@ -338,18 +335,6 @@ class KeysControllerTest {
     verify(AuthHelper.VALID_DEVICE).setPhoneNumberIdentitySignedPreKey(eq(replacementKey));
     verify(AuthHelper.VALID_DEVICE, never()).setSignedPreKey(any());
     verify(accounts).updateDeviceTransactionallyAsync(eq(AuthHelper.VALID_ACCOUNT), anyByte(), any(), any());
-  }
-
-  @Test
-  void disabledPutSignedPreKeyV2() {
-    ECSignedPreKey test = KeysHelper.signedECPreKey(9999, IDENTITY_KEY_PAIR);
-    Response response = resources.getJerseyTest()
-                                 .target("/v2/keys/signed")
-                                 .request()
-                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_UUID, AuthHelper.DISABLED_PASSWORD))
-                                 .put(Entity.entity(test, MediaType.APPLICATION_JSON_TYPE));
-
-    assertThat(response.getStatus()).isEqualTo(401);
   }
 
   @Test
@@ -990,35 +975,4 @@ class KeysControllerTest {
     assertThat(response.getStatus()).isEqualTo(422);
   }
 
-  @Test
-  void disabledPutKeysTestV2() {
-    final ECPreKey preKey = KeysHelper.ecPreKey(31337);
-    final ECKeyPair identityKeyPair = Curve.generateKeyPair();
-    final ECSignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, identityKeyPair);
-    final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
-
-    when(AuthHelper.DISABLED_ACCOUNT.getIdentityKey(IdentityType.ACI)).thenReturn(identityKey);
-
-    final SetKeysRequest setKeysRequest = new SetKeysRequest(List.of(preKey), signedPreKey, null, null);
-
-    Response response =
-        resources.getJerseyTest()
-            .target("/v2/keys")
-            .request()
-            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_UUID, AuthHelper.DISABLED_PASSWORD))
-            .put(Entity.entity(setKeysRequest, MediaType.APPLICATION_JSON_TYPE));
-
-    assertThat(response.getStatus()).isEqualTo(204);
-
-    ArgumentCaptor<List<ECPreKey>> listCaptor = ArgumentCaptor.forClass(List.class);
-    verify(KEYS).storeEcOneTimePreKeys(eq(AuthHelper.DISABLED_UUID), eq(SAMPLE_DEVICE_ID), listCaptor.capture());
-
-    List<ECPreKey> capturedList = listCaptor.getValue();
-    assertThat(capturedList.size()).isEqualTo(1);
-    assertThat(capturedList.get(0).keyId()).isEqualTo(31337);
-    assertThat(capturedList.get(0).publicKey()).isEqualTo(preKey.publicKey());
-
-    verify(AuthHelper.DISABLED_DEVICE).setSignedPreKey(eq(signedPreKey));
-    verify(accounts).updateDeviceTransactionallyAsync(eq(AuthHelper.DISABLED_ACCOUNT), eq(SAMPLE_DEVICE_ID), any(), any());
-  }
 }

@@ -62,7 +62,7 @@ public class BasicAuthorizationHeader {
       final byte deviceId;
       {
         final Pair<String, Byte> identifierAndDeviceId =
-            BaseAccountAuthenticator.getIdentifierAndDeviceId(usernameComponent);
+            AccountAuthenticator.getIdentifierAndDeviceId(usernameComponent);
 
         username = identifierAndDeviceId.first();
         deviceId = identifierAndDeviceId.second();

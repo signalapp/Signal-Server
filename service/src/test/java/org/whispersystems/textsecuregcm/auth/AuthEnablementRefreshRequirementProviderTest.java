@@ -17,11 +17,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.dropwizard.auth.Auth;
-import io.dropwizard.auth.PolymorphicAuthDynamicFeature;
-import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
+import io.dropwizard.auth.AuthDynamicFeature;
+import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.auth.basic.BasicCredentialAuthFilter;
 import io.dropwizard.jersey.DropwizardResourceConfig;
 import io.dropwizard.jersey.jackson.JacksonMessageBodyProvider;
@@ -40,7 +38,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -97,12 +94,9 @@ class AuthEnablementRefreshRequirementProviderTest {
       new TestPrincipal("test", account, authenticatedDevice));
 
   private final ResourceExtension resources = ResourceExtension.builder()
-      .addProvider(
-          new PolymorphicAuthDynamicFeature<>(ImmutableMap.of(
-              TestPrincipal.class,
-              new BasicCredentialAuthFilter.Builder<TestPrincipal>()
-                  .setAuthenticator(c -> principalSupplier.get()).buildAuthFilter())))
-      .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(TestPrincipal.class)))
+      .addProvider(new AuthDynamicFeature(new BasicCredentialAuthFilter.Builder<TestPrincipal>()
+          .setAuthenticator(c -> principalSupplier.get()).buildAuthFilter()))
+      .addProvider(new AuthValueFactoryProvider.Binder<>(TestPrincipal.class))
       .addProvider(applicationEventListener)
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(new TestResource())

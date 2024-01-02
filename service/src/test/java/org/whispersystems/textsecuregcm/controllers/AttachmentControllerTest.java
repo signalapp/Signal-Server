@@ -9,8 +9,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.google.common.collect.ImmutableSet;
-import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
+import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import java.io.IOException;
@@ -26,7 +25,6 @@ import java.security.spec.InvalidKeySpecException;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
-import javax.ws.rs.core.Response;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.Condition;
 import org.assertj.core.api.InstanceOfAssertFactories;
@@ -37,7 +35,6 @@ import org.whispersystems.textsecuregcm.attachments.GcsAttachmentGenerator;
 import org.whispersystems.textsecuregcm.attachments.TusAttachmentGenerator;
 import org.whispersystems.textsecuregcm.attachments.TusConfiguration;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
-import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretBytes;
 import org.whispersystems.textsecuregcm.entities.AttachmentDescriptorV2;
 import org.whispersystems.textsecuregcm.entities.AttachmentDescriptorV3;
@@ -93,15 +90,15 @@ class AttachmentControllerTest {
           "signal@example.com", 1000, "/attach-here", RSA_PRIVATE_KEY_PEM);
       resources = ResourceExtension.builder()
           .addProvider(AuthHelper.getAuthFilter())
-          .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(
-              ImmutableSet.of(AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)))
-              .setMapper(SystemMapper.jsonMapper())
-              .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-              .addResource(new AttachmentControllerV2(RATE_LIMITERS, "accessKey", "accessSecret", "us-east-1", "attachmentv2-bucket"))
-              .addResource(new AttachmentControllerV3(RATE_LIMITERS, gcsAttachmentGenerator))
+          .addProvider(new AuthValueFactoryProvider.Binder<>(AuthenticatedAccount.class))
+          .setMapper(SystemMapper.jsonMapper())
+          .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
+          .addResource(new AttachmentControllerV2(RATE_LIMITERS, "accessKey", "accessSecret", "us-east-1",
+              "attachmentv2-bucket"))
+          .addResource(new AttachmentControllerV3(RATE_LIMITERS, gcsAttachmentGenerator))
           .addProvider(new AttachmentControllerV4(RATE_LIMITERS,
               gcsAttachmentGenerator,
-              new TusAttachmentGenerator(new TusConfiguration( new SecretBytes(TUS_SECRET), TUS_URL)),
+              new TusAttachmentGenerator(new TusConfiguration(new SecretBytes(TUS_SECRET), TUS_URL)),
               EXPERIMENT_MANAGER))
           .build();
     } catch (IOException | InvalidKeyException | InvalidKeySpecException e) {
@@ -195,17 +192,6 @@ class AttachmentControllerTest {
   }
 
   @Test
-  void testV3FormDisabled() {
-    Response response = resources.getJerseyTest()
-            .target("/v3/attachments/form/upload")
-            .request()
-            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_UUID, AuthHelper.DISABLED_PASSWORD))
-            .get();
-
-    assertThat(response.getStatus()).isEqualTo(401);
-  }
-
-  @Test
   void testV2Form() throws IOException {
     AttachmentDescriptorV2 descriptor = resources.getJerseyTest()
                                                  .target("/v2/attachments/form/upload")
@@ -233,14 +219,4 @@ class AttachmentControllerTest {
     assertThat(new String(Base64.getDecoder().decode(descriptor.policy()))).contains("[\"content-length-range\", 1, 104857600]");
   }
 
-  @Test
-  void testV2FormDisabled() {
-    Response response = resources.getJerseyTest()
-                                 .target("/v2/attachments/form/upload")
-                                 .request()
-                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_UUID, AuthHelper.DISABLED_PASSWORD))
-                                 .get();
-
-    assertThat(response.getStatus()).isEqualTo(401);
-  }
 }

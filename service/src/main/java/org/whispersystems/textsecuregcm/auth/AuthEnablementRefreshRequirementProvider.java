@@ -31,7 +31,6 @@ import org.whispersystems.textsecuregcm.util.Pair;
  * {@link io.dropwizard.auth.Auth} object with a current device list.
  *
  * @see AuthenticatedAccount
- * @see DisabledPermittedAuthenticatedAccount
  */
 public class AuthEnablementRefreshRequirementProvider implements WebsocketRefreshRequirementProvider {
 
