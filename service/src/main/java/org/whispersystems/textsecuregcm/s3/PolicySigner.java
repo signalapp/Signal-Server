@@ -5,7 +5,7 @@
 
 package org.whispersystems.textsecuregcm.s3;
 
-import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.ZonedDateTime;
@@ -28,22 +28,22 @@ public class PolicySigner {
     try {
       Mac mac = Mac.getInstance("HmacSHA256");
 
-      mac.init(new SecretKeySpec(("AWS4" + awsAccessSecret).getBytes("UTF-8"), "HmacSHA256"));
-      byte[] dateKey = mac.doFinal(now.format(DateTimeFormatter.ofPattern("yyyyMMdd")).getBytes("UTF-8"));
+      mac.init(new SecretKeySpec(("AWS4" + awsAccessSecret).getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+      byte[] dateKey = mac.doFinal(now.format(DateTimeFormatter.ofPattern("yyyyMMdd")).getBytes(StandardCharsets.UTF_8));
 
       mac.init(new SecretKeySpec(dateKey, "HmacSHA256"));
-      byte[] dateRegionKey = mac.doFinal(region.getBytes("UTF-8"));
+      byte[] dateRegionKey = mac.doFinal(region.getBytes(StandardCharsets.UTF_8));
 
       mac.init(new SecretKeySpec(dateRegionKey, "HmacSHA256"));
-      byte[] dateRegionServiceKey = mac.doFinal("s3".getBytes("UTF-8"));
+      byte[] dateRegionServiceKey = mac.doFinal("s3".getBytes(StandardCharsets.UTF_8));
 
       mac.init(new SecretKeySpec(dateRegionServiceKey, "HmacSHA256"));
-      byte[] signingKey  = mac.doFinal("aws4_request".getBytes("UTF-8"));
+      byte[] signingKey  = mac.doFinal("aws4_request".getBytes(StandardCharsets.UTF_8));
 
       mac.init(new SecretKeySpec(signingKey, "HmacSHA256"));
 
-      return HexFormat.of().formatHex(mac.doFinal(policy.getBytes("UTF-8")));
-    } catch (NoSuchAlgorithmException | InvalidKeyException | UnsupportedEncodingException e) {
+      return HexFormat.of().formatHex(mac.doFinal(policy.getBytes(StandardCharsets.UTF_8)));
+    } catch (NoSuchAlgorithmException | InvalidKeyException e) {
       throw new AssertionError(e);
     }
   }
