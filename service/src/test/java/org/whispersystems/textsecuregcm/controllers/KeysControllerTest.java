@@ -48,7 +48,6 @@ import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
-import org.whispersystems.textsecuregcm.auth.OptionalAccess;
 import org.whispersystems.textsecuregcm.entities.ECPreKey;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
@@ -73,6 +72,7 @@ import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
 import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
+import org.whispersystems.textsecuregcm.util.HeaderUtils;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class KeysControllerTest {
@@ -494,7 +494,7 @@ class KeysControllerTest {
         .target(String.format("/v2/keys/%s/1", EXISTS_UUID))
         .queryParam("pq", "true")
         .request()
-        .header(OptionalAccess.UNIDENTIFIED, AuthHelper.getUnidentifiedAccessHeader("1337".getBytes()))
+        .header(HeaderUtils.UNIDENTIFIED_ACCESS_KEY, AuthHelper.getUnidentifiedAccessHeader("1337".getBytes()))
         .get(PreKeyResponse.class);
 
     assertThat(result.getIdentityKey()).isEqualTo(existsAccount.getIdentityKey(IdentityType.ACI));
@@ -518,7 +518,7 @@ class KeysControllerTest {
     Response result = resources.getJerseyTest()
         .target(String.format("/v2/keys/%s/*", EXISTS_UUID))
         .request()
-        .header(OptionalAccess.UNIDENTIFIED, AuthHelper.getUnidentifiedAccessHeader("1337".getBytes()))
+        .header(HeaderUtils.UNIDENTIFIED_ACCESS_KEY, AuthHelper.getUnidentifiedAccessHeader("1337".getBytes()))
         .get();
 
     assertThat(result).isNotNull();
@@ -530,7 +530,7 @@ class KeysControllerTest {
     Response response = resources.getJerseyTest()
                                      .target(String.format("/v2/keys/%s/1", EXISTS_UUID))
                                      .request()
-                                     .header(OptionalAccess.UNIDENTIFIED, AuthHelper.getUnidentifiedAccessHeader("9999".getBytes()))
+                                     .header(HeaderUtils.UNIDENTIFIED_ACCESS_KEY, AuthHelper.getUnidentifiedAccessHeader("9999".getBytes()))
                                      .get();
 
     assertThat(response.getStatus()).isEqualTo(401);
@@ -542,7 +542,7 @@ class KeysControllerTest {
     Response response = resources.getJerseyTest()
                                  .target(String.format("/v2/keys/%s/1", EXISTS_UUID))
                                  .request()
-                                 .header(OptionalAccess.UNIDENTIFIED, "$$$$$$$$$")
+                                 .header(HeaderUtils.UNIDENTIFIED_ACCESS_KEY, "$$$$$$$$$")
                                  .get();
 
     assertThat(response.getStatus()).isEqualTo(401);

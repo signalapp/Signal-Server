@@ -24,6 +24,10 @@ public final class HeaderUtils {
 
   public static final String TIMESTAMP_HEADER = "X-Signal-Timestamp";
 
+  public static final String UNIDENTIFIED_ACCESS_KEY = "Unidentified-Access-Key";
+
+  public static final String GROUP_SEND_CREDENTIAL = "Group-Send-Credential";
+
   private HeaderUtils() {
     // utility class
   }

@@ -81,4 +81,6 @@ public interface ServiceIdentifier {
     }
     throw new IllegalArgumentException("unknown libsignal ServiceId type");
   }
+
+  ServiceId toLibsignal();
 }

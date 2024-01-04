@@ -94,6 +94,7 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.VersionedProfile;
+import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.ProfileHelper;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -226,7 +227,7 @@ public class ProfileController {
   @Path("/{identifier}/{version}")
   public VersionedProfileResponse getProfile(
       @Auth Optional<AuthenticatedAccount> auth,
-      @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
+      @HeaderParam(HeaderUtils.UNIDENTIFIED_ACCESS_KEY) Optional<Anonymous> accessKey,
       @Context ContainerRequestContext containerRequestContext,
       @PathParam("identifier") AciServiceIdentifier accountIdentifier,
       @PathParam("version") String version)
@@ -246,7 +247,7 @@ public class ProfileController {
   @Path("/{identifier}/{version}/{credentialRequest}")
   public CredentialProfileResponse getProfile(
       @Auth Optional<AuthenticatedAccount> auth,
-      @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
+      @HeaderParam(HeaderUtils.UNIDENTIFIED_ACCESS_KEY) Optional<Anonymous> accessKey,
       @Context ContainerRequestContext containerRequestContext,
       @PathParam("identifier") AciServiceIdentifier accountIdentifier,
       @PathParam("version") String version,
@@ -276,7 +277,7 @@ public class ProfileController {
   @Path("/{identifier}")
   public BaseProfileResponse getUnversionedProfile(
       @Auth Optional<AuthenticatedAccount> auth,
-      @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
+      @HeaderParam(HeaderUtils.UNIDENTIFIED_ACCESS_KEY) Optional<Anonymous> accessKey,
       @Context ContainerRequestContext containerRequestContext,
       @HeaderParam(HttpHeaders.USER_AGENT) String userAgent,
       @PathParam("identifier") ServiceIdentifier identifier,

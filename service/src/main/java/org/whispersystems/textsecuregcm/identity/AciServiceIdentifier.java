@@ -10,6 +10,8 @@ import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.UUID;
 import io.swagger.v3.oas.annotations.media.Schema;
+
+import org.signal.libsignal.protocol.ServiceId;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
 /**
@@ -49,6 +51,11 @@ public record AciServiceIdentifier(UUID uuid) implements ServiceIdentifier {
     byteBuffer.flip();
 
     return byteBuffer.array();
+  }
+
+  @Override
+  public ServiceId.Aci toLibsignal() {
+    return new ServiceId.Aci(uuid);
   }
 
   public static AciServiceIdentifier valueOf(final String string) {

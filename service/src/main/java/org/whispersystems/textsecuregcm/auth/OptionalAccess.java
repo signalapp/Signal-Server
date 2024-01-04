@@ -18,8 +18,6 @@ import java.util.Optional;
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class OptionalAccess {
 
-  public static final String UNIDENTIFIED = "Unidentified-Access-Key";
-
   public static void verify(Optional<Account>   requestAccount,
                             Optional<Anonymous> accessKey,
                             Optional<Account>   targetAccount,

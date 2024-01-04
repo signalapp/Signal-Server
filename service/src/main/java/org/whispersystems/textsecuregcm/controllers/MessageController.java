@@ -8,6 +8,8 @@ import static com.codahale.metrics.MetricRegistry.name;
 
 import com.codahale.metrics.annotation.Timed;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.net.HttpHeaders;
 import com.google.protobuf.ByteString;
 import io.dropwizard.auth.Auth;
@@ -52,6 +54,7 @@ import javax.ws.rs.DELETE;
 import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
+import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.NotFoundException;
 import javax.ws.rs.POST;
 import javax.ws.rs.PUT;
@@ -67,13 +70,17 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
+import org.signal.libsignal.protocol.ServiceId;
 import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage.Recipient;
 import org.signal.libsignal.protocol.util.Pair;
+import org.signal.libsignal.zkgroup.ServerSecretParams;
+import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.CombinedUnidentifiedSenderAccessKeys;
+import org.whispersystems.textsecuregcm.auth.GroupSendCredentialHeader;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
@@ -113,6 +120,7 @@ import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.util.DestinationDeviceValidator;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
+import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.websocket.WebSocketConnection;
 import org.whispersystems.websocket.Stories;
@@ -148,6 +156,7 @@ public class MessageController {
   private final ReportSpamTokenProvider reportSpamTokenProvider;
   private final ClientReleaseManager clientReleaseManager;
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
+  private final ServerSecretParams serverSecretParams;
 
   private static final int MAX_FETCH_ACCOUNT_CONCURRENCY = 8;
 
@@ -188,7 +197,8 @@ public class MessageController {
       Scheduler messageDeliveryScheduler,
       @Nonnull ReportSpamTokenProvider reportSpamTokenProvider,
       final ClientReleaseManager clientReleaseManager,
-      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
+      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
+      final ServerSecretParams serverSecretParams) {
     this.rateLimiters = rateLimiters;
     this.messageByteLimitEstimator = messageByteLimitEstimator;
     this.messageSender = messageSender;
@@ -202,6 +212,7 @@ public class MessageController {
     this.reportSpamTokenProvider = reportSpamTokenProvider;
     this.clientReleaseManager = clientReleaseManager;
     this.dynamicConfigurationManager = dynamicConfigurationManager;
+    this.serverSecretParams = serverSecretParams;
   }
 
   @Timed
@@ -211,7 +222,7 @@ public class MessageController {
   @Produces(MediaType.APPLICATION_JSON)
   @FilterSpam
   public Response sendMessage(@Auth Optional<AuthenticatedAccount> source,
-      @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
+      @HeaderParam(HeaderUtils.UNIDENTIFIED_ACCESS_KEY) Optional<Anonymous> accessKey,
       @HeaderParam(HttpHeaders.USER_AGENT) String userAgent,
       @PathParam("destination") ServiceIdentifier destinationIdentifier,
       @QueryParam("story") boolean isStory,
@@ -372,6 +383,7 @@ public class MessageController {
   private Map<ServiceIdentifier, MultiRecipientDeliveryData> buildRecipientMap(
       SealedSenderMultiRecipientMessage multiRecipientMessage, boolean isStory) {
     return Flux.fromIterable(multiRecipientMessage.getRecipients().entrySet())
+        .switchIfEmpty(Flux.error(BadRequestException::new))
         .map(e -> Tuples.of(ServiceIdentifier.fromLibsignal(e.getKey()), e.getValue()))
         .flatMap(
             t -> Mono.fromFuture(() -> accountsManager.getByServiceIdentifierAsync(t.getT1()))
@@ -406,7 +418,9 @@ public class MessageController {
           """)
   @ApiResponse(responseCode="200", description="Message was successfully sent to all recipients", useReturnTypeSchema=true)
   @ApiResponse(responseCode="400", description="The envelope specified delivery to the same recipient device multiple times")
-  @ApiResponse(responseCode="401", description="The message is not a story and the unauthorized access key is incorrect")
+  @ApiResponse(
+      responseCode="401",
+      description="The message is not a story and the unauthorized access key or group send credential is missing or incorrect")
   @ApiResponse(
       responseCode="404",
       description="The message is not a story and some of the recipient service IDs do not correspond to registered Signal users")
@@ -416,10 +430,14 @@ public class MessageController {
   @ApiResponse(
       responseCode = "410", description = "Mismatched registration ids supplied for some recipient devices",
       content = @Content(schema = @Schema(implementation = AccountStaleDevices[].class)))
-
   public Response sendMultiRecipientMessage(
-      @Parameter(description="The bitwise xor of the unidentified access keys for every recipient of the message")
-      @HeaderParam(OptionalAccess.UNIDENTIFIED) @Nullable CombinedUnidentifiedSenderAccessKeys accessKeys,
+      @Deprecated
+      @Parameter(description="The bitwise xor of the unidentified access keys for every recipient of the message. Will be replaced with group send credentials")
+      @HeaderParam(HeaderUtils.UNIDENTIFIED_ACCESS_KEY) @Nullable CombinedUnidentifiedSenderAccessKeys accessKeys,
+
+      @Parameter(description="A group send credential covering all (included and excluded) recipients of the message. Must not be combined with `Unidentified-Access-Key` or set on a story message.")
+      @HeaderParam(HeaderUtils.GROUP_SEND_CREDENTIAL)
+      @Nullable GroupSendCredentialHeader groupSendCredential,
 
       @HeaderParam(HttpHeaders.USER_AGENT) String userAgent,
 
@@ -436,14 +454,31 @@ public class MessageController {
       @QueryParam("story") boolean isStory,
       @Parameter(description="The sealed-sender multi-recipient message payload as serialized by libsignal")
       @NotNull SealedSenderMultiRecipientMessage multiRecipientMessage) throws RateLimitExceededException {
+    if (groupSendCredential == null && accessKeys == null && !isStory) {
+      throw new NotAuthorizedException("A group send credential or unidentified access key is required for non-story messages");
+    }
+    if (groupSendCredential != null) {
+      if (accessKeys != null) {
+        throw new BadRequestException("Only one of group send credential and unidentified access key may be provided");
+      } else if (isStory) {
+        throw new BadRequestExcpetion("Stories should not provide a group send credential");
+      }
+    }
+
+    if (groupSendCredential != null) {
+      // Group send credentials are checked before we even attempt to resolve any accounts, since
+      // the lists of service IDs in the envelope are all that we need to check against
+      checkGroupSendCredential(
+          multiRecipientMessage.getRecipients().keySet(), multiRecipientMessage.getExcludedRecipients(), groupSendCredential);
+    }
 
     final Map<ServiceIdentifier, MultiRecipientDeliveryData> recipients = buildRecipientMap(multiRecipientMessage, isStory);
 
-    // Stories will be checked by the client; we bypass access checks here for stories.
-    if (!isStory) {
+    // Access keys are checked against the UAK in the resolved accounts, so we have to check after resolving accounts above.
+    // Group send credentials are checked earlier; for stories, we don't check permissions at all because only clients check them
+    if (groupSendCredential == null && !isStory) {
       checkAccessKeys(accessKeys, recipients.values());
     }
-
     // We might filter out all the recipients of a story (if none exist).
     // In this case there is no error so we should just return 200 now.
     if (isStory) {
@@ -556,12 +591,28 @@ public class MessageController {
     return Response.ok(new SendMultiRecipientMessageResponse(uuids404)).build();
   }
 
-  private void checkAccessKeys(final CombinedUnidentifiedSenderAccessKeys accessKeys, final Collection<MultiRecipientDeliveryData> destinations) {
-    // We should not have null access keys when checking access; bail out early.
-    if (accessKeys == null) {
-      throw new WebApplicationException(Status.UNAUTHORIZED);
+  private void checkGroupSendCredential(
+      final Collection<ServiceId> recipients,
+      final Collection<ServiceId> excludedRecipients,
+      final @NotNull GroupSendCredentialHeader groupSendCredential) {
+    try {
+      // A group send credential covers *every* group member except the sender. However, clients
+      // don't always want to actually send to every recipient in the same multi-send (most
+      // commonly because a new member needs an SKDM first, but also could be because the sender
+      // has blocked someone). So we check the group send credential against the combination of
+      // the actual recipients and the supplied list of "excluded" recipients, accounts the
+      // sender knows are part of the credential but doesn't want to send to right now.
+      groupSendCredential.presentation().verify(
+          Lists.newArrayList(Iterables.concat(recipients, excludedRecipients)),
+          serverSecretParams);
+    } catch (VerificationFailedException e) {
+      throw new NotAuthorizedException(e);
     }
+  }
 
+  private void checkAccessKeys(
+      final @NotNull CombinedUnidentifiedSenderAccessKeys accessKeys,
+      final Collection<MultiRecipientDeliveryData> destinations) {
     final int keyLength = UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH;
     final byte[] combinedUnidentifiedAccessKeys = destinations.stream()
         .map(MultiRecipientDeliveryData::account)

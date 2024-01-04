@@ -6,6 +6,8 @@
 package org.whispersystems.textsecuregcm.identity;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+
+import org.signal.libsignal.protocol.ServiceId;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -49,6 +51,11 @@ public record PniServiceIdentifier(UUID uuid) implements ServiceIdentifier {
     byteBuffer.flip();
 
     return byteBuffer.array();
+  }
+
+  @Override
+  public ServiceId.Pni toLibsignal() {
+    return new ServiceId.Pni(uuid);
   }
 
   public static PniServiceIdentifier valueOf(final String string) {
