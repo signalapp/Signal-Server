@@ -1569,15 +1569,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
   /v1/messages/uuid/{uuid}:
@@ -1682,9 +1682,16 @@ paths:
       - name: Unidentified-Access-Key
         in: header
         description: The bitwise xor of the unidentified access keys for every recipient
-          of the message
+          of the message. Will be replaced with group send credentials
         schema:
           $ref: '#/components/schemas/CombinedUnidentifiedSenderAccessKeys'
+      - name: Group-Send-Credential
+        in: header
+        description: A group send credential covering all (included and excluded)
+          recipients of the message. Must not be combined with `Unidentified-Access-Key`
+          or set on a story message.
+        schema:
+          $ref: '#/components/schemas/GroupSendCredentialHeader'
       - name: User-Agent
         in: header
         schema:
@@ -1730,7 +1737,7 @@ paths:
             multiple times
         "401":
           description: The message is not a story and the unauthorized access key
-            is incorrect
+            or group send credential is missing or incorrect
         "404":
           description: The message is not a story and some of the recipient service
             IDs do not correspond to registered Signal users
@@ -2235,15 +2242,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2277,15 +2284,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2318,15 +2325,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2453,15 +2460,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       deprecated: true
       security:
       - authenticatedAccount: []
@@ -2490,15 +2497,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2534,15 +2541,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2581,15 +2588,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -3862,6 +3869,19 @@ components:
       type: object
       properties:
         accessKeys:
+          type: array
+          items:
+            type: string
+            format: byte
+    GroupSendCredentialHeader:
+      type: object
+      properties:
+        presentation:
+          $ref: '#/components/schemas/GroupSendCredentialPresentation'
+    GroupSendCredentialPresentation:
+      type: object
+      properties:
+        internalContentsForJNI:
           type: array
           items:
             type: string
