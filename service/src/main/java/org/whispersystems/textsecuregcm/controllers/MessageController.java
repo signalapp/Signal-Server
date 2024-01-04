@@ -461,7 +461,7 @@ public class MessageController {
       if (accessKeys != null) {
         throw new BadRequestException("Only one of group send credential and unidentified access key may be provided");
       } else if (isStory) {
-        throw new BadRequestExcpetion("Stories should not provide a group send credential");
+        throw new BadRequestException("Stories should not provide a group send credential");
       }
     }
 
