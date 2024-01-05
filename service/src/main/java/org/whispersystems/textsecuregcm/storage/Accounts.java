@@ -474,9 +474,12 @@ public class Accounts extends AbstractDynamoDbStore {
                 ATTR_TTL, AttributeValues.fromLong(expirationTime),
                 ATTR_CONFIRMED, AttributeValues.fromBool(false),
                 ATTR_RECLAIMABLE, AttributeValues.fromBool(false)))
-            .conditionExpression("attribute_not_exists(#username_hash) OR (#ttl < :now)")
-            .expressionAttributeNames(Map.of("#username_hash", ATTR_USERNAME_HASH, "#ttl", ATTR_TTL))
-            .expressionAttributeValues(Map.of(":now", AttributeValues.fromLong(clock.instant().getEpochSecond())))
+            .conditionExpression("attribute_not_exists(#username_hash) OR #ttl < :now OR (#aci = :aci AND #confirmed = :confirmed)")
+            .expressionAttributeNames(Map.of("#username_hash", ATTR_USERNAME_HASH, "#ttl", ATTR_TTL, "#aci", KEY_ACCOUNT_UUID, "#confirmed", ATTR_CONFIRMED))
+            .expressionAttributeValues(Map.of(
+                ":now", AttributeValues.fromLong(clock.instant().getEpochSecond()),
+                ":aci", AttributeValues.fromUUID(uuid),
+                ":confirmed", AttributeValues.fromBool(false)))
             .returnValuesOnConditionCheckFailure(ReturnValuesOnConditionCheckFailure.ALL_OLD)
             .build())
         .build());

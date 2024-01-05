@@ -910,12 +910,7 @@ class AccountsTest {
     final UUID newHandle = account.getUsernameLinkHandle();
 
     assertThat(accounts.getByUsernameHash(USERNAME_HASH_1).join()).isEmpty();
-    assertThat(DYNAMO_DB_EXTENSION.getDynamoDbClient()
-        .getItem(GetItemRequest.builder()
-            .tableName(Tables.USERNAMES.tableName())
-            .key(Map.of(Accounts.ATTR_USERNAME_HASH, AttributeValues.fromByteArray(USERNAME_HASH_1)))
-            .build())
-        .item()).isEmpty();
+    assertThat(getUsernameConstraintTableItem(USERNAME_HASH_1)).isEmpty();
     assertThat(accounts.getByUsernameLinkHandle(oldHandle).join()).isEmpty();
 
     {
@@ -1045,15 +1040,67 @@ class AccountsTest {
     assertArrayEquals(account1.getUsernameHash().orElseThrow(), USERNAME_HASH_1);
     assertThat(accounts.getByUsernameHash(USERNAME_HASH_1).join().get().getUuid()).isEqualTo(account1.getUuid());
 
-    final Map<String, AttributeValue> usernameConstraintRecord = DYNAMO_DB_EXTENSION.getDynamoDbClient()
-        .getItem(GetItemRequest.builder()
-            .tableName(Tables.USERNAMES.tableName())
-            .key(Map.of(Accounts.ATTR_USERNAME_HASH, AttributeValues.fromByteArray(USERNAME_HASH_1)))
-            .build())
-        .item();
+    final Map<String, AttributeValue> usernameConstraintRecord = getUsernameConstraintTableItem(USERNAME_HASH_1);
 
     assertThat(usernameConstraintRecord).containsKey(Accounts.ATTR_USERNAME_HASH);
     assertThat(usernameConstraintRecord).doesNotContainKey(Accounts.ATTR_TTL);
+  }
+
+  @Test
+  void switchBetweenReservedUsernameHashes() {
+    final Account account = generateAccount("+18005551111", UUID.randomUUID(), UUID.randomUUID());
+    createAccount(account);
+
+    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1)).join();
+    assertArrayEquals(account.getReservedUsernameHash().orElseThrow(), USERNAME_HASH_1);
+    assertThat(account.getUsernameHash()).isEmpty();
+
+    accounts.reserveUsernameHash(account, USERNAME_HASH_2, Duration.ofDays(1)).join();
+    assertArrayEquals(account.getReservedUsernameHash().orElseThrow(), USERNAME_HASH_2);
+    assertThat(account.getUsernameHash()).isEmpty();
+
+    final Map<String, AttributeValue> usernameConstraintRecord1 = getUsernameConstraintTableItem(USERNAME_HASH_1);
+    final Map<String, AttributeValue> usernameConstraintRecord2 = getUsernameConstraintTableItem(USERNAME_HASH_2);
+    assertThat(usernameConstraintRecord1).containsKey(Accounts.ATTR_USERNAME_HASH);
+    assertThat(usernameConstraintRecord2).containsKey(Accounts.ATTR_USERNAME_HASH);
+    assertThat(usernameConstraintRecord1).containsKey(Accounts.ATTR_TTL);
+    assertThat(usernameConstraintRecord2).containsKey(Accounts.ATTR_TTL);
+
+    clock.pin(Instant.EPOCH.plus(Duration.ofMinutes(1)));
+
+    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1)).join();
+    assertArrayEquals(account.getReservedUsernameHash().orElseThrow(), USERNAME_HASH_1);
+    assertThat(account.getUsernameHash()).isEmpty();
+
+    final Map<String, AttributeValue> newUsernameConstraintRecord1 = getUsernameConstraintTableItem(USERNAME_HASH_1);
+    assertThat(newUsernameConstraintRecord1).containsKey(Accounts.ATTR_USERNAME_HASH);
+    assertThat(newUsernameConstraintRecord1).containsKey(Accounts.ATTR_TTL);
+    assertThat(usernameConstraintRecord1.get(Accounts.ATTR_TTL))
+        .isNotEqualTo(newUsernameConstraintRecord1.get(Accounts.ATTR_TTL));
+  }
+
+  @Test
+  void reserveOwnConfirmedUsername() {
+    final Account account = generateAccount("+18005551111", UUID.randomUUID(), UUID.randomUUID());
+    createAccount(account);
+
+    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1)).join();
+    assertArrayEquals(account.getReservedUsernameHash().orElseThrow(), USERNAME_HASH_1);
+    assertThat(account.getUsernameHash()).isEmpty();
+    assertThat(getUsernameConstraintTableItem(USERNAME_HASH_1)).containsKey(Accounts.ATTR_TTL);
+
+
+    accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1).join();
+    assertThat(account.getReservedUsernameHash()).isEmpty();
+    assertArrayEquals(account.getUsernameHash().orElseThrow(), USERNAME_HASH_1);
+    assertThat(getUsernameConstraintTableItem(USERNAME_HASH_1)).doesNotContainKey(Accounts.ATTR_TTL);
+
+    CompletableFutureTestUtil.assertFailsWithCause(ContestedOptimisticLockException.class,
+        accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1)));
+    assertThat(account.getReservedUsernameHash()).isEmpty();
+    assertArrayEquals(account.getUsernameHash().orElseThrow(), USERNAME_HASH_1);
+    assertThat(getUsernameConstraintTableItem(USERNAME_HASH_1)).containsKey(Accounts.ATTR_USERNAME_HASH);
+    assertThat(getUsernameConstraintTableItem(USERNAME_HASH_1)).doesNotContainKey(Accounts.ATTR_TTL);
   }
 
   @Test
@@ -1117,17 +1164,6 @@ class AccountsTest {
     CompletableFutureTestUtil.assertFailsWithCause(ContestedOptimisticLockException.class,
         accounts.confirmUsernameHash(account1, USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
     assertThat(accounts.getByUsernameHash(USERNAME_HASH_1).join().get().getUuid()).isEqualTo(account2.getUuid());
-  }
-
-  @Test
-  void testRetryReserveUsernameHash() {
-    final Account account = generateAccount("+18005551111", UUID.randomUUID(), UUID.randomUUID());
-    createAccount(account);
-    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(2)).join();
-
-    CompletableFutureTestUtil.assertFailsWithCause(ContestedOptimisticLockException.class,
-        accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(2)),
-        "Shouldn't be able to re-reserve same username hash (would extend ttl)");
   }
 
   @Test
@@ -1298,6 +1334,15 @@ class AccountsTest {
         .consistentRead(true)
         .build());
     return get.item();
+  }
+
+  private Map<String, AttributeValue> getUsernameConstraintTableItem(final byte[] usernameHash) {
+    return DYNAMO_DB_EXTENSION.getDynamoDbClient()
+        .getItem(GetItemRequest.builder()
+            .tableName(Tables.USERNAMES.tableName())
+            .key(Map.of(Accounts.ATTR_USERNAME_HASH, AttributeValues.fromByteArray(usernameHash)))
+            .build())
+        .item();
   }
 
   private void verifyStoredState(String number, UUID uuid, UUID pni, byte[] usernameHash, Account expecting, boolean canonicallyDiscoverable) {
