@@ -11,6 +11,7 @@ import io.micrometer.statsd.StatsdFlavor;
 import java.time.Duration;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Positive;
 
 public class DogstatsdConfiguration implements StatsdConfig {
 
@@ -21,6 +22,10 @@ public class DogstatsdConfiguration implements StatsdConfig {
   @JsonProperty
   @NotBlank
   private String environment;
+
+  @JsonProperty
+  @Positive
+  private int maxPacketLength = 8932;
 
   @Override
   public Duration step() {
@@ -40,5 +45,10 @@ public class DogstatsdConfiguration implements StatsdConfig {
   public String get(final String key) {
     // We have no Micrometer key/value pairs to report, so always return `null`
     return null;
+  }
+
+  @Override
+  public int maxPacketLength() {
+    return maxPacketLength;
   }
 }
