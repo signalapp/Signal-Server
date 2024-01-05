@@ -9,15 +9,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import io.micrometer.shaded.reactor.util.function.Tuple2;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 
 class RemoveExpiredLinkedDevicesCommandTest {
@@ -52,14 +49,6 @@ class RemoveExpiredLinkedDevicesCommandTest {
   @ParameterizedTest
   @MethodSource
   void getDeviceIdsToRemove(final List<Device> devices, final Set<Byte> expectedIds) {
-    final Account account = mock(Account.class);
-    when(account.getDevices()).thenReturn(devices);
-
-    final Set<Byte> actualIds = RemoveExpiredLinkedDevicesCommand.getExpiredLinkedDeviceIds(account)
-        .stream()
-        .map(Tuple2::getT2)
-        .collect(Collectors.toSet());
-
-    assertEquals(expectedIds, actualIds);
+    assertEquals(expectedIds, RemoveExpiredLinkedDevicesCommand.getExpiredLinkedDeviceIds(devices));
   }
 }
