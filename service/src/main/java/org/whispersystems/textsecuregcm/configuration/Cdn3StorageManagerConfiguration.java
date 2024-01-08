@@ -1,6 +1,9 @@
 package org.whispersystems.textsecuregcm.configuration;
 
+import org.whispersystems.textsecuregcm.configuration.secrets.SecretString;
+import javax.validation.constraints.NotNull;
+
 public record Cdn3StorageManagerConfiguration(
-    String baseUri,
-    String clientId,
-    String clientSecret) {}
+    @NotNull String baseUri,
+    @NotNull String clientId,
+    @NotNull SecretString clientSecret) {}

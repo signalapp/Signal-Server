@@ -65,7 +65,7 @@ public class Cdn3RemoteStorageManager implements RemoteStorageManager {
     // strip trailing "/" for easier URI construction
     this.storageManagerBaseUrl = StringUtils.removeEnd(configuration.baseUri(), "/");
     this.clientId = configuration.clientId();
-    this.clientSecret = configuration.clientSecret();
+    this.clientSecret = configuration.clientSecret().value();
 
     // Client used to read/write to cdn
     this.cdnHttpClient = FaultTolerantHttpClient.newBuilder()

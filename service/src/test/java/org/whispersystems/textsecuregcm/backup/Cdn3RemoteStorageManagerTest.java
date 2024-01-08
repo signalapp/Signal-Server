@@ -42,6 +42,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.configuration.Cdn3StorageManagerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
+import org.whispersystems.textsecuregcm.configuration.secrets.SecretString;
 import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
@@ -71,7 +72,10 @@ public class Cdn3RemoteStorageManagerTest {
         new CircuitBreakerConfiguration(),
         new RetryConfiguration(),
         Collections.emptyList(),
-        new Cdn3StorageManagerConfiguration(wireMock.url("storage-manager/"), "clientId", "clientSecret"));
+        new Cdn3StorageManagerConfiguration(
+            wireMock.url("storage-manager/"),
+            "clientId",
+            new SecretString("clientSecret")));
 
     wireMock.stubFor(get(urlEqualTo("/cdn2/source/small"))
         .willReturn(aResponse()
