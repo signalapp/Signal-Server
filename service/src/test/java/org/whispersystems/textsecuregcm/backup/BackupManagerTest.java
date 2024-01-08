@@ -29,17 +29,20 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nullable;
+import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
@@ -378,6 +381,32 @@ public class BackupManagerTest {
       // should have recalculated if we exceeded quota
       verify(remoteStorageManager, times(1)).calculateBytesUsed(anyString());
     }
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"", "cursor"})
+  public void list(final String cursorVal) {
+    final Optional<String> cursor = Optional.of(cursorVal).filter(StringUtils::isNotBlank);
+    final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupTier.MEDIA);
+    final String backupMediaPrefix = "%s/%s/".formatted(
+        BackupManager.encodeBackupIdForCdn(backupUser),
+        BackupManager.MEDIA_DIRECTORY_NAME);
+
+    when(remoteStorageManager.cdnNumber()).thenReturn(13);
+    when(remoteStorageManager.list(eq(backupMediaPrefix), eq(cursor), eq(17L)))
+        .thenReturn(CompletableFuture.completedFuture(new RemoteStorageManager.ListResult(
+            List.of(new RemoteStorageManager.ListResult.Entry("aaa", 123)),
+            Optional.of("newCursor")
+        )));
+
+    final BackupManager.ListMediaResult result = backupManager.list(backupUser, cursor, 17)
+        .toCompletableFuture().join();
+    assertThat(result.media()).hasSize(1);
+    assertThat(result.media().get(0).cdn()).isEqualTo(13);
+    assertThat(result.media().get(0).key()).isEqualTo(Base64.getDecoder().decode("aaa".getBytes(StandardCharsets.UTF_8)));
+    assertThat(result.media().get(0).length()).isEqualTo(123);
+    assertThat(result.cursor()).get().isEqualTo("newCursor");
+
   }
 
   private Map<String, AttributeValue> getBackupItem(final AuthenticatedBackupUser backupUser) {

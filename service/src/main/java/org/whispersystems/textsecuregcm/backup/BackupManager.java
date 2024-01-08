@@ -335,7 +335,7 @@ public class BackupManager {
           .withDescription("credential does not support list operation")
           .asRuntimeException();
     }
-    final String mediaPrefix = "%s/%s/".formatted(MEDIA_DIRECTORY_NAME, encodeBackupIdForCdn(backupUser));
+    final String mediaPrefix = "%s/%s/".formatted(encodeBackupIdForCdn(backupUser), MEDIA_DIRECTORY_NAME);
     return remoteStorageManager.list(mediaPrefix, cursor, limit)
         .thenApply(result ->
             new ListMediaResult(
