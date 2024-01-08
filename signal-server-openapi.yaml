@@ -741,6 +741,61 @@ paths:
       - authenticatedAccount: []
       - {}
   /v1/archives/media:
+    get:
+      tags:
+      - Archive
+      summary: List media objects
+      description: |
+        Retrieve a list of media objects stored for this backup-id. A client may have previously stored media objects
+        that are no longer referenced in their current backup. To reclaim storage space used by these orphaned
+        objects, perform a list operation and remove any unreferenced media objects via DELETE /v1/backups/<mediaId>.
+      operationId: listMedia
+      parameters:
+      - name: X-Signal-ZK-Auth
+        in: header
+        description: "Presentation of a ZK backup auth credential acquired from /v1/archives/auth,\
+          \ encoded in standard padded base64"
+        required: true
+        schema:
+          type: string
+      - name: X-Signal-ZK-Auth-Signature
+        in: header
+        description: "Signature of the ZK auth credential's presentation, encoded\
+          \ in standard padded base64"
+        required: true
+        schema:
+          type: string
+      - name: cursor
+        in: query
+        description: A cursor returned by a previous call
+        schema:
+          type: string
+      - name: limit
+        in: query
+        description: The number of entries to return per call
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListResponse'
+        "400":
+          description: Bad arguments. The request may have been made on an authenticated
+            channel
+        "429":
+          description: Rate limited.
+        "403":
+          description: Forbidden. The request had insufficient permissions to perform
+            the requested action
+        "401":
+          description: The provided backup auth credential presentation could not
+            be verified
+      security:
+      - authenticatedAccount: []
+      - {}
     put:
       tags:
       - Archive
@@ -748,9 +803,10 @@ paths:
       description: |
         Copy and re-encrypt media from the attachments cdn into the backup cdn.
 
-        The original, already encrypted, attachment will be encrypted with the provided key material before being copied
+        The original, already encrypted, attachment will be encrypted with the provided key material before being copied.
 
-        If the destination media already exists, the copy will be skipped and a 200 will be returned.
+        A particular destination media id should not be reused with a different source media id or different encryption
+        parameters.
       operationId: copyMedia_1
       parameters:
       - name: X-Signal-ZK-Auth
@@ -1569,15 +1625,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
   /v1/messages/uuid/{uuid}:
@@ -2242,15 +2298,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2284,15 +2340,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2325,15 +2381,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2460,15 +2516,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       deprecated: true
       security:
       - authenticatedAccount: []
@@ -2497,15 +2553,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2541,15 +2597,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2588,15 +2644,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -3289,7 +3345,9 @@ components:
           format: int32
         backupDir:
           type: string
-          description: "If present, the directory of your backup data on the cdn."
+          description: |
+            If present, the directory of your backup data on the cdn. The message backup can be found at /backupDir/backupName
+            and stored media can be found at /backupDir/media/mediaId.
         backupName:
           type: string
           description: "If present, the name of the most recent message backup on\
@@ -3421,6 +3479,37 @@ components:
           description: A list of BackupAuthCredentials and their validity periods
           items:
             $ref: '#/components/schemas/BackupAuthCredential'
+    ListResponse:
+      type: object
+      properties:
+        storedMediaObjects:
+          type: array
+          description: A page of media objects stored for this backup ID
+          items:
+            $ref: '#/components/schemas/StoredMediaObject'
+        cursor:
+          type: string
+          description: "If set, the cursor value to pass to the next list request\
+            \ to continue listing. If absent, all objects have been listed"
+    StoredMediaObject:
+      required:
+      - cdn
+      - mediaId
+      - objectLength
+      type: object
+      properties:
+        cdn:
+          type: integer
+          description: The backup cdn where this media object is stored
+          format: int32
+        mediaId:
+          type: string
+          description: The mediaId of the object in URL-safe base64
+        objectLength:
+          type: integer
+          description: The length of the object in bytes
+          format: int64
+      description: A page of media objects stored for this backup ID
     ReadAuthResponse:
       type: object
       properties:
@@ -3720,10 +3809,10 @@ components:
     WebSocketClient:
       type: object
       properties:
-        open:
-          type: boolean
         userAgent:
           type: string
+        open:
+          type: boolean
         createdTimestamp:
           type: integer
           format: int64
