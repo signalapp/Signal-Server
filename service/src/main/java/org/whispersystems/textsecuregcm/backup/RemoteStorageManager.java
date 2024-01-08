@@ -1,6 +1,8 @@
 package org.whispersystems.textsecuregcm.backup;
 
 import java.net.URI;
+import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 
 /**
@@ -35,4 +37,41 @@ public interface RemoteStorageManager {
       int expectedSourceLength,
       MediaEncryptionParameters encryptionParameters,
       MessageBackupUploadDescriptor uploadDescriptor);
+
+  /**
+   * Result of a {@link #list} operation
+   *
+   * @param objects An {@link Entry} for each object returned by the list request
+   * @param cursor  An opaque string that can be used to resume listing from where a previous request left off, empty if
+   *                the request reached the end of the list of matching objects.
+   */
+  record ListResult(List<Entry> objects, Optional<String> cursor) {
+
+    /**
+     * An entry representing a remote stored object under a prefix
+     *
+     * @param key    The name of the object with the prefix removed
+     * @param length The length of the object in bytes
+     */
+    record Entry(String key, long length) {}
+  }
+
+  /**
+   * List objects on the remote cdn.
+   *
+   * @param prefix The prefix of the objects to list
+   * @param cursor The cursor returned by a previous call to list, or empty if starting from the first object with the
+   *               provided prefix
+   * @param limit  The maximum number of items to return in the list
+   * @return A {@link ListResult} of objects that match the prefix.
+   */
+  CompletionStage<ListResult> list(final String prefix, final Optional<String> cursor, final long limit);
+
+  /**
+   * Calculate the total number of bytes stored by objects with the provided prefix
+   *
+   * @param prefix The prefix of the objects to sum
+   * @return The number of bytes used
+   */
+  CompletionStage<UsageInfo> calculateBytesUsed(final String prefix);
 }

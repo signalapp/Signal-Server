@@ -273,6 +273,11 @@ clientCdn:
       AAAAAAAAAAAAAAAAAAAA
       -----END CERTIFICATE-----
 
+cdn3StorageManager:
+  baseUri: https://storage-manager.example.com
+  clientId: example
+  clientSecret: secret://cdn3StorageManager.clientSecret
+
 dogstatsd:
   environment: dev
 

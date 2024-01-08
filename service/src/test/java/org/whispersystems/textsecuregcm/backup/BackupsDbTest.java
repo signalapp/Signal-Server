@@ -12,10 +12,13 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
 import java.util.Arrays;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedBackupUser;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtension;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema;
@@ -27,8 +30,7 @@ public class BackupsDbTest {
 
   @RegisterExtension
   public static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(
-      DynamoDbExtensionSchema.Tables.BACKUPS,
-      DynamoDbExtensionSchema.Tables.BACKUP_MEDIA);
+      DynamoDbExtensionSchema.Tables.BACKUPS);
 
   private final TestClock testClock = TestClock.now();
   private BackupsDb backupsDb;
@@ -37,24 +39,8 @@ public class BackupsDbTest {
   public void setup() {
     testClock.unpin();
     backupsDb = new BackupsDb(DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
-        DynamoDbExtensionSchema.Tables.BACKUPS.tableName(), DynamoDbExtensionSchema.Tables.BACKUP_MEDIA.tableName(),
+        DynamoDbExtensionSchema.Tables.BACKUPS.tableName(),
         testClock);
-  }
-
-  @Test
-  public void trackMediaIdempotent() {
-    final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupTier.MEDIA);
-    this.backupsDb.trackMedia(backupUser, "abc".getBytes(StandardCharsets.UTF_8), 100).join();
-    assertDoesNotThrow(() ->
-        this.backupsDb.trackMedia(backupUser, "abc".getBytes(StandardCharsets.UTF_8), 100).join());
-  }
-
-  @Test
-  public void trackMediaLengthChange() {
-    final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupTier.MEDIA);
-    this.backupsDb.trackMedia(backupUser, "abc".getBytes(StandardCharsets.UTF_8), 100).join();
-    CompletableFutureTestUtil.assertFailsWithCause(InvalidLengthException.class,
-        this.backupsDb.trackMedia(backupUser, "abc".getBytes(StandardCharsets.UTF_8), 99));
   }
 
   @Test
@@ -64,27 +50,33 @@ public class BackupsDbTest {
     backupsDb.addMessageBackup(backupUser).join();
     int total = 0;
     for (int i = 0; i < 5; i++) {
-      this.backupsDb.trackMedia(backupUser, Integer.toString(i).getBytes(StandardCharsets.UTF_8), i).join();
+      this.backupsDb.trackMedia(backupUser, i).join();
       total += i;
       final BackupsDb.BackupDescription description = this.backupsDb.describeBackup(backupUser).join();
       assertThat(description.mediaUsedSpace().get()).isEqualTo(total);
     }
 
     for (int i = 0; i < 5; i++) {
-      this.backupsDb.untrackMedia(backupUser, Integer.toString(i).getBytes(StandardCharsets.UTF_8), i).join();
+      this.backupsDb.trackMedia(backupUser, -i).join();
       total -= i;
       final BackupsDb.BackupDescription description = this.backupsDb.describeBackup(backupUser).join();
       assertThat(description.mediaUsedSpace().get()).isEqualTo(total);
     }
   }
 
-
-  private static byte[] hashedBackupId(final byte[] backupId) {
-    try {
-      return Arrays.copyOf(MessageDigest.getInstance("SHA-256").digest(backupId), 16);
-    } catch (NoSuchAlgorithmException e) {
-      throw new AssertionError(e);
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  public void setUsage(boolean mediaAlreadyExists) {
+    testClock.pin(Instant.ofEpochSecond(5));
+    final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupTier.MEDIA);
+    if (mediaAlreadyExists) {
+      this.backupsDb.trackMedia(backupUser, 10).join();
     }
+    backupsDb.setMediaUsage(backupUser, new UsageInfo( 113, 17)).join();
+    final BackupsDb.TimestampedUsageInfo info = backupsDb.getMediaUsage(backupUser).join();
+    assertThat(info.lastRecalculationTime()).isEqualTo(Instant.ofEpochSecond(5));
+    assertThat(info.usageInfo().bytesUsed()).isEqualTo(113L);
+    assertThat(info.usageInfo().numObjects()).isEqualTo(17L);
   }
 
   private AuthenticatedBackupUser backupUser(final byte[] backupId, final BackupTier backupTier) {

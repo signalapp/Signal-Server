@@ -1,6 +1,5 @@
 package org.whispersystems.textsecuregcm.backup;
 
-import java.net.http.HttpRequest;
 import java.nio.ByteBuffer;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;

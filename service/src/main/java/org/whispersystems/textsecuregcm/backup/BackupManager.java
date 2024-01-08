@@ -5,15 +5,19 @@
 
 package org.whispersystems.textsecuregcm.backup;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.grpc.Status;
 import io.micrometer.core.instrument.Metrics;
 import java.net.URI;
 import java.time.Clock;
+import java.time.Duration;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.protocol.InvalidKeyException;
@@ -28,14 +32,20 @@ import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 
 public class BackupManager {
+
   private static final Logger logger = LoggerFactory.getLogger(BackupManager.class);
 
+  static final String MEDIA_DIRECTORY_NAME = "media";
   static final String MESSAGE_BACKUP_NAME = "messageBackup";
-  private static final long MAX_TOTAL_BACKUP_MEDIA_BYTES = 1024L * 1024L * 1024L * 50L;
-  private static final long MAX_MEDIA_OBJECT_SIZE = 1024L * 1024L * 101L;
+  static final long MAX_TOTAL_BACKUP_MEDIA_BYTES = 1024L * 1024L * 1024L * 50L;
+  static final long MAX_MEDIA_OBJECT_SIZE = 1024L * 1024L * 101L;
+  // If the last media usage recalculation is over MAX_QUOTA_STALENESS, force a recalculation before quota enforcement.
+  static final Duration MAX_QUOTA_STALENESS = Duration.ofDays(1);
   private static final String ZK_AUTHN_COUNTER_NAME = MetricsUtil.name(BackupManager.class, "authentication");
   private static final String ZK_AUTHZ_FAILURE_COUNTER_NAME = MetricsUtil.name(BackupManager.class,
       "authorizationFailure");
+  private static final String USAGE_RECALCULATION_COUNTER_NAME = MetricsUtil.name(BackupManager.class,
+      "usageRecalculation");
   private static final String SUCCESS_TAG_NAME = "success";
   private static final String FAILURE_REASON_TAG_NAME = "reason";
 
@@ -175,22 +185,41 @@ public class BackupManager {
           .withDescription("credential does not support storing media")
           .asRuntimeException();
     }
-    return backupsDb.describeBackup(backupUser)
-        .thenApply(info -> info.mediaUsedSpace()
-            .filter(usedSpace -> MAX_TOTAL_BACKUP_MEDIA_BYTES - usedSpace >= mediaLength)
-            .isPresent());
+    return backupsDb.getMediaUsage(backupUser)
+        .thenComposeAsync(info -> {
+          final boolean canStore = MAX_TOTAL_BACKUP_MEDIA_BYTES - info.usageInfo().bytesUsed() >= mediaLength;
+          if (canStore || info.lastRecalculationTime().isAfter(clock.instant().minus(MAX_QUOTA_STALENESS))) {
+            return CompletableFuture.completedFuture(canStore);
+          }
+
+          // The user is out of quota, and we have not recently recalculated the user's usage. Double check by doing a
+          // hard recalculation before actually forbidding the user from storing additional media.
+          final String mediaPrefix = "%s/%s/".formatted(encodeBackupIdForCdn(backupUser), MEDIA_DIRECTORY_NAME);
+          return this.remoteStorageManager.calculateBytesUsed(mediaPrefix)
+              .thenCompose(usage -> backupsDb
+                  .setMediaUsage(backupUser, usage)
+                  .thenApply(ignored -> usage.bytesUsed()))
+              .whenComplete((newUsage, throwable) -> {
+                boolean usageChanged = throwable == null && !newUsage.equals(info.usageInfo());
+                Metrics.counter(USAGE_RECALCULATION_COUNTER_NAME, "usageChanged", String.valueOf(usageChanged))
+                    .increment();
+              })
+              .thenApply(usedSpace -> MAX_TOTAL_BACKUP_MEDIA_BYTES - usedSpace >= mediaLength);
+        });
   }
 
   public record StorageDescriptor(int cdn, byte[] key) {}
+
+  public record StorageDescriptorWithLength(int cdn, byte[] key, long length) {}
 
   /**
    * Copy an encrypted object to the backup cdn, adding a layer of encryption
    * <p>
    * Implementation notes: <p> This method guarantees that any object that gets successfully copied to the backup cdn
-   * will also have an entry for the user in the database. <p>
+   * will also be deducted from the user's quota. </p>
    * <p>
-   * However, the converse isn't true; there may be entries in the database that have not made it to the cdn. On list,
-   * these entries are checked against the cdn and removed.
+   * However, the converse isn't true. It's possible we may charge the user for media they failed to copy. As a result,
+   * the quota may be over reported and it should be recalculated before taking quota enforcement actions.
    *
    * @return A stage that completes successfully with location of the twice-encrypted object on the backup cdn. The
    * returned CompletionStage can be completed exceptionally with the following exceptions.
@@ -221,21 +250,27 @@ public class BackupManager {
 
     final MessageBackupUploadDescriptor dst = cdn3BackupCredentialGenerator.generateUpload(
         encodeBackupIdForCdn(backupUser),
-        encodeForCdn(destinationMediaId));
+        "%s/%s".formatted(MEDIA_DIRECTORY_NAME, encodeForCdn(destinationMediaId)));
 
+    final int destinationLength = encryptionParameters.outputSize(sourceLength);
+
+    final URI sourceUri = attachmentReadUri(sourceCdn, sourceKey);
     return this.backupsDb
         // Write the ddb updates before actually updating backing storage
-        .trackMedia(backupUser, destinationMediaId, sourceLength)
+        .trackMedia(backupUser, destinationLength)
 
-        // copy the objects. On a failure, make a best-effort attempt to reverse the ddb transaction. If cleanup fails
-        // the client may be left with some cleanup to do if they don't eventually upload the media id.
-        .thenCompose(ignored -> remoteStorageManager
-            // actually perform the copy
-            .copy(attachmentReadUri(sourceCdn, sourceKey), sourceLength, encryptionParameters, dst)
-            // best effort: on failure, untrack the copied media
-            .exceptionallyCompose(copyError -> backupsDb.untrackMedia(backupUser, destinationMediaId, sourceLength)
-                .thenCompose(ignoredSuccess -> CompletableFuture.failedFuture(copyError))))
-
+        // Actually copy the objects. If the copy fails, our estimated quota usage may not be exact
+        .thenComposeAsync(ignored -> remoteStorageManager.copy(sourceUri, sourceLength, encryptionParameters, dst))
+        .exceptionallyCompose(throwable -> {
+          final Throwable unwrapped = ExceptionUtils.unwrap(throwable);
+          if (!(unwrapped instanceof SourceObjectNotFoundException) && !(unwrapped instanceof InvalidLengthException)) {
+            throw ExceptionUtils.wrap(unwrapped);
+          }
+          // In cases where we know the copy fails without writing anything, we can try to restore the user's quota
+          return this.backupsDb.trackMedia(backupUser, -destinationLength).whenComplete((ignored, ignoredEx) -> {
+            throw ExceptionUtils.wrap(unwrapped);
+          });
+        })
         // indicates where the backup was stored
         .thenApply(ignore -> new StorageDescriptor(dst.cdn(), destinationMediaId));
 
@@ -268,10 +303,53 @@ public class BackupManager {
       throw Status.PERMISSION_DENIED
           .withDescription("credential does not support read auth operation")
           .asRuntimeException();
-
     }
     final String encodedBackupId = encodeBackupIdForCdn(backupUser);
     return cdn3BackupCredentialGenerator.readHeaders(encodedBackupId);
+  }
+
+
+  /**
+   * List of media stored for a particular backup id
+   *
+   * @param media  A page of media entries
+   * @param cursor If set, can be passed back to a subsequent list request to resume listing from the previous point
+   */
+  public record ListMediaResult(List<StorageDescriptorWithLength> media, Optional<String> cursor) {}
+
+  /**
+   * List the media stored by the backupUser
+   *
+   * @param backupUser An already ZK authenticated backup user
+   * @param cursor     A cursor returned by a previous call that can be used to resume listing
+   * @param limit      The maximum number of list results to return
+   * @return A {@link ListMediaResult}
+   */
+  public CompletionStage<ListMediaResult> list(
+      final AuthenticatedBackupUser backupUser,
+      final Optional<String> cursor,
+      final int limit) {
+    if (backupUser.backupTier().compareTo(BackupTier.MESSAGES) < 0) {
+      Metrics.counter(ZK_AUTHZ_FAILURE_COUNTER_NAME).increment();
+      throw Status.PERMISSION_DENIED
+          .withDescription("credential does not support list operation")
+          .asRuntimeException();
+    }
+    final String mediaPrefix = "%s/%s/".formatted(MEDIA_DIRECTORY_NAME, encodeBackupIdForCdn(backupUser));
+    return remoteStorageManager.list(mediaPrefix, cursor, limit)
+        .thenApply(result ->
+            new ListMediaResult(
+                result
+                    .objects()
+                    .stream()
+                    .map(entry -> new StorageDescriptorWithLength(
+                        remoteStorageManager.cdnNumber(),
+                        decodeFromCdn(entry.key()),
+                        entry.length()
+                    ))
+                    .toList(),
+                result.cursor()
+            ));
   }
 
   /**
@@ -369,12 +447,17 @@ public class BackupManager {
         });
   }
 
-  private static String encodeBackupIdForCdn(final AuthenticatedBackupUser backupUser) {
+  @VisibleForTesting
+  static String encodeBackupIdForCdn(final AuthenticatedBackupUser backupUser) {
     return encodeForCdn(BackupsDb.hashedBackupId(backupUser.backupId()));
   }
 
   private static String encodeForCdn(final byte[] bytes) {
     return Base64.getUrlEncoder().encodeToString(bytes);
+  }
+
+  private static byte[] decodeFromCdn(final String base64) {
+    return Base64.getUrlDecoder().decode(base64);
   }
 
 }

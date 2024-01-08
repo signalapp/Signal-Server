@@ -27,6 +27,8 @@ import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 import javax.annotation.Nullable;
 import javax.validation.Valid;
+import javax.validation.constraints.Max;
+import javax.validation.constraints.Min;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
@@ -231,7 +233,10 @@ public class ArchiveController {
       @Schema(description = "If present, the CDN type where the message backup is stored")
       int cdn,
 
-      @Schema(description = "If present, the directory of your backup data on the cdn.")
+      @Schema(description = """
+      If present, the directory of your backup data on the cdn. The message backup can be found at /backupDir/backupName
+      and stored media can be found at /backupDir/media/mediaId.
+      """)
       String backupDir,
 
       @Schema(description = "If present, the name of the most recent message backup on the cdn. The backup is at /backupDir/backupName")
@@ -409,9 +414,10 @@ public class ArchiveController {
       description = """
           Copy and re-encrypt media from the attachments cdn into the backup cdn.
 
-          The original, already encrypted, attachment will be encrypted with the provided key material before being copied
+          The original, already encrypted, attachment will be encrypted with the provided key material before being copied.
 
-          If the destination media already exists, the copy will be skipped and a 200 will be returned.
+          A particular destination media id should not be reused with a different source media id or different encryption
+          parameters.
           """)
   @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = CopyMediaResponse.class)))
   @ApiResponse(responseCode = "400", description = "The provided object length was incorrect")
@@ -609,5 +615,71 @@ public class ArchiveController {
         .authenticateBackupUser(presentation.presentation, signature.signature)
         .thenCompose(backupManager::ttlRefresh)
         .thenApply(Util.ASYNC_EMPTY_RESPONSE);
+  }
+
+  record StoredMediaObject(
+
+      @Schema(description = "The backup cdn where this media object is stored")
+      @NotNull
+      Integer cdn,
+
+      @Schema(description = "The mediaId of the object in URL-safe base64", implementation = String.class)
+      @JsonSerialize(using = ByteArrayBase64UrlAdapter.Serializing.class)
+      @JsonDeserialize(using = ByteArrayBase64UrlAdapter.Deserializing.class)
+      @NotNull
+      @ExactlySize(15)
+      byte[] mediaId,
+
+      @Schema(description = "The length of the object in bytes")
+      @NotNull
+      Long objectLength) {}
+
+  public record ListResponse(
+      @Schema(description = "A page of media objects stored for this backup ID")
+      List<StoredMediaObject> storedMediaObjects,
+
+      @Schema(description = "If set, the cursor value to pass to the next list request to continue listing. If absent, all objects have been listed")
+      String cursor) {}
+
+  @GET
+  @Produces(MediaType.APPLICATION_JSON)
+  @Path("/media")
+  @Operation(summary = "List media objects",
+      description = """
+          Retrieve a list of media objects stored for this backup-id. A client may have previously stored media objects
+          that are no longer referenced in their current backup. To reclaim storage space used by these orphaned
+          objects, perform a list operation and remove any unreferenced media objects via DELETE /v1/backups/<mediaId>.
+          """)
+  @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = ListResponse.class)))
+  @ApiResponse(responseCode = "400", description = "Invalid cursor or limit")
+  @ApiResponse(responseCode = "429", description = "Rate limited.")
+  @ApiResponseZkAuth
+  public CompletionStage<ListResponse> listMedia(
+      @Auth final Optional<AuthenticatedAccount> account,
+
+      @Parameter(description = BackupAuthCredentialPresentationHeader.DESCRIPTION, schema = @Schema(implementation = String.class))
+      @NotNull
+      @HeaderParam(X_SIGNAL_ZK_AUTH) final BackupAuthCredentialPresentationHeader presentation,
+
+      @Parameter(description = BackupAuthCredentialPresentationSignature.DESCRIPTION, schema = @Schema(implementation = String.class))
+      @NotNull
+      @HeaderParam(X_SIGNAL_ZK_AUTH_SIGNATURE) final BackupAuthCredentialPresentationSignature signature,
+
+      @Parameter(description = "A cursor returned by a previous call")
+      @QueryParam("cursor") final Optional<String> cursor,
+
+      @Parameter(description = "The number of entries to return per call")
+      @QueryParam("limit") final Optional<@Min(1) @Max(10_000) Integer> limit) {
+    if (account.isPresent()) {
+      throw new BadRequestException("must not use authenticated connection for anonymous operations");
+    }
+    return backupManager
+        .authenticateBackupUser(presentation.presentation, signature.signature)
+        .thenCompose(backupUser -> backupManager.list(backupUser, cursor, limit.orElse(1000)))
+        .thenApply(result -> new ListResponse(
+            result.media()
+                .stream().map(entry -> new StoredMediaObject(entry.cdn(), entry.key(), entry.length()))
+                .toList(),
+            result.cursor().orElse(null)));
   }
 }

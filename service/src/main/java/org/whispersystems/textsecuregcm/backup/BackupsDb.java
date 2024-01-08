@@ -4,6 +4,7 @@ import io.grpc.Status;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -11,7 +12,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,31 +22,24 @@ import org.whispersystems.textsecuregcm.util.Util;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
-import software.amazon.awssdk.services.dynamodb.model.CancellationReason;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
-import software.amazon.awssdk.services.dynamodb.model.Delete;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
-import software.amazon.awssdk.services.dynamodb.model.Put;
-import software.amazon.awssdk.services.dynamodb.model.ReturnValuesOnConditionCheckFailure;
-import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
-import software.amazon.awssdk.services.dynamodb.model.TransactWriteItemsRequest;
-import software.amazon.awssdk.services.dynamodb.model.TransactionCanceledException;
 import software.amazon.awssdk.services.dynamodb.model.Update;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 
 /**
  * Tracks backup metadata in a persistent store.
- *
+ * <p>
  * It's assumed that the caller has already validated that the backupUser being operated on has valid credentials and
  * possesses the appropriate {@link BackupTier} to perform the current operation.
  */
 public class BackupsDb {
+
   private static final Logger logger = LoggerFactory.getLogger(BackupsDb.class);
   static final int BACKUP_CDN = 3;
 
   private final DynamoDbAsyncClient dynamoClient;
   private final String backupTableName;
-  private final String backupMediaTableName;
   private final Clock clock;
 
   // The backups table
@@ -68,31 +61,25 @@ public class BackupsDb {
   public static final String ATTR_MEDIA_COUNT = "MC";
   // N: The cdn number where the message backup is stored
   public static final String ATTR_CDN = "CDN";
-
-  // The stored media table (hashedBackupId, mediaId, cdn, objectLength)
-
-  // B: 15-byte mediaId
-  public static final String KEY_MEDIA_ID = "M";
-  // N: The length of the encrypted media object
-  public static final String ATTR_LENGTH = "L";
+  // N: Time in seconds since epoch of last backup media usage recalculation. This timestamp is updated whenever we
+  // recalculate the up-to-date bytes used by querying the cdn(s) directly.
+  public static final String ATTR_MEDIA_USAGE_LAST_RECALCULATION = "MBTS";
 
   public BackupsDb(
       final DynamoDbAsyncClient dynamoClient,
       final String backupTableName,
-      final String backupMediaTableName,
       final Clock clock) {
     this.dynamoClient = dynamoClient;
     this.backupTableName = backupTableName;
-    this.backupMediaTableName = backupMediaTableName;
     this.clock = clock;
   }
 
   /**
    * Set the public key associated with a backupId.
    *
-   * @param authenticatedBackupId The backup-id bytes that should be associated with the provided public key
+   * @param authenticatedBackupId   The backup-id bytes that should be associated with the provided public key
    * @param authenticatedBackupTier The backup tier
-   * @param publicKey The public key to associate with the backup id
+   * @param publicKey               The public key to associate with the backup id
    * @return A stage that completes when the public key has been set. If the backup-id already has a set public key that
    * does not match, the stage will be completed exceptionally with a {@link PublicKeyConflictException}
    */
@@ -136,102 +123,26 @@ public class BackupsDb {
 
 
   /**
-   * Add media to the backup media table and update the quota in the backup table
-   *
-   * @param backupUser  The
-   * @param mediaId     The mediaId to add
-   * @param mediaLength The length of the media before encryption (the length of the source media)
-   * @return A stage that completes successfully once the tables are updated. If the media with the provided id has
-   * previously been tracked with a different length, the stage will complete exceptionally with an
-   * {@link InvalidLengthException}
-   */
-  CompletableFuture<Void> trackMedia(
-      final AuthenticatedBackupUser backupUser,
-      final byte[] mediaId,
-      final int mediaLength) {
-    final byte[] hashedBackupId = hashedBackupId(backupUser);
-    return dynamoClient
-        .transactWriteItems(TransactWriteItemsRequest.builder().transactItems(
-
-            // Add the media to the media table
-            TransactWriteItem.builder().put(Put.builder()
-                .tableName(backupMediaTableName)
-                .returnValuesOnConditionCheckFailure(ReturnValuesOnConditionCheckFailure.ALL_OLD)
-                .item(Map.of(
-                    KEY_BACKUP_ID_HASH, AttributeValues.b(hashedBackupId),
-                    KEY_MEDIA_ID, AttributeValues.b(mediaId),
-                    ATTR_CDN, AttributeValues.n(BACKUP_CDN),
-                    ATTR_LENGTH, AttributeValues.n(mediaLength)))
-                .conditionExpression("attribute_not_exists(#mediaId)")
-                .expressionAttributeNames(Map.of("#mediaId", KEY_MEDIA_ID))
-                .build()).build(),
-
-            // Update the media quota and TTL
-            TransactWriteItem.builder().update(
-                UpdateBuilder.forUser(backupTableName, backupUser)
-                    .setRefreshTimes(clock)
-                    .incrementMediaBytes(mediaLength)
-                    .incrementMediaCount(1)
-                    .transactItemBuilder()
-                    .build()).build()).build())
-        .exceptionally(throwable -> {
-          if (ExceptionUtils.unwrap(throwable) instanceof TransactionCanceledException txCancelled) {
-            final long oldItemLength = conditionCheckFailed(txCancelled, 0)
-                .flatMap(item -> Optional.ofNullable(item.get(ATTR_LENGTH)))
-                .map(attr -> Long.parseLong(attr.n()))
-                .orElseThrow(() -> ExceptionUtils.wrap(throwable));
-            if (oldItemLength != mediaLength) {
-              throw new CompletionException(
-                  new InvalidLengthException("Previously tried to copy media with a different length. "
-                      + "Provided " + mediaLength + " was " + oldItemLength));
-            }
-            // The client already "paid" for this media, can let them through
-            return null;
-          } else {
-            // rethrow original exception
-            throw ExceptionUtils.wrap(throwable);
-          }
-        })
-        .thenRun(Util.NOOP);
-  }
-
-  /**
-   * Remove media from backup media table and update the quota in the backup table
+   * Update the quota in the backup table
    *
    * @param backupUser  The backup user
-   * @param mediaId     The mediaId to add
-   * @param mediaLength The length of the media before encryption (the length of the source media)
-   * @return A stage that completes successfully once the tables are updated
+   * @param mediaLength The length of the media after encryption. A negative length implies the media is being removed
+   * @return A stage that completes successfully once the table are updated.
    */
-  CompletableFuture<Void> untrackMedia(
-      final AuthenticatedBackupUser backupUser,
-      final byte[] mediaId,
-      final int mediaLength) {
-    final byte[] hashedBackupId = hashedBackupId(backupUser);
-    return dynamoClient.transactWriteItems(TransactWriteItemsRequest.builder().transactItems(
-            TransactWriteItem.builder().delete(Delete.builder()
-                .tableName(backupMediaTableName)
-                .returnValuesOnConditionCheckFailure(ReturnValuesOnConditionCheckFailure.ALL_OLD)
-                .key(Map.of(
-                    KEY_BACKUP_ID_HASH, AttributeValues.b(hashedBackupId),
-                    KEY_MEDIA_ID, AttributeValues.b(mediaId)
-                ))
-                .conditionExpression("#length = :length")
-                .expressionAttributeNames(Map.of("#length", ATTR_LENGTH))
-                .expressionAttributeValues(Map.of(":length", AttributeValues.n(mediaLength)))
-                .build()).build(),
-
-            // Don't update TTLs, since we're just cleaning up media
-            TransactWriteItem.builder().update(UpdateBuilder.forUser(backupTableName, backupUser)
-                .incrementMediaBytes(-mediaLength)
-                .incrementMediaCount(-1)
-                .transactItemBuilder().build()).build()).build())
-        .exceptionally(error -> {
-          logger.warn("failed cleanup after failed copy operation", error);
-          return null;
-        })
+  CompletableFuture<Void> trackMedia(final AuthenticatedBackupUser backupUser, final int mediaLength) {
+    final Instant now = clock.instant();
+    return dynamoClient
+        .updateItem(
+            // Update the media quota and TTL
+            UpdateBuilder.forUser(backupTableName, backupUser)
+                .setRefreshTimes(now)
+                .incrementMediaBytes(mediaLength)
+                .incrementMediaCount(Integer.signum(mediaLength))
+                .updateItemBuilder()
+                .build())
         .thenRun(Util.NOOP);
   }
+
 
   /**
    * Update the last update timestamps for the backupId in the presentation
@@ -249,6 +160,7 @@ public class BackupsDb {
 
   /**
    * Track that a backup will be stored for the user
+   *
    * @param backupUser an already authorized backup user
    */
   CompletableFuture<Void> addMessageBackup(final AuthenticatedBackupUser backupUser) {
@@ -276,8 +188,8 @@ public class BackupsDb {
     return dynamoClient.getItem(GetItemRequest.builder()
             .tableName(backupTableName)
             .key(Map.of(KEY_BACKUP_ID_HASH, AttributeValues.b(hashedBackupId(backupUser))))
-            .projectionExpression("#cdn,#bytesUsed")
-            .expressionAttributeNames(Map.of("#cdn", ATTR_CDN, "#bytesUsed", ATTR_MEDIA_BYTES_USED))
+            .projectionExpression("#cdn,#mediaBytesUsed")
+            .expressionAttributeNames(Map.of("#cdn", ATTR_CDN, "#mediaBytesUsed", ATTR_MEDIA_BYTES_USED))
             .consistentRead(true)
             .build())
         .thenApply(response -> {
@@ -295,6 +207,46 @@ public class BackupsDb {
 
           return new BackupDescription(cdn, mediaUsed);
         });
+  }
+
+  public record TimestampedUsageInfo(UsageInfo usageInfo, Instant lastRecalculationTime) {}
+
+  CompletableFuture<TimestampedUsageInfo> getMediaUsage(final AuthenticatedBackupUser backupUser) {
+    return dynamoClient.getItem(GetItemRequest.builder()
+            .tableName(backupTableName)
+            .key(Map.of(KEY_BACKUP_ID_HASH, AttributeValues.b(hashedBackupId(backupUser))))
+            .projectionExpression("#mediaBytesUsed,#mediaCount,#usageRecalc")
+            .expressionAttributeNames(Map.of(
+                "#mediaBytesUsed", ATTR_MEDIA_BYTES_USED,
+                "#mediaCount", ATTR_MEDIA_COUNT,
+                "#usageRecalc", ATTR_MEDIA_USAGE_LAST_RECALCULATION))
+            .consistentRead(true)
+            .build())
+        .thenApply(response -> {
+          final long mediaUsed = AttributeValues.getLong(response.item(), ATTR_MEDIA_BYTES_USED, 0L);
+          final long mediaCount = AttributeValues.getLong(response.item(), ATTR_MEDIA_COUNT, 0L);
+          final long recalcSeconds = AttributeValues.getLong(response.item(), ATTR_MEDIA_USAGE_LAST_RECALCULATION, 0L);
+          return new TimestampedUsageInfo(new UsageInfo(mediaUsed, mediaCount), Instant.ofEpochSecond(recalcSeconds));
+        });
+
+
+  }
+
+  CompletableFuture<Void> setMediaUsage(final AuthenticatedBackupUser backupUser, UsageInfo usageInfo) {
+    return dynamoClient.updateItem(
+            UpdateBuilder.forUser(backupTableName, backupUser)
+                .addSetExpression("#mediaBytesUsed = :mediaBytesUsed",
+                    Map.entry("#mediaBytesUsed", ATTR_MEDIA_BYTES_USED),
+                    Map.entry(":mediaBytesUsed", AttributeValues.n(usageInfo.bytesUsed())))
+                .addSetExpression("#mediaCount = :mediaCount",
+                    Map.entry("#mediaCount", ATTR_MEDIA_COUNT),
+                    Map.entry(":mediaCount", AttributeValues.n(usageInfo.numObjects())))
+                .addSetExpression("#mediaRecalc = :mediaRecalc",
+                    Map.entry("#mediaRecalc", ATTR_MEDIA_USAGE_LAST_RECALCULATION),
+                    Map.entry(":mediaRecalc", AttributeValues.n(clock.instant().getEpochSecond())))
+                .updateItemBuilder()
+                .build())
+        .thenRun(Util.NOOP);
   }
 
 
@@ -396,19 +348,22 @@ public class BackupsDb {
      * Set the lastRefresh time as part of the update
      * <p>
      * This always updates lastRefreshTime, and updates lastMediaRefreshTime if the backup user has the appropriate
-     * tier
+     * tier.
      */
     UpdateBuilder setRefreshTimes(final Clock clock) {
-      final long refreshTimeSecs = clock.instant().getEpochSecond();
+      return this.setRefreshTimes(clock.instant());
+    }
+
+    UpdateBuilder setRefreshTimes(final Instant refreshTime) {
       addSetExpression("#lastRefreshTime = :lastRefreshTime",
           Map.entry("#lastRefreshTime", ATTR_LAST_REFRESH),
-          Map.entry(":lastRefreshTime", AttributeValues.n(refreshTimeSecs)));
+          Map.entry(":lastRefreshTime", AttributeValues.n(refreshTime.getEpochSecond())));
 
       if (backupTier.compareTo(BackupTier.MEDIA) >= 0) {
         // update the media time if we have the appropriate tier
         addSetExpression("#lastMediaRefreshTime = :lastMediaRefreshTime",
             Map.entry("#lastMediaRefreshTime", ATTR_LAST_MEDIA_REFRESH),
-            Map.entry(":lastMediaRefreshTime", AttributeValues.n(refreshTimeSecs)));
+            Map.entry(":lastMediaRefreshTime", AttributeValues.n(refreshTime.getEpochSecond())));
       }
       return this;
     }
@@ -462,28 +417,4 @@ public class BackupsDb {
       throw new AssertionError(e);
     }
   }
-
-  /**
-   * Check if a DynamoDb error indicates a condition check failed error, and return the value of the item failed to
-   * update.
-   *
-   * @param e         The error returned by {@link DynamoDbAsyncClient#transactWriteItems} attempt
-   * @param itemIndex The index of the item in the transaction that had a condition expression
-   * @return The remote value of the item that failed to update, or empty if the error was not a condition check failure
-   */
-  private static Optional<Map<String, AttributeValue>> conditionCheckFailed(TransactionCanceledException e,
-      int itemIndex) {
-    if (!e.hasCancellationReasons()) {
-      return Optional.empty();
-    }
-    if (e.cancellationReasons().size() < itemIndex + 1) {
-      return Optional.empty();
-    }
-    final CancellationReason reason = e.cancellationReasons().get(itemIndex);
-    if (!"ConditionalCheckFailed".equals(reason.code()) || !reason.hasItem()) {
-      return Optional.empty();
-    }
-    return Optional.of(reason.item());
-  }
-
 }

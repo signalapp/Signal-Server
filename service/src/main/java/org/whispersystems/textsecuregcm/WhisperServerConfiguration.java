@@ -22,6 +22,7 @@ import org.whispersystems.textsecuregcm.configuration.ArtServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AwsAttachmentsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BraintreeConfiguration;
+import org.whispersystems.textsecuregcm.configuration.Cdn3StorageManagerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.CdnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ClientCdnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ClientReleaseConfiguration;
@@ -107,6 +108,11 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @JsonProperty
   private ClientCdnConfiguration clientCdn;
+
+  @NotNull
+  @Valid
+  @JsonProperty
+  private Cdn3StorageManagerConfiguration cdn3StorageManager;
 
   @NotNull
   @Valid
@@ -421,8 +427,12 @@ public class WhisperServerConfiguration extends Configuration {
     return cdn;
   }
 
-  public ClientCdnConfiguration getClientCdn() {
+  public ClientCdnConfiguration getClientCdnConfiguration() {
     return clientCdn;
+  }
+
+  public Cdn3StorageManagerConfiguration getCdn3StorageManagerConfiguration() {
+    return cdn3StorageManager;
   }
 
   public DogstatsdConfiguration getDatadogConfiguration() {

@@ -46,6 +46,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.signal.libsignal.zkgroup.backups.BackupAuthCredentialPresentation;
@@ -437,5 +438,44 @@ public class ArchiveControllerTest {
                 TestRandomUtil.nextBytes(16))
             ).toList())));
     assertThat(response.getStatus()).isEqualTo(413);
+  }
+
+  @CartesianTest
+  public void list(
+      @CartesianTest.Values(booleans = {true, false}) final boolean cursorProvided,
+      @CartesianTest.Values(booleans = {true, false}) final boolean cursorReturned)
+      throws VerificationFailedException {
+    final BackupAuthCredentialPresentation presentation = backupAuthTestUtil.getPresentation(
+        BackupTier.MEDIA, backupKey, aci);
+    when(backupManager.authenticateBackupUser(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(
+            new AuthenticatedBackupUser(presentation.getBackupId(), BackupTier.MEDIA)));
+
+    final byte[] mediaId = TestRandomUtil.nextBytes(15);
+    final Optional<String> expectedCursor = cursorProvided ? Optional.of("myCursor") : Optional.empty();
+    final Optional<String> returnedCursor = cursorReturned ? Optional.of("newCursor") : Optional.empty();
+
+    when(backupManager.list(any(), eq(expectedCursor), eq(17)))
+        .thenReturn(CompletableFuture.completedFuture(new BackupManager.ListMediaResult(
+            List.of(new BackupManager.StorageDescriptorWithLength(1, mediaId, 100)),
+            returnedCursor
+        )));
+
+    WebTarget target = resources.getJerseyTest()
+        .target("v1/archives/media/")
+        .queryParam("limit", 17);
+    if (cursorProvided) {
+      target = target.queryParam("cursor", "myCursor");
+    }
+    final ArchiveController.ListResponse response = target
+        .request()
+        .header("X-Signal-ZK-Auth", Base64.getEncoder().encodeToString(presentation.serialize()))
+        .header("X-Signal-ZK-Auth-Signature", "aaa")
+        .get(ArchiveController.ListResponse.class);
+
+    assertThat(response.storedMediaObjects()).hasSize(1);
+    assertThat(response.storedMediaObjects().get(0).objectLength()).isEqualTo(100);
+    assertThat(response.storedMediaObjects().get(0).mediaId()).isEqualTo(mediaId);
+    assertThat(response.cursor()).isEqualTo(returnedCursor.orElse(null));
   }
 }

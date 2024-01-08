@@ -9,11 +9,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.grpc.Status;
@@ -36,6 +38,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
@@ -55,8 +58,7 @@ public class BackupManagerTest {
 
   @RegisterExtension
   public static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(
-      DynamoDbExtensionSchema.Tables.BACKUPS,
-      DynamoDbExtensionSchema.Tables.BACKUP_MEDIA);
+      DynamoDbExtensionSchema.Tables.BACKUPS);
 
   private final TestClock testClock = TestClock.now();
   private final BackupAuthTestUtil backupAuthTestUtil = new BackupAuthTestUtil(testClock);
@@ -66,15 +68,18 @@ public class BackupManagerTest {
   private final UUID aci = UUID.randomUUID();
 
   private BackupManager backupManager;
+  private BackupsDb backupsDb;
 
   @BeforeEach
   public void setup() {
     reset(tusCredentialGenerator);
     testClock.unpin();
+    this.backupsDb = new BackupsDb(
+        DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
+        DynamoDbExtensionSchema.Tables.BACKUPS.tableName(),
+        testClock);
     this.backupManager = new BackupManager(
-        new BackupsDb(DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
-            DynamoDbExtensionSchema.Tables.BACKUPS.tableName(), DynamoDbExtensionSchema.Tables.BACKUP_MEDIA.tableName(),
-            testClock),
+        backupsDb,
         backupAuthTestUtil.params,
         tusCredentialGenerator,
         remoteStorageManager,
@@ -256,25 +261,23 @@ public class BackupManagerTest {
         .thenReturn(new MessageBackupUploadDescriptor(3, "def", Collections.emptyMap(), ""));
     when(remoteStorageManager.copy(eq(URI.create("cdn3.example.org/attachments/abc")), eq(100), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(null));
+    final MediaEncryptionParameters encryptionParams = new MediaEncryptionParameters(
+        TestRandomUtil.nextBytes(32),
+        TestRandomUtil.nextBytes(32),
+        TestRandomUtil.nextBytes(16));
 
     final BackupManager.StorageDescriptor copied = backupManager.copyToBackup(
-        backupUser, 3, "abc", 100, mock(MediaEncryptionParameters.class),
-        "def".getBytes(StandardCharsets.UTF_8)).join();
+        backupUser, 3, "abc", 100, encryptionParams, "def".getBytes(StandardCharsets.UTF_8)).join();
 
     assertThat(copied.cdn()).isEqualTo(3);
     assertThat(copied.key()).isEqualTo("def".getBytes(StandardCharsets.UTF_8));
 
     final Map<String, AttributeValue> backup = getBackupItem(backupUser);
     final long bytesUsed = AttributeValues.getLong(backup, BackupsDb.ATTR_MEDIA_BYTES_USED, 0L);
-    assertThat(bytesUsed).isEqualTo(100);
+    assertThat(bytesUsed).isEqualTo(encryptionParams.outputSize(100));
 
     final long mediaCount = AttributeValues.getLong(backup, BackupsDb.ATTR_MEDIA_COUNT, 0L);
     assertThat(mediaCount).isEqualTo(1);
-
-    final Map<String, AttributeValue> mediaItem = getBackupMediaItem(backupUser,
-        "def".getBytes(StandardCharsets.UTF_8));
-    final long mediaLength = AttributeValues.getLong(mediaItem, BackupsDb.ATTR_LENGTH, 0L);
-    assertThat(mediaLength).isEqualTo(100L);
   }
 
   @Test
@@ -292,29 +295,95 @@ public class BackupManagerTest {
             mock(MediaEncryptionParameters.class),
             "def".getBytes(StandardCharsets.UTF_8)));
 
+    // usage should be rolled back after a known copy failure
     final Map<String, AttributeValue> backup = getBackupItem(backupUser);
     assertThat(AttributeValues.getLong(backup, BackupsDb.ATTR_MEDIA_BYTES_USED, -1L)).isEqualTo(0L);
     assertThat(AttributeValues.getLong(backup, BackupsDb.ATTR_MEDIA_COUNT, -1L)).isEqualTo(0L);
+  }
 
-    final Map<String, AttributeValue> media = getBackupMediaItem(backupUser, "def".getBytes(StandardCharsets.UTF_8));
-    assertThat(media).isEmpty();
+  @Test
+  public void quotaEnforcementNoRecalculation() {
+    final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupTier.MEDIA);
+    verifyNoInteractions(remoteStorageManager);
+
+    // set the backupsDb to be out of quota at t=0
+    testClock.pin(Instant.ofEpochSecond(1));
+    backupsDb.setMediaUsage(backupUser, new UsageInfo(BackupManager.MAX_TOTAL_BACKUP_MEDIA_BYTES, 1000)).join();
+    // check still within staleness bound (t=0 + 1 day - 1 sec)
+    testClock.pin(Instant.ofEpochSecond(0)
+        .plus(BackupManager.MAX_QUOTA_STALENESS)
+        .minus(Duration.ofSeconds(1)));
+    assertThat(backupManager.canStoreMedia(backupUser, 10).join()).isFalse();
+  }
+
+  @Test
+  public void quotaEnforcementRecalculation() {
+    final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupTier.MEDIA);
+    final String backupMediaPrefix = "%s/%s/".formatted(
+        BackupManager.encodeBackupIdForCdn(backupUser),
+        BackupManager.MEDIA_DIRECTORY_NAME);
+
+    // on recalculation, say there's actually 10 bytes left
+    when(remoteStorageManager.calculateBytesUsed(eq(backupMediaPrefix)))
+        .thenReturn(
+            CompletableFuture.completedFuture(new UsageInfo(BackupManager.MAX_TOTAL_BACKUP_MEDIA_BYTES - 10, 1000)));
+
+    // set the backupsDb to be out of quota at t=0
+    testClock.pin(Instant.ofEpochSecond(0));
+    backupsDb.setMediaUsage(backupUser, new UsageInfo(BackupManager.MAX_TOTAL_BACKUP_MEDIA_BYTES, 1000)).join();
+    testClock.pin(Instant.ofEpochSecond(0).plus(BackupManager.MAX_QUOTA_STALENESS));
+    assertThat(backupManager.canStoreMedia(backupUser, 10).join()).isTrue();
+
+    // backupsDb should have the new value
+    final BackupsDb.TimestampedUsageInfo info = backupsDb.getMediaUsage(backupUser).join();
+    assertThat(info.lastRecalculationTime()).isEqualTo(
+        Instant.ofEpochSecond(0).plus(BackupManager.MAX_QUOTA_STALENESS));
+    assertThat(info.usageInfo().bytesUsed()).isEqualTo(BackupManager.MAX_TOTAL_BACKUP_MEDIA_BYTES - 10);
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+      "true,  10, 10, true",
+      "true,  10, 11, false",
+      "true,  0,  1,  false",
+      "true,  0,  0,  true",
+      "false, 10, 10, true",
+      "false, 10, 11, false",
+      "false, 0,  1,  false",
+      "false, 0,  0,  true",
+  })
+  public void quotaEnforcement(
+      boolean recalculation,
+      final long spaceLeft,
+      final long mediaToAddSize,
+      boolean shouldAccept) {
+    final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupTier.MEDIA);
+    final String backupMediaPrefix = "%s/%s/".formatted(
+        BackupManager.encodeBackupIdForCdn(backupUser),
+        BackupManager.MEDIA_DIRECTORY_NAME);
+
+    // set the backupsDb to be out of quota at t=0
+    testClock.pin(Instant.ofEpochSecond(0));
+    backupsDb.setMediaUsage(backupUser, new UsageInfo(BackupManager.MAX_TOTAL_BACKUP_MEDIA_BYTES - spaceLeft, 1000))
+        .join();
+
+    if (recalculation) {
+      testClock.pin(Instant.ofEpochSecond(0).plus(BackupManager.MAX_QUOTA_STALENESS).plus(Duration.ofSeconds(1)));
+      when(remoteStorageManager.calculateBytesUsed(eq(backupMediaPrefix)))
+          .thenReturn(CompletableFuture.completedFuture(
+              new UsageInfo(BackupManager.MAX_TOTAL_BACKUP_MEDIA_BYTES - spaceLeft, 1000)));
+    }
+    assertThat(backupManager.canStoreMedia(backupUser, mediaToAddSize).join()).isEqualTo(shouldAccept);
+    if (recalculation && !shouldAccept) {
+      // should have recalculated if we exceeded quota
+      verify(remoteStorageManager, times(1)).calculateBytesUsed(anyString());
+    }
   }
 
   private Map<String, AttributeValue> getBackupItem(final AuthenticatedBackupUser backupUser) {
     return DYNAMO_DB_EXTENSION.getDynamoDbClient().getItem(GetItemRequest.builder()
             .tableName(DynamoDbExtensionSchema.Tables.BACKUPS.tableName())
             .key(Map.of(BackupsDb.KEY_BACKUP_ID_HASH, AttributeValues.b(hashedBackupId(backupUser.backupId()))))
-            .build())
-        .item();
-  }
-
-  private Map<String, AttributeValue> getBackupMediaItem(final AuthenticatedBackupUser backupUser,
-      final byte[] mediaId) {
-    return DYNAMO_DB_EXTENSION.getDynamoDbClient().getItem(GetItemRequest.builder()
-            .tableName(DynamoDbExtensionSchema.Tables.BACKUP_MEDIA.tableName())
-            .key(Map.of(
-                BackupsDb.KEY_BACKUP_ID_HASH, AttributeValues.b(hashedBackupId(backupUser.backupId())),
-                BackupsDb.KEY_MEDIA_ID, AttributeValues.b(mediaId)))
             .build())
         .item();
   }

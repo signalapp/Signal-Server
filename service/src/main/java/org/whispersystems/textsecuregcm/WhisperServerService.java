@@ -665,7 +665,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     BackupsDb backupsDb = new BackupsDb(
         dynamoDbAsyncClient,
         config.getDynamoDbTables().getBackups().getTableName(),
-        config.getDynamoDbTables().getBackupMedia().getTableName(),
         clock);
     BackupManager backupManager = new BackupManager(
         backupsDb,
@@ -673,10 +672,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         cdn3BackupCredentialGenerator,
         new Cdn3RemoteStorageManager(
             remoteStorageExecutor,
-            config.getClientCdn().getCircuitBreaker(),
-            config.getClientCdn().getRetry(),
-            config.getClientCdn().getCaCertificates()),
-        config.getClientCdn().getAttachmentUrls(),
+            config.getClientCdnConfiguration().getCircuitBreaker(),
+            config.getClientCdnConfiguration().getRetry(),
+            config.getClientCdnConfiguration().getCaCertificates(),
+            config.getCdn3StorageManagerConfiguration()),
+        config.getClientCdnConfiguration().getAttachmentUrls(),
         clock);
 
     final BasicCredentialAuthenticationInterceptor basicCredentialAuthenticationInterceptor =

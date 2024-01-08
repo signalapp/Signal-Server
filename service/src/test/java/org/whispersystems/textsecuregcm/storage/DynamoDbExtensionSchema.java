@@ -57,18 +57,6 @@ public final class DynamoDbExtensionSchema {
             .attributeType(ScalarAttributeType.B).build()),
         Collections.emptyList(), Collections.emptyList()),
 
-    BACKUP_MEDIA("backups_media_test",
-        BackupsDb.KEY_BACKUP_ID_HASH,
-        BackupsDb.KEY_MEDIA_ID,
-        List.of(
-            AttributeDefinition.builder()
-                .attributeName(BackupsDb.KEY_BACKUP_ID_HASH)
-                .attributeType(ScalarAttributeType.B).build(),
-            AttributeDefinition.builder()
-                .attributeName(BackupsDb.KEY_MEDIA_ID)
-                .attributeType(ScalarAttributeType.B).build()),
-        Collections.emptyList(), Collections.emptyList()),
-
     CLIENT_RELEASES("client_releases_test",
         ClientReleases.ATTR_PLATFORM,
         ClientReleases.ATTR_VERSION,

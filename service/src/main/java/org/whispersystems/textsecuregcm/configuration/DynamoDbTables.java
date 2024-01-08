@@ -49,7 +49,6 @@ public class DynamoDbTables {
   private final AccountsTableConfiguration accounts;
 
   private final Table backups;
-  private final Table backupMedia;
   private final Table clientReleases;
   private final Table deletedAccounts;
   private final Table deletedAccountsLock;
@@ -96,7 +95,6 @@ public class DynamoDbTables {
 
     this.accounts = accounts;
     this.backups = backups;
-    this.backupMedia = backupMedia;
     this.clientReleases = clientReleases;
     this.deletedAccounts = deletedAccounts;
     this.deletedAccountsLock = deletedAccountsLock;
@@ -128,12 +126,6 @@ public class DynamoDbTables {
   @Valid
   public Table getBackups() {
     return backups;
-  }
-
-  @NotNull
-  @Valid
-  public Table getBackupMedia() {
-    return backupMedia;
   }
 
   @NotNull
