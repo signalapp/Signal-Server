@@ -5,8 +5,6 @@
 
 package org.whispersystems.textsecuregcm.configuration;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.annotations.VisibleForTesting;
 import java.time.Duration;
 import javax.validation.constraints.NotBlank;
 
@@ -14,14 +12,18 @@ public record MonitoredS3ObjectConfiguration(
     @NotBlank String s3Region,
     @NotBlank String s3Bucket,
     @NotBlank String objectKey,
-    long maxSize,
-    Duration refreshInterval
-) {
+    Long maxSize,
+    Duration refreshInterval) {
 
-  static long DEFAULT_MAXSIZE = 16*1024*1024;
-  static Duration DEFAULT_DURATION = Duration.ofMinutes(5);
+  private static long DEFAULT_MAXSIZE = 16*1024*1024;
+  private static Duration DEFAULT_REFRESH_INTERVAL = Duration.ofMinutes(5);
 
-  public MonitoredS3ObjectConfiguration(String s3Region, String s3Bucket, String objectKey) {
-    this(s3Region, s3Bucket, objectKey, DEFAULT_MAXSIZE, DEFAULT_DURATION);
+  public MonitoredS3ObjectConfiguration {
+    if (maxSize == null) {
+      maxSize = DEFAULT_MAXSIZE;
+    }
+    if (refreshInterval == null) {
+      refreshInterval = DEFAULT_REFRESH_INTERVAL;
+    }
   }
 }
