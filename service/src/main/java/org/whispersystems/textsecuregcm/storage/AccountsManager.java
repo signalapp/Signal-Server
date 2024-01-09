@@ -579,23 +579,17 @@ public class AccountsManager {
   }
 
   private CompletableFuture<byte[]> checkAndReserveNextUsernameHash(final Account account, final Queue<byte[]> requestedUsernameHashes) {
-    final byte[] usernameHash;
+    final byte[] usernameHash = requestedUsernameHashes.remove();
 
-    try {
-      usernameHash = requestedUsernameHashes.remove();
-    } catch (final NoSuchElementException e) {
-      return CompletableFuture.failedFuture(new UsernameHashNotAvailableException());
-    }
-
-    return accounts.usernameHashAvailable(usernameHash)
-        .thenCompose(usernameHashAvailable -> {
-          if (usernameHashAvailable) {
-            return accounts.reserveUsernameHash(account, usernameHash, USERNAME_HASH_RESERVATION_TTL_MINUTES)
-                .thenApply(ignored -> usernameHash);
-          } else {
-            return checkAndReserveNextUsernameHash(account, requestedUsernameHashes);
-          }
-        });
+    return accounts.reserveUsernameHash(account, usernameHash, USERNAME_HASH_RESERVATION_TTL_MINUTES)
+        .thenApply(ignored -> usernameHash)
+        .exceptionallyComposeAsync(
+            throwable -> {
+              if (ExceptionUtils.unwrap(throwable) instanceof UsernameHashNotAvailableException && !requestedUsernameHashes.isEmpty()) {
+                return checkAndReserveNextUsernameHash(account, requestedUsernameHashes);
+              }
+              return CompletableFuture.failedFuture(throwable);
+            });
   }
 
   /**
@@ -629,14 +623,7 @@ public class AccountsManager {
         .thenCompose(ignored -> updateWithRetriesAsync(
             account,
             a -> true,
-            a -> accounts.usernameHashAvailable(Optional.of(account.getUuid()), reservedUsernameHash)
-                .thenCompose(usernameHashAvailable -> {
-                  if (!usernameHashAvailable) {
-                    return CompletableFuture.failedFuture(new UsernameHashNotAvailableException());
-                  }
-
-                  return accounts.confirmUsernameHash(a, reservedUsernameHash, encryptedUsername);
-                }),
+            a -> accounts.confirmUsernameHash(a, reservedUsernameHash, encryptedUsername),
             () -> accounts.getByAccountIdentifierAsync(account.getUuid()).thenApply(Optional::orElseThrow),
             AccountChangeValidator.USERNAME_CHANGE_VALIDATOR,
             MAX_UPDATE_ATTEMPTS

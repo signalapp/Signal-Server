@@ -439,6 +439,9 @@ public class Accounts extends AbstractDynamoDbStore {
 
   /**
    * Reserve a username hash under the account UUID
+   * @return a future that completes once the username hash has been reserved; may fail with an
+   * {@link ContestedOptimisticLockException} if the account has been updated or
+   * {@link UsernameHashNotAvailableException} if the username was taken by someone else
    */
   public CompletableFuture<Void> reserveUsernameHash(
       final Account account,
@@ -504,7 +507,12 @@ public class Accounts extends AbstractDynamoDbStore {
             .build())
         .exceptionally(throwable -> {
           if (ExceptionUtils.unwrap(throwable) instanceof TransactionCanceledException e) {
-            if (e.cancellationReasons().stream().map(CancellationReason::code).anyMatch(CONDITIONAL_CHECK_FAILED::equals)) {
+            // If the constraint table update failed the condition check, the username's taken and we should stop
+            // trying. However if it was only in the accounts table that the condition check update failed, it's an
+            // optimistic locking failure (the account was concurrently updated) and we should try again.
+            if (conditionalCheckFailed(e.cancellationReasons().get(0))) {
+              throw ExceptionUtils.wrap(new UsernameHashNotAvailableException());
+            } else if (conditionalCheckFailed(e.cancellationReasons().get(1))) {
               throw new ContestedOptimisticLockException();
             }
           }
@@ -529,7 +537,8 @@ public class Accounts extends AbstractDynamoDbStore {
    * @param account to update
    * @param usernameHash believed to be available
    * @return a future that completes once the username hash has been confirmed; may fail with an
-   * {@link ContestedOptimisticLockException} if the account has been updated or the username has taken by someone else
+   * {@link ContestedOptimisticLockException} if the account has been updated or
+   * {@link UsernameHashNotAvailableException} if the username was taken by someone else
    */
   public CompletableFuture<Void> confirmUsernameHash(final Account account, final byte[] usernameHash, @Nullable final byte[] encryptedUsername) {
     final Timer.Sample sample = Timer.start();
@@ -559,10 +568,15 @@ public class Accounts extends AbstractDynamoDbStore {
           return (Void) null;
         })
         .exceptionally(throwable -> {
-          if (ExceptionUtils.unwrap(
-              throwable) instanceof TransactionCanceledException transactionCanceledException) {
-            if (transactionCanceledException.cancellationReasons().stream().map(CancellationReason::code)
-                .anyMatch(CONDITIONAL_CHECK_FAILED::equals)) {
+          if (ExceptionUtils.unwrap(throwable) instanceof TransactionCanceledException e) {
+            // If the constraint table update failed the condition check, the username's taken and we should stop
+            // trying. However if it was only in the accounts table that the condition check update failed, it's an
+            // optimistic locking failure (the account was concurrently updated) and we should try again.
+            // NOTE: the fixed indices here must be kept in sync with the creation of the TransactWriteItems in
+            // buildConfirmUsernameHashRequest!
+            if (conditionalCheckFailed(e.cancellationReasons().get(0))) {
+              throw ExceptionUtils.wrap(new UsernameHashNotAvailableException());
+            } else if (conditionalCheckFailed(e.cancellationReasons().get(1))) {
               throw new ContestedOptimisticLockException();
             }
           }
@@ -602,6 +616,8 @@ public class Accounts extends AbstractDynamoDbStore {
     final List<TransactWriteItem> writeItems = new ArrayList<>();
     final byte[] usernameHash = updatedAccount.getUsernameHash()
         .orElseThrow(() -> new IllegalArgumentException("Account must have a username hash"));
+
+    // NOTE: the order in which writeItems are added to the list is significant, and must be kept in sync with the catch block in confirmUsernameHash!
 
     // add the username hash to the constraint table, wiping out the ttl if we had already reserved the hash
     writeItems.add(TransactWriteItem.builder()
@@ -906,28 +922,6 @@ public class Accounts extends AbstractDynamoDbStore {
             throw CompletableFutureUtils.errorAsCompletionException(throwable);
           });
     });
-  }
-
-  public CompletableFuture<Boolean> usernameHashAvailable(final byte[] username) {
-    return usernameHashAvailable(Optional.empty(), username);
-  }
-
-  public CompletableFuture<Boolean> usernameHashAvailable(final Optional<UUID> accountUuid, final byte[] usernameHash) {
-    return itemByKeyAsync(usernamesConstraintTableName, ATTR_USERNAME_HASH, AttributeValues.fromByteArray(usernameHash))
-        .thenApply(maybeUsernameHashItem -> maybeUsernameHashItem
-            .map(item -> {
-              if (AttributeValues.getLong(item, ATTR_TTL, Long.MAX_VALUE) < clock.instant().getEpochSecond()) {
-                // username hash was reserved, but has expired
-                return true;
-              }
-
-              // username hash is reserved by us
-              return !AttributeValues.getBool(item, ATTR_CONFIRMED, true) && accountUuid
-                  .map(AttributeValues.getUUID(item, KEY_ACCOUNT_UUID, new UUID(0, 0))::equals)
-                  .orElse(false);
-            })
-            // If no item was found, then the username hash is free
-            .orElse(true));
   }
 
   @Nonnull

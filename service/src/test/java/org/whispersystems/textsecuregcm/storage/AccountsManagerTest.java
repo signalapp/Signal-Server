@@ -77,6 +77,7 @@ import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
+import org.whispersystems.textsecuregcm.storage.AccountsManager.UsernameReservation;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
@@ -86,6 +87,7 @@ import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
 import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.TestClock;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 @Timeout(value = 10, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
 class AccountsManagerTest {
@@ -193,7 +195,6 @@ class AccountsManagerTest {
 
     enrollmentManager = mock(ExperimentEnrollmentManager.class);
     when(enrollmentManager.isEnrolled(any(UUID.class), eq(AccountsManager.USERNAME_EXPERIMENT_NAME))).thenReturn(true);
-    when(accounts.usernameHashAvailable(any())).thenReturn(CompletableFuture.completedFuture(true));
 
     final AccountLockManager accountLockManager = mock(AccountLockManager.class);
 
@@ -1587,18 +1588,36 @@ class AccountsManagerTest {
   @Test
   void testReserveUsernameHash() throws UsernameHashNotAvailableException {
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
-    final List<byte[]> usernameHashes = List.of(new byte[32], new byte[32]);
-    when(accounts.usernameHashAvailable(any())).thenReturn(CompletableFuture.completedFuture(true));
+    when(accounts.getByAccountIdentifierAsync(account.getUuid())).thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+
+    final List<byte[]> usernameHashes = List.of(TestRandomUtil.nextBytes(32), TestRandomUtil.nextBytes(32));
     when(accounts.reserveUsernameHash(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(null));
-    accountsManager.reserveUsernameHash(account, usernameHashes);
-    verify(accounts).reserveUsernameHash(eq(account), eq(new byte[32]), eq(Duration.ofMinutes(5)));
+
+    UsernameReservation result = accountsManager.reserveUsernameHash(account, usernameHashes).join();
+    assertArrayEquals(usernameHashes.get(0), result.reservedUsernameHash());
+    verify(accounts, times(1)).reserveUsernameHash(eq(account), any(), eq(Duration.ofMinutes(5)));
+  }
+
+  @Test
+  void testReserveUsernameOptimisticLockingFailure() throws UsernameHashNotAvailableException {
+    final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
+    when(accounts.getByAccountIdentifierAsync(account.getUuid())).thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+
+    final List<byte[]> usernameHashes = List.of(TestRandomUtil.nextBytes(32), TestRandomUtil.nextBytes(32));
+    when(accounts.reserveUsernameHash(any(), any(), any()))
+        .thenReturn(CompletableFuture.failedFuture(new ContestedOptimisticLockException()))
+        .thenReturn(CompletableFuture.completedFuture(null));
+
+    UsernameReservation result = accountsManager.reserveUsernameHash(account, usernameHashes).join();
+    assertArrayEquals(usernameHashes.get(0), result.reservedUsernameHash());
+    verify(accounts, times(2)).reserveUsernameHash(eq(account), any(), eq(Duration.ofMinutes(5)));
   }
 
   @Test
   void testReserveUsernameHashNotAvailable() {
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
-    when(accounts.usernameHashAvailable(any())).thenReturn(CompletableFuture.completedFuture(false));
-
+    when(accounts.getByAccountIdentifierAsync(account.getUuid())).thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+    when(accounts.reserveUsernameHash(any(), any(), any())).thenReturn(CompletableFuture.failedFuture(new UsernameHashNotAvailableException()));
     CompletableFutureTestUtil.assertFailsWithCause(UsernameHashNotAvailableException.class,
         accountsManager.reserveUsernameHash(account, List.of(USERNAME_HASH_1, USERNAME_HASH_2)));
   }
@@ -1615,8 +1634,6 @@ class AccountsManagerTest {
   void testConfirmReservedUsernameHash() throws UsernameHashNotAvailableException, UsernameReservationNotFoundException {
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
     setReservationHash(account, USERNAME_HASH_1);
-    when(accounts.usernameHashAvailable(Optional.of(account.getUuid()), USERNAME_HASH_1))
-        .thenReturn(CompletableFuture.completedFuture(true));
 
     when(accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1))
         .thenReturn(CompletableFuture.completedFuture(null));
@@ -1626,11 +1643,25 @@ class AccountsManagerTest {
   }
 
   @Test
+  void testConfirmReservedUsernameHashOptimisticLockingFailure() throws UsernameHashNotAvailableException, UsernameReservationNotFoundException {
+    final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
+    setReservationHash(account, USERNAME_HASH_1);
+    when(accounts.getByAccountIdentifierAsync(account.getUuid())).thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+
+    when(accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1))
+        .thenReturn(CompletableFuture.failedFuture(new ContestedOptimisticLockException()))
+        .thenReturn(CompletableFuture.completedFuture(null));
+
+    accountsManager.confirmReservedUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1).join();
+    verify(accounts, times(2)).confirmUsernameHash(eq(account), eq(USERNAME_HASH_1), eq(ENCRYPTED_USERNAME_1));
+  }
+
+  @Test
   void testConfirmReservedHashNameMismatch() {
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
     setReservationHash(account, USERNAME_HASH_1);
-    when(accounts.usernameHashAvailable(eq(Optional.of(account.getUuid())), eq(USERNAME_HASH_1)))
-        .thenReturn(CompletableFuture.completedFuture(true));
+    when(accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1))
+        .thenReturn(CompletableFuture.completedFuture(null));
     CompletableFutureTestUtil.assertFailsWithCause(UsernameReservationNotFoundException.class,
         accountsManager.confirmReservedUsernameHash(account, USERNAME_HASH_2, ENCRYPTED_USERNAME_2));
   }
@@ -1640,11 +1671,11 @@ class AccountsManagerTest {
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
     // hash was reserved, but the reservation lapsed and another account took it
     setReservationHash(account, USERNAME_HASH_1);
-    when(accounts.usernameHashAvailable(eq(Optional.of(account.getUuid())), eq(USERNAME_HASH_1)))
-        .thenReturn(CompletableFuture.completedFuture(false));
+    when(accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1))
+        .thenReturn(CompletableFuture.failedFuture(new UsernameHashNotAvailableException()));
     CompletableFutureTestUtil.assertFailsWithCause(UsernameHashNotAvailableException.class,
         accountsManager.confirmReservedUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
-    verify(accounts, never()).confirmUsernameHash(any(), any(), any());
+    assertTrue(account.getUsernameHash().isEmpty());
   }
 
   @Test

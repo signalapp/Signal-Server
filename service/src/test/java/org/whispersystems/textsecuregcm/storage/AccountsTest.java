@@ -945,15 +945,15 @@ class AccountsTest {
     verifyStoredState(firstAccount.getNumber(), firstAccount.getUuid(), firstAccount.getPhoneNumberIdentifier(), USERNAME_HASH_1, maybeAccount.get(), firstAccount);
 
     // throw an error if second account tries to reserve or confirm the same username hash
-    CompletableFutureTestUtil.assertFailsWithCause(ContestedOptimisticLockException.class,
+    CompletableFutureTestUtil.assertFailsWithCause(UsernameHashNotAvailableException.class,
         accounts.reserveUsernameHash(secondAccount, USERNAME_HASH_1, Duration.ofDays(1)));
-    CompletableFutureTestUtil.assertFailsWithCause(ContestedOptimisticLockException.class,
+    CompletableFutureTestUtil.assertFailsWithCause(UsernameHashNotAvailableException.class,
         accounts.confirmUsernameHash(secondAccount, USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
 
     // throw an error if first account tries to reserve or confirm the username hash that it has already confirmed
-    CompletableFutureTestUtil.assertFailsWithCause(ContestedOptimisticLockException.class,
+    CompletableFutureTestUtil.assertFailsWithCause(UsernameHashNotAvailableException.class,
         accounts.reserveUsernameHash(firstAccount, USERNAME_HASH_1, Duration.ofDays(1)));
-    CompletableFutureTestUtil.assertFailsWithCause(ContestedOptimisticLockException.class,
+    CompletableFutureTestUtil.assertFailsWithCause(UsernameHashNotAvailableException.class,
         accounts.confirmUsernameHash(firstAccount, USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
 
     assertThat(secondAccount.getReservedUsernameHash()).isEmpty();
@@ -1029,9 +1029,9 @@ class AccountsTest {
     assertThat(account1.getUsernameHash()).isEmpty();
 
     // account 2 shouldn't be able to reserve or confirm the same username hash
-    CompletableFutureTestUtil.assertFailsWithCause(ContestedOptimisticLockException.class,
+    CompletableFutureTestUtil.assertFailsWithCause(UsernameHashNotAvailableException.class,
         accounts.reserveUsernameHash(account2, USERNAME_HASH_1, Duration.ofDays(1)));
-    CompletableFutureTestUtil.assertFailsWithCause(ContestedOptimisticLockException.class,
+    CompletableFutureTestUtil.assertFailsWithCause(UsernameHashNotAvailableException.class,
         accounts.confirmUsernameHash(account2, USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
     assertThat(accounts.getByUsernameHash(USERNAME_HASH_1).join()).isEmpty();
 
@@ -1095,30 +1095,12 @@ class AccountsTest {
     assertArrayEquals(account.getUsernameHash().orElseThrow(), USERNAME_HASH_1);
     assertThat(getUsernameConstraintTableItem(USERNAME_HASH_1)).doesNotContainKey(Accounts.ATTR_TTL);
 
-    CompletableFutureTestUtil.assertFailsWithCause(ContestedOptimisticLockException.class,
+    CompletableFutureTestUtil.assertFailsWithCause(UsernameHashNotAvailableException.class,
         accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1)));
     assertThat(account.getReservedUsernameHash()).isEmpty();
     assertArrayEquals(account.getUsernameHash().orElseThrow(), USERNAME_HASH_1);
     assertThat(getUsernameConstraintTableItem(USERNAME_HASH_1)).containsKey(Accounts.ATTR_USERNAME_HASH);
     assertThat(getUsernameConstraintTableItem(USERNAME_HASH_1)).doesNotContainKey(Accounts.ATTR_TTL);
-  }
-
-  @Test
-  void testUsernameHashAvailable() {
-    final Account account1 = generateAccount("+18005551111", UUID.randomUUID(), UUID.randomUUID());
-    createAccount(account1);
-
-    accounts.reserveUsernameHash(account1, USERNAME_HASH_1, Duration.ofDays(1)).join();
-    assertThat(accounts.usernameHashAvailable(USERNAME_HASH_1).join()).isFalse();
-    assertThat(accounts.usernameHashAvailable(Optional.empty(), USERNAME_HASH_1).join()).isFalse();
-    assertThat(accounts.usernameHashAvailable(Optional.of(UUID.randomUUID()), USERNAME_HASH_1).join()).isFalse();
-    assertThat(accounts.usernameHashAvailable(Optional.of(account1.getUuid()), USERNAME_HASH_1).join()).isTrue();
-
-    accounts.confirmUsernameHash(account1, USERNAME_HASH_1, ENCRYPTED_USERNAME_1).join();
-    assertThat(accounts.usernameHashAvailable(USERNAME_HASH_1).join()).isFalse();
-    assertThat(accounts.usernameHashAvailable(Optional.empty(), USERNAME_HASH_1).join()).isFalse();
-    assertThat(accounts.usernameHashAvailable(Optional.of(UUID.randomUUID()), USERNAME_HASH_1).join()).isFalse();
-    assertThat(accounts.usernameHashAvailable(Optional.of(account1.getUuid()), USERNAME_HASH_1).join()).isFalse();
   }
 
   @Test
@@ -1133,7 +1115,7 @@ class AccountsTest {
     assertThat(account1.getUsernameHash()).isEmpty();
 
     // only account1 should be able to confirm the reserved hash
-    CompletableFutureTestUtil.assertFailsWithCause(ContestedOptimisticLockException.class,
+    CompletableFutureTestUtil.assertFailsWithCause(UsernameHashNotAvailableException.class,
         accounts.confirmUsernameHash(account2, USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
   }
 
@@ -1148,7 +1130,7 @@ class AccountsTest {
 
     for (int i = 0; i <= 2; i++) {
       clock.pin(Instant.EPOCH.plus(Duration.ofDays(i)));
-      CompletableFutureTestUtil.assertFailsWithCause(ContestedOptimisticLockException.class,
+      CompletableFutureTestUtil.assertFailsWithCause(UsernameHashNotAvailableException.class,
           accounts.reserveUsernameHash(account2, USERNAME_HASH_1, Duration.ofDays(1)));
     }
 
@@ -1159,9 +1141,9 @@ class AccountsTest {
 
     accounts.confirmUsernameHash(account2, USERNAME_HASH_1, ENCRYPTED_USERNAME_1).join();
 
-    CompletableFutureTestUtil.assertFailsWithCause(ContestedOptimisticLockException.class,
+    CompletableFutureTestUtil.assertFailsWithCause(UsernameHashNotAvailableException.class,
         accounts.reserveUsernameHash(account1, USERNAME_HASH_1, Duration.ofDays(2)));
-    CompletableFutureTestUtil.assertFailsWithCause(ContestedOptimisticLockException.class,
+    CompletableFutureTestUtil.assertFailsWithCause(UsernameHashNotAvailableException.class,
         accounts.confirmUsernameHash(account1, USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
     assertThat(accounts.getByUsernameHash(USERNAME_HASH_1).join().get().getUuid()).isEqualTo(account2.getUuid());
   }

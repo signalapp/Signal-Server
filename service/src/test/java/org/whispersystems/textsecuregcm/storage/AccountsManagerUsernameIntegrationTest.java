@@ -182,7 +182,7 @@ class AccountsManagerUsernameIntegrationTest {
   }
 
   @Test
-  void testReserveUsernameSnatched() throws InterruptedException, UsernameHashNotAvailableException {
+  void testReserveUsernameGetFirstAvailableChoice() throws InterruptedException, UsernameHashNotAvailableException {
     final Account account = AccountsHelper.createAccount(accountsManager, "+18005551111");
 
     ArrayList<byte[]> usernameHashes = new ArrayList<>(Arrays.asList(USERNAME_HASH_1, USERNAME_HASH_2));
@@ -198,23 +198,14 @@ class AccountsManagerUsernameIntegrationTest {
 
     byte[] availableHash = TestRandomUtil.nextBytes(32);
     usernameHashes.add(availableHash);
+    usernameHashes.add(TestRandomUtil.nextBytes(32));
 
-    // first time this is called lie and say the username is available
-    // this simulates seeing an available username and then it being taken
-    // by someone before the write
-    doReturn(CompletableFuture.completedFuture(true))
-        .doCallRealMethod()
-        .when(accounts).usernameHashAvailable(any());
     final byte[] username = accountsManager
         .reserveUsernameHash(account, usernameHashes)
         .join()
         .reservedUsernameHash();
 
     assertArrayEquals(username, availableHash);
-
-    // 1 attempt on first try (returns true),
-    // 5 more attempts until "availableHash" returns true
-    verify(accounts, times(4)).usernameHashAvailable(any());
   }
 
   @Test
