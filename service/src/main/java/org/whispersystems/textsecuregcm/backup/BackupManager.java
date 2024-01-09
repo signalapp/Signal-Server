@@ -198,13 +198,13 @@ public class BackupManager {
           return this.remoteStorageManager.calculateBytesUsed(mediaPrefix)
               .thenCompose(usage -> backupsDb
                   .setMediaUsage(backupUser, usage)
-                  .thenApply(ignored -> usage.bytesUsed()))
+                  .thenApply(ignored -> usage))
               .whenComplete((newUsage, throwable) -> {
                 boolean usageChanged = throwable == null && !newUsage.equals(info.usageInfo());
                 Metrics.counter(USAGE_RECALCULATION_COUNTER_NAME, "usageChanged", String.valueOf(usageChanged))
                     .increment();
               })
-              .thenApply(usedSpace -> MAX_TOTAL_BACKUP_MEDIA_BYTES - usedSpace >= mediaLength);
+              .thenApply(newUsage -> MAX_TOTAL_BACKUP_MEDIA_BYTES - newUsage.bytesUsed() >= mediaLength);
         });
   }
 

@@ -234,9 +234,9 @@ public class ArchiveController {
       int cdn,
 
       @Schema(description = """
-      If present, the directory of your backup data on the cdn. The message backup can be found at /backupDir/backupName
-      and stored media can be found at /backupDir/media/mediaId.
-      """)
+          If present, the directory of your backup data on the cdn. The message backup can be found at /backupDir/backupName
+          and stored media can be found at /backupDir/media/mediaId.
+          """)
       String backupDir,
 
       @Schema(description = "If present, the name of the most recent message backup on the cdn. The backup is at /backupDir/backupName")
@@ -642,6 +642,7 @@ public class ArchiveController {
       String cursor) {}
 
   @GET
+  @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/media")
   @Operation(summary = "List media objects",
