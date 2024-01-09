@@ -69,6 +69,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import org.apache.commons.lang3.StringUtils;
+import org.glassfish.jersey.server.ManagedAsync;
 import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
 import org.signal.libsignal.protocol.ServiceId;
 import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage.Recipient;
@@ -223,6 +224,7 @@ public class MessageController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   @FilterSpam
+  @ManagedAsync
   public Response sendMessage(@Auth Optional<AuthenticatedAccount> source,
       @HeaderParam(HeaderUtils.UNIDENTIFIED_ACCESS_KEY) Optional<Anonymous> accessKey,
       @HeaderParam(HttpHeaders.USER_AGENT) String userAgent,
