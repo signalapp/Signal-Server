@@ -74,4 +74,12 @@ public interface RemoteStorageManager {
    * @return The number of bytes used
    */
   CompletionStage<UsageInfo> calculateBytesUsed(final String prefix);
+
+  /**
+   * Delete the specified object.
+   *
+   * @param key the key of the stored object to delete.
+   * @return the number of bytes freed by the deletion operation
+   */
+  CompletionStage<Long> delete(final String key);
 }

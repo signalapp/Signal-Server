@@ -1,5 +1,7 @@
 package org.whispersystems.textsecuregcm.backup;
 
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Timer;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -21,8 +23,6 @@ import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.validation.constraints.NotNull;
 import javax.ws.rs.core.Response;
-import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Timer;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -168,10 +168,7 @@ public class Cdn3RemoteStorageManager implements RemoteStorageManager {
     cursor.ifPresent(s -> queryParams.put("cursor", cursor.get()));
 
     final HttpRequest request = HttpRequest.newBuilder().GET()
-        .uri(URI.create("%s/%s/%s".formatted(
-            storageManagerBaseUrl,
-            Cdn3BackupCredentialGenerator.CDN_PATH,
-            HttpUtils.queryParamString(queryParams.entrySet()))))
+        .uri(URI.create("%s%s".formatted(listUrl(), HttpUtils.queryParamString(queryParams.entrySet()))))
         .header(CLIENT_ID_HEADER, clientId)
         .header(CLIENT_SECRET_HEADER, clientSecret)
         .build();
@@ -226,12 +223,13 @@ public class Cdn3RemoteStorageManager implements RemoteStorageManager {
    */
   record UsageResponse(@NotNull long numObjects, @NotNull long bytesUsed) {}
 
+
   @Override
   public CompletionStage<UsageInfo> calculateBytesUsed(final String prefix) {
     final Timer.Sample sample = Timer.start();
     final HttpRequest request = HttpRequest.newBuilder().GET()
-        .uri(URI.create("%s/usage%s".formatted(
-            storageManagerBaseUrl,
+        .uri(URI.create("%s%s".formatted(
+            usageUrl(),
             HttpUtils.queryParamString(Map.of("prefix", prefix).entrySet()))))
         .header(CLIENT_ID_HEADER, clientId)
         .header(CLIENT_SECRET_HEADER, clientSecret)
@@ -258,6 +256,50 @@ public class Cdn3RemoteStorageManager implements RemoteStorageManager {
     }
     final UsageResponse response = SystemMapper.jsonMapper().readValue(httpUsageResponse.body(), UsageResponse.class);
     return new UsageInfo(response.bytesUsed(), response.numObjects);
+  }
+
+  /**
+   * Serialized delete response from storage manager
+   */
+  record DeleteResponse(@NotNull long bytesDeleted) {}
+
+  public CompletionStage<Long> delete(final String key) {
+    final HttpRequest request = HttpRequest.newBuilder().DELETE()
+        .uri(URI.create(deleteUrl(key)))
+        .header(CLIENT_ID_HEADER, clientId)
+        .header(CLIENT_SECRET_HEADER, clientSecret)
+        .build();
+    return this.storageManagerHttpClient.sendAsync(request, HttpResponse.BodyHandlers.ofInputStream())
+        .thenApply(response -> {
+          Metrics.counter(STORAGE_MANAGER_STATUS_COUNTER_NAME,
+                  OPERATION_TAG_NAME, "delete",
+                  STATUS_TAG_NAME, Integer.toString(response.statusCode()))
+              .increment();
+          try {
+            return parseDeleteResponse(response);
+          } catch (IOException e) {
+            throw ExceptionUtils.wrap(e);
+          }
+        });
+  }
+
+  private long parseDeleteResponse(final HttpResponse<InputStream> httpDeleteResponse) throws IOException {
+    if (!HttpUtils.isSuccessfulResponse(httpDeleteResponse.statusCode())) {
+      throw new IOException("Failed to retrieve usage: " + httpDeleteResponse.statusCode());
+    }
+    return SystemMapper.jsonMapper().readValue(httpDeleteResponse.body(), DeleteResponse.class).bytesDeleted();
+  }
+
+  private String deleteUrl(final String key) {
+    return "%s/%s/%s".formatted(storageManagerBaseUrl, Cdn3BackupCredentialGenerator.CDN_PATH, key);
+  }
+
+  private String usageUrl() {
+    return "%s/usage".formatted(storageManagerBaseUrl);
+  }
+
+  private String listUrl() {
+    return "%s/%s/".formatted(storageManagerBaseUrl, Cdn3BackupCredentialGenerator.CDN_PATH);
   }
 
 

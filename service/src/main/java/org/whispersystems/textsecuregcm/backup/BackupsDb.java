@@ -126,18 +126,19 @@ public class BackupsDb {
    * Update the quota in the backup table
    *
    * @param backupUser  The backup user
-   * @param mediaLength The length of the media after encryption. A negative length implies the media is being removed
+   * @param mediaBytesDelta The length of the media after encryption. A negative length implies media being removed
+   * @param mediaCountDelta The number of media objects being added, or if negative, removed
    * @return A stage that completes successfully once the table are updated.
    */
-  CompletableFuture<Void> trackMedia(final AuthenticatedBackupUser backupUser, final int mediaLength) {
+  CompletableFuture<Void> trackMedia(final AuthenticatedBackupUser backupUser, final long mediaCountDelta, final long mediaBytesDelta) {
     final Instant now = clock.instant();
     return dynamoClient
         .updateItem(
             // Update the media quota and TTL
             UpdateBuilder.forUser(backupTableName, backupUser)
                 .setRefreshTimes(now)
-                .incrementMediaBytes(mediaLength)
-                .incrementMediaCount(Integer.signum(mediaLength))
+                .incrementMediaBytes(mediaBytesDelta)
+                .incrementMediaCount(mediaCountDelta)
                 .updateItemBuilder()
                 .build())
         .thenRun(Util.NOOP);

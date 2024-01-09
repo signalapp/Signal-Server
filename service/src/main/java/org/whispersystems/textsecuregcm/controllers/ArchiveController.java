@@ -683,4 +683,53 @@ public class ArchiveController {
                 .toList(),
             result.cursor().orElse(null)));
   }
+
+  public record DeleteMedia(@Size(min = 1, max = 1000) List<@Valid MediaToDelete> mediaToDelete) {
+
+    public record MediaToDelete(
+        @Schema(description = "The backup cdn where this media object is stored")
+        @NotNull
+        Integer cdn,
+
+        @Schema(description = "The mediaId of the object in URL-safe base64", implementation = String.class)
+        @JsonSerialize(using = ByteArrayBase64UrlAdapter.Serializing.class)
+        @JsonDeserialize(using = ByteArrayBase64UrlAdapter.Deserializing.class)
+        @NotNull
+        @ExactlySize(15)
+        byte[] mediaId
+    ) {}
+  }
+
+  @POST
+  @Produces(MediaType.APPLICATION_JSON)
+  @Path("/media/delete")
+  @Operation(summary = "Delete media objects",
+      description = "Delete media objects stored with this backup-id")
+  @ApiResponse(responseCode = "204")
+  @ApiResponse(responseCode = "429", description = "Rate limited.")
+  @ApiResponseZkAuth
+  public CompletionStage<Response> deleteMedia(
+      @Auth final Optional<AuthenticatedAccount> account,
+
+      @Parameter(description = BackupAuthCredentialPresentationHeader.DESCRIPTION, schema = @Schema(implementation = String.class))
+      @NotNull
+      @HeaderParam(X_SIGNAL_ZK_AUTH) final BackupAuthCredentialPresentationHeader presentation,
+
+      @Parameter(description = BackupAuthCredentialPresentationSignature.DESCRIPTION, schema = @Schema(implementation = String.class))
+      @NotNull
+      @HeaderParam(X_SIGNAL_ZK_AUTH_SIGNATURE) final BackupAuthCredentialPresentationSignature signature,
+
+      @Valid @NotNull DeleteMedia deleteMedia) {
+    if (account.isPresent()) {
+      throw new BadRequestException("must not use authenticated connection for anonymous operations");
+    }
+
+    return backupManager
+        .authenticateBackupUser(presentation.presentation, signature.signature)
+        .thenCompose(authenticatedBackupUser -> backupManager.delete(authenticatedBackupUser,
+            deleteMedia.mediaToDelete().stream()
+                .map(media -> new BackupManager.StorageDescriptor(media.cdn(), media.mediaId))
+                .toList()))
+        .thenApply(Util.ASYNC_EMPTY_RESPONSE);
+  }
 }

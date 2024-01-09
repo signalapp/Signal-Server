@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.backup;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatNoException;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -20,12 +21,14 @@ import static org.mockito.Mockito.when;
 
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
+import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
@@ -36,6 +39,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -102,7 +106,7 @@ public class BackupManagerTest {
 
     backupManager.createMessageBackupUploadDescriptor(backupUser).join();
     verify(tusCredentialGenerator, times(1))
-        .generateUpload(encodedBackupId, BackupManager.MESSAGE_BACKUP_NAME);
+        .generateUpload("%s/%s".formatted(encodedBackupId, BackupManager.MESSAGE_BACKUP_NAME));
 
     final BackupManager.BackupInfo info = backupManager.backupInfo(backupUser).join();
     assertThat(info.backupSubdir()).isEqualTo(encodedBackupId);
@@ -260,7 +264,7 @@ public class BackupManagerTest {
   @Test
   public void copySuccess() {
     final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupTier.MEDIA);
-    when(tusCredentialGenerator.generateUpload(any(), any()))
+    when(tusCredentialGenerator.generateUpload(any()))
         .thenReturn(new MessageBackupUploadDescriptor(3, "def", Collections.emptyMap(), ""));
     when(remoteStorageManager.copy(eq(URI.create("cdn3.example.org/attachments/abc")), eq(100), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(null));
@@ -286,7 +290,7 @@ public class BackupManagerTest {
   @Test
   public void copyFailure() {
     final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupTier.MEDIA);
-    when(tusCredentialGenerator.generateUpload(any(), any()))
+    when(tusCredentialGenerator.generateUpload(any()))
         .thenReturn(new MessageBackupUploadDescriptor(3, "def", Collections.emptyMap(), ""));
     when(remoteStorageManager.copy(eq(URI.create("cdn3.example.org/attachments/abc")), eq(100), any(), any()))
         .thenReturn(CompletableFuture.failedFuture(new SourceObjectNotFoundException()));
@@ -407,6 +411,91 @@ public class BackupManagerTest {
     assertThat(result.media().get(0).length()).isEqualTo(123);
     assertThat(result.cursor()).get().isEqualTo("newCursor");
 
+  }
+
+  @Test
+  public void delete() {
+    final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupTier.MEDIA);
+    final byte[] mediaId = TestRandomUtil.nextBytes(16);
+    final String backupMediaKey = "%s/%s/%s".formatted(
+        BackupManager.encodeBackupIdForCdn(backupUser),
+        BackupManager.MEDIA_DIRECTORY_NAME,
+        BackupManager.encodeForCdn(mediaId));
+
+    backupsDb.setMediaUsage(backupUser, new UsageInfo(100, 1000)).join();
+
+    when(remoteStorageManager.delete(backupMediaKey))
+        .thenReturn(CompletableFuture.completedFuture(7L));
+    when(remoteStorageManager.cdnNumber()).thenReturn(5);
+    backupManager.delete(backupUser, List.of(new BackupManager.StorageDescriptor(5, mediaId))).toCompletableFuture()
+        .join();
+
+    assertThat(backupsDb.getMediaUsage(backupUser).join().usageInfo())
+        .isEqualTo(new UsageInfo(93, 999));
+  }
+
+  @Test
+  public void deleteUnknownCdn() {
+    final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupTier.MEDIA);
+    when(remoteStorageManager.cdnNumber()).thenReturn(5);
+    assertThatThrownBy(() ->
+        backupManager.delete( backupUser, List.of(new BackupManager.StorageDescriptor(4, TestRandomUtil.nextBytes(15)))))
+        .isInstanceOf(StatusRuntimeException.class)
+        .matches(e -> ((StatusRuntimeException) e).getStatus().getCode() == Status.INVALID_ARGUMENT.getCode());
+  }
+
+  @Test
+  public void deletePartialFailure() {
+    final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupTier.MEDIA);
+
+    final List<BackupManager.StorageDescriptor> descriptors = new ArrayList<>();
+    long initialBytes = 0;
+    for (int i = 1; i <= 10; i++) {
+      final BackupManager.StorageDescriptor descriptor = new BackupManager.StorageDescriptor(5,
+          TestRandomUtil.nextBytes(15));
+      descriptors.add(descriptor);
+      final String backupMediaKey = "%s/%s/%s".formatted(
+          BackupManager.encodeBackupIdForCdn(backupUser),
+          BackupManager.MEDIA_DIRECTORY_NAME,
+          BackupManager.encodeForCdn(descriptor.key()));
+
+      initialBytes += i;
+      // fail 2 deletions, otherwise return the corresponding object's size as i
+      final CompletableFuture<Long> deleteResult =
+          i == 3 || i == 6
+              ? CompletableFuture.failedFuture(new IOException("oh no"))
+              : CompletableFuture.completedFuture(Long.valueOf(i));
+
+      when(remoteStorageManager.delete(backupMediaKey)).thenReturn(deleteResult);
+    }
+    when(remoteStorageManager.cdnNumber()).thenReturn(5);
+    backupsDb.setMediaUsage(backupUser, new UsageInfo(initialBytes, 10)).join();
+    CompletableFutureTestUtil.assertFailsWithCause(IOException.class, backupManager.delete(backupUser, descriptors));
+    // 2 objects should have failed to be deleted
+    assertThat(backupsDb.getMediaUsage(backupUser).join().usageInfo())
+        .isEqualTo(new UsageInfo(9, 2));
+
+  }
+
+  @Test
+  public void alreadyDeleted() {
+    final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupTier.MEDIA);
+    final byte[] mediaId = TestRandomUtil.nextBytes(16);
+    final String backupMediaKey = "%s/%s/%s".formatted(
+        BackupManager.encodeBackupIdForCdn(backupUser),
+        BackupManager.MEDIA_DIRECTORY_NAME,
+        BackupManager.encodeForCdn(mediaId));
+
+    backupsDb.setMediaUsage(backupUser, new UsageInfo(100, 5)).join();
+
+    // Deletion doesn't remove anything
+    when(remoteStorageManager.delete(backupMediaKey)).thenReturn(CompletableFuture.completedFuture(0L));
+    when(remoteStorageManager.cdnNumber()).thenReturn(5);
+    backupManager.delete(backupUser, List.of(new BackupManager.StorageDescriptor(5, mediaId))).toCompletableFuture()
+        .join();
+
+    assertThat(backupsDb.getMediaUsage(backupUser).join().usageInfo())
+        .isEqualTo(new UsageInfo(100, 5));
   }
 
   private Map<String, AttributeValue> getBackupItem(final AuthenticatedBackupUser backupUser) {

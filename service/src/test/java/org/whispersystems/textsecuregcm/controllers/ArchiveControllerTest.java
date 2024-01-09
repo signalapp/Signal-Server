@@ -478,4 +478,29 @@ public class ArchiveControllerTest {
     assertThat(response.storedMediaObjects().get(0).mediaId()).isEqualTo(mediaId);
     assertThat(response.cursor()).isEqualTo(returnedCursor.orElse(null));
   }
+
+  @Test
+  public void delete() throws VerificationFailedException {
+    final BackupAuthCredentialPresentation presentation = backupAuthTestUtil.getPresentation(BackupTier.MEDIA,
+        backupKey, aci);
+    when(backupManager.authenticateBackupUser(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(
+            new AuthenticatedBackupUser(presentation.getBackupId(), BackupTier.MEDIA)));
+
+    final ArchiveController.DeleteMedia deleteRequest = new ArchiveController.DeleteMedia(
+        IntStream
+            .range(0, 100)
+            .mapToObj(i -> new ArchiveController.DeleteMedia.MediaToDelete(3, TestRandomUtil.nextBytes(15)))
+            .toList());
+
+    when(backupManager.delete(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+
+    final Response response = resources.getJerseyTest()
+        .target("v1/archives/media/delete")
+        .request()
+        .header("X-Signal-ZK-Auth", Base64.getEncoder().encodeToString(presentation.serialize()))
+        .header("X-Signal-ZK-Auth-Signature", "aaa")
+        .post(Entity.json(deleteRequest));
+    assertThat(response.getStatus()).isEqualTo(204);
+  }
 }

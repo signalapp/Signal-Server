@@ -12,6 +12,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import java.io.IOException;
@@ -234,6 +235,8 @@ public class Cdn3RemoteStorageManagerTest {
   public void usage() throws JsonProcessingException {
     wireMock.stubFor(get(urlPathEqualTo("/storage-manager/usage"))
         .withQueryParam("prefix", equalTo("abc/"))
+        .withHeader(Cdn3RemoteStorageManager.CLIENT_ID_HEADER, equalTo("clientId"))
+        .withHeader(Cdn3RemoteStorageManager.CLIENT_SECRET_HEADER, equalTo("clientSecret"))
         .willReturn(aResponse()
             .withBody(SystemMapper.jsonMapper().writeValueAsString(new Cdn3RemoteStorageManager.UsageResponse(
                 17,
@@ -243,5 +246,16 @@ public class Cdn3RemoteStorageManagerTest {
         .join();
     assertThat(result.numObjects()).isEqualTo(17);
     assertThat(result.bytesUsed()).isEqualTo(113);
+  }
+
+  @Test
+  public void delete() throws JsonProcessingException {
+    wireMock.stubFor(WireMock.delete(urlEqualTo("/storage-manager/backups/abc/def"))
+        .withHeader(Cdn3RemoteStorageManager.CLIENT_ID_HEADER, equalTo("clientId"))
+        .withHeader(Cdn3RemoteStorageManager.CLIENT_SECRET_HEADER, equalTo("clientSecret"))
+        .willReturn(aResponse()
+            .withBody(SystemMapper.jsonMapper().writeValueAsString(new Cdn3RemoteStorageManager.DeleteResponse(9L)))));
+    final long deleted = remoteStorageManager.delete("abc/def").toCompletableFuture().join();
+    assertThat(deleted).isEqualTo(9L);
   }
 }

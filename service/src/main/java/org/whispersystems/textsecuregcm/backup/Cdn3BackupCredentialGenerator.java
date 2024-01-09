@@ -49,11 +49,10 @@ public class Cdn3BackupCredentialGenerator {
         .build();
   }
 
-  public MessageBackupUploadDescriptor generateUpload(final String hashedBackupId, final String objectName) {
-    if (hashedBackupId.isBlank() || objectName.isBlank()) {
+  public MessageBackupUploadDescriptor generateUpload(final String key) {
+    if (key.isBlank()) {
       throw new IllegalArgumentException("Upload descriptors must have non-empty keys");
     }
-    final String key = "%s/%s".formatted(hashedBackupId, objectName);
     final String entity = WRITE_ENTITY_PREFIX + key;
     final ExternalServiceCredentials credentials = credentialsGenerator.generateFor(entity);
     final String b64Key = Base64.getEncoder().encodeToString(key.getBytes(StandardCharsets.UTF_8));

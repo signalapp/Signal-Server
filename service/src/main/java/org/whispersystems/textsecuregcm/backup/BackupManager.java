@@ -11,6 +11,7 @@ import io.micrometer.core.instrument.Metrics;
 import java.net.URI;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
@@ -30,6 +31,8 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedBackupUser;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 public class BackupManager {
 
@@ -125,12 +128,10 @@ public class BackupManager {
    */
   public CompletableFuture<MessageBackupUploadDescriptor> createMessageBackupUploadDescriptor(
       final AuthenticatedBackupUser backupUser) {
-    final String encodedBackupId = encodeBackupIdForCdn(backupUser);
-
     // this could race with concurrent updates, but the only effect would be last-writer-wins on the timestamp
     return backupsDb
         .addMessageBackup(backupUser)
-        .thenApply(result -> cdn3BackupCredentialGenerator.generateUpload(encodedBackupId, MESSAGE_BACKUP_NAME));
+        .thenApply(result -> cdn3BackupCredentialGenerator.generateUpload(cdnMessageBackupName(backupUser)));
   }
 
   /**
@@ -194,8 +195,7 @@ public class BackupManager {
 
           // The user is out of quota, and we have not recently recalculated the user's usage. Double check by doing a
           // hard recalculation before actually forbidding the user from storing additional media.
-          final String mediaPrefix = "%s/%s/".formatted(encodeBackupIdForCdn(backupUser), MEDIA_DIRECTORY_NAME);
-          return this.remoteStorageManager.calculateBytesUsed(mediaPrefix)
+          return this.remoteStorageManager.calculateBytesUsed(cdnMediaDirectory(backupUser))
               .thenCompose(usage -> backupsDb
                   .setMediaUsage(backupUser, usage)
                   .thenApply(ignored -> usage))
@@ -249,15 +249,14 @@ public class BackupManager {
     }
 
     final MessageBackupUploadDescriptor dst = cdn3BackupCredentialGenerator.generateUpload(
-        encodeBackupIdForCdn(backupUser),
-        "%s/%s".formatted(MEDIA_DIRECTORY_NAME, encodeForCdn(destinationMediaId)));
+        cdnMediaPath(backupUser, destinationMediaId));
 
     final int destinationLength = encryptionParameters.outputSize(sourceLength);
 
     final URI sourceUri = attachmentReadUri(sourceCdn, sourceKey);
     return this.backupsDb
         // Write the ddb updates before actually updating backing storage
-        .trackMedia(backupUser, destinationLength)
+        .trackMedia(backupUser, 1, destinationLength)
 
         // Actually copy the objects. If the copy fails, our estimated quota usage may not be exact
         .thenComposeAsync(ignored -> remoteStorageManager.copy(sourceUri, sourceLength, encryptionParameters, dst))
@@ -267,7 +266,7 @@ public class BackupManager {
             throw ExceptionUtils.wrap(unwrapped);
           }
           // In cases where we know the copy fails without writing anything, we can try to restore the user's quota
-          return this.backupsDb.trackMedia(backupUser, -destinationLength).whenComplete((ignored, ignoredEx) -> {
+          return this.backupsDb.trackMedia(backupUser, -1, -destinationLength).whenComplete((ignored, ignoredEx) -> {
             throw ExceptionUtils.wrap(unwrapped);
           });
         })
@@ -335,8 +334,7 @@ public class BackupManager {
           .withDescription("credential does not support list operation")
           .asRuntimeException();
     }
-    final String mediaPrefix = "%s/%s/".formatted(encodeBackupIdForCdn(backupUser), MEDIA_DIRECTORY_NAME);
-    return remoteStorageManager.list(mediaPrefix, cursor, limit)
+    return remoteStorageManager.list(cdnMediaDirectory(backupUser), cursor, limit)
         .thenApply(result ->
             new ListMediaResult(
                 result
@@ -350,6 +348,74 @@ public class BackupManager {
                     .toList(),
                 result.cursor()
             ));
+  }
+
+
+  private sealed interface Either permits DeleteSuccess, DeleteFailure {}
+
+  private record DeleteSuccess(long usage) implements Either {}
+
+  private record DeleteFailure(Throwable e) implements Either {}
+
+  public CompletableFuture<Void> delete(final AuthenticatedBackupUser backupUser,
+      final List<StorageDescriptor> storageDescriptors) {
+    if (backupUser.backupTier().compareTo(BackupTier.MESSAGES) < 0) {
+      Metrics.counter(ZK_AUTHZ_FAILURE_COUNTER_NAME).increment();
+      throw Status.PERMISSION_DENIED
+          .withDescription("credential does not support list operation")
+          .asRuntimeException();
+    }
+
+    if (storageDescriptors.stream().anyMatch(sd -> sd.cdn() != remoteStorageManager.cdnNumber())) {
+      throw Status.INVALID_ARGUMENT
+          .withDescription("unsupported media cdn provided")
+          .asRuntimeException();
+    }
+
+    return Flux
+        .fromIterable(storageDescriptors)
+
+        // Issue deletes for all storage descriptors (proceeds with default flux concurrency)
+        .flatMap(descriptor -> Mono.fromCompletionStage(
+            remoteStorageManager
+                .delete(cdnMediaPath(backupUser, descriptor.key))
+                // Squash errors/success into a single type
+                .handle((bytesDeleted, throwable) -> throwable != null
+                    ? new DeleteFailure(throwable)
+                    : new DeleteSuccess(bytesDeleted))
+        ))
+
+        // Update backupsDb with the change in usage
+        .collectList()
+        .<Void>flatMap(eithers -> {
+          // count up usage changes
+          long totalBytesDeleted = 0;
+          long totalCountDeleted = 0;
+          final List<Throwable> toThrow = new ArrayList<>();
+          for (Either either : eithers) {
+            switch (either) {
+              case DeleteFailure f:
+                toThrow.add(f.e());
+                break;
+              case DeleteSuccess s when s.usage() > 0:
+                totalBytesDeleted += s.usage();
+                totalCountDeleted++;
+                break;
+              default:
+                break;
+            }
+          }
+          final Mono<Void> result = toThrow.isEmpty()
+              ? Mono.empty()
+              : Mono.error(toThrow.stream().reduce((t1, t2) -> {
+                t1.addSuppressed(t2);
+                return t1;
+              }).get());
+          return Mono
+              .fromCompletionStage(this.backupsDb.trackMedia(backupUser, -totalCountDeleted, -totalBytesDeleted))
+              .then(result);
+        })
+        .toFuture();
   }
 
   /**
@@ -452,12 +518,25 @@ public class BackupManager {
     return encodeForCdn(BackupsDb.hashedBackupId(backupUser.backupId()));
   }
 
-  private static String encodeForCdn(final byte[] bytes) {
+  @VisibleForTesting
+  static String encodeForCdn(final byte[] bytes) {
     return Base64.getUrlEncoder().encodeToString(bytes);
   }
 
   private static byte[] decodeFromCdn(final String base64) {
     return Base64.getUrlDecoder().decode(base64);
+  }
+
+  private static String cdnMessageBackupName(final AuthenticatedBackupUser backupUser) {
+    return "%s/%s".formatted(encodeBackupIdForCdn(backupUser), MESSAGE_BACKUP_NAME);
+  }
+
+  private static String cdnMediaDirectory(final AuthenticatedBackupUser backupUser) {
+    return "%s/%s/".formatted(encodeBackupIdForCdn(backupUser), MEDIA_DIRECTORY_NAME);
+  }
+
+  private static String cdnMediaPath(final AuthenticatedBackupUser backupUser, final byte[] mediaId) {
+    return "%s%s".formatted(cdnMediaDirectory(backupUser), encodeForCdn(mediaId));
   }
 
 }

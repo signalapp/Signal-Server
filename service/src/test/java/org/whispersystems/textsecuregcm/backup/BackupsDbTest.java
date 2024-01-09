@@ -50,14 +50,14 @@ public class BackupsDbTest {
     backupsDb.addMessageBackup(backupUser).join();
     int total = 0;
     for (int i = 0; i < 5; i++) {
-      this.backupsDb.trackMedia(backupUser, i).join();
+      this.backupsDb.trackMedia(backupUser, 1, i).join();
       total += i;
       final BackupsDb.BackupDescription description = this.backupsDb.describeBackup(backupUser).join();
       assertThat(description.mediaUsedSpace().get()).isEqualTo(total);
     }
 
     for (int i = 0; i < 5; i++) {
-      this.backupsDb.trackMedia(backupUser, -i).join();
+      this.backupsDb.trackMedia(backupUser, -1, -i).join();
       total -= i;
       final BackupsDb.BackupDescription description = this.backupsDb.describeBackup(backupUser).join();
       assertThat(description.mediaUsedSpace().get()).isEqualTo(total);
@@ -70,7 +70,7 @@ public class BackupsDbTest {
     testClock.pin(Instant.ofEpochSecond(5));
     final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupTier.MEDIA);
     if (mediaAlreadyExists) {
-      this.backupsDb.trackMedia(backupUser, 10).join();
+      this.backupsDb.trackMedia(backupUser, 1, 10).join();
     }
     backupsDb.setMediaUsage(backupUser, new UsageInfo( 113, 17)).join();
     final BackupsDb.TimestampedUsageInfo info = backupsDb.getMediaUsage(backupUser).join();
