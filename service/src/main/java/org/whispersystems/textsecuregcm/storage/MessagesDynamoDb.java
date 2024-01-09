@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2022 Signal Messenger, LLC
+ * Copyright 2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -60,8 +60,8 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
   private static final String KEY_ENVELOPE_BYTES = "EB";
 
   private final Timer storeTimer = timer(name(getClass(), "store"));
-  private final Timer deleteByAccount = timer(name(getClass(), "delete", "account"));
-  private final Timer deleteByDevice = timer(name(getClass(), "delete", "device"));
+  private final String DELETE_BY_ACCOUNT_TIMER_NAME = name(getClass(), "delete", "account");
+  private final String DELETE_BY_DEVICE_TIMER_NAME = name(getClass(), "delete", "device");
 
   private final DynamoDbAsyncClient dbAsyncClient;
   private final String tableName;
@@ -237,8 +237,9 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
                 KEY_SORT, item.get(KEY_SORT)))
             .build())),
             DYNAMO_DB_MAX_BATCH_SIZE)
-        .doOnComplete(() -> sample.stop(deleteByAccount))
         .then()
+        .doOnSuccess(ignored -> sample.stop(timer(DELETE_BY_ACCOUNT_TIMER_NAME, "outcome", "success")))
+        .doOnError(ignored -> sample.stop(timer(DELETE_BY_ACCOUNT_TIMER_NAME, "outcome", "error")))
         .toFuture();
   }
 
@@ -267,8 +268,9 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
                 KEY_SORT, item.get(KEY_SORT)))
             .build())),
             DYNAMO_DB_MAX_BATCH_SIZE)
-        .doOnComplete(() -> sample.stop(deleteByDevice))
         .then()
+        .doOnSuccess(ignored -> sample.stop(timer(DELETE_BY_DEVICE_TIMER_NAME, "outcome", "success")))
+        .doOnError(ignored -> sample.stop(timer(DELETE_BY_DEVICE_TIMER_NAME, "outcome", "error")))
         .toFuture();
   }
 

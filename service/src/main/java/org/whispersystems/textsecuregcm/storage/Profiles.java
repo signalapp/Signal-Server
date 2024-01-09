@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2021 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -79,7 +79,7 @@ public class Profiles {
 
   private static final Timer SET_PROFILES_TIMER = Metrics.timer(name(Profiles.class, "set"));
   private static final Timer GET_PROFILE_TIMER = Metrics.timer(name(Profiles.class, "get"));
-  private static final Timer DELETE_PROFILES_TIMER = Metrics.timer(name(Profiles.class, "delete"));
+  private static final String DELETE_PROFILES_TIMER_NAME = name(Profiles.class, "delete");
   private static final String PARSE_BYTE_ARRAY_COUNTER_NAME = name(Profiles.class, "parseByteArray");
 
   private static final int MAX_CONCURRENCY = 32;
@@ -188,7 +188,7 @@ public class Profiles {
   @VisibleForTesting
   static Map<String, AttributeValue> buildUpdateExpressionAttributeValues(final VersionedProfile profile) {
     final Map<String, AttributeValue> expressionValues = new HashMap<>();
-    
+
     expressionValues.put(":commitment", AttributeValues.fromByteArray(profile.commitment()));
 
     if (profile.name() != null) {
@@ -210,7 +210,7 @@ public class Profiles {
     if (profile.paymentAddress() != null) {
       expressionValues.put(":paymentAddress", AttributeValues.fromByteArray(profile.paymentAddress()));
     }
-    
+
     if (profile.phoneNumberSharing() != null) {
       expressionValues.put(":phoneNumberSharing", AttributeValues.fromByteArray(profile.phoneNumberSharing()));
     }
@@ -281,8 +281,9 @@ public class Profiles {
                 KEY_ACCOUNT_UUID, uuidAttributeValue,
                 ATTR_VERSION, item.get(ATTR_VERSION)))
             .build())), MAX_CONCURRENCY)
-        .doOnComplete(() -> sample.stop(DELETE_PROFILES_TIMER))
         .then()
+        .doOnSuccess(ignored -> sample.stop(Metrics.timer(DELETE_PROFILES_TIMER_NAME, "outcome", "success")))
+        .doOnError(ignored -> sample.stop(Metrics.timer(DELETE_PROFILES_TIMER_NAME, "outcome", "error")))
         .toFuture();
   }
 }
