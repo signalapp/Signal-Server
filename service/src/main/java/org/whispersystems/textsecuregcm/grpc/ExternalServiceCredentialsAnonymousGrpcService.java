@@ -24,6 +24,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.util.function.Tuples;
 
 public class ExternalServiceCredentialsAnonymousGrpcService extends
     ReactorExternalServiceCredentialsAnonymousGrpc.ExternalServiceCredentialsAnonymousImplBase {
@@ -60,15 +61,17 @@ public class ExternalServiceCredentialsAnonymousGrpcService extends
         svrCredentialsGenerator,
         MAX_SVR_PASSWORD_AGE_SECONDS);
 
-    // the username associated with the provided number
-    final Optional<String> matchingUsername = accountsManager
-        .getByE164(request.getNumber())
-        .map(Account::getUuid)
-        .map(svrCredentialsGenerator::generateForUuid)
-        .map(ExternalServiceCredentials::username);
+    return Mono.fromFuture(() -> accountsManager.getByE164Async(request.getNumber()))
+        // the username associated with the provided number
+        .map(maybeAccount -> maybeAccount.map(Account::getUuid)
+            .map(svrCredentialsGenerator::generateForUuid)
+            .map(ExternalServiceCredentials::username))
+        .flatMapMany(maybeMatchingUsername -> Flux.fromIterable(credentials)
+            .map(credential -> Tuples.of(maybeMatchingUsername, credential)))
+        .reduce(CheckSvrCredentialsResponse.newBuilder(), ((builder, usernameAndCredentialInfo) -> {
+          final Optional<String> matchingUsername = usernameAndCredentialInfo.getT1();
+          final ExternalServiceCredentialsSelector.CredentialInfo credentialInfo = usernameAndCredentialInfo.getT2();
 
-    return Flux.fromIterable(credentials)
-        .reduce(CheckSvrCredentialsResponse.newBuilder(), ((builder, credentialInfo) -> {
           final AuthCheckResult authCheckResult;
           if (!credentialInfo.valid()) {
             authCheckResult = AuthCheckResult.AUTH_CHECK_RESULT_INVALID;

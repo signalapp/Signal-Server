@@ -12,6 +12,7 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -58,7 +59,8 @@ class ExternalServiceCredentialsAnonymousGrpcServiceTest extends
 
   @BeforeEach
   public void setup() {
-    Mockito.when(accountsManager.getByE164(USER_E164)).thenReturn(Optional.of(account(USER_UUID)));
+    Mockito.when(accountsManager.getByE164Async(USER_E164))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(account(USER_UUID))));
   }
 
   @Test
