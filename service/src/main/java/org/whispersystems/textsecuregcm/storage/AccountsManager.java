@@ -30,7 +30,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Queue;
@@ -85,9 +84,6 @@ public class AccountsManager {
   private static final Timer deleteTimer = metricRegistry.timer(name(AccountsManager.class, "delete"));
 
   private static final Timer redisSetTimer = metricRegistry.timer(name(AccountsManager.class, "redisSet"));
-  private static final Timer redisNumberGetTimer = metricRegistry.timer(name(AccountsManager.class, "redisNumberGet"));
-  private static final Timer redisUsernameHashGetTimer = metricRegistry.timer(name(AccountsManager.class, "redisUsernameHashGet"));
-  private static final Timer redisUsernameLinkHandleGetTimer = metricRegistry.timer(name(AccountsManager.class, "redisUsernameLinkHandleGet"));
   private static final Timer redisPniGetTimer = metricRegistry.timer(name(AccountsManager.class, "redisPniGet"));
   private static final Timer redisUuidGetTimer = metricRegistry.timer(name(AccountsManager.class, "redisUuidGet"));
   private static final Timer redisDeleteTimer = metricRegistry.timer(name(AccountsManager.class, "redisDelete"));
@@ -875,19 +871,13 @@ public class AccountsManager {
   }
 
   public Optional<Account> getByE164(final String number) {
-    return checkRedisThenAccounts(
-        getByNumberTimer,
-        () -> redisGetBySecondaryKey(getAccountMapKey(number), redisNumberGetTimer),
-        () -> accounts.getByE164(number)
-    );
+    return getByNumberTimer.timeSupplier(() -> accounts.getByE164(number));
   }
 
   public CompletableFuture<Optional<Account>> getByE164Async(final String number) {
-    return checkRedisThenAccountsAsync(
-        getByNumberTimer,
-        () -> redisGetBySecondaryKeyAsync(getAccountMapKey(number), redisNumberGetTimer),
-        () -> accounts.getByE164Async(number)
-    );
+    final Timer.Context context = getByNumberTimer.time();
+    return accounts.getByE164Async(number)
+        .whenComplete((ignoredResult, ignoredThrowable) -> context.close());
   }
 
   public Optional<Account> getByPhoneNumberIdentifier(final UUID pni) {
@@ -907,19 +897,15 @@ public class AccountsManager {
   }
 
   public CompletableFuture<Optional<Account>> getByUsernameLinkHandle(final UUID usernameLinkHandle) {
-    return checkRedisThenAccountsAsync(
-        getByUsernameLinkHandleTimer,
-        () -> redisGetBySecondaryKeyAsync(getAccountMapKey(usernameLinkHandle.toString()), redisUsernameLinkHandleGetTimer),
-        () -> accounts.getByUsernameLinkHandle(usernameLinkHandle)
-    );
+    final Timer.Context context = getByUsernameLinkHandleTimer.time();
+    return accounts.getByUsernameLinkHandle(usernameLinkHandle)
+        .whenComplete((ignoredResult, ignoredThrowable) -> context.close());
   }
 
   public CompletableFuture<Optional<Account>> getByUsernameHash(final byte[] usernameHash) {
-    return checkRedisThenAccountsAsync(
-        getByUsernameHashTimer,
-        () -> redisGetBySecondaryKeyAsync(getUsernameHashAccountMapKey(usernameHash), redisUsernameHashGetTimer),
-        () -> accounts.getByUsernameHash(usernameHash)
-    );
+    final Timer.Context context = getByUsernameHashTimer.time();
+    return accounts.getByUsernameHash(usernameHash)
+        .whenComplete((ignoredResult, ignoredThrowable) -> context.close());
   }
 
   public Optional<Account> getByServiceIdentifier(final ServiceIdentifier serviceIdentifier) {
@@ -1030,11 +1016,7 @@ public class AccountsManager {
         final RedisAdvancedClusterCommands<String, String> commands = connection.sync();
 
         commands.setex(getAccountMapKey(account.getPhoneNumberIdentifier().toString()), CACHE_TTL_SECONDS, account.getUuid().toString());
-        commands.setex(getAccountMapKey(account.getNumber()), CACHE_TTL_SECONDS, account.getUuid().toString());
         commands.setex(getAccountEntityKey(account.getUuid()), CACHE_TTL_SECONDS, accountJson);
-
-        account.getUsernameHash().ifPresent(usernameHash ->
-            commands.setex(getUsernameHashAccountMapKey(usernameHash), CACHE_TTL_SECONDS, account.getUuid().toString()));
       });
     } catch (JsonProcessingException e) {
       throw new IllegalStateException(e);
@@ -1055,20 +1037,8 @@ public class AccountsManager {
                 getAccountMapKey(account.getPhoneNumberIdentifier().toString()), CACHE_TTL_SECONDS,
                 account.getUuid().toString())
             .toCompletableFuture(),
-
-        connection.async()
-            .setex(getAccountMapKey(account.getNumber()), CACHE_TTL_SECONDS, account.getUuid().toString())
-            .toCompletableFuture(),
-
         connection.async().setex(getAccountEntityKey(account.getUuid()), CACHE_TTL_SECONDS, accountJson)
-            .toCompletableFuture(),
-
-        account.getUsernameHash()
-            .map(usernameHash -> connection.async()
-                .setex(getUsernameHashAccountMapKey(usernameHash), CACHE_TTL_SECONDS, account.getUuid().toString())
-                .toCompletableFuture())
-            .orElseGet(() -> CompletableFuture.completedFuture(null))
-    ));
+            .toCompletableFuture()));
   }
 
   private Optional<Account> checkRedisThenAccounts(
@@ -1186,11 +1156,8 @@ public class AccountsManager {
     try (final Timer.Context ignored = redisDeleteTimer.time()) {
       cacheCluster.useCluster(connection -> {
         connection.sync().del(
-            getAccountMapKey(account.getNumber()),
             getAccountMapKey(account.getPhoneNumberIdentifier().toString()),
             getAccountEntityKey(account.getUuid()));
-
-        account.getUsernameHash().ifPresent(usernameHash -> connection.sync().del(getUsernameHashAccountMapKey(usernameHash)));
       });
     }
   }
@@ -1198,15 +1165,14 @@ public class AccountsManager {
   private CompletableFuture<Void> redisDeleteAsync(final Account account) {
     @SuppressWarnings("resource") final Timer.Context timerContext = redisDeleteTimer.time();
 
-    final List<String> keysToDelete = new ArrayList<>(4);
-    keysToDelete.add(getAccountMapKey(account.getNumber()));
-    keysToDelete.add(getAccountMapKey(account.getPhoneNumberIdentifier().toString()));
-    keysToDelete.add(getAccountEntityKey(account.getUuid()));
+    final String[] keysToDelete = new String[]{
+        getAccountMapKey(account.getPhoneNumberIdentifier().toString()),
+        getAccountEntityKey(account.getUuid())
+    };
 
-    account.getUsernameHash().ifPresent(usernameHash -> keysToDelete.add(getUsernameHashAccountMapKey(usernameHash)));
-
-    return cacheCluster.withCluster(connection -> connection.async().del(keysToDelete.toArray(new String[0])))
+    return cacheCluster.withCluster(connection -> connection.async().del(keysToDelete))
         .toCompletableFuture()
-        .thenRun(timerContext::close);
+        .whenComplete((ignoredResult, ignoredException) -> timerContext.close())
+        .thenRun(Util.NOOP);
   }
 }

@@ -11,11 +11,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Clock;
@@ -31,7 +28,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.function.Supplier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -135,21 +132,26 @@ class AccountsManagerUsernameIntegrationTest {
     when(experimentEnrollmentManager.isEnrolled(any(UUID.class), eq(AccountsManager.USERNAME_EXPERIMENT_NAME)))
         .thenReturn(true);
 
+    final MessagesManager messageManager = mock(MessagesManager.class);
+    final ProfilesManager profileManager = mock(ProfilesManager.class);
+    when(messageManager.clear(any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(profileManager.deleteAll(any())).thenReturn(CompletableFuture.completedFuture(null));
+
     accountsManager = new AccountsManager(
         accounts,
         phoneNumberIdentifiers,
         CACHE_CLUSTER_EXTENSION.getRedisCluster(),
         accountLockManager,
         keysManager,
-        mock(MessagesManager.class),
-        mock(ProfilesManager.class),
+        messageManager,
+        profileManager,
         mock(SecureStorageClient.class),
         mock(SecureValueRecovery2Client.class),
         mock(ClientPresenceManager.class),
         experimentEnrollmentManager,
         mock(RegistrationRecoveryPasswordsManager.class),
-        mock(Executor.class),
-        mock(Executor.class),
+        Executors.newSingleThreadExecutor(),
+        Executors.newSingleThreadExecutor(),
         mock(Clock.class));
   }
 
@@ -297,6 +299,28 @@ class AccountsManagerUsernameIntegrationTest {
     account = accountsManager.confirmReservedUsernameHash(account, reservation2.reservedUsernameHash(), ENCRYPTED_USERNAME_2).join();
     assertArrayEquals(account.getUsernameHash().orElseThrow(), USERNAME_HASH_2);
     assertArrayEquals(account.getEncryptedUsername().orElseThrow(), ENCRYPTED_USERNAME_2);
+  }
+
+  @Test
+  public void testReclaim() throws InterruptedException {
+    Account account = AccountsHelper.createAccount(accountsManager, "+18005551111");
+    final AccountsManager.UsernameReservation reservation1 =
+        accountsManager.reserveUsernameHash(account, List.of(USERNAME_HASH_1)).join();
+    account = accountsManager.confirmReservedUsernameHash(reservation1.account(), USERNAME_HASH_1, ENCRYPTED_USERNAME_1)
+        .join();
+
+    // "reclaim" the account by re-registering
+    Account reclaimed = AccountsHelper.createAccount(accountsManager, "+18005551111");
+
+    // the username should still be reserved, but no longer on our account.
+    assertThat(reclaimed.getUsernameHash()).isEmpty();
+
+    // Make sure we can't lookup the account
+    assertThat(accountsManager.getByUsernameHash(USERNAME_HASH_1).join()).isEmpty();
+
+    // confirm it again
+    accountsManager.confirmReservedUsernameHash(reclaimed, USERNAME_HASH_1, ENCRYPTED_USERNAME_1).join();
+    assertThat(accountsManager.getByUsernameHash(USERNAME_HASH_1).join()).isPresent();
   }
 
   @Test
