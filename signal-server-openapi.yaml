@@ -853,6 +853,49 @@ paths:
       security:
       - authenticatedAccount: []
       - {}
+  /v1/archives/media/delete:
+    post:
+      tags:
+      - Archive
+      summary: Delete media objects
+      description: Delete media objects stored with this backup-id
+      operationId: deleteMedia
+      parameters:
+      - name: X-Signal-ZK-Auth
+        in: header
+        description: "Presentation of a ZK backup auth credential acquired from /v1/archives/auth,\
+          \ encoded in standard padded base64"
+        required: true
+        schema:
+          type: string
+      - name: X-Signal-ZK-Auth-Signature
+        in: header
+        description: "Signature of the ZK auth credential's presentation, encoded\
+          \ in standard padded base64"
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              $ref: '#/components/schemas/DeleteMedia'
+        required: true
+      responses:
+        "429":
+          description: Rate limited.
+        "403":
+          description: Forbidden. The request had insufficient permissions to perform
+            the requested action
+        "401":
+          description: The provided backup auth credential presentation could not
+            be verified
+        "400":
+          description: Bad arguments. The request may have been made on an authenticated
+            channel
+      security:
+      - authenticatedAccount: []
+      - {}
   /v1/archives/auth:
     get:
       tags:
@@ -3455,6 +3498,28 @@ components:
           type: integer
           description: The backup cdn where this media object is stored
           format: int32
+    DeleteMedia:
+      type: object
+      properties:
+        mediaToDelete:
+          maxItems: 1000
+          minItems: 1
+          type: array
+          items:
+            $ref: '#/components/schemas/MediaToDelete'
+    MediaToDelete:
+      required:
+      - cdn
+      - mediaId
+      type: object
+      properties:
+        cdn:
+          type: integer
+          description: The backup cdn where this media object is stored
+          format: int32
+        mediaId:
+          type: string
+          description: The mediaId of the object in URL-safe base64
     BackupAuthCredential:
       type: object
       properties:
