@@ -22,6 +22,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.validation.constraints.NotNull;
+import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.Response;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -46,6 +47,12 @@ public class Cdn3RemoteStorageManager implements RemoteStorageManager {
   private final String clientSecret;
   static final String CLIENT_ID_HEADER = "CF-Access-Client-Id";
   static final String CLIENT_SECRET_HEADER = "CF-Access-Client-Secret";
+
+  private static String TUS_UPLOAD_LENGTH_HEADER = "Upload-Length";
+  private static String TUS_UPLOAD_OFFSET_HEADER = "Upload-Offset";
+  private static String TUS_VERSION_HEADER = "Tus-Resumable";
+  private static String TUS_VERSION = "1.0.0";
+  private static String TUS_CONTENT_TYPE = "application/offset+octet-stream";
 
   private static final String STORAGE_MANAGER_STATUS_COUNTER_NAME = MetricsUtil.name(Cdn3RemoteStorageManager.class,
       "storageManagerStatus");
@@ -111,6 +118,7 @@ public class Cdn3RemoteStorageManager implements RemoteStorageManager {
     final Timer.Sample sample = Timer.start();
     final BackupMediaEncrypter encrypter = new BackupMediaEncrypter(encryptionParameters);
     final HttpRequest request = HttpRequest.newBuilder().GET().uri(sourceUri).build();
+    final int expectedEncryptedLength = encrypter.outputSize(expectedSourceLength);
     return cdnHttpClient.sendAsync(request, HttpResponse.BodyHandlers.ofPublisher()).thenCompose(response -> {
           if (response.statusCode() == Response.Status.NOT_FOUND.getStatusCode()) {
             throw new CompletionException(new SourceObjectNotFoundException());
@@ -126,7 +134,6 @@ public class Cdn3RemoteStorageManager implements RemoteStorageManager {
                 new InvalidLengthException("Provided sourceLength " + expectedSourceLength + " was " + actualSourceLength));
           }
 
-          final int expectedEncryptedLength = encrypter.outputSize(actualSourceLength);
           final HttpRequest.BodyPublisher encryptedBody = HttpRequest.BodyPublishers.fromPublisher(
               encrypter.encryptBody(response.body()), expectedEncryptedLength);
 
@@ -134,21 +141,30 @@ public class Cdn3RemoteStorageManager implements RemoteStorageManager {
                   uploadDescriptor.headers().entrySet()
                       .stream()
                       .flatMap(e -> Stream.of(e.getKey(), e.getValue())),
-                  Stream.of("Upload-Length", Integer.toString(expectedEncryptedLength), "Tus-Resumable", "1.0.0"))
+                  Stream.of(
+                      TUS_VERSION_HEADER, TUS_VERSION,
+                      TUS_UPLOAD_LENGTH_HEADER, Integer.toString(expectedEncryptedLength),
+                      HttpHeaders.CONTENT_TYPE, TUS_CONTENT_TYPE))
               .toArray(String[]::new);
 
-          final HttpRequest put = HttpRequest.newBuilder()
+          final HttpRequest post = HttpRequest.newBuilder()
               .uri(URI.create(uploadDescriptor.signedUploadLocation()))
               .headers(headers)
               .POST(encryptedBody)
               .build();
 
-          return cdnHttpClient.sendAsync(put, HttpResponse.BodyHandlers.discarding());
+          return cdnHttpClient.sendAsync(post, HttpResponse.BodyHandlers.discarding());
         })
         .thenAccept(response -> {
           if (response.statusCode() != Response.Status.CREATED.getStatusCode() &&
               response.statusCode() != Response.Status.OK.getStatusCode()) {
             throw new CompletionException(new IOException("Failed to copy object: " + response.statusCode()));
+          }
+          long uploadOffset = response.headers().firstValueAsLong(TUS_UPLOAD_OFFSET_HEADER)
+              .orElseThrow(() -> new CompletionException(new IOException("Tus server did not return Upload-Offset")));
+          if (uploadOffset != expectedEncryptedLength) {
+            throw new CompletionException(new IOException(
+                "Expected to upload %d bytes, uploaded %d".formatted(expectedEncryptedLength, uploadOffset)));
           }
         })
         .whenComplete((ignored, ignoredException) ->

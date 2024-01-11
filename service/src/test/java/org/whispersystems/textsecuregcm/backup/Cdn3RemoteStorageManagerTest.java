@@ -108,14 +108,21 @@ public class Cdn3RemoteStorageManagerTest {
       default -> throw new AssertionError();
     };
 
+    final MediaEncryptionParameters encryptionParameters = new MediaEncryptionParameters(AES_KEY, HMAC_KEY, IV);
+    final long expectedEncryptedLength = encryptionParameters.outputSize(expectedSource.length());
+
     wireMock.stubFor(post(urlEqualTo("/cdn3/dest"))
+        .withHeader("Content-Length", equalTo(Long.toString(expectedEncryptedLength)))
+        .withHeader("Upload-Length", equalTo(Long.toString(expectedEncryptedLength)))
+        .withHeader("Content-Type", equalTo("application/offset+octet-stream"))
         .willReturn(aResponse()
-            .withStatus(201)));
+            .withStatus(201)
+            .withHeader("Upload-Offset", Long.toString(expectedEncryptedLength))));
 
     remoteStorageManager.copy(
             URI.create(wireMock.url("/cdn" + sourceCdn + "/source/small")),
             expectedSource.length(),
-            new MediaEncryptionParameters(AES_KEY, HMAC_KEY, IV),
+            encryptionParameters,
             new MessageBackupUploadDescriptor(3, "test", Collections.emptyMap(), wireMock.url("/cdn3/dest")))
         .toCompletableFuture().join();
 
@@ -127,10 +134,15 @@ public class Cdn3RemoteStorageManagerTest {
   @Test
   public void copyLarge()
       throws InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException, InvalidKeyException {
-    wireMock.stubFor(post(urlEqualTo("/cdn3/dest"))
-        .willReturn(aResponse()
-            .withStatus(201)));
     final MediaEncryptionParameters params = new MediaEncryptionParameters(AES_KEY, HMAC_KEY, IV);
+    final long expectedEncryptedLength = params.outputSize(LARGE.length());
+    wireMock.stubFor(post(urlEqualTo("/cdn3/dest"))
+        .withHeader("Content-Length", equalTo(Long.toString(expectedEncryptedLength)))
+        .withHeader("Upload-Length", equalTo(Long.toString(expectedEncryptedLength)))
+        .withHeader("Content-Type", equalTo("application/offset+octet-stream"))
+        .willReturn(aResponse()
+            .withStatus(201)
+            .withHeader("Upload-Offset", Long.toString(expectedEncryptedLength))));
     remoteStorageManager.copy(
             URI.create(wireMock.url("/cdn3/source/large")),
             LARGE.length(),
