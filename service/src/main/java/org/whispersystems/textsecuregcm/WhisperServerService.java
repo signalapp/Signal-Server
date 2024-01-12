@@ -213,6 +213,7 @@ import org.whispersystems.textsecuregcm.util.ManagedAwsCrt;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.UsernameHashZkProofVerifier;
 import org.whispersystems.textsecuregcm.util.VirtualThreadPinEventMonitor;
+import org.whispersystems.textsecuregcm.util.VirtualExecutorServiceProvider;
 import org.whispersystems.textsecuregcm.util.logging.LoggingUnhandledExceptionMapper;
 import org.whispersystems.textsecuregcm.util.logging.UncaughtExceptionHandler;
 import org.whispersystems.textsecuregcm.websocket.AuthenticatedConnectListener;
@@ -740,6 +741,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             .setAuthenticator(accountAuthenticator)
             .buildAuthFilter();
 
+    environment.jersey().register(new VirtualExecutorServiceProvider("managed-async-virtual-thread-"));
     environment.jersey().register(new RequestStatisticsFilter(TrafficSource.HTTP));
     environment.jersey().register(MultiRecipientMessageProvider.class);
     environment.jersey().register(new MetricsApplicationEventListener(TrafficSource.HTTP, clientReleaseManager));
@@ -751,6 +753,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ///
     WebSocketEnvironment<AuthenticatedAccount> webSocketEnvironment = new WebSocketEnvironment<>(environment,
         config.getWebSocketConfiguration(), Duration.ofMillis(90000));
+    webSocketEnvironment.jersey().register(new VirtualExecutorServiceProvider("managed-async-websocket-virtual-thread-"));
     webSocketEnvironment.setAuthenticator(new WebSocketAccountAuthenticator(accountAuthenticator));
     webSocketEnvironment.setConnectListener(
         new AuthenticatedConnectListener(receiptSender, messagesManager, pushNotificationManager,
