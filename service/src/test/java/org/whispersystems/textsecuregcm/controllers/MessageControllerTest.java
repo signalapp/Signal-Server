@@ -994,11 +994,15 @@ class MessageControllerTest {
     bb.put((byte) 0);
   }
 
-  private static InputStream initializeMultiPayload(List<Recipient> recipients, byte[] buffer, final boolean explicitIdentifiers) {
-    return initializeMultiPayload(recipients, List.of(), buffer, explicitIdentifiers);
+  private static InputStream initializeMultiPayload(final List<Recipient> recipients, final byte[] buffer, final boolean explicitIdentifiers) {
+    return initializeMultiPayload(recipients, List.of(), buffer, explicitIdentifiers, 39);
   }
 
-  private static InputStream initializeMultiPayload(List<Recipient> recipients, List<ServiceIdentifier> excludedRecipients, byte[] buffer, final boolean explicitIdentifiers) {
+  private static InputStream initializeMultiPayload(final List<Recipient> recipients, final List<ServiceIdentifier> excludedRecipients, final byte[] buffer, final boolean explicitIdentifiers) {
+    return initializeMultiPayload(recipients, excludedRecipients, buffer, explicitIdentifiers, 39);
+  }
+
+  private static InputStream initializeMultiPayload(final List<Recipient> recipients, final List<ServiceIdentifier> excludedRecipients, final byte[] buffer, final boolean explicitIdentifiers, final int payloadSize) {
     // initialize a binary payload according to our wire format
     ByteBuffer bb = ByteBuffer.wrap(buffer);
     bb.order(ByteOrder.BIG_ENDIAN);
@@ -1007,21 +1011,26 @@ class MessageControllerTest {
     bb.put(explicitIdentifiers ? (byte) 0x23 : (byte) 0x22);  // version byte
 
     // count varint
-    int nRecip = recipients.size() + excludedRecipients.size();
-    while (nRecip > 127) {
-      bb.put((byte) (nRecip & 0x7F | 0x80));
-      nRecip = nRecip >> 7;
-    }
-    bb.put((byte)(nRecip & 0x7F));
+    writeVarint(bb, recipients.size() + excludedRecipients.size());
 
     recipients.forEach(recipient -> writeMultiPayloadRecipient(bb, recipient, explicitIdentifiers));
     excludedRecipients.forEach(recipient -> writeMultiPayloadExcludedRecipient(bb, recipient, explicitIdentifiers));
 
     // now write the actual message body (empty for now)
-    bb.put(new byte[39]);            // payload (variable but >= 32, 39 bytes here)
+    assert(payloadSize >= 32);
+    writeVarint(bb, payloadSize);
+    bb.put(new byte[payloadSize]);
 
     // return the input stream
     return new ByteArrayInputStream(buffer, 0, bb.position());
+  }
+
+  private static void writeVarint(ByteBuffer bb, long n) {
+    while (n >= 0x80) {
+      bb.put ((byte) (n & 0x7F | 0x80));
+      n = n >> 7;
+    }
+    bb.put((byte) (n & 0x7F));
   }
 
   @Test
@@ -1383,6 +1392,27 @@ class MessageControllerTest {
         .header(HttpHeaders.USER_AGENT, "cluck cluck, i'm a parrot")
         .header(HeaderUtils.UNIDENTIFIED_ACCESS_KEY, Base64.getEncoder().encodeToString(UNIDENTIFIED_ACCESS_BYTES))
         .put(Entity.entity(initializeMultiPayload(recipients, new byte[2048], useExplicitIdentifier), MultiRecipientMessageProvider.MEDIA_TYPE));
+
+    checkBadMultiRecipientResponse(response, 400);
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void testMultiRecipientSizeLimit() throws Exception {
+    final List<Recipient> recipients = List.of(
+        new Recipient(SINGLE_DEVICE_ACI_ID, SINGLE_DEVICE_ID1, SINGLE_DEVICE_REG_ID1, new byte[48]));
+
+    Response response = resources
+        .getJerseyTest()
+        .target("/v1/messages/multi_recipient")
+        .queryParam("online", true)
+        .queryParam("ts", 1663798405641L)
+        .queryParam("story", false)
+        .queryParam("urgent", false)
+        .request()
+        .header(HttpHeaders.USER_AGENT, "cluck cluck, i'm a parrot")
+        .header(HeaderUtils.UNIDENTIFIED_ACCESS_KEY, Base64.getEncoder().encodeToString(UNIDENTIFIED_ACCESS_BYTES))
+        .put(Entity.entity(initializeMultiPayload(recipients, List.of(), new byte[257<<10], true, 256<<10), MultiRecipientMessageProvider.MEDIA_TYPE));
 
     checkBadMultiRecipientResponse(response, 400);
   }

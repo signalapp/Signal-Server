@@ -45,7 +45,11 @@ public class MultiRecipientMessageProvider implements MessageBodyReader<SealedSe
     }
 
     try {
-      return SealedSenderMultiRecipientMessage.parse(fullMessage);
+      final SealedSenderMultiRecipientMessage message = SealedSenderMultiRecipientMessage.parse(fullMessage);
+      if (message.getRecipients().values().stream().anyMatch(r -> message.messageSizeForRecipient(r) > MAX_MESSAGE_SIZE)) {
+        throw new BadRequestException("message payload too large");
+      }
+      return message;
     } catch (InvalidMessageException | InvalidVersionException e) {
       throw new BadRequestException(e);
     }
