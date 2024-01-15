@@ -36,7 +36,7 @@ public class ExactlySizeFieldValidator extends BaseFieldValidator<Set<Integer>> 
     if (permittedSizes.contains(fieldValue.size())) {
       return;
     }
-    throw invalidArgument("byte arrray length is [%d] but expected to be one of %s".formatted(fieldValue.size(), permittedSizes));
+    throw invalidArgument("byte array length is [%d] but expected to be one of %s".formatted(fieldValue.size(), permittedSizes));
   }
 
   @Override

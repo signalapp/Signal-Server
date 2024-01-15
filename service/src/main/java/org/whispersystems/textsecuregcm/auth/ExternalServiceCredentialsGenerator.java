@@ -154,7 +154,7 @@ public class ExternalServiceCredentialsGenerator {
 
   /**
    * Given an instance of {@link ExternalServiceCredentials} object, checks that the password
-   * matches the username taking into accound this generator's configuration.
+   * matches the username taking into account this generator's configuration.
    * @param credentials an instance of {@link ExternalServiceCredentials}
    * @return An optional with a timestamp (seconds) of when the credentials were generated,
    *         or an empty optional if the password doesn't match the username for any reason (including malformed data)
