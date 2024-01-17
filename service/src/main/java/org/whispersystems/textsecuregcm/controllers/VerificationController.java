@@ -82,6 +82,7 @@ import org.whispersystems.textsecuregcm.registration.VerificationSession;
 import org.whispersystems.textsecuregcm.spam.Extract;
 import org.whispersystems.textsecuregcm.spam.FilterSpam;
 import org.whispersystems.textsecuregcm.spam.ScoreThreshold;
+import org.whispersystems.textsecuregcm.spam.SenderOverride;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
@@ -184,7 +185,7 @@ public class VerificationController {
     }
 
     VerificationSession verificationSession = new VerificationSession(null, new ArrayList<>(),
-        Collections.emptyList(), false,
+        Collections.emptyList(), null, null, false,
         clock.millis(), clock.millis(), registrationServiceSession.expiration());
 
     verificationSession = handlePushToken(pushTokenAndType, verificationSession);
@@ -207,7 +208,8 @@ public class VerificationController {
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
       @Context HttpServletRequest request,
       @NotNull @Valid final UpdateVerificationSessionRequest updateVerificationSessionRequest,
-      @NotNull @Extract final ScoreThreshold captchaScoreThreshold) {
+      @NotNull @Extract final ScoreThreshold scoreThreshold,
+      @NotNull @Extract final SenderOverride senderOverride) {
 
     final String sourceHost = useRemoteAddress
         ? request.getRemoteAddr()
@@ -221,13 +223,16 @@ public class VerificationController {
 
     try {
       // these handle* methods ordered from least likely to fail to most, so take care when considering a change
+
+      verificationSession = handleSenderOverrides(verificationSession, senderOverride);
+
       verificationSession = handlePushToken(pushTokenAndType, verificationSession);
 
       verificationSession = handlePushChallenge(updateVerificationSessionRequest, registrationServiceSession,
           verificationSession);
 
       verificationSession = handleCaptcha(sourceHost, updateVerificationSessionRequest, registrationServiceSession,
-          verificationSession, userAgent, captchaScoreThreshold.getScoreThreshold());
+          verificationSession, userAgent, scoreThreshold.getScoreThreshold());
     } catch (final RateLimitExceededException e) {
 
       final Response response = buildResponseForRateLimitExceeded(verificationSession, registrationServiceSession,
@@ -280,7 +285,8 @@ public class VerificationController {
         requestedInformation.addAll(verificationSession.requestedInformation());
 
         verificationSession = new VerificationSession(generatePushChallenge(), requestedInformation,
-            verificationSession.submittedInformation(), verificationSession.allowedToRequestCode(),
+            verificationSession.submittedInformation(), verificationSession.smsSenderOverride(),
+            verificationSession.voiceSenderOverride(), verificationSession.allowedToRequestCode(),
             verificationSession.createdTimestamp(), clock.millis(), verificationSession.remoteExpirationSeconds()
         );
       }
@@ -348,7 +354,8 @@ public class VerificationController {
           && requestedInformation.isEmpty();
 
       verificationSession = new VerificationSession(verificationSession.pushChallenge(), requestedInformation,
-          submittedInformation, allowedToRequestCode, verificationSession.createdTimestamp(), clock.millis(),
+          submittedInformation, verificationSession.smsSenderOverride(), verificationSession.voiceSenderOverride(),
+          allowedToRequestCode, verificationSession.createdTimestamp(), clock.millis(),
           verificationSession.remoteExpirationSeconds());
 
     } else if (pushChallengePresent) {
@@ -413,13 +420,39 @@ public class VerificationController {
           && requestedInformation.isEmpty();
 
       verificationSession = new VerificationSession(verificationSession.pushChallenge(), requestedInformation,
-          submittedInformation, allowedToRequestCode, verificationSession.createdTimestamp(), clock.millis(),
+          submittedInformation, verificationSession.smsSenderOverride(), verificationSession.voiceSenderOverride(),
+          allowedToRequestCode, verificationSession.createdTimestamp(), clock.millis(),
           verificationSession.remoteExpirationSeconds());
     } else {
       throw new ForbiddenException();
     }
 
     return verificationSession;
+  }
+
+  /**
+   * Update the verification session with explicit sender overrides if present. When the session is used to send
+   * verification codes, these overrides will be used.
+   *
+   * @param verificationSession the session to update
+   * @param senderOverride      configured sender overrides
+   * @return An updated {@link VerificationSession}
+   */
+  private VerificationSession handleSenderOverrides(
+      VerificationSession verificationSession,
+      SenderOverride senderOverride) {
+    return new VerificationSession(
+        verificationSession.pushChallenge(),
+        verificationSession.requestedInformation(),
+        verificationSession.submittedInformation(),
+        Optional.ofNullable(verificationSession.smsSenderOverride())
+            .or(senderOverride::getSmsSenderOverride).orElse(null),
+        Optional.ofNullable(verificationSession.voiceSenderOverride())
+            .or(senderOverride::getVoiceSenderOverride)
+            .orElse(null), verificationSession.allowedToRequestCode(),
+        verificationSession.createdTimestamp(),
+        clock.millis(),
+        verificationSession.remoteExpirationSeconds());
   }
 
   @GET
@@ -476,12 +509,19 @@ public class VerificationController {
       }
     };
 
+    final String senderOverride = switch (messageTransport) {
+      case SMS -> verificationSession.smsSenderOverride();
+      case VOICE -> verificationSession.voiceSenderOverride();
+    };
+
     final RegistrationServiceSession resultSession;
     try {
       resultSession = registrationServiceClient.sendVerificationCode(registrationServiceSession.id(),
           messageTransport,
           clientType,
-          acceptLanguage.orElse(null), REGISTRATION_RPC_TIMEOUT).join();
+          acceptLanguage.orElse(null),
+          senderOverride,
+          REGISTRATION_RPC_TIMEOUT).join();
     } catch (final CancellationException e) {
       throw new ServerErrorException("registration service unavailable", Response.Status.SERVICE_UNAVAILABLE);
     } catch (final CompletionException e) {

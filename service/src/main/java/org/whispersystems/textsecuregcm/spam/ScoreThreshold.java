@@ -12,10 +12,11 @@ import java.util.Optional;
 
 /**
  * A ScoreThreshold may be provided by an upstream request filter. If request contains a property for
- * SCORE_THRESHOLD_PROPERTY_NAME it can be forwarded to a downstream filter to indicate it can use
- * a more or less strict score threshold when evaluating whether a request should be allowed to continue.
+ * {@link #PROPERTY_NAME} it can be forwarded to a downstream filter to indicate it can use a more or less strict
+ * score threshold when evaluating whether a request should be allowed to continue.
  */
 public class ScoreThreshold {
+
   private static final Logger logger = LoggerFactory.getLogger(ScoreThreshold.class);
 
   public static final String PROPERTY_NAME = "scoreThreshold";

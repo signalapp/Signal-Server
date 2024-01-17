@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.registration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
 import org.whispersystems.textsecuregcm.storage.SerializedExpireableJsonDynamoStore;
@@ -20,6 +21,10 @@ import org.whispersystems.textsecuregcm.storage.SerializedExpireableJsonDynamoSt
  * @param pushChallenge           the value of a push challenge sent to a client, after it submitted a push token
  * @param requestedInformation    information requested that a client send to the server
  * @param submittedInformation    information that a client has submitted and that the server has verified
+ * @param smsSenderOverride       if present, indicates a sender override argument that should be forwarded to the
+ *                                Registration Service when requesting a code
+ * @param voiceSenderOverride     if present, indicates a sender override argument that should be forwarded to the
+ *                                Registration Service when requesting a code
  * @param allowedToRequestCode    whether the client is allowed to request a code. This request will be forwarded to
  *                                Registration Service
  * @param createdTimestamp        when this session was created
@@ -29,11 +34,16 @@ import org.whispersystems.textsecuregcm.storage.SerializedExpireableJsonDynamoSt
  * @see org.whispersystems.textsecuregcm.entities.RegistrationServiceSession
  * @see org.whispersystems.textsecuregcm.entities.VerificationSessionResponse
  */
-public record VerificationSession(@Nullable String pushChallenge,
-                                  List<Information> requestedInformation, List<Information> submittedInformation,
-                                  boolean allowedToRequestCode, long createdTimestamp, long updatedTimestamp,
-                                  long remoteExpirationSeconds) implements
-    SerializedExpireableJsonDynamoStore.Expireable {
+public record VerificationSession(
+    @Nullable String pushChallenge,
+    List<Information> requestedInformation,
+    List<Information> submittedInformation,
+    @Nullable String smsSenderOverride,
+    @Nullable String voiceSenderOverride,
+    boolean allowedToRequestCode,
+    long createdTimestamp,
+    long updatedTimestamp,
+    long remoteExpirationSeconds) implements SerializedExpireableJsonDynamoStore.Expireable {
 
   @Override
   public long getExpirationEpochSeconds() {

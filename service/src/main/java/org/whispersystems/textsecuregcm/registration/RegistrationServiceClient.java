@@ -114,6 +114,7 @@ public class RegistrationServiceClient implements Managed {
       final MessageTransport messageTransport,
       final ClientType clientType,
       @Nullable final String acceptLanguage,
+      @Nullable final String senderOverride,
       final Duration timeout) {
 
     final SendVerificationCodeRequest.Builder requestBuilder = SendVerificationCodeRequest.newBuilder()
@@ -123,6 +124,10 @@ public class RegistrationServiceClient implements Managed {
 
     if (StringUtils.isNotBlank(acceptLanguage)) {
       requestBuilder.setAcceptLanguage(acceptLanguage);
+    }
+
+    if (StringUtils.isNotBlank(senderOverride)) {
+      requestBuilder.setSenderName(senderOverride);
     }
 
     return toCompletableFuture(stub.withDeadline(toDeadline(timeout))

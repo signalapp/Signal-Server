@@ -1,7 +1,8 @@
 /*
- * Copyright 2023 Signal Messenger, LLC
+ * Copyright 2024 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
+
 package org.whispersystems.textsecuregcm.spam;
 
 import java.util.function.Function;
@@ -14,27 +15,26 @@ import org.glassfish.jersey.server.model.Parameter;
 import org.glassfish.jersey.server.spi.internal.ValueParamProvider;
 
 /**
- * Parses a {@link ScoreThreshold} out of a {@link ContainerRequest} to provide to jersey resources.
+ * Parses a {@link SenderOverride} out of a {@link ContainerRequest} to provide to jersey resources.
  * <p>
- * A request filter may enrich a ContainerRequest with a scoreThreshold by providing a float property with the name
- * {@link ScoreThreshold#PROPERTY_NAME}. This indicates the desired scoreThreshold to use when evaluating whether a
- * request should proceed.
+ * A request filter may enrich a ContainerRequest with senderOverrides by providing a string property names defined in
+ * {@link SenderOverride}. This indicates the desired senderOverride to use when sending verification codes.
  * <p>
- * A resource can consume a ScoreThreshold with by annotating a ScoreThreshold parameter with {@link Extract}
+ * A resource can consume a SenderOverride with by annotating a SenderOverride parameter with {@link Extract}
  */
-public class ScoreThresholdProvider implements ValueParamProvider {
+public class SenderOverrideProvider implements ValueParamProvider {
 
   /**
-   * Configures the ScoreThresholdProvider
+   * Configures the SenderOverrideProvider
    */
-  public static class ScoreThresholdFeature implements Feature {
+  public static class SenderOverrideFeature implements Feature {
 
     @Override
     public boolean configure(FeatureContext context) {
       context.register(new AbstractBinder() {
         @Override
         protected void configure() {
-          bind(ScoreThresholdProvider.class)
+          bind(SenderOverrideProvider.class)
               .to(ValueParamProvider.class)
               .in(Singleton.class);
         }
@@ -45,9 +45,9 @@ public class ScoreThresholdProvider implements ValueParamProvider {
 
   @Override
   public Function<ContainerRequest, ?> getValueProvider(final Parameter parameter) {
-    if (parameter.getRawType().equals(ScoreThreshold.class)
+    if (parameter.getRawType().equals(SenderOverride.class)
         && parameter.isAnnotationPresent(Extract.class)) {
-      return ScoreThreshold::new;
+      return SenderOverride::new;
     }
     return null;
 

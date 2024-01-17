@@ -43,6 +43,8 @@ import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.spam.PushChallengeConfigProvider;
 import org.whispersystems.textsecuregcm.spam.ScoreThreshold;
 import org.whispersystems.textsecuregcm.spam.ScoreThresholdProvider;
+import org.whispersystems.textsecuregcm.spam.SenderOverride;
+import org.whispersystems.textsecuregcm.spam.SenderOverrideProvider;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 

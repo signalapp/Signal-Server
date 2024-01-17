@@ -47,7 +47,7 @@ class VerificationSessionsTest {
     final Duration remoteExpiration = Duration.ofMinutes(2);
 
     final VerificationSession verificationSession = new VerificationSession(null,
-        List.of(VerificationSession.Information.PUSH_CHALLENGE), Collections.emptyList(), true,
+        List.of(VerificationSession.Information.PUSH_CHALLENGE), Collections.emptyList(), null, null, true,
         created.toEpochMilli(), updates.toEpochMilli(), remoteExpiration.toSeconds());
 
     assertEquals(updates.plus(remoteExpiration).getEpochSecond(), verificationSession.getExpirationEpochSeconds());
@@ -64,7 +64,7 @@ class VerificationSessionsTest {
       assertTrue(absentSession.isEmpty());
 
       final VerificationSession session = new VerificationSession(null,
-          List.of(VerificationSession.Information.PUSH_CHALLENGE), Collections.emptyList(), true,
+          List.of(VerificationSession.Information.PUSH_CHALLENGE), Collections.emptyList(), null, null, true,
           clock.millis(), clock.millis(), Duration.ofMinutes(1).toSeconds());
 
       verificationSessions.insert(sessionId, session).join();
@@ -79,7 +79,7 @@ class VerificationSessionsTest {
           "inserting with the same key should fail conditional checks");
 
       final VerificationSession updatedSession = new VerificationSession(null, Collections.emptyList(),
-          List.of(VerificationSession.Information.PUSH_CHALLENGE), true, clock.millis(), clock.millis(),
+          List.of(VerificationSession.Information.PUSH_CHALLENGE), null, null, true, clock.millis(), clock.millis(),
           Duration.ofMinutes(2).toSeconds());
       verificationSessions.update(sessionId, updatedSession).join();
 

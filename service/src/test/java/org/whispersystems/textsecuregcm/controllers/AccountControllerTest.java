@@ -79,6 +79,7 @@ import org.whispersystems.textsecuregcm.mappers.JsonMappingExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.NonNormalizedPhoneNumberExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.spam.ScoreThresholdProvider;
+import org.whispersystems.textsecuregcm.spam.SenderOverrideProvider;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
@@ -149,6 +150,7 @@ class AccountControllerTest {
       .addProvider(new NonNormalizedPhoneNumberExceptionMapper())
       .addProvider(new RateLimitByIpFilter(rateLimiters, true))
       .addProvider(ScoreThresholdProvider.ScoreThresholdFeature.class)
+      .addProvider(SenderOverrideProvider.SenderOverrideFeature.class)
       .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(new AccountController(

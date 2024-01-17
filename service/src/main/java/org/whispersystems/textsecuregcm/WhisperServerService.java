@@ -172,6 +172,7 @@ import org.whispersystems.textsecuregcm.spam.PushChallengeConfigProvider;
 import org.whispersystems.textsecuregcm.spam.RateLimitChallengeListener;
 import org.whispersystems.textsecuregcm.spam.ReportSpamTokenProvider;
 import org.whispersystems.textsecuregcm.spam.ScoreThresholdProvider;
+import org.whispersystems.textsecuregcm.spam.SenderOverrideProvider;
 import org.whispersystems.textsecuregcm.spam.SpamFilter;
 import org.whispersystems.textsecuregcm.storage.AccountLockManager;
 import org.whispersystems.textsecuregcm.storage.Accounts;
@@ -886,8 +887,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
       WebSocketEnvironment<AuthenticatedAccount> webSocketEnvironment,
       WebSocketEnvironment<AuthenticatedAccount> provisioningEnvironment) {
     List.of(
-        ScoreThresholdProvider.ScoreThresholdFeature.class,
-        PushChallengeConfigProvider.PushChallengeConfigFeature.class)
+            ScoreThresholdProvider.ScoreThresholdFeature.class,
+            SenderOverrideProvider.SenderOverrideFeature.class,
+            PushChallengeConfigProvider.PushChallengeConfigFeature.class)
     .forEach(feature -> {
           environment.jersey().register(feature);
           webSocketEnvironment.jersey().register(feature);
