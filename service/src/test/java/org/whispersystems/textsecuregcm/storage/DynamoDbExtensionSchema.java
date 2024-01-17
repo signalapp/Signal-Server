@@ -326,6 +326,21 @@ public final class DynamoDbExtensionSchema {
             .build()),
         List.of()),
 
+    CLIENT_PUBLIC_KEYS("client_public_keys_test",
+        ClientPublicKeys.KEY_ACCOUNT_UUID,
+        ClientPublicKeys.KEY_DEVICE_ID,
+        List.of(
+            AttributeDefinition.builder()
+                .attributeName(ClientPublicKeys.KEY_ACCOUNT_UUID)
+                .attributeType(ScalarAttributeType.B)
+                .build(),
+            AttributeDefinition.builder()
+                .attributeName(ClientPublicKeys.KEY_DEVICE_ID)
+                .attributeType(ScalarAttributeType.N)
+                .build()),
+        List.of(),
+        List.of()),
+
     USERNAMES("usernames_test",
         Accounts.ATTR_USERNAME_HASH,
         null,
