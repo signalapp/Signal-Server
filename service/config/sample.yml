@@ -123,6 +123,8 @@ dynamoDbTables:
     tableName: Example_ReportMessage
   subscriptions:
     tableName: Example_Subscriptions
+  clientPublicKeys:
+    tableName: Example_ClientPublicKeys
   verificationSessions:
     tableName: Example_VerificationSessions
 

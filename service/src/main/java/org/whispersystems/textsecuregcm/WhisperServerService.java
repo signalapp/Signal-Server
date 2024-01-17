@@ -181,6 +181,8 @@ import org.whispersystems.textsecuregcm.storage.AccountLockManager;
 import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
+import org.whispersystems.textsecuregcm.storage.ClientPublicKeys;
+import org.whispersystems.textsecuregcm.storage.ClientPublicKeysManager;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.ClientReleases;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
@@ -380,6 +382,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         dynamoDbClient,
         dynamoDbAsyncClient
     );
+    ClientPublicKeys clientPublicKeys =
+        new ClientPublicKeys(dynamoDbAsyncClient, config.getDynamoDbTables().getClientPublicKeys().getTableName());
 
     final VerificationSessions verificationSessions = new VerificationSessions(dynamoDbAsyncClient,
         config.getDynamoDbTables().getVerificationSessions().getTableName(), clock);
@@ -547,6 +551,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         messageDeletionAsyncExecutor);
     AccountLockManager accountLockManager = new AccountLockManager(dynamoDbClient,
         config.getDynamoDbTables().getDeletedAccountsLock().getTableName());
+    ClientPublicKeysManager clientPublicKeysManager = new ClientPublicKeysManager(clientPublicKeys);
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
         accountLockManager, keysManager, messagesManager, profilesManager,
         secureStorageClient, secureValueRecovery2Client,
