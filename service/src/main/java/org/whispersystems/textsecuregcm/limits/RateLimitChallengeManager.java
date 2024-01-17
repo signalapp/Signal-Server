@@ -11,11 +11,8 @@ import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-
 import org.whispersystems.textsecuregcm.captcha.Action;
 import org.whispersystems.textsecuregcm.captcha.CaptchaChecker;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
@@ -32,8 +29,7 @@ public class RateLimitChallengeManager {
   private final CaptchaChecker captchaChecker;
   private final RateLimiters rateLimiters;
 
-  private final List<RateLimitChallengeListener> rateLimitChallengeListeners =
-      Collections.synchronizedList(new ArrayList<>());
+  private final List<RateLimitChallengeListener> rateLimitChallengeListeners;
 
   private static final String RECAPTCHA_ATTEMPT_COUNTER_NAME = name(RateLimitChallengeManager.class, "recaptcha", "attempt");
   private static final String RESET_RATE_LIMIT_EXCEEDED_COUNTER_NAME = name(RateLimitChallengeManager.class, "resetRateLimitExceeded");
@@ -44,15 +40,13 @@ public class RateLimitChallengeManager {
   public RateLimitChallengeManager(
       final PushChallengeManager pushChallengeManager,
       final CaptchaChecker captchaChecker,
-      final RateLimiters rateLimiters) {
+      final RateLimiters rateLimiters,
+      final List<RateLimitChallengeListener> rateLimitChallengeListeners) {
 
     this.pushChallengeManager = pushChallengeManager;
     this.captchaChecker = captchaChecker;
     this.rateLimiters = rateLimiters;
-  }
-
-  public void addListener(final RateLimitChallengeListener rateLimitChallengeListener) {
-    rateLimitChallengeListeners.add(rateLimitChallengeListener);
+    this.rateLimitChallengeListeners = rateLimitChallengeListeners;
   }
 
   public void answerPushChallenge(final Account account, final String challenge) throws RateLimitExceededException {

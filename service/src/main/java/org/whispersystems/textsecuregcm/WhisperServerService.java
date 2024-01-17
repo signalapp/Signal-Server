@@ -29,6 +29,7 @@ import io.micrometer.core.instrument.binder.jvm.ExecutorServiceMetrics;
 import java.net.http.HttpClient;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
@@ -603,8 +604,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     PushChallengeManager pushChallengeManager = new PushChallengeManager(pushNotificationManager,
         pushChallengeDynamoDb);
-    RateLimitChallengeManager rateLimitChallengeManager = new RateLimitChallengeManager(pushChallengeManager,
-        captchaChecker, rateLimiters);
 
     ChangeNumberManager changeNumberManager = new ChangeNumberManager(messageSender, accountsManager);
 
@@ -740,6 +739,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     boolean registeredSpamFilter = false;
     ReportSpamTokenProvider reportSpamTokenProvider = null;
 
+    List<RateLimitChallengeListener> rateLimitChallengeListeners = new ArrayList<>();
     for (final SpamFilter filter : ServiceLoader.load(SpamFilter.class)) {
       if (filter.getClass().isAnnotationPresent(FilterSpam.class)) {
         try {
@@ -770,9 +770,12 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
       if (filter instanceof RateLimitChallengeListener) {
         log.info("Registered rate limit challenge listener: {}", filter.getClass().getName());
-        rateLimitChallengeManager.addListener((RateLimitChallengeListener) filter);
+        rateLimitChallengeListeners.add((RateLimitChallengeListener) filter);
       }
     }
+    RateLimitChallengeManager rateLimitChallengeManager = new RateLimitChallengeManager(pushChallengeManager,
+        captchaChecker, rateLimiters, rateLimitChallengeListeners);
+
 
     if (!registeredSpamFilter) {
       log.warn("No spam filters installed");

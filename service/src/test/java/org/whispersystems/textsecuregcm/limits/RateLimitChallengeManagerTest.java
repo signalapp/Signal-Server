@@ -13,6 +13,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -51,9 +52,8 @@ class RateLimitChallengeManagerTest {
     rateLimitChallengeManager = new RateLimitChallengeManager(
         pushChallengeManager,
         captchaChecker,
-        rateLimiters);
-
-    rateLimitChallengeManager.addListener(rateLimitChallengeListener);
+        rateLimiters,
+        List.of(rateLimitChallengeListener));
   }
 
   @ParameterizedTest
