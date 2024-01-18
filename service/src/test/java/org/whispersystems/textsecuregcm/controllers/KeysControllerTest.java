@@ -28,7 +28,6 @@ import io.dropwizard.testing.junit5.ResourceExtension;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.UUID;
@@ -110,6 +109,7 @@ class KeysControllerTest {
   private final KEMSignedPreKey SAMPLE_PQ_KEY = KeysHelper.signedKEMPreKey(2424, Curve.generateKeyPair());
   private final KEMSignedPreKey SAMPLE_PQ_KEY2 = KeysHelper.signedKEMPreKey(6868, Curve.generateKeyPair());
   private final KEMSignedPreKey SAMPLE_PQ_KEY3 = KeysHelper.signedKEMPreKey(1313, Curve.generateKeyPair());
+  private final KEMSignedPreKey SAMPLE_PQ_KEY4 = KeysHelper.signedKEMPreKey(7676, Curve.generateKeyPair());
 
   private final KEMSignedPreKey SAMPLE_PQ_KEY_PNI = KeysHelper.signedKEMPreKey(8888, Curve.generateKeyPair());
 
@@ -349,11 +349,12 @@ class KeysControllerTest {
     assertThat(result.getIdentityKey()).isEqualTo(existsAccount.getIdentityKey(IdentityType.ACI));
     assertThat(result.getDevicesCount()).isEqualTo(1);
     assertEquals(SAMPLE_KEY, result.getDevice(SAMPLE_DEVICE_ID).getPreKey());
-    assertThat(result.getDevice(SAMPLE_DEVICE_ID).getPqPreKey()).isNull();
+    assertThat(result.getDevice(SAMPLE_DEVICE_ID).getPqPreKey()).isEqualTo(SAMPLE_PQ_KEY);
     assertThat(result.getDevice(SAMPLE_DEVICE_ID).getRegistrationId()).isEqualTo(SAMPLE_REGISTRATION_ID);
     assertEquals(SAMPLE_SIGNED_KEY, result.getDevice(SAMPLE_DEVICE_ID).getSignedPreKey());
 
     verify(KEYS).takeEC(EXISTS_UUID, SAMPLE_DEVICE_ID);
+    verify(KEYS).takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID);
     verify(KEYS).getEcSignedPreKey(EXISTS_UUID, SAMPLE_DEVICE_ID);
     verifyNoMoreInteractions(KEYS);
   }
@@ -415,11 +416,12 @@ class KeysControllerTest {
     assertThat(result.getIdentityKey()).isEqualTo(existsAccount.getIdentityKey(IdentityType.PNI));
     assertThat(result.getDevicesCount()).isEqualTo(1);
     assertEquals(SAMPLE_KEY_PNI, result.getDevice(SAMPLE_DEVICE_ID).getPreKey());
-    assertThat(result.getDevice(SAMPLE_DEVICE_ID).getPqPreKey()).isNull();
+    assertThat(result.getDevice(SAMPLE_DEVICE_ID).getPqPreKey()).isEqualTo(SAMPLE_PQ_KEY_PNI);
     assertThat(result.getDevice(SAMPLE_DEVICE_ID).getRegistrationId()).isEqualTo(SAMPLE_PNI_REGISTRATION_ID);
     assertEquals(SAMPLE_SIGNED_PNI_KEY, result.getDevice(SAMPLE_DEVICE_ID).getSignedPreKey());
 
     verify(KEYS).takeEC(EXISTS_PNI, SAMPLE_DEVICE_ID);
+    verify(KEYS).takePQ(EXISTS_PNI, SAMPLE_DEVICE_ID);
     verify(KEYS).getEcSignedPreKey(EXISTS_PNI, SAMPLE_DEVICE_ID);
     verifyNoMoreInteractions(KEYS);
   }
@@ -459,11 +461,12 @@ class KeysControllerTest {
     assertThat(result.getIdentityKey()).isEqualTo(existsAccount.getIdentityKey(IdentityType.PNI));
     assertThat(result.getDevicesCount()).isEqualTo(1);
     assertEquals(SAMPLE_KEY_PNI, result.getDevice(SAMPLE_DEVICE_ID).getPreKey());
-    assertThat(result.getDevice(SAMPLE_DEVICE_ID).getPqPreKey()).isNull();
+    assertThat(result.getDevice(SAMPLE_DEVICE_ID).getPqPreKey()).isEqualTo(SAMPLE_PQ_KEY_PNI);
     assertThat(result.getDevice(SAMPLE_DEVICE_ID).getRegistrationId()).isEqualTo(SAMPLE_REGISTRATION_ID);
     assertEquals(SAMPLE_SIGNED_PNI_KEY, result.getDevice(SAMPLE_DEVICE_ID).getSignedPreKey());
 
     verify(KEYS).takeEC(EXISTS_PNI, SAMPLE_DEVICE_ID);
+    verify(KEYS).takePQ(EXISTS_PNI, SAMPLE_DEVICE_ID);
     verify(KEYS).getEcSignedPreKey(EXISTS_PNI, SAMPLE_DEVICE_ID);
     verifyNoMoreInteractions(KEYS);
   }
@@ -555,6 +558,15 @@ class KeysControllerTest {
     when(KEYS.takeEC(EXISTS_UUID, SAMPLE_DEVICE_ID4)).thenReturn(
         CompletableFuture.completedFuture(Optional.of(SAMPLE_KEY4)));
 
+    when(KEYS.takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID)).thenReturn(
+        CompletableFuture.completedFuture(Optional.of(SAMPLE_PQ_KEY)));
+    when(KEYS.takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID2)).thenReturn(
+        CompletableFuture.completedFuture(Optional.of(SAMPLE_PQ_KEY2)));
+    when(KEYS.takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID3)).thenReturn(
+        CompletableFuture.completedFuture(Optional.of(SAMPLE_PQ_KEY3)));
+    when(KEYS.takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID4)).thenReturn(
+        CompletableFuture.completedFuture(Optional.of(SAMPLE_PQ_KEY4)));
+
     PreKeyResponse results = resources.getJerseyTest()
         .target(String.format("/v2/keys/%s/*", EXISTS_UUID))
         .request()
@@ -597,6 +609,9 @@ class KeysControllerTest {
     verify(KEYS).takeEC(EXISTS_UUID, SAMPLE_DEVICE_ID);
     verify(KEYS).takeEC(EXISTS_UUID, SAMPLE_DEVICE_ID2);
     verify(KEYS).takeEC(EXISTS_UUID, SAMPLE_DEVICE_ID4);
+    verify(KEYS).takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID);
+    verify(KEYS).takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID2);
+    verify(KEYS).takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID4);
     verify(KEYS).getEcSignedPreKey(EXISTS_UUID, SAMPLE_DEVICE_ID);
     verify(KEYS).getEcSignedPreKey(EXISTS_UUID, SAMPLE_DEVICE_ID2);
     verify(KEYS).getEcSignedPreKey(EXISTS_UUID, SAMPLE_DEVICE_ID4);

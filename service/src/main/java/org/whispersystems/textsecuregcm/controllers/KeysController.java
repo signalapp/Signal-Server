@@ -17,7 +17,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -186,10 +185,6 @@ public class KeysController {
       @Parameter(description="the device id of a single device to retrieve prekeys for, or `*` for all enabled devices")
       @PathParam("device_id") String deviceId,
 
-      @Parameter(allowEmptyValue=true, description="whether to retrieve post-quantum prekeys")
-      @Schema(defaultValue="false")
-      @QueryParam("pq") boolean returnPqKey,
-
       @HeaderParam(HttpHeaders.USER_AGENT) String userAgent)
       throws RateLimitExceededException {
 
@@ -229,9 +224,8 @@ public class KeysController {
           final CompletableFuture<Optional<ECSignedPreKey>> signedEcPreKeyFuture =
               keysManager.getEcSignedPreKey(targetIdentifier.uuid(), device.getId());
 
-          final CompletableFuture<Optional<KEMSignedPreKey>> pqPreKeyFuture = returnPqKey
-              ? keysManager.takePQ(targetIdentifier.uuid(), device.getId())
-              : CompletableFuture.completedFuture(Optional.empty());
+          final CompletableFuture<Optional<KEMSignedPreKey>> pqPreKeyFuture =
+              keysManager.takePQ(targetIdentifier.uuid(), device.getId());
 
           return CompletableFuture.allOf(unsignedEcPreKeyFuture, signedEcPreKeyFuture, pqPreKeyFuture)
               .thenAccept(ignored -> {
