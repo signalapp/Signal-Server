@@ -231,8 +231,6 @@ import org.whispersystems.websocket.setup.WebSocketEnvironment;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.AwsCredentialsProviderChain;
-import software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.WebIdentityTokenFileCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
@@ -248,9 +246,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
   public static final String SECRETS_BUNDLE_FILE_NAME_PROPERTY = "secrets.bundle.filename";
 
   public static final software.amazon.awssdk.auth.credentials.AwsCredentialsProvider AWSSDK_CREDENTIALS_PROVIDER =
-      AwsCredentialsProviderChain.of(
-          InstanceProfileCredentialsProvider.create(),
-          WebIdentityTokenFileCredentialsProvider.create());
+      WebIdentityTokenFileCredentialsProvider.create();
 
   @Override
   public void initialize(final Bootstrap<WhisperServerConfiguration> bootstrap) {
