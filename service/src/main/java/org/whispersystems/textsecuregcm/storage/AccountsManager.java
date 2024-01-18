@@ -433,6 +433,7 @@ public class AccountsManager {
       final Map<Byte, ECSignedPreKey> pniSignedPreKeys,
       @Nullable final Map<Byte, KEMSignedPreKey> pniPqLastResortPreKeys,
       final Map<Byte, Integer> pniRegistrationIds) throws MismatchedDevicesException {
+
     validateDevices(account, pniSignedPreKeys, pniPqLastResortPreKeys, pniRegistrationIds);
 
     final UUID aci = account.getIdentifier(IdentityType.ACI);
@@ -841,22 +842,6 @@ public class AccountsManager {
       // assume that all updaters passed to the public method actually modify the device
       return true;
     });
-  }
-
-  public CompletionStage<Account> updateDeviceTransactionallyAsync(final Account account,
-      final byte deviceId,
-      final Consumer<Device> deviceUpdater,
-      final Function<Device, Collection<TransactWriteItem>> additionalWriteItemProvider) {
-
-    final UUID uuid = account.getUuid();
-
-    return redisDeleteAsync(account).thenCompose(ignored -> updateTransactionallyWithRetriesAsync(account,
-        a -> a.getDevice(deviceId).ifPresent(deviceUpdater),
-        accounts::updateTransactionallyAsync,
-        () -> accounts.getByAccountIdentifierAsync(uuid).thenApply(Optional::orElseThrow),
-        a -> additionalWriteItemProvider.apply(a.getDevice(deviceId).orElseThrow()),
-        AccountChangeValidator.GENERAL_CHANGE_VALIDATOR,
-        MAX_UPDATE_ATTEMPTS));
   }
 
   public Optional<Account> getByE164(final String number) {

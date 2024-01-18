@@ -225,16 +225,6 @@ class KeysControllerTest {
     when(accounts.getByServiceIdentifier(new AciServiceIdentifier(EXISTS_UUID))).thenReturn(Optional.of(existsAccount));
     when(accounts.getByServiceIdentifier(new PniServiceIdentifier(EXISTS_PNI))).thenReturn(Optional.of(existsAccount));
 
-    when(accounts.updateDeviceTransactionallyAsync(any(), anyByte(), any(), any())).thenAnswer(invocation -> {
-      final Account account = invocation.getArgument(0);
-      final byte deviceId = invocation.getArgument(1);
-      final Consumer<Device> deviceUpdater = invocation.getArgument(2);
-
-      deviceUpdater.accept(account.getDevice(deviceId).orElseThrow());
-
-      return CompletableFuture.completedFuture(account);
-    });
-
     when(rateLimiters.getPreKeysLimiter()).thenReturn(rateLimiter);
 
     when(KEYS.storeEcOneTimePreKeys(any(), anyByte(), any()))
