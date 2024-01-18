@@ -13,6 +13,8 @@ import io.dropwizard.auth.AuthFilter;
 import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.auth.basic.BasicCredentialAuthFilter;
 import io.dropwizard.auth.basic.BasicCredentials;
+import io.dropwizard.configuration.EnvironmentVariableSubstitutor;
+import io.dropwizard.configuration.SubstitutingSourceProvider;
 import io.dropwizard.core.Application;
 import io.dropwizard.core.server.DefaultServerFactory;
 import io.dropwizard.core.setup.Bootstrap;
@@ -259,6 +261,13 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     // Initializing SystemMapper here because parsing of the main application config happens before `run()` method is called.
     SystemMapper.configureMapper(bootstrap.getObjectMapper());
+
+    // Enable variable substitution with environment variables
+    // https://www.dropwizard.io/en/stable/manual/core.html#environment-variables
+    final EnvironmentVariableSubstitutor substitutor = new EnvironmentVariableSubstitutor(true);
+    final SubstitutingSourceProvider provider =
+        new SubstitutingSourceProvider(bootstrap.getConfigurationSourceProvider(), substitutor);
+    bootstrap.setConfigurationSourceProvider(provider);
 
     bootstrap.addCommand(new DeleteUserCommand());
     bootstrap.addCommand(new CertificateCommand());
