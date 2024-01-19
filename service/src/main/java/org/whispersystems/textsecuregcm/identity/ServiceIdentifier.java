@@ -18,7 +18,7 @@ import org.signal.libsignal.protocol.ServiceId;
     description = "A service identifier is a tuple of a UUID and identity type that identifies an account and identity within the Signal service.",
     subTypes = {AciServiceIdentifier.class, PniServiceIdentifier.class}
 )
-public interface ServiceIdentifier {
+public sealed interface ServiceIdentifier permits AciServiceIdentifier, PniServiceIdentifier {
 
   /**
    * Returns the identity type of this account identifier.
