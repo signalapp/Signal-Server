@@ -119,7 +119,9 @@ class MessageMetricsTest {
   }
 
   private Optional<Counter> findCounter(SimpleMeterRegistry meterRegistry) {
-    final Optional<Meter> maybeMeter = meterRegistry.getMeters().stream().findFirst();
+    final Optional<Meter> maybeMeter = meterRegistry.getMeters().stream()
+        .filter(meter -> meter.getId().getName().contains(MessageMetrics.MISMATCHED_ACCOUNT_ENVELOPE_UUID_COUNTER_NAME))
+        .findFirst();
     return maybeMeter.map(meter -> meter instanceof Counter ? (Counter) meter : null);
   }
 }

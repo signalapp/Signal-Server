@@ -26,7 +26,7 @@ public final class MessageMetrics {
 
   private static final Logger logger = LoggerFactory.getLogger(MessageMetrics.class);
 
-  private static final String MISMATCHED_ACCOUNT_ENVELOPE_UUID_COUNTER_NAME = name(MessageMetrics.class,
+  static final String MISMATCHED_ACCOUNT_ENVELOPE_UUID_COUNTER_NAME = name(MessageMetrics.class,
       "mismatchedAccountEnvelopeUuid");
 
   public static final String DELIVERY_LATENCY_TIMER_NAME = name(MessageMetrics.class, "deliveryLatency");
