@@ -20,7 +20,6 @@ import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.WhisperServerVersion;
 import org.whispersystems.textsecuregcm.push.PushLatencyManager;
 import org.whispersystems.textsecuregcm.util.Constants;
-import org.whispersystems.textsecuregcm.util.HostnameUtil;
 
 public class MetricsUtil {
 
@@ -52,7 +51,6 @@ public class MetricsUtil {
       dogstatsdMeterRegistry.config().commonTags(
           Tags.of(
               "service", "chat",
-              "host", HostnameUtil.getLocalHostname(),
               "version", WhisperServerVersion.getServerVersion(),
               "env", config.getDatadogConfiguration().getEnvironment()));
 
