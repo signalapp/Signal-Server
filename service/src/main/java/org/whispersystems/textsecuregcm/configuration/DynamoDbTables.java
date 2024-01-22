@@ -72,7 +72,6 @@ public class DynamoDbTables {
   public DynamoDbTables(
       @JsonProperty("accounts") final AccountsTableConfiguration accounts,
       @JsonProperty("backups") final Table backups,
-      @JsonProperty("backupMedia") final Table backupMedia,
       @JsonProperty("clientReleases") final Table clientReleases,
       @JsonProperty("deletedAccounts") final Table deletedAccounts,
       @JsonProperty("deletedAccountsLock") final Table deletedAccountsLock,

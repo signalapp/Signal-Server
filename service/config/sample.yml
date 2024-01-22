@@ -81,8 +81,6 @@ dynamoDbTables:
     usernamesTableName: Example_Accounts_Usernames
   backups:
     tableName: Example_Backups
-  backupMedia:
-    tableName: Example_BackupMedia
   clientReleases:
     tableName: Example_ClientReleases
   deletedAccounts:
