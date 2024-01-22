@@ -280,6 +280,7 @@ cdn3StorageManager:
 
 dogstatsd:
   environment: dev
+  host: 127.0.0.1
 
 unidentifiedDelivery:
   certificate: secret://unidentifiedDelivery.certificate
