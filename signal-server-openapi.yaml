@@ -1520,13 +1520,6 @@ paths:
         required: true
         schema:
           type: string
-      - name: pq
-        in: query
-        description: whether to retrieve post-quantum prekeys
-        allowEmptyValue: true
-        schema:
-          type: boolean
-          default: false
       - name: User-Agent
         in: header
         schema:
