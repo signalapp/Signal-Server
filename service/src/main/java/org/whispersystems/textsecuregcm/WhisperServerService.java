@@ -436,6 +436,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .scheduledExecutorService(name(getClass(), "hCaptchaRetry-%d")).threads(1).build();
     ScheduledExecutorService remoteStorageExecutor = environment.lifecycle()
         .scheduledExecutorService(name(getClass(), "remoteStorageRetry-%d")).threads(1).build();
+    ScheduledExecutorService registrationIdentityTokenRefreshExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(getClass(), "registrationIdentityTokenRefresh-%d")).threads(1).build();
 
     Scheduler messageDeliveryScheduler = Schedulers.fromExecutorService(
         ExecutorServiceMetrics.monitor(Metrics.globalRegistry,
@@ -523,7 +525,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             : config.getRegistrationServiceConfiguration().credentialConfigurationJson(),
         config.getRegistrationServiceConfiguration().identityTokenAudience(),
         config.getRegistrationServiceConfiguration().registrationCaCertificate(),
-        registrationCallbackExecutor);
+        registrationCallbackExecutor,
+        registrationIdentityTokenRefreshExecutor);
     SecureValueRecovery2Client secureValueRecovery2Client = new SecureValueRecovery2Client(svr2CredentialsGenerator,
         secureValueRecoveryServiceExecutor, secureValueRecoveryServiceRetryExecutor, config.getSvr2Configuration());
     SecureStorageClient secureStorageClient = new SecureStorageClient(storageCredentialsGenerator,
