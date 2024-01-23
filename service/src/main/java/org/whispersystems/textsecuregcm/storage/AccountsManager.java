@@ -549,6 +549,17 @@ public class AccountsManager {
       return CompletableFuture.failedFuture(new UsernameHashNotAvailableException());
     }
 
+    if (account.getUsernameHash().filter(
+            oldHash -> requestedUsernameHashes.stream().anyMatch(hash -> Arrays.equals(oldHash, hash)))
+        .isPresent()) {
+      // if we are trying to reserve our already-confirmed username hash, we don't need to do
+      // anything, and can give the client a success response (they may try to confirm it again,
+      // but that's a no-op other than rotaing their username link which they may need to do
+      // anyway). note this is *not* the case for reserving our already-reserved username hash,
+      // which should extend the reservation's TTL.
+      return CompletableFuture.completedFuture(new UsernameReservation(account, account.getUsernameHash().get()));
+    }
+
     final AtomicReference<byte[]> reservedUsernameHash = new AtomicReference<>();
 
     return redisDeleteAsync(account)
