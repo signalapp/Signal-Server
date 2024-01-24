@@ -143,6 +143,8 @@ public class MessageController {
 
   private static final Logger logger = LoggerFactory.getLogger(MessageController.class);
 
+  public static final String DESTINATION_ACCOUNT_PROPERTY_NAME = "destinationAccount";
+
   private final RateLimiters rateLimiters;
   private final CardinalityEstimator messageByteLimitEstimator;
   private final MessageSender messageSender;
@@ -284,12 +286,13 @@ public class MessageController {
       }
 
       Optional<Account> destination;
-
       if (!isSyncMessage) {
         destination = accountsManager.getByServiceIdentifier(destinationIdentifier);
       } else {
         destination = source.map(AuthenticatedAccount::getAccount);
       }
+
+      destination.ifPresent(account -> context.setProperty(DESTINATION_ACCOUNT_PROPERTY_NAME, account));
 
       // Stories will be checked by the client; we bypass access checks here for stories.
       if (!isStory) {
