@@ -452,8 +452,5 @@ registrationService:
 turn:
   secret: secret://turn.secret
 
-commandStopListener:
-  path: /example/path
-
 linkDevice:
   secret: secret://linkDevice.secret

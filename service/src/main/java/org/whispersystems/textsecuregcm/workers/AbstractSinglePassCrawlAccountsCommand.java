@@ -70,8 +70,6 @@ public abstract class AbstractSinglePassCrawlAccountsCommand extends Environment
 
     final int segments = Objects.requireNonNull(namespace.getInt(SEGMENT_COUNT));
 
-    environment.lifecycle().manage(new CommandStopListener(configuration.getCommandStopListener()));
-
     logger.info("Crawling accounts with {} segments and {} processors",
         segments,
         Runtime.getRuntime().availableProcessors());

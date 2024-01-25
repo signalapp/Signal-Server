@@ -26,7 +26,6 @@ import org.whispersystems.textsecuregcm.configuration.Cdn3StorageManagerConfigur
 import org.whispersystems.textsecuregcm.configuration.CdnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ClientCdnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ClientReleaseConfiguration;
-import org.whispersystems.textsecuregcm.configuration.CommandStopListenerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DirectoryV2Configuration;
 import org.whispersystems.textsecuregcm.configuration.DogstatsdConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DynamoDbClientConfiguration;
@@ -315,11 +314,6 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @NotNull
   @JsonProperty
-  private CommandStopListenerConfiguration commandStopListener;
-
-  @Valid
-  @NotNull
-  @JsonProperty
   private LinkDeviceSecretConfiguration linkDevice;
 
   public TlsKeyStoreConfiguration getTlsKeyStoreConfiguration() {
@@ -528,10 +522,6 @@ public class WhisperServerConfiguration extends Configuration {
 
   public MessageByteLimitCardinalityEstimatorConfiguration getMessageByteLimitCardinalityEstimator() {
     return messageByteLimitCardinalityEstimator;
-  }
-
-  public CommandStopListenerConfiguration getCommandStopListener() {
-    return commandStopListener;
   }
 
   public LinkDeviceSecretConfiguration getLinkDeviceSecretConfiguration() {
