@@ -2518,11 +2518,6 @@ paths:
       tags:
       - Subscriptions
       operationId: getConfiguration
-      parameters:
-      - name: User-Agent
-        in: header
-        schema:
-          type: string
       responses:
         default:
           description: default response
@@ -3867,10 +3862,10 @@ components:
     WebSocketClient:
       type: object
       properties:
-        open:
-          type: boolean
         userAgent:
           type: string
+        open:
+          type: boolean
         createdTimestamp:
           type: integer
           format: int64
