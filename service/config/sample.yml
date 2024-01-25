@@ -421,10 +421,6 @@ registrationService:
     {
       "example": "example"
     }
-  secondaryCredentialConfigurationJson: |
-    {
-      "example": "example"
-    }
   identityTokenAudience: https://registration.example.com
   registrationCaCertificate: | # Registration service TLS certificate trust root
     -----BEGIN CERTIFICATE-----

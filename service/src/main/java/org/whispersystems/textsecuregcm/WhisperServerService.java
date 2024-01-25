@@ -46,7 +46,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 import javax.servlet.DispatcherType;
 import javax.servlet.FilterRegistration;
 import javax.servlet.ServletRegistration;
-import org.apache.commons.lang3.StringUtils;
 import org.eclipse.jetty.servlets.CrossOriginFilter;
 import org.eclipse.jetty.websocket.server.config.JettyWebSocketServletContainerInitializer;
 import org.glassfish.jersey.server.ServerProperties;
@@ -518,15 +517,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         registrationRecoveryPasswords);
     UsernameHashZkProofVerifier usernameHashZkProofVerifier = new UsernameHashZkProofVerifier();
 
-    final boolean useSecondaryCredentialConfiguration = StringUtils.isNotBlank(
-        System.getenv("SIGNAL_USE_SECONDARY_CREDENTIAL_CONFIGURATION"));
-
     RegistrationServiceClient registrationServiceClient = new RegistrationServiceClient(
         config.getRegistrationServiceConfiguration().host(),
         config.getRegistrationServiceConfiguration().port(),
-        useSecondaryCredentialConfiguration ? config.getRegistrationServiceConfiguration()
-            .secondaryCredentialConfigurationJson()
-            : config.getRegistrationServiceConfiguration().credentialConfigurationJson(),
+        config.getRegistrationServiceConfiguration().credentialConfigurationJson(),
         config.getRegistrationServiceConfiguration().identityTokenAudience(),
         config.getRegistrationServiceConfiguration().registrationCaCertificate(),
         registrationCallbackExecutor,
