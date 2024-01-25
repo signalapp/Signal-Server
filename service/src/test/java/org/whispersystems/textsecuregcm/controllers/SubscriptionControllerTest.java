@@ -43,7 +43,6 @@ import java.util.function.Predicate;
 import java.util.stream.Stream;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.Response;
-import org.apache.http.HttpHeaders;
 import org.assertj.core.api.InstanceOfAssertFactories;
 import org.glassfish.jersey.server.ServerProperties;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
@@ -775,9 +774,8 @@ class SubscriptionControllerTest {
     assertThat(response.getStatus()).isEqualTo(400);
   }
 
-  @ParameterizedTest
-  @MethodSource
-  void getSubscriptionConfiguration(final String userAgent, final boolean expectNonCardPaymentMethods) {
+  @Test
+  void getSubscriptionConfiguration() {
     when(BADGE_TRANSLATOR.translate(any(), eq("B1"))).thenReturn(new Badge("B1", "cat1", "name1", "desc1",
         List.of("l", "m", "h", "x", "xx", "xxx"), "SVG",
         List.of(new BadgeSvg("sl", "sd"), new BadgeSvg("ml", "md"), new BadgeSvg("ll", "ld"))));
@@ -799,7 +797,6 @@ class SubscriptionControllerTest {
 
     GetSubscriptionConfigurationResponse response = RESOURCE_EXTENSION.target("/v1/subscription/configuration")
         .request()
-        .header(HttpHeaders.USER_AGENT, userAgent)
         .get(GetSubscriptionConfigurationResponse.class);
 
     assertThat(response.sepaMaximumEuros()).isEqualTo("10000");
@@ -856,7 +853,7 @@ class SubscriptionControllerTest {
                 List.of(BigDecimal.valueOf(5))));
         assertThat(currency.subscription()).isEqualTo(
             Map.of("5", BigDecimal.valueOf(5), "15", BigDecimal.valueOf(15),"35", BigDecimal.valueOf(35)));
-        final List<String> expectedPaymentMethods = expectNonCardPaymentMethods ? List.of("CARD", "SEPA_DEBIT", "IDEAL") : List.of("CARD");
+        final List<String> expectedPaymentMethods = List.of("CARD", "SEPA_DEBIT", "IDEAL");
         assertThat(currency.supportedPaymentMethods()).isEqualTo(expectedPaymentMethods);
       });
     });
@@ -907,7 +904,6 @@ class SubscriptionControllerTest {
     // subscription levels are Badge, while one-time levels are PurchasableBadge, which adds `duration`
     Map<String, Object> genericResponse = RESOURCE_EXTENSION.target("/v1/subscription/configuration")
         .request()
-        .header(HttpHeaders.USER_AGENT, userAgent)
         .get(Map.class);
 
     assertThat(genericResponse.get("levels")).satisfies(levels -> {
@@ -928,19 +924,6 @@ class SubscriptionControllerTest {
                 });
           });
     });
-  }
-
-  private static Stream<Arguments> getSubscriptionConfiguration() {
-    return Stream.of(
-        Arguments.of("Signal-iOS/6.44.0.8", false),
-        Arguments.of("Signal-iOS/6.45.0.0", true),
-        Arguments.of("Signal-iOS/6.45.0.2", true),
-        Arguments.of("Signal-iOS/6.46.0.0", true),
-        Arguments.of("Signal-Android/1.2.3", true),
-        Arguments.of(null, true),
-        Arguments.of("", true),
-        Arguments.of("definitely not a parseable user agent", true)
-    );
   }
 
   /**
