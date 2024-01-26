@@ -3152,9 +3152,9 @@ components:
             format: int32
           description: "the new phone-number-identity registration ID for each enabled\
             \ device on the account, including this one"
-        signatureValidOnEachSignedPreKey:
-          type: boolean
         eachPniRegistrationIdValid:
+          type: boolean
+        signatureValidOnEachSignedPreKey:
           type: boolean
         valid:
           type: boolean
