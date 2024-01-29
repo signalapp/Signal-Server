@@ -472,3 +472,11 @@ callingTurnManualTable:
 noiseTunnel:
   port: 8443
   recognizedProxySecret: secret://noiseTunnel.recognizedProxySecret
+
+externalRequestFilter:
+  grpcMethods:
+    - com.example.grpc.ExampleService/exampleMethod
+  paths:
+    - /example
+  permittedInternalRanges:
+    - 127.0.0.0/8

@@ -30,6 +30,7 @@ import org.whispersystems.textsecuregcm.configuration.DirectoryV2Configuration;
 import org.whispersystems.textsecuregcm.configuration.DogstatsdConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DynamoDbClientConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DynamoDbTables;
+import org.whispersystems.textsecuregcm.configuration.ExternalRequestFilterConfiguration;
 import org.whispersystems.textsecuregcm.configuration.FcmConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GcpAttachmentsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GenericZkConfig;
@@ -339,6 +340,11 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private NoiseWebSocketTunnelConfiguration noiseTunnel;
 
+  @Valid
+  @NotNull
+  @JsonProperty
+  private ExternalRequestFilterConfiguration externalRequestFilter;
+
   public TlsKeyStoreConfiguration getTlsKeyStoreConfiguration() {
     return tlsKeyStore;
   }
@@ -564,5 +570,9 @@ public class WhisperServerConfiguration extends Configuration {
 
   public NoiseWebSocketTunnelConfiguration getNoiseWebSocketTunnelConfiguration() {
     return noiseTunnel;
+  }
+
+  public ExternalRequestFilterConfiguration getExternalRequestFilterConfiguration() {
+    return externalRequestFilter;
   }
 }

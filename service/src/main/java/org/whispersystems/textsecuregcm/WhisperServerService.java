@@ -123,6 +123,7 @@ import org.whispersystems.textsecuregcm.currency.CoinMarketCapClient;
 import org.whispersystems.textsecuregcm.currency.CurrencyConversionManager;
 import org.whispersystems.textsecuregcm.currency.FixerClient;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
+import org.whispersystems.textsecuregcm.filters.ExternalRequestFilter;
 import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.filters.RemoteDeprecationFilter;
 import org.whispersystems.textsecuregcm.filters.RequestStatisticsFilter;
@@ -778,6 +779,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         // depends on the user-agent context so it has to come first here!
         // http://grpc.github.io/grpc-java/javadoc/io/grpc/ServerBuilder.html#intercept-io.grpc.ServerInterceptor-
         serverBuilder
+            .intercept(
+                new ExternalRequestFilter(config.getExternalRequestFilterConfiguration().permittedInternalRanges(),
+                    config.getExternalRequestFilterConfiguration().grpcMethods()))
             // TODO: specialize metrics with user-agent platform
             .intercept(metricCollectingServerInterceptor)
             .intercept(errorMappingInterceptor)
@@ -825,6 +829,14 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
       environment.servlets()
           .addFilter(filter.getClass().getSimpleName(), filter)
           .addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST), false, "/*");
+    }
+
+    if (!config.getExternalRequestFilterConfiguration().paths().isEmpty()) {
+      environment.servlets().addFilter(ExternalRequestFilter.class.getSimpleName(),
+              new ExternalRequestFilter(config.getExternalRequestFilterConfiguration().permittedInternalRanges(),
+                  config.getExternalRequestFilterConfiguration().grpcMethods()))
+          .addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST), true,
+              config.getExternalRequestFilterConfiguration().paths().toArray(new String[]{}));
     }
 
     final AuthFilter<BasicCredentials, AuthenticatedAccount> accountAuthFilter =

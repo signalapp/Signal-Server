@@ -12,6 +12,7 @@ package org.signal.chat.rpc;
 // A simple service for testing gRPC interceptors
 service EchoService {
   rpc echo (EchoRequest) returns (EchoResponse) {}
+  rpc echo2 (EchoRequest) returns (EchoResponse) {}
 }
 
 message EchoRequest {
