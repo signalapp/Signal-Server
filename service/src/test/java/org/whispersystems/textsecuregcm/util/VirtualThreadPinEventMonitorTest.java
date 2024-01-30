@@ -53,8 +53,9 @@ public class VirtualThreadPinEventMonitorTest {
     exec.submit(() -> synchronizedSleep1()).get();
     eventMonitor.stop();
 
-    final Pair<RecordedEvent, Boolean> nxt = bq.take();
-    assertThat(nxt.getRight()).isFalse();
+    final Pair<RecordedEvent, Boolean> event = bq.poll(1, TimeUnit.SECONDS);
+    assertThat(event).isNotNull();
+    assertThat(event.getRight()).isFalse();
     assertThat(bq.isEmpty());
     exec.shutdown();
     exec.awaitTermination(1, TimeUnit.MILLISECONDS);
@@ -73,10 +74,12 @@ public class VirtualThreadPinEventMonitorTest {
     exec.submit(() -> synchronizedSleep2()).get();
     eventMonitor.stop();
 
-    final boolean sleep1Allowed = bq.take().getRight();
-    final boolean sleep2Allowed = bq.take().getRight();
-    assertThat(sleep1Allowed).isTrue();
-    assertThat(sleep2Allowed).isFalse();
+    final Pair<RecordedEvent, Boolean> sleep1Event = bq.poll(1, TimeUnit.SECONDS);
+    final Pair<RecordedEvent, Boolean> sleep2Event = bq.poll(1, TimeUnit.SECONDS);
+    assertThat(sleep1Event).isNotNull();
+    assertThat(sleep2Event).isNotNull();
+    assertThat(sleep1Event.getRight()).isTrue();
+    assertThat(sleep2Event.getRight()).isFalse();
     assertThat(bq.isEmpty());
     exec.shutdown();
     exec.awaitTermination(1, TimeUnit.MILLISECONDS);
