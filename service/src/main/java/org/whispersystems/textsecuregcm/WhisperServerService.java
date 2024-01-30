@@ -212,7 +212,6 @@ import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
 import org.whispersystems.textsecuregcm.util.ManagedAwsCrt;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.UsernameHashZkProofVerifier;
-import org.whispersystems.textsecuregcm.util.VirtualThreadPinEventMonitor;
 import org.whispersystems.textsecuregcm.util.logging.LoggingUnhandledExceptionMapper;
 import org.whispersystems.textsecuregcm.util.logging.UncaughtExceptionHandler;
 import org.whispersystems.textsecuregcm.websocket.AuthenticatedConnectListener;
@@ -435,8 +434,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .executorService(name(getClass(), "secureValueRecoveryService-%d")).maxThreads(1).minThreads(1).build();
     ExecutorService storageServiceExecutor = environment.lifecycle()
         .executorService(name(getClass(), "storageService-%d")).maxThreads(1).minThreads(1).build();
-    ExecutorService virtualThreadEventLoggerExecutor = environment.lifecycle()
-        .executorService(name(getClass(), "virtualThreadEventLogger-%d")).minThreads(1).maxThreads(1).build();
     ScheduledExecutorService secureValueRecoveryServiceRetryExecutor = environment.lifecycle()
         .scheduledExecutorService(name(getClass(), "secureValueRecoveryServiceRetry-%d")).threads(1).build();
     ScheduledExecutorService storageServiceRetryExecutor = environment.lifecycle()
@@ -632,10 +629,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     CoinMarketCapClient coinMarketCapClient = new CoinMarketCapClient(currencyClient, config.getPaymentsServiceConfiguration().coinMarketCapApiKey().value(), config.getPaymentsServiceConfiguration().coinMarketCapCurrencyIds());
     CurrencyConversionManager currencyManager = new CurrencyConversionManager(fixerClient, coinMarketCapClient,
         cacheCluster, config.getPaymentsServiceConfiguration().paymentCurrencies(), recurringJobExecutor, Clock.systemUTC());
-    VirtualThreadPinEventMonitor virtualThreadPinEventMonitor = new VirtualThreadPinEventMonitor(
-        virtualThreadEventLoggerExecutor,
-        () -> dynamicConfigurationManager.getConfiguration().getVirtualThreads().allowedPinEvents(),
-        config.getVirtualThreadConfiguration().pinEventThreshold());
 
     environment.lifecycle().manage(apnSender);
     environment.lifecycle().manage(apnPushNotificationScheduler);
@@ -645,7 +638,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.lifecycle().manage(currencyManager);
     environment.lifecycle().manage(registrationServiceClient);
     environment.lifecycle().manage(clientReleaseManager);
-    environment.lifecycle().manage(virtualThreadPinEventMonitor);
 
     final RegistrationCaptchaManager registrationCaptchaManager = new RegistrationCaptchaManager(captchaChecker,
         rateLimiters, config.getTestDevices(), dynamicConfigurationManager);
