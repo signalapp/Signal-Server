@@ -886,6 +886,41 @@ class AccountsTest {
   }
 
   @Test
+  public void testChangeNumberContestedOptimisticLock() {
+    final String originalNumber = "+14151112222";
+    final String targetNumber = "+14151113333";
+
+    final UUID originalPni = UUID.randomUUID();
+    final UUID targetPni = UUID.randomUUID();
+
+    final Device device = generateDevice(DEVICE_ID_1);
+    final Account firstAccountInstance = generateAccount(originalNumber, UUID.randomUUID(), originalPni,
+        List.of(device));
+
+    createAccount(firstAccountInstance);
+
+    final Account secondAccountInstance = accounts.getByAccountIdentifier(firstAccountInstance.getUuid()).orElseThrow();
+
+    // update via the first instance, which will update the version
+    firstAccountInstance.setCurrentProfileVersion("1");
+    accounts.update(firstAccountInstance);
+
+    assertThrows(ContestedOptimisticLockException.class,
+        () -> accounts.changeNumber(secondAccountInstance, targetNumber, targetPni, Optional.empty(),
+            Collections.emptyList()), "Second account instance has stale version");
+
+    final Account refreshedAccountInstance = accounts.getByAccountIdentifier(firstAccountInstance.getUuid())
+        .orElseThrow();
+    accounts.changeNumber(refreshedAccountInstance, targetNumber, targetPni, Optional.empty(),
+        Collections.emptyList());
+
+    assertPhoneNumberConstraintDoesNotExist(originalNumber);
+    assertPhoneNumberIdentifierConstraintDoesNotExist(originalPni);
+    assertPhoneNumberConstraintExists(targetNumber, firstAccountInstance.getUuid());
+    assertPhoneNumberIdentifierConstraintExists(targetPni, firstAccountInstance.getUuid());
+  }
+
+  @Test
   void testSwitchUsernameHashes() {
     final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
     createAccount(account);

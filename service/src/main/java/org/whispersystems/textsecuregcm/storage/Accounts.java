@@ -429,6 +429,24 @@ public class Accounts extends AbstractDynamoDbStore {
         succeeded = true;
       } catch (final JsonProcessingException e) {
         throw new IllegalArgumentException(e);
+      } catch (final TransactionCanceledException e) {
+        if (e.hasCancellationReasons() && e.cancellationReasons().size() == 6) {
+          // the cancellation reasons map to the write items:
+          // 0. phone number constraint delete - no conditions
+          // 1. phone number constraint put - conditional on the key not existing (it is deleted by 0)
+          // 2. pni constraint delete - no conditions
+          // 3. pni constraint put - conditional on the key not existing (it is deleted by 2)
+          // 4. deleted accounts delete - no conditions
+          // 5. account update - conditional on #version = :version
+          if (CONDITIONAL_CHECK_FAILED.equals(e.cancellationReasons().get(5).code())) {
+            // the #version = :version condition failed, which indicates a concurrent update
+            throw new ContestedOptimisticLockException();
+          }
+        } else {
+          log.warn("Unexpected cancellation reasons: {}", e.cancellationReasons());
+
+        }
+        throw e;
       } finally {
         if (!succeeded) {
           account.setNumber(originalNumber, originalPni);
