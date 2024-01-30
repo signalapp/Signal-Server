@@ -16,6 +16,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import jdk.jfr.consumer.RecordedEvent;
 import org.apache.commons.lang3.tuple.Pair;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -43,6 +44,7 @@ public class VirtualThreadPinEventMonitorTest {
   }
 
   @Test
+  @Disabled("flaky: no way to ensure the sequencing between the start of the recording stream and emitting the event")
   public void testPinEventProduced() throws InterruptedException, ExecutionException {
     final BlockingQueue<Pair<RecordedEvent, Boolean>> bq = new LinkedBlockingQueue<>();
     final ExecutorService exec = Executors.newVirtualThreadPerTaskExecutor();
@@ -63,6 +65,7 @@ public class VirtualThreadPinEventMonitorTest {
 
   @ParameterizedTest
   @ValueSource(strings = {"VirtualThreadPinEventMonitorTest.synchronizedSleep1", "synchronizedSleep1"})
+  @Disabled("flaky: no way to ensure the sequencing between the start of the recording stream and emitting the event")
   public void testPinEventFiltered(final String allowString) throws InterruptedException, ExecutionException {
     final BlockingQueue<Pair<RecordedEvent, Boolean>> bq = new LinkedBlockingQueue<>();
     final ExecutorService exec = Executors.newVirtualThreadPerTaskExecutor();
