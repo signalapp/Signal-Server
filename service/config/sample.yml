@@ -326,7 +326,7 @@ storageService:
 
 zkConfig:
   serverPublic: ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-  serverSecret: secret://zkConfig.serverSecret
+  serverSecret: secret://zkConfig-libsignal-0.37.serverSecret
 
 callingZkConfig:
   serverSecret: secret://callingZkConfig.serverSecret
