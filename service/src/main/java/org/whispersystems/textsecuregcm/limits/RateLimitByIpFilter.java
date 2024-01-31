@@ -26,6 +26,7 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
+import org.whispersystems.textsecuregcm.util.HttpServletRequestUtil;
 
 public class RateLimitByIpFilter implements ContainerRequestFilter {
 
@@ -71,7 +72,7 @@ public class RateLimitByIpFilter implements ContainerRequestFilter {
     try {
       final String xffHeader = requestContext.getHeaders().getFirst(HttpHeaders.X_FORWARDED_FOR);
       final Optional<String> remoteAddress = useRemoteAddress
-          ? Optional.of(httpServletRequestProvider.get().getRemoteAddr())
+          ? Optional.of(HttpServletRequestUtil.getRemoteAddress(httpServletRequestProvider.get()))
           : Optional.ofNullable(xffHeader)
               .flatMap(HeaderUtils::getMostRecentProxy);
 

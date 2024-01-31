@@ -43,6 +43,7 @@ import org.whispersystems.textsecuregcm.spam.FilterSpam;
 import org.whispersystems.textsecuregcm.spam.PushChallengeConfig;
 import org.whispersystems.textsecuregcm.spam.ScoreThreshold;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
+import org.whispersystems.textsecuregcm.util.HttpServletRequestUtil;
 
 @Path("/v1/challenge")
 @Tag(name = "Challenge")
@@ -103,7 +104,7 @@ public class ChallengeController {
         tags = tags.and(CHALLENGE_TYPE_TAG, "recaptcha");
 
         final String remoteAddress = useRemoteAddress
-            ? request.getRemoteAddr()
+            ? HttpServletRequestUtil.getRemoteAddress(request)
             : HeaderUtils.getMostRecentProxy(forwardedFor).orElseThrow(BadRequestException::new);
         boolean success = rateLimitChallengeManager.answerRecaptchaChallenge(
             auth.getAccount(),

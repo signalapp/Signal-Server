@@ -89,6 +89,7 @@ import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsMan
 import org.whispersystems.textsecuregcm.storage.VerificationSessionManager;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
+import org.whispersystems.textsecuregcm.util.HttpServletRequestUtil;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -212,7 +213,7 @@ public class VerificationController {
       @NotNull @Extract final SenderOverride senderOverride) {
 
     final String sourceHost = useRemoteAddress
-        ? request.getRemoteAddr()
+        ? HttpServletRequestUtil.getRemoteAddress(request)
         : HeaderUtils.getMostRecentProxy(forwardedFor).orElseThrow();
 
     final Pair<String, PushNotification.TokenType> pushTokenAndType = validateAndExtractPushToken(
