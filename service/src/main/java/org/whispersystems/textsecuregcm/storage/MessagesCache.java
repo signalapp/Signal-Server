@@ -37,6 +37,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -75,6 +76,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
   private final ClusterLuaScript removeQueueScript;
   private final ClusterLuaScript getQueuesToPersistScript;
 
+  private final ReentrantLock messageListenersLock = new ReentrantLock();
   private final Map<String, MessageAvailabilityListener> messageListenersByQueueName = new HashMap<>();
   private final Map<MessageAvailabilityListener, String> queueNamesByMessageListener = new IdentityHashMap<>();
 
@@ -146,8 +148,11 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
 
     final Set<String> queueNames;
 
-    synchronized (messageListenersByQueueName) {
+    messageListenersLock.lock();
+    try {
       queueNames = new HashSet<>(messageListenersByQueueName.keySet());
+    } finally {
+      messageListenersLock.unlock();
     }
 
     for (final String queueName : queueNames) {
@@ -402,11 +407,14 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
     final String queueName = getQueueName(destinationUuid, deviceId);
 
     final CompletableFuture<Void> subscribeFuture;
-    synchronized (messageListenersByQueueName) {
+    messageListenersLock.lock();
+    try {
       messageListenersByQueueName.put(queueName, listener);
       queueNamesByMessageListener.put(listener, queueName);
-      // Submit to the Redis queue within the synchronized block, but don’t wait until exiting
+      // Submit to the Redis queue while holding the lock, but don’t wait until exiting
       subscribeFuture = subscribeForKeyspaceNotifications(queueName);
+    } finally {
+      messageListenersLock.unlock();
     }
 
     subscribeFuture.join();
@@ -414,22 +422,28 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
 
   public void removeMessageAvailabilityListener(final MessageAvailabilityListener listener) {
     @Nullable final String queueName;
-    synchronized (messageListenersByQueueName) {
+    messageListenersLock.lock();
+    try {
       queueName = queueNamesByMessageListener.get(listener);
+    } finally {
+      messageListenersLock.unlock();
     }
 
     if (queueName != null) {
 
       final CompletableFuture<Void> unsubscribeFuture;
-      synchronized (messageListenersByQueueName) {
+      messageListenersLock.lock();
+      try {
         queueNamesByMessageListener.remove(listener);
         if (messageListenersByQueueName.remove(queueName, listener)) {
-          // Submit to the Redis queue within the synchronized block, but don’t wait until exiting
+          // Submit to the Redis queue holding the lock, but don’t wait until exiting
           unsubscribeFuture = unsubscribeFromKeyspaceNotifications(queueName);
         } else {
           messageAvailabilityListenerRemovedAfterAddCounter.increment();
           unsubscribeFuture = CompletableFuture.completedFuture(null);
         }
+      } finally {
+        messageListenersLock.unlock();
       }
 
       unsubscribeFuture.join();
@@ -507,8 +521,11 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
   private Optional<MessageAvailabilityListener> findListener(final String keyspaceChannel) {
     final String queueName = getQueueNameFromKeyspaceChannel(keyspaceChannel);
 
-    synchronized (messageListenersByQueueName) {
+    messageListenersLock.lock();
+    try {
       return Optional.ofNullable(messageListenersByQueueName.get(queueName));
+    } finally {
+      messageListenersLock.unlock();
     }
   }
 
