@@ -56,6 +56,7 @@ import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TlsKeyStoreConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TurnSecretConfiguration;
 import org.whispersystems.textsecuregcm.configuration.UnidentifiedDeliveryConfiguration;
+import org.whispersystems.textsecuregcm.configuration.VirtualThreadConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ZkConfig;
 import org.whispersystems.textsecuregcm.limits.RateLimiterConfig;
 import org.whispersystems.websocket.configuration.WebSocketConfiguration;
@@ -316,6 +317,11 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private LinkDeviceSecretConfiguration linkDevice;
 
+  @Valid
+  @NotNull
+  @JsonProperty
+  private VirtualThreadConfiguration virtualThreadConfiguration = new VirtualThreadConfiguration(Duration.ofMillis(1));
+
   public TlsKeyStoreConfiguration getTlsKeyStoreConfiguration() {
     return tlsKeyStore;
   }
@@ -526,5 +532,9 @@ public class WhisperServerConfiguration extends Configuration {
 
   public LinkDeviceSecretConfiguration getLinkDeviceSecretConfiguration() {
     return linkDevice;
+  }
+
+  public VirtualThreadConfiguration getVirtualThreadConfiguration() {
+    return virtualThreadConfiguration;
   }
 }
