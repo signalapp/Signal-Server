@@ -263,7 +263,7 @@ public class AccountsManager {
 
         accountAttributes.recoveryPassword().ifPresent(registrationRecoveryPassword ->
             registrationRecoveryPasswordsManager.storeForCurrentNumber(account.getNumber(), registrationRecoveryPassword));
-      });
+      }, accountLockExecutor);
 
       return account;
     }
@@ -423,7 +423,7 @@ public class AccountsManager {
           AccountChangeValidator.NUMBER_CHANGE_VALIDATOR);
 
       updatedAccount.set(numberChangedAccount);
-    });
+    }, accountLockExecutor);
 
     return updatedAccount.get();
   }

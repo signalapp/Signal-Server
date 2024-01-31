@@ -203,7 +203,7 @@ class AccountsManagerTest {
       task.run();
 
       return null;
-    }).when(accountLockManager).withLock(any(), any());
+    }).when(accountLockManager).withLock(any(), any(), any());
 
     when(accountLockManager.withLockAsync(any(), any(), any())).thenAnswer(invocation -> {
       final Supplier<CompletableFuture<?>> taskSupplier = invocation.getArgument(1);
