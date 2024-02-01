@@ -378,6 +378,7 @@ public class Accounts extends AbstractDynamoDbStore {
 
       account.setNumber(number, phoneNumberIdentifier);
 
+      int accountUpdateIndex = -1;
       try {
         final List<TransactWriteItem> writeItems = new ArrayList<>();
         final AttributeValue uuidAttr = AttributeValues.fromUUID(account.getUuid());
@@ -392,6 +393,9 @@ public class Accounts extends AbstractDynamoDbStore {
         maybeDisplacedAccountIdentifier.ifPresent(displacedAccountIdentifier ->
             writeItems.add(buildPutDeletedAccount(displacedAccountIdentifier, originalNumber)));
 
+        // The `catch (TransactionCanceledException) block needs to check whether the cancellation reason is the account
+        // update write item
+        accountUpdateIndex = writeItems.size();
         writeItems.add(
             TransactWriteItem.builder()
                 .update(Update.builder()
@@ -430,17 +434,8 @@ public class Accounts extends AbstractDynamoDbStore {
       } catch (final JsonProcessingException e) {
         throw new IllegalArgumentException(e);
       } catch (final TransactionCanceledException e) {
-        if (e.hasCancellationReasons() && e.cancellationReasons().size() == 6 + additionalWriteItems.size()) {
-          // the cancellation reasons map to the write items:
-          // 0. phone number constraint delete - no conditions
-          // 1. phone number constraint put - conditional on the key not existing (it is deleted by 0)
-          // 2. pni constraint delete - no conditions
-          // 3. pni constraint put - conditional on the key not existing (it is deleted by 2)
-          // 4. deleted accounts delete - no conditions
-          // 5. account update - conditional on #version = :version
-          // 6. additional write items…
-          // 7. additional write items…
-          if (CONDITIONAL_CHECK_FAILED.equals(e.cancellationReasons().get(5).code())) {
+        if (e.hasCancellationReasons()) {
+          if (CONDITIONAL_CHECK_FAILED.equals(e.cancellationReasons().get(accountUpdateIndex).code())) {
             // the #version = :version condition failed, which indicates a concurrent update
             throw new ContestedOptimisticLockException();
           }
