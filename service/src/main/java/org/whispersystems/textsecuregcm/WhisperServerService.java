@@ -44,6 +44,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import javax.servlet.DispatcherType;
+import javax.servlet.Filter;
 import javax.servlet.FilterRegistration;
 import javax.servlet.ServletRegistration;
 import org.eclipse.jetty.servlets.CrossOriginFilter;
@@ -115,6 +116,7 @@ import org.whispersystems.textsecuregcm.currency.CoinMarketCapClient;
 import org.whispersystems.textsecuregcm.currency.CurrencyConversionManager;
 import org.whispersystems.textsecuregcm.currency.FixerClient;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
+import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.filters.RemoteDeprecationFilter;
 import org.whispersystems.textsecuregcm.filters.RequestStatisticsFilter;
 import org.whispersystems.textsecuregcm.filters.TimestampResponseFilter;
@@ -212,8 +214,8 @@ import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
 import org.whispersystems.textsecuregcm.util.ManagedAwsCrt;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.UsernameHashZkProofVerifier;
-import org.whispersystems.textsecuregcm.util.VirtualThreadPinEventMonitor;
 import org.whispersystems.textsecuregcm.util.VirtualExecutorServiceProvider;
+import org.whispersystems.textsecuregcm.util.VirtualThreadPinEventMonitor;
 import org.whispersystems.textsecuregcm.util.logging.LoggingUnhandledExceptionMapper;
 import org.whispersystems.textsecuregcm.util.logging.UncaughtExceptionHandler;
 import org.whispersystems.textsecuregcm.websocket.AuthenticatedConnectListener;
@@ -718,10 +720,16 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
                 config.getBadges(), asyncCdnS3Client, profileCdnPolicyGenerator, profileCdnPolicySigner, profileBadgeConverter, rateLimiters, zkProfileOperations, config.getCdnConfiguration().bucket()), basicCredentialAuthenticationInterceptor))
         .addService(new ProfileAnonymousGrpcService(accountsManager, profilesManager, profileBadgeConverter, zkProfileOperations));
 
-    RemoteDeprecationFilter remoteDeprecationFilter = new RemoteDeprecationFilter(dynamicConfigurationManager);
-    environment.servlets()
-        .addFilter("RemoteDeprecationFilter", remoteDeprecationFilter)
-        .addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST), false, "/*");
+    final List<Filter> filters = new ArrayList<>();
+    final RemoteDeprecationFilter remoteDeprecationFilter = new RemoteDeprecationFilter(dynamicConfigurationManager);
+    filters.add(remoteDeprecationFilter);
+    filters.add(new RemoteAddressFilter(useRemoteAddress));
+
+    for (Filter filter : filters) {
+      environment.servlets()
+          .addFilter(filter.getClass().getSimpleName(), filter)
+          .addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST), false, "/*");
+    }
 
     // Note: interceptors run in the reverse order they are added; the remote deprecation filter
     // depends on the user-agent context so it has to come first here!
@@ -832,7 +840,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new CertificateController(new CertificateGenerator(config.getDeliveryCertificate().certificate().value(),
             config.getDeliveryCertificate().ecPrivateKey(), config.getDeliveryCertificate().expiresDays()),
             zkAuthOperations, callingGenericZkSecretParams, clock),
-        new ChallengeController(rateLimitChallengeManager, useRemoteAddress),
+        new ChallengeController(rateLimitChallengeManager),
         new DeviceController(config.getLinkDeviceSecretConfiguration().secret().value(), accountsManager,
             rateLimiters, rateLimitersCluster, config.getMaxDevices(), clock),
         new DirectoryV2Controller(directoryV2CredentialsGenerator),
@@ -859,7 +867,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             config.getCdnConfiguration().bucket()),
         new VerificationController(registrationServiceClient, new VerificationSessionManager(verificationSessions),
             pushNotificationManager, registrationCaptchaManager, registrationRecoveryPasswordsManager, rateLimiters,
-            accountsManager, useRemoteAddress, dynamicConfigurationManager, clock)
+            accountsManager, dynamicConfigurationManager, clock)
     );
     if (config.getSubscription() != null && config.getOneTimeDonations() != null) {
       commonControllers.add(new SubscriptionController(clock, config.getSubscription(), config.getOneTimeDonations(),
@@ -890,9 +898,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     JettyWebSocketServletContainerInitializer.configure(environment.getApplicationContext(), null);
 
     WebSocketResourceProviderFactory<AuthenticatedAccount> webSocketServlet = new WebSocketResourceProviderFactory<>(
-        webSocketEnvironment, AuthenticatedAccount.class, config.getWebSocketConfiguration());
+        webSocketEnvironment, AuthenticatedAccount.class, config.getWebSocketConfiguration(),
+        RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME);
     WebSocketResourceProviderFactory<AuthenticatedAccount> provisioningServlet = new WebSocketResourceProviderFactory<>(
-        provisioningEnvironment, AuthenticatedAccount.class, config.getWebSocketConfiguration());
+        provisioningEnvironment, AuthenticatedAccount.class, config.getWebSocketConfiguration(),
+        RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME);
 
     ServletRegistration.Dynamic websocket = environment.servlets().addServlet("WebSocket", webSocketServlet);
     ServletRegistration.Dynamic provisioning = environment.servlets().addServlet("Provisioning", provisioningServlet);

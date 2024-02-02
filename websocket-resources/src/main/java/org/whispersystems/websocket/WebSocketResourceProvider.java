@@ -65,6 +65,7 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
   private final WebsocketRequestLog requestLog;
   private final Duration idleTimeout;
   private final String remoteAddress;
+  private final String remoteAddressPropertyName;
 
   private Session session;
   private RemoteEndpoint remoteEndpoint;
@@ -73,6 +74,7 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
   private static final Set<String> EXCLUDED_UPGRADE_REQUEST_HEADERS = Set.of("connection", "upgrade");
 
   public WebSocketResourceProvider(String remoteAddress,
+      String remoteAddressPropertyName,
       ApplicationHandler jerseyHandler,
       WebsocketRequestLog requestLog,
       T authenticated,
@@ -80,6 +82,7 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
       Optional<WebSocketConnectListener> connectListener,
       Duration idleTimeout) {
     this.remoteAddress = remoteAddress;
+    this.remoteAddressPropertyName = remoteAddressPropertyName;
     this.jerseyHandler = jerseyHandler;
     this.requestLog = requestLog;
     this.authenticated = authenticated;
@@ -168,6 +171,8 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
     if (requestMessage.getBody().isPresent()) {
       containerRequest.setEntityStream(new ByteArrayInputStream(requestMessage.getBody().get()));
     }
+
+    containerRequest.setProperty(remoteAddressPropertyName, remoteAddress);
 
     ByteArrayOutputStream responseBody = new ByteArrayOutputStream();
     CompletableFuture<ContainerResponse> responseFuture = (CompletableFuture<ContainerResponse>) jerseyHandler.apply(

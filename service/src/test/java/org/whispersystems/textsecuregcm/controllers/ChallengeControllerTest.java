@@ -43,18 +43,16 @@ import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.spam.PushChallengeConfigProvider;
 import org.whispersystems.textsecuregcm.spam.ScoreThreshold;
 import org.whispersystems.textsecuregcm.spam.ScoreThresholdProvider;
-import org.whispersystems.textsecuregcm.spam.SenderOverride;
-import org.whispersystems.textsecuregcm.spam.SenderOverrideProvider;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
+import org.whispersystems.textsecuregcm.util.TestRemoteAddressFilterProvider;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class ChallengeControllerTest {
 
   private static final RateLimitChallengeManager rateLimitChallengeManager = mock(RateLimitChallengeManager.class);
 
-  private static final ChallengeController challengeController = new ChallengeController(rateLimitChallengeManager,
-      true);
+  private static final ChallengeController challengeController = new ChallengeController(rateLimitChallengeManager);
 
   private static final AtomicReference<Float> scoreThreshold = new AtomicReference<>();
 
@@ -73,6 +71,7 @@ class ChallengeControllerTest {
             return true;
           }
         })
+      .addProvider(new TestRemoteAddressFilterProvider("127.0.0.1"))
       .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(new RateLimitExceededExceptionMapper())

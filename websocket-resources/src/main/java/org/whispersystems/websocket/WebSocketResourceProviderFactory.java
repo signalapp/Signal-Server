@@ -6,13 +6,12 @@ package org.whispersystems.websocket;
 
 import static java.util.Optional.ofNullable;
 
-import com.google.common.net.HttpHeaders;
 import io.dropwizard.jersey.jackson.JacksonMessageBodyProvider;
 import java.io.IOException;
-import java.net.InetSocketAddress;
 import java.security.Principal;
-import java.util.Arrays;
 import java.util.Optional;
+import javax.ws.rs.InternalServerErrorException;
+import org.apache.commons.lang3.StringUtils;
 import org.eclipse.jetty.websocket.server.JettyServerUpgradeRequest;
 import org.eclipse.jetty.websocket.server.JettyServerUpgradeResponse;
 import org.eclipse.jetty.websocket.server.JettyWebSocketCreator;
@@ -38,8 +37,10 @@ public class WebSocketResourceProviderFactory<T extends Principal> extends Jetty
   private final ApplicationHandler jerseyApplicationHandler;
   private final WebSocketConfiguration configuration;
 
+  private final String remoteAddressPropertyName;
+
   public WebSocketResourceProviderFactory(WebSocketEnvironment<T> environment, Class<T> principalClass,
-      WebSocketConfiguration configuration) {
+      WebSocketConfiguration configuration, String remoteAddressPropertyName) {
     this.environment = environment;
 
     environment.jersey().register(new WebSocketSessionContextValueFactoryProvider.Binder());
@@ -49,6 +50,7 @@ public class WebSocketResourceProviderFactory<T extends Principal> extends Jetty
     this.jerseyApplicationHandler = new ApplicationHandler(environment.jersey());
 
     this.configuration = configuration;
+    this.remoteAddressPropertyName = remoteAddressPropertyName;
   }
 
   @Override
@@ -69,6 +71,7 @@ public class WebSocketResourceProviderFactory<T extends Principal> extends Jetty
       }
 
       return new WebSocketResourceProvider<>(getRemoteAddress(request),
+          remoteAddressPropertyName,
           this.jerseyApplicationHandler,
           this.environment.getRequestLog(),
           authenticated,
@@ -93,18 +96,11 @@ public class WebSocketResourceProviderFactory<T extends Principal> extends Jetty
   }
 
   private String getRemoteAddress(JettyServerUpgradeRequest request) {
-    String forwardedFor = request.getHeader(HttpHeaders.X_FORWARDED_FOR);
-
-    if (forwardedFor == null || forwardedFor.isBlank()) {
-      if (request.getRemoteSocketAddress() instanceof InetSocketAddress inetSocketAddress) {
-        return inetSocketAddress.getAddress().getHostAddress();
-      }
-      return null;
-    } else {
-      return Arrays.stream(forwardedFor.split(","))
-          .map(String::trim)
-                   .reduce((a, b) -> b)
-                   .orElseThrow();
+    final String remoteAddress = (String) request.getHttpServletRequest().getAttribute(remoteAddressPropertyName);
+    if (StringUtils.isBlank(remoteAddress)) {
+      logger.error("Remote address property is not present");
+      throw new InternalServerErrorException();
     }
+    return remoteAddress;
   }
 }

@@ -25,6 +25,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
+import org.whispersystems.textsecuregcm.util.TestRemoteAddressFilterProvider;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 public class RateLimitedByIpTest {
@@ -60,7 +61,8 @@ public class RateLimitedByIpTest {
       .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(new Controller())
-      .addProvider(new RateLimitByIpFilter(RATE_LIMITERS, true))
+      .addProvider(new RateLimitByIpFilter(RATE_LIMITERS))
+      .addProvider(new TestRemoteAddressFilterProvider(IP))
       .build();
 
   @Test

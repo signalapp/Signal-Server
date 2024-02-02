@@ -118,7 +118,7 @@ class VerificationControllerTest {
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(
           new VerificationController(registrationServiceClient, verificationSessionManager, pushNotificationManager,
-              registrationCaptchaManager, registrationRecoveryPasswordsManager, rateLimiters, accountsManager, true,
+              registrationCaptchaManager, registrationRecoveryPasswordsManager, rateLimiters, accountsManager,
               dynamicConfigurationManager, clock))
       .build();
 

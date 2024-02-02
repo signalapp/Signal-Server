@@ -8,32 +8,24 @@ package org.whispersystems.textsecuregcm.limits;
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.net.HttpHeaders;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Optional;
-import javax.inject.Provider;
-import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.ClientErrorException;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.container.ContainerRequestFilter;
-import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.ext.ExceptionMapper;
 import org.glassfish.jersey.server.ExtendedUriInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
+import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
-import org.whispersystems.textsecuregcm.util.HeaderUtils;
-import org.whispersystems.textsecuregcm.util.HttpServletRequestUtil;
 
 public class RateLimitByIpFilter implements ContainerRequestFilter {
 
   private static final Logger logger = LoggerFactory.getLogger(RateLimitByIpFilter.class);
-
-  @Context
-  private Provider<HttpServletRequest> httpServletRequestProvider;
 
   @VisibleForTesting
   static final RateLimitExceededException INVALID_HEADER_EXCEPTION = new RateLimitExceededException(Duration.ofHours(1),
@@ -42,12 +34,10 @@ public class RateLimitByIpFilter implements ContainerRequestFilter {
   private static final ExceptionMapper<RateLimitExceededException> EXCEPTION_MAPPER = new RateLimitExceededExceptionMapper();
 
   private final RateLimiters rateLimiters;
-  private final boolean useRemoteAddress;
 
 
-  public RateLimitByIpFilter(final RateLimiters rateLimiters, final boolean useRemoteAddress) {
+  public RateLimitByIpFilter(final RateLimiters rateLimiters) {
     this.rateLimiters = requireNonNull(rateLimiters);
-    this.useRemoteAddress = useRemoteAddress;
   }
 
   @Override
@@ -70,18 +60,14 @@ public class RateLimitByIpFilter implements ContainerRequestFilter {
     final RateLimiters.For handle = annotation.value();
 
     try {
-      final String xffHeader = requestContext.getHeaders().getFirst(HttpHeaders.X_FORWARDED_FOR);
-      final Optional<String> remoteAddress = useRemoteAddress
-          ? Optional.of(HttpServletRequestUtil.getRemoteAddress(httpServletRequestProvider.get()))
-          : Optional.ofNullable(xffHeader)
-              .flatMap(HeaderUtils::getMostRecentProxy);
+      final Optional<String> remoteAddress = Optional.ofNullable(
+          (String) requestContext.getProperty(RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME));
 
-      // checking if we failed to extract the most recent IP from the X-Forwarded-For header
-      // for any reason
+      // checking if we failed to extract the most recent IP for any reason
       if (remoteAddress.isEmpty()) {
         // checking if annotation is configured to fail when the most recent IP is not resolved
         if (annotation.failOnUnresolvedIp()) {
-          logger.error("Missing/bad X-Forwarded-For: {}", xffHeader);
+          logger.error("Remote address was null");
           throw INVALID_HEADER_EXCEPTION;
         }
         // otherwise, allow request

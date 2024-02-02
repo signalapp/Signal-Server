@@ -35,8 +35,7 @@ class HttpServletRequestUtilIntegrationTest {
   // The Grizzly test container does not match the Jetty container used in real deployments, and JettyTestContainerFactory
   // in jersey-test-framework-provider-jetty doesn’t easily support @Context HttpServletRequest, so this test runs a
   // full Jetty server in a separate process
-  private final DropwizardAppExtension<TestConfiguration> EXTENSION = new DropwizardAppExtension<>(
-      TestApplication.class);
+  private final DropwizardAppExtension<Configuration> EXTENSION = new DropwizardAppExtension<>(TestApplication.class);
 
   @ParameterizedTest
   @ValueSource(strings = {"127.0.0.1", "0:0:0:0:0:0:0:1"})
@@ -72,13 +71,11 @@ class HttpServletRequestUtilIntegrationTest {
 
   }
 
-  public static class TestApplication extends Application<TestConfiguration> {
+  public static class TestApplication extends Application<Configuration> {
 
     @Override
-    public void run(final TestConfiguration configuration, final Environment environment) throws Exception {
+    public void run(final Configuration configuration, final Environment environment) throws Exception {
       environment.jersey().register(new TestController());
     }
   }
-
-  public static class TestConfiguration extends Configuration {}
 }

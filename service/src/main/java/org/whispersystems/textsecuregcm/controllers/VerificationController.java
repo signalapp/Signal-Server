@@ -31,7 +31,6 @@ import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
-import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import javax.ws.rs.BadRequestException;
@@ -49,6 +48,7 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.ServerErrorException;
 import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
@@ -66,6 +66,7 @@ import org.whispersystems.textsecuregcm.entities.SubmitVerificationCodeRequest;
 import org.whispersystems.textsecuregcm.entities.UpdateVerificationSessionRequest;
 import org.whispersystems.textsecuregcm.entities.VerificationCodeRequest;
 import org.whispersystems.textsecuregcm.entities.VerificationSessionResponse;
+import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
@@ -88,8 +89,6 @@ import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.VerificationSessionManager;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
-import org.whispersystems.textsecuregcm.util.HeaderUtils;
-import org.whispersystems.textsecuregcm.util.HttpServletRequestUtil;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -123,7 +122,6 @@ public class VerificationController {
   private final RateLimiters rateLimiters;
   private final AccountsManager accountsManager;
 
-  private final boolean useRemoteAddress;
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private final Clock clock;
 
@@ -134,7 +132,6 @@ public class VerificationController {
       final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
       final RateLimiters rateLimiters,
       final AccountsManager accountsManager,
-      final boolean useRemoteAddress,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
       final Clock clock) {
     this.registrationServiceClient = registrationServiceClient;
@@ -144,7 +141,6 @@ public class VerificationController {
     this.registrationRecoveryPasswordsManager = registrationRecoveryPasswordsManager;
     this.rateLimiters = rateLimiters;
     this.accountsManager = accountsManager;
-    this.useRemoteAddress = useRemoteAddress;
     this.dynamicConfigurationManager = dynamicConfigurationManager;
     this.clock = clock;
   }
@@ -205,16 +201,13 @@ public class VerificationController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public VerificationSessionResponse updateSession(@PathParam("sessionId") final String encodedSessionId,
-      @HeaderParam(com.google.common.net.HttpHeaders.X_FORWARDED_FOR) String forwardedFor,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
-      @Context HttpServletRequest request,
+      @Context ContainerRequestContext requestContext,
       @NotNull @Valid final UpdateVerificationSessionRequest updateVerificationSessionRequest,
       @NotNull @Extract final ScoreThreshold scoreThreshold,
       @NotNull @Extract final SenderOverride senderOverride) {
 
-    final String sourceHost = useRemoteAddress
-        ? HttpServletRequestUtil.getRemoteAddress(request)
-        : HeaderUtils.getMostRecentProxy(forwardedFor).orElseThrow();
+    final String sourceHost = (String) requestContext.getProperty(RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME);
 
     final Pair<String, PushNotification.TokenType> pushTokenAndType = validateAndExtractPushToken(
         updateVerificationSessionRequest);

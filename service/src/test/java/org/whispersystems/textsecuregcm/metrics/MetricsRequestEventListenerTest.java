@@ -49,6 +49,7 @@ import org.glassfish.jersey.uri.UriTemplate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.websocket.WebSocketResourceProvider;
 import org.whispersystems.websocket.auth.WebsocketAuthValueFactoryProvider;
@@ -138,12 +139,8 @@ class MetricsRequestEventListenerTest {
     final ApplicationHandler applicationHandler = new ApplicationHandler(resourceConfig);
     final WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
     final WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1",
-        applicationHandler,
-        requestLog,
-        new TestPrincipal("foo"),
-        new ProtobufWebSocketMessageFactory(),
-        Optional.empty(),
-        Duration.ofMillis(30000));
+        RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME, applicationHandler, requestLog, new TestPrincipal("foo"),
+        new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 
     final Session session = mock(Session.class);
     final RemoteEndpoint remoteEndpoint = mock(RemoteEndpoint.class);
@@ -204,9 +201,8 @@ class MetricsRequestEventListenerTest {
     final ApplicationHandler applicationHandler = new ApplicationHandler(resourceConfig);
     final WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
     final WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1",
-        applicationHandler,
-        requestLog, new TestPrincipal("foo"), new ProtobufWebSocketMessageFactory(), Optional.empty(),
-        Duration.ofMillis(30000));
+        RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME, applicationHandler, requestLog, new TestPrincipal("foo"),
+        new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 
     final Session session = mock(Session.class);
     final RemoteEndpoint remoteEndpoint = mock(RemoteEndpoint.class);
