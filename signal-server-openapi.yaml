@@ -1224,10 +1224,6 @@ paths:
         continue their original operation.
       operationId: handleChallengeResponse
       parameters:
-      - name: X-Forwarded-For
-        in: header
-        schema:
-          type: string
       - name: User-Agent
         in: header
         schema:
@@ -2733,10 +2729,6 @@ paths:
         required: true
         schema:
           type: string
-      - name: X-Forwarded-For
-        in: header
-        schema:
-          type: string
       - name: User-Agent
         in: header
         schema:
@@ -3862,10 +3854,10 @@ components:
     WebSocketClient:
       type: object
       properties:
-        userAgent:
-          type: string
         open:
           type: boolean
+        userAgent:
+          type: string
         createdTimestamp:
           type: integer
           format: int64
