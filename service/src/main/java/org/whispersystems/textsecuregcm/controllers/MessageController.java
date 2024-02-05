@@ -112,6 +112,7 @@ import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.spam.FilterSpam;
 import org.whispersystems.textsecuregcm.spam.ReportSpamTokenProvider;
+import org.whispersystems.textsecuregcm.spam.SpamChecker;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
@@ -135,6 +136,7 @@ import reactor.util.function.Tuples;
 @io.swagger.v3.oas.annotations.tags.Tag(name = "Messages")
 public class MessageController {
 
+
   private record MultiRecipientDeliveryData(
       ServiceIdentifier serviceIdentifier,
       Account account,
@@ -143,8 +145,6 @@ public class MessageController {
   }
 
   private static final Logger logger = LoggerFactory.getLogger(MessageController.class);
-
-  public static final String DESTINATION_ACCOUNT_PROPERTY_NAME = "destinationAccount";
 
   private final RateLimiters rateLimiters;
   private final CardinalityEstimator messageByteLimitEstimator;
@@ -160,6 +160,7 @@ public class MessageController {
   private final ClientReleaseManager clientReleaseManager;
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private final ServerSecretParams serverSecretParams;
+  private final SpamChecker spamChecker;
 
   private static final int MAX_FETCH_ACCOUNT_CONCURRENCY = 8;
 
@@ -202,7 +203,8 @@ public class MessageController {
       @Nonnull ReportSpamTokenProvider reportSpamTokenProvider,
       final ClientReleaseManager clientReleaseManager,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
-      final ServerSecretParams serverSecretParams) {
+      final ServerSecretParams serverSecretParams,
+      final SpamChecker spamChecker) {
     this.rateLimiters = rateLimiters;
     this.messageByteLimitEstimator = messageByteLimitEstimator;
     this.messageSender = messageSender;
@@ -217,6 +219,7 @@ public class MessageController {
     this.clientReleaseManager = clientReleaseManager;
     this.dynamicConfigurationManager = dynamicConfigurationManager;
     this.serverSecretParams = serverSecretParams;
+    this.spamChecker = spamChecker;
   }
 
   @Timed
@@ -224,7 +227,6 @@ public class MessageController {
   @PUT
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  @FilterSpam
   @ManagedAsync
   public Response sendMessage(@Auth Optional<AuthenticatedAccount> source,
       @HeaderParam(HeaderUtils.UNIDENTIFIED_ACCESS_KEY) Optional<Anonymous> accessKey,
@@ -234,12 +236,12 @@ public class MessageController {
       @NotNull @Valid IncomingMessageList messages,
       @Context ContainerRequestContext context) throws RateLimitExceededException {
 
+
     if (source.isEmpty() && accessKey.isEmpty() && !isStory) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 
     final String senderType;
-
     if (source.isPresent()) {
       if (source.get().getAccount().isIdentifiedBy(destinationIdentifier)) {
         senderType = SENDER_TYPE_SELF;
@@ -250,12 +252,30 @@ public class MessageController {
       senderType = SENDER_TYPE_UNIDENTIFIED;
     }
 
-    final Optional<byte[]> spamReportToken;
-    if (senderType.equals(SENDER_TYPE_IDENTIFIED)) {
-      spamReportToken = reportSpamTokenProvider.makeReportSpamToken(context);
-    } else {
-      spamReportToken = Optional.empty();
+    boolean isSyncMessage = source.isPresent() && source.get().getAccount().isIdentifiedBy(destinationIdentifier);
+
+    if (isSyncMessage && destinationIdentifier.identityType() == IdentityType.PNI) {
+      throw new WebApplicationException(Status.FORBIDDEN);
     }
+
+    Optional<Account> destination;
+    if (!isSyncMessage) {
+      destination = accountsManager.getByServiceIdentifier(destinationIdentifier);
+    } else {
+      destination = source.map(AuthenticatedAccount::getAccount);
+    }
+
+    final Optional<Response> spamCheck = spamChecker.checkForSpam(
+        context, source.map(AuthenticatedAccount::getAccount), destination);
+    if (spamCheck.isPresent()) {
+      return spamCheck.get();
+    }
+
+    final Optional<byte[]> spamReportToken = switch (senderType) {
+      case SENDER_TYPE_IDENTIFIED ->
+          reportSpamTokenProvider.makeReportSpamToken(context, source.get().getAccount(), destination);
+      default -> Optional.empty();
+    };
 
     int totalContentLength = 0;
 
@@ -282,21 +302,6 @@ public class MessageController {
     }
 
     try {
-      boolean isSyncMessage = source.isPresent() && source.get().getAccount().isIdentifiedBy(destinationIdentifier);
-
-      if (isSyncMessage && destinationIdentifier.identityType() == IdentityType.PNI) {
-        throw new WebApplicationException(Status.FORBIDDEN);
-      }
-
-      Optional<Account> destination;
-      if (!isSyncMessage) {
-        destination = accountsManager.getByServiceIdentifier(destinationIdentifier);
-      } else {
-        destination = source.map(AuthenticatedAccount::getAccount);
-      }
-
-      destination.ifPresent(account -> context.setProperty(DESTINATION_ACCOUNT_PROPERTY_NAME, account));
-
       // Stories will be checked by the client; we bypass access checks here for stories.
       if (!isStory) {
         OptionalAccess.verify(source.map(AuthenticatedAccount::getAccount), accessKey, destination);
@@ -416,7 +421,6 @@ public class MessageController {
   @PUT
   @Consumes(MultiRecipientMessageProvider.MEDIA_TYPE)
   @Produces(MediaType.APPLICATION_JSON)
-  @FilterSpam
   @Operation(
       summary = "Send multi-recipient sealed-sender message",
       description = """
@@ -460,7 +464,15 @@ public class MessageController {
       @Parameter(description="If true, the message is a story; access tokens are not checked and sending to nonexistent recipients is permitted")
       @QueryParam("story") boolean isStory,
       @Parameter(description="The sealed-sender multi-recipient message payload as serialized by libsignal")
-      @NotNull SealedSenderMultiRecipientMessage multiRecipientMessage) throws RateLimitExceededException {
+      @NotNull SealedSenderMultiRecipientMessage multiRecipientMessage,
+
+      @Context ContainerRequestContext context) throws RateLimitExceededException {
+
+    final Optional<Response> spamCheck = spamChecker.checkForSpam(context, Optional.empty(), Optional.empty());
+    if (spamCheck.isPresent()) {
+      return spamCheck.get();
+    }
+
     if (groupSendCredential == null && accessKeys == null && !isStory) {
       throw new NotAuthorizedException("A group send credential or unidentified access key is required for non-story messages");
     }

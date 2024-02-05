@@ -43,6 +43,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.stream.Stream;
 import javax.servlet.DispatcherType;
 import javax.servlet.Filter;
 import javax.servlet.FilterRegistration;
@@ -177,6 +178,7 @@ import org.whispersystems.textsecuregcm.spam.RateLimitChallengeListener;
 import org.whispersystems.textsecuregcm.spam.ReportSpamTokenProvider;
 import org.whispersystems.textsecuregcm.spam.ScoreThresholdProvider;
 import org.whispersystems.textsecuregcm.spam.SenderOverrideProvider;
+import org.whispersystems.textsecuregcm.spam.SpamChecker;
 import org.whispersystems.textsecuregcm.spam.SpamFilter;
 import org.whispersystems.textsecuregcm.storage.AccountLockManager;
 import org.whispersystems.textsecuregcm.storage.Accounts;
@@ -773,55 +775,51 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     webSocketEnvironment.jersey().register(new MetricsApplicationEventListener(TrafficSource.WEBSOCKET, clientReleaseManager));
     webSocketEnvironment.jersey().register(new KeepAliveController(clientPresenceManager));
 
-    boolean registeredSpamFilter = false;
-    ReportSpamTokenProvider reportSpamTokenProvider = null;
-
-    List<RateLimitChallengeListener> rateLimitChallengeListeners = new ArrayList<>();
-    for (final SpamFilter filter : ServiceLoader.load(SpamFilter.class)) {
-      if (filter.getClass().isAnnotationPresent(FilterSpam.class)) {
-        try {
-          filter.configure(config.getSpamFilterConfiguration().getEnvironment());
-
-          ReportSpamTokenProvider thisProvider = filter.getReportSpamTokenProvider();
-          if (reportSpamTokenProvider == null) {
-            reportSpamTokenProvider = thisProvider;
-          } else if (thisProvider != null) {
-            log.info("Multiple spam report token providers found. Using the first.");
+    final List<SpamFilter> spamFilters = ServiceLoader.load(SpamFilter.class)
+        .stream()
+        .map(ServiceLoader.Provider::get)
+        .filter(s -> s.getClass().isAnnotationPresent(FilterSpam.class))
+        .flatMap(filter -> {
+          try {
+            filter.configure(config.getSpamFilterConfiguration().getEnvironment());
+            return Stream.of(filter);
+          } catch (Exception e) {
+            log.warn("Failed to register spam filter: {}", filter.getClass().getName(), e);
+            return Stream.empty();
           }
-
-          filter.getReportedMessageListeners().forEach(reportMessageManager::addListener);
-
-          environment.lifecycle().manage(filter);
-          environment.jersey().register(filter);
-          webSocketEnvironment.jersey().register(filter);
-
-          log.info("Registered spam filter: {}", filter.getClass().getName());
-          registeredSpamFilter = true;
-        } catch (final Exception e) {
-          log.warn("Failed to register spam filter: {}", filter.getClass().getName(), e);
-        }
-      } else {
-        log.warn("Spam filter {} not annotated with @FilterSpam and will not be installed",
-            filter.getClass().getName());
-      }
-
-      if (filter instanceof RateLimitChallengeListener) {
-        log.info("Registered rate limit challenge listener: {}", filter.getClass().getName());
-        rateLimitChallengeListeners.add((RateLimitChallengeListener) filter);
-      }
+        })
+        .toList();
+    if (spamFilters.size() > 1) {
+      log.warn("Multiple spam report token providers found. Using the first.");
     }
-    RateLimitChallengeManager rateLimitChallengeManager = new RateLimitChallengeManager(pushChallengeManager,
-        captchaChecker, rateLimiters, rateLimitChallengeListeners);
-
-
-    if (!registeredSpamFilter) {
+    final Optional<SpamFilter> spamFilter = spamFilters.stream().findFirst();
+    if (spamFilter.isEmpty()) {
       log.warn("No spam filters installed");
     }
+    final ReportSpamTokenProvider reportSpamTokenProvider = spamFilter
+        .map(SpamFilter::getReportSpamTokenProvider)
+        .orElseGet(() -> {
+          log.warn("No spam-reporting token providers found; using default (no-op) provider as a default");
+          return ReportSpamTokenProvider.noop();
+        });
+    final SpamChecker spamChecker = spamFilter
+        .map(SpamFilter::getSpamChecker)
+        .orElseGet(() -> {
+          log.warn("No spam-checkers found; using default (no-op) provider as a default");
+          return SpamChecker.noop();
+        });
+    spamFilter.map(SpamFilter::getReportedMessageListener).ifPresent(reportMessageManager::addListener);
 
-    if (reportSpamTokenProvider == null) {
-      log.warn("No spam-reporting token providers found; using default (no-op) provider as a default");
-      reportSpamTokenProvider = ReportSpamTokenProvider.noop();
-    }
+    final RateLimitChallengeManager rateLimitChallengeManager = new RateLimitChallengeManager(pushChallengeManager,
+        captchaChecker, rateLimiters, spamFilter.map(SpamFilter::getRateLimitChallengeListener).stream().toList());
+
+    spamFilter.ifPresent(filter -> {
+      environment.lifecycle().manage(filter);
+      environment.jersey().register(filter);
+      webSocketEnvironment.jersey().register(filter);
+
+      log.info("Registered spam filter: {}", filter.getClass().getName());
+    });
 
     final List<Object> commonControllers = Lists.newArrayList(
         new AccountController(accountsManager, rateLimiters, turnTokenGenerator, registrationRecoveryPasswordsManager,
@@ -850,7 +848,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new MessageController(rateLimiters, messageByteLimitCardinalityEstimator, messageSender, receiptSender,
             accountsManager, messagesManager, pushNotificationManager, reportMessageManager,
             multiRecipientMessageExecutor, messageDeliveryScheduler, reportSpamTokenProvider, clientReleaseManager,
-            dynamicConfigurationManager, zkSecretParams),
+            dynamicConfigurationManager, zkSecretParams, spamChecker),
         new PaymentsController(currencyManager, paymentsCredentialsGenerator),
         new ProfileController(clock, rateLimiters, accountsManager, profilesManager, dynamicConfigurationManager,
             profileBadgeConverter, config.getBadges(), cdnS3Client, profileCdnPolicyGenerator, profileCdnPolicySigner,
