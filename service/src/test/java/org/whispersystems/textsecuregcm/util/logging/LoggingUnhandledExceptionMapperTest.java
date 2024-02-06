@@ -57,6 +57,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.mappers.CompletionExceptionMapper;
+import org.whispersystems.textsecuregcm.tests.util.TestPrincipal;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.websocket.WebSocketResourceProvider;
 import org.whispersystems.websocket.auth.WebsocketAuthValueFactoryProvider;
@@ -175,7 +176,8 @@ class LoggingUnhandledExceptionMapperTest {
     ApplicationHandler applicationHandler = new ApplicationHandler(resourceConfig);
     WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
     WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1",
-        RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME, applicationHandler, requestLog, new TestPrincipal("foo"),
+        RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME, applicationHandler, requestLog,
+        TestPrincipal.reusableAuth("foo"),
         new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 
     RemoteEndpoint remoteEndpoint = mock(RemoteEndpoint.class);
@@ -236,20 +238,6 @@ class LoggingUnhandledExceptionMapperTest {
     public Response testUnhandledExceptionWithPathParameter(@PathParam("parameter1") String parameter1,
         @PathParam("parameter2") String parameter2) {
       throw new RuntimeException();
-    }
-  }
-
-  public static class TestPrincipal implements Principal {
-
-    private final String name;
-
-    private TestPrincipal(String name) {
-      this.name = name;
-    }
-
-    @Override
-    public String getName() {
-      return name;
     }
   }
 }

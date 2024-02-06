@@ -87,7 +87,7 @@ class BasicCredentialAuthenticationInterceptorTest {
       when(device.getId()).thenReturn(Device.PRIMARY_ID);
 
       when(accountAuthenticator.authenticate(any()))
-          .thenReturn(Optional.of(new AuthenticatedAccount(() -> new Pair<>(account, device))));
+          .thenReturn(Optional.of(new AuthenticatedAccount(account, device)));
     } else {
       when(accountAuthenticator.authenticate(any()))
           .thenReturn(Optional.empty());

@@ -28,8 +28,8 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
-import org.whispersystems.textsecuregcm.util.Pair;
-import org.whispersystems.websocket.auth.WebSocketAuthenticator;
+import org.whispersystems.websocket.ReusableAuth;
+import org.whispersystems.websocket.auth.PrincipalSupplier;
 
 class WebSocketAccountAuthenticatorTest {
 
@@ -52,7 +52,7 @@ class WebSocketAccountAuthenticatorTest {
     accountAuthenticator = mock(AccountAuthenticator.class);
 
     when(accountAuthenticator.authenticate(eq(new BasicCredentials(VALID_USER, VALID_PASSWORD))))
-        .thenReturn(Optional.of(new AuthenticatedAccount(() -> new Pair<>(mock(Account.class), mock(Device.class)))));
+        .thenReturn(Optional.of(new AuthenticatedAccount(mock(Account.class), mock(Device.class))));
 
     when(accountAuthenticator.authenticate(eq(new BasicCredentials(INVALID_USER, INVALID_PASSWORD))))
         .thenReturn(Optional.empty());
@@ -66,7 +66,7 @@ class WebSocketAccountAuthenticatorTest {
       @Nullable final String authorizationHeaderValue,
       final Map<String, List<String>> upgradeRequestParameters,
       final boolean expectAccount,
-      final boolean expectCredentialsPresented) throws Exception {
+      final boolean expectInvalid) throws Exception {
 
     when(upgradeRequest.getParameterMap()).thenReturn(upgradeRequestParameters);
     if (authorizationHeaderValue != null) {
@@ -74,13 +74,13 @@ class WebSocketAccountAuthenticatorTest {
     }
 
     final WebSocketAccountAuthenticator webSocketAuthenticator = new WebSocketAccountAuthenticator(
-        accountAuthenticator);
+        accountAuthenticator,
+        mock(PrincipalSupplier.class));
 
-    final WebSocketAuthenticator.AuthenticationResult<AuthenticatedAccount> result = webSocketAuthenticator.authenticate(
-        upgradeRequest);
+    final ReusableAuth<AuthenticatedAccount> result = webSocketAuthenticator.authenticate(upgradeRequest);
 
-    assertEquals(expectAccount, result.getUser().isPresent());
-    assertEquals(expectCredentialsPresented, result.credentialsPresented());
+    assertEquals(expectAccount, result.ref().isPresent());
+    assertEquals(expectInvalid, result.invalidCredentialsProvided());
   }
 
   private static Stream<Arguments> testAuthenticate() {
@@ -94,17 +94,17 @@ class WebSocketAccountAuthenticatorTest {
         HeaderUtils.basicAuthHeader(INVALID_USER, INVALID_PASSWORD);
     return Stream.of(
         // if `Authorization` header is present, outcome should not depend on the value of query parameters
-        Arguments.of(headerWithValidAuth, Map.of(), true, true),
+        Arguments.of(headerWithValidAuth, Map.of(), true, false),
         Arguments.of(headerWithInvalidAuth, Map.of(), false, true),
         Arguments.of("invalid header value", Map.of(), false, true),
-        Arguments.of(headerWithValidAuth, paramsMapWithValidAuth, true, true),
+        Arguments.of(headerWithValidAuth, paramsMapWithValidAuth, true, false),
         Arguments.of(headerWithInvalidAuth, paramsMapWithValidAuth, false, true),
         Arguments.of("invalid header value", paramsMapWithValidAuth, false, true),
-        Arguments.of(headerWithValidAuth, paramsMapWithInvalidAuth, true, true),
+        Arguments.of(headerWithValidAuth, paramsMapWithInvalidAuth, true, false),
         Arguments.of(headerWithInvalidAuth, paramsMapWithInvalidAuth, false, true),
         Arguments.of("invalid header value", paramsMapWithInvalidAuth, false, true),
         // if `Authorization` header is not set, outcome should match the query params based auth
-        Arguments.of(null, paramsMapWithValidAuth, true, true),
+        Arguments.of(null, paramsMapWithValidAuth, true, false),
         Arguments.of(null, paramsMapWithInvalidAuth, false, true),
         Arguments.of(null, Map.of(), false, false)
     );

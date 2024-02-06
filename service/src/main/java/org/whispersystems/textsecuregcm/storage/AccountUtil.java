@@ -5,10 +5,12 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
+import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
+import org.whispersystems.websocket.auth.PrincipalSupplier;
 import java.io.IOException;
 
-class AccountUtil {
+public class AccountUtil {
 
   static Account cloneAccountAsNotStale(final Account account) {
     try {

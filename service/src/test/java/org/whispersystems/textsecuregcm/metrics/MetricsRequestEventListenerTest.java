@@ -51,7 +51,10 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
+import org.whispersystems.textsecuregcm.tests.util.TestPrincipal;
+import org.whispersystems.websocket.ReusableAuth;
 import org.whispersystems.websocket.WebSocketResourceProvider;
+import org.whispersystems.websocket.auth.WebSocketAuthenticator;
 import org.whispersystems.websocket.auth.WebsocketAuthValueFactoryProvider;
 import org.whispersystems.websocket.logging.WebsocketRequestLog;
 import org.whispersystems.websocket.messages.protobuf.ProtobufWebSocketMessageFactory;
@@ -139,7 +142,7 @@ class MetricsRequestEventListenerTest {
     final ApplicationHandler applicationHandler = new ApplicationHandler(resourceConfig);
     final WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
     final WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1",
-        RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME, applicationHandler, requestLog, new TestPrincipal("foo"),
+        RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME, applicationHandler, requestLog, TestPrincipal.reusableAuth("foo"),
         new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 
     final Session session = mock(Session.class);
@@ -201,7 +204,7 @@ class MetricsRequestEventListenerTest {
     final ApplicationHandler applicationHandler = new ApplicationHandler(resourceConfig);
     final WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
     final WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1",
-        RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME, applicationHandler, requestLog, new TestPrincipal("foo"),
+        RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME, applicationHandler, requestLog, TestPrincipal.reusableAuth("foo"),
         new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 
     final Session session = mock(Session.class);
@@ -252,19 +255,6 @@ class MetricsRequestEventListenerTest {
     return SubProtocol.WebSocketMessage.parseFrom(responseCaptor.getValue().array()).getResponse();
   }
 
-  public static class TestPrincipal implements Principal {
-
-    private final String name;
-
-    private TestPrincipal(String name) {
-      this.name = name;
-    }
-
-    @Override
-    public String getName() {
-      return name;
-    }
-  }
 
   @Path("/v1/test")
   public static class TestResource {

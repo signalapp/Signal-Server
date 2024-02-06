@@ -7,6 +7,7 @@ package org.whispersystems.websocket;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -27,6 +28,7 @@ import org.glassfish.jersey.server.ResourceConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.websocket.auth.AuthenticationException;
+import org.whispersystems.websocket.auth.PrincipalSupplier;
 import org.whispersystems.websocket.auth.WebSocketAuthenticator;
 import org.whispersystems.websocket.configuration.WebSocketConfiguration;
 import org.whispersystems.websocket.setup.WebSocketEnvironment;
@@ -56,8 +58,7 @@ public class WebSocketResourceProviderFactoryTest {
   @Test
   void testUnauthorized() throws AuthenticationException, IOException {
     when(environment.getAuthenticator()).thenReturn(authenticator);
-    when(authenticator.authenticate(eq(request))).thenReturn(
-        new WebSocketAuthenticator.AuthenticationResult<>(Optional.empty(), true));
+    when(authenticator.authenticate(eq(request))).thenReturn(ReusableAuth.invalid());
     when(environment.jersey()).thenReturn(jerseyEnvironment);
 
     WebSocketResourceProviderFactory<?> factory = new WebSocketResourceProviderFactory<>(environment, Account.class,
@@ -74,8 +75,8 @@ public class WebSocketResourceProviderFactoryTest {
     Account account = new Account();
 
     when(environment.getAuthenticator()).thenReturn(authenticator);
-    when(authenticator.authenticate(eq(request))).thenReturn(
-        new WebSocketAuthenticator.AuthenticationResult<>(Optional.of(account), true));
+    when(authenticator.authenticate(eq(request)))
+        .thenReturn(ReusableAuth.authenticated(account, PrincipalSupplier.forImmutablePrincipal()));
     when(environment.jersey()).thenReturn(jerseyEnvironment);
     final HttpServletRequest httpServletRequest = mock(HttpServletRequest.class);
     when(httpServletRequest.getAttribute(REMOTE_ADDRESS_PROPERTY_NAME)).thenReturn("127.0.0.1");
@@ -137,6 +138,7 @@ public class WebSocketResourceProviderFactoryTest {
     public boolean implies(Subject subject) {
       return false;
     }
+
   }
 
 

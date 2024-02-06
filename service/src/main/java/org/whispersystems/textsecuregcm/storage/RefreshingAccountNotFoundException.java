@@ -5,9 +5,9 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
-public class RefreshingAccountAndDeviceNotFoundException extends RuntimeException {
+public class RefreshingAccountNotFoundException extends RuntimeException {
 
-  public RefreshingAccountAndDeviceNotFoundException(final String message) {
+  public RefreshingAccountNotFoundException(final String message) {
     super(message);
   }
 

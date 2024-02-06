@@ -58,7 +58,7 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
 
   private final Map<Long, CompletableFuture<WebSocketResponseMessage>> requestMap = new ConcurrentHashMap<>();
 
-  private final T authenticated;
+  private final ReusableAuth<T> reusableAuth;
   private final WebSocketMessageFactory messageFactory;
   private final Optional<WebSocketConnectListener> connectListener;
   private final ApplicationHandler jerseyHandler;
@@ -77,7 +77,7 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
       String remoteAddressPropertyName,
       ApplicationHandler jerseyHandler,
       WebsocketRequestLog requestLog,
-      T authenticated,
+      ReusableAuth<T> authenticated,
       WebSocketMessageFactory messageFactory,
       Optional<WebSocketConnectListener> connectListener,
       Duration idleTimeout) {
@@ -85,7 +85,7 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
     this.remoteAddressPropertyName = remoteAddressPropertyName;
     this.jerseyHandler = jerseyHandler;
     this.requestLog = requestLog;
-    this.authenticated = authenticated;
+    this.reusableAuth = authenticated;
     this.messageFactory = messageFactory;
     this.connectListener = connectListener;
     this.idleTimeout = idleTimeout;
@@ -97,7 +97,7 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
     this.remoteEndpoint = session.getRemote();
     this.context = new WebSocketSessionContext(
         new WebSocketClient(session, remoteEndpoint, messageFactory, requestMap));
-    this.context.setAuthenticated(authenticated);
+    this.context.setAuthenticated(reusableAuth.ref().orElse(null));
     this.session.setIdleTimeout(idleTimeout);
 
     connectListener.ifPresent(listener -> listener.onWebSocketConnect(this.context));
@@ -162,6 +162,17 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
     logger.debug("onWebSocketText!");
   }
 
+  /**
+   * The property name where {@link org.whispersystems.websocket.auth.WebsocketAuthValueFactoryProvider} can find an
+   * {@link ReusableAuth} object that lives for the lifetime of the websocket
+   */
+  public static final String REUSABLE_AUTH_PROPERTY = WebSocketResourceProvider.class.getName() + ".reusableAuth";
+
+  /**
+   * The property name where {@link org.whispersystems.websocket.auth.WebsocketAuthValueFactoryProvider} can install a
+   * {@link org.whispersystems.websocket.ReusableAuth.MutableRef} for us to close when the request is finished
+   */
+  public static final String RESOLVED_PRINCIPAL_PROPERTY = WebSocketResourceProvider.class.getName() + ".resolvedPrincipal";
   private void handleRequest(WebSocketRequestMessage requestMessage) {
     ContainerRequest containerRequest = new ContainerRequest(null, URI.create(requestMessage.getPath()),
         requestMessage.getVerb(), new WebSocketSecurityContext(new ContextPrincipal(context)),
@@ -173,30 +184,43 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
     }
 
     containerRequest.setProperty(remoteAddressPropertyName, remoteAddress);
+    containerRequest.setProperty(REUSABLE_AUTH_PROPERTY, reusableAuth);
 
     ByteArrayOutputStream responseBody = new ByteArrayOutputStream();
     CompletableFuture<ContainerResponse> responseFuture = (CompletableFuture<ContainerResponse>) jerseyHandler.apply(
         containerRequest, responseBody);
 
-    responseFuture.thenAccept(response -> {
-      try {
-        sendResponse(requestMessage, response, responseBody);
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      }
-      requestLog.log(remoteAddress, containerRequest, response);
-    }).exceptionally(exception -> {
-      logger.warn("Websocket Error: " + requestMessage.getVerb() + " " + requestMessage.getPath() + "\n"
-          + requestMessage.getBody(), exception);
-      try {
-        sendErrorResponse(requestMessage, Response.status(500).build());
-      } catch (IOException e) {
-        logger.warn("Failed to send error response", e);
-      }
-      requestLog.log(remoteAddress, containerRequest,
-          new ContainerResponse(containerRequest, Response.status(500).build()));
-      return null;
-    });
+    responseFuture
+        .whenComplete((ignoredResponse, ignoredError) -> {
+          // If the request ended up being one that mutates our principal, we have to close it to indicate we're done
+          // with the mutation operation
+          final Object resolvedPrincipal = containerRequest.getProperty(RESOLVED_PRINCIPAL_PROPERTY);
+          if (resolvedPrincipal instanceof ReusableAuth.MutableRef ref) {
+              ref.close();
+          } else if (resolvedPrincipal != null) {
+            logger.warn("unexpected resolved principal type {} : {}", resolvedPrincipal.getClass(), resolvedPrincipal);
+          }
+        })
+        .thenAccept(response -> {
+          try {
+            sendResponse(requestMessage, response, responseBody);
+          } catch (IOException e) {
+            throw new RuntimeException(e);
+          }
+          requestLog.log(remoteAddress, containerRequest, response);
+        })
+        .exceptionally(exception -> {
+          logger.warn("Websocket Error: " + requestMessage.getVerb() + " " + requestMessage.getPath() + "\n"
+              + requestMessage.getBody(), exception);
+          try {
+            sendErrorResponse(requestMessage, Response.status(500).build());
+          } catch (IOException e) {
+            logger.warn("Failed to send error response", e);
+          }
+          requestLog.log(remoteAddress, containerRequest,
+              new ContainerResponse(containerRequest, Response.status(500).build()));
+          return null;
+        });
   }
 
   @VisibleForTesting

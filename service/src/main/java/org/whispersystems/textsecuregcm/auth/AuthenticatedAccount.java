@@ -10,24 +10,24 @@ import java.util.function.Supplier;
 import javax.security.auth.Subject;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.util.Pair;
 
 public class AuthenticatedAccount implements Principal, AccountAndAuthenticatedDeviceHolder {
+  private final Account account;
+  private final Device device;
 
-  private final Supplier<Pair<Account, Device>> accountAndDevice;
-
-  public AuthenticatedAccount(final Supplier<Pair<Account, Device>> accountAndDevice) {
-    this.accountAndDevice = accountAndDevice;
+ public AuthenticatedAccount(final Account account, final Device device) {
+    this.account = account;
+    this.device = device;
   }
 
   @Override
   public Account getAccount() {
-    return accountAndDevice.get().first();
+    return account;
   }
 
   @Override
   public Device getAuthenticatedDevice() {
-    return accountAndDevice.get().second();
+    return device;
   }
 
   // Principal implementation

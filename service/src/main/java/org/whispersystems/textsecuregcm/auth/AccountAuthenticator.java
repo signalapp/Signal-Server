@@ -21,7 +21,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.RefreshingAccountAndDeviceSupplier;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -108,8 +107,7 @@ public class AccountAuthenticator implements Authenticator<BasicCredentials, Aut
               device.get(),
               SaltedTokenHash.generateFor(basicCredentials.getPassword()));  // new credentials have current version
         }
-        return Optional.of(new AuthenticatedAccount(
-            new RefreshingAccountAndDeviceSupplier(authenticatedAccount, device.get().getId(), accountsManager)));
+        return Optional.of(new AuthenticatedAccount(authenticatedAccount, device.get()));
       }
 
       return Optional.empty();

@@ -5,7 +5,6 @@
 
 package org.whispersystems.textsecuregcm.auth;
 
-import com.google.common.annotations.VisibleForTesting;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -45,10 +44,6 @@ public class AuthEnablementRefreshRequirementProvider implements WebsocketRefres
     this.accountsManager = accountsManager;
   }
 
-  @VisibleForTesting
-  static Map<Byte, Boolean> buildDevicesEnabledMap(final Account account) {
-    return account.getDevices().stream().collect(Collectors.toMap(Device::getId, Device::isEnabled));
-  }
 
   @Override
   public void handleRequestFiltered(final RequestEvent requestEvent) {
@@ -60,10 +55,13 @@ public class AuthEnablementRefreshRequirementProvider implements WebsocketRefres
           setAccount(requestEvent.getContainerRequest(), account));
     }
   }
-
   public static void setAccount(final ContainerRequest containerRequest, final Account account) {
-    containerRequest.setProperty(ACCOUNT_UUID, account.getUuid());
-    containerRequest.setProperty(DEVICES_ENABLED, buildDevicesEnabledMap(account));
+    setAccount(containerRequest, ContainerRequestUtil.AccountInfo.fromAccount(account));
+  }
+
+  private static void setAccount(final ContainerRequest containerRequest, final ContainerRequestUtil.AccountInfo info) {
+    containerRequest.setProperty(ACCOUNT_UUID, info.accountId());
+    containerRequest.setProperty(DEVICES_ENABLED, info.devicesEnabled());
   }
 
   @Override
@@ -75,25 +73,28 @@ public class AuthEnablementRefreshRequirementProvider implements WebsocketRefres
       @SuppressWarnings("unchecked") final Map<Byte, Boolean> initialDevicesEnabled =
           (Map<Byte, Boolean>) requestEvent.getContainerRequest().getProperty(DEVICES_ENABLED);
 
-      return accountsManager.getByAccountIdentifier((UUID) requestEvent.getContainerRequest().getProperty(ACCOUNT_UUID)).map(account -> {
-        final Set<Byte> deviceIdsToDisplace;
-        final Map<Byte, Boolean> currentDevicesEnabled = buildDevicesEnabledMap(account);
+      return accountsManager.getByAccountIdentifier((UUID) requestEvent.getContainerRequest().getProperty(ACCOUNT_UUID))
+          .map(ContainerRequestUtil.AccountInfo::fromAccount)
+          .map(account -> {
+            final Set<Byte> deviceIdsToDisplace;
+            final Map<Byte, Boolean> currentDevicesEnabled = account.devicesEnabled();
 
-        if (!initialDevicesEnabled.equals(currentDevicesEnabled)) {
-          deviceIdsToDisplace = new HashSet<>(initialDevicesEnabled.keySet());
-          deviceIdsToDisplace.addAll(currentDevicesEnabled.keySet());
-        } else {
-          deviceIdsToDisplace = Collections.emptySet();
-        }
+            if (!initialDevicesEnabled.equals(currentDevicesEnabled)) {
+              deviceIdsToDisplace = new HashSet<>(initialDevicesEnabled.keySet());
+              deviceIdsToDisplace.addAll(currentDevicesEnabled.keySet());
+            } else {
+              deviceIdsToDisplace = Collections.emptySet();
+            }
 
-        return deviceIdsToDisplace.stream()
-            .map(deviceId -> new Pair<>(account.getUuid(), deviceId))
-            .collect(Collectors.toList());
-      }).orElseGet(() -> {
-        logger.error("Request had account, but it is no longer present");
-        return Collections.emptyList();
-      });
-    } else
+            return deviceIdsToDisplace.stream()
+                .map(deviceId -> new Pair<>(account.accountId(), deviceId))
+                .collect(Collectors.toList());
+          }).orElseGet(() -> {
+            logger.error("Request had account, but it is no longer present");
+            return Collections.emptyList();
+          });
+    } else {
       return Collections.emptyList();
+    }
   }
 }

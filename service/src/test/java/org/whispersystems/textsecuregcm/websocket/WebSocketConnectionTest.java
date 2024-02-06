@@ -64,9 +64,9 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
-import org.whispersystems.textsecuregcm.util.Pair;
+import org.whispersystems.websocket.ReusableAuth;
 import org.whispersystems.websocket.WebSocketClient;
-import org.whispersystems.websocket.auth.WebSocketAuthenticator.AuthenticationResult;
+import org.whispersystems.websocket.auth.PrincipalSupplier;
 import org.whispersystems.websocket.messages.WebSocketResponseMessage;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
 import reactor.core.publisher.Flux;
@@ -101,7 +101,7 @@ class WebSocketConnectionTest {
     accountsManager = mock(AccountsManager.class);
     account = mock(Account.class);
     device = mock(Device.class);
-    auth = new AuthenticatedAccount(() -> new Pair<>(account, device));
+    auth = new AuthenticatedAccount(account, device);
     upgradeRequest = mock(UpgradeRequest.class);
     messagesManager = mock(MessagesManager.class);
     receiptSender = mock(ReceiptSender.class);
@@ -118,18 +118,19 @@ class WebSocketConnectionTest {
 
   @Test
   void testCredentials() throws Exception {
-    WebSocketAccountAuthenticator webSocketAuthenticator = new WebSocketAccountAuthenticator(accountAuthenticator);
+    WebSocketAccountAuthenticator webSocketAuthenticator =
+        new WebSocketAccountAuthenticator(accountAuthenticator, mock(PrincipalSupplier.class));
     AuthenticatedConnectListener connectListener = new AuthenticatedConnectListener(receiptSender, messagesManager,
         mock(PushNotificationManager.class), mock(ClientPresenceManager.class),
         retrySchedulingExecutor, messageDeliveryScheduler, clientReleaseManager);
     WebSocketSessionContext sessionContext = mock(WebSocketSessionContext.class);
 
     when(accountAuthenticator.authenticate(eq(new BasicCredentials(VALID_USER, VALID_PASSWORD))))
-        .thenReturn(Optional.of(new AuthenticatedAccount(() -> new Pair<>(account, device))));
+        .thenReturn(Optional.of(new AuthenticatedAccount(account, device)));
 
-    AuthenticationResult<AuthenticatedAccount> account = webSocketAuthenticator.authenticate(upgradeRequest);
-    when(sessionContext.getAuthenticated()).thenReturn(account.getUser().orElse(null));
-    when(sessionContext.getAuthenticated(AuthenticatedAccount.class)).thenReturn(account.getUser().orElse(null));
+    ReusableAuth<AuthenticatedAccount> account = webSocketAuthenticator.authenticate(upgradeRequest);
+    when(sessionContext.getAuthenticated()).thenReturn(account.ref().orElse(null));
+    when(sessionContext.getAuthenticated(AuthenticatedAccount.class)).thenReturn(account.ref().orElse(null));
 
     final WebSocketClient webSocketClient = mock(WebSocketClient.class);
     when(webSocketClient.getUserAgent()).thenReturn("Signal-Android/6.22.8");
@@ -144,8 +145,8 @@ class WebSocketConnectionTest {
     // unauthenticated
     when(upgradeRequest.getParameterMap()).thenReturn(Map.of());
     account = webSocketAuthenticator.authenticate(upgradeRequest);
-    assertFalse(account.getUser().isPresent());
-    assertFalse(account.credentialsPresented());
+    assertFalse(account.ref().isPresent());
+    assertFalse(account.invalidCredentialsProvided());
 
     connectListener.onWebSocketConnect(sessionContext);
     verify(sessionContext, times(2)).addWebsocketClosedListener(

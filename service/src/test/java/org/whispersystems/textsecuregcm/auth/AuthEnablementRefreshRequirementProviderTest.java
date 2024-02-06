@@ -7,8 +7,6 @@ package org.whispersystems.textsecuregcm.auth;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -30,7 +28,6 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.Principal;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.LinkedList;
@@ -76,7 +73,9 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
+import org.whispersystems.websocket.ReusableAuth;
 import org.whispersystems.websocket.WebSocketResourceProvider;
+import org.whispersystems.websocket.auth.PrincipalSupplier;
 import org.whispersystems.websocket.auth.WebsocketAuthValueFactoryProvider;
 import org.whispersystems.websocket.logging.WebsocketRequestLog;
 import org.whispersystems.websocket.messages.protobuf.ProtobufWebSocketMessageFactory;
@@ -130,38 +129,6 @@ class AuthEnablementRefreshRequirementProviderTest {
 
     account.getDevices()
         .forEach(device -> when(clientPresenceManager.isPresent(uuid, device.getId())).thenReturn(true));
-  }
-
-  @Test
-  void testBuildDevicesEnabled() {
-
-    final byte disabledDeviceId = 3;
-
-    final Account account = mock(Account.class);
-
-    final List<Device> devices = new ArrayList<>();
-    when(account.getDevices()).thenReturn(devices);
-
-    IntStream.range(1, 5)
-        .forEach(id -> {
-          final Device device = mock(Device.class);
-          when(device.getId()).thenReturn((byte) id);
-          when(device.isEnabled()).thenReturn(id != disabledDeviceId);
-          devices.add(device);
-        });
-
-    final Map<Byte, Boolean> devicesEnabled = AuthEnablementRefreshRequirementProvider.buildDevicesEnabledMap(account);
-
-    assertEquals(4, devicesEnabled.size());
-
-    assertAll(devicesEnabled.entrySet().stream()
-        .map(deviceAndEnabled -> () -> {
-          if (deviceAndEnabled.getKey().equals(disabledDeviceId)) {
-            assertFalse(deviceAndEnabled.getValue());
-          } else {
-            assertTrue(deviceAndEnabled.getValue());
-          }
-        }));
   }
 
   @ParameterizedTest
@@ -308,7 +275,7 @@ class AuthEnablementRefreshRequirementProviderTest {
       WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
 
       provider = new WebSocketResourceProvider<>("127.0.0.1", RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME,
-          applicationHandler, requestLog, new TestPrincipal("test", account, authenticatedDevice),
+          applicationHandler, requestLog, TestPrincipal.reusableAuth("test", account, authenticatedDevice),
           new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 
       remoteEndpoint = mock(RemoteEndpoint.class);
@@ -349,7 +316,7 @@ class AuthEnablementRefreshRequirementProviderTest {
     private final Account account;
     private final Device device;
 
-    private TestPrincipal(String name, final Account account, final Device device) {
+    private TestPrincipal(final String name, final Account account, final Device device) {
       this.name = name;
       this.account = account;
       this.device = device;
@@ -369,6 +336,11 @@ class AuthEnablementRefreshRequirementProviderTest {
     public Device getAuthenticatedDevice() {
       return device;
     }
+
+    public static ReusableAuth<TestPrincipal> reusableAuth(final String name, final Account account, final Device device) {
+      return ReusableAuth.authenticated(new TestPrincipal(name, account, device), PrincipalSupplier.forImmutablePrincipal());
+    }
+
   }
 
   @Path("/v1/test")

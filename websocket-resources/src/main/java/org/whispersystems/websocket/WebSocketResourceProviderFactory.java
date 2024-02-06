@@ -22,7 +22,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.websocket.auth.AuthenticationException;
 import org.whispersystems.websocket.auth.WebSocketAuthenticator;
-import org.whispersystems.websocket.auth.WebSocketAuthenticator.AuthenticationResult;
 import org.whispersystems.websocket.auth.WebsocketAuthValueFactoryProvider;
 import org.whispersystems.websocket.configuration.WebSocketConfiguration;
 import org.whispersystems.websocket.session.WebSocketSessionContextValueFactoryProvider;
@@ -57,17 +56,17 @@ public class WebSocketResourceProviderFactory<T extends Principal> extends Jetty
   public Object createWebSocket(final JettyServerUpgradeRequest request, final JettyServerUpgradeResponse response) {
     try {
       Optional<WebSocketAuthenticator<T>> authenticator = Optional.ofNullable(environment.getAuthenticator());
-      T authenticated = null;
 
+      final ReusableAuth<T> authenticated;
       if (authenticator.isPresent()) {
-        AuthenticationResult<T> authenticationResult = authenticator.get().authenticate(request);
+        authenticated = authenticator.get().authenticate(request);
 
-        if (authenticationResult.getUser().isEmpty() && authenticationResult.credentialsPresented()) {
+        if (authenticated.invalidCredentialsProvided()) {
           response.sendForbidden("Unauthorized");
           return null;
-        } else {
-          authenticated = authenticationResult.getUser().orElse(null);
         }
+      } else {
+        authenticated = ReusableAuth.anonymous();
       }
 
       return new WebSocketResourceProvider<>(getRemoteAddress(request),

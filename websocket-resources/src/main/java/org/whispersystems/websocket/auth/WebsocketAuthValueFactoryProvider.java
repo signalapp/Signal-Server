@@ -5,24 +5,28 @@
 package org.whispersystems.websocket.auth;
 
 import io.dropwizard.auth.Auth;
+import java.lang.reflect.ParameterizedType;
+import java.security.Principal;
+import java.util.Optional;
+import java.util.function.Function;
+import javax.annotation.Nullable;
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import javax.ws.rs.WebApplicationException;
 import org.glassfish.jersey.internal.inject.AbstractBinder;
 import org.glassfish.jersey.server.ContainerRequest;
 import org.glassfish.jersey.server.internal.inject.AbstractValueParamProvider;
 import org.glassfish.jersey.server.internal.inject.MultivaluedParameterExtractorProvider;
 import org.glassfish.jersey.server.model.Parameter;
 import org.glassfish.jersey.server.spi.internal.ValueParamProvider;
-
-import javax.annotation.Nullable;
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.ws.rs.WebApplicationException;
-import java.lang.reflect.ParameterizedType;
-import java.security.Principal;
-import java.util.Optional;
-import java.util.function.Function;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.whispersystems.websocket.ReusableAuth;
+import org.whispersystems.websocket.WebSocketResourceProvider;
 
 @Singleton
 public class WebsocketAuthValueFactoryProvider<T extends Principal> extends AbstractValueParamProvider  {
+  private static final Logger logger = LoggerFactory.getLogger(WebsocketAuthValueFactoryProvider.class);
 
   private final Class<T> principalClass;
 
@@ -39,15 +43,35 @@ public class WebsocketAuthValueFactoryProvider<T extends Principal> extends Abst
       return null;
     }
 
-    if (parameter.getRawType() == Optional.class                                 &&
-        ParameterizedType.class.isAssignableFrom(parameter.getType().getClass()) &&
-        principalClass == ((ParameterizedType)parameter.getType()).getActualTypeArguments()[0])
-    {
-      return request -> new OptionalContainerRequestValueFactory(request).provide();
+    final boolean readOnly = parameter.isAnnotationPresent(ReadOnly.class);
+
+    if (parameter.getRawType() == Optional.class
+        && ParameterizedType.class.isAssignableFrom(parameter.getType().getClass())
+        && principalClass == ((ParameterizedType) parameter.getType()).getActualTypeArguments()[0]) {
+      return containerRequest -> createPrincipal(containerRequest, readOnly);
     } else if (principalClass.equals(parameter.getRawType())) {
-      return request -> new StandardContainerRequestValueFactory(request).provide();
+      return containerRequest ->
+          createPrincipal(containerRequest, readOnly)
+              .orElseThrow(() -> new WebApplicationException("Authenticated resource", 401));
     } else {
       throw new IllegalStateException("Can't inject unassignable principal: " + principalClass + " for parameter: " + parameter);
+    }
+  }
+
+  private Optional<? extends Principal> createPrincipal(final ContainerRequest request, final boolean readOnly) {
+    final Object obj = request.getProperty(WebSocketResourceProvider.REUSABLE_AUTH_PROPERTY);
+    if (!(obj instanceof ReusableAuth<?>)) {
+      logger.warn("Unexpected reusable auth property type {} : {}", obj.getClass(), obj);
+      return Optional.empty();
+    }
+    @SuppressWarnings("unchecked") final ReusableAuth<T> reusableAuth = (ReusableAuth<T>) obj;
+    if (readOnly) {
+      return reusableAuth.ref();
+    } else {
+      return reusableAuth.mutableRef().map(writeRef -> {
+        request.setProperty(WebSocketResourceProvider.RESOLVED_PRINCIPAL_PROPERTY, writeRef);
+        return writeRef.ref();
+      });
     }
   }
 
@@ -80,38 +104,4 @@ public class WebsocketAuthValueFactoryProvider<T extends Principal> extends Abst
       bind(WebsocketAuthValueFactoryProvider.class).to(ValueParamProvider.class).in(Singleton.class);
     }
   }
-
-  private static class StandardContainerRequestValueFactory {
-
-    private final ContainerRequest request;
-
-    public StandardContainerRequestValueFactory(ContainerRequest request) {
-      this.request = request;
-    }
-
-    public Principal provide() {
-      final Principal principal = request.getSecurityContext().getUserPrincipal();
-
-      if (principal == null) {
-        throw new WebApplicationException("Authenticated resource", 401);
-      }
-
-      return principal;
-    }
-
-  }
-
-  private static class OptionalContainerRequestValueFactory {
-
-    private final ContainerRequest request;
-
-    public OptionalContainerRequestValueFactory(ContainerRequest request) {
-      this.request = request;
-    }
-
-    public Optional<Principal> provide() {
-      return Optional.ofNullable(request.getSecurityContext().getUserPrincipal());
-    }
-  }
-
 }

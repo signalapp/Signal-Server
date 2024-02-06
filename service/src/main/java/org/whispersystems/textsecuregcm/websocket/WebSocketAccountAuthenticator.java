@@ -11,41 +11,40 @@ import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.basic.BasicCredentials;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import javax.annotation.Nullable;
 import org.eclipse.jetty.websocket.api.UpgradeRequest;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.websocket.ReusableAuth;
 import org.whispersystems.websocket.auth.AuthenticationException;
+import org.whispersystems.websocket.auth.PrincipalSupplier;
 import org.whispersystems.websocket.auth.WebSocketAuthenticator;
 
 
 public class WebSocketAccountAuthenticator implements WebSocketAuthenticator<AuthenticatedAccount> {
 
-  private static final AuthenticationResult<AuthenticatedAccount> CREDENTIALS_NOT_PRESENTED =
-      new AuthenticationResult<>(Optional.empty(), false);
+  private static final ReusableAuth<AuthenticatedAccount> CREDENTIALS_NOT_PRESENTED = ReusableAuth.anonymous();
 
-  private static final AuthenticationResult<AuthenticatedAccount> INVALID_CREDENTIALS_PRESENTED =
-      new AuthenticationResult<>(Optional.empty(), true);
+  private static final ReusableAuth<AuthenticatedAccount> INVALID_CREDENTIALS_PRESENTED = ReusableAuth.invalid();
 
   private final AccountAuthenticator accountAuthenticator;
+  private final PrincipalSupplier<AuthenticatedAccount> principalSupplier;
 
-
-  public WebSocketAccountAuthenticator(final AccountAuthenticator accountAuthenticator) {
+  public WebSocketAccountAuthenticator(final AccountAuthenticator accountAuthenticator,
+      final PrincipalSupplier<AuthenticatedAccount> principalSupplier) {
     this.accountAuthenticator = accountAuthenticator;
+    this.principalSupplier = principalSupplier;
   }
 
   @Override
-  public AuthenticationResult<AuthenticatedAccount> authenticate(final UpgradeRequest request)
+  public ReusableAuth<AuthenticatedAccount> authenticate(final UpgradeRequest request)
       throws AuthenticationException {
     try {
-      final AuthenticationResult<AuthenticatedAccount> authResultFromHeader =
-          authenticatedAccountFromHeaderAuth(request.getHeader(HttpHeaders.AUTHORIZATION));
-      // the logic here is that if the `Authorization` header was set for the request,
-      // it takes the priority and we use the result of the header-based auth
-      // ignoring the result of the query-based auth.
-      if (authResultFromHeader.credentialsPresented()) {
-        return authResultFromHeader;
+      // If the `Authorization` header was set for the request it takes priority, and we use the result of the
+      // header-based auth ignoring the result of the query-based auth.
+      final String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+      if (authHeader != null) {
+        return authenticatedAccountFromHeaderAuth(authHeader);
       }
       return authenticatedAccountFromQueryParams(request);
     } catch (final Exception e) {
@@ -55,7 +54,7 @@ public class WebSocketAccountAuthenticator implements WebSocketAuthenticator<Aut
     }
   }
 
-  private AuthenticationResult<AuthenticatedAccount> authenticatedAccountFromQueryParams(final UpgradeRequest request) {
+  private ReusableAuth<AuthenticatedAccount> authenticatedAccountFromQueryParams(final UpgradeRequest request) {
     final Map<String, List<String>> parameters = request.getParameterMap();
     final List<String> usernames = parameters.get("login");
     final List<String> passwords = parameters.get("password");
@@ -65,16 +64,19 @@ public class WebSocketAccountAuthenticator implements WebSocketAuthenticator<Aut
     }
     final BasicCredentials credentials = new BasicCredentials(usernames.get(0).replace(" ", "+"),
         passwords.get(0).replace(" ", "+"));
-    return new AuthenticationResult<>(accountAuthenticator.authenticate(credentials), true);
+    return accountAuthenticator.authenticate(credentials)
+        .map(authenticatedAccount -> ReusableAuth.authenticated(authenticatedAccount, this.principalSupplier))
+        .orElse(INVALID_CREDENTIALS_PRESENTED);
   }
 
-  private AuthenticationResult<AuthenticatedAccount> authenticatedAccountFromHeaderAuth(@Nullable final String authHeader)
+  private ReusableAuth<AuthenticatedAccount> authenticatedAccountFromHeaderAuth(@Nullable final String authHeader)
       throws AuthenticationException {
     if (authHeader == null) {
       return CREDENTIALS_NOT_PRESENTED;
     }
     return basicCredentialsFromAuthHeader(authHeader)
-        .map(credentials -> new AuthenticationResult<>(accountAuthenticator.authenticate(credentials), true))
+        .flatMap(credentials -> accountAuthenticator.authenticate(credentials))
+        .map(authenticatedAccount -> ReusableAuth.authenticated(authenticatedAccount, this.principalSupplier))
         .orElse(INVALID_CREDENTIALS_PRESENTED);
   }
 }

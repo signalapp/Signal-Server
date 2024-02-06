@@ -125,7 +125,7 @@ class WebSocketConnectionIntegrationTest {
     final WebSocketConnection webSocketConnection = new WebSocketConnection(
         mock(ReceiptSender.class),
         new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager, sharedExecutorService),
-        new AuthenticatedAccount(() -> new Pair<>(account, device)),
+        new AuthenticatedAccount(account, device),
         device,
         webSocketClient,
         scheduledExecutorService,
@@ -210,7 +210,7 @@ class WebSocketConnectionIntegrationTest {
     final WebSocketConnection webSocketConnection = new WebSocketConnection(
         mock(ReceiptSender.class),
         new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager, sharedExecutorService),
-        new AuthenticatedAccount(() -> new Pair<>(account, device)),
+        new AuthenticatedAccount(account, device),
         device,
         webSocketClient,
         scheduledExecutorService,
@@ -276,7 +276,7 @@ class WebSocketConnectionIntegrationTest {
     final WebSocketConnection webSocketConnection = new WebSocketConnection(
         mock(ReceiptSender.class),
         new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager, sharedExecutorService),
-        new AuthenticatedAccount(() -> new Pair<>(account, device)),
+        new AuthenticatedAccount(account, device),
         device,
         webSocketClient,
         100, // use a very short timeout, so that this test completes quickly
