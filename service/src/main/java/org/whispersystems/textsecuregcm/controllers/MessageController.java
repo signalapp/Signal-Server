@@ -179,6 +179,7 @@ public class MessageController {
   private static final String SENDER_COUNTRY_TAG_NAME = "senderCountry";
   private static final String RATE_LIMIT_REASON_TAG_NAME = "rateLimitReason";
   private static final String ENVELOPE_TYPE_TAG_NAME = "envelopeType";
+  private static final String IDENTITY_TYPE_TAG_NAME = "identityType";
 
   private static final String SENDER_TYPE_IDENTIFIED = "identified";
   private static final String SENDER_TYPE_UNIDENTIFIED = "unidentified";
@@ -342,7 +343,8 @@ public class MessageController {
 
       final List<Tag> tags = List.of(UserAgentTagUtil.getPlatformTag(userAgent),
           Tag.of(EPHEMERAL_TAG_NAME, String.valueOf(messages.online())),
-          Tag.of(SENDER_TYPE_TAG_NAME, senderType));
+          Tag.of(SENDER_TYPE_TAG_NAME, senderType),
+          Tag.of(IDENTITY_TYPE_TAG_NAME, destinationIdentifier.identityType().name()));
 
       for (IncomingMessage incomingMessage : messages.messages()) {
         Optional<Device> destinationDevice = destination.get().getDevice(incomingMessage.destinationDeviceId());
@@ -551,15 +553,16 @@ public class MessageController {
     List<ServiceIdentifier> uuids404 = Collections.synchronizedList(new ArrayList<>());
 
     try {
-      final Counter sentMessageCounter = Metrics.counter(SENT_MESSAGE_COUNTER_NAME, Tags.of(
-          UserAgentTagUtil.getPlatformTag(userAgent),
-          Tag.of(EPHEMERAL_TAG_NAME, String.valueOf(online)),
-          Tag.of(SENDER_TYPE_TAG_NAME, SENDER_TYPE_UNIDENTIFIED)));
-
       CompletableFuture.allOf(
           recipients.values().stream()
-              .flatMap(recipientData ->
-                  recipientData.deviceIdToRegistrationId().keySet().stream().map(
+              .flatMap(recipientData -> {
+                final Counter sentMessageCounter = Metrics.counter(SENT_MESSAGE_COUNTER_NAME, Tags.of(
+                    UserAgentTagUtil.getPlatformTag(userAgent),
+                    Tag.of(EPHEMERAL_TAG_NAME, String.valueOf(online)),
+                    Tag.of(SENDER_TYPE_TAG_NAME, SENDER_TYPE_UNIDENTIFIED),
+                    Tag.of(IDENTITY_TYPE_TAG_NAME, recipientData.serviceIdentifier().identityType().name())));
+
+                  return recipientData.deviceIdToRegistrationId().keySet().stream().map(
                       deviceId ->CompletableFuture.runAsync(
                           () -> {
                             final Account destinationAccount = recipientData.account();
@@ -580,7 +583,8 @@ public class MessageController {
                               uuids404.add(recipientData.serviceIdentifier());
                             }
                           },
-                          multiRecipientMessageExecutor)))
+                          multiRecipientMessageExecutor));
+              })
               .toArray(CompletableFuture[]::new))
           .get();
     } catch (InterruptedException e) {
