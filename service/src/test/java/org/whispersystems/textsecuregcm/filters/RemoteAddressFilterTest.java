@@ -5,18 +5,24 @@
 
 package org.whispersystems.textsecuregcm.filters;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.common.net.HttpHeaders;
+import java.util.Optional;
+import java.util.stream.Stream;
 import javax.servlet.FilterChain;
 import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 class RemoteAddressFilterTest {
 
@@ -55,6 +61,25 @@ class RemoteAddressFilterTest {
 
     verify(httpServletRequest).setAttribute(RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME, expectedRemoteAddr);
     verify(filterChain).doFilter(any(ServletRequest.class), any(ServletResponse.class));
+  }
+
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+  @ParameterizedTest
+  @MethodSource("argumentsForGetMostRecentProxy")
+  void getMostRecentProxy(final String forwardedFor, final Optional<String> expectedMostRecentProxy) {
+    assertEquals(expectedMostRecentProxy, RemoteAddressFilter.getMostRecentProxy(forwardedFor));
+  }
+
+  private static Stream<Arguments> argumentsForGetMostRecentProxy() {
+    return Stream.of(
+        arguments(null, Optional.empty()),
+        arguments("", Optional.empty()),
+        arguments("    ", Optional.empty()),
+        arguments("203.0.113.195,", Optional.empty()),
+        arguments("203.0.113.195, ", Optional.empty()),
+        arguments("203.0.113.195", Optional.of("203.0.113.195")),
+        arguments("203.0.113.195, 70.41.3.18, 150.172.238.178", Optional.of("150.172.238.178"))
+    );
   }
 
 }

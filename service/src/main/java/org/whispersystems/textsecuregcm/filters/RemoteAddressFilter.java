@@ -5,17 +5,20 @@
 
 package org.whispersystems.textsecuregcm.filters;
 
+import com.google.common.annotations.VisibleForTesting;
+import java.io.IOException;
+import java.util.Optional;
+import javax.annotation.Nullable;
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
 import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.HttpServletRequestUtil;
-import java.io.IOException;
 
 /**
  * Sets a {@link HttpServletRequest} attribute (that will also be available as a
@@ -47,7 +50,7 @@ public class RemoteAddressFilter implements Filter {
         remoteAddress = HttpServletRequestUtil.getRemoteAddress(httpServletRequest);
       } else {
         final String forwardedFor = httpServletRequest.getHeader(com.google.common.net.HttpHeaders.X_FORWARDED_FOR);
-        remoteAddress = HeaderUtils.getMostRecentProxy(forwardedFor)
+        remoteAddress = getMostRecentProxy(forwardedFor)
             .orElseGet(() -> HttpServletRequestUtil.getRemoteAddress(httpServletRequest));
       }
 
@@ -58,5 +61,26 @@ public class RemoteAddressFilter implements Filter {
     }
 
     chain.doFilter(request, response);
+  }
+
+  /**
+   * Returns the most recent proxy in a chain described by an {@code X-Forwarded-For} header.
+   *
+   * @param forwardedFor the value of an X-Forwarded-For header
+   * @return the IP address of the most recent proxy in the forwarding chain, or empty if none was found or
+   * {@code forwardedFor} was null
+   * @see <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Forwarded-For">X-Forwarded-For - HTTP |
+   * MDN</a>
+   */
+  @VisibleForTesting
+  static Optional<String> getMostRecentProxy(@Nullable final String forwardedFor) {
+    return Optional.ofNullable(forwardedFor)
+        .map(ff -> {
+          final int idx = forwardedFor.lastIndexOf(',') + 1;
+          return idx < forwardedFor.length()
+              ? forwardedFor.substring(idx).trim()
+              : null;
+        })
+        .filter(StringUtils::isNotBlank);
   }
 }
