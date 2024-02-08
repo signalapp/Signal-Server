@@ -35,7 +35,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import javax.validation.Valid;
@@ -99,10 +98,6 @@ import org.whispersystems.textsecuregcm.subscriptions.SubscriptionCurrencyUtil;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessor;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorManager;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
-import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
-import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
-import org.whispersystems.textsecuregcm.util.ua.UserAgent;
-import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 
 @Path("/v1/subscription")
 @io.swagger.v3.oas.annotations.tags.Tag(name = "Subscriptions")
@@ -157,7 +152,7 @@ public class SubscriptionController {
     this.bankMandateTranslator = Objects.requireNonNull(bankMandateTranslator);
   }
 
-  private Map<String, CurrencyConfiguration> buildCurrencyConfiguration(@Nullable final UserAgent userAgent) {
+  private Map<String, CurrencyConfiguration> buildCurrencyConfiguration() {
     final List<SubscriptionProcessorManager> subscriptionProcessorManagers = List.of(stripeManager, braintreeManager);
     return oneTimeDonationConfiguration.currencies()
         .entrySet().stream()
@@ -178,7 +173,6 @@ public class SubscriptionController {
                   levelIdAndConfig -> levelIdAndConfig.getValue().getPrices().get(currency).amount()));
 
           final List<String> supportedPaymentMethods = Arrays.stream(PaymentMethod.values())
-              .filter(paymentMethod -> !excludePaymentMethod(userAgent, paymentMethod))
               .filter(paymentMethod -> subscriptionProcessorManagers.stream()
                   .anyMatch(manager -> manager.supportsPaymentMethod(paymentMethod)
                       && manager.getSupportedCurrenciesForPaymentMethod(paymentMethod).contains(currency)))
@@ -194,18 +188,8 @@ public class SubscriptionController {
         }));
   }
 
-  // This logic to exclude some iOS client versions from receiving SEPA_DEBIT or IDEAL
-  // as a supported payment method can be removed after 01-23-24.
-  private boolean excludePaymentMethod(@Nullable final UserAgent userAgent, final PaymentMethod paymentMethod) {
-    return (paymentMethod == PaymentMethod.SEPA_DEBIT || paymentMethod == PaymentMethod.IDEAL)
-        && userAgent != null
-        && userAgent.getPlatform() == ClientPlatform.IOS
-        && userAgent.getVersion().isLowerThanOrEqualTo(LAST_PROBLEMATIC_IOS_VERSION);
-  }
-
   @VisibleForTesting
-  GetSubscriptionConfigurationResponse buildGetSubscriptionConfigurationResponse(final List<Locale> acceptableLanguages,
-      final UserAgent userAgent) {
+  GetSubscriptionConfigurationResponse buildGetSubscriptionConfigurationResponse(final List<Locale> acceptableLanguages) {
     final Map<String, LevelConfiguration> levels = new HashMap<>();
 
     subscriptionConfiguration.getLevels().forEach((levelId, levelConfig) -> {
@@ -233,7 +217,7 @@ public class SubscriptionController {
                 giftBadge,
                 oneTimeDonationConfiguration.gift().expiration())));
 
-    return new GetSubscriptionConfigurationResponse(buildCurrencyConfiguration(userAgent), levels, oneTimeDonationConfiguration.sepaMaximumEuros());
+    return new GetSubscriptionConfigurationResponse(buildCurrencyConfiguration(), levels, oneTimeDonationConfiguration.sepaMaximumEuros());
   }
 
   @DELETE
@@ -574,18 +558,10 @@ public class SubscriptionController {
   @GET
   @Path("/configuration")
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletableFuture<Response> getConfiguration(@Context ContainerRequestContext containerRequestContext,
-      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgentString) {
+  public CompletableFuture<Response> getConfiguration(@Context ContainerRequestContext containerRequestContext) {
     return CompletableFuture.supplyAsync(() -> {
       List<Locale> acceptableLanguages = getAcceptableLanguagesForRequest(containerRequestContext);
-
-      UserAgent userAgent;
-      try {
-        userAgent = UserAgentUtil.parseUserAgentString(userAgentString);
-      } catch (UnrecognizedUserAgentException e) {
-        userAgent = null;
-      }
-      return Response.ok(buildGetSubscriptionConfigurationResponse(acceptableLanguages, userAgent)).build();
+      return Response.ok(buildGetSubscriptionConfigurationResponse(acceptableLanguages)).build();
     });
   }
 

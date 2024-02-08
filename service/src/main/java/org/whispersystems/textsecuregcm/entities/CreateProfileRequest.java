@@ -15,6 +15,7 @@ import javax.validation.constraints.NotNull;
 import org.signal.libsignal.zkgroup.profiles.ProfileKeyCommitment;
 import org.whispersystems.textsecuregcm.util.ByteArrayBase64WithPaddingAdapter;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
+import org.whispersystems.textsecuregcm.util.ValidHexString;
 
 public record CreateProfileRequest(
   @JsonProperty
@@ -25,6 +26,8 @@ public record CreateProfileRequest(
 
   @JsonProperty
   @NotEmpty
+  @ValidHexString
+  @ExactlySize({64})
   String version,
 
   @JsonProperty

@@ -69,6 +69,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
+import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -306,9 +307,9 @@ class AuthEnablementRefreshRequirementProviderTest {
       ApplicationHandler applicationHandler = new ApplicationHandler(resourceConfig);
       WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
 
-      provider = new WebSocketResourceProvider<>("127.0.0.1", applicationHandler,
-          requestLog, new TestPrincipal("test", account, authenticatedDevice), new ProtobufWebSocketMessageFactory(),
-          Optional.empty(), Duration.ofMillis(30000));
+      provider = new WebSocketResourceProvider<>("127.0.0.1", RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME,
+          applicationHandler, requestLog, new TestPrincipal("test", account, authenticatedDevice),
+          new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 
       remoteEndpoint = mock(RemoteEndpoint.class);
       Session session = mock(Session.class);

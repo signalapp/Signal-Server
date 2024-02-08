@@ -81,8 +81,6 @@ dynamoDbTables:
     usernamesTableName: Example_Accounts_Usernames
   backups:
     tableName: Example_Backups
-  backupMedia:
-    tableName: Example_BackupMedia
   clientReleases:
     tableName: Example_ClientReleases
   deletedAccounts:
@@ -125,6 +123,8 @@ dynamoDbTables:
     tableName: Example_ReportMessage
   subscriptions:
     tableName: Example_Subscriptions
+  clientPublicKeys:
+    tableName: Example_ClientPublicKeys
   verificationSessions:
     tableName: Example_VerificationSessions
 
@@ -280,6 +280,7 @@ cdn3StorageManager:
 
 dogstatsd:
   environment: dev
+  host: 127.0.0.1
 
 unidentifiedDelivery:
   certificate: secret://unidentifiedDelivery.certificate
@@ -325,7 +326,7 @@ storageService:
 
 zkConfig:
   serverPublic: ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
-  serverSecret: secret://zkConfig.serverSecret
+  serverSecret: secret://zkConfig-libsignal-0.37.serverSecret
 
 callingZkConfig:
   serverSecret: secret://callingZkConfig.serverSecret
@@ -446,9 +447,6 @@ registrationService:
 
 turn:
   secret: secret://turn.secret
-
-commandStopListener:
-  path: /example/path
 
 linkDevice:
   secret: secret://linkDevice.secret

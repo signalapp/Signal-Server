@@ -3,7 +3,7 @@ package org.whispersystems.textsecuregcm.util;
 import org.whispersystems.textsecuregcm.configuration.DynamoDbClientConfiguration;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
-import software.amazon.awssdk.http.apache.ApacheHttpClient;
+import software.amazon.awssdk.http.crt.AwsCrtHttpClient;
 import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
@@ -19,8 +19,9 @@ public class DynamoDbFromConfig {
             .apiCallTimeout(config.clientExecutionTimeout())
             .apiCallAttemptTimeout(config.clientRequestTimeout())
             .build())
-        .httpClientBuilder(ApacheHttpClient.builder()
-            .maxConnections(config.maxConnections()))
+        .httpClientBuilder(AwsCrtHttpClient
+            .builder()
+            .maxConcurrency(config.maxConnections()))
         .build();
   }
 

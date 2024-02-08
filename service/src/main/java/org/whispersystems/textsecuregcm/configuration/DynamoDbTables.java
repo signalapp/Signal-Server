@@ -49,6 +49,7 @@ public class DynamoDbTables {
   private final AccountsTableConfiguration accounts;
 
   private final Table backups;
+  private final Table clientPublicKeys;
   private final Table clientReleases;
   private final Table deletedAccounts;
   private final Table deletedAccountsLock;
@@ -72,7 +73,7 @@ public class DynamoDbTables {
   public DynamoDbTables(
       @JsonProperty("accounts") final AccountsTableConfiguration accounts,
       @JsonProperty("backups") final Table backups,
-      @JsonProperty("backupMedia") final Table backupMedia,
+      @JsonProperty("clientPublicKeys") final Table clientPublicKeys,
       @JsonProperty("clientReleases") final Table clientReleases,
       @JsonProperty("deletedAccounts") final Table deletedAccounts,
       @JsonProperty("deletedAccountsLock") final Table deletedAccountsLock,
@@ -95,6 +96,7 @@ public class DynamoDbTables {
 
     this.accounts = accounts;
     this.backups = backups;
+    this.clientPublicKeys = clientPublicKeys;
     this.clientReleases = clientReleases;
     this.deletedAccounts = deletedAccounts;
     this.deletedAccountsLock = deletedAccountsLock;
@@ -126,6 +128,12 @@ public class DynamoDbTables {
   @Valid
   public Table getBackups() {
     return backups;
+  }
+
+  @NotNull
+  @Valid
+  public Table getClientPublicKeys() {
+    return clientPublicKeys;
   }
 
   @NotNull

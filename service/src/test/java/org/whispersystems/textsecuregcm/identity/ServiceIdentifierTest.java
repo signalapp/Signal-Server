@@ -32,12 +32,11 @@ class ServiceIdentifierTest {
 
     return Stream.of(
         Arguments.of(uuid.toString(), IdentityType.ACI, uuid),
-        Arguments.of("ACI:" + uuid, IdentityType.ACI, uuid),
         Arguments.of("PNI:" + uuid, IdentityType.PNI, uuid));
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"Not a valid UUID", "BAD:a9edc243-3e93-45d4-95c6-e3a84cd4a254"})
+  @ValueSource(strings = {"Not a valid UUID", "BAD:a9edc243-3e93-45d4-95c6-e3a84cd4a254", "ACI:a9edc243-3e93-45d4-95c6-e3a84cd4a254"})
   void valueOfIllegalArgument(final String identifierString) {
     assertThrows(IllegalArgumentException.class, () -> ServiceIdentifier.valueOf(identifierString));
   }

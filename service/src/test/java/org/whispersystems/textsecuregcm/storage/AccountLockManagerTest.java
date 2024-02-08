@@ -51,7 +51,7 @@ class AccountLockManagerTest {
 
   @Test
   void withLock() throws InterruptedException {
-    accountLockManager.withLock(List.of(FIRST_NUMBER, SECOND_NUMBER), () -> {});
+    accountLockManager.withLock(List.of(FIRST_NUMBER, SECOND_NUMBER), () -> {}, executor);
 
     verify(lockClient, times(2)).acquireLock(any());
     verify(lockClient, times(2)).releaseLock(any(ReleaseLockOptions.class));
@@ -61,7 +61,7 @@ class AccountLockManagerTest {
   void withLockTaskThrowsException() throws InterruptedException {
     assertThrows(RuntimeException.class, () -> accountLockManager.withLock(List.of(FIRST_NUMBER, SECOND_NUMBER), () -> {
       throw new RuntimeException();
-    }));
+    }, executor));
 
     verify(lockClient, times(2)).acquireLock(any());
     verify(lockClient, times(2)).releaseLock(any(ReleaseLockOptions.class));
@@ -71,7 +71,7 @@ class AccountLockManagerTest {
   void withLockEmptyList() {
     final Runnable task = mock(Runnable.class);
 
-    assertThrows(IllegalArgumentException.class, () -> accountLockManager.withLock(Collections.emptyList(), () -> {}));
+    assertThrows(IllegalArgumentException.class, () -> accountLockManager.withLock(Collections.emptyList(), () -> {}, executor));
     verify(task, never()).run();
   }
 

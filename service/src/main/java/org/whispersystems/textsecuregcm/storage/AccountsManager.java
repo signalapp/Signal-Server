@@ -263,7 +263,7 @@ public class AccountsManager {
 
         accountAttributes.recoveryPassword().ifPresent(registrationRecoveryPassword ->
             registrationRecoveryPasswordsManager.storeForCurrentNumber(account.getNumber(), registrationRecoveryPassword));
-      });
+      }, accountLockExecutor);
 
       return account;
     }
@@ -423,7 +423,7 @@ public class AccountsManager {
           AccountChangeValidator.NUMBER_CHANGE_VALIDATOR);
 
       updatedAccount.set(numberChangedAccount);
-    });
+    }, accountLockExecutor);
 
     return updatedAccount.get();
   }
@@ -547,6 +547,17 @@ public class AccountsManager {
   public CompletableFuture<UsernameReservation> reserveUsernameHash(final Account account, final List<byte[]> requestedUsernameHashes) {
     if (!experimentEnrollmentManager.isEnrolled(account.getUuid(), USERNAME_EXPERIMENT_NAME)) {
       return CompletableFuture.failedFuture(new UsernameHashNotAvailableException());
+    }
+
+    if (account.getUsernameHash().filter(
+            oldHash -> requestedUsernameHashes.stream().anyMatch(hash -> Arrays.equals(oldHash, hash)))
+        .isPresent()) {
+      // if we are trying to reserve our already-confirmed username hash, we don't need to do
+      // anything, and can give the client a success response (they may try to confirm it again,
+      // but that's a no-op other than rotaing their username link which they may need to do
+      // anyway). note this is *not* the case for reserving our already-reserved username hash,
+      // which should extend the reservation's TTL.
+      return CompletableFuture.completedFuture(new UsernameReservation(account, account.getUsernameHash().get()));
     }
 
     final AtomicReference<byte[]> reservedUsernameHash = new AtomicReference<>();

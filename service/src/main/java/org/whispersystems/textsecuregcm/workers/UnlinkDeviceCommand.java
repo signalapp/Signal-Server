@@ -52,10 +52,6 @@ public class UnlinkDeviceCommand extends EnvironmentCommand<WhisperServerConfigu
       final WhisperServerConfiguration configuration) throws Exception {
     environment.getObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
-    final CommandStopListener commandStopListener = new CommandStopListener(configuration.getCommandStopListener());
-    try {
-      commandStopListener.start();
-
       final UUID aci = UUID.fromString(namespace.getString("uuid").trim());
       final List<Byte> deviceIds = namespace.getList("deviceIds");
 
@@ -73,8 +69,5 @@ public class UnlinkDeviceCommand extends EnvironmentCommand<WhisperServerConfigu
         System.out.format("Removing device %s::%d\n", aci, deviceId);
         deps.accountsManager().removeDevice(account, deviceId).join();
       }
-    } finally {
-      commandStopListener.stop();
-    }
   }
 }

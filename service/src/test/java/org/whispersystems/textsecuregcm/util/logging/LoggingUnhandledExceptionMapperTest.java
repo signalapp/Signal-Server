@@ -55,6 +55,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
+import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.mappers.CompletionExceptionMapper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.websocket.WebSocketResourceProvider;
@@ -173,9 +174,9 @@ class LoggingUnhandledExceptionMapperTest {
 
     ApplicationHandler applicationHandler = new ApplicationHandler(resourceConfig);
     WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
-    WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1", applicationHandler,
-        requestLog, new TestPrincipal("foo"), new ProtobufWebSocketMessageFactory(), Optional.empty(),
-        Duration.ofMillis(30000));
+    WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1",
+        RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME, applicationHandler, requestLog, new TestPrincipal("foo"),
+        new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 
     RemoteEndpoint remoteEndpoint = mock(RemoteEndpoint.class);
     doAnswer(answer -> {

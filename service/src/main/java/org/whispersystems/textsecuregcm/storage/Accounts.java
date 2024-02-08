@@ -378,6 +378,7 @@ public class Accounts extends AbstractDynamoDbStore {
 
       account.setNumber(number, phoneNumberIdentifier);
 
+      int accountUpdateIndex = -1;
       try {
         final List<TransactWriteItem> writeItems = new ArrayList<>();
         final AttributeValue uuidAttr = AttributeValues.fromUUID(account.getUuid());
@@ -392,6 +393,9 @@ public class Accounts extends AbstractDynamoDbStore {
         maybeDisplacedAccountIdentifier.ifPresent(displacedAccountIdentifier ->
             writeItems.add(buildPutDeletedAccount(displacedAccountIdentifier, originalNumber)));
 
+        // The `catch (TransactionCanceledException) block needs to check whether the cancellation reason is the account
+        // update write item
+        accountUpdateIndex = writeItems.size();
         writeItems.add(
             TransactWriteItem.builder()
                 .update(Update.builder()
@@ -429,6 +433,17 @@ public class Accounts extends AbstractDynamoDbStore {
         succeeded = true;
       } catch (final JsonProcessingException e) {
         throw new IllegalArgumentException(e);
+      } catch (final TransactionCanceledException e) {
+        if (e.hasCancellationReasons()) {
+          if (CONDITIONAL_CHECK_FAILED.equals(e.cancellationReasons().get(accountUpdateIndex).code())) {
+            // the #version = :version condition failed, which indicates a concurrent update
+            throw new ContestedOptimisticLockException();
+          }
+        } else {
+          log.warn("Unexpected cancellation reasons: {}", e.cancellationReasons());
+
+        }
+        throw e;
       } finally {
         if (!succeeded) {
           account.setNumber(originalNumber, originalPni);

@@ -22,6 +22,10 @@ public class DogstatsdConfiguration implements StatsdConfig {
   @NotBlank
   private String environment;
 
+  @JsonProperty
+  @NotBlank
+  private String host;
+
   @Override
   public Duration step() {
     return step;
@@ -40,5 +44,10 @@ public class DogstatsdConfiguration implements StatsdConfig {
   public String get(final String key) {
     // We have no Micrometer key/value pairs to report, so always return `null`
     return null;
+  }
+
+  @Override
+  public String host() {
+    return host;
   }
 }

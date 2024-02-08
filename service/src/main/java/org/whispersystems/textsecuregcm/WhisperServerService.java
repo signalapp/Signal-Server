@@ -13,6 +13,8 @@ import io.dropwizard.auth.AuthFilter;
 import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.auth.basic.BasicCredentialAuthFilter;
 import io.dropwizard.auth.basic.BasicCredentials;
+import io.dropwizard.configuration.EnvironmentVariableSubstitutor;
+import io.dropwizard.configuration.SubstitutingSourceProvider;
 import io.dropwizard.core.Application;
 import io.dropwizard.core.server.DefaultServerFactory;
 import io.dropwizard.core.setup.Bootstrap;
@@ -41,7 +43,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.stream.Stream;
 import javax.servlet.DispatcherType;
+import javax.servlet.Filter;
 import javax.servlet.FilterRegistration;
 import javax.servlet.ServletRegistration;
 import org.eclipse.jetty.servlets.CrossOriginFilter;
@@ -113,6 +117,7 @@ import org.whispersystems.textsecuregcm.currency.CoinMarketCapClient;
 import org.whispersystems.textsecuregcm.currency.CurrencyConversionManager;
 import org.whispersystems.textsecuregcm.currency.FixerClient;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
+import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.filters.RemoteDeprecationFilter;
 import org.whispersystems.textsecuregcm.filters.RequestStatisticsFilter;
 import org.whispersystems.textsecuregcm.filters.TimestampResponseFilter;
@@ -173,11 +178,14 @@ import org.whispersystems.textsecuregcm.spam.RateLimitChallengeListener;
 import org.whispersystems.textsecuregcm.spam.ReportSpamTokenProvider;
 import org.whispersystems.textsecuregcm.spam.ScoreThresholdProvider;
 import org.whispersystems.textsecuregcm.spam.SenderOverrideProvider;
+import org.whispersystems.textsecuregcm.spam.SpamChecker;
 import org.whispersystems.textsecuregcm.spam.SpamFilter;
 import org.whispersystems.textsecuregcm.storage.AccountLockManager;
 import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
+import org.whispersystems.textsecuregcm.storage.ClientPublicKeys;
+import org.whispersystems.textsecuregcm.storage.ClientPublicKeysManager;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.ClientReleases;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
@@ -205,8 +213,11 @@ import org.whispersystems.textsecuregcm.subscriptions.BankMandateTranslator;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
 import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
+import org.whispersystems.textsecuregcm.util.ManagedAwsCrt;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.UsernameHashZkProofVerifier;
+import org.whispersystems.textsecuregcm.util.VirtualExecutorServiceProvider;
+import org.whispersystems.textsecuregcm.util.VirtualThreadPinEventMonitor;
 import org.whispersystems.textsecuregcm.util.logging.LoggingUnhandledExceptionMapper;
 import org.whispersystems.textsecuregcm.util.logging.UncaughtExceptionHandler;
 import org.whispersystems.textsecuregcm.websocket.AuthenticatedConnectListener;
@@ -231,10 +242,9 @@ import org.whispersystems.websocket.setup.WebSocketEnvironment;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.AwsCredentialsProviderChain;
-import software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.WebIdentityTokenFileCredentialsProvider;
+import software.amazon.awssdk.http.crt.AwsCrtHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
@@ -248,9 +258,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
   public static final String SECRETS_BUNDLE_FILE_NAME_PROPERTY = "secrets.bundle.filename";
 
   public static final software.amazon.awssdk.auth.credentials.AwsCredentialsProvider AWSSDK_CREDENTIALS_PROVIDER =
-      AwsCredentialsProviderChain.of(
-          InstanceProfileCredentialsProvider.create(),
-          WebIdentityTokenFileCredentialsProvider.create());
+      WebIdentityTokenFileCredentialsProvider.create();
 
   @Override
   public void initialize(final Bootstrap<WhisperServerConfiguration> bootstrap) {
@@ -263,6 +271,13 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     // Initializing SystemMapper here because parsing of the main application config happens before `run()` method is called.
     SystemMapper.configureMapper(bootstrap.getObjectMapper());
+
+    // Enable variable substitution with environment variables
+    // https://www.dropwizard.io/en/stable/manual/core.html#environment-variables
+    final EnvironmentVariableSubstitutor substitutor = new EnvironmentVariableSubstitutor(true);
+    final SubstitutingSourceProvider provider =
+        new SubstitutingSourceProvider(bootstrap.getConfigurationSourceProvider(), substitutor);
+    bootstrap.setConfigurationSourceProvider(provider);
 
     bootstrap.addCommand(new DeleteUserCommand());
     bootstrap.addCommand(new CertificateCommand());
@@ -314,6 +329,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         headerControlledResourceBundleLookup);
     BankMandateTranslator bankMandateTranslator = new BankMandateTranslator(headerControlledResourceBundleLookup);
 
+    environment.lifecycle().manage(new ManagedAwsCrt());
     DynamoDbAsyncClient dynamoDbAsyncClient = DynamoDbFromConfig.asyncClient(config.getDynamoDbClientConfiguration(),
         AWSSDK_CREDENTIALS_PROVIDER);
 
@@ -374,6 +390,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         dynamoDbClient,
         dynamoDbAsyncClient
     );
+    ClientPublicKeys clientPublicKeys =
+        new ClientPublicKeys(dynamoDbAsyncClient, config.getDynamoDbTables().getClientPublicKeys().getTableName());
 
     final VerificationSessions verificationSessions = new VerificationSessions(dynamoDbAsyncClient,
         config.getDynamoDbTables().getVerificationSessions().getTableName(), clock);
@@ -422,6 +440,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .executorService(name(getClass(), "secureValueRecoveryService-%d")).maxThreads(1).minThreads(1).build();
     ExecutorService storageServiceExecutor = environment.lifecycle()
         .executorService(name(getClass(), "storageService-%d")).maxThreads(1).minThreads(1).build();
+    ExecutorService virtualThreadEventLoggerExecutor = environment.lifecycle()
+        .executorService(name(getClass(), "virtualThreadEventLogger-%d")).minThreads(1).maxThreads(1).build();
     ScheduledExecutorService secureValueRecoveryServiceRetryExecutor = environment.lifecycle()
         .scheduledExecutorService(name(getClass(), "secureValueRecoveryServiceRetry-%d")).threads(1).build();
     ScheduledExecutorService storageServiceRetryExecutor = environment.lifecycle()
@@ -430,6 +450,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .scheduledExecutorService(name(getClass(), "hCaptchaRetry-%d")).threads(1).build();
     ScheduledExecutorService remoteStorageExecutor = environment.lifecycle()
         .scheduledExecutorService(name(getClass(), "remoteStorageRetry-%d")).threads(1).build();
+    ScheduledExecutorService registrationIdentityTokenRefreshExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(getClass(), "registrationIdentityTokenRefresh-%d")).threads(1).build();
 
     Scheduler messageDeliveryScheduler = Schedulers.fromExecutorService(
         ExecutorServiceMetrics.monitor(Metrics.globalRegistry,
@@ -512,7 +534,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getRegistrationServiceConfiguration().credentialConfigurationJson(),
         config.getRegistrationServiceConfiguration().identityTokenAudience(),
         config.getRegistrationServiceConfiguration().registrationCaCertificate(),
-        registrationCallbackExecutor);
+        registrationCallbackExecutor,
+        registrationIdentityTokenRefreshExecutor);
     SecureValueRecovery2Client secureValueRecovery2Client = new SecureValueRecovery2Client(svr2CredentialsGenerator,
         secureValueRecoveryServiceExecutor, secureValueRecoveryServiceRetryExecutor, config.getSvr2Configuration());
     SecureStorageClient secureStorageClient = new SecureStorageClient(storageCredentialsGenerator,
@@ -533,6 +556,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         messageDeletionAsyncExecutor);
     AccountLockManager accountLockManager = new AccountLockManager(dynamoDbClient,
         config.getDynamoDbTables().getDeletedAccountsLock().getTableName());
+    ClientPublicKeysManager clientPublicKeysManager = new ClientPublicKeysManager(clientPublicKeys);
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
         accountLockManager, keysManager, messagesManager, profilesManager,
         secureStorageClient, secureValueRecovery2Client,
@@ -613,6 +637,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     CoinMarketCapClient coinMarketCapClient = new CoinMarketCapClient(currencyClient, config.getPaymentsServiceConfiguration().coinMarketCapApiKey().value(), config.getPaymentsServiceConfiguration().coinMarketCapCurrencyIds());
     CurrencyConversionManager currencyManager = new CurrencyConversionManager(fixerClient, coinMarketCapClient,
         cacheCluster, config.getPaymentsServiceConfiguration().paymentCurrencies(), recurringJobExecutor, Clock.systemUTC());
+    VirtualThreadPinEventMonitor virtualThreadPinEventMonitor = new VirtualThreadPinEventMonitor(
+        virtualThreadEventLoggerExecutor,
+        () -> dynamicConfigurationManager.getConfiguration().getVirtualThreads().allowedPinEvents(),
+        config.getVirtualThreadConfiguration().pinEventThreshold());
 
     environment.lifecycle().manage(apnSender);
     environment.lifecycle().manage(apnPushNotificationScheduler);
@@ -622,6 +650,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.lifecycle().manage(currencyManager);
     environment.lifecycle().manage(registrationServiceClient);
     environment.lifecycle().manage(clientReleaseManager);
+    environment.lifecycle().manage(virtualThreadPinEventMonitor);
 
     final RegistrationCaptchaManager registrationCaptchaManager = new RegistrationCaptchaManager(captchaChecker,
         rateLimiters, config.getTestDevices(), dynamicConfigurationManager);
@@ -633,6 +662,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     S3Client cdnS3Client = S3Client.builder()
         .credentialsProvider(cdnCredentialsProvider)
         .region(Region.of(config.getCdnConfiguration().region()))
+        .httpClientBuilder(AwsCrtHttpClient.builder())
         .build();
     S3AsyncClient asyncCdnS3Client = S3AsyncClient.builder()
         .credentialsProvider(cdnCredentialsProvider)
@@ -692,10 +722,16 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
                 config.getBadges(), asyncCdnS3Client, profileCdnPolicyGenerator, profileCdnPolicySigner, profileBadgeConverter, rateLimiters, zkProfileOperations, config.getCdnConfiguration().bucket()), basicCredentialAuthenticationInterceptor))
         .addService(new ProfileAnonymousGrpcService(accountsManager, profilesManager, profileBadgeConverter, zkProfileOperations));
 
-    RemoteDeprecationFilter remoteDeprecationFilter = new RemoteDeprecationFilter(dynamicConfigurationManager);
-    environment.servlets()
-        .addFilter("RemoteDeprecationFilter", remoteDeprecationFilter)
-        .addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST), false, "/*");
+    final List<Filter> filters = new ArrayList<>();
+    final RemoteDeprecationFilter remoteDeprecationFilter = new RemoteDeprecationFilter(dynamicConfigurationManager);
+    filters.add(remoteDeprecationFilter);
+    filters.add(new RemoteAddressFilter(useRemoteAddress));
+
+    for (Filter filter : filters) {
+      environment.servlets()
+          .addFilter(filter.getClass().getSimpleName(), filter)
+          .addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST), false, "/*");
+    }
 
     // Note: interceptors run in the reverse order they are added; the remote deprecation filter
     // depends on the user-agent context so it has to come first here!
@@ -715,6 +751,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             .setAuthenticator(accountAuthenticator)
             .buildAuthFilter();
 
+    environment.jersey().register(new VirtualExecutorServiceProvider("managed-async-virtual-thread-"));
     environment.jersey().register(new RequestStatisticsFilter(TrafficSource.HTTP));
     environment.jersey().register(MultiRecipientMessageProvider.class);
     environment.jersey().register(new MetricsApplicationEventListener(TrafficSource.HTTP, clientReleaseManager));
@@ -726,6 +763,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ///
     WebSocketEnvironment<AuthenticatedAccount> webSocketEnvironment = new WebSocketEnvironment<>(environment,
         config.getWebSocketConfiguration(), Duration.ofMillis(90000));
+    webSocketEnvironment.jersey().register(new VirtualExecutorServiceProvider("managed-async-websocket-virtual-thread-"));
     webSocketEnvironment.setAuthenticator(new WebSocketAccountAuthenticator(accountAuthenticator));
     webSocketEnvironment.setConnectListener(
         new AuthenticatedConnectListener(receiptSender, messagesManager, pushNotificationManager,
@@ -737,55 +775,51 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     webSocketEnvironment.jersey().register(new MetricsApplicationEventListener(TrafficSource.WEBSOCKET, clientReleaseManager));
     webSocketEnvironment.jersey().register(new KeepAliveController(clientPresenceManager));
 
-    boolean registeredSpamFilter = false;
-    ReportSpamTokenProvider reportSpamTokenProvider = null;
-
-    List<RateLimitChallengeListener> rateLimitChallengeListeners = new ArrayList<>();
-    for (final SpamFilter filter : ServiceLoader.load(SpamFilter.class)) {
-      if (filter.getClass().isAnnotationPresent(FilterSpam.class)) {
-        try {
-          filter.configure(config.getSpamFilterConfiguration().getEnvironment());
-
-          ReportSpamTokenProvider thisProvider = filter.getReportSpamTokenProvider();
-          if (reportSpamTokenProvider == null) {
-            reportSpamTokenProvider = thisProvider;
-          } else if (thisProvider != null) {
-            log.info("Multiple spam report token providers found. Using the first.");
+    final List<SpamFilter> spamFilters = ServiceLoader.load(SpamFilter.class)
+        .stream()
+        .map(ServiceLoader.Provider::get)
+        .filter(s -> s.getClass().isAnnotationPresent(FilterSpam.class))
+        .flatMap(filter -> {
+          try {
+            filter.configure(config.getSpamFilterConfiguration().getEnvironment());
+            return Stream.of(filter);
+          } catch (Exception e) {
+            log.warn("Failed to register spam filter: {}", filter.getClass().getName(), e);
+            return Stream.empty();
           }
-
-          filter.getReportedMessageListeners().forEach(reportMessageManager::addListener);
-
-          environment.lifecycle().manage(filter);
-          environment.jersey().register(filter);
-          webSocketEnvironment.jersey().register(filter);
-
-          log.info("Registered spam filter: {}", filter.getClass().getName());
-          registeredSpamFilter = true;
-        } catch (final Exception e) {
-          log.warn("Failed to register spam filter: {}", filter.getClass().getName(), e);
-        }
-      } else {
-        log.warn("Spam filter {} not annotated with @FilterSpam and will not be installed",
-            filter.getClass().getName());
-      }
-
-      if (filter instanceof RateLimitChallengeListener) {
-        log.info("Registered rate limit challenge listener: {}", filter.getClass().getName());
-        rateLimitChallengeListeners.add((RateLimitChallengeListener) filter);
-      }
+        })
+        .toList();
+    if (spamFilters.size() > 1) {
+      log.warn("Multiple spam report token providers found. Using the first.");
     }
-    RateLimitChallengeManager rateLimitChallengeManager = new RateLimitChallengeManager(pushChallengeManager,
-        captchaChecker, rateLimiters, rateLimitChallengeListeners);
-
-
-    if (!registeredSpamFilter) {
+    final Optional<SpamFilter> spamFilter = spamFilters.stream().findFirst();
+    if (spamFilter.isEmpty()) {
       log.warn("No spam filters installed");
     }
+    final ReportSpamTokenProvider reportSpamTokenProvider = spamFilter
+        .map(SpamFilter::getReportSpamTokenProvider)
+        .orElseGet(() -> {
+          log.warn("No spam-reporting token providers found; using default (no-op) provider as a default");
+          return ReportSpamTokenProvider.noop();
+        });
+    final SpamChecker spamChecker = spamFilter
+        .map(SpamFilter::getSpamChecker)
+        .orElseGet(() -> {
+          log.warn("No spam-checkers found; using default (no-op) provider as a default");
+          return SpamChecker.noop();
+        });
+    spamFilter.map(SpamFilter::getReportedMessageListener).ifPresent(reportMessageManager::addListener);
 
-    if (reportSpamTokenProvider == null) {
-      log.warn("No spam-reporting token providers found; using default (no-op) provider as a default");
-      reportSpamTokenProvider = ReportSpamTokenProvider.noop();
-    }
+    final RateLimitChallengeManager rateLimitChallengeManager = new RateLimitChallengeManager(pushChallengeManager,
+        captchaChecker, rateLimiters, spamFilter.map(SpamFilter::getRateLimitChallengeListener).stream().toList());
+
+    spamFilter.ifPresent(filter -> {
+      environment.lifecycle().manage(filter);
+      environment.jersey().register(filter);
+      webSocketEnvironment.jersey().register(filter);
+
+      log.info("Registered spam filter: {}", filter.getClass().getName());
+    });
 
     final List<Object> commonControllers = Lists.newArrayList(
         new AccountController(accountsManager, rateLimiters, turnTokenGenerator, registrationRecoveryPasswordsManager,
@@ -804,7 +838,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new CertificateController(new CertificateGenerator(config.getDeliveryCertificate().certificate().value(),
             config.getDeliveryCertificate().ecPrivateKey(), config.getDeliveryCertificate().expiresDays()),
             zkAuthOperations, callingGenericZkSecretParams, clock),
-        new ChallengeController(rateLimitChallengeManager, useRemoteAddress),
+        new ChallengeController(rateLimitChallengeManager),
         new DeviceController(config.getLinkDeviceSecretConfiguration().secret().value(), accountsManager,
             rateLimiters, rateLimitersCluster, config.getMaxDevices(), clock),
         new DirectoryV2Controller(directoryV2CredentialsGenerator),
@@ -814,7 +848,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new MessageController(rateLimiters, messageByteLimitCardinalityEstimator, messageSender, receiptSender,
             accountsManager, messagesManager, pushNotificationManager, reportMessageManager,
             multiRecipientMessageExecutor, messageDeliveryScheduler, reportSpamTokenProvider, clientReleaseManager,
-            dynamicConfigurationManager, zkSecretParams),
+            dynamicConfigurationManager, zkSecretParams, spamChecker),
         new PaymentsController(currencyManager, paymentsCredentialsGenerator),
         new ProfileController(clock, rateLimiters, accountsManager, profilesManager, dynamicConfigurationManager,
             profileBadgeConverter, config.getBadges(), cdnS3Client, profileCdnPolicyGenerator, profileCdnPolicySigner,
@@ -831,7 +865,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             config.getCdnConfiguration().bucket()),
         new VerificationController(registrationServiceClient, new VerificationSessionManager(verificationSessions),
             pushNotificationManager, registrationCaptchaManager, registrationRecoveryPasswordsManager, rateLimiters,
-            accountsManager, useRemoteAddress, dynamicConfigurationManager, clock)
+            accountsManager, dynamicConfigurationManager, clock)
     );
     if (config.getSubscription() != null && config.getOneTimeDonations() != null) {
       commonControllers.add(new SubscriptionController(clock, config.getSubscription(), config.getOneTimeDonations(),
@@ -862,9 +896,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     JettyWebSocketServletContainerInitializer.configure(environment.getApplicationContext(), null);
 
     WebSocketResourceProviderFactory<AuthenticatedAccount> webSocketServlet = new WebSocketResourceProviderFactory<>(
-        webSocketEnvironment, AuthenticatedAccount.class, config.getWebSocketConfiguration());
+        webSocketEnvironment, AuthenticatedAccount.class, config.getWebSocketConfiguration(),
+        RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME);
     WebSocketResourceProviderFactory<AuthenticatedAccount> provisioningServlet = new WebSocketResourceProviderFactory<>(
-        provisioningEnvironment, AuthenticatedAccount.class, config.getWebSocketConfiguration());
+        provisioningEnvironment, AuthenticatedAccount.class, config.getWebSocketConfiguration(),
+        RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME);
 
     ServletRegistration.Dynamic websocket = environment.servlets().addServlet("WebSocket", webSocketServlet);
     ServletRegistration.Dynamic provisioning = environment.servlets().addServlet("Provisioning", provisioningServlet);

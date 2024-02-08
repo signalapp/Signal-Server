@@ -42,6 +42,7 @@ import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsMan
 import org.whispersystems.textsecuregcm.storage.ReportMessageDynamoDb;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
+import org.whispersystems.textsecuregcm.util.ManagedAwsCrt;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
@@ -184,6 +185,7 @@ record CommandDependencies(
 
     environment.lifecycle().manage(messagesCache);
     environment.lifecycle().manage(clientPresenceManager);
+    environment.lifecycle().manage(new ManagedAwsCrt());
 
     return new CommandDependencies(
         accountsManager,

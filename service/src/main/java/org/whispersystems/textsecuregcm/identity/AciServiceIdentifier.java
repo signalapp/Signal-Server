@@ -25,8 +25,6 @@ import org.whispersystems.textsecuregcm.util.UUIDUtil;
     description = "An identifier for an account based on the account's ACI"
 )
 public record AciServiceIdentifier(UUID uuid) implements ServiceIdentifier {
-  private static final String SERVICE_ID_STRING_COUNTER_NAME = MetricsUtil.name(AciServiceIdentifier.class, "serviceIdString");
-
   private static final IdentityType IDENTITY_TYPE = IdentityType.ACI;
 
   @Override
@@ -61,10 +59,7 @@ public record AciServiceIdentifier(UUID uuid) implements ServiceIdentifier {
   }
 
   public static AciServiceIdentifier valueOf(final String string) {
-    final boolean valid = !string.startsWith(IDENTITY_TYPE.getStringPrefix());
-    final UUID uuid = UUID.fromString(valid ? string : string.substring(IDENTITY_TYPE.getStringPrefix().length()));
-    Metrics.counter(SERVICE_ID_STRING_COUNTER_NAME, "valid", String.valueOf(valid)).increment();
-    return new AciServiceIdentifier(uuid);
+    return new AciServiceIdentifier(UUID.fromString(string));
   }
 
   public static AciServiceIdentifier fromBytes(final byte[] bytes) {

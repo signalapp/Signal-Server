@@ -10,7 +10,7 @@ import io.grpc.Status;
 import java.util.Optional;
 
 /**
- * Interface to be imlemented by our custom exceptions that are consistently mapped to a gRPC status.
+ * Interface to be implemented by our custom exceptions that are consistently mapped to a gRPC status.
  */
 public interface ConvertibleToGrpcStatus {
 

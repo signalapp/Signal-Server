@@ -91,6 +91,7 @@ import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
 import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
+import org.whispersystems.textsecuregcm.util.TestRemoteAddressFilterProvider;
 import org.whispersystems.textsecuregcm.util.UsernameHashZkProofVerifier;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
@@ -119,9 +120,6 @@ class AccountControllerTest {
   private static final UUID   SENDER_REG_LOCK_UUID = UUID.randomUUID();
   private static final UUID   SENDER_TRANSFER_UUID = UUID.randomUUID();
 
-  private static final String NICE_HOST                = "127.0.0.1";
-  private static final String RATE_LIMITED_IP_HOST     = "10.0.0.1";
-
   private static AccountsManager accountsManager = mock(AccountsManager.class);
   private static RateLimiters rateLimiters = mock(RateLimiters.class);
   private static RateLimiter rateLimiter = mock(RateLimiter.class);
@@ -140,6 +138,9 @@ class AccountControllerTest {
 
   private byte[] registration_lock_key = new byte[32];
 
+  private static final TestRemoteAddressFilterProvider TEST_REMOTE_ADDRESS_FILTER_PROVIDER
+      = new TestRemoteAddressFilterProvider("127.0.0.1");
+
   private static final ResourceExtension resources = ResourceExtension.builder()
       .addProperty(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE)
       .addProvider(AuthHelper.getAuthFilter())
@@ -148,7 +149,8 @@ class AccountControllerTest {
       .addProvider(new RateLimitExceededExceptionMapper())
       .addProvider(new ImpossiblePhoneNumberExceptionMapper())
       .addProvider(new NonNormalizedPhoneNumberExceptionMapper())
-      .addProvider(new RateLimitByIpFilter(rateLimiters, true))
+      .addProvider(TEST_REMOTE_ADDRESS_FILTER_PROVIDER)
+      .addProvider(new RateLimitByIpFilter(rateLimiters))
       .addProvider(ScoreThresholdProvider.ScoreThresholdFeature.class)
       .addProvider(SenderOverrideProvider.SenderOverrideFeature.class)
       .setMapper(SystemMapper.jsonMapper())

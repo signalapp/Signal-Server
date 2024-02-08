@@ -56,6 +56,12 @@ public sealed interface ServiceIdentifier permits AciServiceIdentifier, PniServi
    */
   byte[] toFixedWidthByteArray();
 
+  /**
+   * Parse a service identifier string, which should be a plain UUID string for ACIs and a prefixed UUID string for PNIs
+   *
+   * @param string A service identifier string
+   * @return The parsed {@link ServiceIdentifier}
+   */
   static ServiceIdentifier valueOf(final String string) {
     try {
       return AciServiceIdentifier.valueOf(string);

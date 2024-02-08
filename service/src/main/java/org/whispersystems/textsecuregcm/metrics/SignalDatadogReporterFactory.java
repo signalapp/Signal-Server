@@ -21,6 +21,7 @@ import java.util.List;
 import javax.validation.Valid;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
+import org.apache.commons.lang3.StringUtils;
 import org.coursera.metrics.datadog.DatadogReporter;
 import org.coursera.metrics.datadog.DatadogReporter.Expansion;
 import org.coursera.metrics.datadog.DefaultMetricNameFormatterFactory;
@@ -28,7 +29,6 @@ import org.coursera.metrics.datadog.DynamicTagsCallbackFactory;
 import org.coursera.metrics.datadog.MetricNameFormatterFactory;
 import org.coursera.metrics.datadog.transport.UdpTransport;
 import org.whispersystems.textsecuregcm.WhisperServerVersion;
-import org.whispersystems.textsecuregcm.util.HostnameUtil;
 
 @JsonTypeName("signal-datadog")
 public class SignalDatadogReporterFactory extends BaseReporterFactory {
@@ -66,23 +66,27 @@ public class SignalDatadogReporterFactory extends BaseReporterFactory {
   );
 
   public ScheduledReporter build(final MetricRegistry registry) {
-    final List<String> tagsWithVersion;
+    final List<String> combinedTags;
 
     {
       final String versionTag = "version:" + WhisperServerVersion.getServerVersion();
 
       if (tags != null) {
-        tagsWithVersion = new ArrayList<>(tags);
-        tagsWithVersion.add(versionTag);
+        combinedTags = new ArrayList<>(tags);
+        combinedTags.add(versionTag);
       } else {
-        tagsWithVersion = List.of(versionTag);
+        combinedTags = new ArrayList<>((List.of(versionTag)));
       }
+    }
+
+    final String entityId = StringUtils.stripToNull(System.getenv("DD_ENTITY_ID"));
+    if (entityId != null) {
+      combinedTags.add("dd.internal.entity_id:" + entityId);
     }
 
     return DatadogReporter.forRegistry(registry)
         .withTransport(udpTransportConfig.udpTransport())
-        .withHost(HostnameUtil.getLocalHostname())
-        .withTags(tagsWithVersion)
+        .withTags(combinedTags)
         .withPrefix(prefix)
         .withExpansions(EXPANSIONS)
         .withMetricNameFormatter(metricNameFormatter.build())

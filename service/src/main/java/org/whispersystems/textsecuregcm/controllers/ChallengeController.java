@@ -19,15 +19,14 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.io.IOException;
-import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
-import javax.ws.rs.BadRequestException;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
+import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -35,6 +34,7 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.entities.AnswerChallengeRequest;
 import org.whispersystems.textsecuregcm.entities.AnswerPushChallengeRequest;
 import org.whispersystems.textsecuregcm.entities.AnswerRecaptchaChallengeRequest;
+import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
@@ -42,7 +42,6 @@ import org.whispersystems.textsecuregcm.spam.Extract;
 import org.whispersystems.textsecuregcm.spam.FilterSpam;
 import org.whispersystems.textsecuregcm.spam.PushChallengeConfig;
 import org.whispersystems.textsecuregcm.spam.ScoreThreshold;
-import org.whispersystems.textsecuregcm.util.HeaderUtils;
 
 @Path("/v1/challenge")
 @Tag(name = "Challenge")
@@ -50,15 +49,12 @@ import org.whispersystems.textsecuregcm.util.HeaderUtils;
 public class ChallengeController {
 
   private final RateLimitChallengeManager rateLimitChallengeManager;
-  private final boolean useRemoteAddress;
 
   private static final String CHALLENGE_RESPONSE_COUNTER_NAME = name(ChallengeController.class, "challengeResponse");
   private static final String CHALLENGE_TYPE_TAG = "type";
 
-  public ChallengeController(final RateLimitChallengeManager rateLimitChallengeManager,
-      final boolean useRemoteAddress) {
+  public ChallengeController(final RateLimitChallengeManager rateLimitChallengeManager) {
     this.rateLimitChallengeManager = rateLimitChallengeManager;
-    this.useRemoteAddress = useRemoteAddress;
   }
 
   @PUT
@@ -83,8 +79,7 @@ public class ChallengeController {
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
   public Response handleChallengeResponse(@Auth final AuthenticatedAccount auth,
       @Valid final AnswerChallengeRequest answerRequest,
-      @HeaderParam(HttpHeaders.X_FORWARDED_FOR) final String forwardedFor,
-      @Context HttpServletRequest request,
+      @Context ContainerRequestContext requestContext,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
       @Extract final ScoreThreshold captchaScoreThreshold,
       @Extract final PushChallengeConfig pushChallengeConfig) throws RateLimitExceededException, IOException {
@@ -102,9 +97,8 @@ public class ChallengeController {
       } else if (answerRequest instanceof AnswerRecaptchaChallengeRequest recaptchaChallengeRequest) {
         tags = tags.and(CHALLENGE_TYPE_TAG, "recaptcha");
 
-        final String remoteAddress = useRemoteAddress
-            ? request.getRemoteAddr()
-            : HeaderUtils.getMostRecentProxy(forwardedFor).orElseThrow(BadRequestException::new);
+        final String remoteAddress = (String) requestContext.getProperty(
+            RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME);
         boolean success = rateLimitChallengeManager.answerRecaptchaChallenge(
             auth.getAccount(),
             recaptchaChallengeRequest.getCaptcha(),

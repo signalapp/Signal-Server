@@ -26,7 +26,6 @@ import org.whispersystems.textsecuregcm.configuration.Cdn3StorageManagerConfigur
 import org.whispersystems.textsecuregcm.configuration.CdnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ClientCdnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ClientReleaseConfiguration;
-import org.whispersystems.textsecuregcm.configuration.CommandStopListenerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DirectoryV2Configuration;
 import org.whispersystems.textsecuregcm.configuration.DogstatsdConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DynamoDbClientConfiguration;
@@ -57,6 +56,7 @@ import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TlsKeyStoreConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TurnSecretConfiguration;
 import org.whispersystems.textsecuregcm.configuration.UnidentifiedDeliveryConfiguration;
+import org.whispersystems.textsecuregcm.configuration.VirtualThreadConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ZkConfig;
 import org.whispersystems.textsecuregcm.limits.RateLimiterConfig;
 import org.whispersystems.websocket.configuration.WebSocketConfiguration;
@@ -315,12 +315,12 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @NotNull
   @JsonProperty
-  private CommandStopListenerConfiguration commandStopListener;
+  private LinkDeviceSecretConfiguration linkDevice;
 
   @Valid
   @NotNull
   @JsonProperty
-  private LinkDeviceSecretConfiguration linkDevice;
+  private VirtualThreadConfiguration virtualThreadConfiguration = new VirtualThreadConfiguration(Duration.ofMillis(1));
 
   public TlsKeyStoreConfiguration getTlsKeyStoreConfiguration() {
     return tlsKeyStore;
@@ -530,11 +530,11 @@ public class WhisperServerConfiguration extends Configuration {
     return messageByteLimitCardinalityEstimator;
   }
 
-  public CommandStopListenerConfiguration getCommandStopListener() {
-    return commandStopListener;
-  }
-
   public LinkDeviceSecretConfiguration getLinkDeviceSecretConfiguration() {
     return linkDevice;
+  }
+
+  public VirtualThreadConfiguration getVirtualThreadConfiguration() {
+    return virtualThreadConfiguration;
   }
 }

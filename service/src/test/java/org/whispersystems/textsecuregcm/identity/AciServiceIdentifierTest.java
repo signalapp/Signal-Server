@@ -53,10 +53,11 @@ class AciServiceIdentifierTest {
     final UUID uuid = UUID.randomUUID();
 
     assertEquals(uuid, AciServiceIdentifier.valueOf(uuid.toString()).uuid());
-    assertEquals(uuid, AciServiceIdentifier.valueOf("ACI:" + uuid).uuid());
     assertThrows(IllegalArgumentException.class, () -> AciServiceIdentifier.valueOf("Not a valid UUID"));
     assertThrows(IllegalArgumentException.class, () -> AciServiceIdentifier.valueOf("PNI:" + uuid));
+    assertThrows(IllegalArgumentException.class, () -> AciServiceIdentifier.valueOf("ACI:" + uuid).uuid());
   }
+
 
   @Test
   void fromBytes() {

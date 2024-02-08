@@ -55,10 +55,13 @@ public class DynamicConfiguration {
   @Valid
   DynamicInboundMessageByteLimitConfiguration inboundMessageByteLimit = new DynamicInboundMessageByteLimitConfiguration(true);
 
-
   @JsonProperty
   @Valid
   DynamicRegistrationConfiguration registrationConfiguration = new DynamicRegistrationConfiguration(false);
+
+  @JsonProperty
+  @Valid
+  DynamicVirtualThreadConfiguration virtualThreads = new DynamicVirtualThreadConfiguration(Collections.emptySet());
 
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(
       final String experimentName) {
@@ -105,4 +108,9 @@ public class DynamicConfiguration {
   public DynamicRegistrationConfiguration getRegistrationConfiguration() {
     return registrationConfiguration;
   }
+
+  public DynamicVirtualThreadConfiguration getVirtualThreads() {
+    return virtualThreads;
+  }
+
 }

@@ -12,13 +12,4 @@ import java.io.IOException;
 public interface RateLimitChallengeListener {
 
   void handleRateLimitChallengeAnswered(Account account, ChallengeType type);
-
-  /**
-   * Configures this rate limit challenge listener. This method will be called before the service begins processing any
-   * challenges.
-   *
-   * @param environmentName the name of the environment in which this listener is running (e.g. "staging" or "production")
-   * @throws IOException if the listener could not read its configuration source for any reason
-   */
-  void configure(String environmentName) throws IOException;
 }

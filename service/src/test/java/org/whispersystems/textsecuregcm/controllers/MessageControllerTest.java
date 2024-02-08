@@ -48,7 +48,6 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -81,10 +80,10 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.junitpioneer.jupiter.cartesian.ArgumentSets;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.mockito.ArgumentCaptor;
-import org.signal.libsignal.protocol.ServiceId;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
-import org.signal.libsignal.protocol.util.Hex;
+import org.signal.libsignal.zkgroup.ServerPublicParams;
+import org.signal.libsignal.zkgroup.ServerSecretParams;
 import org.signal.libsignal.zkgroup.groups.ClientZkGroupCipher;
 import org.signal.libsignal.zkgroup.groups.GroupMasterKey;
 import org.signal.libsignal.zkgroup.groups.GroupSecretParams;
@@ -92,8 +91,6 @@ import org.signal.libsignal.zkgroup.groups.UuidCiphertext;
 import org.signal.libsignal.zkgroup.groupsend.GroupSendCredential;
 import org.signal.libsignal.zkgroup.groupsend.GroupSendCredentialPresentation;
 import org.signal.libsignal.zkgroup.groupsend.GroupSendCredentialResponse;
-import org.signal.libsignal.zkgroup.ServerPublicParams;
-import org.signal.libsignal.zkgroup.ServerSecretParams;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
@@ -123,6 +120,7 @@ import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.spam.ReportSpamTokenProvider;
+import org.whispersystems.textsecuregcm.spam.SpamChecker;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
@@ -206,7 +204,7 @@ class MessageControllerTest {
           new MessageController(rateLimiters, cardinalityEstimator, messageSender, receiptSender, accountsManager,
               messagesManager, pushNotificationManager, reportMessageManager, multiRecipientMessageExecutor,
               messageDeliveryScheduler, ReportSpamTokenProvider.noop(), mock(ClientReleaseManager.class), dynamicConfigurationManager,
-              serverSecretParams))
+              serverSecretParams, SpamChecker.noop()))
       .build();
 
   @BeforeEach

@@ -55,6 +55,7 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import org.glassfish.jersey.server.ManagedAsync;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ServiceId;
 import org.signal.libsignal.zkgroup.InvalidInputException;
@@ -225,6 +226,7 @@ public class ProfileController {
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/{identifier}/{version}")
+  @ManagedAsync
   public VersionedProfileResponse getProfile(
       @Auth Optional<AuthenticatedAccount> auth,
       @HeaderParam(HeaderUtils.UNIDENTIFIED_ACCESS_KEY) Optional<Anonymous> accessKey,
@@ -275,6 +277,7 @@ public class ProfileController {
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/{identifier}")
+  @ManagedAsync
   public BaseProfileResponse getUnversionedProfile(
       @Auth Optional<AuthenticatedAccount> auth,
       @HeaderParam(HeaderUtils.UNIDENTIFIED_ACCESS_KEY) Optional<Anonymous> accessKey,
