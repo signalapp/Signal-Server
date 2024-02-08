@@ -8,7 +8,9 @@ package org.whispersystems.textsecuregcm.controllers;
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import com.google.common.net.HttpHeaders;
+import com.vdurmont.semver4j.Semver;
 import io.dropwizard.auth.Auth;
+import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
@@ -51,6 +53,10 @@ import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
+import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
+import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
+import org.whispersystems.textsecuregcm.util.ua.UserAgent;
+import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 
 @Path("/v2/accounts")
 @io.swagger.v3.oas.annotations.tags.Tag(name = "Account")
@@ -59,11 +65,16 @@ public class AccountControllerV2 {
   private static final String CHANGE_NUMBER_COUNTER_NAME = name(AccountControllerV2.class, "changeNumber");
   private static final String VERIFICATION_TYPE_TAG_NAME = "verification";
 
+  private static final Counter ANDROID_CHANGE_NUMBER_REJECTED_COUNTER =
+      Metrics.counter(name(AccountControllerV2.class, "androidChangeNumberRejected"));
+
   private final AccountsManager accountsManager;
   private final ChangeNumberManager changeNumberManager;
   private final PhoneVerificationTokenManager phoneVerificationTokenManager;
   private final RegistrationLockVerificationManager registrationLockVerificationManager;
   private final RateLimiters rateLimiters;
+
+  private static final Semver MINIMUM_ANDROID_CHANGE_NUMBER_VERSION = new Semver("6.46.7");
 
   public AccountControllerV2(final AccountsManager accountsManager, final ChangeNumberManager changeNumberManager,
       final PhoneVerificationTokenManager phoneVerificationTokenManager,
@@ -91,11 +102,22 @@ public class AccountControllerV2 {
       name = "Retry-After",
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
   public AccountIdentityResponse changeNumber(@Auth final AuthenticatedAccount authenticatedAccount,
-      @NotNull @Valid final ChangeNumberRequest request, @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent)
+      @NotNull @Valid final ChangeNumberRequest request, @HeaderParam(HttpHeaders.USER_AGENT) final String userAgentString)
       throws RateLimitExceededException, InterruptedException {
 
     if (!authenticatedAccount.getAuthenticatedDevice().isPrimary()) {
       throw new ForbiddenException();
+    }
+
+    // We can remove this check after old versions of the Android app expire on or after 2024-05-08
+    try {
+      final UserAgent userAgent = UserAgentUtil.parseUserAgentString(userAgentString);
+
+      if (userAgent.getPlatform().equals(ClientPlatform.ANDROID) && userAgent.getVersion().isLowerThan(MINIMUM_ANDROID_CHANGE_NUMBER_VERSION)) {
+        ANDROID_CHANGE_NUMBER_REJECTED_COUNTER.increment();
+        throw new WebApplicationException(499);
+      }
+    } catch (final UnrecognizedUserAgentException ignored) {
     }
 
     final String number = request.number();
@@ -112,10 +134,10 @@ public class AccountControllerV2 {
 
       if (existingAccount.isPresent()) {
         registrationLockVerificationManager.verifyRegistrationLock(existingAccount.get(), request.registrationLock(),
-            userAgent, RegistrationLockVerificationManager.Flow.CHANGE_NUMBER, verificationType);
+            userAgentString, RegistrationLockVerificationManager.Flow.CHANGE_NUMBER, verificationType);
       }
 
-      Metrics.counter(CHANGE_NUMBER_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
+      Metrics.counter(CHANGE_NUMBER_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgentString),
               Tag.of(VERIFICATION_TYPE_TAG_NAME, verificationType.name())))
           .increment();
     }
