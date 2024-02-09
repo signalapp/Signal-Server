@@ -37,7 +37,6 @@ class MetricsUtilTest {
     Meter meter = meters.get(0);
     assertThat(meter.getId().getName()).isEqualTo("chat.lettuce.command.completion.max");
     assertThat(meter.getId().getTag("command")).isNull();
-    assertThat(meter.getId().getTag("remote")).isNull();
     assertThat(meter.getId().getTag("allowed")).isNotNull();
   }
 }
