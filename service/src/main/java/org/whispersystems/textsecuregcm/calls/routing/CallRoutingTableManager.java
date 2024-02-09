@@ -50,7 +50,7 @@ public class CallRoutingTableManager implements Supplier<CallRoutingTable>, Mana
 
     this.tableTag = tableTag;
     this.routingTable.set(CallRoutingTable.empty());
-    this.refreshTimer = Metrics.timer(MetricsUtil.name(CallRoutingTableManager.class), tableTag);
+    this.refreshTimer = Metrics.timer(MetricsUtil.name(CallRoutingTableManager.class, tableTag));
   }
 
   private void handleDatabaseChanged(final InputStream inputStream) {
