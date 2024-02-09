@@ -7,5 +7,8 @@ package org.whispersystems.textsecuregcm.auth;
 
 import java.util.List;
 
-public record TurnToken(String username, String password, List<String> urls) {
+public record TurnToken(String username, String password, List<String> urls, List<String> urlsWithIps, String hostname) {
+  public TurnToken(String username, String password, List<String> urls) {
+    this(username, password, urls, null, null);
+  }
 }

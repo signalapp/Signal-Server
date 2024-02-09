@@ -93,6 +93,7 @@ public class AccountController {
     this.usernameHashZkProofVerifier = usernameHashZkProofVerifier;
   }
 
+  @Deprecated
   @GET
   @Path("/turn/")
   @Produces(MediaType.APPLICATION_JSON)

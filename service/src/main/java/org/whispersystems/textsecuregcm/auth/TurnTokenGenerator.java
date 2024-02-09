@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.auth;
 
+import org.whispersystems.textsecuregcm.calls.routing.TurnServerOptions;
 import org.whispersystems.textsecuregcm.configuration.TurnUriConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicTurnConfiguration;
@@ -41,8 +42,15 @@ public class TurnTokenGenerator {
   }
 
   public TurnToken generate(final UUID aci) {
+    return generateToken(null, null, urls(aci));
+  }
+
+  public TurnToken generateWithTurnServerOptions(TurnServerOptions options) {
+    return generateToken(options.hostname(), options.urlsWithIps(), options.urlsWithHostname());
+  }
+
+  private TurnToken generateToken(String hostname, List<String> urlsWithIps, List<String> urlsWithHostname) {
     try {
-      final List<String> urls = urls(aci);
       final Mac mac = Mac.getInstance(ALGORITHM);
       final long validUntilSeconds = Instant.now().plus(Duration.ofDays(1)).getEpochSecond();
       final long user = Util.ensureNonNegativeInt(new SecureRandom().nextInt());
@@ -51,7 +59,7 @@ public class TurnTokenGenerator {
       mac.init(new SecretKeySpec(turnSecret, ALGORITHM));
       final String password = Base64.getEncoder().encodeToString(mac.doFinal(userTime.getBytes()));
 
-      return new TurnToken(userTime, password, urls);
+      return new TurnToken(userTime, password, urlsWithHostname, urlsWithIps, hostname);
     } catch (final NoSuchAlgorithmException | InvalidKeyException e) {
       throw new AssertionError(e);
     }

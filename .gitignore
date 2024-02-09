@@ -29,3 +29,4 @@ deployer.log
 .project
 .classpath
 .settings
+.DS_Store

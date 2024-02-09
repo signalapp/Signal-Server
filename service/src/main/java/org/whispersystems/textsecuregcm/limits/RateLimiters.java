@@ -49,6 +49,7 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
     SET_BACKUP_ID("setBackupId", true, new RateLimiterConfig(2, Duration.ofDays(7))),
     PUSH_CHALLENGE_ATTEMPT("pushChallengeAttempt", true, new RateLimiterConfig(10, Duration.ofMinutes(144))),
     PUSH_CHALLENGE_SUCCESS("pushChallengeSuccess", true, new RateLimiterConfig(2, Duration.ofHours(12))),
+    GET_CALLING_RELAYS("getCallingRelays", false, new RateLimiterConfig(100, Duration.ofMinutes(10))),
     CREATE_CALL_LINK("createCallLink", false, new RateLimiterConfig(100, Duration.ofMinutes(15))),
     INBOUND_MESSAGE_BYTES("inboundMessageBytes", true, new RateLimiterConfig(128 * 1024 * 1024, Duration.ofNanos(500_000))),
     EXTERNAL_SERVICE_CREDENTIALS("externalServiceCredentials", true, new RateLimiterConfig(100, Duration.ofMinutes(15))),
@@ -218,6 +219,10 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
 
   public RateLimiter getCreateCallLinkLimiter() {
     return forDescriptor(For.CREATE_CALL_LINK);
+  }
+
+  public RateLimiter getCallEndpointLimiter() {
+    return forDescriptor(For.GET_CALLING_RELAYS);
   }
 
   public RateLimiter getInboundMessageBytes() {

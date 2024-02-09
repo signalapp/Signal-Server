@@ -38,6 +38,7 @@ import org.whispersystems.textsecuregcm.configuration.LinkDeviceSecretConfigurat
 import org.whispersystems.textsecuregcm.configuration.MaxDeviceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MessageByteLimitCardinalityEstimatorConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MessageCacheConfiguration;
+import org.whispersystems.textsecuregcm.configuration.MonitoredS3ObjectConfiguration;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.PaymentsServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RecaptchaConfiguration;
@@ -322,10 +323,30 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private VirtualThreadConfiguration virtualThreadConfiguration = new VirtualThreadConfiguration(Duration.ofMillis(1));
 
+
+  @Valid
+  @NotNull
+  @JsonProperty
+  private MonitoredS3ObjectConfiguration maxmindCityDatabase;
+
+  @Valid
+  @NotNull
+  @JsonProperty
+  private MonitoredS3ObjectConfiguration callingTurnDnsRecords;
+
+  @Valid
+  @NotNull
+  @JsonProperty
+  private MonitoredS3ObjectConfiguration callingTurnPerformanceTable;
+
+  @Valid
+  @NotNull
+  @JsonProperty
+  private MonitoredS3ObjectConfiguration callingTurnManualTable;
+
   public TlsKeyStoreConfiguration getTlsKeyStoreConfiguration() {
     return tlsKeyStore;
   }
-
 
   public StripeConfiguration getStripe() {
     return stripe;
@@ -536,5 +557,21 @@ public class WhisperServerConfiguration extends Configuration {
 
   public VirtualThreadConfiguration getVirtualThreadConfiguration() {
     return virtualThreadConfiguration;
+  }
+
+  public MonitoredS3ObjectConfiguration getMaxmindCityDatabase() {
+    return maxmindCityDatabase;
+  }
+
+  public MonitoredS3ObjectConfiguration getCallingTurnDnsRecords() {
+    return callingTurnDnsRecords;
+  }
+
+  public MonitoredS3ObjectConfiguration getCallingTurnPerformanceTable() {
+    return callingTurnPerformanceTable;
+  }
+
+  public MonitoredS3ObjectConfiguration getCallingTurnManualTable() {
+    return callingTurnManualTable;
   }
 }

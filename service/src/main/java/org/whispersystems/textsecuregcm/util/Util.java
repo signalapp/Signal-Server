@@ -10,13 +10,19 @@ import com.google.i18n.phonenumbers.PhoneNumberUtil.PhoneNumberFormat;
 import com.google.i18n.phonenumbers.Phonenumber.PhoneNumber;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Locale.LanguageRange;
 import java.util.Optional;
+import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import java.util.random.RandomGenerator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -25,6 +31,8 @@ import javax.ws.rs.core.Response;
 import org.apache.commons.lang3.StringUtils;
 
 public class Util {
+
+  private static final RandomGenerator rng = new Random();
 
   private static final Pattern COUNTRY_CODE_PATTERN = Pattern.compile("^\\+([17]|2[07]|3[0123469]|4[013456789]|5[12345678]|6[0123456]|8[1246]|9[0123458]|\\d{3})");
 
@@ -160,4 +168,47 @@ public class Util {
     return n == Long.MIN_VALUE ? 0 : Math.abs(n);
   }
 
+  /**
+   * Chooses min(values.size(), n) random values.
+   * <br>
+   * Copies the input Array - use for small lists only or for when n/values.size() is near 1.
+   */
+  public static <E> List<E> randomNOf(List<E> values, int n) {
+    if(values == null || values.isEmpty()) {
+      return Collections.emptyList();
+    }
+
+    List<E> result = new ArrayList<>(values);
+    if(n >= values.size()) {
+      return result;
+    }
+
+    Collections.shuffle(result);
+    return result.stream().limit(n).toList();
+  }
+
+  /**
+   * Chooses min(values.size(), n) random values. Return value is in stable order from input values.
+   * Not uniform random, but good enough.
+   * <br>
+   * Does NOT copy the input Array.
+   */
+  public static <E> List<E> randomNOfStable(List<E> values, int n) {
+    if(values == null || values.isEmpty()) {
+      return Collections.emptyList();
+    }
+    if(n >= values.size()) {
+      return values;
+    }
+
+    Set<Integer> indices = new HashSet<>(rng.ints(0, values.size()).distinct().limit(n).boxed().toList());
+    List<E> result = new ArrayList<E>(n);
+    for(int i = 0; i < values.size() && result.size() < n; i++) {
+      if(indices.contains(i)) {
+        result.add(values.get(i));
+      }
+    }
+
+    return result;
+  }
 }

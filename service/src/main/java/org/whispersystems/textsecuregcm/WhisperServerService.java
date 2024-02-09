@@ -78,6 +78,10 @@ import org.whispersystems.textsecuregcm.backup.Cdn3BackupCredentialGenerator;
 import org.whispersystems.textsecuregcm.backup.Cdn3RemoteStorageManager;
 import org.whispersystems.textsecuregcm.badges.ConfiguredProfileBadgeConverter;
 import org.whispersystems.textsecuregcm.badges.ResourceBundleLevelTranslator;
+import org.whispersystems.textsecuregcm.calls.routing.CallDnsRecordsManager;
+import org.whispersystems.textsecuregcm.calls.routing.CallRoutingTableManager;
+import org.whispersystems.textsecuregcm.calls.routing.DynamicConfigTurnRouter;
+import org.whispersystems.textsecuregcm.calls.routing.TurnCallRouter;
 import org.whispersystems.textsecuregcm.captcha.CaptchaChecker;
 import org.whispersystems.textsecuregcm.captcha.HCaptchaClient;
 import org.whispersystems.textsecuregcm.captcha.RecaptchaClient;
@@ -93,6 +97,7 @@ import org.whispersystems.textsecuregcm.controllers.ArtController;
 import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV2;
 import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV3;
 import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV4;
+import org.whispersystems.textsecuregcm.controllers.CallRoutingController;
 import org.whispersystems.textsecuregcm.controllers.CallLinkController;
 import org.whispersystems.textsecuregcm.controllers.CertificateController;
 import org.whispersystems.textsecuregcm.controllers.ChallengeController;
@@ -121,6 +126,7 @@ import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.filters.RemoteDeprecationFilter;
 import org.whispersystems.textsecuregcm.filters.RequestStatisticsFilter;
 import org.whispersystems.textsecuregcm.filters.TimestampResponseFilter;
+import org.whispersystems.textsecuregcm.geo.MaxMindDatabaseManager;
 import org.whispersystems.textsecuregcm.grpc.AcceptLanguageInterceptor;
 import org.whispersystems.textsecuregcm.grpc.AccountsAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.AccountsGrpcService;
@@ -452,6 +458,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .scheduledExecutorService(name(getClass(), "remoteStorageRetry-%d")).threads(1).build();
     ScheduledExecutorService registrationIdentityTokenRefreshExecutor = environment.lifecycle()
         .scheduledExecutorService(name(getClass(), "registrationIdentityTokenRefresh-%d")).threads(1).build();
+    ScheduledExecutorService recurringConfigSyncExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(getClass(), "configSync-%d")).threads(1).build();
 
     Scheduler messageDeliveryScheduler = Schedulers.fromExecutorService(
         ExecutorServiceMetrics.monitor(Metrics.globalRegistry,
@@ -707,6 +715,39 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getClientCdnConfiguration().getAttachmentUrls(),
         clock);
 
+    final DynamicConfigTurnRouter configTurnRouter = new DynamicConfigTurnRouter(dynamicConfigurationManager);
+
+    MaxMindDatabaseManager geoIpCountryDatabaseManager = new MaxMindDatabaseManager(
+        recurringConfigSyncExecutor,
+        config.getMaxmindCityDatabase(),
+        "country"
+    );
+
+    CallDnsRecordsManager callDnsRecordsManager = new CallDnsRecordsManager(
+      recurringConfigSyncExecutor,
+      config.getCallingTurnDnsRecords()
+    );
+
+    CallRoutingTableManager callRoutingTableManager = new CallRoutingTableManager(
+        recurringConfigSyncExecutor,
+        config.getCallingTurnPerformanceTable(),
+        "Performance"
+    );
+
+    CallRoutingTableManager manualCallRoutingTableManager = new CallRoutingTableManager(
+        recurringConfigSyncExecutor,
+        config.getCallingTurnManualTable(),
+        "Manual"
+    );
+
+    TurnCallRouter callRouter = new TurnCallRouter(
+        callDnsRecordsManager,
+        callRoutingTableManager,
+        manualCallRoutingTableManager,
+        configTurnRouter,
+        geoIpCountryDatabaseManager
+    );
+
     final BasicCredentialAuthenticationInterceptor basicCredentialAuthenticationInterceptor =
         new BasicCredentialAuthenticationInterceptor(new AccountAuthenticator(accountsManager));
 
@@ -834,6 +875,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new AttachmentControllerV4(rateLimiters, gcsAttachmentGenerator, new TusAttachmentGenerator(config.getTus()),
             experimentEnrollmentManager),
         new ArchiveController(backupAuthManager, backupManager),
+        new CallRoutingController(rateLimiters, callRouter, turnTokenGenerator),
         new CallLinkController(rateLimiters, callingGenericZkSecretParams),
         new CertificateController(new CertificateGenerator(config.getDeliveryCertificate().certificate().value(),
             config.getDeliveryCertificate().ecPrivateKey(), config.getDeliveryCertificate().expiresDays()),

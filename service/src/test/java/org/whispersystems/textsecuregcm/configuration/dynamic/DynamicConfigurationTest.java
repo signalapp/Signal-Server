@@ -333,6 +333,8 @@ class DynamicConfigurationTest {
                   weight: 2
                   enrolledAcis:
                     - 732506d7-d04f-43a4-b1d7-8a3a91ebe8a6
+            randomizeRate: 100_000
+            hostname: test.domain.org
            """);
       DynamicTurnConfiguration turnConfiguration = DynamicConfigurationManager
           .parseConfiguration(config, DynamicConfiguration.class)
@@ -345,6 +347,8 @@ class DynamicConfigurationTest {
       assertThat(turnConfiguration.getUriConfigs().get(1).getEnrolledAcis())
           .containsExactly(UUID.fromString("732506d7-d04f-43a4-b1d7-8a3a91ebe8a6"));
 
+      assertThat(turnConfiguration.getHostname()).isEqualTo("test.domain.org");
+      assertThat(turnConfiguration.getRandomizeRate()).isEqualTo(100_000L);
     }
   }
 
