@@ -53,7 +53,7 @@ public class CallDnsRecordsManager implements Supplier<CallDnsRecords>, Managed 
     );
 
     this.callDnsRecords.set(CallDnsRecords.empty());
-    this.refreshTimer = Metrics.timer(MetricsUtil.name(CallDnsRecordsManager.class), "refresh");
+    this.refreshTimer = Metrics.timer(MetricsUtil.name(CallDnsRecordsManager.class, "refresh"));
   }
 
   private void handleDatabaseChanged(final InputStream inputStream) {
