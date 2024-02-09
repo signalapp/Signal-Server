@@ -55,7 +55,7 @@ public class MaxMindDatabaseManager implements Supplier<DatabaseReader>, Managed
     );
 
     this.databaseTag = databaseTag;
-    this.refreshTimer = Metrics.timer(MetricsUtil.name(MaxMindDatabaseManager.class), "refresh", databaseTag);
+    this.refreshTimer = Metrics.timer(MetricsUtil.name(MaxMindDatabaseManager.class, "refresh"), "db", databaseTag);
   }
 
   private void handleDatabaseChanged(final InputStream inputStream) {
