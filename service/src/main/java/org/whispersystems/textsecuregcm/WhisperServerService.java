@@ -312,7 +312,13 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     UncaughtExceptionHandler.register();
 
-    MetricsUtil.configureRegistries(config, environment);
+    DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
+        new DynamicConfigurationManager<>(config.getAppConfig().getApplication(),
+            config.getAppConfig().getEnvironment(),
+            config.getAppConfig().getConfigurationName(),
+            DynamicConfiguration.class);
+
+    MetricsUtil.configureRegistries(config, environment, dynamicConfigurationManager);
 
     final boolean useRemoteAddress = Optional.ofNullable(
             System.getenv("SIGNAL_USE_REMOTE_ADDRESS"))
@@ -341,12 +347,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     DynamoDbClient dynamoDbClient = DynamoDbFromConfig.client(config.getDynamoDbClientConfiguration(),
         AWSSDK_CREDENTIALS_PROVIDER);
-
-    DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
-        new DynamicConfigurationManager<>(config.getAppConfig().getApplication(),
-            config.getAppConfig().getEnvironment(),
-            config.getAppConfig().getConfigurationName(),
-            DynamicConfiguration.class);
 
     BlockingQueue<Runnable> messageDeletionQueue = new LinkedBlockingQueue<>();
     Metrics.gaugeCollectionSize(name(getClass(), "messageDeletionQueueSize"), Collections.emptyList(),

@@ -52,7 +52,9 @@ public class ScheduledApnPushNotificationSenderServiceCommand extends ServerComm
 
     UncaughtExceptionHandler.register();
 
-    MetricsUtil.configureRegistries(configuration, environment);
+    final CommandDependencies deps = CommandDependencies.build("scheduled-apn-sender", environment, configuration);
+
+    MetricsUtil.configureRegistries(configuration, environment, deps.dynamicConfigurationManager());
 
     if (configuration.getServerFactory() instanceof DefaultServerFactory defaultServerFactory) {
       defaultServerFactory.getApplicationConnectors()
@@ -63,7 +65,6 @@ public class ScheduledApnPushNotificationSenderServiceCommand extends ServerComm
           });
     }
 
-    final CommandDependencies deps = CommandDependencies.build("scheduled-apn-sender", environment, configuration);
 
     final FaultTolerantRedisCluster pushSchedulerCluster = new FaultTolerantRedisCluster("push_scheduler",
         configuration.getPushSchedulerCluster(), deps.redisClusterClientResources());

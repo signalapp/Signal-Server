@@ -50,7 +50,9 @@ public class MessagePersisterServiceCommand extends ServerCommand<WhisperServerC
 
     UncaughtExceptionHandler.register();
 
-    MetricsUtil.configureRegistries(configuration, environment);
+    final CommandDependencies deps = CommandDependencies.build("message-persister-service", environment, configuration);
+
+    MetricsUtil.configureRegistries(configuration, environment, deps.dynamicConfigurationManager());
 
     if (configuration.getServerFactory() instanceof DefaultServerFactory defaultServerFactory) {
       defaultServerFactory.getApplicationConnectors()
@@ -61,7 +63,6 @@ public class MessagePersisterServiceCommand extends ServerCommand<WhisperServerC
           });
     }
 
-    final CommandDependencies deps = CommandDependencies.build("message-persister-service", environment, configuration);
 
     final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = new DynamicConfigurationManager<>(
         configuration.getAppConfig().getApplication(),

@@ -63,6 +63,10 @@ public class DynamicConfiguration {
   @Valid
   DynamicVirtualThreadConfiguration virtualThreads = new DynamicVirtualThreadConfiguration(Collections.emptySet());
 
+  @JsonProperty
+  @Valid
+  DynamicMetricsConfiguration metricsConfiguration = new DynamicMetricsConfiguration(false);
+
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(
       final String experimentName) {
     return Optional.ofNullable(experiments.get(experimentName));
@@ -111,6 +115,10 @@ public class DynamicConfiguration {
 
   public DynamicVirtualThreadConfiguration getVirtualThreads() {
     return virtualThreads;
+  }
+
+  public DynamicMetricsConfiguration getMetricsConfiguration() {
+    return metricsConfiguration;
   }
 
 }

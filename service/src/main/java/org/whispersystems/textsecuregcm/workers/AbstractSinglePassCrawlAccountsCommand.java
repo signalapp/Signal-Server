@@ -63,10 +63,12 @@ public abstract class AbstractSinglePassCrawlAccountsCommand extends Environment
       final WhisperServerConfiguration configuration) throws Exception {
 
     UncaughtExceptionHandler.register();
-    MetricsUtil.configureRegistries(configuration, environment);
 
     this.namespace = namespace;
     this.commandDependencies = CommandDependencies.build(getName(), environment, configuration);
+
+    MetricsUtil.configureRegistries(configuration, environment, commandDependencies.dynamicConfigurationManager());
+
 
     final int segments = Objects.requireNonNull(namespace.getInt(SEGMENT_COUNT));
 

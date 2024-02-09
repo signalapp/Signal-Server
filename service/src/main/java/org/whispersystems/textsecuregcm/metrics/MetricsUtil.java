@@ -18,7 +18,9 @@ import io.micrometer.statsd.StatsdMeterRegistry;
 import java.util.concurrent.TimeUnit;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.WhisperServerVersion;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.push.PushLatencyManager;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.util.Constants;
 
 public class MetricsUtil {
@@ -41,7 +43,8 @@ public class MetricsUtil {
     return sb.toString();
   }
 
-  public static void configureRegistries(final WhisperServerConfiguration config, final Environment environment) {
+  public static void configureRegistries(final WhisperServerConfiguration config, final Environment environment,
+      DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
     SharedMetricRegistries.add(Constants.METRICS_NAME, environment.metrics());
 
     {
@@ -54,7 +57,7 @@ public class MetricsUtil {
               "version", WhisperServerVersion.getServerVersion(),
               "env", config.getDatadogConfiguration().getEnvironment()));
 
-      configureMeterFilters(dogstatsdMeterRegistry.config());
+      configureMeterFilters(dogstatsdMeterRegistry.config(), dynamicConfigurationManager);
       Metrics.addRegistry(dogstatsdMeterRegistry);
     }
 
@@ -64,7 +67,8 @@ public class MetricsUtil {
   }
 
   @VisibleForTesting
-  static MeterRegistry.Config configureMeterFilters(MeterRegistry.Config config) {
+  static MeterRegistry.Config configureMeterFilters(MeterRegistry.Config config,
+      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
     final DistributionStatisticConfig defaultDistributionStatisticConfig = DistributionStatisticConfig.builder()
         .percentiles(.75, .95, .99, .999)
         .build();
@@ -84,6 +88,8 @@ public class MetricsUtil {
               return id.withName(PREFIX + "." + id.getName())
                   .replaceTags(id.getTags().stream()
                       .filter(tag -> !"command".equals(tag.getKey()))
+                      .filter(tag -> dynamicConfigurationManager.getConfiguration().getMetricsConfiguration().
+                          enableLettuceRemoteTag() || !"remote".equals(tag.getKey()))
                       .toList());
             }
 

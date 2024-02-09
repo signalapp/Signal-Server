@@ -60,7 +60,8 @@ record CommandDependencies(
     ClientPresenceManager clientPresenceManager,
     KeysManager keysManager,
     FaultTolerantRedisCluster cacheCluster,
-    ClientResources redisClusterClientResources) {
+    ClientResources redisClusterClientResources,
+    DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
 
   static CommandDependencies build(
       final String name,
@@ -196,7 +197,8 @@ record CommandDependencies(
         clientPresenceManager,
         keys,
         cacheCluster,
-        redisClusterClientResources
+        redisClusterClientResources,
+        dynamicConfigurationManager
     );
   }
 
