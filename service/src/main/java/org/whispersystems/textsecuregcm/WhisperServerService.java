@@ -157,6 +157,7 @@ import org.whispersystems.textsecuregcm.mappers.RegistrationServiceSenderExcepti
 import org.whispersystems.textsecuregcm.mappers.ServerRejectedExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.SubscriptionProcessorExceptionMapper;
 import org.whispersystems.textsecuregcm.metrics.MetricsApplicationEventListener;
+import org.whispersystems.textsecuregcm.metrics.MetricsHttpChannelListener;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.ReportedMessageMetricsListener;
 import org.whispersystems.textsecuregcm.metrics.TrafficSource;
@@ -180,7 +181,6 @@ import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.spam.FilterSpam;
 import org.whispersystems.textsecuregcm.spam.PushChallengeConfigProvider;
-import org.whispersystems.textsecuregcm.spam.RateLimitChallengeListener;
 import org.whispersystems.textsecuregcm.spam.ReportSpamTokenProvider;
 import org.whispersystems.textsecuregcm.spam.ScoreThresholdProvider;
 import org.whispersystems.textsecuregcm.spam.SenderOverrideProvider;
@@ -791,6 +791,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new BasicCredentialAuthFilter.Builder<AuthenticatedAccount>()
             .setAuthenticator(accountAuthenticator)
             .buildAuthFilter();
+
+    final MetricsHttpChannelListener metricsHttpChannelListener = new MetricsHttpChannelListener(clientReleaseManager);
+    metricsHttpChannelListener.configure(environment);
 
     environment.jersey().register(new VirtualExecutorServiceProvider("managed-async-virtual-thread-"));
     environment.jersey().register(new RequestStatisticsFilter(TrafficSource.HTTP));
