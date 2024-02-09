@@ -235,6 +235,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TurnToken'
+      deprecated: true
       security:
       - authenticatedAccount: []
   /v1/accounts/username_hash/{usernameHash}:
@@ -1156,6 +1157,31 @@ paths:
                 $ref: '#/components/schemas/CreateCallLinkCredential'
         "400":
           description: Invalid create call link credential request.
+        "401":
+          description: Account authentication check failed.
+        "422":
+          description: Invalid request format.
+        "429":
+          description: Ratelimited.
+      security:
+      - authenticatedAccount: []
+  /v1/calling/relays:
+    get:
+      tags:
+      - Calling
+      summary: Get 1:1 calling relay options for the client
+      description: |
+        Get 1:1 relay addresses in IpV4, Ipv6, and URL formats.
+      operationId: getCallingRelays
+      responses:
+        "200":
+          description: '`JSON` with call endpoints.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TurnToken'
+        "400":
+          description: Invalid get call endpoint request.
         "401":
           description: Account authentication check failed.
         "422":
@@ -2886,6 +2912,12 @@ components:
           type: array
           items:
             type: string
+        urlsWithIps:
+          type: array
+          items:
+            type: string
+        hostname:
+          type: string
     AccountIdentifierResponse:
       required:
       - uuid
