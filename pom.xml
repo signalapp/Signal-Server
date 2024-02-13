@@ -41,10 +41,10 @@
     <braintree.version>3.27.0</braintree.version>
     <commons-csv.version>1.10.0</commons-csv.version>
     <commons-io.version>2.14.0</commons-io.version>
-    <dropwizard.version>3.0.4</dropwizard.version>
+    <dropwizard.version>3.0.6</dropwizard.version>
     <dropwizard-metrics-datadog.version>1.1.13</dropwizard-metrics-datadog.version>
-    <google-cloud-libraries.version>26.25.0</google-cloud-libraries.version>
-    <grpc.version>1.58.0</grpc.version> <!-- should be kept in sync with the value from Google libraries-bom -->
+    <google-cloud-libraries.version>26.33.0</google-cloud-libraries.version>
+    <grpc.version>1.61.1</grpc.version> <!-- should be kept in sync with the value from Google libraries-bom -->
     <gson.version>2.10.1</gson.version>
     <!-- several libraries (AWS, Google Cloud) use Apache http components transitively, and we need to align them -->
     <httpcore.version>4.4.16</httpcore.version>
