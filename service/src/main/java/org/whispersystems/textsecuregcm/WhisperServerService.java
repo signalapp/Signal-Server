@@ -317,6 +317,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             config.getAppConfig().getEnvironment(),
             config.getAppConfig().getConfigurationName(),
             DynamicConfiguration.class);
+    dynamicConfigurationManager.start();
 
     MetricsUtil.configureRegistries(config, environment, dynamicConfigurationManager);
 
@@ -527,8 +528,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             config.getSvr2Configuration());
     ExternalServiceCredentialsGenerator svr3CredentialsGenerator = SecureValueRecovery3Controller.credentialsGenerator(
         config.getSvr3Configuration());
-
-    dynamicConfigurationManager.start();
 
     ExperimentEnrollmentManager experimentEnrollmentManager = new ExperimentEnrollmentManager(
         dynamicConfigurationManager);
