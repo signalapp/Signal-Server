@@ -6,7 +6,9 @@
 package org.whispersystems.textsecuregcm.metrics;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -24,6 +26,7 @@ import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
+import java.io.IOException;
 import java.security.Principal;
 import java.time.Duration;
 import java.util.HashSet;
@@ -31,14 +34,22 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
+import javax.annotation.Priority;
 import javax.security.auth.Subject;
 import javax.ws.rs.GET;
+import javax.ws.rs.InternalServerErrorException;
+import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
+import javax.ws.rs.Priorities;
+import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.container.ContainerRequestContext;
+import javax.ws.rs.container.ContainerRequestFilter;
 import javax.ws.rs.core.Context;
+import javax.ws.rs.core.Response;
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.HttpChannel;
 import org.eclipse.jetty.server.Request;
@@ -76,7 +87,8 @@ class MetricsHttpChannelListenerIntegrationTest {
   @ParameterizedTest
   @MethodSource
   @SuppressWarnings("unchecked")
-  void testSimplePath(String requestPath, String expectedTagPath, String expectedResponse) throws Exception {
+  void testSimplePath(String requestPath, String expectedTagPath, String expectedResponse, int expectedStatus)
+      throws Exception {
 
     final CompletableFuture<Void> listenerCompleteFuture = new CompletableFuture<>();
     LISTENER_FUTURE_REFERENCE.set(listenerCompleteFuture);
@@ -90,13 +102,30 @@ class MetricsHttpChannelListenerIntegrationTest {
 
     Client client = EXTENSION.client();
 
-    final String response = client.target(
+    final Supplier<String> request = () -> client.target(
             String.format("http://localhost:%d%s", EXTENSION.getLocalPort(), requestPath))
         .request()
         .header(HttpHeaders.USER_AGENT, "Signal-Android/4.53.7 (Android 8.1)")
         .get(String.class);
 
-    assertEquals(expectedResponse, response);
+    switch (expectedStatus) {
+      case 200: {
+        final String response = request.get();
+        assertEquals(expectedResponse, response);
+        break;
+      }
+      case 401: {
+        assertThrows(NotAuthorizedException.class, request::get);
+        break;
+      }
+      case 500: {
+        assertThrows(InternalServerErrorException.class, request::get);
+        break;
+      }
+      default: {
+        fail("unexpected status");
+      }
+    }
 
     listenerCompleteFuture.get(1000, TimeUnit.MILLISECONDS);
 
@@ -113,7 +142,7 @@ class MetricsHttpChannelListenerIntegrationTest {
     assertEquals(5, tags.size());
     assertTrue(tags.contains(Tag.of(MetricsHttpChannelListener.PATH_TAG, expectedTagPath)));
     assertTrue(tags.contains(Tag.of(MetricsHttpChannelListener.METHOD_TAG, "GET")));
-    assertTrue(tags.contains(Tag.of(MetricsHttpChannelListener.STATUS_CODE_TAG, "200")));
+    assertTrue(tags.contains(Tag.of(MetricsHttpChannelListener.STATUS_CODE_TAG, String.valueOf(expectedStatus))));
     assertTrue(
         tags.contains(Tag.of(MetricsHttpChannelListener.TRAFFIC_SOURCE_TAG, TRAFFIC_SOURCE.name().toLowerCase())));
     assertTrue(tags.contains(Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")));
@@ -121,9 +150,11 @@ class MetricsHttpChannelListenerIntegrationTest {
 
   static Stream<Arguments> testSimplePath() {
     return Stream.of(
-        Arguments.of("/v1/test/hello", "/v1/test/hello", "Hello!"),
+        Arguments.of("/v1/test/hello", "/v1/test/hello", "Hello!", 200),
         Arguments.of("/v1/test/greet/friend", "/v1/test/greet/{name}",
-            String.format(TestResource.GREET_FORMAT, "friend"))
+            String.format(TestResource.GREET_FORMAT, "friend"), 200),
+        Arguments.of("/v1/test/greet/unauthorized", "/v1/test/greet/{name}", null, 401),
+        Arguments.of("/v1/test/greet/exception", "/v1/test/greet/{name}", null, 500)
     );
   }
 
@@ -141,6 +172,7 @@ class MetricsHttpChannelListenerIntegrationTest {
       environment.lifecycle().addEventListener(new TestListener(LISTENER_FUTURE_REFERENCE));
 
       environment.jersey().register(new TestResource());
+      environment.jersey().register(new TestAuthFilter());
 
       // WebSocket set up
       final WebSocketConfiguration webSocketConfiguration = new WebSocketConfiguration();
@@ -156,6 +188,17 @@ class MetricsHttpChannelListenerIntegrationTest {
           webSocketEnvironment, TestPrincipal.class, webSocketConfiguration, "ignored");
 
       environment.servlets().addServlet("WebSocket", webSocketServlet);
+    }
+  }
+
+  @Priority(Priorities.AUTHENTICATION)
+  static class TestAuthFilter implements ContainerRequestFilter {
+
+    @Override
+    public void filter(final ContainerRequestContext requestContext) throws IOException {
+      if (requestContext.getUriInfo().getPath().contains("unauthorized")) {
+        throw new WebApplicationException(Response.Status.UNAUTHORIZED);
+      }
     }
   }
 
@@ -208,7 +251,9 @@ class MetricsHttpChannelListenerIntegrationTest {
     @Path("/greet/{name}")
     public String testGreetByName(@PathParam("name") String name, @Context ContainerRequestContext context) {
 
-      context.setProperty("uriInfo", context.getUriInfo());
+      if ("exception".equals(name)) {
+        throw new InternalServerErrorException();
+      }
 
       return String.format(GREET_FORMAT, name);
     }

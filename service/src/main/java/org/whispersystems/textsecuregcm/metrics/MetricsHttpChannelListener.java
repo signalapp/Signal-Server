@@ -20,7 +20,8 @@ import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import javax.ws.rs.container.ContainerRequestContext;
-import javax.ws.rs.container.ContainerRequestFilter;
+import javax.ws.rs.container.ContainerResponseContext;
+import javax.ws.rs.container.ContainerResponseFilter;
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.HttpChannel;
 import org.eclipse.jetty.server.Request;
@@ -34,8 +35,8 @@ import org.whispersystems.textsecuregcm.util.logging.UriInfoUtil;
 
 /**
  * Gathers and reports HTTP request metrics at the Jetty container level, which sits above Jersey. In order to get
- * templated Jersey request paths, it implements {@link javax.ws.rs.container.ContainerRequestFilter}, in order to
- * give itself access to the template. It is limited to {@link TrafficSource#HTTP} requests.
+ * templated Jersey request paths, it implements {@link javax.ws.rs.container.ContainerResponseFilter}, in order to give
+ * itself access to the template. It is limited to {@link TrafficSource#HTTP} requests.
  * <p>
  * It implements {@link LifeCycle.Listener} without overriding methods, so that it can be an event listener that
  * Dropwizard will attach to the container&mdash;the {@link Container.Listener} implementation is where it attaches
@@ -44,7 +45,7 @@ import org.whispersystems.textsecuregcm.util.logging.UriInfoUtil;
  * @see MetricsRequestEventListener
  */
 public class MetricsHttpChannelListener implements HttpChannel.Listener, Container.Listener, LifeCycle.Listener,
-    ContainerRequestFilter {
+    ContainerResponseFilter {
 
   private static final Logger logger = LoggerFactory.getLogger(MetricsHttpChannelListener.class);
 
@@ -86,7 +87,7 @@ public class MetricsHttpChannelListener implements HttpChannel.Listener, Contain
   }
 
   public void configure(final Environment environment) {
-    // register as ContainerRequestFilter
+    // register as ContainerResponseFilter
     environment.jersey().register(this);
 
     // hook into lifecycle events, to react to the Connector being added
@@ -138,7 +139,8 @@ public class MetricsHttpChannelListener implements HttpChannel.Listener, Contain
   }
 
   @Override
-  public void filter(final ContainerRequestContext requestContext) throws IOException {
+  public void filter(final ContainerRequestContext requestContext, final ContainerResponseContext responseContext)
+      throws IOException {
     requestContext.setProperty(URI_INFO_PROPERTY_NAME, requestContext.getUriInfo());
   }
 
