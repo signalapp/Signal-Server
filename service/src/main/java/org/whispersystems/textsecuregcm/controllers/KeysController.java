@@ -34,6 +34,7 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
@@ -58,6 +59,7 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.KeysManager;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.Util;
+import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v2/keys")
@@ -69,6 +71,8 @@ public class KeysController {
   private final AccountsManager accounts;
 
   private static final String GET_KEYS_COUNTER_NAME = MetricsUtil.name(KeysController.class, "getKeys");
+  private static final String ONE_TIME_EC_PRE_KEY_UNAVAILABLE_COUNTER_NAME =
+      MetricsUtil.name(KeysController.class, "oneTimeEcPreKeyUnavailable");
 
   private static final CompletableFuture<?>[] EMPTY_FUTURE_ARRAY = new CompletableFuture[0];
 
@@ -233,6 +237,13 @@ public class KeysController {
                 final ECPreKey unsignedEcPreKey = unsignedEcPreKeyFuture.join().orElse(null);
                 final ECSignedPreKey signedEcPreKey = signedEcPreKeyFuture.join().orElse(null);
 
+                if (unsignedEcPreKey == null) {
+                  Metrics.counter(ONE_TIME_EC_PRE_KEY_UNAVAILABLE_COUNTER_NAME,
+                      "isPrimary", String.valueOf(device.isPrimary()),
+                      "platform", getDevicePlatform(device).map(Enum::name).orElse("unknown"))
+                      .increment();
+                }
+
                 if (signedEcPreKey != null || unsignedEcPreKey != null || pqPreKey != null) {
                   final int registrationId = switch (targetIdentifier.identityType()) {
                     case ACI -> device.getRegistrationId();
@@ -256,6 +267,16 @@ public class KeysController {
     }
 
     return new PreKeyResponse(identityKey, responseItems);
+  }
+
+  private static Optional<ClientPlatform> getDevicePlatform(final Device device) {
+    if (StringUtils.isNotBlank(device.getApnId()) || StringUtils.isNotBlank(device.getVoipApnId())) {
+      return Optional.of(ClientPlatform.IOS);
+    } else if (StringUtils.isNotBlank(device.getGcmId())) {
+      return Optional.of(ClientPlatform.ANDROID);
+    }
+
+    return Optional.empty();
   }
 
   @PUT
