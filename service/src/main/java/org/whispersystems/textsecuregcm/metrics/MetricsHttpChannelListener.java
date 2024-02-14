@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import javax.annotation.Nullable;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.container.ContainerResponseContext;
@@ -54,6 +55,7 @@ public class MetricsHttpChannelListener implements HttpChannel.Listener, Contain
   }
 
   private final ClientReleaseManager clientReleaseManager;
+  private final Set<String> servletPaths;
 
   public static final String REQUEST_COUNTER_NAME = name(MetricsHttpChannelListener.class, "request");
   public static final String REQUESTS_BY_VERSION_COUNTER_NAME = name(MetricsHttpChannelListener.class,
@@ -76,14 +78,16 @@ public class MetricsHttpChannelListener implements HttpChannel.Listener, Contain
   private final MeterRegistry meterRegistry;
 
 
-  public MetricsHttpChannelListener(final ClientReleaseManager clientReleaseManager) {
-    this(Metrics.globalRegistry, clientReleaseManager);
+  public MetricsHttpChannelListener(final ClientReleaseManager clientReleaseManager, final Set<String> servletPaths) {
+    this(Metrics.globalRegistry, clientReleaseManager, servletPaths);
   }
 
   @VisibleForTesting
-  MetricsHttpChannelListener(final MeterRegistry meterRegistry, final ClientReleaseManager clientReleaseManager) {
+  MetricsHttpChannelListener(final MeterRegistry meterRegistry, final ClientReleaseManager clientReleaseManager,
+      final Set<String> servletPaths) {
     this.meterRegistry = meterRegistry;
     this.clientReleaseManager = clientReleaseManager;
+    this.servletPaths = servletPaths;
   }
 
   public void configure(final Environment environment) {
@@ -158,7 +162,12 @@ public class MetricsHttpChannelListener implements HttpChannel.Listener, Contain
   private RequestInfo getRequestInfo(Request request) {
     final String path = Optional.ofNullable(request.getAttribute(URI_INFO_PROPERTY_NAME))
         .map(attr -> UriInfoUtil.getPathTemplate((ExtendedUriInfo) attr))
-        .orElse("unknown");
+        .orElseGet(() -> {
+          if (servletPaths.contains(request.getPathInfo())) {
+            return request.getPathInfo();
+          }
+          return "unknown";
+        });
     final String method = Optional.ofNullable(request.getMethod()).orElse("unknown");
     // Response cannot be null, but its status might not always reflect an actual response status, since it gets
     // initialized to 200

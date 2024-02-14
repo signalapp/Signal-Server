@@ -37,6 +37,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.ServiceLoader;
+import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -97,8 +98,8 @@ import org.whispersystems.textsecuregcm.controllers.ArtController;
 import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV2;
 import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV3;
 import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV4;
-import org.whispersystems.textsecuregcm.controllers.CallRoutingController;
 import org.whispersystems.textsecuregcm.controllers.CallLinkController;
+import org.whispersystems.textsecuregcm.controllers.CallRoutingController;
 import org.whispersystems.textsecuregcm.controllers.CertificateController;
 import org.whispersystems.textsecuregcm.controllers.ChallengeController;
 import org.whispersystems.textsecuregcm.controllers.DeviceController;
@@ -792,7 +793,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             .setAuthenticator(accountAuthenticator)
             .buildAuthFilter();
 
-    final MetricsHttpChannelListener metricsHttpChannelListener = new MetricsHttpChannelListener(clientReleaseManager);
+    final String websocketServletPath = "/v1/websocket/";
+    final String provisioningWebsocketServletPath = "/v1/websocket/provisioning/";
+
+    final MetricsHttpChannelListener metricsHttpChannelListener = new MetricsHttpChannelListener(clientReleaseManager,
+        Set.of(websocketServletPath, provisioningWebsocketServletPath, "/health-check"));
     metricsHttpChannelListener.configure(environment);
 
     environment.jersey().register(new VirtualExecutorServiceProvider("managed-async-virtual-thread-"));
@@ -950,10 +955,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ServletRegistration.Dynamic websocket = environment.servlets().addServlet("WebSocket", webSocketServlet);
     ServletRegistration.Dynamic provisioning = environment.servlets().addServlet("Provisioning", provisioningServlet);
 
-    websocket.addMapping("/v1/websocket/");
+    websocket.addMapping(websocketServletPath);
     websocket.setAsyncSupported(true);
 
-    provisioning.addMapping("/v1/websocket/provisioning/");
+    provisioning.addMapping(provisioningWebsocketServletPath);
     provisioning.setAsyncSupported(true);
 
     environment.admin().addTask(new SetRequestLoggingEnabledTask());

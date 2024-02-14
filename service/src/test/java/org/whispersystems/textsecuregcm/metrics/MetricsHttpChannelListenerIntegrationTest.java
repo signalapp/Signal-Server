@@ -27,8 +27,10 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
 import java.io.IOException;
+import java.net.URI;
 import java.security.Principal;
 import java.time.Duration;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -38,6 +40,7 @@ import java.util.function.Supplier;
 import java.util.stream.Stream;
 import javax.annotation.Priority;
 import javax.security.auth.Subject;
+import javax.servlet.DispatcherType;
 import javax.ws.rs.GET;
 import javax.ws.rs.InternalServerErrorException;
 import javax.ws.rs.NotAuthorizedException;
@@ -55,13 +58,21 @@ import org.eclipse.jetty.server.HttpChannel;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.util.component.Container;
 import org.eclipse.jetty.util.component.LifeCycle;
+import org.eclipse.jetty.websocket.api.Session;
+import org.eclipse.jetty.websocket.api.WebSocketListener;
+import org.eclipse.jetty.websocket.client.ClientUpgradeRequest;
+import org.eclipse.jetty.websocket.client.WebSocketClient;
 import org.eclipse.jetty.websocket.server.config.JettyWebSocketServletContainerInitializer;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
+import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.websocket.WebSocketResourceProviderFactory;
 import org.whispersystems.websocket.configuration.WebSocketConfiguration;
@@ -148,6 +159,64 @@ class MetricsHttpChannelListenerIntegrationTest {
     assertTrue(tags.contains(Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")));
   }
 
+
+  @Nested
+  class WebSocket {
+
+    private WebSocketClient client;
+
+    @BeforeEach
+    void setUp() throws Exception {
+      client = new WebSocketClient();
+      client.start();
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+      client.stop();
+    }
+
+    @Test
+    void testWebSocketUpgrade() throws Exception {
+      final ClientUpgradeRequest upgradeRequest = new ClientUpgradeRequest();
+      upgradeRequest.setHeader(HttpHeaders.USER_AGENT, "Signal-Android/4.53.7 (Android 8.1)");
+
+      final ArgumentCaptor<Iterable<Tag>> tagCaptor = ArgumentCaptor.forClass(Iterable.class);
+      when(METER_REGISTRY.counter(anyString(), any(Iterable.class)))
+          .thenAnswer(a -> MetricsHttpChannelListener.REQUEST_COUNTER_NAME.equals(a.getArgument(0, String.class))
+              ? COUNTER
+              : mock(Counter.class))
+          .thenReturn(COUNTER);
+
+      client.connect(new WebSocketListener() {
+                       @Override
+                       public void onWebSocketConnect(final Session session) {
+                         session.close(1000, "OK");
+                       }
+                     },
+              URI.create(String.format("ws://localhost:%d%s", EXTENSION.getLocalPort(), "/v1/websocket")), upgradeRequest)
+          .get(1, TimeUnit.SECONDS);
+
+      verify(METER_REGISTRY).counter(eq(MetricsHttpChannelListener.REQUEST_COUNTER_NAME), tagCaptor.capture());
+      verify(COUNTER).increment();
+
+      final Iterable<Tag> tagIterable = tagCaptor.getValue();
+      final Set<Tag> tags = new HashSet<>();
+
+      for (final Tag tag : tagIterable) {
+        tags.add(tag);
+      }
+
+      assertEquals(5, tags.size());
+      assertTrue(tags.contains(Tag.of(MetricsHttpChannelListener.PATH_TAG, "/v1/websocket")));
+      assertTrue(tags.contains(Tag.of(MetricsHttpChannelListener.METHOD_TAG, "GET")));
+      assertTrue(tags.contains(Tag.of(MetricsHttpChannelListener.STATUS_CODE_TAG, String.valueOf(101))));
+      assertTrue(
+          tags.contains(Tag.of(MetricsHttpChannelListener.TRAFFIC_SOURCE_TAG, TRAFFIC_SOURCE.name().toLowerCase())));
+      assertTrue(tags.contains(Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")));
+    }
+  }
+
   static Stream<Arguments> testSimplePath() {
     return Stream.of(
         Arguments.of("/v1/test/hello", "/v1/test/hello", "Hello!", 200),
@@ -166,10 +235,15 @@ class MetricsHttpChannelListenerIntegrationTest {
 
       final MetricsHttpChannelListener metricsHttpChannelListener = new MetricsHttpChannelListener(
           METER_REGISTRY,
-          mock(ClientReleaseManager.class));
+          mock(ClientReleaseManager.class),
+          Set.of("/v1/websocket")
+      );
 
       metricsHttpChannelListener.configure(environment);
       environment.lifecycle().addEventListener(new TestListener(LISTENER_FUTURE_REFERENCE));
+
+      environment.servlets().addFilter("RemoteAddressFilter", new RemoteAddressFilter(true))
+          .addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST), false, "/*");
 
       environment.jersey().register(new TestResource());
       environment.jersey().register(new TestAuthFilter());
@@ -185,9 +259,11 @@ class MetricsHttpChannelListenerIntegrationTest {
       JettyWebSocketServletContainerInitializer.configure(environment.getApplicationContext(), null);
 
       WebSocketResourceProviderFactory<TestPrincipal> webSocketServlet = new WebSocketResourceProviderFactory<>(
-          webSocketEnvironment, TestPrincipal.class, webSocketConfiguration, "ignored");
+          webSocketEnvironment, TestPrincipal.class, webSocketConfiguration,
+          RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME);
 
-      environment.servlets().addServlet("WebSocket", webSocketServlet);
+      environment.servlets().addServlet("WebSocket", webSocketServlet)
+          .addMapping("/v1/websocket");
     }
   }
 
@@ -273,4 +349,5 @@ class MetricsHttpChannelListenerIntegrationTest {
       return false;
     }
   }
+
 }
