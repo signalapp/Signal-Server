@@ -106,6 +106,17 @@ public class MetricsHttpChannelListener implements HttpChannel.Listener, Contain
   }
 
   @Override
+  public void onResponseFailure(Request request, Throwable failure) {
+    final RequestInfo requestInfo = getRequestInfo(request);
+
+    logger.warn("Response failure: {} {} ({}) [{}] ",
+        requestInfo.method(),
+        requestInfo.path(),
+        requestInfo.userAgent(),
+        requestInfo.statusCode(), failure);
+  }
+
+  @Override
   public void onComplete(final Request request) {
 
     final RequestInfo requestInfo = getRequestInfo(request);
