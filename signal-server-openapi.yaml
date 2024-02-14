@@ -4159,18 +4159,6 @@ components:
     UserCapabilities:
       type: object
       properties:
-        gv1-migration:
-          type: boolean
-        senderKey:
-          type: boolean
-        announcementGroup:
-          type: boolean
-        changeNumber:
-          type: boolean
-        stories:
-          type: boolean
-        giftBadges:
-          type: boolean
         paymentActivation:
           type: boolean
         pni:
