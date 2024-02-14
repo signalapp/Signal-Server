@@ -28,6 +28,7 @@ import org.whispersystems.textsecuregcm.entities.UserRemoteConfigList;
 import org.whispersystems.textsecuregcm.storage.RemoteConfigsManager;
 import org.whispersystems.textsecuregcm.util.Conversions;
 import org.whispersystems.textsecuregcm.util.Util;
+import org.whispersystems.websocket.auth.ReadOnly;
 
 @Path("/v1/config")
 @Tag(name = "Remote Config")
@@ -51,7 +52,7 @@ public class RemoteConfigController {
 
   @GET
   @Produces(MediaType.APPLICATION_JSON)
-  public UserRemoteConfigList getAll(@Auth AuthenticatedAccount auth) {
+  public UserRemoteConfigList getAll(@ReadOnly @Auth AuthenticatedAccount auth) {
     try {
       MessageDigest digest = MessageDigest.getInstance("SHA1");
 

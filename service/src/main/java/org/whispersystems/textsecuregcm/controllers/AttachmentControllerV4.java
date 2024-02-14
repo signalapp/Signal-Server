@@ -26,6 +26,7 @@ import org.whispersystems.textsecuregcm.entities.AttachmentDescriptorV3;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.websocket.auth.ReadOnly;
 
 
 /**
@@ -76,7 +77,7 @@ public class AttachmentControllerV4 {
   @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
       name = "Retry-After",
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
-  public AttachmentDescriptorV3 getAttachmentUploadForm(@Auth AuthenticatedAccount auth)
+  public AttachmentDescriptorV3 getAttachmentUploadForm(@ReadOnly @Auth AuthenticatedAccount auth)
       throws RateLimitExceededException {
     rateLimiter.validate(auth.getAccount().getUuid());
     final String key = generateAttachmentKey();

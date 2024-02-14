@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
+import org.whispersystems.websocket.auth.ReadOnly;
 import org.whispersystems.websocket.session.WebSocketSession;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
 
@@ -40,7 +41,7 @@ public class KeepAliveController {
   }
 
   @GET
-  public Response getKeepAlive(@Auth Optional<AuthenticatedAccount> maybeAuth,
+  public Response getKeepAlive(@ReadOnly @Auth Optional<AuthenticatedAccount> maybeAuth,
       @WebSocketSession WebSocketSessionContext context) {
 
     maybeAuth.ifPresent(auth -> {

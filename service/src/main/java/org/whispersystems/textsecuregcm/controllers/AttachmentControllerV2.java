@@ -29,6 +29,7 @@ import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.util.Conversions;
 import org.whispersystems.textsecuregcm.util.Pair;
+import org.whispersystems.websocket.auth.ReadOnly;
 
 @Path("/v2/attachments")
 @Tag(name = "Attachments")
@@ -51,7 +52,7 @@ public class AttachmentControllerV2 {
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/form/upload")
   public AttachmentDescriptorV2 getAttachmentUploadForm(
-      @Auth AuthenticatedAccount auth,
+      @ReadOnly @Auth AuthenticatedAccount auth,
       @HeaderParam(HttpHeaders.USER_AGENT) String userAgent)
       throws RateLimitExceededException {
     rateLimiter.validate(auth.getAccount().getUuid());

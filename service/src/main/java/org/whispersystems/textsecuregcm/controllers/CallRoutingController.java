@@ -25,6 +25,7 @@ import org.whispersystems.textsecuregcm.calls.routing.TurnServerOptions;
 import org.whispersystems.textsecuregcm.calls.routing.TurnCallRouter;
 import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.websocket.auth.ReadOnly;
 
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
@@ -64,7 +65,7 @@ public class CallRoutingController {
   @ApiResponse(responseCode = "422", description = "Invalid request format.")
   @ApiResponse(responseCode = "429", description = "Ratelimited.")
   public TurnToken getCallingRelays(
-      final @Auth AuthenticatedAccount auth,
+      final @ReadOnly @Auth AuthenticatedAccount auth,
       @Context ContainerRequestContext requestContext
   ) throws RateLimitExceededException {
     UUID aci = auth.getAccount().getUuid();

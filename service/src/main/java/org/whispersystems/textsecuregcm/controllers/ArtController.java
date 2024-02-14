@@ -17,6 +17,7 @@ import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.configuration.ArtServiceConfiguration;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.websocket.auth.ReadOnly;
 
 @Path("/v1/art")
 @Tag(name = "Art")
@@ -42,7 +43,7 @@ public class ArtController {
   @GET
   @Path("/auth")
   @Produces(MediaType.APPLICATION_JSON)
-  public ExternalServiceCredentials getAuth(final @Auth AuthenticatedAccount auth)
+  public ExternalServiceCredentials getAuth(final @ReadOnly @Auth AuthenticatedAccount auth)
     throws RateLimitExceededException {
     final UUID uuid = auth.getAccount().getUuid();
     rateLimiters.forDescriptor(RateLimiters.For.EXTERNAL_SERVICE_CREDENTIALS).validate(uuid);

@@ -99,6 +99,8 @@ import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.ProfileHelper;
 import org.whispersystems.textsecuregcm.util.Util;
+import org.whispersystems.websocket.auth.Mutable;
+import org.whispersystems.websocket.auth.ReadOnly;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 
@@ -162,7 +164,7 @@ public class ProfileController {
   @PUT
   @Produces(MediaType.APPLICATION_JSON)
   @Consumes(MediaType.APPLICATION_JSON)
-  public Response setProfile(@Auth AuthenticatedAccount auth, @NotNull @Valid CreateProfileRequest request) {
+  public Response setProfile(@Mutable @Auth AuthenticatedAccount auth, @NotNull @Valid CreateProfileRequest request) {
 
     final Optional<VersionedProfile> currentProfile = profilesManager.get(auth.getAccount().getUuid(),
         request.version());
@@ -228,7 +230,7 @@ public class ProfileController {
   @Path("/{identifier}/{version}")
   @ManagedAsync
   public VersionedProfileResponse getProfile(
-      @Auth Optional<AuthenticatedAccount> auth,
+      @ReadOnly @Auth Optional<AuthenticatedAccount> auth,
       @HeaderParam(HeaderUtils.UNIDENTIFIED_ACCESS_KEY) Optional<Anonymous> accessKey,
       @Context ContainerRequestContext containerRequestContext,
       @PathParam("identifier") AciServiceIdentifier accountIdentifier,
@@ -248,7 +250,7 @@ public class ProfileController {
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/{identifier}/{version}/{credentialRequest}")
   public CredentialProfileResponse getProfile(
-      @Auth Optional<AuthenticatedAccount> auth,
+      @ReadOnly @Auth Optional<AuthenticatedAccount> auth,
       @HeaderParam(HeaderUtils.UNIDENTIFIED_ACCESS_KEY) Optional<Anonymous> accessKey,
       @Context ContainerRequestContext containerRequestContext,
       @PathParam("identifier") AciServiceIdentifier accountIdentifier,
@@ -279,7 +281,7 @@ public class ProfileController {
   @Path("/{identifier}")
   @ManagedAsync
   public BaseProfileResponse getUnversionedProfile(
-      @Auth Optional<AuthenticatedAccount> auth,
+      @ReadOnly @Auth Optional<AuthenticatedAccount> auth,
       @HeaderParam(HeaderUtils.UNIDENTIFIED_ACCESS_KEY) Optional<Anonymous> accessKey,
       @Context ContainerRequestContext containerRequestContext,
       @HeaderParam(HttpHeaders.USER_AGENT) String userAgent,

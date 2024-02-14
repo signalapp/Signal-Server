@@ -28,6 +28,7 @@ import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Pair;
+import org.whispersystems.websocket.auth.ReadOnly;
 
 @Path("/v1/sticker")
 @Tag(name = "Stickers")
@@ -46,7 +47,7 @@ public class StickerController {
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/pack/form/{count}")
-  public StickerPackFormUploadAttributes getStickersForm(@Auth AuthenticatedAccount auth,
+  public StickerPackFormUploadAttributes getStickersForm(@ReadOnly @Auth AuthenticatedAccount auth,
       @PathParam("count") @Min(1) @Max(201) int stickerCount)
       throws RateLimitExceededException {
     rateLimiters.getStickerPackLimiter().validate(auth.getAccount().getUuid());

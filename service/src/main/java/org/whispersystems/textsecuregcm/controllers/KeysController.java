@@ -63,6 +63,7 @@ import org.whispersystems.textsecuregcm.storage.KeysManager;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
+import org.whispersystems.websocket.auth.ReadOnly;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v2/keys")
@@ -94,7 +95,7 @@ public class KeysController {
       description = "Gets the number of one-time prekeys uploaded for this device and still available")
   @ApiResponse(responseCode = "200", description = "Body contains the number of available one-time prekeys for the device.", useReturnTypeSchema = true)
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
-  public CompletableFuture<PreKeyCount> getStatus(@Auth final AuthenticatedAccount auth,
+  public CompletableFuture<PreKeyCount> getStatus(@ReadOnly @Auth final AuthenticatedAccount auth,
       @QueryParam("identity") @DefaultValue("aci") final IdentityType identityType,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) {
 
@@ -137,7 +138,8 @@ public class KeysController {
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
   @ApiResponse(responseCode = "403", description = "Attempt to change identity key from a non-primary device.")
   @ApiResponse(responseCode = "422", description = "Invalid request format.")
-  public CompletableFuture<Response> setKeys(@Auth final AuthenticatedAccount auth,
+  public CompletableFuture<Response> setKeys(
+      @ReadOnly @Auth final AuthenticatedAccount auth,
       @RequestBody @NotNull @Valid final SetKeysRequest setKeysRequest,
 
       @Parameter(allowEmptyValue=true)
@@ -230,7 +232,8 @@ public class KeysController {
   @ApiResponse(responseCode = "429", description = "Rate limit exceeded.", headers = @Header(
       name = "Retry-After",
       description = "If present, a positive integer indicating the number of seconds before a subsequent attempt could succeed"))
-  public PreKeyResponse getDeviceKeys(@Auth Optional<AuthenticatedAccount> auth,
+  public PreKeyResponse getDeviceKeys(
+      @ReadOnly @Auth Optional<AuthenticatedAccount> auth,
       @HeaderParam(HeaderUtils.UNIDENTIFIED_ACCESS_KEY) Optional<Anonymous> accessKey,
 
       @Parameter(description="the account or phone-number identifier to retrieve keys for")
@@ -341,7 +344,8 @@ public class KeysController {
   @ApiResponse(responseCode = "200", description = "Indicates that new prekey was successfully stored.")
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
   @ApiResponse(responseCode = "422", description = "Invalid request format.")
-  public CompletableFuture<Response> setSignedKey(@Auth final AuthenticatedAccount auth,
+  public CompletableFuture<Response> setSignedKey(
+      @ReadOnly @Auth final AuthenticatedAccount auth,
       @Valid final ECSignedPreKey signedPreKey,
       @QueryParam("identity") @DefaultValue("aci") final IdentityType identityType) {
 

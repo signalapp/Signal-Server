@@ -39,6 +39,7 @@ import org.whispersystems.textsecuregcm.auth.CertificateGenerator;
 import org.whispersystems.textsecuregcm.entities.DeliveryCertificate;
 import org.whispersystems.textsecuregcm.entities.GroupCredentials;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
+import org.whispersystems.websocket.auth.ReadOnly;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v1/certificate")
@@ -69,7 +70,7 @@ public class CertificateController {
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/delivery")
-  public DeliveryCertificate getDeliveryCertificate(@Auth AuthenticatedAccount auth,
+  public DeliveryCertificate getDeliveryCertificate(@ReadOnly @Auth AuthenticatedAccount auth,
       @QueryParam("includeE164") @DefaultValue("true") boolean includeE164)
       throws InvalidKeyException {
 
@@ -88,7 +89,7 @@ public class CertificateController {
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/auth/group")
   public GroupCredentials getGroupAuthenticationCredentials(
-      @Auth AuthenticatedAccount auth,
+      @ReadOnly @Auth AuthenticatedAccount auth,
       @QueryParam("redemptionStartSeconds") long startSeconds,
       @QueryParam("redemptionEndSeconds") long endSeconds,
       @QueryParam("pniAsServiceId") boolean pniAsServiceId) {

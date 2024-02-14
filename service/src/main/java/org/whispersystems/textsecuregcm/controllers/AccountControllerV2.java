@@ -58,6 +58,8 @@ import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
 import org.whispersystems.textsecuregcm.util.ua.UserAgent;
 import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
+import org.whispersystems.websocket.auth.Mutable;
+import org.whispersystems.websocket.auth.ReadOnly;
 
 @Path("/v2/accounts")
 @io.swagger.v3.oas.annotations.tags.Tag(name = "Account")
@@ -103,7 +105,7 @@ public class AccountControllerV2 {
   @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
       name = "Retry-After",
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
-  public AccountIdentityResponse changeNumber(@Auth final AuthenticatedAccount authenticatedAccount,
+  public AccountIdentityResponse changeNumber(@Mutable @Auth final AuthenticatedAccount authenticatedAccount,
       @NotNull @Valid final ChangeNumberRequest request, @HeaderParam(HttpHeaders.USER_AGENT) final String userAgentString)
       throws RateLimitExceededException, InterruptedException {
 
@@ -191,7 +193,8 @@ public class AccountControllerV2 {
       content = @Content(schema = @Schema(implementation = MismatchedDevices.class)))
   @ApiResponse(responseCode = "410", description = "The registration IDs provided for some devices do not match those stored on the server.",
       content = @Content(schema = @Schema(implementation = StaleDevices.class)))
-  public AccountIdentityResponse distributePhoneNumberIdentityKeys(@Auth final AuthenticatedAccount authenticatedAccount,
+  public AccountIdentityResponse distributePhoneNumberIdentityKeys(
+      @Mutable @Auth final AuthenticatedAccount authenticatedAccount,
       @NotNull @Valid final PhoneNumberIdentityKeyDistributionRequest request) {
 
     if (!authenticatedAccount.getAuthenticatedDevice().isPrimary()) {
@@ -234,7 +237,7 @@ public class AccountControllerV2 {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public void setPhoneNumberDiscoverability(
-      @Auth AuthenticatedAccount auth,
+      @Mutable @Auth AuthenticatedAccount auth,
       @NotNull @Valid PhoneNumberDiscoverabilityRequest phoneNumberDiscoverability
   ) {
     accountsManager.update(auth.getAccount(), a -> a.setDiscoverableByPhoneNumber(
@@ -248,7 +251,7 @@ public class AccountControllerV2 {
   @ApiResponse(responseCode = "200",
       description = "Response with data report. A plain text representation is a field in the response.",
       useReturnTypeSchema = true)
-  public AccountDataReportResponse getAccountDataReport(@Auth final AuthenticatedAccount auth) {
+  public AccountDataReportResponse getAccountDataReport(@ReadOnly @Auth final AuthenticatedAccount auth) {
 
     final Account account = auth.getAccount();
 

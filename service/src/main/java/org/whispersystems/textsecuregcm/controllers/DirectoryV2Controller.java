@@ -18,6 +18,7 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.configuration.DirectoryV2ClientConfiguration;
+import org.whispersystems.websocket.auth.ReadOnly;
 
 @Path("/v2/directory")
 @Tag(name = "Directory")
@@ -47,7 +48,7 @@ public class DirectoryV2Controller {
   @GET
   @Path("/auth")
   @Produces(MediaType.APPLICATION_JSON)
-  public Response getAuthToken(final @Auth AuthenticatedAccount auth) {
+  public Response getAuthToken(final @ReadOnly @Auth AuthenticatedAccount auth) {
     final UUID uuid = auth.getAccount().getUuid();
     final ExternalServiceCredentials credentials = directoryServiceTokenGenerator.generateForUuid(uuid);
     return Response.ok().entity(credentials).build();

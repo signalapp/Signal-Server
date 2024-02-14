@@ -42,6 +42,7 @@ import org.whispersystems.textsecuregcm.spam.Extract;
 import org.whispersystems.textsecuregcm.spam.FilterSpam;
 import org.whispersystems.textsecuregcm.spam.PushChallengeConfig;
 import org.whispersystems.textsecuregcm.spam.ScoreThreshold;
+import org.whispersystems.websocket.auth.ReadOnly;
 
 @Path("/v1/challenge")
 @Tag(name = "Challenge")
@@ -77,7 +78,7 @@ public class ChallengeController {
   @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
       name = "Retry-After",
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
-  public Response handleChallengeResponse(@Auth final AuthenticatedAccount auth,
+  public Response handleChallengeResponse(@ReadOnly @Auth final AuthenticatedAccount auth,
       @Valid final AnswerChallengeRequest answerRequest,
       @Context ContainerRequestContext requestContext,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
@@ -163,7 +164,7 @@ public class ChallengeController {
   @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
       name = "Retry-After",
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
-  public Response requestPushChallenge(@Auth final AuthenticatedAccount auth,
+  public Response requestPushChallenge(@ReadOnly @Auth final AuthenticatedAccount auth,
       @Extract PushChallengeConfig pushChallengeConfig) {
     if (!pushChallengeConfig.pushPermitted()) {
       return Response.status(429).build();

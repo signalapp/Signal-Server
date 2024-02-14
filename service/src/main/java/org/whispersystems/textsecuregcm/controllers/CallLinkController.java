@@ -20,6 +20,7 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.entities.CreateCallLinkCredential;
 import org.whispersystems.textsecuregcm.entities.GetCreateCallLinkCredentialsRequest;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.websocket.auth.ReadOnly;
 
 @Path("/v1/call-link")
 @io.swagger.v3.oas.annotations.tags.Tag(name = "CallLink")
@@ -51,7 +52,7 @@ public class CallLinkController {
   @ApiResponse(responseCode = "422", description = "Invalid request format.")
   @ApiResponse(responseCode = "429", description = "Ratelimited.")
   public CreateCallLinkCredential getCreateAuth(
-      final @Auth AuthenticatedAccount auth,
+      final @ReadOnly @Auth AuthenticatedAccount auth,
       final @NotNull @Valid GetCreateCallLinkCredentialsRequest request
   ) throws RateLimitExceededException {
 

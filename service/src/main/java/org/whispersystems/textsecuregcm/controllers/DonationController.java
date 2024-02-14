@@ -36,6 +36,7 @@ import org.whispersystems.textsecuregcm.entities.RedeemReceiptRequest;
 import org.whispersystems.textsecuregcm.storage.AccountBadge;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.RedeemedReceiptsManager;
+import org.whispersystems.websocket.auth.Mutable;
 
 @Path("/v1/donation")
 @Tag(name = "Donations")
@@ -74,7 +75,7 @@ public class DonationController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces({MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN})
   public CompletionStage<Response> redeemReceipt(
-      @Auth final AuthenticatedAccount auth,
+      @Mutable @Auth final AuthenticatedAccount auth,
       @NotNull @Valid final RedeemReceiptRequest request) {
     return CompletableFuture.supplyAsync(() -> {
       ReceiptCredentialPresentation receiptCredentialPresentation;

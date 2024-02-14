@@ -17,6 +17,7 @@ import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator
 import org.whispersystems.textsecuregcm.configuration.PaymentsServiceConfiguration;
 import org.whispersystems.textsecuregcm.currency.CurrencyConversionManager;
 import org.whispersystems.textsecuregcm.entities.CurrencyConversionEntityList;
+import org.whispersystems.websocket.auth.ReadOnly;
 
 @Path("/v1/payments")
 @Tag(name = "Payments")
@@ -42,14 +43,14 @@ public class PaymentsController {
   @GET
   @Path("/auth")
   @Produces(MediaType.APPLICATION_JSON)
-  public ExternalServiceCredentials getAuth(final @Auth AuthenticatedAccount auth) {
+  public ExternalServiceCredentials getAuth(final @ReadOnly @Auth AuthenticatedAccount auth) {
     return paymentsServiceCredentialsGenerator.generateForUuid(auth.getAccount().getUuid());
   }
 
   @GET
   @Path("/conversions")
   @Produces(MediaType.APPLICATION_JSON)
-  public CurrencyConversionEntityList getConversions(final @Auth AuthenticatedAccount auth) {
+  public CurrencyConversionEntityList getConversions(final @ReadOnly @Auth AuthenticatedAccount auth) {
     return currencyManager.getCurrencyConversions().orElseThrow();
   }
 }

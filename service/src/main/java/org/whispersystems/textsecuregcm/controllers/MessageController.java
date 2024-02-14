@@ -129,6 +129,7 @@ import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.websocket.WebSocketConnection;
 import org.whispersystems.websocket.Stories;
+import org.whispersystems.websocket.auth.ReadOnly;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
@@ -235,7 +236,7 @@ public class MessageController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   @ManagedAsync
-  public Response sendMessage(@Auth Optional<AuthenticatedAccount> source,
+  public Response sendMessage(@ReadOnly @Auth Optional<AuthenticatedAccount> source,
       @HeaderParam(HeaderUtils.UNIDENTIFIED_ACCESS_KEY) Optional<Anonymous> accessKey,
       @HeaderParam(HttpHeaders.USER_AGENT) String userAgent,
       @PathParam("destination") ServiceIdentifier destinationIdentifier,
@@ -667,7 +668,7 @@ public class MessageController {
   @Timed
   @GET
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletableFuture<OutgoingMessageEntityList> getPendingMessages(@Auth AuthenticatedAccount auth,
+  public CompletableFuture<OutgoingMessageEntityList> getPendingMessages(@ReadOnly @Auth AuthenticatedAccount auth,
       @HeaderParam(Stories.X_SIGNAL_RECEIVE_STORIES) String receiveStoriesHeader,
       @HeaderParam(HttpHeaders.USER_AGENT) String userAgent) {
 
@@ -718,7 +719,7 @@ public class MessageController {
   @Timed
   @DELETE
   @Path("/uuid/{uuid}")
-  public CompletableFuture<Response> removePendingMessage(@Auth AuthenticatedAccount auth, @PathParam("uuid") UUID uuid) {
+  public CompletableFuture<Response> removePendingMessage(@ReadOnly @Auth AuthenticatedAccount auth, @PathParam("uuid") UUID uuid) {
     return messagesManager.delete(
             auth.getAccount().getUuid(),
             auth.getAuthenticatedDevice().getId(),
@@ -749,7 +750,7 @@ public class MessageController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Path("/report/{source}/{messageGuid}")
   public Response reportSpamMessage(
-      @Auth AuthenticatedAccount auth,
+      @ReadOnly @Auth AuthenticatedAccount auth,
       @PathParam("source") String source,
       @PathParam("messageGuid") UUID messageGuid,
       @Nullable @Valid SpamReport spamReport,

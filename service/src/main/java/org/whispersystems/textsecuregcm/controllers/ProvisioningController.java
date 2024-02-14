@@ -23,6 +23,7 @@ import org.whispersystems.textsecuregcm.entities.ProvisioningMessage;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.push.ProvisioningManager;
 import org.whispersystems.textsecuregcm.websocket.ProvisioningAddress;
+import org.whispersystems.websocket.auth.ReadOnly;
 
 @Path("/v1/provisioning")
 @Tag(name = "Provisioning")
@@ -40,7 +41,7 @@ public class ProvisioningController {
   @PUT
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public void sendProvisioningMessage(@Auth AuthenticatedAccount auth,
+  public void sendProvisioningMessage(@ReadOnly @Auth AuthenticatedAccount auth,
       @PathParam("destination") String destinationName,
       @NotNull @Valid ProvisioningMessage message)
       throws RateLimitExceededException {
