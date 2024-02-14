@@ -157,7 +157,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
                   null,
                   "password",
                   null,
-                  new Device.DeviceCapabilities(false, false, false, false),
+                  new Device.DeviceCapabilities(false, false, false),
                   1,
                   2,
                   true,

@@ -567,8 +567,6 @@ class AccountControllerV2Test {
 
     @Test
     void pniKeyDistributionSuccess() throws Exception {
-      when(AuthHelper.VALID_ACCOUNT.isPniSupported()).thenReturn(true);
-
       final AccountIdentityResponse accountIdentityResponse =
           resources.getJerseyTest()
           .target("/v2/accounts/phone_number_identity_key_distribution")

@@ -200,14 +200,12 @@ class ProfileControllerTest {
     when(profileAccount.getCurrentProfileVersion()).thenReturn(Optional.empty());
     when(profileAccount.getUsernameHash()).thenReturn(Optional.of(USERNAME_HASH));
     when(profileAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of(UNIDENTIFIED_ACCESS_KEY));
-    when(profileAccount.isPniSupported()).thenReturn(true);
 
     Account capabilitiesAccount = mock(Account.class);
 
     when(capabilitiesAccount.getUuid()).thenReturn(AuthHelper.VALID_UUID);
     when(capabilitiesAccount.getIdentityKey(IdentityType.ACI)).thenReturn(ACCOUNT_IDENTITY_KEY);
     when(capabilitiesAccount.getIdentityKey(IdentityType.PNI)).thenReturn(ACCOUNT_PHONE_NUMBER_IDENTITY_KEY);
-    when(capabilitiesAccount.isPniSupported()).thenReturn(true);
     when(capabilitiesAccount.isPaymentActivationSupported()).thenReturn(false);
     when(capabilitiesAccount.isEnabled()).thenReturn(true);
 

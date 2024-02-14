@@ -201,7 +201,6 @@ public class DevicesGrpcService extends ReactorDevicesGrpc.DevicesImplBase {
                 d -> d.setCapabilities(new Device.DeviceCapabilities(
                     request.getStorage(),
                     request.getTransfer(),
-                    request.getPni(),
                     request.getPaymentActivation())))))
         .thenReturn(SetCapabilitiesResponse.newBuilder().build());
   }

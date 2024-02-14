@@ -147,8 +147,7 @@ message ClearPushTokenResponse {}
 message SetCapabilitiesRequest {
   bool storage = 1;
   bool transfer = 2;
-  bool pni = 3;
-  bool paymentActivation = 4;
+  bool paymentActivation = 3;
 }
 
 message SetCapabilitiesResponse {}

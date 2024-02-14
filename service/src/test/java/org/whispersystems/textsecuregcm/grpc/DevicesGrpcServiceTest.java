@@ -393,7 +393,6 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
       @CartesianTest.Values(bytes = {Device.PRIMARY_ID, Device.PRIMARY_ID + 1}) final byte deviceId,
       @CartesianTest.Values(booleans = {true, false}) final boolean storage,
       @CartesianTest.Values(booleans = {true, false}) final boolean transfer,
-      @CartesianTest.Values(booleans = {true, false}) final boolean pni,
       @CartesianTest.Values(booleans = {true, false}) final boolean paymentActivation) {
 
     mockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, deviceId);
@@ -404,14 +403,12 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
     final SetCapabilitiesResponse ignored = authenticatedServiceStub().setCapabilities(SetCapabilitiesRequest.newBuilder()
             .setStorage(storage)
             .setTransfer(transfer)
-            .setPni(pni)
             .setPaymentActivation(paymentActivation)
         .build());
 
     final Device.DeviceCapabilities expectedCapabilities = new Device.DeviceCapabilities(
         storage,
         transfer,
-        pni,
         paymentActivation);
 
     verify(device).setCapabilities(expectedCapabilities);

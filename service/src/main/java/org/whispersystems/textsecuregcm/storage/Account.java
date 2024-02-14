@@ -262,10 +262,6 @@ public class Account {
         .orElse(false);
   }
 
-  public boolean isPniSupported() {
-    return allEnabledDevicesHaveCapability(DeviceCapabilities::pni);
-  }
-
   public boolean isPaymentActivationSupported() {
     return allEnabledDevicesHaveCapability(DeviceCapabilities::paymentActivation);
   }

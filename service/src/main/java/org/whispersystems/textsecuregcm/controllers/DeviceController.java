@@ -220,8 +220,6 @@ public class DeviceController {
 
     if (capabilities == null) {
       throw new WebApplicationException(Response.status(422, "Missing device capabilities").build());
-    } else if (isCapabilityDowngrade(account, capabilities)) {
-      throw new WebApplicationException(Response.status(409).build());
     }
 
     final String signalAgent;
@@ -353,10 +351,6 @@ public class DeviceController {
     }
 
     return Optional.of(aci);
-  }
-
-  static boolean isCapabilityDowngrade(Account account, DeviceCapabilities capabilities) {
-    return account.isPniSupported() && !capabilities.pni();
   }
 
   private static String getUsedTokenKey(final String token) {
