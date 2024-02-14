@@ -24,11 +24,16 @@ public class SingleUseECPreKeyStore extends SingleUsePreKeyStore<ECPreKey> {
   }
 
   @Override
-  protected Map<String, AttributeValue> getItemFromPreKey(final UUID identifier, final byte deviceId, final ECPreKey preKey) {
+  protected Map<String, AttributeValue> getItemFromPreKey(final UUID identifier,
+      final byte deviceId,
+      final ECPreKey preKey,
+      final int remainingKeys) {
+
     return Map.of(
         KEY_ACCOUNT_UUID, getPartitionKey(identifier),
         KEY_DEVICE_ID_KEY_ID, getSortKey(deviceId, preKey.keyId()),
-        ATTR_PUBLIC_KEY, AttributeValues.fromByteArray(preKey.serializedPublicKey()));
+        ATTR_PUBLIC_KEY, AttributeValues.fromByteArray(preKey.serializedPublicKey()),
+        ATTR_REMAINING_KEYS, AttributeValues.fromInt(remainingKeys));
   }
 
   @Override

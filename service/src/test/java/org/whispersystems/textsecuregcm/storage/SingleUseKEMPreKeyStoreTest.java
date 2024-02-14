@@ -11,6 +11,12 @@ import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
+import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
+import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
+import software.amazon.awssdk.services.dynamodb.paginators.ScanIterable;
+import java.util.Map;
 
 class SingleUseKEMPreKeyStoreTest extends SingleUsePreKeyStoreTest<KEMSignedPreKey> {
 
@@ -35,5 +41,25 @@ class SingleUseKEMPreKeyStoreTest extends SingleUsePreKeyStoreTest<KEMSignedPreK
   @Override
   protected KEMSignedPreKey generatePreKey(final long keyId) {
     return KeysHelper.signedKEMPreKey(keyId, IDENTITY_KEY_PAIR);
+  }
+
+  @Override
+  protected void clearKeyCountAttributes() {
+    final ScanIterable scanIterable = DYNAMO_DB_EXTENSION.getDynamoDbClient().scanPaginator(ScanRequest.builder()
+        .tableName(DynamoDbExtensionSchema.Tables.PQ_KEYS.tableName())
+        .build());
+
+    for (final ScanResponse response : scanIterable) {
+      for (final Map<String, AttributeValue> item : response.items()) {
+
+        DYNAMO_DB_EXTENSION.getDynamoDbClient().updateItem(UpdateItemRequest.builder()
+            .tableName(DynamoDbExtensionSchema.Tables.PQ_KEYS.tableName())
+            .key(Map.of(
+                SingleUsePreKeyStore.KEY_ACCOUNT_UUID, item.get(SingleUsePreKeyStore.KEY_ACCOUNT_UUID),
+                SingleUsePreKeyStore.KEY_DEVICE_ID_KEY_ID, item.get(SingleUsePreKeyStore.KEY_DEVICE_ID_KEY_ID)))
+            .updateExpression("REMOVE " + SingleUsePreKeyStore.ATTR_REMAINING_KEYS)
+            .build());
+      }
+    }
   }
 }
