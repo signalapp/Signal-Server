@@ -7,16 +7,9 @@ package org.whispersystems.textsecuregcm.entities;
 
 import org.whispersystems.textsecuregcm.storage.Account;
 
-public record UserCapabilities(
-    boolean paymentActivation,
-    boolean pni) {
+public record UserCapabilities(boolean paymentActivation, boolean pni) {
 
-  public static UserCapabilities createForAccount(Account account) {
-    return new UserCapabilities(
-        account.isPaymentActivationSupported(),
-
-        // Although originally intended to indicate that clients support phone number identifiers, the scope of this
-        // flag has expanded to cover phone number privacy in general
-        account.isPniSupported());
+  public static UserCapabilities createForAccount(final Account account) {
+    return new UserCapabilities(account.isPaymentActivationSupported(), true);
   }
 }
