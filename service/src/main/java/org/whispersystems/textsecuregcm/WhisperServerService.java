@@ -716,35 +716,36 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     final DynamicConfigTurnRouter configTurnRouter = new DynamicConfigTurnRouter(dynamicConfigurationManager);
 
-    MaxMindDatabaseManager geoIpCountryDatabaseManager = new MaxMindDatabaseManager(
+    MaxMindDatabaseManager geoIpCityDatabaseManager = new MaxMindDatabaseManager(
         recurringConfigSyncExecutor,
         config.getMaxmindCityDatabase(),
-        "country"
+        "city"
     );
-
+    environment.lifecycle().manage(geoIpCityDatabaseManager);
     CallDnsRecordsManager callDnsRecordsManager = new CallDnsRecordsManager(
       recurringConfigSyncExecutor,
       config.getCallingTurnDnsRecords()
     );
-
+    environment.lifecycle().manage(callDnsRecordsManager);
     CallRoutingTableManager callRoutingTableManager = new CallRoutingTableManager(
         recurringConfigSyncExecutor,
         config.getCallingTurnPerformanceTable(),
         "Performance"
     );
-
+    environment.lifecycle().manage(callRoutingTableManager);
     CallRoutingTableManager manualCallRoutingTableManager = new CallRoutingTableManager(
         recurringConfigSyncExecutor,
         config.getCallingTurnManualTable(),
         "Manual"
     );
+    environment.lifecycle().manage(manualCallRoutingTableManager);
 
     TurnCallRouter callRouter = new TurnCallRouter(
         callDnsRecordsManager,
         callRoutingTableManager,
         manualCallRoutingTableManager,
         configTurnRouter,
-        geoIpCountryDatabaseManager
+        geoIpCityDatabaseManager
     );
 
     final BasicCredentialAuthenticationInterceptor basicCredentialAuthenticationInterceptor =
