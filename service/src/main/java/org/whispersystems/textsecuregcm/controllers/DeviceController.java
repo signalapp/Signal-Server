@@ -126,7 +126,7 @@ public class DeviceController {
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/{device_id}")
   @ChangesDeviceEnabledState
-  public CompletableFuture<Response> removeDevice(@Auth AuthenticatedAccount auth, @PathParam("device_id") byte deviceId) {
+  public void removeDevice(@Auth AuthenticatedAccount auth, @PathParam("device_id") byte deviceId) {
     if (auth.getAuthenticatedDevice().getId() != Device.PRIMARY_ID) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
@@ -135,7 +135,7 @@ public class DeviceController {
       throw new ForbiddenException();
     }
 
-    return accounts.removeDevice(auth.getAccount(), deviceId).thenApply(Util.ASYNC_EMPTY_RESPONSE);
+    accounts.removeDevice(auth.getAccount(), deviceId).join();
   }
 
   @GET
