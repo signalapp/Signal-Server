@@ -6,7 +6,6 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
-import com.codahale.metrics.annotation.Timed;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -14,6 +13,7 @@ import com.google.common.net.HttpHeaders;
 import com.google.protobuf.ByteString;
 import io.dropwizard.auth.Auth;
 import io.dropwizard.util.DataSize;
+import io.micrometer.core.annotation.Timed;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
@@ -222,7 +222,7 @@ public class MessageController {
     this.spamChecker = spamChecker;
   }
 
-  @Timed
+  @Timed(value = "chat.MessageController.sendMessageLatency", histogram = true)
   @Path("/{destination}")
   @PUT
   @Consumes(MediaType.APPLICATION_JSON)
