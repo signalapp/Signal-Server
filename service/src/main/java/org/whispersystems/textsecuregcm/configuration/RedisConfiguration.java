@@ -20,7 +20,7 @@ public class RedisConfiguration {
 
   @JsonProperty
   @NotNull
-  private Duration timeout = Duration.ofSeconds(10);
+  private Duration timeout = Duration.ofSeconds(1);
 
   @JsonProperty
   @NotNull
