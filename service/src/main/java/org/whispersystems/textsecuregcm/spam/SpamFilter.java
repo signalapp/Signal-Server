@@ -11,17 +11,14 @@ import javax.ws.rs.container.ContainerRequestFilter;
 import java.io.IOException;
 
 /**
- * A spam filter is a {@link ContainerRequestFilter} that filters requests to endpoints to detect and respond to
- * patterns of spam and fraud.
+ * A spam filter provides various checkers and listeners to detect and respond to patterns of spam and fraud.
  * <p/>
  * Spam filters are managed components that are generally loaded dynamically via a {@link java.util.ServiceLoader}.
  * Their {@link #configure(String)} method will be called prior to be adding to the server's pool of {@link Managed}
  * objects.
  * <p/>
- * Spam filters must be annotated with {@link FilterSpam}, a name binding annotation that restricts the endpoints to
- * which the filter may apply.
  */
-public interface SpamFilter extends ContainerRequestFilter, Managed {
+public interface SpamFilter extends Managed {
 
   /**
    * Configures this spam filter. This method will be called before the filter is added to the server's pool of managed
@@ -64,6 +61,13 @@ public interface SpamFilter extends ContainerRequestFilter, Managed {
    * @return a {@link SpamChecker} controlled by the spam filter
    */
   SpamChecker getSpamChecker();
+
+  /**
+   * Return a checker that will be called to check registration attempts
+   *
+   * @return a {@link RegistrationFraudChecker} controlled by the spam filter
+   */
+  RegistrationFraudChecker getRegistrationFraudChecker();
 
   /**
    * Return a checker that will be called to determine what constraints should be applied

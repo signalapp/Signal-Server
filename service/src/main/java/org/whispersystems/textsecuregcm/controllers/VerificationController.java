@@ -80,10 +80,8 @@ import org.whispersystems.textsecuregcm.registration.RegistrationServiceExceptio
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceSenderException;
 import org.whispersystems.textsecuregcm.registration.TransportNotAllowedException;
 import org.whispersystems.textsecuregcm.registration.VerificationSession;
-import org.whispersystems.textsecuregcm.spam.Extract;
-import org.whispersystems.textsecuregcm.spam.FilterSpam;
-import org.whispersystems.textsecuregcm.spam.ScoreThreshold;
-import org.whispersystems.textsecuregcm.spam.SenderOverride;
+import org.whispersystems.textsecuregcm.spam.RegistrationFraudChecker;
+import org.whispersystems.textsecuregcm.spam.RegistrationFraudChecker.VerificationCheck;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
@@ -121,7 +119,7 @@ public class VerificationController {
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
   private final RateLimiters rateLimiters;
   private final AccountsManager accountsManager;
-
+  private final RegistrationFraudChecker registrationFraudChecker;
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private final Clock clock;
 
@@ -132,6 +130,7 @@ public class VerificationController {
       final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
       final RateLimiters rateLimiters,
       final AccountsManager accountsManager,
+      final RegistrationFraudChecker registrationFraudChecker,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
       final Clock clock) {
     this.registrationServiceClient = registrationServiceClient;
@@ -141,6 +140,7 @@ public class VerificationController {
     this.registrationRecoveryPasswordsManager = registrationRecoveryPasswordsManager;
     this.rateLimiters = rateLimiters;
     this.accountsManager = accountsManager;
+    this.registrationFraudChecker = registrationFraudChecker;
     this.dynamicConfigurationManager = dynamicConfigurationManager;
     this.clock = clock;
   }
@@ -195,17 +195,16 @@ public class VerificationController {
     return buildResponse(registrationServiceSession, verificationSession);
   }
 
-  @FilterSpam
   @PATCH
   @Path("/session/{sessionId}")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public VerificationSessionResponse updateSession(@PathParam("sessionId") final String encodedSessionId,
+  public VerificationSessionResponse updateSession(
+      @PathParam("sessionId") final String encodedSessionId,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
       @Context ContainerRequestContext requestContext,
       @NotNull @Valid final UpdateVerificationSessionRequest updateVerificationSessionRequest,
-      @NotNull @Extract final ScoreThreshold scoreThreshold,
-      @NotNull @Extract final SenderOverride senderOverride) {
+      @Context ContainerRequestContext context) {
 
     final String sourceHost = (String) requestContext.getProperty(RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME);
 
@@ -215,10 +214,16 @@ public class VerificationController {
     final RegistrationServiceSession registrationServiceSession = retrieveRegistrationServiceSession(encodedSessionId);
     VerificationSession verificationSession = retrieveVerificationSession(registrationServiceSession);
 
+    final VerificationCheck verificationCheck = registrationFraudChecker.checkVerificationAttempt(
+        context,
+        verificationSession,
+        registrationServiceSession.number(),
+        updateVerificationSessionRequest);
+
     try {
       // these handle* methods ordered from least likely to fail to most, so take care when considering a change
 
-      verificationSession = handleSenderOverrides(verificationSession, senderOverride);
+      verificationSession = verificationCheck.updatedSession().orElse(verificationSession);
 
       verificationSession = handlePushToken(pushTokenAndType, verificationSession);
 
@@ -226,7 +231,7 @@ public class VerificationController {
           verificationSession);
 
       verificationSession = handleCaptcha(sourceHost, updateVerificationSessionRequest, registrationServiceSession,
-          verificationSession, userAgent, scoreThreshold.getScoreThreshold());
+          verificationSession, userAgent, verificationCheck.scoreThreshold());
     } catch (final RateLimitExceededException e) {
 
       final Response response = buildResponseForRateLimitExceeded(verificationSession, registrationServiceSession,
@@ -422,31 +427,6 @@ public class VerificationController {
     }
 
     return verificationSession;
-  }
-
-  /**
-   * Update the verification session with explicit sender overrides if present. When the session is used to send
-   * verification codes, these overrides will be used.
-   *
-   * @param verificationSession the session to update
-   * @param senderOverride      configured sender overrides
-   * @return An updated {@link VerificationSession}
-   */
-  private VerificationSession handleSenderOverrides(
-      VerificationSession verificationSession,
-      SenderOverride senderOverride) {
-    return new VerificationSession(
-        verificationSession.pushChallenge(),
-        verificationSession.requestedInformation(),
-        verificationSession.submittedInformation(),
-        Optional.ofNullable(verificationSession.smsSenderOverride())
-            .or(senderOverride::getSmsSenderOverride).orElse(null),
-        Optional.ofNullable(verificationSession.voiceSenderOverride())
-            .or(senderOverride::getVoiceSenderOverride)
-            .orElse(null), verificationSession.allowedToRequestCode(),
-        verificationSession.createdTimestamp(),
-        clock.millis(),
-        verificationSession.remoteExpirationSeconds());
   }
 
   @GET

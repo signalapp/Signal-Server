@@ -182,10 +182,8 @@ import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.spam.ChallengeConstraintChecker;
-import org.whispersystems.textsecuregcm.spam.FilterSpam;
+import org.whispersystems.textsecuregcm.spam.RegistrationFraudChecker;
 import org.whispersystems.textsecuregcm.spam.ReportSpamTokenProvider;
-import org.whispersystems.textsecuregcm.spam.ScoreThresholdProvider;
-import org.whispersystems.textsecuregcm.spam.SenderOverrideProvider;
 import org.whispersystems.textsecuregcm.spam.SpamChecker;
 import org.whispersystems.textsecuregcm.spam.SpamFilter;
 import org.whispersystems.textsecuregcm.storage.AccountLockManager;
@@ -862,7 +860,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final List<SpamFilter> spamFilters = ServiceLoader.load(SpamFilter.class)
         .stream()
         .map(ServiceLoader.Provider::get)
-        .filter(s -> s.getClass().isAnnotationPresent(FilterSpam.class))
         .flatMap(filter -> {
           try {
             filter.configure(config.getSpamFilterConfiguration().getEnvironment());
@@ -898,6 +895,14 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
           log.warn("No challenge-constraint-checkers found; using default (no-op) provider as a default");
           return ChallengeConstraintChecker.noop();
         });
+    final RegistrationFraudChecker registrationFraudChecker = spamFilter
+        .map(SpamFilter::getRegistrationFraudChecker)
+        .orElseGet(() -> {
+          log.warn("No registration-fraud-checkers found; using default (no-op) provider as a default");
+          return RegistrationFraudChecker.noop();
+        });
+
+
     spamFilter.map(SpamFilter::getReportedMessageListener).ifPresent(reportMessageManager::addListener);
 
     final RateLimitChallengeManager rateLimitChallengeManager = new RateLimitChallengeManager(pushChallengeManager,
@@ -956,7 +961,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             config.getCdnConfiguration().bucket()),
         new VerificationController(registrationServiceClient, new VerificationSessionManager(verificationSessions),
             pushNotificationManager, registrationCaptchaManager, registrationRecoveryPasswordsManager, rateLimiters,
-            accountsManager, dynamicConfigurationManager, clock)
+            accountsManager, registrationFraudChecker, dynamicConfigurationManager, clock)
     );
     if (config.getSubscription() != null && config.getOneTimeDonations() != null) {
       commonControllers.add(new SubscriptionController(clock, config.getSubscription(), config.getOneTimeDonations(),
@@ -978,7 +983,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     registerCorsFilter(environment);
     registerExceptionMappers(environment, webSocketEnvironment, provisioningEnvironment);
-    registerProviders(environment, webSocketEnvironment, provisioningEnvironment);
 
     environment.jersey().property(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE);
     webSocketEnvironment.jersey().property(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE);
@@ -1004,23 +1008,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     environment.admin().addTask(new SetRequestLoggingEnabledTask());
 
+    // healthcheck, admin port
     environment.healthChecks().register("cacheCluster", new RedisClusterHealthCheck(cacheCluster));
 
     MetricsUtil.registerSystemResourceMetrics(environment);
-  }
-
-
-  private void registerProviders(Environment environment,
-      WebSocketEnvironment<AuthenticatedAccount> webSocketEnvironment,
-      WebSocketEnvironment<AuthenticatedAccount> provisioningEnvironment) {
-    List.of(
-            ScoreThresholdProvider.ScoreThresholdFeature.class,
-            SenderOverrideProvider.SenderOverrideFeature.class)
-    .forEach(feature -> {
-          environment.jersey().register(feature);
-          webSocketEnvironment.jersey().register(feature);
-          provisioningEnvironment.jersey().register(feature);
-    });
   }
 
   private void registerExceptionMappers(Environment environment,

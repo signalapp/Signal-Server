@@ -73,8 +73,7 @@ import org.whispersystems.textsecuregcm.registration.RegistrationServiceExceptio
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceSenderException;
 import org.whispersystems.textsecuregcm.registration.TransportNotAllowedException;
 import org.whispersystems.textsecuregcm.registration.VerificationSession;
-import org.whispersystems.textsecuregcm.spam.ScoreThresholdProvider;
-import org.whispersystems.textsecuregcm.spam.SenderOverrideProvider;
+import org.whispersystems.textsecuregcm.spam.RegistrationFraudChecker;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
@@ -112,14 +111,12 @@ class VerificationControllerTest {
       .addProvider(new ImpossiblePhoneNumberExceptionMapper())
       .addProvider(new NonNormalizedPhoneNumberExceptionMapper())
       .addProvider(new RegistrationServiceSenderExceptionMapper())
-      .addProvider(ScoreThresholdProvider.ScoreThresholdFeature.class)
-      .addProvider(SenderOverrideProvider.SenderOverrideFeature.class)
       .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(
           new VerificationController(registrationServiceClient, verificationSessionManager, pushNotificationManager,
               registrationCaptchaManager, registrationRecoveryPasswordsManager, rateLimiters, accountsManager,
-              dynamicConfigurationManager, clock))
+              RegistrationFraudChecker.noop(), dynamicConfigurationManager, clock))
       .build();
 
   @BeforeEach
