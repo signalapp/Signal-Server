@@ -288,7 +288,7 @@ public class KeysController {
                         Tag.of("targetPlatform", getDevicePlatform(device).map(Enum::name).orElse("unknown")),
                         Tag.of(IDENTITY_TYPE_TAG_NAME, targetIdentifier.identityType().name()),
                         Tag.of("isStale", String.valueOf(isDeviceStale(device))),
-                        Tag.of("oneTimeEcKeyAvailable", String.valueOf(unsignedEcPreKey == null))))
+                        Tag.of("oneTimeEcKeyAvailable", String.valueOf(unsignedEcPreKey != null))))
                     .increment();
 
                 if (signedEcPreKey != null || unsignedEcPreKey != null || pqPreKey != null) {
