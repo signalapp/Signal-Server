@@ -75,6 +75,7 @@ public class KeysController {
 
   private static final String KEY_COUNT_DISTRIBUTION_NAME = MetricsUtil.name(KeysController.class, "getKeyCount");
   private static final String GET_KEYS_COUNTER_NAME = MetricsUtil.name(KeysController.class, "getKeys");
+  private static final String STORE_KEYS_COUNTER_NAME = MetricsUtil.name(KeysController.class, "storeKeys");
   private static final String PRIMARY_DEVICE_TAG_NAME = "isPrimary";
   private static final String IDENTITY_TYPE_TAG_NAME = "identityType";
   private static final String KEY_TYPE_TAG_NAME = "keyType";
@@ -144,7 +145,8 @@ public class KeysController {
           allowableValues={"aci", "pni"},
           defaultValue="aci",
           description="whether this operation applies to the account (aci) or phone-number (pni) identity")
-      @QueryParam("identity") @DefaultValue("aci") final IdentityType identityType) {
+      @QueryParam("identity") @DefaultValue("aci") final IdentityType identityType,
+      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) {
 
     final Account account = auth.getAccount();
     final Device device = auth.getAuthenticatedDevice();
@@ -152,21 +154,41 @@ public class KeysController {
 
     checkSignedPreKeySignatures(setKeysRequest, account.getIdentityKey(identityType));
 
+    final Tag platformTag = UserAgentTagUtil.getPlatformTag(userAgent);
+    final Tag primaryDeviceTag = Tag.of(PRIMARY_DEVICE_TAG_NAME, String.valueOf(auth.getAuthenticatedDevice().isPrimary()));
+    final Tag identityTypeTag = Tag.of(IDENTITY_TYPE_TAG_NAME, identityType.name());
+
     final List<CompletableFuture<Void>> storeFutures = new ArrayList<>(4);
 
     if (setKeysRequest.preKeys() != null && !setKeysRequest.preKeys().isEmpty()) {
+      Metrics.counter(STORE_KEYS_COUNTER_NAME,
+          Tags.of(platformTag, primaryDeviceTag, identityTypeTag, Tag.of(KEY_TYPE_TAG_NAME, "ec")))
+          .increment();
+
       storeFutures.add(keysManager.storeEcOneTimePreKeys(identifier, device.getId(), setKeysRequest.preKeys()));
     }
 
     if (setKeysRequest.signedPreKey() != null) {
+      Metrics.counter(STORE_KEYS_COUNTER_NAME,
+              Tags.of(platformTag, primaryDeviceTag, identityTypeTag, Tag.of(KEY_TYPE_TAG_NAME, "ec-signed")))
+          .increment();
+
       storeFutures.add(keysManager.storeEcSignedPreKeys(identifier, device.getId(), setKeysRequest.signedPreKey()));
     }
 
     if (setKeysRequest.pqPreKeys() != null && !setKeysRequest.pqPreKeys().isEmpty()) {
+      Metrics.counter(STORE_KEYS_COUNTER_NAME,
+              Tags.of(platformTag, primaryDeviceTag, identityTypeTag, Tag.of(KEY_TYPE_TAG_NAME, "kyber")))
+          .increment();
+
       storeFutures.add(keysManager.storeKemOneTimePreKeys(identifier, device.getId(), setKeysRequest.pqPreKeys()));
     }
 
     if (setKeysRequest.pqLastResortPreKey() != null) {
+      Metrics.counter(STORE_KEYS_COUNTER_NAME,
+              Tags.of(platformTag, primaryDeviceTag, identityTypeTag, Tag.of(KEY_TYPE_TAG_NAME, "kyber-last-resort")))
+          .increment();
+
       storeFutures.add(keysManager.storePqLastResort(identifier, device.getId(), setKeysRequest.pqLastResortPreKey()));
     }
 
