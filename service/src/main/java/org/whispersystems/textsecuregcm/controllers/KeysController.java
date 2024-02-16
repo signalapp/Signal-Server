@@ -15,6 +15,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -239,8 +241,10 @@ public class KeysController {
 
                 if (unsignedEcPreKey == null) {
                   Metrics.counter(ONE_TIME_EC_PRE_KEY_UNAVAILABLE_COUNTER_NAME,
-                      "isPrimary", String.valueOf(device.isPrimary()),
-                      "platform", getDevicePlatform(device).map(Enum::name).orElse("unknown"))
+                          "isPrimary", String.valueOf(device.isPrimary()),
+                          "platform", getDevicePlatform(device).map(Enum::name).orElse("unknown"),
+                          "identityType", targetIdentifier.identityType().name(),
+                          "isStale", String.valueOf(isDeviceStale(device)))
                       .increment();
                 }
 
@@ -277,6 +281,11 @@ public class KeysController {
     }
 
     return Optional.empty();
+  }
+
+  private static boolean isDeviceStale(final Device device) {
+    return Duration.between(Instant.ofEpochMilli(device.getLastSeen()), Instant.now())
+        .compareTo(Duration.ofDays(30)) >= 0;
   }
 
   @PUT
