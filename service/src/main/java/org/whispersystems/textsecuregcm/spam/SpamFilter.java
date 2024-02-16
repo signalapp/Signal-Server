@@ -64,4 +64,12 @@ public interface SpamFilter extends ContainerRequestFilter, Managed {
    * @return a {@link SpamChecker} controlled by the spam filter
    */
   SpamChecker getSpamChecker();
+
+  /**
+   * Return a checker that will be called to determine what constraints should be applied
+   * when a user requests or solves a challenge (captchas, push challenges, etc).
+   *
+   * @return a {@link ChallengeConstraintChecker} controlled by the spam filter
+   */
+  ChallengeConstraintChecker getChallengeConstraintChecker();
 }

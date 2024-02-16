@@ -38,24 +38,25 @@ import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
-import org.whispersystems.textsecuregcm.spam.Extract;
-import org.whispersystems.textsecuregcm.spam.FilterSpam;
-import org.whispersystems.textsecuregcm.spam.PushChallengeConfig;
-import org.whispersystems.textsecuregcm.spam.ScoreThreshold;
+import org.whispersystems.textsecuregcm.spam.ChallengeConstraintChecker;
+import org.whispersystems.textsecuregcm.spam.ChallengeConstraintChecker.ChallengeConstraints;
 import org.whispersystems.websocket.auth.ReadOnly;
 
 @Path("/v1/challenge")
 @Tag(name = "Challenge")
-@FilterSpam
 public class ChallengeController {
 
   private final RateLimitChallengeManager rateLimitChallengeManager;
+  private final ChallengeConstraintChecker challengeConstraintChecker;
 
   private static final String CHALLENGE_RESPONSE_COUNTER_NAME = name(ChallengeController.class, "challengeResponse");
   private static final String CHALLENGE_TYPE_TAG = "type";
 
-  public ChallengeController(final RateLimitChallengeManager rateLimitChallengeManager) {
+  public ChallengeController(
+      final RateLimitChallengeManager rateLimitChallengeManager,
+      final ChallengeConstraintChecker challengeConstraintChecker) {
     this.rateLimitChallengeManager = rateLimitChallengeManager;
+    this.challengeConstraintChecker = challengeConstraintChecker;
   }
 
   @PUT
@@ -81,17 +82,17 @@ public class ChallengeController {
   public Response handleChallengeResponse(@ReadOnly @Auth final AuthenticatedAccount auth,
       @Valid final AnswerChallengeRequest answerRequest,
       @Context ContainerRequestContext requestContext,
-      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
-      @Extract final ScoreThreshold captchaScoreThreshold,
-      @Extract final PushChallengeConfig pushChallengeConfig) throws RateLimitExceededException, IOException {
+      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) throws RateLimitExceededException, IOException {
 
     Tags tags = Tags.of(UserAgentTagUtil.getPlatformTag(userAgent));
 
+    final ChallengeConstraints constraints = challengeConstraintChecker.challengeConstraints(
+        requestContext, auth.getAccount());
     try {
       if (answerRequest instanceof final AnswerPushChallengeRequest pushChallengeRequest) {
         tags = tags.and(CHALLENGE_TYPE_TAG, "push");
 
-        if (!pushChallengeConfig.pushPermitted()) {
+        if (!constraints.pushPermitted()) {
           return Response.status(429).build();
         }
         rateLimitChallengeManager.answerPushChallenge(auth.getAccount(), pushChallengeRequest.getChallenge());
@@ -105,7 +106,7 @@ public class ChallengeController {
             recaptchaChallengeRequest.getCaptcha(),
             remoteAddress,
             userAgent,
-            captchaScoreThreshold.getScoreThreshold());
+            constraints.captchaScoreThreshold());
 
         if (!success) {
           return Response.status(428).build();
@@ -165,8 +166,10 @@ public class ChallengeController {
       name = "Retry-After",
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
   public Response requestPushChallenge(@ReadOnly @Auth final AuthenticatedAccount auth,
-      @Extract PushChallengeConfig pushChallengeConfig) {
-    if (!pushChallengeConfig.pushPermitted()) {
+      @Context ContainerRequestContext requestContext) {
+    final ChallengeConstraints constraints = challengeConstraintChecker.challengeConstraints(
+        requestContext, auth.getAccount());
+    if (!constraints.pushPermitted()) {
       return Response.status(429).build();
     }
     try {

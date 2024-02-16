@@ -181,8 +181,8 @@ import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
+import org.whispersystems.textsecuregcm.spam.ChallengeConstraintChecker;
 import org.whispersystems.textsecuregcm.spam.FilterSpam;
-import org.whispersystems.textsecuregcm.spam.PushChallengeConfigProvider;
 import org.whispersystems.textsecuregcm.spam.ReportSpamTokenProvider;
 import org.whispersystems.textsecuregcm.spam.ScoreThresholdProvider;
 import org.whispersystems.textsecuregcm.spam.SenderOverrideProvider;
@@ -892,6 +892,12 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
           log.warn("No spam-checkers found; using default (no-op) provider as a default");
           return SpamChecker.noop();
         });
+    final ChallengeConstraintChecker challengeConstraintChecker = spamFilter
+        .map(SpamFilter::getChallengeConstraintChecker)
+        .orElseGet(() -> {
+          log.warn("No challenge-constraint-checkers found; using default (no-op) provider as a default");
+          return ChallengeConstraintChecker.noop();
+        });
     spamFilter.map(SpamFilter::getReportedMessageListener).ifPresent(reportMessageManager::addListener);
 
     final RateLimitChallengeManager rateLimitChallengeManager = new RateLimitChallengeManager(pushChallengeManager,
@@ -923,7 +929,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new CertificateController(new CertificateGenerator(config.getDeliveryCertificate().certificate().value(),
             config.getDeliveryCertificate().ecPrivateKey(), config.getDeliveryCertificate().expiresDays()),
             zkAuthOperations, callingGenericZkSecretParams, clock),
-        new ChallengeController(rateLimitChallengeManager),
+        new ChallengeController(rateLimitChallengeManager, challengeConstraintChecker),
         new DeviceController(config.getLinkDeviceSecretConfiguration().secret().value(), accountsManager,
             rateLimiters, rateLimitersCluster, config.getMaxDevices(), clock),
         new DirectoryV2Controller(directoryV2CredentialsGenerator),
@@ -1009,8 +1015,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
       WebSocketEnvironment<AuthenticatedAccount> provisioningEnvironment) {
     List.of(
             ScoreThresholdProvider.ScoreThresholdFeature.class,
-            SenderOverrideProvider.SenderOverrideFeature.class,
-            PushChallengeConfigProvider.PushChallengeConfigFeature.class)
+            SenderOverrideProvider.SenderOverrideFeature.class)
     .forEach(feature -> {
           environment.jersey().register(feature);
           webSocketEnvironment.jersey().register(feature);
