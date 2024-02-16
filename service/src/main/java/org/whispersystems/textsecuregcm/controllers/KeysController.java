@@ -73,8 +73,6 @@ public class KeysController {
   private final AccountsManager accounts;
 
   private static final String GET_KEYS_COUNTER_NAME = MetricsUtil.name(KeysController.class, "getKeys");
-  private static final String ONE_TIME_EC_PRE_KEY_UNAVAILABLE_COUNTER_NAME =
-      MetricsUtil.name(KeysController.class, "oneTimeEcPreKeyUnavailable");
 
   private static final CompletableFuture<?>[] EMPTY_FUTURE_ARRAY = new CompletableFuture[0];
 
@@ -215,11 +213,6 @@ public class KeysController {
               + "." + deviceId);
     }
 
-    Metrics.counter(GET_KEYS_COUNTER_NAME, Tags.of(
-            UserAgentTagUtil.getPlatformTag(userAgent),
-            io.micrometer.core.instrument.Tag.of("wildcardDeviceId", String.valueOf("*".equals(deviceId)))))
-        .increment();
-
     final List<Device> devices = parseDeviceId(deviceId, target);
     final List<PreKeyResponseItem> responseItems = new ArrayList<>(devices.size());
 
@@ -239,14 +232,14 @@ public class KeysController {
                 final ECPreKey unsignedEcPreKey = unsignedEcPreKeyFuture.join().orElse(null);
                 final ECSignedPreKey signedEcPreKey = signedEcPreKeyFuture.join().orElse(null);
 
-                if (unsignedEcPreKey == null) {
-                  Metrics.counter(ONE_TIME_EC_PRE_KEY_UNAVAILABLE_COUNTER_NAME,
-                          "isPrimary", String.valueOf(device.isPrimary()),
-                          "platform", getDevicePlatform(device).map(Enum::name).orElse("unknown"),
-                          "identityType", targetIdentifier.identityType().name(),
-                          "isStale", String.valueOf(isDeviceStale(device)))
-                      .increment();
-                }
+                Metrics.counter(GET_KEYS_COUNTER_NAME, Tags.of(
+                        io.micrometer.core.instrument.Tag.of("isPrimary", String.valueOf(device.isPrimary())),
+                        UserAgentTagUtil.getPlatformTag(userAgent),
+                        io.micrometer.core.instrument.Tag.of("targetPlatform", getDevicePlatform(device).map(Enum::name).orElse("unknown")),
+                        io.micrometer.core.instrument.Tag.of("identityType", targetIdentifier.identityType().name()),
+                        io.micrometer.core.instrument.Tag.of("isStale", String.valueOf(isDeviceStale(device))),
+                        io.micrometer.core.instrument.Tag.of("oneTimeEcKeyAvailable", String.valueOf(unsignedEcPreKey == null))))
+                    .increment();
 
                 if (signedEcPreKey != null || unsignedEcPreKey != null || pqPreKey != null) {
                   final int registrationId = switch (targetIdentifier.identityType()) {
