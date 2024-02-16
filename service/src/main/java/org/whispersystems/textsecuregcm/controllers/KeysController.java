@@ -6,6 +6,7 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.Auth;
+import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
 import io.swagger.v3.oas.annotations.Operation;
@@ -72,7 +73,11 @@ public class KeysController {
   private final KeysManager keysManager;
   private final AccountsManager accounts;
 
+  private static final String KEY_COUNT_DISTRIBUTION_NAME = MetricsUtil.name(KeysController.class, "getKeyCount");
   private static final String GET_KEYS_COUNTER_NAME = MetricsUtil.name(KeysController.class, "getKeys");
+  private static final String PRIMARY_DEVICE_TAG_NAME = "isPrimary";
+  private static final String IDENTITY_TYPE_TAG_NAME = "identityType";
+  private static final String KEY_TYPE_TAG_NAME = "keyType";
 
   private static final CompletableFuture<?>[] EMPTY_FUTURE_ARRAY = new CompletableFuture[0];
 
@@ -89,13 +94,41 @@ public class KeysController {
   @ApiResponse(responseCode = "200", description = "Body contains the number of available one-time prekeys for the device.", useReturnTypeSchema = true)
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
   public CompletableFuture<PreKeyCount> getStatus(@Auth final AuthenticatedAccount auth,
-      @QueryParam("identity") @DefaultValue("aci") final IdentityType identityType) {
+      @QueryParam("identity") @DefaultValue("aci") final IdentityType identityType,
+      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) {
+
+    final io.micrometer.core.instrument.Tag platformTag = UserAgentTagUtil.getPlatformTag(userAgent);
+    final io.micrometer.core.instrument.Tag primaryDeviceTag =
+        io.micrometer.core.instrument.Tag.of(PRIMARY_DEVICE_TAG_NAME, String.valueOf(auth.getAuthenticatedDevice().isPrimary()));
+
+    final io.micrometer.core.instrument.Tag identityTypeTag =
+        io.micrometer.core.instrument.Tag.of(IDENTITY_TYPE_TAG_NAME, identityType.name());
 
     final CompletableFuture<Integer> ecCountFuture =
-        keysManager.getEcCount(auth.getAccount().getIdentifier(identityType), auth.getAuthenticatedDevice().getId());
+        keysManager.getEcCount(auth.getAccount().getIdentifier(identityType), auth.getAuthenticatedDevice().getId())
+            .whenComplete((keyCount, throwable) -> {
+              if (keyCount != null) {
+                DistributionSummary.builder(KEY_COUNT_DISTRIBUTION_NAME)
+                    .tags(Tags.of(platformTag, primaryDeviceTag, identityTypeTag,
+                        io.micrometer.core.instrument.Tag.of(KEY_TYPE_TAG_NAME, "ec")))
+                    .publishPercentileHistogram(true)
+                    .register(Metrics.globalRegistry)
+                    .record(keyCount);
+              }
+            });
 
     final CompletableFuture<Integer> pqCountFuture =
-        keysManager.getPqCount(auth.getAccount().getIdentifier(identityType), auth.getAuthenticatedDevice().getId());
+        keysManager.getPqCount(auth.getAccount().getIdentifier(identityType), auth.getAuthenticatedDevice().getId())
+            .whenComplete((keyCount, throwable) -> {
+              if (keyCount != null) {
+                DistributionSummary.builder(KEY_COUNT_DISTRIBUTION_NAME)
+                    .tags(Tags.of(platformTag, primaryDeviceTag, identityTypeTag,
+                        io.micrometer.core.instrument.Tag.of(KEY_TYPE_TAG_NAME, "kyber")))
+                    .publishPercentileHistogram(true)
+                    .register(Metrics.globalRegistry)
+                    .record(keyCount);
+              }
+            });
 
     return ecCountFuture.thenCombine(pqCountFuture, PreKeyCount::new);
   }
@@ -233,10 +266,10 @@ public class KeysController {
                 final ECSignedPreKey signedEcPreKey = signedEcPreKeyFuture.join().orElse(null);
 
                 Metrics.counter(GET_KEYS_COUNTER_NAME, Tags.of(
-                        io.micrometer.core.instrument.Tag.of("isPrimary", String.valueOf(device.isPrimary())),
+                        io.micrometer.core.instrument.Tag.of(PRIMARY_DEVICE_TAG_NAME, String.valueOf(device.isPrimary())),
                         UserAgentTagUtil.getPlatformTag(userAgent),
                         io.micrometer.core.instrument.Tag.of("targetPlatform", getDevicePlatform(device).map(Enum::name).orElse("unknown")),
-                        io.micrometer.core.instrument.Tag.of("identityType", targetIdentifier.identityType().name()),
+                        io.micrometer.core.instrument.Tag.of(IDENTITY_TYPE_TAG_NAME, targetIdentifier.identityType().name()),
                         io.micrometer.core.instrument.Tag.of("isStale", String.valueOf(isDeviceStale(device))),
                         io.micrometer.core.instrument.Tag.of("oneTimeEcKeyAvailable", String.valueOf(unsignedEcPreKey == null))))
                     .increment();
