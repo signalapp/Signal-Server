@@ -81,6 +81,7 @@ import org.whispersystems.textsecuregcm.entities.ExpiringProfileKeyCredentialPro
 import org.whispersystems.textsecuregcm.entities.ProfileAvatarUploadAttributes;
 import org.whispersystems.textsecuregcm.entities.UserCapabilities;
 import org.whispersystems.textsecuregcm.entities.VersionedProfileResponse;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
@@ -112,6 +113,7 @@ public class ProfileController {
   private final ProfilesManager  profilesManager;
   private final AccountsManager  accountsManager;
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
+  private final ExperimentEnrollmentManager experimentEnrollmentManager;
   private final ProfileBadgeConverter profileBadgeConverter;
   private final Map<String, BadgeConfiguration> badgeConfigurationMap;
 
@@ -129,26 +131,29 @@ public class ProfileController {
   private static final Counter VERSION_NOT_FOUND_COUNTER = Metrics.counter(name(ProfileController.class, "versionNotFound"));
   private static final String INVALID_ACCEPT_LANGUAGE_COUNTER_NAME = name(ProfileController.class, "invalidAcceptLanguage");
 
+  private static final String PNP_FLAG_EXPERIMENT_NAME = "pnpCompatibilityFlag";
+
   public ProfileController(
-      Clock clock,
-      RateLimiters rateLimiters,
-      AccountsManager accountsManager,
-      ProfilesManager profilesManager,
-      DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
-      ProfileBadgeConverter profileBadgeConverter,
-      BadgesConfiguration badgesConfiguration,
-      S3Client s3client,
-      PostPolicyGenerator policyGenerator,
-      PolicySigner policySigner,
-      String bucket,
-      ServerZkProfileOperations zkProfileOperations,
-      Executor batchIdentityCheckExecutor) {
+          Clock clock,
+          RateLimiters rateLimiters,
+          AccountsManager accountsManager,
+          ProfilesManager profilesManager,
+          DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager, ExperimentEnrollmentManager experimentEnrollmentManager,
+          ProfileBadgeConverter profileBadgeConverter,
+          BadgesConfiguration badgesConfiguration,
+          S3Client s3client,
+          PostPolicyGenerator policyGenerator,
+          PolicySigner policySigner,
+          String bucket,
+          ServerZkProfileOperations zkProfileOperations,
+          Executor batchIdentityCheckExecutor) {
     this.clock = clock;
     this.rateLimiters        = rateLimiters;
     this.accountsManager     = accountsManager;
     this.profilesManager     = profilesManager;
     this.dynamicConfigurationManager = dynamicConfigurationManager;
-    this.profileBadgeConverter = profileBadgeConverter;
+      this.experimentEnrollmentManager = experimentEnrollmentManager;
+      this.profileBadgeConverter = profileBadgeConverter;
     this.badgeConfigurationMap = badgesConfiguration.getBadges().stream().collect(Collectors.toMap(
         BadgeConfiguration::getId, Function.identity()));
     this.zkProfileOperations = zkProfileOperations;
@@ -437,7 +442,8 @@ public class ProfileController {
     return new BaseProfileResponse(account.getIdentityKey(IdentityType.ACI),
         account.getUnidentifiedAccessKey().map(UnidentifiedAccessChecksum::generateFor).orElse(null),
         account.isUnrestrictedUnidentifiedAccess(),
-        UserCapabilities.createForAccount(account),
+        UserCapabilities.createForAccount(account,
+            experimentEnrollmentManager.isEnrolled(account.getIdentifier(IdentityType.ACI), PNP_FLAG_EXPERIMENT_NAME)),
         profileBadgeConverter.convert(
             getAcceptableLanguagesForRequest(containerRequestContext),
             account.getBadges(),
@@ -449,7 +455,8 @@ public class ProfileController {
     return new BaseProfileResponse(account.getIdentityKey(IdentityType.PNI),
         null,
         false,
-        UserCapabilities.createForAccount(account),
+        UserCapabilities.createForAccount(account,
+            experimentEnrollmentManager.isEnrolled(account.getIdentifier(IdentityType.ACI), PNP_FLAG_EXPERIMENT_NAME)),
         Collections.emptyList(),
         new PniServiceIdentifier(account.getPhoneNumberIdentifier()));
   }
