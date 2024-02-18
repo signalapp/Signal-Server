@@ -32,7 +32,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -64,6 +63,7 @@ import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper
 import org.whispersystems.textsecuregcm.mappers.ServerRejectedExceptionMapper;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.KeysManager;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
@@ -122,9 +122,10 @@ class KeysControllerTest {
   private final ECSignedPreKey VALID_DEVICE_SIGNED_KEY = KeysHelper.signedECPreKey(89898, IDENTITY_KEY_PAIR);
   private final ECSignedPreKey VALID_DEVICE_PNI_SIGNED_KEY = KeysHelper.signedECPreKey(7777, PNI_IDENTITY_KEY_PAIR);
 
-  private final static KeysManager KEYS = mock(KeysManager.class               );
-  private final static AccountsManager             accounts                    = mock(AccountsManager.class            );
-  private final static Account                     existsAccount               = mock(Account.class                    );
+  private final static KeysManager KEYS = mock(KeysManager.class);
+  private final static AccountsManager accounts = mock(AccountsManager.class);
+  private final static Account existsAccount = mock(Account.class);
+  private final static ClientReleaseManager clientReleaseManager = mock(ClientReleaseManager.class);
 
   private static final RateLimiters          rateLimiters  = mock(RateLimiters.class);
   private static final RateLimiter           rateLimiter   = mock(RateLimiter.class );
@@ -136,7 +137,7 @@ class KeysControllerTest {
       .addProvider(new AuthValueFactoryProvider.Binder<>(AuthenticatedAccount.class))
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(new ServerRejectedExceptionMapper())
-      .addResource(new KeysController(rateLimiters, KEYS, accounts))
+      .addResource(new KeysController(rateLimiters, KEYS, accounts, clientReleaseManager))
       .addResource(new RateLimitExceededExceptionMapper())
       .build();
 
@@ -276,6 +277,8 @@ class KeysControllerTest {
 
     when(KEYS.getEcSignedPreKey(AuthHelper.VALID_PNI, AuthHelper.VALID_DEVICE.getId()))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(VALID_DEVICE_PNI_SIGNED_KEY)));
+
+    when(clientReleaseManager.isVersionActive(any(), any())).thenReturn(true);
   }
 
   @AfterEach
