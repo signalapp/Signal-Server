@@ -8,10 +8,11 @@ package org.whispersystems.textsecuregcm.entities;
 import org.whispersystems.textsecuregcm.storage.Account;
 
 public record UserCapabilities(boolean paymentActivation,
-                               // TODO Remove the PNI capability entirely on or after 2024-05-14
-                               boolean pni) {
+                               // TODO Remove the PNI and PNP capabilities entirely on or after 2024-05-18
+                               boolean pni,
+                               boolean pnp) {
 
   public static UserCapabilities createForAccount(final Account account) {
-    return new UserCapabilities(account.isPaymentActivationSupported(), true);
+    return new UserCapabilities(account.isPaymentActivationSupported(), true, true);
   }
 }
