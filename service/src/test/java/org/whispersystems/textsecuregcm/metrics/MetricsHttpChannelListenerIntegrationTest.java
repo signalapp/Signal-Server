@@ -33,7 +33,7 @@ import java.time.Duration;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
@@ -84,7 +84,7 @@ class MetricsHttpChannelListenerIntegrationTest {
   private static final TrafficSource TRAFFIC_SOURCE = TrafficSource.HTTP;
   private static final MeterRegistry METER_REGISTRY = mock(MeterRegistry.class);
   private static final Counter COUNTER = mock(Counter.class);
-  private static final AtomicReference<CompletableFuture<Void>> LISTENER_FUTURE_REFERENCE = new AtomicReference<>();
+  private static final AtomicReference<CountDownLatch> COUNT_DOWN_LATCH_FUTURE_REFERENCE = new AtomicReference<>();
 
   private static final DropwizardAppExtension<Configuration> EXTENSION = new DropwizardAppExtension<>(
       MetricsHttpChannelListenerIntegrationTest.TestApplication.class);
@@ -101,8 +101,8 @@ class MetricsHttpChannelListenerIntegrationTest {
   void testSimplePath(String requestPath, String expectedTagPath, String expectedResponse, int expectedStatus)
       throws Exception {
 
-    final CompletableFuture<Void> listenerCompleteFuture = new CompletableFuture<>();
-    LISTENER_FUTURE_REFERENCE.set(listenerCompleteFuture);
+    final CountDownLatch countDownLatch = new CountDownLatch(1);
+    COUNT_DOWN_LATCH_FUTURE_REFERENCE.set(countDownLatch);
 
     final ArgumentCaptor<Iterable<Tag>> tagCaptor = ArgumentCaptor.forClass(Iterable.class);
     when(METER_REGISTRY.counter(anyString(), any(Iterable.class)))
@@ -138,7 +138,7 @@ class MetricsHttpChannelListenerIntegrationTest {
       }
     }
 
-    listenerCompleteFuture.get(1000, TimeUnit.MILLISECONDS);
+    assertTrue(countDownLatch.await(1000, TimeUnit.MILLISECONDS));
 
     verify(METER_REGISTRY).counter(eq(MetricsHttpChannelListener.REQUEST_COUNTER_NAME), tagCaptor.capture());
     verify(COUNTER).increment();
@@ -181,6 +181,9 @@ class MetricsHttpChannelListenerIntegrationTest {
       final ClientUpgradeRequest upgradeRequest = new ClientUpgradeRequest();
       upgradeRequest.setHeader(HttpHeaders.USER_AGENT, "Signal-Android/4.53.7 (Android 8.1)");
 
+      final CountDownLatch countDownLatch = new CountDownLatch(1);
+      COUNT_DOWN_LATCH_FUTURE_REFERENCE.set(countDownLatch);
+
       final ArgumentCaptor<Iterable<Tag>> tagCaptor = ArgumentCaptor.forClass(Iterable.class);
       when(METER_REGISTRY.counter(anyString(), any(Iterable.class)))
           .thenAnswer(a -> MetricsHttpChannelListener.REQUEST_COUNTER_NAME.equals(a.getArgument(0, String.class))
@@ -188,18 +191,15 @@ class MetricsHttpChannelListenerIntegrationTest {
               : mock(Counter.class))
           .thenReturn(COUNTER);
 
-      final CompletableFuture<Void> connectionComplete = new CompletableFuture<>();
-
       client.connect(new WebSocketListener() {
                        @Override
                        public void onWebSocketConnect(final Session session) {
                          session.close(1000, "OK");
-                         connectionComplete.complete(null);
                        }
                      },
           URI.create(String.format("ws://localhost:%d%s", EXTENSION.getLocalPort(), "/v1/websocket")), upgradeRequest);
 
-      connectionComplete.get(1, TimeUnit.SECONDS);
+      assertTrue(countDownLatch.await(1000, TimeUnit.MILLISECONDS));
 
       verify(METER_REGISTRY).counter(eq(MetricsHttpChannelListener.REQUEST_COUNTER_NAME), tagCaptor.capture());
       verify(COUNTER).increment();
@@ -244,7 +244,7 @@ class MetricsHttpChannelListenerIntegrationTest {
       );
 
       metricsHttpChannelListener.configure(environment);
-      environment.lifecycle().addEventListener(new TestListener(LISTENER_FUTURE_REFERENCE));
+      environment.lifecycle().addEventListener(new TestListener(COUNT_DOWN_LATCH_FUTURE_REFERENCE));
 
       environment.servlets().addFilter("RemoteAddressFilter", new RemoteAddressFilter(true))
           .addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST), false, "/*");
@@ -289,16 +289,16 @@ class MetricsHttpChannelListenerIntegrationTest {
    */
   static class TestListener implements HttpChannel.Listener, Container.Listener, LifeCycle.Listener {
 
-    private final AtomicReference<CompletableFuture<Void>> completableFutureAtomicReference;
+    private final AtomicReference<CountDownLatch> completableFutureAtomicReference;
 
-    TestListener(AtomicReference<CompletableFuture<Void>> completableFutureAtomicReference) {
+    TestListener(AtomicReference<CountDownLatch> countDownLatchReference) {
 
-      this.completableFutureAtomicReference = completableFutureAtomicReference;
+      this.completableFutureAtomicReference = countDownLatchReference;
     }
 
     @Override
     public void onComplete(final Request request) {
-      completableFutureAtomicReference.get().complete(null);
+      completableFutureAtomicReference.get().countDown();
     }
 
     @Override
