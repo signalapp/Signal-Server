@@ -188,14 +188,18 @@ class MetricsHttpChannelListenerIntegrationTest {
               : mock(Counter.class))
           .thenReturn(COUNTER);
 
+      final CompletableFuture<Void> connectionComplete = new CompletableFuture<>();
+
       client.connect(new WebSocketListener() {
                        @Override
                        public void onWebSocketConnect(final Session session) {
                          session.close(1000, "OK");
+                         connectionComplete.complete(null);
                        }
                      },
-              URI.create(String.format("ws://localhost:%d%s", EXTENSION.getLocalPort(), "/v1/websocket")), upgradeRequest)
-          .get(1, TimeUnit.SECONDS);
+          URI.create(String.format("ws://localhost:%d%s", EXTENSION.getLocalPort(), "/v1/websocket")), upgradeRequest);
+
+      connectionComplete.get(1, TimeUnit.SECONDS);
 
       verify(METER_REGISTRY).counter(eq(MetricsHttpChannelListener.REQUEST_COUNTER_NAME), tagCaptor.capture());
       verify(COUNTER).increment();
