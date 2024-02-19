@@ -58,7 +58,6 @@ import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.KeysManager;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
@@ -73,7 +72,6 @@ public class KeysController {
   private final RateLimiters rateLimiters;
   private final KeysManager keysManager;
   private final AccountsManager accounts;
-  private final ClientReleaseManager clientReleaseManager;
 
   private static final String KEY_COUNT_DISTRIBUTION_NAME = MetricsUtil.name(KeysController.class, "getKeyCount");
   private static final String GET_KEYS_COUNTER_NAME = MetricsUtil.name(KeysController.class, "getKeys");
@@ -84,11 +82,10 @@ public class KeysController {
 
   private static final CompletableFuture<?>[] EMPTY_FUTURE_ARRAY = new CompletableFuture[0];
 
-  public KeysController(RateLimiters rateLimiters, KeysManager keysManager, AccountsManager accounts, ClientReleaseManager clientReleaseManager) {
+  public KeysController(RateLimiters rateLimiters, KeysManager keysManager, AccountsManager accounts) {
     this.rateLimiters = rateLimiters;
     this.keysManager = keysManager;
     this.accounts = accounts;
-      this.clientReleaseManager = clientReleaseManager;
   }
 
   @GET
@@ -285,26 +282,14 @@ public class KeysController {
                 final ECPreKey unsignedEcPreKey = unsignedEcPreKeyFuture.join().orElse(null);
                 final ECSignedPreKey signedEcPreKey = signedEcPreKeyFuture.join().orElse(null);
 
-                Tags tags = Tags.of(
-                    Tag.of(PRIMARY_DEVICE_TAG_NAME, String.valueOf(device.isPrimary())),
-                    UserAgentTagUtil.getPlatformTag(userAgent),
-                    Tag.of("targetPlatform", getDevicePlatform(device).map(Enum::name).orElse("unknown")),
-                    Tag.of(IDENTITY_TYPE_TAG_NAME, targetIdentifier.identityType().name()),
-                    Tag.of("isStale", String.valueOf(isDeviceStale(device))),
-                    Tag.of("oneTimeEcKeyAvailable", String.valueOf(unsignedEcPreKey != null)),
-                    Tag.of("authenticationType", auth.isPresent() ? "authenticated" : "anonymous"));
-
-                if (auth.isPresent()) {
-                  tags = tags.and(Tag.of("targetIsSelf", String.valueOf(auth.get().getAccount().getUuid().equals(target.getUuid()))));
-                }
-
-                final Optional<Tag> maybeClientVersionTag = UserAgentTagUtil.getClientVersionTag(userAgent, clientReleaseManager);
-
-                if (maybeClientVersionTag.isPresent()) {
-                  tags = tags.and(maybeClientVersionTag.get());
-                }
-
-                Metrics.counter(GET_KEYS_COUNTER_NAME, tags).increment();
+                Metrics.counter(GET_KEYS_COUNTER_NAME, Tags.of(
+                        Tag.of(PRIMARY_DEVICE_TAG_NAME, String.valueOf(device.isPrimary())),
+                        UserAgentTagUtil.getPlatformTag(userAgent),
+                        Tag.of("targetPlatform", getDevicePlatform(device).map(Enum::name).orElse("unknown")),
+                        Tag.of(IDENTITY_TYPE_TAG_NAME, targetIdentifier.identityType().name()),
+                        Tag.of("isStale", String.valueOf(isDeviceStale(device))),
+                        Tag.of("oneTimeEcKeyAvailable", String.valueOf(unsignedEcPreKey != null))))
+                    .increment();
 
                 if (signedEcPreKey != null || unsignedEcPreKey != null || pqPreKey != null) {
                   final int registrationId = switch (targetIdentifier.identityType()) {
