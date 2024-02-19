@@ -12,7 +12,7 @@ public record UserCapabilities(boolean paymentActivation,
                                boolean pni,
                                boolean pnp) {
 
-  public static UserCapabilities createForAccount(final Account account, final boolean includePnpFlag) {
-    return new UserCapabilities(account.isPaymentActivationSupported(), true, includePnpFlag);
+  public static UserCapabilities createForAccount(final Account account) {
+    return new UserCapabilities(account.isPaymentActivationSupported(), true, true);
   }
 }

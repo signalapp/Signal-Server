@@ -105,7 +105,7 @@ public class ProfileGrpcHelper {
       final ProfileBadgeConverter profileBadgeConverter) {
     final GetUnversionedProfileResponse.Builder responseBuilder = GetUnversionedProfileResponse.newBuilder()
         .setIdentityKey(ByteString.copyFrom(targetAccount.getIdentityKey(targetIdentifier.identityType()).serialize()))
-        .setCapabilities(buildUserCapabilities(org.whispersystems.textsecuregcm.entities.UserCapabilities.createForAccount(targetAccount, true)));
+        .setCapabilities(buildUserCapabilities(org.whispersystems.textsecuregcm.entities.UserCapabilities.createForAccount(targetAccount)));
 
     switch (targetIdentifier.identityType()) {
       case ACI -> {

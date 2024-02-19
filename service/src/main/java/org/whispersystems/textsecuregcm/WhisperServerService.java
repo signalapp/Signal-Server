@@ -901,7 +901,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             dynamicConfigurationManager, zkSecretParams, spamChecker),
         new PaymentsController(currencyManager, paymentsCredentialsGenerator),
         new ProfileController(clock, rateLimiters, accountsManager, profilesManager, dynamicConfigurationManager,
-            experimentEnrollmentManager,
             profileBadgeConverter, config.getBadges(), cdnS3Client, profileCdnPolicyGenerator, profileCdnPolicySigner,
             config.getCdnConfiguration().bucket(), zkProfileOperations, batchIdentityCheckExecutor),
         new ProvisioningController(rateLimiters, provisioningManager),
