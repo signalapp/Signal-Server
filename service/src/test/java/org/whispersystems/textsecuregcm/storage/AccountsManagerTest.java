@@ -1346,7 +1346,7 @@ class AccountsManagerTest {
   }
 
   @Test
-  void testReserveUsernameHash() throws UsernameHashNotAvailableException {
+  void testReserveUsernameHash() {
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
     when(accounts.getByAccountIdentifierAsync(account.getUuid())).thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
 
@@ -1359,7 +1359,7 @@ class AccountsManagerTest {
   }
 
   @Test
-  void testReserveOwnUsernameHash() throws UsernameHashNotAvailableException {
+  void testReserveOwnUsernameHash() {
     final byte[] oldUsernameHash = TestRandomUtil.nextBytes(32);
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
     account.setUsernameHash(oldUsernameHash);
@@ -1373,7 +1373,7 @@ class AccountsManagerTest {
   }
 
   @Test
-  void testReserveUsernameOptimisticLockingFailure() throws UsernameHashNotAvailableException {
+  void testReserveUsernameOptimisticLockingFailure() {
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
     when(accounts.getByAccountIdentifierAsync(account.getUuid())).thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
 

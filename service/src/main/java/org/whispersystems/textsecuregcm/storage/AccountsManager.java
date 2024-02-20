@@ -571,6 +571,12 @@ public class AccountsManager {
             () -> accounts.getByAccountIdentifierAsync(account.getUuid()).thenApply(Optional::orElseThrow),
             AccountChangeValidator.USERNAME_CHANGE_VALIDATOR,
             MAX_UPDATE_ATTEMPTS))
+        .whenComplete((updatedAccount, throwable) -> {
+          if (throwable == null) {
+            // Make a best effort to clear any stale data that may have been cached while this operation was in progress
+            redisDeleteAsync(updatedAccount);
+          }
+        })
         .thenApply(updatedAccount -> new UsernameReservation(updatedAccount, reservedUsernameHash.get()));
   }
 
@@ -623,7 +629,13 @@ public class AccountsManager {
             () -> accounts.getByAccountIdentifierAsync(account.getUuid()).thenApply(Optional::orElseThrow),
             AccountChangeValidator.USERNAME_CHANGE_VALIDATOR,
             MAX_UPDATE_ATTEMPTS
-        ));
+        ))
+        .whenComplete((updatedAccount, throwable) -> {
+          if (throwable == null) {
+            // Make a best effort to clear any stale data that may have been cached while this operation was in progress
+            redisDeleteAsync(updatedAccount);
+          }
+        });
   }
 
   public CompletableFuture<Account> clearUsernameHash(final Account account) {
@@ -634,7 +646,13 @@ public class AccountsManager {
             accounts::clearUsernameHash,
             () -> accounts.getByAccountIdentifierAsync(account.getUuid()).thenApply(Optional::orElseThrow),
             AccountChangeValidator.USERNAME_CHANGE_VALIDATOR,
-            MAX_UPDATE_ATTEMPTS));
+            MAX_UPDATE_ATTEMPTS))
+        .whenComplete((updatedAccount, throwable) -> {
+          if (throwable == null) {
+            // Make a best effort to clear any stale data that may have been cached while this operation was in progress
+            redisDeleteAsync(updatedAccount);
+          }
+        });
   }
 
   public Account update(Account account, Consumer<Account> updater) {
