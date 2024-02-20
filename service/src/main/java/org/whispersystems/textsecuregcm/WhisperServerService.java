@@ -803,7 +803,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.jersey().register(new VirtualExecutorServiceProvider("managed-async-virtual-thread-"));
     environment.jersey().register(new RequestStatisticsFilter(TrafficSource.HTTP));
     environment.jersey().register(MultiRecipientMessageProvider.class);
-    environment.jersey().register(new MetricsApplicationEventListener(TrafficSource.HTTP, clientReleaseManager));
     environment.jersey().register(new AuthDynamicFeature(accountAuthFilter));
     environment.jersey().register(new AuthValueFactoryProvider.Binder<>(AuthenticatedAccount.class));
     environment.jersey().register(new WebsocketRefreshApplicationEventListener(accountsManager, clientPresenceManager));

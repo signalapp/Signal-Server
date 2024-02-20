@@ -5,8 +5,6 @@
 
 package org.whispersystems.textsecuregcm.metrics;
 
-import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.net.HttpHeaders;
 import io.dropwizard.core.setup.Environment;
@@ -57,9 +55,9 @@ public class MetricsHttpChannelListener implements HttpChannel.Listener, Contain
   private final ClientReleaseManager clientReleaseManager;
   private final Set<String> servletPaths;
 
-  public static final String REQUEST_COUNTER_NAME = name(MetricsHttpChannelListener.class, "request");
-  public static final String REQUESTS_BY_VERSION_COUNTER_NAME = name(MetricsHttpChannelListener.class,
-      "requestByVersion");
+  // Use the same counter namespace as MetricsRequestEventListener for continuity
+  public static final String REQUEST_COUNTER_NAME = MetricsRequestEventListener.REQUEST_COUNTER_NAME;
+  public static final String REQUESTS_BY_VERSION_COUNTER_NAME = MetricsRequestEventListener.REQUESTS_BY_VERSION_COUNTER_NAME;
   @VisibleForTesting
   static final String URI_INFO_PROPERTY_NAME = MetricsHttpChannelListener.class.getName() + ".uriInfo";
 
