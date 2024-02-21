@@ -47,8 +47,7 @@ class ECPublicKeyAdapterTest {
     return Stream.of(
         Arguments.of(String.format(template, "null"), null),
         Arguments.of(String.format(template, "\"\""), null),
-        Arguments.of(String.format(template, "\"" + Base64.getEncoder().encodeToString(EC_PUBLIC_KEY.serialize()) + "\""), EC_PUBLIC_KEY),
-        Arguments.of(String.format(template, "\"" + Base64.getEncoder().encodeToString(EC_PUBLIC_KEY.getPublicKeyBytes()) + "\""), EC_PUBLIC_KEY)
+        Arguments.of(String.format(template, "\"" + Base64.getEncoder().encodeToString(EC_PUBLIC_KEY.serialize()) + "\""), EC_PUBLIC_KEY)
     );
   }
 }
