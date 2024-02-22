@@ -32,7 +32,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -42,6 +41,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.Curve;
@@ -269,8 +271,6 @@ class KeysControllerTest {
     when(KEYS.getEcCount(AuthHelper.VALID_UUID, sampleDeviceId)).thenReturn(CompletableFuture.completedFuture(5));
     when(KEYS.getPqCount(AuthHelper.VALID_UUID, sampleDeviceId)).thenReturn(CompletableFuture.completedFuture(5));
 
-    when(AuthHelper.VALID_ACCOUNT.getIdentityKey(IdentityType.ACI)).thenReturn(null);
-
     when(KEYS.getEcSignedPreKey(AuthHelper.VALID_UUID, AuthHelper.VALID_DEVICE.getId()))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(VALID_DEVICE_SIGNED_KEY)));
 
@@ -309,7 +309,7 @@ class KeysControllerTest {
 
   @Test
   void putSignedPreKeyV2() {
-    final ECSignedPreKey signedPreKey = KeysHelper.signedECPreKey(9998, IDENTITY_KEY_PAIR);
+    final ECSignedPreKey signedPreKey = KeysHelper.signedECPreKey(9998, AuthHelper.VALID_IDENTITY_KEY_PAIR);
 
     try (final Response response = resources.getJerseyTest()
                                  .target("/v2/keys/signed")
@@ -324,7 +324,7 @@ class KeysControllerTest {
 
   @Test
   void putPhoneNumberIdentitySignedPreKeyV2() {
-    final ECSignedPreKey pniSignedPreKey = KeysHelper.signedECPreKey(9998, PNI_IDENTITY_KEY_PAIR);
+    final ECSignedPreKey pniSignedPreKey = KeysHelper.signedECPreKey(9998, AuthHelper.VALID_PNI_IDENTITY_KEY_PAIR);
 
     try (final Response response = resources.getJerseyTest()
         .target("/v2/keys/signed")
@@ -335,6 +335,23 @@ class KeysControllerTest {
 
       assertThat(response.getStatus()).isEqualTo(204);
       verify(KEYS).storeEcSignedPreKeys(AuthHelper.VALID_PNI, AuthHelper.VALID_DEVICE.getId(), pniSignedPreKey);
+    }
+  }
+
+  @ParameterizedTest
+  @EnumSource(IdentityType.class)
+  void putSignedPreKeyV2BadSignature(final IdentityType identityType) {
+    final ECSignedPreKey signedPreKey = KeysHelper.signedECPreKey(9998, Curve.generateKeyPair());
+
+    try (final Response response = resources.getJerseyTest()
+        .target("/v2/keys/signed")
+        .queryParam("identity", identityType.name().toLowerCase())
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .put(Entity.entity(signedPreKey, MediaType.APPLICATION_JSON_TYPE))) {
+
+      assertThat(response.getStatus()).isEqualTo(422);
+      verify(KEYS, never()).storeEcSignedPreKeys(any(), anyByte(), any());
     }
   }
 
@@ -740,13 +757,9 @@ class KeysControllerTest {
   @Test
   void putKeysTestV2() {
     final ECPreKey preKey = KeysHelper.ecPreKey(31337);
-    final ECKeyPair identityKeyPair = Curve.generateKeyPair();
-    final ECSignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, identityKeyPair);
-    final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
+    final ECSignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, AuthHelper.VALID_IDENTITY_KEY_PAIR);
 
     final SetKeysRequest setKeysRequest = new SetKeysRequest(List.of(preKey), signedPreKey, null, null);
-
-    when(AuthHelper.VALID_ACCOUNT.getIdentityKey(IdentityType.ACI)).thenReturn(identityKey);
 
     Response response =
         resources.getJerseyTest()
@@ -768,13 +781,9 @@ class KeysControllerTest {
 
   @Test
   void putKeysTestV2EmptySingleUseKeysList() {
-    final ECKeyPair identityKeyPair = Curve.generateKeyPair();
-    final ECSignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, identityKeyPair);
-    final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
+    final ECSignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, AuthHelper.VALID_IDENTITY_KEY_PAIR);
 
     final SetKeysRequest setKeysRequest = new SetKeysRequest(List.of(), signedPreKey, List.of(), null);
-
-    when(AuthHelper.VALID_ACCOUNT.getIdentityKey(IdentityType.ACI)).thenReturn(identityKey);
 
     try (final Response response =
         resources.getJerseyTest()
@@ -794,16 +803,12 @@ class KeysControllerTest {
   @Test
   void putKeysPqTestV2() {
     final ECPreKey preKey = KeysHelper.ecPreKey(31337);
-    final ECKeyPair identityKeyPair = Curve.generateKeyPair();
-    final ECSignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, identityKeyPair);
-    final KEMSignedPreKey pqPreKey = KeysHelper.signedKEMPreKey(31339, identityKeyPair);
-    final KEMSignedPreKey pqLastResortPreKey = KeysHelper.signedKEMPreKey(31340, identityKeyPair);
-    final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
+    final ECSignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, AuthHelper.VALID_IDENTITY_KEY_PAIR);
+    final KEMSignedPreKey pqPreKey = KeysHelper.signedKEMPreKey(31339, AuthHelper.VALID_IDENTITY_KEY_PAIR);
+    final KEMSignedPreKey pqLastResortPreKey = KeysHelper.signedKEMPreKey(31340, AuthHelper.VALID_IDENTITY_KEY_PAIR);
 
     final SetKeysRequest setKeysRequest =
         new SetKeysRequest(List.of(preKey), signedPreKey, List.of(pqPreKey), pqLastResortPreKey);
-
-    when(AuthHelper.VALID_ACCOUNT.getIdentityKey(IdentityType.ACI)).thenReturn(identityKey);
 
     Response response =
         resources.getJerseyTest()
@@ -901,13 +906,9 @@ class KeysControllerTest {
   @Test
   void putKeysByPhoneNumberIdentifierTestV2() {
     final ECPreKey preKey = KeysHelper.ecPreKey(31337);
-    final ECKeyPair identityKeyPair = Curve.generateKeyPair();
-    final ECSignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, identityKeyPair);
-    final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
+    final ECSignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, AuthHelper.VALID_PNI_IDENTITY_KEY_PAIR);
 
     final SetKeysRequest setKeysRequest = new SetKeysRequest(List.of(preKey), signedPreKey, null, null);
-
-    when(AuthHelper.VALID_ACCOUNT.getIdentityKey(IdentityType.PNI)).thenReturn(identityKey);
 
     Response response =
         resources.getJerseyTest()
@@ -930,16 +931,12 @@ class KeysControllerTest {
   @Test
   void putKeysByPhoneNumberIdentifierPqTestV2() {
     final ECPreKey preKey = KeysHelper.ecPreKey(31337);
-    final ECKeyPair identityKeyPair = Curve.generateKeyPair();
-    final ECSignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, identityKeyPair);
-    final KEMSignedPreKey pqPreKey = KeysHelper.signedKEMPreKey(31339, identityKeyPair);
-    final KEMSignedPreKey pqLastResortPreKey = KeysHelper.signedKEMPreKey(31340, identityKeyPair);
-    final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
+    final ECSignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, AuthHelper.VALID_PNI_IDENTITY_KEY_PAIR);
+    final KEMSignedPreKey pqPreKey = KeysHelper.signedKEMPreKey(31339, AuthHelper.VALID_PNI_IDENTITY_KEY_PAIR);
+    final KEMSignedPreKey pqLastResortPreKey = KeysHelper.signedKEMPreKey(31340, AuthHelper.VALID_PNI_IDENTITY_KEY_PAIR);
 
     final SetKeysRequest setKeysRequest =
         new SetKeysRequest(List.of(preKey), signedPreKey, List.of(pqPreKey), pqLastResortPreKey);
-
-    when(AuthHelper.VALID_ACCOUNT.getIdentityKey(IdentityType.PNI)).thenReturn(identityKey);
 
     Response response =
         resources.getJerseyTest()

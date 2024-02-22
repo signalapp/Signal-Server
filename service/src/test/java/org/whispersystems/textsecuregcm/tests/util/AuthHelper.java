@@ -29,7 +29,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.signal.libsignal.protocol.IdentityKey;
-import org.signal.libsignal.protocol.ecc.ECPublicKey;
+import org.signal.libsignal.protocol.ecc.Curve;
+import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
@@ -70,8 +71,11 @@ public class AuthHelper {
   public static final UUID   UNDISCOVERABLE_UUID     = UUID.randomUUID();
   public static final String UNDISCOVERABLE_PASSWORD = "IT'S A SECRET TO EVERYBODY.";
 
-  public static final IdentityKey VALID_IDENTITY = new IdentityKey(ECPublicKey.fromPublicKeyBytes(
-      Base64.getDecoder().decode("BcxxDU9FGMda70E7+Uvm7pnQcEdXQ64aJCpPUeRSfcFo")));
+  public static final ECKeyPair VALID_IDENTITY_KEY_PAIR = Curve.generateKeyPair();
+  public static final IdentityKey VALID_IDENTITY = new IdentityKey(VALID_IDENTITY_KEY_PAIR.getPublicKey());
+
+  public static final ECKeyPair VALID_PNI_IDENTITY_KEY_PAIR = Curve.generateKeyPair();
+  public static final IdentityKey VALID_PNI_IDENTITY = new IdentityKey(VALID_PNI_IDENTITY_KEY_PAIR.getPublicKey());
 
   public static AccountsManager ACCOUNTS_MANAGER       = mock(AccountsManager.class);
   public static Account         VALID_ACCOUNT          = mock(Account.class        );
@@ -179,6 +183,7 @@ public class AuthHelper {
     when(VALID_ACCOUNT_3.isIdentifiedBy(new PniServiceIdentifier(VALID_PNI_3))).thenReturn(true);
 
     when(VALID_ACCOUNT.getIdentityKey(IdentityType.ACI)).thenReturn(VALID_IDENTITY);
+    when(VALID_ACCOUNT.getIdentityKey(IdentityType.PNI)).thenReturn(VALID_PNI_IDENTITY);
 
     reset(ACCOUNTS_MANAGER);
 

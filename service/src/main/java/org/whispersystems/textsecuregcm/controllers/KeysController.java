@@ -344,6 +344,8 @@ public class KeysController {
   @ApiResponse(responseCode = "200", description = "Indicates that new prekey was successfully stored.")
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
   @ApiResponse(responseCode = "422", description = "Invalid request format.")
+  // TODO Remove this endpoint on or after 2024-05-24
+  @Deprecated(forRemoval = true)
   public CompletableFuture<Response> setSignedKey(
       @ReadOnly @Auth final AuthenticatedAccount auth,
       @Valid final ECSignedPreKey signedPreKey,
@@ -351,6 +353,10 @@ public class KeysController {
 
     final UUID identifier = auth.getAccount().getIdentifier(identityType);
     final byte deviceId = auth.getAuthenticatedDevice().getId();
+
+    if (!PreKeySignatureValidator.validatePreKeySignatures(auth.getAccount().getIdentityKey(identityType), List.of(signedPreKey))) {
+      throw new WebApplicationException("Invalid signature", 422);
+    }
 
     return keysManager.storeEcSignedPreKeys(identifier, deviceId, signedPreKey)
         .thenApply(Util.ASYNC_EMPTY_RESPONSE);
