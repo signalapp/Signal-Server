@@ -134,7 +134,11 @@ public class TurnCallRouter {
       ipv4Selection = ipv4Selection.stream().limit(limit - ipv6Selection.size()).toList();
     }
 
-    return Stream.concat(ipv4Selection.stream(), ipv6Selection.stream()).map(InetAddress::getHostAddress).toList();
+    return Stream.concat(
+        ipv4Selection.stream().map(InetAddress::getHostAddress),
+        // map ipv6 to RFC3986 format i.e. surrounded by brackets
+        ipv6Selection.stream().map(i -> String.format("[%s]", i.getHostAddress()))
+    ).toList();
   }
 
   private static List<String> getUrlsForInstances(List<String> instanceIps) {

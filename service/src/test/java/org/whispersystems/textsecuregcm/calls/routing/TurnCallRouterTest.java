@@ -165,20 +165,20 @@ public class TurnCallRouterTest {
             "turn:9.9.9.2:80?transport=tcp",
             "turns:9.9.9.2:443?transport=tcp",
 
-            "stun:2222:1111:0:abc2:0:0:0:0",
-            "turn:2222:1111:0:abc2:0:0:0:0",
-            "turn:2222:1111:0:abc2:0:0:0:0:80?transport=tcp",
-            "turns:2222:1111:0:abc2:0:0:0:0:443?transport=tcp",
+            "stun:[2222:1111:0:abc2:0:0:0:0]",
+            "turn:[2222:1111:0:abc2:0:0:0:0]",
+            "turn:[2222:1111:0:abc2:0:0:0:0]:80?transport=tcp",
+            "turns:[2222:1111:0:abc2:0:0:0:0]:443?transport=tcp",
 
-            "stun:2222:1111:0:abc0:0:0:0:0",
-            "turn:2222:1111:0:abc0:0:0:0:0",
-            "turn:2222:1111:0:abc0:0:0:0:0:80?transport=tcp",
-            "turns:2222:1111:0:abc0:0:0:0:0:443?transport=tcp",
+            "stun:[2222:1111:0:abc0:0:0:0:0]",
+            "turn:[2222:1111:0:abc0:0:0:0:0]",
+            "turn:[2222:1111:0:abc0:0:0:0:0]:80?transport=tcp",
+            "turns:[2222:1111:0:abc0:0:0:0:0]:443?transport=tcp",
 
-            "stun:2222:1111:0:abc1:0:0:0:0",
-            "turn:2222:1111:0:abc1:0:0:0:0",
-            "turn:2222:1111:0:abc1:0:0:0:0:80?transport=tcp",
-            "turns:2222:1111:0:abc1:0:0:0:0:443?transport=tcp"
+            "stun:[2222:1111:0:abc1:0:0:0:0]",
+            "turn:[2222:1111:0:abc1:0:0:0:0]",
+            "turn:[2222:1111:0:abc1:0:0:0:0]:80?transport=tcp",
+            "turns:[2222:1111:0:abc1:0:0:0:0]:443?transport=tcp"
         )));
   }
 
@@ -196,10 +196,10 @@ public class TurnCallRouterTest {
             "turn:1.1.1.1:80?transport=tcp",
             "turns:1.1.1.1:443?transport=tcp",
 
-            "stun:2222:1111:0:dead:0:0:0:0",
-            "turn:2222:1111:0:dead:0:0:0:0",
-            "turn:2222:1111:0:dead:0:0:0:0:80?transport=tcp",
-            "turns:2222:1111:0:dead:0:0:0:0:443?transport=tcp"
+            "stun:[2222:1111:0:dead:0:0:0:0]",
+            "turn:[2222:1111:0:dead:0:0:0:0]",
+            "turn:[2222:1111:0:dead:0:0:0:0]:80?transport=tcp",
+            "turns:[2222:1111:0:dead:0:0:0:0]:443?transport=tcp"
         )));
   }
 
@@ -225,20 +225,20 @@ public class TurnCallRouterTest {
             "turn:9.9.9.1:80?transport=tcp",
             "turns:9.9.9.1:443?transport=tcp",
 
-            "stun:2222:1111:0:abc3:0:0:0:0",
-            "turn:2222:1111:0:abc3:0:0:0:0",
-            "turn:2222:1111:0:abc3:0:0:0:0:80?transport=tcp",
-            "turns:2222:1111:0:abc3:0:0:0:0:443?transport=tcp",
+            "stun:[2222:1111:0:abc3:0:0:0:0]",
+            "turn:[2222:1111:0:abc3:0:0:0:0]",
+            "turn:[2222:1111:0:abc3:0:0:0:0]:80?transport=tcp",
+            "turns:[2222:1111:0:abc3:0:0:0:0]:443?transport=tcp",
 
-            "stun:2222:1111:0:abc2:0:0:0:0",
-            "turn:2222:1111:0:abc2:0:0:0:0",
-            "turn:2222:1111:0:abc2:0:0:0:0:80?transport=tcp",
-            "turns:2222:1111:0:abc2:0:0:0:0:443?transport=tcp",
+            "stun:[2222:1111:0:abc2:0:0:0:0]",
+            "turn:[2222:1111:0:abc2:0:0:0:0]",
+            "turn:[2222:1111:0:abc2:0:0:0:0]:80?transport=tcp",
+            "turns:[2222:1111:0:abc2:0:0:0:0]:443?transport=tcp",
 
-            "stun:2222:1111:0:abc0:0:0:0:0",
-            "turn:2222:1111:0:abc0:0:0:0:0",
-            "turn:2222:1111:0:abc0:0:0:0:0:80?transport=tcp",
-            "turns:2222:1111:0:abc0:0:0:0:0:443?transport=tcp"
+            "stun:[2222:1111:0:abc0:0:0:0:0]",
+            "turn:[2222:1111:0:abc0:0:0:0:0]",
+            "turn:[2222:1111:0:abc0:0:0:0:0]:80?transport=tcp",
+            "turns:[2222:1111:0:abc0:0:0:0:0]:443?transport=tcp"
         )));
   }
 
