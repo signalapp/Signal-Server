@@ -910,9 +910,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     spamFilter.ifPresent(filter -> {
       environment.lifecycle().manage(filter);
-      environment.jersey().register(filter);
-      webSocketEnvironment.jersey().register(filter);
-
       log.info("Registered spam filter: {}", filter.getClass().getName());
     });
 
