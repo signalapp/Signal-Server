@@ -106,8 +106,7 @@ public class KeysManager {
             .orElseGet(() -> pqLastResortKeys.find(identifier, deviceId)));
   }
 
-  @VisibleForTesting
-  CompletableFuture<Optional<KEMSignedPreKey>> getLastResort(final UUID identifier, final byte deviceId) {
+  public CompletableFuture<Optional<KEMSignedPreKey>> getLastResort(final UUID identifier, final byte deviceId) {
     return pqLastResortKeys.find(identifier, deviceId);
   }
 

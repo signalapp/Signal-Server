@@ -25,6 +25,9 @@ import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
+import java.nio.ByteBuffer;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
@@ -42,13 +45,15 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.entities.CheckKeysRequest;
 import org.whispersystems.textsecuregcm.entities.ECPreKey;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
@@ -975,4 +980,162 @@ class KeysControllerTest {
     assertThat(response.getStatus()).isEqualTo(422);
   }
 
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+  @ParameterizedTest
+  @MethodSource
+  void checkKeys(
+      final IdentityKey clientIdentityKey,
+      final ECSignedPreKey clientEcSignedPreKey,
+      final Optional<ECSignedPreKey> serverEcSignedPreKey,
+      final KEMSignedPreKey clientLastResortKey,
+      final Optional<KEMSignedPreKey> serverLastResortKey,
+      final int expectedStatus) throws NoSuchAlgorithmException {
+
+    when(KEYS.getEcSignedPreKey(AuthHelper.VALID_UUID, Device.PRIMARY_ID))
+        .thenReturn(CompletableFuture.completedFuture(serverEcSignedPreKey));
+
+    when(KEYS.getLastResort(AuthHelper.VALID_UUID, Device.PRIMARY_ID))
+        .thenReturn(CompletableFuture.completedFuture(serverLastResortKey));
+
+    final CheckKeysRequest checkKeysRequest =
+        new CheckKeysRequest(IdentityType.ACI, getKeyDigest(clientIdentityKey, clientEcSignedPreKey, clientLastResortKey));
+
+    try (final Response response =
+        resources.getJerseyTest()
+            .target("/v2/keys/check")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .post(Entity.entity(checkKeysRequest, MediaType.APPLICATION_JSON_TYPE))) {
+
+      assertEquals(expectedStatus, response.getStatus());
+    }
+  }
+
+  private static List<Arguments> checkKeys() {
+    final ECSignedPreKey ecSignedPreKey = KeysHelper.signedECPreKey(17, AuthHelper.VALID_IDENTITY_KEY_PAIR);
+    final KEMSignedPreKey lastResortKey = KeysHelper.signedKEMPreKey(19, AuthHelper.VALID_IDENTITY_KEY_PAIR);
+
+    return List.of(
+        // All keys match
+        Arguments.of(
+            AuthHelper.VALID_IDENTITY,
+            ecSignedPreKey,
+            Optional.of(ecSignedPreKey),
+            lastResortKey,
+            Optional.of(lastResortKey),
+            200),
+
+        // Signed EC pre-key not found
+        Arguments.of(
+            AuthHelper.VALID_IDENTITY,
+            ecSignedPreKey,
+            Optional.empty(),
+            lastResortKey,
+            Optional.of(lastResortKey),
+            409),
+
+        // Last-resort key not found
+        Arguments.of(
+            AuthHelper.VALID_IDENTITY,
+            ecSignedPreKey,
+            Optional.of(ecSignedPreKey),
+            lastResortKey,
+            Optional.empty(),
+            409),
+
+        // Mismatched identity key
+        Arguments.of(
+            new IdentityKey(Curve.generateKeyPair().getPublicKey()),
+            ecSignedPreKey,
+            Optional.of(ecSignedPreKey),
+            lastResortKey,
+            Optional.of(lastResortKey),
+            409),
+
+        // Mismatched EC signed pre-key ID
+        Arguments.of(
+            AuthHelper.VALID_IDENTITY,
+            new ECSignedPreKey(ecSignedPreKey.keyId() + 1, ecSignedPreKey.publicKey(), ecSignedPreKey.signature()),
+            Optional.of(ecSignedPreKey),
+            lastResortKey,
+            Optional.of(lastResortKey),
+            409),
+
+        // Mismatched EC signed pre-key content
+        Arguments.of(
+            AuthHelper.VALID_IDENTITY,
+            KeysHelper.signedECPreKey(ecSignedPreKey.keyId(), AuthHelper.VALID_IDENTITY_KEY_PAIR),
+            Optional.of(ecSignedPreKey),
+            lastResortKey,
+            Optional.of(lastResortKey),
+            409),
+        // Mismatched last-resort key ID
+        Arguments.of(
+            AuthHelper.VALID_IDENTITY,
+            ecSignedPreKey,
+            Optional.of(ecSignedPreKey),
+            new KEMSignedPreKey(lastResortKey.keyId() + 1, lastResortKey.publicKey(), lastResortKey.signature()),
+            Optional.of(lastResortKey),
+            409),
+
+        // Mismatched last-resort key content
+        Arguments.of(
+            AuthHelper.VALID_IDENTITY,
+            ecSignedPreKey,
+            Optional.of(ecSignedPreKey),
+            KeysHelper.signedKEMPreKey(lastResortKey.keyId(), AuthHelper.VALID_IDENTITY_KEY_PAIR),
+            Optional.of(lastResortKey),
+            409)
+    );
+  }
+
+  private static byte[] getKeyDigest(final IdentityKey identityKey, final ECSignedPreKey ecSignedPreKey, final KEMSignedPreKey lastResortKey)
+      throws NoSuchAlgorithmException {
+
+    final MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
+    messageDigest.update(identityKey.serialize());
+
+    {
+      final ByteBuffer ecSignedPreKeyIdBuffer = ByteBuffer.allocate(Long.BYTES);
+      ecSignedPreKeyIdBuffer.putLong(ecSignedPreKey.keyId());
+      ecSignedPreKeyIdBuffer.flip();
+
+      messageDigest.update(ecSignedPreKeyIdBuffer);
+      messageDigest.update(ecSignedPreKey.serializedPublicKey());
+    }
+
+    {
+      final ByteBuffer lastResortKeyIdBuffer = ByteBuffer.allocate(Long.BYTES);
+      lastResortKeyIdBuffer.putLong(lastResortKey.keyId());
+      lastResortKeyIdBuffer.flip();
+
+      messageDigest.update(lastResortKeyIdBuffer);
+      messageDigest.update(lastResortKey.serializedPublicKey());
+    }
+
+    return messageDigest.digest();
+  }
+
+  @Test
+  void checkKeysIncorrectDigestLength() {
+    try (final Response response =
+        resources.getJerseyTest()
+            .target("/v2/keys/check")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .post(Entity.entity(new CheckKeysRequest(IdentityType.ACI, new byte[31]), MediaType.APPLICATION_JSON_TYPE))) {
+
+      assertEquals(422, response.getStatus());
+    }
+
+    try (final Response response =
+        resources.getJerseyTest()
+            .target("/v2/keys/check")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .post(Entity.entity(new CheckKeysRequest(IdentityType.ACI, new byte[33]), MediaType.APPLICATION_JSON_TYPE))) {
+
+      assertEquals(422, response.getStatus());
+    }
+  }
 }

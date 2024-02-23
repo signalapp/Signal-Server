@@ -16,6 +16,9 @@ import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import java.nio.ByteBuffer;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -29,6 +32,7 @@ import javax.ws.rs.Consumes;
 import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
+import javax.ws.rs.POST;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -42,6 +46,7 @@ import org.signal.libsignal.protocol.IdentityKey;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
+import org.whispersystems.textsecuregcm.entities.CheckKeysRequest;
 import org.whispersystems.textsecuregcm.entities.ECPreKey;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
@@ -219,6 +224,97 @@ public class KeysController {
     if (!allSignaturesValid) {
       throw new WebApplicationException("Invalid signature", 422);
     }
+  }
+
+  @POST
+  @Path("/check")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Check keys", description = """
+      Checks that client and server have consistent views of repeated-use keys. For a given identity type, clients
+      submit a digest of their repeated-use key material. The digest is calculated as:
+      
+      SHA256(identityKeyBytes || signedEcPreKeyId || signedEcPreKeyIdBytes || lastResortKeyId || lastResortKeyBytes)
+      
+      …where the elements of the hash are:
+      
+      - identityKeyBytes: the serialized form of the client's public identity key as produced by libsignal (i.e. one
+        version byte followed by 32 bytes of key material for a total of 33 bytes)
+      - signedEcPreKeyId: an 8-byte, big-endian representation of the ID of the client's signed EC pre-key
+      - signedEcPreKeyBytes: the serialized form of the client's signed EC pre-key as produced by libsignal (i.e. one
+        version byte followed by 32 bytes of key material for a total of 33 bytes)
+      - lastResortKeyId: an 8-byte, big-endian representation of the ID of the client's last-resort Kyber key
+      - lastResortKeyBytes: the serialized form of the client's last-resort Kyber key as produced by libsignal (i.e. one
+        version byte followed by 1568 bytes of key material for a total of 1569 bytes)
+      """)
+  @ApiResponse(responseCode = "200", description = "Indicates that client and server have consistent views of repeated-use keys")
+  @ApiResponse(responseCode = "401", description = "Account authentication check failed")
+  @ApiResponse(responseCode = "409", description = """
+    Indicates that client and server have inconsistent views of repeated-use keys or one or more repeated-use keys could
+    not be found
+  """)
+  @ApiResponse(responseCode = "422", description = "Invalid request format")
+  public CompletableFuture<Response> setKeys(
+      @ReadOnly @Auth final AuthenticatedAccount auth,
+      @RequestBody @NotNull @Valid final CheckKeysRequest checkKeysRequest,
+      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) {
+
+    final UUID identifier = auth.getAccount().getIdentifier(checkKeysRequest.identityType());
+    final byte deviceId = auth.getAuthenticatedDevice().getId();
+
+    final CompletableFuture<Optional<ECSignedPreKey>> ecSignedPreKeyFuture =
+        keysManager.getEcSignedPreKey(identifier, deviceId);
+
+    final CompletableFuture<Optional<KEMSignedPreKey>> lastResortKeyFuture =
+        keysManager.getLastResort(identifier, deviceId);
+
+    return CompletableFuture.allOf(ecSignedPreKeyFuture, lastResortKeyFuture)
+        .thenApply(ignored -> {
+          final Optional<ECSignedPreKey> maybeSignedPreKey = ecSignedPreKeyFuture.join();
+          final Optional<KEMSignedPreKey> maybeLastResortKey = lastResortKeyFuture.join();
+
+          final boolean digestsMatch;
+
+          if (maybeSignedPreKey.isPresent() && maybeLastResortKey.isPresent()) {
+            final IdentityKey identityKey = auth.getAccount().getIdentityKey(checkKeysRequest.identityType());
+            final ECSignedPreKey ecSignedPreKey = maybeSignedPreKey.get();
+            final KEMSignedPreKey lastResortKey = maybeLastResortKey.get();
+
+            final MessageDigest messageDigest;
+
+            try {
+              messageDigest = MessageDigest.getInstance("SHA-256");
+            } catch (final NoSuchAlgorithmException e) {
+              throw new AssertionError("Every implementation of the Java platform is required to support SHA-256", e);
+            }
+
+            messageDigest.update(identityKey.serialize());
+
+            {
+              final ByteBuffer ecSignedPreKeyIdBuffer = ByteBuffer.allocate(Long.BYTES);
+              ecSignedPreKeyIdBuffer.putLong(ecSignedPreKey.keyId());
+              ecSignedPreKeyIdBuffer.flip();
+
+              messageDigest.update(ecSignedPreKeyIdBuffer);
+              messageDigest.update(ecSignedPreKey.serializedPublicKey());
+            }
+
+            {
+              final ByteBuffer lastResortKeyIdBuffer = ByteBuffer.allocate(Long.BYTES);
+              lastResortKeyIdBuffer.putLong(lastResortKey.keyId());
+              lastResortKeyIdBuffer.flip();
+
+              messageDigest.update(lastResortKeyIdBuffer);
+              messageDigest.update(lastResortKey.serializedPublicKey());
+            }
+
+            digestsMatch = MessageDigest.isEqual(messageDigest.digest(), checkKeysRequest.digest());
+          } else {
+            digestsMatch = false;
+          }
+
+          return Response.status(digestsMatch ? Response.Status.OK : Response.Status.CONFLICT).build();
+        });
   }
 
   @GET
