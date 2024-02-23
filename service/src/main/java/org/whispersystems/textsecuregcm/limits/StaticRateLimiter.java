@@ -53,7 +53,7 @@ public class StaticRateLimiter implements RateLimiter {
     this.validateScript = requireNonNull(validateScript);
     this.cacheCluster = requireNonNull(cacheCluster);
     this.clock = requireNonNull(clock);
-    this.counter = Metrics.counter(MetricsUtil.name(getClass(), "exceeded"), "name", name);
+    this.counter = Metrics.counter(MetricsUtil.name(getClass(), "exceeded"), "rateLimiterName", name);
     this.dynamicConfigurationManager = dynamicConfigurationManager;
   }
 

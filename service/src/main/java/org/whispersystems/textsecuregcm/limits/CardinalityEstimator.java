@@ -31,7 +31,7 @@ public class CardinalityEstimator {
     this.period = period;
     Metrics.gauge(
         MetricsUtil.name(getClass(), "unique"),
-        Tags.of("name", name),
+        Tags.of("metricName", name),
         this,
         obj -> obj.uniqueElementCount);
   }

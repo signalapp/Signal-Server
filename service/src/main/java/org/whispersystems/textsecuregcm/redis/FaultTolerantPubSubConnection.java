@@ -48,7 +48,7 @@ public class FaultTolerantPubSubConnection<K, V> {
 
     this.pubSubConnection.setNodeMessagePropagation(true);
 
-    this.executeTimer = Metrics.timer(name(getClass(), "execute"), "name", name + "-pubsub");
+    this.executeTimer = Metrics.timer(name(getClass(), "execute"), "clusterName", name + "-pubsub");
 
     CircuitBreakerUtil.registerMetrics(circuitBreaker, FaultTolerantPubSubConnection.class);
   }

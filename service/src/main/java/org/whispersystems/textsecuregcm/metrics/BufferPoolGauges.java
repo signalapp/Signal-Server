@@ -5,14 +5,13 @@
 
 package org.whispersystems.textsecuregcm.metrics;
 
+import static com.codahale.metrics.MetricRegistry.name;
+
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
-
 import java.lang.management.BufferPoolMXBean;
 import java.lang.management.ManagementFactory;
 import java.util.List;
-
-import static com.codahale.metrics.MetricRegistry.name;
 
 public class BufferPoolGauges {
 
@@ -20,7 +19,7 @@ public class BufferPoolGauges {
 
     public static void registerMetrics() {
         for (final BufferPoolMXBean bufferPoolMXBean : ManagementFactory.getPlatformMXBeans(BufferPoolMXBean.class)) {
-            final List<Tag> tags = List.of(Tag.of("name", bufferPoolMXBean.getName()));
+            final List<Tag> tags = List.of(Tag.of("bufferPoolName", bufferPoolMXBean.getName()));
 
             Metrics.gauge(name(BufferPoolGauges.class, "count"), tags, bufferPoolMXBean, BufferPoolMXBean::getCount);
             Metrics.gauge(name(BufferPoolGauges.class, "memory_used"), tags, bufferPoolMXBean, BufferPoolMXBean::getMemoryUsed);
