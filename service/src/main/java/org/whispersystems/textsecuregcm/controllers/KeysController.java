@@ -254,7 +254,7 @@ public class KeysController {
     not be found
   """)
   @ApiResponse(responseCode = "422", description = "Invalid request format")
-  public CompletableFuture<Response> setKeys(
+  public CompletableFuture<Response> checkKeys(
       @ReadOnly @Auth final AuthenticatedAccount auth,
       @RequestBody @NotNull @Valid final CheckKeysRequest checkKeysRequest,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) {
