@@ -15,9 +15,15 @@ import java.security.cert.CertificateException;
 import java.time.Clock;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import org.signal.libsignal.zkgroup.GenericServerSecretParams;
+import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.WhisperServerService;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
+import org.whispersystems.textsecuregcm.backup.BackupManager;
+import org.whispersystems.textsecuregcm.backup.BackupsDb;
+import org.whispersystems.textsecuregcm.backup.Cdn3BackupCredentialGenerator;
+import org.whispersystems.textsecuregcm.backup.Cdn3RemoteStorageManager;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.SecureStorageController;
 import org.whispersystems.textsecuregcm.controllers.SecureValueRecovery2Controller;
@@ -61,6 +67,7 @@ record CommandDependencies(
     KeysManager keysManager,
     FaultTolerantRedisCluster cacheCluster,
     ClientResources redisClusterClientResources,
+    BackupManager backupManager,
     DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
 
   static CommandDependencies build(
@@ -105,6 +112,8 @@ record CommandDependencies(
 
     ScheduledExecutorService secureValueRecoveryServiceRetryExecutor = environment.lifecycle()
         .scheduledExecutorService(name(name, "secureValueRecoveryServiceRetry-%d")).threads(1).build();
+    ScheduledExecutorService remoteStorageExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(name, "remoteStorageRetry-%d")).threads(1).build();
     ScheduledExecutorService storageServiceRetryExecutor = environment.lifecycle()
         .scheduledExecutorService(name(name, "storageServiceRetry-%d")).threads(1).build();
 
@@ -185,6 +194,27 @@ record CommandDependencies(
         secureStorageClient, secureValueRecovery2Client, clientPresenceManager,
         registrationRecoveryPasswordsManager, accountLockExecutor, clientPresenceExecutor,
         clock);
+    final BackupsDb backupsDb =
+        new BackupsDb(dynamoDbAsyncClient, configuration.getDynamoDbTables().getBackups().getTableName(), clock);
+    final GenericServerSecretParams backupsGenericZkSecretParams;
+    try {
+      backupsGenericZkSecretParams =
+          new GenericServerSecretParams(configuration.getBackupsZkConfig().serverSecret().value());
+    } catch (InvalidInputException e) {
+      throw new IllegalArgumentException(e);
+    }
+    final BackupManager backupManager = new BackupManager(
+        backupsDb,
+        backupsGenericZkSecretParams,
+        new Cdn3BackupCredentialGenerator(configuration.getTus()),
+        new Cdn3RemoteStorageManager(
+            remoteStorageExecutor,
+            configuration.getClientCdnConfiguration().getCircuitBreaker(),
+            configuration.getClientCdnConfiguration().getRetry(),
+            configuration.getClientCdnConfiguration().getCaCertificates(),
+            configuration.getCdn3StorageManagerConfiguration()),
+        configuration.getClientCdnConfiguration().getAttachmentUrls(),
+        clock);
 
     environment.lifecycle().manage(messagesCache);
     environment.lifecycle().manage(clientPresenceManager);
@@ -200,6 +230,7 @@ record CommandDependencies(
         keys,
         cacheCluster,
         redisClusterClientResources,
+        backupManager,
         dynamicConfigurationManager
     );
   }

@@ -10,6 +10,7 @@ import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -17,12 +18,14 @@ import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import java.io.IOException;
 import java.net.URI;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -32,11 +35,15 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
+import java.util.stream.IntStream;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.BeforeEach;
@@ -57,6 +64,7 @@ import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
 import org.whispersystems.textsecuregcm.util.TestClock;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
+import reactor.core.scheduler.Schedulers;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 
@@ -417,9 +425,10 @@ public class BackupManagerTest {
         .toCompletableFuture().join();
     assertThat(result.media()).hasSize(1);
     assertThat(result.media().get(0).cdn()).isEqualTo(13);
-    assertThat(result.media().get(0).key()).isEqualTo(Base64.getDecoder().decode("aaa".getBytes(StandardCharsets.UTF_8)));
+    assertThat(result.media().get(0).key()).isEqualTo(
+        Base64.getDecoder().decode("aaa".getBytes(StandardCharsets.UTF_8)));
     assertThat(result.media().get(0).length()).isEqualTo(123);
-    assertThat(result.cursor()).get().isEqualTo("newCursor");
+    assertThat(result.cursor().get()).isEqualTo("newCursor");
 
   }
 
@@ -449,7 +458,7 @@ public class BackupManagerTest {
     final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupTier.MEDIA);
     when(remoteStorageManager.cdnNumber()).thenReturn(5);
     assertThatThrownBy(() ->
-        backupManager.delete( backupUser, List.of(new BackupManager.StorageDescriptor(4, TestRandomUtil.nextBytes(15)))))
+        backupManager.delete(backupUser, List.of(new BackupManager.StorageDescriptor(4, TestRandomUtil.nextBytes(15)))))
         .isInstanceOf(StatusRuntimeException.class)
         .matches(e -> ((StatusRuntimeException) e).getStatus().getCode() == Status.INVALID_ARGUMENT.getCode());
   }
@@ -506,6 +515,144 @@ public class BackupManagerTest {
 
     assertThat(backupsDb.getMediaUsage(backupUser).join().usageInfo())
         .isEqualTo(new UsageInfo(100, 5));
+  }
+
+  @Test
+  public void listExpiredBackups() {
+    final List<AuthenticatedBackupUser> backupUsers = IntStream.range(0, 10)
+        .mapToObj(i -> backupUser(TestRandomUtil.nextBytes(16), BackupTier.MEDIA))
+        .toList();
+    for (int i = 0; i < backupUsers.size(); i++) {
+      testClock.pin(Instant.ofEpochSecond(i));
+      backupManager.createMessageBackupUploadDescriptor(backupUsers.get(i)).join();
+    }
+
+    // set of backup-id hashes that should be expired (initially t=0)
+    final Set<ByteBuffer> expectedHashes = new HashSet<>();
+
+    for (int i = 0; i < backupUsers.size(); i++) {
+      testClock.pin(Instant.ofEpochSecond(i));
+
+      // get backups expired at t=i
+      final List<ExpiredBackup> expired = backupManager
+          .getExpiredBackups(1, Schedulers.immediate(), Instant.ofEpochSecond(i))
+          .collectList()
+          .block();
+
+      // all the backups tht should be expired at t=i should be returned (ones with expiration time 0,1,...i-1)
+      assertThat(expired.size()).isEqualTo(expectedHashes.size());
+      assertThat(expired.stream()
+          .map(ExpiredBackup::hashedBackupId)
+          .map(ByteBuffer::wrap)
+          .allMatch(expectedHashes::contains)).isTrue();
+      assertThat(expired.stream().allMatch(eb -> eb.backupTierToRemove() == BackupTier.MESSAGES)).isTrue();
+
+      // on next iteration, backup i should be expired
+      expectedHashes.add(ByteBuffer.wrap(hashedBackupId(backupUsers.get(i).backupId())));
+    }
+  }
+
+  @Test
+  public void listExpiredBackupsByTier() {
+    final byte[] backupId = TestRandomUtil.nextBytes(16);
+
+    // refreshed media timestamp at t=5
+    testClock.pin(Instant.ofEpochSecond(5));
+    backupManager.createMessageBackupUploadDescriptor(backupUser(backupId, BackupTier.MEDIA)).join();
+
+    // refreshed messages timestamp at t=6
+    testClock.pin(Instant.ofEpochSecond(6));
+    backupManager.createMessageBackupUploadDescriptor(backupUser(backupId, BackupTier.MESSAGES)).join();
+
+    Function<Instant, List<ExpiredBackup>> getExpired = time -> backupManager
+        .getExpiredBackups(1, Schedulers.immediate(), time)
+        .collectList().block();
+
+    assertThat(getExpired.apply(Instant.ofEpochSecond(5))).isEmpty();
+
+    assertThat(getExpired.apply(Instant.ofEpochSecond(6)))
+        .hasSize(1).first()
+        .matches(eb -> eb.backupTierToRemove() == BackupTier.MEDIA, "is media tier");
+
+    assertThat(getExpired.apply(Instant.ofEpochSecond(7)))
+        .hasSize(1).first()
+        .matches(eb -> eb.backupTierToRemove() == BackupTier.MESSAGES, "is messages tier");
+  }
+
+  @ParameterizedTest
+  @EnumSource(mode = EnumSource.Mode.INCLUDE, names = {"MESSAGES", "MEDIA"})
+  public void deleteBackup(BackupTier backupTier) {
+    final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupTier.MEDIA);
+    backupManager.createMessageBackupUploadDescriptor(backupUser).join();
+    final String mediaPrefix = "%s/%s/"
+        .formatted(BackupManager.encodeBackupIdForCdn(backupUser), BackupManager.MEDIA_DIRECTORY_NAME);
+    when(remoteStorageManager.list(eq(mediaPrefix), eq(Optional.empty()), anyLong()))
+        .thenReturn(CompletableFuture.completedFuture(new RemoteStorageManager.ListResult(List.of(
+            new RemoteStorageManager.ListResult.Entry("abc", 1),
+            new RemoteStorageManager.ListResult.Entry("def", 1),
+            new RemoteStorageManager.ListResult.Entry("ghi", 1)), Optional.empty())));
+    when(remoteStorageManager.delete(anyString())).thenReturn(CompletableFuture.completedFuture(1L));
+
+    backupManager.deleteBackup(backupTier, hashedBackupId(backupUser.backupId())).join();
+    verify(remoteStorageManager, times(1)).list(anyString(), any(), anyLong());
+    verify(remoteStorageManager, times(1)).delete(mediaPrefix + "abc");
+    verify(remoteStorageManager, times(1)).delete(mediaPrefix + "def");
+    verify(remoteStorageManager, times(1)).delete(mediaPrefix + "ghi");
+    verify(remoteStorageManager, times(backupTier == BackupTier.MESSAGES ? 1 : 0))
+        .delete("%s/%s".formatted(BackupManager.encodeBackupIdForCdn(backupUser), BackupManager.MESSAGE_BACKUP_NAME));
+    verifyNoMoreInteractions(remoteStorageManager);
+
+    final BackupsDb.TimestampedUsageInfo usage = backupsDb.getMediaUsage(backupUser).join();
+    assertThat(usage.usageInfo().bytesUsed()).isEqualTo(0L);
+    assertThat(usage.usageInfo().numObjects()).isEqualTo(0L);
+
+    if (backupTier == BackupTier.MEDIA) {
+      // should have deleted all the media, but left the backup descriptor in place
+      assertThatNoException().isThrownBy(() -> backupsDb.describeBackup(backupUser).join());
+    } else {
+      // should have deleted the db row for the backup
+      assertThat(CompletableFutureTestUtil.assertFailsWithCause(
+              StatusRuntimeException.class,
+              backupsDb.describeBackup(backupUser))
+          .getStatus().getCode())
+          .isEqualTo(Status.NOT_FOUND.getCode());
+    }
+  }
+
+  @Test
+  public void deleteBackupPaginated() {
+    final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupTier.MEDIA);
+    backupManager.createMessageBackupUploadDescriptor(backupUser).join();
+    final String mediaPrefix = "%s/%s/".formatted(BackupManager.encodeBackupIdForCdn(backupUser),
+        BackupManager.MEDIA_DIRECTORY_NAME);
+
+    // Return 1 item per page. Initially the provided cursor is empty and we'll return the cursor string "1".
+    // When we get the cursor "1", we'll return "2", when "2" we'll return empty indicating listing
+    // is complete
+    when(remoteStorageManager.list(eq(mediaPrefix), any(), anyLong())).thenAnswer(a -> {
+      Optional<String> cursor = a.getArgument(1);
+      return CompletableFuture.completedFuture(
+          new RemoteStorageManager.ListResult(List.of(new RemoteStorageManager.ListResult.Entry(
+              switch (cursor.orElse("0")) {
+                case "0" -> "abc";
+                case "1" -> "def";
+                case "2" -> "ghi";
+                default -> throw new IllegalArgumentException();
+              }, 1L)),
+              switch (cursor.orElse("0")) {
+                case "0" -> Optional.of("1");
+                case "1" -> Optional.of("2");
+                case "2" -> Optional.empty();
+                default -> throw new IllegalArgumentException();
+              }));
+    });
+    when(remoteStorageManager.delete(anyString())).thenReturn(CompletableFuture.completedFuture(1L));
+    backupManager.deleteBackup(BackupTier.MEDIA, hashedBackupId(backupUser.backupId())).join();
+    verify(remoteStorageManager, times(3)).list(anyString(), any(), anyLong());
+    verify(remoteStorageManager, times(1)).delete(mediaPrefix + "abc");
+    verify(remoteStorageManager, times(1)).delete(mediaPrefix + "def");
+    verify(remoteStorageManager, times(1)).delete(mediaPrefix + "ghi");
+    verifyNoMoreInteractions(remoteStorageManager);
   }
 
   private Map<String, AttributeValue> getBackupItem(final AuthenticatedBackupUser backupUser) {

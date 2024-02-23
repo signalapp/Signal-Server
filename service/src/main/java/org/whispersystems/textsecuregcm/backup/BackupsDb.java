@@ -1,3 +1,7 @@
+/*
+ * Copyright 2024 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
 package org.whispersystems.textsecuregcm.backup;
 
 import io.grpc.Status;
@@ -12,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Predicate;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,11 +24,15 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedBackupUser;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.Util;
+import reactor.core.publisher.Flux;
+import reactor.core.scheduler.Scheduler;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
+import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 import software.amazon.awssdk.services.dynamodb.model.Update;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 
@@ -64,6 +73,7 @@ public class BackupsDb {
   // N: Time in seconds since epoch of last backup media usage recalculation. This timestamp is updated whenever we
   // recalculate the up-to-date bytes used by querying the cdn(s) directly.
   public static final String ATTR_MEDIA_USAGE_LAST_RECALCULATION = "MBTS";
+  // BOOL: If true,
 
   public BackupsDb(
       final DynamoDbAsyncClient dynamoClient,
@@ -125,12 +135,13 @@ public class BackupsDb {
   /**
    * Update the quota in the backup table
    *
-   * @param backupUser  The backup user
+   * @param backupUser      The backup user
    * @param mediaBytesDelta The length of the media after encryption. A negative length implies media being removed
    * @param mediaCountDelta The number of media objects being added, or if negative, removed
    * @return A stage that completes successfully once the table are updated.
    */
-  CompletableFuture<Void> trackMedia(final AuthenticatedBackupUser backupUser, final long mediaCountDelta, final long mediaBytesDelta) {
+  CompletableFuture<Void> trackMedia(final AuthenticatedBackupUser backupUser, final long mediaCountDelta,
+      final long mediaBytesDelta) {
     final Instant now = clock.instant();
     return dynamoClient
         .updateItem(
@@ -172,6 +183,14 @@ public class BackupsDb {
                 .setCdn(BACKUP_CDN)
                 .updateItemBuilder()
                 .build())
+        .thenRun(Util.NOOP);
+  }
+
+  CompletableFuture<Void> deleteBackup(final byte[] hashedBackupId) {
+    return dynamoClient.deleteItem(DeleteItemRequest.builder()
+            .tableName(backupTableName)
+            .key(Map.of(KEY_BACKUP_ID_HASH, AttributeValues.b(hashedBackupId)))
+            .build())
         .thenRun(Util.NOOP);
   }
 
@@ -250,6 +269,66 @@ public class BackupsDb {
         .thenRun(Util.NOOP);
   }
 
+  CompletableFuture<Void> clearMediaUsage(final byte[] hashedBackupId) {
+    return dynamoClient.updateItem(
+            new UpdateBuilder(backupTableName, BackupTier.MEDIA, hashedBackupId)
+                .addSetExpression("#mediaBytesUsed = :mediaBytesUsed",
+                    Map.entry("#mediaBytesUsed", ATTR_MEDIA_BYTES_USED),
+                    Map.entry(":mediaBytesUsed", AttributeValues.n(0L)))
+                .addSetExpression("#mediaCount = :mediaCount",
+                    Map.entry("#mediaCount", ATTR_MEDIA_COUNT),
+                    Map.entry(":mediaCount", AttributeValues.n(0L)))
+                .addSetExpression("#mediaRecalc = :mediaRecalc",
+                    Map.entry("#mediaRecalc", ATTR_MEDIA_USAGE_LAST_RECALCULATION),
+                    Map.entry(":mediaRecalc", AttributeValues.n(clock.instant().getEpochSecond())))
+                .addRemoveExpression(Map.entry("#mediaRefresh", ATTR_LAST_MEDIA_REFRESH))
+                .updateItemBuilder()
+                .build())
+        .thenRun(Util.NOOP);
+  }
+
+  Flux<ExpiredBackup> getExpiredBackups(final int segments, final Scheduler scheduler, final Instant purgeTime) {
+    if (segments < 1) {
+      throw new IllegalArgumentException("Total number of segments must be positive");
+    }
+
+    return Flux.range(0, segments)
+        .parallel()
+        .runOn(scheduler)
+        .flatMap(segment -> dynamoClient.scanPaginator(ScanRequest.builder()
+                .tableName(backupTableName)
+                .consistentRead(true)
+                .segment(segment)
+                .totalSegments(segments)
+                .expressionAttributeNames(Map.of(
+                    "#backupIdHash", KEY_BACKUP_ID_HASH,
+                    "#refresh", ATTR_LAST_REFRESH,
+                    "#mediaRefresh", ATTR_LAST_MEDIA_REFRESH))
+                .expressionAttributeValues(Map.of(":purgeTime", AttributeValues.n(purgeTime.getEpochSecond())))
+                .projectionExpression("#backupIdHash, #refresh, #mediaRefresh")
+                .filterExpression("(#refresh < :purgeTime) OR (#mediaRefresh < :purgeTime)")
+                .build())
+            .items())
+        .sequential()
+        .filter(Predicate.not(Map::isEmpty))
+        .mapNotNull(item -> {
+          final byte[] hashedBackupId = AttributeValues.getByteArray(item, KEY_BACKUP_ID_HASH, null);
+          if (hashedBackupId == null) {
+            return null;
+          }
+          final long lastRefresh = AttributeValues.getLong(item, ATTR_LAST_REFRESH, Long.MAX_VALUE);
+          final long lastMediaRefresh = AttributeValues.getLong(item, ATTR_LAST_MEDIA_REFRESH, Long.MAX_VALUE);
+
+          if (lastRefresh < purgeTime.getEpochSecond()) {
+            return new ExpiredBackup(hashedBackupId, BackupTier.MESSAGES);
+          } else if (lastMediaRefresh < purgeTime.getEpochSecond()) {
+            return new ExpiredBackup(hashedBackupId, BackupTier.MEDIA);
+          } else {
+            return null;
+          }
+        });
+  }
+
 
   /**
    * Build ddb update statements for the backups table
@@ -257,6 +336,7 @@ public class BackupsDb {
   private static class UpdateBuilder {
 
     private final List<String> setStatements = new ArrayList<>();
+    private final List<String> removeStatements = new ArrayList<>();
     private final Map<String, AttributeValue> attrValues = new HashMap<>();
     private final Map<String, String> attrNames = new HashMap<>();
 
@@ -305,6 +385,12 @@ public class BackupsDb {
 
     UpdateBuilder addSetExpression(final String update) {
       setStatements.add(update);
+      return this;
+    }
+
+    UpdateBuilder addRemoveExpression(final Map.Entry<String, String> attrName) {
+      addAttrName(attrName);
+      removeStatements.add(attrName.getKey());
       return this;
     }
 
@@ -369,6 +455,19 @@ public class BackupsDb {
       return this;
     }
 
+    private String updateExpression() {
+      final StringBuilder sb = new StringBuilder();
+      if (!setStatements.isEmpty()) {
+        sb.append("SET ");
+        sb.append(String.join(",", setStatements));
+      }
+      if (!removeStatements.isEmpty()) {
+        sb.append(" REMOVE ");
+        sb.append(String.join(",", removeStatements));
+      }
+      return sb.toString();
+    }
+
     /**
      * Prepare a non-transactional update
      *
@@ -378,7 +477,7 @@ public class BackupsDb {
       final UpdateItemRequest.Builder bldr = UpdateItemRequest.builder()
           .tableName(tableName)
           .key(Map.of(KEY_BACKUP_ID_HASH, AttributeValues.b(hashedBackupId)))
-          .updateExpression("SET %s".formatted(String.join(",", setStatements)))
+          .updateExpression(updateExpression())
           .expressionAttributeNames(attrNames)
           .expressionAttributeValues(attrValues);
       if (this.conditionExpression != null) {
@@ -396,7 +495,7 @@ public class BackupsDb {
       final Update.Builder bldr = Update.builder()
           .tableName(tableName)
           .key(Map.of(KEY_BACKUP_ID_HASH, AttributeValues.b(hashedBackupId)))
-          .updateExpression("SET %s".formatted(String.join(",", setStatements)))
+          .updateExpression(updateExpression())
           .expressionAttributeNames(attrNames)
           .expressionAttributeValues(attrValues);
       if (this.conditionExpression != null) {

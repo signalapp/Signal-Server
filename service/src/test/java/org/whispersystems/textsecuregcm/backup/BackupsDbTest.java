@@ -14,6 +14,8 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.List;
+import java.util.function.Function;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -25,6 +27,7 @@ import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema;
 import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
 import org.whispersystems.textsecuregcm.util.TestClock;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
+import reactor.core.scheduler.Schedulers;
 
 public class BackupsDbTest {
 
@@ -77,6 +80,44 @@ public class BackupsDbTest {
     assertThat(info.lastRecalculationTime()).isEqualTo(Instant.ofEpochSecond(5));
     assertThat(info.usageInfo().bytesUsed()).isEqualTo(113L);
     assertThat(info.usageInfo().numObjects()).isEqualTo(17L);
+  }
+
+  @Test
+  public void expirationDetectedOnce() {
+    final byte[] backupId = TestRandomUtil.nextBytes(16);
+    // Refresh media/messages at t=0
+    testClock.pin(Instant.ofEpochSecond(0L));
+    this.backupsDb.ttlRefresh(backupUser(backupId, BackupTier.MEDIA)).join();
+
+    // refresh only messages at t=2
+    testClock.pin(Instant.ofEpochSecond(2L));
+    this.backupsDb.ttlRefresh(backupUser(backupId, BackupTier.MESSAGES)).join();
+
+    final Function<Instant, List<ExpiredBackup>> expiredBackups = purgeTime -> backupsDb
+        .getExpiredBackups(1, Schedulers.immediate(), purgeTime)
+        .collectList()
+        .block();
+
+    List<ExpiredBackup> expired = expiredBackups.apply(Instant.ofEpochSecond(1));
+    assertThat(expired).hasSize(1).first()
+        .matches(eb -> eb.backupTierToRemove() == BackupTier.MEDIA);
+
+    // Expire the media
+    backupsDb.clearMediaUsage(expired.get(0).hashedBackupId()).join();
+
+    // should be nothing to expire at t=1
+    assertThat(expiredBackups.apply(Instant.ofEpochSecond(1))).isEmpty();
+
+    // at t=3, should now expire messages as well
+    expired = expiredBackups.apply(Instant.ofEpochSecond(3));
+    assertThat(expired).hasSize(1).first()
+        .matches(eb -> eb.backupTierToRemove() == BackupTier.MESSAGES);
+
+    // Expire the messages
+    backupsDb.deleteBackup(expired.get(0).hashedBackupId()).join();
+
+    // should be nothing to expire at t=3
+    assertThat(expiredBackups.apply(Instant.ofEpochSecond(3))).isEmpty();
   }
 
   private AuthenticatedBackupUser backupUser(final byte[] backupId, final BackupTier backupTier) {

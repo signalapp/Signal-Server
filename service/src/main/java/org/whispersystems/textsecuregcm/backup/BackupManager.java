@@ -7,11 +7,13 @@ package org.whispersystems.textsecuregcm.backup;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.grpc.Status;
+import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
 import java.io.IOException;
 import java.net.URI;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HexFormat;
@@ -34,6 +36,7 @@ import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Scheduler;
 
 public class BackupManager {
 
@@ -50,6 +53,9 @@ public class BackupManager {
       "authorizationFailure");
   private static final String USAGE_RECALCULATION_COUNTER_NAME = MetricsUtil.name(BackupManager.class,
       "usageRecalculation");
+  private static final String DELETE_MEDIA_COUNT_DISTRIBUTION_NAME = MetricsUtil.name(BackupManager.class,
+      "deleteMediaCount");
+
   private static final String SUCCESS_TAG_NAME = "success";
   private static final String FAILURE_REASON_TAG_NAME = "reason";
 
@@ -475,6 +481,73 @@ public class BackupManager {
         });
   }
 
+  /**
+   * List all backups whose media or messages refresh timestamp are older than the provided purgeTime
+   *
+   * @param segments  Number of segments to read in parallel from the underlying backup database
+   * @param scheduler Scheduler for running downstream operations
+   * @param purgeTime If a backup's last message refresh time is strictly before purgeTime, it will be marked as
+   *                  requiring full deletion. If only the last refresh time is strictly before purgeTime, it will be
+   *                  marked as requiring message deletion. Otherwise, it will not be included in the results.
+   * @return Flux of backups that require some deletion action
+   */
+  public Flux<ExpiredBackup> getExpiredBackups(final int segments, final Scheduler scheduler, final Instant purgeTime) {
+    return this.backupsDb.getExpiredBackups(segments, scheduler, purgeTime);
+  }
+
+  /**
+   * Delete some or all of the objects associated with the backup, and update the backup database.
+   *
+   * @param backupTierToRemove If {@link BackupTier#MEDIA}, will only delete media associated with the backup, if
+   *                           {@link BackupTier#MESSAGES} will also delete the messageBackup and remove any db record
+   *                           of the backup
+   * @param hashedBackupId     The hashed backup-id for the backup
+   * @return A stage that completes when the deletion operation is finished
+   */
+  public CompletableFuture<Void> deleteBackup(final BackupTier backupTierToRemove, final byte[] hashedBackupId) {
+    return switch (backupTierToRemove) {
+      case NONE -> CompletableFuture.completedFuture(null);
+      // Delete any media associated with the backup id, the message backup, and the row in our backups db table
+      case MESSAGES -> deleteAllMedia(hashedBackupId)
+          .thenCompose(ignored -> this.remoteStorageManager.delete(
+              "%s/%s".formatted(encodeForCdn(hashedBackupId), MESSAGE_BACKUP_NAME)))
+          .thenCompose(ignored -> this.backupsDb.deleteBackup(hashedBackupId));
+      // Delete any media associated with the backup id, and clear any used media bytes
+      case MEDIA -> deleteAllMedia(hashedBackupId).thenCompose(ignore -> backupsDb.clearMediaUsage(hashedBackupId));
+    };
+  }
+
+  /**
+   * List and delete all media associated with a backup.
+   *
+   * @param hashedBackupId The hashed backup-id for the backup
+   * @return A stage that completes when all media objects have been deleted
+   */
+  private CompletableFuture<Void> deleteAllMedia(final byte[] hashedBackupId) {
+    final String mediaPrefix = cdnMediaDirectory(hashedBackupId);
+    return Mono
+        .fromCompletionStage(this.remoteStorageManager.list(mediaPrefix, Optional.empty(), 1000))
+        .expand(listResult -> {
+          if (listResult.cursor().isEmpty()) {
+            return Mono.empty();
+          }
+          return Mono.fromCompletionStage(() -> this.remoteStorageManager.list(mediaPrefix, listResult.cursor(), 1000));
+        })
+        .flatMap(listResult -> Flux.fromIterable(listResult.objects()))
+        // Delete the media objects. concatMap effectively makes the deletion operation single threaded -- it's expected
+        // the caller can increase/ concurrency by deleting more backups at once, rather than increasing concurrency
+        // deleting an individual backup
+        .concatMap(result -> Mono.fromCompletionStage(() ->
+            remoteStorageManager.delete("%s%s".formatted(mediaPrefix, result.key()))))
+        .count()
+        .doOnSuccess(itemsRemoved -> DistributionSummary.builder(DELETE_MEDIA_COUNT_DISTRIBUTION_NAME)
+            .publishPercentileHistogram(true)
+            .register(Metrics.globalRegistry)
+            .record(itemsRemoved))
+        .then()
+        .toFuture();
+  }
+
 
   /**
    * Verify the presentation and return the extracted backup tier
@@ -539,6 +612,10 @@ public class BackupManager {
 
   private static String cdnMediaDirectory(final AuthenticatedBackupUser backupUser) {
     return "%s/%s/".formatted(encodeBackupIdForCdn(backupUser), MEDIA_DIRECTORY_NAME);
+  }
+
+  private static String cdnMediaDirectory(final byte[] hashedBackupId) {
+    return "%s/%s/".formatted(encodeForCdn(hashedBackupId), MEDIA_DIRECTORY_NAME);
   }
 
   private static String cdnMediaPath(final AuthenticatedBackupUser backupUser, final byte[] mediaId) {
