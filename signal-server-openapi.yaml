@@ -1618,7 +1618,7 @@ paths:
       - Keys
       summary: Upload new prekeys
       description: Upload new pre-keys for this device.
-      operationId: setKeys
+      operationId: setKeys_1
       parameters:
       - name: identity
         in: query
@@ -1646,6 +1646,47 @@ paths:
           description: Attempt to change identity key from a non-primary device.
         "422":
           description: Invalid request format.
+      security:
+      - authenticatedAccount: []
+  /v2/keys/check:
+    post:
+      tags:
+      - Keys
+      summary: Check keys
+      description: |
+        Checks that client and server have consistent views of repeated-use keys. For a given identity type, clients
+        submit a digest of their repeated-use key material. The digest is calculated as:
+
+        SHA256(identityKeyBytes || signedEcPreKeyId || signedEcPreKeyIdBytes || lastResortKeyId || lastResortKeyBytes)
+
+        …where the elements of the hash are:
+
+        - identityKeyBytes: the serialized form of the client's public identity key as produced by libsignal (i.e. one
+          version byte followed by 32 bytes of key material for a total of 33 bytes)
+        - signedEcPreKeyId: an 8-byte, big-endian representation of the ID of the client's signed EC pre-key
+        - signedEcPreKeyBytes: the serialized form of the client's signed EC pre-key as produced by libsignal (i.e. one
+          version byte followed by 32 bytes of key material for a total of 33 bytes)
+        - lastResortKeyId: an 8-byte, big-endian representation of the ID of the client's last-resort Kyber key
+        - lastResortKeyBytes: the serialized form of the client's last-resort Kyber key as produced by libsignal (i.e. one
+          version byte followed by 1568 bytes of key material for a total of 1569 bytes)
+      operationId: setKeys
+      parameters:
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Indicates that client and server have consistent views of repeated-use
+            keys
+        "401":
+          description: Account authentication check failed
+        "409":
+          description: |2
+              Indicates that client and server have inconsistent views of repeated-use keys or one or more repeated-use keys could
+              not be found
+        "422":
+          description: Invalid request format
       security:
       - authenticatedAccount: []
   /v2/keys/signed:
@@ -1677,6 +1718,7 @@ paths:
           description: Account authentication check failed.
         "422":
           description: Invalid request format.
+      deprecated: true
       security:
       - authenticatedAccount: []
   /v1/messages:
@@ -3968,6 +4010,54 @@ components:
           type: array
           items:
             type: string
+            format: byte
+    CheckKeysRequest:
+      required:
+      - digest
+      - identityType
+      type: object
+      properties:
+        identityType:
+          type: string
+          description: |
+            The identity type for which to check for a shared view of repeated-use keys
+          enum:
+          - ACI
+          - PNI
+        digest:
+          type: array
+          description: |
+            A 32-byte digest of the client's repeated-use keys for the given identity type. The digest is calculated as:
+
+            SHA256(identityKeyBytes || signedEcPreKeyId || signedEcPreKeyIdBytes || lastResortKeyId || lastResortKeyBytes)
+
+            …where the elements of the hash are:
+
+            - identityKeyBytes: the serialized form of the client's public identity key as produced by libsignal (i.e. one
+              version byte followed by 32 bytes of key material for a total of 33 bytes)
+            - signedEcPreKeyId: an 8-byte, big-endian representation of the ID of the client's signed EC pre-key
+            - signedEcPreKeyBytes: the serialized form of the client's signed EC pre-key as produced by libsignal (i.e. one
+              version byte followed by 32 bytes of key material for a total of 33 bytes)
+            - lastResortKeyId: an 8-byte, big-endian representation of the ID of the client's last-resort Kyber key
+            - lastResortKeyBytes: the serialized form of the client's last-resort Kyber key as produced by libsignal (i.e.
+              one version byte followed by 1568 bytes of key material for a total of 1569 bytes)
+          items:
+            type: string
+            description: |
+              A 32-byte digest of the client's repeated-use keys for the given identity type. The digest is calculated as:
+
+              SHA256(identityKeyBytes || signedEcPreKeyId || signedEcPreKeyIdBytes || lastResortKeyId || lastResortKeyBytes)
+
+              …where the elements of the hash are:
+
+              - identityKeyBytes: the serialized form of the client's public identity key as produced by libsignal (i.e. one
+                version byte followed by 32 bytes of key material for a total of 33 bytes)
+              - signedEcPreKeyId: an 8-byte, big-endian representation of the ID of the client's signed EC pre-key
+              - signedEcPreKeyBytes: the serialized form of the client's signed EC pre-key as produced by libsignal (i.e. one
+                version byte followed by 32 bytes of key material for a total of 33 bytes)
+              - lastResortKeyId: an 8-byte, big-endian representation of the ID of the client's last-resort Kyber key
+              - lastResortKeyBytes: the serialized form of the client's last-resort Kyber key as produced by libsignal (i.e.
+                one version byte followed by 1568 bytes of key material for a total of 1569 bytes)
             format: byte
     SetKeysRequest:
       type: object
