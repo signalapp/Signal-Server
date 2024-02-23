@@ -40,8 +40,6 @@ metrics:
         - ^lettuce\..+$
   reportOnStop: true
 
-grpcPort: 8080
-
 tlsKeyStore:
   password: secret://tlsKeyStore.password
 

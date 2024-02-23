@@ -301,11 +301,6 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @NotNull
   @JsonProperty
-  private int grpcPort;
-
-  @Valid
-  @NotNull
-  @JsonProperty
   private ClientReleaseConfiguration clientRelease = new ClientReleaseConfiguration(Duration.ofHours(4));
 
   @Valid
@@ -537,10 +532,6 @@ public class WhisperServerConfiguration extends Configuration {
 
   public TusConfiguration getTus() {
     return tus;
-  }
-
-  public int getGrpcPort() {
-    return grpcPort;
   }
 
   public ClientReleaseConfiguration getClientReleaseConfiguration() {

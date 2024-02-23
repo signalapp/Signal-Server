@@ -8,7 +8,6 @@ package org.whispersystems.textsecuregcm.util;
 import com.google.protobuf.ByteString;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
-import java.util.Optional;
 import java.util.UUID;
 
 public final class UUIDUtil {
@@ -40,6 +39,10 @@ public final class UUIDUtil {
     return fromByteBuffer(ByteBuffer.wrap(bytes));
   }
 
+  public static UUID fromBytes(final byte[] bytes, final int offset) {
+    return fromByteBuffer(ByteBuffer.wrap(bytes, offset, 16));
+  }
+
   public static UUID fromByteBuffer(final ByteBuffer byteBuffer) {
     try {
       final long mostSigBits = byteBuffer.getLong();
@@ -50,14 +53,6 @@ public final class UUIDUtil {
       return new UUID(mostSigBits, leastSigBits);
     } catch (BufferUnderflowException e) {
       throw new IllegalArgumentException("unexpected byte array length; was less than 16");
-    }
-  }
-
-  public static Optional<UUID> fromStringSafe(final String uuidString) {
-    try {
-      return Optional.of(UUID.fromString(uuidString));
-    } catch (final IllegalArgumentException e) {
-      return Optional.empty();
     }
   }
 }

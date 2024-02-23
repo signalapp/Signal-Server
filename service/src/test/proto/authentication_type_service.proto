@@ -1,0 +1,22 @@
+/*
+ * Copyright 2023 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
+syntax = "proto3";
+
+option java_multiple_files = true;
+
+package org.signal.chat.rpc;
+
+// A simple test service that identifies its authentication type to callers
+service AuthenticationType {
+  rpc GetAuthenticated (GetAuthenticatedRequest) returns (GetAuthenticatedResponse) {}
+}
+
+message GetAuthenticatedRequest {
+}
+
+message GetAuthenticatedResponse {
+  bool authenticated = 1;
+}

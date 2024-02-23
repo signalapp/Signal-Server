@@ -53,6 +53,11 @@
     </dependency>
 
     <dependency>
+      <groupId>org.signal.forks</groupId>
+      <artifactId>noise-java</artifactId>
+    </dependency>
+
+    <dependency>
       <groupId>io.dropwizard</groupId>
       <artifactId>dropwizard-core</artifactId>
     </dependency>
@@ -242,8 +247,7 @@
 
     <dependency>
       <groupId>io.grpc</groupId>
-      <artifactId>grpc-netty-shaded</artifactId>
-      <scope>runtime</scope>
+      <artifactId>grpc-netty</artifactId>
     </dependency>
     <dependency>
       <groupId>io.grpc</groupId>

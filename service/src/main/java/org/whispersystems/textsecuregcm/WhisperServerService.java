@@ -21,13 +21,13 @@ import io.dropwizard.core.setup.Bootstrap;
 import io.dropwizard.core.setup.Environment;
 import io.dropwizard.jetty.HttpsConnectorFactory;
 import io.grpc.ServerBuilder;
-import io.grpc.ServerInterceptors;
 import io.lettuce.core.metrics.MicrometerCommandLatencyRecorder;
 import io.lettuce.core.metrics.MicrometerOptions;
 import io.lettuce.core.resource.ClientResources;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.binder.grpc.MetricCollectingServerInterceptor;
 import io.micrometer.core.instrument.binder.jvm.ExecutorServiceMetrics;
+import io.netty.channel.local.LocalAddress;
 import java.net.http.HttpClient;
 import java.time.Clock;
 import java.time.Duration;
@@ -134,13 +134,14 @@ import org.whispersystems.textsecuregcm.grpc.AccountsGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ErrorMappingInterceptor;
 import org.whispersystems.textsecuregcm.grpc.ExternalServiceCredentialsAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ExternalServiceCredentialsGrpcService;
-import org.whispersystems.textsecuregcm.grpc.GrpcServerManagedWrapper;
 import org.whispersystems.textsecuregcm.grpc.KeysAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.KeysGrpcService;
 import org.whispersystems.textsecuregcm.grpc.PaymentsGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ProfileAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ProfileGrpcService;
 import org.whispersystems.textsecuregcm.grpc.UserAgentInterceptor;
+import org.whispersystems.textsecuregcm.grpc.net.ManagedDefaultEventLoopGroup;
+import org.whispersystems.textsecuregcm.grpc.net.ManagedLocalGrpcServer;
 import org.whispersystems.textsecuregcm.limits.CardinalityEstimator;
 import org.whispersystems.textsecuregcm.limits.PushChallengeManager;
 import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
@@ -753,20 +754,67 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final BasicCredentialAuthenticationInterceptor basicCredentialAuthenticationInterceptor =
         new BasicCredentialAuthenticationInterceptor(new AccountAuthenticator(accountsManager));
 
-    final ServerBuilder<?> grpcServer = ServerBuilder.forPort(config.getGrpcPort())
-        .addService(ServerInterceptors.intercept(new AccountsGrpcService(accountsManager, rateLimiters, usernameHashZkProofVerifier, registrationRecoveryPasswordsManager), basicCredentialAuthenticationInterceptor))
-        .addService(new AccountsAnonymousGrpcService(accountsManager, rateLimiters))
-        .addService(ExternalServiceCredentialsGrpcService.createForAllExternalServices(config, rateLimiters))
-        .addService(ExternalServiceCredentialsAnonymousGrpcService.create(accountsManager, config))
-        .addService(ServerInterceptors.intercept(new KeysGrpcService(accountsManager, keysManager, rateLimiters), basicCredentialAuthenticationInterceptor))
-        .addService(new KeysAnonymousGrpcService(accountsManager, keysManager))
-        .addService(new PaymentsGrpcService(currencyManager))
-        .addService(ServerInterceptors.intercept(new ProfileGrpcService(clock, accountsManager, profilesManager, dynamicConfigurationManager,
-                config.getBadges(), asyncCdnS3Client, profileCdnPolicyGenerator, profileCdnPolicySigner, profileBadgeConverter, rateLimiters, zkProfileOperations, config.getCdnConfiguration().bucket()), basicCredentialAuthenticationInterceptor))
-        .addService(new ProfileAnonymousGrpcService(accountsManager, profilesManager, profileBadgeConverter, zkProfileOperations));
+    final ManagedDefaultEventLoopGroup localEventLoopGroup = new ManagedDefaultEventLoopGroup();
+
+    final RemoteDeprecationFilter remoteDeprecationFilter = new RemoteDeprecationFilter(dynamicConfigurationManager);
+    final MetricCollectingServerInterceptor metricCollectingServerInterceptor =
+        new MetricCollectingServerInterceptor(Metrics.globalRegistry);
+
+    final ErrorMappingInterceptor errorMappingInterceptor = new ErrorMappingInterceptor();
+    final AcceptLanguageInterceptor acceptLanguageInterceptor = new AcceptLanguageInterceptor();
+    final UserAgentInterceptor userAgentInterceptor = new UserAgentInterceptor();
+
+    final LocalAddress anonymousGrpcServerAddress = new LocalAddress("grpc-anonymous");
+    final LocalAddress authenticatedGrpcServerAddress = new LocalAddress("grpc-authenticated");
+
+    final ManagedLocalGrpcServer anonymousGrpcServer = new ManagedLocalGrpcServer(anonymousGrpcServerAddress, localEventLoopGroup) {
+      @Override
+      protected void configureServer(final ServerBuilder<?> serverBuilder) {
+        // Note: interceptors run in the reverse order they are added; the remote deprecation filter
+        // depends on the user-agent context so it has to come first here!
+        // http://grpc.github.io/grpc-java/javadoc/io/grpc/ServerBuilder.html#intercept-io.grpc.ServerInterceptor-
+        serverBuilder
+            // TODO: specialize metrics with user-agent platform
+            .intercept(metricCollectingServerInterceptor)
+            .intercept(errorMappingInterceptor)
+            .intercept(acceptLanguageInterceptor)
+            .intercept(remoteDeprecationFilter)
+            .intercept(userAgentInterceptor)
+            .addService(new AccountsAnonymousGrpcService(accountsManager, rateLimiters))
+            .addService(new KeysAnonymousGrpcService(accountsManager, keysManager))
+            .addService(new PaymentsGrpcService(currencyManager))
+            .addService(ExternalServiceCredentialsAnonymousGrpcService.create(accountsManager, config))
+            .addService(new ProfileAnonymousGrpcService(accountsManager, profilesManager, profileBadgeConverter, zkProfileOperations));
+      }
+    };
+
+    final ManagedLocalGrpcServer authenticatedGrpcServer = new ManagedLocalGrpcServer(authenticatedGrpcServerAddress, localEventLoopGroup) {
+      @Override
+      protected void configureServer(final ServerBuilder<?> serverBuilder) {
+        // Note: interceptors run in the reverse order they are added; the remote deprecation filter
+        // depends on the user-agent context so it has to come first here!
+        // http://grpc.github.io/grpc-java/javadoc/io/grpc/ServerBuilder.html#intercept-io.grpc.ServerInterceptor-
+        serverBuilder
+            // TODO: specialize metrics with user-agent platform
+            .intercept(metricCollectingServerInterceptor)
+            .intercept(errorMappingInterceptor)
+            .intercept(acceptLanguageInterceptor)
+            .intercept(remoteDeprecationFilter)
+            .intercept(userAgentInterceptor)
+            .intercept(new BasicCredentialAuthenticationInterceptor(new AccountAuthenticator(accountsManager)))
+            .addService(new AccountsGrpcService(accountsManager, rateLimiters, usernameHashZkProofVerifier, registrationRecoveryPasswordsManager))
+            .addService(ExternalServiceCredentialsGrpcService.createForAllExternalServices(config, rateLimiters))
+            .addService(new KeysGrpcService(accountsManager, keysManager, rateLimiters))
+            .addService(new ProfileGrpcService(clock, accountsManager, profilesManager, dynamicConfigurationManager,
+                config.getBadges(), asyncCdnS3Client, profileCdnPolicyGenerator, profileCdnPolicySigner, profileBadgeConverter, rateLimiters, zkProfileOperations, config.getCdnConfiguration().bucket()));
+      }
+    };
+
+    environment.lifecycle().manage(localEventLoopGroup);
+    environment.lifecycle().manage(anonymousGrpcServer);
+    environment.lifecycle().manage(authenticatedGrpcServer);
 
     final List<Filter> filters = new ArrayList<>();
-    final RemoteDeprecationFilter remoteDeprecationFilter = new RemoteDeprecationFilter(dynamicConfigurationManager);
     filters.add(remoteDeprecationFilter);
     filters.add(new RemoteAddressFilter(useRemoteAddress));
 
@@ -775,19 +823,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
           .addFilter(filter.getClass().getSimpleName(), filter)
           .addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST), false, "/*");
     }
-
-    // Note: interceptors run in the reverse order they are added; the remote deprecation filter
-    // depends on the user-agent context so it has to come first here!
-    // http://grpc.github.io/grpc-java/javadoc/io/grpc/ServerBuilder.html#intercept-io.grpc.ServerInterceptor-
-    grpcServer
-        // TODO: specialize metrics with user-agent platform
-        .intercept(new MetricCollectingServerInterceptor(Metrics.globalRegistry))
-        .intercept(new ErrorMappingInterceptor())
-        .intercept(new AcceptLanguageInterceptor())
-        .intercept(remoteDeprecationFilter)
-        .intercept(new UserAgentInterceptor());
-
-    environment.lifecycle().manage(new GrpcServerManagedWrapper(grpcServer.build()));
 
     final AuthFilter<BasicCredentials, AuthenticatedAccount> accountAuthFilter =
         new BasicCredentialAuthFilter.Builder<AuthenticatedAccount>()
