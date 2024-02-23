@@ -73,6 +73,7 @@ import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValuesOnConditionCheckFailure;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItemsRequest;
+import software.amazon.awssdk.services.dynamodb.model.TransactWriteItemsResponse;
 import software.amazon.awssdk.services.dynamodb.model.TransactionCanceledException;
 import software.amazon.awssdk.services.dynamodb.model.TransactionConflictException;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
@@ -960,7 +961,7 @@ class AccountsTest {
   }
 
   @Test
-  void testUsernameHashConflict() {
+  void testUsernameHashNotAvailable() {
     final Account firstAccount = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
     final Account secondAccount = generateAccount("+18005559876", UUID.randomUUID(), UUID.randomUUID());
 
@@ -992,6 +993,92 @@ class AccountsTest {
 
     assertThat(secondAccount.getReservedUsernameHash()).isEmpty();
     assertThat(secondAccount.getUsernameHash()).isEmpty();
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void testReserveUsernameHashTransactionConflict(final Optional<String> constraintCancellationString,
+      final Optional<String> accountsCancellationString,
+      final Class<Exception> expectedException) {
+    final DynamoDbAsyncClient dbAsyncClient = mock(DynamoDbAsyncClient.class);
+
+    accounts = new Accounts(mock(DynamoDbClient.class),
+        dbAsyncClient,
+        Tables.ACCOUNTS.tableName(),
+        Tables.NUMBERS.tableName(),
+        Tables.PNI_ASSIGNMENTS.tableName(),
+        Tables.USERNAMES.tableName(),
+        Tables.DELETED_ACCOUNTS.tableName());
+    final Account account = generateAccount("+14155551111", UUID.randomUUID(), UUID.randomUUID());
+    createAccount(account);
+
+    final CancellationReason constraintCancellationReason = constraintCancellationString.map(
+        reason -> CancellationReason.builder().code(reason).build()
+    ).orElse(CancellationReason.builder().build());
+
+    final CancellationReason accountsCancellationReason = accountsCancellationString.map(
+        reason -> CancellationReason.builder().code(reason).build()
+    ).orElse(CancellationReason.builder().build());
+
+    when(dbAsyncClient.transactWriteItems(any(TransactWriteItemsRequest.class)))
+        .thenReturn(CompletableFuture.failedFuture(TransactionCanceledException.builder()
+            .cancellationReasons(constraintCancellationReason, accountsCancellationReason)
+            .build()));
+
+    CompletableFutureTestUtil.assertFailsWithCause(expectedException,
+        accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1)));
+  }
+
+  private static Stream<Arguments> testReserveUsernameHashTransactionConflict() {
+    return Stream.of(
+        Arguments.of(Optional.of("TransactionConflict"), Optional.empty(), ContestedOptimisticLockException.class),
+        Arguments.of(Optional.empty(), Optional.of("TransactionConflict"), ContestedOptimisticLockException.class),
+        Arguments.of(Optional.of("ConditionalCheckFailed"), Optional.of("TransactionConflict"), UsernameHashNotAvailableException.class)
+    );
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void testConfirmUsernameHashTransactionConflict(final Optional<String> constraintCancellationString,
+      final Optional<String> accountsCancellationString,
+      final Class<Exception> expectedException) {
+    final DynamoDbAsyncClient dbAsyncClient = mock(DynamoDbAsyncClient.class);
+
+    accounts = new Accounts(mock(DynamoDbClient.class),
+        dbAsyncClient,
+        Tables.ACCOUNTS.tableName(),
+        Tables.NUMBERS.tableName(),
+        Tables.PNI_ASSIGNMENTS.tableName(),
+        Tables.USERNAMES.tableName(),
+        Tables.DELETED_ACCOUNTS.tableName());
+    final Account account = generateAccount("+14155551111", UUID.randomUUID(), UUID.randomUUID());
+    createAccount(account);
+
+    final CancellationReason constraintCancellationReason = constraintCancellationString.map(
+        reason -> CancellationReason.builder().code(reason).build()
+    ).orElse(CancellationReason.builder().build());
+
+    final CancellationReason accountsCancellationReason = accountsCancellationString.map(
+        reason -> CancellationReason.builder().code(reason).build()
+    ).orElse(CancellationReason.builder().build());
+
+    when(dbAsyncClient.transactWriteItems(any(TransactWriteItemsRequest.class)))
+        .thenReturn(CompletableFuture.failedFuture(TransactionCanceledException.builder()
+            .cancellationReasons(constraintCancellationReason,
+                accountsCancellationReason,
+                CancellationReason.builder().build())
+            .build()));
+
+    CompletableFutureTestUtil.assertFailsWithCause(expectedException,
+        accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
+  }
+
+  private static Stream<Arguments> testConfirmUsernameHashTransactionConflict() {
+    return Stream.of(
+        Arguments.of(Optional.of("TransactionConflict"), Optional.empty(), ContestedOptimisticLockException.class),
+        Arguments.of(Optional.empty(), Optional.of("TransactionConflict"), ContestedOptimisticLockException.class),
+        Arguments.of(Optional.of("ConditionalCheckFailed"), Optional.of("TransactionConflict"), UsernameHashNotAvailableException.class)
+    );
   }
 
   @Test
@@ -1049,6 +1136,55 @@ class AccountsTest {
         accounts.clearUsernameHash(account));
 
     assertArrayEquals(account.getUsernameHash().orElseThrow(), USERNAME_HASH_1);
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void testClearUsernameTransactionConflict(final Optional<String> constraintCancellationString,
+      final Optional<String> accountsCancellationString) {
+    final DynamoDbAsyncClient dbAsyncClient = mock(DynamoDbAsyncClient.class);
+
+    accounts = new Accounts(mock(DynamoDbClient.class),
+        dbAsyncClient,
+        Tables.ACCOUNTS.tableName(),
+        Tables.NUMBERS.tableName(),
+        Tables.PNI_ASSIGNMENTS.tableName(),
+        Tables.USERNAMES.tableName(),
+        Tables.DELETED_ACCOUNTS.tableName());
+
+    final Account account = generateAccount("+14155551111", UUID.randomUUID(), UUID.randomUUID());
+    createAccount(account);
+
+    when(dbAsyncClient.transactWriteItems(any(TransactWriteItemsRequest.class)))
+        .thenReturn(CompletableFuture.completedFuture(mock(TransactWriteItemsResponse.class)));
+
+    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1)).join();
+    accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1).join();
+
+    final CancellationReason constraintCancellationReason = constraintCancellationString.map(
+        reason -> CancellationReason.builder().code(reason).build()
+    ).orElse(CancellationReason.builder().build());
+
+    final CancellationReason accountsCancellationReason = accountsCancellationString.map(
+        reason -> CancellationReason.builder().code(reason).build()
+    ).orElse(CancellationReason.builder().build());
+
+    when(dbAsyncClient.transactWriteItems(any(TransactWriteItemsRequest.class)))
+        .thenReturn(CompletableFuture.failedFuture(TransactionCanceledException.builder()
+            .cancellationReasons(accountsCancellationReason, constraintCancellationReason)
+            .build()));
+
+    CompletableFutureTestUtil.assertFailsWithCause(ContestedOptimisticLockException.class,
+        accounts.clearUsernameHash(account));
+
+    assertArrayEquals(account.getUsernameHash().orElseThrow(), USERNAME_HASH_1);
+  }
+
+  private static Stream<Arguments> testClearUsernameTransactionConflict() {
+    return Stream.of(
+        Arguments.of(Optional.empty(), Optional.of("TransactionConflict"), ContestedOptimisticLockException.class),
+        Arguments.of(Optional.of("TransactionConflict"), Optional.empty(), ContestedOptimisticLockException.class)
+    );
   }
 
   @Test

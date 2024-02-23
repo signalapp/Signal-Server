@@ -455,7 +455,8 @@ public class Accounts extends AbstractDynamoDbStore {
   /**
    * Reserve a username hash under the account UUID
    * @return a future that completes once the username hash has been reserved; may fail with an
-   * {@link ContestedOptimisticLockException} if the account has been updated or
+   * {@link ContestedOptimisticLockException} if the account has been updated or there are concurrent updates to the
+   * account or constraint records, and with an
    * {@link UsernameHashNotAvailableException} if the username was taken by someone else
    */
   public CompletableFuture<Void> reserveUsernameHash(
@@ -523,11 +524,12 @@ public class Accounts extends AbstractDynamoDbStore {
         .exceptionally(throwable -> {
           if (ExceptionUtils.unwrap(throwable) instanceof TransactionCanceledException e) {
             // If the constraint table update failed the condition check, the username's taken and we should stop
-            // trying. However if it was only in the accounts table that the condition check update failed, it's an
-            // optimistic locking failure (the account was concurrently updated) and we should try again.
+            // trying. However, if the accounts table fails the conditional check or
+            // either table was concurrently updated, it's an optimistic locking failure and we should try again.
             if (conditionalCheckFailed(e.cancellationReasons().get(0))) {
               throw ExceptionUtils.wrap(new UsernameHashNotAvailableException());
-            } else if (conditionalCheckFailed(e.cancellationReasons().get(1))) {
+            } else if (conditionalCheckFailed(e.cancellationReasons().get(1)) ||
+                e.cancellationReasons().stream().anyMatch(Accounts::isTransactionConflict)) {
               throw new ContestedOptimisticLockException();
             }
           }
@@ -551,8 +553,10 @@ public class Accounts extends AbstractDynamoDbStore {
    *
    * @param account to update
    * @param usernameHash believed to be available
+   * @param encryptedUsername the encrypted form of the previously reserved username; used for the username link
    * @return a future that completes once the username hash has been confirmed; may fail with an
-   * {@link ContestedOptimisticLockException} if the account has been updated or
+   * {@link ContestedOptimisticLockException} if the account has been updated or there are concurrent updates to the
+   * account or constraint records, and with an
    * {@link UsernameHashNotAvailableException} if the username was taken by someone else
    */
   public CompletableFuture<Void> confirmUsernameHash(final Account account, final byte[] usernameHash, @Nullable final byte[] encryptedUsername) {
@@ -585,13 +589,14 @@ public class Accounts extends AbstractDynamoDbStore {
         .exceptionally(throwable -> {
           if (ExceptionUtils.unwrap(throwable) instanceof TransactionCanceledException e) {
             // If the constraint table update failed the condition check, the username's taken and we should stop
-            // trying. However if it was only in the accounts table that the condition check update failed, it's an
-            // optimistic locking failure (the account was concurrently updated) and we should try again.
+            // trying. However, if the accounts table fails the conditional check or
+            // either table was concurrently updated, it's an optimistic locking failure and we should try again.
             // NOTE: the fixed indices here must be kept in sync with the creation of the TransactWriteItems in
             // buildConfirmUsernameHashRequest!
             if (conditionalCheckFailed(e.cancellationReasons().get(0))) {
               throw ExceptionUtils.wrap(new UsernameHashNotAvailableException());
-            } else if (conditionalCheckFailed(e.cancellationReasons().get(1))) {
+            } else if (conditionalCheckFailed(e.cancellationReasons().get(1)) ||
+                e.cancellationReasons().stream().anyMatch(Accounts::isTransactionConflict)) {
               throw new ContestedOptimisticLockException();
             }
           }
@@ -690,6 +695,14 @@ public class Accounts extends AbstractDynamoDbStore {
         .build();
   }
 
+  /**
+   * Clear the username hash and link from the given account
+   *
+   * @param account to update
+   * @return a future that completes once the username data has been cleared;
+   * it can fail with a {@link ContestedOptimisticLockException} if there are concurrent updates
+   * to the account or username constraint records.
+   */
   public CompletableFuture<Void> clearUsernameHash(final Account account) {
     return account.getUsernameHash().map(usernameHash -> {
       final Timer.Sample sample = Timer.start();
@@ -714,8 +727,9 @@ public class Accounts extends AbstractDynamoDbStore {
             account.setVersion(account.getVersion() + 1);
           })
           .exceptionally(throwable -> {
-            if (ExceptionUtils.unwrap(throwable) instanceof TransactionCanceledException transactionCanceledException) {
-              if (conditionalCheckFailed(transactionCanceledException.cancellationReasons().get(0))) {
+            if (ExceptionUtils.unwrap(throwable) instanceof TransactionCanceledException e) {
+              if (conditionalCheckFailed(e.cancellationReasons().get(0)) ||
+                  e.cancellationReasons().stream().anyMatch(Accounts::isTransactionConflict)) {
                 throw new ContestedOptimisticLockException();
               }
             }
@@ -1370,5 +1384,9 @@ public class Accounts extends AbstractDynamoDbStore {
 
   private static boolean conditionalCheckFailed(final CancellationReason reason) {
     return CONDITIONAL_CHECK_FAILED.equals(reason.code());
+  }
+
+  private static boolean isTransactionConflict(final CancellationReason reason) {
+    return TRANSACTION_CONFLICT.equals(reason.code());
   }
 }
