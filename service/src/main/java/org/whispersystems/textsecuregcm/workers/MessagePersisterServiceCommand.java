@@ -9,14 +9,12 @@ import io.dropwizard.core.Application;
 import io.dropwizard.core.cli.ServerCommand;
 import io.dropwizard.core.server.DefaultServerFactory;
 import io.dropwizard.core.setup.Environment;
-import java.time.Duration;
 import io.dropwizard.jetty.HttpsConnectorFactory;
+import java.time.Duration;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
-import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.MessagePersister;
 import org.whispersystems.textsecuregcm.util.logging.UncaughtExceptionHandler;
 
@@ -52,8 +50,6 @@ public class MessagePersisterServiceCommand extends ServerCommand<WhisperServerC
 
     final CommandDependencies deps = CommandDependencies.build("message-persister-service", environment, configuration);
 
-    MetricsUtil.configureRegistries(configuration, environment, deps.dynamicConfigurationManager());
-
     if (configuration.getServerFactory() instanceof DefaultServerFactory defaultServerFactory) {
       defaultServerFactory.getApplicationConnectors()
           .forEach(connectorFactory -> {
@@ -63,20 +59,11 @@ public class MessagePersisterServiceCommand extends ServerCommand<WhisperServerC
           });
     }
 
-
-    final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = new DynamicConfigurationManager<>(
-        configuration.getAppConfig().getApplication(),
-        configuration.getAppConfig().getEnvironment(),
-        configuration.getAppConfig().getConfigurationName(),
-        DynamicConfiguration.class);
-
-    dynamicConfigurationManager.start();
-
     final MessagePersister messagePersister = new MessagePersister(deps.messagesCache(), deps.messagesManager(),
         deps.accountsManager(),
         deps.clientPresenceManager(),
         deps.keysManager(),
-        dynamicConfigurationManager,
+        deps.dynamicConfigurationManager(),
         Duration.ofMinutes(configuration.getMessageCacheConfiguration().getPersistDelayMinutes()),
         namespace.getInt(WORKER_COUNT),
         environment.lifecycle().executorService("messagePersisterUnlinkDeviceExecutor-%d")

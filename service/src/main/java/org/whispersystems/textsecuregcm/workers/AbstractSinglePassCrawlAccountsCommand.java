@@ -15,7 +15,6 @@ import net.sourceforge.argparse4j.inf.Subparser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
-import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.util.logging.UncaughtExceptionHandler;
 import reactor.core.publisher.Flux;
@@ -66,9 +65,6 @@ public abstract class AbstractSinglePassCrawlAccountsCommand extends Environment
 
     this.namespace = namespace;
     this.commandDependencies = CommandDependencies.build(getName(), environment, configuration);
-
-    MetricsUtil.configureRegistries(configuration, environment, commandDependencies.dynamicConfigurationManager());
-
 
     final int segments = Objects.requireNonNull(namespace.getInt(SEGMENT_COUNT));
 
