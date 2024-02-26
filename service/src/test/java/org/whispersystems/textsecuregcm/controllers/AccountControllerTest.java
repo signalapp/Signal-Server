@@ -13,6 +13,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.eq;
@@ -208,6 +209,17 @@ class AccountControllerTest {
     when(accountsManager.getByE164(eq(SENDER_PREAUTH))).thenReturn(Optional.empty());
     when(accountsManager.getByE164(eq(SENDER_HAS_STORAGE))).thenReturn(Optional.of(senderHasStorage));
     when(accountsManager.getByE164(eq(SENDER_TRANSFER))).thenReturn(Optional.of(senderTransfer));
+
+    doAnswer(invocation -> {
+      final byte[] proof = invocation.getArgument(0);
+      final byte[] hash = invocation.getArgument(1);
+
+      if (proof == null || hash == null) {
+        throw new NullPointerException();
+      }
+
+      return null;
+    }).when(usernameZkProofVerifier).verifyProof(any(), any());
   }
 
   @AfterEach
@@ -593,6 +605,19 @@ class AccountControllerTest {
     assertArrayEquals(respEntity.usernameHash(), USERNAME_HASH_1);
     assertEquals(respEntity.usernameLinkHandle(), uuid);
     verify(usernameZkProofVerifier).verifyProof(ZK_PROOF, USERNAME_HASH_1);
+  }
+
+  @Test
+  void testConfirmUsernameHashNullProof() {
+    try (final Response response =
+        resources.getJerseyTest()
+            .target("/v1/accounts/username_hash/confirm")
+            .request()
+            .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(Entity.json(new ConfirmUsernameHashRequest(USERNAME_HASH_1, null, ENCRYPTED_USERNAME_1)))) {
+
+      assertThat(response.getStatus()).isEqualTo(422);
+    }
   }
 
   @Test
