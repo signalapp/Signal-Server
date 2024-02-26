@@ -107,35 +107,32 @@ class AccountControllerTest {
   private static final String BASE_64_URL_USERNAME_HASH_2 = "NLUom-CHwtemcdvOTTXdmXmzRIV7F05leS8lwkVK_vc";
   private static final String BASE_64_URL_ENCRYPTED_USERNAME_1 = "md1votbj9r794DsqTNrBqA";
 
-  private static final String INVALID_BASE_64_URL_USERNAME_HASH = "fA+VkNbvB6dVfx/6NpaRSK6mvhhAUBgDNWFaD7+7gvs=";
   private static final String TOO_SHORT_BASE_64_URL_USERNAME_HASH = "P2oMuxx0xgGxSpTO0ACq3IztEOBDaV9t9YFu4bAGpQ";
   private static final byte[] USERNAME_HASH_1 = Base64.getUrlDecoder().decode(BASE_64_URL_USERNAME_HASH_1);
   private static final byte[] USERNAME_HASH_2 = Base64.getUrlDecoder().decode(BASE_64_URL_USERNAME_HASH_2);
   private static final byte[] ENCRYPTED_USERNAME_1 = Base64.getUrlDecoder().decode(BASE_64_URL_ENCRYPTED_USERNAME_1);
-  private static final byte[] INVALID_USERNAME_HASH = Base64.getDecoder().decode(INVALID_BASE_64_URL_USERNAME_HASH);
-  private static final byte[] TOO_SHORT_USERNAME_HASH = Base64.getUrlDecoder().decode(TOO_SHORT_BASE_64_URL_USERNAME_HASH);
   private static final String BASE_64_URL_ZK_PROOF = "2kambOgmdeeIO0faCMgR6HR4G2BQ5bnhXdIe9ZuZY0NmQXSra5BzDBQ7jzy1cvoEqUHYLpBYMrXudkYPJaWoQg";
   private static final byte[] ZK_PROOF = Base64.getUrlDecoder().decode(BASE_64_URL_ZK_PROOF);
   private static final UUID   SENDER_REG_LOCK_UUID = UUID.randomUUID();
   private static final UUID   SENDER_TRANSFER_UUID = UUID.randomUUID();
 
-  private static AccountsManager accountsManager = mock(AccountsManager.class);
-  private static RateLimiters rateLimiters = mock(RateLimiters.class);
-  private static RateLimiter rateLimiter = mock(RateLimiter.class);
-  private static RateLimiter usernameSetLimiter = mock(RateLimiter.class);
-  private static RateLimiter usernameReserveLimiter = mock(RateLimiter.class);
-  private static RateLimiter usernameLookupLimiter = mock(RateLimiter.class);
-  private static RateLimiter checkAccountExistence = mock(RateLimiter.class);
-  private static TurnTokenGenerator turnTokenGenerator = mock(TurnTokenGenerator.class);
-  private static Account senderPinAccount = mock(Account.class);
-  private static Account senderRegLockAccount = mock(Account.class);
-  private static Account senderHasStorage = mock(Account.class);
-  private static Account senderTransfer = mock(Account.class);
-  private static RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager = mock(
-      RegistrationRecoveryPasswordsManager.class);
+  private static final AccountsManager accountsManager = mock(AccountsManager.class);
+  private static final RateLimiters rateLimiters = mock(RateLimiters.class);
+  private static final RateLimiter rateLimiter = mock(RateLimiter.class);
+  private static final RateLimiter usernameSetLimiter = mock(RateLimiter.class);
+  private static final RateLimiter usernameReserveLimiter = mock(RateLimiter.class);
+  private static final RateLimiter usernameLookupLimiter = mock(RateLimiter.class);
+  private static final RateLimiter checkAccountExistence = mock(RateLimiter.class);
+  private static final TurnTokenGenerator turnTokenGenerator = mock(TurnTokenGenerator.class);
+  private static final Account senderPinAccount = mock(Account.class);
+  private static final Account senderRegLockAccount = mock(Account.class);
+  private static final Account senderHasStorage = mock(Account.class);
+  private static final Account senderTransfer = mock(Account.class);
+  private static final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager =
+      mock(RegistrationRecoveryPasswordsManager.class);
   private static final UsernameHashZkProofVerifier usernameZkProofVerifier = mock(UsernameHashZkProofVerifier.class);
 
-  private byte[] registration_lock_key = new byte[32];
+  private final byte[] registration_lock_key = new byte[32];
 
   private static final TestRemoteAddressFilterProvider TEST_REMOTE_ADDRESS_FILTER_PROVIDER
       = new TestRemoteAddressFilterProvider("127.0.0.1");
@@ -243,116 +240,113 @@ class AccountControllerTest {
 
   @Test
   void testSetRegistrationLock() {
-    Response response =
-        resources.getJerseyTest()
-                 .target("/v1/accounts/registration_lock/")
-                 .request()
-                 .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                 .put(Entity.json(new RegistrationLock("1234567890123456789012345678901234567890123456789012345678901234")));
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/registration_lock/")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .put(Entity.json(new RegistrationLock("1234567890123456789012345678901234567890123456789012345678901234")))) {
 
-    assertThat(response.getStatus()).isEqualTo(204);
+      assertThat(response.getStatus()).isEqualTo(204);
 
-    ArgumentCaptor<String> pinCapture     = ArgumentCaptor.forClass(String.class);
-    ArgumentCaptor<String> pinSaltCapture = ArgumentCaptor.forClass(String.class);
+      ArgumentCaptor<String> pinCapture     = ArgumentCaptor.forClass(String.class);
+      ArgumentCaptor<String> pinSaltCapture = ArgumentCaptor.forClass(String.class);
 
-    verify(AuthHelper.VALID_ACCOUNT, times(1)).setRegistrationLock(pinCapture.capture(), pinSaltCapture.capture());
+      verify(AuthHelper.VALID_ACCOUNT, times(1)).setRegistrationLock(pinCapture.capture(), pinSaltCapture.capture());
 
-    assertThat(pinCapture.getValue()).isNotEmpty();
-    assertThat(pinSaltCapture.getValue()).isNotEmpty();
+      assertThat(pinCapture.getValue()).isNotEmpty();
+      assertThat(pinSaltCapture.getValue()).isNotEmpty();
 
-    assertThat(pinCapture.getValue().length()).isEqualTo(66);
+      assertThat(pinCapture.getValue().length()).isEqualTo(66);
+    }
   }
 
   @Test
-  void testSetShortRegistrationLock() throws Exception {
-    Response response =
-        resources.getJerseyTest()
-                 .target("/v1/accounts/registration_lock/")
-                 .request()
-                 .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                 .put(Entity.json(new RegistrationLock("313")));
+  void testSetShortRegistrationLock() {
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/registration_lock/")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .put(Entity.json(new RegistrationLock("313")))) {
 
-    assertThat(response.getStatus()).isEqualTo(422);
+      assertThat(response.getStatus()).isEqualTo(422);
+    }
   }
 
   @Test
   void testSetGcmId() {
-    Response response =
-        resources.getJerseyTest()
-            .target("/v1/accounts/gcm/")
-            .request()
-            .header(HttpHeaders.AUTHORIZATION,
-                AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_3, AuthHelper.VALID_PASSWORD_3_PRIMARY))
-            .put(Entity.json(new GcmRegistrationId("z000")));
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/gcm/")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION,
+            AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_3, AuthHelper.VALID_PASSWORD_3_PRIMARY))
+        .put(Entity.json(new GcmRegistrationId("z000")))) {
 
-    assertThat(response.getStatus()).isEqualTo(204);
+      assertThat(response.getStatus()).isEqualTo(204);
 
-    verify(AuthHelper.VALID_DEVICE_3_PRIMARY, times(1)).setGcmId(eq("z000"));
-    verify(accountsManager, times(1)).updateDevice(eq(AuthHelper.VALID_ACCOUNT_3), anyByte(), any());
+      verify(AuthHelper.VALID_DEVICE_3_PRIMARY, times(1)).setGcmId(eq("z000"));
+      verify(accountsManager, times(1)).updateDevice(eq(AuthHelper.VALID_ACCOUNT_3), anyByte(), any());
+    }
   }
 
   @Test
   void testSetGcmIdInvalidrequest() {
-    Response response =
-        resources.getJerseyTest()
-            .target("/v1/accounts/gcm/")
-            .request()
-            .header(HttpHeaders.AUTHORIZATION,
-                AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_3, AuthHelper.VALID_PASSWORD_3_PRIMARY))
-            .put(Entity.json("{}"));
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/gcm/")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION,
+            AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_3, AuthHelper.VALID_PASSWORD_3_PRIMARY))
+        .put(Entity.json("{}"))) {
 
-    assertThat(response.getStatus()).isEqualTo(422);
-
+      assertThat(response.getStatus()).isEqualTo(422);
+    }
   }
 
   @Test
   void testSetApnId() {
-    Response response =
-        resources.getJerseyTest()
-            .target("/v1/accounts/apn/")
-            .request()
-            .header(HttpHeaders.AUTHORIZATION,
-                AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_3, AuthHelper.VALID_PASSWORD_3_PRIMARY))
-            .put(Entity.json(new ApnRegistrationId("first", "second")));
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/apn/")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION,
+            AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_3, AuthHelper.VALID_PASSWORD_3_PRIMARY))
+        .put(Entity.json(new ApnRegistrationId("first", "second")))) {
 
-    assertThat(response.getStatus()).isEqualTo(204);
+      assertThat(response.getStatus()).isEqualTo(204);
 
-    verify(AuthHelper.VALID_DEVICE_3_PRIMARY, times(1)).setApnId(eq("first"));
-    verify(AuthHelper.VALID_DEVICE_3_PRIMARY, times(1)).setVoipApnId(eq("second"));
-    verify(accountsManager, times(1)).updateDevice(eq(AuthHelper.VALID_ACCOUNT_3), anyByte(), any());
+      verify(AuthHelper.VALID_DEVICE_3_PRIMARY, times(1)).setApnId(eq("first"));
+      verify(AuthHelper.VALID_DEVICE_3_PRIMARY, times(1)).setVoipApnId(eq("second"));
+      verify(accountsManager, times(1)).updateDevice(eq(AuthHelper.VALID_ACCOUNT_3), anyByte(), any());
+    }
   }
 
   @Test
   void testSetApnIdNoVoip() {
-    Response response =
-        resources.getJerseyTest()
-            .target("/v1/accounts/apn/")
-            .request()
-            .header(HttpHeaders.AUTHORIZATION,
-                AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_3, AuthHelper.VALID_PASSWORD_3_PRIMARY))
-            .put(Entity.json(new ApnRegistrationId("first", null)));
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/apn/")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION,
+            AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_3, AuthHelper.VALID_PASSWORD_3_PRIMARY))
+        .put(Entity.json(new ApnRegistrationId("first", null)))) {
 
-    assertThat(response.getStatus()).isEqualTo(204);
+      assertThat(response.getStatus()).isEqualTo(204);
 
-    verify(AuthHelper.VALID_DEVICE_3_PRIMARY, times(1)).setApnId(eq("first"));
-    verify(AuthHelper.VALID_DEVICE_3_PRIMARY, times(1)).setVoipApnId(null);
-    verify(accountsManager, times(1)).updateDevice(eq(AuthHelper.VALID_ACCOUNT_3), anyByte(), any());
+      verify(AuthHelper.VALID_DEVICE_3_PRIMARY, times(1)).setApnId(eq("first"));
+      verify(AuthHelper.VALID_DEVICE_3_PRIMARY, times(1)).setVoipApnId(null);
+      verify(accountsManager, times(1)).updateDevice(eq(AuthHelper.VALID_ACCOUNT_3), anyByte(), any());
+    }
   }
 
   @ParameterizedTest
   @ValueSource(strings = {"/v1/accounts/whoami", "/v1/accounts/me"})
   void testWhoAmI(final String path) {
-
-
-    final Response response = resources.getJerseyTest()
+    try (final Response response = resources.getJerseyTest()
         .target(path)
         .request()
         .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .get();
+        .get()) {
 
-    assertThat(response.getStatus()).isEqualTo(200);
-
-    assertThat(response.readEntity(AccountIdentityResponse.class).uuid()).isEqualTo(AuthHelper.VALID_UUID);
+      assertThat(response.getStatus()).isEqualTo(200);
+      assertThat(response.readEntity(AccountIdentityResponse.class).uuid()).isEqualTo(AuthHelper.VALID_UUID);
+    }
   }
 
   static Stream<Arguments> testSetUsernameLink() {
@@ -373,7 +367,7 @@ class AccountControllerTest {
       final boolean passRateLimiting,
       final boolean setUsernameHash,
       final int payloadSize,
-      final int expectedStatus) throws Exception {
+      final int expectedStatus) {
 
     // checking if rate limiting needs to pass or fail for this test
     if (passRateLimiting) {
@@ -403,9 +397,11 @@ class AccountControllerTest {
     // make sure `update()` works
     doReturn(AuthHelper.VALID_ACCOUNT).when(accountsManager).update(any(), any());
 
-    final Response put = builder.put(Entity.json(new EncryptedUsername(TestRandomUtil.nextBytes(payloadSize))));
+    try (final Response response =
+        builder.put(Entity.json(new EncryptedUsername(TestRandomUtil.nextBytes(payloadSize))))) {
 
-    assertEquals(expectedStatus, put.getStatus());
+      assertEquals(expectedStatus, response.getStatus());
+    }
   }
 
   static Stream<Arguments> testDeleteUsernameLink() {
@@ -421,7 +417,7 @@ class AccountControllerTest {
   public void testDeleteUsernameLink(
       final boolean auth,
       final boolean passRateLimiting,
-      final int expectedStatus) throws Exception {
+      final int expectedStatus) {
 
     // checking if rate limiting needs to pass or fail for this test
     if (passRateLimiting) {
@@ -444,9 +440,9 @@ class AccountControllerTest {
     // make sure `update()` works
     doReturn(AuthHelper.VALID_ACCOUNT).when(accountsManager).update(any(), any());
 
-    final Response delete = builder.delete();
-
-    assertEquals(expectedStatus, delete.getStatus());
+    try (final Response delete = builder.delete()) {
+      assertEquals(expectedStatus, delete.getStatus());
+    }
   }
 
   static Stream<Arguments> testLookupUsernameLink() {
@@ -501,40 +497,45 @@ class AccountControllerTest {
   void testReserveUsernameHash() {
     when(accountsManager.reserveUsernameHash(any(), any()))
         .thenReturn(CompletableFuture.completedFuture(new AccountsManager.UsernameReservation(null, USERNAME_HASH_1)));
-    Response response =
-        resources.getJerseyTest()
-            .target("/v1/accounts/username_hash/reserve")
-            .request()
-            .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.json(new ReserveUsernameHashRequest(List.of(USERNAME_HASH_1, USERNAME_HASH_2))));
-    assertThat(response.getStatus()).isEqualTo(200);
-    assertThat(response.readEntity(ReserveUsernameHashResponse.class))
-        .satisfies(r -> assertThat(r.usernameHash()).hasSize(32));
+
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/username_hash/reserve")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .put(Entity.json(new ReserveUsernameHashRequest(List.of(USERNAME_HASH_1, USERNAME_HASH_2))))) {
+
+      assertThat(response.getStatus()).isEqualTo(200);
+      assertThat(response.readEntity(ReserveUsernameHashResponse.class))
+          .satisfies(r -> assertThat(r.usernameHash()).hasSize(32));
+    }
   }
 
   @Test
   void testReserveUsernameHashUnavailable() {
     when(accountsManager.reserveUsernameHash(any(), anyList()))
         .thenReturn(CompletableFuture.failedFuture(new UsernameHashNotAvailableException()));
-    Response response =
-        resources.getJerseyTest()
-            .target("/v1/accounts/username_hash/reserve")
-            .request()
-            .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.json(new ReserveUsernameHashRequest(List.of(USERNAME_HASH_1, USERNAME_HASH_2))));
-    assertThat(response.getStatus()).isEqualTo(409);
+
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/username_hash/reserve")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .put(Entity.json(new ReserveUsernameHashRequest(List.of(USERNAME_HASH_1, USERNAME_HASH_2))))) {
+
+      assertThat(response.getStatus()).isEqualTo(409);
+    }
   }
 
   @ParameterizedTest
   @MethodSource
   void testReserveUsernameHashListSizeInvalid(List<byte[]> usernameHashes) {
-    Response response =
-        resources.getJerseyTest()
-            .target("/v1/accounts/username_hash/reserve")
-            .request()
-            .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.json(new ReserveUsernameHashRequest(usernameHashes)));
-    assertThat(response.getStatus()).isEqualTo(422);
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/username_hash/reserve")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .put(Entity.json(new ReserveUsernameHashRequest(usernameHashes)))) {
+
+      assertThat(response.getStatus()).isEqualTo(422);
+    }
   }
 
   static Stream<Arguments> testReserveUsernameHashListSizeInvalid() {
@@ -547,41 +548,49 @@ class AccountControllerTest {
   @Test
   void testReserveUsernameHashInvalidHashSize() {
     List<byte[]> usernameHashes = List.of(new byte[31]);
-    Response response =
-        resources.getJerseyTest()
-            .target("/v1/accounts/username_hash/reserve")
-            .request()
-            .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.json(new ReserveUsernameHashRequest(usernameHashes)));
-    assertThat(response.getStatus()).isEqualTo(422);
+
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/username_hash/reserve")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .put(Entity.json(new ReserveUsernameHashRequest(usernameHashes)))) {
+
+      assertThat(response.getStatus()).isEqualTo(422);
+    }
   }
 
   @Test
   void testReserveUsernameHashNullList() {
-    Response response =
+    try (final Response response =
         resources.getJerseyTest()
             .target("/v1/accounts/username_hash/reserve")
             .request()
-            .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.json(new ReserveUsernameHashRequest(null)));
-    assertThat(response.getStatus()).isEqualTo(422);
+            .header(HttpHeaders.AUTHORIZATION,
+                AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(Entity.json(new ReserveUsernameHashRequest(null)))) {
+
+      assertThat(response.getStatus()).isEqualTo(422);
+    }
   }
 
   @Test
   void testReserveUsernameHashInvalidBase64UrlEncoding() {
-    Response response =
+    try (final Response response =
         resources.getJerseyTest()
             .target("/v1/accounts/username_hash/reserve")
             .request()
-            .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .header(HttpHeaders.AUTHORIZATION,
+                AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
             .put(Entity.json(
                 // Has '+' and '='characters which are invalid in base64url
                 """
                   {
                     "usernameHashes": ["jh1jJ50oGn9wUXAFNtDus6AJgWOQ6XbZzF+wCv7OOQs="]
                   }
-                """));
-    assertThat(response.getStatus()).isEqualTo(422);
+                """))) {
+
+      assertThat(response.getStatus()).isEqualTo(422);
+    }
   }
 
   @Test
@@ -593,18 +602,19 @@ class AccountControllerTest {
     when(accountsManager.confirmReservedUsernameHash(any(), eq(USERNAME_HASH_1), eq(ENCRYPTED_USERNAME_1)))
         .thenReturn(CompletableFuture.completedFuture(account));
 
-    Response response =
-        resources.getJerseyTest()
-            .target("/v1/accounts/username_hash/confirm")
-            .request()
-            .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.json(new ConfirmUsernameHashRequest(USERNAME_HASH_1, ZK_PROOF, ENCRYPTED_USERNAME_1)));
-    assertThat(response.getStatus()).isEqualTo(200);
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/username_hash/confirm")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .put(Entity.json(new ConfirmUsernameHashRequest(USERNAME_HASH_1, ZK_PROOF, ENCRYPTED_USERNAME_1)))) {
 
-    final UsernameHashResponse respEntity = response.readEntity(UsernameHashResponse.class);
-    assertArrayEquals(respEntity.usernameHash(), USERNAME_HASH_1);
-    assertEquals(respEntity.usernameLinkHandle(), uuid);
-    verify(usernameZkProofVerifier).verifyProof(ZK_PROOF, USERNAME_HASH_1);
+      assertThat(response.getStatus()).isEqualTo(200);
+
+      final UsernameHashResponse respEntity = response.readEntity(UsernameHashResponse.class);
+      assertArrayEquals(respEntity.usernameHash(), USERNAME_HASH_1);
+      assertEquals(respEntity.usernameLinkHandle(), uuid);
+      verify(usernameZkProofVerifier).verifyProof(ZK_PROOF, USERNAME_HASH_1);
+    }
   }
 
   @Test
@@ -628,20 +638,19 @@ class AccountControllerTest {
     when(accountsManager.confirmReservedUsernameHash(any(), eq(USERNAME_HASH_1), eq(null)))
         .thenReturn(CompletableFuture.completedFuture(account));
 
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/username_hash/confirm")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .put(Entity.json(new ConfirmUsernameHashRequest(USERNAME_HASH_1, ZK_PROOF, null)))) {
 
+      assertThat(response.getStatus()).isEqualTo(200);
 
-    Response response =
-        resources.getJerseyTest()
-            .target("/v1/accounts/username_hash/confirm")
-            .request()
-            .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.json(new ConfirmUsernameHashRequest(USERNAME_HASH_1, ZK_PROOF, null)));
-    assertThat(response.getStatus()).isEqualTo(200);
-
-    final UsernameHashResponse respEntity = response.readEntity(UsernameHashResponse.class);
-    assertArrayEquals(respEntity.usernameHash(), USERNAME_HASH_1);
-    assertNull(respEntity.usernameLinkHandle());
-    verify(usernameZkProofVerifier).verifyProof(ZK_PROOF, USERNAME_HASH_1);
+      final UsernameHashResponse respEntity = response.readEntity(UsernameHashResponse.class);
+      assertArrayEquals(respEntity.usernameHash(), USERNAME_HASH_1);
+      assertNull(respEntity.usernameLinkHandle());
+      verify(usernameZkProofVerifier).verifyProof(ZK_PROOF, USERNAME_HASH_1);
+    }
   }
 
   @Test
@@ -649,14 +658,15 @@ class AccountControllerTest {
     when(accountsManager.confirmReservedUsernameHash(any(), eq(USERNAME_HASH_1), any()))
         .thenReturn(CompletableFuture.failedFuture(new UsernameReservationNotFoundException()));
 
-    Response response =
-        resources.getJerseyTest()
-            .target("/v1/accounts/username_hash/confirm")
-            .request()
-            .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.json(new ConfirmUsernameHashRequest(USERNAME_HASH_1, ZK_PROOF, ENCRYPTED_USERNAME_1)));
-    assertThat(response.getStatus()).isEqualTo(409);
-    verify(usernameZkProofVerifier).verifyProof(ZK_PROOF, USERNAME_HASH_1);
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/username_hash/confirm")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .put(Entity.json(new ConfirmUsernameHashRequest(USERNAME_HASH_1, ZK_PROOF, ENCRYPTED_USERNAME_1)))) {
+
+      assertThat(response.getStatus()).isEqualTo(409);
+      verify(usernameZkProofVerifier).verifyProof(ZK_PROOF, USERNAME_HASH_1);
+    }
   }
 
   @Test
@@ -664,59 +674,65 @@ class AccountControllerTest {
     when(accountsManager.confirmReservedUsernameHash(any(), eq(USERNAME_HASH_1), any()))
         .thenReturn(CompletableFuture.failedFuture(new UsernameHashNotAvailableException()));
 
-    Response response =
-        resources.getJerseyTest()
-            .target("/v1/accounts/username_hash/confirm")
-            .request()
-            .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.json(new ConfirmUsernameHashRequest(USERNAME_HASH_1, ZK_PROOF, ENCRYPTED_USERNAME_1)));
-    assertThat(response.getStatus()).isEqualTo(410);
-    verify(usernameZkProofVerifier).verifyProof(ZK_PROOF, USERNAME_HASH_1);
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/username_hash/confirm")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .put(Entity.json(new ConfirmUsernameHashRequest(USERNAME_HASH_1, ZK_PROOF, ENCRYPTED_USERNAME_1)))) {
+
+      assertThat(response.getStatus()).isEqualTo(410);
+      verify(usernameZkProofVerifier).verifyProof(ZK_PROOF, USERNAME_HASH_1);
+    }
   }
 
   @Test
   void testConfirmUsernameHashInvalidBase64UrlEncoding() {
-    Response response =
-        resources.getJerseyTest()
-            .target("/v1/accounts/username_hash/confirm")
-            .request()
-            .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.json(
-                // Has '+' and '='characters which are invalid in base64url
-                """
-                  {
-                    "usernameHash": "jh1jJ50oGn9wUXAFNtDus6AJgWOQ6XbZzF+wCv7OOQs=",
-                    "zkProof": "iYXE0QPK60PS3lGa-xdNv0GlXA3B03xQLzltSf-2xmscyS_8fjy5H9ymfaEr62PcVY7tsWhWjOOvcCnhmP_HS="
-                  }
-                """));
-    assertThat(response.getStatus()).isEqualTo(422);
-    verifyNoInteractions(usernameZkProofVerifier);
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/username_hash/confirm")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .put(Entity.json(
+            // Has '+' and '='characters which are invalid in base64url
+            """
+              {
+                "usernameHash": "jh1jJ50oGn9wUXAFNtDus6AJgWOQ6XbZzF+wCv7OOQs=",
+                "zkProof": "iYXE0QPK60PS3lGa-xdNv0GlXA3B03xQLzltSf-2xmscyS_8fjy5H9ymfaEr62PcVY7tsWhWjOOvcCnhmP_HS="
+              }
+            """))) {
+
+      assertThat(response.getStatus()).isEqualTo(422);
+      verifyNoInteractions(usernameZkProofVerifier);
+    }
   }
 
   @Test
   void testConfirmUsernameHashInvalidHashSize() {
     byte[] usernameHash = new byte[31];
-    Response response =
-        resources.getJerseyTest()
-            .target("/v1/accounts/username_hash/confirm")
-            .request()
-            .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.json(new ConfirmUsernameHashRequest(usernameHash, ZK_PROOF, ENCRYPTED_USERNAME_1)));
-    assertThat(response.getStatus()).isEqualTo(422);
-    verifyNoInteractions(usernameZkProofVerifier);
+
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/username_hash/confirm")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .put(Entity.json(new ConfirmUsernameHashRequest(usernameHash, ZK_PROOF, ENCRYPTED_USERNAME_1)))) {
+
+      assertThat(response.getStatus()).isEqualTo(422);
+      verifyNoInteractions(usernameZkProofVerifier);
+    }
   }
 
   @Test
   void testCommitUsernameHashWithInvalidProof() throws BaseUsernameException {
     doThrow(new BaseUsernameException("invalid username")).when(usernameZkProofVerifier).verifyProof(eq(ZK_PROOF), eq(USERNAME_HASH_1));
-    Response response =
-        resources.getJerseyTest()
-            .target("/v1/accounts/username_hash/confirm")
-            .request()
-            .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.json(new ConfirmUsernameHashRequest(USERNAME_HASH_1, ZK_PROOF, ENCRYPTED_USERNAME_1)));
-    assertThat(response.getStatus()).isEqualTo(422);
-    verify(usernameZkProofVerifier).verifyProof(ZK_PROOF, USERNAME_HASH_1);
+
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/username_hash/confirm")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .put(Entity.json(new ConfirmUsernameHashRequest(USERNAME_HASH_1, ZK_PROOF, ENCRYPTED_USERNAME_1)))) {
+
+      assertThat(response.getStatus()).isEqualTo(422);
+      verify(usernameZkProofVerifier).verifyProof(ZK_PROOF, USERNAME_HASH_1);
+    }
   }
 
   @Test
@@ -724,107 +740,108 @@ class AccountControllerTest {
     when(accountsManager.clearUsernameHash(any()))
         .thenAnswer(invocation -> CompletableFutureTestUtil.almostCompletedFuture(invocation.getArgument(0)));
 
-    Response response =
-        resources.getJerseyTest()
-                 .target("/v1/accounts/username_hash/")
-                 .request()
-                 .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                 .delete();
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/username_hash/")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .delete()) {
 
-    assertThat(response.readEntity(String.class)).isEqualTo("");
-    assertThat(response.getStatus()).isEqualTo(204);
-    verify(accountsManager).clearUsernameHash(AuthHelper.VALID_ACCOUNT);
+      assertThat(response.readEntity(String.class)).isEqualTo("");
+      assertThat(response.getStatus()).isEqualTo(204);
+      verify(accountsManager).clearUsernameHash(AuthHelper.VALID_ACCOUNT);
+    }
   }
 
   @Test
   void testDeleteUsernameBadAuth() {
-    Response response =
-        resources.getJerseyTest()
-                 .target("/v1/accounts/username_hash/")
-                 .request()
-                 .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.INVALID_PASSWORD))
-                 .delete();
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/username_hash/")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.INVALID_PASSWORD))
+        .delete()) {
 
-    assertThat(response.getStatus()).isEqualTo(401);
+      assertThat(response.getStatus()).isEqualTo(401);
+    }
   }
 
   @Test
   void testSetAccountAttributesNoDiscoverabilityChange() {
-    Response response =
-            resources.getJerseyTest()
-                    .target("/v1/accounts/attributes/")
-                    .request()
-                    .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                    .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, true, null)));
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/attributes/")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, true, null)))) {
 
-    assertThat(response.getStatus()).isEqualTo(204);
+      assertThat(response.getStatus()).isEqualTo(204);
+    }
   }
 
   @Test
   void testSetAccountAttributesEnableDiscovery() {
-    Response response =
-            resources.getJerseyTest()
-                    .target("/v1/accounts/attributes/")
-                    .request()
-                    .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.UNDISCOVERABLE_UUID, AuthHelper.UNDISCOVERABLE_PASSWORD))
-                    .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, true, null)));
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/attributes/")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.UNDISCOVERABLE_UUID, AuthHelper.UNDISCOVERABLE_PASSWORD))
+        .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, true, null)))) {
 
-    assertThat(response.getStatus()).isEqualTo(204);
+      assertThat(response.getStatus()).isEqualTo(204);
+    }
   }
 
   @Test
   void testAccountsAttributesUpdateRecoveryPassword() {
     final byte[] recoveryPassword = TestRandomUtil.nextBytes(32);
-    final Response response =
-        resources.getJerseyTest()
-            .target("/v1/accounts/attributes/")
-            .request()
-            .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.UNDISCOVERABLE_UUID, AuthHelper.UNDISCOVERABLE_PASSWORD))
-            .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, true, null)
-                .withRecoveryPassword(recoveryPassword)));
 
-    assertThat(response.getStatus()).isEqualTo(204);
-    verify(registrationRecoveryPasswordsManager).storeForCurrentNumber(eq(AuthHelper.UNDISCOVERABLE_NUMBER), eq(recoveryPassword));
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/attributes/")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.UNDISCOVERABLE_UUID, AuthHelper.UNDISCOVERABLE_PASSWORD))
+        .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, true, null)
+            .withRecoveryPassword(recoveryPassword)))) {
+
+      assertThat(response.getStatus()).isEqualTo(204);
+      verify(registrationRecoveryPasswordsManager).storeForCurrentNumber(eq(AuthHelper.UNDISCOVERABLE_NUMBER), eq(recoveryPassword));
+    }
   }
 
   @Test
   void testSetAccountAttributesDisableDiscovery() {
-    Response response =
-            resources.getJerseyTest()
-                    .target("/v1/accounts/attributes/")
-                    .request()
-                    .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                    .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, false, null)));
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/attributes/")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, false, null)))) {
 
-    assertThat(response.getStatus()).isEqualTo(204);
+      assertThat(response.getStatus()).isEqualTo(204);
+    }
   }
 
   @Test
   void testSetAccountAttributesBadUnidentifiedKeyLength() {
-    Response response =
-        resources.getJerseyTest()
-            .target("/v1/accounts/attributes/")
-            .request()
-            .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, false, null)
-                .withUnidentifiedAccessKey(new byte[7])));
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/attributes/")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, false, null)
+            .withUnidentifiedAccessKey(new byte[7])))) {
 
-    assertThat(response.getStatus()).isEqualTo(422);
+      assertThat(response.getStatus()).isEqualTo(422);
+    }
   }
 
   @Test
   void testDeleteAccount() {
     when(accountsManager.delete(any(), any())).thenReturn(CompletableFutureTestUtil.almostCompletedFuture(null));
 
-    Response response =
-            resources.getJerseyTest()
-                     .target("/v1/accounts/me")
-                     .request()
-                     .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                     .delete();
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/me")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .delete()) {
 
-    assertThat(response.getStatus()).isEqualTo(204);
-    verify(accountsManager).delete(AuthHelper.VALID_ACCOUNT, AccountsManager.DeletionReason.USER_REQUEST);
+      assertThat(response.getStatus()).isEqualTo(204);
+      verify(accountsManager).delete(AuthHelper.VALID_ACCOUNT, AccountsManager.DeletionReason.USER_REQUEST);
+    }
   }
 
   @Test
@@ -855,27 +872,33 @@ class AccountControllerTest {
 
     when(rateLimiters.getCheckAccountExistenceLimiter()).thenReturn(mock(RateLimiter.class));
 
-    assertThat(resources.getJerseyTest()
+    try (final Response response = resources.getJerseyTest()
         .target(String.format("/v1/accounts/account/%s", accountIdentifier))
         .request()
-        .head()
-        .getStatus()).isEqualTo(200);
+        .head()) {
 
-    assertThat(resources.getJerseyTest()
+      assertThat(response.getStatus()).isEqualTo(200);
+    }
+
+    try (final Response response = resources.getJerseyTest()
         .target(String.format("/v1/accounts/account/PNI:%s", phoneNumberIdentifier))
         .request()
-        .head()
-        .getStatus()).isEqualTo(200);
+        .head()) {
 
-    assertThat(resources.getJerseyTest()
+      assertThat(response.getStatus()).isEqualTo(200);
+    }
+
+    try (final Response response = resources.getJerseyTest()
         .target(String.format("/v1/accounts/account/%s", UUID.randomUUID()))
         .request()
-        .head()
-        .getStatus()).isEqualTo(404);
+        .head()) {
+
+      assertThat(response.getStatus()).isEqualTo(404);
+    }
   }
 
   @Test
-  void testAccountExistsRateLimited() throws RateLimitExceededException {
+  void testAccountExistsRateLimited() {
     final Duration expectedRetryAfter = Duration.ofSeconds(13);
     final Account account = mock(Account.class);
     final UUID accountIdentifier = UUID.randomUUID();
@@ -884,23 +907,26 @@ class AccountControllerTest {
     MockUtils.updateRateLimiterResponseToFail(
         rateLimiters, RateLimiters.For.CHECK_ACCOUNT_EXISTENCE, "127.0.0.1", expectedRetryAfter, true);
 
-    final Response response = resources.getJerseyTest()
+    try (final Response response = resources.getJerseyTest()
         .target(String.format("/v1/accounts/account/%s", accountIdentifier))
         .request()
-        .head();
+        .head()) {
 
-    assertThat(response.getStatus()).isEqualTo(413);
-    assertThat(response.getHeaderString("Retry-After")).isEqualTo(String.valueOf(expectedRetryAfter.toSeconds()));
+      assertThat(response.getStatus()).isEqualTo(413);
+      assertThat(response.getHeaderString("Retry-After")).isEqualTo(String.valueOf(expectedRetryAfter.toSeconds()));
+    }
   }
 
   @Test
   void testAccountExistsAuthenticated() {
-    assertThat(resources.getJerseyTest()
+    try (final Response response = resources.getJerseyTest()
         .target(String.format("/v1/accounts/account/%s", UUID.randomUUID()))
         .request()
         .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .head()
-        .getStatus()).isEqualTo(400);
+        .head()) {
+
+      assertThat(response.getStatus()).isEqualTo(400);
+    }
   }
 
   @Test
@@ -928,7 +954,7 @@ class AccountControllerTest {
   }
 
   @Test
-  void testLookupUsernameRateLimited() throws RateLimitExceededException {
+  void testLookupUsernameRateLimited() {
     final Duration expectedRetryAfter = Duration.ofSeconds(13);
     MockUtils.updateRateLimiterResponseToFail(
         rateLimiters, RateLimiters.For.USERNAME_LOOKUP, "127.0.0.1", expectedRetryAfter, true);
@@ -943,27 +969,33 @@ class AccountControllerTest {
 
   @Test
   void testLookupUsernameAuthenticated() {
-    assertThat(resources.getJerseyTest()
-        .target(String.format("/v1/accounts/username_hash/%s", USERNAME_HASH_1))
+    try (final Response response = resources.getJerseyTest()
+        .target(String.format("/v1/accounts/username_hash/%s", BASE_64_URL_USERNAME_HASH_1))
         .request()
         .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .get()
-        .getStatus()).isEqualTo(400);
+        .get()) {
+
+      assertThat(response.getStatus()).isEqualTo(400);
+    }
   }
 
   @Test
   void testLookupUsernameInvalidFormat() {
-    assertThat(resources.getJerseyTest()
-        .target(String.format("/v1/accounts/username_hash/%s", INVALID_USERNAME_HASH))
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/username_hash/Not valid base64")
         .request()
-        .get()
-        .getStatus()).isEqualTo(422);
+        .get()) {
 
-    assertThat(resources.getJerseyTest()
-        .target(String.format("/v1/accounts/username_hash/%s", TOO_SHORT_USERNAME_HASH))
+      assertThat(response.getStatus()).isEqualTo(422);
+    }
+
+    try (final Response response = resources.getJerseyTest()
+        .target(String.format("/v1/accounts/username_hash/%s", TOO_SHORT_BASE_64_URL_USERNAME_HASH))
         .request()
-        .get()
-        .getStatus()).isEqualTo(422);
+        .get()) {
+
+      assertThat(response.getStatus()).isEqualTo(422);
+    }
   }
 
   @ParameterizedTest
