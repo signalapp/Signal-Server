@@ -27,14 +27,26 @@ public final class HmacUtils {
     }
   });
 
-  public static byte[] hmac256(final byte[] key, final byte[] input) {
+  private static Mac initializedThreadLocalMac(final byte[] key) {
     try {
       final Mac mac = THREAD_LOCAL_HMAC_SHA_256.get();
       mac.init(new SecretKeySpec(key, HMAC_SHA_256));
-      return mac.doFinal(input);
+      return mac;
     } catch (final InvalidKeyException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  public static byte[] hmac256(final byte[] key, final byte[] input) {
+    return initializedThreadLocalMac(key).doFinal(input);
+  }
+
+  public static byte[] hmac256(final byte[] key, final byte[]... inputs) {
+      final Mac mac = initializedThreadLocalMac(key);
+      for (byte[] input : inputs) {
+        mac.update(input);
+      }
+      return mac.doFinal();
   }
 
   public static byte[] hmac256(final byte[] key, final String input) {
