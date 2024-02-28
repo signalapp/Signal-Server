@@ -10,6 +10,7 @@ import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
+import java.util.Optional;
 import java.util.function.BiConsumer;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -167,7 +168,20 @@ public class PushNotificationManager {
   private void handleDeviceUnregistered(final Account account, final Device device) {
     if (StringUtils.isNotBlank(device.getGcmId())) {
       if (device.getUninstalledFeedbackTimestamp() == 0) {
-        accountsManager.updateDevice(account, device.getId(), d ->
+        // Reread the account to avoid marking the caller's account as stale. The consumers of this class tend to
+        // promise not to modify accounts. There's no need to force the caller to be considered mutable just for
+        // updating an uninstalled feedback timestamp though.
+        final Optional<Account> rereadAccount = accountsManager.getByAccountIdentifier(account.getUuid());
+        if (rereadAccount.isEmpty()) {
+          // don't bother adding the uninstalled timestamp, the account is gone
+          return;
+        }
+        final Optional<Device> rereadDevice = rereadAccount.get().getDevice(device.getId());
+        if (rereadDevice.map(Device::getUninstalledFeedbackTimestamp).orElse(-1L) != 0) {
+          // don't bother adding the uninstalled timestamp, the device is gone or already updated
+          return;
+        }
+        accountsManager.updateDevice(rereadAccount.get(), device.getId(), d ->
             d.setUninstalledFeedbackTimestamp(Util.todayInMillis()));
       }
     } else {

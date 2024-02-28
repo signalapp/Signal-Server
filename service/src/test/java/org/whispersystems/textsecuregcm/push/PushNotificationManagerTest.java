@@ -220,10 +220,12 @@ class PushNotificationManagerTest {
   void testSendNotificationUnregisteredFcm() {
     final Account account = mock(Account.class);
     final Device device = mock(Device.class);
-
+    final UUID aci = UUID.randomUUID();
     when(device.getId()).thenReturn(Device.PRIMARY_ID);
     when(device.getGcmId()).thenReturn("token");
     when(account.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(device));
+    when(account.getUuid()).thenReturn(aci);
+    when(accountsManager.getByAccountIdentifier(aci)).thenReturn(Optional.of(account));
 
     final PushNotification pushNotification = new PushNotification(
         "token", PushNotification.TokenType.FCM, PushNotification.NotificationType.NOTIFICATION, null, account, device, true);
