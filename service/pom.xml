@@ -218,13 +218,6 @@
       <groupId>com.google.firebase</groupId>
       <artifactId>firebase-admin</artifactId>
       <version>${firebase-admin.version}</version>
-      <exclusions>
-        <exclusion>
-          <!-- fix dependency convergence from older 1.0.1 -->
-          <groupId>com.google.guava</groupId>
-          <artifactId>failureaccess</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
 
     <dependency>
@@ -248,13 +241,6 @@
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-netty</artifactId>
-      <exclusions>
-        <!-- fix dependency convergence from older 0.26.0 -->
-        <exclusion>
-          <groupId>io.perfmark</groupId>
-          <artifactId>perfmark-api</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
     <dependency>
       <groupId>io.grpc</groupId>
@@ -469,13 +455,6 @@
     <dependency>
       <groupId>com.google.cloud</groupId>
       <artifactId>google-cloud-recaptchaenterprise</artifactId>
-      <exclusions>
-        <!-- fix dependency convergence from older 1.0.1 -->
-        <exclusion>
-          <groupId>com.google.guava</groupId>
-          <artifactId>failureaccess</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
 
     <dependency>
