@@ -285,10 +285,6 @@ unidentifiedDelivery:
   privateKey: secret://unidentifiedDelivery.privateKey
   expiresDays: 7
 
-recaptcha:
-  projectPath: projects/example
-  credentialConfigurationJson: "{ }" # service account configuration for backend authentication
-
 hCaptcha:
   apiKey: secret://hCaptcha.apiKey
 

@@ -467,18 +467,6 @@
     </dependency>
 
     <dependency>
-      <groupId>com.google.cloud</groupId>
-      <artifactId>google-cloud-recaptchaenterprise</artifactId>
-      <exclusions>
-        <!-- fix dependency convergence from older 1.0.1 -->
-        <exclusion>
-          <groupId>com.google.guava</groupId>
-          <artifactId>failureaccess</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-
-    <dependency>
       <groupId>com.stripe</groupId>
       <artifactId>stripe-java</artifactId>
     </dependency>

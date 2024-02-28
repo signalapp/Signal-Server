@@ -85,7 +85,6 @@ import org.whispersystems.textsecuregcm.calls.routing.DynamicConfigTurnRouter;
 import org.whispersystems.textsecuregcm.calls.routing.TurnCallRouter;
 import org.whispersystems.textsecuregcm.captcha.CaptchaChecker;
 import org.whispersystems.textsecuregcm.captcha.HCaptchaClient;
-import org.whispersystems.textsecuregcm.captcha.RecaptchaClient;
 import org.whispersystems.textsecuregcm.captcha.RegistrationCaptchaManager;
 import org.whispersystems.textsecuregcm.captcha.ShortCodeExpander;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
@@ -625,10 +624,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         "message_byte_limit",
         config.getMessageByteLimitCardinalityEstimator().period());
 
-    RecaptchaClient recaptchaClient = new RecaptchaClient(
-        config.getRecaptchaConfiguration().projectPath(),
-        config.getRecaptchaConfiguration().credentialConfigurationJson(),
-        dynamicConfigurationManager);
     HCaptchaClient hCaptchaClient = new HCaptchaClient(
         config.getHCaptchaConfiguration().getApiKey().value(),
         hcaptchaRetryExecutor,
@@ -638,7 +633,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     HttpClient shortCodeRetrieverHttpClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_2)
         .connectTimeout(Duration.ofSeconds(10)).build();
     ShortCodeExpander shortCodeRetriever = new ShortCodeExpander(shortCodeRetrieverHttpClient, config.getShortCodeRetrieverConfiguration().baseUrl());
-    CaptchaChecker captchaChecker = new CaptchaChecker(shortCodeRetriever, List.of(recaptchaClient, hCaptchaClient));
+    CaptchaChecker captchaChecker = new CaptchaChecker(shortCodeRetriever, List.of(hCaptchaClient));
 
     PushChallengeManager pushChallengeManager = new PushChallengeManager(pushNotificationManager,
         pushChallengeDynamoDb);

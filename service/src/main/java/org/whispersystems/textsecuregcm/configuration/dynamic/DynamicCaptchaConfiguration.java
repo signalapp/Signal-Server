@@ -10,7 +10,6 @@ import com.google.common.annotations.VisibleForTesting;
 import org.whispersystems.textsecuregcm.captcha.Action;
 import java.math.BigDecimal;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.validation.constraints.DecimalMax;
@@ -27,9 +26,6 @@ public class DynamicCaptchaConfiguration {
 
   @JsonProperty
   private boolean allowHCaptcha = false;
-
-  @JsonProperty
-  private boolean allowRecaptcha = true;
 
   @JsonProperty
   @NotNull
@@ -49,10 +45,6 @@ public class DynamicCaptchaConfiguration {
 
   public boolean isAllowHCaptcha() {
     return allowHCaptcha;
-  }
-
-  public boolean isAllowRecaptcha() {
-    return allowRecaptcha;
   }
 
   public Map<Action, BigDecimal> getScoreFloorByAction() {

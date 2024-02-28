@@ -23,7 +23,7 @@ import org.slf4j.LoggerFactory;
 public class CaptchaChecker {
   private static final Logger logger = LoggerFactory.getLogger(CaptchaChecker.class);
   private static final String INVALID_SITEKEY_COUNTER_NAME = name(CaptchaChecker.class, "invalidSiteKey");
-  private static final String ASSESSMENTS_COUNTER_NAME = name(RecaptchaClient.class, "assessments");
+  private static final String ASSESSMENTS_COUNTER_NAME = name(CaptchaChecker.class, "assessments");
   private static final String INVALID_ACTION_COUNTER_NAME = name(CaptchaChecker.class, "invalidActions");
 
   @VisibleForTesting
