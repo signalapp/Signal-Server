@@ -163,11 +163,11 @@ class AccountsManagerUsernameIntegrationTest {
     int i = 0;
     for (byte[] hash : usernameHashes) {
       final Map<String, AttributeValue> item = new HashMap<>(Map.of(
-          Accounts.KEY_ACCOUNT_UUID, AttributeValues.fromUUID(UUID.randomUUID()),
-          Accounts.ATTR_USERNAME_HASH, AttributeValues.fromByteArray(hash)));
+          Accounts.UsernameTable.ATTR_ACCOUNT_UUID, AttributeValues.fromUUID(UUID.randomUUID()),
+          Accounts.UsernameTable.KEY_USERNAME_HASH, AttributeValues.fromByteArray(hash)));
       // half of these are taken usernames, half are only reservations (have a TTL)
       if (i % 2 == 0) {
-        item.put(Accounts.ATTR_TTL,
+        item.put(Accounts.UsernameTable.ATTR_TTL,
             AttributeValues.fromLong(Instant.now().plus(Duration.ofMinutes(1)).getEpochSecond()));
       }
       i++;
@@ -192,8 +192,8 @@ class AccountsManagerUsernameIntegrationTest {
       DYNAMO_DB_EXTENSION.getDynamoDbClient().putItem(PutItemRequest.builder()
           .tableName(Tables.USERNAMES.tableName())
           .item(Map.of(
-              Accounts.KEY_ACCOUNT_UUID, AttributeValues.fromUUID(UUID.randomUUID()),
-              Accounts.ATTR_USERNAME_HASH, AttributeValues.fromByteArray(hash)))
+              Accounts.UsernameTable.ATTR_ACCOUNT_UUID, AttributeValues.fromUUID(UUID.randomUUID()),
+              Accounts.UsernameTable.KEY_USERNAME_HASH, AttributeValues.fromByteArray(hash)))
           .build());
     }
 
@@ -250,9 +250,9 @@ class AccountsManagerUsernameIntegrationTest {
     // force expiration
     DYNAMO_DB_EXTENSION.getDynamoDbClient().updateItem(UpdateItemRequest.builder()
         .tableName(Tables.USERNAMES.tableName())
-        .key(Map.of(Accounts.ATTR_USERNAME_HASH, AttributeValues.fromByteArray(USERNAME_HASH_1)))
+        .key(Map.of(Accounts.UsernameTable.KEY_USERNAME_HASH, AttributeValues.fromByteArray(USERNAME_HASH_1)))
         .updateExpression("SET #ttl = :ttl")
-        .expressionAttributeNames(Map.of("#ttl", Accounts.ATTR_TTL))
+        .expressionAttributeNames(Map.of("#ttl", Accounts.UsernameTable.ATTR_TTL))
         .expressionAttributeValues(Map.of(":ttl", AttributeValues.fromLong(past)))
         .build());
 

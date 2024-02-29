@@ -1212,8 +1212,8 @@ class AccountsTest {
 
     final Map<String, AttributeValue> usernameConstraintRecord = getUsernameConstraintTableItem(USERNAME_HASH_1);
 
-    assertThat(usernameConstraintRecord).containsKey(Accounts.ATTR_USERNAME_HASH);
-    assertThat(usernameConstraintRecord).doesNotContainKey(Accounts.ATTR_TTL);
+    assertThat(usernameConstraintRecord).containsKey(Accounts.UsernameTable.KEY_USERNAME_HASH);
+    assertThat(usernameConstraintRecord).doesNotContainKey(Accounts.UsernameTable.ATTR_TTL);
   }
 
   @Test
@@ -1231,10 +1231,10 @@ class AccountsTest {
 
     final Map<String, AttributeValue> usernameConstraintRecord1 = getUsernameConstraintTableItem(USERNAME_HASH_1);
     final Map<String, AttributeValue> usernameConstraintRecord2 = getUsernameConstraintTableItem(USERNAME_HASH_2);
-    assertThat(usernameConstraintRecord1).containsKey(Accounts.ATTR_USERNAME_HASH);
-    assertThat(usernameConstraintRecord2).containsKey(Accounts.ATTR_USERNAME_HASH);
-    assertThat(usernameConstraintRecord1).containsKey(Accounts.ATTR_TTL);
-    assertThat(usernameConstraintRecord2).containsKey(Accounts.ATTR_TTL);
+    assertThat(usernameConstraintRecord1).containsKey(Accounts.UsernameTable.KEY_USERNAME_HASH);
+    assertThat(usernameConstraintRecord2).containsKey(Accounts.UsernameTable.KEY_USERNAME_HASH);
+    assertThat(usernameConstraintRecord1).containsKey(Accounts.UsernameTable.ATTR_TTL);
+    assertThat(usernameConstraintRecord2).containsKey(Accounts.UsernameTable.ATTR_TTL);
 
     clock.pin(Instant.EPOCH.plus(Duration.ofMinutes(1)));
 
@@ -1243,10 +1243,10 @@ class AccountsTest {
     assertThat(account.getUsernameHash()).isEmpty();
 
     final Map<String, AttributeValue> newUsernameConstraintRecord1 = getUsernameConstraintTableItem(USERNAME_HASH_1);
-    assertThat(newUsernameConstraintRecord1).containsKey(Accounts.ATTR_USERNAME_HASH);
-    assertThat(newUsernameConstraintRecord1).containsKey(Accounts.ATTR_TTL);
-    assertThat(usernameConstraintRecord1.get(Accounts.ATTR_TTL))
-        .isNotEqualTo(newUsernameConstraintRecord1.get(Accounts.ATTR_TTL));
+    assertThat(newUsernameConstraintRecord1).containsKey(Accounts.UsernameTable.KEY_USERNAME_HASH);
+    assertThat(newUsernameConstraintRecord1).containsKey(Accounts.UsernameTable.ATTR_TTL);
+    assertThat(usernameConstraintRecord1.get(Accounts.UsernameTable.ATTR_TTL))
+        .isNotEqualTo(newUsernameConstraintRecord1.get(Accounts.UsernameTable.ATTR_TTL));
   }
 
   @Test
@@ -1257,20 +1257,20 @@ class AccountsTest {
     accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1)).join();
     assertArrayEquals(account.getReservedUsernameHash().orElseThrow(), USERNAME_HASH_1);
     assertThat(account.getUsernameHash()).isEmpty();
-    assertThat(getUsernameConstraintTableItem(USERNAME_HASH_1)).containsKey(Accounts.ATTR_TTL);
+    assertThat(getUsernameConstraintTableItem(USERNAME_HASH_1)).containsKey(Accounts.UsernameTable.ATTR_TTL);
 
 
     accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1).join();
     assertThat(account.getReservedUsernameHash()).isEmpty();
     assertArrayEquals(account.getUsernameHash().orElseThrow(), USERNAME_HASH_1);
-    assertThat(getUsernameConstraintTableItem(USERNAME_HASH_1)).doesNotContainKey(Accounts.ATTR_TTL);
+    assertThat(getUsernameConstraintTableItem(USERNAME_HASH_1)).doesNotContainKey(Accounts.UsernameTable.ATTR_TTL);
 
     CompletableFutureTestUtil.assertFailsWithCause(UsernameHashNotAvailableException.class,
         accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1)));
     assertThat(account.getReservedUsernameHash()).isEmpty();
     assertArrayEquals(account.getUsernameHash().orElseThrow(), USERNAME_HASH_1);
-    assertThat(getUsernameConstraintTableItem(USERNAME_HASH_1)).containsKey(Accounts.ATTR_USERNAME_HASH);
-    assertThat(getUsernameConstraintTableItem(USERNAME_HASH_1)).doesNotContainKey(Accounts.ATTR_TTL);
+    assertThat(getUsernameConstraintTableItem(USERNAME_HASH_1)).containsKey(Accounts.UsernameTable.KEY_USERNAME_HASH);
+    assertThat(getUsernameConstraintTableItem(USERNAME_HASH_1)).doesNotContainKey(Accounts.UsernameTable.ATTR_TTL);
   }
 
   @Test
@@ -1492,7 +1492,7 @@ class AccountsTest {
     return DYNAMO_DB_EXTENSION.getDynamoDbClient()
         .getItem(GetItemRequest.builder()
             .tableName(Tables.USERNAMES.tableName())
-            .key(Map.of(Accounts.ATTR_USERNAME_HASH, AttributeValues.fromByteArray(usernameHash)))
+            .key(Map.of(Accounts.UsernameTable.KEY_USERNAME_HASH, AttributeValues.fromByteArray(usernameHash)))
             .build())
         .item();
   }
