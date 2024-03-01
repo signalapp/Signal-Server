@@ -240,6 +240,32 @@ class AccountsManagerUsernameIntegrationTest {
   }
 
   @Test
+  public void testHold() throws InterruptedException {
+    Account account = AccountsHelper.createAccount(accountsManager, "+18005551111");
+
+    AccountsManager.UsernameReservation reservation =
+        accountsManager.reserveUsernameHash(account, List.of(USERNAME_HASH_1)).join();
+
+    // confirm
+    account = accountsManager.confirmReservedUsernameHash(
+        reservation.account(),
+        reservation.reservedUsernameHash(),
+        ENCRYPTED_USERNAME_1).join();
+
+    // clear
+    account = accountsManager.clearUsernameHash(account).join();
+    assertThat(accountsManager.getByUsernameHash(USERNAME_HASH_1).join()).isEmpty();
+    assertThat(accountsManager.getByAccountIdentifier(account.getUuid()).orElseThrow().getUsernameHash()).isEmpty();
+
+    assertThat(accountsManager.getByUsernameHash(reservation.reservedUsernameHash()).join()).isEmpty();
+
+    Account account2 = AccountsHelper.createAccount(accountsManager, "+18005552222");
+    CompletableFutureTestUtil.assertFailsWithCause(UsernameHashNotAvailableException.class,
+        accountsManager.reserveUsernameHash(account2, List.of(USERNAME_HASH_1)),
+        "account2 should not be able to reserve a held hash");
+  }
+
+  @Test
   public void testReservationLapsed() throws InterruptedException {
     final Account account = AccountsHelper.createAccount(accountsManager, "+18005551111");
 

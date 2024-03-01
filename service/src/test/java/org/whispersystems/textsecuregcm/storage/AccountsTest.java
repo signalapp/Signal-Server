@@ -25,6 +25,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -39,7 +40,9 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -120,6 +123,7 @@ class AccountsTest {
     when(mockDynamicConfigManager.getConfiguration())
         .thenReturn(new DynamicConfiguration());
 
+    clock.pin(Instant.EPOCH);
     accounts = new Accounts(
         clock,
         DYNAMO_DB_EXTENSION.getDynamoDbClient(),
@@ -944,8 +948,14 @@ class AccountsTest {
     accounts.confirmUsernameHash(account, USERNAME_HASH_2, ENCRYPTED_USERNAME_2).join();
     final UUID newHandle = account.getUsernameLinkHandle();
 
+    // switching usernames should put a hold on our original username
     assertThat(accounts.getByUsernameHash(USERNAME_HASH_1).join()).isEmpty();
-    assertThat(getUsernameConstraintTableItem(USERNAME_HASH_1)).isEmpty();
+    assertThat(getUsernameConstraintTableItem(USERNAME_HASH_1)).containsExactlyInAnyOrderEntriesOf(Map.of(
+        Accounts.UsernameTable.KEY_USERNAME_HASH, AttributeValues.b(USERNAME_HASH_1),
+        Accounts.UsernameTable.ATTR_ACCOUNT_UUID, AttributeValues.b(account.getUuid()),
+        Accounts.UsernameTable.ATTR_CONFIRMED, AttributeValues.fromBool(false),
+        Accounts.UsernameTable.ATTR_TTL,
+        AttributeValues.n(clock.instant().plus(Accounts.USERNAME_HOLD_DURATION).getEpochSecond())));
     assertThat(accounts.getByUsernameLinkHandle(oldHandle).join()).isEmpty();
 
     {
@@ -1331,6 +1341,217 @@ class AccountsTest {
     assertThat(account.getUsernameHash()).isEmpty();
   }
 
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testRemoveOldestHold(boolean clearUsername) {
+    Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
+    createAccount(account);
+
+    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1)).join();
+    accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1).join();
+
+    final List<byte[]> usernames = IntStream.range(0, 7).mapToObj(i -> TestRandomUtil.nextBytes(32)).toList();
+    final ArrayDeque<byte[]> expectedHolds = new ArrayDeque<>();
+    expectedHolds.add(USERNAME_HASH_1);
+
+    for (byte[] username : usernames) {
+      accounts.reserveUsernameHash(account, username, Duration.ofDays(1)).join();
+      accounts.confirmUsernameHash(account, username, ENCRYPTED_USERNAME_1).join();
+      assertThat(accounts.getByUsernameHash(username).join()).isPresent();
+
+      final Account read = accounts.getByAccountIdentifier(account.getUuid()).orElseThrow();
+      assertThat(read.getUsernameHolds().stream().map(Account.UsernameHold::usernameHash).toList())
+          .containsExactlyElementsOf(expectedHolds);
+
+      expectedHolds.add(username);
+      if (expectedHolds.size() == Accounts.MAX_USERNAME_HOLDS + 1) {
+        expectedHolds.pop();
+      }
+
+      // clearing the username adds a hold, but the subsequent confirm in the next iteration should add the same hold
+      // (should be a noop) so we don't need to touch expectedHolds
+      if (clearUsername) {
+        accounts.clearUsernameHash(account).join();
+      }
+    }
+
+
+    final Account account2 = generateAccount("+18005554321", UUID.randomUUID(), UUID.randomUUID());
+    createAccount(account2);
+
+    // someone else should be able to get any of the usernames except the held usernames (MAX_HOLDS) +1 for the username
+    // currently held by the other account if we didn't clear it
+    final int numFree = usernames.size() - Accounts.MAX_USERNAME_HOLDS - (clearUsername ? 0 : 1);
+    final List<byte[]> freeUsernames = usernames.subList(0, numFree);
+    final List<byte[]> heldUsernames = usernames.subList(numFree, usernames.size());
+    for (byte[] username : freeUsernames) {
+      assertDoesNotThrow(() ->
+          accounts.reserveUsernameHash(account2, username, Duration.ofDays(2)).join());
+    }
+    for (byte[] username : heldUsernames) {
+      CompletableFutureTestUtil.assertFailsWithCause(UsernameHashNotAvailableException.class,
+          accounts.reserveUsernameHash(account2, username, Duration.ofDays(2)));
+    }
+  }
+
+  @Test
+  void testHoldUsername() {
+    final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
+    createAccount(account);
+
+    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1)).join();
+    accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1).join();
+
+    accounts.clearUsernameHash(account);
+
+    Account account2 = generateAccount("+18005554321", UUID.randomUUID(), UUID.randomUUID());
+    createAccount(account2);
+    CompletableFutureTestUtil.assertFailsWithCause(
+        UsernameHashNotAvailableException.class,
+        accounts.reserveUsernameHash(account2, USERNAME_HASH_1, Duration.ofDays(1)),
+        "account2 should not be able reserve username held by account");
+
+    // but we should be able to get it back
+    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1)).join();
+    accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1).join();
+  }
+
+  @Test
+  void testNoHoldsBarred() {
+    // should be able to reserve all MAX_HOLDS usernames
+    final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
+    createAccount(account);
+    final List<byte[]> usernames = IntStream.range(0, Accounts.MAX_USERNAME_HOLDS + 1)
+        .mapToObj(i -> TestRandomUtil.nextBytes(32))
+        .toList();
+    for (byte[] username : usernames) {
+      accounts.reserveUsernameHash(account, username, Duration.ofDays(1)).join();
+      accounts.confirmUsernameHash(account, username, ENCRYPTED_USERNAME_1).join();
+    }
+
+    // someone else shouldn't be able to get any of our holds
+    Account account2 = generateAccount("+18005554321", UUID.randomUUID(), UUID.randomUUID());
+    createAccount(account2);
+    for (byte[] username : usernames) {
+      CompletableFutureTestUtil.assertFailsWithCause(
+          UsernameHashNotAvailableException.class,
+          accounts.reserveUsernameHash(account2, username, Duration.ofDays(1)),
+          "account2 should not be able reserve username held by account");
+    }
+
+    // once the hold expires it's fine though
+    clock.pin(Instant.EPOCH.plus(Accounts.USERNAME_HOLD_DURATION).plus(Duration.ofSeconds(1)));
+    accounts.reserveUsernameHash(account2, usernames.get(0), Duration.ofDays(1)).join();
+
+    // if account1 modifies their username, we should also clear out the old holds, leaving only their newly added hold
+    accounts.clearUsernameHash(account).join();
+    assertThat(account.getUsernameHolds().stream().map(Account.UsernameHold::usernameHash))
+        .containsExactly(usernames.getLast());
+  }
+
+  @Test
+  public void testCannotRemoveHold() {
+    // Tests the case where we are trying to remove a hold we think we have, but it turns out we've already lost it.
+    // This means that the Account record an account has a hold on a particular username, but that hold is held by
+    // someone else in the username table. This can happen when the hold TTL expires while we are performing the update
+    // operation that attempts to remove the hold, and another user swoops in and takes the held username. In this
+    // case, a simple retry should let us check the clock again and notice that our hold in our account has expired.
+    final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
+    createAccount(account);
+    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1)).join();
+    accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1).join();
+
+    accounts.reserveUsernameHash(account, USERNAME_HASH_2, Duration.ofDays(1)).join();
+    accounts.confirmUsernameHash(account, USERNAME_HASH_2, ENCRYPTED_USERNAME_1).join();
+
+    // Now we have a hold on username_hash_1. Simulate a race where the TTL on username_hash_1 expires, and someone
+    // else picks up the username by going forward and then back in time
+    Account account2 = generateAccount("+18005554321", UUID.randomUUID(), UUID.randomUUID());
+    createAccount(account2);
+    clock.pin(Instant.EPOCH.plus(Accounts.USERNAME_HOLD_DURATION).plus(Duration.ofSeconds(1)));
+    accounts.reserveUsernameHash(account2, USERNAME_HASH_1, Duration.ofDays(1)).join();
+    accounts.confirmUsernameHash(account2, USERNAME_HASH_1, ENCRYPTED_USERNAME_1).join();
+
+    clock.pin(Instant.EPOCH);
+    // already have 1 hold, should be able to get to MAX_HOLDS without a problem
+    for (int i = 1; i < Accounts.MAX_USERNAME_HOLDS; i++) {
+      accounts.reserveUsernameHash(account, TestRandomUtil.nextBytes(32), Duration.ofDays(1)).join();
+      accounts.confirmUsernameHash(account, TestRandomUtil.nextBytes(32), ENCRYPTED_USERNAME_1).join();
+    }
+
+    accounts.reserveUsernameHash(account, TestRandomUtil.nextBytes(32), Duration.ofDays(1)).join();
+    // Should fail, because we cannot remove our hold on USERNAME_HASH_1
+    CompletableFutureTestUtil.assertFailsWithCause(ContestedOptimisticLockException.class,
+        accounts.confirmUsernameHash(account, TestRandomUtil.nextBytes(32), ENCRYPTED_USERNAME_1));
+
+    // Should now pass once we realize our hold's TTL is over
+    clock.pin(Instant.EPOCH.plus(Accounts.USERNAME_HOLD_DURATION).plus(Duration.ofSeconds(1)));
+    accounts.confirmUsernameHash(account, TestRandomUtil.nextBytes(32), ENCRYPTED_USERNAME_1).join();
+  }
+
+  @Test
+  void testDeduplicateHoldsOnSwappedUsernames() {
+    final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
+    createAccount(account);
+
+    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1)).join();
+    accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1).join();
+
+    final Consumer<byte[]> assertSingleHold = (byte[] usernameToCheck) -> {
+      // our account should have exactly one hold for the username
+      assertThat(account.getUsernameHolds().stream().map(Account.UsernameHold::usernameHash).toList())
+          .containsExactly(usernameToCheck);
+
+      // the username should be reserved for USERNAME_HOLD_DURATION (a re-reservation shouldn't reduce our expiration to
+      // the provided reservation TTL)
+      assertThat(
+          AttributeValues.getLong(getUsernameConstraintTableItem(usernameToCheck), Accounts.UsernameTable.ATTR_TTL, 0L))
+          .isEqualTo(Accounts.USERNAME_HOLD_DURATION.getSeconds());
+    };
+
+    // Swap back and forth between username 1 and 2.  Username hashes shouldn't reappear in our holds if we already have
+    // a hold
+    for (int i = 0; i < 5; i++) {
+      accounts.reserveUsernameHash(account, USERNAME_HASH_2, Duration.ofSeconds(1)).join();
+      accounts.confirmUsernameHash(account, USERNAME_HASH_2, ENCRYPTED_USERNAME_1).join();
+      assertSingleHold.accept(USERNAME_HASH_1);
+
+      accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofSeconds(1)).join();
+      accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1).join();
+      assertSingleHold.accept(USERNAME_HASH_2);
+    }
+  }
+
+  @Test
+  void testRemoveHoldAfterConfirm() {
+    final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
+    createAccount(account);
+    final List<byte[]> usernames = IntStream.range(0, Accounts.MAX_USERNAME_HOLDS)
+        .mapToObj(i -> TestRandomUtil.nextBytes(32)).toList();
+    for (byte[] username : usernames) {
+      accounts.reserveUsernameHash(account, username, Duration.ofDays(1)).join();
+      accounts.confirmUsernameHash(account, username, ENCRYPTED_USERNAME_1).join();
+    }
+
+    int holdToRereserve = (Accounts.MAX_USERNAME_HOLDS / 2) - 1;
+
+    // should have MAX_HOLDS - 1 holds (everything in usernames except the last username, which is our current)
+    assertThat(account.getUsernameHolds().stream().map(Account.UsernameHold::usernameHash).toList())
+        .containsExactlyElementsOf(usernames.subList(0, usernames.size() - 1));
+
+    // if we confirm a username we already have held, it should just drop out of the holds list
+    accounts.reserveUsernameHash(account, usernames.get(holdToRereserve), Duration.ofDays(1)).join();
+    accounts.confirmUsernameHash(account, usernames.get(holdToRereserve), ENCRYPTED_USERNAME_1).join();
+
+    // should have a hold on every username but the one we just confirmed
+    assertThat(account.getUsernameHolds().stream().map(Account.UsernameHold::usernameHash).toList())
+        .containsExactlyElementsOf(Stream.concat(
+                usernames.subList(0, holdToRereserve).stream(),
+                usernames.subList(holdToRereserve + 1, usernames.size()).stream())
+            .toList());
+  }
+
+
   @Test
   public void testIgnoredFieldsNotAddedToDataAttribute() throws Exception {
     final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
@@ -1404,6 +1625,8 @@ class AccountsTest {
 
     assertInstanceOf(DeviceIdDeserializer.DeviceIdDeserializationException.class, cause);
   }
+
+
 
   private static Device generateDevice(byte id) {
     return DevicesHelper.createDevice(id);

@@ -13,6 +13,7 @@ import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -106,8 +107,13 @@ public class Account {
   @JsonProperty
   private int version;
 
+  @JsonProperty("holds")
+  private List<UsernameHold> usernameHolds = Collections.emptyList();
+
   @JsonIgnore
   private boolean stale;
+
+  public record UsernameHold(@JsonProperty("uh") byte[] usernameHash, @JsonProperty("e") long expirationSecs) {}
 
   public UUID getIdentifier(final IdentityType identityType) {
     return switch (identityType) {
@@ -523,6 +529,15 @@ public class Account {
    */
   public void lockAuthTokenHash() {
     devices.forEach(Device::lockAuthTokenHash);
+  }
+
+  public List<UsernameHold> getUsernameHolds() {
+    return Collections.unmodifiableList(usernameHolds);
+  }
+
+  public void setUsernameHolds(final List<UsernameHold> usernameHolds) {
+    this.requireNotStale();
+    this.usernameHolds = usernameHolds;
   }
 
   boolean isStale() {
