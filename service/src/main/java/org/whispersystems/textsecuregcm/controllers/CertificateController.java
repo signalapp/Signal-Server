@@ -91,7 +91,8 @@ public class CertificateController {
   public GroupCredentials getGroupAuthenticationCredentials(
       @ReadOnly @Auth AuthenticatedAccount auth,
       @QueryParam("redemptionStartSeconds") long startSeconds,
-      @QueryParam("redemptionEndSeconds") long endSeconds) {
+      @QueryParam("redemptionEndSeconds") long endSeconds,
+      @QueryParam("zkcCredential") boolean zkcCredential) {
 
     final Instant startOfDay = clock.instant().truncatedTo(ChronoUnit.DAYS);
     final Instant redemptionStart = Instant.ofEpochSecond(startSeconds);
@@ -115,7 +116,12 @@ public class CertificateController {
     ServiceId.Pni pni = new ServiceId.Pni(auth.getAccount().getPhoneNumberIdentifier());
 
     while (!redemption.isAfter(redemptionEnd)) {
-      AuthCredentialWithPniResponse authCredentialWithPni = serverZkAuthOperations.issueAuthCredentialWithPniAsServiceId(aci, pni, redemption);
+      AuthCredentialWithPniResponse authCredentialWithPni;
+      if (zkcCredential) {
+        authCredentialWithPni = serverZkAuthOperations.issueAuthCredentialWithPniZkc(aci, pni, redemption);
+      } else {
+        authCredentialWithPni = serverZkAuthOperations.issueAuthCredentialWithPniAsServiceId(aci, pni, redemption);
+      }
       credentials.add(new GroupCredentials.GroupCredential(
           authCredentialWithPni.serialize(),
           (int) redemption.getEpochSecond()));

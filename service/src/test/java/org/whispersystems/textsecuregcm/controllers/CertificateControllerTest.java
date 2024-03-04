@@ -242,6 +242,43 @@ class CertificateControllerTest {
   }
 
   @Test
+  void testGetSingleGroupCredentialZkc() {
+    final Instant startOfDay = clock.instant().truncatedTo(ChronoUnit.DAYS);
+
+    final GroupCredentials credentials = resources.getJerseyTest()
+        .target("/v1/certificate/auth/group")
+        .queryParam("redemptionStartSeconds", startOfDay.getEpochSecond())
+        .queryParam("redemptionEndSeconds", startOfDay.getEpochSecond())
+        .queryParam("zkcCredential", true)
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .get(GroupCredentials.class);
+
+    assertEquals(1, credentials.credentials().size());
+    assertEquals(1, credentials.callLinkAuthCredentials().size());
+
+    assertEquals(AuthHelper.VALID_PNI, credentials.pni());
+    assertEquals(startOfDay.getEpochSecond(), credentials.credentials().get(0).redemptionTime());
+    assertEquals(startOfDay.getEpochSecond(), credentials.callLinkAuthCredentials().get(0).redemptionTime());
+
+    final ClientZkAuthOperations clientZkAuthOperations =
+        new ClientZkAuthOperations(serverSecretParams.getPublicParams());
+
+    assertDoesNotThrow(() -> {
+      clientZkAuthOperations.receiveAuthCredentialWithPniAsServiceId(
+          new ServiceId.Aci(AuthHelper.VALID_UUID),
+          new ServiceId.Pni(AuthHelper.VALID_PNI),
+          (int) startOfDay.getEpochSecond(),
+          new AuthCredentialWithPniResponse(credentials.credentials().get(0).credential()));
+    });
+
+    assertDoesNotThrow(() -> {
+      new CallLinkAuthCredentialResponse(credentials.callLinkAuthCredentials().get(0).credential())
+          .receive(new ServiceId.Aci(AuthHelper.VALID_UUID), startOfDay, genericServerSecretParams.getPublicParams());
+    });
+  }
+
+  @Test
   void testGetWeekLongGroupCredentials() {
     final Instant startOfDay = clock.instant().truncatedTo(ChronoUnit.DAYS);
 
