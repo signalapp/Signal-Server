@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.util.Util;
 import javax.annotation.Nonnull;
 import java.io.IOException;
+import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.util.*;
 import java.util.function.Supplier;
@@ -47,7 +48,9 @@ public class TurnCallRouter {
   }
 
   /**
-   * Gets Turn Instance addresses. Returns both the IPv4 and IPv6 addresses. Prioritizes V4 connections.
+   * Gets Turn Instance addresses. Returns both the IPv4 and IPv6 addresses. Prefers to match the IP protocol of the
+   * client address in datacenter selection. Returns 2 instance options of the preferred protocol for every one instance
+   * of the other.
    * @param aci aci of client
    * @param clientAddress IP address to base routing on
    * @param instanceLimit max instances to return options for
@@ -110,29 +113,42 @@ public class TurnCallRouter {
           subdivision
       );
     }
-    List<String> urlsWithIps = getUrlsForInstances(selectInstances(datacenters, instanceLimit));
-    return new TurnServerOptions(hostname, urlsWithIps, this.configTurnRouter.randomUrls());
+
+    List<String> urlsWithIps = getUrlsForInstances(
+        selectInstances(
+            datacenters,
+            instanceLimit,
+            (clientAddress.get() instanceof Inet6Address)
+        ));
+    return new TurnServerOptions(hostname, urlsWithIps, minimalRandomUrls());
   }
 
-  private List<String> selectInstances(List<String> datacenters, int limit) {
+  // Includes only the udp options in the randomUrls
+  private List<String> minimalRandomUrls(){
+    return this.configTurnRouter.randomUrls().stream()
+        .filter(s -> s.startsWith("turn:") && !s.endsWith("transport=tcp"))
+        .toList();
+  }
+
+  private List<String> selectInstances(List<String> datacenters, int limit, boolean preferV6) {
     if(datacenters.isEmpty() || limit == 0) {
       return Collections.emptyList();
     }
+    int numV6 = preferV6 ? (limit - limit / 3) : limit / 3;
+    int numV4  = limit - numV6;
 
     CallDnsRecords dnsRecords = this.callDnsRecords.get();
     List<InetAddress> ipv4Selection = datacenters.stream()
-        .flatMap(dc -> Util.randomNOfStable(dnsRecords.aByRegion().get(dc), 2).stream())
+        .flatMap(dc -> Util.randomNOfStable(dnsRecords.aByRegion().get(dc), limit).stream())
         .toList();
     List<InetAddress> ipv6Selection = datacenters.stream()
-        .flatMap(dc -> Util.randomNOfStable(dnsRecords.aaaaByRegion().get(dc), 2).stream())
+        .flatMap(dc -> Util.randomNOfStable(dnsRecords.aaaaByRegion().get(dc), limit).stream())
         .toList();
-    if (ipv4Selection.size() < ipv6Selection.size()) {
-      ipv4Selection = ipv4Selection.stream().limit(limit / 2).toList();
-      ipv6Selection = ipv6Selection.stream().limit(limit - ipv4Selection.size()).toList();
-    } else {
-      ipv6Selection = ipv6Selection.stream().limit(limit / 2).toList();
-      ipv4Selection = ipv4Selection.stream().limit(limit - ipv6Selection.size()).toList();
-    }
+
+    // increase numV4 if not enough v6 options. vice-versa is also true
+    numV4 = Math.max(numV4, limit - ipv6Selection.size());
+    ipv4Selection = ipv4Selection.stream().limit(numV4).toList();
+    ipv6Selection = ipv6Selection.stream().limit(limit - ipv4Selection.size()).toList();
 
     return Stream.concat(
         ipv4Selection.stream().map(InetAddress::getHostAddress),
@@ -143,7 +159,6 @@ public class TurnCallRouter {
 
   private static List<String> getUrlsForInstances(List<String> instanceIps) {
     return instanceIps.stream().flatMap(ip -> Stream.of(
-            String.format("stun:%s", ip),
             String.format("turn:%s", ip),
             String.format("turn:%s:80?transport=tcp", ip),
             String.format("turns:%s:443?transport=tcp", ip)

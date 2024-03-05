@@ -33,9 +33,12 @@ public class TurnCallRouterTest {
 
   private final static String TEST_HOSTNAME = "subdomain.example.org";
   private final static List<String> TEST_URLS_WITH_HOSTS = List.of(
-      "one.example.com",
-      "two.example.com",
-      "three.example.com"
+      "stun:one.example.com",
+      "turn:two.example.com",
+      "turn:three.example.com?transport=tcp"
+  );
+  private final static List<String> EXPECTED_TEST_URLS_WITH_HOSTS = List.of(
+      "turn:two.example.com"
   );
 
   private CallRoutingTable performanceTable;
@@ -113,7 +116,7 @@ public class TurnCallRouterTest {
     return new TurnServerOptions(
         TEST_HOSTNAME,
         urls,
-        TEST_URLS_WITH_HOSTS
+        EXPECTED_TEST_URLS_WITH_HOSTS
     );
   }
 
@@ -140,7 +143,11 @@ public class TurnCallRouterTest {
         .thenReturn(true);
 
     assertThat(router().getRoutingFor(aci, Optional.of(InetAddress.getByName("0.0.0.1")), 10))
-        .isEqualTo(optionsWithUrls(null));
+        .isEqualTo(new TurnServerOptions(
+            TEST_HOSTNAME,
+            null,
+            TEST_URLS_WITH_HOSTS
+        ));
   }
 
   @Test
@@ -150,32 +157,26 @@ public class TurnCallRouterTest {
 
     assertThat(router().getRoutingFor(aci, Optional.of(InetAddress.getByName("0.0.0.1")), 10))
         .isEqualTo(optionsWithUrls(List.of(
-            "stun:9.9.9.3",
             "turn:9.9.9.3",
             "turn:9.9.9.3:80?transport=tcp",
             "turns:9.9.9.3:443?transport=tcp",
 
-            "stun:9.9.9.1",
             "turn:9.9.9.1",
             "turn:9.9.9.1:80?transport=tcp",
             "turns:9.9.9.1:443?transport=tcp",
 
-            "stun:9.9.9.2",
             "turn:9.9.9.2",
             "turn:9.9.9.2:80?transport=tcp",
             "turns:9.9.9.2:443?transport=tcp",
 
-            "stun:[2222:1111:0:abc2:0:0:0:0]",
             "turn:[2222:1111:0:abc2:0:0:0:0]",
             "turn:[2222:1111:0:abc2:0:0:0:0]:80?transport=tcp",
             "turns:[2222:1111:0:abc2:0:0:0:0]:443?transport=tcp",
 
-            "stun:[2222:1111:0:abc0:0:0:0:0]",
             "turn:[2222:1111:0:abc0:0:0:0:0]",
             "turn:[2222:1111:0:abc0:0:0:0:0]:80?transport=tcp",
             "turns:[2222:1111:0:abc0:0:0:0:0]:443?transport=tcp",
 
-            "stun:[2222:1111:0:abc1:0:0:0:0]",
             "turn:[2222:1111:0:abc1:0:0:0:0]",
             "turn:[2222:1111:0:abc1:0:0:0:0]:80?transport=tcp",
             "turns:[2222:1111:0:abc1:0:0:0:0]:443?transport=tcp"
@@ -191,12 +192,10 @@ public class TurnCallRouterTest {
 
     assertThat(router().getRoutingFor(aci, Optional.of(InetAddress.getByName("0.0.0.1")), 10))
         .isEqualTo(optionsWithUrls(List.of(
-            "stun:1.1.1.1",
             "turn:1.1.1.1",
             "turn:1.1.1.1:80?transport=tcp",
             "turns:1.1.1.1:443?transport=tcp",
 
-            "stun:[2222:1111:0:dead:0:0:0:0]",
             "turn:[2222:1111:0:dead:0:0:0:0]",
             "turn:[2222:1111:0:dead:0:0:0:0]:80?transport=tcp",
             "turns:[2222:1111:0:dead:0:0:0:0]:443?transport=tcp"
@@ -204,41 +203,38 @@ public class TurnCallRouterTest {
   }
 
   @Test
-  public void testLimitReturnsHalfIpv4AndPrioritizesPerformance() throws UnknownHostException {
+  public void testLimitReturnsPreferredProtocolAndPrioritizesPerformance() throws UnknownHostException {
     when(performanceTable.getDatacentersFor(any(), any(), any(), any()))
         .thenReturn(List.of("dc-performance3", "dc-performance2", "dc-performance1"));
 
-    assertThat(router().getRoutingFor(aci, Optional.of(InetAddress.getByName("0.0.0.1")), 6))
+    assertThat(router().getRoutingFor(aci, Optional.of(InetAddress.getByName("0.0.0.1")), 3))
         .isEqualTo(optionsWithUrls(List.of(
-            "stun:9.9.9.4",
             "turn:9.9.9.4",
             "turn:9.9.9.4:80?transport=tcp",
             "turns:9.9.9.4:443?transport=tcp",
 
-            "stun:9.9.9.3",
             "turn:9.9.9.3",
             "turn:9.9.9.3:80?transport=tcp",
             "turns:9.9.9.3:443?transport=tcp",
 
-            "stun:9.9.9.1",
-            "turn:9.9.9.1",
-            "turn:9.9.9.1:80?transport=tcp",
-            "turns:9.9.9.1:443?transport=tcp",
+            "turn:[2222:1111:0:abc3:0:0:0:0]",
+            "turn:[2222:1111:0:abc3:0:0:0:0]:80?transport=tcp",
+            "turns:[2222:1111:0:abc3:0:0:0:0]:443?transport=tcp"
+        )));
 
-            "stun:[2222:1111:0:abc3:0:0:0:0]",
+    assertThat(router().getRoutingFor(aci, Optional.of(InetAddress.getByName("2222:1111:0:abc2:0:0:0:1")), 3))
+        .isEqualTo(optionsWithUrls(List.of(
+            "turn:9.9.9.4",
+            "turn:9.9.9.4:80?transport=tcp",
+            "turns:9.9.9.4:443?transport=tcp",
+
             "turn:[2222:1111:0:abc3:0:0:0:0]",
             "turn:[2222:1111:0:abc3:0:0:0:0]:80?transport=tcp",
             "turns:[2222:1111:0:abc3:0:0:0:0]:443?transport=tcp",
 
-            "stun:[2222:1111:0:abc2:0:0:0:0]",
             "turn:[2222:1111:0:abc2:0:0:0:0]",
             "turn:[2222:1111:0:abc2:0:0:0:0]:80?transport=tcp",
-            "turns:[2222:1111:0:abc2:0:0:0:0]:443?transport=tcp",
-
-            "stun:[2222:1111:0:abc0:0:0:0:0]",
-            "turn:[2222:1111:0:abc0:0:0:0:0]",
-            "turn:[2222:1111:0:abc0:0:0:0:0]:80?transport=tcp",
-            "turns:[2222:1111:0:abc0:0:0:0:0]:443?transport=tcp"
+            "turns:[2222:1111:0:abc2:0:0:0:0]:443?transport=tcp"
         )));
   }
 
