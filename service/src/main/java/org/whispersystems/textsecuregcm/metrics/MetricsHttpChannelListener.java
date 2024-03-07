@@ -160,12 +160,11 @@ public class MetricsHttpChannelListener implements HttpChannel.Listener, Contain
   private RequestInfo getRequestInfo(Request request) {
     final String path = Optional.ofNullable(request.getAttribute(URI_INFO_PROPERTY_NAME))
         .map(attr -> UriInfoUtil.getPathTemplate((ExtendedUriInfo) attr))
-        .orElseGet(() -> {
-          if (servletPaths.contains(request.getPathInfo())) {
-            return request.getPathInfo();
-          }
-          return "unknown";
-        });
+        .orElseGet(() ->
+            Optional.ofNullable(request.getPathInfo())
+                .filter(servletPaths::contains)
+                .orElse("unknown")
+        );
     final String method = Optional.ofNullable(request.getMethod()).orElse("unknown");
     // Response cannot be null, but its status might not always reflect an actual response status, since it gets
     // initialized to 200

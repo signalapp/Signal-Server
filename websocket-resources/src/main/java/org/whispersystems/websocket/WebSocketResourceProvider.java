@@ -195,7 +195,7 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
           // If the request ended up being one that mutates our principal, we have to close it to indicate we're done
           // with the mutation operation
           final Object resolvedPrincipal = containerRequest.getProperty(RESOLVED_PRINCIPAL_PROPERTY);
-          if (resolvedPrincipal instanceof ReusableAuth.MutableRef ref) {
+          if (resolvedPrincipal instanceof ReusableAuth.MutableRef<?> ref) {
               ref.close();
           } else if (resolvedPrincipal != null) {
             logger.warn("unexpected resolved principal type {} : {}", resolvedPrincipal.getClass(), resolvedPrincipal);
