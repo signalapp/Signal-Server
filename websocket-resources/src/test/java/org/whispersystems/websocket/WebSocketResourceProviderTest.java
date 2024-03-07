@@ -137,6 +137,7 @@ class WebSocketResourceProviderTest {
         return "OK";
       }
     });
+    when(response.getHeaders()).thenReturn(new MultivaluedHashMap<>());
 
     ArgumentCaptor<OutputStream> responseOutputStream = ArgumentCaptor.forClass(OutputStream.class);
 

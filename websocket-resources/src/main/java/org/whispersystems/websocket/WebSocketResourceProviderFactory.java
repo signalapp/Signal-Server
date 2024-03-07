@@ -9,6 +9,7 @@ import static java.util.Optional.ofNullable;
 import io.dropwizard.jersey.jackson.JacksonMessageBodyProvider;
 import java.io.IOException;
 import java.security.Principal;
+import java.util.Map;
 import java.util.Optional;
 import javax.ws.rs.InternalServerErrorException;
 import org.apache.commons.lang3.StringUtils;
@@ -17,6 +18,7 @@ import org.eclipse.jetty.websocket.server.JettyServerUpgradeResponse;
 import org.eclipse.jetty.websocket.server.JettyWebSocketCreator;
 import org.eclipse.jetty.websocket.server.JettyWebSocketServlet;
 import org.eclipse.jetty.websocket.server.JettyWebSocketServletFactory;
+import org.glassfish.jersey.CommonProperties;
 import org.glassfish.jersey.server.ApplicationHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,6 +47,11 @@ public class WebSocketResourceProviderFactory<T extends Principal> extends Jetty
     environment.jersey().register(new WebSocketSessionContextValueFactoryProvider.Binder());
     environment.jersey().register(new WebsocketAuthValueFactoryProvider.Binder<T>(principalClass));
     environment.jersey().register(new JacksonMessageBodyProvider(environment.getObjectMapper()));
+
+    // Jersey buffers responses (by default up to 8192 bytes) just so it can add a content length to responses. We
+    // already buffer our responses to serialize them as protos, so we can compute the content length ourselves. Setting
+    // the buffer to zero disables buffering.
+    environment.jersey().addProperties(Map.of(CommonProperties.OUTBOUND_CONTENT_LENGTH_BUFFER, 0));
 
     this.jerseyApplicationHandler = new ApplicationHandler(environment.jersey());
 

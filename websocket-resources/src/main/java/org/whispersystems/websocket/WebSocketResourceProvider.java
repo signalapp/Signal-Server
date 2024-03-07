@@ -264,7 +264,7 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
       ByteArrayOutputStream responseBody) throws IOException {
     if (requestMessage.hasRequestId()) {
       byte[] body = responseBody.toByteArray();
-
+      response.getHeaders().putIfAbsent(HttpHeaders.CONTENT_LENGTH, List.of(body.length));
       if (body.length <= 0) {
         body = null;
       }
