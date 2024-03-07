@@ -13,6 +13,9 @@ import io.micrometer.core.instrument.Metrics;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.validation.ConstraintViolation;
 import javax.validation.Validation;
@@ -38,8 +41,9 @@ public class DynamicConfigurationManager<T> {
 
   // Set on initial config fetch
   private final AtomicReference<T> configuration = new AtomicReference<>();
+  private final CountDownLatch initialized = new CountDownLatch(1);
+  private final ScheduledExecutorService scheduledExecutorService;
   private String configurationToken = null;
-  private boolean initialized = false;
 
   private static final Validator VALIDATOR = Validation.buildDefaultValidatorFactory().getValidator();
 
@@ -50,61 +54,48 @@ public class DynamicConfigurationManager<T> {
   private static final Logger logger = LoggerFactory.getLogger(DynamicConfigurationManager.class);
 
   public DynamicConfigurationManager(String application, String environment, String configurationName,
-      Class<T> configurationClass) {
+      Class<T> configurationClass, ScheduledExecutorService scheduledExecutorService) {
     this(AppConfigDataClient
             .builder()
             .overrideConfiguration(ClientOverrideConfiguration.builder()
                 .apiCallTimeout(Duration.ofSeconds(10))
                 .apiCallAttemptTimeout(Duration.ofSeconds(10)).build())
             .build(),
-        application, environment, configurationName, configurationClass);
+        application, environment, configurationName, configurationClass, scheduledExecutorService);
   }
 
   @VisibleForTesting
   DynamicConfigurationManager(AppConfigDataClient appConfigClient, String application, String environment,
-      String configurationName, Class<T> configurationClass) {
+      String configurationName, Class<T> configurationClass, ScheduledExecutorService scheduledExecutorService) {
     this.appConfigClient = appConfigClient;
     this.application = application;
     this.environment = environment;
     this.configurationName = configurationName;
     this.configurationClass = configurationClass;
+    this.scheduledExecutorService = scheduledExecutorService;
   }
 
   public T getConfiguration() {
-    synchronized (this) {
-      while (!initialized) {
-        try {
-          this.wait();
-        } catch (final InterruptedException e) {
-          logger.warn("Interrupted while waiting for initial configuration", e);
-          throw new RuntimeException(e);
-        }
-      }
+    try {
+      initialized.await();
+    } catch (InterruptedException e) {
+      logger.warn("Interrupted while waiting for initial configuration", e);
+      throw new RuntimeException(e);
     }
     return configuration.get();
   }
 
   public void start() {
     configuration.set(retrieveInitialDynamicConfiguration());
-    synchronized (this) {
-      this.initialized = true;
-      this.notifyAll();
-    }
+    initialized.countDown();
 
-    final Thread workerThread = new Thread(() -> {
-      while (true) {
-        try {
-          retrieveDynamicConfiguration().ifPresent(configuration::set);
-        } catch (Exception e) {
-          logger.warn("Error retrieving dynamic configuration", e);
-        }
-
-        Util.sleep(5000);
+    scheduledExecutorService.scheduleWithFixedDelay(() -> {
+      try {
+        retrieveDynamicConfiguration().ifPresent(configuration::set);
+      } catch (Exception e) {
+        logger.warn("Error retrieving dynamic configuration", e);
       }
-    }, "DynamicConfigurationManagerWorker");
-
-    workerThread.setDaemon(true);
-    workerThread.start();
+    }, 0, 5, TimeUnit.SECONDS);
   }
 
   private Optional<T> retrieveDynamicConfiguration() throws JsonProcessingException {

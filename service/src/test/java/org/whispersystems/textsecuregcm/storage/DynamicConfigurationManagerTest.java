@@ -6,6 +6,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.time.Duration;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
@@ -27,17 +30,23 @@ class DynamicConfigurationManagerTest {
   private DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private AppConfigDataClient appConfig;
   private StartConfigurationSessionRequest startConfigurationSession;
+  private final ScheduledExecutorService scheduledExecutorService = new ScheduledThreadPoolExecutor(1);
 
   @BeforeEach
   void setup() {
     this.appConfig = mock(AppConfigDataClient.class);
     this.dynamicConfigurationManager = new DynamicConfigurationManager<>(
-        appConfig, "foo", "bar", "baz", DynamicConfiguration.class);
+        appConfig, "foo", "bar", "baz", DynamicConfiguration.class, scheduledExecutorService);
     this.startConfigurationSession = StartConfigurationSessionRequest.builder()
         .applicationIdentifier("foo")
         .environmentIdentifier("bar")
         .configurationProfileIdentifier("baz")
         .build();
+  }
+
+  @AfterEach
+  void teardown() {
+    scheduledExecutorService.shutdown();
   }
 
   @Test

@@ -315,11 +315,14 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     UncaughtExceptionHandler.register();
 
+    ScheduledExecutorService dynamicConfigurationExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(getClass(), "dynamicConfiguration-%d")).threads(1).build();
+
     DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
         new DynamicConfigurationManager<>(config.getAppConfig().getApplication(),
             config.getAppConfig().getEnvironment(),
             config.getAppConfig().getConfigurationName(),
-            DynamicConfiguration.class);
+            DynamicConfiguration.class, dynamicConfigurationExecutor);
     dynamicConfigurationManager.start();
 
     MetricsUtil.configureRegistries(config, environment, dynamicConfigurationManager);

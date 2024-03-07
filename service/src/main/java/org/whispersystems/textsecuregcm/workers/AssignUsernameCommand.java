@@ -98,6 +98,14 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
       throws Exception {
     environment.getObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
+    ScheduledExecutorService dynamicConfigurationExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(getClass(), "dynamicConfiguration-%d")).threads(1).build();
+
+    DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = new DynamicConfigurationManager<>(
+        configuration.getAppConfig().getApplication(), configuration.getAppConfig().getEnvironment(),
+        configuration.getAppConfig().getConfigurationName(), DynamicConfiguration.class, dynamicConfigurationExecutor);
+    dynamicConfigurationManager.start();
+
     ClientResources redisClusterClientResources = ClientResources.builder().build();
 
     FaultTolerantRedisCluster cacheCluster = new FaultTolerantRedisCluster("main_cache_cluster",
@@ -127,11 +135,6 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
         configuration.getSecureStorageServiceConfiguration());
     ExternalServiceCredentialsGenerator secureValueRecoveryCredentialsGenerator = SecureValueRecovery2Controller.credentialsGenerator(
         configuration.getSvr2Configuration());
-
-    DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = new DynamicConfigurationManager<>(
-        configuration.getAppConfig().getApplication(), configuration.getAppConfig().getEnvironment(),
-        configuration.getAppConfig().getConfigurationName(), DynamicConfiguration.class);
-    dynamicConfigurationManager.start();
 
     ExperimentEnrollmentManager experimentEnrollmentManager = new ExperimentEnrollmentManager(
         dynamicConfigurationManager);

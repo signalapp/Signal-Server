@@ -72,9 +72,12 @@ record CommandDependencies(
 
     environment.getObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
+    ScheduledExecutorService dynamicConfigurationExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(name, "dynamicConfiguration-%d")).threads(1).build();
+
     DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = new DynamicConfigurationManager<>(
         configuration.getAppConfig().getApplication(), configuration.getAppConfig().getEnvironment(),
-        configuration.getAppConfig().getConfigurationName(), DynamicConfiguration.class);
+        configuration.getAppConfig().getConfigurationName(), DynamicConfiguration.class, dynamicConfigurationExecutor);
     dynamicConfigurationManager.start();
 
     MetricsUtil.configureRegistries(configuration, environment, dynamicConfigurationManager);
