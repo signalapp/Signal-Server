@@ -142,7 +142,8 @@ public class CertificateController {
     }
 
     Metrics.counter(GET_GROUP_AUTHENTICATION_CREDENTIALS_COUNTER_NAME,
-      Tags.of(UserAgentTagUtil.getPlatformTag(userAgent)).and("pniAsServiceId", String.valueOf(pniAsServiceId)));
+      Tags.of(UserAgentTagUtil.getPlatformTag(userAgent)).and("pniAsServiceId", String.valueOf(pniAsServiceId)))
+        .increment();
 
     return new GroupCredentials(credentials, callLinkAuthCredentials, pni.getRawUUID());
   }
