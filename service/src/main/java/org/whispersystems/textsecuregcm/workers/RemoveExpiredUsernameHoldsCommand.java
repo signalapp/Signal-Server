@@ -22,6 +22,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
@@ -39,8 +40,8 @@ public class RemoveExpiredUsernameHoldsCommand extends AbstractSinglePassCrawlAc
   private static final String DELETED_HOLDS_COUNTER_NAME =
       name(RemoveExpiredUsernameHoldsCommand.class, "expiredHolds");
 
-  private static final String UPDATED_ACCOUNTS_COUNTER_NAME =
-      name(RemoveExpiredUsernameHoldsCommand.class, "accountsWithExpiredHolds");
+  private static final String INSPECTED_ACCOUNTS_COUNTER_NAME =
+      name(RemoveExpiredUsernameHoldsCommand.class, "inspectedAccounts");
 
   private static final Logger log = LoggerFactory.getLogger(RemoveExpiredUsernameHoldsCommand.class);
 
@@ -74,28 +75,30 @@ public class RemoveExpiredUsernameHoldsCommand extends AbstractSinglePassCrawlAc
 
     final Counter deletedHoldsCounter =
         Metrics.counter(DELETED_HOLDS_COUNTER_NAME, "dryRun", String.valueOf(isDryRun));
-    final Counter updatedAccountsCounter =
-        Metrics.counter(UPDATED_ACCOUNTS_COUNTER_NAME, "dryRun", String.valueOf(isDryRun));
 
     final AccountsManager accountManager = getCommandDependencies().accountsManager();
+    final AtomicLong accountsInspected = new AtomicLong();
     accounts.flatMap(account -> {
+          accountsInspected.incrementAndGet();
           final List<Account.UsernameHold> holds = new ArrayList<>(account.getUsernameHolds());
-          int holdsToRemove = removeExpired(holds);
+          final int holdsToRemove = removeExpired(holds);
           final Mono<Void> purgeMono = isDryRun || holdsToRemove == 0
               ? Mono.empty()
               : Mono.fromFuture(() ->
                   accountManager.updateAsync(account, a -> a.setUsernameHolds(holds)).thenRun(Util.NOOP));
+          Metrics.counter(INSPECTED_ACCOUNTS_COUNTER_NAME,
+                  "dryRun", String.valueOf(isDryRun),
+                  "expiredHolds", String.valueOf(holdsToRemove > 0))
+              .increment();
           return purgeMono
-              .doOnSuccess(ignored -> {
-                deletedHoldsCounter.increment(holdsToRemove);
-                updatedAccountsCounter.increment();
-              })
+              .doOnSuccess(ignored -> deletedHoldsCounter.increment(holdsToRemove))
               .onErrorResume(throwable -> {
                 log.warn("Failed to purge {} expired holds on account {}", holdsToRemove, account.getUuid());
                 return Mono.empty();
               });
         }, maxConcurrency)
         .then().block();
+    log.info("Finished crawl of {} accounts", accountsInspected.get());
   }
 
   @VisibleForTesting
