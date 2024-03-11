@@ -115,9 +115,9 @@ class ChallengeControllerTest {
   @ParameterizedTest
   @ValueSource(booleans = { true, false } )
   void testHandleRecaptcha(boolean hasThreshold) throws RateLimitExceededException, IOException {
-    final String recaptchaChallengeJson = """
+    final String captchaChallengeJson = """
         {
-          "type": "recaptcha",
+          "type": "captcha",
           "token": "A server-generated token",
           "captcha": "The value of the solved captcha token"
         }
@@ -134,7 +134,7 @@ class ChallengeControllerTest {
     final Response response = EXTENSION.target("/v1/challenge")
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .put(Entity.json(recaptchaChallengeJson));
+        .put(Entity.json(captchaChallengeJson));
 
     assertEquals(200, response.getStatus());
 
@@ -145,9 +145,9 @@ class ChallengeControllerTest {
 
   @Test
   void testHandleInvalidCaptcha() throws RateLimitExceededException, IOException {
-    final String recaptchaChallengeJson = """
+    final String captchaChallengeJson = """
         {
-          "type": "recaptcha",
+          "type": "captcha",
           "token": "A server-generated token",
           "captcha": "The value of the solved captcha token"
         }
@@ -159,16 +159,16 @@ class ChallengeControllerTest {
     final Response response = EXTENSION.target("/v1/challenge")
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .put(Entity.json(recaptchaChallengeJson));
+        .put(Entity.json(captchaChallengeJson));
 
     assertEquals(428, response.getStatus());
   }
 
   @Test
   void testHandleRecaptchaRateLimited() throws RateLimitExceededException, IOException {
-    final String recaptchaChallengeJson = """
+    final String captchaChallengeJson = """
         {
-          "type": "recaptcha",
+          "type": "captcha",
           "token": "A server-generated token",
           "captcha": "The value of the solved captcha token"
         }
@@ -181,7 +181,7 @@ class ChallengeControllerTest {
     final Response response = EXTENSION.target("/v1/challenge")
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .put(Entity.json(recaptchaChallengeJson));
+        .put(Entity.json(captchaChallengeJson));
 
     assertEquals(413, response.getStatus());
     assertEquals(String.valueOf(retryAfter.toSeconds()), response.getHeaderString("Retry-After"));
