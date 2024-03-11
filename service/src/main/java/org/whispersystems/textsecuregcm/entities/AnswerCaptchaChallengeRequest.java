@@ -8,7 +8,7 @@ package org.whispersystems.textsecuregcm.entities;
 import io.swagger.v3.oas.annotations.media.Schema;
 import javax.validation.constraints.NotBlank;
 
-public class AnswerRecaptchaChallengeRequest extends AnswerChallengeRequest {
+public class AnswerCaptchaChallengeRequest extends AnswerChallengeRequest {
 
   @Schema(description = "The value of the token field from the server's 428 response")
   @NotBlank

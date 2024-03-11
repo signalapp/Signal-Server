@@ -122,8 +122,8 @@ public class RateLimitersTest {
 
     final Map<String, RateLimiterConfig> limitsConfigMap = new HashMap<>();
 
-    limitsConfigMap.put(RateLimiters.For.RECAPTCHA_CHALLENGE_ATTEMPT.id(), baseConfig);
-    limitsConfigMap.put(RateLimiters.For.RECAPTCHA_CHALLENGE_SUCCESS.id(), baseConfig);
+    limitsConfigMap.put(RateLimiters.For.CAPTCHA_CHALLENGE_ATTEMPT.id(), baseConfig);
+    limitsConfigMap.put(RateLimiters.For.CAPTCHA_CHALLENGE_SUCCESS.id(), baseConfig);
 
     when(configuration.getLimits()).thenReturn(limitsConfigMap);
 
@@ -133,19 +133,19 @@ public class RateLimitersTest {
     limitsConfigMap.put(RateLimiters.For.RATE_LIMIT_RESET.id(), initialRateLimiterConfig);
     assertEquals(initialRateLimiterConfig, config(limiter));
 
-    assertEquals(baseConfig, config(rateLimiters.getRecaptchaChallengeAttemptLimiter()));
-    assertEquals(baseConfig, config(rateLimiters.getRecaptchaChallengeSuccessLimiter()));
+    assertEquals(baseConfig, config(rateLimiters.getCaptchaChallengeAttemptLimiter()));
+    assertEquals(baseConfig, config(rateLimiters.getCaptchaChallengeSuccessLimiter()));
 
     limitsConfigMap.put(RateLimiters.For.RATE_LIMIT_RESET.id(), updatedRateLimiterCongig);
     assertEquals(updatedRateLimiterCongig, config(limiter));
 
-    assertEquals(baseConfig, config(rateLimiters.getRecaptchaChallengeAttemptLimiter()));
-    assertEquals(baseConfig, config(rateLimiters.getRecaptchaChallengeSuccessLimiter()));
+    assertEquals(baseConfig, config(rateLimiters.getCaptchaChallengeAttemptLimiter()));
+    assertEquals(baseConfig, config(rateLimiters.getCaptchaChallengeSuccessLimiter()));
   }
 
   @Test
   public void testRateLimiterHasItsPrioritiesStraight() throws Exception {
-    final RateLimiters.For descriptor = RateLimiters.For.RECAPTCHA_CHALLENGE_ATTEMPT;
+    final RateLimiters.For descriptor = RateLimiters.For.CAPTCHA_CHALLENGE_ATTEMPT;
     final RateLimiterConfig configForDynamic = new RateLimiterConfig(1, Duration.ofMinutes(1));
     final RateLimiterConfig configForStatic = new RateLimiterConfig(2, Duration.ofSeconds(30));
     final RateLimiterConfig defaultConfig = descriptor.defaultConfig();

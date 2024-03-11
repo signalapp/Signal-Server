@@ -48,13 +48,13 @@ class AnswerChallengeRequestTest {
       final AnswerChallengeRequest answerChallengeRequest =
           SystemMapper.jsonMapper().readValue(captchaChallengeJson, AnswerChallengeRequest.class);
 
-      assertTrue(answerChallengeRequest instanceof AnswerRecaptchaChallengeRequest);
+      assertTrue(answerChallengeRequest instanceof AnswerCaptchaChallengeRequest);
 
       assertEquals("A server-generated token",
-          ((AnswerRecaptchaChallengeRequest) answerChallengeRequest).getToken());
+          ((AnswerCaptchaChallengeRequest) answerChallengeRequest).getToken());
 
       assertEquals("The value of the solved captcha token",
-          ((AnswerRecaptchaChallengeRequest) answerChallengeRequest).getCaptcha());
+          ((AnswerCaptchaChallengeRequest) answerChallengeRequest).getCaptcha());
     }
 
     {

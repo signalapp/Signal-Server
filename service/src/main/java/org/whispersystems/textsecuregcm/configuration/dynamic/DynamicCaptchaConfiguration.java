@@ -33,10 +33,6 @@ public class DynamicCaptchaConfiguration {
 
   @JsonProperty
   @NotNull
-  private Map<Action, Set<String>> recaptchaSiteKeys = Collections.emptyMap();
-
-  @JsonProperty
-  @NotNull
   private Map<Action, BigDecimal> scoreFloorByAction = Collections.emptyMap();
 
   public BigDecimal getScoreFloor() {
@@ -69,15 +65,5 @@ public class DynamicCaptchaConfiguration {
   public void setHCaptchaSiteKeys(final Map<Action, Set<String>> hCaptchaSiteKeys) {
     this.hCaptchaSiteKeys = hCaptchaSiteKeys;
   }
-
-  public Map<Action, Set<String>> getRecaptchaSiteKeys() {
-    return recaptchaSiteKeys;
-  }
-
-  @VisibleForTesting
-  public void setRecaptchaSiteKeys(final Map<Action, Set<String>> recaptchaSiteKeys) {
-    this.recaptchaSiteKeys = recaptchaSiteKeys;
-  }
-
 
 }

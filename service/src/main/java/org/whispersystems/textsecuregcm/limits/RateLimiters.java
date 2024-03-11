@@ -44,8 +44,8 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
     VERIFICATION_PUSH_CHALLENGE("verificationPushChallenge", false, new RateLimiterConfig(5, Duration.ofSeconds(30))),
     VERIFICATION_CAPTCHA("verificationCaptcha", false, new RateLimiterConfig(10, Duration.ofSeconds(30))),
     RATE_LIMIT_RESET("rateLimitReset", true, new RateLimiterConfig(2, Duration.ofHours(12))),
-    RECAPTCHA_CHALLENGE_ATTEMPT("recaptchaChallengeAttempt", true, new RateLimiterConfig(10, Duration.ofMinutes(144))),
-    RECAPTCHA_CHALLENGE_SUCCESS("recaptchaChallengeSuccess", true, new RateLimiterConfig(2, Duration.ofHours(12))),
+    CAPTCHA_CHALLENGE_ATTEMPT("captchaChallengeAttempt", true, new RateLimiterConfig(10, Duration.ofMinutes(144))),
+    CAPTCHA_CHALLENGE_SUCCESS("captchaChallengeSuccess", true, new RateLimiterConfig(2, Duration.ofHours(12))),
     SET_BACKUP_ID("setBackupId", true, new RateLimiterConfig(2, Duration.ofDays(7))),
     PUSH_CHALLENGE_ATTEMPT("pushChallengeAttempt", true, new RateLimiterConfig(10, Duration.ofMinutes(144))),
     PUSH_CHALLENGE_SUCCESS("pushChallengeSuccess", true, new RateLimiterConfig(2, Duration.ofHours(12))),
@@ -193,12 +193,12 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
     return forDescriptor(For.RATE_LIMIT_RESET);
   }
 
-  public RateLimiter getRecaptchaChallengeAttemptLimiter() {
-    return forDescriptor(For.RECAPTCHA_CHALLENGE_ATTEMPT);
+  public RateLimiter getCaptchaChallengeAttemptLimiter() {
+    return forDescriptor(For.CAPTCHA_CHALLENGE_ATTEMPT);
   }
 
-  public RateLimiter getRecaptchaChallengeSuccessLimiter() {
-    return forDescriptor(For.RECAPTCHA_CHALLENGE_SUCCESS);
+  public RateLimiter getCaptchaChallengeSuccessLimiter() {
+    return forDescriptor(For.CAPTCHA_CHALLENGE_SUCCESS);
   }
 
   public RateLimiter getPushChallengeAttemptLimiter() {

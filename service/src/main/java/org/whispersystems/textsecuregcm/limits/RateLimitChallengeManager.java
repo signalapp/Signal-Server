@@ -31,7 +31,8 @@ public class RateLimitChallengeManager {
 
   private final List<RateLimitChallengeListener> rateLimitChallengeListeners;
 
-  private static final String RECAPTCHA_ATTEMPT_COUNTER_NAME = name(RateLimitChallengeManager.class, "recaptcha", "attempt");
+  private static final String CAPTCHA_ATTEMPT_COUNTER_NAME = name(RateLimitChallengeManager.class, "captcha",
+      "attempt");
   private static final String RESET_RATE_LIMIT_EXCEEDED_COUNTER_NAME = name(RateLimitChallengeManager.class, "resetRateLimitExceeded");
 
   private static final String SOURCE_COUNTRY_TAG_NAME = "sourceCountry";
@@ -60,10 +61,11 @@ public class RateLimitChallengeManager {
     }
   }
 
-  public boolean answerRecaptchaChallenge(final Account account, final String captcha, final String mostRecentProxyIp, final String userAgent, final Optional<Float> scoreThreshold)
+  public boolean answerCaptchaChallenge(final Account account, final String captcha, final String mostRecentProxyIp,
+      final String userAgent, final Optional<Float> scoreThreshold)
       throws RateLimitExceededException, IOException {
 
-    rateLimiters.getRecaptchaChallengeAttemptLimiter().validate(account.getUuid());
+    rateLimiters.getCaptchaChallengeAttemptLimiter().validate(account.getUuid());
 
     final boolean challengeSuccess = captchaChecker.verify(Action.CHALLENGE, captcha, mostRecentProxyIp).isValid(scoreThreshold);
 
@@ -73,10 +75,10 @@ public class RateLimitChallengeManager {
         UserAgentTagUtil.getPlatformTag(userAgent)
     );
 
-    Metrics.counter(RECAPTCHA_ATTEMPT_COUNTER_NAME, tags).increment();
+    Metrics.counter(CAPTCHA_ATTEMPT_COUNTER_NAME, tags).increment();
 
     if (challengeSuccess) {
-      rateLimiters.getRecaptchaChallengeSuccessLimiter().validate(account.getUuid());
+      rateLimiters.getCaptchaChallengeSuccessLimiter().validate(account.getUuid());
       resetRateLimits(account, ChallengeType.CAPTCHA);
     }
     return challengeSuccess;

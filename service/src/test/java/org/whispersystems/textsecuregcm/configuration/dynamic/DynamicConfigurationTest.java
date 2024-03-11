@@ -269,9 +269,6 @@ class DynamicConfigurationTest {
               registration:
                 - e4ddb6ff-05e7-497b-9a29-b76e7331789c
                 - 52fdbc88-f246-4705-a7dd-05ad85b93420
-            recaptchaSiteKeys:
-              challenge:
-                - 299068b6-ac78-4288-a90b-2e2ce5a6ddfe
           """;
 
       final DynamicCaptchaConfiguration config =
@@ -285,9 +282,6 @@ class DynamicConfigurationTest {
       assertThat(config.getHCaptchaSiteKeys().get(Action.CHALLENGE)).contains("ab317f2a-2b76-4098-84c9-ecdf8ea44f53");
       assertThat(config.getHCaptchaSiteKeys().get(Action.REGISTRATION)).contains("e4ddb6ff-05e7-497b-9a29-b76e7331789c");
       assertThat(config.getHCaptchaSiteKeys().get(Action.REGISTRATION)).contains("52fdbc88-f246-4705-a7dd-05ad85b93420");
-
-      assertThat(config.getRecaptchaSiteKeys().get(Action.CHALLENGE)).contains("299068b6-ac78-4288-a90b-2e2ce5a6ddfe");
-      assertThat(config.getRecaptchaSiteKeys().get(Action.REGISTRATION)).isNull();
     }
   }
 

@@ -13,7 +13,7 @@ public class RateLimitChallengeOptionManager {
 
   private final RateLimiters rateLimiters;
 
-  public static final String OPTION_RECAPTCHA = "recaptcha";
+  public static final String OPTION_CAPTCHA = "recaptcha";
   public static final String OPTION_PUSH_CHALLENGE = "pushChallenge";
 
   public RateLimitChallengeOptionManager(final RateLimiters rateLimiters) {
@@ -23,10 +23,10 @@ public class RateLimitChallengeOptionManager {
   public List<String> getChallengeOptions(final Account account) {
     final List<String> options = new ArrayList<>(2);
 
-    if (rateLimiters.getRecaptchaChallengeAttemptLimiter().hasAvailablePermits(account.getUuid(), 1) &&
-        rateLimiters.getRecaptchaChallengeSuccessLimiter().hasAvailablePermits(account.getUuid(), 1)) {
+    if (rateLimiters.getCaptchaChallengeAttemptLimiter().hasAvailablePermits(account.getUuid(), 1) &&
+        rateLimiters.getCaptchaChallengeSuccessLimiter().hasAvailablePermits(account.getUuid(), 1)) {
 
-      options.add(OPTION_RECAPTCHA);
+      options.add(OPTION_CAPTCHA);
     }
 
     if (rateLimiters.getPushChallengeAttemptLimiter().hasAvailablePermits(account.getUuid(), 1) &&

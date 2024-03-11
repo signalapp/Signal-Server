@@ -33,7 +33,7 @@ import javax.ws.rs.core.Response;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.entities.AnswerChallengeRequest;
 import org.whispersystems.textsecuregcm.entities.AnswerPushChallengeRequest;
-import org.whispersystems.textsecuregcm.entities.AnswerRecaptchaChallengeRequest;
+import org.whispersystems.textsecuregcm.entities.AnswerCaptchaChallengeRequest;
 import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
@@ -70,7 +70,7 @@ public class ChallengeController {
           continue their original operation.
           """,
       requestBody = @RequestBody(content = {@Content(schema = @Schema(oneOf = {AnswerPushChallengeRequest.class,
-          AnswerRecaptchaChallengeRequest.class}))})
+          AnswerCaptchaChallengeRequest.class}))})
   )
   @ApiResponse(responseCode = "200", description = "Indicates the challenge proof was accepted")
   @ApiResponse(responseCode = "413", description = "Too many attempts", headers = @Header(
@@ -96,14 +96,14 @@ public class ChallengeController {
           return Response.status(429).build();
         }
         rateLimitChallengeManager.answerPushChallenge(auth.getAccount(), pushChallengeRequest.getChallenge());
-      } else if (answerRequest instanceof AnswerRecaptchaChallengeRequest recaptchaChallengeRequest) {
-        tags = tags.and(CHALLENGE_TYPE_TAG, "recaptcha");
+      } else if (answerRequest instanceof AnswerCaptchaChallengeRequest captchaChallengeRequest) {
+        tags = tags.and(CHALLENGE_TYPE_TAG, "captcha");
 
         final String remoteAddress = (String) requestContext.getProperty(
             RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME);
-        boolean success = rateLimitChallengeManager.answerRecaptchaChallenge(
+        boolean success = rateLimitChallengeManager.answerCaptchaChallenge(
             auth.getAccount(),
-            recaptchaChallengeRequest.getCaptcha(),
+            captchaChallengeRequest.getCaptcha(),
             remoteAddress,
             userAgent,
             constraints.captchaScoreThreshold());

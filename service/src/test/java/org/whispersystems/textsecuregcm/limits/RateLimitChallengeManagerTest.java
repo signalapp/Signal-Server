@@ -79,7 +79,7 @@ class RateLimitChallengeManagerTest {
 
   @ParameterizedTest
   @MethodSource
-  void answerRecaptchaChallenge(Optional<Float> scoreThreshold, float actualScore, boolean expectSuccess)
+  void answerCaptchaChallenge(Optional<Float> scoreThreshold, float actualScore, boolean expectSuccess)
     throws RateLimitExceededException, IOException {
     final Account account = mock(Account.class);
     when(account.getNumber()).thenReturn("+18005551234");
@@ -88,11 +88,11 @@ class RateLimitChallengeManagerTest {
     when(captchaChecker.verify(eq(Action.CHALLENGE), any(), any()))
         .thenReturn(AssessmentResult.fromScore(actualScore, DEFAULT_SCORE_THRESHOLD));
 
-    when(rateLimiters.getRecaptchaChallengeAttemptLimiter()).thenReturn(mock(RateLimiter.class));
-    when(rateLimiters.getRecaptchaChallengeSuccessLimiter()).thenReturn(mock(RateLimiter.class));
+    when(rateLimiters.getCaptchaChallengeAttemptLimiter()).thenReturn(mock(RateLimiter.class));
+    when(rateLimiters.getCaptchaChallengeSuccessLimiter()).thenReturn(mock(RateLimiter.class));
     when(rateLimiters.getRateLimitResetLimiter()).thenReturn(mock(RateLimiter.class));
 
-    rateLimitChallengeManager.answerRecaptchaChallenge(account, "captcha", "10.0.0.1", "Test User-Agent", scoreThreshold);
+    rateLimitChallengeManager.answerCaptchaChallenge(account, "captcha", "10.0.0.1", "Test User-Agent", scoreThreshold);
 
     if (expectSuccess) {
       verify(rateLimitChallengeListener).handleRateLimitChallengeAnswered(account, ChallengeType.CAPTCHA);
@@ -101,7 +101,7 @@ class RateLimitChallengeManagerTest {
     }
   }
 
-  private static Stream<Arguments> answerRecaptchaChallenge() {
+  private static Stream<Arguments> answerCaptchaChallenge() {
     return Stream.of(
         Arguments.of(Optional.empty(), 0.5f, true),
         Arguments.of(Optional.empty(), 0.1f, true),

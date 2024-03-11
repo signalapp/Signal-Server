@@ -114,7 +114,7 @@ class ChallengeControllerTest {
 
   @ParameterizedTest
   @ValueSource(booleans = { true, false } )
-  void testHandleRecaptcha(boolean hasThreshold) throws RateLimitExceededException, IOException {
+  void testHandleCaptcha(boolean hasThreshold) throws RateLimitExceededException, IOException {
     final String captchaChallengeJson = """
         {
           "type": "captcha",
@@ -123,7 +123,7 @@ class ChallengeControllerTest {
         }
         """;
 
-    when(rateLimitChallengeManager.answerRecaptchaChallenge(any(), any(), any(), any(), any()))
+    when(rateLimitChallengeManager.answerCaptchaChallenge(any(), any(), any(), any(), any()))
         .thenReturn(true);
 
 
@@ -138,7 +138,7 @@ class ChallengeControllerTest {
 
     assertEquals(200, response.getStatus());
 
-    verify(rateLimitChallengeManager).answerRecaptchaChallenge(eq(AuthHelper.VALID_ACCOUNT),
+    verify(rateLimitChallengeManager).answerCaptchaChallenge(eq(AuthHelper.VALID_ACCOUNT),
         eq("The value of the solved captcha token"), eq("127.0.0.1"), anyString(),
         eq(hasThreshold ? Optional.of(0.5f) : Optional.empty()));
   }
@@ -152,7 +152,7 @@ class ChallengeControllerTest {
           "captcha": "The value of the solved captcha token"
         }
         """;
-    when(rateLimitChallengeManager.answerRecaptchaChallenge(eq(AuthHelper.VALID_ACCOUNT),
+    when(rateLimitChallengeManager.answerCaptchaChallenge(eq(AuthHelper.VALID_ACCOUNT),
         eq("The value of the solved captcha token"), eq("127.0.0.1"), anyString(), any()))
         .thenReturn(false);
 
@@ -165,7 +165,7 @@ class ChallengeControllerTest {
   }
 
   @Test
-  void testHandleRecaptchaRateLimited() throws RateLimitExceededException, IOException {
+  void testHandleCaptchaRateLimited() throws RateLimitExceededException, IOException {
     final String captchaChallengeJson = """
         {
           "type": "captcha",
@@ -176,7 +176,7 @@ class ChallengeControllerTest {
 
     final Duration retryAfter = Duration.ofMinutes(17);
     doThrow(new RateLimitExceededException(retryAfter, true)).when(rateLimitChallengeManager)
-        .answerRecaptchaChallenge(any(), any(), any(), any(), any());
+        .answerCaptchaChallenge(any(), any(), any(), any(), any());
 
     final Response response = EXTENSION.target("/v1/challenge")
         .request()
