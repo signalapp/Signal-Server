@@ -6,12 +6,13 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import java.security.MessageDigest;
-import java.security.SecureRandom;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
 class AccountChangeValidator {
+
+  private static final byte[] NO_HASH = new byte[32];
 
   private final boolean allowNumberChange;
   private final boolean allowUsernameHashChange;
@@ -48,12 +49,8 @@ class AccountChangeValidator {
     }
 
     if (!allowUsernameHashChange) {
-      // We can potentially replace this with the actual hash of some invalid username (e.g. 1nickname.123)
-      final byte[] dummyHash = new byte[32];
-      new SecureRandom().nextBytes(dummyHash);
-
-      final byte[] updatedAccountUsernameHash = updatedAccount.getUsernameHash().orElse(dummyHash);
-      final byte[] originalAccountUsernameHash = originalAccount.getUsernameHash().orElse(dummyHash);
+      final byte[] updatedAccountUsernameHash = updatedAccount.getUsernameHash().orElse(NO_HASH);
+      final byte[] originalAccountUsernameHash = originalAccount.getUsernameHash().orElse(NO_HASH);
 
       boolean usernameUnchanged = MessageDigest.isEqual(updatedAccountUsernameHash, originalAccountUsernameHash);
 
