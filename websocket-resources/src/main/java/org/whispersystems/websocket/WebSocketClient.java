@@ -5,7 +5,6 @@
 package org.whispersystems.websocket;
 
 import com.google.common.net.HttpHeaders;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.security.SecureRandom;
 import java.util.List;
@@ -14,8 +13,8 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import org.eclipse.jetty.websocket.api.RemoteEndpoint;
 import org.eclipse.jetty.websocket.api.Session;
-import org.eclipse.jetty.websocket.api.exceptions.WebSocketException;
 import org.eclipse.jetty.websocket.api.WriteCallback;
+import org.eclipse.jetty.websocket.api.exceptions.WebSocketException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.websocket.messages.WebSocketMessage;
@@ -26,15 +25,15 @@ import org.whispersystems.websocket.messages.WebSocketResponseMessage;
 public class WebSocketClient {
 
   private static final Logger logger = LoggerFactory.getLogger(WebSocketClient.class);
+  private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
-  private final Session                                                session;
-  private final RemoteEndpoint                                         remoteEndpoint;
-  private final WebSocketMessageFactory                                messageFactory;
+  private final Session session;
+  private final RemoteEndpoint remoteEndpoint;
+  private final WebSocketMessageFactory messageFactory;
   private final Map<Long, CompletableFuture<WebSocketResponseMessage>> pendingRequestMapper;
-  private final long                                                   created;
+  private final long created;
 
-  public WebSocketClient(Session session, RemoteEndpoint remoteEndpoint,
-                         WebSocketMessageFactory messageFactory,
+  public WebSocketClient(Session session, RemoteEndpoint remoteEndpoint, WebSocketMessageFactory messageFactory,
                          Map<Long, CompletableFuture<WebSocketResponseMessage>> pendingRequestMapper) {
     this.session = session;
     this.remoteEndpoint = remoteEndpoint;
@@ -105,7 +104,7 @@ public class WebSocketClient {
   }
 
   private long generateRequestId() {
-    return Math.abs(new SecureRandom().nextLong());
+    return Math.abs(SECURE_RANDOM.nextLong());
   }
 
 }
