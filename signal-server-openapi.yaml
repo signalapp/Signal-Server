@@ -1216,10 +1216,6 @@ paths:
       - Certificate
       operationId: getGroupAuthenticationCredentials
       parameters:
-      - name: User-Agent
-        in: header
-        schema:
-          type: string
       - name: redemptionStartSeconds
         in: query
         schema:
@@ -1230,10 +1226,6 @@ paths:
         schema:
           type: integer
           format: int64
-      - name: pniAsServiceId
-        in: query
-        schema:
-          type: boolean
       responses:
         default:
           description: default response
@@ -1264,7 +1256,7 @@ paths:
             schema:
               oneOf:
               - $ref: '#/components/schemas/AnswerPushChallengeRequest'
-              - $ref: '#/components/schemas/AnswerRecaptchaChallengeRequest'
+              - $ref: '#/components/schemas/AnswerCaptchaChallengeRequest'
       responses:
         "200":
           description: Indicates the challenge proof was accepted
@@ -3235,9 +3227,9 @@ components:
             format: int32
           description: "the new phone-number-identity registration ID for each enabled\
             \ device on the account, including this one"
-        signatureValidOnEachSignedPreKey:
-          type: boolean
         eachPniRegistrationIdValid:
+          type: boolean
+        signatureValidOnEachSignedPreKey:
           type: boolean
         valid:
           type: boolean
@@ -3796,7 +3788,7 @@ components:
           challenge:
             type: string
             description: A token provided to the client via a push payload
-    AnswerRecaptchaChallengeRequest:
+    AnswerCaptchaChallengeRequest:
       required:
       - captcha
       - token
