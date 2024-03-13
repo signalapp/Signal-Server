@@ -8,10 +8,8 @@ package org.whispersystems.textsecuregcm.controllers;
 import static com.codahale.metrics.MetricRegistry.name;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Tags;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.security.InvalidKeyException;
 import java.time.Clock;
@@ -25,7 +23,6 @@ import javax.annotation.Nonnull;
 import javax.ws.rs.BadRequestException;
 import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
-import javax.ws.rs.HeaderParam;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
@@ -42,8 +39,6 @@ import org.whispersystems.textsecuregcm.auth.CertificateGenerator;
 import org.whispersystems.textsecuregcm.entities.DeliveryCertificate;
 import org.whispersystems.textsecuregcm.entities.GroupCredentials;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
-import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
-import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.websocket.auth.ReadOnly;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
@@ -60,8 +55,6 @@ public class CertificateController {
   public static final Duration MAX_REDEMPTION_DURATION = Duration.ofDays(7);
   private static final String GENERATE_DELIVERY_CERTIFICATE_COUNTER_NAME = name(CertificateGenerator.class, "generateCertificate");
   private static final String INCLUDE_E164_TAG_NAME = "includeE164";
-  private static final String GET_GROUP_AUTHENTICATION_CREDENTIALS_COUNTER_NAME =
-      MetricsUtil.name(CertificateController.class, "getGroupAuthenticationCredentials");
 
   public CertificateController(
       @Nonnull CertificateGenerator certificateGenerator,
@@ -97,10 +90,8 @@ public class CertificateController {
   @Path("/auth/group")
   public GroupCredentials getGroupAuthenticationCredentials(
       @ReadOnly @Auth AuthenticatedAccount auth,
-      @HeaderParam(HttpHeaders.USER_AGENT) String userAgent,
       @QueryParam("redemptionStartSeconds") long startSeconds,
-      @QueryParam("redemptionEndSeconds") long endSeconds,
-      @QueryParam("pniAsServiceId") boolean pniAsServiceId) {
+      @QueryParam("redemptionEndSeconds") long endSeconds) {
 
     final Instant startOfDay = clock.instant().truncatedTo(ChronoUnit.DAYS);
     final Instant redemptionStart = Instant.ofEpochSecond(startSeconds);
@@ -124,12 +115,7 @@ public class CertificateController {
     ServiceId.Pni pni = new ServiceId.Pni(auth.getAccount().getPhoneNumberIdentifier());
 
     while (!redemption.isAfter(redemptionEnd)) {
-      AuthCredentialWithPniResponse authCredentialWithPni;
-      if (pniAsServiceId) {
-        authCredentialWithPni = serverZkAuthOperations.issueAuthCredentialWithPniAsServiceId(aci, pni, redemption);
-      } else {
-        authCredentialWithPni = serverZkAuthOperations.issueAuthCredentialWithPniAsAci(aci, pni, redemption);
-      }
+      AuthCredentialWithPniResponse authCredentialWithPni = serverZkAuthOperations.issueAuthCredentialWithPniAsServiceId(aci, pni, redemption);
       credentials.add(new GroupCredentials.GroupCredential(
           authCredentialWithPni.serialize(),
           (int) redemption.getEpochSecond()));
@@ -140,10 +126,6 @@ public class CertificateController {
 
       redemption = redemption.plus(Duration.ofDays(1));
     }
-
-    Metrics.counter(GET_GROUP_AUTHENTICATION_CREDENTIALS_COUNTER_NAME,
-      Tags.of(UserAgentTagUtil.getPlatformTag(userAgent)).and("pniAsServiceId", String.valueOf(pniAsServiceId)))
-        .increment();
 
     return new GroupCredentials(credentials, callLinkAuthCredentials, pni.getRawUUID());
   }
