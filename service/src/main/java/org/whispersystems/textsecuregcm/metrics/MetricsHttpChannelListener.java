@@ -112,6 +112,12 @@ public class MetricsHttpChannelListener implements HttpChannel.Listener, Contain
 
   @Override
   public void onResponseFailure(Request request, Throwable failure) {
+
+    if (failure instanceof org.eclipse.jetty.io.EofException) {
+      // the client disconnected early
+      return;
+    }
+
     final RequestInfo requestInfo = getRequestInfo(request);
 
     logger.warn("Response failure: {} {} ({}) [{}] ",
