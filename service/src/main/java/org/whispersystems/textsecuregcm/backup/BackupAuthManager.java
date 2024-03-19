@@ -21,6 +21,7 @@ import org.signal.libsignal.zkgroup.backups.BackupAuthCredentialRequest;
 import org.signal.libsignal.zkgroup.backups.BackupAuthCredentialResponse;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -43,19 +44,19 @@ public class BackupAuthManager {
   final static String BACKUP_EXPERIMENT_NAME = "backup";
   final static String BACKUP_MEDIA_EXPERIMENT_NAME = "backupMedia";
 
-  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
+  private final ExperimentEnrollmentManager experimentEnrollmentManager;
   private final GenericServerSecretParams serverSecretParams;
   private final Clock clock;
   private final RateLimiters rateLimiters;
   private final AccountsManager accountsManager;
 
   public BackupAuthManager(
-      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
+      final ExperimentEnrollmentManager experimentEnrollmentManager,
       final RateLimiters rateLimiters,
       final AccountsManager accountsManager,
       final GenericServerSecretParams serverSecretParams,
       final Clock clock) {
-    this.dynamicConfigurationManager = dynamicConfigurationManager;
+    this.experimentEnrollmentManager = experimentEnrollmentManager;
     this.rateLimiters = rateLimiters;
     this.accountsManager = accountsManager;
     this.serverSecretParams = serverSecretParams;
@@ -157,9 +158,6 @@ public class BackupAuthManager {
   }
 
   private boolean inExperiment(final String experimentName, final Account account) {
-    return dynamicConfigurationManager.getConfiguration()
-        .getExperimentEnrollmentConfiguration(experimentName)
-        .map(config -> config.getEnrolledUuids().contains(account.getUuid()))
-        .orElse(false);
+    return this.experimentEnrollmentManager.isEnrolled(account.getUuid(), experimentName);
   }
 }
