@@ -417,6 +417,23 @@ class AccountsTest {
   }
 
   @Test
+  void testReclaimAccountPreservesBcr() {
+    final String e164 = "+14151112222";
+    final UUID existingUuid = UUID.randomUUID();
+    final Account existingAccount =
+        generateAccount(e164, existingUuid, UUID.randomUUID(), List.of(generateDevice(DEVICE_ID_1)));
+    existingAccount.setBackupCredentialRequest(TestRandomUtil.nextBytes(32));
+    createAccount(existingAccount);
+    final Account secondAccount =
+        generateAccount(e164, UUID.randomUUID(), UUID.randomUUID(), List.of(generateDevice(DEVICE_ID_1)));
+
+    reclaimAccount(secondAccount);
+
+    final Account reclaimed = accounts.getByAccountIdentifier(existingUuid).get();
+    assertThat(reclaimed.getBackupCredentialRequest()).isEqualTo(existingAccount.getBackupCredentialRequest());
+  }
+
+  @Test
   void testReclaimAccount() {
     final String e164 = "+14151112222";
     final Device device = generateDevice(DEVICE_ID_1);

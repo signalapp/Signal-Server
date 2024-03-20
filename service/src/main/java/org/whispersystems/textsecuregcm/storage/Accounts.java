@@ -304,6 +304,11 @@ public class Accounts extends AbstractDynamoDbStore {
 
       accountToCreate.setVersion(existingAccount.getVersion());
 
+      // Carry over the old backup id commitment. If the new account claimer cannot does not have the secret used to
+      // generate their backup-id, this credential is useless, however if they can produce the same credential they
+      // won't be rate-limited for setting their backup-id.
+      accountToCreate.setBackupCredentialRequest(existingAccount.getBackupCredentialRequest());
+
       final List<TransactWriteItem> writeItems = new ArrayList<>();
 
       // If we're reclaiming an account that already has a username, we'd like to give the re-registering client
