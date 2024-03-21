@@ -752,7 +752,7 @@ public class MessageController {
       @ReadOnly @Auth AuthenticatedAccount auth,
       @PathParam("source") String source,
       @PathParam("messageGuid") UUID messageGuid,
-      @Nullable @Valid SpamReport spamReport,
+      @Nullable SpamReport spamReport,
       @HeaderParam(HttpHeaders.USER_AGENT) String userAgent
   ) {
 
@@ -786,7 +786,7 @@ public class MessageController {
 
     UUID spamReporterUuid = auth.getAccount().getUuid();
 
-    // spam report token is optional, but if provided ensure it is valid base64 and non-empty.
+    // spam report token is optional, but if provided ensure it is non-empty.
     final Optional<byte[]> maybeSpamReportToken =
         Optional.ofNullable(spamReport)
             .flatMap(r -> Optional.ofNullable(r.token()))

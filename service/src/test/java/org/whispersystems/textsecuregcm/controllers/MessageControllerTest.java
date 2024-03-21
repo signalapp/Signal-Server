@@ -904,7 +904,8 @@ class MessageControllerTest {
         Arguments.of(Entity.json("null"), true),
         Arguments.of(Entity.json("{\"weird\": 123}"), true),
         Arguments.of(Entity.json("\"weirder\""), false),
-        Arguments.of(Entity.json("weirdest"), false)
+        Arguments.of(Entity.json("weirdest"), false),
+        Arguments.of(Entity.json("{\"token\":\"InvalidBase64[][][][]\"}"), false)
     );
   }
 
