@@ -34,7 +34,6 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfigurati
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
@@ -137,7 +136,6 @@ class AccountsManagerChangeNumberIntegrationTest {
           secureStorageClient,
           svr2Client,
           clientPresenceManager,
-          mock(ExperimentEnrollmentManager.class),
           registrationRecoveryPasswordsManager,
           accountLockExecutor,
           clientPresenceExecutor,

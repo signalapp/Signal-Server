@@ -46,7 +46,6 @@ import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
@@ -131,7 +130,6 @@ class AccountsManagerConcurrentModificationIntegrationTest {
           mock(SecureStorageClient.class),
           mock(SecureValueRecovery2Client.class),
           mock(ClientPresenceManager.class),
-          mock(ExperimentEnrollmentManager.class),
           mock(RegistrationRecoveryPasswordsManager.class),
           mock(Executor.class),
           mock(Executor.class),

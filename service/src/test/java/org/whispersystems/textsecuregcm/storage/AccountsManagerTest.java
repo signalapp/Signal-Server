@@ -70,7 +70,6 @@ import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
@@ -106,7 +105,6 @@ class AccountsManagerTest {
   private MessagesManager messagesManager;
   private ProfilesManager profilesManager;
   private ClientPresenceManager clientPresenceManager;
-  private ExperimentEnrollmentManager enrollmentManager;
 
   private Map<String, UUID> phoneNumberIdentifiersByE164;
 
@@ -193,9 +191,6 @@ class AccountsManagerTest {
 
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
 
-    enrollmentManager = mock(ExperimentEnrollmentManager.class);
-    when(enrollmentManager.isEnrolled(any(UUID.class), eq(AccountsManager.USERNAME_EXPERIMENT_NAME))).thenReturn(true);
-
     final AccountLockManager accountLockManager = mock(AccountLockManager.class);
 
     doAnswer(invocation -> {
@@ -235,7 +230,6 @@ class AccountsManagerTest {
         storageClient,
         svr2Client,
         clientPresenceManager,
-        enrollmentManager,
         registrationRecoveryPasswordsManager,
         mock(Executor.class),
         clientPresenceExecutor,
@@ -1394,14 +1388,6 @@ class AccountsManagerTest {
     when(accounts.reserveUsernameHash(any(), any(), any())).thenReturn(CompletableFuture.failedFuture(new UsernameHashNotAvailableException()));
     CompletableFutureTestUtil.assertFailsWithCause(UsernameHashNotAvailableException.class,
         accountsManager.reserveUsernameHash(account, List.of(USERNAME_HASH_1, USERNAME_HASH_2)));
-  }
-
-  @Test
-  void testReserveUsernameDisabled() {
-    final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
-    when(enrollmentManager.isEnrolled(account.getUuid(), AccountsManager.USERNAME_EXPERIMENT_NAME)).thenReturn(false);
-    CompletableFutureTestUtil.assertFailsWithCause(UsernameHashNotAvailableException.class,
-        accountsManager.reserveUsernameHash(account, List.of(USERNAME_HASH_1)));
   }
 
   @Test

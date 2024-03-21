@@ -576,7 +576,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         accountLockManager, keysManager, messagesManager, profilesManager,
         secureStorageClient, secureValueRecovery2Client,
         clientPresenceManager,
-        experimentEnrollmentManager, registrationRecoveryPasswordsManager, accountLockExecutor, clientPresenceExecutor,
+        registrationRecoveryPasswordsManager, accountLockExecutor, clientPresenceExecutor,
         clock);
     RemoteConfigsManager remoteConfigsManager = new RemoteConfigsManager(remoteConfigs);
     APNSender apnSender = new APNSender(apnSenderExecutor, config.getApnConfiguration());

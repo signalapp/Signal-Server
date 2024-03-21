@@ -41,7 +41,6 @@ import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
@@ -142,7 +141,6 @@ public class AccountCreationDeletionIntegrationTest {
         secureStorageClient,
         svr2Client,
         mock(ClientPresenceManager.class),
-        mock(ExperimentEnrollmentManager.class),
         registrationRecoveryPasswordsManager,
         accountLockExecutor,
         clientPresenceExecutor,

@@ -28,7 +28,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
@@ -130,7 +129,6 @@ public class AddRemoveDeviceIntegrationTest {
         secureStorageClient,
         svr2Client,
         mock(ClientPresenceManager.class),
-        mock(ExperimentEnrollmentManager.class),
         registrationRecoveryPasswordsManager,
         accountLockExecutor,
         clientPresenceExecutor,

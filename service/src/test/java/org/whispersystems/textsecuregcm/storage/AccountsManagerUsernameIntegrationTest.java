@@ -11,7 +11,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -35,7 +34,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.Mockito;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
@@ -128,10 +126,6 @@ class AccountsManagerUsernameIntegrationTest {
     final PhoneNumberIdentifiers phoneNumberIdentifiers =
         new PhoneNumberIdentifiers(DYNAMO_DB_EXTENSION.getDynamoDbClient(), Tables.PNI.tableName());
 
-    final ExperimentEnrollmentManager experimentEnrollmentManager = mock(ExperimentEnrollmentManager.class);
-    when(experimentEnrollmentManager.isEnrolled(any(UUID.class), eq(AccountsManager.USERNAME_EXPERIMENT_NAME)))
-        .thenReturn(true);
-
     final MessagesManager messageManager = mock(MessagesManager.class);
     final ProfilesManager profileManager = mock(ProfilesManager.class);
     when(messageManager.clear(any())).thenReturn(CompletableFuture.completedFuture(null));
@@ -148,7 +142,6 @@ class AccountsManagerUsernameIntegrationTest {
         mock(SecureStorageClient.class),
         mock(SecureValueRecovery2Client.class),
         mock(ClientPresenceManager.class),
-        experimentEnrollmentManager,
         mock(RegistrationRecoveryPasswordsManager.class),
         Executors.newSingleThreadExecutor(),
         Executors.newSingleThreadExecutor(),

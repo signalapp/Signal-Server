@@ -53,7 +53,6 @@ import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
@@ -92,9 +91,6 @@ public class AccountsManager {
   private static final String COUNTRY_CODE_TAG_NAME     = "country";
   private static final String DELETION_REASON_TAG_NAME  = "reason";
 
-  @VisibleForTesting
-  public static final String USERNAME_EXPERIMENT_NAME  = "usernames";
-
   private static final Logger logger = LoggerFactory.getLogger(AccountsManager.class);
 
   private final Accounts accounts;
@@ -107,7 +103,6 @@ public class AccountsManager {
   private final SecureStorageClient secureStorageClient;
   private final SecureValueRecovery2Client secureValueRecovery2Client;
   private final ClientPresenceManager clientPresenceManager;
-  private final ExperimentEnrollmentManager experimentEnrollmentManager;
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
   private final Executor accountLockExecutor;
   private final Executor clientPresenceExecutor;
@@ -148,7 +143,6 @@ public class AccountsManager {
       final SecureStorageClient secureStorageClient,
       final SecureValueRecovery2Client secureValueRecovery2Client,
       final ClientPresenceManager clientPresenceManager,
-      final ExperimentEnrollmentManager experimentEnrollmentManager,
       final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
       final Executor accountLockExecutor,
       final Executor clientPresenceExecutor,
@@ -163,7 +157,6 @@ public class AccountsManager {
     this.secureStorageClient = secureStorageClient;
     this.secureValueRecovery2Client = secureValueRecovery2Client;
     this.clientPresenceManager = clientPresenceManager;
-    this.experimentEnrollmentManager = experimentEnrollmentManager;
     this.registrationRecoveryPasswordsManager = requireNonNull(registrationRecoveryPasswordsManager);
     this.accountLockExecutor = accountLockExecutor;
     this.clientPresenceExecutor = clientPresenceExecutor;
@@ -545,10 +538,6 @@ public class AccountsManager {
    * {@link UsernameHashNotAvailableException} if none of the given username hashes are available
    */
   public CompletableFuture<UsernameReservation> reserveUsernameHash(final Account account, final List<byte[]> requestedUsernameHashes) {
-    if (!experimentEnrollmentManager.isEnrolled(account.getUuid(), USERNAME_EXPERIMENT_NAME)) {
-      return CompletableFuture.failedFuture(new UsernameHashNotAvailableException());
-    }
-
     if (account.getUsernameHash().filter(
             oldHash -> requestedUsernameHashes.stream().anyMatch(hash -> Arrays.equals(oldHash, hash)))
         .isPresent()) {
@@ -606,10 +595,6 @@ public class AccountsManager {
    * account
    */
   public CompletableFuture<Account> confirmReservedUsernameHash(final Account account, final byte[] reservedUsernameHash, @Nullable final byte[] encryptedUsername) {
-    if (!experimentEnrollmentManager.isEnrolled(account.getUuid(), USERNAME_EXPERIMENT_NAME)) {
-      return CompletableFuture.failedFuture(new UsernameHashNotAvailableException());
-    }
-
     if (account.getUsernameHash().map(currentUsernameHash -> Arrays.equals(currentUsernameHash, reservedUsernameHash)).orElse(false)) {
       // the client likely already succeeded and is retrying
       return CompletableFuture.completedFuture(account);
