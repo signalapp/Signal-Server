@@ -17,6 +17,7 @@ import io.micrometer.core.instrument.Metrics;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nullable;
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
@@ -26,6 +27,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicRemoteDeprecationConfiguration;
+import org.whispersystems.textsecuregcm.grpc.RequestAttributesUtil;
 import org.whispersystems.textsecuregcm.grpc.StatusConstants;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
@@ -79,7 +81,7 @@ public class RemoteDeprecationFilter implements Filter, ServerInterceptor {
       final Metadata headers,
       final ServerCallHandler<ReqT, RespT> next) {
 
-    if (shouldBlock(UserAgentUtil.userAgentFromGrpcContext())) {
+    if (shouldBlock(RequestAttributesUtil.getUserAgent().orElse(null))) {
       call.close(StatusConstants.UPGRADE_NEEDED_STATUS, new Metadata());
       return new ServerCall.Listener<>() {};
     } else {
@@ -87,7 +89,7 @@ public class RemoteDeprecationFilter implements Filter, ServerInterceptor {
     }
   }
 
-  private boolean shouldBlock(final UserAgent userAgent) {
+  private boolean shouldBlock(@Nullable final UserAgent userAgent) {
     final DynamicRemoteDeprecationConfiguration configuration = dynamicConfigurationManager
         .getConfiguration().getRemoteDeprecationConfiguration();
     final Map<ClientPlatform, Semver> minimumVersionsByPlatform = configuration.getMinimumVersions();

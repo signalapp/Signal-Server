@@ -22,14 +22,20 @@ import org.slf4j.LoggerFactory;
  */
 class EstablishLocalGrpcConnectionHandler extends ChannelInboundHandlerAdapter {
 
+  private final ClientConnectionManager clientConnectionManager;
+
   private final LocalAddress authenticatedGrpcServerAddress;
   private final LocalAddress anonymousGrpcServerAddress;
+
   private final List<Object> pendingReads = new ArrayList<>();
 
   private static final Logger log = LoggerFactory.getLogger(EstablishLocalGrpcConnectionHandler.class);
 
-  public EstablishLocalGrpcConnectionHandler(final LocalAddress authenticatedGrpcServerAddress,
+  public EstablishLocalGrpcConnectionHandler(final ClientConnectionManager clientConnectionManager,
+      final LocalAddress authenticatedGrpcServerAddress,
       final LocalAddress anonymousGrpcServerAddress) {
+
+    this.clientConnectionManager = clientConnectionManager;
 
     this.authenticatedGrpcServerAddress = authenticatedGrpcServerAddress;
     this.anonymousGrpcServerAddress = anonymousGrpcServerAddress;
@@ -41,7 +47,7 @@ class EstablishLocalGrpcConnectionHandler extends ChannelInboundHandlerAdapter {
   }
 
   @Override
-  public void userEventTriggered(final ChannelHandlerContext remoteChannelContext, final Object event) throws Exception {
+  public void userEventTriggered(final ChannelHandlerContext remoteChannelContext, final Object event) {
     if (event instanceof NoiseHandshakeCompleteEvent noiseHandshakeCompleteEvent) {
       // We assume that we'll only get a completed handshake event if the handshake met all authentication requirements
       // for the requested service. If the handshake doesn't have an authenticated device, we assume we're trying to
@@ -53,7 +59,6 @@ class EstablishLocalGrpcConnectionHandler extends ChannelInboundHandlerAdapter {
 
       new Bootstrap()
           .remoteAddress(grpcServerAddress)
-          // TODO Set local address
           .channel(LocalChannel.class)
           .group(remoteChannelContext.channel().eventLoop())
           .handler(new ChannelInitializer<LocalChannel>() {
@@ -63,15 +68,19 @@ class EstablishLocalGrpcConnectionHandler extends ChannelInboundHandlerAdapter {
             }
           })
           .connect()
-          .addListener((ChannelFutureListener) future -> {
-            if (future.isSuccess()) {
+          .addListener((ChannelFutureListener) localChannelFuture -> {
+            if (localChannelFuture.isSuccess()) {
+              clientConnectionManager.handleConnectionEstablished((LocalChannel) localChannelFuture.channel(),
+                  remoteChannelContext.channel(),
+                  noiseHandshakeCompleteEvent.authenticatedDevice());
+
               // Close the local connection if the remote channel closes and vice versa
-              remoteChannelContext.channel().closeFuture().addListener(closeFuture -> future.channel().close());
-              future.channel().closeFuture().addListener(closeFuture ->
+              remoteChannelContext.channel().closeFuture().addListener(closeFuture -> localChannelFuture.channel().close());
+              localChannelFuture.channel().closeFuture().addListener(closeFuture ->
                   remoteChannelContext.write(new CloseWebSocketFrame(WebSocketCloseStatus.SERVICE_RESTART)));
 
               remoteChannelContext.pipeline()
-                  .addAfter(remoteChannelContext.name(), null, new ProxyHandler(future.channel()));
+                  .addAfter(remoteChannelContext.name(), null, new ProxyHandler(localChannelFuture.channel()));
 
               // Flush any buffered reads we accumulated while waiting to open the connection
               pendingReads.forEach(remoteChannelContext::fireChannelRead);
@@ -79,7 +88,7 @@ class EstablishLocalGrpcConnectionHandler extends ChannelInboundHandlerAdapter {
 
               remoteChannelContext.pipeline().remove(EstablishLocalGrpcConnectionHandler.this);
             } else {
-              log.warn("Failed to establish local connection to gRPC server", future.cause());
+              log.warn("Failed to establish local connection to gRPC server", localChannelFuture.cause());
               remoteChannelContext.close();
             }
           });

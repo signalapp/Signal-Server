@@ -5,7 +5,6 @@
 
 package org.whispersystems.textsecuregcm.filters;
 
-import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -72,8 +71,7 @@ public class RemoteAddressFilter implements Filter {
    * @see <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Forwarded-For">X-Forwarded-For - HTTP |
    * MDN</a>
    */
-  @VisibleForTesting
-  static Optional<String> getMostRecentProxy(@Nullable final String forwardedFor) {
+  public static Optional<String> getMostRecentProxy(@Nullable final String forwardedFor) {
     return Optional.ofNullable(forwardedFor)
         .map(ff -> {
           final int idx = forwardedFor.lastIndexOf(',') + 1;

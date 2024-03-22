@@ -1,0 +1,41 @@
+/*
+ * Copyright 2023 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
+syntax = "proto3";
+
+option java_multiple_files = true;
+
+package org.signal.chat.rpc;
+
+// A simple test service that echoes request attributes to callers
+service RequestAttributes {
+  rpc GetRequestAttributes (GetRequestAttributesRequest) returns (GetRequestAttributesResponse) {}
+
+  rpc GetAuthenticatedDevice (GetAuthenticatedDeviceRequest) returns (GetAuthenticatedDeviceResponse) {}
+}
+
+message GetRequestAttributesRequest {
+}
+
+message GetRequestAttributesResponse {
+  repeated string acceptable_languages = 1;
+  repeated string available_accepted_locales = 2;
+  string remote_address = 3;
+  UserAgent user_agent = 4;
+}
+
+message UserAgent {
+  string platform = 1;
+  string version = 2;
+  string additional_specifiers = 3;
+}
+
+message GetAuthenticatedDeviceRequest {
+}
+
+message GetAuthenticatedDeviceResponse {
+  bytes account_identifier = 1;
+  uint32 device_id = 2;
+}

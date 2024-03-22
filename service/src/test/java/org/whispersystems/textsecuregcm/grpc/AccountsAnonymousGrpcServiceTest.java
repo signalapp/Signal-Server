@@ -13,9 +13,9 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.google.common.net.InetAddresses;
 import com.google.protobuf.ByteString;
 import io.grpc.Status;
-import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.UUID;
@@ -72,7 +72,7 @@ class AccountsAnonymousGrpcServiceTest extends
 
     when(rateLimiter.validateReactive(anyString())).thenReturn(Mono.empty());
 
-    getMockRemoteAddressInterceptor().setRemoteAddress(new InetSocketAddress("127.0.0.1", 12345));
+    getMockRequestAttributesInterceptor().setRemoteAddress(InetAddresses.forString("127.0.0.1"));
 
     return new AccountsAnonymousGrpcService(accountsManager, rateLimiters);
   }

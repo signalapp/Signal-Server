@@ -1,7 +1,6 @@
 package org.whispersystems.textsecuregcm.grpc.net;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyByte;
@@ -17,6 +16,8 @@ import io.netty.channel.DefaultEventLoopGroup;
 import io.netty.channel.local.LocalAddress;
 import io.netty.channel.local.LocalChannel;
 import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.handler.codec.http.DefaultHttpHeaders;
+import io.netty.handler.codec.http.HttpHeaders;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.net.URI;
@@ -35,28 +36,41 @@ import java.security.cert.X509Certificate;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.Base64;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManagerFactory;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.signal.chat.rpc.AuthenticationTypeGrpc;
-import org.signal.chat.rpc.GetAuthenticatedRequest;
-import org.signal.chat.rpc.GetAuthenticatedResponse;
+import org.signal.chat.rpc.GetAuthenticatedDeviceRequest;
+import org.signal.chat.rpc.GetAuthenticatedDeviceResponse;
+import org.signal.chat.rpc.GetRequestAttributesRequest;
+import org.signal.chat.rpc.GetRequestAttributesResponse;
+import org.signal.chat.rpc.RequestAttributesGrpc;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
+import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
+import org.whispersystems.textsecuregcm.auth.grpc.ProhibitAuthenticationInterceptor;
+import org.whispersystems.textsecuregcm.auth.grpc.RequireAuthenticationInterceptor;
 import org.whispersystems.textsecuregcm.grpc.GrpcTestUtils;
+import org.whispersystems.textsecuregcm.grpc.RequestAttributesInterceptor;
+import org.whispersystems.textsecuregcm.grpc.RequestAttributesServiceImpl;
 import org.whispersystems.textsecuregcm.storage.ClientPublicKeysManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
 class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTest {
 
@@ -66,6 +80,7 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
 
   private static X509Certificate serverTlsCertificate;
 
+  private ClientConnectionManager clientConnectionManager;
   private ClientPublicKeysManager clientPublicKeysManager;
 
   private ECKeyPair rootKeyPair;
@@ -78,6 +93,8 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
 
   private static final UUID ACCOUNT_IDENTIFIER = UUID.randomUUID();
   private static final byte DEVICE_ID = Device.PRIMARY_ID;
+
+  private static final String RECOGNIZED_PROXY_SECRET = RandomStringUtils.randomAlphanumeric(16);
 
   // Please note that this certificate/key are used only for testing and are not used anywhere outside of this test.
   // They were generated with:
@@ -133,6 +150,8 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
     clientKeyPair = Curve.generateKeyPair();
     final ECKeyPair serverKeyPair = Curve.generateKeyPair();
 
+    clientConnectionManager = new ClientConnectionManager();
+
     clientPublicKeysManager = mock(ClientPublicKeysManager.class);
     when(clientPublicKeysManager.findPublicKey(any(), anyByte()))
         .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
@@ -146,7 +165,9 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
     authenticatedGrpcServer = new ManagedLocalGrpcServer(authenticatedGrpcServerAddress, defaultEventLoopGroup) {
       @Override
       protected void configureServer(final ServerBuilder<?> serverBuilder) {
-        serverBuilder.addService(new AuthenticationTypeService(true));
+        serverBuilder.addService(new RequestAttributesServiceImpl())
+            .intercept(new RequestAttributesInterceptor(clientConnectionManager))
+            .intercept(new RequireAuthenticationInterceptor(clientConnectionManager));
       }
     };
 
@@ -155,7 +176,9 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
     anonymousGrpcServer = new ManagedLocalGrpcServer(anonymousGrpcServerAddress, defaultEventLoopGroup) {
       @Override
       protected void configureServer(final ServerBuilder<?> serverBuilder) {
-        serverBuilder.addService(new AuthenticationTypeService(false));
+        serverBuilder.addService(new RequestAttributesServiceImpl())
+            .intercept(new RequestAttributesInterceptor(clientConnectionManager))
+            .intercept(new ProhibitAuthenticationInterceptor(clientConnectionManager));
       }
     };
 
@@ -166,11 +189,13 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
         serverTlsPrivateKey,
         nioEventLoopGroup,
         delegatedTaskExecutor,
+        clientConnectionManager,
         clientPublicKeysManager,
         serverKeyPair,
         rootKeyPair.getPrivateKey().calculateSignature(serverKeyPair.getPublicKey().getPublicKeyBytes()),
         authenticatedGrpcServerAddress,
-        anonymousGrpcServerAddress);
+        anonymousGrpcServerAddress,
+        RECOGNIZED_PROXY_SECRET);
 
     websocketNoiseTunnelServer.start();
   }
@@ -198,10 +223,11 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
       final ManagedChannel channel = buildManagedChannel(webSocketNoiseTunnelClient.getLocalAddress());
 
       try {
-        final GetAuthenticatedResponse response = AuthenticationTypeGrpc.newBlockingStub(channel)
-            .getAuthenticated(GetAuthenticatedRequest.newBuilder().build());
+        final GetAuthenticatedDeviceResponse response = RequestAttributesGrpc.newBlockingStub(channel)
+            .getAuthenticatedDevice(GetAuthenticatedDeviceRequest.newBuilder().build());
 
-        assertTrue(response.getAuthenticated());
+        assertEquals(UUIDUtil.toByteString(ACCOUNT_IDENTIFIER), response.getAccountIdentifier());
+        assertEquals(DEVICE_ID, response.getDeviceId());
       } finally {
         channel.shutdown();
       }
@@ -215,15 +241,15 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
 
     // Try to verify the server's public key with something other than the key with which it was signed
     try (final WebSocketNoiseTunnelClient webSocketNoiseTunnelClient =
-        buildAndStartAuthenticatedClient(webSocketCloseListener, Curve.generateKeyPair().getPublicKey())) {
+        buildAndStartAuthenticatedClient(webSocketCloseListener, Curve.generateKeyPair().getPublicKey(), new DefaultHttpHeaders())) {
 
       final ManagedChannel channel = buildManagedChannel(webSocketNoiseTunnelClient.getLocalAddress());
 
       try {
         //noinspection ResultOfMethodCallIgnored
         GrpcTestUtils.assertStatusException(Status.UNAVAILABLE,
-            () -> AuthenticationTypeGrpc.newBlockingStub(channel)
-                .getAuthenticated(GetAuthenticatedRequest.newBuilder().build()));
+            () -> RequestAttributesGrpc.newBlockingStub(channel)
+                .getRequestAttributes(GetRequestAttributesRequest.newBuilder().build()));
       } finally {
         channel.shutdown();
       }
@@ -247,8 +273,8 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
       try {
         //noinspection ResultOfMethodCallIgnored
         GrpcTestUtils.assertStatusException(Status.UNAVAILABLE,
-            () -> AuthenticationTypeGrpc.newBlockingStub(channel)
-                .getAuthenticated(GetAuthenticatedRequest.newBuilder().build()));
+            () -> RequestAttributesGrpc.newBlockingStub(channel)
+                .getRequestAttributes(GetRequestAttributesRequest.newBuilder().build()));
       } finally {
         channel.shutdown();
       }
@@ -272,8 +298,8 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
       try {
         //noinspection ResultOfMethodCallIgnored
         GrpcTestUtils.assertStatusException(Status.UNAVAILABLE,
-            () -> AuthenticationTypeGrpc.newBlockingStub(channel)
-                .getAuthenticated(GetAuthenticatedRequest.newBuilder().build()));
+            () -> RequestAttributesGrpc.newBlockingStub(channel)
+                .getRequestAttributes(GetRequestAttributesRequest.newBuilder().build()));
       } finally {
         channel.shutdown();
       }
@@ -294,6 +320,7 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
         rootKeyPair.getPublicKey(),
         ACCOUNT_IDENTIFIER,
         DEVICE_ID,
+        new DefaultHttpHeaders(),
         serverTlsCertificate,
         nioEventLoopGroup,
         webSocketCloseListener)
@@ -304,8 +331,8 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
       try {
         //noinspection ResultOfMethodCallIgnored
         GrpcTestUtils.assertStatusException(Status.UNAVAILABLE,
-            () -> AuthenticationTypeGrpc.newBlockingStub(channel)
-                .getAuthenticated(GetAuthenticatedRequest.newBuilder().build()));
+            () -> RequestAttributesGrpc.newBlockingStub(channel)
+                .getRequestAttributes(GetRequestAttributesRequest.newBuilder().build()));
       } finally {
         channel.shutdown();
       }
@@ -320,10 +347,11 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
       final ManagedChannel channel = buildManagedChannel(webSocketNoiseTunnelClient.getLocalAddress());
 
       try {
-        final GetAuthenticatedResponse response = AuthenticationTypeGrpc.newBlockingStub(channel)
-            .getAuthenticated(GetAuthenticatedRequest.newBuilder().build());
+        final GetAuthenticatedDeviceResponse response = RequestAttributesGrpc.newBlockingStub(channel)
+            .getAuthenticatedDevice(GetAuthenticatedDeviceRequest.newBuilder().build());
 
-        assertFalse(response.getAuthenticated());
+        assertTrue(response.getAccountIdentifier().isEmpty());
+        assertEquals(0, response.getDeviceId());
       } finally {
         channel.shutdown();
       }
@@ -336,15 +364,15 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
 
     // Try to verify the server's public key with something other than the key with which it was signed
     try (final WebSocketNoiseTunnelClient webSocketNoiseTunnelClient =
-        buildAndStartAnonymousClient(webSocketCloseListener, Curve.generateKeyPair().getPublicKey())) {
+        buildAndStartAnonymousClient(webSocketCloseListener, Curve.generateKeyPair().getPublicKey(), new DefaultHttpHeaders())) {
 
       final ManagedChannel channel = buildManagedChannel(webSocketNoiseTunnelClient.getLocalAddress());
 
       try {
         //noinspection ResultOfMethodCallIgnored
         GrpcTestUtils.assertStatusException(Status.UNAVAILABLE,
-            () -> AuthenticationTypeGrpc.newBlockingStub(channel)
-                .getAuthenticated(GetAuthenticatedRequest.newBuilder().build()));
+            () -> RequestAttributesGrpc.newBlockingStub(channel)
+                .getRequestAttributes(GetRequestAttributesRequest.newBuilder().build()));
       } finally {
         channel.shutdown();
       }
@@ -365,6 +393,7 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
         rootKeyPair.getPublicKey(),
         null,
         (byte) 0,
+        new DefaultHttpHeaders(),
         serverTlsCertificate,
         nioEventLoopGroup,
         webSocketCloseListener)
@@ -375,8 +404,8 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
       try {
         //noinspection ResultOfMethodCallIgnored
         GrpcTestUtils.assertStatusException(Status.UNAVAILABLE,
-            () -> AuthenticationTypeGrpc.newBlockingStub(channel)
-                .getAuthenticated(GetAuthenticatedRequest.newBuilder().build()));
+            () -> RequestAttributesGrpc.newBlockingStub(channel)
+                .getRequestAttributes(GetRequestAttributesRequest.newBuilder().build()));
       } finally {
         channel.shutdown();
       }
@@ -438,6 +467,86 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
     }
   }
 
+  @Test
+  void getRequestAttributes() throws InterruptedException {
+    final String remoteAddress = "4.5.6.7";
+    final String acceptLanguage = "en";
+    final String userAgent = "Signal-Desktop/1.2.3 Linux";
+
+    final HttpHeaders headers = new DefaultHttpHeaders()
+        .add(WebsocketHandshakeCompleteHandler.RECOGNIZED_PROXY_SECRET_HEADER, RECOGNIZED_PROXY_SECRET)
+        .add("X-Forwarded-For", remoteAddress)
+        .add("Accept-Language", acceptLanguage)
+        .add("User-Agent", userAgent);
+
+    try (final WebSocketNoiseTunnelClient webSocketNoiseTunnelClient =
+        buildAndStartAnonymousClient(WebSocketCloseListener.NOOP_LISTENER, rootKeyPair.getPublicKey(), headers)) {
+
+      final ManagedChannel channel = buildManagedChannel(webSocketNoiseTunnelClient.getLocalAddress());
+
+      try {
+        final GetRequestAttributesResponse response = RequestAttributesGrpc.newBlockingStub(channel)
+            .getRequestAttributes(GetRequestAttributesRequest.newBuilder().build());
+
+        assertEquals(remoteAddress, response.getRemoteAddress());
+        assertEquals(List.of(acceptLanguage), response.getAcceptableLanguagesList());
+
+        assertEquals("DESKTOP", response.getUserAgent().getPlatform());
+        assertEquals("1.2.3", response.getUserAgent().getVersion());
+        assertEquals("Linux", response.getUserAgent().getAdditionalSpecifiers());
+      } finally {
+        channel.shutdown();
+      }
+    }
+  }
+
+  @Test
+  void closeForReauthentication() throws InterruptedException {
+    final CountDownLatch connectionCloseLatch = new CountDownLatch(1);
+    final AtomicInteger serverCloseStatusCode = new AtomicInteger(0);
+    final AtomicBoolean closedByServer = new AtomicBoolean(false);
+
+    final WebSocketCloseListener webSocketCloseListener = new WebSocketCloseListener() {
+
+      @Override
+      public void handleWebSocketClosedByClient(final int statusCode) {
+        serverCloseStatusCode.set(statusCode);
+        closedByServer.set(false);
+        connectionCloseLatch.countDown();
+      }
+
+      @Override
+      public void handleWebSocketClosedByServer(final int statusCode) {
+        serverCloseStatusCode.set(statusCode);
+        closedByServer.set(true);
+        connectionCloseLatch.countDown();
+      }
+    };
+
+    try (final WebSocketNoiseTunnelClient webSocketNoiseTunnelClient = buildAndStartAuthenticatedClient(webSocketCloseListener)) {
+
+      final ManagedChannel channel = buildManagedChannel(webSocketNoiseTunnelClient.getLocalAddress());
+
+      try {
+        final GetAuthenticatedDeviceResponse response = RequestAttributesGrpc.newBlockingStub(channel)
+            .getAuthenticatedDevice(GetAuthenticatedDeviceRequest.newBuilder().build());
+
+        assertEquals(UUIDUtil.toByteString(ACCOUNT_IDENTIFIER), response.getAccountIdentifier());
+        assertEquals(DEVICE_ID, response.getDeviceId());
+
+        clientConnectionManager.closeConnection(new AuthenticatedDevice(ACCOUNT_IDENTIFIER, DEVICE_ID));
+        assertTrue(connectionCloseLatch.await(2, TimeUnit.SECONDS));
+
+        assertEquals(ApplicationWebSocketCloseReason.REAUTHENTICATION_REQUIRED.getStatusCode(),
+            serverCloseStatusCode.get());
+
+        assertTrue(closedByServer.get());
+      } finally {
+        channel.shutdown();
+      }
+    }
+  }
+
   private WebSocketNoiseTunnelClient buildAndStartAuthenticatedClient() throws InterruptedException {
     return buildAndStartAuthenticatedClient(WebSocketCloseListener.NOOP_LISTENER);
   }
@@ -445,11 +554,12 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
   private WebSocketNoiseTunnelClient buildAndStartAuthenticatedClient(final WebSocketCloseListener webSocketCloseListener)
       throws InterruptedException {
 
-    return buildAndStartAuthenticatedClient(webSocketCloseListener, rootKeyPair.getPublicKey());
+    return buildAndStartAuthenticatedClient(webSocketCloseListener, rootKeyPair.getPublicKey(), new DefaultHttpHeaders());
   }
 
   private WebSocketNoiseTunnelClient buildAndStartAuthenticatedClient(final WebSocketCloseListener webSocketCloseListener,
-      final ECPublicKey rootPublicKey) throws InterruptedException {
+      final ECPublicKey rootPublicKey,
+      final HttpHeaders headers) throws InterruptedException {
 
     return new WebSocketNoiseTunnelClient(websocketNoiseTunnelServer.getLocalAddress(),
         WebSocketNoiseTunnelClient.AUTHENTICATED_WEBSOCKET_URI,
@@ -458,6 +568,7 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
         rootPublicKey,
         ACCOUNT_IDENTIFIER,
         DEVICE_ID,
+        headers,
         serverTlsCertificate,
         nioEventLoopGroup,
         webSocketCloseListener)
@@ -465,11 +576,12 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
   }
 
   private WebSocketNoiseTunnelClient buildAndStartAnonymousClient() throws InterruptedException {
-    return buildAndStartAnonymousClient(WebSocketCloseListener.NOOP_LISTENER, rootKeyPair.getPublicKey());
+    return buildAndStartAnonymousClient(WebSocketCloseListener.NOOP_LISTENER, rootKeyPair.getPublicKey(), new DefaultHttpHeaders());
   }
 
   private WebSocketNoiseTunnelClient buildAndStartAnonymousClient(final WebSocketCloseListener webSocketCloseListener,
-      final ECPublicKey rootPublicKey) throws InterruptedException {
+      final ECPublicKey rootPublicKey,
+      final HttpHeaders headers) throws InterruptedException {
 
     return new WebSocketNoiseTunnelClient(websocketNoiseTunnelServer.getLocalAddress(),
         WebSocketNoiseTunnelClient.ANONYMOUS_WEBSOCKET_URI,
@@ -478,6 +590,7 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
         rootPublicKey,
         null,
         (byte) 0,
+        headers,
         serverTlsCertificate,
         nioEventLoopGroup,
         webSocketCloseListener)

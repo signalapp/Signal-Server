@@ -468,3 +468,7 @@ callingTurnManualTable:
   s3Bucket: a-bucket
   objectKey: an-object.tar.gz
   maxSize: 32777216
+
+noiseTunnel:
+  port: 8443
+  recognizedProxySecret: secret://noiseTunnel.recognizedProxySecret

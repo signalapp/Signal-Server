@@ -29,21 +29,21 @@ public final class GrpcTestUtils {
   public static void setupAuthenticatedExtension(
       final GrpcServerExtension extension,
       final MockAuthenticationInterceptor mockAuthenticationInterceptor,
-      final MockRemoteAddressInterceptor mockRemoteAddressInterceptor,
+      final MockRequestAttributesInterceptor mockRequestAttributesInterceptor,
       final UUID authenticatedAci,
       final byte authenticatedDeviceId,
       final BindableService service) {
     mockAuthenticationInterceptor.setAuthenticatedDevice(authenticatedAci, authenticatedDeviceId);
     extension.getServiceRegistry()
-        .addService(ServerInterceptors.intercept(service, mockRemoteAddressInterceptor, mockAuthenticationInterceptor, new ErrorMappingInterceptor()));
+        .addService(ServerInterceptors.intercept(service, mockRequestAttributesInterceptor, mockAuthenticationInterceptor, new ErrorMappingInterceptor()));
   }
 
   public static void setupUnauthenticatedExtension(
       final GrpcServerExtension extension,
-      final MockRemoteAddressInterceptor mockRemoteAddressInterceptor,
+      final MockRequestAttributesInterceptor mockRequestAttributesInterceptor,
       final BindableService service) {
     extension.getServiceRegistry()
-        .addService(ServerInterceptors.intercept(service, mockRemoteAddressInterceptor, new ErrorMappingInterceptor()));
+        .addService(ServerInterceptors.intercept(service, mockRequestAttributesInterceptor, new ErrorMappingInterceptor()));
   }
 
   public static void assertStatusException(final Status expected, final Executable serviceCall) {

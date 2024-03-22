@@ -111,7 +111,7 @@ public class ProfileGrpcHelper {
       case ACI -> {
         responseBuilder.setUnrestrictedUnidentifiedAccess(targetAccount.isUnrestrictedUnidentifiedAccess())
             .addAllBadges(buildBadges(profileBadgeConverter.convert(
-                AcceptLanguageUtil.localeFromGrpcContext(),
+                RequestAttributesUtil.getAvailableAcceptedLocales(),
                 targetAccount.getBadges(),
                 ProfileHelper.isSelfProfileRequest(requesterUuid, (AciServiceIdentifier) targetIdentifier))));
 

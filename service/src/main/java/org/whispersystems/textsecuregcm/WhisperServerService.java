@@ -71,7 +71,8 @@ import org.whispersystems.textsecuregcm.auth.PhoneVerificationTokenManager;
 import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
 import org.whispersystems.textsecuregcm.auth.WebsocketRefreshApplicationEventListener;
-import org.whispersystems.textsecuregcm.auth.grpc.BasicCredentialAuthenticationInterceptor;
+import org.whispersystems.textsecuregcm.auth.grpc.ProhibitAuthenticationInterceptor;
+import org.whispersystems.textsecuregcm.auth.grpc.RequireAuthenticationInterceptor;
 import org.whispersystems.textsecuregcm.backup.BackupAuthManager;
 import org.whispersystems.textsecuregcm.backup.BackupManager;
 import org.whispersystems.textsecuregcm.backup.BackupsDb;
@@ -127,7 +128,6 @@ import org.whispersystems.textsecuregcm.filters.RemoteDeprecationFilter;
 import org.whispersystems.textsecuregcm.filters.RequestStatisticsFilter;
 import org.whispersystems.textsecuregcm.filters.TimestampResponseFilter;
 import org.whispersystems.textsecuregcm.geo.MaxMindDatabaseManager;
-import org.whispersystems.textsecuregcm.grpc.AcceptLanguageInterceptor;
 import org.whispersystems.textsecuregcm.grpc.AccountsAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.AccountsGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ErrorMappingInterceptor;
@@ -138,7 +138,8 @@ import org.whispersystems.textsecuregcm.grpc.KeysGrpcService;
 import org.whispersystems.textsecuregcm.grpc.PaymentsGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ProfileAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ProfileGrpcService;
-import org.whispersystems.textsecuregcm.grpc.UserAgentInterceptor;
+import org.whispersystems.textsecuregcm.grpc.RequestAttributesInterceptor;
+import org.whispersystems.textsecuregcm.grpc.net.ClientConnectionManager;
 import org.whispersystems.textsecuregcm.grpc.net.ManagedDefaultEventLoopGroup;
 import org.whispersystems.textsecuregcm.grpc.net.ManagedLocalGrpcServer;
 import org.whispersystems.textsecuregcm.jetty.JettyHttpConfigurationCustomizer;
@@ -752,8 +753,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         geoIpCityDatabaseManager
     );
 
-    final BasicCredentialAuthenticationInterceptor basicCredentialAuthenticationInterceptor =
-        new BasicCredentialAuthenticationInterceptor(new AccountAuthenticator(accountsManager));
+    final ClientConnectionManager clientConnectionManager = new ClientConnectionManager();
 
     final ManagedDefaultEventLoopGroup localEventLoopGroup = new ManagedDefaultEventLoopGroup();
 
@@ -762,8 +762,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new MetricCollectingServerInterceptor(Metrics.globalRegistry);
 
     final ErrorMappingInterceptor errorMappingInterceptor = new ErrorMappingInterceptor();
-    final AcceptLanguageInterceptor acceptLanguageInterceptor = new AcceptLanguageInterceptor();
-    final UserAgentInterceptor userAgentInterceptor = new UserAgentInterceptor();
+    final RequestAttributesInterceptor requestAttributesInterceptor =
+        new RequestAttributesInterceptor(clientConnectionManager);
 
     final LocalAddress anonymousGrpcServerAddress = new LocalAddress("grpc-anonymous");
     final LocalAddress authenticatedGrpcServerAddress = new LocalAddress("grpc-authenticated");
@@ -778,9 +778,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             // TODO: specialize metrics with user-agent platform
             .intercept(metricCollectingServerInterceptor)
             .intercept(errorMappingInterceptor)
-            .intercept(acceptLanguageInterceptor)
             .intercept(remoteDeprecationFilter)
-            .intercept(userAgentInterceptor)
+            .intercept(requestAttributesInterceptor)
+            .intercept(new ProhibitAuthenticationInterceptor(clientConnectionManager))
             .addService(new AccountsAnonymousGrpcService(accountsManager, rateLimiters))
             .addService(new KeysAnonymousGrpcService(accountsManager, keysManager))
             .addService(new PaymentsGrpcService(currencyManager))
@@ -799,10 +799,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             // TODO: specialize metrics with user-agent platform
             .intercept(metricCollectingServerInterceptor)
             .intercept(errorMappingInterceptor)
-            .intercept(acceptLanguageInterceptor)
             .intercept(remoteDeprecationFilter)
-            .intercept(userAgentInterceptor)
-            .intercept(new BasicCredentialAuthenticationInterceptor(new AccountAuthenticator(accountsManager)))
+            .intercept(requestAttributesInterceptor)
+            .intercept(new RequireAuthenticationInterceptor(clientConnectionManager))
             .addService(new AccountsGrpcService(accountsManager, rateLimiters, usernameHashZkProofVerifier, registrationRecoveryPasswordsManager))
             .addService(ExternalServiceCredentialsGrpcService.createForAllExternalServices(config, rateLimiters))
             .addService(new KeysGrpcService(accountsManager, keysManager, rateLimiters))

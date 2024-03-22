@@ -48,11 +48,13 @@ public class WebsocketNoiseTunnelServer implements Managed {
       final PrivateKey tlsPrivateKey,
       final NioEventLoopGroup eventLoopGroup,
       final Executor delegatedTaskExecutor,
+      final ClientConnectionManager clientConnectionManager,
       final ClientPublicKeysManager clientPublicKeysManager,
       final ECKeyPair ecKeyPair,
       final byte[] publicKeySignature,
       final LocalAddress authenticatedGrpcServerAddress,
-      final LocalAddress anonymousGrpcServerAddress) throws SSLException {
+      final LocalAddress anonymousGrpcServerAddress,
+      final String recognizedProxySecret) throws SSLException {
 
     final SslProvider sslProvider;
 
@@ -88,10 +90,10 @@ public class WebsocketNoiseTunnelServer implements Managed {
                 .addLast(new RejectUnsupportedMessagesHandler())
                 // The WebSocket handshake complete listener will replace itself with an appropriate Noise handshake handler once
                 // a WebSocket handshake has been completed
-                .addLast(new WebsocketHandshakeCompleteListener(clientPublicKeysManager, ecKeyPair, publicKeySignature))
+                .addLast(new WebsocketHandshakeCompleteHandler(clientPublicKeysManager, ecKeyPair, publicKeySignature, recognizedProxySecret))
                 // This handler will open a local connection to the appropriate gRPC server and install a ProxyHandler
                 // once the Noise handshake has completed
-                .addLast(new EstablishLocalGrpcConnectionHandler(authenticatedGrpcServerAddress, anonymousGrpcServerAddress))
+                .addLast(new EstablishLocalGrpcConnectionHandler(clientConnectionManager, authenticatedGrpcServerAddress, anonymousGrpcServerAddress))
                 .addLast(new ErrorHandler());
           }
         });

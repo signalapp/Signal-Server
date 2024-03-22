@@ -39,10 +39,12 @@ import org.signal.chat.rpc.EchoServiceGrpc;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicRemoteDeprecationConfiguration;
 import org.whispersystems.textsecuregcm.grpc.EchoServiceImpl;
+import org.whispersystems.textsecuregcm.grpc.MockRequestAttributesInterceptor;
 import org.whispersystems.textsecuregcm.grpc.StatusConstants;
-import org.whispersystems.textsecuregcm.grpc.UserAgentInterceptor;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
+import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
+import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 
 class RemoteDeprecationFilterTest {
 
@@ -126,17 +128,25 @@ class RemoteDeprecationFilterTest {
 
   @ParameterizedTest
   @MethodSource(value="testFilter")
-  void testGrpcFilter(final String userAgent, final boolean expectDeprecation) throws Exception {
+  void testGrpcFilter(final String userAgentString, final boolean expectDeprecation) throws IOException, InterruptedException {
+    final MockRequestAttributesInterceptor mockRequestAttributesInterceptor = new MockRequestAttributesInterceptor();
+
+    try {
+      mockRequestAttributesInterceptor.setUserAgent(UserAgentUtil.parseUserAgentString(userAgentString));
+    } catch (UnrecognizedUserAgentException ignored) {
+    }
+
     final Server testServer = InProcessServerBuilder.forName("RemoteDeprecationFilterTest")
         .directExecutor()
         .addService(new EchoServiceImpl())
         .intercept(filterConfiguredForTest())
-        .intercept(new UserAgentInterceptor())
+        .intercept(mockRequestAttributesInterceptor)
         .build()
         .start();
+
     final ManagedChannel channel = InProcessChannelBuilder.forName("RemoteDeprecationFilterTest")
         .directExecutor()
-        .userAgent(userAgent)
+        .userAgent(userAgentString)
         .build();
 
     try {

@@ -39,6 +39,7 @@ import org.whispersystems.textsecuregcm.configuration.MaxDeviceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MessageByteLimitCardinalityEstimatorConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MessageCacheConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MonitoredS3ObjectConfiguration;
+import org.whispersystems.textsecuregcm.configuration.NoiseWebSocketTunnelConfiguration;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.PaymentsServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RedisClusterConfiguration;
@@ -333,6 +334,11 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private MonitoredS3ObjectConfiguration callingTurnManualTable;
 
+  @Valid
+  @NotNull
+  @JsonProperty
+  private NoiseWebSocketTunnelConfiguration noiseTunnel;
+
   public TlsKeyStoreConfiguration getTlsKeyStoreConfiguration() {
     return tlsKeyStore;
   }
@@ -554,5 +560,9 @@ public class WhisperServerConfiguration extends Configuration {
 
   public MonitoredS3ObjectConfiguration getCallingTurnManualTable() {
     return callingTurnManualTable;
+  }
+
+  public NoiseWebSocketTunnelConfiguration getNoiseWebSocketTunnelConfiguration() {
+    return noiseTunnel;
   }
 }

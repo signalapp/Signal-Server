@@ -8,8 +8,8 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
-import io.netty.handler.codec.http.DefaultHttpHeaders;
 import io.netty.handler.codec.http.HttpClientCodec;
+import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler;
 import io.netty.handler.codec.http.websocketx.WebSocketVersion;
@@ -35,6 +35,7 @@ class EstablishRemoteConnectionHandler extends ChannelInboundHandlerAdapter {
   private final ECPublicKey rootPublicKey;
   @Nullable private final UUID accountIdentifier;
   private final byte deviceId;
+  private final HttpHeaders headers;
   private final SocketAddress remoteServerAddress;
   private final WebSocketCloseListener webSocketCloseListener;
 
@@ -50,6 +51,7 @@ class EstablishRemoteConnectionHandler extends ChannelInboundHandlerAdapter {
       final ECPublicKey rootPublicKey,
       @Nullable final UUID accountIdentifier,
       final byte deviceId,
+      final HttpHeaders headers,
       final SocketAddress remoteServerAddress,
       final WebSocketCloseListener webSocketCloseListener) {
 
@@ -60,6 +62,7 @@ class EstablishRemoteConnectionHandler extends ChannelInboundHandlerAdapter {
     this.rootPublicKey = rootPublicKey;
     this.accountIdentifier = accountIdentifier;
     this.deviceId = deviceId;
+    this.headers = headers;
     this.remoteServerAddress = remoteServerAddress;
     this.webSocketCloseListener = webSocketCloseListener;
   }
@@ -87,7 +90,7 @@ class EstablishRemoteConnectionHandler extends ChannelInboundHandlerAdapter {
                     WebSocketVersion.V13,
                     null,
                     false,
-                    new DefaultHttpHeaders(),
+                    headers,
                     Noise.MAX_PACKET_LEN,
                     10_000))
                 .addLast(new OutboundCloseWebSocketFrameHandler(webSocketCloseListener))

@@ -60,7 +60,7 @@ public abstract class SimpleBaseGrpcTest<SERVICE extends BindableService, STUB e
   private AutoCloseable mocksCloseable;
 
   private final MockAuthenticationInterceptor mockAuthenticationInterceptor = new MockAuthenticationInterceptor();
-  private final MockRemoteAddressInterceptor mockRemoteAddressInterceptor = new MockRemoteAddressInterceptor();
+  private final MockRequestAttributesInterceptor mockRequestAttributesInterceptor = new MockRequestAttributesInterceptor();
 
   private SERVICE service;
 
@@ -114,8 +114,8 @@ public abstract class SimpleBaseGrpcTest<SERVICE extends BindableService, STUB e
     mocksCloseable = MockitoAnnotations.openMocks(this);
     service = requireNonNull(createServiceBeforeEachTest(), "created service must not be `null`");
     GrpcTestUtils.setupAuthenticatedExtension(
-        GRPC_SERVER_EXTENSION_AUTHENTICATED, mockAuthenticationInterceptor, mockRemoteAddressInterceptor, AUTHENTICATED_ACI, AUTHENTICATED_DEVICE_ID, service);
-    GrpcTestUtils.setupUnauthenticatedExtension(GRPC_SERVER_EXTENSION_UNAUTHENTICATED, mockRemoteAddressInterceptor, service);
+        GRPC_SERVER_EXTENSION_AUTHENTICATED, mockAuthenticationInterceptor, mockRequestAttributesInterceptor, AUTHENTICATED_ACI, AUTHENTICATED_DEVICE_ID, service);
+    GrpcTestUtils.setupUnauthenticatedExtension(GRPC_SERVER_EXTENSION_UNAUTHENTICATED, mockRequestAttributesInterceptor, service);
     try {
       authenticatedServiceStub = createStub(GRPC_SERVER_EXTENSION_AUTHENTICATED.getChannel());
       unauthenticatedServiceStub = createStub(GRPC_SERVER_EXTENSION_UNAUTHENTICATED.getChannel());
@@ -145,8 +145,8 @@ public abstract class SimpleBaseGrpcTest<SERVICE extends BindableService, STUB e
     return unauthenticatedServiceStub;
   }
 
-  protected MockRemoteAddressInterceptor getMockRemoteAddressInterceptor() {
-    return mockRemoteAddressInterceptor;
+  protected MockRequestAttributesInterceptor getMockRequestAttributesInterceptor() {
+    return mockRequestAttributesInterceptor;
   }
 
   protected MockAuthenticationInterceptor getMockAuthenticationInterceptor() {

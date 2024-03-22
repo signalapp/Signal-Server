@@ -11,6 +11,7 @@ import java.net.SocketAddress;
 import java.net.URI;
 import java.security.cert.X509Certificate;
 import java.util.UUID;
+import io.netty.handler.codec.http.HttpHeaders;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import javax.annotation.Nullable;
@@ -30,6 +31,7 @@ class WebSocketNoiseTunnelClient implements AutoCloseable {
       final ECPublicKey rootPublicKey,
       @Nullable final UUID accountIdentifier,
       final byte deviceId,
+      final HttpHeaders headers,
       final X509Certificate trustedServerCertificate,
       final NioEventLoopGroup eventLoopGroup,
       final WebSocketCloseListener webSocketCloseListener) {
@@ -48,6 +50,7 @@ class WebSocketNoiseTunnelClient implements AutoCloseable {
                 rootPublicKey,
                 accountIdentifier,
                 deviceId,
+                headers,
                 remoteServerAddress,
                 webSocketCloseListener));
           }
