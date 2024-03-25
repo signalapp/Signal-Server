@@ -7,4 +7,4 @@ package org.whispersystems.textsecuregcm.auth;
 
 import org.whispersystems.textsecuregcm.backup.BackupTier;
 
-public record AuthenticatedBackupUser(byte[] backupId, BackupTier backupTier) {}
+public record AuthenticatedBackupUser(byte[] backupId, BackupTier backupTier, String backupDir, String mediaDir) {}

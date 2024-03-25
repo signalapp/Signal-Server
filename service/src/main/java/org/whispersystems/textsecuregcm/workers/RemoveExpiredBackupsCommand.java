@@ -12,6 +12,7 @@ import io.dropwizard.core.setup.Environment;
 import io.micrometer.core.instrument.Metrics;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.HexFormat;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 import net.sourceforge.argparse4j.inf.Namespace;
@@ -142,19 +143,19 @@ public class RemoveExpiredBackupsCommand extends EnvironmentCommand<WhisperServe
     if (dryRun) {
       mono = Mono.empty();
     } else {
-      mono = Mono.fromCompletionStage(() ->
-          backupManager.deleteBackup(expiredBackup.backupTierToRemove(), expiredBackup.hashedBackupId()));
+      mono = Mono.fromCompletionStage(() -> backupManager.expireBackup(expiredBackup));
     }
 
     return mono
         .doOnSuccess(ignored -> Metrics
             .counter(EXPIRED_BACKUPS_COUNTER_NAME,
-                "tier", expiredBackup.backupTierToRemove().name(),
+                "tier", expiredBackup.expirationType().name(),
                 "dryRun", String.valueOf(dryRun))
             .increment())
         .onErrorResume(throwable -> {
-          logger.warn("Failed to remove tier {} for backup {}", expiredBackup.backupTierToRemove(),
-              expiredBackup.hashedBackupId());
+          logger.warn("Failed to remove tier {} for backup {}",
+              expiredBackup.expirationType(),
+              HexFormat.of().formatHex(expiredBackup.hashedBackupId()));
           return Mono.empty();
         });
   }

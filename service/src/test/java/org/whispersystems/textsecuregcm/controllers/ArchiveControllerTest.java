@@ -36,6 +36,7 @@ import javax.ws.rs.client.Invocation;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import org.checkerframework.checker.units.qual.A;
 import org.glassfish.jersey.server.ServerProperties;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.BeforeEach;
@@ -289,17 +290,16 @@ public class ArchiveControllerTest {
     final BackupAuthCredentialPresentation presentation = backupAuthTestUtil.getPresentation(
         BackupTier.MEDIA, backupKey, aci);
     when(backupManager.authenticateBackupUser(any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(
-            new AuthenticatedBackupUser(presentation.getBackupId(), BackupTier.MEDIA)));
+        .thenReturn(CompletableFuture.completedFuture(backupUser(presentation.getBackupId(), BackupTier.MEDIA)));
     when(backupManager.backupInfo(any())).thenReturn(CompletableFuture.completedFuture(new BackupManager.BackupInfo(
-        1, "subdir", "filename", Optional.empty())));
+        1, "myBackupDir", "myMediaDir", "filename", Optional.empty())));
     final ArchiveController.BackupInfoResponse response = resources.getJerseyTest()
         .target("v1/archives")
         .request()
         .header("X-Signal-ZK-Auth", Base64.getEncoder().encodeToString(presentation.serialize()))
         .header("X-Signal-ZK-Auth-Signature", "aaa")
         .get(ArchiveController.BackupInfoResponse.class);
-    assertThat(response.backupDir()).isEqualTo("subdir");
+    assertThat(response.backupDir()).isEqualTo("myBackupDir");
     assertThat(response.backupName()).isEqualTo("filename");
     assertThat(response.cdn()).isEqualTo(1);
     assertThat(response.usedSpace()).isNull();
@@ -310,8 +310,7 @@ public class ArchiveControllerTest {
     final BackupAuthCredentialPresentation presentation = backupAuthTestUtil.getPresentation(
         BackupTier.MEDIA, backupKey, aci);
     when(backupManager.authenticateBackupUser(any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(
-            new AuthenticatedBackupUser(presentation.getBackupId(), BackupTier.MEDIA)));
+        .thenReturn(CompletableFuture.completedFuture(backupUser(presentation.getBackupId(), BackupTier.MEDIA)));
     when(backupManager.canStoreMedia(any(), anyLong())).thenReturn(CompletableFuture.completedFuture(true));
     when(backupManager.copyToBackup(any(), anyInt(), any(), anyInt(), any(), any()))
         .thenAnswer(invocation -> {
@@ -361,8 +360,7 @@ public class ArchiveControllerTest {
     final BackupAuthCredentialPresentation presentation = backupAuthTestUtil.getPresentation(
         BackupTier.MEDIA, backupKey, aci);
     when(backupManager.authenticateBackupUser(any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(
-            new AuthenticatedBackupUser(presentation.getBackupId(), BackupTier.MEDIA)));
+        .thenReturn(CompletableFuture.completedFuture(backupUser(presentation.getBackupId(), BackupTier.MEDIA)));
 
     final byte[][] mediaIds = IntStream.range(0, 3).mapToObj(i -> TestRandomUtil.nextBytes(15)).toArray(byte[][]::new);
     when(backupManager.canStoreMedia(any(), anyLong())).thenReturn(CompletableFuture.completedFuture(true));
@@ -417,8 +415,7 @@ public class ArchiveControllerTest {
     final BackupAuthCredentialPresentation presentation = backupAuthTestUtil.getPresentation(
         BackupTier.MEDIA, backupKey, aci);
     when(backupManager.authenticateBackupUser(any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(
-            new AuthenticatedBackupUser(presentation.getBackupId(), BackupTier.MEDIA)));
+        .thenReturn(CompletableFuture.completedFuture(backupUser(presentation.getBackupId(), BackupTier.MEDIA)));
 
     when(backupManager.canStoreMedia(any(), eq(1L + 2L + 3L)))
         .thenReturn(CompletableFuture.completedFuture(false));
@@ -448,8 +445,7 @@ public class ArchiveControllerTest {
     final BackupAuthCredentialPresentation presentation = backupAuthTestUtil.getPresentation(
         BackupTier.MEDIA, backupKey, aci);
     when(backupManager.authenticateBackupUser(any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(
-            new AuthenticatedBackupUser(presentation.getBackupId(), BackupTier.MEDIA)));
+        .thenReturn(CompletableFuture.completedFuture(backupUser(presentation.getBackupId(), BackupTier.MEDIA)));
 
     final byte[] mediaId = TestRandomUtil.nextBytes(15);
     final Optional<String> expectedCursor = cursorProvided ? Optional.of("myCursor") : Optional.empty();
@@ -484,8 +480,7 @@ public class ArchiveControllerTest {
     final BackupAuthCredentialPresentation presentation = backupAuthTestUtil.getPresentation(BackupTier.MEDIA,
         backupKey, aci);
     when(backupManager.authenticateBackupUser(any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(
-            new AuthenticatedBackupUser(presentation.getBackupId(), BackupTier.MEDIA)));
+        .thenReturn(CompletableFuture.completedFuture(backupUser(presentation.getBackupId(), BackupTier.MEDIA)));
 
     final ArchiveController.DeleteMedia deleteRequest = new ArchiveController.DeleteMedia(
         IntStream
@@ -502,5 +497,9 @@ public class ArchiveControllerTest {
         .header("X-Signal-ZK-Auth-Signature", "aaa")
         .post(Entity.json(deleteRequest));
     assertThat(response.getStatus()).isEqualTo(204);
+  }
+
+  private static AuthenticatedBackupUser backupUser(byte[] backupId, BackupTier backupTier) {
+    return new AuthenticatedBackupUser(backupId, backupTier, "myBackupDir", "myMediaDir");
   }
 }

@@ -44,8 +44,8 @@ public final class ExceptionUtils {
    *
    * @param exceptionType The class of exception that will be handled
    * @param fn            A function that handles exceptions of type exceptionType
-   * @param <T> The type of the stage that will be mapped
-   * @param <E> The type of the exception that will be handled
+   * @param <T>           The type of the stage that will be mapped
+   * @param <E>           The type of the exception that will be handled
    * @return A function suitable for use with {@link java.util.concurrent.CompletionStage#exceptionally}
    */
   public static <T, E extends Throwable> Function<Throwable, ? extends T> exceptionallyHandler(
@@ -61,5 +61,24 @@ public final class ExceptionUtils {
       }
       throw wrap(anyException);
     };
+  }
+
+  /**
+   * Create a handler suitable for use with {@link java.util.concurrent.CompletionStage#exceptionally} that converts
+   * exceptions of a specific type to another type.
+   *
+   * @param exceptionType The class of exception that will be handled
+   * @param fn            A function that marshals exceptions of type E to type F
+   * @param <T>           The type of the stage that will be mapped
+   * @param <E>           The type of the exception that will be handled
+   * @param <F>           The type of the exception that will be produced
+   * @return A function suitable for use with {@link java.util.concurrent.CompletionStage#exceptionally}
+   */
+  public static <T, E extends Throwable, F extends Throwable> Function<Throwable, ? extends T> marshal(
+      final Class<E> exceptionType,
+      final Function<E, F> fn) {
+    return exceptionallyHandler(exceptionType, e -> {
+      throw wrap(fn.apply(e));
+    });
   }
 }

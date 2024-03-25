@@ -16,7 +16,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -24,7 +23,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
-import org.signal.libsignal.protocol.InvalidKeyException;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import org.signal.libsignal.zkgroup.GenericServerSecretParams;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
@@ -42,7 +40,6 @@ public class BackupManager {
 
   private static final Logger logger = LoggerFactory.getLogger(BackupManager.class);
 
-  static final String MEDIA_DIRECTORY_NAME = "media";
   static final String MESSAGE_BACKUP_NAME = "messageBackup";
   static final long MAX_TOTAL_BACKUP_MEDIA_BYTES = 1024L * 1024L * 1024L * 50L;
   static final long MAX_MEDIA_OBJECT_SIZE = 1024L * 1024L * 101L;
@@ -53,8 +50,8 @@ public class BackupManager {
       "authorizationFailure");
   private static final String USAGE_RECALCULATION_COUNTER_NAME = MetricsUtil.name(BackupManager.class,
       "usageRecalculation");
-  private static final String DELETE_MEDIA_COUNT_DISTRIBUTION_NAME = MetricsUtil.name(BackupManager.class,
-      "deleteMediaCount");
+  private static final String DELETE_COUNT_DISTRIBUTION_NAME = MetricsUtil.name(BackupManager.class,
+      "deleteCount");
 
   private static final String SUCCESS_TAG_NAME = "success";
   private static final String FAILURE_REASON_TAG_NAME = "reason";
@@ -157,7 +154,8 @@ public class BackupManager {
     return backupsDb.ttlRefresh(backupUser);
   }
 
-  public record BackupInfo(int cdn, String backupSubdir, String messageBackupKey, Optional<Long> mediaUsedSpace) {}
+  public record BackupInfo(int cdn, String backupSubdir, String mediaSubdir, String messageBackupKey,
+                           Optional<Long> mediaUsedSpace) {}
 
   /**
    * Retrieve information about the existing backup
@@ -174,7 +172,8 @@ public class BackupManager {
     return backupsDb.describeBackup(backupUser)
         .thenApply(backupDescription -> new BackupInfo(
             backupDescription.cdn(),
-            encodeBackupIdForCdn(backupUser),
+            backupUser.backupDir(),
+            backupUser.mediaDir(),
             MESSAGE_BACKUP_NAME,
             backupDescription.mediaUsedSpace()));
   }
@@ -315,8 +314,7 @@ public class BackupManager {
           .withDescription("credential does not support read auth operation")
           .asRuntimeException();
     }
-    final String encodedBackupId = encodeBackupIdForCdn(backupUser);
-    return cdn3BackupCredentialGenerator.readHeaders(encodedBackupId);
+    return cdn3BackupCredentialGenerator.readHeaders(backupUser.backupDir());
   }
 
 
@@ -354,7 +352,7 @@ public class BackupManager {
                     .stream()
                     .map(entry -> new StorageDescriptorWithLength(
                         remoteStorageManager.cdnNumber(),
-                        decodeFromCdn(entry.key()),
+                        decodeMediaIdFromCdn(entry.key()),
                         entry.length()
                     ))
                     .toList(),
@@ -447,9 +445,9 @@ public class BackupManager {
       final BackupAuthCredentialPresentation presentation,
       final byte[] signature) {
     return backupsDb
-        .retrievePublicKey(presentation.getBackupId())
-        .thenApply(optionalPublicKey -> {
-          final byte[] publicKeyBytes = optionalPublicKey
+        .retrieveAuthenticationData(presentation.getBackupId())
+        .thenApply(optionalAuthenticationData -> {
+          final BackupsDb.AuthenticationData authenticationData = optionalAuthenticationData
               .orElseThrow(() -> {
                 Metrics.counter(ZK_AUTHN_COUNTER_NAME,
                         SUCCESS_TAG_NAME, String.valueOf(false),
@@ -457,23 +455,10 @@ public class BackupManager {
                     .increment();
                 return Status.NOT_FOUND.withDescription("Backup not found").asRuntimeException();
               });
-          try {
-            final ECPublicKey publicKey = new ECPublicKey(publicKeyBytes);
-            return new AuthenticatedBackupUser(
-                presentation.getBackupId(),
-                verifySignatureAndCheckPresentation(presentation, signature, publicKey));
-          } catch (InvalidKeyException e) {
-            Metrics.counter(ZK_AUTHN_COUNTER_NAME,
-                    SUCCESS_TAG_NAME, String.valueOf(false),
-                    FAILURE_REASON_TAG_NAME, "invalid_public_key")
-                .increment();
-            logger.error("Invalid publicKey for backupId hash {}",
-                HexFormat.of().formatHex(BackupsDb.hashedBackupId(presentation.getBackupId())), e);
-            throw Status.INTERNAL
-                .withCause(e)
-                .withDescription("Could not deserialize stored public key")
-                .asRuntimeException();
-          }
+          return new AuthenticatedBackupUser(
+              presentation.getBackupId(),
+              verifySignatureAndCheckPresentation(presentation, signature, authenticationData.publicKey()),
+              authenticationData.backupDir(), authenticationData.mediaDir());
         })
         .thenApply(result -> {
           Metrics.counter(ZK_AUTHN_COUNTER_NAME, SUCCESS_TAG_NAME, String.valueOf(true)).increment();
@@ -498,49 +483,43 @@ public class BackupManager {
   /**
    * Delete some or all of the objects associated with the backup, and update the backup database.
    *
-   * @param backupTierToRemove If {@link BackupTier#MEDIA}, will only delete media associated with the backup, if
-   *                           {@link BackupTier#MESSAGES} will also delete the messageBackup and remove any db record
-   *                           of the backup
-   * @param hashedBackupId     The hashed backup-id for the backup
+   * @param expiredBackup The backup to expire. If the {@link ExpiredBackup} is a media expiration, only the media
+   *                      objects will be deleted, otherwise all backup objects will be deleted
    * @return A stage that completes when the deletion operation is finished
    */
-  public CompletableFuture<Void> deleteBackup(final BackupTier backupTierToRemove, final byte[] hashedBackupId) {
-    return switch (backupTierToRemove) {
-      case NONE -> CompletableFuture.completedFuture(null);
-      // Delete any media associated with the backup id, the message backup, and the row in our backups db table
-      case MESSAGES -> deleteAllMedia(hashedBackupId)
-          .thenCompose(ignored -> this.remoteStorageManager.delete(
-              "%s/%s".formatted(encodeForCdn(hashedBackupId), MESSAGE_BACKUP_NAME)))
-          .thenCompose(ignored -> this.backupsDb.deleteBackup(hashedBackupId));
-      // Delete any media associated with the backup id, and clear any used media bytes
-      case MEDIA -> deleteAllMedia(hashedBackupId).thenCompose(ignore -> backupsDb.clearMediaUsage(hashedBackupId));
-    };
+  public CompletableFuture<Void> expireBackup(final ExpiredBackup expiredBackup) {
+    return backupsDb.startExpiration(expiredBackup)
+        .thenCompose(ignored -> deletePrefix(expiredBackup.prefixToDelete()))
+        .thenCompose(ignored -> backupsDb.finishExpiration(expiredBackup));
   }
 
   /**
-   * List and delete all media associated with a backup.
+   * List and delete all files associated with a prefix
    *
-   * @param hashedBackupId The hashed backup-id for the backup
-   * @return A stage that completes when all media objects have been deleted
+   * @param prefixToDelete The prefix to expire.
+   * @return A stage that completes when all objects with the given prefix have been deleted
    */
-  private CompletableFuture<Void> deleteAllMedia(final byte[] hashedBackupId) {
-    final String mediaPrefix = cdnMediaDirectory(hashedBackupId);
+  private CompletableFuture<Void> deletePrefix(final String prefixToDelete) {
+    if (prefixToDelete.length() != BackupsDb.BACKUP_DIRECTORY_PATH_LENGTH
+        && prefixToDelete.length() != BackupsDb.MEDIA_DIRECTORY_PATH_LENGTH) {
+      throw new IllegalArgumentException("Unexpected prefix deletion for " + prefixToDelete);
+    }
+    final String prefix = prefixToDelete + "/";
     return Mono
-        .fromCompletionStage(this.remoteStorageManager.list(mediaPrefix, Optional.empty(), 1000))
+        .fromCompletionStage(this.remoteStorageManager.list(prefix, Optional.empty(), 1000))
         .expand(listResult -> {
           if (listResult.cursor().isEmpty()) {
             return Mono.empty();
           }
-          return Mono.fromCompletionStage(() -> this.remoteStorageManager.list(mediaPrefix, listResult.cursor(), 1000));
+          return Mono.fromCompletionStage(() -> this.remoteStorageManager.list(prefix, listResult.cursor(), 1000));
         })
         .flatMap(listResult -> Flux.fromIterable(listResult.objects()))
-        // Delete the media objects. concatMap effectively makes the deletion operation single threaded -- it's expected
-        // the caller can increase/ concurrency by deleting more backups at once, rather than increasing concurrency
+        // Delete the objects. concatMap effectively makes the deletion operation single threaded -- it's expected
+        // the caller can increase concurrency by deleting more backups at once, rather than increasing concurrency
         // deleting an individual backup
-        .concatMap(result -> Mono.fromCompletionStage(() ->
-            remoteStorageManager.delete("%s%s".formatted(mediaPrefix, result.key()))))
+        .concatMap(result -> Mono.fromCompletionStage(() -> remoteStorageManager.delete(prefix + result.key())))
         .count()
-        .doOnSuccess(itemsRemoved -> DistributionSummary.builder(DELETE_MEDIA_COUNT_DISTRIBUTION_NAME)
+        .doOnSuccess(itemsRemoved -> DistributionSummary.builder(DELETE_COUNT_DISTRIBUTION_NAME)
             .publishPercentileHistogram(true)
             .register(Metrics.globalRegistry)
             .record(itemsRemoved))
@@ -593,33 +572,23 @@ public class BackupManager {
   }
 
   @VisibleForTesting
-  static String encodeBackupIdForCdn(final AuthenticatedBackupUser backupUser) {
-    return encodeForCdn(BackupsDb.hashedBackupId(backupUser.backupId()));
-  }
-
-  @VisibleForTesting
-  static String encodeForCdn(final byte[] bytes) {
+  static String encodeMediaIdForCdn(final byte[] bytes) {
     return Base64.getUrlEncoder().encodeToString(bytes);
   }
 
-  private static byte[] decodeFromCdn(final String base64) {
+  private static byte[] decodeMediaIdFromCdn(final String base64) {
     return Base64.getUrlDecoder().decode(base64);
   }
 
   private static String cdnMessageBackupName(final AuthenticatedBackupUser backupUser) {
-    return "%s/%s".formatted(encodeBackupIdForCdn(backupUser), MESSAGE_BACKUP_NAME);
+    return "%s/%s".formatted(backupUser.backupDir(), MESSAGE_BACKUP_NAME);
   }
 
   private static String cdnMediaDirectory(final AuthenticatedBackupUser backupUser) {
-    return "%s/%s/".formatted(encodeBackupIdForCdn(backupUser), MEDIA_DIRECTORY_NAME);
-  }
-
-  private static String cdnMediaDirectory(final byte[] hashedBackupId) {
-    return "%s/%s/".formatted(encodeForCdn(hashedBackupId), MEDIA_DIRECTORY_NAME);
+    return "%s/%s/".formatted(backupUser.backupDir(), backupUser.mediaDir());
   }
 
   private static String cdnMediaPath(final AuthenticatedBackupUser backupUser, final byte[] mediaId) {
-    return "%s%s".formatted(cdnMediaDirectory(backupUser), encodeForCdn(mediaId));
+    return "%s%s".formatted(cdnMediaDirectory(backupUser), encodeMediaIdForCdn(mediaId));
   }
-
 }

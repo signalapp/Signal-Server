@@ -232,16 +232,22 @@ public class ArchiveController {
   }
 
   public record BackupInfoResponse(
-      @Schema(description = "If present, the CDN type where the message backup is stored")
+      @Schema(description = "The CDN type where the message backup is stored. Media may be stored elsewhere.")
       int cdn,
 
       @Schema(description = """
-          If present, the directory of your backup data on the cdn. The message backup can be found at /backupDir/backupName
-          and stored media can be found at /backupDir/media/mediaId.
+          The base directory of your backup data on the cdn. The message backup can be found in the returned cdn at
+          /backupDir/backupName and stored media can be found at /backupDir/mediaDir/mediaId
           """)
       String backupDir,
 
-      @Schema(description = "If present, the name of the most recent message backup on the cdn. The backup is at /backupDir/backupName")
+      @Schema(description = """
+          The prefix path component for media objects on a cdn. Stored media for mediaId can be found at
+          /backupDir/mediaDir/mediaId.
+          """)
+      String mediaDir,
+
+      @Schema(description = "The name of the most recent message backup on the cdn. The backup is at /backupDir/backupName")
       String backupName,
 
       @Nullable
@@ -276,6 +282,7 @@ public class ArchiveController {
         .thenApply(backupInfo -> new BackupInfoResponse(
             backupInfo.cdn(),
             backupInfo.backupSubdir(),
+            backupInfo.mediaSubdir(),
             backupInfo.messageBackupKey(),
             backupInfo.mediaUsedSpace().orElse(null)));
   }
@@ -641,6 +648,15 @@ public class ArchiveController {
       @Schema(description = "A page of media objects stored for this backup ID")
       List<StoredMediaObject> storedMediaObjects,
 
+      @Schema(description = """
+          The base directory of your backup data on the cdn. The stored media can be found at /backupDir/mediaDir/mediaId
+          """)
+      String backupDir,
+
+      @Schema(description = """
+          The prefix path component for the media objects. The stored media for mediaId can be found at /backupDir/mediaDir/mediaId.
+          """)
+      String mediaDir,
       @Schema(description = "If set, the cursor value to pass to the next list request to continue listing. If absent, all objects have been listed")
       String cursor) {}
 
@@ -679,12 +695,14 @@ public class ArchiveController {
     }
     return backupManager
         .authenticateBackupUser(presentation.presentation, signature.signature)
-        .thenCompose(backupUser -> backupManager.list(backupUser, cursor, limit.orElse(1000)))
-        .thenApply(result -> new ListResponse(
-            result.media()
-                .stream().map(entry -> new StoredMediaObject(entry.cdn(), entry.key(), entry.length()))
-                .toList(),
-            result.cursor().orElse(null)));
+        .thenCompose(backupUser ->backupManager.list(backupUser, cursor, limit.orElse(1000))
+            .thenApply(result -> new ListResponse(
+                result.media()
+                    .stream().map(entry -> new StoredMediaObject(entry.cdn(), entry.key(), entry.length()))
+                    .toList(),
+                backupUser.backupDir(),
+                backupUser.mediaDir(),
+                result.cursor().orElse(null))));
   }
 
   public record DeleteMedia(@Size(min = 1, max = 1000) List<@Valid MediaToDelete> mediaToDelete) {

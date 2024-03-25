@@ -29,6 +29,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -53,6 +54,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.signal.libsignal.protocol.InvalidKeyException;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
@@ -80,6 +82,7 @@ public class BackupManagerTest {
   private final RemoteStorageManager remoteStorageManager = mock(RemoteStorageManager.class);
   private final byte[] backupKey = TestRandomUtil.nextBytes(32);
   private final UUID aci = UUID.randomUUID();
+  private final SecureRandom secureRandom = new SecureRandom();
 
   private BackupManager backupManager;
   private BackupsDb backupsDb;
@@ -109,14 +112,13 @@ public class BackupManagerTest {
     testClock.pin(now);
 
     final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), backupTier);
-    final String encodedBackupId = Base64.getUrlEncoder().encodeToString(hashedBackupId(backupUser.backupId()));
 
     backupManager.createMessageBackupUploadDescriptor(backupUser).join();
     verify(tusCredentialGenerator, times(1))
-        .generateUpload("%s/%s".formatted(encodedBackupId, BackupManager.MESSAGE_BACKUP_NAME));
+        .generateUpload("%s/%s".formatted(backupUser.backupDir(), BackupManager.MESSAGE_BACKUP_NAME));
 
     final BackupManager.BackupInfo info = backupManager.backupInfo(backupUser).join();
-    assertThat(info.backupSubdir()).isEqualTo(encodedBackupId);
+    assertThat(info.backupSubdir()).isEqualTo(backupUser.backupDir()).isNotBlank();
     assertThat(info.messageBackupKey()).isEqualTo(BackupManager.MESSAGE_BACKUP_NAME);
     assertThat(info.mediaUsedSpace()).isEqualTo(Optional.empty());
 
@@ -344,9 +346,7 @@ public class BackupManagerTest {
   @Test
   public void quotaEnforcementRecalculation() {
     final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupTier.MEDIA);
-    final String backupMediaPrefix = "%s/%s/".formatted(
-        BackupManager.encodeBackupIdForCdn(backupUser),
-        BackupManager.MEDIA_DIRECTORY_NAME);
+    final String backupMediaPrefix = "%s/%s/".formatted(backupUser.backupDir(), backupUser.mediaDir());
 
     // on recalculation, say there's actually 10 bytes left
     when(remoteStorageManager.calculateBytesUsed(eq(backupMediaPrefix)))
@@ -383,9 +383,7 @@ public class BackupManagerTest {
       final long mediaToAddSize,
       boolean shouldAccept) {
     final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupTier.MEDIA);
-    final String backupMediaPrefix = "%s/%s/".formatted(
-        BackupManager.encodeBackupIdForCdn(backupUser),
-        BackupManager.MEDIA_DIRECTORY_NAME);
+    final String backupMediaPrefix = "%s/%s/".formatted(backupUser.backupDir(), backupUser.mediaDir());
 
     // set the backupsDb to be out of quota at t=0
     testClock.pin(Instant.ofEpochSecond(0));
@@ -410,9 +408,7 @@ public class BackupManagerTest {
   public void list(final String cursorVal) {
     final Optional<String> cursor = Optional.of(cursorVal).filter(StringUtils::isNotBlank);
     final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupTier.MEDIA);
-    final String backupMediaPrefix = "%s/%s/".formatted(
-        BackupManager.encodeBackupIdForCdn(backupUser),
-        BackupManager.MEDIA_DIRECTORY_NAME);
+    final String backupMediaPrefix = "%s/%s/".formatted(backupUser.backupDir(), backupUser.mediaDir());
 
     when(remoteStorageManager.cdnNumber()).thenReturn(13);
     when(remoteStorageManager.list(eq(backupMediaPrefix), eq(cursor), eq(17L)))
@@ -437,9 +433,9 @@ public class BackupManagerTest {
     final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupTier.MEDIA);
     final byte[] mediaId = TestRandomUtil.nextBytes(16);
     final String backupMediaKey = "%s/%s/%s".formatted(
-        BackupManager.encodeBackupIdForCdn(backupUser),
-        BackupManager.MEDIA_DIRECTORY_NAME,
-        BackupManager.encodeForCdn(mediaId));
+        backupUser.backupDir(),
+        backupUser.mediaDir(),
+        BackupManager.encodeMediaIdForCdn(mediaId));
 
     backupsDb.setMediaUsage(backupUser, new UsageInfo(100, 1000)).join();
 
@@ -474,9 +470,9 @@ public class BackupManagerTest {
           TestRandomUtil.nextBytes(15));
       descriptors.add(descriptor);
       final String backupMediaKey = "%s/%s/%s".formatted(
-          BackupManager.encodeBackupIdForCdn(backupUser),
-          BackupManager.MEDIA_DIRECTORY_NAME,
-          BackupManager.encodeForCdn(descriptor.key()));
+          backupUser.backupDir(),
+          backupUser.mediaDir(),
+          BackupManager.encodeMediaIdForCdn(descriptor.key()));
 
       initialBytes += i;
       // fail 2 deletions, otherwise return the corresponding object's size as i
@@ -501,9 +497,9 @@ public class BackupManagerTest {
     final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupTier.MEDIA);
     final byte[] mediaId = TestRandomUtil.nextBytes(16);
     final String backupMediaKey = "%s/%s/%s".formatted(
-        BackupManager.encodeBackupIdForCdn(backupUser),
-        BackupManager.MEDIA_DIRECTORY_NAME,
-        BackupManager.encodeForCdn(mediaId));
+        backupUser.backupDir(),
+        backupUser.mediaDir(),
+        BackupManager.encodeMediaIdForCdn(mediaId));
 
     backupsDb.setMediaUsage(backupUser, new UsageInfo(100, 5)).join();
 
@@ -545,7 +541,7 @@ public class BackupManagerTest {
           .map(ExpiredBackup::hashedBackupId)
           .map(ByteBuffer::wrap)
           .allMatch(expectedHashes::contains)).isTrue();
-      assertThat(expired.stream().allMatch(eb -> eb.backupTierToRemove() == BackupTier.MESSAGES)).isTrue();
+      assertThat(expired.stream().allMatch(eb -> eb.expirationType() == ExpiredBackup.ExpirationType.ALL)).isTrue();
 
       // on next iteration, backup i should be expired
       expectedHashes.add(ByteBuffer.wrap(hashedBackupId(backupUsers.get(i).backupId())));
@@ -572,50 +568,53 @@ public class BackupManagerTest {
 
     assertThat(getExpired.apply(Instant.ofEpochSecond(6)))
         .hasSize(1).first()
-        .matches(eb -> eb.backupTierToRemove() == BackupTier.MEDIA, "is media tier");
+        .matches(eb -> eb.expirationType() == ExpiredBackup.ExpirationType.MEDIA, "is media tier");
 
     assertThat(getExpired.apply(Instant.ofEpochSecond(7)))
         .hasSize(1).first()
-        .matches(eb -> eb.backupTierToRemove() == BackupTier.MESSAGES, "is messages tier");
+        .matches(eb -> eb.expirationType() == ExpiredBackup.ExpirationType.ALL, "is messages tier");
   }
 
   @ParameterizedTest
-  @EnumSource(mode = EnumSource.Mode.INCLUDE, names = {"MESSAGES", "MEDIA"})
-  public void deleteBackup(BackupTier backupTier) {
+  @EnumSource(mode = EnumSource.Mode.INCLUDE, names = {"MEDIA", "ALL"})
+  public void expireBackup(ExpiredBackup.ExpirationType expirationType) {
     final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupTier.MEDIA);
     backupManager.createMessageBackupUploadDescriptor(backupUser).join();
-    final String mediaPrefix = "%s/%s/"
-        .formatted(BackupManager.encodeBackupIdForCdn(backupUser), BackupManager.MEDIA_DIRECTORY_NAME);
-    when(remoteStorageManager.list(eq(mediaPrefix), eq(Optional.empty()), anyLong()))
+
+    final String expectedPrefixToDelete = switch (expirationType) {
+      case ALL -> backupUser.backupDir();
+      case MEDIA -> backupUser.backupDir() + "/" + backupUser.mediaDir();
+      case GARBAGE_COLLECTION -> throw new IllegalArgumentException();
+    } + "/";
+
+    when(remoteStorageManager.list(eq(expectedPrefixToDelete), eq(Optional.empty()), anyLong()))
         .thenReturn(CompletableFuture.completedFuture(new RemoteStorageManager.ListResult(List.of(
             new RemoteStorageManager.ListResult.Entry("abc", 1),
             new RemoteStorageManager.ListResult.Entry("def", 1),
             new RemoteStorageManager.ListResult.Entry("ghi", 1)), Optional.empty())));
     when(remoteStorageManager.delete(anyString())).thenReturn(CompletableFuture.completedFuture(1L));
 
-    backupManager.deleteBackup(backupTier, hashedBackupId(backupUser.backupId())).join();
+    backupManager.expireBackup(expiredBackup(expirationType, backupUser)).join();
     verify(remoteStorageManager, times(1)).list(anyString(), any(), anyLong());
-    verify(remoteStorageManager, times(1)).delete(mediaPrefix + "abc");
-    verify(remoteStorageManager, times(1)).delete(mediaPrefix + "def");
-    verify(remoteStorageManager, times(1)).delete(mediaPrefix + "ghi");
-    verify(remoteStorageManager, times(backupTier == BackupTier.MESSAGES ? 1 : 0))
-        .delete("%s/%s".formatted(BackupManager.encodeBackupIdForCdn(backupUser), BackupManager.MESSAGE_BACKUP_NAME));
+    verify(remoteStorageManager, times(1)).delete(expectedPrefixToDelete + "abc");
+    verify(remoteStorageManager, times(1)).delete(expectedPrefixToDelete + "def");
+    verify(remoteStorageManager, times(1)).delete(expectedPrefixToDelete + "ghi");
     verifyNoMoreInteractions(remoteStorageManager);
 
     final BackupsDb.TimestampedUsageInfo usage = backupsDb.getMediaUsage(backupUser).join();
     assertThat(usage.usageInfo().bytesUsed()).isEqualTo(0L);
     assertThat(usage.usageInfo().numObjects()).isEqualTo(0L);
 
-    if (backupTier == BackupTier.MEDIA) {
-      // should have deleted all the media, but left the backup descriptor in place
-      assertThatNoException().isThrownBy(() -> backupsDb.describeBackup(backupUser).join());
-    } else {
+    if (expirationType == ExpiredBackup.ExpirationType.ALL) {
       // should have deleted the db row for the backup
       assertThat(CompletableFutureTestUtil.assertFailsWithCause(
               StatusRuntimeException.class,
               backupsDb.describeBackup(backupUser))
           .getStatus().getCode())
           .isEqualTo(Status.NOT_FOUND.getCode());
+    } else {
+      // should have deleted all the media, but left the backup descriptor in place
+      assertThatNoException().isThrownBy(() -> backupsDb.describeBackup(backupUser).join());
     }
   }
 
@@ -623,8 +622,9 @@ public class BackupManagerTest {
   public void deleteBackupPaginated() {
     final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupTier.MEDIA);
     backupManager.createMessageBackupUploadDescriptor(backupUser).join();
-    final String mediaPrefix = "%s/%s/".formatted(BackupManager.encodeBackupIdForCdn(backupUser),
-        BackupManager.MEDIA_DIRECTORY_NAME);
+
+    final ExpiredBackup expiredBackup = expiredBackup(ExpiredBackup.ExpirationType.MEDIA, backupUser);
+    final String mediaPrefix = expiredBackup.prefixToDelete() + "/";
 
     // Return 1 item per page. Initially the provided cursor is empty and we'll return the cursor string "1".
     // When we get the cursor "1", we'll return "2", when "2" we'll return empty indicating listing
@@ -647,12 +647,25 @@ public class BackupManagerTest {
               }));
     });
     when(remoteStorageManager.delete(anyString())).thenReturn(CompletableFuture.completedFuture(1L));
-    backupManager.deleteBackup(BackupTier.MEDIA, hashedBackupId(backupUser.backupId())).join();
+    backupManager.expireBackup(expiredBackup).join();
     verify(remoteStorageManager, times(3)).list(anyString(), any(), anyLong());
     verify(remoteStorageManager, times(1)).delete(mediaPrefix + "abc");
     verify(remoteStorageManager, times(1)).delete(mediaPrefix + "def");
     verify(remoteStorageManager, times(1)).delete(mediaPrefix + "ghi");
     verifyNoMoreInteractions(remoteStorageManager);
+  }
+
+  private static ExpiredBackup expiredBackup(final ExpiredBackup.ExpirationType expirationType,
+      final AuthenticatedBackupUser backupUser) {
+    return new ExpiredBackup(
+        hashedBackupId(backupUser.backupId()),
+        expirationType,
+        Instant.now(),
+        switch (expirationType) {
+          case ALL -> backupUser.backupDir();
+          case MEDIA -> backupUser.backupDir() + "/" + backupUser.mediaDir();
+          case GARBAGE_COLLECTION -> null;
+        });
   }
 
   private Map<String, AttributeValue> getBackupItem(final AuthenticatedBackupUser backupUser) {
@@ -688,6 +701,14 @@ public class BackupManagerTest {
   }
 
   private AuthenticatedBackupUser backupUser(final byte[] backupId, final BackupTier backupTier) {
-    return new AuthenticatedBackupUser(backupId, backupTier);
+    // Won't actually validate the public key, but need to have a public key to perform BackupsDB operations
+    byte[] privateKey = new byte[32];
+    ByteBuffer.wrap(privateKey).put(backupId);
+    try {
+      backupsDb.setPublicKey(backupId, backupTier, Curve.decodePrivatePoint(privateKey).publicKey()).join();
+    } catch (InvalidKeyException e) {
+      throw new RuntimeException(e);
+    }
+    return new AuthenticatedBackupUser(backupId, backupTier, BackupsDb.generateDirName(secureRandom), BackupsDb.generateDirName(secureRandom));
   }
 }

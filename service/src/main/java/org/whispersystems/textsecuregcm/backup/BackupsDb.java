@@ -7,16 +7,20 @@ package org.whispersystems.textsecuregcm.backup;
 import io.grpc.Status;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
+import org.signal.libsignal.protocol.InvalidKeyException;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,15 +45,37 @@ import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
  * <p>
  * It's assumed that the caller has already validated that the backupUser being operated on has valid credentials and
  * possesses the appropriate {@link BackupTier} to perform the current operation.
+ * <p>
+ * Backup records track two timestamps indicating the last time that a user interacted with their backup. One for the
+ * last refresh that contained a credential including media tier, and the other for any access. After a period of
+ * inactivity stale backups can be purged (either just the media, or the entire backup). Callers can discover what
+ * backups are stale and whether only the media or the entire backup is stale via {@link #getExpiredBackups}.
+ * <p>
+ * Because backup objects reside on a transactionally unrelated store, expiring anything from the backup requires a 2
+ * phase process. First the caller calls {@link #startExpiration} which will atomically update the user's backup
+ * directories and record the cdn directory that should be expired. Then the caller must delete the expired directory,
+ * calling {@link #finishExpiration} to clear the recorded expired prefix when complete. Since the user's backup
+ * directories have been swapped, the deleter does not have to account for a user coming back and starting to upload
+ * concurrently with the deletion.
+ * <p>
+ * If the directory deletion fails, a subsequent call to {@link #getExpiredBackups} will return the backup again
+ * indicating that the old expired prefix needs to be cleaned up before any other expiration action is taken. For
+ * example, if a media expiration fails and then in the next expiration pass the backup has become eligible for total
+ * deletion, the caller still must process the stale media expiration first before processing the full deletion.
  */
 public class BackupsDb {
 
+  private static final int DIR_NAME_LENGTH = generateDirName(new SecureRandom()).length();
+  public static final int BACKUP_DIRECTORY_PATH_LENGTH = DIR_NAME_LENGTH;
+  public static final int MEDIA_DIRECTORY_PATH_LENGTH = BACKUP_DIRECTORY_PATH_LENGTH + "/".length() + DIR_NAME_LENGTH;
   private static final Logger logger = LoggerFactory.getLogger(BackupsDb.class);
   static final int BACKUP_CDN = 3;
 
   private final DynamoDbAsyncClient dynamoClient;
   private final String backupTableName;
   private final Clock clock;
+
+  private final SecureRandom secureRandom;
 
   // The backups table
 
@@ -73,7 +99,12 @@ public class BackupsDb {
   // N: Time in seconds since epoch of last backup media usage recalculation. This timestamp is updated whenever we
   // recalculate the up-to-date bytes used by querying the cdn(s) directly.
   public static final String ATTR_MEDIA_USAGE_LAST_RECALCULATION = "MBTS";
-  // BOOL: If true,
+  // S: The name of the user's backup directory on the CDN
+  public static final String ATTR_BACKUP_DIR = "BD";
+  // S: The name of the user's media directory within the backup directory on the CDN
+  public static final String ATTR_MEDIA_DIR = "MD";
+  // S: A prefix pending deletion
+  public static final String ATTR_EXPIRED_PREFIX = "EP";
 
   public BackupsDb(
       final DynamoDbAsyncClient dynamoClient,
@@ -82,6 +113,7 @@ public class BackupsDb {
     this.dynamoClient = dynamoClient;
     this.backupTableName = backupTableName;
     this.clock = clock;
+    this.secureRandom = new SecureRandom();
   }
 
   /**
@@ -102,35 +134,76 @@ public class BackupsDb {
             .addSetExpression("#publicKey = :publicKey",
                 Map.entry("#publicKey", ATTR_PUBLIC_KEY),
                 Map.entry(":publicKey", AttributeValues.b(publicKey.serialize())))
+            // When the user sets a public key, we ensure that they have a backupDir/mediaDir assigned
+            .setDirectoryNamesIfMissing(secureRandom)
             .setRefreshTimes(clock)
             .withConditionExpression("attribute_not_exists(#publicKey) OR #publicKey = :publicKey")
             .updateItemBuilder()
             .build())
-        .exceptionally(throwable -> {
-          // There was already a row for this backup-id and it contained a different publicKey
-          if (ExceptionUtils.unwrap(throwable) instanceof ConditionalCheckFailedException) {
-            throw ExceptionUtils.wrap(new PublicKeyConflictException());
-          }
-          throw ExceptionUtils.wrap(throwable);
-        })
+        .exceptionally(ExceptionUtils.marshal(ConditionalCheckFailedException.class, e ->
+            // There was already a row for this backup-id and it contained a different publicKey
+            new PublicKeyConflictException()))
         .thenRun(Util.NOOP);
   }
 
-  CompletableFuture<Optional<byte[]>> retrievePublicKey(byte[] backupId) {
+  /**
+   * Data stored to authenticate a backup user
+   *
+   * @param publicKey The public key for the backup entry. All credentials for this backup user must be signed * by this
+   *                  public key for the credential to be valid
+   * @param backupDir The current backupDir for the backup user. If authentication is successful, the user may be given
+   *                  credentials for this backupDir on the CDN
+   * @param mediaDir  The current mediaDir for the backup user. If authentication is successful, the user may be given *
+   *                  credentials for the path backupDir/mediaDir on the CDN
+   */
+  record AuthenticationData(ECPublicKey publicKey, String backupDir, String mediaDir) {}
+
+  CompletableFuture<Optional<AuthenticationData>> retrieveAuthenticationData(byte[] backupId) {
     final byte[] hashedBackupId = hashedBackupId(backupId);
     return dynamoClient.getItem(GetItemRequest.builder()
             .tableName(backupTableName)
             .key(Map.of(KEY_BACKUP_ID_HASH, AttributeValues.b(hashedBackupId)))
             .consistentRead(true)
-            .projectionExpression("#publicKey")
-            .expressionAttributeNames(Map.of("#publicKey", ATTR_PUBLIC_KEY))
+            .projectionExpression("#publicKey,#backupDir,#mediaDir")
+            .expressionAttributeNames(Map.of(
+                "#publicKey", ATTR_PUBLIC_KEY,
+                "#backupDir", ATTR_BACKUP_DIR,
+                "#mediaDir", ATTR_MEDIA_DIR))
             .build())
-        .thenApply(response ->
-            AttributeValues.get(response.item(), ATTR_PUBLIC_KEY)
-                .map(AttributeValue::b)
-                .map(SdkBytes::asByteArray));
+        .thenApply(response -> extractStoredPublicKey(response.item())
+            .map(pubKey -> new AuthenticationData(
+                pubKey,
+                getDirName(response.item(), ATTR_BACKUP_DIR),
+                getDirName(response.item(), ATTR_MEDIA_DIR))));
   }
 
+  private static String getDirName(final Map<String, AttributeValue> item, final String attr) {
+    return AttributeValues.get(item, attr).map(AttributeValue::s).orElseThrow(() -> {
+      logger.error("Backups with public keys should have directory names");
+      return Status.INTERNAL
+          .withDescription("Backups with public keys must have directory names")
+          .asRuntimeException();
+    });
+  }
+
+  private static Optional<ECPublicKey> extractStoredPublicKey(final Map<String, AttributeValue> item) {
+    return AttributeValues.get(item, ATTR_PUBLIC_KEY)
+        .map(AttributeValue::b)
+        .map(SdkBytes::asByteArray)
+        .map(BackupsDb::deserializeStoredPublicKey);
+  }
+
+  private static ECPublicKey deserializeStoredPublicKey(final byte[] publicKeyBytes) {
+    try {
+      return new ECPublicKey(publicKeyBytes);
+    } catch (InvalidKeyException e) {
+      logger.error("Invalid publicKey {}", HexFormat.of().formatHex(publicKeyBytes), e);
+      throw Status.INTERNAL
+          .withCause(e)
+          .withDescription("Could not deserialize stored public key")
+          .asRuntimeException();
+    }
+  }
 
   /**
    * Update the quota in the backup table
@@ -186,15 +259,6 @@ public class BackupsDb {
         .thenRun(Util.NOOP);
   }
 
-  CompletableFuture<Void> deleteBackup(final byte[] hashedBackupId) {
-    return dynamoClient.deleteItem(DeleteItemRequest.builder()
-            .tableName(backupTableName)
-            .key(Map.of(KEY_BACKUP_ID_HASH, AttributeValues.b(hashedBackupId)))
-            .build())
-        .thenRun(Util.NOOP);
-  }
-
-
   record BackupDescription(int cdn, Optional<Long> mediaUsedSpace) {}
 
   /**
@@ -214,13 +278,10 @@ public class BackupsDb {
             .build())
         .thenApply(response -> {
           if (!response.hasItem()) {
-            throw Status.NOT_FOUND.withDescription("Backup not found").asRuntimeException();
+            throw Status.NOT_FOUND.withDescription("Backup ID not found").asRuntimeException();
           }
-          final int cdn = AttributeValues.get(response.item(), ATTR_CDN)
-              .map(AttributeValue::n)
-              .map(Integer::parseInt)
-              .orElseThrow(() -> Status.NOT_FOUND.withDescription("Stored backup not found").asRuntimeException());
-
+          // If the client hasn't already uploaded a backup, return the cdn we would return if they did create one
+          final int cdn = AttributeValues.getInt(response.item(), ATTR_CDN, BACKUP_CDN);
           final Optional<Long> mediaUsed = AttributeValues.get(response.item(), ATTR_MEDIA_BYTES_USED)
               .map(AttributeValue::n)
               .map(Long::parseLong);
@@ -269,22 +330,72 @@ public class BackupsDb {
         .thenRun(Util.NOOP);
   }
 
-  CompletableFuture<Void> clearMediaUsage(final byte[] hashedBackupId) {
-    return dynamoClient.updateItem(
-            new UpdateBuilder(backupTableName, BackupTier.MEDIA, hashedBackupId)
-                .addSetExpression("#mediaBytesUsed = :mediaBytesUsed",
-                    Map.entry("#mediaBytesUsed", ATTR_MEDIA_BYTES_USED),
-                    Map.entry(":mediaBytesUsed", AttributeValues.n(0L)))
-                .addSetExpression("#mediaCount = :mediaCount",
-                    Map.entry("#mediaCount", ATTR_MEDIA_COUNT),
-                    Map.entry(":mediaCount", AttributeValues.n(0L)))
-                .addSetExpression("#mediaRecalc = :mediaRecalc",
-                    Map.entry("#mediaRecalc", ATTR_MEDIA_USAGE_LAST_RECALCULATION),
-                    Map.entry(":mediaRecalc", AttributeValues.n(clock.instant().getEpochSecond())))
-                .addRemoveExpression(Map.entry("#mediaRefresh", ATTR_LAST_MEDIA_REFRESH))
-                .updateItemBuilder()
-                .build())
+
+  /**
+   * Marks the backup as undergoing expiration.
+   * <p>
+   * This must be called before beginning to delete items in the CDN with the prefix specified by
+   * {@link ExpiredBackup#prefixToDelete()}. If the prefix has been successfully deleted, {@link #finishExpiration} must
+   * be called.
+   *
+   * @param expiredBackup The backup to expire
+   * @return A stage that completes when the backup has been marked for expiration
+   */
+  CompletableFuture<Void> startExpiration(final ExpiredBackup expiredBackup) {
+    if (expiredBackup.expirationType() == ExpiredBackup.ExpirationType.GARBAGE_COLLECTION) {
+      // We've already updated the row on a prior (failed) attempt, just need to remove the data from the cdn now
+      return CompletableFuture.completedFuture(null);
+    }
+
+    // Clear usage metadata, swap names of things we intend to delete, and record our intent to delete in attr_expired_prefix
+    return dynamoClient.updateItem(new UpdateBuilder(backupTableName, BackupTier.MEDIA, expiredBackup.hashedBackupId())
+            .addSetExpression("#mediaBytesUsed = :mediaBytesUsed",
+                Map.entry("#mediaBytesUsed", ATTR_MEDIA_BYTES_USED),
+                Map.entry(":mediaBytesUsed", AttributeValues.n(0L)))
+            .addSetExpression("#mediaCount = :mediaCount",
+                Map.entry("#mediaCount", ATTR_MEDIA_COUNT),
+                Map.entry(":mediaCount", AttributeValues.n(0L)))
+            .addSetExpression("#mediaRecalc = :mediaRecalc",
+                Map.entry("#mediaRecalc", ATTR_MEDIA_USAGE_LAST_RECALCULATION),
+                Map.entry(":mediaRecalc", AttributeValues.n(clock.instant().getEpochSecond())))
+            .expireDirectoryNames(secureRandom, expiredBackup.expirationType())
+            .addRemoveExpression(Map.entry("#mediaRefresh", ATTR_LAST_MEDIA_REFRESH))
+            .addSetExpression("#expiredPrefix = :expiredPrefix",
+                Map.entry("#expiredPrefix", ATTR_EXPIRED_PREFIX),
+                Map.entry(":expiredPrefix", AttributeValues.s(expiredBackup.prefixToDelete())))
+            .withConditionExpression("attribute_not_exists(#expiredPrefix) OR #expiredPrefix = :expiredPrefix")
+            .updateItemBuilder()
+            .build())
         .thenRun(Util.NOOP);
+  }
+
+  /**
+   * Complete expiration of a backup started with {@link #startExpiration}
+   * <p>
+   * If the expiration was for the entire backup, this will delete the entire item for the backup.
+   *
+   * @param expiredBackup The backup to expire
+   * @return A stage that completes when the expiration is marked as finished
+   */
+  CompletableFuture<Void> finishExpiration(final ExpiredBackup expiredBackup) {
+    final byte[] hashedBackupId = expiredBackup.hashedBackupId();
+    if (expiredBackup.expirationType() == ExpiredBackup.ExpirationType.ALL) {
+      final long expectedLastRefresh = expiredBackup.lastRefresh().getEpochSecond();
+      return dynamoClient.deleteItem(DeleteItemRequest.builder()
+              .tableName(backupTableName)
+              .key(Map.of(KEY_BACKUP_ID_HASH, AttributeValues.b(hashedBackupId)))
+              .conditionExpression("#lastRefresh <= :expectedLastRefresh")
+              .expressionAttributeNames(Map.of("#lastRefresh", ATTR_LAST_REFRESH))
+              .expressionAttributeValues(Map.of(":expectedLastRefresh", AttributeValues.n(expectedLastRefresh)))
+              .build())
+          .thenRun(Util.NOOP);
+    } else {
+      return dynamoClient.updateItem(new UpdateBuilder(backupTableName, BackupTier.MEDIA, hashedBackupId)
+              .addRemoveExpression(Map.entry("#expiredPrefixes", ATTR_EXPIRED_PREFIX))
+              .updateItemBuilder()
+              .build())
+          .thenRun(Util.NOOP);
+    }
   }
 
   Flux<ExpiredBackup> getExpiredBackups(final int segments, final Scheduler scheduler, final Instant purgeTime) {
@@ -303,10 +414,14 @@ public class BackupsDb {
                 .expressionAttributeNames(Map.of(
                     "#backupIdHash", KEY_BACKUP_ID_HASH,
                     "#refresh", ATTR_LAST_REFRESH,
-                    "#mediaRefresh", ATTR_LAST_MEDIA_REFRESH))
+                    "#mediaRefresh", ATTR_LAST_MEDIA_REFRESH,
+                    "#backupDir", ATTR_BACKUP_DIR,
+                    "#mediaDir", ATTR_MEDIA_DIR,
+                    "#expiredPrefix", ATTR_EXPIRED_PREFIX))
                 .expressionAttributeValues(Map.of(":purgeTime", AttributeValues.n(purgeTime.getEpochSecond())))
-                .projectionExpression("#backupIdHash, #refresh, #mediaRefresh")
-                .filterExpression("(#refresh < :purgeTime) OR (#mediaRefresh < :purgeTime)")
+                .projectionExpression("#backupIdHash, #refresh, #mediaRefresh, #backupDir, #mediaDir, #expiredPrefix")
+                .filterExpression(
+                    "(#refresh < :purgeTime) OR (#mediaRefresh < :purgeTime) OR attribute_exists(#expiredPrefix)")
                 .build())
             .items())
         .sequential()
@@ -316,19 +431,60 @@ public class BackupsDb {
           if (hashedBackupId == null) {
             return null;
           }
+          final String backupDir = AttributeValues.getString(item, ATTR_BACKUP_DIR, null);
+          final String mediaDir = AttributeValues.getString(item, ATTR_MEDIA_DIR, null);
+          if (backupDir == null || mediaDir == null) {
+            // Could be the case for backups that have not yet set a public key
+            return null;
+          }
           final long lastRefresh = AttributeValues.getLong(item, ATTR_LAST_REFRESH, Long.MAX_VALUE);
           final long lastMediaRefresh = AttributeValues.getLong(item, ATTR_LAST_MEDIA_REFRESH, Long.MAX_VALUE);
+          final String existingExpiration = AttributeValues.getString(item, ATTR_EXPIRED_PREFIX, null);
 
-          if (lastRefresh < purgeTime.getEpochSecond()) {
-            return new ExpiredBackup(hashedBackupId, BackupTier.MESSAGES);
+          final ExpiredBackup expiredBackup;
+          if (existingExpiration != null) {
+            // If we have work from a failed previous expiration, handle that before worrying about any new expirations.
+            // This guarantees we won't accumulate expirations
+            expiredBackup = new ExpiredBackup(hashedBackupId, ExpiredBackup.ExpirationType.GARBAGE_COLLECTION,
+                Instant.ofEpochSecond(lastRefresh), existingExpiration);
+          } else if (lastRefresh < purgeTime.getEpochSecond()) {
+            // The whole backup was expired
+            expiredBackup = new ExpiredBackup(hashedBackupId, ExpiredBackup.ExpirationType.ALL,
+                Instant.ofEpochSecond(lastRefresh), backupDir);
           } else if (lastMediaRefresh < purgeTime.getEpochSecond()) {
-            return new ExpiredBackup(hashedBackupId, BackupTier.MEDIA);
+            // The media was expired
+            expiredBackup = new ExpiredBackup(hashedBackupId, ExpiredBackup.ExpirationType.MEDIA,
+                Instant.ofEpochSecond(lastRefresh), backupDir + "/" + mediaDir);
           } else {
             return null;
           }
+
+          if (!isValid(expiredBackup)) {
+            logger.error("Not expiring backup {} for backupId {} with invalid cdn path prefixes",
+                HexFormat.of().formatHex(expiredBackup.hashedBackupId()),
+                expiredBackup);
+            return null;
+          }
+          return expiredBackup;
         });
   }
 
+  /**
+   * Backup expiration will expire any prefix we tell it to, so confirm that the directory names that came out of the
+   * database have the correct shape before handing them off.
+   *
+   * @param expiredBackup The ExpiredBackup object to check
+   * @return Whether this is a valid expiration object
+   */
+  private static boolean isValid(final ExpiredBackup expiredBackup) {
+    // expired prefixes should be of the form "backupDir" or "backupDir/mediaDir"
+    return switch (expiredBackup.expirationType()) {
+      case MEDIA -> expiredBackup.prefixToDelete().length() == MEDIA_DIRECTORY_PATH_LENGTH;
+      case ALL -> expiredBackup.prefixToDelete().length() == BACKUP_DIRECTORY_PATH_LENGTH;
+      case GARBAGE_COLLECTION -> expiredBackup.prefixToDelete().length() == MEDIA_DIRECTORY_PATH_LENGTH ||
+          expiredBackup.prefixToDelete().length() == BACKUP_DIRECTORY_PATH_LENGTH;
+    };
+  }
 
   /**
    * Build ddb update statements for the backups table
@@ -431,6 +587,39 @@ public class BackupsDb {
       return this;
     }
 
+    UpdateBuilder setDirectoryNamesIfMissing(final SecureRandom secureRandom) {
+      final String backupDir = generateDirName(secureRandom);
+      final String mediaDir = generateDirName(secureRandom);
+      addSetExpression("#backupDir = if_not_exists(#backupDir, :backupDir)",
+          Map.entry("#backupDir", ATTR_BACKUP_DIR),
+          Map.entry(":backupDir", AttributeValues.s(backupDir)));
+
+      addSetExpression("#mediaDir = if_not_exists(#mediaDir, :mediaDir)",
+          Map.entry("#mediaDir", ATTR_MEDIA_DIR),
+          Map.entry(":mediaDir", AttributeValues.s(mediaDir)));
+      return this;
+    }
+
+    UpdateBuilder expireDirectoryNames(
+        final SecureRandom secureRandom,
+        final ExpiredBackup.ExpirationType expirationType) {
+      final String backupDir = generateDirName(secureRandom);
+      final String mediaDir = generateDirName(secureRandom);
+      return switch (expirationType) {
+        case GARBAGE_COLLECTION -> this;
+        case MEDIA -> this.addSetExpression("#mediaDir = :mediaDir",
+            Map.entry("#mediaDir", ATTR_MEDIA_DIR),
+            Map.entry(":mediaDir", AttributeValues.s(mediaDir)));
+        case ALL -> this
+            .addSetExpression("#mediaDir = :mediaDir",
+                Map.entry("#mediaDir", ATTR_MEDIA_DIR),
+                Map.entry(":mediaDir", AttributeValues.s(mediaDir)))
+            .addSetExpression("#backupDir = :backupDir",
+                Map.entry("#backupDir", ATTR_BACKUP_DIR),
+                Map.entry(":backupDir", AttributeValues.s(backupDir)));
+      };
+    }
+
     /**
      * Set the lastRefresh time as part of the update
      * <p>
@@ -478,8 +667,10 @@ public class BackupsDb {
           .tableName(tableName)
           .key(Map.of(KEY_BACKUP_ID_HASH, AttributeValues.b(hashedBackupId)))
           .updateExpression(updateExpression())
-          .expressionAttributeNames(attrNames)
-          .expressionAttributeValues(attrValues);
+          .expressionAttributeNames(attrNames);
+      if (!this.attrValues.isEmpty()) {
+        bldr.expressionAttributeValues(attrValues);
+      }
       if (this.conditionExpression != null) {
         bldr.conditionExpression(conditionExpression);
       }
@@ -505,6 +696,11 @@ public class BackupsDb {
     }
   }
 
+  static String generateDirName(final SecureRandom secureRandom) {
+    final byte[] bytes = new byte[16];
+    secureRandom.nextBytes(bytes);
+    return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+  }
 
   private static byte[] hashedBackupId(final AuthenticatedBackupUser backupId) {
     return hashedBackupId(backupId.backupId());
