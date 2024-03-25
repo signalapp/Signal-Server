@@ -14,6 +14,7 @@ import com.google.common.annotations.VisibleForTesting;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 import java.util.Optional;
+import javax.annotation.Nullable;
 import javax.validation.Valid;
 import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.NotNull;
@@ -96,8 +97,7 @@ public record RegistrationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT
         new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, apnToken, gcmToken));
   }
 
-  @AssertTrue
-  public boolean isEverySignedKeyValid() {
+  public boolean isEverySignedKeyValid(@Nullable final String userAgent) {
     if (deviceActivationRequest().aciSignedPreKey() == null ||
         deviceActivationRequest().pniSignedPreKey() == null ||
         deviceActivationRequest().aciPqLastResortPreKey() == null ||
@@ -105,8 +105,8 @@ public record RegistrationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT
       return false;
     }
 
-    return PreKeySignatureValidator.validatePreKeySignatures(aciIdentityKey(), List.of(deviceActivationRequest().aciSignedPreKey(), deviceActivationRequest().aciPqLastResortPreKey()))
-        && PreKeySignatureValidator.validatePreKeySignatures(pniIdentityKey(), List.of(deviceActivationRequest().pniSignedPreKey(), deviceActivationRequest().pniPqLastResortPreKey()));
+    return PreKeySignatureValidator.validatePreKeySignatures(aciIdentityKey(), List.of(deviceActivationRequest().aciSignedPreKey(), deviceActivationRequest().aciPqLastResortPreKey()), userAgent, "register")
+        && PreKeySignatureValidator.validatePreKeySignatures(pniIdentityKey(), List.of(deviceActivationRequest().pniSignedPreKey(), deviceActivationRequest().pniPqLastResortPreKey()), userAgent, "register");
   }
 
   @VisibleForTesting

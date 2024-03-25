@@ -22,6 +22,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
+import javax.annotation.Nullable;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import javax.ws.rs.BadRequestException;
@@ -124,6 +125,10 @@ public class AccountControllerV2 {
     } catch (final UnrecognizedUserAgentException ignored) {
     }
 
+    if (!request.isSignatureValidOnEachSignedPreKey(userAgentString)) {
+      throw new WebApplicationException("Invalid signature", 422);
+    }
+
     final String number = request.number();
 
     // Only verify and check reglock if there's a data change to be made...
@@ -195,10 +200,15 @@ public class AccountControllerV2 {
       content = @Content(schema = @Schema(implementation = StaleDevices.class)))
   public AccountIdentityResponse distributePhoneNumberIdentityKeys(
       @Mutable @Auth final AuthenticatedAccount authenticatedAccount,
+      @HeaderParam(HttpHeaders.USER_AGENT) @Nullable final String userAgentString,
       @NotNull @Valid final PhoneNumberIdentityKeyDistributionRequest request) {
 
     if (!authenticatedAccount.getAuthenticatedDevice().isPrimary()) {
       throw new ForbiddenException();
+    }
+
+    if (!request.isSignatureValidOnEachSignedPreKey(userAgentString)) {
+      throw new WebApplicationException("Invalid signature", 422);
     }
 
     try {

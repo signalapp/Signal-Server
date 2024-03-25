@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import javax.annotation.Nullable;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import javax.ws.rs.Consumes;
@@ -130,7 +131,7 @@ public class KeysController {
     final Device device = auth.getAuthenticatedDevice();
     final UUID identifier = account.getIdentifier(identityType);
 
-    checkSignedPreKeySignatures(setKeysRequest, account.getIdentityKey(identityType));
+    checkSignedPreKeySignatures(setKeysRequest, account.getIdentityKey(identityType), userAgent);
 
     final Tag platformTag = UserAgentTagUtil.getPlatformTag(userAgent);
     final Tag primaryDeviceTag = Tag.of(PRIMARY_DEVICE_TAG_NAME, String.valueOf(auth.getAuthenticatedDevice().isPrimary()));
@@ -174,7 +175,10 @@ public class KeysController {
         .thenApply(Util.ASYNC_EMPTY_RESPONSE);
   }
 
-  private void checkSignedPreKeySignatures(final SetKeysRequest setKeysRequest, final IdentityKey identityKey) {
+  private void checkSignedPreKeySignatures(final SetKeysRequest setKeysRequest,
+      final IdentityKey identityKey,
+      @Nullable final String userAgent) {
+
     final List<SignedPreKey<?>> signedPreKeys = new ArrayList<>();
 
     if (setKeysRequest.pqPreKeys() != null) {
@@ -190,7 +194,7 @@ public class KeysController {
     }
 
     final boolean allSignaturesValid =
-        signedPreKeys.isEmpty() || PreKeySignatureValidator.validatePreKeySignatures(identityKey, signedPreKeys);
+        signedPreKeys.isEmpty() || PreKeySignatureValidator.validatePreKeySignatures(identityKey, signedPreKeys, userAgent, "set-keys");
 
     if (!allSignaturesValid) {
       throw new WebApplicationException("Invalid signature", 422);
@@ -397,13 +401,14 @@ public class KeysController {
   @Deprecated(forRemoval = true)
   public CompletableFuture<Response> setSignedKey(
       @ReadOnly @Auth final AuthenticatedAccount auth,
+      @HeaderParam(HttpHeaders.USER_AGENT) @Nullable final String userAgent,
       @Valid final ECSignedPreKey signedPreKey,
       @QueryParam("identity") @DefaultValue("aci") final IdentityType identityType) {
 
     final UUID identifier = auth.getAccount().getIdentifier(identityType);
     final byte deviceId = auth.getAuthenticatedDevice().getId();
 
-    if (!PreKeySignatureValidator.validatePreKeySignatures(auth.getAccount().getIdentityKey(identityType), List.of(signedPreKey))) {
+    if (!PreKeySignatureValidator.validatePreKeySignatures(auth.getAccount().getIdentityKey(identityType), List.of(signedPreKey), userAgent, "set-signed-pre-key")) {
       throw new WebApplicationException("Invalid signature", 422);
     }
 

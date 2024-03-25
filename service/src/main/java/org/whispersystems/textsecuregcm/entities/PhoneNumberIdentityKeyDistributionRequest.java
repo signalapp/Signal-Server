@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 import javax.validation.Valid;
 import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.NotNull;
@@ -53,13 +54,12 @@ public record PhoneNumberIdentityKeyDistributionRequest(
     @Schema(description="The new registration ID to use for the phone-number identity of each device, including this one.")
     Map<Byte, Integer> pniRegistrationIds) {
 
-  @AssertTrue
-  public boolean isSignatureValidOnEachSignedPreKey() {
+  public boolean isSignatureValidOnEachSignedPreKey(@Nullable final String userAgent) {
     List<SignedPreKey<?>> spks = new ArrayList<>(devicePniSignedPrekeys.values());
     if (devicePniPqLastResortPrekeys != null) {
       spks.addAll(devicePniPqLastResortPrekeys.values());
     }
-    return spks.isEmpty() || PreKeySignatureValidator.validatePreKeySignatures(pniIdentityKey, spks);
+    return spks.isEmpty() || PreKeySignatureValidator.validatePreKeySignatures(pniIdentityKey, spks, userAgent, "distribute-pni-keys");
   }
 
 }

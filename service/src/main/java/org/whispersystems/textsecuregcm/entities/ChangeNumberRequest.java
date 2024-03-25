@@ -68,8 +68,7 @@ public record ChangeNumberRequest(
     @Schema(description="the new phone-number-identity registration ID for each enabled device on the account, including this one")
     @NotNull Map<Byte, Integer> pniRegistrationIds) implements PhoneVerificationRequest {
 
-  @AssertTrue
-  public boolean isSignatureValidOnEachSignedPreKey() {
+  public boolean isSignatureValidOnEachSignedPreKey(@Nullable final String userAgent) {
     List<SignedPreKey<?>> spks = new ArrayList<>();
     if (devicePniSignedPrekeys != null) {
       spks.addAll(devicePniSignedPrekeys.values());
@@ -77,7 +76,7 @@ public record ChangeNumberRequest(
     if (devicePniPqLastResortPrekeys != null) {
       spks.addAll(devicePniPqLastResortPrekeys.values());
     }
-    return spks.isEmpty() || PreKeySignatureValidator.validatePreKeySignatures(pniIdentityKey, spks);
+    return spks.isEmpty() || PreKeySignatureValidator.validatePreKeySignatures(pniIdentityKey, spks, userAgent, "change-number");
   }
 
   @AssertTrue

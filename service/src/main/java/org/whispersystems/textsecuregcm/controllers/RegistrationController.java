@@ -107,6 +107,10 @@ public class RegistrationController {
     final String number = authorizationHeader.getUsername();
     final String password = authorizationHeader.getPassword();
 
+    if (!registrationRequest.isEverySignedKeyValid(userAgent)) {
+      throw new WebApplicationException("Invalid signature", 422);
+    }
+
     RateLimiter.adaptLegacyException(() -> rateLimiters.getRegistrationLimiter().validate(number));
 
     final PhoneVerificationRequest.VerificationType verificationType = phoneVerificationTokenManager.verify(number,
