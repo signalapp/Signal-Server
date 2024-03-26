@@ -6,7 +6,6 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.Auth;
-import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
@@ -19,8 +18,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -41,7 +38,6 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
@@ -67,7 +63,6 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.KeysManager;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.Util;
-import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 import org.whispersystems.websocket.auth.ReadOnly;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
@@ -79,7 +74,6 @@ public class KeysController {
   private final KeysManager keysManager;
   private final AccountsManager accounts;
 
-  private static final String KEY_COUNT_DISTRIBUTION_NAME = MetricsUtil.name(KeysController.class, "getKeyCount");
   private static final String GET_KEYS_COUNTER_NAME = MetricsUtil.name(KeysController.class, "getKeys");
   private static final String STORE_KEYS_COUNTER_NAME = MetricsUtil.name(KeysController.class, "storeKeys");
   private static final String PRIMARY_DEVICE_TAG_NAME = "isPrimary";
@@ -101,36 +95,13 @@ public class KeysController {
   @ApiResponse(responseCode = "200", description = "Body contains the number of available one-time prekeys for the device.", useReturnTypeSchema = true)
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
   public CompletableFuture<PreKeyCount> getStatus(@ReadOnly @Auth final AuthenticatedAccount auth,
-      @QueryParam("identity") @DefaultValue("aci") final IdentityType identityType,
-      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) {
-
-    final Tag platformTag = UserAgentTagUtil.getPlatformTag(userAgent);
-    final Tag primaryDeviceTag = Tag.of(PRIMARY_DEVICE_TAG_NAME, String.valueOf(auth.getAuthenticatedDevice().isPrimary()));
-    final Tag identityTypeTag = Tag.of(IDENTITY_TYPE_TAG_NAME, identityType.name());
+      @QueryParam("identity") @DefaultValue("aci") final IdentityType identityType) {
 
     final CompletableFuture<Integer> ecCountFuture =
-        keysManager.getEcCount(auth.getAccount().getIdentifier(identityType), auth.getAuthenticatedDevice().getId())
-            .whenComplete((keyCount, throwable) -> {
-              if (keyCount != null) {
-                DistributionSummary.builder(KEY_COUNT_DISTRIBUTION_NAME)
-                    .tags(Tags.of(platformTag, primaryDeviceTag, identityTypeTag, Tag.of(KEY_TYPE_TAG_NAME, "ec")))
-                    .publishPercentileHistogram(true)
-                    .register(Metrics.globalRegistry)
-                    .record(keyCount);
-              }
-            });
+        keysManager.getEcCount(auth.getAccount().getIdentifier(identityType), auth.getAuthenticatedDevice().getId());
 
     final CompletableFuture<Integer> pqCountFuture =
-        keysManager.getPqCount(auth.getAccount().getIdentifier(identityType), auth.getAuthenticatedDevice().getId())
-            .whenComplete((keyCount, throwable) -> {
-              if (keyCount != null) {
-                DistributionSummary.builder(KEY_COUNT_DISTRIBUTION_NAME)
-                    .tags(Tags.of(platformTag, primaryDeviceTag, identityTypeTag, Tag.of(KEY_TYPE_TAG_NAME, "kyber")))
-                    .publishPercentileHistogram(true)
-                    .register(Metrics.globalRegistry)
-                    .record(keyCount);
-              }
-            });
+        keysManager.getPqCount(auth.getAccount().getIdentifier(identityType), auth.getAuthenticatedDevice().getId());
 
     return ecCountFuture.thenCombine(pqCountFuture, PreKeyCount::new);
   }
@@ -382,11 +353,8 @@ public class KeysController {
                 final ECSignedPreKey signedEcPreKey = signedEcPreKeyFuture.join().orElse(null);
 
                 Metrics.counter(GET_KEYS_COUNTER_NAME, Tags.of(
-                        Tag.of(PRIMARY_DEVICE_TAG_NAME, String.valueOf(device.isPrimary())),
                         UserAgentTagUtil.getPlatformTag(userAgent),
-                        Tag.of("targetPlatform", getDevicePlatform(device).map(Enum::name).orElse("unknown")),
                         Tag.of(IDENTITY_TYPE_TAG_NAME, targetIdentifier.identityType().name()),
-                        Tag.of("isStale", String.valueOf(isDeviceStale(device))),
                         Tag.of("oneTimeEcKeyAvailable", String.valueOf(unsignedEcPreKey != null))))
                     .increment();
 
@@ -413,21 +381,6 @@ public class KeysController {
     }
 
     return new PreKeyResponse(identityKey, responseItems);
-  }
-
-  private static Optional<ClientPlatform> getDevicePlatform(final Device device) {
-    if (StringUtils.isNotBlank(device.getApnId()) || StringUtils.isNotBlank(device.getVoipApnId())) {
-      return Optional.of(ClientPlatform.IOS);
-    } else if (StringUtils.isNotBlank(device.getGcmId())) {
-      return Optional.of(ClientPlatform.ANDROID);
-    }
-
-    return Optional.empty();
-  }
-
-  private static boolean isDeviceStale(final Device device) {
-    return Duration.between(Instant.ofEpochMilli(device.getLastSeen()), Instant.now())
-        .compareTo(Duration.ofDays(30)) >= 0;
   }
 
   @PUT
