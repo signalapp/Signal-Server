@@ -29,7 +29,7 @@ class NoiseNXHandshakeHandler extends AbstractNoiseHandshakeHandler {
       // All we need to do is accept the client's ephemeral key and send our own static keys; after that, we can consider
       // the handshake complete
       context.fireUserEventTriggered(new NoiseHandshakeCompleteEvent(Optional.empty()));
-      context.pipeline().replace(NoiseNXHandshakeHandler.this, null, new NoiseStreamHandler(getHandshakeState().split()));
+      context.pipeline().replace(NoiseNXHandshakeHandler.this, null, new NoiseTransportHandler(getHandshakeState().split()));
     } else {
       // Anything except binary WebSocket frames should have been filtered out of the pipeline by now; treat this as an
       // error

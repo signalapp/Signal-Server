@@ -147,7 +147,7 @@ class NoiseXXHandshakeHandler extends AbstractNoiseHandshakeHandler {
                     context.fireUserEventTriggered(new NoiseHandshakeCompleteEvent(
                         Optional.of(new AuthenticatedDevice(accountIdentifier, deviceId))));
 
-                    context.pipeline().addAfter(context.name(), null, new NoiseStreamHandler(handshakeState.split()));
+                    context.pipeline().addAfter(context.name(), null, new NoiseTransportHandler(handshakeState.split()));
 
                     // Flush any buffered reads
                     pendingInboundFrames.forEach(context::fireChannelRead);

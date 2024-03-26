@@ -17,15 +17,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * A Noise stream handler manages a bidirectional Noise session after a handshake has completed.
+ * A Noise transport handler manages a bidirectional Noise session after a handshake has completed.
  */
-class NoiseStreamHandler extends ChannelDuplexHandler {
+class NoiseTransportHandler extends ChannelDuplexHandler {
 
   private final CipherStatePair cipherStatePair;
 
-  private static final Logger log = LoggerFactory.getLogger(NoiseStreamHandler.class);
+  private static final Logger log = LoggerFactory.getLogger(NoiseTransportHandler.class);
 
-  NoiseStreamHandler(CipherStatePair cipherStatePair) {
+  NoiseTransportHandler(CipherStatePair cipherStatePair) {
     this.cipherStatePair = cipherStatePair;
   }
 

@@ -21,7 +21,7 @@ import java.security.NoSuchAlgorithmException;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class NoiseStreamHandlerTest extends AbstractLeakDetectionTest {
+class NoiseTransportHandlerTest extends AbstractLeakDetectionTest {
 
   private CipherStatePair clientCipherStatePair;
   private EmbeddedChannel embeddedChannel;
@@ -51,7 +51,7 @@ class NoiseStreamHandlerTest extends AbstractLeakDetectionTest {
     clientHandshakeState.readMessage(serverEphemeralKeyMessage, 0, serverEphemeralKeyMessage.length, EmptyArrays.EMPTY_BYTES, 0);
 
     clientCipherStatePair = clientHandshakeState.split();
-    embeddedChannel = new EmbeddedChannel(new NoiseStreamHandler(serverHandshakeState.split()));
+    embeddedChannel = new EmbeddedChannel(new NoiseTransportHandler(serverHandshakeState.split()));
 
     clientHandshakeState.destroy();
     serverHandshakeState.destroy();

@@ -25,7 +25,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import javax.crypto.BadPaddingException;
 import javax.crypto.ShortBufferException;
-import io.netty.util.ReferenceCountUtil;
 import io.netty.util.internal.EmptyArrays;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -84,7 +83,7 @@ class NoiseXXHandshakeHandlerTest extends AbstractNoiseHandshakeHandlerTest {
     assertNull(embeddedChannel.pipeline().get(NoiseXXHandshakeHandler.class),
         "Handshake handler should remove self from pipeline after successful handshake");
 
-    assertNotNull(embeddedChannel.pipeline().get(NoiseStreamHandler.class),
+    assertNotNull(embeddedChannel.pipeline().get(NoiseTransportHandler.class),
         "Handshake handler should insert a Noise stream handler after successful handshake");
   }
 
@@ -133,7 +132,7 @@ class NoiseXXHandshakeHandlerTest extends AbstractNoiseHandshakeHandlerTest {
     assertNotNull(embeddedChannel.pipeline().get(NoiseXXHandshakeHandler.class),
         "Handshake handler should not remove self from pipeline after failed handshake");
 
-    assertNull(embeddedChannel.pipeline().get(NoiseStreamHandler.class),
+    assertNull(embeddedChannel.pipeline().get(NoiseTransportHandler.class),
         "Noise stream handler should not be added to pipeline after failed handshake");
   }
 
@@ -182,7 +181,7 @@ class NoiseXXHandshakeHandlerTest extends AbstractNoiseHandshakeHandlerTest {
     assertNotNull(embeddedChannel.pipeline().get(NoiseXXHandshakeHandler.class),
         "Handshake handler should not remove self from pipeline after failed handshake");
 
-    assertNull(embeddedChannel.pipeline().get(NoiseStreamHandler.class),
+    assertNull(embeddedChannel.pipeline().get(NoiseTransportHandler.class),
         "Noise stream handler should not be added to pipeline after failed handshake");
   }
 
@@ -216,7 +215,7 @@ class NoiseXXHandshakeHandlerTest extends AbstractNoiseHandshakeHandlerTest {
     assertNotNull(embeddedChannel.pipeline().get(NoiseXXHandshakeHandler.class),
         "Handshake handler should not remove self from pipeline after failed handshake");
 
-    assertNull(embeddedChannel.pipeline().get(NoiseStreamHandler.class),
+    assertNull(embeddedChannel.pipeline().get(NoiseTransportHandler.class),
         "Noise stream handler should not be added to pipeline after failed handshake");
   }
 
@@ -250,7 +249,7 @@ class NoiseXXHandshakeHandlerTest extends AbstractNoiseHandshakeHandlerTest {
     assertNotNull(embeddedChannel.pipeline().get(NoiseXXHandshakeHandler.class),
         "Handshake handler should not remove self from pipeline after failed handshake");
 
-    assertNull(embeddedChannel.pipeline().get(NoiseStreamHandler.class),
+    assertNull(embeddedChannel.pipeline().get(NoiseTransportHandler.class),
         "Noise stream handler should not be added to pipeline after failed handshake");
   }
 
@@ -306,7 +305,7 @@ class NoiseXXHandshakeHandlerTest extends AbstractNoiseHandshakeHandlerTest {
       assertNull(embeddedChannel.pipeline().get(NoiseXXHandshakeHandler.class),
           "Handshake handler should remove self from pipeline after successful handshake");
 
-      assertNotNull(embeddedChannel.pipeline().get(NoiseStreamHandler.class),
+      assertNotNull(embeddedChannel.pipeline().get(NoiseTransportHandler.class),
           "Handshake handler should insert a Noise stream handler after successful handshake");
 
       for (final ByteBuf additionalMessage : additionalMessages) {
@@ -369,7 +368,7 @@ class NoiseXXHandshakeHandlerTest extends AbstractNoiseHandshakeHandlerTest {
       assertNotNull(embeddedChannel.pipeline().get(NoiseXXHandshakeHandler.class),
           "Handshake handler should not remove self from pipeline after failed handshake");
 
-      assertNull(embeddedChannel.pipeline().get(NoiseStreamHandler.class),
+      assertNull(embeddedChannel.pipeline().get(NoiseTransportHandler.class),
           "Noise stream handler should not be added to pipeline after failed handshake");
 
       assertTrue(embeddedChannel.inboundMessages().isEmpty(),

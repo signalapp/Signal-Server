@@ -78,7 +78,7 @@ class NoiseNXHandshakeHandlerTest extends AbstractNoiseHandshakeHandlerTest {
     assertNull(embeddedChannel.pipeline().get(NoiseNXHandshakeHandler.class),
         "Handshake handler should remove self from pipeline after successful handshake");
 
-    assertNotNull(embeddedChannel.pipeline().get(NoiseStreamHandler.class),
+    assertNotNull(embeddedChannel.pipeline().get(NoiseTransportHandler.class),
         "Handshake handler should insert a Noise stream handler after successful handshake");
   }
 }

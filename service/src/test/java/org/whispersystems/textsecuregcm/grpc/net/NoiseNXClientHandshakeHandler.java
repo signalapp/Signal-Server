@@ -35,7 +35,7 @@ class NoiseNXClientHandshakeHandler extends AbstractNoiseClientHandler {
         receivedServerStaticKeyMessage = true;
         handleServerStaticKeyMessage(context, frame);
 
-        context.pipeline().replace(this, null, new NoiseStreamHandler(getHandshakeState().split()));
+        context.pipeline().replace(this, null, new NoiseTransportHandler(getHandshakeState().split()));
         context.fireUserEventTriggered(new NoiseHandshakeCompleteEvent(Optional.empty()));
       } finally {
         frame.release();

@@ -77,7 +77,7 @@ class NoiseXXClientHandshakeHandler extends AbstractNoiseClientHandler {
         context.writeAndFlush(new BinaryWebSocketFrame(Unpooled.wrappedBuffer(staticKeyAndIdentityMessage)))
             .addListener(ChannelFutureListener.FIRE_EXCEPTION_ON_FAILURE);
 
-        context.pipeline().replace(this, null, new NoiseStreamHandler(handshakeState.split()));
+        context.pipeline().replace(this, null, new NoiseTransportHandler(handshakeState.split()));
         context.fireUserEventTriggered(new NoiseHandshakeCompleteEvent(Optional.empty()));
       } finally {
         frame.release();
