@@ -34,6 +34,10 @@ public class TurnTokenGenerator {
 
   private static final String ALGORITHM = "HmacSHA1";
 
+  private static final String WithUrlsProtocol = "00";
+
+  private static final String WithIpsProtocol = "01";
+
   public TurnTokenGenerator(final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
       final byte[] turnSecret) {
 
@@ -55,11 +59,15 @@ public class TurnTokenGenerator {
       final long validUntilSeconds = Instant.now().plus(Duration.ofDays(1)).getEpochSecond();
       final long user = Util.ensureNonNegativeInt(new SecureRandom().nextInt());
       final String userTime = validUntilSeconds + ":" + user;
+      final String protocol = urlsWithIps != null && !urlsWithIps.isEmpty()
+          ? WithIpsProtocol
+          : WithUrlsProtocol;
+      final String protocolUserTime = userTime + "#" + protocol;
 
       mac.init(new SecretKeySpec(turnSecret, ALGORITHM));
-      final String password = Base64.getEncoder().encodeToString(mac.doFinal(userTime.getBytes()));
+      final String password = Base64.getEncoder().encodeToString(mac.doFinal(protocolUserTime.getBytes()));
 
-      return new TurnToken(userTime, password, urlsWithHostname, urlsWithIps, hostname);
+      return new TurnToken(protocolUserTime, password, urlsWithHostname, urlsWithIps, hostname);
     } catch (final NoSuchAlgorithmException | InvalidKeyException e) {
       throw new AssertionError(e);
     }
