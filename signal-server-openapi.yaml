@@ -1619,10 +1619,6 @@ paths:
           enum:
           - ACI
           - PNI
-      - name: User-Agent
-        in: header
-        schema:
-          type: string
       responses:
         "200":
           description: Body contains the number of available one-time prekeys for
@@ -1630,17 +1626,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  completedExceptionally:
-                    type: boolean
-                  numberOfDependents:
-                    type: integer
-                    format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
+                $ref: '#/components/schemas/PreKeyCount'
         "401":
           description: Account authentication check failed.
       security:
@@ -4044,6 +4030,19 @@ components:
           items:
             type: string
             format: byte
+    PreKeyCount:
+      type: object
+      properties:
+        count:
+          type: integer
+          description: the number of stored unsigned elliptic-curve prekeys for this
+            device
+          format: int32
+        pqCount:
+          type: integer
+          description: the number of stored one-time post-quantum prekeys for this
+            device
+          format: int32
     SetKeysRequest:
       type: object
       properties:
