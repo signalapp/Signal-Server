@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.backup;
 import com.google.common.annotations.VisibleForTesting;
 import io.grpc.Status;
 import io.micrometer.core.instrument.Metrics;
+import java.io.IOException;
 import java.net.URI;
 import java.time.Clock;
 import java.time.Duration;
@@ -248,12 +249,17 @@ public class BackupManager {
           .asRuntimeException();
     }
 
+    final URI sourceUri;
+    try {
+      sourceUri = attachmentReadUri(sourceCdn, sourceKey);
+    } catch (IOException e) {
+      return CompletableFuture.failedFuture(e);
+    }
+
     final MessageBackupUploadDescriptor dst = cdn3BackupCredentialGenerator.generateUpload(
         cdnMediaPath(backupUser, destinationMediaId));
 
     final int destinationLength = encryptionParameters.outputSize(sourceLength);
-
-    final URI sourceUri = attachmentReadUri(sourceCdn, sourceKey);
     return this.backupsDb
         // Write the ddb updates before actually updating backing storage
         .trackMedia(backupUser, 1, destinationLength)
@@ -282,10 +288,10 @@ public class BackupManager {
    * @param key the attachment key
    * @return A {@link URI} where the attachment can be retrieved
    */
-  private URI attachmentReadUri(final int cdn, final String key) {
+  private URI attachmentReadUri(final int cdn, final String key) throws IOException {
     final String baseUri = attachmentCdnBaseUris.get(cdn);
     if (baseUri == null) {
-      throw Status.INVALID_ARGUMENT.withDescription("Unknown cdn " + cdn).asRuntimeException();
+      throw new SourceObjectNotFoundException("Unknown attachment cdn " + cdn);
     }
     return URI.create("%s/%s".formatted(baseUri, key));
   }

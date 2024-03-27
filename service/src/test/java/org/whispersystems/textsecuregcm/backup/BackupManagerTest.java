@@ -39,7 +39,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -306,6 +305,17 @@ public class BackupManagerTest {
     final Map<String, AttributeValue> backup = getBackupItem(backupUser);
     assertThat(AttributeValues.getLong(backup, BackupsDb.ATTR_MEDIA_BYTES_USED, -1L)).isEqualTo(0L);
     assertThat(AttributeValues.getLong(backup, BackupsDb.ATTR_MEDIA_COUNT, -1L)).isEqualTo(0L);
+  }
+
+  @Test
+  public void unknownSourceCdn() {
+    final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupTier.MEDIA);
+    CompletableFutureTestUtil.assertFailsWithCause(SourceObjectNotFoundException.class,
+        backupManager.copyToBackup(
+            backupUser,
+            0, "abc", 100,
+            mock(MediaEncryptionParameters.class),
+            "def".getBytes(StandardCharsets.UTF_8)));
   }
 
   @Test

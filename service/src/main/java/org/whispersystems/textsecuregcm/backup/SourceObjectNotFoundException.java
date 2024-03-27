@@ -8,4 +8,10 @@ package org.whispersystems.textsecuregcm.backup;
 import java.io.IOException;
 
 public class SourceObjectNotFoundException extends IOException {
+  public SourceObjectNotFoundException() {
+    super();
+  }
+  public SourceObjectNotFoundException(String message) {
+    super(message);
+  }
 }
