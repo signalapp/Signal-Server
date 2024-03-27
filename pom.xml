@@ -55,7 +55,7 @@
     <jsr305.version>3.0.2</jsr305.version>
     <kotlin.version>1.9.10</kotlin.version>
     <kotlinx-serialization.version>1.5.1</kotlinx-serialization.version>
-    <lettuce.version>6.2.6.RELEASE</lettuce.version>
+    <lettuce.version>6.3.2.RELEASE</lettuce.version>
     <libphonenumber.version>8.13.23</libphonenumber.version>
     <logstash.logback.version>7.3</logstash.logback.version>
     <log4j-bom.version>2.21.0</log4j-bom.version>
