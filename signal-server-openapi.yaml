@@ -484,6 +484,11 @@ paths:
       description: Updates key material for the phone-number identity for all devices
         and sends a synchronization message to companion devices
       operationId: distributePhoneNumberIdentityKeys
+      parameters:
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
       requestBody:
         content:
           application/json:
@@ -1371,6 +1376,10 @@ paths:
         in: header
         schema:
           $ref: '#/components/schemas/BasicAuthorizationHeader'
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
       requestBody:
         content:
           application/json:
@@ -1675,6 +1684,10 @@ paths:
             Upload a new signed elliptic-curve prekey for this device. Deprecated; use PUT /v2/keys instead.
       operationId: setSignedKey
       parameters:
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
       - name: identity
         in: query
         schema:
@@ -3213,8 +3226,6 @@ components:
             format: int32
           description: "the new phone-number-identity registration ID for each enabled\
             \ device on the account, including this one"
-        signatureValidOnEachSignedPreKey:
-          type: boolean
         eachPniRegistrationIdValid:
           type: boolean
         valid:
@@ -3336,8 +3347,6 @@ components:
             format: int32
           description: "The new registration ID to use for the phone-number identity\
             \ of each device, including this one."
-        signatureValidOnEachSignedPreKey:
-          type: boolean
     AccountAndDevicesDataReport:
       type: object
       properties:
@@ -4497,8 +4506,6 @@ components:
           $ref: '#/components/schemas/ApnRegistrationId'
         gcmToken:
           $ref: '#/components/schemas/GcmRegistrationId'
-        everySignedKeyValid:
-          type: boolean
         valid:
           type: boolean
     UserRemoteConfig:
