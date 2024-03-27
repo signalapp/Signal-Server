@@ -220,6 +220,7 @@ import org.whispersystems.textsecuregcm.storage.VerificationSessions;
 import org.whispersystems.textsecuregcm.subscriptions.BankMandateTranslator;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
+import org.whispersystems.textsecuregcm.util.BufferingInterceptor;
 import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
 import org.whispersystems.textsecuregcm.util.ManagedAwsCrt;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -836,6 +837,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         Set.of(websocketServletPath, provisioningWebsocketServletPath, "/health-check"));
     metricsHttpChannelListener.configure(environment);
 
+    environment.jersey().register(new BufferingInterceptor());
     environment.jersey().register(new VirtualExecutorServiceProvider("managed-async-virtual-thread-"));
     environment.jersey().register(new RequestStatisticsFilter(TrafficSource.HTTP));
     environment.jersey().register(MultiRecipientMessageProvider.class);
