@@ -72,7 +72,6 @@
     <slf4j.version>2.0.9</slf4j.version>
     <stripe.version>23.10.0</stripe.version>
     <swagger.version>2.2.17</swagger.version>
-    <vavr.version>0.10.4</vavr.version>
 
     <!-- 21.0.1_12-jre-jammy -->
     <docker.image.sha256>2d00f6910282a7a20ae7747b8f5e2371f7d55f06daed6bf60a323fcc7eaa3da8</docker.image.sha256>
@@ -195,11 +194,6 @@
         <groupId>io.lettuce</groupId>
         <artifactId>lettuce-core</artifactId>
         <version>${lettuce.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>io.vavr</groupId>
-        <artifactId>vavr</artifactId>
-        <version>${vavr.version}</version>
       </dependency>
       <dependency>
         <groupId>javax.xml.bind</groupId>

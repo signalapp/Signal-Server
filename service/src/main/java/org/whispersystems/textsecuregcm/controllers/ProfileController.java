@@ -13,7 +13,6 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import io.vavr.Tuple;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
@@ -351,8 +350,9 @@ public class ProfileController {
             }, batchIdentityCheckExecutor);
           }
 
-          return Tuple.of(futures, responseElements);
-        }).thenCompose(tuple2 -> CompletableFuture.allOf(tuple2._1).thenApply((ignored) -> new BatchIdentityCheckResponse(tuple2._2)));
+      return new Pair<>(futures, responseElements);
+    }).thenCompose(futuresAndResponseElements -> CompletableFuture.allOf(futuresAndResponseElements.first())
+        .thenApply((ignored) -> new BatchIdentityCheckResponse(futuresAndResponseElements.second())));
   }
 
   private void checkFingerprintAndAdd(BatchIdentityCheckRequest.Element element,
