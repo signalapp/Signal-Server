@@ -397,6 +397,8 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
       errorType = "closedChannel";
     } else if (e == WebSocketResourceProvider.CONNECTION_CLOSED_EXCEPTION) {
       errorType = "connectionClosed";
+    } else if (e instanceof org.eclipse.jetty.io.EofException) {
+      errorType = "connectionEof";
     } else {
       logger.warn(terminal ? "Send message failure terminated stream" : "Send message failed", e);
       errorType = "other";
