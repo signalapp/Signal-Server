@@ -391,7 +391,7 @@ class ProfileControllerTest {
         .get(BaseProfileResponse.class);
 
     assertThat(profile.getCapabilities().pni()).isTrue();
-    assertThat(profile.getCapabilities().paymentActivation()).isFalse();
+    assertThat(profile.getCapabilities().paymentActivation()).isTrue();
   }
 
   @Test
