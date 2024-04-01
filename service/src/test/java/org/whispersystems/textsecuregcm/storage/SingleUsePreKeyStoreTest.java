@@ -17,8 +17,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.entities.PreKey;
 
 abstract class SingleUsePreKeyStoreTest<K extends PreKey<?>> {
@@ -53,9 +51,8 @@ abstract class SingleUsePreKeyStoreTest<K extends PreKey<?>> {
     assertEquals(Optional.of(sortedPreKeys.get(1)), preKeyStore.take(accountIdentifier, deviceId).join());
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void getCount(final boolean hasKeyCountAttribute) {
+  @Test
+  void getCount() {
     final SingleUsePreKeyStore<K> preKeyStore = getPreKeyStore();
 
     final UUID accountIdentifier = UUID.randomUUID();
@@ -67,68 +64,17 @@ abstract class SingleUsePreKeyStoreTest<K extends PreKey<?>> {
 
     preKeyStore.store(accountIdentifier, deviceId, preKeys).join();
 
-    if (!hasKeyCountAttribute) {
-      clearKeyCountAttributes();
-    }
-
     assertEquals(KEY_COUNT, preKeyStore.getCount(accountIdentifier, deviceId).join());
 
     for (int i = 0; i < KEY_COUNT; i++) {
       preKeyStore.take(accountIdentifier, deviceId).join();
       assertEquals(KEY_COUNT - (i + 1), preKeyStore.getCount(accountIdentifier, deviceId).join());
     }
-  }
-
-  @Test
-  void peekCount() {
-    final SingleUsePreKeyStore<K> preKeyStore = getPreKeyStore();
-
-    final UUID accountIdentifier = UUID.randomUUID();
-    final byte deviceId = 1;
-
-    assertEquals(Optional.of(0), preKeyStore.peekCount(accountIdentifier, deviceId).join());
-
-    final List<K> preKeys = generateRandomPreKeys();
-
-    preKeyStore.store(accountIdentifier, deviceId, preKeys).join();
-
-    assertEquals(Optional.of(KEY_COUNT), preKeyStore.peekCount(accountIdentifier, deviceId).join());
-
-    for (int i = 0; i < KEY_COUNT; i++) {
-      preKeyStore.take(accountIdentifier, deviceId).join();
-      assertEquals(Optional.of(KEY_COUNT - (i + 1)), preKeyStore.peekCount(accountIdentifier, deviceId).join());
-    }
 
     preKeyStore.store(accountIdentifier, deviceId, List.of(generatePreKey(KEY_COUNT + 1))).join();
     clearKeyCountAttributes();
 
-    assertEquals(Optional.empty(), preKeyStore.peekCount(accountIdentifier, deviceId).join());
-  }
-
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void scanCount(final boolean hasKeyCountAttribute) {
-    final SingleUsePreKeyStore<K> preKeyStore = getPreKeyStore();
-
-    final UUID accountIdentifier = UUID.randomUUID();
-    final byte deviceId = 1;
-
-    assertEquals(0, preKeyStore.scanCount(accountIdentifier, deviceId).join());
-
-    final List<K> preKeys = generateRandomPreKeys();
-
-    preKeyStore.store(accountIdentifier, deviceId, preKeys).join();
-
-    if (!hasKeyCountAttribute) {
-      clearKeyCountAttributes();
-    }
-
-    assertEquals(KEY_COUNT, preKeyStore.scanCount(accountIdentifier, deviceId).join());
-
-    for (int i = 0; i < KEY_COUNT; i++) {
-      preKeyStore.take(accountIdentifier, deviceId).join();
-      assertEquals(KEY_COUNT - (i + 1), preKeyStore.scanCount(accountIdentifier, deviceId).join());
-    }
+    assertEquals(0, preKeyStore.getCount(accountIdentifier, deviceId).join());
   }
 
   @Test
