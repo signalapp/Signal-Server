@@ -309,8 +309,7 @@ public abstract class SingleUsePreKeyStore<K extends PreKey<?>> {
             ))
             .build())
         .flatMap(deleteItemRequest -> Mono.fromFuture(() -> dynamoDbAsyncClient.deleteItem(deleteItemRequest)), DYNAMO_DB_MAX_BATCH_SIZE)
-        // Idiom: wait for everything to finish, but discard the results
-        .reduce(0, (a, b) -> 0)
+        .then()
         .toFuture()
         .thenRun(Util.NOOP);
   }
