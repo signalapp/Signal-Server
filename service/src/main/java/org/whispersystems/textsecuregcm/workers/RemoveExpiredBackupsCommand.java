@@ -15,6 +15,7 @@ import java.time.Duration;
 import java.util.HexFormat;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 import org.slf4j.Logger;
@@ -115,15 +116,14 @@ public class RemoveExpiredBackupsCommand extends EnvironmentCommand<WhisperServe
           throw new RuntimeException(e);
         }
       });
-      final AtomicLong backupsExpired = new AtomicLong();
       final BackupManager backupManager = commandDependencies.backupManager();
-      backupManager
-          .getExpiredBackups(segments, Schedulers.parallel(), clock.instant().plus(gracePeriod))
+      final long backupsExpired = backupManager
+          .getExpiredBackups(segments, Schedulers.parallel(), clock.instant().minus(gracePeriod))
           .flatMap(expiredBackup -> removeExpiredBackup(backupManager, expiredBackup, dryRun), concurrency)
-          .doOnNext(ignored -> backupsExpired.incrementAndGet())
-          .then()
+          .filter(Boolean.TRUE::equals)
+          .count()
           .block();
-      logger.info("Expired {} backups", backupsExpired.get());
+      logger.info("Expired {} backups", backupsExpired);
     } finally {
       environment.lifecycle().getManagedObjects().forEach(managedObject -> {
         try {
@@ -135,28 +135,31 @@ public class RemoveExpiredBackupsCommand extends EnvironmentCommand<WhisperServe
     }
   }
 
-  private Mono<Void> removeExpiredBackup(
+  private Mono<Boolean> removeExpiredBackup(
       final BackupManager backupManager, final ExpiredBackup expiredBackup,
       final boolean dryRun) {
 
-    final Mono<Void> mono;
+    final Mono<Boolean> mono;
     if (dryRun) {
-      mono = Mono.empty();
+      mono = Mono.just(true);
     } else {
-      mono = Mono.fromCompletionStage(() -> backupManager.expireBackup(expiredBackup));
+      mono = Mono.fromCompletionStage(() -> backupManager.expireBackup(expiredBackup)).map(ignore -> true);
     }
 
     return mono
-        .doOnSuccess(ignored -> Metrics
-            .counter(EXPIRED_BACKUPS_COUNTER_NAME,
-                "tier", expiredBackup.expirationType().name(),
-                "dryRun", String.valueOf(dryRun))
-            .increment())
+        .doOnSuccess(ignored -> {
+          logger.info("incrementing metric for {}", HexFormat.of().formatHex(expiredBackup.hashedBackupId()));
+          Metrics
+              .counter(EXPIRED_BACKUPS_COUNTER_NAME,
+                  "tier", expiredBackup.expirationType().name(),
+                  "dryRun", String.valueOf(dryRun))
+              .increment();
+        })
         .onErrorResume(throwable -> {
           logger.warn("Failed to remove tier {} for backup {}",
               expiredBackup.expirationType(),
               HexFormat.of().formatHex(expiredBackup.hashedBackupId()));
-          return Mono.empty();
+          return Mono.just(false);
         });
   }
 
