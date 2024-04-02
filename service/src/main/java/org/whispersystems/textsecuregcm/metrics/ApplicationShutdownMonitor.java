@@ -8,16 +8,16 @@ package org.whispersystems.textsecuregcm.metrics;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
-import io.dropwizard.lifecycle.Managed;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.eclipse.jetty.util.component.LifeCycle;
 
 /**
  * A managed monitor that reports whether the application is shutting down as a metric. That metric can then be used in
  * conjunction with other indicators to conditionally fire or suppress alerts.
  */
-public class ApplicationShutdownMonitor implements Managed {
+public class ApplicationShutdownMonitor implements LifeCycle.Listener {
 
   private final AtomicBoolean shuttingDown = new AtomicBoolean(false);
 
@@ -30,12 +30,7 @@ public class ApplicationShutdownMonitor implements Managed {
   }
 
   @Override
-  public void start() throws Exception {
-    shuttingDown.set(false);
-  }
-
-  @Override
-  public void stop() throws Exception {
+  public void lifeCycleStopping(final LifeCycle event) {
     shuttingDown.set(true);
   }
 }
