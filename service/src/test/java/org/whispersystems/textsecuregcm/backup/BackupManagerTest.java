@@ -57,6 +57,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.signal.libsignal.protocol.InvalidKeyException;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
+import org.signal.libsignal.zkgroup.GenericServerSecretParams;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.signal.libsignal.zkgroup.backups.BackupAuthCredentialPresentation;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedBackupUser;
@@ -168,6 +169,48 @@ public class BackupManagerTest {
         tnext,
         backupTier == BackupTier.MEDIA ? tnext : null,
         backupUser);
+  }
+
+  @Test
+  public void invalidPresentationNoPublicKey() throws VerificationFailedException {
+    final BackupAuthCredentialPresentation invalidPresentation = backupAuthTestUtil.getPresentation(
+        GenericServerSecretParams.generate(),
+        BackupTier.MESSAGES, backupKey, aci);
+
+    final ECKeyPair keyPair = Curve.generateKeyPair();
+
+    // haven't set a public key yet, but should fail before hitting the database anyway
+    assertThatExceptionOfType(StatusRuntimeException.class)
+        .isThrownBy(() -> backupManager.authenticateBackupUser(
+            invalidPresentation,
+            keyPair.getPrivateKey().calculateSignature(invalidPresentation.serialize())))
+        .extracting(StatusRuntimeException::getStatus)
+        .extracting(Status::getCode)
+        .isEqualTo(Status.UNAUTHENTICATED.getCode());
+  }
+
+
+  @Test
+  public void invalidPresentationCorrectSignature() throws VerificationFailedException {
+    final BackupAuthCredentialPresentation presentation = backupAuthTestUtil.getPresentation(
+        BackupTier.MESSAGES, backupKey, aci);
+    final BackupAuthCredentialPresentation invalidPresentation = backupAuthTestUtil.getPresentation(
+        GenericServerSecretParams.generate(),
+        BackupTier.MESSAGES, backupKey, aci);
+
+    final ECKeyPair keyPair = Curve.generateKeyPair();
+    backupManager.setPublicKey(
+        presentation,
+        keyPair.getPrivateKey().calculateSignature(presentation.serialize()),
+        keyPair.getPublicKey()).join();
+
+    assertThatExceptionOfType(StatusRuntimeException.class)
+        .isThrownBy(() -> backupManager.authenticateBackupUser(
+            invalidPresentation,
+            keyPair.getPrivateKey().calculateSignature(invalidPresentation.serialize())))
+        .extracting(StatusRuntimeException::getStatus)
+        .extracting(Status::getCode)
+        .isEqualTo(Status.UNAUTHENTICATED.getCode());
   }
 
   @Test

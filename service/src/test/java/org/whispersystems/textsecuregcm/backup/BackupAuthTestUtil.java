@@ -37,9 +37,16 @@ public class BackupAuthTestUtil {
   public BackupAuthCredentialPresentation getPresentation(
       final BackupTier backupTier, final byte[] backupKey, final UUID aci)
       throws VerificationFailedException {
+    return getPresentation(params, backupTier, backupKey, aci);
+  }
+
+  public BackupAuthCredentialPresentation getPresentation(
+      GenericServerSecretParams params, final BackupTier backupTier, final byte[] backupKey, final UUID aci)
+      throws VerificationFailedException {
     final BackupAuthCredentialRequestContext ctx = BackupAuthCredentialRequestContext.create(backupKey, aci);
     return ctx.receiveResponse(
-            ctx.getRequest().issueCredential(clock.instant().truncatedTo(ChronoUnit.DAYS), backupTier.getReceiptLevel(), params),
+            ctx.getRequest()
+                .issueCredential(clock.instant().truncatedTo(ChronoUnit.DAYS), backupTier.getReceiptLevel(), params),
             params.getPublicParams(),
             backupTier.getReceiptLevel())
         .present(params.getPublicParams());

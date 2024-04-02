@@ -102,7 +102,7 @@ public class BackupManager {
     // Note: this is a special case where we can't validate the presentation signature against the stored public key
     // because we are currently setting it. We check against the provided public key, but we must also verify that
     // there isn't an existing, different stored public key for the backup-id (verified with a condition expression)
-    final BackupTier backupTier = verifySignatureAndCheckPresentation(presentation, signature, publicKey);
+    final BackupTier backupTier = verifyPresentation(presentation).verifySignature(signature, publicKey);
     if (backupTier.compareTo(BackupTier.MESSAGES) < 0) {
       Metrics.counter(ZK_AUTHZ_FAILURE_COUNTER_NAME).increment();
       throw Status.PERMISSION_DENIED
@@ -444,6 +444,7 @@ public class BackupManager {
   public CompletableFuture<AuthenticatedBackupUser> authenticateBackupUser(
       final BackupAuthCredentialPresentation presentation,
       final byte[] signature) {
+    final PresentationSignatureVerifier signatureVerifier = verifyPresentation(presentation);
     return backupsDb
         .retrieveAuthenticationData(presentation.getBackupId())
         .thenApply(optionalAuthenticationData -> {
@@ -457,7 +458,7 @@ public class BackupManager {
               });
           return new AuthenticatedBackupUser(
               presentation.getBackupId(),
-              verifySignatureAndCheckPresentation(presentation, signature, authenticationData.publicKey()),
+              signatureVerifier.verifySignature(signature, authenticationData.publicKey()),
               authenticationData.backupDir(), authenticationData.mediaDir());
         })
         .thenApply(result -> {
@@ -527,26 +528,17 @@ public class BackupManager {
         .toFuture();
   }
 
+  interface PresentationSignatureVerifier {
+    BackupTier verifySignature(byte[] signature, ECPublicKey publicKey);
+  }
 
   /**
-   * Verify the presentation and return the extracted backup tier
+   * Verify the presentation was issued by us, which should be done before checking the stored public key
    *
    * @param presentation A ZK credential presentation that encodes the backupId and the receipt level of the requester
-   * @return The backup tier this presentation supports
+   * @return A function that can be used to verify a signature provided with the presentation
    */
-  private BackupTier verifySignatureAndCheckPresentation(
-      final BackupAuthCredentialPresentation presentation,
-      final byte[] signature,
-      final ECPublicKey publicKey) {
-    if (!publicKey.verifySignature(presentation.serialize(), signature)) {
-      Metrics.counter(ZK_AUTHN_COUNTER_NAME,
-              SUCCESS_TAG_NAME, String.valueOf(false),
-              FAILURE_REASON_TAG_NAME, "signature_validation")
-          .increment();
-      throw Status.UNAUTHENTICATED
-          .withDescription("backup auth credential presentation signature verification failed")
-          .asRuntimeException();
-    }
+  private PresentationSignatureVerifier verifyPresentation(final BackupAuthCredentialPresentation presentation) {
     try {
       presentation.verify(clock.instant(), serverSecretParams);
     } catch (VerificationFailedException e) {
@@ -559,16 +551,26 @@ public class BackupManager {
           .withCause(e)
           .asRuntimeException();
     }
-
-    return BackupTier
-        .fromReceiptLevel(presentation.getReceiptLevel())
-        .orElseThrow(() -> {
-          Metrics.counter(ZK_AUTHN_COUNTER_NAME,
-                  SUCCESS_TAG_NAME, String.valueOf(false),
-                  FAILURE_REASON_TAG_NAME, "invalid_receipt_level")
-              .increment();
-          return Status.PERMISSION_DENIED.withDescription("invalid receipt level").asRuntimeException();
-        });
+    return (signature, publicKey) -> {
+      if (!publicKey.verifySignature(presentation.serialize(), signature)) {
+        Metrics.counter(ZK_AUTHN_COUNTER_NAME,
+                SUCCESS_TAG_NAME, String.valueOf(false),
+                FAILURE_REASON_TAG_NAME, "signature_validation")
+            .increment();
+        throw Status.UNAUTHENTICATED
+            .withDescription("backup auth credential presentation signature verification failed")
+            .asRuntimeException();
+      }
+      return BackupTier
+          .fromReceiptLevel(presentation.getReceiptLevel())
+          .orElseThrow(() -> {
+            Metrics.counter(ZK_AUTHN_COUNTER_NAME,
+                    SUCCESS_TAG_NAME, String.valueOf(false),
+                    FAILURE_REASON_TAG_NAME, "invalid_receipt_level")
+                .increment();
+            return Status.PERMISSION_DENIED.withDescription("invalid receipt level").asRuntimeException();
+          });
+    };
   }
 
   @VisibleForTesting
