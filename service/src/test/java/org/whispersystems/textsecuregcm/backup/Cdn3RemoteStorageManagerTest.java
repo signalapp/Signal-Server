@@ -76,7 +76,8 @@ public class Cdn3RemoteStorageManagerTest {
         new Cdn3StorageManagerConfiguration(
             wireMock.url("storage-manager/"),
             "clientId",
-            new SecretString("clientSecret")));
+            new SecretString("clientSecret"),
+            2));
 
     wireMock.stubFor(get(urlEqualTo("/cdn2/source/small"))
         .willReturn(aResponse()

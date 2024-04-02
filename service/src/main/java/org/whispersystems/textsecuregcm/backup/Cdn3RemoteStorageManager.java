@@ -86,6 +86,7 @@ public class Cdn3RemoteStorageManager implements RemoteStorageManager {
         .withConnectTimeout(Duration.ofSeconds(10))
         .withVersion(HttpClient.Version.HTTP_2)
         .withTrustedServerCertificates(cdnCaCertificates.toArray(new String[0]))
+        .withNumClients(configuration.numHttpClients())
         .build();
 
     // Client used for calls to storage-manager
@@ -98,6 +99,7 @@ public class Cdn3RemoteStorageManager implements RemoteStorageManager {
         .withRetry(retryConfiguration)
         .withConnectTimeout(Duration.ofSeconds(10))
         .withVersion(HttpClient.Version.HTTP_2)
+        .withNumClients(configuration.numHttpClients())
         .build();
   }
 
@@ -164,7 +166,7 @@ public class Cdn3RemoteStorageManager implements RemoteStorageManager {
 
     if (actualSourceLength != expectedSourceLength) {
       throw new InvalidLengthException(
-              "Provided sourceLength " + expectedSourceLength + " was " + actualSourceLength);
+          "Provided sourceLength " + expectedSourceLength + " was " + actualSourceLength);
     }
 
     final int expectedEncryptedLength = encrypter.outputSize(expectedSourceLength);
