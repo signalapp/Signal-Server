@@ -226,7 +226,7 @@ public class BackupManagerTest {
             StatusRuntimeException.class,
             backupManager.authenticateBackupUser(presentation, signature))
         .getStatus().getCode())
-        .isEqualTo(Status.NOT_FOUND.getCode());
+        .isEqualTo(Status.UNAUTHENTICATED.getCode());
   }
 
   @Test
@@ -306,10 +306,10 @@ public class BackupManagerTest {
 
     // should be rejected the day after that
     testClock.pin(Instant.ofEpochSecond(1).plus(Duration.ofDays(3)));
-    assertThat(CompletableFutureTestUtil.assertFailsWithCause(
-            StatusRuntimeException.class,
-            backupManager.authenticateBackupUser(oldCredential, signature))
-        .getStatus().getCode())
+    assertThatExceptionOfType(StatusRuntimeException.class)
+        .isThrownBy(() -> backupManager.authenticateBackupUser(oldCredential, signature))
+        .extracting(StatusRuntimeException::getStatus)
+        .extracting(Status::getCode)
         .isEqualTo(Status.UNAUTHENTICATED.getCode());
   }
 
@@ -752,6 +752,7 @@ public class BackupManagerTest {
     } catch (InvalidKeyException e) {
       throw new RuntimeException(e);
     }
-    return new AuthenticatedBackupUser(backupId, backupTier, BackupsDb.generateDirName(secureRandom), BackupsDb.generateDirName(secureRandom));
+    return new AuthenticatedBackupUser(backupId, backupTier, BackupsDb.generateDirName(secureRandom),
+        BackupsDb.generateDirName(secureRandom));
   }
 }

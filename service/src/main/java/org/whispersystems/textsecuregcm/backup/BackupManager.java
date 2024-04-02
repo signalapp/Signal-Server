@@ -23,6 +23,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
+import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import org.signal.libsignal.zkgroup.GenericServerSecretParams;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
@@ -428,6 +429,7 @@ public class BackupManager {
         .toFuture();
   }
 
+  private static final ECPublicKey INVALID_PUBLIC_KEY = Curve.generateKeyPair().getPublicKey();
   /**
    * Authenticate the ZK anonymous backup credential's presentation
    * <p>
@@ -449,12 +451,13 @@ public class BackupManager {
         .retrieveAuthenticationData(presentation.getBackupId())
         .thenApply(optionalAuthenticationData -> {
           final BackupsDb.AuthenticationData authenticationData = optionalAuthenticationData
-              .orElseThrow(() -> {
+              .orElseGet(() -> {
                 Metrics.counter(ZK_AUTHN_COUNTER_NAME,
                         SUCCESS_TAG_NAME, String.valueOf(false),
                         FAILURE_REASON_TAG_NAME, "missing_public_key")
                     .increment();
-                return Status.NOT_FOUND.withDescription("Backup not found").asRuntimeException();
+                // There was no stored public key, use a bunk public key so that validation will fail
+                return new BackupsDb.AuthenticationData(INVALID_PUBLIC_KEY, null, null);
               });
           return new AuthenticatedBackupUser(
               presentation.getBackupId(),

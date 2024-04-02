@@ -170,7 +170,10 @@ public class ArchiveController {
   @ApiResponse(
       responseCode = "403",
       description = "Forbidden. The request had insufficient permissions to perform the requested action")
-  @ApiResponse(responseCode = "401", description = "The provided backup auth credential presentation could not be verified")
+  @ApiResponse(responseCode = "401", description = """
+      The provided backup auth credential presentation could not be verified or
+      The public key signature was invalid or
+      There is no backup associated with the backup-id in the presentation""")
   @ApiResponse(responseCode = "400", description = "Bad arguments. The request may have been made on an authenticated channel")
   @interface ApiResponseZkAuth {}
 
@@ -695,7 +698,7 @@ public class ArchiveController {
     }
     return backupManager
         .authenticateBackupUser(presentation.presentation, signature.signature)
-        .thenCompose(backupUser ->backupManager.list(backupUser, cursor, limit.orElse(1000))
+        .thenCompose(backupUser -> backupManager.list(backupUser, cursor, limit.orElse(1000))
             .thenApply(result -> new ListResponse(
                 result.media()
                     .stream().map(entry -> new StoredMediaObject(entry.cdn(), entry.key(), entry.length()))
