@@ -46,7 +46,7 @@ public class BackupMediaEncrypter {
           return ByteBuffer.wrap(cipher.getIV());
         }),
         Flux.from(FlowAdapters.toPublisher(sourceBody))
-            .flatMap(buffers -> Flux.fromIterable(buffers))
+            .concatMap(Flux::fromIterable)
             .concatMap(byteBuffer -> {
               final byte[] copy = new byte[byteBuffer.remaining()];
               byteBuffer.get(copy);
