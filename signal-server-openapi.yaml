@@ -595,8 +595,10 @@ paths:
           description: Forbidden. The request had insufficient permissions to perform
             the requested action
         "401":
-          description: The provided backup auth credential presentation could not
-            be verified
+          description: |-
+            The provided backup auth credential presentation could not be verified or
+            The public key signature was invalid or
+            There is no backup associated with the backup-id in the presentation
         "400":
           description: Bad arguments. The request may have been made on an authenticated
             channel
@@ -639,8 +641,10 @@ paths:
           description: Forbidden. The request had insufficient permissions to perform
             the requested action
         "401":
-          description: The provided backup auth credential presentation could not
-            be verified
+          description: |-
+            The provided backup auth credential presentation could not be verified or
+            The public key signature was invalid or
+            There is no backup associated with the backup-id in the presentation
         "400":
           description: Bad arguments. The request may have been made on an authenticated
             channel
@@ -679,8 +683,10 @@ paths:
           description: Forbidden. The request had insufficient permissions to perform
             the requested action
         "401":
-          description: The provided backup auth credential presentation could not
-            be verified
+          description: |-
+            The provided backup auth credential presentation could not be verified or
+            The public key signature was invalid or
+            There is no backup associated with the backup-id in the presentation
         "400":
           description: Bad arguments. The request may have been made on an authenticated
             channel
@@ -738,8 +744,10 @@ paths:
           description: Forbidden. The request had insufficient permissions to perform
             the requested action
         "401":
-          description: The provided backup auth credential presentation could not
-            be verified
+          description: |-
+            The provided backup auth credential presentation could not be verified or
+            The public key signature was invalid or
+            There is no backup associated with the backup-id in the presentation
         "400":
           description: Bad arguments. The request may have been made on an authenticated
             channel
@@ -797,8 +805,10 @@ paths:
           description: Forbidden. The request had insufficient permissions to perform
             the requested action
         "401":
-          description: The provided backup auth credential presentation could not
-            be verified
+          description: |-
+            The provided backup auth credential presentation could not be verified or
+            The public key signature was invalid or
+            There is no backup associated with the backup-id in the presentation
       security:
       - authenticatedAccount: []
       - {}
@@ -854,8 +864,10 @@ paths:
           description: Forbidden. The request had insufficient permissions to perform
             the requested action
         "401":
-          description: The provided backup auth credential presentation could not
-            be verified
+          description: |-
+            The provided backup auth credential presentation could not be verified or
+            The public key signature was invalid or
+            There is no backup associated with the backup-id in the presentation
       security:
       - authenticatedAccount: []
       - {}
@@ -894,8 +906,10 @@ paths:
           description: Forbidden. The request had insufficient permissions to perform
             the requested action
         "401":
-          description: The provided backup auth credential presentation could not
-            be verified
+          description: |-
+            The provided backup auth credential presentation could not be verified or
+            The public key signature was invalid or
+            There is no backup associated with the backup-id in the presentation
         "400":
           description: Bad arguments. The request may have been made on an authenticated
             channel
@@ -975,8 +989,10 @@ paths:
           description: Forbidden. The request had insufficient permissions to perform
             the requested action
         "401":
-          description: The provided backup auth credential presentation could not
-            be verified
+          description: |-
+            The provided backup auth credential presentation could not be verified or
+            The public key signature was invalid or
+            There is no backup associated with the backup-id in the presentation
         "400":
           description: Bad arguments. The request may have been made on an authenticated
             channel
@@ -1051,8 +1067,10 @@ paths:
           description: Forbidden. The request had insufficient permissions to perform
             the requested action
         "401":
-          description: The provided backup auth credential presentation could not
-            be verified
+          description: |-
+            The provided backup auth credential presentation could not be verified or
+            The public key signature was invalid or
+            There is no backup associated with the backup-id in the presentation
         "400":
           description: Bad arguments. The request may have been made on an authenticated
             channel
