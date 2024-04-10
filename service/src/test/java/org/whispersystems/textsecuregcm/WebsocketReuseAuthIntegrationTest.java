@@ -95,10 +95,10 @@ public class WebsocketReuseAuthIntegrationTest {
 
       environment.jersey().register(testController);
       environment.servlets()
-          .addFilter("RemoteAddressFilter", new RemoteAddressFilter(true))
+          .addFilter("RemoteAddressFilter", new RemoteAddressFilter())
           .addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST), false, "/*");
       webSocketEnvironment.jersey().register(testController);
-      webSocketEnvironment.jersey().register(new RemoteAddressFilter(true));
+      webSocketEnvironment.jersey().register(new RemoteAddressFilter());
       webSocketEnvironment.setAuthenticator(upgradeRequest -> ReusableAuth.authenticated(ACCOUNT, PRINCIPAL_SUPPLIER));
 
       webSocketEnvironment.jersey().property(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE);

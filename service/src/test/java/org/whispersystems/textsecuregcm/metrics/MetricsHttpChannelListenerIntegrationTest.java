@@ -246,7 +246,7 @@ class MetricsHttpChannelListenerIntegrationTest {
       metricsHttpChannelListener.configure(environment);
       environment.lifecycle().addEventListener(new TestListener(COUNT_DOWN_LATCH_FUTURE_REFERENCE));
 
-      environment.servlets().addFilter("RemoteAddressFilter", new RemoteAddressFilter(true))
+      environment.servlets().addFilter("RemoteAddressFilter", new RemoteAddressFilter())
           .addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST), false, "/*");
 
       environment.jersey().register(new TestResource());

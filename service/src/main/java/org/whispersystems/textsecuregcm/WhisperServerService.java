@@ -332,10 +332,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     MetricsUtil.configureRegistries(config, environment, dynamicConfigurationManager);
 
-    final boolean useRemoteAddress = Optional.ofNullable(
-            System.getenv("SIGNAL_USE_REMOTE_ADDRESS"))
-        .isPresent();
-
     if (config.getServerFactory() instanceof DefaultServerFactory defaultServerFactory) {
       defaultServerFactory.getApplicationConnectors()
           .forEach(connectorFactory -> {
@@ -823,7 +819,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     final List<Filter> filters = new ArrayList<>();
     filters.add(remoteDeprecationFilter);
-    filters.add(new RemoteAddressFilter(useRemoteAddress));
+    filters.add(new RemoteAddressFilter());
 
     for (Filter filter : filters) {
       environment.servlets()

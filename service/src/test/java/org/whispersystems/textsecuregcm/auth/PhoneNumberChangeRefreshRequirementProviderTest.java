@@ -118,9 +118,9 @@ class PhoneNumberChangeRefreshRequirementProviderTest {
       environment.jersey().register(testController);
       webSocketEnvironment.jersey().register(testController);
       environment.servlets()
-          .addFilter("RemoteAddressFilter", new RemoteAddressFilter(true))
+          .addFilter("RemoteAddressFilter", new RemoteAddressFilter())
           .addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST), false, "/*");
-      webSocketEnvironment.jersey().register(new RemoteAddressFilter(true));
+      webSocketEnvironment.jersey().register(new RemoteAddressFilter());
       webSocketEnvironment.jersey()
           .register(new WebsocketRefreshApplicationEventListener(ACCOUNTS_MANAGER, CLIENT_PRESENCE));
       environment.jersey()

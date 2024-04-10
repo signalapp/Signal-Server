@@ -8,7 +8,6 @@ package org.whispersystems.textsecuregcm.filters;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
-import com.google.common.net.HttpHeaders;
 import io.dropwizard.core.Application;
 import io.dropwizard.core.Configuration;
 import io.dropwizard.core.setup.Environment;
@@ -39,7 +38,6 @@ import javax.ws.rs.core.Context;
 import org.eclipse.jetty.util.HostPort;
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.WebSocketListener;
-import org.eclipse.jetty.websocket.client.ClientUpgradeRequest;
 import org.eclipse.jetty.websocket.client.WebSocketClient;
 import org.eclipse.jetty.websocket.server.config.JettyWebSocketServletContainerInitializer;
 import org.junit.jupiter.api.AfterEach;
@@ -47,7 +45,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.websocket.WebSocketResourceProviderFactory;
@@ -62,7 +59,6 @@ class RemoteAddressFilterIntegrationTest {
 
   private static final String WEBSOCKET_PREFIX = "/websocket";
   private static final String REMOTE_ADDRESS_PATH = "/remoteAddress";
-  private static final String FORWARDED_FOR_PATH = "/forwardedFor";
   private static final String WS_REQUEST_PATH = "/wsRequest";
 
   // The Grizzly test container does not match the Jetty container used in real deployments, and JettyTestContainerFactory
@@ -91,22 +87,6 @@ class RemoteAddressFilterIntegrationTest {
           .get(RemoteAddressFilterIntegrationTest.TestResponse.class);
 
       assertEquals(ip, response.remoteAddress());
-    }
-
-    @ParameterizedTest
-    @CsvSource(value = {"127.0.0.1, 192.168.1.1 \t 192.168.1.1",
-        "127.0.0.1, fe80:1:1:1:1:1:1:1  \t fe80:1:1:1:1:1:1:1"}, delimiterString = "\t")
-    void testForwardedFor(String forwardedFor, String expectedIp) {
-
-      Client client = EXTENSION.client();
-
-      final RemoteAddressFilterIntegrationTest.TestResponse response = client.target(
-              String.format("http://localhost:%d%s", EXTENSION.getLocalPort(), FORWARDED_FOR_PATH))
-          .request("application/json")
-          .header(HttpHeaders.X_FORWARDED_FOR, forwardedFor)
-          .get(RemoteAddressFilterIntegrationTest.TestResponse.class);
-
-      assertEquals(expectedIp, response.remoteAddress());
     }
   }
 
@@ -148,28 +128,6 @@ class RemoteAddressFilterIntegrationTest {
       final TestResponse response = SystemMapper.jsonMapper().readValue(responseBytes, TestResponse.class);
 
       assertEquals(ip, response.remoteAddress());
-    }
-
-    @ParameterizedTest
-    @CsvSource(value = {"127.0.0.1, 192.168.1.1 \t 192.168.1.1",
-        "127.0.0.1, fe80:1:1:1:1:1:1:1  \t fe80:1:1:1:1:1:1:1"}, delimiterString = "\t")
-    void testForwardedFor(String forwardedFor, String expectedIp) throws Exception {
-
-      final ClientUpgradeRequest upgradeRequest = new ClientUpgradeRequest();
-      upgradeRequest.setHeader(HttpHeaders.X_FORWARDED_FOR, forwardedFor);
-
-      final CompletableFuture<byte[]> responseFuture = new CompletableFuture<>();
-
-      client.connect(new ClientEndpoint(WS_REQUEST_PATH, responseFuture),
-          URI.create(
-              String.format("ws://localhost:%d%s", EXTENSION.getLocalPort(), WEBSOCKET_PREFIX + FORWARDED_FOR_PATH)),
-          upgradeRequest);
-
-      final byte[] responseBytes = responseFuture.get(1, TimeUnit.SECONDS);
-
-      final TestResponse response = SystemMapper.jsonMapper().readValue(responseBytes, TestResponse.class);
-
-      assertEquals(expectedIp, response.remoteAddress());
     }
   }
 
@@ -233,11 +191,6 @@ class RemoteAddressFilterIntegrationTest {
 
   }
 
-  @Path(FORWARDED_FOR_PATH)
-  public static class TestForwardedForController extends TestController {
-
-  }
-
   @Path(WS_REQUEST_PATH)
   public static class TestWebSocketController extends TestController {
 
@@ -253,17 +206,11 @@ class RemoteAddressFilterIntegrationTest {
     public void run(final Configuration configuration,
         final Environment environment) throws Exception {
 
-      // 2 filters, to cover useRemoteAddress = {true, false}
-      // each has explicit (not wildcard) path matching
-      environment.servlets().addFilter("RemoteAddressFilterRemoteAddress", new RemoteAddressFilter(true))
+      environment.servlets().addFilter("RemoteAddressFilterRemoteAddress", new RemoteAddressFilter())
           .addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST), false, REMOTE_ADDRESS_PATH,
               WEBSOCKET_PREFIX + REMOTE_ADDRESS_PATH);
-      environment.servlets().addFilter("RemoteAddressFilterForwardedFor", new RemoteAddressFilter(false))
-          .addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST), false, FORWARDED_FOR_PATH,
-              WEBSOCKET_PREFIX + FORWARDED_FOR_PATH);
 
       environment.jersey().register(new TestRemoteAddressController());
-      environment.jersey().register(new TestForwardedForController());
 
       // WebSocket set up
       final WebSocketConfiguration webSocketConfiguration = new WebSocketConfiguration();
@@ -279,9 +226,6 @@ class RemoteAddressFilterIntegrationTest {
           webSocketEnvironment, TestPrincipal.class, webSocketConfiguration,
           RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME);
 
-      // 2 servlets, because the filter only runs for the Upgrade request
-      environment.servlets().addServlet("WebSocketForwardedFor", webSocketServlet)
-          .addMapping(WEBSOCKET_PREFIX + FORWARDED_FOR_PATH);
       environment.servlets().addServlet("WebSocketRemoteAddress", webSocketServlet)
           .addMapping(WEBSOCKET_PREFIX + REMOTE_ADDRESS_PATH);
 

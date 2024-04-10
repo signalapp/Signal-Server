@@ -15,10 +15,11 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Optional;
+import javax.annotation.Nullable;
+import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.storage.ClientPublicKeysManager;
 
 /**
@@ -113,7 +114,7 @@ class WebsocketHandshakeCompleteHandler extends ChannelInboundHandlerAdapter {
     if (trustForwardedFor && handshakeCompleteEvent.requestHeaders().contains(FORWARDED_FOR_HEADER)) {
       final String forwardedFor = handshakeCompleteEvent.requestHeaders().get(FORWARDED_FOR_HEADER);
 
-      return RemoteAddressFilter.getMostRecentProxy(forwardedFor).map(mostRecentProxy -> {
+      return getMostRecentProxy(forwardedFor).map(mostRecentProxy -> {
         try {
           return InetAddresses.forString(mostRecentProxy);
         } catch (final IllegalArgumentException e) {
@@ -130,5 +131,26 @@ class WebsocketHandshakeCompleteHandler extends ChannelInboundHandlerAdapter {
         return Optional.empty();
       }
     }
+  }
+
+  /**
+   * Returns the most recent proxy in a chain described by an {@code X-Forwarded-For} header.
+   *
+   * @param forwardedFor the value of an X-Forwarded-For header
+   * @return the IP address of the most recent proxy in the forwarding chain, or empty if none was found or
+   * {@code forwardedFor} was null
+   * @see <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Forwarded-For">X-Forwarded-For - HTTP |
+   * MDN</a>
+   */
+  @VisibleForTesting
+  static Optional<String> getMostRecentProxy(@Nullable final String forwardedFor) {
+    return Optional.ofNullable(forwardedFor)
+        .map(ff -> {
+          final int idx = forwardedFor.lastIndexOf(',') + 1;
+          return idx < forwardedFor.length()
+              ? forwardedFor.substring(idx).trim()
+              : null;
+        })
+        .filter(StringUtils::isNotBlank);
   }
 }

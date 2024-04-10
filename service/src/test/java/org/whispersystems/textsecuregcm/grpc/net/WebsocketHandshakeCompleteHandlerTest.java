@@ -4,17 +4,16 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.Mockito.mock;
 
 import com.google.common.net.InetAddresses;
-import com.vdurmont.semver4j.Semver;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.embedded.EmbeddedChannel;
 import io.netty.channel.local.LocalAddress;
 import io.netty.handler.codec.http.DefaultHttpHeaders;
-import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler;
 import java.net.InetAddress;
@@ -22,7 +21,8 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
+import java.util.Optional;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,8 +32,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.whispersystems.textsecuregcm.storage.ClientPublicKeysManager;
-import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
-import org.whispersystems.textsecuregcm.util.ua.UserAgent;
 
 class WebsocketHandshakeCompleteHandlerTest extends AbstractLeakDetectionTest {
 
@@ -197,6 +195,25 @@ class WebsocketHandshakeCompleteHandlerTest extends AbstractLeakDetectionTest {
                 .add(WebsocketHandshakeCompleteHandler.RECOGNIZED_PROXY_SECRET_HEADER, RECOGNIZED_PROXY_SECRET),
             new LocalAddress("local-address"),
             null)
+    );
+  }
+
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+  @ParameterizedTest
+  @MethodSource("argumentsForGetMostRecentProxy")
+  void getMostRecentProxy(final String forwardedFor, final Optional<String> expectedMostRecentProxy) {
+    assertEquals(expectedMostRecentProxy, WebsocketHandshakeCompleteHandler.getMostRecentProxy(forwardedFor));
+  }
+
+  private static Stream<Arguments> argumentsForGetMostRecentProxy() {
+    return Stream.of(
+        arguments(null, Optional.empty()),
+        arguments("", Optional.empty()),
+        arguments("    ", Optional.empty()),
+        arguments("203.0.113.195,", Optional.empty()),
+        arguments("203.0.113.195, ", Optional.empty()),
+        arguments("203.0.113.195", Optional.of("203.0.113.195")),
+        arguments("203.0.113.195, 70.41.3.18, 150.172.238.178", Optional.of("150.172.238.178"))
     );
   }
 }

@@ -3,8 +3,6 @@ package org.whispersystems.textsecuregcm;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.when;
 import static org.whispersystems.textsecuregcm.filters.RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME;
 
 import io.dropwizard.core.Application;
@@ -77,10 +75,10 @@ public class WebsocketResourceProviderIntegrationTest {
 
       environment.jersey().register(testController);
       environment.servlets()
-          .addFilter("RemoteAddressFilter", new RemoteAddressFilter(true))
+          .addFilter("RemoteAddressFilter", new RemoteAddressFilter())
           .addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST), false, "/*");
       webSocketEnvironment.jersey().register(testController);
-      webSocketEnvironment.jersey().register(new RemoteAddressFilter(true));
+      webSocketEnvironment.jersey().register(new RemoteAddressFilter());
       webSocketEnvironment.setAuthenticator(upgradeRequest ->
           ReusableAuth.authenticated(mock(AuthenticatedAccount.class), PrincipalSupplier.forImmutablePrincipal()));
 
