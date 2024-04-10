@@ -27,6 +27,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 
 import java.security.MessageDigest;
+import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -78,12 +79,14 @@ import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage.Recipient
 import org.signal.libsignal.protocol.util.Pair;
 import org.signal.libsignal.zkgroup.ServerSecretParams;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
+import org.signal.libsignal.zkgroup.groupsend.GroupSendDerivedKeyPair;
+import org.signal.libsignal.zkgroup.groupsend.GroupSendFullToken;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.CombinedUnidentifiedSenderAccessKeys;
-import org.whispersystems.textsecuregcm.auth.GroupSendCredentialHeader;
+import org.whispersystems.textsecuregcm.auth.GroupSendTokenHeader;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
@@ -164,6 +167,7 @@ public class MessageController {
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private final ServerSecretParams serverSecretParams;
   private final SpamChecker spamChecker;
+  private final Clock clock;
 
   private static final int MAX_FETCH_ACCOUNT_CONCURRENCY = 8;
 
@@ -211,7 +215,8 @@ public class MessageController {
       final ClientReleaseManager clientReleaseManager,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
       final ServerSecretParams serverSecretParams,
-      final SpamChecker spamChecker) {
+      final SpamChecker spamChecker,
+      final Clock clock) {
     this.rateLimiters = rateLimiters;
     this.messageByteLimitEstimator = messageByteLimitEstimator;
     this.messageSender = messageSender;
@@ -227,6 +232,7 @@ public class MessageController {
     this.dynamicConfigurationManager = dynamicConfigurationManager;
     this.serverSecretParams = serverSecretParams;
     this.spamChecker = spamChecker;
+    this.clock = clock;
   }
 
   @Timed
@@ -442,7 +448,7 @@ public class MessageController {
   @ApiResponse(responseCode="400", description="The envelope specified delivery to the same recipient device multiple times")
   @ApiResponse(
       responseCode="401",
-      description="The message is not a story and the unauthorized access key or group send credential is missing or incorrect")
+      description="The message is not a story and the unauthorized access key or group send endorsement token is missing or incorrect")
   @ApiResponse(
       responseCode="404",
       description="The message is not a story and some of the recipient service IDs do not correspond to registered Signal users")
@@ -454,12 +460,12 @@ public class MessageController {
       content = @Content(schema = @Schema(implementation = AccountStaleDevices[].class)))
   public Response sendMultiRecipientMessage(
       @Deprecated
-      @Parameter(description="The bitwise xor of the unidentified access keys for every recipient of the message. Will be replaced with group send credentials")
+      @Parameter(description="The bitwise xor of the unidentified access keys for every recipient of the message. Will be replaced with group send endorsements")
       @HeaderParam(HeaderUtils.UNIDENTIFIED_ACCESS_KEY) @Nullable CombinedUnidentifiedSenderAccessKeys accessKeys,
 
-      @Parameter(description="A group send credential covering all (included and excluded) recipients of the message. Must not be combined with `Unidentified-Access-Key` or set on a story message.")
-      @HeaderParam(HeaderUtils.GROUP_SEND_CREDENTIAL)
-      @Nullable GroupSendCredentialHeader groupSendCredential,
+      @Parameter(description="A group send endorsement token covering recipients of this message. Must not be combined with `Unidentified-Access-Key` or set on a story message.")
+      @HeaderParam(HeaderUtils.GROUP_SEND_TOKEN)
+      @Nullable GroupSendTokenHeader groupSendToken,
 
       @HeaderParam(HttpHeaders.USER_AGENT) String userAgent,
 
@@ -484,29 +490,29 @@ public class MessageController {
       return spamCheck.get();
     }
 
-    if (groupSendCredential == null && accessKeys == null && !isStory) {
-      throw new NotAuthorizedException("A group send credential or unidentified access key is required for non-story messages");
+    if (groupSendToken == null && accessKeys == null && !isStory) {
+      throw new NotAuthorizedException("A group send endorsement token or unidentified access key is required for non-story messages");
     }
-    if (groupSendCredential != null) {
+    if (groupSendToken != null) {
       if (accessKeys != null) {
-        throw new BadRequestException("Only one of group send credential and unidentified access key may be provided");
+        throw new BadRequestException("Only one of group send endorsement token and unidentified access key may be provided");
       } else if (isStory) {
-        throw new BadRequestException("Stories should not provide a group send credential");
+        throw new BadRequestException("Stories should not provide a group send endorsement token");
       }
     }
 
-    if (groupSendCredential != null) {
-      // Group send credentials are checked before we even attempt to resolve any accounts, since
+    if (groupSendToken != null) {
+      // Group send endorsements are checked before we even attempt to resolve any accounts, since
       // the lists of service IDs in the envelope are all that we need to check against
-      checkGroupSendCredential(
-          multiRecipientMessage.getRecipients().keySet(), multiRecipientMessage.getExcludedRecipients(), groupSendCredential);
+      checkGroupSendToken(
+          multiRecipientMessage.getRecipients().keySet(), groupSendToken);
     }
 
     final Map<ServiceIdentifier, MultiRecipientDeliveryData> recipients = buildRecipientMap(multiRecipientMessage, isStory);
 
     // Access keys are checked against the UAK in the resolved accounts, so we have to check after resolving accounts above.
-    // Group send credentials are checked earlier; for stories, we don't check permissions at all because only clients check them
-    if (groupSendCredential == null && !isStory) {
+    // Group send endorsements are checked earlier; for stories, we don't check permissions at all because only clients check them
+    if (groupSendToken == null && !isStory) {
       checkAccessKeys(accessKeys, recipients.values());
     }
     // We might filter out all the recipients of a story (if none exist).
@@ -623,20 +629,12 @@ public class MessageController {
     return Response.ok(new SendMultiRecipientMessageResponse(uuids404)).build();
   }
 
-  private void checkGroupSendCredential(
+  private void checkGroupSendToken(
       final Collection<ServiceId> recipients,
-      final Collection<ServiceId> excludedRecipients,
-      final @NotNull GroupSendCredentialHeader groupSendCredential) {
+      final @NotNull GroupSendTokenHeader groupSendToken) {
     try {
-      // A group send credential covers *every* group member except the sender. However, clients
-      // don't always want to actually send to every recipient in the same multi-send (most
-      // commonly because a new member needs an SKDM first, but also could be because the sender
-      // has blocked someone). So we check the group send credential against the combination of
-      // the actual recipients and the supplied list of "excluded" recipients, accounts the
-      // sender knows are part of the credential but doesn't want to send to right now.
-      groupSendCredential.presentation().verify(
-          Lists.newArrayList(Iterables.concat(recipients, excludedRecipients)),
-          serverSecretParams);
+      final GroupSendFullToken token = groupSendToken.token();
+      token.verify(recipients, clock.instant(), GroupSendDerivedKeyPair.forExpiration(token.getExpiration(), serverSecretParams));
     } catch (VerificationFailedException e) {
       throw new NotAuthorizedException(e);
     }

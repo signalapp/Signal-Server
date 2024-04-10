@@ -24,7 +24,7 @@ public final class HeaderUtils {
 
   public static final String UNIDENTIFIED_ACCESS_KEY = "Unidentified-Access-Key";
 
-  public static final String GROUP_SEND_CREDENTIAL = "Group-Send-Credential";
+  public static final String GROUP_SEND_TOKEN = "Group-Send-Token";
 
   private HeaderUtils() {
     // utility class
