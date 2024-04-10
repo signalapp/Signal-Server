@@ -148,7 +148,9 @@ public class RemoveExpiredBackupsCommand extends EnvironmentCommand<WhisperServe
 
     return mono
         .doOnSuccess(ignored -> {
-          logger.info("incrementing metric for {}", HexFormat.of().formatHex(expiredBackup.hashedBackupId()));
+          logger.trace("Successfully expired {} for {}",
+              expiredBackup.expirationType(),
+              HexFormat.of().formatHex(expiredBackup.hashedBackupId()));
           Metrics
               .counter(EXPIRED_BACKUPS_COUNTER_NAME,
                   "tier", expiredBackup.expirationType().name(),
