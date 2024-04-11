@@ -5,31 +5,35 @@
 
 package org.whispersystems.textsecuregcm.configuration;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Map;
 import javax.validation.Valid;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 
-public class SubscriptionLevelConfiguration {
+public sealed interface SubscriptionLevelConfiguration permits
+    SubscriptionLevelConfiguration.Backup, SubscriptionLevelConfiguration.Donation {
 
-  private final String badge;
-  private final Map<String, SubscriptionPriceConfiguration> prices;
+  Map<String, SubscriptionPriceConfiguration> prices();
 
-  @JsonCreator
-  public SubscriptionLevelConfiguration(
+  enum Type {
+    DONATION,
+    BACKUP
+  }
+
+  default Type type() {
+    return switch (this) {
+      case Backup b -> Type.BACKUP;
+      case Donation d -> Type.DONATION;
+    };
+  }
+
+  record Backup(
+      @JsonProperty("prices") @Valid Map<@NotEmpty String, @NotNull @Valid SubscriptionPriceConfiguration> prices)
+      implements SubscriptionLevelConfiguration {}
+
+  record Donation(
       @JsonProperty("badge") @NotEmpty String badge,
-      @JsonProperty("prices") @Valid Map<@NotEmpty String, @NotNull @Valid SubscriptionPriceConfiguration> prices) {
-    this.badge = badge;
-    this.prices = prices;
-  }
-
-  public String getBadge() {
-    return badge;
-  }
-
-  public Map<String, SubscriptionPriceConfiguration> getPrices() {
-    return prices;
-  }
+      @JsonProperty("prices") @Valid Map<@NotEmpty String, @NotNull @Valid SubscriptionPriceConfiguration> prices)
+      implements SubscriptionLevelConfiguration {}
 }

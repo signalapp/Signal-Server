@@ -33,6 +33,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.crypto.Mac;
@@ -123,6 +124,7 @@ public class SubscriptionController {
   private static final String RECEIPT_ISSUED_COUNTER_NAME = MetricsUtil.name(SubscriptionController.class, "receiptIssued");
   private static final String PROCESSOR_TAG_NAME = "processor";
   private static final String TYPE_TAG_NAME = "type";
+  private static final String SUBSCRIPTION_TYPE_TAG_NAME = "subscriptionType";
   private static final String EURO_CURRENCY_CODE = "EUR";
   private static final Semver LAST_PROBLEMATIC_IOS_VERSION = new Semver("6.44.0");
 
@@ -166,12 +168,12 @@ public class SubscriptionController {
               String.valueOf(oneTimeDonationConfiguration.gift().level()), List.of(currencyConfig.gift())
           );
 
-          final Map<String, BigDecimal> subscriptionLevelsToAmounts = subscriptionConfiguration.getLevels()
-              .entrySet().stream()
-              .filter(levelIdAndConfig -> levelIdAndConfig.getValue().getPrices().containsKey(currency))
-              .collect(Collectors.toMap(
-                  levelIdAndConfig -> String.valueOf(levelIdAndConfig.getKey()),
-                  levelIdAndConfig -> levelIdAndConfig.getValue().getPrices().get(currency).amount()));
+          final Function<Map<Long, ? extends SubscriptionLevelConfiguration>, Map<String, BigDecimal>> extractSubscriptionAmounts = levels ->
+              levels.entrySet().stream()
+                  .filter(levelIdAndConfig -> levelIdAndConfig.getValue().prices().containsKey(currency))
+                  .collect(Collectors.toMap(
+                      levelIdAndConfig -> String.valueOf(levelIdAndConfig.getKey()),
+                      levelIdAndConfig -> levelIdAndConfig.getValue().prices().get(currency).amount()));
 
           final List<String> supportedPaymentMethods = Arrays.stream(PaymentMethod.values())
               .filter(paymentMethod -> subscriptionProcessorManagers.stream()
@@ -184,19 +186,24 @@ public class SubscriptionController {
             throw new RuntimeException("Configuration has currency with no processor support: " + currency);
           }
 
-          return new CurrencyConfiguration(currencyConfig.minimum(), oneTimeLevelsToSuggestedAmounts,
-              subscriptionLevelsToAmounts, supportedPaymentMethods);
+          return new CurrencyConfiguration(
+              currencyConfig.minimum(),
+              oneTimeLevelsToSuggestedAmounts,
+              extractSubscriptionAmounts.apply(subscriptionConfiguration.getDonationLevels()),
+              extractSubscriptionAmounts.apply(subscriptionConfiguration.getBackupLevels()),
+              supportedPaymentMethods);
         }));
   }
 
   @VisibleForTesting
-  GetSubscriptionConfigurationResponse buildGetSubscriptionConfigurationResponse(final List<Locale> acceptableLanguages) {
+  GetSubscriptionConfigurationResponse buildGetSubscriptionConfigurationResponse(
+      final List<Locale> acceptableLanguages) {
     final Map<String, LevelConfiguration> levels = new HashMap<>();
 
-    subscriptionConfiguration.getLevels().forEach((levelId, levelConfig) -> {
+    subscriptionConfiguration.getDonationLevels().forEach((levelId, levelConfig) -> {
       final LevelConfiguration levelConfiguration = new LevelConfiguration(
-          levelTranslator.translate(acceptableLanguages, levelConfig.getBadge()),
-          badgeTranslator.translate(acceptableLanguages, levelConfig.getBadge()));
+          levelTranslator.translate(acceptableLanguages, levelConfig.badge()),
+          badgeTranslator.translate(acceptableLanguages, levelConfig.badge()));
       levels.put(String.valueOf(levelId), levelConfiguration);
     });
 
@@ -478,6 +485,13 @@ public class SubscriptionController {
                           currency.toLowerCase(Locale.ROOT)))) {
                         return CompletableFuture.completedFuture(subscription);
                       }
+                      if (!subscriptionsAreSameType(existingLevelAndCurrency.level(), level)) {
+                        throw new BadRequestException(Response.status(Status.BAD_REQUEST)
+                            .entity(new SetSubscriptionLevelErrorResponse(List.of(
+                                new SetSubscriptionLevelErrorResponse.Error(
+                                    SetSubscriptionLevelErrorResponse.Error.Type.UNSUPPORTED_LEVEL, null))))
+                            .build());
+                      }
                       return manager.updateSubscription(
                               subscription, subscriptionTemplateId, level, idempotencyKey)
                           .thenCompose(updatedSubscription ->
@@ -519,6 +533,11 @@ public class SubscriptionController {
             .thenApply(unused -> Response.ok(new SetSubscriptionLevelSuccessResponse(level)).build());
   }
 
+  public boolean subscriptionsAreSameType(long level1, long level2) {
+    return subscriptionConfiguration.getSubscriptionLevel(level1).type()
+        == subscriptionConfiguration.getSubscriptionLevel(level2).type();
+  }
+
   /**
    * Comprehensive configuration for subscriptions and one-time donations
    *
@@ -538,10 +557,12 @@ public class SubscriptionController {
    * @param oneTime                 map of numeric one-time donation level IDs to the list of default amounts to be
    *                                presented
    * @param subscription            map of numeric subscription level IDs to the amount charged for that level
+   * @param backupSubscription      map of numeric backup level IDs to the amount charged for that level
    * @param supportedPaymentMethods the payment methods that support the given currency
    */
   public record CurrencyConfiguration(BigDecimal minimum, Map<String, List<BigDecimal>> oneTime,
                                       Map<String, BigDecimal> subscription,
+                                      Map<String, BigDecimal> backupSubscription,
                                       List<String> supportedPaymentMethods) {
 
   }
@@ -946,7 +967,8 @@ public class SubscriptionController {
                       try {
                         receiptCredentialResponse = zkReceiptOperations.issueReceiptCredential(
                             receiptCredentialRequest,
-                            receiptExpirationWithGracePeriod(receipt.paidAt()).getEpochSecond(), receipt.level());
+                            receiptExpirationWithGracePeriod(receipt.paidAt(), receipt.level()).getEpochSecond(),
+                            receipt.level());
                       } catch (VerificationFailedException e) {
                         throw new BadRequestException("receipt credential request failed verification", e);
                       }
@@ -954,6 +976,9 @@ public class SubscriptionController {
                               Tags.of(
                                   Tag.of(PROCESSOR_TAG_NAME, manager.getProcessor().toString()),
                                   Tag.of(TYPE_TAG_NAME, "subscription"),
+                                  Tag.of(SUBSCRIPTION_TYPE_TAG_NAME,
+                                      subscriptionConfiguration.getSubscriptionLevel(receipt.level()).type().name()
+                                          .toLowerCase(Locale.ROOT)),
                                   UserAgentTagUtil.getPlatformTag(userAgent)))
                           .increment();
                       return Response.ok(new GetReceiptCredentialsResponse(receiptCredentialResponse.serialize()))
@@ -989,32 +1014,38 @@ public class SubscriptionController {
                 new ClientErrorException(Status.CONFLICT)))
         .thenApply(customer -> Response.ok().build());
   }
-    private Instant receiptExpirationWithGracePeriod(Instant paidAt) {
-        return paidAt.plus(subscriptionConfiguration.getBadgeExpiration())
-            .plus(subscriptionConfiguration.getBadgeGracePeriod())
-            .truncatedTo(ChronoUnit.DAYS)
-            .plus(1, ChronoUnit.DAYS);
-    }
 
-    private String getSubscriptionTemplateId(long level, String currency, SubscriptionProcessor processor) {
-      SubscriptionLevelConfiguration levelConfiguration = subscriptionConfiguration.getLevels().get(level);
-      if (levelConfiguration == null) {
-        throw new BadRequestException(Response.status(Status.BAD_REQUEST)
-            .entity(new SetSubscriptionLevelErrorResponse(List.of(
-                new SetSubscriptionLevelErrorResponse.Error(
-                    SetSubscriptionLevelErrorResponse.Error.Type.UNSUPPORTED_LEVEL, null))))
-            .build());
-      }
+  private Instant receiptExpirationWithGracePeriod(Instant paidAt, long level) {
+    return switch (subscriptionConfiguration.getSubscriptionLevel(level).type()) {
+      case DONATION -> paidAt.plus(subscriptionConfiguration.getBadgeExpiration())
+          .plus(subscriptionConfiguration.getBadgeGracePeriod())
+          .truncatedTo(ChronoUnit.DAYS)
+          .plus(1, ChronoUnit.DAYS);
+      case BACKUP -> paidAt.plus(subscriptionConfiguration.getBackupExpiration())
+          .truncatedTo(ChronoUnit.DAYS)
+          .plus(1, ChronoUnit.DAYS);
+    };
+  }
 
-      return Optional.ofNullable(levelConfiguration.getPrices()
-              .get(currency.toLowerCase(Locale.ROOT)))
-          .map(priceConfiguration -> priceConfiguration.processorIds().get(processor))
-          .orElseThrow(() -> new BadRequestException(Response.status(Status.BAD_REQUEST)
-              .entity(new SetSubscriptionLevelErrorResponse(List.of(
-                  new SetSubscriptionLevelErrorResponse.Error(
-                      SetSubscriptionLevelErrorResponse.Error.Type.UNSUPPORTED_CURRENCY, null))))
-              .build()));
+
+  private String getSubscriptionTemplateId(long level, String currency, SubscriptionProcessor processor) {
+    final SubscriptionLevelConfiguration config = subscriptionConfiguration.getSubscriptionLevel(level);
+    if (config == null) {
+      throw new BadRequestException(Response.status(Status.BAD_REQUEST)
+          .entity(new SetSubscriptionLevelErrorResponse(List.of(
+              new SetSubscriptionLevelErrorResponse.Error(
+                  SetSubscriptionLevelErrorResponse.Error.Type.UNSUPPORTED_LEVEL, null))))
+          .build());
     }
+    final Optional<String> templateId = Optional
+        .ofNullable(config.prices().get(currency.toLowerCase(Locale.ROOT)))
+        .map(priceConfiguration -> priceConfiguration.processorIds().get(processor));
+    return templateId.orElseThrow(() -> new BadRequestException(Response.status(Status.BAD_REQUEST)
+        .entity(new SetSubscriptionLevelErrorResponse(List.of(
+            new SetSubscriptionLevelErrorResponse.Error(
+                SetSubscriptionLevelErrorResponse.Error.Type.UNSUPPORTED_CURRENCY, null))))
+        .build()));
+  }
 
   private SubscriptionManager.Record requireRecordFromGetResult(SubscriptionManager.GetResult getResult) {
     if (getResult == GetResult.PASSWORD_MISMATCH) {
