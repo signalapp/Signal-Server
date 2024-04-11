@@ -1864,16 +1864,15 @@ paths:
       - name: Unidentified-Access-Key
         in: header
         description: The bitwise xor of the unidentified access keys for every recipient
-          of the message. Will be replaced with group send credentials
+          of the message. Will be replaced with group send endorsements
         schema:
           $ref: '#/components/schemas/CombinedUnidentifiedSenderAccessKeys'
-      - name: Group-Send-Credential
+      - name: Group-Send-Token
         in: header
-        description: A group send credential covering all (included and excluded)
-          recipients of the message. Must not be combined with `Unidentified-Access-Key`
-          or set on a story message.
+        description: A group send endorsement token covering recipients of this message.
+          Must not be combined with `Unidentified-Access-Key` or set on a story message.
         schema:
-          $ref: '#/components/schemas/GroupSendCredentialHeader'
+          $ref: '#/components/schemas/GroupSendTokenHeader'
       - name: User-Agent
         in: header
         schema:
@@ -1919,7 +1918,7 @@ paths:
             multiple times
         "401":
           description: The message is not a story and the unauthorized access key
-            or group send credential is missing or incorrect
+            or group send endorsement token is missing or incorrect
         "404":
           description: The message is not a story and some of the recipient service
             IDs do not correspond to registered Signal users
@@ -4157,19 +4156,22 @@ components:
           items:
             type: string
             format: byte
-    GroupSendCredentialHeader:
+    GroupSendFullToken:
       type: object
       properties:
-        presentation:
-          $ref: '#/components/schemas/GroupSendCredentialPresentation'
-    GroupSendCredentialPresentation:
-      type: object
-      properties:
+        expiration:
+          type: string
+          format: date-time
         internalContentsForJNI:
           type: array
           items:
             type: string
             format: byte
+    GroupSendTokenHeader:
+      type: object
+      properties:
+        token:
+          $ref: '#/components/schemas/GroupSendFullToken'
     Recipient:
       type: object
       properties:
