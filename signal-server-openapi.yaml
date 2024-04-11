@@ -1249,6 +1249,10 @@ paths:
         schema:
           type: integer
           format: int64
+      - name: zkcCredential
+        in: query
+        schema:
+          type: boolean
       responses:
         default:
           description: default response
