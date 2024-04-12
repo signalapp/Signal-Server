@@ -31,6 +31,7 @@ import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.ClusterFaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.redis.ShardFaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.storage.AccountLockManager;
@@ -67,7 +68,7 @@ record CommandDependencies(
     ClientPresenceManager clientPresenceManager,
     KeysManager keysManager,
     FaultTolerantRedisCluster cacheCluster,
-    ClientResources redisClusterClientResources,
+    ClientResources.Builder redisClusterClientResourcesBuilder,
     BackupManager backupManager,
     DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
 
@@ -89,10 +90,11 @@ record CommandDependencies(
 
     MetricsUtil.configureRegistries(configuration, environment, dynamicConfigurationManager);
 
-    ClientResources redisClusterClientResources = ClientResources.builder().build();
+    final ClientResources.Builder redisClientResourcesBuilder = ClientResources.builder();
+    ClientResources redisClusterClientResources = redisClientResourcesBuilder.build();
 
-    FaultTolerantRedisCluster cacheCluster = new ClusterFaultTolerantRedisCluster("main_cache_cluster",
-        configuration.getCacheClusterConfiguration(), redisClusterClientResources);
+    FaultTolerantRedisCluster cacheCluster = new ShardFaultTolerantRedisCluster("main_cache",
+        configuration.getCacheClusterConfiguration(), redisClientResourcesBuilder);
 
     ScheduledExecutorService recurringJobExecutor = environment.lifecycle()
         .scheduledExecutorService(name(name, "recurringJob-%d")).threads(2).build();
@@ -167,10 +169,10 @@ record CommandDependencies(
     FaultTolerantRedisCluster messageReadDeleteCluster = new ClusterFaultTolerantRedisCluster(
         "message_read_delete_cluster",
         configuration.getMessageCacheConfiguration().getRedisClusterConfiguration(), redisClusterClientResources);
-    FaultTolerantRedisCluster clientPresenceCluster = new ClusterFaultTolerantRedisCluster("client_presence_cluster",
-        configuration.getClientPresenceClusterConfiguration(), redisClusterClientResources);
-    FaultTolerantRedisCluster rateLimitersCluster = new ClusterFaultTolerantRedisCluster("rate_limiters",
-        configuration.getRateLimitersCluster(), redisClusterClientResources);
+    FaultTolerantRedisCluster clientPresenceCluster = new ShardFaultTolerantRedisCluster("client_presence",
+        configuration.getClientPresenceClusterConfiguration(), redisClientResourcesBuilder);
+    FaultTolerantRedisCluster rateLimitersCluster = new ShardFaultTolerantRedisCluster("rate_limiters",
+        configuration.getRateLimitersCluster(), redisClientResourcesBuilder);
     SecureValueRecovery2Client secureValueRecovery2Client = new SecureValueRecovery2Client(
         secureValueRecoveryCredentialsGenerator, secureValueRecoveryServiceExecutor,
         secureValueRecoveryServiceRetryExecutor,
@@ -231,7 +233,7 @@ record CommandDependencies(
         clientPresenceManager,
         keys,
         cacheCluster,
-        redisClusterClientResources,
+        redisClientResourcesBuilder,
         backupManager,
         dynamicConfigurationManager
     );

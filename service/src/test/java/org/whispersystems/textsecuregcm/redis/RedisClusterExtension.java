@@ -12,8 +12,8 @@ import io.lettuce.core.RedisException;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.sync.RedisCommands;
-import io.lettuce.core.cluster.RedisClusterClient;
 import io.lettuce.core.cluster.SlotHash;
+import io.lettuce.core.resource.ClientResources;
 import java.io.File;
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -81,8 +81,9 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
   @Override
   public void beforeEach(final ExtensionContext context) throws Exception {
 
-    redisCluster = new ClusterFaultTolerantRedisCluster("test-cluster",
-        RedisClusterClient.create(getRedisURIs()),
+    redisCluster = new ShardFaultTolerantRedisCluster("test-cluster",
+        ClientResources.builder(),
+        getRedisURIs(),
         timeout,
         new CircuitBreakerConfiguration(),
         retryConfiguration);

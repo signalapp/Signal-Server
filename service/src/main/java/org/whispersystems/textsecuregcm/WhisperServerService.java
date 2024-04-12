@@ -421,18 +421,18 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     ConnectionEventLogger.logConnectionEvents(redisClientResources);
 
-    FaultTolerantRedisCluster cacheCluster = new ClusterFaultTolerantRedisCluster("main_cache_cluster",
-        config.getCacheClusterConfiguration(), redisClientResources);
+    FaultTolerantRedisCluster cacheCluster = new ShardFaultTolerantRedisCluster("main_cache",
+        config.getCacheClusterConfiguration(), redisClientResourcesBuilder);
     FaultTolerantRedisCluster messagesCluster = new ClusterFaultTolerantRedisCluster("messages_cluster",
         config.getMessageCacheConfiguration().getRedisClusterConfiguration(), redisClientResources);
-    FaultTolerantRedisCluster clientPresenceCluster = new ClusterFaultTolerantRedisCluster("client_presence_cluster",
-        config.getClientPresenceClusterConfiguration(), redisClientResources);
+    FaultTolerantRedisCluster clientPresenceCluster = new ShardFaultTolerantRedisCluster("client_presence",
+        config.getClientPresenceClusterConfiguration(), redisClientResourcesBuilder);
     FaultTolerantRedisCluster metricsCluster = new ShardFaultTolerantRedisCluster("metrics",
         config.getMetricsClusterConfiguration(), redisClientResourcesBuilder);
-    FaultTolerantRedisCluster pushSchedulerCluster = new ClusterFaultTolerantRedisCluster("push_scheduler",
-        config.getPushSchedulerCluster(), redisClientResources);
-    FaultTolerantRedisCluster rateLimitersCluster = new ClusterFaultTolerantRedisCluster("rate_limiters",
-        config.getRateLimitersCluster(), redisClientResources);
+    FaultTolerantRedisCluster pushSchedulerCluster = new ShardFaultTolerantRedisCluster("push_scheduler",
+        config.getPushSchedulerCluster(), redisClientResourcesBuilder);
+    FaultTolerantRedisCluster rateLimitersCluster = new ShardFaultTolerantRedisCluster("rate_limiters",
+        config.getRateLimitersCluster(), redisClientResourcesBuilder);
 
     final BlockingQueue<Runnable> keyspaceNotificationDispatchQueue = new ArrayBlockingQueue<>(100_000);
     Metrics.gaugeCollectionSize(name(getClass(), "keyspaceNotificationDispatchQueueSize"), Collections.emptyList(),
