@@ -87,7 +87,7 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
     redisClientResources = ClientResources.builder().build();
     final CircuitBreakerConfiguration circuitBreakerConfig = new CircuitBreakerConfiguration();
     circuitBreakerConfig.setWaitDurationInOpenState(Duration.ofMillis(500));
-    redisCluster = new ShardFaultTolerantRedisCluster("test-cluster",
+    redisCluster = new FaultTolerantRedisCluster("test-cluster",
         redisClientResources.mutate(),
         getRedisURIs(),
         timeout,

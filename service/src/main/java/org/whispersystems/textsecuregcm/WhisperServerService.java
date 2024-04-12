@@ -20,6 +20,7 @@ import io.dropwizard.core.server.DefaultServerFactory;
 import io.dropwizard.core.setup.Bootstrap;
 import io.dropwizard.core.setup.Environment;
 import io.dropwizard.jetty.HttpsConnectorFactory;
+import io.dropwizard.lifecycle.Managed;
 import io.grpc.ServerBuilder;
 import io.lettuce.core.metrics.MicrometerCommandLatencyRecorder;
 import io.lettuce.core.metrics.MicrometerOptions;
@@ -176,10 +177,8 @@ import org.whispersystems.textsecuregcm.push.ProvisioningManager;
 import org.whispersystems.textsecuregcm.push.PushLatencyManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
-import org.whispersystems.textsecuregcm.redis.ClusterFaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.ConnectionEventLogger;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
-import org.whispersystems.textsecuregcm.redis.ShardFaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
 import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
@@ -414,25 +413,24 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final VerificationSessions verificationSessions = new VerificationSessions(dynamoDbAsyncClient,
         config.getDynamoDbTables().getVerificationSessions().getTableName(), clock);
 
-    final ClientResources.Builder redisClientResourcesBuilder = ClientResources.builder()
+    final ClientResources sharedClientResources = ClientResources.builder()
         .commandLatencyRecorder(
-            new MicrometerCommandLatencyRecorder(Metrics.globalRegistry, MicrometerOptions.builder().build()));
-    final ClientResources redisClientResources = redisClientResourcesBuilder.build();
+            new MicrometerCommandLatencyRecorder(Metrics.globalRegistry, MicrometerOptions.builder().build()))
+        .build();
+    ConnectionEventLogger.logConnectionEvents(sharedClientResources);
 
-    ConnectionEventLogger.logConnectionEvents(redisClientResources);
-
-    FaultTolerantRedisCluster cacheCluster = new ShardFaultTolerantRedisCluster("main_cache",
-        config.getCacheClusterConfiguration(), redisClientResourcesBuilder);
-    FaultTolerantRedisCluster messagesCluster = new ClusterFaultTolerantRedisCluster("messages_cluster",
-        config.getMessageCacheConfiguration().getRedisClusterConfiguration(), redisClientResources);
-    FaultTolerantRedisCluster clientPresenceCluster = new ShardFaultTolerantRedisCluster("client_presence",
-        config.getClientPresenceClusterConfiguration(), redisClientResourcesBuilder);
-    FaultTolerantRedisCluster metricsCluster = new ShardFaultTolerantRedisCluster("metrics",
-        config.getMetricsClusterConfiguration(), redisClientResourcesBuilder);
-    FaultTolerantRedisCluster pushSchedulerCluster = new ShardFaultTolerantRedisCluster("push_scheduler",
-        config.getPushSchedulerCluster(), redisClientResourcesBuilder);
-    FaultTolerantRedisCluster rateLimitersCluster = new ShardFaultTolerantRedisCluster("rate_limiters",
-        config.getRateLimitersCluster(), redisClientResourcesBuilder);
+    FaultTolerantRedisCluster cacheCluster = new FaultTolerantRedisCluster("main_cache",
+        config.getCacheClusterConfiguration(), sharedClientResources.mutate());
+    FaultTolerantRedisCluster messagesCluster = new FaultTolerantRedisCluster("messages",
+        config.getMessageCacheConfiguration().getRedisClusterConfiguration(), sharedClientResources.mutate());
+    FaultTolerantRedisCluster clientPresenceCluster = new FaultTolerantRedisCluster("client_presence",
+        config.getClientPresenceClusterConfiguration(), sharedClientResources.mutate());
+    FaultTolerantRedisCluster metricsCluster = new FaultTolerantRedisCluster("metrics",
+        config.getMetricsClusterConfiguration(), sharedClientResources.mutate());
+    FaultTolerantRedisCluster pushSchedulerCluster = new FaultTolerantRedisCluster("push_scheduler",
+        config.getPushSchedulerCluster(), sharedClientResources.mutate());
+    FaultTolerantRedisCluster rateLimitersCluster = new FaultTolerantRedisCluster("rate_limiters",
+        config.getRateLimitersCluster(), sharedClientResources.mutate());
 
     final BlockingQueue<Runnable> keyspaceNotificationDispatchQueue = new ArrayBlockingQueue<>(100_000);
     Metrics.gaugeCollectionSize(name(getClass(), "keyspaceNotificationDispatchQueueSize"), Collections.emptyList(),
@@ -598,7 +596,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     RateLimiters rateLimiters = RateLimiters.createAndValidate(config.getLimitsConfiguration(),
         dynamicConfigurationManager, rateLimitersCluster);
     ProvisioningManager provisioningManager = new ProvisioningManager(config.getPubsubCacheConfiguration().getUri(),
-        redisClientResources, config.getPubsubCacheConfiguration().getTimeout(),
+        sharedClientResources, config.getPubsubCacheConfiguration().getTimeout(),
         config.getPubsubCacheConfiguration().getCircuitBreakerConfiguration());
     IssuedReceiptsManager issuedReceiptsManager = new IssuedReceiptsManager(
         config.getDynamoDbTables().getIssuedReceipts().getTableName(),
