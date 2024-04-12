@@ -60,7 +60,7 @@ import reactor.core.scheduler.Schedulers;
 
 public class MessagesCache extends RedisClusterPubSubAdapter<String, String> implements Managed {
 
-  private final FaultTolerantRedisCluster readDeleteCluster;
+  private final FaultTolerantRedisCluster redisCluster;
   private final FaultTolerantPubSubConnection<String, String> pubSubConnection;
   private final Clock clock;
 
@@ -110,12 +110,12 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
 
   private static final Logger logger = LoggerFactory.getLogger(MessagesCache.class);
 
-  public MessagesCache(final FaultTolerantRedisCluster insertCluster, final FaultTolerantRedisCluster readDeleteCluster,
-      final ExecutorService notificationExecutorService, final Scheduler messageDeliveryScheduler,
-      final ExecutorService messageDeletionExecutorService, final Clock clock) throws IOException {
+  public MessagesCache(final FaultTolerantRedisCluster redisCluster, final ExecutorService notificationExecutorService,
+      final Scheduler messageDeliveryScheduler, final ExecutorService messageDeletionExecutorService, final Clock clock)
+      throws IOException {
 
-    this.readDeleteCluster = readDeleteCluster;
-    this.pubSubConnection = readDeleteCluster.createPubSubConnection();
+    this.redisCluster = redisCluster;
+    this.pubSubConnection = redisCluster.createPubSubConnection();
     this.clock = clock;
 
     this.notificationExecutorService = notificationExecutorService;
@@ -123,13 +123,13 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
     this.messageDeletionExecutorService = messageDeletionExecutorService;
     this.messageDeletionScheduler = Schedulers.fromExecutorService(messageDeletionExecutorService, "messageDeletion");
 
-    this.insertScript = ClusterLuaScript.fromResource(insertCluster, "lua/insert_item.lua", ScriptOutputType.INTEGER);
-    this.removeByGuidScript = ClusterLuaScript.fromResource(readDeleteCluster, "lua/remove_item_by_guid.lua",
+    this.insertScript = ClusterLuaScript.fromResource(redisCluster, "lua/insert_item.lua", ScriptOutputType.INTEGER);
+    this.removeByGuidScript = ClusterLuaScript.fromResource(redisCluster, "lua/remove_item_by_guid.lua",
         ScriptOutputType.MULTI);
-    this.getItemsScript = ClusterLuaScript.fromResource(readDeleteCluster, "lua/get_items.lua", ScriptOutputType.MULTI);
-    this.removeQueueScript = ClusterLuaScript.fromResource(readDeleteCluster, "lua/remove_queue.lua",
+    this.getItemsScript = ClusterLuaScript.fromResource(redisCluster, "lua/get_items.lua", ScriptOutputType.MULTI);
+    this.removeQueueScript = ClusterLuaScript.fromResource(redisCluster, "lua/remove_queue.lua",
         ScriptOutputType.STATUS);
-    this.getQueuesToPersistScript = ClusterLuaScript.fromResource(readDeleteCluster, "lua/get_queues_to_persist.lua",
+    this.getQueuesToPersistScript = ClusterLuaScript.fromResource(redisCluster, "lua/get_queues_to_persist.lua",
         ScriptOutputType.MULTI);
   }
 
@@ -209,7 +209,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
   }
 
   public boolean hasMessages(final UUID destinationUuid, final byte destinationDevice) {
-    return readDeleteCluster.withBinaryCluster(
+    return redisCluster.withBinaryCluster(
         connection -> connection.sync().zcard(getMessageQueueKey(destinationUuid, destinationDevice)) > 0);
   }
 
@@ -324,7 +324,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
   List<MessageProtos.Envelope> getMessagesToPersist(final UUID accountUuid, final byte destinationDevice,
       final int limit) {
     return getMessagesTimer.record(() -> {
-      final List<ScoredValue<byte[]>> scoredMessages = readDeleteCluster.withBinaryCluster(
+      final List<ScoredValue<byte[]>> scoredMessages = redisCluster.withBinaryCluster(
           connection -> connection.sync()
               .zrangeWithScores(getMessageQueueKey(accountUuid, destinationDevice), 0, limit));
       final List<MessageProtos.Envelope> envelopes = new ArrayList<>(scoredMessages.size());
@@ -360,7 +360,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
   }
 
   int getNextSlotToPersist() {
-    return (int) (readDeleteCluster.withCluster(connection -> connection.sync().incr(NEXT_SLOT_TO_PERSIST_KEY))
+    return (int) (redisCluster.withCluster(connection -> connection.sync().incr(NEXT_SLOT_TO_PERSIST_KEY))
         % SlotHash.SLOT_COUNT);
   }
 
@@ -373,23 +373,23 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
   }
 
   void addQueueToPersist(final UUID accountUuid, final byte deviceId) {
-    readDeleteCluster.useBinaryCluster(connection -> connection.sync()
+    redisCluster.useBinaryCluster(connection -> connection.sync()
         .zadd(getQueueIndexKey(accountUuid, deviceId), ZAddArgs.Builder.nx(), System.currentTimeMillis(),
             getMessageQueueKey(accountUuid, deviceId)));
   }
 
   void lockQueueForPersistence(final UUID accountUuid, final byte deviceId) {
-    readDeleteCluster.useBinaryCluster(
+    redisCluster.useBinaryCluster(
         connection -> connection.sync().setex(getPersistInProgressKey(accountUuid, deviceId), 30, LOCK_VALUE));
   }
 
   void unlockQueueForPersistence(final UUID accountUuid, final byte deviceId) {
-    readDeleteCluster.useBinaryCluster(
+    redisCluster.useBinaryCluster(
         connection -> connection.sync().del(getPersistInProgressKey(accountUuid, deviceId)));
   }
 
   boolean lockAccountForMessagePersisterCleanup(final UUID accountUuid) {
-    return readDeleteCluster.withBinaryCluster(
+    return redisCluster.withBinaryCluster(
         connection -> "OK".equals(
             connection.sync().set(
                 getUnlinkInProgressKey(accountUuid),
@@ -398,7 +398,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
   }
 
   void unlockAccountForMessagePersisterCleanup(final UUID accountUuid) {
-    readDeleteCluster.useBinaryCluster(
+    redisCluster.useBinaryCluster(
         connection -> connection.sync().del(getUnlinkInProgressKey(accountUuid)));
   }
 

@@ -566,8 +566,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ClientPresenceManager clientPresenceManager = new ClientPresenceManager(clientPresenceCluster, recurringJobExecutor,
         keyspaceNotificationDispatchExecutor);
     ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster);
-    MessagesCache messagesCache = new MessagesCache(messagesCluster, messagesCluster,
-        keyspaceNotificationDispatchExecutor, messageDeliveryScheduler, messageDeletionAsyncExecutor, clock);
+    MessagesCache messagesCache = new MessagesCache(messagesCluster, keyspaceNotificationDispatchExecutor,
+        messageDeliveryScheduler, messageDeletionAsyncExecutor, clock);
     ClientReleaseManager clientReleaseManager = new ClientReleaseManager(clientReleases,
         recurringJobExecutor,
         config.getClientReleaseConfiguration().refreshInterval(),

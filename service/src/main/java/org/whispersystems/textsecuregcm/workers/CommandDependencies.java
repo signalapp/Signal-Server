@@ -163,10 +163,7 @@ record CommandDependencies(
         configuration.getDynamoDbTables().getMessages().getTableName(),
         configuration.getDynamoDbTables().getMessages().getExpiration(),
         messageDeletionExecutor);
-    FaultTolerantRedisCluster messageInsertCacheCluster = new FaultTolerantRedisCluster("message_insert_cluster",
-        configuration.getMessageCacheConfiguration().getRedisClusterConfiguration(), redisClientResourcesBuilder);
-    FaultTolerantRedisCluster messageReadDeleteCluster = new FaultTolerantRedisCluster(
-        "message_read_delete_cluster",
+    FaultTolerantRedisCluster messagesCluster = new FaultTolerantRedisCluster("messages",
         configuration.getMessageCacheConfiguration().getRedisClusterConfiguration(), redisClientResourcesBuilder);
     FaultTolerantRedisCluster clientPresenceCluster = new FaultTolerantRedisCluster("client_presence",
         configuration.getClientPresenceClusterConfiguration(), redisClientResourcesBuilder);
@@ -180,8 +177,8 @@ record CommandDependencies(
         storageServiceExecutor, storageServiceRetryExecutor, configuration.getSecureStorageServiceConfiguration());
     ClientPresenceManager clientPresenceManager = new ClientPresenceManager(clientPresenceCluster,
         recurringJobExecutor, keyspaceNotificationDispatchExecutor);
-    MessagesCache messagesCache = new MessagesCache(messageInsertCacheCluster, messageReadDeleteCluster,
-        keyspaceNotificationDispatchExecutor, messageDeliveryScheduler, messageDeletionExecutor, Clock.systemUTC());
+    MessagesCache messagesCache = new MessagesCache(messagesCluster, keyspaceNotificationDispatchExecutor,
+        messageDeliveryScheduler, messageDeletionExecutor, Clock.systemUTC());
     ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster);
     ReportMessageDynamoDb reportMessageDynamoDb = new ReportMessageDynamoDb(dynamoDbClient,
         configuration.getDynamoDbTables().getReportMessage().getTableName(),

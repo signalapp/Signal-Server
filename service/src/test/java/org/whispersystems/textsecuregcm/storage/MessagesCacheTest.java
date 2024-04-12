@@ -98,8 +98,8 @@ class MessagesCacheTest {
       sharedExecutorService = Executors.newSingleThreadExecutor();
       resubscribeRetryExecutorService = Executors.newSingleThreadScheduledExecutor();
       messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
-      messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-          REDIS_CLUSTER_EXTENSION.getRedisCluster(), sharedExecutorService, messageDeliveryScheduler, sharedExecutorService, Clock.systemUTC());
+      messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(), sharedExecutorService,
+          messageDeliveryScheduler, sharedExecutorService, Clock.systemUTC());
 
       messagesCache.start();
     }
@@ -272,7 +272,7 @@ class MessagesCacheTest {
       }
 
       final MessagesCache messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-          REDIS_CLUSTER_EXTENSION.getRedisCluster(), sharedExecutorService, messageDeliveryScheduler, sharedExecutorService, cacheClock);
+          sharedExecutorService, messageDeliveryScheduler, sharedExecutorService, cacheClock);
 
       final List<MessageProtos.Envelope> actualMessages = Flux.from(
               messagesCache.get(DESTINATION_UUID, DESTINATION_DEVICE_ID))
@@ -561,8 +561,8 @@ class MessagesCacheTest {
 
       messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
 
-      messagesCache = new MessagesCache(mockCluster, mockCluster, mock(ExecutorService.class),
-          messageDeliveryScheduler, Executors.newSingleThreadExecutor(), Clock.systemUTC());
+      messagesCache = new MessagesCache(mockCluster, mock(ExecutorService.class), messageDeliveryScheduler,
+          Executors.newSingleThreadExecutor(), Clock.systemUTC());
     }
 
     @AfterEach
