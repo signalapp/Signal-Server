@@ -78,7 +78,7 @@ public class ProvisioningManager extends RedisPubSubAdapter<byte[], byte[]> impl
 
     this.circuitBreaker = CircuitBreaker.of("pubsub-breaker", circuitBreakerConfiguration.toCircuitBreakerConfig());
 
-    CircuitBreakerUtil.registerMetrics(circuitBreaker, ProvisioningManager.class);
+    CircuitBreakerUtil.registerMetrics(circuitBreaker, ProvisioningManager.class, Tags.empty());
 
     Metrics.gaugeMapSize(ACTIVE_LISTENERS_GAUGE_NAME, Tags.empty(), listenersByProvisioningAddress);
   }

@@ -17,8 +17,6 @@ import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
-import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.core.IntervalFunction;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
@@ -30,7 +28,6 @@ import io.lettuce.core.cluster.pubsub.api.sync.RedisClusterPubSubCommands;
 import io.lettuce.core.event.Event;
 import io.lettuce.core.event.EventBus;
 import io.lettuce.core.resource.ClientResources;
-import java.time.Duration;
 import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -38,17 +35,16 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Schedulers;
 import reactor.test.publisher.TestPublisher;
 
-class FaultTolerantPubSubConnectionTest {
+class ShardFaultTolerantPubSubConnectionTest {
 
   private StatefulRedisClusterPubSubConnection<String, String> pubSubConnection;
   private RedisClusterPubSubCommands<String, String> pubSubCommands;
-  private FaultTolerantPubSubConnection<String, String> faultTolerantPubSubConnection;
+  private ShardFaultTolerantPubSubConnection<String, String> faultTolerantPubSubConnection;
 
 
   @SuppressWarnings("unchecked")
@@ -60,17 +56,10 @@ class FaultTolerantPubSubConnectionTest {
 
     when(pubSubConnection.sync()).thenReturn(pubSubCommands);
 
-    final CircuitBreakerConfiguration breakerConfiguration = new CircuitBreakerConfiguration();
-    breakerConfiguration.setFailureRateThreshold(100);
-    breakerConfiguration.setSlidingWindowSize(1);
-    breakerConfiguration.setSlidingWindowMinimumNumberOfCalls(1);
-    breakerConfiguration.setWaitDurationInOpenState(Duration.ofSeconds(Integer.MAX_VALUE));
-
     final RetryConfiguration retryConfiguration = new RetryConfiguration();
     retryConfiguration.setMaxAttempts(3);
     retryConfiguration.setWaitDuration(10);
 
-    final CircuitBreaker circuitBreaker = CircuitBreaker.of("test", breakerConfiguration.toCircuitBreakerConfig());
     final Retry retry = Retry.of("test", retryConfiguration.toRetryConfig());
 
     final RetryConfig resubscribeRetryConfiguration = RetryConfig.custom()
@@ -79,26 +68,8 @@ class FaultTolerantPubSubConnectionTest {
         .build();
     final Retry resubscribeRetry = Retry.of("test-resubscribe", resubscribeRetryConfiguration);
 
-    faultTolerantPubSubConnection = new ClusterFaultTolerantPubSubConnection<>("test", pubSubConnection, circuitBreaker,
+    faultTolerantPubSubConnection = new ShardFaultTolerantPubSubConnection<>("test", pubSubConnection,
         retry, resubscribeRetry, Schedulers.newSingle("test"));
-  }
-
-  @Test
-  void testBreaker() {
-    when(pubSubCommands.get(anyString()))
-        .thenReturn("value")
-        .thenThrow(new RuntimeException("Badness has ensued."));
-
-    assertEquals("value",
-        faultTolerantPubSubConnection.withPubSubConnection(connection -> connection.sync().get("key")));
-
-    assertThrows(RedisException.class,
-        () -> faultTolerantPubSubConnection.withPubSubConnection(connection -> connection.sync().get("OH NO")));
-
-    final RedisException redisException = assertThrows(RedisException.class,
-        () -> faultTolerantPubSubConnection.withPubSubConnection(connection -> connection.sync().get("OH NO")));
-
-    assertTrue(redisException.getCause() instanceof CallNotPermittedException);
   }
 
   @Test

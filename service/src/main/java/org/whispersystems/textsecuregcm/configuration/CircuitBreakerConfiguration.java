@@ -41,8 +41,7 @@ public class CircuitBreakerConfiguration {
 
   @JsonProperty
   @NotNull
-  @Min(1)
-  private long waitDurationInOpenStateInSeconds = 10;
+  private Duration waitDurationInOpenState = Duration.ofSeconds(10);
 
   @JsonProperty
   private List<String> ignoredExceptions = Collections.emptyList();
@@ -64,8 +63,8 @@ public class CircuitBreakerConfiguration {
     return slidingWindowMinimumNumberOfCalls;
   }
 
-  public long getWaitDurationInOpenStateInSeconds() {
-    return waitDurationInOpenStateInSeconds;
+  public Duration getWaitDurationInOpenState() {
+    return waitDurationInOpenState;
   }
 
   public List<Class<?>> getIgnoredExceptions() {
@@ -101,8 +100,8 @@ public class CircuitBreakerConfiguration {
   }
 
   @VisibleForTesting
-  public void setWaitDurationInOpenStateInSeconds(int seconds) {
-    this.waitDurationInOpenStateInSeconds = seconds;
+  public void setWaitDurationInOpenState(Duration duration) {
+    this.waitDurationInOpenState = duration;
   }
 
   @VisibleForTesting
@@ -115,7 +114,7 @@ public class CircuitBreakerConfiguration {
         .failureRateThreshold(getFailureRateThreshold())
         .ignoreExceptions(getIgnoredExceptions().toArray(new Class[0]))
         .permittedNumberOfCallsInHalfOpenState(getPermittedNumberOfCallsInHalfOpenState())
-        .waitDurationInOpenState(Duration.ofSeconds(getWaitDurationInOpenStateInSeconds()))
+        .waitDurationInOpenState(getWaitDurationInOpenState())
         .slidingWindow(getSlidingWindowSize(), getSlidingWindowMinimumNumberOfCalls(),
             CircuitBreakerConfig.SlidingWindowType.COUNT_BASED)
         .build();

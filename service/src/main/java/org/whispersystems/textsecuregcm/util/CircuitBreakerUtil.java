@@ -23,20 +23,22 @@ public class CircuitBreakerUtil {
   private static final String BREAKER_NAME_TAG_NAME = "breakerName";
   private static final String OUTCOME_TAG_NAME = "outcome";
 
-  public static void registerMetrics(CircuitBreaker circuitBreaker, Class<?> clazz) {
+  public static void registerMetrics(CircuitBreaker circuitBreaker, Class<?> clazz, Tags additionalTags) {
     final String breakerName = clazz.getSimpleName() + "/" + circuitBreaker.getName();
 
     final Counter successCounter = Metrics.counter(CIRCUIT_BREAKER_CALL_COUNTER_NAME,
-        BREAKER_NAME_TAG_NAME, breakerName,
-        OUTCOME_TAG_NAME, "success");
+        additionalTags.and(
+            BREAKER_NAME_TAG_NAME, breakerName,
+            OUTCOME_TAG_NAME, "success"));
 
     final Counter failureCounter = Metrics.counter(CIRCUIT_BREAKER_CALL_COUNTER_NAME,
-        BREAKER_NAME_TAG_NAME, breakerName,
-        OUTCOME_TAG_NAME, "failure");
+        additionalTags.and(
+            BREAKER_NAME_TAG_NAME, breakerName,
+            OUTCOME_TAG_NAME, "failure"));
 
     final Counter unpermittedCounter = Metrics.counter(CIRCUIT_BREAKER_CALL_COUNTER_NAME,
-        BREAKER_NAME_TAG_NAME, breakerName,
-        OUTCOME_TAG_NAME, "unpermitted");
+        additionalTags.and(BREAKER_NAME_TAG_NAME, breakerName,
+            OUTCOME_TAG_NAME, "unpermitted"));
 
     circuitBreaker.getEventPublisher().onSuccess(event -> {
       successCounter.increment();

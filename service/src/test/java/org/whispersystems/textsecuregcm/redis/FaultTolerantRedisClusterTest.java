@@ -6,9 +6,9 @@
 package org.whispersystems.textsecuregcm.redis;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -60,13 +60,13 @@ class FaultTolerantRedisClusterTest {
     breakerConfiguration.setFailureRateThreshold(100);
     breakerConfiguration.setSlidingWindowSize(1);
     breakerConfiguration.setSlidingWindowMinimumNumberOfCalls(1);
-    breakerConfiguration.setWaitDurationInOpenStateInSeconds(Integer.MAX_VALUE);
+    breakerConfiguration.setWaitDurationInOpenState(Duration.ofSeconds(Integer.MAX_VALUE));
 
     final RetryConfiguration retryConfiguration = new RetryConfiguration();
     retryConfiguration.setMaxAttempts(3);
     retryConfiguration.setWaitDuration(0);
 
-    faultTolerantCluster = new FaultTolerantRedisCluster("test", clusterClient, Duration.ofSeconds(2),
+    faultTolerantCluster = new ClusterFaultTolerantRedisCluster("test", clusterClient, Duration.ofSeconds(2),
         breakerConfiguration, retryConfiguration);
   }
 
@@ -84,7 +84,7 @@ class FaultTolerantRedisClusterTest {
     final RedisException redisException = assertThrows(RedisException.class,
         () -> faultTolerantCluster.withCluster(connection -> connection.sync().get("OH NO")));
 
-    assertTrue(redisException.getCause() instanceof CallNotPermittedException);
+    assertInstanceOf(CallNotPermittedException.class, redisException.getCause());
   }
 
   @Test
@@ -132,7 +132,7 @@ class FaultTolerantRedisClusterTest {
       assertTimeoutPreemptively(Duration.ofSeconds(1), () -> {
         final ExecutionException asyncException = assertThrows(ExecutionException.class,
             () -> cluster.withCluster(connection -> connection.async().blpop(TIMEOUT.toMillis() * 2, "key")).get());
-        assertTrue(asyncException.getCause() instanceof RedisCommandTimeoutException);
+        assertInstanceOf(RedisCommandTimeoutException.class, asyncException.getCause());
 
         assertThrows(RedisCommandTimeoutException.class,
             () -> cluster.withCluster(connection -> connection.sync().blpop(TIMEOUT.toMillis() * 2, "key")));

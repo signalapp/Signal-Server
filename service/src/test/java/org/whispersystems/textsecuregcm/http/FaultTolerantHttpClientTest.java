@@ -22,12 +22,10 @@ import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
-import java.net.http.HttpHeaders;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
@@ -39,10 +37,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
-import org.mockito.Mockito;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
-import javax.net.ssl.SSLSession;
 
 class FaultTolerantHttpClientTest {
 
@@ -210,7 +206,7 @@ class FaultTolerantHttpClientTest {
     circuitBreakerConfiguration.setSlidingWindowMinimumNumberOfCalls(2);
     circuitBreakerConfiguration.setPermittedNumberOfCallsInHalfOpenState(1);
     circuitBreakerConfiguration.setFailureRateThreshold(50);
-    circuitBreakerConfiguration.setWaitDurationInOpenStateInSeconds(1);
+    circuitBreakerConfiguration.setWaitDurationInOpenState(Duration.ofSeconds(1));
 
     FaultTolerantHttpClient client = FaultTolerantHttpClient.newBuilder()
         .withCircuitBreaker(circuitBreakerConfiguration)

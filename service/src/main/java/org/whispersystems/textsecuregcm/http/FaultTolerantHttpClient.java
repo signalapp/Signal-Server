@@ -24,6 +24,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
+import io.micrometer.core.instrument.Tags;
 import org.glassfish.jersey.SslConfigurator;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
@@ -56,7 +57,7 @@ public class FaultTolerantHttpClient {
     this.defaultRequestTimeout = defaultRequestTimeout;
     this.breaker = CircuitBreaker.of(name + "-breaker", circuitBreakerConfiguration.toCircuitBreakerConfig());
 
-    CircuitBreakerUtil.registerMetrics(breaker, FaultTolerantHttpClient.class);
+    CircuitBreakerUtil.registerMetrics(breaker, FaultTolerantHttpClient.class, Tags.empty());
 
     if (retryConfiguration != null) {
       if (this.retryExecutor == null) {

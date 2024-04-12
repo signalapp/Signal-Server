@@ -20,7 +20,6 @@ import java.net.ServerSocket;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
@@ -50,8 +49,8 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
   }
 
 
-  public static RedisClusterExtensionBuilder builder() {
-    return new RedisClusterExtensionBuilder();
+  public static Builder builder() {
+    return new Builder();
   }
 
   @Override
@@ -81,12 +80,9 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
 
   @Override
   public void beforeEach(final ExtensionContext context) throws Exception {
-    final List<String> urls = Arrays.stream(CLUSTER_NODES)
-        .map(node -> String.format("redis://127.0.0.1:%d", node.ports().get(0)))
-        .toList();
 
-    redisCluster = new FaultTolerantRedisCluster("test-cluster",
-        RedisClusterClient.create(urls.stream().map(RedisURI::create).collect(Collectors.toList())),
+    redisCluster = new ClusterFaultTolerantRedisCluster("test-cluster",
+        RedisClusterClient.create(getRedisURIs()),
         timeout,
         new CircuitBreakerConfiguration(),
         retryConfiguration);
@@ -120,6 +116,13 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
     redisCluster.useCluster(connection -> connection.sync().flushall());
   }
 
+  public static List<RedisURI> getRedisURIs() {
+    return Arrays.stream(CLUSTER_NODES)
+        .map(node -> "redis://127.0.0.1:%d".formatted(node.ports().getFirst()))
+        .map(RedisURI::create)
+        .toList();
+  }
+
   public FaultTolerantRedisCluster getRedisCluster() {
     return redisCluster;
   }
@@ -140,12 +143,12 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
   }
 
   private static void assembleCluster(final RedisServer... nodes) throws InterruptedException {
-    try (final RedisClient meetClient = RedisClient.create(RedisURI.create("127.0.0.1", nodes[0].ports().get(0)))) {
+    try (final RedisClient meetClient = RedisClient.create(RedisURI.create("127.0.0.1", nodes[0].ports().getFirst()))) {
       final StatefulRedisConnection<String, String> connection = meetClient.connect();
       final RedisCommands<String, String> commands = connection.sync();
 
       for (int i = 1; i < nodes.length; i++) {
-        commands.clusterMeet("127.0.0.1", nodes[i].ports().get(0));
+        commands.clusterMeet("127.0.0.1", nodes[i].ports().getFirst());
       }
     }
 
@@ -155,7 +158,8 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
       final int startInclusive = i * slotsPerNode;
       final int endExclusive = i == nodes.length - 1 ? SlotHash.SLOT_COUNT : (i + 1) * slotsPerNode;
 
-      try (final RedisClient assignSlotClient = RedisClient.create(RedisURI.create("127.0.0.1", nodes[i].ports().get(0)));
+      try (final RedisClient assignSlotClient = RedisClient.create(
+          RedisURI.create("127.0.0.1", nodes[i].ports().getFirst()));
           final StatefulRedisConnection<String, String> assignSlotConnection = assignSlotClient.connect()) {
         final int[] slots = new int[endExclusive - startInclusive];
 
@@ -167,7 +171,7 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
       }
     }
 
-    try (final RedisClient waitClient = RedisClient.create(RedisURI.create("127.0.0.1", nodes[0].ports().get(0)));
+    try (final RedisClient waitClient = RedisClient.create(RedisURI.create("127.0.0.1", nodes[0].ports().getFirst()));
         final StatefulRedisConnection<String, String> connection = waitClient.connect()) {
       // CLUSTER INFO gives us a big blob of key-value pairs, but the one we're interested in is `cluster_state`.
       // According to https://redis.io/commands/cluster-info, `cluster_state:ok` means that the node is ready to
@@ -181,7 +185,7 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
 
         if (tries == 20) {
           throw new RuntimeException(
-              String.format("Timeout: Redis not ready after waiting %d milliseconds", tries * sleepMillis));
+              "Timeout: Redis not ready after waiting %d milliseconds".formatted(tries * sleepMillis));
         }
       }
     }
@@ -215,20 +219,20 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
     }
   }
 
-  public static class RedisClusterExtensionBuilder {
+  public static class Builder {
 
     private Duration timeout = DEFAULT_TIMEOUT;
     private RetryConfiguration retryConfiguration = new RetryConfiguration();
 
-    private RedisClusterExtensionBuilder() {
+    private Builder() {
     }
 
-    RedisClusterExtensionBuilder timeout(Duration timeout) {
+    Builder timeout(Duration timeout) {
       this.timeout = timeout;
       return this;
     }
 
-    RedisClusterExtensionBuilder retryConfiguration(RetryConfiguration retryConfiguration) {
+    Builder retryConfiguration(RetryConfiguration retryConfiguration) {
       this.retryConfiguration = retryConfiguration;
       return this;
     }
