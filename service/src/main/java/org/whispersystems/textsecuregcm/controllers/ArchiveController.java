@@ -384,7 +384,7 @@ public class ArchiveController {
   }
 
 
-  public record MessageBackupResponse(
+  public record UploadDescriptorResponse(
       @Schema(description = "Indicates the CDN type. 3 indicates resumable uploads using TUS")
       int cdn,
       @Schema(description = "The location within the specified cdn where the finished upload can be found.")
@@ -400,10 +400,10 @@ public class ArchiveController {
   @Operation(
       summary = "Fetch message backup upload form",
       description = "Retrieve an upload form that can be used to perform a resumable upload of a message backup.")
-  @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = MessageBackupResponse.class)))
+  @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = UploadDescriptorResponse.class)))
   @ApiResponse(responseCode = "429", description = "Rate limited.")
   @ApiResponseZkAuth
-  public CompletionStage<MessageBackupResponse> backup(
+  public CompletionStage<UploadDescriptorResponse> backup(
       @ReadOnly @Auth final Optional<AuthenticatedAccount> account,
 
       @Parameter(description = BackupAuthCredentialPresentationHeader.DESCRIPTION, schema = @Schema(implementation = String.class))
@@ -418,7 +418,49 @@ public class ArchiveController {
     }
     return backupManager.authenticateBackupUser(presentation.presentation, signature.signature)
         .thenCompose(backupManager::createMessageBackupUploadDescriptor)
-        .thenApply(result -> new MessageBackupResponse(
+        .thenApply(result -> new UploadDescriptorResponse(
+            result.cdn(),
+            result.key(),
+            result.headers(),
+            result.signedUploadLocation()));
+  }
+
+  @GET
+  @Path("/media/upload/form")
+  @Produces(MediaType.APPLICATION_JSON)
+  @Operation(
+      summary = "Fetch media attachment upload form",
+      description = """
+          Retrieve an upload form that can be used to perform a resumable upload of an attachment. After uploading, the
+          attachment can be copied into the backup at PUT /archives/media/.
+
+          Like the account authenticated version at /attachments, the uploaded object is only temporary.
+          """)
+  @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = UploadDescriptorResponse.class)))
+  @ApiResponse(responseCode = "429", description = "Rate limited.")
+  @ApiResponseZkAuth
+  public CompletionStage<UploadDescriptorResponse> uploadTemporaryAttachment(
+      @ReadOnly @Auth final Optional<AuthenticatedAccount> account,
+
+      @Parameter(description = BackupAuthCredentialPresentationHeader.DESCRIPTION, schema = @Schema(implementation = String.class))
+      @NotNull
+      @HeaderParam(X_SIGNAL_ZK_AUTH) final ArchiveController.BackupAuthCredentialPresentationHeader presentation,
+
+      @Parameter(description = BackupAuthCredentialPresentationSignature.DESCRIPTION, schema = @Schema(implementation = String.class))
+      @NotNull
+      @HeaderParam(X_SIGNAL_ZK_AUTH_SIGNATURE) final BackupAuthCredentialPresentationSignature signature) {
+    if (account.isPresent()) {
+      throw new BadRequestException("must not use authenticated connection for anonymous operations");
+    }
+    return backupManager.authenticateBackupUser(presentation.presentation, signature.signature)
+        .thenApply(backupUser -> {
+          try {
+            return backupManager.createTemporaryAttachmentUploadDescriptor(backupUser);
+          } catch (RateLimitExceededException e) {
+            throw ExceptionUtils.wrap(e);
+          }
+        })
+        .thenApply(result -> new UploadDescriptorResponse(
             result.cdn(),
             result.key(),
             result.headers(),

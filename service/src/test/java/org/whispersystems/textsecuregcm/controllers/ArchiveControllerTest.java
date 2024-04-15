@@ -26,6 +26,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -36,7 +37,6 @@ import javax.ws.rs.client.Invocation;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import org.checkerframework.checker.units.qual.A;
 import org.glassfish.jersey.server.ServerProperties;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.BeforeEach;
@@ -68,6 +68,7 @@ import org.whispersystems.textsecuregcm.backup.BackupManager;
 import org.whispersystems.textsecuregcm.backup.BackupTier;
 import org.whispersystems.textsecuregcm.backup.InvalidLengthException;
 import org.whispersystems.textsecuregcm.backup.SourceObjectNotFoundException;
+import org.whispersystems.textsecuregcm.backup.BackupUploadDescriptor;
 import org.whispersystems.textsecuregcm.mappers.CompletionExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.GrpcStatusRuntimeExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
@@ -108,6 +109,7 @@ public class ArchiveControllerTest {
       GET,    v1/archives/auth/read,
       GET,    v1/archives/,
       GET,    v1/archives/upload/form,
+      GET,    v1/archives/media/upload/form,
       POST,   v1/archives/,
       PUT,    v1/archives/keys, '{"backupIdPublicKey": "aaaaa"}'
       PUT,    v1/archives/media, '{
@@ -530,6 +532,38 @@ public class ArchiveControllerTest {
         .post(Entity.json(deleteRequest));
     assertThat(response.getStatus()).isEqualTo(204);
   }
+
+  @Test
+  public void mediaUploadForm() throws RateLimitExceededException, VerificationFailedException {
+    final BackupAuthCredentialPresentation presentation =
+        backupAuthTestUtil.getPresentation(BackupTier.MEDIA, backupKey, aci);
+    when(backupManager.authenticateBackupUser(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(backupUser(presentation.getBackupId(), BackupTier.MEDIA)));
+    when(backupManager.createTemporaryAttachmentUploadDescriptor(any()))
+        .thenReturn(new BackupUploadDescriptor(3, "abc", Map.of("k", "v"), "example.org"));
+    final ArchiveController.UploadDescriptorResponse desc = resources.getJerseyTest()
+        .target("v1/archives/media/upload/form")
+        .request()
+        .header("X-Signal-ZK-Auth", Base64.getEncoder().encodeToString(presentation.serialize()))
+        .header("X-Signal-ZK-Auth-Signature", "aaa")
+        .get(ArchiveController.UploadDescriptorResponse.class);
+    assertThat(desc.cdn()).isEqualTo(3);
+    assertThat(desc.key()).isEqualTo("abc");
+    assertThat(desc.headers()).containsExactlyEntriesOf(Map.of("k", "v"));
+    assertThat(desc.signedUploadLocation()).isEqualTo("example.org");
+
+    // rate limit
+    when(backupManager.createTemporaryAttachmentUploadDescriptor(any()))
+        .thenThrow(new RateLimitExceededException(null, false));
+    final Response response = resources.getJerseyTest()
+        .target("v1/archives/media/upload/form")
+        .request()
+        .header("X-Signal-ZK-Auth", Base64.getEncoder().encodeToString(presentation.serialize()))
+        .header("X-Signal-ZK-Auth-Signature", "aaa")
+        .get();
+    assertThat(response.getStatus()).isEqualTo(429);
+  }
+
 
   private static AuthenticatedBackupUser backupUser(byte[] backupId, BackupTier backupTier) {
     return new AuthenticatedBackupUser(backupId, backupTier, "myBackupDir", "myMediaDir");

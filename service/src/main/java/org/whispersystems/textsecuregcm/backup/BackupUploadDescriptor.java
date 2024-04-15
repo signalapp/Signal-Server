@@ -7,7 +7,7 @@ package org.whispersystems.textsecuregcm.backup;
 
 import java.util.Map;
 
-public record MessageBackupUploadDescriptor(
+public record BackupUploadDescriptor(
     int cdn,
     String key,
     Map<String, String> headers,

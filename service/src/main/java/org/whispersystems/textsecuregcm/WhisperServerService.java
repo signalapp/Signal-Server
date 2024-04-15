@@ -709,6 +709,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ServerZkAuthOperations zkAuthOperations = new ServerZkAuthOperations(zkSecretParams);
     ServerZkReceiptOperations zkReceiptOperations = new ServerZkReceiptOperations(zkSecretParams);
 
+    TusAttachmentGenerator tusAttachmentGenerator = new TusAttachmentGenerator(config.getTus());
     Cdn3BackupCredentialGenerator cdn3BackupCredentialGenerator = new Cdn3BackupCredentialGenerator(config.getTus());
     BackupAuthManager backupAuthManager = new BackupAuthManager(experimentEnrollmentManager, rateLimiters,
         accountsManager, zkReceiptOperations, redeemedReceiptsManager, backupsGenericZkSecretParams, clock);
@@ -719,6 +720,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     BackupManager backupManager = new BackupManager(
         backupsDb,
         backupsGenericZkSecretParams,
+        rateLimiters,
+        tusAttachmentGenerator,
         cdn3BackupCredentialGenerator,
         new Cdn3RemoteStorageManager(
             remoteStorageExecutor,
@@ -947,7 +950,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             config.getAwsAttachmentsConfiguration().accessSecret().value(),
             config.getAwsAttachmentsConfiguration().region(), config.getAwsAttachmentsConfiguration().bucket()),
         new AttachmentControllerV3(rateLimiters, gcsAttachmentGenerator),
-        new AttachmentControllerV4(rateLimiters, gcsAttachmentGenerator, new TusAttachmentGenerator(config.getTus()),
+        new AttachmentControllerV4(rateLimiters, gcsAttachmentGenerator, tusAttachmentGenerator,
             experimentEnrollmentManager),
         new ArchiveController(backupAuthManager, backupManager),
         new CallRoutingController(rateLimiters, callRouter, turnTokenGenerator),

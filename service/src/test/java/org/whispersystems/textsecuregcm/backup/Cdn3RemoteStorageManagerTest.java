@@ -124,7 +124,7 @@ public class Cdn3RemoteStorageManagerTest {
             URI.create(wireMock.url("/cdn" + sourceCdn + "/source/small")),
             expectedSource.length(),
             encryptionParameters,
-            new MessageBackupUploadDescriptor(3, "test", Collections.emptyMap(), wireMock.url("/cdn3/dest")))
+            new BackupUploadDescriptor(3, "test", Collections.emptyMap(), wireMock.url("/cdn3/dest")))
         .toCompletableFuture().join();
 
     final byte[] destBody = wireMock.findAll(postRequestedFor(urlEqualTo("/cdn3/dest"))).get(0).getBody();
@@ -148,7 +148,7 @@ public class Cdn3RemoteStorageManagerTest {
             URI.create(wireMock.url("/cdn3/source/large")),
             LARGE.length(),
             params,
-            new MessageBackupUploadDescriptor(3, "test", Collections.emptyMap(), wireMock.url("/cdn3/dest")))
+            new BackupUploadDescriptor(3, "test", Collections.emptyMap(), wireMock.url("/cdn3/dest")))
         .toCompletableFuture().join();
 
     final byte[] destBody = wireMock.findAll(postRequestedFor(urlEqualTo("/cdn3/dest"))).get(0).getBody();
@@ -165,7 +165,7 @@ public class Cdn3RemoteStorageManagerTest {
                 URI.create(wireMock.url("/cdn3/source/small")),
                 SMALL_CDN3.length() - 1,
                 new MediaEncryptionParameters(AES_KEY, HMAC_KEY, IV),
-                new MessageBackupUploadDescriptor(3, "test", Collections.emptyMap(), wireMock.url("/cdn3/dest")))
+                new BackupUploadDescriptor(3, "test", Collections.emptyMap(), wireMock.url("/cdn3/dest")))
             .toCompletableFuture());
   }
 
@@ -176,7 +176,7 @@ public class Cdn3RemoteStorageManagerTest {
                 URI.create(wireMock.url("/cdn3/source/missing")),
                 1,
                 new MediaEncryptionParameters(AES_KEY, HMAC_KEY, IV),
-                new MessageBackupUploadDescriptor(3, "test", Collections.emptyMap(), wireMock.url("/cdn3/dest")))
+                new BackupUploadDescriptor(3, "test", Collections.emptyMap(), wireMock.url("/cdn3/dest")))
             .toCompletableFuture());
   }
 

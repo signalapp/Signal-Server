@@ -22,7 +22,7 @@ public class Cdn3BackupCredentialGeneratorTest {
         new SecretBytes(TestRandomUtil.nextBytes(32)),
         "https://example.org/upload"));
 
-    final MessageBackupUploadDescriptor messageBackupUploadDescriptor = generator.generateUpload("subdir/key");
+    final BackupUploadDescriptor messageBackupUploadDescriptor = generator.generateUpload("subdir/key");
     assertThat(messageBackupUploadDescriptor.signedUploadLocation()).isEqualTo("https://example.org/upload/backups");
     assertThat(messageBackupUploadDescriptor.key()).isEqualTo("subdir/key");
     assertThat(messageBackupUploadDescriptor.headers()).containsKey("Authorization");

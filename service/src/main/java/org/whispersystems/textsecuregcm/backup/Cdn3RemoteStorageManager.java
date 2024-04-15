@@ -113,7 +113,7 @@ public class Cdn3RemoteStorageManager implements RemoteStorageManager {
       final URI sourceUri,
       final int expectedSourceLength,
       final MediaEncryptionParameters encryptionParameters,
-      final MessageBackupUploadDescriptor uploadDescriptor) {
+      final BackupUploadDescriptor uploadDescriptor) {
 
     if (uploadDescriptor.cdn() != cdnNumber()) {
       throw new IllegalArgumentException("Cdn3RemoteStorageManager can only copy to cdn3");
@@ -152,7 +152,7 @@ public class Cdn3RemoteStorageManager implements RemoteStorageManager {
 
   private HttpRequest createCopyRequest(
       final int expectedSourceLength,
-      final MessageBackupUploadDescriptor uploadDescriptor,
+      final BackupUploadDescriptor uploadDescriptor,
       BackupMediaEncrypter encrypter,
       HttpResponse<Flow.Publisher<List<ByteBuffer>>> response) throws IOException {
     if (response.statusCode() == Response.Status.NOT_FOUND.getStatusCode()) {

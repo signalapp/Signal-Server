@@ -19,6 +19,7 @@ import org.signal.libsignal.zkgroup.GenericServerSecretParams;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.WhisperServerService;
+import org.whispersystems.textsecuregcm.attachments.TusAttachmentGenerator;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.backup.BackupManager;
 import org.whispersystems.textsecuregcm.backup.BackupsDb;
@@ -27,6 +28,7 @@ import org.whispersystems.textsecuregcm.backup.Cdn3RemoteStorageManager;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.SecureStorageController;
 import org.whispersystems.textsecuregcm.controllers.SecureValueRecovery2Controller;
+import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.ClusterFaultTolerantRedisCluster;
@@ -198,6 +200,8 @@ record CommandDependencies(
         secureStorageClient, secureValueRecovery2Client, clientPresenceManager,
         registrationRecoveryPasswordsManager, accountLockExecutor, clientPresenceExecutor,
         clock);
+    RateLimiters rateLimiters = RateLimiters.createAndValidate(configuration.getLimitsConfiguration(),
+        dynamicConfigurationManager, rateLimitersCluster);
     final BackupsDb backupsDb =
         new BackupsDb(dynamoDbAsyncClient, configuration.getDynamoDbTables().getBackups().getTableName(), clock);
     final GenericServerSecretParams backupsGenericZkSecretParams;
@@ -210,6 +214,8 @@ record CommandDependencies(
     final BackupManager backupManager = new BackupManager(
         backupsDb,
         backupsGenericZkSecretParams,
+        rateLimiters,
+        new TusAttachmentGenerator(configuration.getTus()),
         new Cdn3BackupCredentialGenerator(configuration.getTus()),
         new Cdn3RemoteStorageManager(
             remoteStorageExecutor,

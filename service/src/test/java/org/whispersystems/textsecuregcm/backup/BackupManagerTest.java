@@ -13,6 +13,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
@@ -60,7 +61,11 @@ import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.zkgroup.GenericServerSecretParams;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.signal.libsignal.zkgroup.backups.BackupAuthCredentialPresentation;
+import org.whispersystems.textsecuregcm.attachments.TusAttachmentGenerator;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedBackupUser;
+import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
+import org.whispersystems.textsecuregcm.limits.RateLimiter;
+import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtension;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
@@ -79,6 +84,8 @@ public class BackupManagerTest {
 
   private final TestClock testClock = TestClock.now();
   private final BackupAuthTestUtil backupAuthTestUtil = new BackupAuthTestUtil(testClock);
+  private final RateLimiter mediaUploadLimiter = mock(RateLimiter.class);
+  private final TusAttachmentGenerator tusAttachmentGenerator = mock(TusAttachmentGenerator.class);
   private final Cdn3BackupCredentialGenerator tusCredentialGenerator = mock(Cdn3BackupCredentialGenerator.class);
   private final RemoteStorageManager remoteStorageManager = mock(RemoteStorageManager.class);
   private final byte[] backupKey = TestRandomUtil.nextBytes(32);
@@ -90,8 +97,12 @@ public class BackupManagerTest {
 
   @BeforeEach
   public void setup() {
-    reset(tusCredentialGenerator);
+    reset(tusCredentialGenerator, mediaUploadLimiter);
     testClock.unpin();
+
+    final RateLimiters rateLimiters = mock(RateLimiters.class);
+    when(rateLimiters.forDescriptor(RateLimiters.For.BACKUP_ATTACHMENT)).thenReturn(mediaUploadLimiter);
+
     this.backupsDb = new BackupsDb(
         DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
         DynamoDbExtensionSchema.Tables.BACKUPS.tableName(),
@@ -99,6 +110,8 @@ public class BackupManagerTest {
     this.backupManager = new BackupManager(
         backupsDb,
         backupAuthTestUtil.params,
+        rateLimiters,
+        tusAttachmentGenerator,
         tusCredentialGenerator,
         remoteStorageManager,
         Map.of(3, "cdn3.example.org/attachments"),
@@ -125,6 +138,28 @@ public class BackupManagerTest {
 
     // Check that the initial expiration times are the initial write times
     checkExpectedExpirations(now, backupTier == BackupTier.MEDIA ? now : null, backupUser);
+  }
+
+  @Test
+  public void createTemporaryMediaAttachmentRateLimited() throws RateLimitExceededException {
+    final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupTier.MEDIA);
+    doThrow(new RateLimitExceededException(null, true))
+        .when(mediaUploadLimiter)
+        .validate(eq(BackupManager.rateLimitKey(backupUser)));
+
+    assertThatExceptionOfType(RateLimitExceededException.class)
+        .isThrownBy(() -> backupManager.createTemporaryAttachmentUploadDescriptor(backupUser))
+        .satisfies(e -> assertThat(e.isLegacy()).isFalse());
+  }
+
+  @Test
+  public void createTemporaryMediaAttachmentWrongTier() throws RateLimitExceededException {
+    final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupTier.MESSAGES);
+    assertThatExceptionOfType(StatusRuntimeException.class)
+        .isThrownBy(() -> backupManager.createTemporaryAttachmentUploadDescriptor(backupUser))
+        .extracting(StatusRuntimeException::getStatus)
+        .extracting(Status::getCode)
+        .isEqualTo(Status.Code.PERMISSION_DENIED);
   }
 
   @ParameterizedTest
@@ -317,7 +352,7 @@ public class BackupManagerTest {
   public void copySuccess() {
     final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupTier.MEDIA);
     when(tusCredentialGenerator.generateUpload(any()))
-        .thenReturn(new MessageBackupUploadDescriptor(3, "def", Collections.emptyMap(), ""));
+        .thenReturn(new BackupUploadDescriptor(3, "def", Collections.emptyMap(), ""));
     when(remoteStorageManager.copy(eq(URI.create("cdn3.example.org/attachments/abc")), eq(100), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(null));
     final MediaEncryptionParameters encryptionParams = new MediaEncryptionParameters(
@@ -343,7 +378,7 @@ public class BackupManagerTest {
   public void copyFailure() {
     final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupTier.MEDIA);
     when(tusCredentialGenerator.generateUpload(any()))
-        .thenReturn(new MessageBackupUploadDescriptor(3, "def", Collections.emptyMap(), ""));
+        .thenReturn(new BackupUploadDescriptor(3, "def", Collections.emptyMap(), ""));
     when(remoteStorageManager.copy(eq(URI.create("cdn3.example.org/attachments/abc")), eq(100), any(), any()))
         .thenReturn(CompletableFuture.failedFuture(new SourceObjectNotFoundException()));
 

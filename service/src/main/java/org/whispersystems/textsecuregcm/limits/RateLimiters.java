@@ -26,6 +26,7 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
     VERIFY("verify", false, new RateLimiterConfig(6, Duration.ofSeconds(30))),
     PIN("pin", false, new RateLimiterConfig(10, Duration.ofDays(1))),
     ATTACHMENT("attachmentCreate", false, new RateLimiterConfig(50, Duration.ofMillis(1200))),
+    BACKUP_ATTACHMENT("backupAttachmentCreate", true, new RateLimiterConfig(10_000, Duration.ofSeconds(1))),
     PRE_KEYS("prekeys", false, new RateLimiterConfig(6, Duration.ofMinutes(10))),
     MESSAGES("messages", false, new RateLimiterConfig(60, Duration.ofSeconds(1))),
     STORIES("stories", false, new RateLimiterConfig(5_000, Duration.ofSeconds(8))),

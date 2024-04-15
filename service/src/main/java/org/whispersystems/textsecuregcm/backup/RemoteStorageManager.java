@@ -36,7 +36,7 @@ public interface RemoteStorageManager {
       URI sourceUri,
       int expectedSourceLength,
       MediaEncryptionParameters encryptionParameters,
-      MessageBackupUploadDescriptor uploadDescriptor);
+      BackupUploadDescriptor uploadDescriptor);
 
   /**
    * Result of a {@link #list} operation

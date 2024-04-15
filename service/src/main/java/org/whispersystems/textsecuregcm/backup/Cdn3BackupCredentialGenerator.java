@@ -49,7 +49,7 @@ public class Cdn3BackupCredentialGenerator {
         .build();
   }
 
-  public MessageBackupUploadDescriptor generateUpload(final String key) {
+  public BackupUploadDescriptor generateUpload(final String key) {
     if (key.isBlank()) {
       throw new IllegalArgumentException("Upload descriptors must have non-empty keys");
     }
@@ -60,7 +60,7 @@ public class Cdn3BackupCredentialGenerator {
         HttpHeaders.AUTHORIZATION, HeaderUtils.basicAuthHeader(credentials),
         "Upload-Metadata", String.format("filename %s", b64Key));
 
-    return new MessageBackupUploadDescriptor(
+    return new BackupUploadDescriptor(
         BACKUP_CDN,
         key,
         headers,

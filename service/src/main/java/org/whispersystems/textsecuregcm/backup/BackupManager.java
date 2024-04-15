@@ -11,6 +11,7 @@ import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
 import java.io.IOException;
 import java.net.URI;
+import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -30,7 +31,12 @@ import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.signal.libsignal.zkgroup.backups.BackupAuthCredentialPresentation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.attachments.AttachmentGenerator;
+import org.whispersystems.textsecuregcm.attachments.TusAttachmentGenerator;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedBackupUser;
+import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
+import org.whispersystems.textsecuregcm.limits.RateLimiter;
+import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import reactor.core.publisher.Flux;
@@ -59,21 +65,28 @@ public class BackupManager {
 
   private final BackupsDb backupsDb;
   private final GenericServerSecretParams serverSecretParams;
+  private final RateLimiters rateLimiters;
+  private final TusAttachmentGenerator tusAttachmentGenerator;
   private final Cdn3BackupCredentialGenerator cdn3BackupCredentialGenerator;
   private final RemoteStorageManager remoteStorageManager;
   private final Map<Integer, String> attachmentCdnBaseUris;
+  private final SecureRandom secureRandom = new SecureRandom();
   private final Clock clock;
 
 
   public BackupManager(
       final BackupsDb backupsDb,
       final GenericServerSecretParams serverSecretParams,
+      final RateLimiters rateLimiters,
+      final TusAttachmentGenerator tusAttachmentGenerator,
       final Cdn3BackupCredentialGenerator cdn3BackupCredentialGenerator,
       final RemoteStorageManager remoteStorageManager,
       final Map<Integer, String> attachmentCdnBaseUris,
       final Clock clock) {
     this.backupsDb = backupsDb;
     this.serverSecretParams = serverSecretParams;
+    this.rateLimiters = rateLimiters;
+    this.tusAttachmentGenerator = tusAttachmentGenerator;
     this.cdn3BackupCredentialGenerator = cdn3BackupCredentialGenerator;
     this.remoteStorageManager = remoteStorageManager;
     this.clock = clock;
@@ -131,12 +144,29 @@ public class BackupManager {
    * @param backupUser an already ZK authenticated backup user
    * @return the upload form
    */
-  public CompletableFuture<MessageBackupUploadDescriptor> createMessageBackupUploadDescriptor(
+  public CompletableFuture<BackupUploadDescriptor> createMessageBackupUploadDescriptor(
       final AuthenticatedBackupUser backupUser) {
+    checkBackupTier(backupUser, BackupTier.MESSAGES);
+
     // this could race with concurrent updates, but the only effect would be last-writer-wins on the timestamp
     return backupsDb
         .addMessageBackup(backupUser)
         .thenApply(result -> cdn3BackupCredentialGenerator.generateUpload(cdnMessageBackupName(backupUser)));
+  }
+
+  public BackupUploadDescriptor createTemporaryAttachmentUploadDescriptor(final AuthenticatedBackupUser backupUser)
+      throws RateLimitExceededException {
+    checkBackupTier(backupUser, BackupTier.MEDIA);
+
+    RateLimiter.adaptLegacyException(() -> rateLimiters
+        .forDescriptor(RateLimiters.For.BACKUP_ATTACHMENT)
+        .validate(rateLimitKey(backupUser)));
+
+    final byte[] bytes = new byte[15];
+    secureRandom.nextBytes(bytes);
+    final String attachmentKey = Base64.getUrlEncoder().encodeToString(bytes);
+    final AttachmentGenerator.Descriptor descriptor = tusAttachmentGenerator.generateAttachment(attachmentKey);
+    return new BackupUploadDescriptor(3, attachmentKey, descriptor.headers(), descriptor.signedUploadLocation());
   }
 
   /**
@@ -145,12 +175,7 @@ public class BackupManager {
    * @param backupUser an already ZK authenticated backup user
    */
   public CompletableFuture<Void> ttlRefresh(final AuthenticatedBackupUser backupUser) {
-    if (backupUser.backupTier().compareTo(BackupTier.MESSAGES) < 0) {
-      Metrics.counter(ZK_AUTHZ_FAILURE_COUNTER_NAME).increment();
-      throw Status.PERMISSION_DENIED
-          .withDescription("credential does not support ttl operation")
-          .asRuntimeException();
-    }
+    checkBackupTier(backupUser, BackupTier.MESSAGES);
     // update message backup TTL
     return backupsDb.ttlRefresh(backupUser);
   }
@@ -165,11 +190,7 @@ public class BackupManager {
    * @return Information about the existing backup
    */
   public CompletableFuture<BackupInfo> backupInfo(final AuthenticatedBackupUser backupUser) {
-    if (backupUser.backupTier().compareTo(BackupTier.MESSAGES) < 0) {
-      Metrics.counter(ZK_AUTHZ_FAILURE_COUNTER_NAME).increment();
-      throw Status.PERMISSION_DENIED.withDescription("credential does not support info operation")
-          .asRuntimeException();
-    }
+    checkBackupTier(backupUser, BackupTier.MESSAGES);
     return backupsDb.describeBackup(backupUser)
         .thenApply(backupDescription -> new BackupInfo(
             backupDescription.cdn(),
@@ -187,12 +208,7 @@ public class BackupManager {
    * @return true if mediaLength bytes can be stored
    */
   public CompletableFuture<Boolean> canStoreMedia(final AuthenticatedBackupUser backupUser, final long mediaLength) {
-    if (backupUser.backupTier().compareTo(BackupTier.MEDIA) < 0) {
-      Metrics.counter(ZK_AUTHZ_FAILURE_COUNTER_NAME).increment();
-      throw Status.PERMISSION_DENIED
-          .withDescription("credential does not support storing media")
-          .asRuntimeException();
-    }
+    checkBackupTier(backupUser, BackupTier.MEDIA);
     return backupsDb.getMediaUsage(backupUser)
         .thenComposeAsync(info -> {
           final boolean canStore = MAX_TOTAL_BACKUP_MEDIA_BYTES - info.usageInfo().bytesUsed() >= mediaLength;
@@ -243,12 +259,7 @@ public class BackupManager {
       final int sourceLength,
       final MediaEncryptionParameters encryptionParameters,
       final byte[] destinationMediaId) {
-    if (backupUser.backupTier().compareTo(BackupTier.MEDIA) < 0) {
-      Metrics.counter(ZK_AUTHZ_FAILURE_COUNTER_NAME).increment();
-      throw Status.PERMISSION_DENIED
-          .withDescription("credential does not support storing media")
-          .asRuntimeException();
-    }
+    checkBackupTier(backupUser, BackupTier.MEDIA);
     if (sourceLength > MAX_MEDIA_OBJECT_SIZE) {
       throw Status.INVALID_ARGUMENT
           .withDescription("Invalid sourceObject size")
@@ -262,7 +273,7 @@ public class BackupManager {
       return CompletableFuture.failedFuture(e);
     }
 
-    final MessageBackupUploadDescriptor dst = cdn3BackupCredentialGenerator.generateUpload(
+    final BackupUploadDescriptor dst = cdn3BackupCredentialGenerator.generateUpload(
         cdnMediaPath(backupUser, destinationMediaId));
 
     final int destinationLength = encryptionParameters.outputSize(sourceLength);
@@ -309,12 +320,7 @@ public class BackupManager {
    * @return A map of headers to include with CDN requests
    */
   public Map<String, String> generateReadAuth(final AuthenticatedBackupUser backupUser) {
-    if (backupUser.backupTier().compareTo(BackupTier.MESSAGES) < 0) {
-      Metrics.counter(ZK_AUTHZ_FAILURE_COUNTER_NAME).increment();
-      throw Status.PERMISSION_DENIED
-          .withDescription("credential does not support read auth operation")
-          .asRuntimeException();
-    }
+    checkBackupTier(backupUser, BackupTier.MESSAGES);
     return cdn3BackupCredentialGenerator.readHeaders(backupUser.backupDir());
   }
 
@@ -339,12 +345,7 @@ public class BackupManager {
       final AuthenticatedBackupUser backupUser,
       final Optional<String> cursor,
       final int limit) {
-    if (backupUser.backupTier().compareTo(BackupTier.MESSAGES) < 0) {
-      Metrics.counter(ZK_AUTHZ_FAILURE_COUNTER_NAME).increment();
-      throw Status.PERMISSION_DENIED
-          .withDescription("credential does not support list operation")
-          .asRuntimeException();
-    }
+    checkBackupTier(backupUser, BackupTier.MESSAGES);
     return remoteStorageManager.list(cdnMediaDirectory(backupUser), cursor, limit)
         .thenApply(result ->
             new ListMediaResult(
@@ -370,12 +371,7 @@ public class BackupManager {
 
   public CompletableFuture<Void> delete(final AuthenticatedBackupUser backupUser,
       final List<StorageDescriptor> storageDescriptors) {
-    if (backupUser.backupTier().compareTo(BackupTier.MESSAGES) < 0) {
-      Metrics.counter(ZK_AUTHZ_FAILURE_COUNTER_NAME).increment();
-      throw Status.PERMISSION_DENIED
-          .withDescription("credential does not support list operation")
-          .asRuntimeException();
-    }
+    checkBackupTier(backupUser, BackupTier.MESSAGES);
 
     if (storageDescriptors.stream().anyMatch(sd -> sd.cdn() != remoteStorageManager.cdnNumber())) {
       throw Status.INVALID_ARGUMENT
@@ -430,6 +426,7 @@ public class BackupManager {
   }
 
   private static final ECPublicKey INVALID_PUBLIC_KEY = Curve.generateKeyPair().getPublicKey();
+
   /**
    * Authenticate the ZK anonymous backup credential's presentation
    * <p>
@@ -532,6 +529,7 @@ public class BackupManager {
   }
 
   interface PresentationSignatureVerifier {
+
     BackupTier verifySignature(byte[] signature, ECPublicKey publicKey);
   }
 
@@ -576,6 +574,22 @@ public class BackupManager {
     };
   }
 
+  /**
+   * Check that the authenticated backup user is authorized to use the provided backupTier
+   *
+   * @param backupUser The backup user to check
+   * @param backupTier The authorization level to verify the backupUser has access to
+   * @throws {@link Status#PERMISSION_DENIED} error if the backup user is not authorized to access {@code backupTier}
+   */
+  private static void checkBackupTier(final AuthenticatedBackupUser backupUser, final BackupTier backupTier) {
+    if (backupUser.backupTier().compareTo(backupTier) < 0) {
+      Metrics.counter(ZK_AUTHZ_FAILURE_COUNTER_NAME).increment();
+      throw Status.PERMISSION_DENIED
+          .withDescription("credential does not support the requested operation")
+          .asRuntimeException();
+    }
+  }
+
   @VisibleForTesting
   static String encodeMediaIdForCdn(final byte[] bytes) {
     return Base64.getUrlEncoder().encodeToString(bytes);
@@ -595,5 +609,9 @@ public class BackupManager {
 
   private static String cdnMediaPath(final AuthenticatedBackupUser backupUser, final byte[] mediaId) {
     return "%s%s".formatted(cdnMediaDirectory(backupUser), encodeMediaIdForCdn(mediaId));
+  }
+
+  static String rateLimitKey(final AuthenticatedBackupUser backupUser) {
+    return Base64.getEncoder().encodeToString(BackupsDb.hashedBackupId(backupUser.backupId()));
   }
 }
