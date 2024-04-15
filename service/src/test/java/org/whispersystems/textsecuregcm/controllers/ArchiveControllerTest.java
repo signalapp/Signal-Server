@@ -564,6 +564,44 @@ public class ArchiveControllerTest {
     assertThat(response.getStatus()).isEqualTo(429);
   }
 
+  @Test
+  public void readAuth() throws VerificationFailedException {
+    final BackupAuthCredentialPresentation presentation =
+        backupAuthTestUtil.getPresentation(BackupTier.MEDIA, backupKey, aci);
+    when(backupManager.authenticateBackupUser(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(backupUser(presentation.getBackupId(), BackupTier.MEDIA)));
+    when(backupManager.generateReadAuth(any(), eq(3))).thenReturn(Map.of("key", "value"));
+    final ArchiveController.ReadAuthResponse response = resources.getJerseyTest()
+        .target("v1/archives/auth/read")
+        .queryParam("cdn", 3)
+        .request()
+        .header("X-Signal-ZK-Auth", Base64.getEncoder().encodeToString(presentation.serialize()))
+        .header("X-Signal-ZK-Auth-Signature", "aaa")
+        .get(ArchiveController.ReadAuthResponse.class);
+    assertThat(response.headers()).containsExactlyEntriesOf(Map.of("key", "value"));
+  }
+
+  @Test
+  public void readAuthInvalidParam() throws VerificationFailedException {
+    final BackupAuthCredentialPresentation presentation =
+        backupAuthTestUtil.getPresentation(BackupTier.MEDIA, backupKey, aci);
+    Response response = resources.getJerseyTest()
+        .target("v1/archives/auth/read")
+        .request()
+        .header("X-Signal-ZK-Auth", Base64.getEncoder().encodeToString(presentation.serialize()))
+        .header("X-Signal-ZK-Auth-Signature", "aaa")
+        .get();
+    assertThat(response.getStatus()).isEqualTo(400);
+
+    response = resources.getJerseyTest()
+        .target("v1/archives/auth/read")
+        .queryParam("abc")
+        .request()
+        .header("X-Signal-ZK-Auth", Base64.getEncoder().encodeToString(presentation.serialize()))
+        .header("X-Signal-ZK-Auth-Signature", "aaa")
+        .get();
+    assertThat(response.getStatus()).isEqualTo(400);
+  }
 
   private static AuthenticatedBackupUser backupUser(byte[] backupId, BackupTier backupTier) {
     return new AuthenticatedBackupUser(backupId, backupTier, "myBackupDir", "myMediaDir");

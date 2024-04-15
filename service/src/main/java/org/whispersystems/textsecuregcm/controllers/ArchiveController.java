@@ -280,12 +280,14 @@ public class ArchiveController {
 
       @Parameter(description = BackupAuthCredentialPresentationSignature.DESCRIPTION, schema = @Schema(implementation = String.class))
       @NotNull
-      @HeaderParam(X_SIGNAL_ZK_AUTH_SIGNATURE) final BackupAuthCredentialPresentationSignature signature) {
+      @HeaderParam(X_SIGNAL_ZK_AUTH_SIGNATURE) final BackupAuthCredentialPresentationSignature signature,
+
+      @NotNull @Parameter(description = "The number of the CDN to get credentials for") @QueryParam("cdn") final Integer cdn) {
     if (account.isPresent()) {
       throw new BadRequestException("must not use authenticated connection for anonymous operations");
     }
     return backupManager.authenticateBackupUser(presentation.presentation, signature.signature)
-        .thenApply(backupManager::generateReadAuth)
+        .thenApply(user -> backupManager.generateReadAuth(user, cdn))
         .thenApply(ReadAuthResponse::new);
   }
 

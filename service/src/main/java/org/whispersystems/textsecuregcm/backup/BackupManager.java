@@ -317,10 +317,14 @@ public class BackupManager {
    * Generate credentials that can be used to read from the backup CDN
    *
    * @param backupUser an already ZK authenticated backup user
+   * @param cdnNumber the cdn number to get backup credentials for
    * @return A map of headers to include with CDN requests
    */
-  public Map<String, String> generateReadAuth(final AuthenticatedBackupUser backupUser) {
+  public Map<String, String> generateReadAuth(final AuthenticatedBackupUser backupUser, final int cdnNumber) {
     checkBackupTier(backupUser, BackupTier.MESSAGES);
+    if (cdnNumber != 3) {
+      throw Status.INVALID_ARGUMENT.withDescription("unknown cdn").asRuntimeException();
+    }
     return cdn3BackupCredentialGenerator.readHeaders(backupUser.backupDir());
   }
 
