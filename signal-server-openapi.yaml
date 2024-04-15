@@ -588,7 +588,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MessageBackupResponse'
+                $ref: '#/components/schemas/UploadDescriptorResponse'
         "429":
           description: Rate limited.
         "403":
@@ -926,6 +926,12 @@ paths:
         operations against that backup-id. Clients may (and should) request up to 7 days of credentials at a time.
 
         The redemptionStart and redemptionEnd seconds must be UTC day aligned, and must not span more than 7 days.
+
+        Each credential contains a receipt level which indicates the backup level the credential is good for. If the
+        account has paid backup access that expires at some point in the provided redemption window, credentials with
+        redemption times after the expiration may be on a lower backup level.
+
+        Clients must validate the receipt level on the credential matches a known receipt level before using it.
       operationId: getBackupZKCredentials
       parameters:
       - name: redemptionStartSeconds
@@ -977,6 +983,13 @@ paths:
         required: true
         schema:
           type: string
+      - name: cdn
+        in: query
+        description: The number of the CDN to get credentials for
+        required: true
+        schema:
+          type: integer
+          format: int32
       responses:
         "200":
           content:
@@ -999,6 +1012,33 @@ paths:
       security:
       - authenticatedAccount: []
       - {}
+  /v1/archives/redeem-receipt:
+    post:
+      tags:
+      - Archive
+      summary: Redeem receipt
+      description: |
+        Redeem a receipt acquired from /v1/subscription/{subscriberId}/receipt_credentials to mark the account as
+        eligible for the paid backup tier.
+
+        After successful redemption, subsequent requests to /v1/archive/auth will return credentials with the level on
+        the provided receipt until the expiration time on the receipt.
+      operationId: redeemReceipt
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RedeemReceiptRequest'
+        required: true
+      responses:
+        "204":
+          description: The receipt was redeemed
+        "400":
+          description: The provided presentation or receipt was invalid
+        "429":
+          description: Rate limited.
+      security:
+      - authenticatedAccount: []
   /v1/archives/backupid:
     put:
       tags:
@@ -1061,6 +1101,54 @@ paths:
       responses:
         "204":
           description: The public key was set
+        "429":
+          description: Rate limited.
+        "403":
+          description: Forbidden. The request had insufficient permissions to perform
+            the requested action
+        "401":
+          description: |-
+            The provided backup auth credential presentation could not be verified or
+            The public key signature was invalid or
+            There is no backup associated with the backup-id in the presentation
+        "400":
+          description: Bad arguments. The request may have been made on an authenticated
+            channel
+      security:
+      - authenticatedAccount: []
+      - {}
+  /v1/archives/media/upload/form:
+    get:
+      tags:
+      - Archive
+      summary: Fetch media attachment upload form
+      description: |
+        Retrieve an upload form that can be used to perform a resumable upload of an attachment. After uploading, the
+        attachment can be copied into the backup at PUT /archives/media/.
+
+        Like the account authenticated version at /attachments, the uploaded object is only temporary.
+      operationId: uploadTemporaryAttachment
+      parameters:
+      - name: X-Signal-ZK-Auth
+        in: header
+        description: "Presentation of a ZK backup auth credential acquired from /v1/archives/auth,\
+          \ encoded in standard padded base64"
+        required: true
+        schema:
+          type: string
+      - name: X-Signal-ZK-Auth-Signature
+        in: header
+        description: "Signature of the ZK auth credential's presentation, encoded\
+          \ in standard padded base64"
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadDescriptorResponse'
         "429":
           description: Rate limited.
         "403":
@@ -1495,7 +1583,7 @@ paths:
     post:
       tags:
       - Donations
-      operationId: redeemReceipt
+      operationId: redeemReceipt_1
       requestBody:
         content:
           application/json:
@@ -3435,7 +3523,7 @@ components:
       properties:
         discoverableByPhoneNumber:
           type: boolean
-    MessageBackupResponse:
+    UploadDescriptorResponse:
       type: object
       properties:
         cdn:
@@ -3677,6 +3765,20 @@ components:
             type: string
             description: Auth headers to include with cdn read requests
           description: Auth headers to include with cdn read requests
+    RedeemReceiptRequest:
+      required:
+      - receiptCredentialPresentation
+      type: object
+      properties:
+        receiptCredentialPresentation:
+          type: array
+          items:
+            type: string
+            format: byte
+        visible:
+          type: boolean
+        primary:
+          type: boolean
     SetBackupIdRequest:
       required:
       - backupAuthCredentialRequest
@@ -3942,27 +4044,13 @@ components:
           $ref: '#/components/schemas/ApnRegistrationId'
         gcmToken:
           $ref: '#/components/schemas/GcmRegistrationId'
-    RedeemReceiptRequest:
-      required:
-      - receiptCredentialPresentation
-      type: object
-      properties:
-        receiptCredentialPresentation:
-          type: array
-          items:
-            type: string
-            format: byte
-        visible:
-          type: boolean
-        primary:
-          type: boolean
     WebSocketClient:
       type: object
       properties:
-        open:
-          type: boolean
         userAgent:
           type: string
+        open:
+          type: boolean
         createdTimestamp:
           type: integer
           format: int64
