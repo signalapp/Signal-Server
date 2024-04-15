@@ -9,6 +9,7 @@ import com.google.common.annotations.VisibleForTesting;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
+import io.lettuce.core.RedisNoScriptException;
 import io.lettuce.core.protocol.CommandHandler;
 import io.lettuce.core.protocol.CompleteableCommand;
 import io.lettuce.core.protocol.RedisCommand;
@@ -112,9 +113,10 @@ public class LettuceShardCircuitBreaker implements NettyCustomizer {
           command.onComplete((ignored, throwable) -> {
             final long durationNanos = System.nanoTime() - startNanos;
 
-            if (throwable != null) {
+            // RedisNoScriptException doesn’t indicate a fault the breaker can protect
+            if (throwable != null && !(throwable instanceof RedisNoScriptException)) {
               breaker.onError(durationNanos, TimeUnit.NANOSECONDS, throwable);
-              logger.debug("Command completed with error", throwable);
+              logger.warn("Command completed with error", throwable);
             } else {
               breaker.onSuccess(durationNanos, TimeUnit.NANOSECONDS);
             }

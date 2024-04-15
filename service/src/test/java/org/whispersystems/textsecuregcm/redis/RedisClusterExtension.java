@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.redis;
 
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.RedisException;
 import io.lettuce.core.RedisURI;
@@ -42,6 +43,7 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
   private final Duration timeout;
   private final RetryConfiguration retryConfiguration;
   private FaultTolerantRedisCluster redisCluster;
+  private ClientResources redisClientResources;
 
   public RedisClusterExtension(final Duration timeout, final RetryConfiguration retryConfiguration) {
     this.timeout = timeout;
@@ -63,6 +65,7 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
   @Override
   public void afterEach(final ExtensionContext context) throws Exception {
     redisCluster.shutdown();
+    redisClientResources.shutdown().get();
   }
 
   @Override
@@ -81,11 +84,14 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
   @Override
   public void beforeEach(final ExtensionContext context) throws Exception {
 
+    redisClientResources = ClientResources.builder().build();
+    final CircuitBreakerConfiguration circuitBreakerConfig = new CircuitBreakerConfiguration();
+    circuitBreakerConfig.setWaitDurationInOpenState(Duration.ofMillis(500));
     redisCluster = new ShardFaultTolerantRedisCluster("test-cluster",
-        ClientResources.builder(),
+        redisClientResources.mutate(),
         getRedisURIs(),
         timeout,
-        new CircuitBreakerConfiguration(),
+        circuitBreakerConfig,
         retryConfiguration);
 
     redisCluster.useCluster(connection -> {
@@ -104,7 +110,7 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
           }
 
           setAll = true;
-        } catch (final RedisException ignored) {
+        } catch (final RedisException | CallNotPermittedException ignored) {
           // Cluster isn't ready; wait and retry.
           try {
             Thread.sleep(500);
