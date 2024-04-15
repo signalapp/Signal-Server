@@ -5,6 +5,9 @@
 
 package org.whispersystems.textsecuregcm.controllers;
 
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import io.dropwizard.auth.Auth;
@@ -48,6 +51,7 @@ import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.backups.BackupAuthCredentialPresentation;
 import org.signal.libsignal.zkgroup.backups.BackupAuthCredentialRequest;
+import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialPresentation;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedBackupUser;
 import org.whispersystems.textsecuregcm.backup.BackupAuthManager;
@@ -117,6 +121,51 @@ public class ArchiveController {
         .thenApply(Util.ASYNC_EMPTY_RESPONSE);
   }
 
+  public record RedeemReceiptRequest(
+      @Schema(description = "Presentation of a ZK receipt encoded in standard padded base64", implementation = String.class)
+      @JsonDeserialize(using = RedeemReceiptRequest.Deserializer.class)
+      @NotNull
+      ReceiptCredentialPresentation receiptCredentialPresentation) {
+
+    public static class Deserializer extends JsonDeserializer<ReceiptCredentialPresentation> {
+
+      @Override
+      public ReceiptCredentialPresentation deserialize(JsonParser jsonParser,
+          DeserializationContext deserializationContext) throws IOException {
+        try {
+          return new ReceiptCredentialPresentation(Base64.getDecoder().decode(jsonParser.getValueAsString()));
+        } catch (InvalidInputException e) {
+          throw new IllegalArgumentException(e);
+        }
+      }
+    }
+  }
+
+  @POST
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  @Path("/redeem-receipt")
+  @Operation(
+      summary = "Redeem receipt",
+      description = """
+          Redeem a receipt acquired from /v1/subscription/{subscriberId}/receipt_credentials to mark the account as
+          eligible for the paid backup tier.
+                    
+          After successful redemption, subsequent requests to /v1/archive/auth will return credentials with the level on
+          the provided receipt until the expiration time on the receipt.
+          """)
+  @ApiResponse(responseCode = "204", description = "The receipt was redeemed")
+  @ApiResponse(responseCode = "400", description = "The provided presentation or receipt was invalid")
+  @ApiResponse(responseCode = "429", description = "Rate limited.")
+  public CompletionStage<Response> redeemReceipt(
+      @Mutable @Auth final AuthenticatedAccount account,
+      @Valid @NotNull final RedeemReceiptRequest redeemReceiptRequest) {
+    return this.backupAuthManager.redeemReceipt(
+            account.getAccount(),
+            redeemReceiptRequest.receiptCredentialPresentation())
+        .thenApply(Util.ASYNC_EMPTY_RESPONSE);
+  }
+
   public record BackupAuthCredentialsResponse(
       @Schema(description = "A list of BackupAuthCredentials and their validity periods")
       List<BackupAuthCredential> credentials) {
@@ -138,13 +187,19 @@ public class ArchiveController {
           operations against that backup-id. Clients may (and should) request up to 7 days of credentials at a time.
                     
           The redemptionStart and redemptionEnd seconds must be UTC day aligned, and must not span more than 7 days.
+          
+          Each credential contains a receipt level which indicates the backup level the credential is good for. If the
+          account has paid backup access that expires at some point in the provided redemption window, credentials with
+          redemption times after the expiration may be on a lower backup level.
+          
+          Clients must validate the receipt level on the credential matches a known receipt level before using it.
           """)
   @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = BackupAuthCredentialsResponse.class)))
   @ApiResponse(responseCode = "400", description = "The start/end did not meet alignment/duration requirements")
   @ApiResponse(responseCode = "404", description = "Could not find an existing blinded backup id")
   @ApiResponse(responseCode = "429", description = "Rate limited.")
   public CompletionStage<BackupAuthCredentialsResponse> getBackupZKCredentials(
-      @ReadOnly @Auth AuthenticatedAccount auth,
+      @Mutable @Auth AuthenticatedAccount auth,
       @NotNull @QueryParam("redemptionStartSeconds") Long startSeconds,
       @NotNull @QueryParam("redemptionEndSeconds") Long endSeconds) {
 

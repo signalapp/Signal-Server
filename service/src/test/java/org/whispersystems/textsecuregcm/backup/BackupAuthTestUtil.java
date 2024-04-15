@@ -65,7 +65,7 @@ public class BackupAuthTestUtil {
       case MEDIA -> BackupAuthManager.BACKUP_MEDIA_EXPERIMENT_NAME;
     };
     final BackupAuthManager issuer = new BackupAuthManager(
-        ExperimentHelper.withEnrollment(experimentName, aci), null, null, params, clock);
+        ExperimentHelper.withEnrollment(experimentName, aci), null, null, null, null, params, clock);
     Account account = mock(Account.class);
     when(account.getUuid()).thenReturn(aci);
     when(account.getBackupCredentialRequest()).thenReturn(request.serialize());

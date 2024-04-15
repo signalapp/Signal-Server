@@ -49,8 +49,17 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.signal.libsignal.protocol.ecc.Curve;
+import org.signal.libsignal.zkgroup.InvalidInputException;
+import org.signal.libsignal.zkgroup.ServerSecretParams;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.signal.libsignal.zkgroup.backups.BackupAuthCredentialPresentation;
+import org.signal.libsignal.zkgroup.receipts.ClientZkReceiptOperations;
+import org.signal.libsignal.zkgroup.receipts.ReceiptCredential;
+import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialPresentation;
+import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialRequestContext;
+import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialResponse;
+import org.signal.libsignal.zkgroup.receipts.ReceiptSerial;
+import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedBackupUser;
 import org.whispersystems.textsecuregcm.backup.BackupAuthManager;
@@ -151,6 +160,29 @@ public class ArchiveControllerTest {
             MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatus()).isEqualTo(204);
   }
+
+  @Test
+  public void redeemReceipt() throws InvalidInputException, VerificationFailedException {
+    final ServerSecretParams params = ServerSecretParams.generate();
+    final ServerZkReceiptOperations serverOps = new ServerZkReceiptOperations(params);
+    final ClientZkReceiptOperations clientOps = new ClientZkReceiptOperations(params.getPublicParams());
+    final ReceiptCredentialRequestContext rcrc = clientOps
+        .createReceiptCredentialRequestContext(new ReceiptSerial(TestRandomUtil.nextBytes(ReceiptSerial.SIZE)));
+    final ReceiptCredentialResponse rcr = serverOps.issueReceiptCredential(rcrc.getRequest(), 0L, 3L);
+    final ReceiptCredential receiptCredential = clientOps.receiveReceiptCredential(rcrc, rcr);
+    final ReceiptCredentialPresentation presentation = clientOps.createReceiptCredentialPresentation(receiptCredential);
+    when(backupAuthManager.redeemReceipt(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+
+    final Response response = resources.getJerseyTest()
+        .target("v1/archives/redeem-receipt")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .post(Entity.json("""
+            {"receiptCredentialPresentation": "%s"}
+            """.formatted(Base64.getEncoder().encodeToString(presentation.serialize()))));
+    assertThat(response.getStatus()).isEqualTo(204);
+  }
+
 
   @Test
   public void setBadPublicKey() throws VerificationFailedException {

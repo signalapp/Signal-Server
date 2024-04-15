@@ -102,7 +102,12 @@ public class Account {
   private boolean discoverableByPhoneNumber = true;
 
   @JsonProperty("bcr")
+  @Nullable
   private byte[] backupCredentialRequest;
+
+  @JsonProperty("bv")
+  @Nullable
+  private BackupVoucher backupVoucher;
 
   @JsonProperty
   private int version;
@@ -114,6 +119,8 @@ public class Account {
   private boolean stale;
 
   public record UsernameHold(@JsonProperty("uh") byte[] usernameHash, @JsonProperty("e") long expirationSecs) {}
+
+  public record BackupVoucher(@JsonProperty("rl") long receiptLevel, @JsonProperty("e") Instant expiration) {}
 
   public UUID getIdentifier(final IdentityType identityType) {
     return switch (identityType) {
@@ -506,6 +513,13 @@ public class Account {
     this.backupCredentialRequest = backupCredentialRequest;
   }
 
+  public @Nullable BackupVoucher getBackupVoucher() {
+    return backupVoucher;
+  }
+
+  public void setBackupVoucher(final @Nullable BackupVoucher backupVoucher) {
+    this.backupVoucher = backupVoucher;
+  }
 
   /**
    * Have all this account's devices been manually locked?

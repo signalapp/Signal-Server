@@ -710,7 +710,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ServerZkReceiptOperations zkReceiptOperations = new ServerZkReceiptOperations(zkSecretParams);
 
     Cdn3BackupCredentialGenerator cdn3BackupCredentialGenerator = new Cdn3BackupCredentialGenerator(config.getTus());
-    BackupAuthManager backupAuthManager = new BackupAuthManager(experimentEnrollmentManager, rateLimiters, accountsManager, backupsGenericZkSecretParams, clock);
+    BackupAuthManager backupAuthManager = new BackupAuthManager(experimentEnrollmentManager, rateLimiters,
+        accountsManager, zkReceiptOperations, redeemedReceiptsManager, backupsGenericZkSecretParams, clock);
     BackupsDb backupsDb = new BackupsDb(
         dynamoDbAsyncClient,
         config.getDynamoDbTables().getBackups().getTableName(),

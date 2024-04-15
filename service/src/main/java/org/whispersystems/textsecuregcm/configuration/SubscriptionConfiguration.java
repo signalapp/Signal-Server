@@ -20,6 +20,7 @@ import java.util.stream.Stream;
 import javax.validation.Valid;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
+import org.whispersystems.textsecuregcm.backup.BackupTier;
 
 public class SubscriptionConfiguration {
 
@@ -72,9 +73,21 @@ public class SubscriptionConfiguration {
   }
 
   @JsonIgnore
-  @ValidationMethod(message = "Backup levels and donation levels should not contain the same level identifier")
-  public boolean areLevelsNonOverlapping() {
-    return Sets.intersection(backupLevels.keySet(), donationLevels.keySet()).isEmpty();
+  @ValidationMethod(message = "Backup levels and donation levels should not intersect")
+  public boolean areLevelConstraintsSatisfied() {
+    // We have a tier for all configured backup levels
+    final boolean backupLevelsMatch = backupLevels.keySet()
+        .stream()
+        .allMatch(level -> BackupTier.fromReceiptLevel(level).orElse(BackupTier.NONE) != BackupTier.NONE);
+
+    // None of the donation levels correspond to backup levels
+    final boolean donationLevelsDontMatch = donationLevels.keySet().stream()
+        .allMatch(level -> BackupTier.fromReceiptLevel(level).orElse(BackupTier.NONE) == BackupTier.NONE);
+
+    // The configured donation and backup levels don't intersect
+    final boolean levelsDontIntersect = Sets.intersection(backupLevels.keySet(), donationLevels.keySet()).isEmpty();
+
+    return backupLevelsMatch && donationLevelsDontMatch && levelsDontIntersect;
   }
 
   @JsonIgnore
