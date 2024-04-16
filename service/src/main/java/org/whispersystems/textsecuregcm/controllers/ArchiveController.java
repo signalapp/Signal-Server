@@ -121,9 +121,9 @@ public class ArchiveController {
         .thenApply(Util.ASYNC_EMPTY_RESPONSE);
   }
 
-  public record RedeemReceiptRequest(
+  public record RedeemBackupReceiptRequest(
       @Schema(description = "Presentation of a ZK receipt encoded in standard padded base64", implementation = String.class)
-      @JsonDeserialize(using = RedeemReceiptRequest.Deserializer.class)
+      @JsonDeserialize(using = RedeemBackupReceiptRequest.Deserializer.class)
       @NotNull
       ReceiptCredentialPresentation receiptCredentialPresentation) {
 
@@ -150,7 +150,7 @@ public class ArchiveController {
       description = """
           Redeem a receipt acquired from /v1/subscription/{subscriberId}/receipt_credentials to mark the account as
           eligible for the paid backup tier.
-                    
+
           After successful redemption, subsequent requests to /v1/archive/auth will return credentials with the level on
           the provided receipt until the expiration time on the receipt.
           """)
@@ -159,10 +159,10 @@ public class ArchiveController {
   @ApiResponse(responseCode = "429", description = "Rate limited.")
   public CompletionStage<Response> redeemReceipt(
       @Mutable @Auth final AuthenticatedAccount account,
-      @Valid @NotNull final RedeemReceiptRequest redeemReceiptRequest) {
+      @Valid @NotNull final RedeemBackupReceiptRequest redeemBackupReceiptRequest) {
     return this.backupAuthManager.redeemReceipt(
             account.getAccount(),
-            redeemReceiptRequest.receiptCredentialPresentation())
+            redeemBackupReceiptRequest.receiptCredentialPresentation())
         .thenApply(Util.ASYNC_EMPTY_RESPONSE);
   }
 
