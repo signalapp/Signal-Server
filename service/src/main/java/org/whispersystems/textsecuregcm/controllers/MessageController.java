@@ -241,18 +241,58 @@ public class MessageController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   @ManagedAsync
+    @Operation(
+      summary = "Send a message",
+      description = """
+          Deliver a message to a single recipient. May be authenticated or unauthenticated; if unauthenticated,
+          an unidentifed-access key or group-send endorsement token must be provided, unless the message is a story.
+          """)
+  @ApiResponse(responseCode="200", description="Message was successfully sent", useReturnTypeSchema=true)
+  @ApiResponse(
+      responseCode="401",
+      description="The message is not a story and the authorization, unauthorized access key, or group send endorsement token is missing or incorrect")
+  @ApiResponse(
+      responseCode="404",
+      description="The message is not a story and some the recipient service ID does not correspond to a registered Signal user")
+  @ApiResponse(
+      responseCode = "409", description = "Incorrect set of devices supplied for recipient",
+      content = @Content(schema = @Schema(implementation = AccountMismatchedDevices[].class)))
+  @ApiResponse(
+      responseCode = "410", description = "Mismatched registration ids supplied for some recipient devices",
+      content = @Content(schema = @Schema(implementation = AccountStaleDevices[].class)))
   public Response sendMessage(@ReadOnly @Auth Optional<AuthenticatedAccount> source,
+      @Parameter(description="The recipient's unidentified access key")
       @HeaderParam(HeaderUtils.UNIDENTIFIED_ACCESS_KEY) Optional<Anonymous> accessKey,
+
+      @Parameter(description="A group send endorsement token covering the recipient. Must not be combined with `Unidentified-Access-Key` or set on a story message.")
+      @HeaderParam(HeaderUtils.GROUP_SEND_TOKEN)
+      @Nullable GroupSendTokenHeader groupSendToken,
+
       @HeaderParam(HttpHeaders.USER_AGENT) String userAgent,
+
+      @Parameter(description="If true, deliver the message only to recipients that are online when it is sent")
       @PathParam("destination") ServiceIdentifier destinationIdentifier,
+
+      @Parameter(description="If true, the message is a story; access tokens are not checked and sending to nonexistent recipients is permitted")
       @QueryParam("story") boolean isStory,
+
+      @Parameter(description="The encrypted message payloads for each recipient device")
       @NotNull @Valid IncomingMessageList messages,
+
       @Context ContainerRequestContext context) throws RateLimitExceededException {
 
     final Sample sample = Timer.start();
     try {
-      if (source.isEmpty() && accessKey.isEmpty() && !isStory) {
+      if (source.isEmpty() && accessKey.isEmpty() && groupSendToken == null && !isStory) {
         throw new WebApplicationException(Response.Status.UNAUTHORIZED);
+      }
+
+      if (groupSendToken != null) {
+        if (!source.isEmpty() || !accessKey.isEmpty()) {
+            throw new BadRequestException("Group send endorsement tokens should not be combined with other authentication");
+        } else if (isStory) {
+            throw new BadRequestException("Group send endorsement tokens should not be sent for story messages");
+        }
       }
 
       final String senderType;
@@ -316,8 +356,14 @@ public class MessageController {
       }
 
       try {
-        // Stories will be checked by the client; we bypass access checks here for stories.
-        if (!isStory) {
+        if (isStory) {
+          // Stories will be checked by the client; we bypass access checks here for stories.
+        } else if (groupSendToken != null) {
+          checkGroupSendToken(List.of(destinationIdentifier.toLibsignal()), groupSendToken);
+          if (destination.isEmpty()) {
+            throw new NotFoundException();
+          }
+        } else {
           OptionalAccess.verify(source.map(AuthenticatedAccount::getAccount), accessKey, destination);
         }
 

@@ -44,6 +44,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -150,18 +151,18 @@ class MessageControllerTest {
 
   private static final String SINGLE_DEVICE_RECIPIENT = "+14151111111";
   private static final UUID SINGLE_DEVICE_UUID = UUID.randomUUID();
-  private static final ServiceIdentifier SINGLE_DEVICE_ACI_ID = new AciServiceIdentifier(SINGLE_DEVICE_UUID);
+  private static final AciServiceIdentifier SINGLE_DEVICE_ACI_ID = new AciServiceIdentifier(SINGLE_DEVICE_UUID);
   private static final UUID SINGLE_DEVICE_PNI = UUID.randomUUID();
-  private static final ServiceIdentifier SINGLE_DEVICE_PNI_ID = new PniServiceIdentifier(SINGLE_DEVICE_PNI);
+  private static final PniServiceIdentifier SINGLE_DEVICE_PNI_ID = new PniServiceIdentifier(SINGLE_DEVICE_PNI);
   private static final byte SINGLE_DEVICE_ID1 = 1;
   private static final int SINGLE_DEVICE_REG_ID1 = 111;
   private static final int SINGLE_DEVICE_PNI_REG_ID1 = 1111;
 
   private static final String MULTI_DEVICE_RECIPIENT = "+14152222222";
   private static final UUID MULTI_DEVICE_UUID = UUID.randomUUID();
-  private static final ServiceIdentifier MULTI_DEVICE_ACI_ID = new AciServiceIdentifier(MULTI_DEVICE_UUID);
+  private static final AciServiceIdentifier MULTI_DEVICE_ACI_ID = new AciServiceIdentifier(MULTI_DEVICE_UUID);
   private static final UUID MULTI_DEVICE_PNI = UUID.randomUUID();
-  private static final ServiceIdentifier MULTI_DEVICE_PNI_ID = new PniServiceIdentifier(MULTI_DEVICE_PNI);
+  private static final PniServiceIdentifier MULTI_DEVICE_PNI_ID = new PniServiceIdentifier(MULTI_DEVICE_PNI);
   private static final byte MULTI_DEVICE_ID1 = 1;
   private static final byte MULTI_DEVICE_ID2 = 2;
   private static final byte MULTI_DEVICE_ID3 = 3;
@@ -173,8 +174,8 @@ class MessageControllerTest {
   private static final int MULTI_DEVICE_PNI_REG_ID3 = 4444;
 
   private static final UUID NONEXISTENT_UUID = UUID.randomUUID();
-  private static final ServiceIdentifier NONEXISTENT_ACI_ID = new AciServiceIdentifier(NONEXISTENT_UUID);
-  private static final ServiceIdentifier NONEXISTENT_PNI_ID = new PniServiceIdentifier(NONEXISTENT_UUID);
+  private static final AciServiceIdentifier NONEXISTENT_ACI_ID = new AciServiceIdentifier(NONEXISTENT_UUID);
+  private static final PniServiceIdentifier NONEXISTENT_PNI_ID = new PniServiceIdentifier(NONEXISTENT_UUID);
 
   private static final byte[] UNIDENTIFIED_ACCESS_BYTES = "0123456789abcdef".getBytes();
 
@@ -416,6 +417,71 @@ class MessageControllerTest {
 
     assertFalse(captor.getValue().hasSourceUuid());
     assertFalse(captor.getValue().hasSourceDevice());
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void testSingleDeviceCurrentGroupSendEndorsement(
+      ServiceIdentifier recipient, ServiceIdentifier authorizedRecipient,
+      Duration timeLeft, boolean includeUak, boolean story, int expectedResponse) throws Exception {
+    final Instant expiration = Instant.now().truncatedTo(ChronoUnit.DAYS); // expiration times must be UTC midnight or libsignal will reject the endorsement
+    clock.pin(expiration.minus(timeLeft));
+
+    Invocation.Builder builder =
+        resources.getJerseyTest()
+            .target(String.format("/v1/messages/%s", recipient.toServiceIdentifierString()))
+            .queryParam("story", story)
+            .request()
+            .header(HeaderUtils.GROUP_SEND_TOKEN,
+                validGroupSendTokenHeader(List.of(authorizedRecipient), expiration));
+
+    if (includeUak) {
+      builder = builder.header(HeaderUtils.UNIDENTIFIED_ACCESS_KEY, Base64.getEncoder().encodeToString(UNIDENTIFIED_ACCESS_BYTES));
+    }
+
+    Response response = builder
+        .put(Entity.entity(
+                SystemMapper.jsonMapper().readValue(jsonFixture("fixtures/current_message_single_device.json"),
+                    IncomingMessageList.class),
+                MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat("Good Response", response.getStatus(), is(equalTo(expectedResponse)));
+    if (expectedResponse == 200) {
+      verify(messageSender).sendMessage(
+          any(Account.class), any(Device.class), argThat(env -> !env.hasSourceUuid() && !env.hasSourceDevice()), eq(false));
+    } else {
+      verifyNoMoreInteractions(messageSender);
+    }
+  }
+
+  private static Stream<Arguments> testSingleDeviceCurrentGroupSendEndorsement() {
+    return Stream.of(
+        // valid endorsement
+        Arguments.of(SINGLE_DEVICE_ACI_ID, SINGLE_DEVICE_ACI_ID, Duration.ofHours(1), false, false, 200),
+
+        // expired endorsement, not authorized
+        Arguments.of(SINGLE_DEVICE_ACI_ID, SINGLE_DEVICE_ACI_ID, Duration.ofHours(-1), false, false, 401),
+
+        // endorsement for the wrong recipient, not authorized
+        Arguments.of(SINGLE_DEVICE_ACI_ID, NONEXISTENT_ACI_ID, Duration.ofHours(1), false, false, 401),
+
+        // expired endorsement for the wrong recipient, not authorized
+        Arguments.of(SINGLE_DEVICE_ACI_ID, NONEXISTENT_ACI_ID, Duration.ofHours(-1), false, false, 401),
+
+        // valid endorsement for the right recipient but they aren't registered, not found
+        Arguments.of(NONEXISTENT_ACI_ID, NONEXISTENT_ACI_ID, Duration.ofHours(1), false, false, 404),
+
+        // expired endorsement for the right recipient but they aren't registered, not authorized (NOT not found)
+        Arguments.of(NONEXISTENT_ACI_ID, NONEXISTENT_ACI_ID, Duration.ofHours(-1), false, false, 401),
+
+        // valid endorsement but also a UAK, bad request
+        Arguments.of(SINGLE_DEVICE_ACI_ID, SINGLE_DEVICE_ACI_ID, Duration.ofHours(1), true, false, 400),
+
+        // valid endorsement on a story, bad request
+        Arguments.of(SINGLE_DEVICE_ACI_ID, SINGLE_DEVICE_ACI_ID, Duration.ofHours(1), false, true, 400),
+
+        // valid endorsement on a story with a UAK, bad request
+        Arguments.of(SINGLE_DEVICE_ACI_ID, SINGLE_DEVICE_ACI_ID, Duration.ofHours(1), true, true, 400));
   }
 
   @Test
@@ -1273,7 +1339,6 @@ class MessageControllerTest {
     // initialize our binary payload and create an input stream
     byte[] buffer = new byte[2048];
     InputStream stream = initializeMultiPayload(recipients, buffer, true);
-    final AciServiceIdentifier senderId = new AciServiceIdentifier(UUID.randomUUID());
 
     clock.pin(Instant.parse("2024-04-09T12:00:00.00Z"));
 
@@ -1287,7 +1352,7 @@ class MessageControllerTest {
         .request()
         .header(HttpHeaders.USER_AGENT, "FIXME")
         .header(HeaderUtils.GROUP_SEND_TOKEN, validGroupSendTokenHeader(
-                senderId, List.of(SINGLE_DEVICE_ACI_ID, MULTI_DEVICE_ACI_ID), Instant.parse("2024-04-10T00:00:00.00Z")))
+                List.of(SINGLE_DEVICE_ACI_ID, MULTI_DEVICE_ACI_ID), Instant.parse("2024-04-10T00:00:00.00Z")))
         .put(Entity.entity(stream, MultiRecipientMessageProvider.MEDIA_TYPE));
 
     assertThat("Unexpected response", response.getStatus(), is(equalTo(200)));
@@ -1312,7 +1377,6 @@ class MessageControllerTest {
     // initialize our binary payload and create an input stream
     byte[] buffer = new byte[2048];
     InputStream stream = initializeMultiPayload(recipients, buffer, true);
-    final AciServiceIdentifier senderId = new AciServiceIdentifier(UUID.randomUUID());
 
     clock.pin(Instant.parse("2024-04-09T12:00:00.00Z"));
 
@@ -1326,7 +1390,7 @@ class MessageControllerTest {
         .request()
         .header(HttpHeaders.USER_AGENT, "FIXME")
         .header(HeaderUtils.GROUP_SEND_TOKEN, validGroupSendTokenHeader(
-                senderId, List.of(MULTI_DEVICE_ACI_ID), Instant.parse("2024-04-10T00:00:00.00Z")))
+                List.of(MULTI_DEVICE_ACI_ID), Instant.parse("2024-04-10T00:00:00.00Z")))
         .put(Entity.entity(stream, MultiRecipientMessageProvider.MEDIA_TYPE));
 
     assertThat("Unexpected response", response.getStatus(), is(equalTo(401)));
@@ -1343,7 +1407,6 @@ class MessageControllerTest {
     // initialize our binary payload and create an input stream
     byte[] buffer = new byte[2048];
     InputStream stream = initializeMultiPayload(recipients, buffer, true);
-    final AciServiceIdentifier senderId = new AciServiceIdentifier(UUID.randomUUID());
 
     clock.pin(Instant.parse("2024-04-10T12:00:00.00Z"));
 
@@ -1357,20 +1420,21 @@ class MessageControllerTest {
         .request()
         .header(HttpHeaders.USER_AGENT, "FIXME")
         .header(HeaderUtils.GROUP_SEND_TOKEN, validGroupSendTokenHeader(
-                senderId, List.of(SINGLE_DEVICE_ACI_ID, MULTI_DEVICE_ACI_ID), Instant.parse("2024-04-10T00:00:00.00Z")))
+                List.of(SINGLE_DEVICE_ACI_ID, MULTI_DEVICE_ACI_ID), Instant.parse("2024-04-10T00:00:00.00Z")))
         .put(Entity.entity(stream, MultiRecipientMessageProvider.MEDIA_TYPE));
 
     assertThat("Unexpected response", response.getStatus(), is(equalTo(401)));
     verifyNoMoreInteractions(messageSender);
   }
 
-  private String validGroupSendTokenHeader(AciServiceIdentifier sender, List<ServiceIdentifier> recipients, Instant expiration) throws Exception {
+  private String validGroupSendTokenHeader(List<ServiceIdentifier> recipients, Instant expiration) throws Exception {
     final ServerPublicParams serverPublicParams = serverSecretParams.getPublicParams();
     final GroupMasterKey groupMasterKey = new GroupMasterKey(new byte[32]);
     final GroupSecretParams groupSecretParams = GroupSecretParams.deriveFromMasterKey(groupMasterKey);
     final ClientZkGroupCipher clientZkGroupCipher = new ClientZkGroupCipher(groupSecretParams);
 
-    List<ServiceId> groupPlaintexts = Stream.concat(Stream.of(sender), recipients.stream()).map(ServiceIdentifier::toLibsignal).toList();
+    final ServiceId.Aci sender = new ServiceId.Aci(UUID.randomUUID());
+    List<ServiceId> groupPlaintexts = Stream.concat(Stream.of(sender), recipients.stream().map(ServiceIdentifier::toLibsignal)).toList();
     List<UuidCiphertext> groupCiphertexts = groupPlaintexts.stream()
         .map(clientZkGroupCipher::encrypt)
         .toList();
@@ -1380,7 +1444,7 @@ class MessageControllerTest {
     ReceivedEndorsements endorsements =
         endorsementsResponse.receive(
             groupPlaintexts,
-            sender.toLibsignal(),
+            sender,
             expiration.minus(Duration.ofDays(1)),
             groupSecretParams,
             serverPublicParams);
