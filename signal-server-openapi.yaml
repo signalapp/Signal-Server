@@ -1910,36 +1910,68 @@ paths:
     put:
       tags:
       - Messages
+      summary: Send a message
+      description: |
+        Deliver a message to a single recipient. May be authenticated or unauthenticated; if unauthenticated,
+        an unidentifed-access key or group-send endorsement token must be provided, unless the message is a story.
       operationId: sendMessage
       parameters:
       - name: Unidentified-Access-Key
         in: header
+        description: The recipient's unidentified access key
         schema:
           $ref: '#/components/schemas/Anonymous'
+      - name: Group-Send-Token
+        in: header
+        description: A group send endorsement token covering the recipient. Must not
+          be combined with `Unidentified-Access-Key` or set on a story message.
+        schema:
+          $ref: '#/components/schemas/GroupSendTokenHeader'
       - name: User-Agent
         in: header
         schema:
           type: string
       - name: destination
         in: path
+        description: "If true, deliver the message only to recipients that are online\
+          \ when it is sent"
         required: true
         schema:
           $ref: '#/components/schemas/ServiceIdentifier'
       - name: story
         in: query
+        description: "If true, the message is a story; access tokens are not checked\
+          \ and sending to nonexistent recipients is permitted"
         schema:
           type: boolean
       requestBody:
+        description: The encrypted message payloads for each recipient device
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/IncomingMessageList'
         required: true
       responses:
-        default:
-          description: default response
+        "200":
+          description: Message was successfully sent
+        "401":
+          description: "The message is not a story and the authorization, unauthorized\
+            \ access key, or group send endorsement token is missing or incorrect"
+        "404":
+          description: The message is not a story and some the recipient service ID
+            does not correspond to a registered Signal user
+        "409":
+          description: Incorrect set of devices supplied for recipient
           content:
-            application/json: {}
+            application/json:
+              schema:
+                type: string
+        "410":
+          description: Mismatched registration ids supplied for some recipient devices
+          content:
+            application/json:
+              schema:
+                type: string
       security:
       - authenticatedAccount: []
       - {}
@@ -4214,22 +4246,6 @@ components:
           items:
             type: string
             format: byte
-    IncomingMessageList:
-      required:
-      - messages
-      type: object
-      properties:
-        messages:
-          type: array
-          items:
-            $ref: '#/components/schemas/IncomingMessage'
-        online:
-          type: boolean
-        urgent:
-          type: boolean
-        timestamp:
-          type: integer
-          format: int64
     AccountMismatchedDevices:
       type: object
       properties:
@@ -4248,14 +4264,6 @@ components:
             that identifies an account and identity within the Signal service.
         devices:
           $ref: '#/components/schemas/StaleDevices'
-    CombinedUnidentifiedSenderAccessKeys:
-      type: object
-      properties:
-        accessKeys:
-          type: array
-          items:
-            type: string
-            format: byte
     GroupSendFullToken:
       type: object
       properties:
@@ -4272,6 +4280,30 @@ components:
       properties:
         token:
           $ref: '#/components/schemas/GroupSendFullToken'
+    IncomingMessageList:
+      required:
+      - messages
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/IncomingMessage'
+        online:
+          type: boolean
+        urgent:
+          type: boolean
+        timestamp:
+          type: integer
+          format: int64
+    CombinedUnidentifiedSenderAccessKeys:
+      type: object
+      properties:
+        accessKeys:
+          type: array
+          items:
+            type: string
+            format: byte
     Recipient:
       type: object
       properties:
