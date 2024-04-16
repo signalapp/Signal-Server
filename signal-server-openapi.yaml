@@ -1028,7 +1028,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RedeemReceiptRequest'
+              $ref: '#/components/schemas/RedeemBackupReceiptRequest'
         required: true
       responses:
         "204":
@@ -3765,20 +3765,14 @@ components:
             type: string
             description: Auth headers to include with cdn read requests
           description: Auth headers to include with cdn read requests
-    RedeemReceiptRequest:
+    RedeemBackupReceiptRequest:
       required:
       - receiptCredentialPresentation
       type: object
       properties:
         receiptCredentialPresentation:
-          type: array
-          items:
-            type: string
-            format: byte
-        visible:
-          type: boolean
-        primary:
-          type: boolean
+          type: string
+          description: Presentation of a ZK receipt encoded in standard padded base64
     SetBackupIdRequest:
       required:
       - backupAuthCredentialRequest
@@ -4044,6 +4038,20 @@ components:
           $ref: '#/components/schemas/ApnRegistrationId'
         gcmToken:
           $ref: '#/components/schemas/GcmRegistrationId'
+    RedeemReceiptRequest:
+      required:
+      - receiptCredentialPresentation
+      type: object
+      properties:
+        receiptCredentialPresentation:
+          type: array
+          items:
+            type: string
+            format: byte
+        visible:
+          type: boolean
+        primary:
+          type: boolean
     WebSocketClient:
       type: object
       properties:
