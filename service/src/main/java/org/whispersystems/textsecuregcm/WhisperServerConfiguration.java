@@ -8,11 +8,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.dropwizard.core.Configuration;
 import java.time.Duration;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import org.whispersystems.textsecuregcm.attachments.TusConfiguration;
@@ -169,11 +167,6 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @JsonProperty
   private RedisClusterConfiguration clientPresenceCluster;
-
-  @Valid
-  @NotNull
-  @JsonProperty
-  private Set<String> testDevices = new HashSet<>();
 
   @Valid
   @NotNull
@@ -459,10 +452,6 @@ public class WhisperServerConfiguration extends Configuration {
 
   public UnidentifiedDeliveryConfiguration getDeliveryCertificate() {
     return unidentifiedDelivery;
-  }
-
-  public Set<String> getTestDevices() {
-    return testDevices;
   }
 
   public Map<String, Integer> getMaxDevices() {

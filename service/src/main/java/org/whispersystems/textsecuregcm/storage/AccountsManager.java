@@ -8,9 +8,6 @@ package org.whispersystems.textsecuregcm.storage;
 import static com.codahale.metrics.MetricRegistry.name;
 import static java.util.Objects.requireNonNull;
 
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.SharedMetricRegistries;
-import com.codahale.metrics.Timer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.common.annotations.VisibleForTesting;
@@ -18,6 +15,7 @@ import com.google.common.base.Preconditions;
 import io.lettuce.core.RedisException;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Timer;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.Clock;
@@ -60,7 +58,6 @@ import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
-import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.DestinationDeviceValidator;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.Pair;
@@ -72,19 +69,19 @@ import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
 
 public class AccountsManager {
 
-  private static final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  private static final Timer createTimer = metricRegistry.timer(name(AccountsManager.class, "create"));
-  private static final Timer updateTimer = metricRegistry.timer(name(AccountsManager.class, "update"));
-  private static final Timer getByNumberTimer = metricRegistry.timer(name(AccountsManager.class, "getByNumber"));
-  private static final Timer getByUsernameHashTimer = metricRegistry.timer(name(AccountsManager.class, "getByUsernameHash"));
-  private static final Timer getByUsernameLinkHandleTimer = metricRegistry.timer(name(AccountsManager.class, "getByUsernameLinkHandle"));
-  private static final Timer getByUuidTimer = metricRegistry.timer(name(AccountsManager.class, "getByUuid"));
-  private static final Timer deleteTimer = metricRegistry.timer(name(AccountsManager.class, "delete"));
+  private static final Timer createTimer = Metrics.timer(name(AccountsManager.class, "create"));
+  private static final Timer updateTimer = Metrics.timer(name(AccountsManager.class, "update"));
+  private static final Timer getByNumberTimer = Metrics.timer(name(AccountsManager.class, "getByNumber"));
+  private static final Timer getByUsernameHashTimer = Metrics.timer(name(AccountsManager.class, "getByUsernameHash"));
+  private static final Timer getByUsernameLinkHandleTimer = Metrics.timer(
+      name(AccountsManager.class, "getByUsernameLinkHandle"));
+  private static final Timer getByUuidTimer = Metrics.timer(name(AccountsManager.class, "getByUuid"));
+  private static final Timer deleteTimer = Metrics.timer(name(AccountsManager.class, "delete"));
 
-  private static final Timer redisSetTimer = metricRegistry.timer(name(AccountsManager.class, "redisSet"));
-  private static final Timer redisPniGetTimer = metricRegistry.timer(name(AccountsManager.class, "redisPniGet"));
-  private static final Timer redisUuidGetTimer = metricRegistry.timer(name(AccountsManager.class, "redisUuidGet"));
-  private static final Timer redisDeleteTimer = metricRegistry.timer(name(AccountsManager.class, "redisDelete"));
+  private static final Timer redisSetTimer = Metrics.timer(name(AccountsManager.class, "redisSet"));
+  private static final Timer redisPniGetTimer = Metrics.timer(name(AccountsManager.class, "redisPniGet"));
+  private static final Timer redisUuidGetTimer = Metrics.timer(name(AccountsManager.class, "redisUuidGet"));
+  private static final Timer redisDeleteTimer = Metrics.timer(name(AccountsManager.class, "redisDelete"));
 
   private static final String CREATE_COUNTER_NAME       = name(AccountsManager.class, "createCounter");
   private static final String DELETE_COUNTER_NAME       = name(AccountsManager.class, "deleteCounter");
@@ -172,7 +169,7 @@ public class AccountsManager {
 
     final Account account = new Account();
 
-    try (Timer.Context ignoredTimerContext = createTimer.time()) {
+    return createTimer.record(() -> {
       accountLockManager.withLock(List.of(number), () -> {
         final Optional<UUID> maybeRecentlyDeletedAccountIdentifier =
             accounts.findRecentlyDeletedAccountIdentifier(number);
@@ -259,7 +256,7 @@ public class AccountsManager {
       }, accountLockExecutor);
 
       return account;
-    }
+    });
   }
 
   public CompletableFuture<Pair<Account, Device>> addDevice(final Account account, final DeviceSpec deviceSpec) {
@@ -689,29 +686,27 @@ public class AccountsManager {
    */
   private Account update(Account account, Function<Account, Boolean> updater) {
 
-    final Account updatedAccount;
-
-    try (Timer.Context ignored = updateTimer.time()) {
+    return updateTimer.record(() -> {
 
       redisDelete(account);
 
       final UUID uuid = account.getUuid();
 
-      updatedAccount = updateWithRetries(account,
+      final Account updatedAccount = updateWithRetries(account,
           updater,
           accounts::update,
           () -> accounts.getByAccountIdentifier(uuid).orElseThrow(),
           AccountChangeValidator.GENERAL_CHANGE_VALIDATOR);
 
       redisSet(updatedAccount);
-    }
 
-    return updatedAccount;
+      return updatedAccount;
+    });
   }
 
   private CompletableFuture<Account> updateAsync(final Account account, final Function<Account, Boolean> updater) {
 
-    final Timer.Context timerContext = updateTimer.time();
+    final Timer.Sample timerSample = Timer.start();
 
     return redisDeleteAsync(account)
         .thenCompose(ignored -> {
@@ -725,7 +720,7 @@ public class AccountsManager {
               MAX_UPDATE_ATTEMPTS);
         })
         .thenCompose(updatedAccount -> redisSetAsync(updatedAccount).thenApply(ignored -> updatedAccount))
-        .whenComplete((ignored, throwable) -> timerContext.close());
+        .whenComplete((ignored, throwable) -> timerSample.stop(updateTimer));
   }
 
   private Account updateWithRetries(Account account,
@@ -859,13 +854,13 @@ public class AccountsManager {
   }
 
   public Optional<Account> getByE164(final String number) {
-    return getByNumberTimer.timeSupplier(() -> accounts.getByE164(number));
+    return getByNumberTimer.record(() -> accounts.getByE164(number));
   }
 
   public CompletableFuture<Optional<Account>> getByE164Async(final String number) {
-    final Timer.Context context = getByNumberTimer.time();
+    Timer.Sample sample = Timer.start();
     return accounts.getByE164Async(number)
-        .whenComplete((ignoredResult, ignoredThrowable) -> context.close());
+        .whenComplete((ignoredResult, ignoredThrowable) -> sample.stop(getByNumberTimer));
   }
 
   public Optional<Account> getByPhoneNumberIdentifier(final UUID pni) {
@@ -885,15 +880,15 @@ public class AccountsManager {
   }
 
   public CompletableFuture<Optional<Account>> getByUsernameLinkHandle(final UUID usernameLinkHandle) {
-    final Timer.Context context = getByUsernameLinkHandleTimer.time();
+    final Timer.Sample sample = Timer.start();
     return accounts.getByUsernameLinkHandle(usernameLinkHandle)
-        .whenComplete((ignoredResult, ignoredThrowable) -> context.close());
+        .whenComplete((ignoredResult, ignoredThrowable) -> sample.stop(getByUsernameLinkHandleTimer));
   }
 
   public CompletableFuture<Optional<Account>> getByUsernameHash(final byte[] usernameHash) {
-    final Timer.Context context = getByUsernameHashTimer.time();
+    final Timer.Sample sample = Timer.start();
     return accounts.getByUsernameHash(usernameHash)
-        .whenComplete((ignoredResult, ignoredThrowable) -> context.close());
+        .whenComplete((ignoredResult, ignoredThrowable) -> sample.stop(getByUsernameHashTimer));
   }
 
   public Optional<Account> getByServiceIdentifier(final ServiceIdentifier serviceIdentifier) {
@@ -943,11 +938,11 @@ public class AccountsManager {
   }
 
   public CompletableFuture<Void> delete(final Account account, final DeletionReason deletionReason) {
-    @SuppressWarnings("resource") final Timer.Context timerContext = deleteTimer.time();
+    final Timer.Sample sample = Timer.start();
 
     return accountLockManager.withLockAsync(List.of(account.getNumber()), () -> delete(account), accountLockExecutor)
         .whenComplete((ignored, throwable) -> {
-          timerContext.close();
+          sample.stop(deleteTimer);
 
           if (throwable == null) {
             Metrics.counter(DELETE_COUNTER_NAME,
@@ -984,10 +979,6 @@ public class AccountsManager {
                 clientPresenceManager.disconnectPresence(account.getUuid(), device.getId()))), clientPresenceExecutor);
   }
 
-  private String getUsernameHashAccountMapKey(byte[] usernameHash) {
-    return "UAccountMap::" + Base64.getUrlEncoder().withoutPadding().encodeToString(usernameHash);
-  }
-
   private String getAccountMapKey(String key) {
     return "AccountMap::" + key;
   }
@@ -997,18 +988,21 @@ public class AccountsManager {
   }
 
   private void redisSet(Account account) {
-    try (Timer.Context ignored = redisSetTimer.time()) {
-      final String accountJson = writeRedisAccountJson(account);
+    redisSetTimer.record(() -> {
+      try {
+        final String accountJson = writeRedisAccountJson(account);
 
-      cacheCluster.useCluster(connection -> {
-        final RedisAdvancedClusterCommands<String, String> commands = connection.sync();
+        cacheCluster.useCluster(connection -> {
+          final RedisAdvancedClusterCommands<String, String> commands = connection.sync();
 
-        commands.setex(getAccountMapKey(account.getPhoneNumberIdentifier().toString()), CACHE_TTL_SECONDS, account.getUuid().toString());
-        commands.setex(getAccountEntityKey(account.getUuid()), CACHE_TTL_SECONDS, accountJson);
-      });
-    } catch (JsonProcessingException e) {
-      throw new IllegalStateException(e);
-    }
+          commands.setex(getAccountMapKey(account.getPhoneNumberIdentifier().toString()), CACHE_TTL_SECONDS,
+              account.getUuid().toString());
+          commands.setex(getAccountEntityKey(account.getUuid()), CACHE_TTL_SECONDS, accountJson);
+        });
+      } catch (JsonProcessingException e) {
+        throw new IllegalStateException(e);
+      }
+    });
   }
 
   private CompletableFuture<Void> redisSetAsync(final Account account) {
@@ -1033,14 +1027,14 @@ public class AccountsManager {
       final Timer overallTimer,
       final Supplier<Optional<Account>> resolveFromRedis,
       final Supplier<Optional<Account>> resolveFromAccounts) {
-    try (final Timer.Context ignored = overallTimer.time()) {
+    return overallTimer.record(() -> {
       Optional<Account> account = resolveFromRedis.get();
       if (account.isEmpty()) {
         account = resolveFromAccounts.get();
         account.ifPresent(this::redisSet);
       }
       return account;
-    }
+    });
   }
 
   private CompletableFuture<Optional<Account>> checkRedisThenAccountsAsync(
@@ -1048,7 +1042,7 @@ public class AccountsManager {
       final Supplier<CompletableFuture<Optional<Account>>> resolveFromRedis,
       final Supplier<CompletableFuture<Optional<Account>>> resolveFromAccounts) {
 
-    @SuppressWarnings("resource") final Timer.Context timerContext = overallTimer.time();
+    final Timer.Sample sample = Timer.start();
 
     return resolveFromRedis.get()
         .thenCompose(maybeAccountFromRedis -> maybeAccountFromRedis
@@ -1057,11 +1051,12 @@ public class AccountsManager {
                 .thenCompose(maybeAccountFromAccounts -> maybeAccountFromAccounts
                     .map(account -> redisSetAsync(account).thenApply(ignored -> maybeAccountFromAccounts))
                     .orElseGet(() -> CompletableFuture.completedFuture(maybeAccountFromAccounts)))))
-        .whenComplete((ignored, throwable) -> timerContext.close());
+        .whenComplete((ignored, throwable) -> sample.stop(overallTimer));
   }
 
   private Optional<Account> redisGetBySecondaryKey(final String secondaryKey, final Timer timer) {
-    try (final Timer.Context ignored = timer.time()) {
+    return timer.record(() -> {
+      try {
       return Optional.ofNullable(cacheCluster.withCluster(connection -> connection.sync().get(secondaryKey)))
           .map(UUID::fromString)
           .flatMap(this::getByAccountIdentifier);
@@ -1072,10 +1067,11 @@ public class AccountsManager {
       logger.warn("Redis failure", e);
       return Optional.empty();
     }
+    });
   }
 
   private CompletableFuture<Optional<Account>> redisGetBySecondaryKeyAsync(final String secondaryKey, final Timer timer) {
-    @SuppressWarnings("resource") final Timer.Context timerContext = timer.time();
+    final Timer.Sample sample = Timer.start();
 
     return cacheCluster.withCluster(connection -> connection.async().get(secondaryKey))
         .thenCompose(nullableUuid -> {
@@ -1089,19 +1085,21 @@ public class AccountsManager {
           logger.warn("Failed to retrieve account from Redis", throwable);
           return Optional.empty();
         })
-        .whenComplete((ignored, throwable) -> timerContext.close())
+        .whenComplete((ignored, throwable) -> sample.stop(timer))
         .toCompletableFuture();
   }
 
   private Optional<Account> redisGetByAccountIdentifier(UUID uuid) {
-    try (Timer.Context ignored = redisUuidGetTimer.time()) {
-      final String json = cacheCluster.withCluster(connection -> connection.sync().get(getAccountEntityKey(uuid)));
+    return redisUuidGetTimer.record(() -> {
+      try {
+        final String json = cacheCluster.withCluster(connection -> connection.sync().get(getAccountEntityKey(uuid)));
 
-      return parseAccountJson(json, uuid);
-    } catch (final RedisException e) {
-      logger.warn("Redis failure", e);
-      return Optional.empty();
-    }
+        return parseAccountJson(json, uuid);
+      } catch (final RedisException e) {
+        logger.warn("Redis failure", e);
+        return Optional.empty();
+      }
+    });
   }
 
   private CompletableFuture<Optional<Account>> redisGetByAccountIdentifierAsync(final UUID uuid) {
@@ -1141,17 +1139,14 @@ public class AccountsManager {
   }
 
   private void redisDelete(final Account account) {
-    try (final Timer.Context ignored = redisDeleteTimer.time()) {
-      cacheCluster.useCluster(connection -> {
-        connection.sync().del(
-            getAccountMapKey(account.getPhoneNumberIdentifier().toString()),
-            getAccountEntityKey(account.getUuid()));
-      });
-    }
+    redisDeleteTimer.record(() ->
+        cacheCluster.useCluster(connection ->
+            connection.sync().del(getAccountMapKey(account.getPhoneNumberIdentifier().toString()),
+                getAccountEntityKey(account.getUuid()))));
   }
 
   private CompletableFuture<Void> redisDeleteAsync(final Account account) {
-    @SuppressWarnings("resource") final Timer.Context timerContext = redisDeleteTimer.time();
+    final Timer.Sample sample = Timer.start();
 
     final String[] keysToDelete = new String[]{
         getAccountMapKey(account.getPhoneNumberIdentifier().toString()),
@@ -1160,7 +1155,7 @@ public class AccountsManager {
 
     return cacheCluster.withCluster(connection -> connection.async().del(keysToDelete))
         .toCompletableFuture()
-        .whenComplete((ignoredResult, ignoredException) -> timerContext.close())
+        .whenComplete((ignoredResult, ignoredException) -> sample.stop(redisDeleteTimer))
         .thenRun(Util.NOOP);
   }
 }

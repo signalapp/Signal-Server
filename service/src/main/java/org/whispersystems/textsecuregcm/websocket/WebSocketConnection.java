@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2022 Signal Messenger, LLC
+ * Copyright 2013 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -7,11 +7,9 @@ package org.whispersystems.textsecuregcm.websocket;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
-import com.codahale.metrics.Histogram;
-import com.codahale.metrics.Meter;
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.SharedMetricRegistries;
 import com.google.common.annotations.VisibleForTesting;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
@@ -50,7 +48,6 @@ import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessageAvailabilityListener;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
-import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.websocket.WebSocketClient;
 import org.whispersystems.websocket.WebSocketResourceProvider;
@@ -63,18 +60,17 @@ import reactor.core.scheduler.Scheduler;
 
 public class WebSocketConnection implements MessageAvailabilityListener, DisplacedPresenceListener {
 
-  private static final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  private static final Histogram messageTime = metricRegistry.histogram(
-      name(MessageController.class, "message_delivery_duration"));
-  private static final Histogram primaryDeviceMessageTime = metricRegistry.histogram(
-      name(MessageController.class, "primary_device_message_delivery_duration"));
-  private static final Meter sendMessageMeter = metricRegistry.meter(name(WebSocketConnection.class, "send_message"));
-  private static final Meter messageAvailableMeter = metricRegistry.meter(
+  private static final DistributionSummary messageTime = Metrics.summary(
+      name(MessageController.class, "messageDeliveryDuration"));
+  private static final DistributionSummary primaryDeviceMessageTime = Metrics.summary(
+      name(MessageController.class, "primaryDeviceMessageDeliveryDuration"));
+  private static final Counter sendMessageCounter = Metrics.counter(name(WebSocketConnection.class, "sendMessage"));
+  private static final Counter messageAvailableCounter = Metrics.counter(
       name(WebSocketConnection.class, "messagesAvailable"));
-  private static final Meter messagesPersistedMeter = metricRegistry.meter(
+  private static final Counter messagesPersistedCounter = Metrics.counter(
       name(WebSocketConnection.class, "messagesPersisted"));
-  private static final Meter bytesSentMeter = metricRegistry.meter(name(WebSocketConnection.class, "bytes_sent"));
-  private static final Meter sendFailuresMeter = metricRegistry.meter(name(WebSocketConnection.class, "send_failures"));
+  private static final Counter bytesSentCounter = Metrics.counter(name(WebSocketConnection.class, "bytesSent"));
+  private static final Counter sendFailuresCounter = Metrics.counter(name(WebSocketConnection.class, "sendFailures"));
 
   private static final String INITIAL_QUEUE_LENGTH_DISTRIBUTION_NAME = name(WebSocketConnection.class,
       "initialQueueLength");
@@ -209,9 +205,9 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
     // clear ephemeral field from the envelope
     final Optional<byte[]> body = Optional.ofNullable(message.toBuilder().clearEphemeral().build().toByteArray());
 
-    sendMessageMeter.mark();
+    sendMessageCounter.increment();
     sentMessageCounter.increment();
-    bytesSentMeter.mark(body.map(bytes -> bytes.length).orElse(0));
+    bytesSentCounter.increment(body.map(bytes -> bytes.length).orElse(0));
     MessageMetrics.measureAccountEnvelopeUuidMismatches(auth.getAccount(), message);
 
     // X-Signal-Key: false must be sent until Android stops assuming it missing means true
@@ -219,7 +215,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
             List.of(HeaderUtils.X_SIGNAL_KEY + ": false", HeaderUtils.getTimestampHeader()), body)
         .whenComplete((ignored, throwable) -> {
           if (throwable != null) {
-            sendFailuresMeter.mark();
+            sendFailuresCounter.increment();
           } else {
             MessageMetrics.measureOutgoingMessageLatency(message.getServerTimestamp(), "websocket", client.getUserAgent(), clientReleaseManager);
           }
@@ -258,9 +254,9 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
 
   public static void recordMessageDeliveryDuration(long timestamp, Device messageDestinationDevice) {
     final long messageDeliveryDuration = System.currentTimeMillis() - timestamp;
-    messageTime.update(messageDeliveryDuration);
+    messageTime.record(messageDeliveryDuration);
     if (messageDestinationDevice.isPrimary()) {
-      primaryDeviceMessageTime.update(messageDeliveryDuration);
+      primaryDeviceMessageTime.record(messageDeliveryDuration);
     }
   }
 
@@ -429,7 +425,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
       return false;
     }
 
-    messageAvailableMeter.mark();
+    messageAvailableCounter.increment();
 
     storedMessageState.compareAndSet(StoredMessageState.EMPTY, StoredMessageState.CACHED_NEW_MESSAGES_AVAILABLE);
 
@@ -445,7 +441,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
       Metrics.counter(CLIENT_CLOSED_MESSAGE_AVAILABLE_COUNTER_NAME).increment();
       return false;
     }
-    messagesPersistedMeter.mark();
+    messagesPersistedCounter.increment();
 
     storedMessageState.set(StoredMessageState.PERSISTED_NEW_MESSAGES_AVAILABLE);
 

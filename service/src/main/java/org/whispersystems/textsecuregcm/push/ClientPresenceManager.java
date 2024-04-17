@@ -7,10 +7,6 @@ package org.whispersystems.textsecuregcm.push;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
-import com.codahale.metrics.Meter;
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.SharedMetricRegistries;
-import com.codahale.metrics.Timer;
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.lifecycle.Managed;
 import io.lettuce.core.LettuceFutures;
@@ -21,6 +17,7 @@ import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import io.lettuce.core.cluster.models.partitions.RedisClusterNode;
 import io.lettuce.core.cluster.pubsub.RedisClusterPubSubAdapter;
 import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.Metrics;
 import java.io.IOException;
 import java.time.Duration;
@@ -41,7 +38,6 @@ import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantPubSubConnection;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.util.Constants;
 
 /**
  * The client presence manager keeps track of which clients are actively connected and "present" to receive messages.
@@ -72,9 +68,9 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
   private final Timer setPresenceTimer;
   private final Timer clearPresenceTimer;
   private final Timer prunePeersTimer;
-  private final Meter pruneClientMeter;
-  private final Meter remoteDisplacementMeter;
-  private final Meter pubSubMessageMeter;
+  private final Counter pruneClientMeter;
+  private final Counter remoteDisplacementMeter;
+  private final Counter pubSubMessageMeter;
   private final Counter displacementListenerAlreadyRemovedCounter;
 
   private static final int PRUNE_PEERS_INTERVAL_SECONDS = (int) Duration.ofSeconds(30).toSeconds();
@@ -96,16 +92,15 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
     this.scheduledExecutorService = scheduledExecutorService;
     this.keyspaceNotificationExecutorService = keyspaceNotificationExecutorService;
 
-    final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-    metricRegistry.gauge(name(getClass(), "localClientCount"), () -> displacementListenersByPresenceKey::size);
+    Metrics.gauge(name(getClass(), "localClientCount"), this, ignored -> displacementListenersByPresenceKey.size());
 
-    this.checkPresenceTimer = metricRegistry.timer(name(getClass(), "checkPresence"));
-    this.setPresenceTimer = metricRegistry.timer(name(getClass(), "setPresence"));
-    this.clearPresenceTimer = metricRegistry.timer(name(getClass(), "clearPresence"));
-    this.prunePeersTimer = metricRegistry.timer(name(getClass(), "prunePeers"));
-    this.pruneClientMeter = metricRegistry.meter(name(getClass(), "pruneClient"));
-    this.remoteDisplacementMeter = metricRegistry.meter(name(getClass(), "remoteDisplacement"));
-    this.pubSubMessageMeter = metricRegistry.meter(name(getClass(), "pubSubMessage"));
+    this.checkPresenceTimer = Metrics.timer(name(getClass(), "checkPresence"));
+    this.setPresenceTimer = Metrics.timer(name(getClass(), "setPresence"));
+    this.clearPresenceTimer = Metrics.timer(name(getClass(), "clearPresence"));
+    this.prunePeersTimer = Metrics.timer(name(getClass(), "prunePeers"));
+    this.pruneClientMeter = Metrics.counter(name(getClass(), "pruneClient"));
+    this.remoteDisplacementMeter = Metrics.counter(name(getClass(), "remoteDisplacement"));
+    this.pubSubMessageMeter = Metrics.counter(name(getClass(), "pubSubMessage"));
     this.displacementListenerAlreadyRemovedCounter = Metrics.counter(
         name(getClass(), "displacementListenerAlreadyRemoved"));
   }
@@ -165,7 +160,7 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
   public void setPresent(final UUID accountUuid, final byte deviceId,
       final DisplacedPresenceListener displacementListener) {
 
-    try (final Timer.Context ignored = setPresenceTimer.time()) {
+    setPresenceTimer.record(() -> {
       final String presenceKey = getPresenceKey(accountUuid, deviceId);
 
       displacePresence(presenceKey, true);
@@ -180,7 +175,7 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
       });
 
       subscribeForRemotePresenceChanges(presenceKey);
-    }
+    });
   }
 
   public void renewPresence(final UUID accountUuid, final byte deviceId) {
@@ -224,10 +219,9 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
   }
 
   public boolean isPresent(final UUID accountUuid, final byte deviceId) {
-    try (final Timer.Context ignored = checkPresenceTimer.time()) {
-      return presenceCluster.withCluster(connection ->
-          connection.sync().exists(getPresenceKey(accountUuid, deviceId))) == 1;
-    }
+    return checkPresenceTimer.record(() ->
+        presenceCluster.withCluster(connection ->
+            connection.sync().exists(getPresenceKey(accountUuid, deviceId))) == 1);
   }
 
   public boolean isLocallyPresent(final UUID accountUuid, final byte deviceId) {
@@ -245,7 +239,7 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
   }
 
   private boolean clearPresence(final String presenceKey) {
-    try (final Timer.Context ignored = clearPresenceTimer.time()) {
+    return clearPresenceTimer.record(() -> {
       displacementListenersByPresenceKey.remove(presenceKey);
       unsubscribeFromRemotePresenceChanges(presenceKey);
 
@@ -253,7 +247,7 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
       presenceCluster.useCluster(connection -> connection.sync().srem(connectedClientSetKey, presenceKey));
 
       return removed;
-    }
+    });
   }
 
   private void subscribeForRemotePresenceChanges(final String presenceKey) {
@@ -277,7 +271,7 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
   }
 
   void pruneMissingPeers() {
-    try (final Timer.Context ignored = prunePeersTimer.time()) {
+    prunePeersTimer.record(() -> {
       final Set<String> peerIds = presenceCluster.withCluster(
           connection -> connection.sync().smembers(MANAGER_SET_KEY));
       peerIds.remove(managerId);
@@ -296,7 +290,7 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
           while ((presenceKey = presenceCluster.withCluster(connection -> connection.sync().spop(connectedClientsKey)))
               != null) {
             clearPresenceScript.execute(List.of(presenceKey), List.of(peerId));
-            pruneClientMeter.mark();
+            pruneClientMeter.increment();
           }
 
           presenceCluster.useCluster(connection -> {
@@ -305,12 +299,12 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
           });
         }
       }
-    }
+    });
   }
 
   @Override
   public void message(final RedisClusterNode node, final String channel, final String message) {
-    pubSubMessageMeter.mark();
+    pubSubMessageMeter.increment();
 
     if (channel.startsWith("__keyspace@0__:presence::{")) {
       if ("set".equals(message) || "del".equals(message)) {
@@ -323,7 +317,7 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
         keyspaceNotificationExecutorService.execute(() -> {
           try {
             displacePresence(channel.substring("__keyspace@0__:".length()), connectedElsewhere);
-            remoteDisplacementMeter.mark();
+            remoteDisplacementMeter.increment();
           } catch (final Exception e) {
             log.warn("Error displacing presence", e);
           }

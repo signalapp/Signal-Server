@@ -12,10 +12,13 @@ import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
+import io.micrometer.core.instrument.binder.jvm.JvmMemoryMetrics;
+import io.micrometer.core.instrument.binder.jvm.JvmThreadMetrics;
+import io.micrometer.core.instrument.binder.system.FileDescriptorMetrics;
+import io.micrometer.core.instrument.binder.system.ProcessorMetrics;
 import io.micrometer.core.instrument.config.MeterFilter;
 import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
 import io.micrometer.statsd.StatsdMeterRegistry;
-import java.util.concurrent.TimeUnit;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.WhisperServerVersion;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
@@ -101,19 +104,20 @@ public class MetricsUtil {
   }
 
   public static void registerSystemResourceMetrics(final Environment environment) {
-    environment.metrics().register(name(CpuUsageGauge.class, "cpu"), new CpuUsageGauge(3, TimeUnit.SECONDS));
-    environment.metrics().register(name(FreeMemoryGauge.class, "free_memory"), new FreeMemoryGauge());
-    environment.metrics().register(name(NetworkSentGauge.class, "bytes_sent"), new NetworkSentGauge());
-    environment.metrics().register(name(NetworkReceivedGauge.class, "bytes_received"), new NetworkReceivedGauge());
-    environment.metrics().register(name(FileDescriptorGauge.class, "fd_count"), new FileDescriptorGauge());
-    environment.metrics().register(name(MaxFileDescriptorGauge.class, "max_fd_count"), new MaxFileDescriptorGauge());
-    environment.metrics()
-        .register(name(OperatingSystemMemoryGauge.class, "buffers"), new OperatingSystemMemoryGauge("Buffers"));
-    environment.metrics()
-        .register(name(OperatingSystemMemoryGauge.class, "cached"), new OperatingSystemMemoryGauge("Cached"));
+    new ProcessorMetrics().bindTo(Metrics.globalRegistry);
+    registerGauge(name(FreeMemoryGauge.class, "freeMemory"), new FreeMemoryGauge());
+    new FileDescriptorMetrics().bindTo(Metrics.globalRegistry);
+    registerGauge(name(OperatingSystemMemoryGauge.class, "buffers"), new OperatingSystemMemoryGauge("Buffers"));
+    registerGauge(name(OperatingSystemMemoryGauge.class, "cached"), new OperatingSystemMemoryGauge("Cached"));
 
-    BufferPoolGauges.registerMetrics();
+    new JvmMemoryMetrics().bindTo(Metrics.globalRegistry);
+    new JvmThreadMetrics().bindTo(Metrics.globalRegistry);
+
     GarbageCollectionGauges.registerMetrics();
+  }
+
+  private static void registerGauge(final String name, final Gauge gauge) {
+    Metrics.gauge(name, gauge, Gauge::getValue);
   }
 
 }

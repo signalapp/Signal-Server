@@ -4,11 +4,9 @@
  */
 package org.whispersystems.textsecuregcm.storage;
 
-import static com.codahale.metrics.MetricRegistry.name;
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
-import com.codahale.metrics.Meter;
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.SharedMetricRegistries;
+import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import java.util.List;
 import java.util.Optional;
@@ -24,8 +22,6 @@ import org.reactivestreams.Publisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
-import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
-import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Pair;
 import reactor.core.observability.micrometer.Micrometer;
 import reactor.core.publisher.Flux;
@@ -34,15 +30,12 @@ import reactor.core.publisher.Mono;
 public class MessagesManager {
 
   private static final int RESULT_SET_CHUNK_SIZE = 100;
-  final String GET_MESSAGES_FOR_DEVICE_FLUX_NAME = MetricsUtil.name(MessagesManager.class, "getMessagesForDevice");
+  final String GET_MESSAGES_FOR_DEVICE_FLUX_NAME = name(MessagesManager.class, "getMessagesForDevice");
 
   private static final Logger logger = LoggerFactory.getLogger(MessagesManager.class);
 
-  private static final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  private static final Meter cacheHitByGuidMeter = metricRegistry.meter(name(MessagesManager.class, "cacheHitByGuid"));
-  private static final Meter cacheMissByGuidMeter = metricRegistry.meter(
-      name(MessagesManager.class, "cacheMissByGuid"));
-  private static final Meter persistMessageMeter = metricRegistry.meter(name(MessagesManager.class, "persistMessage"));
+  private static final Counter PERSIST_MESSAGE_COUNTER = Metrics.counter(
+      name(MessagesManager.class, "persistMessage"));
 
   private final MessagesDynamoDb messagesDynamoDb;
   private final MessagesCache messagesCache;
@@ -124,11 +117,8 @@ public class MessagesManager {
         .thenComposeAsync(removed -> {
 
           if (removed.isPresent()) {
-            cacheHitByGuidMeter.mark();
             return CompletableFuture.completedFuture(removed);
           }
-
-          cacheMissByGuidMeter.mark();
 
           if (serverTimestamp == null) {
             return messagesDynamoDb.deleteMessageByDestinationAndGuid(destinationUuid, guid);
@@ -159,7 +149,7 @@ public class MessagesManager {
     try {
       messagesRemovedFromCache = messagesCache.remove(destinationUuid, destinationDeviceId, messageGuids)
           .get(30, TimeUnit.SECONDS).size();
-      persistMessageMeter.mark(nonEphemeralMessages.size());
+      PERSIST_MESSAGE_COUNTER.increment(nonEphemeralMessages.size());
 
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       logger.warn("Failed to remove messages from cache", e);

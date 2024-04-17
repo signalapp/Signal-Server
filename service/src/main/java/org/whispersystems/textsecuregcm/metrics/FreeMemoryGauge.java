@@ -5,21 +5,20 @@
 
 package org.whispersystems.textsecuregcm.metrics;
 
-import com.codahale.metrics.Gauge;
 import com.sun.management.OperatingSystemMXBean;
 import java.lang.management.ManagementFactory;
 
-public class FreeMemoryGauge implements Gauge<Long> {
+public class FreeMemoryGauge implements Gauge {
 
   private final OperatingSystemMXBean operatingSystemMXBean;
 
   public FreeMemoryGauge() {
     this.operatingSystemMXBean = (com.sun.management.OperatingSystemMXBean)
-            ManagementFactory.getOperatingSystemMXBean();
+        ManagementFactory.getOperatingSystemMXBean();
   }
 
   @Override
-  public Long getValue() {
+  public double getValue() {
     return operatingSystemMXBean.getFreeMemorySize();
   }
 }

@@ -5,7 +5,7 @@
 
 package org.whispersystems.textsecuregcm.metrics;
 
-import static com.codahale.metrics.MetricRegistry.name;
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
@@ -15,14 +15,17 @@ import java.util.List;
 
 public class GarbageCollectionGauges {
 
-    private GarbageCollectionGauges() {}
+  private GarbageCollectionGauges() {
+  }
 
-    public static void registerMetrics() {
-        for (final GarbageCollectorMXBean garbageCollectorMXBean : ManagementFactory.getGarbageCollectorMXBeans()) {
-            final List<Tag> tags = List.of(Tag.of("memoryManagerName", garbageCollectorMXBean.getName()));
+  public static void registerMetrics() {
+    for (final GarbageCollectorMXBean garbageCollectorMXBean : ManagementFactory.getGarbageCollectorMXBeans()) {
+      final List<Tag> tags = List.of(Tag.of("memoryManagerName", garbageCollectorMXBean.getName()));
 
-            Metrics.gauge(name(GarbageCollectionGauges.class, "collection_count"), tags, garbageCollectorMXBean, GarbageCollectorMXBean::getCollectionCount);
-            Metrics.gauge(name(GarbageCollectionGauges.class, "collection_time"), tags, garbageCollectorMXBean, GarbageCollectorMXBean::getCollectionTime);
-        }
+      Metrics.gauge(name(GarbageCollectionGauges.class, "collectionCount"), tags, garbageCollectorMXBean,
+          GarbageCollectorMXBean::getCollectionCount);
+      Metrics.gauge(name(GarbageCollectionGauges.class, "collectionTime"), tags, garbageCollectorMXBean,
+          GarbageCollectorMXBean::getCollectionTime);
     }
+  }
 }

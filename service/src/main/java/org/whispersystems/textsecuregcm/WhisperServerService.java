@@ -671,8 +671,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.lifecycle().manage(clientReleaseManager);
     environment.lifecycle().manage(virtualThreadPinEventMonitor);
 
-    final RegistrationCaptchaManager registrationCaptchaManager = new RegistrationCaptchaManager(captchaChecker,
-        rateLimiters, config.getTestDevices(), dynamicConfigurationManager);
+    final RegistrationCaptchaManager registrationCaptchaManager = new RegistrationCaptchaManager(captchaChecker);
 
     StaticCredentialsProvider cdnCredentialsProvider = StaticCredentialsProvider
         .create(AwsBasicCredentials.create(
