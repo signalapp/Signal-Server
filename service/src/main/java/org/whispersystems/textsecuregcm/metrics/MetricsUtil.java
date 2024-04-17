@@ -105,19 +105,15 @@ public class MetricsUtil {
 
   public static void registerSystemResourceMetrics(final Environment environment) {
     new ProcessorMetrics().bindTo(Metrics.globalRegistry);
-    registerGauge(name(FreeMemoryGauge.class, "freeMemory"), new FreeMemoryGauge());
+    new FreeMemoryGauge().bindTo(Metrics.globalRegistry);
     new FileDescriptorMetrics().bindTo(Metrics.globalRegistry);
-    registerGauge(name(OperatingSystemMemoryGauge.class, "buffers"), new OperatingSystemMemoryGauge("Buffers"));
-    registerGauge(name(OperatingSystemMemoryGauge.class, "cached"), new OperatingSystemMemoryGauge("Cached"));
+    new OperatingSystemMemoryGauge("Buffers").bindTo(Metrics.globalRegistry);
+    new OperatingSystemMemoryGauge("Cached").bindTo(Metrics.globalRegistry);
 
     new JvmMemoryMetrics().bindTo(Metrics.globalRegistry);
     new JvmThreadMetrics().bindTo(Metrics.globalRegistry);
 
     GarbageCollectionGauges.registerMetrics();
-  }
-
-  private static void registerGauge(final String name, final Gauge gauge) {
-    Metrics.gauge(name, gauge, Gauge::getValue);
   }
 
 }

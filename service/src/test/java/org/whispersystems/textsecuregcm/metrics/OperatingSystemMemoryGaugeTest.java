@@ -75,7 +75,7 @@ class OperatingSystemMemoryGaugeTest {
   @ParameterizedTest
   @MethodSource
   void testGetValue(final String metricName, final long expectedValue) {
-    assertEquals(expectedValue, new OperatingSystemMemoryGauge(metricName).getValue(MEMINFO.lines()));
+    assertEquals(expectedValue, OperatingSystemMemoryGauge.getValue(MEMINFO.lines(), metricName));
   }
 
   @SuppressWarnings("unused")
