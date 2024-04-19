@@ -87,7 +87,7 @@ public class CaptchaChecker {
     final Action parsedAction = Action.parse(action)
         .orElseThrow(() -> {
           Metrics.counter(INVALID_ACTION_COUNTER_NAME, "action", action).increment();
-          throw new BadRequestException("invalid captcha action");
+          return new BadRequestException("invalid captcha action");
         });
 
     if (!parsedAction.equals(expectedAction)) {
