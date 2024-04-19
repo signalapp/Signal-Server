@@ -164,9 +164,19 @@ message GetPreKeysAnonymousRequest {
   GetPreKeysRequest request = 1;
 
   /**
-   * The unidentified access key (UAK) for the targeted account.
+   * A means to authorize the request.
    */
-  bytes unidentified_access_key = 2;
+  oneof authorization {
+    /**
+     * The unidentified access key (UAK) for the targeted account.
+     */
+    bytes unidentified_access_key = 2;
+
+    /**
+     * A group send endorsement token for the targeted account.
+     */
+    bytes group_send_token = 3;
+  }
 }
 
 message GetPreKeysResponse {

@@ -433,7 +433,7 @@ class MessageControllerTest {
             .queryParam("story", story)
             .request()
             .header(HeaderUtils.GROUP_SEND_TOKEN,
-                validGroupSendTokenHeader(List.of(authorizedRecipient), expiration));
+                AuthHelper.validGroupSendTokenHeader(serverSecretParams, List.of(authorizedRecipient), expiration));
 
     if (includeUak) {
       builder = builder.header(HeaderUtils.UNIDENTIFIED_ACCESS_KEY, Base64.getEncoder().encodeToString(UNIDENTIFIED_ACCESS_BYTES));
@@ -1351,8 +1351,8 @@ class MessageControllerTest {
         .queryParam("urgent", false)
         .request()
         .header(HttpHeaders.USER_AGENT, "FIXME")
-        .header(HeaderUtils.GROUP_SEND_TOKEN, validGroupSendTokenHeader(
-                List.of(SINGLE_DEVICE_ACI_ID, MULTI_DEVICE_ACI_ID), Instant.parse("2024-04-10T00:00:00.00Z")))
+        .header(HeaderUtils.GROUP_SEND_TOKEN, AuthHelper.validGroupSendTokenHeader(
+                serverSecretParams, List.of(SINGLE_DEVICE_ACI_ID, MULTI_DEVICE_ACI_ID), Instant.parse("2024-04-10T00:00:00.00Z")))
         .put(Entity.entity(stream, MultiRecipientMessageProvider.MEDIA_TYPE));
 
     assertThat("Unexpected response", response.getStatus(), is(equalTo(200)));
@@ -1389,8 +1389,8 @@ class MessageControllerTest {
         .queryParam("urgent", false)
         .request()
         .header(HttpHeaders.USER_AGENT, "FIXME")
-        .header(HeaderUtils.GROUP_SEND_TOKEN, validGroupSendTokenHeader(
-                List.of(MULTI_DEVICE_ACI_ID), Instant.parse("2024-04-10T00:00:00.00Z")))
+        .header(HeaderUtils.GROUP_SEND_TOKEN, AuthHelper.validGroupSendTokenHeader(
+                serverSecretParams, List.of(MULTI_DEVICE_ACI_ID), Instant.parse("2024-04-10T00:00:00.00Z")))
         .put(Entity.entity(stream, MultiRecipientMessageProvider.MEDIA_TYPE));
 
     assertThat("Unexpected response", response.getStatus(), is(equalTo(401)));
@@ -1419,37 +1419,12 @@ class MessageControllerTest {
         .queryParam("urgent", false)
         .request()
         .header(HttpHeaders.USER_AGENT, "FIXME")
-        .header(HeaderUtils.GROUP_SEND_TOKEN, validGroupSendTokenHeader(
-                List.of(SINGLE_DEVICE_ACI_ID, MULTI_DEVICE_ACI_ID), Instant.parse("2024-04-10T00:00:00.00Z")))
+        .header(HeaderUtils.GROUP_SEND_TOKEN, AuthHelper.validGroupSendTokenHeader(
+                serverSecretParams, List.of(SINGLE_DEVICE_ACI_ID, MULTI_DEVICE_ACI_ID), Instant.parse("2024-04-10T00:00:00.00Z")))
         .put(Entity.entity(stream, MultiRecipientMessageProvider.MEDIA_TYPE));
 
     assertThat("Unexpected response", response.getStatus(), is(equalTo(401)));
     verifyNoMoreInteractions(messageSender);
-  }
-
-  private String validGroupSendTokenHeader(List<ServiceIdentifier> recipients, Instant expiration) throws Exception {
-    final ServerPublicParams serverPublicParams = serverSecretParams.getPublicParams();
-    final GroupMasterKey groupMasterKey = new GroupMasterKey(new byte[32]);
-    final GroupSecretParams groupSecretParams = GroupSecretParams.deriveFromMasterKey(groupMasterKey);
-    final ClientZkGroupCipher clientZkGroupCipher = new ClientZkGroupCipher(groupSecretParams);
-
-    final ServiceId.Aci sender = new ServiceId.Aci(UUID.randomUUID());
-    List<ServiceId> groupPlaintexts = Stream.concat(Stream.of(sender), recipients.stream().map(ServiceIdentifier::toLibsignal)).toList();
-    List<UuidCiphertext> groupCiphertexts = groupPlaintexts.stream()
-        .map(clientZkGroupCipher::encrypt)
-        .toList();
-    GroupSendDerivedKeyPair keyPair = GroupSendDerivedKeyPair.forExpiration(expiration, serverSecretParams);
-    GroupSendEndorsementsResponse endorsementsResponse =
-        GroupSendEndorsementsResponse.issue(groupCiphertexts, keyPair);
-    ReceivedEndorsements endorsements =
-        endorsementsResponse.receive(
-            groupPlaintexts,
-            sender,
-            expiration.minus(Duration.ofDays(1)),
-            groupSecretParams,
-            serverPublicParams);
-    GroupSendFullToken token = endorsements.combinedEndorsement().toFullToken(groupSecretParams, expiration);
-    return Base64.getEncoder().encodeToString(token.serialize());
   }
 
   @ParameterizedTest

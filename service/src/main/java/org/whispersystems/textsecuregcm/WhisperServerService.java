@@ -795,7 +795,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             .intercept(requestAttributesInterceptor)
             .intercept(new ProhibitAuthenticationInterceptor(clientConnectionManager))
             .addService(new AccountsAnonymousGrpcService(accountsManager, rateLimiters))
-            .addService(new KeysAnonymousGrpcService(accountsManager, keysManager))
+            .addService(new KeysAnonymousGrpcService(accountsManager, keysManager, zkSecretParams, Clock.systemUTC()))
             .addService(new PaymentsGrpcService(currencyManager))
             .addService(ExternalServiceCredentialsAnonymousGrpcService.create(accountsManager, config))
             .addService(new ProfileAnonymousGrpcService(accountsManager, profilesManager, profileBadgeConverter, zkProfileOperations));
@@ -961,7 +961,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new DirectoryV2Controller(directoryV2CredentialsGenerator),
         new DonationController(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager, config.getBadges(),
             ReceiptCredentialPresentation::new),
-        new KeysController(rateLimiters, keysManager, accountsManager),
+        new KeysController(rateLimiters, keysManager, accountsManager, zkSecretParams, Clock.systemUTC()),
         new MessageController(rateLimiters, messageByteLimitCardinalityEstimator, messageSender, receiptSender,
             accountsManager, messagesManager, pushNotificationManager, reportMessageManager,
             multiRecipientMessageExecutor, messageDeliveryScheduler, reportSpamTokenProvider, clientReleaseManager,

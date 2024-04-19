@@ -18,6 +18,8 @@ import io.dropwizard.auth.PolymorphicAuthDynamicFeature;
 import io.dropwizard.auth.basic.BasicCredentialAuthFilter;
 import io.dropwizard.auth.basic.BasicCredentials;
 import java.security.Principal;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
@@ -26,17 +28,31 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
+import java.util.stream.Stream;
+
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.signal.libsignal.protocol.IdentityKey;
+import org.signal.libsignal.protocol.ServiceId;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
+import org.signal.libsignal.zkgroup.ServerPublicParams;
+import org.signal.libsignal.zkgroup.ServerSecretParams;
+import org.signal.libsignal.zkgroup.groups.ClientZkGroupCipher;
+import org.signal.libsignal.zkgroup.groups.GroupMasterKey;
+import org.signal.libsignal.zkgroup.groups.GroupSecretParams;
+import org.signal.libsignal.zkgroup.groups.UuidCiphertext;
+import org.signal.libsignal.zkgroup.groupsend.GroupSendDerivedKeyPair;
+import org.signal.libsignal.zkgroup.groupsend.GroupSendEndorsementsResponse;
+import org.signal.libsignal.zkgroup.groupsend.GroupSendFullToken;
+import org.signal.libsignal.zkgroup.groupsend.GroupSendEndorsementsResponse.ReceivedEndorsements;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
+import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -316,5 +332,34 @@ public class AuthHelper {
 
       EXTENSION_TEST_ACCOUNTS.clear();
     }
+  }
+
+  public static byte[] validGroupSendToken(ServerSecretParams serverSecretParams, List<ServiceIdentifier> recipients, Instant expiration) throws Exception {
+    final ServerPublicParams serverPublicParams = serverSecretParams.getPublicParams();
+    final GroupMasterKey groupMasterKey = new GroupMasterKey(new byte[32]);
+    final GroupSecretParams groupSecretParams = GroupSecretParams.deriveFromMasterKey(groupMasterKey);
+    final ClientZkGroupCipher clientZkGroupCipher = new ClientZkGroupCipher(groupSecretParams);
+
+    final ServiceId.Aci sender = new ServiceId.Aci(UUID.randomUUID());
+    List<ServiceId> groupPlaintexts = Stream.concat(Stream.of(sender), recipients.stream().map(ServiceIdentifier::toLibsignal)).toList();
+    List<UuidCiphertext> groupCiphertexts = groupPlaintexts.stream()
+        .map(clientZkGroupCipher::encrypt)
+        .toList();
+    GroupSendDerivedKeyPair keyPair = GroupSendDerivedKeyPair.forExpiration(expiration, serverSecretParams);
+    GroupSendEndorsementsResponse endorsementsResponse =
+        GroupSendEndorsementsResponse.issue(groupCiphertexts, keyPair);
+    ReceivedEndorsements endorsements =
+        endorsementsResponse.receive(
+            groupPlaintexts,
+            sender,
+            expiration.minus(Duration.ofDays(1)),
+            groupSecretParams,
+            serverPublicParams);
+    GroupSendFullToken token = endorsements.combinedEndorsement().toFullToken(groupSecretParams, expiration);
+    return token.serialize();
+  }
+
+  public static String validGroupSendTokenHeader(ServerSecretParams serverSecretParams, List<ServiceIdentifier> recipients, Instant expiration) throws Exception {
+    return Base64.getEncoder().encodeToString(validGroupSendToken(serverSecretParams, recipients, expiration));
   }
 }

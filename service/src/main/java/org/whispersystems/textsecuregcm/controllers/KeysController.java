@@ -18,6 +18,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -30,18 +31,26 @@ import javax.ws.rs.Consumes;
 import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
+import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.POST;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
+import javax.ws.rs.BadRequestException;
+import javax.ws.rs.NotFoundException;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import org.signal.libsignal.protocol.IdentityKey;
+import org.signal.libsignal.zkgroup.ServerSecretParams;
+import org.signal.libsignal.zkgroup.VerificationFailedException;
+import org.signal.libsignal.zkgroup.groupsend.GroupSendDerivedKeyPair;
+import org.signal.libsignal.zkgroup.groupsend.GroupSendFullToken;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.GroupSendTokenHeader;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
 import org.whispersystems.textsecuregcm.entities.CheckKeysRequest;
 import org.whispersystems.textsecuregcm.entities.ECPreKey;
@@ -74,6 +83,8 @@ public class KeysController {
   private final RateLimiters rateLimiters;
   private final KeysManager keysManager;
   private final AccountsManager accounts;
+  private final ServerSecretParams serverSecretParams;
+  private final Clock clock;
 
   private static final String GET_KEYS_COUNTER_NAME = MetricsUtil.name(KeysController.class, "getKeys");
   private static final String STORE_KEYS_COUNTER_NAME = MetricsUtil.name(KeysController.class, "storeKeys");
@@ -83,10 +94,12 @@ public class KeysController {
 
   private static final CompletableFuture<?>[] EMPTY_FUTURE_ARRAY = new CompletableFuture[0];
 
-  public KeysController(RateLimiters rateLimiters, KeysManager keysManager, AccountsManager accounts) {
+  public KeysController(RateLimiters rateLimiters, KeysManager keysManager, AccountsManager accounts, ServerSecretParams serverSecretParams, Clock clock) {
     this.rateLimiters = rateLimiters;
     this.keysManager = keysManager;
     this.accounts = accounts;
+    this.serverSecretParams = serverSecretParams;
+    this.clock = clock;
   }
 
   @GET
@@ -298,7 +311,8 @@ public class KeysController {
   @Operation(summary = "Fetch public keys for another user",
       description = "Retrieves the public identity key and available device prekeys for a specified account or phone-number identity")
   @ApiResponse(responseCode = "200", description = "Indicates at least one prekey was available for at least one requested device.", useReturnTypeSchema = true)
-  @ApiResponse(responseCode = "401", description = "Account authentication check failed and unidentified-access key was not supplied or invalid.")
+  @ApiResponse(responseCode = "400", description = "A group send endorsement and other authorization (account authentication or unidentified-access key) were both provided.")
+  @ApiResponse(responseCode = "401", description = "Account authentication check failed and unidentified-access key or group send endorsement token was not supplied or invalid.")
   @ApiResponse(responseCode = "404", description = "Requested identity or device does not exist, is not active, or has no available prekeys.")
   @ApiResponse(responseCode = "429", description = "Rate limit exceeded.", headers = @Header(
       name = "Retry-After",
@@ -306,6 +320,7 @@ public class KeysController {
   public PreKeyResponse getDeviceKeys(
       @ReadOnly @Auth Optional<AuthenticatedAccount> auth,
       @HeaderParam(HeaderUtils.UNIDENTIFIED_ACCESS_KEY) Optional<Anonymous> accessKey,
+      @HeaderParam(HeaderUtils.GROUP_SEND_TOKEN) Optional<GroupSendTokenHeader> groupSendToken,
 
       @Parameter(description="the account or phone-number identifier to retrieve keys for")
       @PathParam("identifier") ServiceIdentifier targetIdentifier,
@@ -316,20 +331,27 @@ public class KeysController {
       @HeaderParam(HttpHeaders.USER_AGENT) String userAgent)
       throws RateLimitExceededException {
 
-    if (auth.isEmpty() && accessKey.isEmpty()) {
+    if (auth.isEmpty() && accessKey.isEmpty() && groupSendToken.isEmpty()) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 
     final Optional<Account> account = auth.map(AuthenticatedAccount::getAccount);
+    final Optional<Account> maybeTarget = accounts.getByServiceIdentifier(targetIdentifier);
 
-    final Account target;
-    {
-      final Optional<Account> maybeTarget = accounts.getByServiceIdentifier(targetIdentifier);
-
+    if (groupSendToken.isPresent()) {
+      if (auth.isPresent() || accessKey.isPresent()) {
+        throw new BadRequestException();
+      }
+      try {
+        final GroupSendFullToken token = groupSendToken.get().token();
+        token.verify(List.of(targetIdentifier.toLibsignal()), clock.instant(), GroupSendDerivedKeyPair.forExpiration(token.getExpiration(), serverSecretParams));
+      } catch (VerificationFailedException e) {
+        throw new NotAuthorizedException(e);
+      }
+    } else {
       OptionalAccess.verify(account, accessKey, maybeTarget, deviceId);
-
-      target = maybeTarget.orElseThrow();
     }
+    final Account target = maybeTarget.orElseThrow(NotFoundException::new);
 
     if (account.isPresent()) {
       rateLimiters.getPreKeysLimiter().validate(

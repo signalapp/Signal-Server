@@ -29,13 +29,18 @@ import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Stream;
+
 import javax.ws.rs.client.Entity;
+import javax.ws.rs.client.Invocation;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import org.glassfish.jersey.server.ServerProperties;
@@ -52,6 +57,7 @@ import org.mockito.ArgumentCaptor;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
+import org.signal.libsignal.zkgroup.ServerSecretParams;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.entities.CheckKeysRequest;
 import org.whispersystems.textsecuregcm.entities.ECPreKey;
@@ -64,6 +70,7 @@ import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
+import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.CompletionExceptionMapper;
@@ -79,6 +86,7 @@ import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
 import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
+import org.whispersystems.textsecuregcm.util.TestClock;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class KeysControllerTest {
@@ -86,8 +94,13 @@ class KeysControllerTest {
   private static final String EXISTS_NUMBER = "+14152222222";
   private static final UUID   EXISTS_UUID   = UUID.randomUUID();
   private static final UUID   EXISTS_PNI    = UUID.randomUUID();
+  private static final AciServiceIdentifier EXISTS_ACI = new AciServiceIdentifier(EXISTS_UUID);
+
+  private static final UUID   OTHER_UUID   = UUID.randomUUID();
+  private static final AciServiceIdentifier OTHER_ACI = new AciServiceIdentifier(OTHER_UUID);
 
   private static final UUID   NOT_EXISTS_UUID   = UUID.randomUUID();
+  private static final AciServiceIdentifier NOT_EXISTS_ACI = new AciServiceIdentifier(NOT_EXISTS_UUID);
 
   private static final byte SAMPLE_DEVICE_ID = 1;
   private static final byte SAMPLE_DEVICE_ID2 = 2;
@@ -136,6 +149,10 @@ class KeysControllerTest {
   private static final RateLimiters          rateLimiters  = mock(RateLimiters.class);
   private static final RateLimiter           rateLimiter   = mock(RateLimiter.class );
 
+  private static final ServerSecretParams serverSecretParams = ServerSecretParams.generate();
+
+  private static final TestClock clock = TestClock.now();
+
   private static final ResourceExtension resources = ResourceExtension.builder()
       .addProperty(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE)
       .addProvider(AuthHelper.getAuthFilter())
@@ -143,7 +160,7 @@ class KeysControllerTest {
       .addProvider(new AuthValueFactoryProvider.Binder<>(AuthenticatedAccount.class))
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(new ServerRejectedExceptionMapper())
-      .addResource(new KeysController(rateLimiters, KEYS, accounts))
+      .addResource(new KeysController(rateLimiters, KEYS, accounts, serverSecretParams, clock))
       .addResource(new RateLimitExceededExceptionMapper())
       .build();
 
@@ -183,6 +200,8 @@ class KeysControllerTest {
 
   @BeforeEach
   void setup() {
+    clock.unpin();
+
     sampleDevice               = mock(Device.class);
     final Device sampleDevice2 = mock(Device.class);
     final Device sampleDevice3 = mock(Device.class);
@@ -527,6 +546,68 @@ class KeysControllerTest {
     verify(KEYS).takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID);
     verify(KEYS).getEcSignedPreKey(EXISTS_UUID, SAMPLE_DEVICE_ID);
     verifyNoMoreInteractions(KEYS);
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void testGetKeysWithGroupSendEndorsement(
+      ServiceIdentifier target, ServiceIdentifier authorizedTarget, Duration timeLeft, boolean includeUak, int expectedResponse) throws Exception {
+
+    final Instant expiration = Instant.now().truncatedTo(ChronoUnit.DAYS);
+    clock.pin(expiration.minus(timeLeft));
+
+    Invocation.Builder builder = resources.getJerseyTest()
+        .target(String.format("/v2/keys/%s/1", target.toServiceIdentifierString()))
+        .queryParam("pq", "true")
+        .request()
+        .header(HeaderUtils.GROUP_SEND_TOKEN, AuthHelper.validGroupSendTokenHeader(serverSecretParams, List.of(authorizedTarget), expiration));
+
+    if (includeUak) {
+      builder = builder.header(HeaderUtils.UNIDENTIFIED_ACCESS_KEY, AuthHelper.getUnidentifiedAccessHeader("1337".getBytes()));
+    }
+
+    Response response = builder.get();
+    assertThat(response.getStatus()).isEqualTo(expectedResponse);
+
+    if (expectedResponse == 200) {
+      PreKeyResponse result = response.readEntity(PreKeyResponse.class);
+
+      assertThat(result.getIdentityKey()).isEqualTo(existsAccount.getIdentityKey(IdentityType.ACI));
+      assertThat(result.getDevicesCount()).isEqualTo(1);
+      assertEquals(SAMPLE_KEY, result.getDevice(SAMPLE_DEVICE_ID).getPreKey());
+      assertEquals(SAMPLE_PQ_KEY, result.getDevice(SAMPLE_DEVICE_ID).getPqPreKey());
+      assertEquals(SAMPLE_SIGNED_KEY, result.getDevice(SAMPLE_DEVICE_ID).getSignedPreKey());
+
+      verify(KEYS).takeEC(EXISTS_UUID, SAMPLE_DEVICE_ID);
+      verify(KEYS).takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID);
+      verify(KEYS).getEcSignedPreKey(EXISTS_UUID, SAMPLE_DEVICE_ID);
+    }
+
+    verifyNoMoreInteractions(KEYS);
+  }
+
+  private static Stream<Arguments> testGetKeysWithGroupSendEndorsement() {
+    return Stream.of(
+        // valid endorsement
+        Arguments.of(EXISTS_ACI, EXISTS_ACI, Duration.ofHours(1), false, 200),
+
+        // expired endorsement, not authorized
+        Arguments.of(EXISTS_ACI, EXISTS_ACI, Duration.ofHours(-1), false, 401),
+
+        // endorsement for the wrong recipient, not authorized
+        Arguments.of(EXISTS_ACI, OTHER_ACI, Duration.ofHours(1), false, 401),
+
+        // expired endorsement for the wrong recipient, not authorized
+        Arguments.of(EXISTS_ACI, OTHER_ACI, Duration.ofHours(-1), false, 401),
+
+        // valid endorsement for the right recipient but they aren't registered, not found
+        Arguments.of(NOT_EXISTS_ACI, NOT_EXISTS_ACI, Duration.ofHours(1), false, 404),
+
+        // expired endorsement for the right recipient but they aren't registered, not authorized (NOT not found)
+        Arguments.of(NOT_EXISTS_ACI, NOT_EXISTS_ACI, Duration.ofHours(-1), false, 401),
+
+        // valid endorsement but also a UAK, bad request
+        Arguments.of(EXISTS_ACI, EXISTS_ACI, Duration.ofHours(1), true, 400));
   }
 
   @Test
