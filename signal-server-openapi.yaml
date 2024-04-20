@@ -1680,6 +1680,10 @@ paths:
         in: header
         schema:
           $ref: '#/components/schemas/Anonymous'
+      - name: Group-Send-Token
+        in: header
+        schema:
+          $ref: '#/components/schemas/GroupSendTokenHeader'
       - name: identifier
         in: path
         description: the account or phone-number identifier to retrieve keys for
@@ -1705,9 +1709,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PreKeyResponse'
+        "400":
+          description: A group send endorsement and other authorization (account authentication
+            or unidentified-access key) were both provided.
         "401":
           description: Account authentication check failed and unidentified-access
-            key was not supplied or invalid.
+            key or group send endorsement token was not supplied or invalid.
         "404":
           description: "Requested identity or device does not exist, is not active,\
             \ or has no available prekeys."
@@ -4202,6 +4209,22 @@ components:
           items:
             type: string
             format: byte
+    GroupSendFullToken:
+      type: object
+      properties:
+        expiration:
+          type: string
+          format: date-time
+        internalContentsForJNI:
+          type: array
+          items:
+            type: string
+            format: byte
+    GroupSendTokenHeader:
+      type: object
+      properties:
+        token:
+          $ref: '#/components/schemas/GroupSendFullToken'
     PreKeyCount:
       type: object
       properties:
@@ -4264,22 +4287,6 @@ components:
             that identifies an account and identity within the Signal service.
         devices:
           $ref: '#/components/schemas/StaleDevices'
-    GroupSendFullToken:
-      type: object
-      properties:
-        expiration:
-          type: string
-          format: date-time
-        internalContentsForJNI:
-          type: array
-          items:
-            type: string
-            format: byte
-    GroupSendTokenHeader:
-      type: object
-      properties:
-        token:
-          $ref: '#/components/schemas/GroupSendFullToken'
     IncomingMessageList:
       required:
       - messages
