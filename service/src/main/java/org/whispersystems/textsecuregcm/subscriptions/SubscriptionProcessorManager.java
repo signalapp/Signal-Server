@@ -13,6 +13,7 @@ import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
 public interface SubscriptionProcessorManager {
   SubscriptionProcessor getProcessor();
@@ -23,7 +24,7 @@ public interface SubscriptionProcessorManager {
 
   CompletableFuture<PaymentDetails> getPaymentDetails(String paymentId);
 
-  CompletableFuture<ProcessorCustomer> createCustomer(byte[] subscriberUser);
+  CompletableFuture<ProcessorCustomer> createCustomer(byte[] subscriberUser, @Nullable ClientPlatform clientPlatform);
 
   CompletableFuture<String> createPaymentMethodSetupToken(String customerId);
 

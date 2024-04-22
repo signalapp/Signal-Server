@@ -74,10 +74,12 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.util.Conversions;
+import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
 public class StripeManager implements SubscriptionProcessorManager {
   private static final Logger logger = LoggerFactory.getLogger(StripeManager.class);
   private static final String METADATA_KEY_LEVEL = "level";
+  private static final String METADATA_KEY_CLIENT_PLATFORM = "clientPlatform";
 
   private final StripeClient stripeClient;
   private final Executor executor;
@@ -127,14 +129,18 @@ public class StripeManager implements SubscriptionProcessorManager {
   }
 
   @Override
-  public CompletableFuture<ProcessorCustomer> createCustomer(byte[] subscriberUser) {
+  public CompletableFuture<ProcessorCustomer> createCustomer(final byte[] subscriberUser, @Nullable final ClientPlatform clientPlatform) {
     return CompletableFuture.supplyAsync(() -> {
-          CustomerCreateParams params = CustomerCreateParams.builder()
-              .putMetadata("subscriberUser", HexFormat.of().formatHex(subscriberUser))
-              .build();
+          final CustomerCreateParams.Builder builder = CustomerCreateParams.builder()
+              .putMetadata("subscriberUser", HexFormat.of().formatHex(subscriberUser));
+
+          if (clientPlatform != null) {
+            builder.putMetadata(METADATA_KEY_CLIENT_PLATFORM, clientPlatform.name().toLowerCase());
+          }
+
           try {
             return stripeClient.customers()
-                .create(params, commonOptions(generateIdempotencyKeyForSubscriberUser(subscriberUser)));
+                .create(builder.build(), commonOptions(generateIdempotencyKeyForSubscriberUser(subscriberUser)));
           } catch (StripeException e) {
             throw new CompletionException(e);
           }
@@ -194,16 +200,24 @@ public class StripeManager implements SubscriptionProcessorManager {
   /**
    * Creates a payment intent. May throw a 400 WebApplicationException if the amount is too small.
    */
-  public CompletableFuture<PaymentIntent> createPaymentIntent(String currency, long amount, long level) {
+  public CompletableFuture<PaymentIntent> createPaymentIntent(final String currency,
+      final long amount,
+      final long level,
+      @Nullable final ClientPlatform clientPlatform) {
+
     return CompletableFuture.supplyAsync(() -> {
-      PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
+      final PaymentIntentCreateParams.Builder builder = PaymentIntentCreateParams.builder()
           .setAmount(amount)
           .setCurrency(currency.toLowerCase(Locale.ROOT))
           .setDescription(boostDescription)
-          .putMetadata("level", Long.toString(level))
-          .build();
+          .putMetadata("level", Long.toString(level));
+
+      if (clientPlatform != null) {
+        builder.putMetadata(METADATA_KEY_CLIENT_PLATFORM, clientPlatform.name().toLowerCase());
+      }
+
       try {
-        return stripeClient.paymentIntents().create(params, commonOptions());
+        return stripeClient.paymentIntents().create(builder.build(), commonOptions());
       } catch (StripeException e) {
         if ("amount_too_small".equalsIgnoreCase(e.getCode())) {
           throw new WebApplicationException(Response

@@ -46,8 +46,6 @@ public class DonationController {
     ReceiptCredentialPresentation build(byte[] bytes) throws InvalidInputException;
   }
 
-  private static final Logger logger = LoggerFactory.getLogger(DonationController.class);
-
   private final Clock clock;
   private final ServerZkReceiptOperations serverZkReceiptOperations;
   private final RedeemedReceiptsManager redeemedReceiptsManager;

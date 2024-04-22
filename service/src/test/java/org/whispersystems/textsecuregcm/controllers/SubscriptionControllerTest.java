@@ -231,7 +231,7 @@ class SubscriptionControllerTest {
   void testCreateBoostPaymentIntent() {
     when(STRIPE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.CARD))
         .thenReturn(Set.of("usd", "jpy", "bif", "eur"));
-    when(STRIPE_MANAGER.createPaymentIntent(anyString(), anyLong(), anyLong()))
+    when(STRIPE_MANAGER.createPaymentIntent(anyString(), anyLong(), anyLong(), any()))
         .thenReturn(CompletableFuture.completedFuture(PAYMENT_INTENT));
 
     String clientSecret = "some_client_secret";
@@ -584,7 +584,7 @@ class SubscriptionControllerTest {
     final String customerId = "some-customer-id";
     final ProcessorCustomer customer = new ProcessorCustomer(
         customerId, SubscriptionProcessor.STRIPE);
-    when(STRIPE_MANAGER.createCustomer(any()))
+    when(STRIPE_MANAGER.createCustomer(any(), any()))
         .thenReturn(CompletableFuture.completedFuture(customer));
 
     final Map<String, AttributeValue> dynamoItemWithProcessorCustomer = new HashMap<>(dynamoItem);

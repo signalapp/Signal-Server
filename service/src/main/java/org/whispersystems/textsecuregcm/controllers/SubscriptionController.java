@@ -10,7 +10,6 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.net.HttpHeaders;
 import com.stripe.exception.StripeException;
-import com.vdurmont.semver4j.Semver;
 import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
@@ -36,6 +35,7 @@ import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import javax.validation.Valid;
@@ -99,6 +99,9 @@ import org.whispersystems.textsecuregcm.subscriptions.SubscriptionCurrencyUtil;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessor;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorManager;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
+import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
+import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
+import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 import org.whispersystems.websocket.auth.ReadOnly;
 
 @Path("/v1/subscription")
@@ -126,7 +129,6 @@ public class SubscriptionController {
   private static final String TYPE_TAG_NAME = "type";
   private static final String SUBSCRIPTION_TYPE_TAG_NAME = "subscriptionType";
   private static final String EURO_CURRENCY_CODE = "EUR";
-  private static final Semver LAST_PROBLEMATIC_IOS_VERSION = new Semver("6.44.0");
 
   public SubscriptionController(
       @Nonnull Clock clock,
@@ -290,7 +292,8 @@ public class SubscriptionController {
   public CompletableFuture<Response> createPaymentMethod(
       @ReadOnly @Auth Optional<AuthenticatedAccount> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId,
-      @QueryParam("type") @DefaultValue("CARD") PaymentMethod paymentMethodType) {
+      @QueryParam("type") @DefaultValue("CARD") PaymentMethod paymentMethodType,
+      @HeaderParam(HttpHeaders.USER_AGENT) @Nullable final String userAgentString) {
 
     RequestData requestData = RequestData.process(authenticatedAccount, subscriberId, clock);
 
@@ -309,7 +312,7 @@ public class SubscriptionController {
 
                     return CompletableFuture.completedFuture(record);
                   })
-                  .orElseGet(() -> subscriptionProcessorManager.createCustomer(requestData.subscriberUser)
+                  .orElseGet(() -> subscriptionProcessorManager.createCustomer(requestData.subscriberUser, getClientPlatform(userAgentString))
                       .thenApply(ProcessorCustomer::customerId)
                       .thenCompose(customerId -> subscriptionManager.setProcessorAndCustomerId(record,
                           new ProcessorCustomer(customerId, subscriptionProcessorManager.getProcessor()),
@@ -345,7 +348,8 @@ public class SubscriptionController {
       @ReadOnly @Auth Optional<AuthenticatedAccount> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId,
       @NotNull @Valid CreatePayPalBillingAgreementRequest request,
-      @Context ContainerRequestContext containerRequestContext) {
+      @Context ContainerRequestContext containerRequestContext,
+      @HeaderParam(HttpHeaders.USER_AGENT) @Nullable final String userAgentString) {
 
     RequestData requestData = RequestData.process(authenticatedAccount, subscriberId, clock);
 
@@ -362,7 +366,7 @@ public class SubscriptionController {
                     }
                     return CompletableFuture.completedFuture(record);
                   })
-                  .orElseGet(() -> braintreeManager.createCustomer(requestData.subscriberUser)
+                  .orElseGet(() -> braintreeManager.createCustomer(requestData.subscriberUser, getClientPlatform(userAgentString))
                       .thenApply(ProcessorCustomer::customerId)
                       .thenCompose(customerId -> subscriptionManager.setProcessorAndCustomerId(record,
                           new ProcessorCustomer(customerId, braintreeManager.getProcessor()),
@@ -665,7 +669,9 @@ public class SubscriptionController {
   @Path("/boost/create")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletableFuture<Response> createBoostPaymentIntent(@NotNull @Valid CreateBoostRequest request) {
+  public CompletableFuture<Response> createBoostPaymentIntent(@NotNull @Valid CreateBoostRequest request,
+      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) {
+
     return CompletableFuture.runAsync(() -> {
           if (request.level == null) {
             request.level = oneTimeDonationConfiguration.boost().level();
@@ -683,7 +689,7 @@ public class SubscriptionController {
           }
           validateRequestCurrencyAmount(request, amount, stripeManager);
         })
-        .thenCompose(unused -> stripeManager.createPaymentIntent(request.currency, request.amount, request.level))
+        .thenCompose(unused -> stripeManager.createPaymentIntent(request.currency, request.amount, request.level, getClientPlatform(userAgent)))
         .thenApply(paymentIntent -> Response.ok(new CreateBoostResponse(paymentIntent.getClientSecret())).build());
   }
 
@@ -769,7 +775,8 @@ public class SubscriptionController {
   @Path("/boost/paypal/confirm")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletableFuture<Response> confirmPayPalBoost(@NotNull @Valid ConfirmPayPalBoostRequest request) {
+  public CompletableFuture<Response> confirmPayPalBoost(@NotNull @Valid ConfirmPayPalBoostRequest request,
+      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) {
 
     return CompletableFuture.runAsync(() -> {
           if (request.level == null) {
@@ -1069,6 +1076,15 @@ public class SubscriptionController {
           e);
 
       return List.of();
+    }
+  }
+
+  @Nullable
+  private static ClientPlatform getClientPlatform(@Nullable final String userAgentString) {
+    try {
+      return UserAgentUtil.parseUserAgentString(userAgentString).getPlatform();
+    } catch (final UnrecognizedUserAgentException e) {
+      return null;
     }
   }
 

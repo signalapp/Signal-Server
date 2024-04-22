@@ -44,6 +44,7 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
+import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
 public class BraintreeManager implements SubscriptionProcessorManager {
 
@@ -252,10 +253,15 @@ public class BraintreeManager implements SubscriptionProcessorManager {
   }
 
   @Override
-  public CompletableFuture<ProcessorCustomer> createCustomer(final byte[] subscriberUser) {
+  public CompletableFuture<ProcessorCustomer> createCustomer(final byte[] subscriberUser, @Nullable final ClientPlatform clientPlatform) {
     return CompletableFuture.supplyAsync(() -> {
-          final CustomerRequest request = new CustomerRequest()
+          CustomerRequest request = new CustomerRequest()
               .customField("subscriber_user", HexFormat.of().formatHex(subscriberUser));
+
+          if (clientPlatform != null) {
+            request.customField("client_platform", clientPlatform.name().toLowerCase());
+          }
+
           try {
             return braintreeGateway.customer().create(request);
           } catch (BraintreeException e) {
