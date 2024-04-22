@@ -523,15 +523,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ScheduledExecutorService subscriptionProcessorRetryExecutor = environment.lifecycle()
         .scheduledExecutorService(name(getClass(), "subscriptionProcessorRetry-%d")).threads(1).build();
 
-    StripeManager stripeManager = new StripeManager(config.getStripe().apiKey().value(), subscriptionProcessorExecutor,
-        config.getStripe().idempotencyKeyGenerator().value(), config.getStripe().boostDescription(), config.getStripe().supportedCurrenciesByPaymentMethod());
-    BraintreeManager braintreeManager = new BraintreeManager(config.getBraintree().merchantId(),
-        config.getBraintree().publicKey(), config.getBraintree().privateKey().value(),
-        config.getBraintree().environment(),
-        config.getBraintree().supportedCurrenciesByPaymentMethod(), config.getBraintree().merchantAccounts(),
-        config.getBraintree().graphqlUrl(), config.getBraintree().circuitBreaker(), subscriptionProcessorExecutor,
-        subscriptionProcessorRetryExecutor);
-
     ExternalServiceCredentialsGenerator directoryV2CredentialsGenerator = DirectoryV2Controller.credentialsGenerator(
         config.getDirectoryV2Configuration().getDirectoryV2ClientConfiguration());
     ExternalServiceCredentialsGenerator storageCredentialsGenerator = SecureStorageController.credentialsGenerator(
@@ -660,6 +651,15 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         virtualThreadEventLoggerExecutor,
         () -> dynamicConfigurationManager.getConfiguration().getVirtualThreads().allowedPinEvents(),
         config.getVirtualThreadConfiguration().pinEventThreshold());
+
+    StripeManager stripeManager = new StripeManager(config.getStripe().apiKey().value(), subscriptionProcessorExecutor,
+        config.getStripe().idempotencyKeyGenerator().value(), config.getStripe().boostDescription(), config.getStripe().supportedCurrenciesByPaymentMethod());
+    BraintreeManager braintreeManager = new BraintreeManager(config.getBraintree().merchantId(),
+        config.getBraintree().publicKey(), config.getBraintree().privateKey().value(),
+        config.getBraintree().environment(),
+        config.getBraintree().supportedCurrenciesByPaymentMethod(), config.getBraintree().merchantAccounts(),
+        config.getBraintree().graphqlUrl(), currencyManager, config.getBraintree().circuitBreaker(), subscriptionProcessorExecutor,
+        subscriptionProcessorRetryExecutor);
 
     environment.lifecycle().manage(apnSender);
     environment.lifecycle().manage(apnPushNotificationScheduler);

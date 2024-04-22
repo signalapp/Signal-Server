@@ -42,6 +42,7 @@ import javax.ws.rs.core.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
+import org.whispersystems.textsecuregcm.currency.CurrencyConversionManager;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
@@ -55,6 +56,7 @@ public class BraintreeManager implements SubscriptionProcessorManager {
   private static final String PAYPAL_PAYMENT_ALREADY_COMPLETED_PROCESSOR_CODE = "2094";
   private final BraintreeGateway braintreeGateway;
   private final BraintreeGraphqlClient braintreeGraphqlClient;
+  private final CurrencyConversionManager currencyConversionManager;
   private final Executor executor;
   private final Map<PaymentMethod, Set<String>> supportedCurrenciesByPaymentMethod;
   private final Map<String, String> currenciesToMerchantAccounts;
@@ -65,6 +67,7 @@ public class BraintreeManager implements SubscriptionProcessorManager {
       final Map<PaymentMethod, Set<String>> supportedCurrenciesByPaymentMethod,
       final Map<String, String> currenciesToMerchantAccounts,
       final String graphqlUri,
+      final CurrencyConversionManager currencyConversionManager,
       final CircuitBreakerConfiguration circuitBreakerConfiguration,
       final Executor executor,
       final ScheduledExecutorService retryExecutor) {
@@ -83,6 +86,7 @@ public class BraintreeManager implements SubscriptionProcessorManager {
             // https://developer.paypal.com/braintree/docs/reference/general/best-practices/java#timeouts
             .withRequestTimeout(Duration.ofSeconds(70))
             .build(), graphqlUri, braintreePublicKey, braintreePrivateKey),
+        currencyConversionManager,
         executor);
   }
 
@@ -90,11 +94,12 @@ public class BraintreeManager implements SubscriptionProcessorManager {
   BraintreeManager(final BraintreeGateway braintreeGateway,
       final Map<PaymentMethod, Set<String>> supportedCurrenciesByPaymentMethod,
       final Map<String, String> currenciesToMerchantAccounts, final BraintreeGraphqlClient braintreeGraphqlClient,
-      final Executor executor) {
+      final CurrencyConversionManager currencyConversionManager, final Executor executor) {
     this.braintreeGateway = braintreeGateway;
     this.supportedCurrenciesByPaymentMethod = supportedCurrenciesByPaymentMethod;
     this.currenciesToMerchantAccounts = currenciesToMerchantAccounts;
     this.braintreeGraphqlClient = braintreeGraphqlClient;
+    this.currencyConversionManager = currencyConversionManager;
     this.executor = executor;
   }
 

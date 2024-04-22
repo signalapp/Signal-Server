@@ -19,6 +19,7 @@ import java.util.Set;
 import java.util.concurrent.Executors;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.whispersystems.textsecuregcm.currency.CurrencyConversionManager;
 
 class BraintreeManagerTest {
 
@@ -32,6 +33,7 @@ class BraintreeManagerTest {
         Map.of(PaymentMethod.CARD, Set.of("usd")),
         Map.of("usd", "usdMerchant"),
         mock(BraintreeGraphqlClient.class),
+        mock(CurrencyConversionManager.class),
         Executors.newSingleThreadExecutor());
   }
 
