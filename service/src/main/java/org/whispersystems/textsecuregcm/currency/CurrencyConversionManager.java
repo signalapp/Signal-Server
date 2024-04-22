@@ -10,12 +10,14 @@ import io.dropwizard.lifecycle.Managed;
 import io.lettuce.core.SetArgs;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
@@ -165,5 +167,19 @@ public class CurrencyConversionManager implements Managed {
     } else {
       return n;
     }
+  }
+
+  @VisibleForTesting
+  void setCachedFixerValues(final Map<String, BigDecimal> cachedFixerValues) {
+    this.cachedFixerValues = cachedFixerValues;
+  }
+
+  public Optional<BigDecimal> convertToUsd(final BigDecimal amount, final String currency) {
+    if ("USD".equalsIgnoreCase(currency)) {
+      return Optional.of(amount);
+    }
+
+    return Optional.ofNullable(cachedFixerValues.get(currency.toUpperCase(Locale.ROOT)))
+        .map(conversionRate -> amount.divide(conversionRate, 2, RoundingMode.HALF_EVEN));
   }
 }

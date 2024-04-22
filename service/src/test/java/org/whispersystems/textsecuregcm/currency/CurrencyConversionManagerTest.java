@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.currency;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -15,13 +16,16 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.entities.CurrencyConversionEntityList;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 
 class CurrencyConversionManagerTest {
@@ -232,4 +236,30 @@ class CurrencyConversionManagerTest {
     assertThat(conversions.getCurrencies().get(0).getConversions().get("FKP")).isEqualTo(new BigDecimal("1.7470981"));
   }
 
+  @Test
+  void convertToUsd() {
+    final CurrencyConversionManager currencyConversionManager = new CurrencyConversionManager(mock(FixerClient.class),
+        mock(CoinMarketCapClient.class),
+        mock(FaultTolerantRedisCluster.class),
+        Collections.emptyList(),
+        EXECUTOR,
+        Clock.systemUTC());
+
+    currencyConversionManager.setCachedFixerValues(Map.of("JPY", BigDecimal.valueOf(154.757008), "GBP", BigDecimal.valueOf(0.81196)));
+
+    assertEquals(Optional.of(new BigDecimal("17.50")),
+        currencyConversionManager.convertToUsd(new BigDecimal("17.50"), "USD"));
+
+    assertEquals(Optional.of(new BigDecimal("17.50")),
+        currencyConversionManager.convertToUsd(new BigDecimal("17.50"), "usd"));
+
+    assertEquals(Optional.empty(),
+        currencyConversionManager.convertToUsd(new BigDecimal("10.00"), "XYZ"));
+
+    assertEquals(Optional.of(new BigDecimal("12.92")),
+        currencyConversionManager.convertToUsd(new BigDecimal("2000"), "JPY"));
+
+    assertEquals(Optional.of(new BigDecimal("12.32")),
+        currencyConversionManager.convertToUsd(new BigDecimal("10"), "GBP"));
+  }
 }

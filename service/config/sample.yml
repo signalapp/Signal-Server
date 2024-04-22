@@ -67,6 +67,12 @@ braintree:
   supportedCurrenciesByPaymentMethod:
     PAYPAL:
       - usd
+  pubSubProject: example-project
+  pubSubTopic: example-topic
+  pubSubCredentialConfiguration: |
+    {
+      "credential": "configuration"
+    }
 
 dynamoDbClientConfiguration:
   region: us-west-2 # AWS Region

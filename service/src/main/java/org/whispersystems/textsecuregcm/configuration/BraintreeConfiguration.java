@@ -19,7 +19,7 @@ import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
  * @param publicKey           the Braintree API public key
  * @param privateKey          the Braintree API private key
  * @param environment         the Braintree environment ("production" or "sandbox")
- * @param supportedCurrencies the set of supported currencies
+ * @param supportedCurrenciesByPaymentMethod the set of supported currencies
  * @param graphqlUrl          the Braintree GraphQL URl to use (this must match the environment)
  * @param merchantAccounts    merchant account within the merchant for processing individual currencies
  * @param circuitBreaker      configuration for the circuit breaker used by the GraphQL HTTP client
@@ -31,9 +31,10 @@ public record BraintreeConfiguration(@NotBlank String merchantId,
                                      @Valid @NotEmpty Map<PaymentMethod, Set<@NotBlank String>> supportedCurrenciesByPaymentMethod,
                                      @NotBlank String graphqlUrl,
                                      @NotEmpty Map<String, String> merchantAccounts,
-                                     @NotNull
-                                     @Valid
-                                     CircuitBreakerConfiguration circuitBreaker) {
+                                     @NotNull @Valid CircuitBreakerConfiguration circuitBreaker,
+                                     @NotBlank String pubSubProject,
+                                     @NotBlank String pubSubTopic,
+                                     @NotBlank String pubSubCredentialConfiguration) {
 
   public BraintreeConfiguration {
     if (circuitBreaker == null) {

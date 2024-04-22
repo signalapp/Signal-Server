@@ -784,7 +784,7 @@ public class SubscriptionController {
           }
         })
         .thenCompose(unused -> braintreeManager.captureOneTimePayment(request.payerId, request.paymentId,
-            request.paymentToken, request.currency, request.amount, request.level))
+            request.paymentToken, request.currency, request.amount, request.level, getClientPlatform(userAgent)))
         .thenCompose(chargeSuccessDetails -> oneTimeDonationsManager.putPaidAt(chargeSuccessDetails.paymentId(), Instant.now()))
         .thenApply(paymentId -> Response.ok(
             new ConfirmPayPalBoostResponse(paymentId)).build());

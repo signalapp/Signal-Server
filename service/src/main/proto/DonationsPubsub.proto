@@ -1,0 +1,62 @@
+syntax = "proto2";
+
+option java_package = "org.whispersystems.textsecuregcm.subscriptions";
+
+/**
+ * A message that contains details about a new donation, whether a one-time "boost" or a recurring subscription.
+ */
+message DonationPubSubMessage {
+
+  /**
+   * The instant at which this donation took place in microseconds since the epoch.
+   */
+  required int64 timestamp = 1;
+
+  /**
+   * A string identifying the source (either "web" or "app") from which this donation originated.
+   */
+  required string source = 2;
+
+  /**
+   * An identifier for the payment provider that handled this donation (e.g. "stripe" or "braintree" or "donorbox").
+   */
+  required string provider = 3;
+
+  /**
+   * If `true`, indicates that this donation is part of a subscription. If `false`, this is a one-time donation.
+   */
+  required bool recurring = 4;
+
+  /**
+   * The type of payment method used for this donation (e.g. "credit_card" or "apple_pay" or "paypal").
+   */
+  required string payment_method_type = 5;
+
+  /**
+   * The original amount of the donation before fees or conversion, in millionths of a full unit of the currency. For
+   * example, an amount of 9.75 USD would be represented as 9750000.
+   */
+  required int64 original_amount_micros = 6;
+
+  /**
+   * The ISO 4217 identifier for the original currency of this donation (e.g. "USD" or "EUR").
+   */
+  required string original_currency = 7;
+
+  /**
+   * The amount of the donation after conversion to USD in millionths of a dollar. If the original amount was in USD,
+   * this value must be the same as `original_amount_micros`.
+   */
+  required int64 original_amount_usd_micros = 8;
+
+  /**
+   * The ISO 3166 country code of the country from which this donation originated. May be omitted if not known.
+   */
+  optional string country = 9;
+
+  /**
+   * The platform of the client that made this donation (e.g. "ios" or "android" or "desktop") if known. May be omitted
+   * if not known.
+   */
+  optional string client_platform = 10;
+}

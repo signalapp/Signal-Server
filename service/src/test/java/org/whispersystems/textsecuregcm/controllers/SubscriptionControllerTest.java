@@ -321,7 +321,7 @@ class SubscriptionControllerTest {
   void confirmPaypalBoostProcessorError() {
 
     when(BRAINTREE_MANAGER.captureOneTimePayment(anyString(), anyString(), anyString(), anyString(), anyLong(),
-        anyLong()))
+        anyLong(), any()))
         .thenReturn(CompletableFuture.failedFuture(new SubscriptionProcessorException(SubscriptionProcessor.BRAINTREE,
             new ChargeFailure("2046", "Declined", null, null, null))));
 

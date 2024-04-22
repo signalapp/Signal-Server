@@ -17,6 +17,7 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executors;
+import com.google.cloud.pubsub.v1.Publisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.currency.CurrencyConversionManager;
@@ -34,6 +35,7 @@ class BraintreeManagerTest {
         Map.of("usd", "usdMerchant"),
         mock(BraintreeGraphqlClient.class),
         mock(CurrencyConversionManager.class),
+        mock(Publisher.class),
         Executors.newSingleThreadExecutor());
   }
 

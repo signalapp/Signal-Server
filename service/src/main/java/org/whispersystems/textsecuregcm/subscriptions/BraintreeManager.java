@@ -19,6 +19,9 @@ import com.braintreegateway.TransactionSearchRequest;
 import com.braintreegateway.exceptions.BraintreeException;
 import com.braintreegateway.exceptions.NotFoundException;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.google.api.core.ApiFutureCallback;
+import com.google.api.core.ApiFutures;
+import com.google.cloud.pubsub.v1.Publisher;
 import com.google.common.annotations.VisibleForTesting;
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -39,11 +42,14 @@ import javax.annotation.Nullable;
 import javax.ws.rs.ClientErrorException;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
+import com.google.pubsub.v1.PubsubMessage;
+import io.micrometer.core.instrument.Metrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.currency.CurrencyConversionManager;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
@@ -54,12 +60,19 @@ public class BraintreeManager implements SubscriptionProcessorManager {
   private static final String GENERIC_DECLINED_PROCESSOR_CODE = "2046";
   private static final String PAYPAL_FUNDING_INSTRUMENT_DECLINED_PROCESSOR_CODE = "2074";
   private static final String PAYPAL_PAYMENT_ALREADY_COMPLETED_PROCESSOR_CODE = "2094";
+
+  private static final BigDecimal ONE_MILLION = BigDecimal.valueOf(1_000_000);
+
   private final BraintreeGateway braintreeGateway;
   private final BraintreeGraphqlClient braintreeGraphqlClient;
   private final CurrencyConversionManager currencyConversionManager;
+  private final Publisher pubsubPublisher;
   private final Executor executor;
   private final Map<PaymentMethod, Set<String>> supportedCurrenciesByPaymentMethod;
   private final Map<String, String> currenciesToMerchantAccounts;
+
+  private final String PUBSUB_MESSAGE_COUNTER_NAME = MetricsUtil.name(BraintreeManager.class, "pubSubMessage");
+  private final String PUBSUB_MESSAGE_SUCCESS_TAG = "success";
 
   public BraintreeManager(final String braintreeMerchantId, final String braintreePublicKey,
       final String braintreePrivateKey,
@@ -68,6 +81,7 @@ public class BraintreeManager implements SubscriptionProcessorManager {
       final Map<String, String> currenciesToMerchantAccounts,
       final String graphqlUri,
       final CurrencyConversionManager currencyConversionManager,
+      final Publisher pubsubPublisher,
       final CircuitBreakerConfiguration circuitBreakerConfiguration,
       final Executor executor,
       final ScheduledExecutorService retryExecutor) {
@@ -87,6 +101,7 @@ public class BraintreeManager implements SubscriptionProcessorManager {
             .withRequestTimeout(Duration.ofSeconds(70))
             .build(), graphqlUri, braintreePublicKey, braintreePrivateKey),
         currencyConversionManager,
+        pubsubPublisher,
         executor);
   }
 
@@ -94,12 +109,14 @@ public class BraintreeManager implements SubscriptionProcessorManager {
   BraintreeManager(final BraintreeGateway braintreeGateway,
       final Map<PaymentMethod, Set<String>> supportedCurrenciesByPaymentMethod,
       final Map<String, String> currenciesToMerchantAccounts, final BraintreeGraphqlClient braintreeGraphqlClient,
-      final CurrencyConversionManager currencyConversionManager, final Executor executor) {
+      final CurrencyConversionManager currencyConversionManager, final Publisher pubsubPublisher,
+      final Executor executor) {
     this.braintreeGateway = braintreeGateway;
     this.supportedCurrenciesByPaymentMethod = supportedCurrenciesByPaymentMethod;
     this.currenciesToMerchantAccounts = currenciesToMerchantAccounts;
     this.braintreeGraphqlClient = braintreeGraphqlClient;
     this.currencyConversionManager = currencyConversionManager;
+    this.pubsubPublisher = pubsubPublisher;
     this.executor = executor;
   }
 
@@ -148,7 +165,7 @@ public class BraintreeManager implements SubscriptionProcessorManager {
   }
 
   public CompletableFuture<PayPalChargeSuccessDetails> captureOneTimePayment(String payerId, String paymentId,
-      String paymentToken, String currency, long amount, long level) {
+      String paymentToken, String currency, long amount, long level, @Nullable ClientPlatform clientPlatform) {
     return braintreeGraphqlClient.tokenizePayPalOneTimePayment(payerId, paymentId, paymentToken)
         .thenCompose(response -> braintreeGraphqlClient.chargeOneTimePayment(
                 response.paymentMethod.id,
@@ -166,8 +183,7 @@ public class BraintreeManager implements SubscriptionProcessorManager {
               final Transaction unsuccessfulTx = braintreeGateway.transaction().find(chargeResponse.transaction.id);
 
               if (PAYPAL_PAYMENT_ALREADY_COMPLETED_PROCESSOR_CODE.equals(unsuccessfulTx.getProcessorResponseCode())
-                  || Transaction.GatewayRejectionReason.DUPLICATE.equals(
-                  unsuccessfulTx.getGatewayRejectionReason())) {
+                  || Transaction.GatewayRejectionReason.DUPLICATE.equals(unsuccessfulTx.getGatewayRejectionReason())) {
                 // the payment has already been charged - maybe a previous call timed out or was interrupted -
                 // in any case, check for a successful transaction with the paymentId
                 final ResourceCollection<Transaction> search = braintreeGateway.transaction()
@@ -188,6 +204,48 @@ public class BraintreeManager implements SubscriptionProcessorManager {
 
                 final Transaction successfulTx = search.getFirst();
 
+                try {
+                  final BigDecimal originalAmountUsd =
+                      currencyConversionManager.convertToUsd(successfulTx.getAmount(), successfulTx.getCurrencyIsoCode())
+                          .orElseThrow(() -> new IllegalArgumentException("Could not convert to USD from " + successfulTx.getCurrencyIsoCode()));
+
+                  final DonationsPubsub.DonationPubSubMessage.Builder donationPubSubMessageBuilder =
+                      DonationsPubsub.DonationPubSubMessage.newBuilder()
+                          .setTimestamp(successfulTx.getCreatedAt().toInstant().toEpochMilli() * 1000)
+                          .setSource("app")
+                          .setProvider("braintree")
+                          .setRecurring(false)
+                          .setPaymentMethodType("paypal")
+                          .setOriginalAmountMicros(toMicros(successfulTx.getAmount()))
+                          .setOriginalCurrency(successfulTx.getCurrencyIsoCode())
+                          .setOriginalAmountUsdMicros(toMicros(originalAmountUsd));
+
+                  if (clientPlatform != null) {
+                    donationPubSubMessageBuilder.setClientPlatform(clientPlatform.name().toLowerCase(Locale.ROOT));
+                  }
+
+                  ApiFutures.addCallback(pubsubPublisher.publish(PubsubMessage.newBuilder()
+                      .setData(donationPubSubMessageBuilder.build().toByteString())
+                      .build()),
+                      new ApiFutureCallback<>() {
+
+                    @Override
+                    public void onSuccess(final String messageId) {
+                      Metrics.counter(PUBSUB_MESSAGE_COUNTER_NAME, PUBSUB_MESSAGE_SUCCESS_TAG, "true").increment();
+                    }
+
+                    @Override
+                    public void onFailure(final Throwable throwable) {
+                      logger.warn("Failed to publish donation pub/sub message", throwable);
+                      Metrics.counter(PUBSUB_MESSAGE_COUNTER_NAME, PUBSUB_MESSAGE_SUCCESS_TAG, "false").increment();
+
+                    }
+
+                  }, executor);
+                } catch (final Exception e) {
+                  logger.warn("Failed to construct donation pub/sub message", e);
+                }
+
                 return CompletableFuture.completedFuture(
                     new PayPalChargeSuccessDetails(successfulTx.getGraphQLId()));
               }
@@ -205,6 +263,11 @@ public class BraintreeManager implements SubscriptionProcessorManager {
                 }
               };
             }, executor));
+  }
+
+  @VisibleForTesting
+  long toMicros(final BigDecimal amount) {
+    return amount.multiply(ONE_MILLION).longValueExact();
   }
 
   private static PaymentStatus getPaymentStatus(Transaction.Status status) {
