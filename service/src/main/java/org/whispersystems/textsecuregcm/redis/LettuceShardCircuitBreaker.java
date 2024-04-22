@@ -56,7 +56,6 @@ public class LettuceShardCircuitBreaker implements NettyCustomizer {
 
     private static final Logger logger = LoggerFactory.getLogger(ChannelCircuitBreakerHandler.class);
 
-    private static final String SHARD_TAG_NAME = "shard";
     private static final String CLUSTER_TAG_NAME = "cluster";
 
     private final String clusterName;
@@ -82,8 +81,7 @@ public class LettuceShardCircuitBreaker implements NettyCustomizer {
       // In some cases, like the default connection, the remote address includes the DNS hostname, which we want to exclude.
       final String shardAddress = StringUtils.substringAfter(remoteAddress.toString(), "/");
       breaker = CircuitBreaker.of("%s/%s-breaker".formatted(clusterName, shardAddress), circuitBreakerConfig);
-      CircuitBreakerUtil.registerMetrics(breaker, getClass(),
-          Tags.of(CLUSTER_TAG_NAME, clusterName, SHARD_TAG_NAME, shardAddress));
+      CircuitBreakerUtil.registerMetrics(breaker, getClass(), Tags.of(CLUSTER_TAG_NAME, clusterName));
     }
 
     @Override
