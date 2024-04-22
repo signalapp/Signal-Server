@@ -2465,6 +2465,11 @@ paths:
       tags:
       - Subscriptions
       operationId: confirmPayPalBoost
+      parameters:
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
       requestBody:
         content:
           application/json:
@@ -2481,6 +2486,11 @@ paths:
       tags:
       - Subscriptions
       operationId: createBoostPaymentIntent
+      parameters:
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
       requestBody:
         content:
           application/json:
@@ -2540,6 +2550,10 @@ paths:
         required: true
         schema:
           type: string
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
       requestBody:
         content:
           application/json:
@@ -2588,6 +2602,10 @@ paths:
           - PAYPAL
           - SEPA_DEBIT
           - IDEAL
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
       responses:
         default:
           description: default response
