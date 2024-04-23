@@ -5,6 +5,7 @@
 package org.whispersystems.textsecuregcm.backup;
 
 import io.grpc.Status;
+import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
@@ -259,6 +260,55 @@ public class BackupsDb {
         .thenRun(Util.NOOP);
   }
 
+  /**
+   * Indicates that we couldn't schedule a deletion because one was already scheduled. The caller may want to delete the
+   * objects directly.
+   */
+  class PendingDeletionException extends IOException {}
+
+  /**
+   * Attempt to mark a backup as expired and swap in a new empty backupDir for the user.
+   * <p>
+   * After successful completion, the backupDir for the backup-id will be swapped to a new empty directory on the cdn,
+   * and the row will be immediately marked eligible for expiration via {@link #getExpiredBackups}.
+   * <p>
+   * If there is already a pending deletion, this will not swap the backupDir. The expiration timestamps will be
+   * updated, but the existing backupDir will remain. The caller should handle this case and start the deletion
+   * immediately by catching {@link PendingDeletionException}.
+   *
+   * @param backupUser The backupUser whose data should be eventually deleted
+   * @return A future that completes successfully if the user's data is now inaccessible, or with a
+   * {@link PendingDeletionException} if the backupDir could not be changed.
+   */
+  CompletableFuture<Void> scheduleBackupDeletion(final AuthenticatedBackupUser backupUser) {
+    final byte[] hashedBackupId = hashedBackupId(backupUser);
+
+    // Clear usage metadata, swap names of things we intend to delete, and record our intent to delete in attr_expired_prefix
+    return dynamoClient.updateItem(new UpdateBuilder(backupTableName, BackupTier.MEDIA, hashedBackupId)
+            .clearMediaUsage(clock)
+            .expireDirectoryNames(secureRandom, ExpiredBackup.ExpirationType.ALL)
+            .setRefreshTimes(Instant.ofEpochSecond(0))
+            .addSetExpression("#expiredPrefix = :expiredPrefix",
+                Map.entry("#expiredPrefix", ATTR_EXPIRED_PREFIX),
+                Map.entry(":expiredPrefix", AttributeValues.s(backupUser.backupDir())))
+            .withConditionExpression("attribute_not_exists(#expiredPrefix) OR #expiredPrefix = :expiredPrefix")
+            .updateItemBuilder()
+            .build())
+        .exceptionallyCompose(ExceptionUtils.exceptionallyHandler(ConditionalCheckFailedException.class, e ->
+            // We already have a pending deletion for this backup-id. This is most likely to occur when the caller
+            // is toggling backups on and off. In this case, it should be pretty cheap to directly delete the backup.
+            // Instead of changing the backupDir, just make sure the row has expired/ timestamps and tell the caller we
+            // couldn't schedule the deletion.
+            dynamoClient.updateItem(new UpdateBuilder(backupTableName, BackupTier.MEDIA, hashedBackupId)
+                    .setRefreshTimes(Instant.ofEpochSecond(0))
+                    .updateItemBuilder()
+                    .build())
+                .thenApply(ignore -> {
+                  throw ExceptionUtils.wrap(new PendingDeletionException());
+                })))
+        .thenRun(Util.NOOP);
+  }
+
   record BackupDescription(int cdn, Optional<Long> mediaUsedSpace) {}
 
   /**
@@ -349,15 +399,7 @@ public class BackupsDb {
 
     // Clear usage metadata, swap names of things we intend to delete, and record our intent to delete in attr_expired_prefix
     return dynamoClient.updateItem(new UpdateBuilder(backupTableName, BackupTier.MEDIA, expiredBackup.hashedBackupId())
-            .addSetExpression("#mediaBytesUsed = :mediaBytesUsed",
-                Map.entry("#mediaBytesUsed", ATTR_MEDIA_BYTES_USED),
-                Map.entry(":mediaBytesUsed", AttributeValues.n(0L)))
-            .addSetExpression("#mediaCount = :mediaCount",
-                Map.entry("#mediaCount", ATTR_MEDIA_COUNT),
-                Map.entry(":mediaCount", AttributeValues.n(0L)))
-            .addSetExpression("#mediaRecalc = :mediaRecalc",
-                Map.entry("#mediaRecalc", ATTR_MEDIA_USAGE_LAST_RECALCULATION),
-                Map.entry(":mediaRecalc", AttributeValues.n(clock.instant().getEpochSecond())))
+            .clearMediaUsage(clock)
             .expireDirectoryNames(secureRandom, expiredBackup.expirationType())
             .addRemoveExpression(Map.entry("#mediaRefresh", ATTR_LAST_MEDIA_REFRESH))
             .addSetExpression("#expiredPrefix = :expiredPrefix",
@@ -584,6 +626,19 @@ public class BackupsDb {
       addAttrValue(Map.entry(":zero", AttributeValues.n(0)));
       addAttrValue(Map.entry(":mediaBytesDelta", AttributeValues.n(delta)));
       addSetExpression("#mediaBytes = if_not_exists(#mediaBytes, :zero) + :mediaBytesDelta");
+      return this;
+    }
+
+    UpdateBuilder clearMediaUsage(final Clock clock) {
+      addSetExpression("#mediaBytesUsed = :mediaBytesUsed",
+          Map.entry("#mediaBytesUsed", ATTR_MEDIA_BYTES_USED),
+          Map.entry(":mediaBytesUsed", AttributeValues.n(0L)));
+      addSetExpression("#mediaCount = :mediaCount",
+          Map.entry("#mediaCount", ATTR_MEDIA_COUNT),
+          Map.entry(":mediaCount", AttributeValues.n(0L)));
+      addSetExpression("#mediaRecalc = :mediaRecalc",
+          Map.entry("#mediaRecalc", ATTR_MEDIA_USAGE_LAST_RECALCULATION),
+          Map.entry(":mediaRecalc", AttributeValues.n(clock.instant().getEpochSecond())));
       return this;
     }
 

@@ -209,4 +209,10 @@ public class BackupsDbTest {
   private AuthenticatedBackupUser backupUser(final byte[] backupId, final BackupTier backupTier) {
     return new AuthenticatedBackupUser(backupId, backupTier, "myBackupDir", "myMediaDir");
   }
+
+  private AuthenticatedBackupUser backupUserFromDb(final byte[] backupId, final BackupTier backupTier) {
+    final BackupsDb.AuthenticationData authenticationData = backupsDb.retrieveAuthenticationData(backupId).join().get();
+    return new AuthenticatedBackupUser(backupId, backupTier,
+        authenticationData.backupDir(), authenticationData.mediaDir());
+  }
 }

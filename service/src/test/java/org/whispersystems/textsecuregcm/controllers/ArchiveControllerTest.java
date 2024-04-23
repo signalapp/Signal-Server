@@ -112,6 +112,7 @@ public class ArchiveControllerTest {
       GET,    v1/archives/media/upload/form,
       POST,   v1/archives/,
       PUT,    v1/archives/keys, '{"backupIdPublicKey": "aaaaa"}'
+      DELETE, v1/archives,
       PUT,    v1/archives/media, '{
         "sourceAttachment": {"cdn": 3, "key": "abc"},
         "objectLength": 10,
@@ -601,6 +602,22 @@ public class ArchiveControllerTest {
         .header("X-Signal-ZK-Auth-Signature", "aaa")
         .get();
     assertThat(response.getStatus()).isEqualTo(400);
+  }
+
+  @Test
+  public void deleteEntireBackup() throws VerificationFailedException {
+    final BackupAuthCredentialPresentation presentation =
+        backupAuthTestUtil.getPresentation(BackupTier.MEDIA, backupKey, aci);
+    when(backupManager.authenticateBackupUser(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(backupUser(presentation.getBackupId(), BackupTier.MEDIA)));
+    when(backupManager.deleteEntireBackup(any())).thenReturn(CompletableFuture.completedFuture(null));
+    Response response = resources.getJerseyTest()
+        .target("v1/archives/")
+        .request()
+        .header("X-Signal-ZK-Auth", Base64.getEncoder().encodeToString(presentation.serialize()))
+        .header("X-Signal-ZK-Auth-Signature", "aaa")
+        .delete();
+    assertThat(response.getStatus()).isEqualTo(204);
   }
 
   private static AuthenticatedBackupUser backupUser(byte[] backupId, BackupTier backupTier) {

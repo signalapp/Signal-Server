@@ -38,6 +38,7 @@ import javax.validation.constraints.Size;
 import javax.ws.rs.BadRequestException;
 import javax.ws.rs.ClientErrorException;
 import javax.ws.rs.Consumes;
+import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
@@ -855,4 +856,33 @@ public class ArchiveController {
                 .toList()))
         .thenApply(Util.ASYNC_EMPTY_RESPONSE);
   }
+
+  @DELETE
+  @Produces(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Delete entire backup",
+      description = """
+      Delete all backup metadata, objects, and stored public key. To use backups again, a public key must be resupplied.
+      """)
+  @ApiResponse(responseCode = "204", description = "The backup has been successfully removed")
+  @ApiResponse(responseCode = "429", description = "Rate limited.")
+  @ApiResponseZkAuth
+  public CompletionStage<Response> deleteBackup(
+      @ReadOnly @Auth final Optional<AuthenticatedAccount> account,
+
+      @Parameter(description = BackupAuthCredentialPresentationHeader.DESCRIPTION, schema = @Schema(implementation = String.class))
+      @NotNull
+      @HeaderParam(X_SIGNAL_ZK_AUTH) final BackupAuthCredentialPresentationHeader presentation,
+
+      @Parameter(description = BackupAuthCredentialPresentationSignature.DESCRIPTION, schema = @Schema(implementation = String.class))
+      @NotNull
+      @HeaderParam(X_SIGNAL_ZK_AUTH_SIGNATURE) final BackupAuthCredentialPresentationSignature signature) {
+    if (account.isPresent()) {
+      throw new BadRequestException("must not use authenticated connection for anonymous operations");
+    }
+    return backupManager
+        .authenticateBackupUser(presentation.presentation, signature.signature)
+        .thenCompose(backupManager::deleteEntireBackup)
+        .thenApply(Util.ASYNC_EMPTY_RESPONSE);
+  }
+
 }

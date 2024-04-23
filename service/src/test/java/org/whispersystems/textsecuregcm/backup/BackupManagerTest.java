@@ -507,6 +507,39 @@ public class BackupManagerTest {
   }
 
   @Test
+  public void deleteEntireBackup() {
+    final AuthenticatedBackupUser original = backupUser(TestRandomUtil.nextBytes(16), BackupTier.MEDIA);
+
+    testClock.pin(Instant.ofEpochSecond(10));
+
+    // Deleting should swap the backupDir for the user
+    backupManager.deleteEntireBackup(original).join();
+    verifyNoInteractions(remoteStorageManager);
+    final AuthenticatedBackupUser after = retrieveBackupUser(original.backupId(), BackupTier.MEDIA);
+    assertThat(original.backupDir()).isNotEqualTo(after.backupDir());
+    assertThat(original.mediaDir()).isNotEqualTo(after.mediaDir());
+
+    // Trying again should do the deletion inline
+    when(remoteStorageManager.list(anyString(), any(), anyLong()))
+        .thenReturn(CompletableFuture.completedFuture(new RemoteStorageManager.ListResult(
+            Collections.emptyList(),
+            Optional.empty()
+        )));
+    backupManager.deleteEntireBackup(after).join();
+    verify(remoteStorageManager, times(1))
+        .list(eq(after.backupDir() + "/"), eq(Optional.empty()), anyLong());
+
+    // The original prefix to expire should be flagged as requiring expiration
+    final ExpiredBackup expiredBackup = backupManager
+        .getExpiredBackups(1, Schedulers.immediate(), Instant.ofEpochSecond(1L))
+        .collectList().block()
+        .getFirst();
+    assertThat(expiredBackup.hashedBackupId()).isEqualTo(hashedBackupId(original.backupId()));
+    assertThat(expiredBackup.prefixToDelete()).isEqualTo(original.backupDir());
+    assertThat(expiredBackup.expirationType()).isEqualTo(ExpiredBackup.ExpirationType.GARBAGE_COLLECTION);
+  }
+
+  @Test
   public void delete() {
     final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupTier.MEDIA);
     final byte[] mediaId = TestRandomUtil.nextBytes(16);
@@ -778,6 +811,9 @@ public class BackupManagerTest {
     }
   }
 
+  /**
+   * Create BackupUser with the provided backupId and tier
+   */
   private AuthenticatedBackupUser backupUser(final byte[] backupId, final BackupTier backupTier) {
     // Won't actually validate the public key, but need to have a public key to perform BackupsDB operations
     byte[] privateKey = new byte[32];
@@ -787,7 +823,14 @@ public class BackupManagerTest {
     } catch (InvalidKeyException e) {
       throw new RuntimeException(e);
     }
-    return new AuthenticatedBackupUser(backupId, backupTier, BackupsDb.generateDirName(secureRandom),
-        BackupsDb.generateDirName(secureRandom));
+    return retrieveBackupUser(backupId, backupTier);
+  }
+
+  /**
+   * Retrieve an existing BackupUser from the database
+   */
+  private AuthenticatedBackupUser retrieveBackupUser(final byte[] backupId, final BackupTier backupTier) {
+    final BackupsDb.AuthenticationData authData = backupsDb.retrieveAuthenticationData(backupId).join().get();
+    return new AuthenticatedBackupUser(backupId, backupTier, authData.backupDir(), authData.mediaDir());
   }
 }
