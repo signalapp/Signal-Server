@@ -10,17 +10,18 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.Sets;
 import io.dropwizard.validation.ValidationMethod;
+import org.whispersystems.textsecuregcm.backup.BackupLevelUtil;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.validation.Valid;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
-import org.whispersystems.textsecuregcm.backup.BackupTier;
 
 public class SubscriptionConfiguration {
 
@@ -78,11 +79,11 @@ public class SubscriptionConfiguration {
     // We have a tier for all configured backup levels
     final boolean backupLevelsMatch = backupLevels.keySet()
         .stream()
-        .allMatch(level -> BackupTier.fromReceiptLevel(level).orElse(BackupTier.NONE) != BackupTier.NONE);
+        .allMatch(SubscriptionConfiguration::isValidBackupLevel);
 
     // None of the donation levels correspond to backup levels
     final boolean donationLevelsDontMatch = donationLevels.keySet().stream()
-        .allMatch(level -> BackupTier.fromReceiptLevel(level).orElse(BackupTier.NONE) == BackupTier.NONE);
+        .allMatch(Predicate.not(SubscriptionConfiguration::isValidBackupLevel));
 
     // The configured donation and backup levels don't intersect
     final boolean levelsDontIntersect = Sets.intersection(backupLevels.keySet(), donationLevels.keySet()).isEmpty();
@@ -104,5 +105,14 @@ public class SubscriptionConfiguration {
 
     Set<String> currencies = any.get().prices().keySet();
     return subscriptionLevels.values().stream().allMatch(level -> currencies.equals(level.prices().keySet()));
+  }
+
+  private static boolean isValidBackupLevel(final long receiptLevel) {
+    try {
+      BackupLevelUtil.fromReceiptLevel(receiptLevel);
+      return true;
+    } catch (IllegalArgumentException e) {
+      return false;
+    }
   }
 }

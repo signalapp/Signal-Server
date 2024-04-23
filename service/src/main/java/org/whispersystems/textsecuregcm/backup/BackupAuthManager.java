@@ -11,7 +11,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -21,6 +20,7 @@ import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.signal.libsignal.zkgroup.backups.BackupAuthCredentialRequest;
 import org.signal.libsignal.zkgroup.backups.BackupAuthCredentialResponse;
+import org.signal.libsignal.zkgroup.backups.BackupLevel;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialPresentation;
 import org.signal.libsignal.zkgroup.receipts.ReceiptSerial;
 import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
@@ -89,7 +89,7 @@ public class BackupAuthManager {
    */
   public CompletableFuture<Void> commitBackupId(final Account account,
       final BackupAuthCredentialRequest backupAuthCredentialRequest) throws RateLimitExceededException {
-    if (configuredReceiptLevel(account).isEmpty()) {
+    if (configuredBackupLevel(account).isEmpty()) {
       throw Status.PERMISSION_DENIED.withDescription("Backups not allowed on account").asRuntimeException();
     }
 
@@ -141,7 +141,7 @@ public class BackupAuthManager {
     }
 
     // If this account isn't allowed some level of backup access via configuration, don't continue
-    final long configuredReceiptLevel = configuredReceiptLevel(account).orElseThrow(() ->
+    final BackupLevel configuredBackupLevel = configuredBackupLevel(account).orElseThrow(() ->
         Status.PERMISSION_DENIED.withDescription("Backups not allowed on account").asRuntimeException());
 
     final Instant startOfDay = clock.instant().truncatedTo(ChronoUnit.DAYS);
@@ -169,9 +169,9 @@ public class BackupAuthManager {
           .map(redemptionTime -> {
             // Check if the account has a voucher that's good for a certain receiptLevel at redemption time, otherwise
             // use the default receipt level
-            final long receiptLevel = storedReceiptLevel(account, redemptionTime).orElse(configuredReceiptLevel);
+            final BackupLevel backupLevel = storedBackupLevel(account, redemptionTime).orElse(configuredBackupLevel);
             return new Credential(
-                credentialReq.issueCredential(redemptionTime, receiptLevel, serverSecretParams),
+                credentialReq.issueCredential(redemptionTime, backupLevel, serverSecretParams),
                 redemptionTime);
           })
           .toList());
@@ -208,10 +208,11 @@ public class BackupAuthManager {
 
     final long receiptLevel = receiptCredentialPresentation.getReceiptLevel();
 
-    BackupTier.fromReceiptLevel(receiptLevel).filter(BackupTier.MEDIA::equals)
-        .orElseThrow(() -> Status.INVALID_ARGUMENT
-            .withDescription("server does not recognize the requested receipt level")
-            .asRuntimeException());
+    if (BackupLevelUtil.fromReceiptLevel(receiptLevel) != BackupLevel.MEDIA) {
+      throw Status.INVALID_ARGUMENT
+          .withDescription("server does not recognize the requested receipt level")
+          .asRuntimeException();
+    }
 
     return redeemedReceiptsManager
         .put(receiptSerial, receiptExpiration.getEpochSecond(), receiptLevel, account.getUuid())
@@ -262,10 +263,11 @@ public class BackupAuthManager {
    * @param redemptionTime The time to check against the expiration time
    * @return The receipt level on the backup voucher, or empty if the account does not have one or it is expired
    */
-  private Optional<Long> storedReceiptLevel(final Account account, final Instant redemptionTime) {
+  private Optional<BackupLevel> storedBackupLevel(final Account account, final Instant redemptionTime) {
     return Optional.ofNullable(account.getBackupVoucher())
         .filter(backupVoucher -> !redemptionTime.isAfter(backupVoucher.expiration()))
-        .map(Account.BackupVoucher::receiptLevel);
+        .map(Account.BackupVoucher::receiptLevel)
+        .map(BackupLevelUtil::fromReceiptLevel);
   }
 
   /**
@@ -275,12 +277,12 @@ public class BackupAuthManager {
    * @return If present, the default receipt level that should be used for the account if the account does not have a
    * BackupVoucher. Empty if the account should never have backup access
    */
-  private Optional<Long> configuredReceiptLevel(final Account account) {
+  private Optional<BackupLevel> configuredBackupLevel(final Account account) {
     if (inExperiment(BACKUP_MEDIA_EXPERIMENT_NAME, account)) {
-      return Optional.of(BackupTier.MEDIA.getReceiptLevel());
+      return Optional.of(BackupLevel.MEDIA);
     }
     if (inExperiment(BACKUP_EXPERIMENT_NAME, account)) {
-      return Optional.of(BackupTier.MESSAGES.getReceiptLevel());
+      return Optional.of(BackupLevel.MESSAGES);
     }
     return Optional.empty();
   }

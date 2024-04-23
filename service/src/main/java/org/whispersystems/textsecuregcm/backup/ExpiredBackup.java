@@ -5,7 +5,6 @@
 package org.whispersystems.textsecuregcm.backup;
 
 import java.time.Instant;
-import java.util.List;
 
 /**
  * Represents a backup that requires some or all of its content to be deleted

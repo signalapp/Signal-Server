@@ -18,6 +18,7 @@ import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.signal.libsignal.zkgroup.backups.BackupAuthCredentialPresentation;
 import org.signal.libsignal.zkgroup.backups.BackupAuthCredentialRequest;
 import org.signal.libsignal.zkgroup.backups.BackupAuthCredentialRequestContext;
+import org.signal.libsignal.zkgroup.backups.BackupLevel;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.tests.util.ExperimentHelper;
 
@@ -35,32 +36,32 @@ public class BackupAuthTestUtil {
   }
 
   public BackupAuthCredentialPresentation getPresentation(
-      final BackupTier backupTier, final byte[] backupKey, final UUID aci)
+      final BackupLevel backupLevel, final byte[] backupKey, final UUID aci)
       throws VerificationFailedException {
-    return getPresentation(params, backupTier, backupKey, aci);
+    return getPresentation(params, backupLevel, backupKey, aci);
   }
 
   public BackupAuthCredentialPresentation getPresentation(
-      GenericServerSecretParams params, final BackupTier backupTier, final byte[] backupKey, final UUID aci)
+      GenericServerSecretParams params, final BackupLevel backupLevel, final byte[] backupKey, final UUID aci)
       throws VerificationFailedException {
+    final Instant redemptionTime = clock.instant().truncatedTo(ChronoUnit.DAYS);
     final BackupAuthCredentialRequestContext ctx = BackupAuthCredentialRequestContext.create(backupKey, aci);
     return ctx.receiveResponse(
             ctx.getRequest()
-                .issueCredential(clock.instant().truncatedTo(ChronoUnit.DAYS), backupTier.getReceiptLevel(), params),
-            params.getPublicParams(),
-            backupTier.getReceiptLevel())
+                .issueCredential(clock.instant().truncatedTo(ChronoUnit.DAYS), backupLevel, params),
+            redemptionTime,
+            params.getPublicParams())
         .present(params.getPublicParams());
   }
 
   public List<BackupAuthManager.Credential> getCredentials(
-      final BackupTier backupTier,
+      final BackupLevel backupLevel,
       final BackupAuthCredentialRequest request,
       final Instant redemptionStart,
       final Instant redemptionEnd) {
     final UUID aci = UUID.randomUUID();
 
-    final String experimentName = switch (backupTier) {
-      case NONE -> "notUsed";
+    final String experimentName = switch (backupLevel) {
       case MESSAGES -> BackupAuthManager.BACKUP_EXPERIMENT_NAME;
       case MEDIA -> BackupAuthManager.BACKUP_MEDIA_EXPERIMENT_NAME;
     };

@@ -51,18 +51,18 @@ import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 @ExtendWith(DropwizardExtensionsSupport.class)
 public class Cdn3RemoteStorageManagerTest {
 
-  private static byte[] HMAC_KEY = TestRandomUtil.nextBytes(32);
-  private static byte[] AES_KEY = TestRandomUtil.nextBytes(32);
-  private static byte[] IV = TestRandomUtil.nextBytes(16);
+  private static final byte[] HMAC_KEY = TestRandomUtil.nextBytes(32);
+  private static final byte[] AES_KEY = TestRandomUtil.nextBytes(32);
+  private static final byte[] IV = TestRandomUtil.nextBytes(16);
 
   @RegisterExtension
-  private final WireMockExtension wireMock = WireMockExtension.newInstance()
+  private static final WireMockExtension wireMock = WireMockExtension.newInstance()
       .options(wireMockConfig().dynamicPort())
       .build();
 
-  private static String SMALL_CDN2 = "a small object from cdn2";
-  private static String SMALL_CDN3 = "a small object from cdn3";
-  private static String LARGE = "a".repeat(1024 * 1024 * 5);
+  private static final String SMALL_CDN2 = "a small object from cdn2";
+  private static final String SMALL_CDN3 = "a small object from cdn3";
+  private static final String LARGE = "a".repeat(1024 * 1024 * 5);
 
   private RemoteStorageManager remoteStorageManager;
 
@@ -127,7 +127,7 @@ public class Cdn3RemoteStorageManagerTest {
             new BackupUploadDescriptor(3, "test", Collections.emptyMap(), wireMock.url("/cdn3/dest")))
         .toCompletableFuture().join();
 
-    final byte[] destBody = wireMock.findAll(postRequestedFor(urlEqualTo("/cdn3/dest"))).get(0).getBody();
+    final byte[] destBody = wireMock.findAll(postRequestedFor(urlEqualTo("/cdn3/dest"))).getFirst().getBody();
     assertThat(new String(decrypt(destBody), StandardCharsets.UTF_8))
         .isEqualTo(expectedSource);
   }
@@ -151,7 +151,7 @@ public class Cdn3RemoteStorageManagerTest {
             new BackupUploadDescriptor(3, "test", Collections.emptyMap(), wireMock.url("/cdn3/dest")))
         .toCompletableFuture().join();
 
-    final byte[] destBody = wireMock.findAll(postRequestedFor(urlEqualTo("/cdn3/dest"))).get(0).getBody();
+    final byte[] destBody = wireMock.findAll(postRequestedFor(urlEqualTo("/cdn3/dest"))).getFirst().getBody();
     assertThat(destBody.length)
         .isEqualTo(new BackupMediaEncrypter(params).outputSize(LARGE.length()))
         .isEqualTo(params.outputSize(LARGE.length()));

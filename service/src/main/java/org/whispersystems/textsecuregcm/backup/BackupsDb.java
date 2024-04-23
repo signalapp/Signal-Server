@@ -23,6 +23,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import org.signal.libsignal.protocol.InvalidKeyException;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
+import org.signal.libsignal.zkgroup.backups.BackupLevel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedBackupUser;
@@ -45,10 +46,10 @@ import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
  * Tracks backup metadata in a persistent store.
  * <p>
  * It's assumed that the caller has already validated that the backupUser being operated on has valid credentials and
- * possesses the appropriate {@link BackupTier} to perform the current operation.
+ * possesses the appropriate {@link BackupLevel} to perform the current operation.
  * <p>
  * Backup records track two timestamps indicating the last time that a user interacted with their backup. One for the
- * last refresh that contained a credential including media tier, and the other for any access. After a period of
+ * last refresh that contained a credential including media level, and the other for any access. After a period of
  * inactivity stale backups can be purged (either just the media, or the entire backup). Callers can discover what
  * backups are stale and whether only the media or the entire backup is stale via {@link #getExpiredBackups}.
  * <p>
@@ -86,7 +87,7 @@ public class BackupsDb {
   // garbage collection of archive objects.
   public static final String ATTR_LAST_REFRESH = "R";
   // N: Time in seconds since epoch of the last backup media refresh. This timestamp can only be updated if the client
-  // has BackupTier.MEDIA, and must be periodically updated to avoid garbage collection of media objects.
+  // has BackupLevel.MEDIA, and must be periodically updated to avoid garbage collection of media objects.
   public static final String ATTR_LAST_MEDIA_REFRESH = "MR";
   // B: A 32 byte public key that should be used to sign the presentation used to authenticate requests against the
   // backup-id
@@ -120,18 +121,18 @@ public class BackupsDb {
   /**
    * Set the public key associated with a backupId.
    *
-   * @param authenticatedBackupId   The backup-id bytes that should be associated with the provided public key
-   * @param authenticatedBackupTier The backup tier
-   * @param publicKey               The public key to associate with the backup id
+   * @param authenticatedBackupId    The backup-id bytes that should be associated with the provided public key
+   * @param authenticatedBackupLevel The backup level
+   * @param publicKey                The public key to associate with the backup id
    * @return A stage that completes when the public key has been set. If the backup-id already has a set public key that
    * does not match, the stage will be completed exceptionally with a {@link PublicKeyConflictException}
    */
   CompletableFuture<Void> setPublicKey(
       final byte[] authenticatedBackupId,
-      final BackupTier authenticatedBackupTier,
+      final BackupLevel authenticatedBackupLevel,
       final ECPublicKey publicKey) {
     final byte[] hashedBackupId = hashedBackupId(authenticatedBackupId);
-    return dynamoClient.updateItem(new UpdateBuilder(backupTableName, authenticatedBackupTier, hashedBackupId)
+    return dynamoClient.updateItem(new UpdateBuilder(backupTableName, authenticatedBackupLevel, hashedBackupId)
             .addSetExpression("#publicKey = :publicKey",
                 Map.entry("#publicKey", ATTR_PUBLIC_KEY),
                 Map.entry(":publicKey", AttributeValues.b(publicKey.serialize())))
@@ -284,7 +285,7 @@ public class BackupsDb {
     final byte[] hashedBackupId = hashedBackupId(backupUser);
 
     // Clear usage metadata, swap names of things we intend to delete, and record our intent to delete in attr_expired_prefix
-    return dynamoClient.updateItem(new UpdateBuilder(backupTableName, BackupTier.MEDIA, hashedBackupId)
+    return dynamoClient.updateItem(new UpdateBuilder(backupTableName, BackupLevel.MEDIA, hashedBackupId)
             .clearMediaUsage(clock)
             .expireDirectoryNames(secureRandom, ExpiredBackup.ExpirationType.ALL)
             .setRefreshTimes(Instant.ofEpochSecond(0))
@@ -299,7 +300,7 @@ public class BackupsDb {
             // is toggling backups on and off. In this case, it should be pretty cheap to directly delete the backup.
             // Instead of changing the backupDir, just make sure the row has expired/ timestamps and tell the caller we
             // couldn't schedule the deletion.
-            dynamoClient.updateItem(new UpdateBuilder(backupTableName, BackupTier.MEDIA, hashedBackupId)
+            dynamoClient.updateItem(new UpdateBuilder(backupTableName, BackupLevel.MEDIA, hashedBackupId)
                     .setRefreshTimes(Instant.ofEpochSecond(0))
                     .updateItemBuilder()
                     .build())
@@ -398,7 +399,7 @@ public class BackupsDb {
     }
 
     // Clear usage metadata, swap names of things we intend to delete, and record our intent to delete in attr_expired_prefix
-    return dynamoClient.updateItem(new UpdateBuilder(backupTableName, BackupTier.MEDIA, expiredBackup.hashedBackupId())
+    return dynamoClient.updateItem(new UpdateBuilder(backupTableName, BackupLevel.MEDIA, expiredBackup.hashedBackupId())
             .clearMediaUsage(clock)
             .expireDirectoryNames(secureRandom, expiredBackup.expirationType())
             .addRemoveExpression(Map.entry("#mediaRefresh", ATTR_LAST_MEDIA_REFRESH))
@@ -432,7 +433,7 @@ public class BackupsDb {
               .build())
           .thenRun(Util.NOOP);
     } else {
-      return dynamoClient.updateItem(new UpdateBuilder(backupTableName, BackupTier.MEDIA, hashedBackupId)
+      return dynamoClient.updateItem(new UpdateBuilder(backupTableName, BackupLevel.MEDIA, hashedBackupId)
               .addRemoveExpression(Map.entry("#expiredPrefixes", ATTR_EXPIRED_PREFIX))
               .updateItemBuilder()
               .build())
@@ -539,17 +540,17 @@ public class BackupsDb {
     private final Map<String, String> attrNames = new HashMap<>();
 
     private final String tableName;
-    private final BackupTier backupTier;
+    private final BackupLevel backupLevel;
     private final byte[] hashedBackupId;
     private String conditionExpression = null;
 
     static UpdateBuilder forUser(String tableName, AuthenticatedBackupUser backupUser) {
-      return new UpdateBuilder(tableName, backupUser.backupTier(), hashedBackupId(backupUser));
+      return new UpdateBuilder(tableName, backupUser.backupLevel(), hashedBackupId(backupUser));
     }
 
-    UpdateBuilder(String tableName, BackupTier backupTier, byte[] hashedBackupId) {
+    UpdateBuilder(String tableName, BackupLevel backupLevel, byte[] hashedBackupId) {
       this.tableName = tableName;
-      this.backupTier = backupTier;
+      this.backupLevel = backupLevel;
       this.hashedBackupId = hashedBackupId;
     }
 
@@ -679,7 +680,7 @@ public class BackupsDb {
      * Set the lastRefresh time as part of the update
      * <p>
      * This always updates lastRefreshTime, and updates lastMediaRefreshTime if the backup user has the appropriate
-     * tier.
+     * level.
      */
     UpdateBuilder setRefreshTimes(final Clock clock) {
       return this.setRefreshTimes(clock.instant());
@@ -690,8 +691,8 @@ public class BackupsDb {
           Map.entry("#lastRefreshTime", ATTR_LAST_REFRESH),
           Map.entry(":lastRefreshTime", AttributeValues.n(refreshTime.getEpochSecond())));
 
-      if (backupTier.compareTo(BackupTier.MEDIA) >= 0) {
-        // update the media time if we have the appropriate tier
+      if (backupLevel.compareTo(BackupLevel.MEDIA) >= 0) {
+        // update the media time if we have the appropriate level
         addSetExpression("#lastMediaRefreshTime = :lastMediaRefreshTime",
             Map.entry("#lastMediaRefreshTime", ATTR_LAST_MEDIA_REFRESH),
             Map.entry(":lastMediaRefreshTime", AttributeValues.n(refreshTime.getEpochSecond())));
