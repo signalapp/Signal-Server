@@ -693,6 +693,47 @@ paths:
       security:
       - authenticatedAccount: []
       - {}
+    delete:
+      tags:
+      - Archive
+      summary: Delete entire backup
+      description: |
+        Delete all backup metadata, objects, and stored public key. To use backups again, a public key must be resupplied.
+      operationId: deleteBackup
+      parameters:
+      - name: X-Signal-ZK-Auth
+        in: header
+        description: "Presentation of a ZK backup auth credential acquired from /v1/archives/auth,\
+          \ encoded in standard padded base64"
+        required: true
+        schema:
+          type: string
+      - name: X-Signal-ZK-Auth-Signature
+        in: header
+        description: "Signature of the ZK auth credential's presentation, encoded\
+          \ in standard padded base64"
+        required: true
+        schema:
+          type: string
+      responses:
+        "204":
+          description: The backup has been successfully removed
+        "429":
+          description: Rate limited.
+        "403":
+          description: Forbidden. The request had insufficient permissions to perform
+            the requested action
+        "401":
+          description: |-
+            The provided backup auth credential presentation could not be verified or
+            The public key signature was invalid or
+            There is no backup associated with the backup-id in the presentation
+        "400":
+          description: Bad arguments. The request may have been made on an authenticated
+            channel
+      security:
+      - authenticatedAccount: []
+      - {}
   /v1/archives/media/batch:
     put:
       tags:
@@ -2172,6 +2213,10 @@ paths:
         in: header
         schema:
           $ref: '#/components/schemas/Anonymous'
+      - name: Group-Send-Token
+        in: header
+        schema:
+          $ref: '#/components/schemas/GroupSendTokenHeader'
       - name: User-Agent
         in: header
         schema:
@@ -4112,10 +4157,10 @@ components:
     WebSocketClient:
       type: object
       properties:
-        userAgent:
-          type: string
         open:
           type: boolean
+        userAgent:
+          type: string
         createdTimestamp:
           type: integer
           format: int64
