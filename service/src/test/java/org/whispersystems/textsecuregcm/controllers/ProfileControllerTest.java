@@ -44,6 +44,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.stream.Stream;
 import javax.ws.rs.client.Entity;
+import javax.ws.rs.client.Invocation;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.MultivaluedHashMap;
 import javax.ws.rs.core.MultivaluedMap;
@@ -117,7 +118,7 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 @ExtendWith(DropwizardExtensionsSupport.class)
 class ProfileControllerTest {
 
-  private static final Clock clock = TestClock.pinned(Instant.ofEpochSecond(42));
+  private static final TestClock clock = TestClock.now();
   private static final AccountsManager accountsManager = mock(AccountsManager.class);
   private static final ProfilesManager profilesManager = mock(ProfilesManager.class);
   private static final RateLimiters rateLimiters = mock(RateLimiters.class);
@@ -129,6 +130,7 @@ class ProfileControllerTest {
       "accessKey");
   private static final PolicySigner policySigner = new PolicySigner("accessSecret", "us-west-1");
   private static final ServerZkProfileOperations zkProfileOperations = mock(ServerZkProfileOperations.class);
+  private static final ServerSecretParams serverSecretParams = ServerSecretParams.generate();
 
   private static final byte[] UNIDENTIFIED_ACCESS_KEY = "sixteenbytes1234".getBytes(StandardCharsets.UTF_8);
   private static final IdentityKey ACCOUNT_IDENTITY_KEY = new IdentityKey(Curve.generateKeyPair().getPublicKey());
@@ -170,6 +172,7 @@ class ProfileControllerTest {
           postPolicyGenerator,
           policySigner,
           "profilesBucket",
+          serverSecretParams,
           zkProfileOperations,
           Executors.newSingleThreadExecutor()))
       .build();
@@ -177,7 +180,7 @@ class ProfileControllerTest {
   @BeforeEach
   void setup() {
     reset(s3client);
-
+    clock.pin(Instant.ofEpochSecond(42));
     AccountsHelper.setupMockUpdate(accountsManager);
 
     dynamicPaymentsConfiguration = mock(DynamicPaymentsConfiguration.class);
@@ -309,6 +312,65 @@ class ProfileControllerTest {
         .get();
 
     assertThat(response.getStatus()).isEqualTo(401);
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void testProfileGetWithGroupSendEndorsement(
+      UUID target, UUID authorizedTarget, Duration timeLeft, boolean includeUak, int expectedResponse) throws Exception {
+
+    final Instant expiration = Instant.now().truncatedTo(ChronoUnit.DAYS);
+    clock.pin(expiration.minus(timeLeft));
+
+    Invocation.Builder builder = resources.getJerseyTest()
+        .target("/v1/profile/" + target)
+        .queryParam("pq", "true")
+        .request()
+        .header(
+            HeaderUtils.GROUP_SEND_TOKEN,
+            AuthHelper.validGroupSendTokenHeader(serverSecretParams, List.of(new AciServiceIdentifier(authorizedTarget)), expiration));
+
+    if (includeUak) {
+      builder = builder.header(HeaderUtils.UNIDENTIFIED_ACCESS_KEY, AuthHelper.getUnidentifiedAccessHeader(UNIDENTIFIED_ACCESS_KEY));
+    }
+
+    Response response = builder.get();
+    assertThat(response.getStatus()).isEqualTo(expectedResponse);
+
+    if (expectedResponse == 200) {
+      final BaseProfileResponse profile = response.readEntity(BaseProfileResponse.class);
+      assertThat(profile.getIdentityKey()).isEqualTo(ACCOUNT_TWO_IDENTITY_KEY);
+      assertThat(profile.getBadges()).hasSize(1).element(0).has(new Condition<>(
+              badge -> "Test Badge".equals(badge.getName()), "has badge with expected name"));
+    }
+
+    verifyNoMoreInteractions(rateLimiter);
+  }
+
+  private static Stream<Arguments> testProfileGetWithGroupSendEndorsement() {
+    UUID notExistsUuid = UUID.randomUUID();
+
+    return Stream.of(
+        // valid endorsement
+        Arguments.of(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_UUID_TWO, Duration.ofHours(1), false, 200),
+
+        // expired endorsement, not authorized
+        Arguments.of(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_UUID_TWO, Duration.ofHours(-1), false, 401),
+
+        // endorsement for the wrong recipient, not authorized
+        Arguments.of(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_UUID, Duration.ofHours(1), false, 401),
+
+        // expired endorsement for the wrong recipient, not authorized
+        Arguments.of(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_UUID, Duration.ofHours(-1), false, 401),
+
+        // valid endorsement for the right recipient but they aren't registered, not found
+        Arguments.of(notExistsUuid, notExistsUuid, Duration.ofHours(1), false, 404),
+
+        // expired endorsement for the right recipient but they aren't registered, not authorized (NOT not found)
+        Arguments.of(notExistsUuid, notExistsUuid, Duration.ofHours(-1), false, 401),
+
+        // valid endorsement but also a UAK, bad request
+        Arguments.of(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_UUID_TWO, Duration.ofHours(1), true, 400));
   }
 
   @Test

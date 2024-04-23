@@ -798,7 +798,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             .addService(new KeysAnonymousGrpcService(accountsManager, keysManager, zkSecretParams, Clock.systemUTC()))
             .addService(new PaymentsGrpcService(currencyManager))
             .addService(ExternalServiceCredentialsAnonymousGrpcService.create(accountsManager, config))
-            .addService(new ProfileAnonymousGrpcService(accountsManager, profilesManager, profileBadgeConverter, zkProfileOperations));
+            .addService(new ProfileAnonymousGrpcService(accountsManager, profilesManager, profileBadgeConverter, zkSecretParams));
       }
     };
 
@@ -969,7 +969,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new PaymentsController(currencyManager, paymentsCredentialsGenerator),
         new ProfileController(clock, rateLimiters, accountsManager, profilesManager, dynamicConfigurationManager,
             profileBadgeConverter, config.getBadges(), cdnS3Client, profileCdnPolicyGenerator, profileCdnPolicySigner,
-            config.getCdnConfiguration().bucket(), zkProfileOperations, batchIdentityCheckExecutor),
+            config.getCdnConfiguration().bucket(), zkSecretParams, zkProfileOperations, batchIdentityCheckExecutor),
         new ProvisioningController(rateLimiters, provisioningManager),
         new RegistrationController(accountsManager, phoneVerificationTokenManager, registrationLockVerificationManager,
             rateLimiters),

@@ -211,10 +211,18 @@ message GetUnversionedProfileAnonymousRequest {
    * Contains the data necessary to request an unversioned profile.
    */
   GetUnversionedProfileRequest request = 1;
-  /**
-   * The unidentified access key for the targeted account.
-   */
-  bytes unidentified_access_key = 2;
+
+  oneof authentication {
+    /**
+     * The unidentified access key for the targeted account.
+     */
+    bytes unidentified_access_key = 2;
+
+    /**
+     * A group send endorsement token for the targeted account.
+     */
+    bytes group_send_token = 3;
+  }
 }
 
 message GetUnversionedProfileResponse {

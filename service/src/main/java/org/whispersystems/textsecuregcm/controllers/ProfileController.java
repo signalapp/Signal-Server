@@ -58,13 +58,17 @@ import org.glassfish.jersey.server.ManagedAsync;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ServiceId;
 import org.signal.libsignal.zkgroup.InvalidInputException;
+import org.signal.libsignal.zkgroup.ServerSecretParams;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
+import org.signal.libsignal.zkgroup.groupsend.GroupSendDerivedKeyPair;
+import org.signal.libsignal.zkgroup.groupsend.GroupSendFullToken;
 import org.signal.libsignal.zkgroup.profiles.ExpiringProfileKeyCredentialResponse;
 import org.signal.libsignal.zkgroup.profiles.ServerZkProfileOperations;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.GroupSendTokenHeader;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessChecksum;
 import org.whispersystems.textsecuregcm.badges.ProfileBadgeConverter;
@@ -109,19 +113,20 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 public class ProfileController {
   private final Logger logger = LoggerFactory.getLogger(ProfileController.class);
   private final Clock clock;
-  private final RateLimiters     rateLimiters;
-  private final ProfilesManager  profilesManager;
-  private final AccountsManager  accountsManager;
+  private final RateLimiters rateLimiters;
+  private final ProfilesManager profilesManager;
+  private final AccountsManager accountsManager;
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private final ProfileBadgeConverter profileBadgeConverter;
   private final Map<String, BadgeConfiguration> badgeConfigurationMap;
 
-  private final PolicySigner              policySigner;
-  private final PostPolicyGenerator       policyGenerator;
+  private final PolicySigner policySigner;
+  private final PostPolicyGenerator policyGenerator;
+  private final ServerSecretParams serverSecretParams;
   private final ServerZkProfileOperations zkProfileOperations;
 
-  private final S3Client            s3client;
-  private final String              bucket;
+  private final S3Client s3client;
+  private final String bucket;
 
   private final Executor batchIdentityCheckExecutor;
 
@@ -142,21 +147,23 @@ public class ProfileController {
       PostPolicyGenerator policyGenerator,
       PolicySigner policySigner,
       String bucket,
+      ServerSecretParams serverSecretParams,
       ServerZkProfileOperations zkProfileOperations,
       Executor batchIdentityCheckExecutor) {
     this.clock = clock;
-    this.rateLimiters        = rateLimiters;
-    this.accountsManager     = accountsManager;
-    this.profilesManager     = profilesManager;
+    this.rateLimiters = rateLimiters;
+    this.accountsManager = accountsManager;
+    this.profilesManager = profilesManager;
     this.dynamicConfigurationManager = dynamicConfigurationManager;
     this.profileBadgeConverter = profileBadgeConverter;
     this.badgeConfigurationMap = badgesConfiguration.getBadges().stream().collect(Collectors.toMap(
         BadgeConfiguration::getId, Function.identity()));
+    this.serverSecretParams = serverSecretParams;
     this.zkProfileOperations = zkProfileOperations;
-    this.bucket              = bucket;
-    this.s3client            = s3client;
-    this.policyGenerator     = policyGenerator;
-    this.policySigner        = policySigner;
+    this.bucket = bucket;
+    this.s3client = s3client;
+    this.policyGenerator = policyGenerator;
+    this.policySigner = policySigner;
     this.batchIdentityCheckExecutor = Preconditions.checkNotNull(batchIdentityCheckExecutor);
   }
 
@@ -282,6 +289,7 @@ public class ProfileController {
   public BaseProfileResponse getUnversionedProfile(
       @ReadOnly @Auth Optional<AuthenticatedAccount> auth,
       @HeaderParam(HeaderUtils.UNIDENTIFIED_ACCESS_KEY) Optional<Anonymous> accessKey,
+      @HeaderParam(HeaderUtils.GROUP_SEND_TOKEN) Optional<GroupSendTokenHeader> groupSendToken,
       @Context ContainerRequestContext containerRequestContext,
       @HeaderParam(HttpHeaders.USER_AGENT) String userAgent,
       @PathParam("identifier") ServiceIdentifier identifier,
@@ -290,8 +298,22 @@ public class ProfileController {
 
     final Optional<Account> maybeRequester = auth.map(AuthenticatedAccount::getAccount);
 
-    final Account targetAccount = verifyPermissionToReceiveProfile(
-        maybeRequester, accessKey.filter(ignored -> identifier.identityType() == IdentityType.ACI), identifier);
+    final Account targetAccount;
+    if (groupSendToken.isPresent()) {
+      if (accessKey.isPresent()) {
+        throw new BadRequestException("may not provide both group send token and unidentified access key");
+      }
+      try {
+        final GroupSendFullToken token = groupSendToken.get().token();
+        token.verify(List.of(identifier.toLibsignal()), clock.instant(), GroupSendDerivedKeyPair.forExpiration(token.getExpiration(), serverSecretParams));
+        targetAccount = accountsManager.getByServiceIdentifier(identifier).orElseThrow(NotFoundException::new);
+      } catch (VerificationFailedException e) {
+        throw new NotAuthorizedException(e);
+      }
+    } else {
+      targetAccount = verifyPermissionToReceiveProfile(
+          maybeRequester, accessKey.filter(ignored -> identifier.identityType() == IdentityType.ACI), identifier);
+    }
     return switch (identifier.identityType()) {
       case ACI -> {
         yield buildBaseProfileResponseForAccountIdentity(targetAccount,

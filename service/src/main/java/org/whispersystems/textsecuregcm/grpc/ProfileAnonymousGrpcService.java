@@ -6,6 +6,10 @@
 package org.whispersystems.textsecuregcm.grpc;
 
 import io.grpc.Status;
+
+import java.time.Clock;
+import java.util.List;
+
 import org.signal.chat.profile.CredentialType;
 import org.signal.chat.profile.GetExpiringProfileKeyCredentialAnonymousRequest;
 import org.signal.chat.profile.GetExpiringProfileKeyCredentialResponse;
@@ -14,6 +18,7 @@ import org.signal.chat.profile.GetUnversionedProfileResponse;
 import org.signal.chat.profile.GetVersionedProfileAnonymousRequest;
 import org.signal.chat.profile.GetVersionedProfileResponse;
 import org.signal.chat.profile.ReactorProfileAnonymousGrpc;
+import org.signal.libsignal.zkgroup.ServerSecretParams;
 import org.signal.libsignal.zkgroup.profiles.ServerZkProfileOperations;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.badges.ProfileBadgeConverter;
@@ -29,16 +34,18 @@ public class ProfileAnonymousGrpcService extends ReactorProfileAnonymousGrpc.Pro
   private final ProfilesManager profilesManager;
   private final ProfileBadgeConverter profileBadgeConverter;
   private final ServerZkProfileOperations zkProfileOperations;
+  private final GroupSendTokenUtil groupSendTokenUtil;
 
   public ProfileAnonymousGrpcService(
       final AccountsManager accountsManager,
       final ProfilesManager profilesManager,
       final ProfileBadgeConverter profileBadgeConverter,
-      final ServerZkProfileOperations zkProfileOperations) {
+      final ServerSecretParams serverSecretParams) {
     this.accountsManager = accountsManager;
     this.profilesManager = profilesManager;
     this.profileBadgeConverter = profileBadgeConverter;
-    this.zkProfileOperations = zkProfileOperations;
+    this.zkProfileOperations = new ServerZkProfileOperations(serverSecretParams);
+    this.groupSendTokenUtil = new GroupSendTokenUtil(serverSecretParams, Clock.systemUTC());
   }
 
   @Override
@@ -51,8 +58,18 @@ public class ProfileAnonymousGrpcService extends ReactorProfileAnonymousGrpc.Pro
       throw Status.UNAUTHENTICATED.asRuntimeException();
     }
 
-    return getTargetAccountAndValidateUnidentifiedAccess(targetIdentifier, request.getUnidentifiedAccessKey().toByteArray())
-        .map(targetAccount -> ProfileGrpcHelper.buildUnversionedProfileResponse(targetIdentifier,
+    final Mono<Account> account = switch (request.getAuthenticationCase()) {
+      case GROUP_SEND_TOKEN ->
+          groupSendTokenUtil.checkGroupSendToken(request.getGroupSendToken(), List.of(targetIdentifier))
+              .then(Mono.fromFuture(() -> accountsManager.getByServiceIdentifierAsync(targetIdentifier)))
+              .flatMap(Mono::justOrEmpty)
+              .switchIfEmpty(Mono.error(Status.NOT_FOUND.asException()));
+      case UNIDENTIFIED_ACCESS_KEY ->
+          getTargetAccountAndValidateUnidentifiedAccess(targetIdentifier, request.getUnidentifiedAccessKey().toByteArray());
+      default -> Mono.error(Status.INVALID_ARGUMENT.asException());
+    };
+
+    return account.map(targetAccount -> ProfileGrpcHelper.buildUnversionedProfileResponse(targetIdentifier,
             null,
             targetAccount,
             profileBadgeConverter));

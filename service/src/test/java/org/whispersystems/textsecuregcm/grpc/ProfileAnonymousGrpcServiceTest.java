@@ -19,6 +19,7 @@ import static org.whispersystems.textsecuregcm.grpc.GrpcTestUtils.assertStatusEx
 import com.google.protobuf.ByteString;
 import io.grpc.Status;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
@@ -73,13 +74,17 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.VersionedProfile;
+import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.ProfileTestHelper;
+import org.whispersystems.textsecuregcm.util.TestClock;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
 import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 
 public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileAnonymousGrpcService, ProfileAnonymousGrpc.ProfileAnonymousBlockingStub> {
+
+  private final ServerSecretParams SERVER_SECRET_PARAMS = ServerSecretParams.generate();
 
   @Mock
   private Account account;
@@ -93,10 +98,6 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
   @Mock
   private ProfileBadgeConverter profileBadgeConverter;
 
-  @Mock
-  private ServerZkProfileOperations serverZkProfileOperations;
-
-  
   @Override
   protected ProfileAnonymousGrpcService createServiceBeforeEachTest() {
     getMockRequestAttributesInterceptor().setAcceptLanguage(Locale.LanguageRange.parse("en-us"));
@@ -111,12 +112,12 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
         accountsManager,
         profilesManager,
         profileBadgeConverter,
-        serverZkProfileOperations
+        SERVER_SECRET_PARAMS
     );
   }
 
   @Test
-  void getUnversionedProfile() {
+  void getUnversionedProfileUnidentifiedAccessKey() {
     final UUID targetUuid = UUID.randomUUID();
     final org.whispersystems.textsecuregcm.identity.ServiceIdentifier serviceIdentifier = new AciServiceIdentifier(targetUuid);
 
@@ -169,9 +170,71 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
     assertEquals(expectedResponse, response);
   }
 
+  @Test
+  void getUnversionedProfileGroupSendEndorsement() throws Exception {
+    final UUID targetUuid = UUID.randomUUID();
+    final org.whispersystems.textsecuregcm.identity.ServiceIdentifier serviceIdentifier = new AciServiceIdentifier(targetUuid);
+
+    // Expiration must be on a day boundary; we want one in the future
+    final Instant expiration = Instant.now().plus(Duration.ofDays(1)).truncatedTo(ChronoUnit.DAYS);
+    final byte[] token = AuthHelper.validGroupSendToken(SERVER_SECRET_PARAMS, List.of(serviceIdentifier), expiration);
+
+    final ECKeyPair identityKeyPair = Curve.generateKeyPair();
+    final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
+
+    final List<Badge> badges = List.of(new Badge(
+        "TEST",
+        "other",
+        "Test Badge",
+        "This badge is in unit tests.",
+        List.of("l", "m", "h", "x", "xx", "xxx"),
+        "SVG",
+        List.of(
+            new BadgeSvg("sl", "sd"),
+            new BadgeSvg("ml", "md"),
+            new BadgeSvg("ll", "ld")))
+    );
+
+    when(account.getBadges()).thenReturn(Collections.emptyList());
+    when(profileBadgeConverter.convert(any(), any(), anyBoolean())).thenReturn(badges);
+    when(account.isUnrestrictedUnidentifiedAccess()).thenReturn(false);
+    when(account.getIdentityKey(org.whispersystems.textsecuregcm.identity.IdentityType.ACI)).thenReturn(identityKey);
+    when(accountsManager.getByServiceIdentifierAsync(serviceIdentifier)).thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+
+    final GetUnversionedProfileAnonymousRequest request = GetUnversionedProfileAnonymousRequest.newBuilder()
+        .setGroupSendToken(ByteString.copyFrom(token))
+        .setRequest(GetUnversionedProfileRequest.newBuilder()
+            .setServiceIdentifier(
+                ServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier))
+            .build())
+        .build();
+
+    final GetUnversionedProfileResponse response = unauthenticatedServiceStub().getUnversionedProfile(request);
+
+    final GetUnversionedProfileResponse expectedResponse = GetUnversionedProfileResponse.newBuilder()
+        .setIdentityKey(ByteString.copyFrom(identityKey.serialize()))
+        .setUnrestrictedUnidentifiedAccess(false)
+        .setCapabilities(ProfileGrpcHelper.buildUserCapabilities(new UserCapabilities()))
+        .addAllBadges(ProfileGrpcHelper.buildBadges(badges))
+        .build();
+
+    verify(accountsManager).getByServiceIdentifierAsync(serviceIdentifier);
+    assertEquals(expectedResponse, response);
+  }
+
+  @Test
+  void getUnversionedProfileNoAuth() {
+    final GetUnversionedProfileAnonymousRequest request = GetUnversionedProfileAnonymousRequest.newBuilder()
+        .setRequest(GetUnversionedProfileRequest.newBuilder()
+            .setServiceIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(new AciServiceIdentifier(UUID.randomUUID()))))
+        .build();
+
+    assertStatusException(Status.INVALID_ARGUMENT, () -> unauthenticatedServiceStub().getUnversionedProfile(request));
+  }
+
   @ParameterizedTest
   @MethodSource
-  void getUnversionedProfileUnauthenticated(final IdentityType identityType, final boolean missingUnidentifiedAccessKey, final boolean accountNotFound) {
+  void getUnversionedProfileIncorrectUnidentifiedAccessKey(final IdentityType identityType, final boolean wrongUnidentifiedAccessKey, final boolean accountNotFound) {
     final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
 
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
@@ -179,27 +242,82 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
     when(accountsManager.getByServiceIdentifierAsync(any())).thenReturn(
         CompletableFuture.completedFuture(accountNotFound ? Optional.empty() : Optional.of(account)));
 
-    final GetUnversionedProfileAnonymousRequest.Builder requestBuilder = GetUnversionedProfileAnonymousRequest.newBuilder()
+    final GetUnversionedProfileAnonymousRequest request = GetUnversionedProfileAnonymousRequest.newBuilder()
+        .setUnidentifiedAccessKey(
+            ByteString.copyFrom(wrongUnidentifiedAccessKey
+                ? new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]
+                : unidentifiedAccessKey))
         .setRequest(GetUnversionedProfileRequest.newBuilder()
             .setServiceIdentifier(ServiceIdentifier.newBuilder()
                 .setIdentityType(identityType)
-                .setUuid(ByteString.copyFrom(UUIDUtil.toBytes(UUID.randomUUID())))
-                .build())
-            .build());
+                .setUuid(ByteString.copyFrom(UUIDUtil.toBytes(UUID.randomUUID())))))
+        .build();
 
-    if (!missingUnidentifiedAccessKey) {
-      requestBuilder.setUnidentifiedAccessKey(ByteString.copyFrom(unidentifiedAccessKey));
-    }
-
-    assertStatusException(Status.UNAUTHENTICATED, () -> unauthenticatedServiceStub().getUnversionedProfile(requestBuilder.build()));
+    assertStatusException(Status.UNAUTHENTICATED, () -> unauthenticatedServiceStub().getUnversionedProfile(request));
   }
 
-  private static Stream<Arguments> getUnversionedProfileUnauthenticated() {
+  private static Stream<Arguments> getUnversionedProfileIncorrectUnidentifiedAccessKey() {
     return Stream.of(
         Arguments.of(IdentityType.IDENTITY_TYPE_PNI, false, false),
         Arguments.of(IdentityType.IDENTITY_TYPE_ACI, true, false),
         Arguments.of(IdentityType.IDENTITY_TYPE_ACI, false, true)
     );
+  }
+
+  @Test
+  void getUnversionedProfileExpiredGroupSendEndorsement() throws Exception {
+    final AciServiceIdentifier serviceIdentifier = new AciServiceIdentifier(UUID.randomUUID());
+    // Expirations must be on a day boundary; pick one in the recent past
+    final Instant expiration = Instant.now().truncatedTo(ChronoUnit.DAYS);
+    final byte[] token = AuthHelper.validGroupSendToken(SERVER_SECRET_PARAMS, List.of(serviceIdentifier), expiration);
+
+    final GetUnversionedProfileAnonymousRequest request = GetUnversionedProfileAnonymousRequest.newBuilder()
+        .setGroupSendToken(ByteString.copyFrom(token))
+        .setRequest(GetUnversionedProfileRequest.newBuilder()
+            .setServiceIdentifier(
+                ServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier)))
+        .build();
+
+    assertStatusException(Status.UNAUTHENTICATED, () -> unauthenticatedServiceStub().getUnversionedProfile(request));
+  }
+
+  @Test
+  void getUnversionedProfileIncorrectGroupSendEndorsement() throws Exception {
+    final AciServiceIdentifier targetServiceIdentifier = new AciServiceIdentifier(UUID.randomUUID());
+    final AciServiceIdentifier authorizedServiceIdentifier = new AciServiceIdentifier(UUID.randomUUID());
+
+    // Expiration must be on a day boundary; we want one in the future
+    final Instant expiration = Instant.now().plus(Duration.ofDays(1)).truncatedTo(ChronoUnit.DAYS);
+    final byte[] token = AuthHelper.validGroupSendToken(SERVER_SECRET_PARAMS, List.of(authorizedServiceIdentifier), expiration);
+
+    when(accountsManager.getByServiceIdentifierAsync(any())).thenReturn(
+        CompletableFuture.completedFuture(Optional.empty()));
+    final GetUnversionedProfileAnonymousRequest request = GetUnversionedProfileAnonymousRequest.newBuilder()
+        .setGroupSendToken(ByteString.copyFrom(token))
+        .setRequest(GetUnversionedProfileRequest.newBuilder()
+            .setServiceIdentifier(
+                ServiceIdentifierUtil.toGrpcServiceIdentifier(targetServiceIdentifier)))
+        .build();
+
+    assertStatusException(Status.UNAUTHENTICATED, () -> unauthenticatedServiceStub().getUnversionedProfile(request));
+  }
+
+  @Test
+  void getUnversionedProfileGroupSendEndorsementAccountNotFound() throws Exception {
+    final AciServiceIdentifier serviceIdentifier = new AciServiceIdentifier(UUID.randomUUID());
+
+    // Expiration must be on a day boundary; we want one in the future
+    final Instant expiration = Instant.now().plus(Duration.ofDays(1)).truncatedTo(ChronoUnit.DAYS);
+    final byte[] token = AuthHelper.validGroupSendToken(SERVER_SECRET_PARAMS, List.of(serviceIdentifier), expiration);
+
+    when(accountsManager.getByServiceIdentifierAsync(any())).thenReturn(CompletableFuture.completedFuture(Optional.empty()));
+    final GetUnversionedProfileAnonymousRequest request = GetUnversionedProfileAnonymousRequest.newBuilder()
+        .setGroupSendToken(ByteString.copyFrom(token))
+        .setRequest(GetUnversionedProfileRequest.newBuilder()
+            .setServiceIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier)))
+        .build();
+
+    assertStatusException(Status.NOT_FOUND, () -> unauthenticatedServiceStub().getUnversionedProfile(request));
   }
 
   @ParameterizedTest
@@ -343,11 +461,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
     final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
     final UUID targetUuid = UUID.randomUUID();
 
-    final ServerSecretParams serverSecretParams = ServerSecretParams.generate();
-    final ServerPublicParams serverPublicParams = serverSecretParams.getPublicParams();
-
-    final ServerZkProfileOperations serverZkProfile = new ServerZkProfileOperations(serverSecretParams);
-    final ClientZkProfileOperations clientZkProfile = new ClientZkProfileOperations(serverPublicParams);
+    final ClientZkProfileOperations clientZkProfile = new ClientZkProfileOperations(SERVER_SECRET_PARAMS.getPublicParams());
 
     final byte[] profileKeyBytes = TestRandomUtil.nextBytes(32);
     final ProfileKey profileKey = new ProfileKey(profileKeyBytes);
@@ -368,12 +482,6 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
     final Instant expiration = Instant.now().plus(org.whispersystems.textsecuregcm.util.ProfileHelper.EXPIRING_PROFILE_KEY_CREDENTIAL_EXPIRATION)
         .truncatedTo(ChronoUnit.DAYS);
 
-    final ExpiringProfileKeyCredentialResponse credentialResponse =
-        serverZkProfile.issueExpiringProfileKeyCredential(credentialRequest, new ServiceId.Aci(targetUuid), profileKeyCommitment, expiration);
-
-    when(serverZkProfileOperations.issueExpiringProfileKeyCredential(credentialRequest, new ServiceId.Aci(targetUuid), profileKeyCommitment, expiration))
-        .thenReturn(credentialResponse);
-
     final GetExpiringProfileKeyCredentialAnonymousRequest request = GetExpiringProfileKeyCredentialAnonymousRequest.newBuilder()
         .setRequest(GetExpiringProfileKeyCredentialRequest.newBuilder()
             .setAccountIdentifier(ServiceIdentifier.newBuilder()
@@ -389,13 +497,8 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
 
     final GetExpiringProfileKeyCredentialResponse response = unauthenticatedServiceStub().getExpiringProfileKeyCredential(request);
 
-    assertArrayEquals(credentialResponse.serialize(), response.getProfileKeyCredential().toByteArray());
-
-    verify(serverZkProfileOperations).issueExpiringProfileKeyCredential(credentialRequest, new ServiceId.Aci(targetUuid), profileKeyCommitment, expiration);
-
-    final ClientZkProfileOperations clientZkProfileCipher = new ClientZkProfileOperations(serverPublicParams);
     assertThatNoException().isThrownBy(() ->
-        clientZkProfileCipher.receiveExpiringProfileKeyCredential(profileKeyCredentialRequestContext, new ExpiringProfileKeyCredentialResponse(response.getProfileKeyCredential().toByteArray())));
+        clientZkProfile.receiveExpiringProfileKeyCredential(profileKeyCredentialRequestContext, new ExpiringProfileKeyCredentialResponse(response.getProfileKeyCredential().toByteArray())));
   }
 
   @ParameterizedTest
@@ -470,10 +573,6 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
       final boolean throwZkVerificationException) throws VerificationFailedException {
     final UUID targetUuid = UUID.randomUUID();
     final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
-
-    if (throwZkVerificationException) {
-      when(serverZkProfileOperations.issueExpiringProfileKeyCredential(any(), any(), any(), any())).thenThrow(new VerificationFailedException());
-    }
 
     final VersionedProfile profile = mock(VersionedProfile.class);
     when(profile.commitment()).thenReturn("commitment".getBytes(StandardCharsets.UTF_8));
