@@ -256,7 +256,6 @@ class ProfileControllerTest {
     assertThat(profile.getBadges()).hasSize(1).element(0).has(new Condition<>(
         badge -> "Test Badge".equals(badge.getName()), "has badge with expected name"));
 
-    verify(accountsManager).getByAccountIdentifier(AuthHelper.VALID_UUID_TWO);
     verify(rateLimiter, times(1)).validate(AuthHelper.VALID_UUID);
   }
 
@@ -287,7 +286,6 @@ class ProfileControllerTest {
     assertThat(profile.getBadges()).hasSize(1).element(0).has(new Condition<>(
         badge -> "Test Badge".equals(badge.getName()), "has badge with expected name"));
 
-    verify(accountsManager).getByAccountIdentifier(AuthHelper.VALID_UUID_TWO);
     verify(rateLimiter, never()).validate(AuthHelper.VALID_UUID);
   }
 
@@ -328,7 +326,6 @@ class ProfileControllerTest {
     assertThat(profile.isUnrestrictedUnidentifiedAccess()).isFalse();
     assertThat(profile.getUnidentifiedAccess()).isNull();
 
-    verify(accountsManager).getByPhoneNumberIdentifier(AuthHelper.VALID_PNI_TWO);
     verify(rateLimiter, times(1)).validate(AuthHelper.VALID_UUID);
   }
 
@@ -357,7 +354,6 @@ class ProfileControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(401);
 
-    verify(accountsManager).getByPhoneNumberIdentifier(AuthHelper.VALID_PNI_TWO);
     verify(rateLimiter, never()).validate(AuthHelper.VALID_UUID);
   }
 
@@ -879,9 +875,6 @@ class ProfileControllerTest {
     assertThat(profile.getBaseProfileResponse().getBadges()).hasSize(1).element(0).has(new Condition<>(
         badge -> "Test Badge".equals(badge.getName()), "has badge with expected name"));
 
-    verify(accountsManager, times(1)).getByAccountIdentifier(eq(AuthHelper.VALID_UUID_TWO));
-    verify(profilesManager, times(1)).get(eq(AuthHelper.VALID_UUID_TWO), eq(version));
-
     verify(rateLimiter, times(1)).validate(AuthHelper.VALID_UUID);
   }
 
@@ -1122,7 +1115,7 @@ class ProfileControllerTest {
     final ExpiringProfileKeyCredentialResponse credentialResponse =
         serverZkProfile.issueExpiringProfileKeyCredential(credentialRequest, new ServiceId.Aci(AuthHelper.VALID_UUID), profileKeyCommitment, expiration);
 
-    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
+    when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(AuthHelper.VALID_UUID))).thenReturn(Optional.of(account));
     when(profilesManager.get(AuthHelper.VALID_UUID, version)).thenReturn(Optional.of(versionedProfile));
     when(zkProfileOperations.issueExpiringProfileKeyCredential(eq(credentialRequest), eq(new ServiceId.Aci(AuthHelper.VALID_UUID)), eq(profileKeyCommitment), any()))
         .thenReturn(credentialResponse);
@@ -1182,7 +1175,7 @@ class ProfileControllerTest {
     when(account.isEnabled()).thenReturn(true);
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(UNIDENTIFIED_ACCESS_KEY));
 
-    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
+    when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(AuthHelper.VALID_UUID))).thenReturn(Optional.of(account));
     when(profilesManager.get(AuthHelper.VALID_UUID, version)).thenReturn(Optional.of(versionedProfile));
     when(zkProfileOperations.issueExpiringProfileKeyCredential(any(), any(), any(), any()))
         .thenThrow(new VerificationFailedException());

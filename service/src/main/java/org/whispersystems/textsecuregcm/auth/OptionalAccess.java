@@ -50,25 +50,31 @@ public class OptionalAccess {
                             Optional<Anonymous> accessKey,
                             Optional<Account>   targetAccount)
   {
-    if (requestAccount.isPresent() && targetAccount.isPresent() && targetAccount.get().isEnabled()) {
+    if (requestAccount.isPresent()) {
+      // Authenticated requests are never unauthorized; if the target exists and is enabled, return OK, otherwise throw not-found.
+      if (targetAccount.isPresent() && targetAccount.get().isEnabled()) {
+        return;
+      } else {
+        throw new NotFoundException();
+      }
+    }
+
+    // Anything past this point can only be authenticated by an access key. Even when the target
+    // has unrestricted unidentified access, callers need to supply a fake access key. Likewise, if
+    // the target account does not exist, we *also* report unauthorized here (*not* not-found,
+    // since that would provide a free exists check).
+    if (accessKey.isEmpty() || !targetAccount.map(Account::isEnabled).orElse(false)) {
+      throw new NotAuthorizedException(Response.Status.UNAUTHORIZED);
+    }
+
+    // Unrestricted unidentified access does what it says on the tin: we don't check if the key the
+    // caller provided is right or not.
+    if (targetAccount.get().isUnrestrictedUnidentifiedAccess()) {
       return;
     }
 
-    //noinspection ConstantConditions
-    if (requestAccount.isPresent() && (targetAccount.isEmpty() || (targetAccount.isPresent() && !targetAccount.get().isEnabled()))) {
-      throw new NotFoundException();
-    }
-
-    if (accessKey.isPresent() && targetAccount.isPresent() && targetAccount.get().isEnabled() && targetAccount.get().isUnrestrictedUnidentifiedAccess()) {
-      return;
-    }
-
-    if (accessKey.isPresent()                                      &&
-        targetAccount.isPresent()                                  &&
-        targetAccount.get().getUnidentifiedAccessKey().isPresent() &&
-        targetAccount.get().isEnabled()                            &&
-        MessageDigest.isEqual(accessKey.get().getAccessKey(), targetAccount.get().getUnidentifiedAccessKey().get()))
-    {
+    // Otherwise, access is gated by the caller having the unidentified-access key matching the target account.
+    if (MessageDigest.isEqual(accessKey.get().getAccessKey(), targetAccount.get().getUnidentifiedAccessKey().get())) {
       return;
     }
 

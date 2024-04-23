@@ -237,7 +237,7 @@ public class ProfileController {
       throws RateLimitExceededException {
 
     final Optional<Account> maybeRequester = auth.map(AuthenticatedAccount::getAccount);
-    final Account targetAccount = verifyPermissionToReceiveAccountIdentityProfile(maybeRequester, accessKey, accountIdentifier);
+    final Account targetAccount = verifyPermissionToReceiveProfile(maybeRequester, accessKey, accountIdentifier);
 
     return buildVersionedProfileResponse(targetAccount,
         version,
@@ -263,7 +263,7 @@ public class ProfileController {
     }
 
     final Optional<Account> maybeRequester = auth.map(AuthenticatedAccount::getAccount);
-    final Account targetAccount = verifyPermissionToReceiveAccountIdentityProfile(maybeRequester, accessKey, accountIdentifier);
+    final Account targetAccount = verifyPermissionToReceiveProfile(maybeRequester, accessKey, accountIdentifier);
     final boolean isSelf = maybeRequester.map(requester -> ProfileHelper.isSelfProfileRequest(requester.getUuid(), accountIdentifier)).orElse(false);
 
     return buildExpiringProfileKeyCredentialProfileResponse(targetAccount,
@@ -290,30 +290,16 @@ public class ProfileController {
 
     final Optional<Account> maybeRequester = auth.map(AuthenticatedAccount::getAccount);
 
+    final Account targetAccount = verifyPermissionToReceiveProfile(
+        maybeRequester, accessKey.filter(ignored -> identifier.identityType() == IdentityType.ACI), identifier);
     return switch (identifier.identityType()) {
       case ACI -> {
-        final AciServiceIdentifier aciServiceIdentifier = (AciServiceIdentifier) identifier;
-
-        final Account targetAccount =
-            verifyPermissionToReceiveAccountIdentityProfile(maybeRequester, accessKey, aciServiceIdentifier);
-
         yield buildBaseProfileResponseForAccountIdentity(targetAccount,
-            maybeRequester.map(requester -> ProfileHelper.isSelfProfileRequest(requester.getUuid(), aciServiceIdentifier)).orElse(false),
+            maybeRequester.map(requester -> ProfileHelper.isSelfProfileRequest(requester.getUuid(), identifier)).orElse(false),
             containerRequestContext);
       }
       case PNI -> {
-        final Optional<Account> maybeAccountByPni = accountsManager.getByPhoneNumberIdentifier(identifier.uuid());
-
-        if (maybeRequester.isEmpty()) {
-          throw new WebApplicationException(Response.Status.UNAUTHORIZED);
-        } else {
-          rateLimiters.getProfileLimiter().validate(maybeRequester.get().getUuid());
-        }
-
-        OptionalAccess.verify(maybeRequester, Optional.empty(), maybeAccountByPni);
-
-        assert maybeAccountByPni.isPresent();
-        yield buildBaseProfileResponseForPhoneNumberIdentity(maybeAccountByPni.get());
+        yield buildBaseProfileResponseForPhoneNumberIdentity(targetAccount);
       }
     };
   }
@@ -485,19 +471,15 @@ public class ProfileController {
    * @throws NotAuthorizedException if the requester is not authorized to receive the target account's profile or if the
    * requester was not authenticated and did not present an anonymous access key
    */
-  private Account verifyPermissionToReceiveAccountIdentityProfile(final Optional<Account> maybeRequester,
+  private Account verifyPermissionToReceiveProfile(final Optional<Account> maybeRequester,
       final Optional<Anonymous> maybeAccessKey,
-      final AciServiceIdentifier accountIdentifier) throws RateLimitExceededException {
-
-    if (maybeRequester.isEmpty() && maybeAccessKey.isEmpty()) {
-      throw new WebApplicationException(Response.Status.UNAUTHORIZED);
-    }
+      final ServiceIdentifier accountIdentifier) throws RateLimitExceededException {
 
     if (maybeRequester.isPresent()) {
       rateLimiters.getProfileLimiter().validate(maybeRequester.get().getUuid());
     }
 
-    final Optional<Account> maybeTargetAccount = accountsManager.getByAccountIdentifier(accountIdentifier.uuid());
+    final Optional<Account> maybeTargetAccount = accountsManager.getByServiceIdentifier(accountIdentifier);
 
     OptionalAccess.verify(maybeRequester, maybeAccessKey, maybeTargetAccount);
     assert maybeTargetAccount.isPresent();

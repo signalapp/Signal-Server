@@ -9,7 +9,7 @@ import org.signal.libsignal.zkgroup.profiles.ProfileKeyCommitment;
 import org.signal.libsignal.zkgroup.profiles.ProfileKeyCredentialRequest;
 import org.signal.libsignal.zkgroup.profiles.ServerZkProfileOperations;
 import org.whispersystems.textsecuregcm.configuration.BadgeConfiguration;
-import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
+import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.AccountBadge;
 import org.whispersystems.textsecuregcm.storage.VersionedProfile;
 import javax.annotation.Nullable;
@@ -81,7 +81,7 @@ public class ProfileHelper {
     return "profiles/" + Base64.getUrlEncoder().encodeToString(object);
   }
 
-  public static boolean isSelfProfileRequest(@Nullable final UUID requesterUuid, final AciServiceIdentifier targetIdentifier) {
+  public static boolean isSelfProfileRequest(@Nullable final UUID requesterUuid, final ServiceIdentifier targetIdentifier) {
     return targetIdentifier.uuid().equals(requesterUuid);
   }
 
