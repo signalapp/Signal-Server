@@ -14,8 +14,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.HexFormat;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 import org.slf4j.Logger;
@@ -143,7 +141,7 @@ public class RemoveExpiredBackupsCommand extends EnvironmentCommand<WhisperServe
     if (dryRun) {
       mono = Mono.just(true);
     } else {
-      mono = Mono.fromCompletionStage(() -> backupManager.expireBackup(expiredBackup)).map(ignore -> true);
+      mono = Mono.fromCompletionStage(() -> backupManager.expireBackup(expiredBackup)).thenReturn(true);
     }
 
     return mono
