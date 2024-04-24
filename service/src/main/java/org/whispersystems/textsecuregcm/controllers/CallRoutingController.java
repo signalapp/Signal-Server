@@ -1,11 +1,12 @@
 package org.whispersystems.textsecuregcm.controllers;
 
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
+
 import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
-
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Optional;
@@ -21,13 +22,12 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.TurnToken;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
-import org.whispersystems.textsecuregcm.calls.routing.TurnServerOptions;
 import org.whispersystems.textsecuregcm.calls.routing.TurnCallRouter;
+import org.whispersystems.textsecuregcm.calls.routing.TurnServerOptions;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.websocket.auth.ReadOnly;
-
-import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 @Path("/v1/calling")
 @io.swagger.v3.oas.annotations.tags.Tag(name = "Calling")
@@ -39,15 +39,18 @@ public class CallRoutingController {
   private final RateLimiters rateLimiters;
   private final TurnCallRouter turnCallRouter;
   private final TurnTokenGenerator tokenGenerator;
+  private final ExperimentEnrollmentManager experimentEnrollmentManager;
 
   public CallRoutingController(
       final RateLimiters rateLimiters,
       final TurnCallRouter turnCallRouter,
-      final TurnTokenGenerator tokenGenerator
+      final TurnTokenGenerator tokenGenerator,
+      final ExperimentEnrollmentManager experimentEnrollmentManager
   ) {
     this.rateLimiters = rateLimiters;
     this.turnCallRouter = turnCallRouter;
     this.tokenGenerator = tokenGenerator;
+    this.experimentEnrollmentManager = experimentEnrollmentManager;
   }
 
   @GET
@@ -63,13 +66,17 @@ public class CallRoutingController {
   @ApiResponse(responseCode = "400", description = "Invalid get call endpoint request.")
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
   @ApiResponse(responseCode = "422", description = "Invalid request format.")
-  @ApiResponse(responseCode = "429", description = "Ratelimited.")
+  @ApiResponse(responseCode = "429", description = "Rate limited.")
   public TurnToken getCallingRelays(
       final @ReadOnly @Auth AuthenticatedAccount auth,
       @Context ContainerRequestContext requestContext
   ) throws RateLimitExceededException {
     UUID aci = auth.getAccount().getUuid();
     rateLimiters.getCallEndpointLimiter().validate(aci);
+
+    if (experimentEnrollmentManager.isEnrolled(aci, "cloudflareTurn")) {
+      return tokenGenerator.generateForCloudflareBeta();
+    }
 
     Optional<InetAddress> address = Optional.empty();
     try {

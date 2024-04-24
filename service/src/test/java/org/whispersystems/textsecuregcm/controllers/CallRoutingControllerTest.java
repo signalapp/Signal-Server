@@ -6,14 +6,13 @@
 package org.whispersystems.textsecuregcm.controllers;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.when;
 
-import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
@@ -24,6 +23,7 @@ import java.util.List;
 import java.util.Optional;
 import javax.ws.rs.core.Response;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,7 +32,10 @@ import org.whispersystems.textsecuregcm.auth.TurnToken;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
 import org.whispersystems.textsecuregcm.calls.routing.TurnCallRouter;
 import org.whispersystems.textsecuregcm.calls.routing.TurnServerOptions;
+import org.whispersystems.textsecuregcm.configuration.CloudflareTurnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.configuration.secrets.SecretString;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
@@ -43,28 +46,42 @@ import org.whispersystems.textsecuregcm.util.TestRemoteAddressFilterProvider;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class CallRoutingControllerTest {
-  private static final RateLimiters rateLimiters = mock(RateLimiters.class);
-  private static final RateLimiter getCallEndpointLimiter = mock(RateLimiter.class);
-  private static final DynamicConfigurationManager<DynamicConfiguration> configManager =  mock(DynamicConfigurationManager.class);
-  private static final TurnTokenGenerator turnTokenGenerator = new TurnTokenGenerator(configManager, "bloop".getBytes(
-      StandardCharsets.UTF_8));
-  private static final TurnCallRouter turnCallRouter = mock(TurnCallRouter.class);
+
   private static final String GET_CALL_ENDPOINTS_PATH = "v1/calling/relays";
   private static final String REMOTE_ADDRESS = "123.123.123.1";
 
-  private static final ResourceExtension resources  = ResourceExtension.builder()
-        .addProvider(AuthHelper.getAuthFilter())
-        .addProvider(new AuthValueFactoryProvider.Binder<>(AuthenticatedAccount.class))
-        .addProvider(new RateLimitExceededExceptionMapper())
-        .addProvider(new TestRemoteAddressFilterProvider(REMOTE_ADDRESS))
-        .setMapper(SystemMapper.jsonMapper())
-        .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-        .addResource(new CallRoutingController(rateLimiters, turnCallRouter, turnTokenGenerator))
-        .build();
+  private static final RateLimiters rateLimiters = mock(RateLimiters.class);
+  private static final RateLimiter getCallEndpointLimiter = mock(RateLimiter.class);
+  private static final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = mock(
+      DynamicConfigurationManager.class);
+  private static final ExperimentEnrollmentManager experimentEnrollmentManager = mock(
+      ExperimentEnrollmentManager.class);
+  private static final TurnTokenGenerator turnTokenGenerator = new TurnTokenGenerator(dynamicConfigurationManager,
+      "bloop".getBytes(StandardCharsets.UTF_8),
+      new CloudflareTurnConfiguration(new SecretString("cf_username"), new SecretString("cf_password"),
+          List.of("turn:cf.example.com")));
+  private static final TurnCallRouter turnCallRouter = mock(TurnCallRouter.class);
+
+  private static final ResourceExtension resources = ResourceExtension.builder()
+      .addProvider(AuthHelper.getAuthFilter())
+      .addProvider(new AuthValueFactoryProvider.Binder<>(AuthenticatedAccount.class))
+      .addProvider(new RateLimitExceededExceptionMapper())
+      .addProvider(new TestRemoteAddressFilterProvider(REMOTE_ADDRESS))
+      .setMapper(SystemMapper.jsonMapper())
+      .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
+      .addResource(new CallRoutingController(rateLimiters, turnCallRouter, turnTokenGenerator,
+          experimentEnrollmentManager))
+      .build();
 
   @BeforeEach
   void setup() {
     when(rateLimiters.getCallEndpointLimiter()).thenReturn(getCallEndpointLimiter);
+  }
+
+  @AfterEach
+  void tearDown() {
+    reset(experimentEnrollmentManager, dynamicConfigurationManager, rateLimiters, getCallEndpointLimiter,
+        turnCallRouter);
   }
 
   @Test
@@ -93,6 +110,27 @@ class CallRoutingControllerTest {
       assertThat(token.hostname()).isEqualTo(options.hostname());
       assertThat(token.urlsWithIps()).isEqualTo(options.urlsWithIps());
       assertThat(token.urls()).isEqualTo(options.urlsWithHostname());
+    }
+  }
+
+  @Test
+  void testGetTurnEndpointsCloudflare() {
+    when(experimentEnrollmentManager.isEnrolled(AuthHelper.VALID_UUID, "cloudflareTurn"))
+        .thenReturn(true);
+
+    try (Response response = resources.getJerseyTest()
+        .target(GET_CALL_ENDPOINTS_PATH)
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .get()) {
+
+      assertThat(response.getStatus()).isEqualTo(200);
+      TurnToken token = response.readEntity(TurnToken.class);
+      assertThat(token.username()).isNotEmpty();
+      assertThat(token.password()).isNotEmpty();
+      assertThat(token.hostname()).isNull();
+      assertThat(token.urlsWithIps()).isNull();
+      assertThat(token.urls()).isEqualTo(List.of("turn:cf.example.com"));
     }
   }
 

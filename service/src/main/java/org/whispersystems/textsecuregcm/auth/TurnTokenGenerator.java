@@ -5,17 +5,6 @@
 
 package org.whispersystems.textsecuregcm.auth;
 
-import org.whispersystems.textsecuregcm.calls.routing.TurnServerOptions;
-import org.whispersystems.textsecuregcm.configuration.TurnUriConfiguration;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicTurnConfiguration;
-import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
-import org.whispersystems.textsecuregcm.util.Pair;
-import org.whispersystems.textsecuregcm.util.Util;
-import org.whispersystems.textsecuregcm.util.WeightedRandomSelect;
-
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
@@ -25,6 +14,17 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import org.whispersystems.textsecuregcm.calls.routing.TurnServerOptions;
+import org.whispersystems.textsecuregcm.configuration.CloudflareTurnConfiguration;
+import org.whispersystems.textsecuregcm.configuration.TurnUriConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicTurnConfiguration;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
+import org.whispersystems.textsecuregcm.util.Pair;
+import org.whispersystems.textsecuregcm.util.Util;
+import org.whispersystems.textsecuregcm.util.WeightedRandomSelect;
 
 public class TurnTokenGenerator {
 
@@ -38,19 +38,32 @@ public class TurnTokenGenerator {
 
   private static final String WithIpsProtocol = "01";
 
+  private final String cloudflareTurnUsername;
+  private final String cloudflareTurnPassword;
+  private final List<String> cloudflareTurnUrls;
+
   public TurnTokenGenerator(final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
-      final byte[] turnSecret) {
+      final byte[] turnSecret, final CloudflareTurnConfiguration cloudflareTurnConfiguration) {
 
     this.dynamicConfigurationManager = dynamicConfigurationManager;
     this.turnSecret = turnSecret;
+
+    this.cloudflareTurnUsername = cloudflareTurnConfiguration.username().value();
+    this.cloudflareTurnPassword = cloudflareTurnConfiguration.password().value();
+    this.cloudflareTurnUrls = cloudflareTurnConfiguration.urls();
   }
 
+  @Deprecated
   public TurnToken generate(final UUID aci) {
     return generateToken(null, null, urls(aci));
   }
 
   public TurnToken generateWithTurnServerOptions(TurnServerOptions options) {
     return generateToken(options.hostname(), options.urlsWithIps(), options.urlsWithHostname());
+  }
+
+  public TurnToken generateForCloudflareBeta() {
+    return new TurnToken(cloudflareTurnUsername, cloudflareTurnPassword, cloudflareTurnUrls);
   }
 
   private TurnToken generateToken(String hostname, List<String> urlsWithIps, List<String> urlsWithHostname) {

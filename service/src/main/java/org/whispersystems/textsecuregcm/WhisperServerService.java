@@ -605,7 +605,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         pushLatencyManager);
     final ReceiptSender receiptSender = new ReceiptSender(accountsManager, messageSender, receiptSenderExecutor);
     final TurnTokenGenerator turnTokenGenerator = new TurnTokenGenerator(dynamicConfigurationManager,
-        config.getTurnSecretConfiguration().secret().value());
+        config.getTurnConfiguration().secret().value(), config.getTurnConfiguration().cloudflare());
 
     final CardinalityEstimator messageByteLimitCardinalityEstimator = new CardinalityEstimator(
         rateLimitersCluster,
@@ -938,7 +938,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new AttachmentControllerV4(rateLimiters, gcsAttachmentGenerator, tusAttachmentGenerator,
             experimentEnrollmentManager),
         new ArchiveController(backupAuthManager, backupManager),
-        new CallRoutingController(rateLimiters, callRouter, turnTokenGenerator),
+        new CallRoutingController(rateLimiters, callRouter, turnTokenGenerator, experimentEnrollmentManager),
         new CallLinkController(rateLimiters, callingGenericZkSecretParams),
         new CertificateController(new CertificateGenerator(config.getDeliveryCertificate().certificate().value(),
             config.getDeliveryCertificate().ecPrivateKey(), config.getDeliveryCertificate().expiresDays()),

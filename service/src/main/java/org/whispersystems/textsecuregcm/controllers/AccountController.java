@@ -95,7 +95,8 @@ public class AccountController {
     this.usernameHashZkProofVerifier = usernameHashZkProofVerifier;
   }
 
-  @Deprecated
+  // may be removed after 2024-07-16
+  @Deprecated(forRemoval = true)
   @GET
   @Path("/turn/")
   @Produces(MediaType.APPLICATION_JSON)

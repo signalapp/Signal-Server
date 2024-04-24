@@ -443,6 +443,11 @@ registrationService:
 
 turn:
   secret: secret://turn.secret
+  cloudflare:
+    username: secret://turn.cloudflare.username
+    password: secret://turn.cloudflare.password
+    urls:
+      - turns:turn.cloudflare.example.com:443?transport=tcp
 
 linkDevice:
   secret: secret://linkDevice.secret

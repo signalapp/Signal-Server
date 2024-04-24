@@ -57,7 +57,7 @@ import org.whispersystems.textsecuregcm.configuration.SpamFilterConfiguration;
 import org.whispersystems.textsecuregcm.configuration.StripeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TlsKeyStoreConfiguration;
-import org.whispersystems.textsecuregcm.configuration.TurnSecretConfiguration;
+import org.whispersystems.textsecuregcm.configuration.TurnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.UnidentifiedDeliveryConfiguration;
 import org.whispersystems.textsecuregcm.configuration.VirtualThreadConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ZkConfig;
@@ -288,7 +288,7 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @NotNull
   @JsonProperty
-  private TurnSecretConfiguration turn;
+  private TurnConfiguration turn;
 
   @Valid
   @NotNull
@@ -529,7 +529,7 @@ public class WhisperServerConfiguration extends Configuration {
     return registrationService;
   }
 
-  public TurnSecretConfiguration getTurnSecretConfiguration() {
+  public TurnConfiguration getTurnConfiguration() {
     return turn;
   }
 
