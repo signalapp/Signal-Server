@@ -176,6 +176,7 @@ public class BraintreeManager implements SubscriptionProcessorManager {
 
               final PaymentStatus paymentStatus = getPaymentStatus(chargeResponse.transaction.status);
               if (paymentStatus == PaymentStatus.SUCCEEDED || paymentStatus == PaymentStatus.PROCESSING) {
+                publishDonationEvent(amount, currency, Instant.now(), clientPlatform);
                 return CompletableFuture.completedFuture(new PayPalChargeSuccessDetails(chargeResponse.transaction.id));
               }
 
@@ -204,47 +205,7 @@ public class BraintreeManager implements SubscriptionProcessorManager {
 
                 final Transaction successfulTx = search.getFirst();
 
-                try {
-                  final BigDecimal originalAmountUsd =
-                      currencyConversionManager.convertToUsd(successfulTx.getAmount(), successfulTx.getCurrencyIsoCode())
-                          .orElseThrow(() -> new IllegalArgumentException("Could not convert to USD from " + successfulTx.getCurrencyIsoCode()));
-
-                  final DonationsPubsub.DonationPubSubMessage.Builder donationPubSubMessageBuilder =
-                      DonationsPubsub.DonationPubSubMessage.newBuilder()
-                          .setTimestamp(successfulTx.getCreatedAt().toInstant().toEpochMilli() * 1000)
-                          .setSource("app")
-                          .setProvider("braintree")
-                          .setRecurring(false)
-                          .setPaymentMethodType("paypal")
-                          .setOriginalAmountMicros(toMicros(successfulTx.getAmount()))
-                          .setOriginalCurrency(successfulTx.getCurrencyIsoCode())
-                          .setOriginalAmountUsdMicros(toMicros(originalAmountUsd));
-
-                  if (clientPlatform != null) {
-                    donationPubSubMessageBuilder.setClientPlatform(clientPlatform.name().toLowerCase(Locale.ROOT));
-                  }
-
-                  ApiFutures.addCallback(pubsubPublisher.publish(PubsubMessage.newBuilder()
-                      .setData(donationPubSubMessageBuilder.build().toByteString())
-                      .build()),
-                      new ApiFutureCallback<>() {
-
-                    @Override
-                    public void onSuccess(final String messageId) {
-                      Metrics.counter(PUBSUB_MESSAGE_COUNTER_NAME, PUBSUB_MESSAGE_SUCCESS_TAG, "true").increment();
-                    }
-
-                    @Override
-                    public void onFailure(final Throwable throwable) {
-                      logger.warn("Failed to publish donation pub/sub message", throwable);
-                      Metrics.counter(PUBSUB_MESSAGE_COUNTER_NAME, PUBSUB_MESSAGE_SUCCESS_TAG, "false").increment();
-
-                    }
-
-                  }, executor);
-                } catch (final Exception e) {
-                  logger.warn("Failed to construct donation pub/sub message", e);
-                }
+                publishDonationEvent(amount, currency, successfulTx.getCreatedAt().toInstant(), clientPlatform);
 
                 return CompletableFuture.completedFuture(
                     new PayPalChargeSuccessDetails(successfulTx.getGraphQLId()));
@@ -263,6 +224,53 @@ public class BraintreeManager implements SubscriptionProcessorManager {
                 }
               };
             }, executor));
+  }
+
+  private void publishDonationEvent(final long amount,
+      final String currency,
+      final Instant timestamp,
+      @Nullable final ClientPlatform clientPlatform) {
+
+    try {
+      final BigDecimal originalAmount = convertApiAmountToBraintreeAmount(currency, amount);
+
+      final BigDecimal originalAmountUsd =
+          currencyConversionManager.convertToUsd(originalAmount, currency)
+              .orElseThrow(() -> new IllegalArgumentException("Could not convert to USD from " + currency));
+
+      final DonationsPubsub.DonationPubSubMessage.Builder donationPubSubMessageBuilder =
+          DonationsPubsub.DonationPubSubMessage.newBuilder()
+              .setTimestamp(timestamp.toEpochMilli() * 1000)
+              .setSource("app")
+              .setProvider("braintree")
+              .setRecurring(false)
+              .setPaymentMethodType("paypal")
+              .setOriginalAmountMicros(toMicros(originalAmount))
+              .setOriginalCurrency(currency)
+              .setOriginalAmountUsdMicros(toMicros(originalAmountUsd));
+
+      if (clientPlatform != null) {
+        donationPubSubMessageBuilder.setClientPlatform(clientPlatform.name().toLowerCase(Locale.ROOT));
+      }
+
+      ApiFutures.addCallback(pubsubPublisher.publish(PubsubMessage.newBuilder()
+          .setData(donationPubSubMessageBuilder.build().toByteString())
+          .build()), new ApiFutureCallback<>() {
+
+        @Override
+        public void onSuccess(final String messageId) {
+          Metrics.counter(PUBSUB_MESSAGE_COUNTER_NAME, PUBSUB_MESSAGE_SUCCESS_TAG, "true").increment();
+        }
+
+        @Override
+        public void onFailure(final Throwable throwable) {
+          logger.warn("Failed to publish donation pub/sub message", throwable);
+          Metrics.counter(PUBSUB_MESSAGE_COUNTER_NAME, PUBSUB_MESSAGE_SUCCESS_TAG, "false").increment();
+        }
+      }, executor);
+    } catch (final Exception e) {
+      logger.warn("Failed to construct donation pub/sub message", e);
+    }
   }
 
   @VisibleForTesting
