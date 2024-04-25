@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.auth;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -113,6 +114,22 @@ class OptionalAccessTest {
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of("1234".getBytes()));
     when(account.isEnabled()).thenReturn(true);
     OptionalAccess.verify(Optional.empty(), Optional.of(new Anonymous(Base64.getEncoder().encodeToString("1234".getBytes()))), Optional.of(account));
+  }
+
+  @Test
+  void testUnidentifiedTargetMissingAccessKey() {
+    Account account = mock(Account.class);
+    when(account.getUnidentifiedAccessKey()).thenReturn(Optional.empty());
+    when(account.isEnabled()).thenReturn(true);
+    try {
+      OptionalAccess.verify(
+          Optional.empty(),
+          Optional.of(new Anonymous(Base64.getEncoder().encodeToString("1234".getBytes()))),
+          Optional.of(account));
+      throw new AssertionError("should fail");
+    } catch (WebApplicationException e) {
+      assertEquals(e.getResponse().getStatus(), 401);
+    }
   }
 
   @Test

@@ -73,6 +73,11 @@ public class OptionalAccess {
       return;
     }
 
+    // At this point, any successful authentication requires a real access key on the target account
+    if (targetAccount.get().getUnidentifiedAccessKey().isEmpty()) {
+      throw new NotAuthorizedException(Response.Status.UNAUTHORIZED);
+    }
+
     // Otherwise, access is gated by the caller having the unidentified-access key matching the target account.
     if (MessageDigest.isEqual(accessKey.get().getAccessKey(), targetAccount.get().getUnidentifiedAccessKey().get())) {
       return;
