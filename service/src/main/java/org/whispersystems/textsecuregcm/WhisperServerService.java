@@ -873,7 +873,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .map(ServiceLoader.Provider::get)
         .flatMap(filter -> {
           try {
-            filter.configure(config.getSpamFilterConfiguration().getEnvironment());
+            filter.configure(config.getSpamFilterConfiguration().getEnvironment(), environment.getValidator());
             return Stream.of(filter);
           } catch (Exception e) {
             log.warn("Failed to register spam filter: {}", filter.getClass().getName(), e);

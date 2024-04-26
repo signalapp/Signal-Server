@@ -5,16 +5,17 @@
 
 package org.whispersystems.textsecuregcm.spam;
 
+import io.dropwizard.configuration.ConfigurationValidationException;
 import io.dropwizard.lifecycle.Managed;
-import org.whispersystems.textsecuregcm.storage.ReportedMessageListener;
-import javax.ws.rs.container.ContainerRequestFilter;
 import java.io.IOException;
+import javax.validation.Validator;
+import org.whispersystems.textsecuregcm.storage.ReportedMessageListener;
 
 /**
  * A spam filter provides various checkers and listeners to detect and respond to patterns of spam and fraud.
  * <p/>
  * Spam filters are managed components that are generally loaded dynamically via a {@link java.util.ServiceLoader}.
- * Their {@link #configure(String)} method will be called prior to be adding to the server's pool of {@link Managed}
+ * Their {@link #configure(String, Validator)} method will be called prior to be adding to the server's pool of {@link Managed}
  * objects.
  * <p/>
  */
@@ -26,9 +27,11 @@ public interface SpamFilter extends Managed {
    *
    * @param environmentName the name of the environment in which this filter is running (e.g. "staging" or
    *                        "production")
+   * @param validator may be used to validate configuration
    * @throws IOException if the filter could not read its configuration source for any reason
+   * @throws ConfigurationValidationException if the configuration failed validation
    */
-  void configure(String environmentName) throws IOException;
+  void configure(String environmentName, Validator validator) throws IOException, ConfigurationValidationException;
 
   /**
    * Builds a spam report token provider. This will generate tokens used by the spam reporting system.
