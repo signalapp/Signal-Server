@@ -19,8 +19,6 @@ import com.braintreegateway.TransactionSearchRequest;
 import com.braintreegateway.exceptions.BraintreeException;
 import com.braintreegateway.exceptions.NotFoundException;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.google.api.core.ApiFutureCallback;
-import com.google.api.core.ApiFutures;
 import com.google.cloud.pubsub.v1.Publisher;
 import com.google.common.annotations.VisibleForTesting;
 import java.math.BigDecimal;
@@ -50,6 +48,7 @@ import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguratio
 import org.whispersystems.textsecuregcm.currency.CurrencyConversionManager;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
+import org.whispersystems.textsecuregcm.util.GoogleApiUtil;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
@@ -72,7 +71,6 @@ public class BraintreeManager implements SubscriptionProcessorManager {
   private final Map<String, String> currenciesToMerchantAccounts;
 
   private final String PUBSUB_MESSAGE_COUNTER_NAME = MetricsUtil.name(BraintreeManager.class, "pubSubMessage");
-  private final String PUBSUB_MESSAGE_SUCCESS_TAG = "success";
 
   public BraintreeManager(final String braintreeMerchantId, final String braintreePublicKey,
       final String braintreePrivateKey,
@@ -253,21 +251,17 @@ public class BraintreeManager implements SubscriptionProcessorManager {
         donationPubSubMessageBuilder.setClientPlatform(clientPlatform.name().toLowerCase(Locale.ROOT));
       }
 
-      ApiFutures.addCallback(pubsubPublisher.publish(PubsubMessage.newBuilder()
-          .setData(donationPubSubMessageBuilder.build().toByteString())
-          .build()), new ApiFutureCallback<>() {
+      GoogleApiUtil.toCompletableFuture(pubsubPublisher.publish(PubsubMessage.newBuilder()
+              .setData(donationPubSubMessageBuilder.build().toByteString())
+              .build()), executor)
+          .whenComplete((messageId, throwable) -> {
+            if (throwable != null) {
+              logger.warn("Failed to publish donation pub/sub message", throwable);
+            }
 
-        @Override
-        public void onSuccess(final String messageId) {
-          Metrics.counter(PUBSUB_MESSAGE_COUNTER_NAME, PUBSUB_MESSAGE_SUCCESS_TAG, "true").increment();
-        }
-
-        @Override
-        public void onFailure(final Throwable throwable) {
-          logger.warn("Failed to publish donation pub/sub message", throwable);
-          Metrics.counter(PUBSUB_MESSAGE_COUNTER_NAME, PUBSUB_MESSAGE_SUCCESS_TAG, "false").increment();
-        }
-      }, executor);
+            Metrics.counter(PUBSUB_MESSAGE_COUNTER_NAME, "success", String.valueOf(throwable == null))
+                .increment();
+          });
     } catch (final Exception e) {
       logger.warn("Failed to construct donation pub/sub message", e);
     }

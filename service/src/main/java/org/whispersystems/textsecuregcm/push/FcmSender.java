@@ -7,12 +7,8 @@ package org.whispersystems.textsecuregcm.push;
 
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
-import com.google.api.core.ApiFuture;
-import com.google.api.core.ApiFutureCallback;
-import com.google.api.core.ApiFutures;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
@@ -27,13 +23,13 @@ import io.micrometer.core.instrument.Timer;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.util.ExceptionUtils;
+import org.whispersystems.textsecuregcm.util.GoogleApiUtil;
 
 public class FcmSender implements PushNotificationSender {
 
@@ -96,44 +92,29 @@ public class FcmSender implements PushNotificationSender {
 
     builder.putData(key, pushNotification.data() != null ? pushNotification.data() : "");
 
-    final Instant start = Instant.now();
-    final CompletableFuture<SendPushNotificationResult> completableSendFuture = new CompletableFuture<>();
+    final Timer.Sample sample = Timer.start();
 
-    final ApiFuture<String> sendFuture = firebaseMessagingClient.sendAsync(builder.build());
+    return GoogleApiUtil.toCompletableFuture(firebaseMessagingClient.sendAsync(builder.build()), executor)
+        .whenComplete((ignored, throwable) -> sample.stop(SEND_NOTIFICATION_TIMER))
+        .thenApply(ignored -> new SendPushNotificationResult(true, null, false))
+        .exceptionally(throwable -> {
+          if (ExceptionUtils.unwrap(throwable) instanceof final FirebaseMessagingException firebaseMessagingException) {
+            final String errorCode;
 
-    // We want to record the time taken to send the push notification as directly as possible; executing this very small
-    // bit of non-blocking measurement on the sender thread lets us do that without picking up any confounding factors
-    // like having a callback waiting in an executor's queue.
-    sendFuture.addListener(() -> SEND_NOTIFICATION_TIMER.record(Duration.between(start, Instant.now())),
-        MoreExecutors.directExecutor());
+            if (firebaseMessagingException.getMessagingErrorCode() != null) {
+              errorCode = firebaseMessagingException.getMessagingErrorCode().name();
+            } else {
+              logger.warn("Received an FCM exception with no error code", firebaseMessagingException);
+              errorCode = "unknown";
+            }
 
-    ApiFutures.addCallback(sendFuture, new ApiFutureCallback<>() {
-      @Override
-      public void onSuccess(final String result) {
-        completableSendFuture.complete(new SendPushNotificationResult(true, null, false));
-      }
+            final boolean unregistered =
+                firebaseMessagingException.getMessagingErrorCode() == MessagingErrorCode.UNREGISTERED;
 
-      @Override
-      public void onFailure(final Throwable cause) {
-        if (cause instanceof final FirebaseMessagingException firebaseMessagingException) {
-          final String errorCode;
-
-          if (firebaseMessagingException.getMessagingErrorCode() != null) {
-            errorCode = firebaseMessagingException.getMessagingErrorCode().name();
+            return new SendPushNotificationResult(false, errorCode, unregistered);
           } else {
-            logger.warn("Received an FCM exception with no error code", firebaseMessagingException);
-            errorCode = "unknown";
+            throw ExceptionUtils.wrap(throwable);
           }
-
-          completableSendFuture.complete(new SendPushNotificationResult(false,
-              errorCode,
-              firebaseMessagingException.getMessagingErrorCode() == MessagingErrorCode.UNREGISTERED));
-        } else {
-          completableSendFuture.completeExceptionally(cause);
-        }
-      }
-    }, executor);
-
-    return completableSendFuture;
+        });
   }
 }
