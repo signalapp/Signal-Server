@@ -22,5 +22,8 @@ jobs:
           # work around an issue with actions/runner setting an incorrect HOME in containers, which breaks maven caching
           # https://github.com/actions/setup-java/issues/356
           HOME: /root
+      - name: Install APT packages
+        # ca-certificates: required for AWS CRT client
+        run: apt update && apt install -y ca-certificates
       - name: Build with Maven
         run: ./mvnw -e -B verify

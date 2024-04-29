@@ -5,18 +5,23 @@
 
 package org.whispersystems.textsecuregcm.configuration;
 
+import com.fasterxml.jackson.annotation.JsonTypeName;
+import org.whispersystems.textsecuregcm.s3.S3ObjectMonitor;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import java.time.Duration;
+import java.util.concurrent.ScheduledExecutorService;
 import javax.validation.constraints.NotBlank;
 
+@JsonTypeName("default")
 public record MonitoredS3ObjectConfiguration(
     @NotBlank String s3Region,
     @NotBlank String s3Bucket,
     @NotBlank String objectKey,
     Long maxSize,
-    Duration refreshInterval) {
+    Duration refreshInterval) implements S3ObjectMonitorFactory {
 
-  private static long DEFAULT_MAXSIZE = 16*1024*1024;
-  private static Duration DEFAULT_REFRESH_INTERVAL = Duration.ofMinutes(5);
+  private static final long DEFAULT_MAXSIZE = 16 * 1024 * 1024;
+  private static final Duration DEFAULT_REFRESH_INTERVAL = Duration.ofMinutes(5);
 
   public MonitoredS3ObjectConfiguration {
     if (maxSize == null) {
@@ -25,5 +30,13 @@ public record MonitoredS3ObjectConfiguration(
     if (refreshInterval == null) {
       refreshInterval = DEFAULT_REFRESH_INTERVAL;
     }
+  }
+
+  @Override
+  public S3ObjectMonitor build(final AwsCredentialsProvider awsCredentialsProvider,
+      final ScheduledExecutorService refreshExecutorService) {
+
+    return new S3ObjectMonitor(awsCredentialsProvider, s3Region, s3Bucket, objectKey, maxSize, refreshExecutorService,
+        refreshInterval);
   }
 }

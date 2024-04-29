@@ -6,13 +6,16 @@ package org.whispersystems.textsecuregcm.configuration;
 
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonTypeName;
+import io.lettuce.core.RedisClient;
+import io.lettuce.core.resource.ClientResources;
 import java.time.Duration;
-import java.util.List;
-import javax.validation.Valid;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
+import org.whispersystems.textsecuregcm.redis.RedisUriUtil;
 
-public class RedisConfiguration {
+@JsonTypeName("default")
+public class RedisConfiguration implements SingletonRedisClientFactory {
 
   @JsonProperty
   @NotEmpty
@@ -22,11 +25,6 @@ public class RedisConfiguration {
   @NotNull
   private Duration timeout = Duration.ofSeconds(1);
 
-  @JsonProperty
-  @NotNull
-  @Valid
-  private CircuitBreakerConfiguration circuitBreaker = new CircuitBreakerConfiguration();
-
   public String getUri() {
     return uri;
   }
@@ -35,7 +33,12 @@ public class RedisConfiguration {
     return timeout;
   }
 
-  public CircuitBreakerConfiguration getCircuitBreakerConfiguration() {
-    return circuitBreaker;
+  @Override
+  public RedisClient build(final ClientResources clientResources) {
+    final RedisClient redisClient = RedisClient.create(clientResources,
+        RedisUriUtil.createRedisUriWithTimeout(uri, timeout));
+    redisClient.setDefaultTimeout(timeout);
+
+    return redisClient;
   }
 }

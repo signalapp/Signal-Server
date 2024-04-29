@@ -63,8 +63,8 @@ public class ScheduledApnPushNotificationSenderServiceCommand extends ServerComm
           });
     }
 
-      final FaultTolerantRedisCluster pushSchedulerCluster = new FaultTolerantRedisCluster("push_scheduler",
-        configuration.getPushSchedulerCluster(), deps.redisClusterClientResourcesBuilder());
+    final FaultTolerantRedisCluster pushSchedulerCluster = configuration.getPushSchedulerCluster()
+        .build("push_scheduler", deps.redisClusterClientResourcesBuilder());
 
     final ExecutorService apnSenderExecutor = environment.lifecycle().executorService(name(getClass(), "apnSender-%d"))
         .maxThreads(1).minThreads(1).build();

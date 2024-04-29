@@ -7,14 +7,7 @@ package org.whispersystems.textsecuregcm;
 import static com.codahale.metrics.MetricRegistry.name;
 import static java.util.Objects.requireNonNull;
 
-import com.google.api.gax.batching.BatchingSettings;
-import com.google.api.gax.batching.FlowControlSettings;
-import com.google.api.gax.batching.FlowController;
-import com.google.api.gax.core.FixedCredentialsProvider;
-import com.google.auth.oauth2.ExternalAccountCredentials;
-import com.google.cloud.pubsub.v1.Publisher;
 import com.google.common.collect.Lists;
-import com.google.pubsub.v1.TopicName;
 import io.dropwizard.auth.AuthDynamicFeature;
 import io.dropwizard.auth.AuthFilter;
 import io.dropwizard.auth.AuthValueFactoryProvider;
@@ -27,7 +20,6 @@ import io.dropwizard.core.server.DefaultServerFactory;
 import io.dropwizard.core.setup.Bootstrap;
 import io.dropwizard.core.setup.Environment;
 import io.dropwizard.jetty.HttpsConnectorFactory;
-import io.dropwizard.lifecycle.Managed;
 import io.grpc.ServerBuilder;
 import io.lettuce.core.metrics.MicrometerCommandLatencyRecorder;
 import io.lettuce.core.metrics.MicrometerOptions;
@@ -36,9 +28,7 @@ import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.binder.grpc.MetricCollectingServerInterceptor;
 import io.micrometer.core.instrument.binder.jvm.ExecutorServiceMetrics;
 import io.netty.channel.local.LocalAddress;
-import java.io.ByteArrayInputStream;
 import java.net.http.HttpClient;
-import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -232,7 +222,6 @@ import org.whispersystems.textsecuregcm.subscriptions.BankMandateTranslator;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
 import org.whispersystems.textsecuregcm.util.BufferingInterceptor;
-import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
 import org.whispersystems.textsecuregcm.util.ManagedAwsCrt;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.UsernameHashZkProofVerifier;
@@ -263,9 +252,7 @@ import org.whispersystems.websocket.WebSocketResourceProviderFactory;
 import org.whispersystems.websocket.setup.WebSocketEnvironment;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.auth.credentials.WebIdentityTokenFileCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.http.crt.AwsCrtHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
@@ -278,9 +265,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
   private static final Logger log = LoggerFactory.getLogger(WhisperServerService.class);
 
   public static final String SECRETS_BUNDLE_FILE_NAME_PROPERTY = "secrets.bundle.filename";
-
-  public static final software.amazon.awssdk.auth.credentials.AwsCredentialsProvider AWSSDK_CREDENTIALS_PROVIDER =
-      WebIdentityTokenFileCredentialsProvider.create();
 
   @Override
   public void initialize(final Bootstrap<WhisperServerConfiguration> bootstrap) {
@@ -328,16 +312,15 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final Clock clock = Clock.systemUTC();
     final int availableProcessors = Runtime.getRuntime().availableProcessors();
 
+    final AwsCredentialsProvider awsCredentialsProvider = config.getAwsCredentialsConfiguration().build();
+
     UncaughtExceptionHandler.register();
 
     ScheduledExecutorService dynamicConfigurationExecutor = environment.lifecycle()
         .scheduledExecutorService(name(getClass(), "dynamicConfiguration-%d")).threads(1).build();
 
-    DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
-        new DynamicConfigurationManager<>(config.getAppConfig().getApplication(),
-            config.getAppConfig().getEnvironment(),
-            config.getAppConfig().getConfigurationName(),
-            DynamicConfiguration.class, dynamicConfigurationExecutor);
+    DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = config.getAppConfig()
+        .build(DynamicConfiguration.class, dynamicConfigurationExecutor, awsCredentialsProvider);
     dynamicConfigurationManager.start();
 
     MetricsUtil.configureRegistries(config, environment, dynamicConfigurationManager);
@@ -362,11 +345,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     BankMandateTranslator bankMandateTranslator = new BankMandateTranslator(headerControlledResourceBundleLookup);
 
     environment.lifecycle().manage(new ManagedAwsCrt());
-    DynamoDbAsyncClient dynamoDbAsyncClient = DynamoDbFromConfig.asyncClient(config.getDynamoDbClientConfiguration(),
-        AWSSDK_CREDENTIALS_PROVIDER);
+    DynamoDbAsyncClient dynamoDbAsyncClient = config.getDynamoDbClientConfiguration()
+        .buildAsyncClient(awsCredentialsProvider);
 
-    DynamoDbClient dynamoDbClient = DynamoDbFromConfig.client(config.getDynamoDbClientConfiguration(),
-        AWSSDK_CREDENTIALS_PROVIDER);
+    DynamoDbClient dynamoDbClient = config.getDynamoDbClientConfiguration().buildSyncClient(awsCredentialsProvider);
 
     BlockingQueue<Runnable> messageDeletionQueue = new LinkedBlockingQueue<>();
     Metrics.gaugeCollectionSize(name(getClass(), "messageDeletionQueueSize"), Collections.emptyList(),
@@ -428,18 +410,19 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .build();
     ConnectionEventLogger.logConnectionEvents(sharedClientResources);
 
-    FaultTolerantRedisCluster cacheCluster = new FaultTolerantRedisCluster("main_cache",
-        config.getCacheClusterConfiguration(), sharedClientResources.mutate());
-    FaultTolerantRedisCluster messagesCluster = new FaultTolerantRedisCluster("messages",
-        config.getMessageCacheConfiguration().getRedisClusterConfiguration(), sharedClientResources.mutate());
-    FaultTolerantRedisCluster clientPresenceCluster = new FaultTolerantRedisCluster("client_presence",
-        config.getClientPresenceClusterConfiguration(), sharedClientResources.mutate());
-    FaultTolerantRedisCluster metricsCluster = new FaultTolerantRedisCluster("metrics",
-        config.getMetricsClusterConfiguration(), sharedClientResources.mutate());
-    FaultTolerantRedisCluster pushSchedulerCluster = new FaultTolerantRedisCluster("push_scheduler",
-        config.getPushSchedulerCluster(), sharedClientResources.mutate());
-    FaultTolerantRedisCluster rateLimitersCluster = new FaultTolerantRedisCluster("rate_limiters",
-        config.getRateLimitersCluster(), sharedClientResources.mutate());
+    FaultTolerantRedisCluster cacheCluster = config.getCacheClusterConfiguration()
+        .build("main_cache", sharedClientResources.mutate());
+    FaultTolerantRedisCluster messagesCluster =
+        config.getMessageCacheConfiguration().getRedisClusterConfiguration()
+            .build("messages", sharedClientResources.mutate());
+    FaultTolerantRedisCluster clientPresenceCluster = config.getClientPresenceClusterConfiguration()
+        .build("client_presence", sharedClientResources.mutate());
+    FaultTolerantRedisCluster metricsCluster = config.getMetricsClusterConfiguration()
+        .build("metrics", sharedClientResources.mutate());
+    FaultTolerantRedisCluster pushSchedulerCluster = config.getPushSchedulerCluster().build("push_scheduler",
+        sharedClientResources.mutate());
+    FaultTolerantRedisCluster rateLimitersCluster = config.getRateLimitersCluster().build("rate_limiters",
+        sharedClientResources.mutate());
 
     final BlockingQueue<Runnable> keyspaceNotificationDispatchQueue = new ArrayBlockingQueue<>(100_000);
     Metrics.gaugeCollectionSize(name(getClass(), "keyspaceNotificationDispatchQueueSize"), Collections.emptyList(),
@@ -551,14 +534,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         registrationRecoveryPasswords);
     UsernameHashZkProofVerifier usernameHashZkProofVerifier = new UsernameHashZkProofVerifier();
 
-    RegistrationServiceClient registrationServiceClient = new RegistrationServiceClient(
-        config.getRegistrationServiceConfiguration().host(),
-        config.getRegistrationServiceConfiguration().port(),
-        config.getRegistrationServiceConfiguration().credentialConfigurationJson(),
-        config.getRegistrationServiceConfiguration().identityTokenAudience(),
-        config.getRegistrationServiceConfiguration().registrationCaCertificate(),
-        registrationCallbackExecutor,
-        registrationIdentityTokenRefreshExecutor);
+    RegistrationServiceClient registrationServiceClient = config.getRegistrationServiceConfiguration()
+        .build(environment, registrationCallbackExecutor, registrationIdentityTokenRefreshExecutor);
     SecureValueRecovery2Client secureValueRecovery2Client = new SecureValueRecovery2Client(svr2CredentialsGenerator,
         secureValueRecoveryServiceExecutor, secureValueRecoveryServiceRetryExecutor, config.getSvr2Configuration());
     SecureStorageClient secureStorageClient = new SecureStorageClient(storageCredentialsGenerator,
@@ -595,9 +572,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         apnPushNotificationScheduler, pushLatencyManager);
     RateLimiters rateLimiters = RateLimiters.createAndValidate(config.getLimitsConfiguration(),
         dynamicConfigurationManager, rateLimitersCluster);
-    ProvisioningManager provisioningManager = new ProvisioningManager(config.getPubsubCacheConfiguration().getUri(),
-        sharedClientResources, config.getPubsubCacheConfiguration().getTimeout(),
-        config.getPubsubCacheConfiguration().getCircuitBreakerConfiguration());
+    ProvisioningManager provisioningManager = new ProvisioningManager(
+        config.getProvisioningConfiguration().pubsub().build(sharedClientResources),
+        config.getProvisioningConfiguration().circuitBreaker());
     IssuedReceiptsManager issuedReceiptsManager = new IssuedReceiptsManager(
         config.getDynamoDbTables().getIssuedReceipts().getTableName(),
         config.getDynamoDbTables().getIssuedReceipts().getExpiration(),
@@ -635,12 +612,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         "message_byte_limit",
         config.getMessageByteLimitCardinalityEstimator().period());
 
-    HCaptchaClient hCaptchaClient = new HCaptchaClient(
-        config.getHCaptchaConfiguration().getApiKey().value(),
-        hcaptchaRetryExecutor,
-        config.getHCaptchaConfiguration().getCircuitBreaker(),
-        config.getHCaptchaConfiguration().getRetry(),
-        dynamicConfigurationManager);
+    HCaptchaClient hCaptchaClient = config.getHCaptchaConfiguration()
+        .build(hcaptchaRetryExecutor, dynamicConfigurationManager);
     HttpClient shortCodeRetrieverHttpClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_2)
         .connectTimeout(Duration.ofSeconds(10)).build();
     ShortCodeExpander shortCodeRetriever = new ShortCodeExpander(shortCodeRetrieverHttpClient, config.getShortCodeRetrieverConfiguration().baseUrl());
@@ -652,8 +625,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ChangeNumberManager changeNumberManager = new ChangeNumberManager(messageSender, accountsManager);
 
     HttpClient currencyClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_2).connectTimeout(Duration.ofSeconds(10)).build();
-    FixerClient fixerClient = new FixerClient(currencyClient, config.getPaymentsServiceConfiguration().fixerApiKey().value());
-    CoinMarketCapClient coinMarketCapClient = new CoinMarketCapClient(currencyClient, config.getPaymentsServiceConfiguration().coinMarketCapApiKey().value(), config.getPaymentsServiceConfiguration().coinMarketCapCurrencyIds());
+    FixerClient fixerClient = config.getPaymentsServiceConfiguration().externalClients()
+        .buildFixerClient(currencyClient);
+    CoinMarketCapClient coinMarketCapClient = config.getPaymentsServiceConfiguration().externalClients()
+        .buildCoinMarketCapClient(currencyClient);
     CurrencyConversionManager currencyManager = new CurrencyConversionManager(fixerClient, coinMarketCapClient,
         cacheCluster, config.getPaymentsServiceConfiguration().paymentCurrencies(), recurringJobExecutor, Clock.systemUTC());
     VirtualThreadPinEventMonitor virtualThreadPinEventMonitor = new VirtualThreadPinEventMonitor(
@@ -661,39 +636,14 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         () -> dynamicConfigurationManager.getConfiguration().getVirtualThreads().allowedPinEvents(),
         config.getVirtualThreadConfiguration().pinEventThreshold());
 
-    final Publisher pubSubPublisher;
-    {
-      final FlowControlSettings flowControlSettings = FlowControlSettings.newBuilder()
-              .setLimitExceededBehavior(FlowController.LimitExceededBehavior.ThrowException)
-              .setMaxOutstandingElementCount(100L)
-              .setMaxOutstandingRequestBytes(16 * 1024 * 1024L) // 16MB
-              .build();
-
-      final BatchingSettings batchingSettings = BatchingSettings.newBuilder()
-              .setFlowControlSettings(flowControlSettings)
-              .setDelayThreshold(org.threeten.bp.Duration.ofMillis(10))
-              // These thresholds are actually the default, setting them explicitly since creating a custom batchingSettings resets them
-              .setElementCountThreshold(100L)
-              .setRequestByteThreshold(5000L)
-              .build();
-
-      try (final ByteArrayInputStream credentialConfigInputStream =
-          new ByteArrayInputStream(config.getBraintree().pubSubCredentialConfiguration().getBytes(StandardCharsets.UTF_8))) {
-
-        pubSubPublisher = Publisher.newBuilder(TopicName.of(config.getBraintree().pubSubProject(), config.getBraintree().pubSubTopic()))
-            .setCredentialsProvider(FixedCredentialsProvider.create(ExternalAccountCredentials.fromStream(credentialConfigInputStream)))
-            .setBatchingSettings(batchingSettings)
-            .build();
-      }
-    }
-
     StripeManager stripeManager = new StripeManager(config.getStripe().apiKey().value(), subscriptionProcessorExecutor,
         config.getStripe().idempotencyKeyGenerator().value(), config.getStripe().boostDescription(), config.getStripe().supportedCurrenciesByPaymentMethod());
     BraintreeManager braintreeManager = new BraintreeManager(config.getBraintree().merchantId(),
         config.getBraintree().publicKey(), config.getBraintree().privateKey().value(),
         config.getBraintree().environment(),
         config.getBraintree().supportedCurrenciesByPaymentMethod(), config.getBraintree().merchantAccounts(),
-        config.getBraintree().graphqlUrl(), currencyManager, pubSubPublisher, config.getBraintree().circuitBreaker(), subscriptionProcessorExecutor,
+        config.getBraintree().graphqlUrl(), currencyManager, config.getBraintree().pubSubPublisher().build(),
+        config.getBraintree().circuitBreaker(), subscriptionProcessorExecutor,
         subscriptionProcessorRetryExecutor);
 
     environment.lifecycle().manage(apnSender);
@@ -708,10 +658,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     final RegistrationCaptchaManager registrationCaptchaManager = new RegistrationCaptchaManager(captchaChecker);
 
-    StaticCredentialsProvider cdnCredentialsProvider = StaticCredentialsProvider
-        .create(AwsBasicCredentials.create(
-            config.getCdnConfiguration().accessKey().value(),
-            config.getCdnConfiguration().accessSecret().value()));
+    AwsCredentialsProvider cdnCredentialsProvider = config.getCdnConfiguration().credentials().build();
     S3Client cdnS3Client = S3Client.builder()
         .credentialsProvider(cdnCredentialsProvider)
         .region(Region.of(config.getCdnConfiguration().region()))
@@ -730,8 +677,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getGcpAttachmentsConfiguration().rsaSigningKey().value());
 
     PostPolicyGenerator profileCdnPolicyGenerator = new PostPolicyGenerator(config.getCdnConfiguration().region(),
-        config.getCdnConfiguration().bucket(), config.getCdnConfiguration().accessKey().value());
-    PolicySigner profileCdnPolicySigner = new PolicySigner(config.getCdnConfiguration().accessSecret().value(),
+        config.getCdnConfiguration().bucket(), config.getCdnConfiguration().credentials().accessKeyId().value());
+    PolicySigner profileCdnPolicySigner = new PolicySigner(
+        config.getCdnConfiguration().credentials().secretAccessKey().value(),
         config.getCdnConfiguration().region());
 
     ServerSecretParams zkSecretParams = new ServerSecretParams(config.getZkConfig().serverSecret().value());
@@ -768,23 +716,27 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     MaxMindDatabaseManager geoIpCityDatabaseManager = new MaxMindDatabaseManager(
         recurringConfigSyncExecutor,
+        awsCredentialsProvider,
         config.getMaxmindCityDatabase(),
         "city"
     );
     environment.lifecycle().manage(geoIpCityDatabaseManager);
     CallDnsRecordsManager callDnsRecordsManager = new CallDnsRecordsManager(
       recurringConfigSyncExecutor,
+        awsCredentialsProvider,
       config.getCallingTurnDnsRecords()
     );
     environment.lifecycle().manage(callDnsRecordsManager);
     CallRoutingTableManager callRoutingTableManager = new CallRoutingTableManager(
         recurringConfigSyncExecutor,
+        awsCredentialsProvider,
         config.getCallingTurnPerformanceTable(),
         "Performance"
     );
     environment.lifecycle().manage(callRoutingTableManager);
     CallRoutingTableManager manualCallRoutingTableManager = new CallRoutingTableManager(
         recurringConfigSyncExecutor,
+        awsCredentialsProvider,
         config.getCallingTurnManualTable(),
         "Manual"
     );
@@ -978,8 +930,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new AccountControllerV2(accountsManager, changeNumberManager, phoneVerificationTokenManager,
             registrationLockVerificationManager, rateLimiters),
         new ArtController(rateLimiters, artCredentialsGenerator),
-        new AttachmentControllerV2(rateLimiters, config.getAwsAttachmentsConfiguration().accessKey().value(),
-            config.getAwsAttachmentsConfiguration().accessSecret().value(),
+        new AttachmentControllerV2(rateLimiters,
+            config.getAwsAttachmentsConfiguration().credentials().accessKeyId().value(),
+            config.getAwsAttachmentsConfiguration().credentials().secretAccessKey().value(),
             config.getAwsAttachmentsConfiguration().region(), config.getAwsAttachmentsConfiguration().bucket()),
         new AttachmentControllerV3(rateLimiters, gcsAttachmentGenerator),
         new AttachmentControllerV4(rateLimiters, gcsAttachmentGenerator, tusAttachmentGenerator,
@@ -1012,8 +965,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new SecureStorageController(storageCredentialsGenerator),
         new SecureValueRecovery2Controller(svr2CredentialsGenerator, accountsManager),
         new SecureValueRecovery3Controller(svr3CredentialsGenerator, accountsManager),
-        new StickerController(rateLimiters, config.getCdnConfiguration().accessKey().value(),
-            config.getCdnConfiguration().accessSecret().value(), config.getCdnConfiguration().region(),
+        new StickerController(rateLimiters, config.getCdnConfiguration().credentials().accessKeyId().value(),
+            config.getCdnConfiguration().credentials().secretAccessKey().value(), config.getCdnConfiguration().region(),
             config.getCdnConfiguration().bucket()),
         new VerificationController(registrationServiceClient, new VerificationSessionManager(verificationSessions),
             pushNotificationManager, registrationCaptchaManager, registrationRecoveryPasswordsManager, rateLimiters,

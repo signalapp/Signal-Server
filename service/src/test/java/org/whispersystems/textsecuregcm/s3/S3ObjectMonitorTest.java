@@ -46,8 +46,7 @@ class S3ObjectMonitorTest {
         objectKey,
         16 * 1024 * 1024,
         mock(ScheduledExecutorService.class),
-        Duration.ofMinutes(1),
-        listener);
+        Duration.ofMinutes(1));
 
     final String uuid = UUID.randomUUID().toString();
     when(s3Client.headObject(HeadObjectRequest.builder().bucket(bucket).key(objectKey).build())).thenReturn(
@@ -55,8 +54,8 @@ class S3ObjectMonitorTest {
     final ResponseInputStream<GetObjectResponse> ris = responseInputStreamFromString("abc", uuid);
     when(s3Client.getObject(GetObjectRequest.builder().bucket(bucket).key(objectKey).build())).thenReturn(ris);
 
-    objectMonitor.refresh();
-    objectMonitor.refresh();
+    objectMonitor.refresh(listener);
+    objectMonitor.refresh(listener);
 
     verify(listener).accept(ris);
   }
@@ -77,8 +76,7 @@ class S3ObjectMonitorTest {
         objectKey,
         16 * 1024 * 1024,
         mock(ScheduledExecutorService.class),
-        Duration.ofMinutes(1),
-        listener);
+        Duration.ofMinutes(1));
 
     final String uuid = UUID.randomUUID().toString();
     when(s3Client.headObject(HeadObjectRequest.builder().key(objectKey).bucket(bucket).build()))
@@ -87,7 +85,7 @@ class S3ObjectMonitorTest {
     when(s3Client.getObject(GetObjectRequest.builder().key(objectKey).bucket(bucket).build())).thenReturn(responseInputStream);
 
     objectMonitor.getObject();
-    objectMonitor.refresh();
+    objectMonitor.refresh(listener);
 
     verify(listener, never()).accept(responseInputStream);
   }
@@ -115,8 +113,7 @@ class S3ObjectMonitorTest {
         objectKey,
         maxObjectSize,
         mock(ScheduledExecutorService.class),
-        Duration.ofMinutes(1),
-        listener);
+        Duration.ofMinutes(1));
 
     final String uuid = UUID.randomUUID().toString();
     when(s3Client.headObject(HeadObjectRequest.builder().bucket(bucket).key(objectKey).build())).thenReturn(
@@ -124,7 +121,7 @@ class S3ObjectMonitorTest {
     final ResponseInputStream<GetObjectResponse> ris = responseInputStreamFromString("a".repeat((int) maxObjectSize+1), uuid);
     when(s3Client.getObject(GetObjectRequest.builder().bucket(bucket).key(objectKey).build())).thenReturn(ris);
 
-    objectMonitor.refresh();
+    objectMonitor.refresh(listener);
 
     verify(listener, never()).accept(any());
   }

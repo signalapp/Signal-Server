@@ -24,6 +24,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.Util;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.services.appconfigdata.AppConfigDataClient;
 import software.amazon.awssdk.services.appconfigdata.model.GetLatestConfigurationRequest;
@@ -54,9 +55,11 @@ public class DynamicConfigurationManager<T> {
   private static final Logger logger = LoggerFactory.getLogger(DynamicConfigurationManager.class);
 
   public DynamicConfigurationManager(String application, String environment, String configurationName,
-      Class<T> configurationClass, ScheduledExecutorService scheduledExecutorService) {
+      AwsCredentialsProvider awsCredentialsProvider, Class<T> configurationClass,
+      ScheduledExecutorService scheduledExecutorService) {
     this(AppConfigDataClient
             .builder()
+            .credentialsProvider(awsCredentialsProvider)
             .overrideConfiguration(ClientOverrideConfiguration.builder()
                 .apiCallTimeout(Duration.ofSeconds(10))
                 .apiCallAttemptTimeout(Duration.ofSeconds(10)).build())
@@ -86,6 +89,9 @@ public class DynamicConfigurationManager<T> {
   }
 
   public void start() {
+    if (initialized.getCount() == 0) {
+      return;
+    }
     configuration.set(retrieveInitialDynamicConfiguration());
     initialized.countDown();
 

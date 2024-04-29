@@ -18,7 +18,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import org.signal.libsignal.zkgroup.GenericServerSecretParams;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
-import org.whispersystems.textsecuregcm.WhisperServerService;
 import org.whispersystems.textsecuregcm.attachments.TusAttachmentGenerator;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.backup.BackupManager;
@@ -49,10 +48,10 @@ import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswords;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageDynamoDb;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
-import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
 import org.whispersystems.textsecuregcm.util.ManagedAwsCrt;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 
@@ -80,20 +79,21 @@ record CommandDependencies(
 
     environment.getObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
+    final AwsCredentialsProvider awsCredentialsProvider = configuration.getAwsCredentialsConfiguration().build();
+
     ScheduledExecutorService dynamicConfigurationExecutor = environment.lifecycle()
         .scheduledExecutorService(name(name, "dynamicConfiguration-%d")).threads(1).build();
 
-    DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = new DynamicConfigurationManager<>(
-        configuration.getAppConfig().getApplication(), configuration.getAppConfig().getEnvironment(),
-        configuration.getAppConfig().getConfigurationName(), DynamicConfiguration.class, dynamicConfigurationExecutor);
+    DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = configuration.getAppConfig().build(
+        DynamicConfiguration.class, dynamicConfigurationExecutor, awsCredentialsProvider);
     dynamicConfigurationManager.start();
 
     MetricsUtil.configureRegistries(configuration, environment, dynamicConfigurationManager);
 
     final ClientResources.Builder redisClientResourcesBuilder = ClientResources.builder();
 
-    FaultTolerantRedisCluster cacheCluster = new FaultTolerantRedisCluster("main_cache",
-        configuration.getCacheClusterConfiguration(), redisClientResourcesBuilder);
+    FaultTolerantRedisCluster cacheCluster = configuration.getCacheClusterConfiguration().build("main_cache",
+        redisClientResourcesBuilder);
 
     ScheduledExecutorService recurringJobExecutor = environment.lifecycle()
         .scheduledExecutorService(name(name, "recurringJob-%d")).threads(2).build();
@@ -124,11 +124,11 @@ record CommandDependencies(
     ExternalServiceCredentialsGenerator secureValueRecoveryCredentialsGenerator = SecureValueRecovery2Controller.credentialsGenerator(
         configuration.getSvr2Configuration());
 
-    DynamoDbAsyncClient dynamoDbAsyncClient = DynamoDbFromConfig.asyncClient(
-        configuration.getDynamoDbClientConfiguration(), WhisperServerService.AWSSDK_CREDENTIALS_PROVIDER);
+    DynamoDbAsyncClient dynamoDbAsyncClient = configuration.getDynamoDbClientConfiguration()
+        .buildAsyncClient(awsCredentialsProvider);
 
-    DynamoDbClient dynamoDbClient = DynamoDbFromConfig.client(
-        configuration.getDynamoDbClientConfiguration(), WhisperServerService.AWSSDK_CREDENTIALS_PROVIDER);
+    DynamoDbClient dynamoDbClient = configuration.getDynamoDbClientConfiguration()
+        .buildSyncClient(awsCredentialsProvider);
 
     RegistrationRecoveryPasswords registrationRecoveryPasswords = new RegistrationRecoveryPasswords(
         configuration.getDynamoDbTables().getRegistrationRecovery().getTableName(),
@@ -163,12 +163,12 @@ record CommandDependencies(
         configuration.getDynamoDbTables().getMessages().getTableName(),
         configuration.getDynamoDbTables().getMessages().getExpiration(),
         messageDeletionExecutor);
-    FaultTolerantRedisCluster messagesCluster = new FaultTolerantRedisCluster("messages",
-        configuration.getMessageCacheConfiguration().getRedisClusterConfiguration(), redisClientResourcesBuilder);
-    FaultTolerantRedisCluster clientPresenceCluster = new FaultTolerantRedisCluster("client_presence",
-        configuration.getClientPresenceClusterConfiguration(), redisClientResourcesBuilder);
-    FaultTolerantRedisCluster rateLimitersCluster = new FaultTolerantRedisCluster("rate_limiters",
-        configuration.getRateLimitersCluster(), redisClientResourcesBuilder);
+    FaultTolerantRedisCluster messagesCluster = configuration.getMessageCacheConfiguration()
+        .getRedisClusterConfiguration().build("messages", redisClientResourcesBuilder);
+    FaultTolerantRedisCluster clientPresenceCluster = configuration.getClientPresenceClusterConfiguration()
+        .build("client_presence", redisClientResourcesBuilder);
+    FaultTolerantRedisCluster rateLimitersCluster = configuration.getRateLimitersCluster().build("rate_limiters",
+        redisClientResourcesBuilder);
     SecureValueRecovery2Client secureValueRecovery2Client = new SecureValueRecovery2Client(
         secureValueRecoveryCredentialsGenerator, secureValueRecoveryServiceExecutor,
         secureValueRecoveryServiceRetryExecutor,

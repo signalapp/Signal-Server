@@ -32,9 +32,7 @@ public record BraintreeConfiguration(@NotBlank String merchantId,
                                      @NotBlank String graphqlUrl,
                                      @NotEmpty Map<String, String> merchantAccounts,
                                      @NotNull @Valid CircuitBreakerConfiguration circuitBreaker,
-                                     @NotBlank String pubSubProject,
-                                     @NotBlank String pubSubTopic,
-                                     @NotBlank String pubSubCredentialConfiguration) {
+                                     @Valid @NotNull PubSubPublisherFactory pubSubPublisher) {
 
   public BraintreeConfiguration {
     if (circuitBreaker == null) {

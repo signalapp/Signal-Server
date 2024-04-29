@@ -640,6 +640,31 @@
         </plugins>
       </build>
     </profile>
+    <profile>
+      <id>test-server</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.1.0</version>
+            <executions>
+              <execution>
+                <id>start-test-server</id>
+                <phase>integration-test</phase>
+                <goals>
+                  <goal>java</goal>
+                </goals>
+                <configuration>
+                  <mainClass>org.whispersystems.textsecuregcm.LocalWhisperServerService</mainClass>
+                  <classpathScope>test</classpathScope>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
   </profiles>
 
   <build>
@@ -692,15 +717,15 @@
             <goals>
               <goal>java</goal>
             </goals>
+            <configuration>
+              <mainClass>org.whispersystems.textsecuregcm.CheckServiceConfigurations</mainClass>
+              <classpathScope>test</classpathScope>
+              <arguments>
+                <argument>${project.basedir}/config</argument>
+              </arguments>
+            </configuration>
           </execution>
         </executions>
-        <configuration>
-          <mainClass>org.whispersystems.textsecuregcm.CheckServiceConfigurations</mainClass>
-          <classpathScope>test</classpathScope>
-          <arguments>
-            <argument>${project.basedir}/config</argument>
-          </arguments>
-        </configuration>
       </plugin>
 
       <plugin>

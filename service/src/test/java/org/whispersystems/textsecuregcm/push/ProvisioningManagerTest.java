@@ -8,7 +8,6 @@ import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 
 import com.google.protobuf.ByteString;
-import java.time.Duration;
 import java.util.function.Consumer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,7 +31,7 @@ class ProvisioningManagerTest {
 
   @BeforeEach
   void setUp() throws Exception {
-    provisioningManager = new ProvisioningManager(REDIS_EXTENSION.getRedisClient(), Duration.ofSeconds(1), new CircuitBreakerConfiguration());
+    provisioningManager = new ProvisioningManager(REDIS_EXTENSION.getRedisClient(), new CircuitBreakerConfiguration());
     provisioningManager.start();
   }
 

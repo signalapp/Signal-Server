@@ -6,13 +6,14 @@
 package org.whispersystems.textsecuregcm.configuration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.micrometer.statsd.StatsdConfig;
+import com.fasterxml.jackson.annotation.JsonTypeName;
 import io.micrometer.statsd.StatsdFlavor;
 import java.time.Duration;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 
-public class DogstatsdConfiguration implements StatsdConfig {
+@JsonTypeName("default")
+public class DogstatsdConfiguration implements DatadogConfiguration {
 
   @JsonProperty
   @NotNull
@@ -31,6 +32,7 @@ public class DogstatsdConfiguration implements StatsdConfig {
     return step;
   }
 
+  @Override
   public String getEnvironment() {
     return environment;
   }
@@ -49,5 +51,10 @@ public class DogstatsdConfiguration implements StatsdConfig {
   @Override
   public String host() {
     return host;
+  }
+
+  @Override
+  public Duration getShutdownWaitDuration() {
+    return step().plus(step.dividedBy(2));
   }
 }

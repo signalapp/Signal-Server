@@ -7,25 +7,24 @@ package org.whispersystems.textsecuregcm.geo;
 
 import com.maxmind.db.CHMCache;
 import com.maxmind.geoip2.DatabaseReader;
-import com.maxmind.geoip2.GeoIp2Provider;
 import io.dropwizard.lifecycle.Managed;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
-import org.apache.commons.compress.archivers.ArchiveEntry;
-import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
-import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
-import org.whispersystems.textsecuregcm.configuration.MonitoredS3ObjectConfiguration;
-import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
-import org.whispersystems.textsecuregcm.s3.S3ObjectMonitor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import javax.annotation.Nonnull;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
+import org.apache.commons.compress.archivers.ArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
+import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.configuration.S3ObjectMonitorFactory;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
+import org.whispersystems.textsecuregcm.s3.S3ObjectMonitor;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 
 public class MaxMindDatabaseManager implements Supplier<DatabaseReader>, Managed {
 
@@ -39,21 +38,11 @@ public class MaxMindDatabaseManager implements Supplier<DatabaseReader>, Managed
 
   private static final Logger log = LoggerFactory.getLogger(MaxMindDatabaseManager.class);
 
-  public MaxMindDatabaseManager(
-      @Nonnull final ScheduledExecutorService executorService,
-      @Nonnull final MonitoredS3ObjectConfiguration configuration,
-      @Nonnull final String databaseTag
-  ){
-    this.databaseMonitor = new S3ObjectMonitor(
-        configuration.s3Region(),
-        configuration.s3Bucket(),
-        configuration.objectKey(),
-        configuration.maxSize(),
-        executorService,
-        configuration.refreshInterval(),
-        this::handleDatabaseChanged
-    );
+  public MaxMindDatabaseManager(final ScheduledExecutorService executorService,
+      final AwsCredentialsProvider awsCredentialsProvider, final S3ObjectMonitorFactory configuration,
+      final String databaseTag) {
 
+    this.databaseMonitor = configuration.build(awsCredentialsProvider, executorService);
     this.databaseTag = databaseTag;
     this.refreshTimer = Metrics.timer(MetricsUtil.name(MaxMindDatabaseManager.class, "refresh"), "db", databaseTag);
   }
@@ -93,17 +82,15 @@ public class MaxMindDatabaseManager implements Supplier<DatabaseReader>, Managed
 
   @Override
   public void start() throws Exception {
-    Managed.super.start();
-    databaseMonitor.start();
+    databaseMonitor.start(this::handleDatabaseChanged);
   }
 
   @Override
   public void stop() throws Exception {
-    Managed.super.stop();
     databaseMonitor.stop();
 
     final DatabaseReader reader = databaseReader.getAndSet(null);
-    if(reader != null) {
+    if (reader != null) {
       reader.close();
     }
   }

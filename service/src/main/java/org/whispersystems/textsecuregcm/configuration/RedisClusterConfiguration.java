@@ -6,13 +6,17 @@
 package org.whispersystems.textsecuregcm.configuration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-
+import com.fasterxml.jackson.annotation.JsonTypeName;
+import com.google.common.annotations.VisibleForTesting;
+import io.lettuce.core.resource.ClientResources;
+import java.time.Duration;
 import javax.validation.Valid;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
-import java.time.Duration;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 
-public class RedisClusterConfiguration {
+@JsonTypeName("default")
+public class RedisClusterConfiguration implements FaultTolerantRedisClusterFactory {
 
   @JsonProperty
   @NotEmpty
@@ -32,6 +36,11 @@ public class RedisClusterConfiguration {
   @Valid
   private RetryConfiguration retry = new RetryConfiguration();
 
+  @VisibleForTesting
+  void setConfigurationUri(final String configurationUri) {
+    this.configurationUri = configurationUri;
+  }
+
   public String getConfigurationUri() {
     return configurationUri;
   }
@@ -46,5 +55,10 @@ public class RedisClusterConfiguration {
 
   public RetryConfiguration getRetryConfiguration() {
     return retry;
+  }
+
+  @Override
+  public FaultTolerantRedisCluster build(final String name, final ClientResources.Builder clientResourcesBuilder) {
+    return new FaultTolerantRedisCluster(name, this, clientResourcesBuilder);
   }
 }

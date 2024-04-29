@@ -19,8 +19,10 @@ import com.braintreegateway.TransactionSearchRequest;
 import com.braintreegateway.exceptions.BraintreeException;
 import com.braintreegateway.exceptions.NotFoundException;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.google.cloud.pubsub.v1.Publisher;
+import com.google.cloud.pubsub.v1.PublisherInterface;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.pubsub.v1.PubsubMessage;
+import io.micrometer.core.instrument.Metrics;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
@@ -40,8 +42,6 @@ import javax.annotation.Nullable;
 import javax.ws.rs.ClientErrorException;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
-import com.google.pubsub.v1.PubsubMessage;
-import io.micrometer.core.instrument.Metrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
@@ -65,7 +65,7 @@ public class BraintreeManager implements SubscriptionProcessorManager {
   private final BraintreeGateway braintreeGateway;
   private final BraintreeGraphqlClient braintreeGraphqlClient;
   private final CurrencyConversionManager currencyConversionManager;
-  private final Publisher pubsubPublisher;
+  private final PublisherInterface pubsubPublisher;
   private final Executor executor;
   private final Map<PaymentMethod, Set<String>> supportedCurrenciesByPaymentMethod;
   private final Map<String, String> currenciesToMerchantAccounts;
@@ -79,7 +79,7 @@ public class BraintreeManager implements SubscriptionProcessorManager {
       final Map<String, String> currenciesToMerchantAccounts,
       final String graphqlUri,
       final CurrencyConversionManager currencyConversionManager,
-      final Publisher pubsubPublisher,
+      final PublisherInterface pubsubPublisher,
       final CircuitBreakerConfiguration circuitBreakerConfiguration,
       final Executor executor,
       final ScheduledExecutorService retryExecutor) {
@@ -107,7 +107,7 @@ public class BraintreeManager implements SubscriptionProcessorManager {
   BraintreeManager(final BraintreeGateway braintreeGateway,
       final Map<PaymentMethod, Set<String>> supportedCurrenciesByPaymentMethod,
       final Map<String, String> currenciesToMerchantAccounts, final BraintreeGraphqlClient braintreeGraphqlClient,
-      final CurrencyConversionManager currencyConversionManager, final Publisher pubsubPublisher,
+      final CurrencyConversionManager currencyConversionManager, final PublisherInterface pubsubPublisher,
       final Executor executor) {
     this.braintreeGateway = braintreeGateway;
     this.supportedCurrenciesByPaymentMethod = supportedCurrenciesByPaymentMethod;

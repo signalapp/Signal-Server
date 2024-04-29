@@ -23,7 +23,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
-import org.whispersystems.textsecuregcm.WhisperServerService;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.SecureStorageController;
@@ -50,10 +49,10 @@ import org.whispersystems.textsecuregcm.storage.ReportMessageDynamoDb;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.storage.UsernameHashNotAvailableException;
 import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundException;
-import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 
@@ -97,18 +96,19 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
       throws Exception {
     environment.getObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
+    final AwsCredentialsProvider awsCredentialsProvider = configuration.getAwsCredentialsConfiguration().build();
+
     ScheduledExecutorService dynamicConfigurationExecutor = environment.lifecycle()
         .scheduledExecutorService(name(getClass(), "dynamicConfiguration-%d")).threads(1).build();
 
-    DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = new DynamicConfigurationManager<>(
-        configuration.getAppConfig().getApplication(), configuration.getAppConfig().getEnvironment(),
-        configuration.getAppConfig().getConfigurationName(), DynamicConfiguration.class, dynamicConfigurationExecutor);
+    DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = configuration.getAppConfig().build(
+        DynamicConfiguration.class, dynamicConfigurationExecutor, awsCredentialsProvider);
     dynamicConfigurationManager.start();
 
     final ClientResources.Builder redisClientResourcesBuilder = ClientResources.builder();
 
-    FaultTolerantRedisCluster cacheCluster = new FaultTolerantRedisCluster("main_cache_cluster",
-        configuration.getCacheClusterConfiguration(), redisClientResourcesBuilder);
+    FaultTolerantRedisCluster cacheCluster = configuration.getCacheClusterConfiguration().build("main_cache_cluster",
+        redisClientResourcesBuilder);
 
     Scheduler messageDeliveryScheduler = Schedulers.fromExecutorService(
         environment.lifecycle().executorService("messageDelivery-%d").maxThreads(4)
@@ -135,11 +135,11 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
     ExternalServiceCredentialsGenerator secureValueRecoveryCredentialsGenerator = SecureValueRecovery2Controller.credentialsGenerator(
         configuration.getSvr2Configuration());
 
-    DynamoDbAsyncClient dynamoDbAsyncClient = DynamoDbFromConfig.asyncClient(
-        configuration.getDynamoDbClientConfiguration(), WhisperServerService.AWSSDK_CREDENTIALS_PROVIDER);
+    DynamoDbAsyncClient dynamoDbAsyncClient = configuration.getDynamoDbClientConfiguration()
+        .buildAsyncClient(awsCredentialsProvider);
 
-    DynamoDbClient dynamoDbClient = DynamoDbFromConfig.client(configuration.getDynamoDbClientConfiguration(),
-        WhisperServerService.AWSSDK_CREDENTIALS_PROVIDER);
+    DynamoDbClient dynamoDbClient = configuration.getDynamoDbClientConfiguration()
+        .buildSyncClient(awsCredentialsProvider);
 
     RegistrationRecoveryPasswords registrationRecoveryPasswords = new RegistrationRecoveryPasswords(
         configuration.getDynamoDbTables().getRegistrationRecovery().getTableName(),
@@ -173,12 +173,12 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
         configuration.getDynamoDbTables().getMessages().getTableName(),
         configuration.getDynamoDbTables().getMessages().getExpiration(),
         messageDeletionExecutor);
-    FaultTolerantRedisCluster messagesCluster = new FaultTolerantRedisCluster("messages",
-        configuration.getMessageCacheConfiguration().getRedisClusterConfiguration(), redisClientResourcesBuilder);
-    FaultTolerantRedisCluster clientPresenceCluster = new FaultTolerantRedisCluster("client_presence",
-        configuration.getClientPresenceClusterConfiguration(), redisClientResourcesBuilder);
-    FaultTolerantRedisCluster rateLimitersCluster = new FaultTolerantRedisCluster("rate_limiters",
-        configuration.getRateLimitersCluster(), redisClientResourcesBuilder);
+    FaultTolerantRedisCluster messagesCluster = configuration.getMessageCacheConfiguration()
+        .getRedisClusterConfiguration().build("messages", redisClientResourcesBuilder);
+    FaultTolerantRedisCluster clientPresenceCluster = configuration.getClientPresenceClusterConfiguration()
+        .build("client_presence", redisClientResourcesBuilder);
+    FaultTolerantRedisCluster rateLimitersCluster = configuration.getRateLimitersCluster().build("rate_limiters",
+        redisClientResourcesBuilder);
     SecureValueRecovery2Client secureValueRecovery2Client = new SecureValueRecovery2Client(
         secureValueRecoveryCredentialsGenerator, secureValueRecoveryExecutor, secureValueRecoveryServiceRetryExecutor,
         configuration.getSvr2Configuration());

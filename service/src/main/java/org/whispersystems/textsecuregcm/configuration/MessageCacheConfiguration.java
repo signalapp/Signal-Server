@@ -15,12 +15,12 @@ public class MessageCacheConfiguration {
   @JsonProperty
   @NotNull
   @Valid
-  private RedisClusterConfiguration cluster;
+  private FaultTolerantRedisClusterFactory cluster;
 
   @JsonProperty
   private int persistDelayMinutes = 10;
 
-  public RedisClusterConfiguration getRedisClusterConfiguration() {
+  public FaultTolerantRedisClusterFactory getRedisClusterConfiguration() {
     return cluster;
   }
 

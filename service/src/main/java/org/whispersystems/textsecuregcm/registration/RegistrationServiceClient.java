@@ -8,6 +8,7 @@ import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import com.google.protobuf.ByteString;
 import io.dropwizard.lifecycle.Managed;
+import io.grpc.CallCredentials;
 import io.grpc.ChannelCredentials;
 import io.grpc.Deadline;
 import io.grpc.Grpc;
@@ -21,7 +22,6 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.StringUtils;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -38,7 +38,6 @@ import org.whispersystems.textsecuregcm.entities.RegistrationServiceSession;
 public class RegistrationServiceClient implements Managed {
 
   private final ManagedChannel channel;
-  private final IdentityTokenCallCredentials identityTokenCallCredentials;
   private final RegistrationServiceGrpc.RegistrationServiceFutureStub stub;
   private final Executor callbackExecutor;
 
@@ -61,11 +60,9 @@ public class RegistrationServiceClient implements Managed {
 
   public RegistrationServiceClient(final String host,
       final int port,
-      final String credentialConfigJson,
-      final String identityTokenAudience,
+      final CallCredentials callCredentials,
       final String caCertificatePem,
-      final Executor callbackExecutor,
-      final ScheduledExecutorService identityRefreshExecutor) throws IOException {
+      final Executor callbackExecutor) throws IOException {
 
     try (final ByteArrayInputStream certificateInputStream = new ByteArrayInputStream(caCertificatePem.getBytes(StandardCharsets.UTF_8))) {
       final ChannelCredentials tlsChannelCredentials = TlsChannelCredentials.newBuilder()
@@ -77,10 +74,7 @@ public class RegistrationServiceClient implements Managed {
           .build();
     }
 
-    this.identityTokenCallCredentials = IdentityTokenCallCredentials.fromCredentialConfig(
-        credentialConfigJson, identityTokenAudience, identityRefreshExecutor);
-
-    this.stub = RegistrationServiceGrpc.newFutureStub(channel).withCallCredentials(identityTokenCallCredentials);
+    this.stub = RegistrationServiceGrpc.newFutureStub(channel).withCallCredentials(callCredentials);
 
     this.callbackExecutor = callbackExecutor;
   }
@@ -284,6 +278,5 @@ public class RegistrationServiceClient implements Managed {
     if (channel != null) {
       channel.shutdown();
     }
-    this.identityTokenCallCredentials.close();
   }
 }

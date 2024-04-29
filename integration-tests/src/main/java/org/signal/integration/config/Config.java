@@ -5,11 +5,11 @@
 
 package org.signal.integration.config;
 
-import org.whispersystems.textsecuregcm.configuration.DynamoDbClientConfiguration;
+import org.whispersystems.textsecuregcm.configuration.DynamoDbClientFactory;
 
 public record Config(String domain,
                      String rootCert,
-                     DynamoDbClientConfiguration dynamoDbClientConfiguration,
+                     DynamoDbClientFactory dynamoDbClient,
                      DynamoDbTables dynamoDbTables,
                      String prescribedRegistrationNumber,
                      String prescribedRegistrationCode) {

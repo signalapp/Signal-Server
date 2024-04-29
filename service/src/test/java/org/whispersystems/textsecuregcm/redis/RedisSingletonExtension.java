@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.redis;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 import io.lettuce.core.RedisClient;
+import io.lettuce.core.RedisURI;
 import io.lettuce.core.api.StatefulRedisConnection;
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -22,6 +23,7 @@ public class RedisSingletonExtension implements BeforeAllCallback, BeforeEachCal
 
   private static RedisServer redisServer;
   private RedisClient redisClient;
+  private RedisURI redisUri;
 
   public static class RedisSingletonExtensionBuilder {
 
@@ -53,7 +55,8 @@ public class RedisSingletonExtension implements BeforeAllCallback, BeforeEachCal
 
   @Override
   public void beforeEach(final ExtensionContext context) {
-    redisClient = RedisClient.create(String.format("redis://127.0.0.1:%d", redisServer.ports().get(0)));
+    redisUri = RedisURI.create("redis://127.0.0.1:%d".formatted(redisServer.ports().get(0)));
+    redisClient = RedisClient.create(redisUri);
 
     try (final StatefulRedisConnection<String, String> connection = redisClient.connect()) {
       connection.sync().flushall();
@@ -74,6 +77,10 @@ public class RedisSingletonExtension implements BeforeAllCallback, BeforeEachCal
 
   public RedisClient getRedisClient() {
     return redisClient;
+  }
+
+  public RedisURI getRedisUri() {
+    return redisUri;
   }
 
   private static int getAvailablePort() throws IOException {

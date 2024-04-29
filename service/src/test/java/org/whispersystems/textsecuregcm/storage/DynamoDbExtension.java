@@ -11,6 +11,7 @@ import com.amazonaws.services.dynamodbv2.local.server.DynamoDBProxyServer;
 import java.net.ServerSocket;
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
@@ -27,8 +28,11 @@ import software.amazon.awssdk.services.dynamodb.model.KeySchemaElement;
 import software.amazon.awssdk.services.dynamodb.model.KeyType;
 import software.amazon.awssdk.services.dynamodb.model.LocalSecondaryIndex;
 import software.amazon.awssdk.services.dynamodb.model.ProvisionedThroughput;
+import javax.annotation.Nullable;
 
 public class DynamoDbExtension implements BeforeEachCallback, AfterEachCallback {
+
+  private static final String DEFAULT_LIBRARY_PATH = "target/lib";
 
   public interface TableSchema {
     String tableName();
@@ -58,22 +62,28 @@ public class DynamoDbExtension implements BeforeEachCallback, AfterEachCallback 
   private DynamoDBProxyServer server;
   private int port;
 
+  private final String libraryPath;
   private final List<TableSchema> schemas;
   private DynamoDbClient dynamoDB2;
   private DynamoDbAsyncClient dynamoAsyncDB2;
 
   public DynamoDbExtension(TableSchema... schemas) {
+    this(DEFAULT_LIBRARY_PATH, schemas);
+  }
+
+  public DynamoDbExtension(@Nullable final String libraryPath, TableSchema... schemas) {
+    this.libraryPath = Optional.ofNullable(libraryPath).orElse(DEFAULT_LIBRARY_PATH);
     this.schemas = List.of(schemas);
   }
 
-  private static void loadLibrary() {
+  private void loadLibrary() {
     // to avoid noise in the logs from “library already loaded” warnings, we make sure we only set it once
     if (libraryLoaded.get()) {
       return;
     }
     if (libraryLoaded.compareAndSet(false, true)) {
       // if you see a library failed to load error, you need to run mvn test-compile at least once first
-      SQLite.setLibraryPath("target/lib");
+      SQLite.setLibraryPath(this.libraryPath);
     }
   }
 

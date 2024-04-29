@@ -14,14 +14,13 @@ import org.slf4j.LoggerFactory;
 public class MicrometerRegistryManager implements LifeCycle.Listener {
 
   private static final Logger logger = LoggerFactory.getLogger(MicrometerRegistryManager.class);
-  private static final Duration BUFFER = Duration.ofSeconds(5);
 
   private final MeterRegistry meterRegistry;
   private final Duration waitDuration;
 
-  public MicrometerRegistryManager(final MeterRegistry meterRegistry, final Duration pollingFrequency) {
+  public MicrometerRegistryManager(final MeterRegistry meterRegistry, final Duration waitDuration) {
     this.meterRegistry = meterRegistry;
-    this.waitDuration = pollingFrequency.plus(BUFFER);
+    this.waitDuration = waitDuration;
   }
 
   @Override

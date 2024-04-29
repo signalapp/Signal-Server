@@ -66,7 +66,8 @@ public class MetricsUtil {
 
     environment.lifecycle().addEventListener(new ApplicationShutdownMonitor(Metrics.globalRegistry));
     environment.lifecycle().addEventListener(
-        new MicrometerRegistryManager(Metrics.globalRegistry, config.getDatadogConfiguration().pollingFrequency()));
+        new MicrometerRegistryManager(Metrics.globalRegistry,
+            config.getDatadogConfiguration().getShutdownWaitDuration()));
   }
 
   @VisibleForTesting

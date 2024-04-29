@@ -7,13 +7,13 @@ package org.whispersystems.textsecuregcm.registration;
 import com.google.auth.oauth2.ExternalAccountCredentials;
 import com.google.auth.oauth2.ImpersonatedCredentials;
 import com.google.common.annotations.VisibleForTesting;
+import io.dropwizard.lifecycle.Managed;
 import io.github.resilience4j.core.IntervalFunction;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
 import io.grpc.CallCredentials;
 import io.grpc.Metadata;
 import java.io.ByteArrayInputStream;
-import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
@@ -28,7 +28,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-class IdentityTokenCallCredentials extends CallCredentials implements Closeable {
+public class IdentityTokenCallCredentials extends CallCredentials implements Managed {
   private static final Duration IDENTITY_TOKEN_LIFETIME = Duration.ofHours(1);
   private static final Duration IDENTITY_TOKEN_REFRESH_BUFFER = Duration.ofMinutes(10);
 
@@ -58,7 +58,7 @@ class IdentityTokenCallCredentials extends CallCredentials implements Closeable 
         TimeUnit.MILLISECONDS);
   }
 
-  static IdentityTokenCallCredentials fromCredentialConfig(
+  public static IdentityTokenCallCredentials fromCredentialConfig(
       final String credentialConfigJson,
       final String audience,
       final ScheduledExecutorService scheduledExecutorService) throws IOException {
@@ -129,7 +129,7 @@ class IdentityTokenCallCredentials extends CallCredentials implements Closeable 
   }
 
   @Override
-  public void close() {
+  public void stop() {
     synchronized (this) {
       if (!scheduledFuture.isDone()) {
         scheduledFuture.cancel(true);

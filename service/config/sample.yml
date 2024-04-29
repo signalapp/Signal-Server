@@ -67,14 +67,15 @@ braintree:
   supportedCurrenciesByPaymentMethod:
     PAYPAL:
       - usd
-  pubSubProject: example-project
-  pubSubTopic: example-topic
-  pubSubCredentialConfiguration: |
-    {
-      "credential": "configuration"
-    }
+  pubSubPublisher:
+    project: example-project
+    topic: example-topic
+    credentialConfiguration: |
+      {
+        "credential": "configuration"
+      }
 
-dynamoDbClientConfiguration:
+dynamoDbClient:
   region: us-west-2 # AWS Region
 
 dynamoDbTables:
@@ -138,8 +139,9 @@ cacheCluster: # Redis server configuration for cache cluster
 clientPresenceCluster: # Redis server configuration for client presence cluster
   configurationUri: redis://redis.example.com:6379/
 
-pubsub: # Redis server configuration for pubsub cluster
-  uri: redis://redis.example.com:6379/
+provisioning:
+  pubsub: # Redis server configuration for pubsub cluster
+    uri: redis://redis.example.com:6379/
 
 pushSchedulerCluster: # Redis server configuration for push scheduler cluster
   configurationUri: redis://redis.example.com:6379/
@@ -218,9 +220,10 @@ metricsCluster:
   configurationUri: redis://redis.example.com:6379/
 
 awsAttachments: # AWS S3 configuration
-  accessKey: secret://awsAttachments.accessKey
-  accessSecret: secret://awsAttachments.accessSecret
   bucket: aws-attachments
+  credentials:
+    accessKeyId: secret://awsAttachments.accessKey
+    secretAccessKey: secret://awsAttachments.accessSecret
   region: us-west-2
 
 gcpAttachments: # GCP Storage configuration
@@ -245,9 +248,10 @@ fcm: # FCM configuration
   credentials: secret://fcm.credentials
 
 cdn:
-  accessKey: secret://cdn.accessKey
-  accessSecret: secret://cdn.accessSecret
   bucket: cdn        # S3 Bucket name
+  credentials:
+    accessKeyId: secret://cdn.accessKey
+    secretAccessKey: secret://cdn.accessSecret
   region: us-west-2  # AWS region
 
 clientCdn:
@@ -345,13 +349,14 @@ remoteConfig:
 
 paymentsService:
   userAuthenticationTokenSharedSecret: secret://paymentsService.userAuthenticationTokenSharedSecret
-  fixerApiKey: secret://paymentsService.fixerApiKey
-  coinMarketCapApiKey: secret://paymentsService.coinMarketCapApiKey
-  coinMarketCapCurrencyIds:
-    MOB: 7878
   paymentCurrencies:
     # list of symbols for supported currencies
     - MOB
+  externalClients:
+    fixerApiKey: secret://paymentsService.fixerApiKey
+    coinMarketCapApiKey: secret://paymentsService.coinMarketCapApiKey
+    coinMarketCapCurrencyIds:
+      MOB: 7878
 
 artService:
   userAuthenticationTokenSharedSecret: secret://artService.userAuthenticationTokenSharedSecret

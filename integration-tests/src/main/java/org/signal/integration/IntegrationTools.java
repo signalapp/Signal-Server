@@ -15,7 +15,6 @@ import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswords;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.VerificationSessionManager;
 import org.whispersystems.textsecuregcm.storage.VerificationSessions;
-import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
@@ -31,13 +30,9 @@ public class IntegrationTools {
   public static IntegrationTools create(final Config config) {
     final AwsCredentialsProvider credentialsProvider = DefaultCredentialsProvider.builder().build();
 
-    final DynamoDbAsyncClient dynamoDbAsyncClient = DynamoDbFromConfig.asyncClient(
-        config.dynamoDbClientConfiguration(),
-        credentialsProvider);
+    final DynamoDbAsyncClient dynamoDbAsyncClient = config.dynamoDbClient().buildAsyncClient(credentialsProvider);
 
-    final DynamoDbClient dynamoDbClient = DynamoDbFromConfig.client(
-        config.dynamoDbClientConfiguration(),
-        credentialsProvider);
+    final DynamoDbClient dynamoDbClient = config.dynamoDbClient().buildSyncClient(credentialsProvider);
 
     final RegistrationRecoveryPasswords registrationRecoveryPasswords = new RegistrationRecoveryPasswords(
         config.dynamoDbTables().registrationRecovery(), Duration.ofDays(1), dynamoDbClient, dynamoDbAsyncClient);

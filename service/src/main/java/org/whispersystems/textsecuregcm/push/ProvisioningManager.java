@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.push;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.dropwizard.lifecycle.Managed;
@@ -17,11 +16,9 @@ import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.codec.ByteArrayCodec;
 import io.lettuce.core.pubsub.RedisPubSubAdapter;
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection;
-import io.lettuce.core.resource.ClientResources;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
@@ -29,7 +26,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.redis.RedisOperation;
-import org.whispersystems.textsecuregcm.redis.RedisUriUtil;
 import org.whispersystems.textsecuregcm.storage.PubSubProtos;
 import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 import org.whispersystems.textsecuregcm.websocket.InvalidWebsocketAddressException;
@@ -56,22 +52,10 @@ public class ProvisioningManager extends RedisPubSubAdapter<byte[], byte[]> impl
 
   private static final Logger logger = LoggerFactory.getLogger(ProvisioningManager.class);
 
-  public ProvisioningManager(final String redisUri,
-      final ClientResources clientResources,
-      final Duration timeout,
-      final CircuitBreakerConfiguration circuitBreakerConfiguration) {
-
-    this(RedisClient.create(clientResources, RedisUriUtil.createRedisUriWithTimeout(redisUri, timeout)), timeout,
-        circuitBreakerConfiguration);
-  }
-
-  @VisibleForTesting
-  ProvisioningManager(final RedisClient redisClient,
-      final Duration timeout,
+  public ProvisioningManager(final RedisClient redisClient,
       final CircuitBreakerConfiguration circuitBreakerConfiguration) {
 
     this.redisClient = redisClient;
-    this.redisClient.setDefaultTimeout(timeout);
 
     this.subscriptionConnection = redisClient.connectPubSub(new ByteArrayCodec());
     this.publicationConnection = redisClient.connect(new ByteArrayCodec());

@@ -7,9 +7,15 @@ package org.whispersystems.textsecuregcm.configuration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import javax.validation.constraints.NotNull;
+import com.fasterxml.jackson.annotation.JsonTypeName;
+import org.whispersystems.textsecuregcm.captcha.HCaptchaClient;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretString;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
+import java.util.concurrent.ScheduledExecutorService;
 
-public class HCaptchaConfiguration {
+@JsonTypeName("default")
+public class HCaptchaConfiguration implements HCaptchaClientFactory {
 
   @JsonProperty
   @NotNull
@@ -36,4 +42,14 @@ public class HCaptchaConfiguration {
     return retry;
   }
 
+  @Override
+  public HCaptchaClient build(final ScheduledExecutorService retryExecutor,
+      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
+    return new HCaptchaClient(
+        apiKey.value(),
+        retryExecutor,
+        circuitBreaker,
+        retry,
+        dynamicConfigurationManager);
+  }
 }
