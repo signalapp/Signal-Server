@@ -20,13 +20,15 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import javax.annotation.Nonnull;
+import io.dropwizard.jackson.DiscoverableSubtypeResolver;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretsModule;
 
 public class SystemMapper {
 
   private static final ObjectMapper JSON_MAPPER = configureMapper(new ObjectMapper());
 
-  private static final ObjectMapper YAML_MAPPER = configureMapper(new YAMLMapper());
+  private static final ObjectMapper YAML_MAPPER = configureMapper(new YAMLMapper())
+      .setSubtypeResolver(new DiscoverableSubtypeResolver());
 
 
   @Nonnull
