@@ -24,7 +24,10 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.Executors;
+import io.dropwizard.configuration.ConfigurationValidationException;
+import io.dropwizard.jersey.validation.Validators;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
 import org.apache.commons.lang3.tuple.Pair;
@@ -48,6 +51,7 @@ import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
+import javax.validation.ConstraintViolation;
 
 public final class Operations {
 
@@ -306,8 +310,16 @@ public final class Operations {
   private static Config loadConfigFromClasspath(final String filename) {
     try {
       final URL configFileUrl = Resources.getResource(filename);
-      return SystemMapper.yamlMapper().readValue(Resources.toByteArray(configFileUrl), Config.class);
-    } catch (final IOException e) {
+      final Config config = SystemMapper.yamlMapper().readValue(Resources.toByteArray(configFileUrl), Config.class);
+
+      final Set<ConstraintViolation<Config>> constraintViolations = Validators.newValidator().validate(config);
+
+      if (!constraintViolations.isEmpty()) {
+        throw new ConfigurationValidationException(filename, constraintViolations);
+      }
+
+      return config;
+    } catch (final Exception e) {
       throw new RuntimeException(e);
     }
   }

@@ -5,6 +5,8 @@
 
 package org.signal.integration.config;
 
-public record DynamoDbTables(String registrationRecovery,
-                             String verificationSessions) {
+import javax.validation.constraints.NotBlank;
+
+public record DynamoDbTables(@NotBlank String registrationRecovery,
+                             @NotBlank String verificationSessions) {
 }
