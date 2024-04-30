@@ -337,7 +337,7 @@ public class ArchiveControllerTest {
     assertThat(response.backupDir()).isEqualTo("myBackupDir");
     assertThat(response.backupName()).isEqualTo("filename");
     assertThat(response.cdn()).isEqualTo(1);
-    assertThat(response.usedSpace()).isNull();
+    assertThat(response.usedSpace()).isEqualTo(0L);
   }
 
   @Test

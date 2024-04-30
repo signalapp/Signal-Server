@@ -311,9 +311,8 @@ public class ArchiveController {
       @Schema(description = "The name of the most recent message backup on the cdn. The backup is at /backupDir/backupName")
       String backupName,
 
-      @Nullable
       @Schema(description = "The amount of space used to store media")
-      Long usedSpace) {}
+      long usedSpace) {}
 
   @GET
   @Produces(MediaType.APPLICATION_JSON)
@@ -345,7 +344,7 @@ public class ArchiveController {
             backupInfo.backupSubdir(),
             backupInfo.mediaSubdir(),
             backupInfo.messageBackupKey(),
-            backupInfo.mediaUsedSpace().orElse(null)));
+            backupInfo.mediaUsedSpace().orElse(0L)));
   }
 
   public record SetPublicKeyRequest(
