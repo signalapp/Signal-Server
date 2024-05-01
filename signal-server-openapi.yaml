@@ -1339,7 +1339,7 @@ paths:
         "422":
           description: Invalid request format.
         "429":
-          description: Ratelimited.
+          description: Rate limited.
       security:
       - authenticatedAccount: []
   /v1/certificate/delivery:
@@ -4157,10 +4157,10 @@ components:
     WebSocketClient:
       type: object
       properties:
-        open:
-          type: boolean
         userAgent:
           type: string
+        open:
+          type: boolean
         createdTimestamp:
           type: integer
           format: int64
