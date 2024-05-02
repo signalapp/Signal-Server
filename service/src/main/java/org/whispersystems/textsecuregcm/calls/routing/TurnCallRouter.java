@@ -32,19 +32,23 @@ public class TurnCallRouter {
   private final Supplier<CallRoutingTable> manualRouting;
   private final DynamicConfigTurnRouter configTurnRouter;
   private final Supplier<DatabaseReader> geoIp;
+  // controls whether instance IPs are shuffled. using if & boolean is ~5x faster than a function pointer
+  private final boolean stableSelect;
 
   public TurnCallRouter(
       @Nonnull Supplier<CallDnsRecords> callDnsRecords,
       @Nonnull Supplier<CallRoutingTable> performanceRouting,
       @Nonnull Supplier<CallRoutingTable> manualRouting,
       @Nonnull DynamicConfigTurnRouter configTurnRouter,
-      @Nonnull Supplier<DatabaseReader> geoIp
+      @Nonnull Supplier<DatabaseReader> geoIp,
+      boolean stableSelect
   ) {
     this.performanceRouting = performanceRouting;
     this.callDnsRecords = callDnsRecords;
     this.manualRouting = manualRouting;
     this.configTurnRouter = configTurnRouter;
     this.geoIp = geoIp;
+    this.stableSelect = stableSelect;
   }
 
   /**
@@ -139,10 +143,10 @@ public class TurnCallRouter {
 
     CallDnsRecords dnsRecords = this.callDnsRecords.get();
     List<InetAddress> ipv4Selection = datacenters.stream()
-        .flatMap(dc -> Util.randomNOfStable(dnsRecords.aByRegion().get(dc), limit).stream())
+        .flatMap(dc -> randomNOf(dnsRecords.aByRegion().get(dc), limit, stableSelect).stream())
         .toList();
     List<InetAddress> ipv6Selection = datacenters.stream()
-        .flatMap(dc -> Util.randomNOfStable(dnsRecords.aaaaByRegion().get(dc), limit).stream())
+        .flatMap(dc -> randomNOf(dnsRecords.aaaaByRegion().get(dc), limit, stableSelect).stream())
         .toList();
 
     // increase numV4 if not enough v6 options. vice-versa is also true
@@ -155,6 +159,10 @@ public class TurnCallRouter {
         // map ipv6 to RFC3986 format i.e. surrounded by brackets
         ipv6Selection.stream().map(i -> String.format("[%s]", i.getHostAddress()))
     ).toList();
+  }
+
+  private static <E> List<E> randomNOf(List<E> values, int n, boolean stableSelect) {
+    return stableSelect ? Util.randomNOfStable(values, n) : Util.randomNOfShuffled(values, n);
   }
 
   private static List<String> getUrlsForInstances(List<String> instanceIps) {

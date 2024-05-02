@@ -169,21 +169,18 @@ public class Util {
   }
 
   /**
-   * Chooses min(values.size(), n) random values.
+   * Chooses min(values.size(), n) random values in shuffled order.
    * <br>
    * Copies the input Array - use for small lists only or for when n/values.size() is near 1.
    */
-  public static <E> List<E> randomNOf(List<E> values, int n) {
+  public static <E> List<E> randomNOfShuffled(List<E> values, int n) {
     if(values == null || values.isEmpty()) {
       return Collections.emptyList();
     }
 
     List<E> result = new ArrayList<>(values);
-    if(n >= values.size()) {
-      return result;
-    }
-
     Collections.shuffle(result);
+
     return result.stream().limit(n).toList();
   }
 

@@ -108,7 +108,9 @@ public class TurnCallRouterTest {
         () -> performanceTable,
         () -> manualTable,
          configTurnRouter,
-        () -> geoIp
+        () -> geoIp,
+        // set to true so the return values are predictable
+        true
     );
   }
 

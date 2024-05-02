@@ -747,7 +747,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         callRoutingTableManager,
         manualCallRoutingTableManager,
         configTurnRouter,
-        geoIpCityDatabaseManager
+        geoIpCityDatabaseManager,
+        false
     );
 
     final ClientConnectionManager clientConnectionManager = new ClientConnectionManager();
