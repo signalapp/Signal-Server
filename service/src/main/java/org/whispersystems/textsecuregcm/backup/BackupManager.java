@@ -9,8 +9,7 @@ import com.google.common.annotations.VisibleForTesting;
 import io.grpc.Status;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
-import java.io.IOException;
-import java.net.URI;
+import io.micrometer.core.instrument.Timer;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
@@ -22,9 +21,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.stream.Collectors;
-import io.micrometer.core.instrument.Timer;
-import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import org.signal.libsignal.zkgroup.GenericServerSecretParams;
@@ -80,7 +76,6 @@ public class BackupManager {
   private final TusAttachmentGenerator tusAttachmentGenerator;
   private final Cdn3BackupCredentialGenerator cdn3BackupCredentialGenerator;
   private final RemoteStorageManager remoteStorageManager;
-  private final Map<Integer, String> attachmentCdnBaseUris;
   private final SecureRandom secureRandom = new SecureRandom();
   private final Clock clock;
 
@@ -92,7 +87,6 @@ public class BackupManager {
       final TusAttachmentGenerator tusAttachmentGenerator,
       final Cdn3BackupCredentialGenerator cdn3BackupCredentialGenerator,
       final RemoteStorageManager remoteStorageManager,
-      final Map<Integer, String> attachmentCdnBaseUris,
       final Clock clock) {
     this.backupsDb = backupsDb;
     this.serverSecretParams = serverSecretParams;
@@ -101,11 +95,6 @@ public class BackupManager {
     this.cdn3BackupCredentialGenerator = cdn3BackupCredentialGenerator;
     this.remoteStorageManager = remoteStorageManager;
     this.clock = clock;
-    // strip trailing "/" for easier URI construction
-    this.attachmentCdnBaseUris = attachmentCdnBaseUris.entrySet().stream().collect(Collectors.toMap(
-        Map.Entry::getKey,
-        entry -> StringUtils.removeEnd(entry.getValue(), "/")
-    ));
   }
 
 
@@ -271,23 +260,15 @@ public class BackupManager {
           .asRuntimeException();
     }
 
-    final URI sourceUri;
-    try {
-      sourceUri = attachmentReadUri(sourceCdn, sourceKey);
-    } catch (IOException e) {
-      return CompletableFuture.failedFuture(e);
-    }
-
-    final BackupUploadDescriptor dst = cdn3BackupCredentialGenerator.generateUpload(
-        cdnMediaPath(backupUser, destinationMediaId));
-
+    final String destination = cdnMediaPath(backupUser, destinationMediaId);
     final int destinationLength = encryptionParameters.outputSize(sourceLength);
     return this.backupsDb
         // Write the ddb updates before actually updating backing storage
         .trackMedia(backupUser, 1, destinationLength)
 
         // Actually copy the objects. If the copy fails, our estimated quota usage may not be exact
-        .thenComposeAsync(ignored -> remoteStorageManager.copy(sourceUri, sourceLength, encryptionParameters, dst))
+        .thenComposeAsync(ignored ->
+            remoteStorageManager.copy(sourceCdn, sourceKey, sourceLength, encryptionParameters, destination))
         .exceptionallyCompose(throwable -> {
           final Throwable unwrapped = ExceptionUtils.unwrap(throwable);
           if (!(unwrapped instanceof SourceObjectNotFoundException) && !(unwrapped instanceof InvalidLengthException)) {
@@ -299,23 +280,8 @@ public class BackupManager {
           });
         })
         // indicates where the backup was stored
-        .thenApply(ignore -> new StorageDescriptor(dst.cdn(), destinationMediaId));
+        .thenApply(ignore -> new StorageDescriptor(remoteStorageManager.cdnNumber(), destinationMediaId));
 
-  }
-
-  /**
-   * Construct the URI for an attachment with the specified key
-   *
-   * @param cdn where the attachment is located
-   * @param key the attachment key
-   * @return A {@link URI} where the attachment can be retrieved
-   */
-  private URI attachmentReadUri(final int cdn, final String key) throws IOException {
-    final String baseUri = attachmentCdnBaseUris.get(cdn);
-    if (baseUri == null) {
-      throw new SourceObjectNotFoundException("Unknown attachment cdn " + cdn);
-    }
-    return URI.create("%s/%s".formatted(baseUri, key));
   }
 
   /**
@@ -377,7 +343,7 @@ public class BackupManager {
         // Try to swap out the backupDir for the user
         .scheduleBackupDeletion(backupUser)
         // If there was already a pending swap, try to delete the cdn objects directly
-        .exceptionallyCompose(ExceptionUtils.exceptionallyHandler(BackupsDb.PendingDeletionException.class,e ->
+        .exceptionallyCompose(ExceptionUtils.exceptionallyHandler(BackupsDb.PendingDeletionException.class, e ->
             AsyncTimerUtil.record(SYNCHRONOUS_DELETE_TIMER, () ->
                 deletePrefix(backupUser.backupDir(), DELETION_CONCURRENCY))));
   }
@@ -590,7 +556,7 @@ public class BackupManager {
   /**
    * Check that the authenticated backup user is authorized to use the provided backupLevel
    *
-   * @param backupUser The backup user to check
+   * @param backupUser  The backup user to check
    * @param backupLevel The authorization level to verify the backupUser has access to
    * @throws {@link Status#PERMISSION_DENIED} error if the backup user is not authorized to access {@code backupLevel}
    */

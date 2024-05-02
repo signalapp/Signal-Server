@@ -1,6 +1,5 @@
 package org.whispersystems.textsecuregcm.backup;
 
-import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;
@@ -18,12 +17,13 @@ public interface RemoteStorageManager {
   /**
    * Copy and the object from a remote source into the backup, adding an additional layer of encryption
    *
-   * @param sourceUri            The location of the object to copy
+   * @param sourceCdn            The cdn number where the source attachment is stored
+   * @param sourceKey            The key of the source attachment within the attachment cdn
    * @param expectedSourceLength The length of the source object, should match the content-length of the object returned
    *                             from the sourceUri.
    * @param encryptionParameters The encryption keys that should be used to apply an additional layer of encryption to
    *                             the object
-   * @param uploadDescriptor     The destination, which must be in the cdn returned by {@link #cdnNumber()}
+   * @param dstKey               The key within the backup cdn where the copied object will be written
    * @return A stage that completes successfully when the source has been successfully re-encrypted and copied into
    * uploadDescriptor. The returned CompletionStage can be completed exceptionally with the following exceptions.
    * <ul>
@@ -33,10 +33,11 @@ public interface RemoteStorageManager {
    * </ul>
    */
   CompletionStage<Void> copy(
-      URI sourceUri,
+      int sourceCdn,
+      String sourceKey,
       int expectedSourceLength,
       MediaEncryptionParameters encryptionParameters,
-      BackupUploadDescriptor uploadDescriptor);
+      String dstKey);
 
   /**
    * Result of a {@link #list} operation

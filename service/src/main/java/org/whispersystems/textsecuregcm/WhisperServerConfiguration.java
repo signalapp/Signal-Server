@@ -115,11 +115,6 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @Valid
   @JsonProperty
-  private ClientCdnConfiguration clientCdn;
-
-  @NotNull
-  @Valid
-  @JsonProperty
   private Cdn3StorageManagerConfiguration cdn3StorageManager;
 
   @NotNull
@@ -448,10 +443,6 @@ public class WhisperServerConfiguration extends Configuration {
 
   public CdnConfiguration getCdnConfiguration() {
     return cdn;
-  }
-
-  public ClientCdnConfiguration getClientCdnConfiguration() {
-    return clientCdn;
   }
 
   public Cdn3StorageManagerConfiguration getCdn3StorageManagerConfiguration() {

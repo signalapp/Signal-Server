@@ -101,6 +101,8 @@ public class BackupManagerTest {
 
     final RateLimiters rateLimiters = mock(RateLimiters.class);
     when(rateLimiters.forDescriptor(RateLimiters.For.BACKUP_ATTACHMENT)).thenReturn(mediaUploadLimiter);
+    
+    when(remoteStorageManager.cdnNumber()).thenReturn(3);
 
     this.backupsDb = new BackupsDb(
         DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
@@ -113,7 +115,6 @@ public class BackupManagerTest {
         tusAttachmentGenerator,
         tusCredentialGenerator,
         remoteStorageManager,
-        Map.of(3, "cdn3.example.org/attachments"),
         testClock);
   }
 
@@ -352,7 +353,7 @@ public class BackupManagerTest {
     final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupLevel.MEDIA);
     when(tusCredentialGenerator.generateUpload(any()))
         .thenReturn(new BackupUploadDescriptor(3, "def", Collections.emptyMap(), ""));
-    when(remoteStorageManager.copy(eq(URI.create("cdn3.example.org/attachments/abc")), eq(100), any(), any()))
+    when(remoteStorageManager.copy(eq(3), eq("abc"), eq(100), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(null));
     final MediaEncryptionParameters encryptionParams = new MediaEncryptionParameters(
         TestRandomUtil.nextBytes(32),
@@ -378,7 +379,7 @@ public class BackupManagerTest {
     final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupLevel.MEDIA);
     when(tusCredentialGenerator.generateUpload(any()))
         .thenReturn(new BackupUploadDescriptor(3, "def", Collections.emptyMap(), ""));
-    when(remoteStorageManager.copy(eq(URI.create("cdn3.example.org/attachments/abc")), eq(100), any(), any()))
+    when(remoteStorageManager.copy(eq(3), eq("abc"), eq(100), any(), any()))
         .thenReturn(CompletableFuture.failedFuture(new SourceObjectNotFoundException()));
 
     CompletableFutureTestUtil.assertFailsWithCause(SourceObjectNotFoundException.class,
@@ -392,17 +393,6 @@ public class BackupManagerTest {
     final Map<String, AttributeValue> backup = getBackupItem(backupUser);
     assertThat(AttributeValues.getLong(backup, BackupsDb.ATTR_MEDIA_BYTES_USED, -1L)).isEqualTo(0L);
     assertThat(AttributeValues.getLong(backup, BackupsDb.ATTR_MEDIA_COUNT, -1L)).isEqualTo(0L);
-  }
-
-  @Test
-  public void unknownSourceCdn() {
-    final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupLevel.MEDIA);
-    CompletableFutureTestUtil.assertFailsWithCause(SourceObjectNotFoundException.class,
-        backupManager.copyToBackup(
-            backupUser,
-            0, "abc", 100,
-            mock(MediaEncryptionParameters.class),
-            "def".getBytes(StandardCharsets.UTF_8)));
   }
 
   @Test

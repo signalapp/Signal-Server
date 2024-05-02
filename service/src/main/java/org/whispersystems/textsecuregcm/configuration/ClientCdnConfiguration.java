@@ -13,20 +13,6 @@ import java.util.Map;
  */
 public class ClientCdnConfiguration {
 
-  /**
-   * Map from cdn number to the base url for attachments.
-   * <p>
-   * For example, if an attachment with the id 'abc' can be retrieved from cdn 2 at https://example.org/attachments/abc,
-   * the attachment url for 2 should https://example.org/attachments
-   */
-  @JsonProperty
-  @NotNull
-  Map<Integer, @NotBlank String> attachmentUrls;
-
-  @JsonProperty
-  @NotNull
-  @NotEmpty List<@NotBlank String> caCertificates = new ArrayList<>();
-
   @JsonProperty
   @NotNull
   CircuitBreakerConfiguration circuitBreaker = new CircuitBreakerConfiguration();
@@ -35,19 +21,11 @@ public class ClientCdnConfiguration {
   @NotNull
   RetryConfiguration retry = new RetryConfiguration();
 
-  public List<String> getCaCertificates() {
-    return caCertificates;
-  }
-
   public CircuitBreakerConfiguration getCircuitBreaker() {
     return circuitBreaker;
   }
 
   public RetryConfiguration getRetry() {
     return retry;
-  }
-
-  public Map<Integer, String> getAttachmentUrls() {
-    return attachmentUrls;
   }
 }

@@ -211,13 +211,7 @@ record CommandDependencies(
         rateLimiters,
         new TusAttachmentGenerator(configuration.getTus()),
         new Cdn3BackupCredentialGenerator(configuration.getTus()),
-        new Cdn3RemoteStorageManager(
-            remoteStorageExecutor,
-            configuration.getClientCdnConfiguration().getCircuitBreaker(),
-            configuration.getClientCdnConfiguration().getRetry(),
-            configuration.getClientCdnConfiguration().getCaCertificates(),
-            configuration.getCdn3StorageManagerConfiguration()),
-        configuration.getClientCdnConfiguration().getAttachmentUrls(),
+        new Cdn3RemoteStorageManager(remoteStorageExecutor, configuration.getCdn3StorageManagerConfiguration()),
         clock);
 
     environment.lifecycle().manage(messagesCache);

@@ -703,13 +703,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         rateLimiters,
         tusAttachmentGenerator,
         cdn3BackupCredentialGenerator,
-        new Cdn3RemoteStorageManager(
-            remoteStorageExecutor,
-            config.getClientCdnConfiguration().getCircuitBreaker(),
-            config.getClientCdnConfiguration().getRetry(),
-            config.getClientCdnConfiguration().getCaCertificates(),
-            config.getCdn3StorageManagerConfiguration()),
-        config.getClientCdnConfiguration().getAttachmentUrls(),
+        new Cdn3RemoteStorageManager(remoteStorageExecutor, config.getCdn3StorageManagerConfiguration()),
         clock);
 
     final DynamicConfigTurnRouter configTurnRouter = new DynamicConfigTurnRouter(dynamicConfigurationManager);
