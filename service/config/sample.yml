@@ -457,6 +457,7 @@ turn:
     password: secret://turn.cloudflare.password
     urls:
       - turns:turn.cloudflare.example.com:443?transport=tcp
+    hostname: turn.cloudflare.example.com
 
 linkDevice:
   secret: secret://linkDevice.secret

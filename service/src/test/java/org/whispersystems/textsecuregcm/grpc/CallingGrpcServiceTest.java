@@ -48,9 +48,10 @@ class CallingGrpcServiceTest extends SimpleBaseGrpcTest<CallingGrpcService, Call
     final String username = "test-username";
     final String password = "test-password";
     final List<String> urls = List.of("first", "second");
+    final String hostname = "hostname";
 
     MockUtils.updateRateLimiterResponseToAllow(turnCredentialRateLimiter, AUTHENTICATED_ACI);
-    when(turnTokenGenerator.generate(any())).thenReturn(new TurnToken(username, password, urls));
+    when(turnTokenGenerator.generate(any())).thenReturn(new TurnToken(username, password, urls, null, hostname));
 
     final GetTurnCredentialsResponse response = authenticatedServiceStub().getTurnCredentials(GetTurnCredentialsRequest.newBuilder().build());
 

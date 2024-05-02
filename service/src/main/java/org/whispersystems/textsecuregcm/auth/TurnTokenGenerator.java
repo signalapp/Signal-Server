@@ -41,6 +41,7 @@ public class TurnTokenGenerator {
   private final String cloudflareTurnUsername;
   private final String cloudflareTurnPassword;
   private final List<String> cloudflareTurnUrls;
+  private final String cloudflareTurnHostname;
 
   public TurnTokenGenerator(final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
       final byte[] turnSecret, final CloudflareTurnConfiguration cloudflareTurnConfiguration) {
@@ -51,6 +52,7 @@ public class TurnTokenGenerator {
     this.cloudflareTurnUsername = cloudflareTurnConfiguration.username().value();
     this.cloudflareTurnPassword = cloudflareTurnConfiguration.password().value();
     this.cloudflareTurnUrls = cloudflareTurnConfiguration.urls();
+    this.cloudflareTurnHostname = cloudflareTurnConfiguration.hostname();
   }
 
   @Deprecated
@@ -63,7 +65,7 @@ public class TurnTokenGenerator {
   }
 
   public TurnToken generateForCloudflareBeta() {
-    return new TurnToken(cloudflareTurnUsername, cloudflareTurnPassword, cloudflareTurnUrls);
+    return new TurnToken(cloudflareTurnUsername, cloudflareTurnPassword, cloudflareTurnUrls, null, cloudflareTurnHostname);
   }
 
   private TurnToken generateToken(String hostname, List<String> urlsWithIps, List<String> urlsWithHostname) {

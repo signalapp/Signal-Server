@@ -59,7 +59,7 @@ class CallRoutingControllerTest {
   private static final TurnTokenGenerator turnTokenGenerator = new TurnTokenGenerator(dynamicConfigurationManager,
       "bloop".getBytes(StandardCharsets.UTF_8),
       new CloudflareTurnConfiguration(new SecretString("cf_username"), new SecretString("cf_password"),
-          List.of("turn:cf.example.com")));
+          List.of("turn:cf.example.com"), "cf.example.com"));
   private static final TurnCallRouter turnCallRouter = mock(TurnCallRouter.class);
 
   private static final ResourceExtension resources = ResourceExtension.builder()
@@ -128,7 +128,7 @@ class CallRoutingControllerTest {
       TurnToken token = response.readEntity(TurnToken.class);
       assertThat(token.username()).isNotEmpty();
       assertThat(token.password()).isNotEmpty();
-      assertThat(token.hostname()).isNull();
+      assertThat(token.hostname()).isNotEmpty();
       assertThat(token.urlsWithIps()).isNull();
       assertThat(token.urls()).isEqualTo(List.of("turn:cf.example.com"));
     }

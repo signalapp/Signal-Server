@@ -20,7 +20,7 @@ import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 public class TurnTokenGeneratorTest {
 
   private static final CloudflareTurnConfiguration CLOUDFLARE_TURN_CONFIGURATION = new CloudflareTurnConfiguration(
-      new SecretString("cf_username"), new SecretString("cf_password"), List.of("turn:cloudflare.example.com"));
+      new SecretString("cf_username"), new SecretString("cf_password"), List.of("turn:cloudflare.example.com"), "cloudflare.example.com");
 
   @Test
   public void testAlwaysSelectFirst() throws JsonProcessingException {

@@ -12,6 +12,6 @@ import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 
 public record CloudflareTurnConfiguration(@NotNull SecretString username, @NotNull SecretString password,
-                                          @Valid @NotNull List<@NotBlank String> urls) {
+                                          @Valid @NotNull List<@NotBlank String> urls, @NotBlank String hostname) {
 
 }
