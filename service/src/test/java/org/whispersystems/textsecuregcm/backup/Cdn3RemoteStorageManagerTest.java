@@ -51,6 +51,7 @@ public class Cdn3RemoteStorageManagerTest {
   @BeforeEach
   public void init() {
     remoteStorageManager = new Cdn3RemoteStorageManager(
+        Executors.newCachedThreadPool(),
         Executors.newSingleThreadScheduledExecutor(),
         new Cdn3StorageManagerConfiguration(
             wireMock.url("storage-manager/"),

@@ -15,6 +15,7 @@ import java.security.cert.CertificateException;
 import java.time.Clock;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.SynchronousQueue;
 import org.signal.libsignal.zkgroup.GenericServerSecretParams;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
@@ -111,10 +112,14 @@ record CommandDependencies(
         .executorService(name(name, "accountLock-%d")).minThreads(8).maxThreads(8).build();
     ExecutorService clientPresenceExecutor = environment.lifecycle()
         .executorService(name(name, "clientPresence-%d")).minThreads(8).maxThreads(8).build();
+    ExecutorService remoteStorageHttpExecutor = environment.lifecycle()
+        .executorService(name(name, "remoteStorage-%d"))
+        .minThreads(0).maxThreads(Integer.MAX_VALUE).workQueue(new SynchronousQueue<>())
+        .keepAliveTime(io.dropwizard.util.Duration.seconds(60L)).build();
 
     ScheduledExecutorService secureValueRecoveryServiceRetryExecutor = environment.lifecycle()
         .scheduledExecutorService(name(name, "secureValueRecoveryServiceRetry-%d")).threads(1).build();
-    ScheduledExecutorService remoteStorageExecutor = environment.lifecycle()
+    ScheduledExecutorService remoteStorageRetryExecutor = environment.lifecycle()
         .scheduledExecutorService(name(name, "remoteStorageRetry-%d")).threads(1).build();
     ScheduledExecutorService storageServiceRetryExecutor = environment.lifecycle()
         .scheduledExecutorService(name(name, "storageServiceRetry-%d")).threads(1).build();
@@ -211,7 +216,10 @@ record CommandDependencies(
         rateLimiters,
         new TusAttachmentGenerator(configuration.getTus()),
         new Cdn3BackupCredentialGenerator(configuration.getTus()),
-        new Cdn3RemoteStorageManager(remoteStorageExecutor, configuration.getCdn3StorageManagerConfiguration()),
+        new Cdn3RemoteStorageManager(
+            remoteStorageHttpExecutor,
+            remoteStorageRetryExecutor,
+            configuration.getCdn3StorageManagerConfiguration()),
         clock);
 
     environment.lifecycle().manage(messagesCache);

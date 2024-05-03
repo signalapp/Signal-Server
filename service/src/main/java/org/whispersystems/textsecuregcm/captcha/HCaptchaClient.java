@@ -60,6 +60,7 @@ public class HCaptchaClient implements CaptchaClient {
   public HCaptchaClient(
       final String apiKey,
       final ScheduledExecutorService retryExecutor,
+      final ExecutorService httpExecutor,
       final CircuitBreakerConfiguration circuitBreakerConfiguration,
       final RetryConfiguration retryConfiguration,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
@@ -67,7 +68,7 @@ public class HCaptchaClient implements CaptchaClient {
         FaultTolerantHttpClient.newBuilder()
             .withName("hcaptcha")
             .withCircuitBreaker(circuitBreakerConfiguration)
-            .withExecutor(Executors.newCachedThreadPool())
+            .withExecutor(httpExecutor)
             .withRetryExecutor(retryExecutor)
             .withRetry(retryConfiguration)
             .withRetryOnException(ex -> ex instanceof IOException)

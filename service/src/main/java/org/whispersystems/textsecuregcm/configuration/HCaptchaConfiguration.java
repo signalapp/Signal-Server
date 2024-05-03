@@ -12,6 +12,7 @@ import org.whispersystems.textsecuregcm.captcha.HCaptchaClient;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretString;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
 @JsonTypeName("default")
@@ -43,11 +44,14 @@ public class HCaptchaConfiguration implements HCaptchaClientFactory {
   }
 
   @Override
-  public HCaptchaClient build(final ScheduledExecutorService retryExecutor,
+  public HCaptchaClient build(
+      final ScheduledExecutorService retryExecutor,
+      final ExecutorService httpExecutor,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
     return new HCaptchaClient(
         apiKey.value(),
         retryExecutor,
+        httpExecutor,
         circuitBreaker,
         retry,
         dynamicConfigurationManager);

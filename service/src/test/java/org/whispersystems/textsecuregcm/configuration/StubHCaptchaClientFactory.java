@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.configuration;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import java.io.IOException;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import org.whispersystems.textsecuregcm.captcha.Action;
 import org.whispersystems.textsecuregcm.captcha.AssessmentResult;
@@ -19,10 +20,11 @@ import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 public class StubHCaptchaClientFactory implements HCaptchaClientFactory {
 
   @Override
-  public HCaptchaClient build(final ScheduledExecutorService retryExecutor,
+  public HCaptchaClient build(final ScheduledExecutorService retryExecutor, ExecutorService httpExecutor,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
 
-    return new StubHCaptchaClient(retryExecutor, new CircuitBreakerConfiguration(), dynamicConfigurationManager);
+    return new StubHCaptchaClient(retryExecutor, httpExecutor, new CircuitBreakerConfiguration(),
+        dynamicConfigurationManager);
   }
 
   /**
@@ -30,10 +32,10 @@ public class StubHCaptchaClientFactory implements HCaptchaClientFactory {
    */
   private static class StubHCaptchaClient extends HCaptchaClient {
 
-    public StubHCaptchaClient(final ScheduledExecutorService retryExecutor,
+    public StubHCaptchaClient(final ScheduledExecutorService retryExecutor, ExecutorService httpExecutor,
         final CircuitBreakerConfiguration circuitBreakerConfiguration,
         final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
-      super(null, retryExecutor, circuitBreakerConfiguration, null, dynamicConfigurationManager);
+      super(null, retryExecutor, httpExecutor, circuitBreakerConfiguration, null, dynamicConfigurationManager);
     }
 
     @Override

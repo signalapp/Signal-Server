@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import javax.annotation.Nullable;
@@ -55,6 +56,7 @@ public class Cdn3RemoteStorageManager implements RemoteStorageManager {
   private static final String STATUS_TAG_NAME = "status";
 
   public Cdn3RemoteStorageManager(
+      final ExecutorService httpExecutor,
       final ScheduledExecutorService retryExecutor,
       final Cdn3StorageManagerConfiguration configuration) {
 
@@ -67,7 +69,7 @@ public class Cdn3RemoteStorageManager implements RemoteStorageManager {
     this.storageManagerHttpClient = FaultTolerantHttpClient.newBuilder()
         .withName("cdn3-storage-manager")
         .withCircuitBreaker(configuration.circuitBreaker())
-        .withExecutor(Executors.newCachedThreadPool())
+        .withExecutor(httpExecutor)
         .withRetryExecutor(retryExecutor)
         .withRetry(configuration.retry())
         .withConnectTimeout(Duration.ofSeconds(10))

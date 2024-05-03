@@ -10,11 +10,12 @@ import io.dropwizard.jackson.Discoverable;
 import org.whispersystems.textsecuregcm.captcha.HCaptchaClient;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type", defaultImpl = HCaptchaConfiguration.class)
 public interface HCaptchaClientFactory extends Discoverable {
 
-  HCaptchaClient build(ScheduledExecutorService retryExecutor,
+  HCaptchaClient build(ScheduledExecutorService retryExecutor, ExecutorService httpExecutor,
       DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager);
 }

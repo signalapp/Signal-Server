@@ -43,6 +43,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.stream.Stream;
 import javax.servlet.DispatcherType;
@@ -463,7 +464,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .scheduledExecutorService(name(getClass(), "storageServiceRetry-%d")).threads(1).build();
     ScheduledExecutorService hcaptchaRetryExecutor = environment.lifecycle()
         .scheduledExecutorService(name(getClass(), "hCaptchaRetry-%d")).threads(1).build();
-    ScheduledExecutorService remoteStorageExecutor = environment.lifecycle()
+    ScheduledExecutorService remoteStorageRetryExecutor = environment.lifecycle()
         .scheduledExecutorService(name(getClass(), "remoteStorageRetry-%d")).threads(1).build();
     ScheduledExecutorService registrationIdentityTokenRefreshExecutor = environment.lifecycle()
         .scheduledExecutorService(name(getClass(), "registrationIdentityTokenRefresh-%d")).threads(1).build();
@@ -512,6 +513,23 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .minThreads(8)
         .maxThreads(8)
         .build();
+    // unbounded executor (same as cachedThreadPool)
+    ExecutorService hcaptchaHttpExecutor = environment.lifecycle()
+        .executorService(name(getClass(), "hcaptcha-%d"))
+        .minThreads(0)
+        .maxThreads(Integer.MAX_VALUE)
+        .workQueue(new SynchronousQueue<>())
+        .keepAliveTime(io.dropwizard.util.Duration.seconds(60L))
+        .build();
+    // unbounded executor (same as cachedThreadPool)
+    ExecutorService remoteStorageHttpExecutor = environment.lifecycle()
+        .executorService(name(getClass(), "remoteStorage-%d"))
+        .minThreads(0)
+        .maxThreads(Integer.MAX_VALUE)
+        .workQueue(new SynchronousQueue<>())
+        .keepAliveTime(io.dropwizard.util.Duration.seconds(60L))
+        .build();
+
     ScheduledExecutorService subscriptionProcessorRetryExecutor = environment.lifecycle()
         .scheduledExecutorService(name(getClass(), "subscriptionProcessorRetry-%d")).threads(1).build();
 
@@ -613,7 +631,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getMessageByteLimitCardinalityEstimator().period());
 
     HCaptchaClient hCaptchaClient = config.getHCaptchaConfiguration()
-        .build(hcaptchaRetryExecutor, dynamicConfigurationManager);
+        .build(hcaptchaRetryExecutor, hcaptchaHttpExecutor, dynamicConfigurationManager);
     HttpClient shortCodeRetrieverHttpClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_2)
         .connectTimeout(Duration.ofSeconds(10)).build();
     ShortCodeExpander shortCodeRetriever = new ShortCodeExpander(shortCodeRetrieverHttpClient, config.getShortCodeRetrieverConfiguration().baseUrl());
@@ -697,13 +715,17 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         dynamoDbAsyncClient,
         config.getDynamoDbTables().getBackups().getTableName(),
         clock);
+    final Cdn3RemoteStorageManager cdn3RemoteStorageManager = new Cdn3RemoteStorageManager(
+        remoteStorageHttpExecutor,
+        remoteStorageRetryExecutor,
+        config.getCdn3StorageManagerConfiguration());
     BackupManager backupManager = new BackupManager(
         backupsDb,
         backupsGenericZkSecretParams,
         rateLimiters,
         tusAttachmentGenerator,
         cdn3BackupCredentialGenerator,
-        new Cdn3RemoteStorageManager(remoteStorageExecutor, config.getCdn3StorageManagerConfiguration()),
+        cdn3RemoteStorageManager,
         clock);
 
     final DynamicConfigTurnRouter configTurnRouter = new DynamicConfigTurnRouter(dynamicConfigurationManager);
