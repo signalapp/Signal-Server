@@ -1419,7 +1419,7 @@ class AccountsTest {
     accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1)).join();
     accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1).join();
 
-    accounts.clearUsernameHash(account);
+    accounts.clearUsernameHash(account).join();
 
     Account account2 = generateAccount("+18005554321", UUID.randomUUID(), UUID.randomUUID());
     createAccount(account2);
