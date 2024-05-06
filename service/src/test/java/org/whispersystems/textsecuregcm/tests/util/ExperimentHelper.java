@@ -27,8 +27,13 @@ public class ExperimentHelper {
     when(dcm.getConfiguration()).thenReturn(dc);
     final DynamicExperimentEnrollmentConfiguration exp = mock(DynamicExperimentEnrollmentConfiguration.class);
     when(dc.getExperimentEnrollmentConfiguration(experimentName)).thenReturn(Optional.of(exp));
-    when(exp.getEnrolledUuids()).thenReturn(enrolledUuids);
+    final DynamicExperimentEnrollmentConfiguration.UuidSelector uuidSelector =
+        mock(DynamicExperimentEnrollmentConfiguration.UuidSelector.class);
+    when(exp.getUuidSelector()).thenReturn(uuidSelector);
+
     when(exp.getEnrollmentPercentage()).thenReturn(enrollmentPercentage);
+    when(uuidSelector.getUuids()).thenReturn(enrolledUuids);
+    when(uuidSelector.getUuidEnrollmentPercentage()).thenReturn(100);
     return dcm;
   }
 

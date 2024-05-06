@@ -50,16 +50,25 @@ class DynamicConfigurationTest {
             percentageOnly:
               enrollmentPercentage: 12
             uuidsAndPercentage:
-              enrolledUuids:
-                - 717b1c09-ed0b-4120-bb0e-f4697534b8e1
-                - 279f264c-56d7-4bbf-b9da-de718ff90903
+              uuidSelector:
+                uuids:
+                  - 717b1c09-ed0b-4120-bb0e-f4697534b8e1
+                  - 279f264c-56d7-4bbf-b9da-de718ff90903
               enrollmentPercentage: 77
             uuidsOnly:
-              enrolledUuids:
+              uuidSelector:
+                uuids:
                 - 71618739-114c-4b1f-bb0d-6478a44eb600
             uuids-with-dash:
-              enrolledUuids:
-                - 71618739-114c-4b1f-bb0d-6478ffffffff
+              uuidSelector:
+                uuids:
+                  - 71618739-114c-4b1f-bb0d-6478ffffffff
+            uuidsAndSubSelection:
+              uuidSelector:
+                uuids:
+                  - 6664224c-20cc-45a0-829b-95059e8a04f5
+                uuidEnrollmentPercentage: 91
+              enrollmentPercentage: 71
           """);
 
       final DynamicConfiguration config =
@@ -67,27 +76,35 @@ class DynamicConfigurationTest {
 
       assertFalse(config.getExperimentEnrollmentConfiguration("unconfigured").isPresent());
 
-      assertTrue(config.getExperimentEnrollmentConfiguration("percentageOnly").isPresent());
-      assertEquals(12, config.getExperimentEnrollmentConfiguration("percentageOnly").get().getEnrollmentPercentage());
-      assertEquals(Collections.emptySet(),
-          config.getExperimentEnrollmentConfiguration("percentageOnly").get().getEnrolledUuids());
+      final DynamicExperimentEnrollmentConfiguration percentageOnly = config.getExperimentEnrollmentConfiguration("percentageOnly").orElseThrow();
+      assertEquals(12, percentageOnly.getEnrollmentPercentage());
+      assertEquals(Collections.emptySet(), percentageOnly.getUuidSelector().getUuids());
+      assertEquals(100, percentageOnly.getUuidSelector().getUuidEnrollmentPercentage());
 
-      assertTrue(config.getExperimentEnrollmentConfiguration("uuidsAndPercentage").isPresent());
-      assertEquals(77,
-          config.getExperimentEnrollmentConfiguration("uuidsAndPercentage").get().getEnrollmentPercentage());
+      final DynamicExperimentEnrollmentConfiguration uuidsAndPercentage = config.getExperimentEnrollmentConfiguration("uuidsAndPercentage").orElseThrow();
+      assertEquals(77, uuidsAndPercentage.getEnrollmentPercentage());
       assertEquals(Set.of(UUID.fromString("717b1c09-ed0b-4120-bb0e-f4697534b8e1"),
           UUID.fromString("279f264c-56d7-4bbf-b9da-de718ff90903")),
-          config.getExperimentEnrollmentConfiguration("uuidsAndPercentage").get().getEnrolledUuids());
+          uuidsAndPercentage.getUuidSelector().getUuids());
+      assertEquals(100, uuidsAndPercentage.getUuidSelector().getUuidEnrollmentPercentage());
 
-      assertTrue(config.getExperimentEnrollmentConfiguration("uuidsOnly").isPresent());
-      assertEquals(0, config.getExperimentEnrollmentConfiguration("uuidsOnly").get().getEnrollmentPercentage());
+      final DynamicExperimentEnrollmentConfiguration uuidsOnly = config.getExperimentEnrollmentConfiguration("uuidsOnly").orElseThrow();
+      assertEquals(0, uuidsOnly.getEnrollmentPercentage());
       assertEquals(Set.of(UUID.fromString("71618739-114c-4b1f-bb0d-6478a44eb600")),
-          config.getExperimentEnrollmentConfiguration("uuidsOnly").get().getEnrolledUuids());
+          uuidsOnly.getUuidSelector().getUuids());
+      assertEquals(100, uuidsOnly.getUuidSelector().getUuidEnrollmentPercentage());
 
-      assertTrue(config.getExperimentEnrollmentConfiguration("uuids-with-dash").isPresent());
-      assertEquals(0, config.getExperimentEnrollmentConfiguration("uuids-with-dash").get().getEnrollmentPercentage());
+      final DynamicExperimentEnrollmentConfiguration uuidsWithDash = config.getExperimentEnrollmentConfiguration("uuids-with-dash").orElseThrow();
+      assertEquals(0, uuidsWithDash.getEnrollmentPercentage());
       assertEquals(Set.of(UUID.fromString("71618739-114c-4b1f-bb0d-6478ffffffff")),
-          config.getExperimentEnrollmentConfiguration("uuids-with-dash").get().getEnrolledUuids());
+          uuidsWithDash.getUuidSelector().getUuids());
+      assertEquals(100, uuidsWithDash.getUuidSelector().getUuidEnrollmentPercentage());
+
+      final DynamicExperimentEnrollmentConfiguration uuidsAndSubSelection = config.getExperimentEnrollmentConfiguration("uuidsAndSubSelection").orElseThrow();
+      assertEquals(71, uuidsAndSubSelection.getEnrollmentPercentage());
+      assertEquals(Set.of(UUID.fromString("6664224c-20cc-45a0-829b-95059e8a04f5")),
+          uuidsAndSubSelection.getUuidSelector().getUuids());
+      assertEquals(91, uuidsAndSubSelection.getUuidSelector().getUuidEnrollmentPercentage());
     }
   }
 

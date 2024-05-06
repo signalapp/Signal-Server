@@ -9,12 +9,18 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import java.util.Collections;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,12 +35,14 @@ import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 
 class ExperimentEnrollmentManagerTest {
 
+  private DynamicExperimentEnrollmentConfiguration.UuidSelector uuidSelector;
   private DynamicExperimentEnrollmentConfiguration experimentEnrollmentConfiguration;
   private DynamicPreRegistrationExperimentEnrollmentConfiguration preRegistrationExperimentEnrollmentConfiguration;
 
   private ExperimentEnrollmentManager experimentEnrollmentManager;
 
   private Account account;
+  private Random random;
 
   private static final UUID ACCOUNT_UUID = UUID.randomUUID();
   private static final String UUID_EXPERIMENT_NAME = "uuid_test";
@@ -47,10 +55,14 @@ class ExperimentEnrollmentManagerTest {
   void setUp() {
     final DynamicConfigurationManager dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
     final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
+    random = spy(new Random());
+    experimentEnrollmentManager = new ExperimentEnrollmentManager(dynamicConfigurationManager, random);
 
-    experimentEnrollmentManager = new ExperimentEnrollmentManager(dynamicConfigurationManager);
+    uuidSelector = mock(DynamicExperimentEnrollmentConfiguration.UuidSelector.class);
+    when(uuidSelector.getUuidEnrollmentPercentage()).thenReturn(100);
 
     experimentEnrollmentConfiguration = mock(DynamicExperimentEnrollmentConfiguration.class);
+    when(experimentEnrollmentConfiguration.getUuidSelector()).thenReturn(uuidSelector);
     preRegistrationExperimentEnrollmentConfiguration = mock(
         DynamicPreRegistrationExperimentEnrollmentConfiguration.class);
 
@@ -70,16 +82,34 @@ class ExperimentEnrollmentManagerTest {
     assertFalse(
         experimentEnrollmentManager.isEnrolled(account.getUuid(), UUID_EXPERIMENT_NAME + "-unrelated-experiment"));
 
-    when(experimentEnrollmentConfiguration.getEnrolledUuids()).thenReturn(Set.of(ACCOUNT_UUID));
+    when(uuidSelector.getUuids()).thenReturn(Set.of(ACCOUNT_UUID));
     assertTrue(experimentEnrollmentManager.isEnrolled(account.getUuid(), UUID_EXPERIMENT_NAME));
 
-    when(experimentEnrollmentConfiguration.getEnrolledUuids()).thenReturn(Collections.emptySet());
+    when(uuidSelector.getUuids()).thenReturn(Collections.emptySet());
     when(experimentEnrollmentConfiguration.getEnrollmentPercentage()).thenReturn(0);
 
     assertFalse(experimentEnrollmentManager.isEnrolled(account.getUuid(), UUID_EXPERIMENT_NAME));
 
     when(experimentEnrollmentConfiguration.getEnrollmentPercentage()).thenReturn(100);
     assertTrue(experimentEnrollmentManager.isEnrolled(account.getUuid(), UUID_EXPERIMENT_NAME));
+  }
+
+  @Test
+  void testIsEnrolled_UuidExperimentPercentage() {
+    when(uuidSelector.getUuids()).thenReturn(Set.of(ACCOUNT_UUID));
+    when(uuidSelector.getUuidEnrollmentPercentage()).thenReturn(0);
+    assertFalse(experimentEnrollmentManager.isEnrolled(account.getUuid(), UUID_EXPERIMENT_NAME));
+    when(uuidSelector.getUuidEnrollmentPercentage()).thenReturn(100);
+    assertTrue(experimentEnrollmentManager.isEnrolled(account.getUuid(), UUID_EXPERIMENT_NAME));
+
+    when(uuidSelector.getUuidEnrollmentPercentage()).thenReturn(75);
+    final Map<Boolean, Long> counts = IntStream.range(0, 100).mapToObj(i -> {
+          when(random.nextInt(100)).thenReturn(i);
+          return experimentEnrollmentManager.isEnrolled(account.getUuid(), UUID_EXPERIMENT_NAME);
+        })
+        .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+    assertEquals(25, counts.get(false));
+    assertEquals(75, counts.get(true));
   }
 
   @ParameterizedTest

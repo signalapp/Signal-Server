@@ -6,7 +6,10 @@
 package org.whispersystems.textsecuregcm.experiment;
 
 import java.util.Optional;
+import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
+import com.google.common.annotations.VisibleForTesting;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicExperimentEnrollmentConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicPreRegistrationExperimentEnrollmentConfiguration;
@@ -16,9 +19,20 @@ import org.whispersystems.textsecuregcm.util.Util;
 public class ExperimentEnrollmentManager {
 
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
+  private final Random random;
 
-  public ExperimentEnrollmentManager(final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
+
+  public ExperimentEnrollmentManager(
+      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
+    this(dynamicConfigurationManager, ThreadLocalRandom.current());
+  }
+
+  @VisibleForTesting
+  ExperimentEnrollmentManager(
+      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
+      final Random random) {
     this.dynamicConfigurationManager = dynamicConfigurationManager;
+    this.random = random;
   }
 
   public boolean isEnrolled(final UUID accountUuid, final String experimentName) {
@@ -28,8 +42,9 @@ public class ExperimentEnrollmentManager {
 
     return maybeConfiguration.map(config -> {
 
-      if (config.getEnrolledUuids().contains(accountUuid)) {
-        return true;
+      if (config.getUuidSelector().getUuids().contains(accountUuid)) {
+        final int r = random.nextInt(100);
+        return r < config.getUuidSelector().getUuidEnrollmentPercentage();
       }
 
       return isEnrolled(accountUuid, config.getEnrollmentPercentage(), experimentName);
