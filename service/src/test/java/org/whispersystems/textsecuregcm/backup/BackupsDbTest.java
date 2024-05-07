@@ -6,8 +6,16 @@
 package org.whispersystems.textsecuregcm.backup;
 
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
+import java.time.Instant;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -23,12 +31,6 @@ import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
 import org.whispersystems.textsecuregcm.util.TestClock;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import reactor.core.scheduler.Schedulers;
-import java.time.Instant;
-import java.util.List;
-import java.util.Optional;
-import java.util.function.Function;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 public class BackupsDbTest {
 
@@ -205,6 +207,45 @@ public class BackupsDbTest {
           .isEqualTo(Status.Code.NOT_FOUND);
       assertThat(expiredBackups.apply(Instant.ofEpochSecond(10))).isEmpty();
     }
+  }
+
+  @Test
+  public void list() {
+    final AuthenticatedBackupUser u1 = backupUser(TestRandomUtil.nextBytes(16), BackupLevel.MESSAGES);
+    final AuthenticatedBackupUser u2 = backupUser(TestRandomUtil.nextBytes(16), BackupLevel.MEDIA);
+    final AuthenticatedBackupUser u3 = backupUser(TestRandomUtil.nextBytes(16), BackupLevel.MEDIA);
+
+    // add at least one message backup, so we can describe it
+    testClock.pin(Instant.ofEpochSecond(10));
+    Stream.of(u1, u2, u3).forEach(u -> backupsDb.addMessageBackup(u).join());
+
+    testClock.pin(Instant.ofEpochSecond(20));
+    backupsDb.trackMedia(u2, 10, 100).join();
+
+    testClock.pin(Instant.ofEpochSecond(30));
+    backupsDb.trackMedia(u3, 1, 1000).join();
+
+    final List<StoredBackupAttributes> sbms = backupsDb.listBackupAttributes(1, Schedulers.immediate())
+        .sort(Comparator.comparing(StoredBackupAttributes::lastRefresh))
+        .collectList()
+        .block();
+
+    final StoredBackupAttributes sbm1 = sbms.get(0);
+    assertThat(sbm1.bytesUsed()).isEqualTo(0);
+    assertThat(sbm1.numObjects()).isEqualTo(0);
+    assertThat(sbm1.lastRefresh()).isEqualTo(Instant.ofEpochSecond(10));
+    assertThat(sbm1.lastMediaRefresh()).isEqualTo(Instant.EPOCH);
+
+
+    final StoredBackupAttributes sbm2 = sbms.get(1);
+    assertThat(sbm2.bytesUsed()).isEqualTo(100);
+    assertThat(sbm2.numObjects()).isEqualTo(10);
+    assertThat(sbm2.lastRefresh()).isEqualTo(sbm2.lastMediaRefresh()).isEqualTo(Instant.ofEpochSecond(20));
+
+    final StoredBackupAttributes sbm3 = sbms.get(2);
+    assertThat(sbm3.bytesUsed()).isEqualTo(1000);
+    assertThat(sbm3.numObjects()).isEqualTo(1);
+    assertThat(sbm3.lastRefresh()).isEqualTo(sbm3.lastMediaRefresh()).isEqualTo(Instant.ofEpochSecond(30));
   }
 
   private AuthenticatedBackupUser backupUser(final byte[] backupId, final BackupLevel backupLevel) {

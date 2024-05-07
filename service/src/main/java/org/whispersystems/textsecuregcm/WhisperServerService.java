@@ -234,6 +234,7 @@ import org.whispersystems.textsecuregcm.util.logging.UncaughtExceptionHandler;
 import org.whispersystems.textsecuregcm.websocket.AuthenticatedConnectListener;
 import org.whispersystems.textsecuregcm.websocket.ProvisioningConnectListener;
 import org.whispersystems.textsecuregcm.websocket.WebSocketAccountAuthenticator;
+import org.whispersystems.textsecuregcm.workers.BackupMetricsCommand;
 import org.whispersystems.textsecuregcm.workers.CertificateCommand;
 import org.whispersystems.textsecuregcm.workers.CheckDynamicConfigurationCommand;
 import org.whispersystems.textsecuregcm.workers.DeleteUserCommand;
@@ -298,6 +299,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     bootstrap.addCommand(new RemoveExpiredAccountsCommand(Clock.systemUTC()));
     bootstrap.addCommand(new RemoveExpiredUsernameHoldsCommand(Clock.systemUTC()));
     bootstrap.addCommand(new RemoveExpiredBackupsCommand(Clock.systemUTC()));
+    bootstrap.addCommand(new BackupMetricsCommand(Clock.systemUTC()));
     bootstrap.addCommand(new ProcessPushNotificationFeedbackCommand(Clock.systemUTC()));
     bootstrap.addCommand(new RemoveExpiredLinkedDevicesCommand());
   }

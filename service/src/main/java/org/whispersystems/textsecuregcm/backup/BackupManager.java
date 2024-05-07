@@ -453,6 +453,17 @@ public class BackupManager {
   }
 
   /**
+   * List all backups stored in the backups table
+   *
+   * @param segments  Number of segments to read in parallel from the underlying backup database
+   * @param scheduler Scheduler for running downstream operations
+   * @return Flux of {@link StoredBackupAttributes} for each backup record in the backups table
+   */
+  public Flux<StoredBackupAttributes> listBackupAttributes(final int segments, final Scheduler scheduler) {
+    return this.backupsDb.listBackupAttributes(segments, scheduler);
+  }
+
+  /**
    * List all backups whose media or messages refresh timestamp are older than the provided purgeTime
    *
    * @param segments  Number of segments to read in parallel from the underlying backup database

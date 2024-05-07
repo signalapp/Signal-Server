@@ -441,6 +441,37 @@ public class BackupsDb {
     }
   }
 
+  Flux<StoredBackupAttributes> listBackupAttributes(final int segments, final Scheduler scheduler) {
+    if (segments < 1) {
+      throw new IllegalArgumentException("Total number of segments must be positive");
+    }
+
+    return Flux.range(0, segments)
+        .parallel()
+        .runOn(scheduler)
+        .flatMap(segment -> dynamoClient.scanPaginator(ScanRequest.builder()
+                .tableName(backupTableName)
+                .consistentRead(true)
+                .segment(segment)
+                .totalSegments(segments)
+                .expressionAttributeNames(Map.of(
+                    "#backupIdHash", KEY_BACKUP_ID_HASH,
+                    "#refresh", ATTR_LAST_REFRESH,
+                    "#mediaRefresh", ATTR_LAST_MEDIA_REFRESH,
+                    "#bytesUsed", ATTR_MEDIA_BYTES_USED,
+                    "#numObjects", ATTR_MEDIA_COUNT))
+                .projectionExpression("#backupIdHash, #refresh, #mediaRefresh, #bytesUsed, #numObjects")
+                .build())
+            .items())
+        .sequential()
+        .filter(item -> item.containsKey(KEY_BACKUP_ID_HASH))
+        .map(item -> new StoredBackupAttributes(
+            Instant.ofEpochSecond(AttributeValues.getLong(item, ATTR_LAST_REFRESH, 0L)),
+            Instant.ofEpochSecond(AttributeValues.getLong(item, ATTR_LAST_MEDIA_REFRESH, 0L)),
+            AttributeValues.getLong(item, ATTR_MEDIA_BYTES_USED, 0L),
+            AttributeValues.getLong(item, ATTR_MEDIA_COUNT, 0L)));
+  }
+
   Flux<ExpiredBackup> getExpiredBackups(final int segments, final Scheduler scheduler, final Instant purgeTime) {
     if (segments < 1) {
       throw new IllegalArgumentException("Total number of segments must be positive");
