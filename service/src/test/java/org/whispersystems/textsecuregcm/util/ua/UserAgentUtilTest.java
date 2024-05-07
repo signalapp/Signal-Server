@@ -57,6 +57,8 @@ class UserAgentUtilTest {
         Arguments.of("Signal-Android/7.11.23-nightly-1982-06-28-07-07-07 tonic/0.31",
             new UserAgent(ClientPlatform.ANDROID, new Semver("7.11.23-nightly-1982-06-28-07-07-07"), "tonic/0.31")),
         Arguments.of("Signal-Android/7.11.23-nightly-1982-06-28-07-07-07 Android/42 tonic/0.31",
-            new UserAgent(ClientPlatform.ANDROID, new Semver("7.11.23-nightly-1982-06-28-07-07-07"), "Android/42 tonic/0.31")));
+            new UserAgent(ClientPlatform.ANDROID, new Semver("7.11.23-nightly-1982-06-28-07-07-07"), "Android/42 tonic/0.31")),
+        Arguments.of("Signal-Android/7.6.2 Android/34 libsignal/0.46.0",
+            new UserAgent(ClientPlatform.ANDROID, new Semver("7.6.2"), "Android/34 libsignal/0.46.0")));
   }
 }
