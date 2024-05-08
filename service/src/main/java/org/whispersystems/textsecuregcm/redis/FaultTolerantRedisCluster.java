@@ -18,6 +18,7 @@ import io.lettuce.core.cluster.ClusterClientOptions;
 import io.lettuce.core.cluster.ClusterTopologyRefreshOptions;
 import io.lettuce.core.cluster.RedisClusterClient;
 import io.lettuce.core.cluster.api.StatefulRedisClusterConnection;
+import io.lettuce.core.cluster.event.ClusterTopologyChangedEvent;
 import io.lettuce.core.cluster.pubsub.StatefulRedisClusterPubSubConnection;
 import io.lettuce.core.codec.ByteArrayCodec;
 import io.lettuce.core.resource.ClientResources;
@@ -73,9 +74,10 @@ public class FaultTolerantRedisCluster {
 
     this.name = name;
 
+    final LettuceShardCircuitBreaker lettuceShardCircuitBreaker = new LettuceShardCircuitBreaker(name,
+        circuitBreakerConfig.toCircuitBreakerConfig(), Schedulers.newSingle("topology-changed-" + name, true));
     this.clusterClient = RedisClusterClient.create(
-        clientResourcesBuilder.nettyCustomizer(
-                new LettuceShardCircuitBreaker(name, circuitBreakerConfig.toCircuitBreakerConfig())).
+        clientResourcesBuilder.nettyCustomizer(lettuceShardCircuitBreaker).
             build(),
         redisUris);
     this.clusterClient.setOptions(ClusterClientOptions.builder()
@@ -91,8 +93,14 @@ public class FaultTolerantRedisCluster {
         .publishOnScheduler(true)
         .build());
 
+    lettuceShardCircuitBreaker.setEventBus(clusterClient.getResources().eventBus());
+
     this.stringConnection = clusterClient.connect();
     this.binaryConnection = clusterClient.connect(ByteArrayCodec.INSTANCE);
+
+    // create a synthetic topology changed event to notify shard circuit breakers of initial upstreams
+    clusterClient.getResources().eventBus().publish(
+        new ClusterTopologyChangedEvent(Collections.emptyList(), clusterClient.getPartitions().getPartitions()));
 
     this.retry = Retry.of(name + "-retry", retryConfiguration.toRetryConfigBuilder()
         .retryOnException(exception -> exception instanceof RedisCommandTimeoutException).build());
