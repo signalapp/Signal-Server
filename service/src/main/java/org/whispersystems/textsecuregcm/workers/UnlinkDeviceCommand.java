@@ -19,7 +19,7 @@ import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 
-public class UnlinkDeviceCommand extends EnvironmentCommand<WhisperServerConfiguration> {
+public class UnlinkDeviceCommand extends AbstractCommandWithDependencies {
 
   public UnlinkDeviceCommand() {
     super(new Application<>() {
@@ -49,25 +49,22 @@ public class UnlinkDeviceCommand extends EnvironmentCommand<WhisperServerConfigu
 
   @Override
   protected void run(final Environment environment, final Namespace namespace,
-      final WhisperServerConfiguration configuration) throws Exception {
-    environment.getObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+      final WhisperServerConfiguration configuration,
+      final CommandDependencies deps) throws Exception {
+    final UUID aci = UUID.fromString(namespace.getString("uuid").trim());
+    final List<Byte> deviceIds = namespace.getList("deviceIds");
 
-      final UUID aci = UUID.fromString(namespace.getString("uuid").trim());
-      final List<Byte> deviceIds = namespace.getList("deviceIds");
+    Account account = deps.accountsManager().getByAccountIdentifier(aci)
+        .orElseThrow(() -> new IllegalArgumentException("account id " + aci + " does not exist"));
 
-      final CommandDependencies deps = CommandDependencies.build("unlink-device", environment, configuration);
+    if (deviceIds.contains(Device.PRIMARY_ID)) {
+      throw new IllegalArgumentException("cannot delete primary device");
+    }
 
-      Account account = deps.accountsManager().getByAccountIdentifier(aci)
-          .orElseThrow(() -> new IllegalArgumentException("account id " + aci + " does not exist"));
-
-      if (deviceIds.contains(Device.PRIMARY_ID)) {
-        throw new IllegalArgumentException("cannot delete primary device");
-      }
-
-      for (byte deviceId : deviceIds) {
-        /** see {@link org.whispersystems.textsecuregcm.controllers.DeviceController#removeDevice} */
-        System.out.format("Removing device %s::%d\n", aci, deviceId);
-        deps.accountsManager().removeDevice(account, deviceId).join();
-      }
+    for (byte deviceId : deviceIds) {
+      /** see {@link org.whispersystems.textsecuregcm.controllers.DeviceController#removeDevice} */
+      System.out.format("Removing device %s::%d\n", aci, deviceId);
+      deps.accountsManager().removeDevice(account, deviceId).join();
+    }
   }
 }

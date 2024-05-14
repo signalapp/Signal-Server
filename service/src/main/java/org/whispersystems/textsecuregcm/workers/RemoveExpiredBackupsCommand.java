@@ -6,8 +6,6 @@
 package org.whispersystems.textsecuregcm.workers;
 
 import io.dropwizard.core.Application;
-import io.dropwizard.core.cli.Cli;
-import io.dropwizard.core.cli.EnvironmentCommand;
 import io.dropwizard.core.setup.Environment;
 import io.micrometer.core.instrument.Metrics;
 import java.time.Clock;
@@ -22,11 +20,10 @@ import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.backup.BackupManager;
 import org.whispersystems.textsecuregcm.backup.ExpiredBackup;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
-import org.whispersystems.textsecuregcm.util.logging.UncaughtExceptionHandler;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
-public class RemoveExpiredBackupsCommand extends EnvironmentCommand<WhisperServerConfiguration> {
+public class RemoveExpiredBackupsCommand extends AbstractCommandWithDependencies {
 
   private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -89,12 +86,7 @@ public class RemoveExpiredBackupsCommand extends EnvironmentCommand<WhisperServe
 
   @Override
   protected void run(final Environment environment, final Namespace namespace,
-      final WhisperServerConfiguration configuration) throws Exception {
-
-    UncaughtExceptionHandler.register();
-    final CommandDependencies commandDependencies = CommandDependencies.build(getName(), environment, configuration);
-    MetricsUtil.configureRegistries(configuration, environment, commandDependencies.dynamicConfigurationManager());
-
+      final WhisperServerConfiguration configuration, final CommandDependencies commandDependencies) throws Exception {
     final int segments = Objects.requireNonNull(namespace.getInt(SEGMENT_COUNT_ARGUMENT));
     final int concurrency = Objects.requireNonNull(namespace.getInt(MAX_CONCURRENCY_ARGUMENT));
     final boolean dryRun = namespace.getBoolean(DRY_RUN_ARGUMENT);
@@ -105,32 +97,14 @@ public class RemoveExpiredBackupsCommand extends EnvironmentCommand<WhisperServe
         Runtime.getRuntime().availableProcessors(),
         gracePeriod);
 
-    try {
-      environment.lifecycle().getManagedObjects().forEach(managedObject -> {
-        try {
-          managedObject.start();
-        } catch (final Exception e) {
-          logger.error("Failed to start managed object", e);
-          throw new RuntimeException(e);
-        }
-      });
-      final BackupManager backupManager = commandDependencies.backupManager();
-      final long backupsExpired = backupManager
-          .getExpiredBackups(segments, Schedulers.parallel(), clock.instant().minus(gracePeriod))
-          .flatMap(expiredBackup -> removeExpiredBackup(backupManager, expiredBackup, dryRun), concurrency)
-          .filter(Boolean.TRUE::equals)
-          .count()
-          .block();
-      logger.info("Expired {} backups", backupsExpired);
-    } finally {
-      environment.lifecycle().getManagedObjects().forEach(managedObject -> {
-        try {
-          managedObject.stop();
-        } catch (final Exception e) {
-          logger.error("Failed to stop managed object", e);
-        }
-      });
-    }
+    final BackupManager backupManager = commandDependencies.backupManager();
+    final long backupsExpired = backupManager
+        .getExpiredBackups(segments, Schedulers.parallel(), clock.instant().minus(gracePeriod))
+        .flatMap(expiredBackup -> removeExpiredBackup(backupManager, expiredBackup, dryRun), concurrency)
+        .filter(Boolean.TRUE::equals)
+        .count()
+        .block();
+    logger.info("Expired {} backups", backupsExpired);
   }
 
   private Mono<Boolean> removeExpiredBackup(
@@ -161,10 +135,5 @@ public class RemoveExpiredBackupsCommand extends EnvironmentCommand<WhisperServe
               HexFormat.of().formatHex(expiredBackup.hashedBackupId()));
           return Mono.just(false);
         });
-  }
-
-  @Override
-  public void onError(final Cli cli, final Namespace namespace, final Throwable throwable) {
-    logger.error("Unhandled error", throwable);
   }
 }

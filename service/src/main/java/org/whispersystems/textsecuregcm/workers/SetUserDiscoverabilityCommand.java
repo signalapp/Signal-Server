@@ -5,9 +5,7 @@
 
 package org.whispersystems.textsecuregcm.workers;
 
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import io.dropwizard.core.Application;
-import io.dropwizard.core.cli.EnvironmentCommand;
 import io.dropwizard.core.setup.Environment;
 import java.util.Optional;
 import java.util.UUID;
@@ -17,7 +15,7 @@ import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 
-public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperServerConfiguration> {
+public class SetUserDiscoverabilityCommand extends AbstractCommandWithDependencies {
 
   public SetUserDiscoverabilityCommand() {
 
@@ -48,12 +46,10 @@ public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperSer
   @Override
   protected void run(final Environment environment,
       final Namespace namespace,
-      final WhisperServerConfiguration configuration) throws Exception {
+      final WhisperServerConfiguration configuration,
+      final CommandDependencies deps) throws Exception {
 
     try {
-      environment.getObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-
-      final CommandDependencies deps = CommandDependencies.build("set-discoverability", environment, configuration);
       final AccountsManager accountsManager = deps.accountsManager();
       Optional<Account> maybeAccount;
 

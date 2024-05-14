@@ -5,9 +5,7 @@
 
 package org.whispersystems.textsecuregcm.workers;
 
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import io.dropwizard.core.Application;
-import io.dropwizard.core.cli.EnvironmentCommand;
 import io.dropwizard.core.setup.Environment;
 import java.util.Optional;
 import net.sourceforge.argparse4j.inf.Namespace;
@@ -19,7 +17,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.AccountsManager.DeletionReason;
 
-public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfiguration> {
+public class DeleteUserCommand extends AbstractCommandWithDependencies {
 
   private final Logger logger = LoggerFactory.getLogger(DeleteUserCommand.class);
 
@@ -36,22 +34,17 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
   public void configure(Subparser subparser) {
     super.configure(subparser);
     subparser.addArgument("-u", "--user")
-             .dest("user")
-             .type(String.class)
-             .required(true)
-             .help("The user to remove");
+        .dest("user")
+        .type(String.class)
+        .required(true)
+        .help("The user to remove");
   }
 
   @Override
-  protected void run(Environment environment, Namespace namespace, WhisperServerConfiguration configuration)
-      throws Exception
-  {
+  protected void run(Environment environment, Namespace namespace, WhisperServerConfiguration configuration,
+      CommandDependencies deps) throws Exception {
     try {
       String[] users = namespace.getString("user").split(",");
-      environment.getObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-
-      final CommandDependencies deps = CommandDependencies.build("rmuser", environment, configuration);
-
       AccountsManager accountsManager = deps.accountsManager();
 
       for (String user : users) {

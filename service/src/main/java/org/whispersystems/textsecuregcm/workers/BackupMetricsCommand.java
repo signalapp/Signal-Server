@@ -29,7 +29,7 @@ import java.util.Objects;
 
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
-public class BackupMetricsCommand extends EnvironmentCommand<WhisperServerConfiguration> {
+public class BackupMetricsCommand extends AbstractCommandWithDependencies {
 
   private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -61,70 +61,47 @@ public class BackupMetricsCommand extends EnvironmentCommand<WhisperServerConfig
 
   @Override
   protected void run(final Environment environment, final Namespace namespace,
-      final WhisperServerConfiguration configuration) throws Exception {
-
-    UncaughtExceptionHandler.register();
-    final CommandDependencies commandDependencies = CommandDependencies.build(getName(), environment, configuration);
-    MetricsUtil.configureRegistries(configuration, environment, commandDependencies.dynamicConfigurationManager());
+      final WhisperServerConfiguration configuration, final CommandDependencies commandDependencies) throws Exception {
 
     final int segments = Objects.requireNonNull(namespace.getInt(SEGMENT_COUNT_ARGUMENT));
     logger.info("Crawling backups for metrics with {} segments and {} processors",
         segments,
         Runtime.getRuntime().availableProcessors());
 
-    try {
-      environment.lifecycle().getManagedObjects().forEach(managedObject -> {
-        try {
-          managedObject.start();
-        } catch (final Exception e) {
-          logger.error("Failed to start managed object", e);
-          throw new RuntimeException(e);
-        }
-      });
+    final DistributionSummary numObjectsMediaTier = Metrics.summary(name(getClass(), "numObjects"),
+        "tier", BackupLevel.MEDIA.name());
+    final DistributionSummary bytesUsedMediaTier = Metrics.summary(name(getClass(), "bytesUsed"),
+        "tier", BackupLevel.MEDIA.name());
+    final DistributionSummary numObjectsMessagesTier = Metrics.summary(name(getClass(), "numObjects"),
+        "tier", BackupLevel.MESSAGES.name());
+    final DistributionSummary bytesUsedMessagesTier = Metrics.summary(name(getClass(), "bytesUsed"),
+        "tier", BackupLevel.MESSAGES.name());
 
-      final DistributionSummary numObjectsMediaTier = Metrics.summary(name(getClass(), "numObjects"),
-          "tier", BackupLevel.MEDIA.name());
-      final DistributionSummary bytesUsedMediaTier = Metrics.summary(name(getClass(), "bytesUsed"),
-          "tier", BackupLevel.MEDIA.name());
-      final DistributionSummary numObjectsMessagesTier = Metrics.summary(name(getClass(), "numObjects"),
-          "tier", BackupLevel.MESSAGES.name());
-      final DistributionSummary bytesUsedMessagesTier = Metrics.summary(name(getClass(), "bytesUsed"),
-          "tier", BackupLevel.MESSAGES.name());
+    final DistributionSummary timeSinceLastRefresh = Metrics.summary(name(getClass(),
+        "timeSinceLastRefresh"));
+    final DistributionSummary timeSinceLastMediaRefresh = Metrics.summary(name(getClass(),
+        "timeSinceLastMediaRefresh"));
+    final String backupsCounterName = name(getClass(), "backups");
 
-      final DistributionSummary timeSinceLastRefresh = Metrics.summary(name(getClass(),
-          "timeSinceLastRefresh"));
-      final DistributionSummary timeSinceLastMediaRefresh = Metrics.summary(name(getClass(),
-          "timeSinceLastMediaRefresh"));
-      final String backupsCounterName = name(getClass(), "backups");
-
-      final BackupManager backupManager = commandDependencies.backupManager();
-      final Long backupsExpired = backupManager
-          .listBackupAttributes(segments, Schedulers.parallel())
-          .doOnNext(backupMetadata -> {
-            final boolean subscribed = backupMetadata.lastMediaRefresh().equals(backupMetadata.lastRefresh());
-            if (subscribed) {
-              numObjectsMediaTier.record(backupMetadata.numObjects());
-              bytesUsedMediaTier.record(backupMetadata.bytesUsed());
-            } else {
-              numObjectsMessagesTier.record(backupMetadata.numObjects());
-              bytesUsedMessagesTier.record(backupMetadata.bytesUsed());
-            }
-            timeSinceLastRefresh.record(timeSince(backupMetadata.lastRefresh()).getSeconds());
-            timeSinceLastMediaRefresh.record(timeSince(backupMetadata.lastMediaRefresh()).getSeconds());
-            Metrics.counter(backupsCounterName, "subscribed", String.valueOf(subscribed)).increment();
-          })
-          .count()
-          .block();
-      logger.info("Crawled {} backups", backupsExpired);
-    } finally {
-      environment.lifecycle().getManagedObjects().forEach(managedObject -> {
-        try {
-          managedObject.stop();
-        } catch (final Exception e) {
-          logger.error("Failed to stop managed object", e);
-        }
-      });
-    }
+    final BackupManager backupManager = commandDependencies.backupManager();
+    final Long backupsExpired = backupManager
+        .listBackupAttributes(segments, Schedulers.parallel())
+        .doOnNext(backupMetadata -> {
+          final boolean subscribed = backupMetadata.lastMediaRefresh().equals(backupMetadata.lastRefresh());
+          if (subscribed) {
+            numObjectsMediaTier.record(backupMetadata.numObjects());
+            bytesUsedMediaTier.record(backupMetadata.bytesUsed());
+          } else {
+            numObjectsMessagesTier.record(backupMetadata.numObjects());
+            bytesUsedMessagesTier.record(backupMetadata.bytesUsed());
+          }
+          timeSinceLastRefresh.record(timeSince(backupMetadata.lastRefresh()).getSeconds());
+          timeSinceLastMediaRefresh.record(timeSince(backupMetadata.lastMediaRefresh()).getSeconds());
+          Metrics.counter(backupsCounterName, "subscribed", String.valueOf(subscribed)).increment();
+        })
+        .count()
+        .block();
+    logger.info("Crawled {} backups", backupsExpired);
   }
 
   private Duration timeSince(Instant t) {
@@ -133,10 +110,5 @@ public class BackupMetricsCommand extends EnvironmentCommand<WhisperServerConfig
       return Duration.ZERO;
     }
     return between;
-  }
-
-  @Override
-  public void onError(final Cli cli, final Namespace namespace, final Throwable throwable) {
-    logger.error("Unhandled error", throwable);
   }
 }
