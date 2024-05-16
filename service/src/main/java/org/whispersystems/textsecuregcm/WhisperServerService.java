@@ -161,6 +161,7 @@ import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper
 import org.whispersystems.textsecuregcm.mappers.RegistrationServiceSenderExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.ServerRejectedExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.SubscriptionProcessorExceptionMapper;
+import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.MetricsApplicationEventListener;
 import org.whispersystems.textsecuregcm.metrics.MetricsHttpChannelListener;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
@@ -858,6 +859,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final MetricsHttpChannelListener metricsHttpChannelListener = new MetricsHttpChannelListener(clientReleaseManager,
         Set.of(websocketServletPath, provisioningWebsocketServletPath, "/health-check"));
     metricsHttpChannelListener.configure(environment);
+    final MessageMetrics messageMetrics = new MessageMetrics();
 
     environment.jersey().register(new BufferingInterceptor());
     environment.jersey().register(new VirtualExecutorServiceProvider("managed-async-virtual-thread-"));
@@ -874,7 +876,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     webSocketEnvironment.jersey().register(new VirtualExecutorServiceProvider("managed-async-websocket-virtual-thread-"));
     webSocketEnvironment.setAuthenticator(new WebSocketAccountAuthenticator(accountAuthenticator, new AccountPrincipalSupplier(accountsManager)));
     webSocketEnvironment.setConnectListener(
-        new AuthenticatedConnectListener(receiptSender, messagesManager, pushNotificationManager,
+        new AuthenticatedConnectListener(receiptSender, messagesManager, messageMetrics, pushNotificationManager,
             clientPresenceManager, websocketScheduledExecutor, messageDeliveryScheduler, clientReleaseManager));
     webSocketEnvironment.jersey()
         .register(new WebsocketRefreshApplicationEventListener(accountsManager, clientPresenceManager));
@@ -939,6 +941,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
       log.info("Registered spam filter: {}", filter.getClass().getName());
     });
 
+
     final List<Object> commonControllers = Lists.newArrayList(
         new AccountController(accountsManager, rateLimiters, turnTokenGenerator, registrationRecoveryPasswordsManager,
             usernameHashZkProofVerifier),
@@ -968,7 +971,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new MessageController(rateLimiters, messageByteLimitCardinalityEstimator, messageSender, receiptSender,
             accountsManager, messagesManager, pushNotificationManager, reportMessageManager,
             multiRecipientMessageExecutor, messageDeliveryScheduler, reportSpamTokenProvider, clientReleaseManager,
-            dynamicConfigurationManager, zkSecretParams, spamChecker, Clock.systemUTC()),
+            dynamicConfigurationManager, zkSecretParams, spamChecker, messageMetrics, Clock.systemUTC()),
         new PaymentsController(currencyManager, paymentsCredentialsGenerator),
         new ProfileController(clock, rateLimiters, accountsManager, profilesManager, dynamicConfigurationManager,
             profileBadgeConverter, config.getBadges(), cdnS3Client, profileCdnPolicyGenerator, profileCdnPolicySigner,

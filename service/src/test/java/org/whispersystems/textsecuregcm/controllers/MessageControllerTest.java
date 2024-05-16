@@ -119,6 +119,7 @@ import org.whispersystems.textsecuregcm.limits.CardinalityEstimator;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
+import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.providers.MultiRecipientMessageProvider;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
@@ -212,7 +213,7 @@ class MessageControllerTest {
           new MessageController(rateLimiters, cardinalityEstimator, messageSender, receiptSender, accountsManager,
               messagesManager, pushNotificationManager, reportMessageManager, multiRecipientMessageExecutor,
               messageDeliveryScheduler, ReportSpamTokenProvider.noop(), mock(ClientReleaseManager.class), dynamicConfigurationManager,
-              serverSecretParams, SpamChecker.noop(), clock))
+              serverSecretParams, SpamChecker.noop(), new MessageMetrics(), clock))
       .build();
 
   @BeforeEach

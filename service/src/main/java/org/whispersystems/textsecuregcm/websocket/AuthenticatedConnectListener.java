@@ -20,6 +20,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
@@ -51,6 +52,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
 
   private final ReceiptSender receiptSender;
   private final MessagesManager messagesManager;
+  private final MessageMetrics messageMetrics;
   private final PushNotificationManager pushNotificationManager;
   private final ClientPresenceManager clientPresenceManager;
   private final ScheduledExecutorService scheduledExecutorService;
@@ -69,6 +71,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
 
   public AuthenticatedConnectListener(ReceiptSender receiptSender,
       MessagesManager messagesManager,
+      MessageMetrics messageMetrics,
       PushNotificationManager pushNotificationManager,
       ClientPresenceManager clientPresenceManager,
       ScheduledExecutorService scheduledExecutorService,
@@ -76,6 +79,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
       ClientReleaseManager clientReleaseManager) {
     this.receiptSender = receiptSender;
     this.messagesManager = messagesManager;
+    this.messageMetrics = messageMetrics;
     this.pushNotificationManager = pushNotificationManager;
     this.clientPresenceManager = clientPresenceManager;
     this.scheduledExecutorService = scheduledExecutorService;
@@ -138,7 +142,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
       final Device device = auth.getAuthenticatedDevice();
       final Timer.Sample sample = Timer.start();
       final WebSocketConnection connection = new WebSocketConnection(receiptSender,
-          messagesManager, auth, device,
+          messagesManager, messageMetrics, auth, device,
           context.getClient(),
           scheduledExecutorService,
           messageDeliveryScheduler,

@@ -109,6 +109,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
 
   private final ReceiptSender receiptSender;
   private final MessagesManager messagesManager;
+  private final MessageMetrics messageMetrics;
 
   private final AuthenticatedAccount auth;
   private final Device device;
@@ -141,6 +142,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
 
   public WebSocketConnection(ReceiptSender receiptSender,
       MessagesManager messagesManager,
+      MessageMetrics messageMetrics,
       AuthenticatedAccount auth,
       Device device,
       WebSocketClient client,
@@ -150,6 +152,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
 
     this(receiptSender,
         messagesManager,
+        messageMetrics,
         auth,
         device,
         client,
@@ -162,6 +165,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   @VisibleForTesting
   WebSocketConnection(ReceiptSender receiptSender,
       MessagesManager messagesManager,
+      MessageMetrics messageMetrics,
       AuthenticatedAccount auth,
       Device device,
       WebSocketClient client,
@@ -172,6 +176,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
 
     this.receiptSender = receiptSender;
     this.messagesManager = messagesManager;
+    this.messageMetrics = messageMetrics;
     this.auth = auth;
     this.device = device;
     this.client = client;
@@ -208,7 +213,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
     sendMessageCounter.increment();
     sentMessageCounter.increment();
     bytesSentCounter.increment(body.map(bytes -> bytes.length).orElse(0));
-    MessageMetrics.measureAccountEnvelopeUuidMismatches(auth.getAccount(), message);
+    messageMetrics.measureAccountEnvelopeUuidMismatches(auth.getAccount(), message);
 
     // X-Signal-Key: false must be sent until Android stops assuming it missing means true
     return client.sendRequest("PUT", "/api/v1/message",
@@ -217,7 +222,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
           if (throwable != null) {
             sendFailuresCounter.increment();
           } else {
-            MessageMetrics.measureOutgoingMessageLatency(message.getServerTimestamp(), "websocket", client.getUserAgent(), clientReleaseManager);
+            messageMetrics.measureOutgoingMessageLatency(message.getServerTimestamp(), "websocket", client.getUserAgent(), clientReleaseManager);
           }
         }).thenCompose(response -> {
           final CompletableFuture<Void> result;

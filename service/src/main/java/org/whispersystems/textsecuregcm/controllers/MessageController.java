@@ -167,6 +167,7 @@ public class MessageController {
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private final ServerSecretParams serverSecretParams;
   private final SpamChecker spamChecker;
+  private final MessageMetrics messageMetrics;
   private final Clock clock;
 
   private static final int MAX_FETCH_ACCOUNT_CONCURRENCY = 8;
@@ -216,6 +217,7 @@ public class MessageController {
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
       final ServerSecretParams serverSecretParams,
       final SpamChecker spamChecker,
+      final MessageMetrics messageMetrics,
       final Clock clock) {
     this.rateLimiters = rateLimiters;
     this.messageByteLimitEstimator = messageByteLimitEstimator;
@@ -232,6 +234,7 @@ public class MessageController {
     this.dynamicConfigurationManager = dynamicConfigurationManager;
     this.serverSecretParams = serverSecretParams;
     this.spamChecker = spamChecker;
+    this.messageMetrics = messageMetrics;
     this.clock = clock;
   }
 
@@ -732,8 +735,8 @@ public class MessageController {
           final OutgoingMessageEntityList messages = new OutgoingMessageEntityList(envelopes
               .map(OutgoingMessageEntity::fromEnvelope)
               .peek(outgoingMessageEntity -> {
-                MessageMetrics.measureAccountOutgoingMessageUuidMismatches(auth.getAccount(), outgoingMessageEntity);
-                MessageMetrics.measureOutgoingMessageLatency(outgoingMessageEntity.serverTimestamp(), "rest", userAgent, clientReleaseManager);
+                messageMetrics.measureAccountOutgoingMessageUuidMismatches(auth.getAccount(), outgoingMessageEntity);
+                messageMetrics.measureOutgoingMessageLatency(outgoingMessageEntity.serverTimestamp(), "rest", userAgent, clientReleaseManager);
               })
               .collect(Collectors.toList()),
               messagesAndHasMore.second());

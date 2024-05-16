@@ -46,6 +46,7 @@ import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
+import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -124,6 +125,7 @@ class WebSocketConnectionIntegrationTest {
     final WebSocketConnection webSocketConnection = new WebSocketConnection(
         mock(ReceiptSender.class),
         new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager, sharedExecutorService),
+        new MessageMetrics(),
         new AuthenticatedAccount(account, device),
         device,
         webSocketClient,
@@ -209,6 +211,7 @@ class WebSocketConnectionIntegrationTest {
     final WebSocketConnection webSocketConnection = new WebSocketConnection(
         mock(ReceiptSender.class),
         new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager, sharedExecutorService),
+        new MessageMetrics(),
         new AuthenticatedAccount(account, device),
         device,
         webSocketClient,
@@ -275,6 +278,7 @@ class WebSocketConnectionIntegrationTest {
     final WebSocketConnection webSocketConnection = new WebSocketConnection(
         mock(ReceiptSender.class),
         new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager, sharedExecutorService),
+        new MessageMetrics(),
         new AuthenticatedAccount(account, device),
         device,
         webSocketClient,

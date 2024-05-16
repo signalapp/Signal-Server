@@ -13,11 +13,9 @@ import static org.mockito.Mockito.when;
 
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Meter;
-import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.Optional;
 import java.util.UUID;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
@@ -33,6 +31,7 @@ class MessageMetricsTest {
   private final UUID aci = UUID.fromString("11111111-1111-1111-1111-111111111111");
   private final UUID pni = UUID.fromString("22222222-2222-2222-2222-222222222222");
   private final UUID otherUuid = UUID.fromString("99999999-9999-9999-9999-999999999999");
+  private MessageMetrics messageMetrics;
   private SimpleMeterRegistry simpleMeterRegistry;
 
   @BeforeEach
@@ -42,35 +41,28 @@ class MessageMetricsTest {
     when(account.isIdentifiedBy(any())).thenReturn(false);
     when(account.isIdentifiedBy(new AciServiceIdentifier(aci))).thenReturn(true);
     when(account.isIdentifiedBy(new PniServiceIdentifier(pni))).thenReturn(true);
-    Metrics.globalRegistry.clear();
     simpleMeterRegistry = new SimpleMeterRegistry();
-    Metrics.globalRegistry.add(simpleMeterRegistry);
-  }
-
-  @AfterEach
-  void teardown() {
-    Metrics.globalRegistry.remove(simpleMeterRegistry);
-    Metrics.globalRegistry.clear();
+    messageMetrics = new MessageMetrics(simpleMeterRegistry);
   }
 
   @Test
   void measureAccountOutgoingMessageUuidMismatches() {
 
     final OutgoingMessageEntity outgoingMessageToAci = createOutgoingMessageEntity(new AciServiceIdentifier(aci));
-    MessageMetrics.measureAccountOutgoingMessageUuidMismatches(account, outgoingMessageToAci);
+    messageMetrics.measureAccountOutgoingMessageUuidMismatches(account, outgoingMessageToAci);
 
     Optional<Counter> counter = findCounter(simpleMeterRegistry);
 
     assertTrue(counter.isEmpty());
 
     final OutgoingMessageEntity outgoingMessageToPni = createOutgoingMessageEntity(new PniServiceIdentifier(pni));
-    MessageMetrics.measureAccountOutgoingMessageUuidMismatches(account, outgoingMessageToPni);
+    messageMetrics.measureAccountOutgoingMessageUuidMismatches(account, outgoingMessageToPni);
     counter = findCounter(simpleMeterRegistry);
 
     assertTrue(counter.isEmpty());
 
     final OutgoingMessageEntity outgoingMessageToOtherUuid = createOutgoingMessageEntity(new AciServiceIdentifier(otherUuid));
-    MessageMetrics.measureAccountOutgoingMessageUuidMismatches(account, outgoingMessageToOtherUuid);
+    messageMetrics.measureAccountOutgoingMessageUuidMismatches(account, outgoingMessageToOtherUuid);
     counter = findCounter(simpleMeterRegistry);
 
     assertEquals(1.0, counter.map(Counter::count).orElse(0.0));
@@ -83,26 +75,26 @@ class MessageMetricsTest {
   @Test
   void measureAccountEnvelopeUuidMismatches() {
     final MessageProtos.Envelope envelopeToAci = createEnvelope(new AciServiceIdentifier(aci));
-    MessageMetrics.measureAccountEnvelopeUuidMismatches(account, envelopeToAci);
+    messageMetrics.measureAccountEnvelopeUuidMismatches(account, envelopeToAci);
 
     Optional<Counter> counter = findCounter(simpleMeterRegistry);
 
     assertTrue(counter.isEmpty());
 
     final MessageProtos.Envelope envelopeToPni = createEnvelope(new PniServiceIdentifier(pni));
-    MessageMetrics.measureAccountEnvelopeUuidMismatches(account, envelopeToPni);
+    messageMetrics.measureAccountEnvelopeUuidMismatches(account, envelopeToPni);
     counter = findCounter(simpleMeterRegistry);
 
     assertTrue(counter.isEmpty());
 
     final MessageProtos.Envelope envelopeToOtherUuid = createEnvelope(new AciServiceIdentifier(otherUuid));
-    MessageMetrics.measureAccountEnvelopeUuidMismatches(account, envelopeToOtherUuid);
+    messageMetrics.measureAccountEnvelopeUuidMismatches(account, envelopeToOtherUuid);
     counter = findCounter(simpleMeterRegistry);
 
     assertEquals(1.0, counter.map(Counter::count).orElse(0.0));
 
     final MessageProtos.Envelope envelopeToNull = createEnvelope(null);
-    MessageMetrics.measureAccountEnvelopeUuidMismatches(account, envelopeToNull);
+    messageMetrics.measureAccountEnvelopeUuidMismatches(account, envelopeToNull);
     counter = findCounter(simpleMeterRegistry);
 
     assertEquals(1.0, counter.map(Counter::count).orElse(0.0));
