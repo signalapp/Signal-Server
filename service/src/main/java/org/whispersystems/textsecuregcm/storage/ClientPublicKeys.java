@@ -9,11 +9,13 @@ import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
+import org.whispersystems.textsecuregcm.util.Util;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.Delete;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.Put;
+import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
 
 /**
@@ -33,6 +35,28 @@ public class ClientPublicKeys {
   public ClientPublicKeys(final DynamoDbAsyncClient dynamoDbAsyncClient, final String tableName) {
     this.dynamoDbAsyncClient = dynamoDbAsyncClient;
     this.tableName = tableName;
+  }
+
+  /**
+   * Stores the given public key for the given account/device, overwriting any previously-stored public key. This method
+   * is intended for use for adding public keys to existing accounts/devices as a migration step. Callers should use
+   * {@link #buildTransactWriteItemForInsertion(UUID, byte, ECPublicKey)} instead when creating new accounts/devices.
+   *
+   * @param accountIdentifier the identifier for the target account
+   * @param deviceId the identifier for the target device
+   * @param publicKey the public key to store for the target account/device
+
+   * @return a future that completes when the given key has been stored
+   */
+  CompletableFuture<Void> setPublicKey(final UUID accountIdentifier, final byte deviceId, final ECPublicKey publicKey) {
+    return dynamoDbAsyncClient.putItem(PutItemRequest.builder()
+            .tableName(tableName)
+            .item(Map.of(
+                KEY_ACCOUNT_UUID, getPartitionKey(accountIdentifier),
+                KEY_DEVICE_ID, getSortKey(deviceId),
+                ATTR_PUBLIC_KEY, AttributeValues.fromByteArray(publicKey.serialize())))
+            .build())
+        .thenRun(Util.NOOP);
   }
 
   /**

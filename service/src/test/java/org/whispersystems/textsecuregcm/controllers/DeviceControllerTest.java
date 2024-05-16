@@ -61,6 +61,7 @@ import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.LinkDeviceRequest;
+import org.whispersystems.textsecuregcm.entities.SetPublicKeyRequest;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -68,6 +69,7 @@ import org.whispersystems.textsecuregcm.mappers.DeviceLimitExceededExceptionMapp
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.ClientPublicKeysManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 import org.whispersystems.textsecuregcm.storage.DeviceSpec;
@@ -85,6 +87,7 @@ import org.whispersystems.textsecuregcm.util.VerificationCode;
 class DeviceControllerTest {
 
   private static AccountsManager accountsManager = mock(AccountsManager.class);
+  private static ClientPublicKeysManager clientPublicKeysManager = mock(ClientPublicKeysManager.class);
   private static RateLimiters rateLimiters = mock(RateLimiters.class);
   private static RateLimiter rateLimiter = mock(RateLimiter.class);
   private static RedisAdvancedClusterCommands<String, String> commands = mock(RedisAdvancedClusterCommands.class);
@@ -101,6 +104,7 @@ class DeviceControllerTest {
   private static DeviceController deviceController = new DeviceController(
       generateLinkDeviceSecret(),
       accountsManager,
+      clientPublicKeysManager,
       rateLimiters,
       RedisClusterHelper.builder()
           .stringCommands(commands)
@@ -146,6 +150,9 @@ class DeviceControllerTest {
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
     when(accountsManager.getByE164(AuthHelper.VALID_NUMBER)).thenReturn(Optional.of(account));
     when(accountsManager.getByE164(AuthHelper.VALID_NUMBER_TWO)).thenReturn(Optional.of(maxedAccount));
+
+    when(clientPublicKeysManager.setPublicKey(any(), anyByte(), any()))
+        .thenReturn(CompletableFuture.completedFuture(null));
 
     AccountsHelper.setupMockUpdate(accountsManager);
   }
@@ -806,5 +813,21 @@ class DeviceControllerTest {
         // Invalid signature
         Arguments.of("e552603a-1492-4de6-872d-bac19a2825b4.1691096565171:This is not valid base64", tokenTimestamp)
     );
+  }
+
+  @Test
+  void setPublicKey() {
+    final SetPublicKeyRequest request = new SetPublicKeyRequest(Curve.generateKeyPair().getPublicKey());
+
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/devices/public_key")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .put(Entity.entity(request, MediaType.APPLICATION_JSON_TYPE))) {
+
+      assertEquals(204, response.getStatus());
+    }
+
+    verify(clientPublicKeysManager).setPublicKey(AuthHelper.VALID_UUID, AuthHelper.VALID_DEVICE.getId(), request.publicKey());
   }
 }

@@ -19,6 +19,21 @@ public class ClientPublicKeysManager {
   }
 
   /**
+   * Stores the given public key for the given account/device, overwriting any previously-stored public key. This method
+   * is intended for use for adding public keys to existing accounts/devices as a migration step. Callers should use
+   * {@link #buildTransactWriteItemForInsertion(UUID, byte, ECPublicKey)} instead when creating new accounts/devices.
+   *
+   * @param accountIdentifier the identifier for the target account
+   * @param deviceId the identifier for the target device
+   * @param publicKey the public key to store for the target account/device
+
+   * @return a future that completes when the given key has been stored
+   */
+  public CompletableFuture<Void> setPublicKey(final UUID accountIdentifier, final byte deviceId, final ECPublicKey publicKey) {
+    return clientPublicKeys.setPublicKey(accountIdentifier, deviceId, publicKey);
+  }
+
+  /**
    * Builds a {@link TransactWriteItem} that will store a public key for the given account/device. Intended for use when
    * adding devices to accounts or creating new accounts.
    *

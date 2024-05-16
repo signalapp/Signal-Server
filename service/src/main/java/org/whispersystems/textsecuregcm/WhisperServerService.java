@@ -963,7 +963,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             zkAuthOperations, callingGenericZkSecretParams, clock),
         new ChallengeController(rateLimitChallengeManager, challengeConstraintChecker),
         new DeviceController(config.getLinkDeviceSecretConfiguration().secret().value(), accountsManager,
-            rateLimiters, rateLimitersCluster, config.getMaxDevices(), clock),
+            clientPublicKeysManager, rateLimiters, rateLimitersCluster, config.getMaxDevices(), clock),
         new DirectoryV2Controller(directoryV2CredentialsGenerator),
         new DonationController(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager, config.getBadges(),
             ReceiptCredentialPresentation::new),

@@ -45,4 +45,17 @@ class ClientPublicKeysTest {
 
     assertEquals(Optional.empty(), clientPublicKeys.findPublicKey(accountIdentifier, deviceId).join());
   }
+
+  @Test
+  void setPublicKey() {
+    final UUID accountIdentifier = UUID.randomUUID();
+    final byte deviceId = Device.PRIMARY_ID;
+    final ECPublicKey publicKey = Curve.generateKeyPair().getPublicKey();
+
+    assertEquals(Optional.empty(), clientPublicKeys.findPublicKey(accountIdentifier, deviceId).join());
+
+    clientPublicKeys.setPublicKey(accountIdentifier, deviceId, publicKey).join();
+
+    assertEquals(Optional.of(publicKey), clientPublicKeys.findPublicKey(accountIdentifier, deviceId).join());
+  }
 }

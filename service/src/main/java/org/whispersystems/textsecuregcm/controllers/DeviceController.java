@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nullable;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -56,11 +57,13 @@ import org.whispersystems.textsecuregcm.entities.DeviceInfoList;
 import org.whispersystems.textsecuregcm.entities.DeviceResponse;
 import org.whispersystems.textsecuregcm.entities.LinkDeviceRequest;
 import org.whispersystems.textsecuregcm.entities.PreKeySignatureValidator;
+import org.whispersystems.textsecuregcm.entities.SetPublicKeyRequest;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.ClientPublicKeysManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 import org.whispersystems.textsecuregcm.storage.DeviceSpec;
@@ -76,6 +79,7 @@ public class DeviceController {
 
   private final Key verificationTokenKey;
   private final AccountsManager accounts;
+  private final ClientPublicKeysManager clientPublicKeysManager;
   private final RateLimiters rateLimiters;
   private final FaultTolerantRedisCluster usedTokenCluster;
   private final Map<String, Integer> maxDeviceConfiguration;
@@ -89,11 +93,13 @@ public class DeviceController {
 
   public DeviceController(byte[] linkDeviceSecret,
       AccountsManager accounts,
+      ClientPublicKeysManager clientPublicKeysManager,
       RateLimiters rateLimiters,
       FaultTolerantRedisCluster usedTokenCluster,
       Map<String, Integer> maxDeviceConfiguration, final Clock clock) {
     this.verificationTokenKey = new SecretKeySpec(linkDeviceSecret, VERIFICATION_TOKEN_ALGORITHM);
     this.accounts = accounts;
+    this.clientPublicKeysManager = clientPublicKeysManager;
     this.rateLimiters = rateLimiters;
     this.usedTokenCluster = usedTokenCluster;
     this.maxDeviceConfiguration = maxDeviceConfiguration;
@@ -276,6 +282,28 @@ public class DeviceController {
     assert (auth.getAuthenticatedDevice() != null);
     final byte deviceId = auth.getAuthenticatedDevice().getId();
     accounts.updateDevice(auth.getAccount(), deviceId, d -> d.setCapabilities(capabilities));
+  }
+
+  @PUT
+  @Produces(MediaType.APPLICATION_JSON)
+  @Path("/public_key")
+  @Operation(
+      summary = "Sets a public key for authentication",
+      description = """
+          Sets the authentication public key for the authenticated device. The public key will be used for
+          authentication in the nascent gRPC-over-Noise API. Existing devices must upload a public key before they can
+          use the gRPC-over-Noise API, and this endpoint exists to facilitate migration to the new API.
+          """
+  )
+  @ApiResponse(responseCode = "200", description = "Public key stored successfully")
+  @ApiResponse(responseCode = "401", description = "Account authentication check failed")
+  @ApiResponse(responseCode = "422", description = "Invalid request format")
+  public CompletableFuture<Void> setPublicKey(@Auth final AuthenticatedAccount auth,
+      final SetPublicKeyRequest setPublicKeyRequest) {
+
+    return clientPublicKeysManager.setPublicKey(auth.getAccount().getIdentifier(IdentityType.ACI),
+        auth.getAuthenticatedDevice().getId(),
+        setPublicKeyRequest.publicKey());
   }
 
   private Mac getInitializedMac() {
