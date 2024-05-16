@@ -19,10 +19,6 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
   public enum For implements RateLimiterDescriptor {
     BACKUP_AUTH_CHECK("backupAuthCheck", false, new RateLimiterConfig(100, Duration.ofMinutes(15))),
     SMS_DESTINATION("smsDestination", false, new RateLimiterConfig(2, Duration.ofSeconds(30))),
-    VOICE_DESTINATION("voxDestination", false, new RateLimiterConfig(2, Duration.ofMinutes(2))),
-    VOICE_DESTINATION_DAILY("voxDestinationDaily", false, new RateLimiterConfig(10, Duration.ofMinutes(144))),
-    SMS_VOICE_IP("smsVoiceIp", false, new RateLimiterConfig(1000, Duration.ofMillis(60))),
-    SMS_VOICE_PREFIX("smsVoicePrefix", false, new RateLimiterConfig(1000, Duration.ofMillis(60))),
     VERIFY("verify", false, new RateLimiterConfig(6, Duration.ofSeconds(30))),
     PIN("pin", false, new RateLimiterConfig(10, Duration.ofDays(1))),
     ATTACHMENT("attachmentCreate", false, new RateLimiterConfig(50, Duration.ofMillis(1200))),
@@ -124,22 +120,6 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
 
   public RateLimiter getSmsDestinationLimiter() {
     return forDescriptor(For.SMS_DESTINATION);
-  }
-
-  public RateLimiter getSmsVoiceIpLimiter() {
-    return forDescriptor(For.SMS_VOICE_IP);
-  }
-
-  public RateLimiter getSmsVoicePrefixLimiter() {
-    return forDescriptor(For.SMS_VOICE_PREFIX);
-  }
-
-  public RateLimiter getVoiceDestinationLimiter() {
-    return forDescriptor(For.VOICE_DESTINATION);
-  }
-
-  public RateLimiter getVoiceDestinationDailyLimiter() {
-    return forDescriptor(For.VOICE_DESTINATION_DAILY);
   }
 
   public RateLimiter getVerifyLimiter() {

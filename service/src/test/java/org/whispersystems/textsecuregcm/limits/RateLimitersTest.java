@@ -43,7 +43,7 @@ public class RateLimitersTest {
 
   private static final String BAD_YAML = """
       limits:
-        smsVoicePrefix:
+        prekeys:
           bucketSize: 150
           permitRegenerationDuration: PT6S
         unexpected:
@@ -53,7 +53,7 @@ public class RateLimitersTest {
 
   private static final String GOOD_YAML = """
       limits:
-        smsVoicePrefix:
+        prekeys:
           bucketSize: 150
           permitRegenerationDuration: PT6S
         attachmentCreate:
