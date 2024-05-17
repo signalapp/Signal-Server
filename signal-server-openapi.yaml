@@ -1596,6 +1596,30 @@ paths:
             application/json: {}
       security:
       - authenticatedAccount: []
+  /v1/devices/public_key:
+    put:
+      tags:
+      - Devices
+      summary: Sets a public key for authentication
+      description: |
+        Sets the authentication public key for the authenticated device. The public key will be used for
+        authentication in the nascent gRPC-over-Noise API. Existing devices must upload a public key before they can
+        use the gRPC-over-Noise API, and this endpoint exists to facilitate migration to the new API.
+      operationId: setPublicKey_1
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              $ref: '#/components/schemas/SetPublicKeyRequest'
+      responses:
+        "200":
+          description: Public key stored successfully
+        "401":
+          description: Account authentication check failed
+        "422":
+          description: Invalid request format
+      security:
+      - authenticatedAccount: []
   /v1/devices/unauthenticated_delivery:
     put:
       tags:
@@ -2287,6 +2311,10 @@ paths:
         required: true
         schema:
           type: string
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
       requestBody:
         content:
           application/json:
@@ -2409,7 +2437,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthCheckResponse'
+                $ref: '#/components/schemas/AuthCheckResponseV2'
         "422":
           description: Provided list of SVR2 credentials could not be parsed
         "400":
@@ -2443,7 +2471,8 @@ paths:
         Over time, clients may wind up with multiple sets of SVR3 authentication credentials in cloud storage.
         To determine which set is most current and should be used to communicate with SVR3 to retrieve a master key
         (from which a registration recovery password can be derived), clients should call this endpoint
-        with a list of stored credentials. The response will identify which (if any) set of credentials are appropriate for communicating with SVR3.
+        with a list of stored credentials. The response will identify which (if any) set of credentials are
+        appropriate for communicating with SVR3.
       operationId: authCheck_1
       requestBody:
         content:
@@ -2457,7 +2486,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthCheckResponse'
+                $ref: '#/components/schemas/AuthCheckResponseV3'
         "422":
           description: Provided list of SVR3 credentials could not be parsed
         "400":
@@ -2470,14 +2499,38 @@ paths:
       description: |
         Generate SVR3 service credentials. Generated credentials have an expiration time of 30 days
         (however, the TTL is fully controlled by the server side and may change even for already generated credentials).
+
+        If a share-set has been previously set via /v3/backups/share-set, it will be included in the response
       operationId: getAuth_4
       responses:
         "200":
-          description: '`JSON` with generated credentials.'
+          description: '`JSON` with generated credentials and share-set'
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ExternalServiceCredentials'
+                $ref: '#/components/schemas/Svr3Credentials'
+        "401":
+          description: Account authentication check failed.
+      security:
+      - authenticatedAccount: []
+  /v3/backup/share-set:
+    put:
+      tags:
+      - Secure Value Recovery
+      summary: Set a share-set for the account
+      description: |
+        Add a share-set to the account that can later be retrieved at v3/backups/auth or during registration. After
+        storing a value with SVR3, clients must store the returned share-set so the value can be restored later.
+      operationId: setShareSet
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetShareSetRequest'
+        required: true
+      responses:
+        "204":
+          description: Successfully set share-set
         "401":
           description: Account authentication check failed.
       security:
@@ -3374,7 +3427,27 @@ components:
           format: int64
         svr2Credentials:
           $ref: '#/components/schemas/ExternalServiceCredentials'
-      description: A token provided to the client via a push payload
+        svr3Credentials:
+          $ref: '#/components/schemas/Svr3Credentials'
+      description: |
+        Information about the current Registration lock and SVR credentials. With a correct PIN, the credentials can
+        be used to recover the secret used to derive the registration lock password.
+    Svr3Credentials:
+      type: object
+      properties:
+        username:
+          type: string
+          description: The credential username
+        password:
+          type: string
+          description: The credential password
+        shareSet:
+          type: string
+          description: |
+            If present, a shareSet previously stored for this account via /v3/backups/shareSet. Required to restore a value
+            from SVR3. Encoded in standard un-padded base64.
+      description: |
+        A time limited external service credential that can be used to authenticate and restore from SVR3.
     ChangeNumberRequest:
       required:
       - deviceMessages
@@ -3885,14 +3958,13 @@ components:
           description: |
             A BackupAuthCredentialRequest containing a blinded encrypted backup-id, encoded in standard padded base64
     SetPublicKeyRequest:
-      required:
-      - backupIdPublicKey
       type: object
       properties:
-        backupIdPublicKey:
+        publicKey:
           type: string
-          description: "The public key, serialized in libsignal's elliptic-curve public\
-            \ key format, and encoded in standard padded base64."
+          description: |
+            The public key, serialized in libsignal's elliptic-curve public key format and then encoded as a standard (i.e.
+            not URL-safe), padded, base64-encoded string.
     AttachmentDescriptorV2:
       type: object
       properties:
@@ -4763,7 +4835,7 @@ components:
         serverEpochTime:
           type: string
           format: date-time
-    AuthCheckResponse:
+    AuthCheckResponseV2:
       required:
       - matches
       type: object
@@ -4772,35 +4844,78 @@ components:
           type: object
           additionalProperties:
             type: string
-            description: "A dictionary with the auth check results: `KBS Credentials\
+            description: "A dictionary with the auth check results: `SVR Credentials\
               \ -> 'match'/'no-match'/'invalid'`"
             enum:
             - match
             - no-match
             - invalid
-          description: "A dictionary with the auth check results: `KBS Credentials\
+          description: "A dictionary with the auth check results: `SVR Credentials\
             \ -> 'match'/'no-match'/'invalid'`"
     AuthCheckRequest:
       required:
       - number
-      - passwords
+      - tokens
       type: object
       properties:
-        number:
-          type: string
-          description: The e164-formatted phone number.
-        passwords:
+        tokens:
           maxItems: 10
           minItems: 0
           type: array
-          description: "A list of SVR auth values, previously retrieved from `/v1/backup/auth`;\
-            \ may contain at most 10."
+          description: |-
+            A list of SVR tokens, previously retrieved from `backup/auth`. Tokens should be the
+            of the form "username:password". May contain at most 10 tokens.
           items:
             maxLength: 10
             minLength: 0
             type: string
-            description: "A list of SVR auth values, previously retrieved from `/v1/backup/auth`;\
-              \ may contain at most 10."
+            description: |-
+              A list of SVR tokens, previously retrieved from `backup/auth`. Tokens should be the
+              of the form "username:password". May contain at most 10 tokens.
+        number:
+          type: string
+          description: The e164-formatted phone number.
+    AuthCheckResponseV3:
+      required:
+      - matches
+      type: object
+      properties:
+        matches:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/Result'
+          description: |
+            A dictionary with the auth check results, keyed by the token corresponding token provided in the request.
+    Result:
+      type: object
+      properties:
+        status:
+          type: string
+          description: "The status of the credential, either match, no-match, or invalid"
+          enum:
+          - match
+          - no-match
+          - invalid
+        shareSet:
+          type: array
+          description: |
+            If the credential was a match, the stored shareSet that can be used to restore a value from SVR. Encoded as
+          items:
+            type: string
+            description: |
+              If the credential was a match, the stored shareSet that can be used to restore a value from SVR. Encoded as
+            format: byte
+      description: |
+        A dictionary with the auth check results, keyed by the token corresponding token provided in the request.
+    SetShareSetRequest:
+      required:
+      - shareSet
+      type: object
+      properties:
+        shareSet:
+          type: string
+          description: |
+            A share-set generated by a client after storing a value in SVR3, serialized in un-padded standard base64
     StickerPackFormUploadAttributes:
       type: object
       properties:
