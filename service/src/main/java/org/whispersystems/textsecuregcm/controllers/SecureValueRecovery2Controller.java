@@ -29,7 +29,7 @@ import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsSelector;
 import org.whispersystems.textsecuregcm.configuration.SecureValueRecovery2Configuration;
 import org.whispersystems.textsecuregcm.entities.AuthCheckRequest;
-import org.whispersystems.textsecuregcm.entities.AuthCheckResponse;
+import org.whispersystems.textsecuregcm.entities.AuthCheckResponseV2;
 import org.whispersystems.textsecuregcm.limits.RateLimitedByIp;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -100,9 +100,9 @@ public class SecureValueRecovery2Controller {
   @ApiResponse(responseCode = "200", description = "`JSON` with the check results.", useReturnTypeSchema = true)
   @ApiResponse(responseCode = "422", description = "Provided list of SVR2 credentials could not be parsed")
   @ApiResponse(responseCode = "400", description = "`POST` request body is not a valid `JSON`")
-  public AuthCheckResponse authCheck(@NotNull @Valid final AuthCheckRequest request) {
+  public AuthCheckResponseV2 authCheck(@NotNull @Valid final AuthCheckRequest request) {
     final List<ExternalServiceCredentialsSelector.CredentialInfo> credentials = ExternalServiceCredentialsSelector.check(
-        request.passwords(),
+        request.tokens(),
         backupServiceCredentialGenerator,
         MAX_AGE_SECONDS);
 
@@ -113,16 +113,16 @@ public class SecureValueRecovery2Controller {
         .map(backupServiceCredentialGenerator::generateForUuid)
         .map(ExternalServiceCredentials::username);
 
-    return new AuthCheckResponse(credentials.stream().collect(Collectors.toMap(
+    return new AuthCheckResponseV2(credentials.stream().collect(Collectors.toMap(
         ExternalServiceCredentialsSelector.CredentialInfo::token,
         info -> {
           if (!info.valid()) {
-            return AuthCheckResponse.Result.INVALID;
+            return AuthCheckResponseV2.Result.INVALID;
           }
           final String username = info.credentials().username();
           // does this credential match the account id for the e164 provided in the request?
           boolean match = matchingUsername.filter(username::equals).isPresent();
-          return match ? AuthCheckResponse.Result.MATCH : AuthCheckResponse.Result.NO_MATCH;
+          return match ? AuthCheckResponseV2.Result.MATCH : AuthCheckResponseV2.Result.NO_MATCH;
         }
     )));
   }

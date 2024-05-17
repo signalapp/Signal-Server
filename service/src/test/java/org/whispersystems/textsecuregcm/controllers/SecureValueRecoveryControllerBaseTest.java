@@ -23,10 +23,10 @@ import org.mockito.Mockito;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.entities.AuthCheckRequest;
-import org.whispersystems.textsecuregcm.entities.AuthCheckResponse;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.util.MutableClock;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 abstract class SecureValueRecoveryControllerBaseTest {
 
@@ -64,20 +64,27 @@ abstract class SecureValueRecoveryControllerBaseTest {
     this.clock = mutableClock;
   }
 
+  enum CheckStatus {
+    MATCH,
+    NO_MATCH,
+    INVALID
+  }
+  abstract Map<String, CheckStatus> parseCheckResponse(Response response);
+
   @Test
   public void testOneMatch() throws Exception {
     validate(Map.of(
-        token(USER_1, day(1)), AuthCheckResponse.Result.MATCH,
-        token(USER_2, day(1)), AuthCheckResponse.Result.NO_MATCH,
-        token(USER_3, day(1)), AuthCheckResponse.Result.NO_MATCH
+        token(USER_1, day(1)), CheckStatus.MATCH,
+        token(USER_2, day(1)), CheckStatus.NO_MATCH,
+        token(USER_3, day(1)), CheckStatus.NO_MATCH
     ), day(2));
   }
 
   @Test
   public void testNoMatch() throws Exception {
     validate(Map.of(
-        token(USER_2, day(1)), AuthCheckResponse.Result.NO_MATCH,
-        token(USER_3, day(1)), AuthCheckResponse.Result.NO_MATCH
+        token(USER_2, day(1)), CheckStatus.NO_MATCH,
+        token(USER_3, day(1)), CheckStatus.NO_MATCH
     ), day(2));
   }
 
@@ -89,35 +96,35 @@ abstract class SecureValueRecoveryControllerBaseTest {
 
     final String fakeToken = token(new ExternalServiceCredentials(user2Cred.username(), user3Cred.password()));
     validate(Map.of(
-        token(user1Cred), AuthCheckResponse.Result.MATCH,
-        token(user2Cred), AuthCheckResponse.Result.NO_MATCH,
-        fakeToken, AuthCheckResponse.Result.INVALID
+        token(user1Cred), CheckStatus.MATCH,
+        token(user2Cred), CheckStatus.NO_MATCH,
+        fakeToken, CheckStatus.INVALID
     ), day(2));
   }
 
   @Test
   public void testSomeExpired() throws Exception {
     validate(Map.of(
-        token(USER_1, day(100)), AuthCheckResponse.Result.MATCH,
-        token(USER_2, day(100)), AuthCheckResponse.Result.NO_MATCH,
-        token(USER_3, day(10)), AuthCheckResponse.Result.INVALID,
-        token(USER_3, day(20)), AuthCheckResponse.Result.INVALID
+        token(USER_1, day(100)), CheckStatus.MATCH,
+        token(USER_2, day(100)), CheckStatus.NO_MATCH,
+        token(USER_3, day(10)), CheckStatus.INVALID,
+        token(USER_3, day(20)), CheckStatus.INVALID
     ), day(110));
   }
 
   @Test
   public void testSomeHaveNewerVersions() throws Exception {
     validate(Map.of(
-        token(USER_1, day(10)), AuthCheckResponse.Result.INVALID,
-        token(USER_1, day(20)), AuthCheckResponse.Result.MATCH,
-        token(USER_2, day(10)), AuthCheckResponse.Result.NO_MATCH,
-        token(USER_3, day(20)), AuthCheckResponse.Result.NO_MATCH,
-        token(USER_3, day(10)), AuthCheckResponse.Result.INVALID
+        token(USER_1, day(10)), CheckStatus.INVALID,
+        token(USER_1, day(20)), CheckStatus.MATCH,
+        token(USER_2, day(10)), CheckStatus.NO_MATCH,
+        token(USER_3, day(20)), CheckStatus.NO_MATCH,
+        token(USER_3, day(10)), CheckStatus.INVALID
     ), day(25));
   }
 
   private void validate(
-      final Map<String, AuthCheckResponse.Result> expected,
+      final Map<String, CheckStatus> expected,
       final long nowMillis) throws Exception {
     clock.setTimeMillis(nowMillis);
     final AuthCheckRequest request = new AuthCheckRequest(E164_VALID, List.copyOf(expected.keySet()));
@@ -125,20 +132,20 @@ abstract class SecureValueRecoveryControllerBaseTest {
         .request()
         .post(Entity.entity(request, MediaType.APPLICATION_JSON));
     try (response) {
-      final AuthCheckResponse res = response.readEntity(AuthCheckResponse.class);
       assertEquals(200, response.getStatus());
-      assertEquals(expected, res.matches());
+      final Map<String, CheckStatus> res = parseCheckResponse(response);
+      assertEquals(expected, res);
     }
   }
 
   @Test
   public void testHttpResponseCodeSuccess() throws Exception {
-    final Map<String, AuthCheckResponse.Result> expected = Map.of(
-        token(USER_1, day(10)), AuthCheckResponse.Result.INVALID,
-        token(USER_1, day(20)), AuthCheckResponse.Result.MATCH,
-        token(USER_2, day(10)), AuthCheckResponse.Result.NO_MATCH,
-        token(USER_3, day(20)), AuthCheckResponse.Result.NO_MATCH,
-        token(USER_3, day(10)), AuthCheckResponse.Result.INVALID
+    final Map<String, CheckStatus> expected = Map.of(
+        token(USER_1, day(10)), CheckStatus.INVALID,
+        token(USER_1, day(20)), CheckStatus.MATCH,
+        token(USER_2, day(10)), CheckStatus.NO_MATCH,
+        token(USER_3, day(20)), CheckStatus.NO_MATCH,
+        token(USER_3, day(10)), CheckStatus.INVALID
     );
 
     clock.setTimeMillis(day(25));
@@ -151,9 +158,8 @@ abstract class SecureValueRecoveryControllerBaseTest {
         .post(Entity.entity(in, MediaType.APPLICATION_JSON));
 
     try (response) {
-      final AuthCheckResponse res = response.readEntity(AuthCheckResponse.class);
       assertEquals(200, response.getStatus());
-      assertEquals(expected, res.matches());
+      assertEquals(expected, parseCheckResponse(response));
     }
   }
 
@@ -253,6 +259,35 @@ abstract class SecureValueRecoveryControllerBaseTest {
   }
 
   @Test
+  public void testAcceptsPasswordsOrTokens() {
+    final Response passwordsResponse = resourceExtension.getJerseyTest()
+        .target(pathPrefix + "/backup/auth/check")
+        .request()
+        .post(Entity.entity("""
+            {
+              "number": "+18005550123",
+              "passwords": ["aaa:bbb"]
+            }
+            """, MediaType.APPLICATION_JSON));
+    try (passwordsResponse) {
+      assertEquals(200, passwordsResponse.getStatus());
+    }
+
+    final Response tokensResponse = resourceExtension.getJerseyTest()
+        .target(pathPrefix + "/backup/auth/check")
+        .request()
+        .post(Entity.entity("""
+            {
+              "number": "+18005550123",
+              "tokens": ["aaa:bbb"]
+            }
+            """, MediaType.APPLICATION_JSON));
+    try (tokensResponse) {
+      assertEquals(200, tokensResponse.getStatus());
+    }
+  }
+
+  @Test
   public void testHttpResponseCodeWhenNotAJson() throws Exception {
     final Response response = resourceExtension.getJerseyTest()
         .target(pathPrefix + "/backup/auth/check")
@@ -264,11 +299,11 @@ abstract class SecureValueRecoveryControllerBaseTest {
     }
   }
 
-  private String token(final UUID uuid, final long timeMillis) {
+  String token(final UUID uuid, final long timeMillis) {
     return token(credentials(uuid, timeMillis));
   }
 
-  private static String token(final ExternalServiceCredentials credentials) {
+  static String token(final ExternalServiceCredentials credentials) {
     return credentials.username() + ":" + credentials.password();
   }
 
@@ -277,13 +312,14 @@ abstract class SecureValueRecoveryControllerBaseTest {
     return credentialsGenerator.generateForUuid(uuid);
   }
 
-  private static long day(final int n) {
+  static long day(final int n) {
     return TimeUnit.DAYS.toMillis(n);
   }
 
   private static Account account(final UUID uuid) {
     final Account a = new Account();
     a.setUuid(uuid);
+    a.setSvr3ShareSet(TestRandomUtil.nextBytes(100));
     return a;
   }
 }

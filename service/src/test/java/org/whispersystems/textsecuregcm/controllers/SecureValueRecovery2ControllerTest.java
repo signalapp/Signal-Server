@@ -15,10 +15,14 @@ import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.configuration.SecureValueRecovery2Configuration;
+import org.whispersystems.textsecuregcm.entities.AuthCheckResponseV2;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.MutableClock;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
+import javax.ws.rs.core.Response;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 public class SecureValueRecovery2ControllerTest extends SecureValueRecoveryControllerBaseTest {
@@ -50,5 +54,17 @@ public class SecureValueRecovery2ControllerTest extends SecureValueRecoveryContr
 
   protected SecureValueRecovery2ControllerTest() {
     super("/v2", ACCOUNTS_MANAGER, CLOCK, RESOURCES, CREDENTIAL_GENERATOR);
+  }
+
+  @Override
+  Map<String, CheckStatus> parseCheckResponse(final Response response) {
+    final AuthCheckResponseV2 authCheckResponseV2 = response.readEntity(AuthCheckResponseV2.class);
+    return authCheckResponseV2.matches().entrySet().stream().collect(Collectors.toMap(
+        Map.Entry::getKey, e -> switch (e.getValue()) {
+          case MATCH -> CheckStatus.MATCH;
+          case INVALID -> CheckStatus.INVALID;
+          case NO_MATCH -> CheckStatus.NO_MATCH;
+        }
+    ));
   }
 }

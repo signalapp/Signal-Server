@@ -22,6 +22,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.PhoneVerificationRequest;
 import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
+import org.whispersystems.textsecuregcm.entities.Svr3Credentials;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
@@ -55,6 +56,7 @@ public class RegistrationLockVerificationManager {
   private final AccountsManager accounts;
   private final ClientPresenceManager clientPresenceManager;
   private final ExternalServiceCredentialsGenerator svr2CredentialGenerator;
+  private final ExternalServiceCredentialsGenerator svr3CredentialGenerator;
   private final RateLimiters rateLimiters;
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
   private final PushNotificationManager pushNotificationManager;
@@ -62,12 +64,14 @@ public class RegistrationLockVerificationManager {
   public RegistrationLockVerificationManager(
       final AccountsManager accounts, final ClientPresenceManager clientPresenceManager,
       final ExternalServiceCredentialsGenerator svr2CredentialGenerator,
+      final ExternalServiceCredentialsGenerator svr3CredentialGenerator,
       final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
       final PushNotificationManager pushNotificationManager,
       final RateLimiters rateLimiters) {
     this.accounts = accounts;
     this.clientPresenceManager = clientPresenceManager;
     this.svr2CredentialGenerator = svr2CredentialGenerator;
+    this.svr3CredentialGenerator = svr3CredentialGenerator;
     this.registrationRecoveryPasswordsManager = registrationRecoveryPasswordsManager;
     this.pushNotificationManager = pushNotificationManager;
     this.rateLimiters = rateLimiters;
@@ -138,8 +142,6 @@ public class RegistrationLockVerificationManager {
       // Freezing the existing account credentials will definitively start the reglock timeout.
       // Until the timeout, the current reglock can still be supplied,
       // along with phone number verification, to restore access.
-      final ExternalServiceCredentials existingSvr2Credentials = svr2CredentialGenerator.generateForUuid(account.getUuid());
-
       final Account updatedAccount;
       if (!alreadyLocked) {
         updatedAccount = accounts.update(account, Account::lockAuthTokenHash);
@@ -168,11 +170,28 @@ public class RegistrationLockVerificationManager {
       }
 
       throw new WebApplicationException(Response.status(FAILURE_HTTP_STATUS)
-          .entity(new RegistrationLockFailure(existingRegistrationLock.getTimeRemaining().toMillis(),
-              existingRegistrationLock.needsFailureCredentials() ? existingSvr2Credentials : null))
+          .entity(new RegistrationLockFailure(
+              existingRegistrationLock.getTimeRemaining().toMillis(),
+              svr2FailureCredentials(existingRegistrationLock, updatedAccount),
+              svr3FailureCredentials(existingRegistrationLock, updatedAccount)))
           .build());
     }
 
     rateLimiters.getPinLimiter().clear(phoneNumber);
+  }
+
+  private @Nullable ExternalServiceCredentials svr2FailureCredentials(final StoredRegistrationLock existingRegistrationLock, final Account account) {
+    if (!existingRegistrationLock.needsFailureCredentials()) {
+      return null;
+    }
+    return svr2CredentialGenerator.generateForUuid(account.getUuid());
+  }
+
+  private @Nullable Svr3Credentials svr3FailureCredentials(final StoredRegistrationLock existingRegistrationLock, final Account account) {
+    if (!existingRegistrationLock.needsFailureCredentials()) {
+      return null;
+    }
+    final ExternalServiceCredentials creds = svr3CredentialGenerator.generateForUuid(account.getUuid());
+    return new Svr3Credentials(creds.username(), creds.password(), account.getSvr3ShareSet());
   }
 }

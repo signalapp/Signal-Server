@@ -101,6 +101,19 @@ public class Account {
   @JsonProperty("inCds")
   private boolean discoverableByPhoneNumber = true;
 
+  /**
+   * A share-set the account holder has stored.
+   *
+   * A share-set is generated when a client stores a value in SVR3, and should be stored here with the account.  When
+   * they later want to recover the value, they need their share-set and their secret pin. The share-set is not a secret
+   * and, without the correct pin, is useless information.
+   *
+   * SVR3 share-sets are currently 167 bytes.
+   */
+  @JsonProperty("svr3ss")
+  @Nullable
+  private byte[] svr3ShareSet;
+
   @JsonProperty("bcr")
   @Nullable
   private byte[] backupCredentialRequest;
@@ -503,6 +516,14 @@ public class Account {
     requireNotStale();
 
     this.version = version;
+  }
+
+  public @Nullable byte[] getSvr3ShareSet() {
+    return svr3ShareSet;
+  }
+
+  public void setSvr3ShareSet(final byte[] svr3ShareSet) {
+    this.svr3ShareSet = svr3ShareSet;
   }
 
   public byte[] getBackupCredentialRequest() {

@@ -417,12 +417,15 @@ class AccountsTest {
   }
 
   @Test
-  void testReclaimAccountPreservesBcr() {
+  void testReclaimAccountPreservesFields() {
     final String e164 = "+14151112222";
     final UUID existingUuid = UUID.randomUUID();
     final Account existingAccount =
         generateAccount(e164, existingUuid, UUID.randomUUID(), List.of(generateDevice(DEVICE_ID_1)));
+
+    // the backup credential request and share-set are always preserved across account reclaims
     existingAccount.setBackupCredentialRequest(TestRandomUtil.nextBytes(32));
+    existingAccount.setSvr3ShareSet(TestRandomUtil.nextBytes(100));
     createAccount(existingAccount);
     final Account secondAccount =
         generateAccount(e164, UUID.randomUUID(), UUID.randomUUID(), List.of(generateDevice(DEVICE_ID_1)));
@@ -431,6 +434,7 @@ class AccountsTest {
 
     final Account reclaimed = accounts.getByAccountIdentifier(existingUuid).get();
     assertThat(reclaimed.getBackupCredentialRequest()).isEqualTo(existingAccount.getBackupCredentialRequest());
+    assertThat(reclaimed.getSvr3ShareSet()).isEqualTo(existingAccount.getSvr3ShareSet());
   }
 
   @Test

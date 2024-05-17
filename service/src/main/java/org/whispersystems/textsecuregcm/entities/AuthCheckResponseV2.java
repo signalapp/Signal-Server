@@ -10,8 +10,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Map;
 import javax.validation.constraints.NotNull;
 
-public record AuthCheckResponse(@Schema(description = "A dictionary with the auth check results: `KBS Credentials -> 'match'/'no-match'/'invalid'`")
-                                @NotNull Map<String, Result> matches) {
+public record AuthCheckResponseV2(@Schema(description = "A dictionary with the auth check results: `SVR Credentials -> 'match'/'no-match'/'invalid'`")
+                                  @NotNull Map<String, Result> matches) {
 
   public enum Result {
     MATCH("match"),

@@ -309,6 +309,10 @@ public class Accounts extends AbstractDynamoDbStore {
       // won't be rate-limited for setting their backup-id.
       accountToCreate.setBackupCredentialRequest(existingAccount.getBackupCredentialRequest());
 
+      // Carry over the old SVR3 share-set. This is required for an account to restore information from SVR. The share-
+      // set is not a secret, if the new account claimer does not have the SVR3 pin, it is useless.
+      accountToCreate.setSvr3ShareSet(existingAccount.getSvr3ShareSet());
+
       final List<TransactWriteItem> writeItems = new ArrayList<>();
 
       // If we're reclaiming an account that already has a username, we'd like to give the re-registering client
