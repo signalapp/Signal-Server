@@ -48,6 +48,7 @@ class AccountsManagerChangeNumberIntegrationTest {
   @RegisterExtension
   static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(
       Tables.ACCOUNTS,
+      Tables.CLIENT_PUBLIC_KEYS,
       Tables.DELETED_ACCOUNTS,
       Tables.DELETED_ACCOUNTS_LOCK,
       Tables.NUMBERS,
@@ -86,6 +87,11 @@ class AccountsManagerChangeNumberIntegrationTest {
           Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS.tableName(),
           Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS.tableName()
       );
+
+      final ClientPublicKeys clientPublicKeys = new ClientPublicKeys(DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
+          DynamoDbExtensionSchema.Tables.CLIENT_PUBLIC_KEYS.tableName());
+
+      final ClientPublicKeysManager clientPublicKeysManager = new ClientPublicKeysManager(clientPublicKeys);
 
       final Accounts accounts = new Accounts(
           DYNAMO_DB_EXTENSION.getDynamoDbClient(),
@@ -137,6 +143,7 @@ class AccountsManagerChangeNumberIntegrationTest {
           svr2Client,
           clientPresenceManager,
           registrationRecoveryPasswordsManager,
+          clientPublicKeysManager,
           accountLockExecutor,
           clientPresenceExecutor,
           mock(Clock.class));

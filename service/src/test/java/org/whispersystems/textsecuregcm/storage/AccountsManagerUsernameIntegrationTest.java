@@ -143,6 +143,7 @@ class AccountsManagerUsernameIntegrationTest {
         mock(SecureValueRecovery2Client.class),
         mock(ClientPresenceManager.class),
         mock(RegistrationRecoveryPasswordsManager.class),
+        mock(ClientPublicKeysManager.class),
         Executors.newSingleThreadExecutor(),
         Executors.newSingleThreadExecutor(),
         mock(Clock.class));

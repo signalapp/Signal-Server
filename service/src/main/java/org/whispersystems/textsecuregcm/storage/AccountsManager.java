@@ -23,7 +23,6 @@ import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -101,6 +100,7 @@ public class AccountsManager {
   private final SecureValueRecovery2Client secureValueRecovery2Client;
   private final ClientPresenceManager clientPresenceManager;
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
+  private final ClientPublicKeysManager clientPublicKeysManager;
   private final Executor accountLockExecutor;
   private final Executor clientPresenceExecutor;
   private final Clock clock;
@@ -141,6 +141,7 @@ public class AccountsManager {
       final SecureValueRecovery2Client secureValueRecovery2Client,
       final ClientPresenceManager clientPresenceManager,
       final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
+      final ClientPublicKeysManager clientPublicKeysManager,
       final Executor accountLockExecutor,
       final Executor clientPresenceExecutor,
       final Clock clock) {
@@ -155,6 +156,7 @@ public class AccountsManager {
     this.secureValueRecovery2Client = secureValueRecovery2Client;
     this.clientPresenceManager = clientPresenceManager;
     this.registrationRecoveryPasswordsManager = requireNonNull(registrationRecoveryPasswordsManager);
+    this.clientPublicKeysManager = clientPublicKeysManager;
     this.accountLockExecutor = accountLockExecutor;
     this.clientPresenceExecutor = clientPresenceExecutor;
     this.clock = requireNonNull(clock);
@@ -319,10 +321,15 @@ public class AccountsManager {
         .thenCompose(account -> {
           account.removeDevice(deviceId);
 
-          return accounts.updateTransactionallyAsync(account, keysManager.buildWriteItemsForRemovedDevice(
-              account.getIdentifier(IdentityType.ACI),
-              account.getIdentifier(IdentityType.PNI),
-              deviceId))
+          final List<TransactWriteItem> additionalWriteItems = new ArrayList<>(
+              keysManager.buildWriteItemsForRemovedDevice(
+                  account.getIdentifier(IdentityType.ACI),
+                  account.getIdentifier(IdentityType.PNI),
+                  deviceId));
+
+          additionalWriteItems.add(clientPublicKeysManager.buildTransactWriteItemForDeletion(account.getIdentifier(IdentityType.ACI), deviceId));
+
+          return accounts.updateTransactionallyAsync(account, additionalWriteItems)
               .thenApply(ignored -> account);
         })
         .thenCompose(updatedAccount -> redisDeleteAsync(updatedAccount).thenApply(ignored -> updatedAccount))
@@ -956,12 +963,18 @@ public class AccountsManager {
   }
 
   private CompletableFuture<Void> delete(final Account account) {
-    final List<TransactWriteItem> additionalWriteItems =
-        account.getDevices().stream().flatMap(device -> keysManager.buildWriteItemsForRemovedDevice(
-                account.getIdentifier(IdentityType.ACI),
-                account.getIdentifier(IdentityType.PNI),
-                device.getId()).stream())
-            .toList();
+    final List<TransactWriteItem> additionalWriteItems = Stream.concat(
+            account.getDevices().stream()
+                .flatMap(device -> keysManager.buildWriteItemsForRemovedDevice(
+                        account.getIdentifier(IdentityType.ACI),
+                        account.getIdentifier(IdentityType.PNI),
+                        device.getId())
+                    .stream()),
+            account.getDevices().stream()
+                .map(device -> clientPublicKeysManager.buildTransactWriteItemForDeletion(
+                    account.getIdentifier(IdentityType.ACI),
+                    device.getId())))
+        .toList();
 
     return CompletableFuture.allOf(
             secureStorageClient.deleteStoredData(account.getUuid()),

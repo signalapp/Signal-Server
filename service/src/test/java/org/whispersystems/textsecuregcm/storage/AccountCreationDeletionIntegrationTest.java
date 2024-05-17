@@ -53,6 +53,7 @@ public class AccountCreationDeletionIntegrationTest {
   @RegisterExtension
   static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(
       DynamoDbExtensionSchema.Tables.ACCOUNTS,
+      DynamoDbExtensionSchema.Tables.CLIENT_PUBLIC_KEYS,
       DynamoDbExtensionSchema.Tables.DELETED_ACCOUNTS,
       DynamoDbExtensionSchema.Tables.DELETED_ACCOUNTS_LOCK,
       DynamoDbExtensionSchema.Tables.NUMBERS,
@@ -74,6 +75,7 @@ public class AccountCreationDeletionIntegrationTest {
 
   private AccountsManager accountsManager;
   private KeysManager keysManager;
+  private ClientPublicKeysManager clientPublicKeysManager;
 
   record DeliveryChannels(boolean fetchesMessages, String apnsToken, String apnsVoipToken, String fcmToken) {}
 
@@ -92,6 +94,11 @@ public class AccountCreationDeletionIntegrationTest {
         DynamoDbExtensionSchema.Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS.tableName(),
         DynamoDbExtensionSchema.Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS.tableName()
     );
+
+    final ClientPublicKeys clientPublicKeys = new ClientPublicKeys(DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
+        DynamoDbExtensionSchema.Tables.CLIENT_PUBLIC_KEYS.tableName());
+
+    clientPublicKeysManager = new ClientPublicKeysManager(clientPublicKeys);
 
     final Accounts accounts = new Accounts(
         DYNAMO_DB_EXTENSION.getDynamoDbClient(),
@@ -142,6 +149,7 @@ public class AccountCreationDeletionIntegrationTest {
         svr2Client,
         mock(ClientPresenceManager.class),
         registrationRecoveryPasswordsManager,
+        clientPublicKeysManager,
         accountLockExecutor,
         clientPresenceExecutor,
         CLOCK);
@@ -451,6 +459,8 @@ public class AccountCreationDeletionIntegrationTest {
             aciPqLastResortPreKey,
             pniPqLastResortPreKey));
 
+    clientPublicKeysManager.setPublicKey(account.getIdentifier(IdentityType.ACI), Device.PRIMARY_ID, Curve.generateKeyPair().getPublicKey()).join();
+
     final UUID aci = account.getIdentifier(IdentityType.ACI);
 
     assertTrue(accountsManager.getByAccountIdentifier(aci).isPresent());
@@ -462,6 +472,7 @@ public class AccountCreationDeletionIntegrationTest {
     assertFalse(keysManager.getEcSignedPreKey(account.getPhoneNumberIdentifier(), Device.PRIMARY_ID).join().isPresent());
     assertFalse(keysManager.getLastResort(account.getUuid(), Device.PRIMARY_ID).join().isPresent());
     assertFalse(keysManager.getLastResort(account.getPhoneNumberIdentifier(), Device.PRIMARY_ID).join().isPresent());
+    assertFalse(clientPublicKeysManager.findPublicKey(account.getUuid(), Device.PRIMARY_ID).join().isPresent());
   }
 
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")

@@ -105,6 +105,7 @@ class AccountsManagerTest {
   private MessagesManager messagesManager;
   private ProfilesManager profilesManager;
   private ClientPresenceManager clientPresenceManager;
+  private ClientPublicKeysManager clientPublicKeysManager;
 
   private Map<String, UUID> phoneNumberIdentifiersByE164;
 
@@ -137,6 +138,7 @@ class AccountsManagerTest {
     messagesManager = mock(MessagesManager.class);
     profilesManager = mock(ProfilesManager.class);
     clientPresenceManager = mock(ClientPresenceManager.class);
+    clientPublicKeysManager = mock(ClientPublicKeysManager.class);
 
     final Executor clientPresenceExecutor = mock(Executor.class);
 
@@ -231,6 +233,7 @@ class AccountsManagerTest {
         svr2Client,
         clientPresenceManager,
         registrationRecoveryPasswordsManager,
+        clientPublicKeysManager,
         mock(Executor.class),
         clientPresenceExecutor,
         clock);
@@ -740,6 +743,7 @@ class AccountsManagerTest {
     verify(messagesManager, times(2)).clear(account.getUuid(), linkedDevice.getId());
     verify(keysManager, times(2)).deleteSingleUsePreKeys(account.getUuid(), linkedDevice.getId());
     verify(keysManager).buildWriteItemsForRemovedDevice(account.getUuid(), account.getPhoneNumberIdentifier(), linkedDevice.getId());
+    verify(clientPublicKeysManager).buildTransactWriteItemForDeletion(account.getUuid(), linkedDevice.getId());
     verify(clientPresenceManager).disconnectPresence(account.getUuid(), linkedDevice.getId());
   }
 

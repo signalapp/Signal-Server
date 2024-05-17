@@ -42,6 +42,7 @@ public class AddRemoveDeviceIntegrationTest {
   @RegisterExtension
   static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(
       DynamoDbExtensionSchema.Tables.ACCOUNTS,
+      DynamoDbExtensionSchema.Tables.CLIENT_PUBLIC_KEYS,
       DynamoDbExtensionSchema.Tables.DELETED_ACCOUNTS,
       DynamoDbExtensionSchema.Tables.DELETED_ACCOUNTS_LOCK,
       DynamoDbExtensionSchema.Tables.NUMBERS,
@@ -62,6 +63,7 @@ public class AddRemoveDeviceIntegrationTest {
   private ExecutorService clientPresenceExecutor;
 
   private KeysManager keysManager;
+  private ClientPublicKeysManager clientPublicKeysManager;
   private MessagesManager messagesManager;
   private AccountsManager accountsManager;
 
@@ -80,6 +82,11 @@ public class AddRemoveDeviceIntegrationTest {
         DynamoDbExtensionSchema.Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS.tableName(),
         DynamoDbExtensionSchema.Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS.tableName()
     );
+
+    final ClientPublicKeys clientPublicKeys = new ClientPublicKeys(DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
+        DynamoDbExtensionSchema.Tables.CLIENT_PUBLIC_KEYS.tableName());
+
+    clientPublicKeysManager = new ClientPublicKeysManager(clientPublicKeys);
 
     final Accounts accounts = new Accounts(
         DYNAMO_DB_EXTENSION.getDynamoDbClient(),
@@ -130,6 +137,7 @@ public class AddRemoveDeviceIntegrationTest {
         svr2Client,
         mock(ClientPresenceManager.class),
         registrationRecoveryPasswordsManager,
+        clientPublicKeysManager,
         accountLockExecutor,
         clientPresenceExecutor,
         CLOCK);
@@ -221,6 +229,9 @@ public class AddRemoveDeviceIntegrationTest {
 
     final byte addedDeviceId = updatedAccountAndDevice.second().getId();
 
+    clientPublicKeysManager.setPublicKey(account.getUuid(), Device.PRIMARY_ID, Curve.generateKeyPair().getPublicKey()).join();
+    clientPublicKeysManager.setPublicKey(account.getUuid(), addedDeviceId, Curve.generateKeyPair().getPublicKey()).join();
+
     final Account updatedAccount = accountsManager.removeDevice(updatedAccountAndDevice.first(), addedDeviceId).join();
 
     assertEquals(1, updatedAccount.getDevices().size());
@@ -229,11 +240,13 @@ public class AddRemoveDeviceIntegrationTest {
     assertFalse(keysManager.getEcSignedPreKey(updatedAccount.getPhoneNumberIdentifier(), addedDeviceId).join().isPresent());
     assertFalse(keysManager.getLastResort(updatedAccount.getUuid(), addedDeviceId).join().isPresent());
     assertFalse(keysManager.getLastResort(updatedAccount.getPhoneNumberIdentifier(), addedDeviceId).join().isPresent());
+    assertFalse(clientPublicKeysManager.findPublicKey(updatedAccount.getUuid(), addedDeviceId).join().isPresent());
 
     assertTrue(keysManager.getEcSignedPreKey(updatedAccount.getUuid(), Device.PRIMARY_ID).join().isPresent());
     assertTrue(keysManager.getEcSignedPreKey(updatedAccount.getPhoneNumberIdentifier(), Device.PRIMARY_ID).join().isPresent());
     assertTrue(keysManager.getLastResort(updatedAccount.getUuid(), Device.PRIMARY_ID).join().isPresent());
     assertTrue(keysManager.getLastResort(updatedAccount.getPhoneNumberIdentifier(), Device.PRIMARY_ID).join().isPresent());
+    assertTrue(clientPublicKeysManager.findPublicKey(updatedAccount.getUuid(), Device.PRIMARY_ID).join().isPresent());
   }
 
   @Test
@@ -249,7 +262,6 @@ public class AddRemoveDeviceIntegrationTest {
     assertEquals(1, accountsManager.getByAccountIdentifier(account.getUuid()).orElseThrow().getDevices().size());
 
     final UUID aci = account.getIdentifier(IdentityType.ACI);
-    final UUID pni = account.getIdentifier(IdentityType.PNI);
 
     final Pair<Account, Device> updatedAccountAndDevice =
         accountsManager.addDevice(account, new DeviceSpec(
@@ -278,16 +290,21 @@ public class AddRemoveDeviceIntegrationTest {
 
     final Account retrievedAccount = accountsManager.getByAccountIdentifierAsync(aci).join().orElseThrow();
 
+    clientPublicKeysManager.setPublicKey(retrievedAccount.getUuid(), Device.PRIMARY_ID, Curve.generateKeyPair().getPublicKey()).join();
+    clientPublicKeysManager.setPublicKey(retrievedAccount.getUuid(), addedDeviceId, Curve.generateKeyPair().getPublicKey()).join();
+
     assertEquals(2, retrievedAccount.getDevices().size());
 
     assertTrue(keysManager.getEcSignedPreKey(retrievedAccount.getUuid(), addedDeviceId).join().isPresent());
     assertTrue(keysManager.getEcSignedPreKey(retrievedAccount.getPhoneNumberIdentifier(), addedDeviceId).join().isPresent());
     assertTrue(keysManager.getLastResort(retrievedAccount.getUuid(), addedDeviceId).join().isPresent());
     assertTrue(keysManager.getLastResort(retrievedAccount.getPhoneNumberIdentifier(), addedDeviceId).join().isPresent());
+    assertTrue(clientPublicKeysManager.findPublicKey(retrievedAccount.getUuid(), addedDeviceId).join().isPresent());
 
     assertTrue(keysManager.getEcSignedPreKey(retrievedAccount.getUuid(), Device.PRIMARY_ID).join().isPresent());
     assertTrue(keysManager.getEcSignedPreKey(retrievedAccount.getPhoneNumberIdentifier(), Device.PRIMARY_ID).join().isPresent());
     assertTrue(keysManager.getLastResort(retrievedAccount.getUuid(), Device.PRIMARY_ID).join().isPresent());
     assertTrue(keysManager.getLastResort(retrievedAccount.getPhoneNumberIdentifier(), Device.PRIMARY_ID).join().isPresent());
+    assertTrue(clientPublicKeysManager.findPublicKey(retrievedAccount.getUuid(), Device.PRIMARY_ID).join().isPresent());
   }
 }
