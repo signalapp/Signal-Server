@@ -301,7 +301,7 @@ public class DeviceController {
   public CompletableFuture<Void> setPublicKey(@Auth final AuthenticatedAccount auth,
       final SetPublicKeyRequest setPublicKeyRequest) {
 
-    return clientPublicKeysManager.setPublicKey(auth.getAccount().getIdentifier(IdentityType.ACI),
+    return clientPublicKeysManager.setPublicKey(auth.getAccount(),
         auth.getAuthenticatedDevice().getId(),
         setPublicKeyRequest.publicKey());
   }

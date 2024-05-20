@@ -582,7 +582,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         messageDeletionAsyncExecutor);
     AccountLockManager accountLockManager = new AccountLockManager(dynamoDbClient,
         config.getDynamoDbTables().getDeletedAccountsLock().getTableName());
-    ClientPublicKeysManager clientPublicKeysManager = new ClientPublicKeysManager(clientPublicKeys);
+    ClientPublicKeysManager clientPublicKeysManager =
+        new ClientPublicKeysManager(clientPublicKeys, accountLockManager, accountLockExecutor);
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
         accountLockManager, keysManager, messagesManager, profilesManager,
         secureStorageClient, secureValueRecovery2Client,

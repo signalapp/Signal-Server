@@ -91,8 +91,6 @@ class AccountsManagerChangeNumberIntegrationTest {
       final ClientPublicKeys clientPublicKeys = new ClientPublicKeys(DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
           DynamoDbExtensionSchema.Tables.CLIENT_PUBLIC_KEYS.tableName());
 
-      final ClientPublicKeysManager clientPublicKeysManager = new ClientPublicKeysManager(clientPublicKeys);
-
       final Accounts accounts = new Accounts(
           DYNAMO_DB_EXTENSION.getDynamoDbClient(),
           DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
@@ -107,6 +105,9 @@ class AccountsManagerChangeNumberIntegrationTest {
 
       final AccountLockManager accountLockManager = new AccountLockManager(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
           Tables.DELETED_ACCOUNTS_LOCK.tableName());
+
+      final ClientPublicKeysManager clientPublicKeysManager =
+          new ClientPublicKeysManager(clientPublicKeys, accountLockManager, accountLockExecutor);
 
       final SecureStorageClient secureStorageClient = mock(SecureStorageClient.class);
       when(secureStorageClient.deleteStoredData(any())).thenReturn(CompletableFuture.completedFuture(null));

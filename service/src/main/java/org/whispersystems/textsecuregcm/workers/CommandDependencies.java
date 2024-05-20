@@ -150,8 +150,6 @@ record CommandDependencies(
     ClientPublicKeys clientPublicKeys =
         new ClientPublicKeys(dynamoDbAsyncClient, configuration.getDynamoDbTables().getClientPublicKeys().getTableName());
 
-    ClientPublicKeysManager clientPublicKeysManager = new ClientPublicKeysManager(clientPublicKeys);
-
     Accounts accounts = new Accounts(
         dynamoDbClient,
         dynamoDbAsyncClient,
@@ -201,6 +199,8 @@ record CommandDependencies(
         reportMessageManager, messageDeletionExecutor);
     AccountLockManager accountLockManager = new AccountLockManager(dynamoDbClient,
         configuration.getDynamoDbTables().getDeletedAccountsLock().getTableName());
+    ClientPublicKeysManager clientPublicKeysManager =
+        new ClientPublicKeysManager(clientPublicKeys, accountLockManager, accountLockExecutor);
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
         accountLockManager, keys, messagesManager, profilesManager,
         secureStorageClient, secureValueRecovery2Client, clientPresenceManager,

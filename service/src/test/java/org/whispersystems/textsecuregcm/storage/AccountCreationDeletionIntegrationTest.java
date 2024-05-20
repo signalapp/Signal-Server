@@ -98,8 +98,6 @@ public class AccountCreationDeletionIntegrationTest {
     final ClientPublicKeys clientPublicKeys = new ClientPublicKeys(DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
         DynamoDbExtensionSchema.Tables.CLIENT_PUBLIC_KEYS.tableName());
 
-    clientPublicKeysManager = new ClientPublicKeysManager(clientPublicKeys);
-
     final Accounts accounts = new Accounts(
         DYNAMO_DB_EXTENSION.getDynamoDbClient(),
         DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
@@ -114,6 +112,8 @@ public class AccountCreationDeletionIntegrationTest {
 
     final AccountLockManager accountLockManager = new AccountLockManager(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
         DynamoDbExtensionSchema.Tables.DELETED_ACCOUNTS_LOCK.tableName());
+
+    clientPublicKeysManager = new ClientPublicKeysManager(clientPublicKeys, accountLockManager, accountLockExecutor);
 
     final SecureStorageClient secureStorageClient = mock(SecureStorageClient.class);
     when(secureStorageClient.deleteStoredData(any())).thenReturn(CompletableFuture.completedFuture(null));
@@ -459,7 +459,7 @@ public class AccountCreationDeletionIntegrationTest {
             aciPqLastResortPreKey,
             pniPqLastResortPreKey));
 
-    clientPublicKeysManager.setPublicKey(account.getIdentifier(IdentityType.ACI), Device.PRIMARY_ID, Curve.generateKeyPair().getPublicKey()).join();
+    clientPublicKeysManager.setPublicKey(account, Device.PRIMARY_ID, Curve.generateKeyPair().getPublicKey()).join();
 
     final UUID aci = account.getIdentifier(IdentityType.ACI);
 

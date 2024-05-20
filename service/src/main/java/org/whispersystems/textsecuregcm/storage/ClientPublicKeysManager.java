@@ -1,9 +1,12 @@
 package org.whispersystems.textsecuregcm.storage;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
 
 /**
@@ -14,8 +17,16 @@ public class ClientPublicKeysManager {
 
   private final ClientPublicKeys clientPublicKeys;
 
-  public ClientPublicKeysManager(final ClientPublicKeys clientPublicKeys) {
+  private final AccountLockManager accountLockManager;
+  private final Executor accountLockExecutor;
+
+  public ClientPublicKeysManager(final ClientPublicKeys clientPublicKeys,
+      final AccountLockManager accountLockManager,
+      final Executor accountLockExecutor) {
+
     this.clientPublicKeys = clientPublicKeys;
+    this.accountLockManager = accountLockManager;
+    this.accountLockExecutor = accountLockExecutor;
   }
 
   /**
@@ -23,14 +34,16 @@ public class ClientPublicKeysManager {
    * is intended for use for adding public keys to existing accounts/devices as a migration step. Callers should use
    * {@link #buildTransactWriteItemForInsertion(UUID, byte, ECPublicKey)} instead when creating new accounts/devices.
    *
-   * @param accountIdentifier the identifier for the target account
+   * @param account the target account
    * @param deviceId the identifier for the target device
    * @param publicKey the public key to store for the target account/device
 
    * @return a future that completes when the given key has been stored
    */
-  public CompletableFuture<Void> setPublicKey(final UUID accountIdentifier, final byte deviceId, final ECPublicKey publicKey) {
-    return clientPublicKeys.setPublicKey(accountIdentifier, deviceId, publicKey);
+  public CompletableFuture<Void> setPublicKey(final Account account, final byte deviceId, final ECPublicKey publicKey) {
+    return accountLockManager.withLockAsync(List.of(account.getNumber()),
+        () -> clientPublicKeys.setPublicKey(account.getIdentifier(IdentityType.ACI), deviceId, publicKey),
+        accountLockExecutor);
   }
 
   /**

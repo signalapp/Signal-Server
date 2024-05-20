@@ -827,6 +827,6 @@ class DeviceControllerTest {
       assertEquals(204, response.getStatus());
     }
 
-    verify(clientPublicKeysManager).setPublicKey(AuthHelper.VALID_UUID, AuthHelper.VALID_DEVICE.getId(), request.publicKey());
+    verify(clientPublicKeysManager).setPublicKey(AuthHelper.VALID_ACCOUNT, AuthHelper.VALID_DEVICE.getId(), request.publicKey());
   }
 }

@@ -86,8 +86,6 @@ public class AddRemoveDeviceIntegrationTest {
     final ClientPublicKeys clientPublicKeys = new ClientPublicKeys(DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
         DynamoDbExtensionSchema.Tables.CLIENT_PUBLIC_KEYS.tableName());
 
-    clientPublicKeysManager = new ClientPublicKeysManager(clientPublicKeys);
-
     final Accounts accounts = new Accounts(
         DYNAMO_DB_EXTENSION.getDynamoDbClient(),
         DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
@@ -102,6 +100,8 @@ public class AddRemoveDeviceIntegrationTest {
 
     final AccountLockManager accountLockManager = new AccountLockManager(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
         DynamoDbExtensionSchema.Tables.DELETED_ACCOUNTS_LOCK.tableName());
+
+    clientPublicKeysManager = new ClientPublicKeysManager(clientPublicKeys, accountLockManager, accountLockExecutor);
 
     final SecureStorageClient secureStorageClient = mock(SecureStorageClient.class);
     when(secureStorageClient.deleteStoredData(any())).thenReturn(CompletableFuture.completedFuture(null));
@@ -229,8 +229,8 @@ public class AddRemoveDeviceIntegrationTest {
 
     final byte addedDeviceId = updatedAccountAndDevice.second().getId();
 
-    clientPublicKeysManager.setPublicKey(account.getUuid(), Device.PRIMARY_ID, Curve.generateKeyPair().getPublicKey()).join();
-    clientPublicKeysManager.setPublicKey(account.getUuid(), addedDeviceId, Curve.generateKeyPair().getPublicKey()).join();
+    clientPublicKeysManager.setPublicKey(account, Device.PRIMARY_ID, Curve.generateKeyPair().getPublicKey()).join();
+    clientPublicKeysManager.setPublicKey(account, addedDeviceId, Curve.generateKeyPair().getPublicKey()).join();
 
     final Account updatedAccount = accountsManager.removeDevice(updatedAccountAndDevice.first(), addedDeviceId).join();
 
@@ -290,8 +290,8 @@ public class AddRemoveDeviceIntegrationTest {
 
     final Account retrievedAccount = accountsManager.getByAccountIdentifierAsync(aci).join().orElseThrow();
 
-    clientPublicKeysManager.setPublicKey(retrievedAccount.getUuid(), Device.PRIMARY_ID, Curve.generateKeyPair().getPublicKey()).join();
-    clientPublicKeysManager.setPublicKey(retrievedAccount.getUuid(), addedDeviceId, Curve.generateKeyPair().getPublicKey()).join();
+    clientPublicKeysManager.setPublicKey(retrievedAccount, Device.PRIMARY_ID, Curve.generateKeyPair().getPublicKey()).join();
+    clientPublicKeysManager.setPublicKey(retrievedAccount, addedDeviceId, Curve.generateKeyPair().getPublicKey()).join();
 
     assertEquals(2, retrievedAccount.getDevices().size());
 
