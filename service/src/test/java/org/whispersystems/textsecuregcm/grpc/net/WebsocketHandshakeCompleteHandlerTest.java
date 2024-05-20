@@ -102,8 +102,8 @@ class WebsocketHandshakeCompleteHandlerTest extends AbstractLeakDetectionTest {
 
   private static List<Arguments> handleWebSocketHandshakeComplete() {
     return List.of(
-        Arguments.of(WebsocketNoiseTunnelServer.AUTHENTICATED_SERVICE_PATH, NoiseXXHandshakeHandler.class),
-        Arguments.of(WebsocketNoiseTunnelServer.ANONYMOUS_SERVICE_PATH, NoiseNXHandshakeHandler.class));
+        Arguments.of(NoiseWebSocketTunnelServer.AUTHENTICATED_SERVICE_PATH, NoiseXXHandshakeHandler.class),
+        Arguments.of(NoiseWebSocketTunnelServer.ANONYMOUS_SERVICE_PATH, NoiseNXHandshakeHandler.class));
   }
 
   @Test
@@ -130,7 +130,7 @@ class WebsocketHandshakeCompleteHandlerTest extends AbstractLeakDetectionTest {
   void getRemoteAddress(final HttpHeaders headers, final SocketAddress remoteAddress, @Nullable InetAddress expectedRemoteAddress) {
     final WebSocketServerProtocolHandler.HandshakeComplete handshakeCompleteEvent =
         new WebSocketServerProtocolHandler.HandshakeComplete(
-            WebsocketNoiseTunnelServer.ANONYMOUS_SERVICE_PATH, headers, null);
+            NoiseWebSocketTunnelServer.ANONYMOUS_SERVICE_PATH, headers, null);
 
     embeddedChannel.setRemoteAddress(remoteAddress);
     embeddedChannel.pipeline().fireUserEventTriggered(handshakeCompleteEvent);

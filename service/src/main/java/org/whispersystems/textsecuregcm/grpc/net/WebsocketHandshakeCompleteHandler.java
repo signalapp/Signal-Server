@@ -83,10 +83,10 @@ class WebsocketHandshakeCompleteHandler extends ChannelInboundHandlerAdapter {
           handshakeCompleteEvent.requestHeaders().getAsString(HttpHeaderNames.ACCEPT_LANGUAGE));
 
       final ChannelHandler noiseHandshakeHandler = switch (handshakeCompleteEvent.requestUri()) {
-        case WebsocketNoiseTunnelServer.AUTHENTICATED_SERVICE_PATH ->
+        case NoiseWebSocketTunnelServer.AUTHENTICATED_SERVICE_PATH ->
             new NoiseXXHandshakeHandler(clientPublicKeysManager, ecKeyPair, publicKeySignature);
 
-        case WebsocketNoiseTunnelServer.ANONYMOUS_SERVICE_PATH ->
+        case NoiseWebSocketTunnelServer.ANONYMOUS_SERVICE_PATH ->
             new NoiseNXHandshakeHandler(ecKeyPair, publicKeySignature);
 
         default -> {

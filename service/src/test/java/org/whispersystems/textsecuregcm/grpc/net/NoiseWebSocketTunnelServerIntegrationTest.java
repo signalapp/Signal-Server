@@ -72,7 +72,7 @@ import org.whispersystems.textsecuregcm.storage.ClientPublicKeysManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
-class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTest {
+class NoiseWebSocketTunnelServerIntegrationTest extends AbstractLeakDetectionTest {
 
   private static NioEventLoopGroup nioEventLoopGroup;
   private static DefaultEventLoopGroup defaultEventLoopGroup;
@@ -89,8 +89,8 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
   private ManagedLocalGrpcServer authenticatedGrpcServer;
   private ManagedLocalGrpcServer anonymousGrpcServer;
 
-  private WebsocketNoiseTunnelServer tlsWebsocketNoiseTunnelServer;
-  private WebsocketNoiseTunnelServer plaintextWebsocketNoiseTunnelServer;
+  private NoiseWebSocketTunnelServer tlsNoiseWebSocketTunnelServer;
+  private NoiseWebSocketTunnelServer plaintextNoiseWebSocketTunnelServer;
 
   private static final UUID ACCOUNT_IDENTIFIER = UUID.randomUUID();
   private static final byte DEVICE_ID = Device.PRIMARY_ID;
@@ -185,7 +185,7 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
 
     anonymousGrpcServer.start();
 
-    tlsWebsocketNoiseTunnelServer = new WebsocketNoiseTunnelServer(0,
+    tlsNoiseWebSocketTunnelServer = new NoiseWebSocketTunnelServer(0,
         new X509Certificate[] { serverTlsCertificate },
         serverTlsPrivateKey,
         nioEventLoopGroup,
@@ -198,9 +198,9 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
         anonymousGrpcServerAddress,
         RECOGNIZED_PROXY_SECRET);
 
-    tlsWebsocketNoiseTunnelServer.start();
+    tlsNoiseWebSocketTunnelServer.start();
 
-    plaintextWebsocketNoiseTunnelServer = new WebsocketNoiseTunnelServer(0,
+    plaintextNoiseWebSocketTunnelServer = new NoiseWebSocketTunnelServer(0,
         null,
         null,
         nioEventLoopGroup,
@@ -213,13 +213,13 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
         anonymousGrpcServerAddress,
         RECOGNIZED_PROXY_SECRET);
 
-    plaintextWebsocketNoiseTunnelServer.start();
+    plaintextNoiseWebSocketTunnelServer.start();
   }
 
   @AfterEach
   void tearDown() throws InterruptedException {
-    tlsWebsocketNoiseTunnelServer.stop();
-    plaintextWebsocketNoiseTunnelServer.stop();
+    tlsNoiseWebSocketTunnelServer.stop();
+    plaintextNoiseWebSocketTunnelServer.stop();
     authenticatedGrpcServer.stop();
     anonymousGrpcServer.stop();
   }
@@ -236,8 +236,8 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
 
   @Test
   void connectAuthenticated() throws InterruptedException {
-    try (final WebSocketNoiseTunnelClient webSocketNoiseTunnelClient = buildAndStartAuthenticatedClient()) {
-      final ManagedChannel channel = buildManagedChannel(webSocketNoiseTunnelClient.getLocalAddress());
+    try (final NoiseWebSocketTunnelClient client = buildAndStartAuthenticatedClient()) {
+      final ManagedChannel channel = buildManagedChannel(client.getLocalAddress());
 
       try {
         final GetAuthenticatedDeviceResponse response = RequestAttributesGrpc.newBlockingStub(channel)
@@ -253,8 +253,9 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
 
   @Test
   void connectAuthenticatedPlaintext() throws InterruptedException {
-    try (final WebSocketNoiseTunnelClient webSocketNoiseTunnelClient = new WebSocketNoiseTunnelClient(tlsWebsocketNoiseTunnelServer.getLocalAddress(),
-        WebSocketNoiseTunnelClient.AUTHENTICATED_WEBSOCKET_URI,
+    try (final NoiseWebSocketTunnelClient client = new NoiseWebSocketTunnelClient(
+        tlsNoiseWebSocketTunnelServer.getLocalAddress(),
+        NoiseWebSocketTunnelClient.AUTHENTICATED_WEBSOCKET_URI,
         true,
         clientKeyPair,
         rootKeyPair.getPublicKey(),
@@ -267,7 +268,7 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
         WebSocketCloseListener.NOOP_LISTENER)
         .start()) {
 
-      final ManagedChannel channel = buildManagedChannel(webSocketNoiseTunnelClient.getLocalAddress());
+      final ManagedChannel channel = buildManagedChannel(client.getLocalAddress());
 
       try {
         final GetAuthenticatedDeviceResponse response = RequestAttributesGrpc.newBlockingStub(channel)
@@ -287,10 +288,10 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
 
 
     // Try to verify the server's public key with something other than the key with which it was signed
-    try (final WebSocketNoiseTunnelClient webSocketNoiseTunnelClient =
+    try (final NoiseWebSocketTunnelClient client =
         buildAndStartAuthenticatedClient(webSocketCloseListener, Curve.generateKeyPair().getPublicKey(), new DefaultHttpHeaders())) {
 
-      final ManagedChannel channel = buildManagedChannel(webSocketNoiseTunnelClient.getLocalAddress());
+      final ManagedChannel channel = buildManagedChannel(client.getLocalAddress());
 
       try {
         //noinspection ResultOfMethodCallIgnored
@@ -312,10 +313,8 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
     when(clientPublicKeysManager.findPublicKey(ACCOUNT_IDENTIFIER, DEVICE_ID))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(Curve.generateKeyPair().getPublicKey())));
 
-    try (final WebSocketNoiseTunnelClient webSocketNoiseTunnelClient =
-        buildAndStartAuthenticatedClient(webSocketCloseListener)) {
-
-      final ManagedChannel channel = buildManagedChannel(webSocketNoiseTunnelClient.getLocalAddress());
+    try (final NoiseWebSocketTunnelClient client = buildAndStartAuthenticatedClient(webSocketCloseListener)) {
+      final ManagedChannel channel = buildManagedChannel(client.getLocalAddress());
 
       try {
         //noinspection ResultOfMethodCallIgnored
@@ -337,10 +336,10 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
     when(clientPublicKeysManager.findPublicKey(ACCOUNT_IDENTIFIER, DEVICE_ID))
         .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
 
-    try (final WebSocketNoiseTunnelClient webSocketNoiseTunnelClient =
+    try (final NoiseWebSocketTunnelClient client =
         buildAndStartAuthenticatedClient(webSocketCloseListener)) {
 
-      final ManagedChannel channel = buildManagedChannel(webSocketNoiseTunnelClient.getLocalAddress());
+      final ManagedChannel channel = buildManagedChannel(client.getLocalAddress());
 
       try {
         //noinspection ResultOfMethodCallIgnored
@@ -359,8 +358,8 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
   void connectAuthenticatedToAnonymousService() throws InterruptedException {
     final WebSocketCloseListener webSocketCloseListener = mock(WebSocketCloseListener.class);
 
-    try (final WebSocketNoiseTunnelClient webSocketNoiseTunnelClient = new WebSocketNoiseTunnelClient(
-        tlsWebsocketNoiseTunnelServer.getLocalAddress(),
+    try (final NoiseWebSocketTunnelClient client = new NoiseWebSocketTunnelClient(
+        tlsNoiseWebSocketTunnelServer.getLocalAddress(),
         URI.create("wss://localhost/anonymous"),
         true,
         clientKeyPair,
@@ -374,7 +373,7 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
         webSocketCloseListener)
         .start()) {
 
-      final ManagedChannel channel = buildManagedChannel(webSocketNoiseTunnelClient.getLocalAddress());
+      final ManagedChannel channel = buildManagedChannel(client.getLocalAddress());
 
       try {
         //noinspection ResultOfMethodCallIgnored
@@ -391,8 +390,8 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
 
   @Test
   void connectAnonymous() throws InterruptedException {
-    try (final WebSocketNoiseTunnelClient webSocketNoiseTunnelClient = buildAndStartAnonymousClient()) {
-      final ManagedChannel channel = buildManagedChannel(webSocketNoiseTunnelClient.getLocalAddress());
+    try (final NoiseWebSocketTunnelClient client = buildAndStartAnonymousClient()) {
+      final ManagedChannel channel = buildManagedChannel(client.getLocalAddress());
 
       try {
         final GetAuthenticatedDeviceResponse response = RequestAttributesGrpc.newBlockingStub(channel)
@@ -411,10 +410,10 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
     final WebSocketCloseListener webSocketCloseListener = mock(WebSocketCloseListener.class);
 
     // Try to verify the server's public key with something other than the key with which it was signed
-    try (final WebSocketNoiseTunnelClient webSocketNoiseTunnelClient =
+    try (final NoiseWebSocketTunnelClient client =
         buildAndStartAnonymousClient(webSocketCloseListener, Curve.generateKeyPair().getPublicKey(), new DefaultHttpHeaders())) {
 
-      final ManagedChannel channel = buildManagedChannel(webSocketNoiseTunnelClient.getLocalAddress());
+      final ManagedChannel channel = buildManagedChannel(client.getLocalAddress());
 
       try {
         //noinspection ResultOfMethodCallIgnored
@@ -433,8 +432,8 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
   void connectAnonymousToAuthenticatedService() throws InterruptedException {
     final WebSocketCloseListener webSocketCloseListener = mock(WebSocketCloseListener.class);
 
-    try (final WebSocketNoiseTunnelClient websocketNoiseTunnelClient = new WebSocketNoiseTunnelClient(
-        tlsWebsocketNoiseTunnelServer.getLocalAddress(),
+    try (final NoiseWebSocketTunnelClient client = new NoiseWebSocketTunnelClient(
+        tlsNoiseWebSocketTunnelServer.getLocalAddress(),
         URI.create("wss://localhost/authenticated"),
         false,
         null,
@@ -448,7 +447,7 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
         webSocketCloseListener)
         .start()) {
 
-      final ManagedChannel channel = buildManagedChannel(websocketNoiseTunnelClient.getLocalAddress());
+      final ManagedChannel channel = buildManagedChannel(client.getLocalAddress());
 
       try {
         //noinspection ResultOfMethodCallIgnored
@@ -487,10 +486,10 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
     sslContext.init(null, trustManagerFactory.getTrustManagers(), new SecureRandom());
 
     final URI authenticatedUri =
-        new URI("https", null, "localhost", tlsWebsocketNoiseTunnelServer.getLocalAddress().getPort(), "/authenticated", null, null);
+        new URI("https", null, "localhost", tlsNoiseWebSocketTunnelServer.getLocalAddress().getPort(), "/authenticated", null, null);
 
     final URI incorrectUri =
-        new URI("https", null, "localhost", tlsWebsocketNoiseTunnelServer.getLocalAddress().getPort(), "/incorrect", null, null);
+        new URI("https", null, "localhost", tlsNoiseWebSocketTunnelServer.getLocalAddress().getPort(), "/incorrect", null, null);
 
     try (final HttpClient httpClient = HttpClient.newBuilder().sslContext(sslContext).build()) {
       assertEquals(405, httpClient.send(HttpRequest.newBuilder()
@@ -528,10 +527,10 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
         .add("Accept-Language", acceptLanguage)
         .add("User-Agent", userAgent);
 
-    try (final WebSocketNoiseTunnelClient webSocketNoiseTunnelClient =
+    try (final NoiseWebSocketTunnelClient client =
         buildAndStartAnonymousClient(WebSocketCloseListener.NOOP_LISTENER, rootKeyPair.getPublicKey(), headers)) {
 
-      final ManagedChannel channel = buildManagedChannel(webSocketNoiseTunnelClient.getLocalAddress());
+      final ManagedChannel channel = buildManagedChannel(client.getLocalAddress());
 
       try {
         final GetRequestAttributesResponse response = RequestAttributesGrpc.newBlockingStub(channel)
@@ -572,9 +571,9 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
       }
     };
 
-    try (final WebSocketNoiseTunnelClient webSocketNoiseTunnelClient = buildAndStartAuthenticatedClient(webSocketCloseListener)) {
+    try (final NoiseWebSocketTunnelClient client = buildAndStartAuthenticatedClient(webSocketCloseListener)) {
 
-      final ManagedChannel channel = buildManagedChannel(webSocketNoiseTunnelClient.getLocalAddress());
+      final ManagedChannel channel = buildManagedChannel(client.getLocalAddress());
 
       try {
         final GetAuthenticatedDeviceResponse response = RequestAttributesGrpc.newBlockingStub(channel)
@@ -596,22 +595,22 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
     }
   }
 
-  private WebSocketNoiseTunnelClient buildAndStartAuthenticatedClient() throws InterruptedException {
+  private NoiseWebSocketTunnelClient buildAndStartAuthenticatedClient() throws InterruptedException {
     return buildAndStartAuthenticatedClient(WebSocketCloseListener.NOOP_LISTENER);
   }
 
-  private WebSocketNoiseTunnelClient buildAndStartAuthenticatedClient(final WebSocketCloseListener webSocketCloseListener)
+  private NoiseWebSocketTunnelClient buildAndStartAuthenticatedClient(final WebSocketCloseListener webSocketCloseListener)
       throws InterruptedException {
 
     return buildAndStartAuthenticatedClient(webSocketCloseListener, rootKeyPair.getPublicKey(), new DefaultHttpHeaders());
   }
 
-  private WebSocketNoiseTunnelClient buildAndStartAuthenticatedClient(final WebSocketCloseListener webSocketCloseListener,
+  private NoiseWebSocketTunnelClient buildAndStartAuthenticatedClient(final WebSocketCloseListener webSocketCloseListener,
       final ECPublicKey rootPublicKey,
       final HttpHeaders headers) throws InterruptedException {
 
-    return new WebSocketNoiseTunnelClient(tlsWebsocketNoiseTunnelServer.getLocalAddress(),
-        WebSocketNoiseTunnelClient.AUTHENTICATED_WEBSOCKET_URI,
+    return new NoiseWebSocketTunnelClient(tlsNoiseWebSocketTunnelServer.getLocalAddress(),
+        NoiseWebSocketTunnelClient.AUTHENTICATED_WEBSOCKET_URI,
         true,
         clientKeyPair,
         rootPublicKey,
@@ -625,16 +624,16 @@ class WebSocketNoiseTunnelServerIntegrationTest extends AbstractLeakDetectionTes
         .start();
   }
 
-  private WebSocketNoiseTunnelClient buildAndStartAnonymousClient() throws InterruptedException {
+  private NoiseWebSocketTunnelClient buildAndStartAnonymousClient() throws InterruptedException {
     return buildAndStartAnonymousClient(WebSocketCloseListener.NOOP_LISTENER, rootKeyPair.getPublicKey(), new DefaultHttpHeaders());
   }
 
-  private WebSocketNoiseTunnelClient buildAndStartAnonymousClient(final WebSocketCloseListener webSocketCloseListener,
+  private NoiseWebSocketTunnelClient buildAndStartAnonymousClient(final WebSocketCloseListener webSocketCloseListener,
       final ECPublicKey rootPublicKey,
       final HttpHeaders headers) throws InterruptedException {
 
-    return new WebSocketNoiseTunnelClient(tlsWebsocketNoiseTunnelServer.getLocalAddress(),
-        WebSocketNoiseTunnelClient.ANONYMOUS_WEBSOCKET_URI,
+    return new NoiseWebSocketTunnelClient(tlsNoiseWebSocketTunnelServer.getLocalAddress(),
+        NoiseWebSocketTunnelClient.ANONYMOUS_WEBSOCKET_URI,
         false,
         null,
         rootPublicKey,

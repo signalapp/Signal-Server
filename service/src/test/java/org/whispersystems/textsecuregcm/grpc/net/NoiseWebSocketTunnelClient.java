@@ -16,7 +16,7 @@ import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import javax.annotation.Nullable;
 
-class WebSocketNoiseTunnelClient implements AutoCloseable {
+class NoiseWebSocketTunnelClient implements AutoCloseable {
 
   private final ServerBootstrap serverBootstrap;
   private Channel serverChannel;
@@ -24,7 +24,7 @@ class WebSocketNoiseTunnelClient implements AutoCloseable {
   static final URI AUTHENTICATED_WEBSOCKET_URI = URI.create("wss://localhost/authenticated");
   static final URI ANONYMOUS_WEBSOCKET_URI = URI.create("wss://localhost/anonymous");
 
-  public WebSocketNoiseTunnelClient(final SocketAddress remoteServerAddress,
+  public NoiseWebSocketTunnelClient(final SocketAddress remoteServerAddress,
       final URI websocketUri,
       final boolean authenticated,
       final ECKeyPair ecKeyPair,
@@ -63,7 +63,7 @@ class WebSocketNoiseTunnelClient implements AutoCloseable {
     return (LocalAddress) serverChannel.localAddress();
   }
 
-  WebSocketNoiseTunnelClient start() throws InterruptedException {
+  NoiseWebSocketTunnelClient start() throws InterruptedException {
     serverChannel = serverBootstrap.bind().await().channel();
     return this;
   }

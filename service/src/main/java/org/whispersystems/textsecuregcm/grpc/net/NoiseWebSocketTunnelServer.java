@@ -31,10 +31,10 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.storage.ClientPublicKeysManager;
 
 /**
- * A WebSocket/Noise tunnel server accepts traffic from the public internet (in the form of Noise packets framed by
+ * A Noise-over-WebSocket tunnel server accepts traffic from the public internet (in the form of Noise packets framed by
  * binary WebSocket frames) and passes it through to a local gRPC server.
  */
-public class WebsocketNoiseTunnelServer implements Managed {
+public class NoiseWebSocketTunnelServer implements Managed {
 
   private final ServerBootstrap bootstrap;
   private ServerSocketChannel channel;
@@ -42,9 +42,9 @@ public class WebsocketNoiseTunnelServer implements Managed {
   static final String AUTHENTICATED_SERVICE_PATH = "/authenticated";
   static final String ANONYMOUS_SERVICE_PATH = "/anonymous";
 
-  private static final Logger log = LoggerFactory.getLogger(WebsocketNoiseTunnelServer.class);
+  private static final Logger log = LoggerFactory.getLogger(NoiseWebSocketTunnelServer.class);
 
-  public WebsocketNoiseTunnelServer(final int websocketPort,
+  public NoiseWebSocketTunnelServer(final int websocketPort,
       @Nullable final X509Certificate[] tlsCertificateChain,
       @Nullable final PrivateKey tlsPrivateKey,
       final NioEventLoopGroup eventLoopGroup,
