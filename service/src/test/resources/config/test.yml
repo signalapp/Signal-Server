@@ -443,6 +443,8 @@ callingTurnManualTable:
 
 noiseTunnel:
   port: 8443
+  noiseStaticPrivateKey: secret://noiseTunnel.noiseStaticPrivateKey
+  noiseRootPublicKeySignature: ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
   recognizedProxySecret: secret://noiseTunnel.recognizedProxySecret
 
 externalRequestFilter:
@@ -452,3 +454,4 @@ externalRequestFilter:
     - /example
   permittedInternalRanges:
     - 127.0.0.0/8
+

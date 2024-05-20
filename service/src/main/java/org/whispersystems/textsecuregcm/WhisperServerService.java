@@ -28,7 +28,11 @@ import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.binder.grpc.MetricCollectingServerInterceptor;
 import io.micrometer.core.instrument.binder.jvm.ExecutorServiceMetrics;
 import io.netty.channel.local.LocalAddress;
+import java.io.FileInputStream;
 import java.net.http.HttpClient;
+import java.security.KeyStore;
+import java.security.PrivateKey;
+import java.security.cert.X509Certificate;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -46,6 +50,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 import javax.servlet.DispatcherType;
 import javax.servlet.Filter;
 import javax.servlet.FilterRegistration;
@@ -144,6 +149,8 @@ import org.whispersystems.textsecuregcm.grpc.RequestAttributesInterceptor;
 import org.whispersystems.textsecuregcm.grpc.net.ClientConnectionManager;
 import org.whispersystems.textsecuregcm.grpc.net.ManagedDefaultEventLoopGroup;
 import org.whispersystems.textsecuregcm.grpc.net.ManagedLocalGrpcServer;
+import org.whispersystems.textsecuregcm.grpc.net.ManagedNioEventLoopGroup;
+import org.whispersystems.textsecuregcm.grpc.net.NoiseWebSocketTunnelServer;
 import org.whispersystems.textsecuregcm.jetty.JettyHttpConfigurationCustomizer;
 import org.whispersystems.textsecuregcm.limits.CardinalityEstimator;
 import org.whispersystems.textsecuregcm.limits.PushChallengeManager;
@@ -829,9 +836,56 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
       }
     };
 
+    @Nullable final X509Certificate noiseWebSocketTlsCertificate;
+    @Nullable final PrivateKey noiseWebSocketTlsPrivateKey;
+
+    if (config.getNoiseWebSocketTunnelConfiguration().tlsKeyStoreFile() != null &&
+        config.getNoiseWebSocketTunnelConfiguration().tlsKeyStoreEntryAlias() != null &&
+        config.getNoiseWebSocketTunnelConfiguration().tlsKeyStorePassword() != null) {
+
+      try (final FileInputStream websocketNoiseTunnelTlsKeyStoreInputStream = new FileInputStream(config.getNoiseWebSocketTunnelConfiguration().tlsKeyStoreFile())) {
+        final KeyStore keyStore = KeyStore.getInstance("PKCS12");
+        keyStore.load(websocketNoiseTunnelTlsKeyStoreInputStream, config.getNoiseWebSocketTunnelConfiguration().tlsKeyStorePassword().value().toCharArray());
+
+        final KeyStore.PrivateKeyEntry privateKeyEntry = (KeyStore.PrivateKeyEntry) keyStore.getEntry(config.getNoiseWebSocketTunnelConfiguration().tlsKeyStoreEntryAlias(),
+            new KeyStore.PasswordProtection(config.getNoiseWebSocketTunnelConfiguration().tlsKeyStorePassword().value().toCharArray()));
+
+        noiseWebSocketTlsCertificate = (X509Certificate) privateKeyEntry.getCertificate();
+        noiseWebSocketTlsPrivateKey = privateKeyEntry.getPrivateKey();
+      }
+    } else {
+      noiseWebSocketTlsCertificate = null;
+      noiseWebSocketTlsPrivateKey = null;
+    }
+
+    final ExecutorService noiseWebSocketDelegatedTaskExecutor = environment.lifecycle()
+        .executorService(name(getClass(), "noiseWebsocketDelegatedTask-%d"))
+        .minThreads(8)
+        .maxThreads(8)
+        .allowCoreThreadTimeOut(false)
+        .build();
+
+    final ManagedNioEventLoopGroup noiseWebSocketEventLoopGroup = new ManagedNioEventLoopGroup();
+
+    final NoiseWebSocketTunnelServer noiseWebSocketTunnelServer = new NoiseWebSocketTunnelServer(
+        config.getNoiseWebSocketTunnelConfiguration().port(),
+        new X509Certificate[] { noiseWebSocketTlsCertificate },
+        noiseWebSocketTlsPrivateKey,
+        noiseWebSocketEventLoopGroup,
+        noiseWebSocketDelegatedTaskExecutor,
+        clientConnectionManager,
+        clientPublicKeysManager,
+        config.getNoiseWebSocketTunnelConfiguration().noiseStaticKeyPair(),
+        config.getNoiseWebSocketTunnelConfiguration().noiseRootPublicKeySignature(),
+        authenticatedGrpcServerAddress,
+        anonymousGrpcServerAddress,
+        config.getNoiseWebSocketTunnelConfiguration().recognizedProxySecret().value());
+
     environment.lifecycle().manage(localEventLoopGroup);
     environment.lifecycle().manage(anonymousGrpcServer);
     environment.lifecycle().manage(authenticatedGrpcServer);
+    environment.lifecycle().manage(noiseWebSocketEventLoopGroup);
+    environment.lifecycle().manage(noiseWebSocketTunnelServer);
 
     final List<Filter> filters = new ArrayList<>();
     filters.add(remoteDeprecationFilter);

@@ -464,6 +464,11 @@ callingTurnManualTable:
 
 noiseTunnel:
   port: 8443
+  tlsKeyStoreFile: /path/to/file.p12
+  tlsKeyStoreEntryAlias: example.com
+  tlsKeyStorePassword: secret://noiseTunnel.tlsKeyStorePassword
+  noiseStaticPrivateKey: secret://noiseTunnel.noiseStaticPrivateKey
+  noiseRootPublicKeySignature: ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
   recognizedProxySecret: secret://noiseTunnel.recognizedProxySecret
 
 externalRequestFilter:
