@@ -6,10 +6,13 @@
 package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.annotation.JsonValue;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Map;
 import javax.annotation.Nullable;
 import javax.validation.constraints.NotNull;
+import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
 
 public record AuthCheckResponseV3(
     @Schema(description = """
@@ -18,12 +21,15 @@ public record AuthCheckResponseV3(
     @NotNull Map<String, Result> matches) {
 
   public record Result(
-      @Schema(description = "The status of the credential, either match, no-match, or invalid")
+      @Schema(description = "The status of the credential. Either match, no-match, or invalid")
       CredentialStatus status,
 
       @Schema(description = """
-      If the credential was a match, the stored shareSet that can be used to restore a value from SVR. Encoded as 
-      """)
+      If the credential was a match, the stored shareSet that can be used to restore a value from SVR. Encoded in
+      standard un-padded base64.
+      """, implementation = String.class)
+      @JsonSerialize(using = ByteArrayAdapter.Serializing.class)
+      @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
       @Nullable byte[] shareSet) {
 
     public static Result invalid() {
