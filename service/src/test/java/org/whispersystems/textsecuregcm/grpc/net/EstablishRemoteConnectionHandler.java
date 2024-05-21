@@ -28,7 +28,8 @@ import org.signal.libsignal.protocol.ecc.ECPublicKey;
 
 class EstablishRemoteConnectionHandler extends ChannelInboundHandlerAdapter {
 
-  private final X509Certificate trustedServerCertificate;
+  private final boolean useTls;
+  @Nullable private final X509Certificate trustedServerCertificate;
   private final URI websocketUri;
   private final boolean authenticated;
   @Nullable private final ECKeyPair ecKeyPair;
@@ -44,7 +45,8 @@ class EstablishRemoteConnectionHandler extends ChannelInboundHandlerAdapter {
   private static final String NOISE_HANDSHAKE_HANDLER_NAME = "noise-handshake";
 
   EstablishRemoteConnectionHandler(
-      final X509Certificate trustedServerCertificate,
+      final boolean useTls,
+      @Nullable final X509Certificate trustedServerCertificate,
       final URI websocketUri,
       final boolean authenticated,
       @Nullable final ECKeyPair ecKeyPair,
@@ -55,6 +57,7 @@ class EstablishRemoteConnectionHandler extends ChannelInboundHandlerAdapter {
       final SocketAddress remoteServerAddress,
       final WebSocketCloseListener webSocketCloseListener) {
 
+    this.useTls = useTls;
     this.trustedServerCertificate = trustedServerCertificate;
     this.websocketUri = websocketUri;
     this.authenticated = authenticated;
@@ -75,12 +78,17 @@ class EstablishRemoteConnectionHandler extends ChannelInboundHandlerAdapter {
         .handler(new ChannelInitializer<SocketChannel>() {
           @Override
           protected void initChannel(final SocketChannel channel) throws SSLException {
+            if (useTls) {
+              final SslContextBuilder sslContextBuilder = SslContextBuilder.forClient();
+
+              if (trustedServerCertificate != null) {
+                sslContextBuilder.trustManager(trustedServerCertificate);
+              }
+
+              channel.pipeline().addLast(sslContextBuilder.build().newHandler(channel.alloc()));
+            }
+
             channel.pipeline()
-                .addLast(SslContextBuilder
-                    .forClient()
-                    .trustManager(trustedServerCertificate)
-                    .build()
-                    .newHandler(channel.alloc()))
                 .addLast(new HttpClientCodec())
                 .addLast(new HttpObjectAggregator(Noise.MAX_PACKET_LEN))
                 // Inbound CloseWebSocketFrame messages wil get "eaten" by the WebSocketClientProtocolHandler, so if we

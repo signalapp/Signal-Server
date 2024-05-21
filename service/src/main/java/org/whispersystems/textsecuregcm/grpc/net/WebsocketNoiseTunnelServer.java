@@ -23,6 +23,7 @@ import java.net.InetSocketAddress;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
 import java.util.concurrent.Executor;
+import javax.annotation.Nullable;
 import javax.net.ssl.SSLException;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.slf4j.Logger;
@@ -44,8 +45,8 @@ public class WebsocketNoiseTunnelServer implements Managed {
   private static final Logger log = LoggerFactory.getLogger(WebsocketNoiseTunnelServer.class);
 
   public WebsocketNoiseTunnelServer(final int websocketPort,
-      final X509Certificate[] tlsCertificateChain,
-      final PrivateKey tlsPrivateKey,
+      @Nullable final X509Certificate[] tlsCertificateChain,
+      @Nullable final PrivateKey tlsPrivateKey,
       final NioEventLoopGroup eventLoopGroup,
       final Executor delegatedTaskExecutor,
       final ClientConnectionManager clientConnectionManager,
@@ -56,21 +57,28 @@ public class WebsocketNoiseTunnelServer implements Managed {
       final LocalAddress anonymousGrpcServerAddress,
       final String recognizedProxySecret) throws SSLException {
 
-    final SslProvider sslProvider;
+    @Nullable final SslContext sslContext;
 
-    if (OpenSsl.isAvailable()) {
-      log.info("Native OpenSSL provider is available; will use native provider");
-      sslProvider = SslProvider.OPENSSL;
+    if (tlsCertificateChain != null && tlsPrivateKey != null) {
+      final SslProvider sslProvider;
+
+      if (OpenSsl.isAvailable()) {
+        log.info("Native OpenSSL provider is available; will use native provider");
+        sslProvider = SslProvider.OPENSSL;
+      } else {
+        log.info("No native SSL provider available; will use JDK provider");
+        sslProvider = SslProvider.JDK;
+      }
+
+      sslContext = SslContextBuilder.forServer(tlsPrivateKey, tlsCertificateChain)
+          .clientAuth(ClientAuth.NONE)
+          .protocols(SslProtocols.TLS_v1_3)
+          .sslProvider(sslProvider)
+          .build();
     } else {
-      log.info("No native SSL provider available; will use JDK provider");
-      sslProvider = SslProvider.JDK;
+      log.warn("No TLS credentials provided; Noise-over-WebSocket tunnel will not use TLS. This configuration is not suitable for production environments.");
+      sslContext = null;
     }
-
-    final SslContext sslContext = SslContextBuilder.forServer(tlsPrivateKey, tlsCertificateChain)
-        .clientAuth(ClientAuth.NONE)
-        .protocols(SslProtocols.TLS_v1_3)
-        .sslProvider(sslProvider)
-        .build();
 
     this.bootstrap = new ServerBootstrap()
         .group(eventLoopGroup)
@@ -79,8 +87,11 @@ public class WebsocketNoiseTunnelServer implements Managed {
         .childHandler(new ChannelInitializer<SocketChannel>() {
           @Override
           protected void initChannel(SocketChannel socketChannel) {
+            if (sslContext != null) {
+              socketChannel.pipeline().addLast(sslContext.newHandler(socketChannel.alloc(), delegatedTaskExecutor));
+            }
+
             socketChannel.pipeline()
-                .addLast(sslContext.newHandler(socketChannel.alloc(), delegatedTaskExecutor))
                 .addLast(new HttpServerCodec())
                 .addLast(new HttpObjectAggregator(Noise.MAX_PACKET_LEN))
                 // The WebSocket opening handshake handler will remove itself from the pipeline once it has received a valid WebSocket upgrade

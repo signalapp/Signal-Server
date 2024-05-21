@@ -32,7 +32,8 @@ class WebSocketNoiseTunnelClient implements AutoCloseable {
       @Nullable final UUID accountIdentifier,
       final byte deviceId,
       final HttpHeaders headers,
-      final X509Certificate trustedServerCertificate,
+      final boolean useTls,
+      @Nullable final X509Certificate trustedServerCertificate,
       final NioEventLoopGroup eventLoopGroup,
       final WebSocketCloseListener webSocketCloseListener) {
 
@@ -43,7 +44,8 @@ class WebSocketNoiseTunnelClient implements AutoCloseable {
         .childHandler(new ChannelInitializer<LocalChannel>() {
           @Override
           protected void initChannel(final LocalChannel localChannel) {
-            localChannel.pipeline().addLast(new EstablishRemoteConnectionHandler(trustedServerCertificate,
+            localChannel.pipeline().addLast(new EstablishRemoteConnectionHandler(useTls,
+                trustedServerCertificate,
                 websocketUri,
                 authenticated,
                 ecKeyPair,
