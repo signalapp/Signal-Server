@@ -4891,20 +4891,16 @@ components:
       properties:
         status:
           type: string
-          description: "The status of the credential, either match, no-match, or invalid"
+          description: "The status of the credential. Either match, no-match, or invalid"
           enum:
           - match
           - no-match
           - invalid
         shareSet:
-          type: array
+          type: string
           description: |
-            If the credential was a match, the stored shareSet that can be used to restore a value from SVR. Encoded as
-          items:
-            type: string
-            description: |
-              If the credential was a match, the stored shareSet that can be used to restore a value from SVR. Encoded as
-            format: byte
+            If the credential was a match, the stored shareSet that can be used to restore a value from SVR. Encoded in
+            standard un-padded base64.
       description: |
         A dictionary with the auth check results, keyed by the token corresponding token provided in the request.
     SetShareSetRequest:
