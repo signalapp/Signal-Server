@@ -36,6 +36,7 @@ import java.security.cert.X509Certificate;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
@@ -837,7 +838,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
       }
     };
 
-    @Nullable final X509Certificate noiseWebSocketTlsCertificate;
+    @Nullable final X509Certificate[] noiseWebSocketTlsCertificateChain;
     @Nullable final PrivateKey noiseWebSocketTlsPrivateKey;
 
     if (config.getNoiseWebSocketTunnelConfiguration().tlsKeyStoreFile() != null &&
@@ -851,11 +852,13 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         final KeyStore.PrivateKeyEntry privateKeyEntry = (KeyStore.PrivateKeyEntry) keyStore.getEntry(config.getNoiseWebSocketTunnelConfiguration().tlsKeyStoreEntryAlias(),
             new KeyStore.PasswordProtection(config.getNoiseWebSocketTunnelConfiguration().tlsKeyStorePassword().value().toCharArray()));
 
-        noiseWebSocketTlsCertificate = (X509Certificate) privateKeyEntry.getCertificate();
+        noiseWebSocketTlsCertificateChain =
+            Arrays.copyOf(privateKeyEntry.getCertificateChain(), privateKeyEntry.getCertificateChain().length, X509Certificate[].class);
+
         noiseWebSocketTlsPrivateKey = privateKeyEntry.getPrivateKey();
       }
     } else {
-      noiseWebSocketTlsCertificate = null;
+      noiseWebSocketTlsCertificateChain = null;
       noiseWebSocketTlsPrivateKey = null;
     }
 
@@ -870,7 +873,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     final NoiseWebSocketTunnelServer noiseWebSocketTunnelServer = new NoiseWebSocketTunnelServer(
         config.getNoiseWebSocketTunnelConfiguration().port(),
-        new X509Certificate[] { noiseWebSocketTlsCertificate },
+        noiseWebSocketTlsCertificateChain,
         noiseWebSocketTlsPrivateKey,
         noiseWebSocketEventLoopGroup,
         noiseWebSocketDelegatedTaskExecutor,
