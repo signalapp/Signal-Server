@@ -19,10 +19,15 @@ class WebSocketOpeningHandshakeHandler extends ChannelInboundHandlerAdapter {
 
   private final String authenticatedPath;
   private final String anonymousPath;
+  private final String healthCheckPath;
 
-  WebSocketOpeningHandshakeHandler(final String authenticatedPath, final String anonymousPath) {
+  WebSocketOpeningHandshakeHandler(final String authenticatedPath,
+      final String anonymousPath,
+      final String healthCheckPath) {
+
     this.authenticatedPath = authenticatedPath;
     this.anonymousPath = anonymousPath;
+    this.healthCheckPath = healthCheckPath;
   }
 
   @Override
@@ -43,6 +48,8 @@ class WebSocketOpeningHandshakeHandler extends ChannelInboundHandlerAdapter {
               } else {
                 closeConnectionWithStatus(context, request, HttpResponseStatus.UPGRADE_REQUIRED);
               }
+            } else if (healthCheckPath.equals(request.uri())) {
+              closeConnectionWithStatus(context, request, HttpResponseStatus.NO_CONTENT);
             } else {
               closeConnectionWithStatus(context, request, HttpResponseStatus.NOT_FOUND);
             }

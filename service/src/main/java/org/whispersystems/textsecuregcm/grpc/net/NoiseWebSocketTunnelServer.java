@@ -41,6 +41,7 @@ public class NoiseWebSocketTunnelServer implements Managed {
 
   static final String AUTHENTICATED_SERVICE_PATH = "/authenticated";
   static final String ANONYMOUS_SERVICE_PATH = "/anonymous";
+  static final String HEALTH_CHECK_PATH = "/health-check";
 
   private static final Logger log = LoggerFactory.getLogger(NoiseWebSocketTunnelServer.class);
 
@@ -96,7 +97,7 @@ public class NoiseWebSocketTunnelServer implements Managed {
                 .addLast(new HttpObjectAggregator(Noise.MAX_PACKET_LEN))
                 // The WebSocket opening handshake handler will remove itself from the pipeline once it has received a valid WebSocket upgrade
                 // request and passed it down the pipeline
-                .addLast(new WebSocketOpeningHandshakeHandler(AUTHENTICATED_SERVICE_PATH, ANONYMOUS_SERVICE_PATH))
+                .addLast(new WebSocketOpeningHandshakeHandler(AUTHENTICATED_SERVICE_PATH, ANONYMOUS_SERVICE_PATH, HEALTH_CHECK_PATH))
                 .addLast(new WebSocketServerProtocolHandler("/", true))
                 .addLast(new RejectUnsupportedMessagesHandler())
                 // The WebSocket handshake complete listener will replace itself with an appropriate Noise handshake handler once

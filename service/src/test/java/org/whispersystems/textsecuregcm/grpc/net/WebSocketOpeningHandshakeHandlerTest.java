@@ -15,7 +15,6 @@ import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
-import io.netty.util.ReferenceCountUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -27,10 +26,12 @@ class WebSocketOpeningHandshakeHandlerTest extends AbstractLeakDetectionTest {
 
   private static final String AUTHENTICATED_PATH = "/authenticated";
   private static final String ANONYMOUS_PATH = "/anonymous";
+  private static final String HEALTH_CHECK_PATH = "/health-check";
 
   @BeforeEach
   void setUp() {
-    embeddedChannel = new EmbeddedChannel(new WebSocketOpeningHandshakeHandler(AUTHENTICATED_PATH, ANONYMOUS_PATH));
+    embeddedChannel =
+        new EmbeddedChannel(new WebSocketOpeningHandshakeHandler(AUTHENTICATED_PATH, ANONYMOUS_PATH, HEALTH_CHECK_PATH));
   }
 
   @ParameterizedTest
@@ -48,6 +49,16 @@ class WebSocketOpeningHandshakeHandlerTest extends AbstractLeakDetectionTest {
     } finally {
       request.release();
     }
+  }
+
+  @Test
+  void handleHealthCheckRequest() {
+    final FullHttpRequest request = buildRequest(HttpMethod.GET, HEALTH_CHECK_PATH, new DefaultHttpHeaders());
+
+    embeddedChannel.writeOneInbound(request);
+
+    assertEquals(0, request.refCnt());
+    assertHttpResponse(HttpResponseStatus.NO_CONTENT);
   }
 
   @ParameterizedTest
@@ -89,7 +100,6 @@ class WebSocketOpeningHandshakeHandlerTest extends AbstractLeakDetectionTest {
 
     final FullHttpResponse response = assertInstanceOf(FullHttpResponse.class, embeddedChannel.outboundMessages().poll());
 
-    //noinspection DataFlowIssue
     assertEquals(expectedStatus, response.status());
   }
 
@@ -99,6 +109,6 @@ class WebSocketOpeningHandshakeHandlerTest extends AbstractLeakDetectionTest {
         path,
         Unpooled.buffer(0),
         headers,
-        new DefaultHttpHeaders(true));
+        new DefaultHttpHeaders());
   }
 }
