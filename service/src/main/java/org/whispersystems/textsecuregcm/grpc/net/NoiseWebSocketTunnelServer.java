@@ -73,7 +73,8 @@ public class NoiseWebSocketTunnelServer implements Managed {
 
       sslContext = SslContextBuilder.forServer(tlsPrivateKey, tlsCertificateChain)
           .clientAuth(ClientAuth.NONE)
-          .protocols(SslProtocols.TLS_v1_3)
+          // Some load balancers require TLS 1.2 for health checks
+          .protocols(SslProtocols.TLS_v1_3, SslProtocols.TLS_v1_2)
           .sslProvider(sslProvider)
           .build();
     } else {
