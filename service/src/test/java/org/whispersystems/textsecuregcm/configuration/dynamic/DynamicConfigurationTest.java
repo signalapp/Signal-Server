@@ -45,6 +45,22 @@ class DynamicConfigurationTest {
     }
 
     {
+      final String invalid = REQUIRED_CONFIG.concat("""
+          experiments:
+            percentageOnly:
+              enrollmentPercentage: 12
+            uuidsAndPercentage:
+              uuidSelector:
+                # the below results in uuids = null
+                uuids:
+          """);
+      final Optional<DynamicConfiguration> maybeConfig =
+          DynamicConfigurationManager.parseConfiguration(invalid, DynamicConfiguration.class);
+
+      assertFalse(maybeConfig.isPresent());
+    }
+
+    {
       final String experimentConfigYaml = REQUIRED_CONFIG.concat("""
           experiments:
             percentageOnly:

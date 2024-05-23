@@ -6,14 +6,13 @@
 package org.whispersystems.textsecuregcm.configuration.dynamic;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.annotations.VisibleForTesting;
-
-import javax.validation.Valid;
-import javax.validation.constraints.Max;
-import javax.validation.constraints.Min;
 import java.util.Collections;
 import java.util.Set;
 import java.util.UUID;
+import javax.validation.Valid;
+import javax.validation.constraints.Max;
+import javax.validation.constraints.Min;
+import javax.validation.constraints.NotNull;
 
 public class DynamicExperimentEnrollmentConfiguration {
 
@@ -21,6 +20,7 @@ public class DynamicExperimentEnrollmentConfiguration {
 
     @JsonProperty
     @Valid
+    @NotNull
     private Set<UUID> uuids = Collections.emptySet();
 
     /**
@@ -45,7 +45,9 @@ public class DynamicExperimentEnrollmentConfiguration {
 
   }
 
-  private UuidSelector uuidSelector = new UuidSelector();
+  @Valid
+  @NotNull
+  private final UuidSelector uuidSelector = new UuidSelector();
 
   /**
    * If the UUID is not enrolled via {@link UuidSelector#uuids}, what is the percentage chance it should be enrolled.
