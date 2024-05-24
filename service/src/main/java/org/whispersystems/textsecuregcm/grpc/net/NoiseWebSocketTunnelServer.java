@@ -89,6 +89,10 @@ public class NoiseWebSocketTunnelServer implements Managed {
         .childHandler(new ChannelInitializer<SocketChannel>() {
           @Override
           protected void initChannel(SocketChannel socketChannel) {
+            socketChannel.pipeline()
+                .addLast(new ProxyProtocolDetectionHandler())
+                .addLast(new HAProxyMessageHandler());
+
             if (sslContext != null) {
               socketChannel.pipeline().addLast(sslContext.newHandler(socketChannel.alloc(), delegatedTaskExecutor));
             }

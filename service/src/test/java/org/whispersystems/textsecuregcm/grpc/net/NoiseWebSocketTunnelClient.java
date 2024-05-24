@@ -11,6 +11,8 @@ import java.net.SocketAddress;
 import java.net.URI;
 import java.security.cert.X509Certificate;
 import java.util.UUID;
+import java.util.function.Supplier;
+import io.netty.handler.codec.haproxy.HAProxyMessage;
 import io.netty.handler.codec.http.HttpHeaders;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
@@ -34,6 +36,7 @@ class NoiseWebSocketTunnelClient implements AutoCloseable {
       final HttpHeaders headers,
       final boolean useTls,
       @Nullable final X509Certificate trustedServerCertificate,
+      @Nullable final Supplier<HAProxyMessage> proxyMessageSupplier,
       final NioEventLoopGroup eventLoopGroup,
       final WebSocketCloseListener webSocketCloseListener) {
 
@@ -54,7 +57,8 @@ class NoiseWebSocketTunnelClient implements AutoCloseable {
                 deviceId,
                 headers,
                 remoteServerAddress,
-                webSocketCloseListener));
+                webSocketCloseListener,
+                proxyMessageSupplier));
           }
         });
   }

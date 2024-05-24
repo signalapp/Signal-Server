@@ -8,6 +8,8 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.handler.codec.haproxy.HAProxyMessage;
+import io.netty.handler.codec.haproxy.HAProxyMessageEncoder;
 import io.netty.handler.codec.http.HttpClientCodec;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpObjectAggregator;
@@ -21,6 +23,7 @@ import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import javax.net.ssl.SSLException;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
@@ -39,6 +42,7 @@ class EstablishRemoteConnectionHandler extends ChannelInboundHandlerAdapter {
   private final HttpHeaders headers;
   private final SocketAddress remoteServerAddress;
   private final WebSocketCloseListener webSocketCloseListener;
+  @Nullable private final Supplier<HAProxyMessage> proxyMessageSupplier;
 
   private final List<Object> pendingReads = new ArrayList<>();
 
@@ -55,7 +59,8 @@ class EstablishRemoteConnectionHandler extends ChannelInboundHandlerAdapter {
       final byte deviceId,
       final HttpHeaders headers,
       final SocketAddress remoteServerAddress,
-      final WebSocketCloseListener webSocketCloseListener) {
+      final WebSocketCloseListener webSocketCloseListener,
+      @Nullable Supplier<HAProxyMessage> proxyMessageSupplier) {
 
     this.useTls = useTls;
     this.trustedServerCertificate = trustedServerCertificate;
@@ -68,6 +73,7 @@ class EstablishRemoteConnectionHandler extends ChannelInboundHandlerAdapter {
     this.headers = headers;
     this.remoteServerAddress = remoteServerAddress;
     this.webSocketCloseListener = webSocketCloseListener;
+    this.proxyMessageSupplier = proxyMessageSupplier;
   }
 
   @Override
@@ -78,6 +84,16 @@ class EstablishRemoteConnectionHandler extends ChannelInboundHandlerAdapter {
         .handler(new ChannelInitializer<SocketChannel>() {
           @Override
           protected void initChannel(final SocketChannel channel) throws SSLException {
+
+            if (proxyMessageSupplier != null) {
+              // In a production setting, we'd want some mechanism to remove these handlers after the initial message
+              // were sent. Since this is just for testing, though, we can tolerate the inefficiency of leaving a
+              // pair of inert handlers in the pipeline.
+              channel.pipeline()
+                  .addLast(HAProxyMessageEncoder.INSTANCE)
+                  .addLast(new HAProxyMessageSender(proxyMessageSupplier));
+            }
+
             if (useTls) {
               final SslContextBuilder sslContextBuilder = SslContextBuilder.forClient();
 

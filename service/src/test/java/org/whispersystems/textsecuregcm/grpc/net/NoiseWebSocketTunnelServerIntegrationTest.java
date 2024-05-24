@@ -16,6 +16,10 @@ import io.netty.channel.DefaultEventLoopGroup;
 import io.netty.channel.local.LocalAddress;
 import io.netty.channel.local.LocalChannel;
 import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.handler.codec.haproxy.HAProxyCommand;
+import io.netty.handler.codec.haproxy.HAProxyMessage;
+import io.netty.handler.codec.haproxy.HAProxyProtocolVersion;
+import io.netty.handler.codec.haproxy.HAProxyProxiedProtocol;
 import io.netty.handler.codec.http.DefaultHttpHeaders;
 import io.netty.handler.codec.http.HttpHeaders;
 import java.io.ByteArrayInputStream;
@@ -54,6 +58,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.signal.chat.rpc.GetAuthenticatedDeviceRequest;
 import org.signal.chat.rpc.GetAuthenticatedDeviceResponse;
 import org.signal.chat.rpc.GetRequestAttributesRequest;
@@ -234,9 +240,10 @@ class NoiseWebSocketTunnelServerIntegrationTest extends AbstractLeakDetectionTes
     delegatedTaskExecutor.awaitTermination(1, TimeUnit.SECONDS);
   }
 
-  @Test
-  void connectAuthenticated() throws InterruptedException {
-    try (final NoiseWebSocketTunnelClient client = buildAndStartAuthenticatedClient()) {
+  @ParameterizedTest
+  @ValueSource(booleans = { true, false })
+  void connectAuthenticated(final boolean includeProxyMessage) throws InterruptedException {
+    try (final NoiseWebSocketTunnelClient client = buildAndStartAuthenticatedClient(WebSocketCloseListener.NOOP_LISTENER, rootKeyPair.getPublicKey(), new DefaultHttpHeaders(), includeProxyMessage)) {
       final ManagedChannel channel = buildManagedChannel(client.getLocalAddress());
 
       try {
@@ -251,8 +258,9 @@ class NoiseWebSocketTunnelServerIntegrationTest extends AbstractLeakDetectionTes
     }
   }
 
-  @Test
-  void connectAuthenticatedPlaintext() throws InterruptedException {
+  @ParameterizedTest
+  @ValueSource(booleans = { true, false })
+  void connectAuthenticatedPlaintext(final boolean includeProxyMessage) throws InterruptedException {
     try (final NoiseWebSocketTunnelClient client = new NoiseWebSocketTunnelClient(
         tlsNoiseWebSocketTunnelServer.getLocalAddress(),
         NoiseWebSocketTunnelClient.AUTHENTICATED_WEBSOCKET_URI,
@@ -264,6 +272,7 @@ class NoiseWebSocketTunnelServerIntegrationTest extends AbstractLeakDetectionTes
         new DefaultHttpHeaders(),
         true,
         serverTlsCertificate,
+        includeProxyMessage ? NoiseWebSocketTunnelServerIntegrationTest::buildProxyMessage : null,
         nioEventLoopGroup,
         WebSocketCloseListener.NOOP_LISTENER)
         .start()) {
@@ -289,7 +298,7 @@ class NoiseWebSocketTunnelServerIntegrationTest extends AbstractLeakDetectionTes
 
     // Try to verify the server's public key with something other than the key with which it was signed
     try (final NoiseWebSocketTunnelClient client =
-        buildAndStartAuthenticatedClient(webSocketCloseListener, Curve.generateKeyPair().getPublicKey(), new DefaultHttpHeaders())) {
+        buildAndStartAuthenticatedClient(webSocketCloseListener, Curve.generateKeyPair().getPublicKey(), new DefaultHttpHeaders(), false)) {
 
       final ManagedChannel channel = buildManagedChannel(client.getLocalAddress());
 
@@ -369,6 +378,7 @@ class NoiseWebSocketTunnelServerIntegrationTest extends AbstractLeakDetectionTes
         new DefaultHttpHeaders(),
         true,
         serverTlsCertificate,
+        null,
         nioEventLoopGroup,
         webSocketCloseListener)
         .start()) {
@@ -443,6 +453,7 @@ class NoiseWebSocketTunnelServerIntegrationTest extends AbstractLeakDetectionTes
         new DefaultHttpHeaders(),
         true,
         serverTlsCertificate,
+        null,
         nioEventLoopGroup,
         webSocketCloseListener)
         .start()) {
@@ -602,12 +613,13 @@ class NoiseWebSocketTunnelServerIntegrationTest extends AbstractLeakDetectionTes
   private NoiseWebSocketTunnelClient buildAndStartAuthenticatedClient(final WebSocketCloseListener webSocketCloseListener)
       throws InterruptedException {
 
-    return buildAndStartAuthenticatedClient(webSocketCloseListener, rootKeyPair.getPublicKey(), new DefaultHttpHeaders());
+    return buildAndStartAuthenticatedClient(webSocketCloseListener, rootKeyPair.getPublicKey(), new DefaultHttpHeaders(), false);
   }
 
   private NoiseWebSocketTunnelClient buildAndStartAuthenticatedClient(final WebSocketCloseListener webSocketCloseListener,
       final ECPublicKey rootPublicKey,
-      final HttpHeaders headers) throws InterruptedException {
+      final HttpHeaders headers,
+      final boolean includeProxyMessage) throws InterruptedException {
 
     return new NoiseWebSocketTunnelClient(tlsNoiseWebSocketTunnelServer.getLocalAddress(),
         NoiseWebSocketTunnelClient.AUTHENTICATED_WEBSOCKET_URI,
@@ -619,6 +631,7 @@ class NoiseWebSocketTunnelServerIntegrationTest extends AbstractLeakDetectionTes
         headers,
         true,
         serverTlsCertificate,
+        includeProxyMessage ? NoiseWebSocketTunnelServerIntegrationTest::buildProxyMessage : null,
         nioEventLoopGroup,
         webSocketCloseListener)
         .start();
@@ -642,8 +655,14 @@ class NoiseWebSocketTunnelServerIntegrationTest extends AbstractLeakDetectionTes
         headers,
         true,
         serverTlsCertificate,
+        null,
         nioEventLoopGroup,
         webSocketCloseListener)
         .start();
+  }
+
+  private static HAProxyMessage buildProxyMessage() {
+    return new HAProxyMessage(HAProxyProtocolVersion.V2, HAProxyCommand.PROXY, HAProxyProxiedProtocol.TCP4,
+        "10.0.0.1", "10.0.0.2", 12345, 443);
   }
 }
