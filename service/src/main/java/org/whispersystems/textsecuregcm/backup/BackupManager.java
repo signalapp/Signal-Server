@@ -148,19 +148,19 @@ public class BackupManager {
         .thenApply(result -> cdn3BackupCredentialGenerator.generateUpload(cdnMessageBackupName(backupUser)));
   }
 
-  public BackupUploadDescriptor createTemporaryAttachmentUploadDescriptor(final AuthenticatedBackupUser backupUser)
-      throws RateLimitExceededException {
+  public CompletionStage<BackupUploadDescriptor> createTemporaryAttachmentUploadDescriptor(
+      final AuthenticatedBackupUser backupUser) {
     checkBackupLevel(backupUser, BackupLevel.MEDIA);
 
-    RateLimiter.adaptLegacyException(() -> rateLimiters
+    return RateLimiter.adaptLegacyException(rateLimiters
         .forDescriptor(RateLimiters.For.BACKUP_ATTACHMENT)
-        .validate(rateLimitKey(backupUser)));
-
-    final byte[] bytes = new byte[15];
-    secureRandom.nextBytes(bytes);
-    final String attachmentKey = Base64.getUrlEncoder().encodeToString(bytes);
-    final AttachmentGenerator.Descriptor descriptor = tusAttachmentGenerator.generateAttachment(attachmentKey);
-    return new BackupUploadDescriptor(3, attachmentKey, descriptor.headers(), descriptor.signedUploadLocation());
+        .validateAsync(rateLimitKey(backupUser))).thenApply(ignored -> {
+      final byte[] bytes = new byte[15];
+      secureRandom.nextBytes(bytes);
+      final String attachmentKey = Base64.getUrlEncoder().encodeToString(bytes);
+      final AttachmentGenerator.Descriptor descriptor = tusAttachmentGenerator.generateAttachment(attachmentKey);
+      return new BackupUploadDescriptor(3, attachmentKey, descriptor.headers(), descriptor.signedUploadLocation());
+    });
   }
 
   /**

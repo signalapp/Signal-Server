@@ -13,7 +13,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
@@ -25,7 +24,6 @@ import static org.mockito.Mockito.when;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import java.io.IOException;
-import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -101,7 +99,7 @@ public class BackupManagerTest {
 
     final RateLimiters rateLimiters = mock(RateLimiters.class);
     when(rateLimiters.forDescriptor(RateLimiters.For.BACKUP_ATTACHMENT)).thenReturn(mediaUploadLimiter);
-    
+
     when(remoteStorageManager.cdnNumber()).thenReturn(3);
 
     this.backupsDb = new BackupsDb(
@@ -141,15 +139,14 @@ public class BackupManagerTest {
   }
 
   @Test
-  public void createTemporaryMediaAttachmentRateLimited() throws RateLimitExceededException {
+  public void createTemporaryMediaAttachmentRateLimited()  {
     final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupLevel.MEDIA);
-    doThrow(new RateLimitExceededException(null, true))
-        .when(mediaUploadLimiter)
-        .validate(eq(BackupManager.rateLimitKey(backupUser)));
-
-    assertThatExceptionOfType(RateLimitExceededException.class)
-        .isThrownBy(() -> backupManager.createTemporaryAttachmentUploadDescriptor(backupUser))
-        .satisfies(e -> assertThat(e.isLegacy()).isFalse());
+    when(mediaUploadLimiter.validateAsync(eq(BackupManager.rateLimitKey(backupUser))))
+        .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(null, true)));
+    final RateLimitExceededException e = CompletableFutureTestUtil.assertFailsWithCause(
+        RateLimitExceededException.class,
+        backupManager.createTemporaryAttachmentUploadDescriptor(backupUser).toCompletableFuture());
+    assertThat(e.isLegacy()).isFalse();
   }
 
   @Test

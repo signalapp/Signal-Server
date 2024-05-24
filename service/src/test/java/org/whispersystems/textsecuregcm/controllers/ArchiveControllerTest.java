@@ -541,7 +541,8 @@ public class ArchiveControllerTest {
     when(backupManager.authenticateBackupUser(any(), any()))
         .thenReturn(CompletableFuture.completedFuture(backupUser(presentation.getBackupId(), BackupLevel.MEDIA)));
     when(backupManager.createTemporaryAttachmentUploadDescriptor(any()))
-        .thenReturn(new BackupUploadDescriptor(3, "abc", Map.of("k", "v"), "example.org"));
+        .thenReturn(CompletableFuture.completedFuture(
+            new BackupUploadDescriptor(3, "abc", Map.of("k", "v"), "example.org")));
     final ArchiveController.UploadDescriptorResponse desc = resources.getJerseyTest()
         .target("v1/archives/media/upload/form")
         .request()
@@ -555,7 +556,7 @@ public class ArchiveControllerTest {
 
     // rate limit
     when(backupManager.createTemporaryAttachmentUploadDescriptor(any()))
-        .thenThrow(new RateLimitExceededException(null, false));
+        .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(null, false)));
     final Response response = resources.getJerseyTest()
         .target("v1/archives/media/upload/form")
         .request()

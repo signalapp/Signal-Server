@@ -88,7 +88,7 @@ public class BackupAuthManager {
    * @throws RateLimitExceededException If too many backup-ids have been committed
    */
   public CompletableFuture<Void> commitBackupId(final Account account,
-      final BackupAuthCredentialRequest backupAuthCredentialRequest) throws RateLimitExceededException {
+      final BackupAuthCredentialRequest backupAuthCredentialRequest) {
     if (configuredBackupLevel(account).isEmpty()) {
       throw Status.PERMISSION_DENIED.withDescription("Backups not allowed on account").asRuntimeException();
     }
@@ -101,11 +101,12 @@ public class BackupAuthManager {
       return CompletableFuture.completedFuture(null);
     }
 
-    rateLimiters.forDescriptor(RateLimiters.For.SET_BACKUP_ID).validate(account.getUuid());
-
-    return this.accountsManager
-        .updateAsync(account, acc -> acc.setBackupCredentialRequest(serializedRequest))
-        .thenRun(Util.NOOP);
+    return rateLimiters.forDescriptor(RateLimiters.For.SET_BACKUP_ID)
+        .validateAsync(account.getUuid())
+        .thenCompose(ignored -> this.accountsManager
+            .updateAsync(account, acc -> acc.setBackupCredentialRequest(serializedRequest))
+            .thenRun(Util.NOOP))
+        .toCompletableFuture();
   }
 
   public record Credential(BackupAuthCredentialResponse credential, Instant redemptionTime) {}

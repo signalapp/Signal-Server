@@ -10,7 +10,6 @@ import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
@@ -29,6 +28,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.ThrowableAssert;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,7 +63,6 @@ import org.whispersystems.textsecuregcm.tests.util.ExperimentHelper;
 import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
 import org.whispersystems.textsecuregcm.util.TestClock;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
-import javax.annotation.Nullable;
 
 public class BackupAuthManagerTest {
 
@@ -407,8 +406,9 @@ public class BackupAuthManagerTest {
     when(accountsManager.updateAsync(any(), any())).thenReturn(CompletableFuture.completedFuture(account));
 
     // Should be rate limited
-    assertThatExceptionOfType(RateLimitExceededException.class)
-        .isThrownBy(() -> authManager.commitBackupId(account, credentialRequest).join());
+    CompletableFutureTestUtil.assertFailsWithCause(
+        RateLimitExceededException.class,
+        authManager.commitBackupId(account, credentialRequest));
 
     // If we don't change the request, shouldn't be rate limited
     when(account.getBackupCredentialRequest()).thenReturn(credentialRequest.serialize());
@@ -426,6 +426,7 @@ public class BackupAuthManagerTest {
   private static RateLimiters allowRateLimiter() {
     final RateLimiters limiters = mock(RateLimiters.class);
     final RateLimiter limiter = mock(RateLimiter.class);
+    when(limiter.validateAsync(any(UUID.class))).thenReturn(CompletableFuture.completedFuture(null));
     when(limiters.forDescriptor(RateLimiters.For.SET_BACKUP_ID)).thenReturn(limiter);
     return limiters;
   }
@@ -433,11 +434,8 @@ public class BackupAuthManagerTest {
   private static RateLimiters denyRateLimiter(final UUID aci) {
     final RateLimiters limiters = mock(RateLimiters.class);
     final RateLimiter limiter = mock(RateLimiter.class);
-    try {
-      doThrow(new RateLimitExceededException(null, false)).when(limiter).validate(aci);
-    } catch (RateLimitExceededException e) {
-      throw new AssertionError(e);
-    }
+    when(limiter.validateAsync(aci))
+        .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(null, false)));
     when(limiters.forDescriptor(RateLimiters.For.SET_BACKUP_ID)).thenReturn(limiter);
     return limiters;
   }

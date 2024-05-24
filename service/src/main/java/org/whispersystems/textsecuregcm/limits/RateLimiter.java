@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.limits;
 import java.util.UUID;
 import java.util.concurrent.CompletionStage;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
+import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import reactor.core.publisher.Mono;
 
 public interface RateLimiter {
@@ -76,6 +77,16 @@ public interface RateLimiter {
 
   default CompletionStage<Void> clearAsync(final UUID accountUuid) {
     return clearAsync(accountUuid.toString());
+  }
+
+  /**
+   * If the future throws a {@link RateLimitExceededException}, it will adapt it to ensure that
+   * {@link RateLimitExceededException#isLegacy()} returns {@code false}
+   */
+  static CompletionStage<Void> adaptLegacyException(final CompletionStage<Void> rateLimitFuture) {
+    return rateLimitFuture.exceptionally(ExceptionUtils.exceptionallyHandler(RateLimitExceededException.class, e -> {
+      throw ExceptionUtils.wrap(new RateLimitExceededException(e.getRetryDuration().orElse(null), false));
+    }));
   }
 
   /**

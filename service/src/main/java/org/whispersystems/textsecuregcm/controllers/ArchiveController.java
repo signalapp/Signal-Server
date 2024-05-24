@@ -27,8 +27,8 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import javax.annotation.Nullable;
 import javax.validation.Valid;
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
@@ -186,13 +186,13 @@ public class ArchiveController {
       description = """
           After setting a blinded backup-id with PUT /v1/archives/, this fetches credentials that can be used to perform
           operations against that backup-id. Clients may (and should) request up to 7 days of credentials at a time.
-                    
+
           The redemptionStart and redemptionEnd seconds must be UTC day aligned, and must not span more than 7 days.
-          
+
           Each credential contains a receipt level which indicates the backup level the credential is good for. If the
           account has paid backup access that expires at some point in the provided redemption window, credentials with
           redemption times after the expiration may be on a lower backup level.
-          
+
           Clients must validate the receipt level on the credential matches a known receipt level before using it.
           """)
   @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = BackupAuthCredentialsResponse.class)))
@@ -455,13 +455,7 @@ public class ArchiveController {
       throw new BadRequestException("must not use authenticated connection for anonymous operations");
     }
     return backupManager.authenticateBackupUser(presentation.presentation, signature.signature)
-        .thenApply(backupUser -> {
-          try {
-            return backupManager.createTemporaryAttachmentUploadDescriptor(backupUser);
-          } catch (RateLimitExceededException e) {
-            throw ExceptionUtils.wrap(e);
-          }
-        })
+        .thenCompose(backupUser -> backupManager.createTemporaryAttachmentUploadDescriptor(backupUser))
         .thenApply(result -> new UploadDescriptorResponse(
             result.cdn(),
             result.key(),
@@ -553,14 +547,10 @@ public class ArchiveController {
       throw new BadRequestException("must not use authenticated connection for anonymous operations");
     }
 
-    final AuthenticatedBackupUser backupUser = backupManager.authenticateBackupUser(
-        presentation.presentation, signature.signature).join();
-
-    final boolean fits = backupManager.canStoreMedia(backupUser, copyMediaRequest.objectLength()).join();
-    if (!fits) {
-      throw new ClientErrorException("Media quota exhausted", Response.Status.REQUEST_ENTITY_TOO_LARGE);
-    }
-    return copyMediaImpl(backupUser, copyMediaRequest)
+    return backupManager
+        .authenticateBackupUser(presentation.presentation, signature.signature)
+        .thenCompose(backupUser -> checkMediaFits(backupUser, copyMediaRequest.objectLength)
+            .thenCompose(ignored -> copyMediaImpl(backupUser, copyMediaRequest)))
         .thenApply(result -> new CopyMediaResponse(result.cdn()))
         .exceptionally(e -> {
           final Throwable unwrapped = ExceptionUtils.unwrap(e);
@@ -571,6 +561,16 @@ public class ArchiveController {
           } else {
             throw ExceptionUtils.wrap(e);
           }
+        });
+  }
+
+  private CompletableFuture<Void> checkMediaFits(AuthenticatedBackupUser backupUser, long amountToStore) {
+    return backupManager.canStoreMedia(backupUser, amountToStore)
+        .thenApply(fits -> {
+          if (!fits) {
+            throw new ClientErrorException("Media quota exhausted", Response.Status.REQUEST_ENTITY_TOO_LARGE);
+          }
+          return null;
         });
   }
 
@@ -662,41 +662,36 @@ public class ArchiveController {
       throw new BadRequestException("must not use authenticated connection for anonymous operations");
     }
 
-    final AuthenticatedBackupUser backupUser = backupManager.authenticateBackupUser(
-        presentation.presentation, signature.signature).join();
-
     // If the entire batch won't fit in the user's remaining quota, reject the whole request.
     final long expectedStorage = copyMediaRequest.items().stream().mapToLong(CopyMediaRequest::objectLength).sum();
-    final boolean fits = backupManager.canStoreMedia(backupUser, expectedStorage).join();
-    if (!fits) {
-      throw new ClientErrorException("Media quota exhausted", Response.Status.REQUEST_ENTITY_TOO_LARGE);
-    }
 
-    return Flux.fromIterable(copyMediaRequest.items)
-        // Operate sequentially, waiting for one copy to finish before starting the next one. At least right now,
-        // copying concurrently will introduce contention over the metadata.
-        .concatMap(request -> Mono
-            .fromCompletionStage(copyMediaImpl(backupUser, request))
-            .map(result -> new CopyMediaBatchResponse.Entry(200, null, result.cdn(), result.key()))
-            .onErrorResume(throwable -> ExceptionUtils.unwrap(throwable) instanceof IOException, throwable -> {
-              final Throwable unwrapped = ExceptionUtils.unwrap(throwable);
+    return backupManager.authenticateBackupUser(presentation.presentation, signature.signature)
+        .thenCompose(backupUser -> checkMediaFits(backupUser, expectedStorage).thenCompose(
+            ignored -> Flux.fromIterable(copyMediaRequest.items)
+                // Operate sequentially, waiting for one copy to finish before starting the next one. At least right now,
+                // copying concurrently will introduce contention over the metadata.
+                .concatMap(request -> Mono
+                    .fromCompletionStage(copyMediaImpl(backupUser, request))
+                    .map(result -> new CopyMediaBatchResponse.Entry(200, null, result.cdn(), result.key()))
+                    .onErrorResume(throwable -> ExceptionUtils.unwrap(throwable) instanceof IOException, throwable -> {
+                      final Throwable unwrapped = ExceptionUtils.unwrap(throwable);
 
-              int status;
-              String error;
-              if (unwrapped instanceof SourceObjectNotFoundException) {
-                status = 410;
-                error = "Source object not found " + unwrapped.getMessage();
-              } else if (unwrapped instanceof InvalidLengthException) {
-                status = 400;
-                error = "Invalid length " + unwrapped.getMessage();
-              } else {
-                throw ExceptionUtils.wrap(throwable);
-              }
-              return Mono.just(new CopyMediaBatchResponse.Entry(status, error, null, request.mediaId));
-            }))
-        .collectList()
-        .map(list -> Response.status(207).entity(new CopyMediaBatchResponse(list)).build())
-        .toFuture();
+                      int status;
+                      String error;
+                      if (unwrapped instanceof SourceObjectNotFoundException) {
+                        status = 410;
+                        error = "Source object not found " + unwrapped.getMessage();
+                      } else if (unwrapped instanceof InvalidLengthException) {
+                        status = 400;
+                        error = "Invalid length " + unwrapped.getMessage();
+                      } else {
+                        throw ExceptionUtils.wrap(throwable);
+                      }
+                      return Mono.just(new CopyMediaBatchResponse.Entry(status, error, null, request.mediaId));
+                    }))
+                .collectList()
+                .map(list -> Response.status(207).entity(new CopyMediaBatchResponse(list)).build())
+                .toFuture()));
   }
 
   @POST
@@ -858,8 +853,7 @@ public class ArchiveController {
 
   @DELETE
   @Produces(MediaType.APPLICATION_JSON)
-  @Operation(summary = "Delete entire backup",
-      description = """
+  @Operation(summary = "Delete entire backup", description = """
       Delete all backup metadata, objects, and stored public key. To use backups again, a public key must be resupplied.
       """)
   @ApiResponse(responseCode = "204", description = "The backup has been successfully removed")
