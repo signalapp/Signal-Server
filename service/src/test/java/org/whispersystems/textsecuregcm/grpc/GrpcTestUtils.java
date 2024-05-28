@@ -35,7 +35,7 @@ public final class GrpcTestUtils {
       final BindableService service) {
     mockAuthenticationInterceptor.setAuthenticatedDevice(authenticatedAci, authenticatedDeviceId);
     extension.getServiceRegistry()
-        .addService(ServerInterceptors.intercept(service, mockRequestAttributesInterceptor, mockAuthenticationInterceptor, new ErrorMappingInterceptor()));
+        .addService(ServerInterceptors.intercept(service, new ValidatingInterceptor(), mockRequestAttributesInterceptor, mockAuthenticationInterceptor, new ErrorMappingInterceptor()));
   }
 
   public static void setupUnauthenticatedExtension(
@@ -43,7 +43,7 @@ public final class GrpcTestUtils {
       final MockRequestAttributesInterceptor mockRequestAttributesInterceptor,
       final BindableService service) {
     extension.getServiceRegistry()
-        .addService(ServerInterceptors.intercept(service, mockRequestAttributesInterceptor, new ErrorMappingInterceptor()));
+        .addService(ServerInterceptors.intercept(service, new ValidatingInterceptor(), mockRequestAttributesInterceptor, new ErrorMappingInterceptor()));
   }
 
   public static void assertStatusException(final Status expected, final Executable serviceCall) {

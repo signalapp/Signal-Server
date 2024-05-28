@@ -154,6 +154,7 @@ import org.whispersystems.textsecuregcm.grpc.PaymentsGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ProfileAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ProfileGrpcService;
 import org.whispersystems.textsecuregcm.grpc.RequestAttributesInterceptor;
+import org.whispersystems.textsecuregcm.grpc.ValidatingInterceptor;
 import org.whispersystems.textsecuregcm.grpc.net.GrpcClientConnectionManager;
 import org.whispersystems.textsecuregcm.grpc.net.ManagedDefaultEventLoopGroup;
 import org.whispersystems.textsecuregcm.grpc.net.ManagedLocalGrpcServer;
@@ -862,6 +863,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final RequestAttributesInterceptor requestAttributesInterceptor =
         new RequestAttributesInterceptor(grpcClientConnectionManager);
 
+    final ValidatingInterceptor validatingInterceptor = new ValidatingInterceptor();
+
     final LocalAddress anonymousGrpcServerAddress = new LocalAddress("grpc-anonymous");
     final LocalAddress authenticatedGrpcServerAddress = new LocalAddress("grpc-authenticated");
 
@@ -875,6 +878,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             .intercept(
                 new ExternalRequestFilter(config.getExternalRequestFilterConfiguration().permittedInternalRanges(),
                     config.getExternalRequestFilterConfiguration().grpcMethods()))
+            .intercept(validatingInterceptor)
             // TODO: specialize metrics with user-agent platform
             .intercept(metricCollectingServerInterceptor)
             .intercept(errorMappingInterceptor)
@@ -897,6 +901,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         // http://grpc.github.io/grpc-java/javadoc/io/grpc/ServerBuilder.html#intercept-io.grpc.ServerInterceptor-
         serverBuilder
             // TODO: specialize metrics with user-agent platform
+            .intercept(validatingInterceptor)
             .intercept(metricCollectingServerInterceptor)
             .intercept(errorMappingInterceptor)
             .intercept(remoteDeprecationFilter)

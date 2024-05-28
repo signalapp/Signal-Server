@@ -101,3 +101,15 @@ enum DeviceCapability {
   DEVICE_CAPABILITY_VERSIONED_EXPIRATION_TIMER = 4;
   DEVICE_CAPABILITY_STORAGE_SERVICE_RECORD_KEY_ROTATION = 5;
 }
+
+message ZkCredential {
+  /*
+   * Day on which this credential can be redeemed, in UTC seconds since epoch
+   */
+  int64 redemption_time = 1;
+
+  /*
+   * The ZK credential, using libsignal's serialization
+   */
+  bytes credential = 2;
+}
