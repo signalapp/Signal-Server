@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.workers;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import io.dropwizard.core.cli.Command;
 import io.dropwizard.core.setup.Bootstrap;
 import java.nio.file.Files;
@@ -35,6 +36,25 @@ public class CheckDynamicConfigurationCommand extends Command {
         .setDefault(DynamicConfiguration.class.getCanonicalName());
   }
 
+  private boolean isValid(final Class<?> configurationClass, final String yamlConfig) {
+    try {
+      return DynamicConfigurationManager.parseConfiguration(yamlConfig, configurationClass).isPresent();
+    } catch (JsonProcessingException e) {
+      System.err.println(e.getMessage());
+      return false;
+    }
+  }
+
+  /**
+   * Throw to exit the command cleanly but with a non-zero exit code
+   */
+  private static class CommandFailedException extends RuntimeException {
+    @Override
+    public synchronized Throwable fillInStackTrace() {
+      return this;
+    }
+  }
+
   @Override
   public void run(final Bootstrap<?> bootstrap, final Namespace namespace) throws Exception {
     final Path path = Path.of(namespace.getString("file"));
@@ -53,12 +73,20 @@ public class CheckDynamicConfigurationCommand extends Command {
       configurationClasses = List.of(Class.forName(namespace.getString("class")));
     }
 
-    for (final Class<?> configurationClass : configurationClasses) {
-      if (DynamicConfigurationManager.parseConfiguration(Files.readString(path), configurationClass).isPresent()) {
-        System.out.println(configurationClass.getSimpleName() + ": dynamic configuration file at " + path + " is valid");
-      } else {
-        System.err.println(configurationClass.getSimpleName() + ": dynamic configuration file at " + path + " is not valid");
-      }
+    final String yamlConfig = Files.readString(path);
+    final boolean allValid = configurationClasses.stream()
+        .allMatch(cls -> {
+          final boolean valid = isValid(cls, yamlConfig);
+          if (valid) {
+            System.out.println(cls.getSimpleName() + ": dynamic configuration file at " + path + " is valid");
+          } else {
+            System.err.println(cls.getSimpleName() + ": dynamic configuration file at " + path + " is not valid");
+          }
+          return valid;
+        });
+
+    if (!allValid) {
+      throw new CommandFailedException();
     }
   }
 }
