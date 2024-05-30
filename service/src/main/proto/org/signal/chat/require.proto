@@ -13,123 +13,134 @@ import "google/protobuf/descriptor.proto";
 
 extend google.protobuf.FieldOptions {
   /*
-     Requires a field to have content of non-zero size/length.
-     Applies to both `optional` and regular fields, i.e. if the field is not set or has a default value,
-     it's considered to be empty.
-
-     ```
-     import "org/signal/chat/require.proto";
-
-     message Data {
-
-       string nonEmptyString = 1 [(require.nonEmpty) = true];
-
-       bytes nonEmptyBytes = 2 [(require.nonEmpty) = true];
-
-       optional string nonEmptyStringOptional = 3 [(require.nonEmpty) = true];
-
-       optional bytes nonEmptyBytesOptional = 4 [(require.nonEmpty) = true];
-
-       repeated string nonEmptyList = 5 [(require.nonEmpty) = true];
-     }
-     ```
-
-     Applicable to fields of type `string`, `byte`, and `repeated` fields.
+   * Requires a field to have content of non-zero size/length.
+   * Applies to both `optional` and regular fields, i.e. if the field is not set or has a default value,
+   * it's considered to be empty.
+   *
+   * ```
+   * import "org/signal/chat/require.proto";
+   *
+   * message Data {
+   *   string nonEmptyString = 1 [(require.nonEmpty) = true];
+   *   bytes nonEmptyBytes = 2 [(require.nonEmpty) = true];
+   *   optional string nonEmptyStringOptional = 3 [(require.nonEmpty) = true];
+   *   optional bytes nonEmptyBytesOptional = 4 [(require.nonEmpty) = true];
+   *   repeated string nonEmptyList = 5 [(require.nonEmpty) = true];
+   * }
+   * ```
+   *
+   * Applicable to fields of type `string`, `byte`, and `repeated` fields.
    */
   optional bool nonEmpty  = 70001;
 
   /*
-     Requires a enum field to have value with an index greater than zero.
-     Applies to both `optional` and regular fields, i.e. if the field is not set or has a default value,
-     its index will be <= 0.
-
-     ```
-     import "org/signal/chat/require.proto";
-
-     message Data {
-       Color color = 1 [(require.specified) = true];
-     }
-
-     enum Color {
-       COLOR_UNSPECIFIED = 0;
-       COLOR_RED = 1;
-       COLOR_GREEN = 2;
-       COLOR_BLUE = 3;
-     }
-     ```
+   * Requires a enum field to have value with an index greater than zero.
+   * Applies to both `optional` and regular fields, i.e. if the field is not set or has a default value,
+   * its index will be <= 0.
+   *
+   * ```
+   * import "org/signal/chat/require.proto";
+   *
+   * message Data {
+   *   Color color = 1 [(require.specified) = true];
+   * }
+   *
+   * enum Color {
+   *   COLOR_UNSPECIFIED = 0;
+   *   COLOR_RED = 1;
+   *   COLOR_GREEN = 2;
+   *   COLOR_BLUE = 3;
+   * }
+   * ```
    */
   optional bool specified  = 70002;
 
   /*
-     Requires a size/length of a field to be within certain boundaries.
-     Applies to both `optional` and regular fields, i.e. if the field is not set or has a default value,
-     its size considered to be zero.
-
-     ```
-     import "org/signal/chat/require.proto";
-
-     message Data {
-
-       string name = 1 [(require.size) = {min: 3, max: 8}];
-
-       optional string address = 2 [(require.size) = {min: 3, max: 8}];
-     }
-     ```
-
-     Applicable to fields of type `string`, `byte`, and `repeated` fields.
+   * Requires a size/length of a field to be within certain boundaries.
+   * Applies to both `optional` and regular fields, i.e. if the field is not set or has a default value,
+   * its size considered to be zero.
+   *
+   * ```
+   * import "org/signal/chat/require.proto";
+   *
+   * message Data {
+   *
+   *   string name = 1 [(require.size) = {min: 3, max: 8}];
+   *
+   *   optional string address = 2 [(require.size) = {min: 3, max: 8}];
+   * }
+   * ```
+   *
+   * Applicable to fields of type `string`, `byte`, and `repeated` fields.
    */
   optional SizeConstraint size = 70003;
 
   /*
-     Requires a size/length of a field to be one of the specified values.
-     Applies to both `optional` and regular fields, i.e. if the field is not set or has a default value,
-     its size considered to be zero.
-
-     ```
-     import "org/signal/chat/require.proto";
-
-     message Data {
-
-       string zip = 1 [(require.exactlySize) = 5];
-
-       optional string exactlySizeVariants = 2 [(require.exactlySize) = 2, (require.exactlySize) = 4];
-     }
-     ```
-
-     Applicable to fields of type `string`, `byte`, and `repeated` fields.
+   * Requires a size/length of a field to be one of the specified values.
+   * Applies to both `optional` and regular fields, i.e. if the field is not set or has a default value,
+   * its size considered to be zero.
+   *
+   * ```
+   * import "org/signal/chat/require.proto";
+   *
+   * message Data {
+   *
+   *   string zip = 1 [(require.exactlySize) = 5];
+   *
+   *   optional string exactlySizeVariants = 2 [(require.exactlySize) = 2, (require.exactlySize) = 4];
+   * }
+   * ```
+   *
+   * Applicable to fields of type `string`, `byte`, and `repeated` fields.
    */
   repeated uint32 exactlySize = 70004;
 
   /*
-     Requires a value of a string field to be a valid E164-normalized phone number.
-     If the field is `optional`, this check allows a value to be not set.
-
-     ```
-     import "org/signal/chat/require.proto";
-
-     message Data {
-       string number = 1 [(require.e164)];
-     }
-     ```
+   * Requires a value of a string field to be a valid E164-normalized phone number.
+   * If the field is `optional`, this check allows a value to be not set.
+   *
+   *  ```
+   *  import "org/signal/chat/require.proto";
+   *
+   *  message Data {
+   *    string number = 1 [(require.e164)];
+   *  }
+   *  ```
    */
   optional bool e164  = 70005;
 
   /*
-     Requires an integer value to be within a certain range. The range boundaries are specified
-     with the values of type `int32`, which should be enough for all practical purposes.
-
-     If the field is `optional`, this check allows a value to be not set.
-
-     ```
-     import "org/signal/chat/require.proto";
-
-     message Data {
-       int32 byte = 1 [(require.range) = {min = -128, max = 127}];
-       uint32 unsignedByte = 2 [(require.range).max = 255];
-     }
-     ```
+   * Requires an integer value to be within a certain range. The range boundaries are specified
+   * with the values of type `int32`, which should be enough for all practical purposes.
+   *
+   * If the field is `optional`, this check allows a value to be not set.
+   *
+   * ```
+   * import "org/signal/chat/require.proto";
+   *
+   * message Data {
+   *   int32 byte = 1 [(require.range) = {min: -128, max: 127}];
+   *   uint32 unsignedByte = 2 [(require.range).max = 255];
+   * }
+   * ```
    */
   optional ValueRangeConstraint range = 70006;
+
+  /*
+   * Require a value of a message field to be present.
+   *
+   * Applies to both `optional` and regular fields (both of which have explicit
+   * presence for the message type anyways)
+   *
+   * ```
+   * import "org/signal/chat/require.proto";
+   * message Data {
+   *   message MyMessage {}
+   *   MyMessage myMessage = 1 [(require.present) = true];
+   * }
+   *````
+   */
+  optional bool present = 70007;
 }
 
 message SizeConstraint {
@@ -144,17 +155,17 @@ message ValueRangeConstraint {
 
 extend google.protobuf.ServiceOptions {
   /*
-     Indicates that all methods in a given service require a certain kind of authentication.
-
-     ```
-     import "org/signal/chat/require.proto";
-
-     service AuthService {
-       option (require.auth) = AUTH_ONLY_AUTHENTICATED;
-
-       rpc AuthenticatedMethod (google.protobuf.Empty) returns (google.protobuf.Empty) {}
-     }
-     ```
+   * Indicates that all methods in a given service require a certain kind of authentication.
+   *
+   * ```
+   * import "org/signal/chat/require.proto";
+   *
+   * service AuthService {
+   *   option (require.auth) = AUTH_ONLY_AUTHENTICATED;
+   *
+   *   rpc AuthenticatedMethod (google.protobuf.Empty) returns (google.protobuf.Empty) {}
+   * }
+   * ```
    */
   optional Auth auth = 71001;
 }

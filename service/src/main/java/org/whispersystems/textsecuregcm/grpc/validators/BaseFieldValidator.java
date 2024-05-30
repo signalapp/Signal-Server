@@ -12,6 +12,7 @@ import static org.whispersystems.textsecuregcm.grpc.validators.ValidatorUtils.in
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.GeneratedMessageV3;
+import com.google.protobuf.Message;
 import io.grpc.Status;
 import io.grpc.StatusException;
 import java.util.Set;
@@ -91,7 +92,10 @@ public abstract class BaseFieldValidator<T> implements FieldValidator {
             validateBytesValue(extensionValueTyped, (ByteString) msg.getField(fd));
         case ENUM ->
             validateEnumValue(extensionValueTyped, (Descriptors.EnumValueDescriptor) msg.getField(fd));
-        case FLOAT, DOUBLE, BOOL, MESSAGE, GROUP -> {
+        case MESSAGE -> {
+          validateMessageValue(extensionValueTyped, (Message) msg.getField(fd));
+        }
+        case FLOAT, DOUBLE, BOOL, GROUP -> {
           // at this moment, there are no validations specific to these types of fields
         }
       }
@@ -138,6 +142,12 @@ public abstract class BaseFieldValidator<T> implements FieldValidator {
       final T extensionValue,
       final Descriptors.EnumValueDescriptor enumValueDescriptor) throws StatusException {
     throw internalError("`validateEnumValue` method needs to be implemented");
+  }
+
+  protected void validateMessageValue(
+      final T extensionValue,
+      final Message message) throws StatusException {
+    throw internalError("`validateMessageValue` method needs to be implemented");
   }
 
   protected static boolean requireFlagExtension(final Object extensionValue) throws StatusException {

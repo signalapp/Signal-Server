@@ -47,7 +47,9 @@ public class ValidatingInterceptorTest {
   @RegisterExtension
   static final GrpcServerExtension GRPC_SERVER_EXTENSION = new GrpcServerExtension();
 
-  private static final class ValidationTestGrpcServiceImpl extends ReactorValidationTestServiceGrpc.ValidationTestServiceImplBase {
+  private static final class ValidationTestGrpcServiceImpl extends
+      ReactorValidationTestServiceGrpc.ValidationTestServiceImplBase {
+
     @Override
     public Mono<ValidationsResponse> validationsEndpoint(final ValidationsRequest request) {
       return Mono.just(ValidationsResponse.newBuilder().build());
@@ -55,6 +57,7 @@ public class ValidatingInterceptorTest {
   }
 
   private static final class AuthGrpcServiceImpl extends ReactorAuthServiceGrpc.AuthServiceImplBase {
+
     @Override
     public Mono<Empty> authenticatedMethod(final Empty request) {
       return Mono.just(Empty.getDefaultInstance());
@@ -62,6 +65,7 @@ public class ValidatingInterceptorTest {
   }
 
   private static final class AnonymousGrpcServiceImpl extends ReactorAnonymousServiceGrpc.AnonymousServiceImplBase {
+
     @Override
     public Mono<Empty> anonymousMethod(final Empty request) {
       return Mono.just(Empty.getDefaultInstance());
@@ -351,6 +355,21 @@ public class ValidatingInterceptorTest {
   }
 
   @Test
+  public void testPresent() throws Exception {
+    assertStatusException(Status.INVALID_ARGUMENT, () -> stub.validationsEndpoint(
+        builderWithValidDefaults()
+            .clearPresentMessage()
+            .build()
+    ));
+
+    assertStatusException(Status.INVALID_ARGUMENT, () -> stub.validationsEndpoint(
+        builderWithValidDefaults()
+            .clearOptionalPresentMessage()
+            .build()
+    ));
+  }
+
+  @Test
   public void testAllFieldsValidationSuccess() throws Exception {
     stub.validationsEndpoint(builderWithValidDefaults().build());
   }
@@ -369,6 +388,8 @@ public class ValidatingInterceptorTest {
         .setRangeSizeString("abc")
         .setNonEmptyString("abc")
         .setNonEmptyStringOptional("abc")
+        .setPresentMessage(ValidationsRequest.RequirePresentMessage.getDefaultInstance())
+        .setOptionalPresentMessage(ValidationsRequest.RequirePresentMessage.getDefaultInstance())
         .setColor(Color.COLOR_GREEN)
         .setColorOptional(Color.COLOR_GREEN)
         .setNonEmptyBytes(ByteString.copyFrom(new byte[5]))

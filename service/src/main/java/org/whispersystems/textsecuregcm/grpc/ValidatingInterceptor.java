@@ -21,6 +21,7 @@ import org.whispersystems.textsecuregcm.grpc.validators.EnumSpecifiedFieldValida
 import org.whispersystems.textsecuregcm.grpc.validators.ExactlySizeFieldValidator;
 import org.whispersystems.textsecuregcm.grpc.validators.FieldValidator;
 import org.whispersystems.textsecuregcm.grpc.validators.NonEmptyFieldValidator;
+import org.whispersystems.textsecuregcm.grpc.validators.PresentFieldValidator;
 import org.whispersystems.textsecuregcm.grpc.validators.RangeFieldValidator;
 import org.whispersystems.textsecuregcm.grpc.validators.SizeFieldValidator;
 
@@ -28,6 +29,7 @@ public class ValidatingInterceptor implements ServerInterceptor {
 
   private final Map<String, FieldValidator> fieldValidators = Map.of(
       "org.signal.chat.require.nonEmpty", new NonEmptyFieldValidator(),
+      "org.signal.chat.require.present", new PresentFieldValidator(),
       "org.signal.chat.require.specified", new EnumSpecifiedFieldValidator(),
       "org.signal.chat.require.e164", new E164FieldValidator(),
       "org.signal.chat.require.exactlySize", new ExactlySizeFieldValidator(),

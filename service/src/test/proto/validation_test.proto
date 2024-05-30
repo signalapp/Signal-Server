@@ -62,6 +62,10 @@ message ValidationsRequest {
   uint32 ui32 = 22 [(require.range).max = 100];
   int32 i32range = 23 [(require.range) = {min: 10, max: 20}];
   optional int32 i32OptRange = 24 [(require.range) = {min: 10, max: 20}];
+
+  message RequirePresentMessage {}
+  RequirePresentMessage presentMessage = 25 [(require.present) = true];
+  optional RequirePresentMessage optionalPresentMessage = 26 [(require.present) = true];
 }
 
 message MessageWithInvalidRangeConstraint {
