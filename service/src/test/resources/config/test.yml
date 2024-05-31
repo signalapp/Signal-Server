@@ -311,13 +311,11 @@ backupsZkConfig:
   serverSecret: secret://backupsZkConfig.serverSecret
 
 appConfig:
-  type: static
+  type: local
   application: test
   environment: test
   configuration: test
-  staticConfig: |
-    captcha:
-      scoreFloor: 1.0
+  configPath: test-dynamic.yml
 
 remoteConfig:
   globalConfig: # keys and values that are given to clients on GET /v1/config
