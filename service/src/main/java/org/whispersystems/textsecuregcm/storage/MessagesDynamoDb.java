@@ -11,6 +11,9 @@ import static io.micrometer.core.instrument.Metrics.timer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.InvalidProtocolBufferException;
+
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
 import java.nio.ByteBuffer;
 import java.time.Duration;
@@ -26,12 +29,16 @@ import java.util.function.Predicate;
 import org.reactivestreams.Publisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicMessagesConfiguration.DynamoKeyScheme;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
+import reactor.util.function.Tuples;
+import reactor.util.function.Tuple2;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
@@ -62,46 +69,53 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
   private final Timer storeTimer = timer(name(getClass(), "store"));
   private final String DELETE_BY_ACCOUNT_TIMER_NAME = name(getClass(), "delete", "account");
   private final String DELETE_BY_DEVICE_TIMER_NAME = name(getClass(), "delete", "device");
+  private final String MESSAGES_STORED_BY_SCHEME_COUNTER_NAME = name(getClass(), "messagesStored");
+  private final String MESSAGES_LOADED_BY_SCHEME_COUNTER_NAME = name(getClass(), "messagesLoaded");
+  private final String MESSAGES_DELETED_BY_SCHEME_COUNTER_NAME = name(getClass(), "messagesDeleted");
 
   private final DynamoDbAsyncClient dbAsyncClient;
   private final String tableName;
   private final Duration timeToLive;
+  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfig;
   private final ExecutorService messageDeletionExecutor;
   private final Scheduler messageDeletionScheduler;
 
   private static final Logger logger = LoggerFactory.getLogger(MessagesDynamoDb.class);
 
   public MessagesDynamoDb(DynamoDbClient dynamoDb, DynamoDbAsyncClient dynamoDbAsyncClient, String tableName,
-      Duration timeToLive, ExecutorService messageDeletionExecutor) {
+      Duration timeToLive, DynamicConfigurationManager<DynamicConfiguration> dynamicConfig, ExecutorService messageDeletionExecutor) {
     super(dynamoDb);
 
     this.dbAsyncClient = dynamoDbAsyncClient;
     this.tableName = tableName;
     this.timeToLive = timeToLive;
+    this.dynamicConfig = dynamicConfig;
 
     this.messageDeletionExecutor = messageDeletionExecutor;
     this.messageDeletionScheduler = Schedulers.fromExecutor(messageDeletionExecutor);
   }
 
   public void store(final List<MessageProtos.Envelope> messages, final UUID destinationAccountUuid,
-      final byte destinationDeviceId) {
-    storeTimer.record(() -> writeInBatches(messages, (messageBatch) -> storeBatch(messageBatch, destinationAccountUuid, destinationDeviceId)));
+      final Device destinationDevice) {
+    storeTimer.record(() -> writeInBatches(messages, (messageBatch) -> storeBatch(messageBatch, destinationAccountUuid, destinationDevice)));
   }
 
   private void storeBatch(final List<MessageProtos.Envelope> messages, final UUID destinationAccountUuid,
-      final byte destinationDeviceId) {
+      final Device destinationDevice) {
+    final byte destinationDeviceId = destinationDevice.getId();
     if (messages.size() > DYNAMO_DB_MAX_BATCH_SIZE) {
       throw new IllegalArgumentException("Maximum batch size of " + DYNAMO_DB_MAX_BATCH_SIZE + " exceeded with " + messages.size() + " messages");
     }
 
-    final AttributeValue partitionKey = convertPartitionKey(destinationAccountUuid);
+    final DynamoKeyScheme scheme = dynamicConfig.getConfiguration().getMessagesConfiguration().writeKeyScheme();
+    final AttributeValue partitionKey = convertPartitionKey(destinationAccountUuid, destinationDevice, scheme);
     List<WriteRequest> writeItems = new ArrayList<>();
     for (MessageProtos.Envelope message : messages) {
       final UUID messageUuid = UUID.fromString(message.getServerGuid());
 
       final ImmutableMap.Builder<String, AttributeValue> item = ImmutableMap.<String, AttributeValue>builder()
           .put(KEY_PARTITION, partitionKey)
-          .put(KEY_SORT, convertSortKey(destinationDeviceId, message.getServerTimestamp(), messageUuid))
+          .put(KEY_SORT, convertSortKey(destinationDevice.getId(), message.getServerTimestamp(), messageUuid, scheme))
           .put(LOCAL_INDEX_MESSAGE_UUID_KEY_SORT, convertLocalIndexMessageUuidSortKey(messageUuid))
           .put(KEY_TTL, AttributeValues.fromLong(getTtlForMessage(message)))
           .put(KEY_ENVELOPE_BYTES, AttributeValue.builder().b(SdkBytes.fromByteArray(message.toByteArray())).build());
@@ -112,22 +126,43 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
     }
 
     executeTableWriteItemsUntilComplete(Map.of(tableName, writeItems));
+    Metrics.counter(MESSAGES_STORED_BY_SCHEME_COUNTER_NAME, Tags.of("scheme", scheme.name())).increment(writeItems.size());
   }
 
-  public Publisher<MessageProtos.Envelope> load(final UUID destinationAccountUuid, final byte destinationDeviceId,
-      final Integer limit) {
+  public Publisher<MessageProtos.Envelope> load(final UUID destinationAccountUuid, final Device device, final Integer limit) {
+    return Flux.concat(
+        dynamicConfig.getConfiguration().getMessagesConfiguration().dynamoKeySchemes()
+            .stream()
+            .map(scheme -> load(destinationAccountUuid, device, limit, scheme))
+            .toList())
+        .map(messageAndScheme -> {
+              Metrics.counter(MESSAGES_LOADED_BY_SCHEME_COUNTER_NAME, Tags.of("scheme", messageAndScheme.getT2().name())).increment();
+              return messageAndScheme.getT1();
+            });
+  }
 
-    final AttributeValue partitionKey = convertPartitionKey(destinationAccountUuid);
-    final QueryRequest.Builder queryRequestBuilder = QueryRequest.builder()
+  private Publisher<Tuple2<MessageProtos.Envelope, DynamoKeyScheme>> load(final UUID destinationAccountUuid, final Device device, final Integer limit, final DynamoKeyScheme scheme) {
+    final byte destinationDeviceId = device.getId();
+
+    final AttributeValue partitionKey = convertPartitionKey(destinationAccountUuid, device, scheme);
+    QueryRequest.Builder queryRequestBuilder = QueryRequest.builder()
         .tableName(tableName)
-        .consistentRead(true)
-        .keyConditionExpression("#part = :part AND begins_with ( #sort , :sortprefix )")
-        .expressionAttributeNames(Map.of(
-            "#part", KEY_PARTITION,
-            "#sort", KEY_SORT))
-        .expressionAttributeValues(Map.of(
-            ":part", partitionKey,
-            ":sortprefix", convertDestinationDeviceIdToSortKeyPrefix(destinationDeviceId)));
+        .consistentRead(true);
+
+    queryRequestBuilder = switch (scheme) {
+      case TRADITIONAL -> queryRequestBuilder
+          .keyConditionExpression("#part = :part AND begins_with ( #sort , :sortprefix )")
+          .expressionAttributeNames(Map.of(
+              "#part", KEY_PARTITION,
+              "#sort", KEY_SORT))
+          .expressionAttributeValues(Map.of(
+              ":part", partitionKey,
+              ":sortprefix", convertDestinationDeviceIdToSortKeyPrefix(destinationDeviceId, scheme)));
+      case LAZY_DELETION -> queryRequestBuilder
+          .keyConditionExpression("#part = :part")
+          .expressionAttributeNames(Map.of("#part", KEY_PARTITION))
+          .expressionAttributeValues(Map.of(":part", partitionKey));
+    };
 
     if (limit != null) {
       // some callers don’t take advantage of reactive streams, so we want to support limiting the fetch size. Otherwise,
@@ -146,13 +181,25 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
             return null;
           }
         })
-        .filter(Predicate.not(Objects::isNull));
+        .filter(Predicate.not(Objects::isNull))
+        .map(m -> Tuples.of(m, scheme));
   }
 
   public CompletableFuture<Optional<MessageProtos.Envelope>> deleteMessageByDestinationAndGuid(
-      final UUID destinationAccountUuid, final UUID messageUuid) {
+      final UUID destinationAccountUuid, final Device destinationDevice, final UUID messageUuid) {
+    return dynamicConfig.getConfiguration().getMessagesConfiguration().dynamoKeySchemes()
+        .stream()
+        .map(scheme -> deleteMessageByDestinationAndGuid(destinationAccountUuid, destinationDevice, messageUuid, scheme))
+        // this combines the futures by producing a future that returns an arbitrary nonempty
+        // result if there is one, which should be OK because only one of the keying schemes
+        // should produce a nonempty result for any given message uuid
+        .reduce((f, g) -> f.thenCombine(g, (a, b) -> a.or(() -> b)))
+        .get();                 // there is always at least one scheme
+  }
 
-    final AttributeValue partitionKey = convertPartitionKey(destinationAccountUuid);
+  private CompletableFuture<Optional<MessageProtos.Envelope>> deleteMessageByDestinationAndGuid(
+      final UUID destinationAccountUuid, final Device destinationDevice, final UUID messageUuid, DynamoKeyScheme scheme) {
+    final AttributeValue partitionKey = convertPartitionKey(destinationAccountUuid, destinationDevice, scheme);
     final QueryRequest queryRequest = QueryRequest.builder()
         .tableName(tableName)
         .indexName(LOCAL_INDEX_MESSAGE_UUID_NAME)
@@ -179,6 +226,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
         .mapNotNull(deleteItemResponse -> {
           try {
             if (deleteItemResponse.attributes() != null && deleteItemResponse.attributes().containsKey(KEY_PARTITION)) {
+              Metrics.counter(MESSAGES_DELETED_BY_SCHEME_COUNTER_NAME, Tags.of("scheme", scheme.name())).increment();
               return convertItemToEnvelope(deleteItemResponse.attributes());
             }
           } catch (final InvalidProtocolBufferException e) {
@@ -193,10 +241,21 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
   }
 
   public CompletableFuture<Optional<MessageProtos.Envelope>> deleteMessage(final UUID destinationAccountUuid,
-      final byte destinationDeviceId, final UUID messageUuid, final long serverTimestamp) {
+      final Device destinationDevice, final UUID messageUuid, final long serverTimestamp) {
+    return dynamicConfig.getConfiguration().getMessagesConfiguration().dynamoKeySchemes()
+        .stream()
+        .map(scheme -> deleteMessage(destinationAccountUuid, destinationDevice, messageUuid, serverTimestamp, scheme))
+        // this combines the futures by producing a future that returns an arbitrary nonempty
+        // result if there is one, which should be OK because only one of the keying schemes
+        // should produce a nonempty result for any given message uuid
+        .reduce((f, g) -> f.thenCombine(g, (a, b) -> a.or(() -> b)))
+        .orElseThrow();         // there is always at least one scheme
+  }
 
-    final AttributeValue partitionKey = convertPartitionKey(destinationAccountUuid);
-    final AttributeValue sortKey = convertSortKey(destinationDeviceId, serverTimestamp, messageUuid);
+  private CompletableFuture<Optional<MessageProtos.Envelope>> deleteMessage(final UUID destinationAccountUuid,
+      final Device destinationDevice, final UUID messageUuid, final long serverTimestamp, final DynamoKeyScheme scheme) {
+    final AttributeValue partitionKey = convertPartitionKey(destinationAccountUuid, destinationDevice, scheme);
+    final AttributeValue sortKey = convertSortKey(destinationDevice.getId(), serverTimestamp, messageUuid, scheme);
     DeleteItemRequest.Builder deleteItemRequest = DeleteItemRequest.builder()
         .tableName(tableName)
         .key(Map.of(KEY_PARTITION, partitionKey, KEY_SORT, sortKey))
@@ -216,10 +275,12 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
         }, messageDeletionExecutor);
   }
 
+  // Deletes all messages stored for the supplied account that were stored under the traditional (uuid+device id) keying scheme.
+  // Messages stored under the lazy-message-deletion keying scheme will not be affected.
   public CompletableFuture<Void> deleteAllMessagesForAccount(final UUID destinationAccountUuid) {
     final Timer.Sample sample = Timer.start();
 
-    final AttributeValue partitionKey = convertPartitionKey(destinationAccountUuid);
+    final AttributeValue partitionKey = convertPartitionKey(destinationAccountUuid, null, DynamoKeyScheme.TRADITIONAL);
 
     return Flux.from(dbAsyncClient.queryPaginator(QueryRequest.builder()
             .tableName(tableName)
@@ -243,10 +304,13 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
         .toFuture();
   }
 
+  // Deletes all messages stored for the supplied account and device that were stored under the
+  // traditional (uuid+device id) keying scheme. Messages stored under the lazy-message-deletion
+  // keying scheme will not be affected.
   public CompletableFuture<Void> deleteAllMessagesForDevice(final UUID destinationAccountUuid,
       final byte destinationDeviceId) {
     final Timer.Sample sample = Timer.start();
-    final AttributeValue partitionKey = convertPartitionKey(destinationAccountUuid);
+    final AttributeValue partitionKey = convertPartitionKey(destinationAccountUuid, null, DynamoKeyScheme.TRADITIONAL);
 
     return Flux.from(dbAsyncClient.queryPaginator(QueryRequest.builder()
                 .tableName(tableName)
@@ -256,7 +320,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
                     "#sort", KEY_SORT))
                 .expressionAttributeValues(Map.of(
                     ":part", partitionKey,
-                    ":sortprefix", convertDestinationDeviceIdToSortKeyPrefix(destinationDeviceId)))
+                    ":sortprefix", convertDestinationDeviceIdToSortKeyPrefix(destinationDeviceId, DynamoKeyScheme.TRADITIONAL)))
                 .projectionExpression(KEY_SORT)
                 .consistentRead(true)
                 .build())
@@ -285,26 +349,38 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
     return message.getServerTimestamp() / 1000 + timeToLive.getSeconds();
   }
 
-  private static AttributeValue convertPartitionKey(final UUID destinationAccountUuid) {
-    return AttributeValues.fromUUID(destinationAccountUuid);
+  private static AttributeValue convertPartitionKey(final UUID destinationAccountUuid, final Device destinationDevice, final DynamoKeyScheme scheme) {
+    return switch (scheme) {
+      case TRADITIONAL -> AttributeValues.fromUUID(destinationAccountUuid);
+      case LAZY_DELETION -> {
+          final ByteBuffer byteBuffer = ByteBuffer.allocate(24);
+          byteBuffer.putLong(destinationAccountUuid.getMostSignificantBits());
+          byteBuffer.putLong(destinationAccountUuid.getLeastSignificantBits());
+          byteBuffer.putLong(destinationDevice.getCreated() & ~0x7f + destinationDevice.getId());
+          yield AttributeValues.fromByteBuffer(byteBuffer.flip());
+      }
+    };
   }
 
   private static AttributeValue convertSortKey(final byte destinationDeviceId, final long serverTimestamp,
-      final UUID messageUuid) {
-    ByteBuffer byteBuffer = ByteBuffer.wrap(new byte[32]);
-    // for compatibility - destinationDeviceId was previously `long`
-    byteBuffer.putLong(destinationDeviceId);
+      final UUID messageUuid, final DynamoKeyScheme scheme) {
+
+    final ByteBuffer byteBuffer = ByteBuffer.allocate(32);
+    if (scheme == DynamoKeyScheme.TRADITIONAL) {
+        // for compatibility - destinationDeviceId was previously `long`
+        byteBuffer.putLong(destinationDeviceId);
+    }
     byteBuffer.putLong(serverTimestamp);
     byteBuffer.putLong(messageUuid.getMostSignificantBits());
     byteBuffer.putLong(messageUuid.getLeastSignificantBits());
     return AttributeValues.fromByteBuffer(byteBuffer.flip());
   }
 
-  private static AttributeValue convertDestinationDeviceIdToSortKeyPrefix(final byte destinationDeviceId) {
-    ByteBuffer byteBuffer = ByteBuffer.wrap(new byte[8]);
-    // for compatibility - destinationDeviceId was previously `long`
-    byteBuffer.putLong(destinationDeviceId);
-    return AttributeValues.fromByteBuffer(byteBuffer.flip());
+  private static AttributeValue convertDestinationDeviceIdToSortKeyPrefix(final byte destinationDeviceId, final DynamoKeyScheme scheme) {
+    return switch (scheme) {
+      case TRADITIONAL -> AttributeValues.fromByteBuffer(ByteBuffer.allocate(8).putLong(destinationDeviceId).flip());
+      case LAZY_DELETION -> AttributeValues.b(new byte[0]);
+    };
   }
 
   private static AttributeValue convertLocalIndexMessageUuidSortKey(final UUID messageUuid) {

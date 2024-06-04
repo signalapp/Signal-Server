@@ -394,6 +394,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(dynamoDbClient, dynamoDbAsyncClient,
         config.getDynamoDbTables().getMessages().getTableName(),
         config.getDynamoDbTables().getMessages().getExpiration(),
+        dynamicConfigurationManager,
         messageDeletionAsyncExecutor);
     RemoteConfigs remoteConfigs = new RemoteConfigs(dynamoDbClient,
         config.getDynamoDbTables().getRemoteConfig().getTableName());

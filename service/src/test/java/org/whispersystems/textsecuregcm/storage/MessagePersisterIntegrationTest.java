@@ -35,6 +35,8 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
+import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
+
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
@@ -74,7 +76,7 @@ class MessagePersisterIntegrationTest {
     messageDeletionExecutorService = Executors.newSingleThreadExecutor();
     final MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
         DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(), Tables.MESSAGES.tableName(), Duration.ofDays(14),
-        messageDeletionExecutorService);
+        dynamicConfigurationManager, messageDeletionExecutorService);
     final AccountsManager accountsManager = mock(AccountsManager.class);
 
     notificationExecutorService = Executors.newSingleThreadExecutor();
@@ -93,6 +95,7 @@ class MessagePersisterIntegrationTest {
     when(account.getNumber()).thenReturn("+18005551234");
     when(account.getUuid()).thenReturn(accountUuid);
     when(accountsManager.getByAccountIdentifier(accountUuid)).thenReturn(Optional.of(account));
+    when(account.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(DevicesHelper.createDevice(Device.PRIMARY_ID)));
 
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(new DynamicConfiguration());
 

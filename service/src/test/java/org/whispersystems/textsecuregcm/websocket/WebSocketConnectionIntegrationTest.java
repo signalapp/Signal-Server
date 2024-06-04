@@ -44,6 +44,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
@@ -52,6 +53,7 @@ import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtension;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.storage.MessagesCache;
@@ -86,6 +88,8 @@ class WebSocketConnectionIntegrationTest {
 
   @BeforeEach
   void setUp() throws Exception {
+    final DynamicConfigurationManager<DynamicConfiguration> mockDynamicConfigurationManager = mock(DynamicConfigurationManager.class);
+    when(mockDynamicConfigurationManager.getConfiguration()).thenReturn(new DynamicConfiguration());
 
     sharedExecutorService = Executors.newSingleThreadExecutor();
     scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
@@ -94,7 +98,7 @@ class WebSocketConnectionIntegrationTest {
         messageDeliveryScheduler, sharedExecutorService, Clock.systemUTC());
     messagesDynamoDb = new MessagesDynamoDb(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
         DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(), Tables.MESSAGES.tableName(), Duration.ofDays(7),
-        sharedExecutorService);
+        mockDynamicConfigurationManager, sharedExecutorService);
     reportMessageManager = mock(ReportMessageManager.class);
     account = mock(Account.class);
     device = mock(Device.class);
@@ -147,7 +151,7 @@ class WebSocketConnectionIntegrationTest {
           expectedMessages.add(envelope);
         }
 
-        messagesDynamoDb.store(persistedMessages, account.getUuid(), device.getId());
+        messagesDynamoDb.store(persistedMessages, account.getUuid(), device);
       }
 
       for (int i = 0; i < cachedMessageCount; i++) {
@@ -235,7 +239,7 @@ class WebSocketConnectionIntegrationTest {
           expectedMessages.add(envelope);
         }
 
-        messagesDynamoDb.store(persistedMessages, account.getUuid(), device.getId());
+        messagesDynamoDb.store(persistedMessages, account.getUuid(), device);
       }
 
       for (int i = 0; i < cachedMessageCount; i++) {
@@ -303,7 +307,7 @@ class WebSocketConnectionIntegrationTest {
           expectedMessages.add(envelope);
         }
 
-        messagesDynamoDb.store(persistedMessages, account.getUuid(), device.getId());
+        messagesDynamoDb.store(persistedMessages, account.getUuid(), device);
       }
 
       for (int i = 0; i < cachedMessageCount; i++) {

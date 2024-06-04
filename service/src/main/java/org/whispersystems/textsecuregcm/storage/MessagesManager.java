@@ -67,7 +67,7 @@ public class MessagesManager {
     return messagesCache.hasMessages(destinationUuid, destinationDevice);
   }
 
-  public Mono<Pair<List<Envelope>, Boolean>> getMessagesForDevice(UUID destinationUuid, byte destinationDevice,
+  public Mono<Pair<List<Envelope>, Boolean>> getMessagesForDevice(UUID destinationUuid, Device destinationDevice,
       boolean cachedMessagesOnly) {
 
     return Flux.from(
@@ -77,25 +77,25 @@ public class MessagesManager {
         .map(envelopes -> new Pair<>(envelopes, envelopes.size() >= RESULT_SET_CHUNK_SIZE));
   }
 
-  public Publisher<Envelope> getMessagesForDeviceReactive(UUID destinationUuid, byte destinationDevice,
+  public Publisher<Envelope> getMessagesForDeviceReactive(UUID destinationUuid, Device destinationDevice,
       final boolean cachedMessagesOnly) {
 
     return getMessagesForDevice(destinationUuid, destinationDevice, null, cachedMessagesOnly);
   }
 
-  private Publisher<Envelope> getMessagesForDevice(UUID destinationUuid, byte destinationDevice,
+  private Publisher<Envelope> getMessagesForDevice(UUID destinationUuid, Device destinationDevice,
       @Nullable Integer limit, final boolean cachedMessagesOnly) {
 
     final Publisher<Envelope> dynamoPublisher =
         cachedMessagesOnly ? Flux.empty() : messagesDynamoDb.load(destinationUuid, destinationDevice, limit);
-    final Publisher<Envelope> cachePublisher = messagesCache.get(destinationUuid, destinationDevice);
+    final Publisher<Envelope> cachePublisher = messagesCache.get(destinationUuid, destinationDevice.getId());
 
     return Flux.concat(dynamoPublisher, cachePublisher)
         .name(GET_MESSAGES_FOR_DEVICE_FLUX_NAME)
         .tap(Micrometer.metrics(Metrics.globalRegistry));
   }
 
-  public Mono<Long> getEarliestUndeliveredTimestampForDevice(UUID destinationUuid, byte destinationDevice) {
+  public Mono<Long> getEarliestUndeliveredTimestampForDevice(UUID destinationUuid, Device destinationDevice) {
     return Mono.from(messagesDynamoDb.load(destinationUuid, destinationDevice, 1)).map(Envelope::getServerTimestamp);
   }
 
@@ -111,9 +111,9 @@ public class MessagesManager {
         messagesDynamoDb.deleteAllMessagesForDevice(destinationUuid, deviceId));
   }
 
-  public CompletableFuture<Optional<Envelope>> delete(UUID destinationUuid, byte destinationDeviceId, UUID guid,
+  public CompletableFuture<Optional<Envelope>> delete(UUID destinationUuid, Device destinationDevice, UUID guid,
       @Nullable Long serverTimestamp) {
-    return messagesCache.remove(destinationUuid, destinationDeviceId, guid)
+    return messagesCache.remove(destinationUuid, destinationDevice.getId(), guid)
         .thenComposeAsync(removed -> {
 
           if (removed.isPresent()) {
@@ -121,9 +121,9 @@ public class MessagesManager {
           }
 
           if (serverTimestamp == null) {
-            return messagesDynamoDb.deleteMessageByDestinationAndGuid(destinationUuid, guid);
+            return messagesDynamoDb.deleteMessageByDestinationAndGuid(destinationUuid, destinationDevice, guid);
           } else {
-            return messagesDynamoDb.deleteMessage(destinationUuid, destinationDeviceId, guid, serverTimestamp);
+            return messagesDynamoDb.deleteMessage(destinationUuid, destinationDevice, guid, serverTimestamp);
           }
 
         }, messageDeletionExecutor);
@@ -134,20 +134,20 @@ public class MessagesManager {
    */
   public int persistMessages(
       final UUID destinationUuid,
-      final byte destinationDeviceId,
+      final Device destinationDevice,
       final List<Envelope> messages) {
 
     final List<Envelope> nonEphemeralMessages = messages.stream()
         .filter(envelope -> !envelope.getEphemeral())
         .collect(Collectors.toList());
 
-    messagesDynamoDb.store(nonEphemeralMessages, destinationUuid, destinationDeviceId);
+    messagesDynamoDb.store(nonEphemeralMessages, destinationUuid, destinationDevice);
 
     final List<UUID> messageGuids = messages.stream().map(message -> UUID.fromString(message.getServerGuid()))
         .collect(Collectors.toList());
     int messagesRemovedFromCache = 0;
     try {
-      messagesRemovedFromCache = messagesCache.remove(destinationUuid, destinationDeviceId, messageGuids)
+      messagesRemovedFromCache = messagesCache.remove(destinationUuid, destinationDevice.getId(), messageGuids)
           .get(30, TimeUnit.SECONDS).size();
       PERSIST_MESSAGE_COUNTER.increment(nonEphemeralMessages.size());
 

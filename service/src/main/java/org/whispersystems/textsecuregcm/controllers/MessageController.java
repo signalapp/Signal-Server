@@ -724,7 +724,7 @@ public class MessageController {
 
     return messagesManager.getMessagesForDevice(
             auth.getAccount().getUuid(),
-            auth.getAuthenticatedDevice().getId(),
+            auth.getAuthenticatedDevice(),
             false)
         .map(messagesAndHasMore -> {
           Stream<Envelope> envelopes = messagesAndHasMore.first().stream();
@@ -768,7 +768,7 @@ public class MessageController {
   public CompletableFuture<Response> removePendingMessage(@ReadOnly @Auth AuthenticatedAccount auth, @PathParam("uuid") UUID uuid) {
     return messagesManager.delete(
             auth.getAccount().getUuid(),
-            auth.getAuthenticatedDevice().getId(),
+            auth.getAuthenticatedDevice(),
             uuid,
             null)
         .thenAccept(maybeDeletedMessage -> {

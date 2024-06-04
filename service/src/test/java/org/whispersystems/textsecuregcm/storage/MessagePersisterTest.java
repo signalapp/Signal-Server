@@ -46,6 +46,8 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfigurati
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
+import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
+
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
@@ -71,6 +73,7 @@ class MessagePersisterTest {
   private static final UUID DESTINATION_ACCOUNT_UUID = UUID.randomUUID();
   private static final String DESTINATION_ACCOUNT_NUMBER = "+18005551234";
   private static final byte DESTINATION_DEVICE_ID = 7;
+  private static final Device DESTINATION_DEVICE = DevicesHelper.createDevice(DESTINATION_DEVICE_ID);
 
   private static final Duration PERSIST_DELAY = Duration.ofMinutes(5);
 
@@ -93,6 +96,7 @@ class MessagePersisterTest {
 
     when(destinationAccount.getUuid()).thenReturn(DESTINATION_ACCOUNT_UUID);
     when(destinationAccount.getNumber()).thenReturn(DESTINATION_ACCOUNT_NUMBER);
+    when(destinationAccount.getDevice(DESTINATION_DEVICE_ID)).thenReturn(Optional.of(DESTINATION_DEVICE));
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(new DynamicConfiguration());
 
     sharedExecutorService = Executors.newSingleThreadExecutor();
@@ -103,15 +107,15 @@ class MessagePersisterTest {
     messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager, clientPresenceManager,
         keysManager, dynamicConfigurationManager, PERSIST_DELAY, 1, MoreExecutors.newDirectExecutorService());
 
-    when(messagesManager.persistMessages(any(UUID.class), anyByte(), any())).thenAnswer(invocation -> {
+    when(messagesManager.persistMessages(any(UUID.class), any(), any())).thenAnswer(invocation -> {
       final UUID destinationUuid = invocation.getArgument(0);
-      final byte destinationDeviceId = invocation.getArgument(1);
+      final Device destinationDevice = invocation.getArgument(1);
       final List<MessageProtos.Envelope> messages = invocation.getArgument(2);
 
-      messagesDynamoDb.store(messages, destinationUuid, destinationDeviceId);
+      messagesDynamoDb.store(messages, destinationUuid, destinationDevice);
 
       for (final MessageProtos.Envelope message : messages) {
-        messagesCache.remove(destinationUuid, destinationDeviceId, UUID.fromString(message.getServerGuid())).get();
+        messagesCache.remove(destinationUuid, destinationDevice.getId(), UUID.fromString(message.getServerGuid())).get();
       }
 
       return messages.size();
@@ -150,7 +154,7 @@ class MessagePersisterTest {
     final ArgumentCaptor<List<MessageProtos.Envelope>> messagesCaptor = ArgumentCaptor.forClass(List.class);
 
     verify(messagesDynamoDb, atLeastOnce()).store(messagesCaptor.capture(), eq(DESTINATION_ACCOUNT_UUID),
-        eq(DESTINATION_DEVICE_ID));
+        eq(DESTINATION_DEVICE));
     assertEquals(messageCount, messagesCaptor.getAllValues().stream().mapToInt(List::size).sum());
   }
 
@@ -166,7 +170,7 @@ class MessagePersisterTest {
 
     messagePersister.persistNextQueues(now);
 
-    verify(messagesDynamoDb, never()).store(any(), any(), anyByte());
+    verify(messagesDynamoDb, never()).store(any(), any(), any());
   }
 
   @Test
@@ -187,6 +191,7 @@ class MessagePersisterTest {
       when(accountsManager.getByAccountIdentifier(accountUuid)).thenReturn(Optional.of(account));
       when(account.getUuid()).thenReturn(accountUuid);
       when(account.getNumber()).thenReturn(accountNumber);
+      when(account.getDevice(anyByte())).thenAnswer(invocation -> Optional.of(DevicesHelper.createDevice(invocation.getArgument(0))));
 
       insertMessages(accountUuid, deviceId, messagesPerQueue, now);
     }
@@ -197,7 +202,7 @@ class MessagePersisterTest {
 
     final ArgumentCaptor<List<MessageProtos.Envelope>> messagesCaptor = ArgumentCaptor.forClass(List.class);
 
-    verify(messagesDynamoDb, atLeastOnce()).store(messagesCaptor.capture(), any(UUID.class), anyByte());
+    verify(messagesDynamoDb, atLeastOnce()).store(messagesCaptor.capture(), any(UUID.class), any());
     assertEquals(queueCount * messagesPerQueue, messagesCaptor.getAllValues().stream().mapToInt(List::size).sum());
   }
 
@@ -213,7 +218,7 @@ class MessagePersisterTest {
 
     doAnswer((Answer<Void>) invocation -> {
       throw new RuntimeException("OH NO.");
-    }).when(messagesDynamoDb).store(any(), eq(DESTINATION_ACCOUNT_UUID), eq(DESTINATION_DEVICE_ID));
+        }).when(messagesDynamoDb).store(any(), eq(DESTINATION_ACCOUNT_UUID), eq(DESTINATION_DEVICE));
 
     messagePersister.persistNextQueues(now.plus(messagePersister.getPersistDelay()));
 
@@ -233,11 +238,11 @@ class MessagePersisterTest {
     setNextSlotToPersist(SlotHash.getSlot(queueName));
 
     // returning `0` indicates something not working correctly
-    when(messagesManager.persistMessages(any(UUID.class), anyByte(), anyList())).thenReturn(0);
+    when(messagesManager.persistMessages(any(UUID.class), any(), anyList())).thenReturn(0);
 
     assertTimeoutPreemptively(Duration.ofSeconds(1), () ->
         assertThrows(MessagePersistenceException.class,
-            () -> messagePersister.persistQueue(destinationAccount, DESTINATION_DEVICE_ID)));
+            () -> messagePersister.persistQueue(destinationAccount, DESTINATION_DEVICE)));
   }
 
   @Test
@@ -273,12 +278,12 @@ class MessagePersisterTest {
 
     when(destinationAccount.getDevices()).thenReturn(List.of(primary, activeA, inactiveB, inactiveC, activeD, destination));
 
-    when(messagesManager.persistMessages(any(UUID.class), anyByte(), anyList())).thenThrow(ItemCollectionSizeLimitExceededException.builder().build());
+    when(messagesManager.persistMessages(any(UUID.class), any(), anyList())).thenThrow(ItemCollectionSizeLimitExceededException.builder().build());
     when(messagesManager.clear(any(UUID.class), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
     when(keysManager.deleteSingleUsePreKeys(any(), eq(inactiveId))).thenReturn(CompletableFuture.completedFuture(null));
 
     assertTimeoutPreemptively(Duration.ofSeconds(1), () ->
-        messagePersister.persistQueue(destinationAccount, DESTINATION_DEVICE_ID));
+        messagePersister.persistQueue(destinationAccount, DESTINATION_DEVICE));
 
     verify(messagesManager, exactly()).clear(DESTINATION_ACCOUNT_UUID, inactiveId);
   }
@@ -298,37 +303,37 @@ class MessagePersisterTest {
     when(primary.getId()).thenReturn(primaryId);
     when(primary.isPrimary()).thenReturn(true);
     when(primary.isEnabled()).thenReturn(true);
-    when(messagesManager.getEarliestUndeliveredTimestampForDevice(any(), eq(primaryId)))
+    when(messagesManager.getEarliestUndeliveredTimestampForDevice(any(), eq(primary)))
         .thenReturn(Mono.just(4L));
 
     final Device deviceA = mock(Device.class);
     final byte deviceIdA = 2;
     when(deviceA.getId()).thenReturn(deviceIdA);
     when(deviceA.isEnabled()).thenReturn(true);
-    when(messagesManager.getEarliestUndeliveredTimestampForDevice(any(), eq(deviceIdA)))
+    when(messagesManager.getEarliestUndeliveredTimestampForDevice(any(), eq(deviceA)))
         .thenReturn(Mono.empty());
 
     final Device deviceB = mock(Device.class);
     final byte deviceIdB = 3;
     when(deviceB.getId()).thenReturn(deviceIdB);
     when(deviceB.isEnabled()).thenReturn(true);
-    when(messagesManager.getEarliestUndeliveredTimestampForDevice(any(), eq(deviceIdB)))
+    when(messagesManager.getEarliestUndeliveredTimestampForDevice(any(), eq(deviceB)))
         .thenReturn(Mono.just(2L));
 
     final Device destination = mock(Device.class);
     when(destination.getId()).thenReturn(DESTINATION_DEVICE_ID);
     when(destination.isEnabled()).thenReturn(true);
-    when(messagesManager.getEarliestUndeliveredTimestampForDevice(any(), eq(DESTINATION_DEVICE_ID)))
+    when(messagesManager.getEarliestUndeliveredTimestampForDevice(any(), eq(destination)))
         .thenReturn(Mono.just(5L));
 
     when(destinationAccount.getDevices()).thenReturn(List.of(primary, deviceA, deviceB, destination));
 
-    when(messagesManager.persistMessages(any(UUID.class), anyByte(), anyList())).thenThrow(ItemCollectionSizeLimitExceededException.builder().build());
+    when(messagesManager.persistMessages(any(UUID.class), any(), anyList())).thenThrow(ItemCollectionSizeLimitExceededException.builder().build());
     when(messagesManager.clear(any(UUID.class), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
     when(keysManager.deleteSingleUsePreKeys(any(), eq(deviceIdB))).thenReturn(CompletableFuture.completedFuture(null));
 
     assertTimeoutPreemptively(Duration.ofSeconds(1), () ->
-        messagePersister.persistQueue(destinationAccount, DESTINATION_DEVICE_ID));
+        messagePersister.persistQueue(destinationAccount, DESTINATION_DEVICE));
 
     verify(messagesManager, exactly()).clear(DESTINATION_ACCOUNT_UUID, deviceIdB);
   }
@@ -348,37 +353,37 @@ class MessagePersisterTest {
     when(primary.getId()).thenReturn(primaryId);
     when(primary.isPrimary()).thenReturn(true);
     when(primary.isEnabled()).thenReturn(true);
-    when(messagesManager.getEarliestUndeliveredTimestampForDevice(any(), eq(primaryId)))
+    when(messagesManager.getEarliestUndeliveredTimestampForDevice(any(), eq(primary)))
         .thenReturn(Mono.just(1L));
 
     final Device deviceA = mock(Device.class);
     final byte deviceIdA = 2;
     when(deviceA.getId()).thenReturn(deviceIdA);
     when(deviceA.isEnabled()).thenReturn(true);
-    when(messagesManager.getEarliestUndeliveredTimestampForDevice(any(), eq(deviceIdA)))
+    when(messagesManager.getEarliestUndeliveredTimestampForDevice(any(), eq(deviceA)))
         .thenReturn(Mono.just(3L));
 
     final Device deviceB = mock(Device.class);
     final byte deviceIdB = 2;
     when(deviceB.getId()).thenReturn(deviceIdB);
     when(deviceB.isEnabled()).thenReturn(true);
-    when(messagesManager.getEarliestUndeliveredTimestampForDevice(any(), eq(deviceIdB)))
+    when(messagesManager.getEarliestUndeliveredTimestampForDevice(any(), eq(deviceB)))
         .thenReturn(Mono.empty());
 
     final Device destination = mock(Device.class);
     when(destination.getId()).thenReturn(DESTINATION_DEVICE_ID);
     when(destination.isEnabled()).thenReturn(true);
-    when(messagesManager.getEarliestUndeliveredTimestampForDevice(any(), eq(DESTINATION_DEVICE_ID)))
+    when(messagesManager.getEarliestUndeliveredTimestampForDevice(any(), eq(destination)))
         .thenReturn(Mono.just(2L));
 
     when(destinationAccount.getDevices()).thenReturn(List.of(primary, deviceA, deviceB, destination));
 
-    when(messagesManager.persistMessages(any(UUID.class), anyByte(), anyList())).thenThrow(ItemCollectionSizeLimitExceededException.builder().build());
+    when(messagesManager.persistMessages(any(UUID.class), any(), anyList())).thenThrow(ItemCollectionSizeLimitExceededException.builder().build());
     when(messagesManager.clear(any(UUID.class), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
     when(keysManager.deleteSingleUsePreKeys(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
 
     assertTimeoutPreemptively(Duration.ofSeconds(1), () ->
-        messagePersister.persistQueue(destinationAccount, DESTINATION_DEVICE_ID));
+        messagePersister.persistQueue(destinationAccount, DESTINATION_DEVICE));
 
     verify(messagesManager, exactly()).clear(DESTINATION_ACCOUNT_UUID, DESTINATION_DEVICE_ID);
   }

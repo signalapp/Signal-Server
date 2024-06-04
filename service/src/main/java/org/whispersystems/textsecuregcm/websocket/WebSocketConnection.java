@@ -228,7 +228,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
           final CompletableFuture<Void> result;
           if (isSuccessResponse(response)) {
 
-            result = messagesManager.delete(auth.getAccount().getUuid(), device.getId(),
+            result = messagesManager.delete(auth.getAccount().getUuid(), device,
                     storedMessageInfo.guid(), storedMessageInfo.serverTimestamp())
                 .thenApply(ignored -> null);
 
@@ -355,7 +355,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   private void sendMessages(final boolean cachedMessagesOnly, final CompletableFuture<Void> queueCleared) {
 
     final Publisher<Envelope> messages =
-        messagesManager.getMessagesForDeviceReactive(auth.getAccount().getUuid(), device.getId(), cachedMessagesOnly);
+        messagesManager.getMessagesForDeviceReactive(auth.getAccount().getUuid(), device, cachedMessagesOnly);
 
     final AtomicBoolean hasErrored = new AtomicBoolean();
 
@@ -414,7 +414,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
     final UUID messageGuid = UUID.fromString(envelope.getServerGuid());
 
     if (envelope.getStory() && !client.shouldDeliverStories()) {
-      messagesManager.delete(auth.getAccount().getUuid(), device.getId(), messageGuid, envelope.getServerTimestamp());
+      messagesManager.delete(auth.getAccount().getUuid(), device, messageGuid, envelope.getServerTimestamp());
 
       return CompletableFuture.completedFuture(null);
     } else {

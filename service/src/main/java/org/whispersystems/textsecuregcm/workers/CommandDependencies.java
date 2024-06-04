@@ -172,6 +172,7 @@ record CommandDependencies(
     MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(dynamoDbClient, dynamoDbAsyncClient,
         configuration.getDynamoDbTables().getMessages().getTableName(),
         configuration.getDynamoDbTables().getMessages().getExpiration(),
+        dynamicConfigurationManager,
         messageDeletionExecutor);
     FaultTolerantRedisCluster messagesCluster = configuration.getMessageCacheConfiguration()
         .getRedisClusterConfiguration().build("messages", redisClientResourcesBuilder);

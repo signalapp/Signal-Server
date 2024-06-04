@@ -136,6 +136,7 @@ import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
+import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
 import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.Pair;
@@ -649,7 +650,7 @@ class MessageControllerTest {
             AuthHelper.VALID_UUID, null, null, 0, true)
     );
 
-    when(messagesManager.getMessagesForDevice(eq(AuthHelper.VALID_UUID), eq((byte) 1), anyBoolean()))
+    when(messagesManager.getMessagesForDevice(eq(AuthHelper.VALID_UUID), eq(AuthHelper.VALID_DEVICE), anyBoolean()))
         .thenReturn(Mono.just(new Pair<>(envelopes, false)));
 
     final String userAgent = "Test-UA";
@@ -703,7 +704,7 @@ class MessageControllerTest {
             UUID.randomUUID(), (byte) 2, AuthHelper.VALID_UUID, null, null, 0)
     );
 
-    when(messagesManager.getMessagesForDevice(eq(AuthHelper.VALID_UUID), eq((byte) 1), anyBoolean()))
+    when(messagesManager.getMessagesForDevice(eq(AuthHelper.VALID_UUID), eq(AuthHelper.VALID_DEVICE), anyBoolean()))
         .thenReturn(Mono.just(new Pair<>(messages, false)));
 
     Response response =
@@ -723,24 +724,25 @@ class MessageControllerTest {
     UUID sourceUuid = UUID.randomUUID();
 
     UUID uuid1 = UUID.randomUUID();
-    when(messagesManager.delete(AuthHelper.VALID_UUID, (byte) 1, uuid1, null))
+
+    when(messagesManager.delete(AuthHelper.VALID_UUID, AuthHelper.VALID_DEVICE, uuid1, null))
         .thenReturn(
             CompletableFutureTestUtil.almostCompletedFuture(Optional.of(generateEnvelope(uuid1, Envelope.Type.CIPHERTEXT_VALUE,
                 timestamp, sourceUuid, (byte) 1, AuthHelper.VALID_UUID, null, "hi".getBytes(), 0))));
 
     UUID uuid2 = UUID.randomUUID();
-    when(messagesManager.delete(AuthHelper.VALID_UUID, (byte) 1, uuid2, null))
+    when(messagesManager.delete(AuthHelper.VALID_UUID, AuthHelper.VALID_DEVICE, uuid2, null))
         .thenReturn(
             CompletableFutureTestUtil.almostCompletedFuture(Optional.of(generateEnvelope(
                 uuid2, Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE,
                 System.currentTimeMillis(), sourceUuid, (byte) 1, AuthHelper.VALID_UUID, null, null, 0))));
 
     UUID uuid3 = UUID.randomUUID();
-    when(messagesManager.delete(AuthHelper.VALID_UUID, (byte) 1, uuid3, null))
+    when(messagesManager.delete(AuthHelper.VALID_UUID, AuthHelper.VALID_DEVICE, uuid3, null))
         .thenReturn(CompletableFutureTestUtil.almostCompletedFuture(Optional.empty()));
 
     UUID uuid4 = UUID.randomUUID();
-    when(messagesManager.delete(AuthHelper.VALID_UUID, (byte) 1, uuid4, null))
+    when(messagesManager.delete(AuthHelper.VALID_UUID, AuthHelper.VALID_DEVICE, uuid4, null))
         .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Oh No")));
 
     Response response = resources.getJerseyTest()

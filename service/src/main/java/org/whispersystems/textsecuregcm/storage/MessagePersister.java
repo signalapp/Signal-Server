@@ -161,8 +161,13 @@ public class MessagePersister implements Managed {
           logger.error("No account record found for account {}", accountUuid);
           continue;
         }
+        final Optional<Device> maybeDevice = maybeAccount.flatMap(account -> account.getDevice(deviceId));
+        if (maybeDevice.isEmpty()) {
+          logger.error("Account {} does not have a device with id {}", accountUuid, deviceId);
+          continue;
+        }
         try {
-          persistQueue(maybeAccount.get(), deviceId);
+          persistQueue(maybeAccount.get(), maybeDevice.get());
         } catch (final Exception e) {
           persistQueueExceptionMeter.increment();
           logger.warn("Failed to persist queue {}::{}; will schedule for retry", accountUuid, deviceId, e);
@@ -180,8 +185,9 @@ public class MessagePersister implements Managed {
   }
 
   @VisibleForTesting
-  void persistQueue(final Account account, final byte deviceId) throws MessagePersistenceException {
+  void persistQueue(final Account account, final Device device) throws MessagePersistenceException {
     final UUID accountUuid = account.getUuid();
+    final byte deviceId = device.getId();
 
     final Timer.Sample sample = Timer.start();
 
@@ -196,7 +202,7 @@ public class MessagePersister implements Managed {
       do {
         messages = messagesCache.getMessagesToPersist(accountUuid, deviceId, MESSAGE_BATCH_LIMIT);
 
-        int messagesRemovedFromCache = messagesManager.persistMessages(accountUuid, deviceId, messages);
+        int messagesRemovedFromCache = messagesManager.persistMessages(accountUuid, device, messages);
         messageCount += messages.size();
 
         if (messagesRemovedFromCache == 0) {
@@ -246,7 +252,7 @@ public class MessagePersister implements Managed {
             .filter(d -> !d.isPrimary())
             .flatMap(d ->
                 messagesManager
-                .getEarliestUndeliveredTimestampForDevice(account.getUuid(), d.getId())
+                .getEarliestUndeliveredTimestampForDevice(account.getUuid(), d)
                 .map(t -> Tuples.of(d, t)))
             .sort(Comparator.comparing(Tuple2::getT2))
             .map(Tuple2::getT1)

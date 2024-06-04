@@ -67,6 +67,10 @@ public class DynamicConfiguration {
   @Valid
   DynamicMetricsConfiguration metricsConfiguration = new DynamicMetricsConfiguration(false);
 
+  @JsonProperty
+  @Valid
+  DynamicMessagesConfiguration messagesConfiguration = new DynamicMessagesConfiguration();
+
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(
       final String experimentName) {
     return Optional.ofNullable(experiments.get(experimentName));
@@ -119,6 +123,10 @@ public class DynamicConfiguration {
 
   public DynamicMetricsConfiguration getMetricsConfiguration() {
     return metricsConfiguration;
+  }
+
+  public DynamicMessagesConfiguration getMessagesConfiguration() {
+    return messagesConfiguration;
   }
 
 }
