@@ -418,10 +418,15 @@ registrationService:
 turn:
   secret: secret://turn.secret
   cloudflare:
-    username: secret://turn.cloudflare.username
-    password: secret://turn.cloudflare.password
+    apiToken: secret://turn.cloudflare.apiToken
+    endpoint: https://rtc.live.cloudflare.com/v1/turn/keys/LMNOP/credentials/generate
+    ttl: 86400
     urls:
-      - turns:turn.cloudflare.example.com:443?transport=tcp
+      - turn:turn.example.com:80
+    urlsWithIps:
+      - turn:%s
+      - turn:%s:80?transport=tcp
+      - turns:%s:443?transport=tcp
     hostname: turn.cloudflare.example.com
 
 linkDevice:

@@ -17,7 +17,6 @@ import java.util.UUID;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import org.whispersystems.textsecuregcm.calls.routing.TurnServerOptions;
-import org.whispersystems.textsecuregcm.configuration.CloudflareTurnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TurnUriConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicTurnConfiguration;
@@ -38,21 +37,10 @@ public class TurnTokenGenerator {
 
   private static final String WithIpsProtocol = "01";
 
-  private final String cloudflareTurnUsername;
-  private final String cloudflareTurnPassword;
-  private final List<String> cloudflareTurnUrls;
-  private final String cloudflareTurnHostname;
-
   public TurnTokenGenerator(final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
-      final byte[] turnSecret, final CloudflareTurnConfiguration cloudflareTurnConfiguration) {
-
+      final byte[] turnSecret) {
     this.dynamicConfigurationManager = dynamicConfigurationManager;
     this.turnSecret = turnSecret;
-
-    this.cloudflareTurnUsername = cloudflareTurnConfiguration.username().value();
-    this.cloudflareTurnPassword = cloudflareTurnConfiguration.password().value();
-    this.cloudflareTurnUrls = cloudflareTurnConfiguration.urls();
-    this.cloudflareTurnHostname = cloudflareTurnConfiguration.hostname();
   }
 
   @Deprecated
@@ -62,10 +50,6 @@ public class TurnTokenGenerator {
 
   public TurnToken generateWithTurnServerOptions(TurnServerOptions options) {
     return generateToken(options.hostname(), options.urlsWithIps(), options.urlsWithHostname());
-  }
-
-  public TurnToken generateForCloudflareBeta() {
-    return new TurnToken(cloudflareTurnUsername, cloudflareTurnPassword, cloudflareTurnUrls, null, cloudflareTurnHostname);
   }
 
   private TurnToken generateToken(String hostname, List<String> urlsWithIps, List<String> urlsWithHostname) {

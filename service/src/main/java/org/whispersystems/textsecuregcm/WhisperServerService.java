@@ -28,6 +28,11 @@ import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.binder.grpc.MetricCollectingServerInterceptor;
 import io.micrometer.core.instrument.binder.jvm.ExecutorServiceMetrics;
 import io.netty.channel.local.LocalAddress;
+import io.netty.channel.socket.nio.NioDatagramChannel;
+import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.resolver.ResolvedAddressTypes;
+import io.netty.resolver.dns.DnsNameResolver;
+import io.netty.resolver.dns.DnsNameResolverBuilder;
 import java.io.FileInputStream;
 import java.net.http.HttpClient;
 import java.security.KeyStore;
@@ -73,6 +78,7 @@ import org.whispersystems.textsecuregcm.attachments.TusAttachmentGenerator;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.CertificateGenerator;
+import org.whispersystems.textsecuregcm.auth.CloudflareTurnCredentialsManager;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.auth.PhoneVerificationTokenManager;
 import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager;
@@ -539,9 +545,24 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .workQueue(new SynchronousQueue<>())
         .keepAliveTime(io.dropwizard.util.Duration.seconds(60L))
         .build();
+    ExecutorService cloudflareTurnHttpExecutor = environment.lifecycle()
+        .executorService(name(getClass(), "cloudflareTurn-%d"))
+        .maxThreads(2)
+        .minThreads(2)
+        .build();
 
     ScheduledExecutorService subscriptionProcessorRetryExecutor = environment.lifecycle()
         .scheduledExecutorService(name(getClass(), "subscriptionProcessorRetry-%d")).threads(1).build();
+    ScheduledExecutorService cloudflareTurnRetryExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(getClass(), "cloudflareTurnRetry-%d")).threads(1).build();
+
+    final ManagedNioEventLoopGroup dnsResolutionEventLoopGroup = new ManagedNioEventLoopGroup();
+    final DnsNameResolver cloudflareDnsResolver = new DnsNameResolverBuilder(dnsResolutionEventLoopGroup.next())
+            .resolvedAddressTypes(ResolvedAddressTypes.IPV6_PREFERRED)
+            .completeOncePreferredResolved(false)
+            .channelType(NioDatagramChannel.class)
+            .socketChannelType(NioSocketChannel.class)
+            .build();
 
     ExternalServiceCredentialsGenerator directoryV2CredentialsGenerator = DirectoryV2Controller.credentialsGenerator(
         config.getDirectoryV2Configuration().getDirectoryV2ClientConfiguration());
@@ -635,7 +656,20 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         pushLatencyManager);
     final ReceiptSender receiptSender = new ReceiptSender(accountsManager, messageSender, receiptSenderExecutor);
     final TurnTokenGenerator turnTokenGenerator = new TurnTokenGenerator(dynamicConfigurationManager,
-        config.getTurnConfiguration().secret().value(), config.getTurnConfiguration().cloudflare());
+        config.getTurnConfiguration().secret().value());
+    final CloudflareTurnCredentialsManager cloudflareTurnCredentialsManager = new CloudflareTurnCredentialsManager(
+        config.getTurnConfiguration().cloudflare().apiToken().value(),
+        config.getTurnConfiguration().cloudflare().endpoint(),
+        config.getTurnConfiguration().cloudflare().ttl(),
+        config.getTurnConfiguration().cloudflare().urls(),
+        config.getTurnConfiguration().cloudflare().urlsWithIps(),
+        config.getTurnConfiguration().cloudflare().hostname(),
+        config.getTurnConfiguration().cloudflare().circuitBreaker(),
+        cloudflareTurnHttpExecutor,
+        config.getTurnConfiguration().cloudflare().retry(),
+        cloudflareTurnRetryExecutor,
+        cloudflareDnsResolver
+        );
 
     final CardinalityEstimator messageByteLimitCardinalityEstimator = new CardinalityEstimator(
         rateLimitersCluster,
@@ -887,6 +921,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getNoiseWebSocketTunnelConfiguration().recognizedProxySecret().value());
 
     environment.lifecycle().manage(localEventLoopGroup);
+    environment.lifecycle().manage(dnsResolutionEventLoopGroup);
     environment.lifecycle().manage(anonymousGrpcServer);
     environment.lifecycle().manage(authenticatedGrpcServer);
     environment.lifecycle().manage(noiseWebSocketEventLoopGroup);
@@ -1018,7 +1053,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new AttachmentControllerV4(rateLimiters, gcsAttachmentGenerator, tusAttachmentGenerator,
             experimentEnrollmentManager),
         new ArchiveController(backupAuthManager, backupManager),
-        new CallRoutingController(rateLimiters, callRouter, turnTokenGenerator, experimentEnrollmentManager),
+        new CallRoutingController(rateLimiters, callRouter, turnTokenGenerator, experimentEnrollmentManager, cloudflareTurnCredentialsManager),
         new CallLinkController(rateLimiters, callingGenericZkSecretParams),
         new CertificateController(new CertificateGenerator(config.getDeliveryCertificate().certificate().value(),
             config.getDeliveryCertificate().ecPrivateKey(), config.getDeliveryCertificate().expiresDays()),

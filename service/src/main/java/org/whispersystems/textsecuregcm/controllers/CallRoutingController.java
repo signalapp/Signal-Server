@@ -7,6 +7,7 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Optional;
@@ -20,6 +21,7 @@ import javax.ws.rs.core.MediaType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.CloudflareTurnCredentialsManager;
 import org.whispersystems.textsecuregcm.auth.TurnToken;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
 import org.whispersystems.textsecuregcm.calls.routing.TurnCallRouter;
@@ -40,17 +42,20 @@ public class CallRoutingController {
   private final TurnCallRouter turnCallRouter;
   private final TurnTokenGenerator tokenGenerator;
   private final ExperimentEnrollmentManager experimentEnrollmentManager;
+  private final CloudflareTurnCredentialsManager cloudflareTurnCredentialsManager;
 
   public CallRoutingController(
       final RateLimiters rateLimiters,
       final TurnCallRouter turnCallRouter,
       final TurnTokenGenerator tokenGenerator,
-      final ExperimentEnrollmentManager experimentEnrollmentManager
+      final ExperimentEnrollmentManager experimentEnrollmentManager,
+      final CloudflareTurnCredentialsManager cloudflareTurnCredentialsManager
   ) {
     this.rateLimiters = rateLimiters;
     this.turnCallRouter = turnCallRouter;
     this.tokenGenerator = tokenGenerator;
     this.experimentEnrollmentManager = experimentEnrollmentManager;
+    this.cloudflareTurnCredentialsManager = cloudflareTurnCredentialsManager;
   }
 
   @GET
@@ -70,12 +75,12 @@ public class CallRoutingController {
   public TurnToken getCallingRelays(
       final @ReadOnly @Auth AuthenticatedAccount auth,
       @Context ContainerRequestContext requestContext
-  ) throws RateLimitExceededException {
+  ) throws RateLimitExceededException, IOException {
     UUID aci = auth.getAccount().getUuid();
     rateLimiters.getCallEndpointLimiter().validate(aci);
 
     if (experimentEnrollmentManager.isEnrolled(aci, "cloudflareTurn")) {
-      return tokenGenerator.generateForCloudflareBeta();
+      return cloudflareTurnCredentialsManager.retrieveFromCloudflare();
     }
 
     Optional<InetAddress> address = Optional.empty();

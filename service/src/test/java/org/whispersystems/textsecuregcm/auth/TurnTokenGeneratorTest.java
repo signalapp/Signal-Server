@@ -6,22 +6,15 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
-import org.whispersystems.textsecuregcm.configuration.CloudflareTurnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
-import org.whispersystems.textsecuregcm.configuration.secrets.SecretString;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 
 public class TurnTokenGeneratorTest {
-
-  private static final CloudflareTurnConfiguration CLOUDFLARE_TURN_CONFIGURATION = new CloudflareTurnConfiguration(
-      new SecretString("cf_username"), new SecretString("cf_password"), List.of("turn:cloudflare.example.com"), "cloudflare.example.com");
-
   @Test
   public void testAlwaysSelectFirst() throws JsonProcessingException {
     final String configString = """
@@ -47,8 +40,7 @@ public class TurnTokenGeneratorTest {
     when(mockDynamicConfigManager.getConfiguration()).thenReturn(config);
 
     final TurnTokenGenerator turnTokenGenerator =
-        new TurnTokenGenerator(mockDynamicConfigManager, "bloop".getBytes(StandardCharsets.UTF_8),
-            CLOUDFLARE_TURN_CONFIGURATION);
+        new TurnTokenGenerator(mockDynamicConfigManager, "bloop".getBytes(StandardCharsets.UTF_8));
 
     final long COUNT = 1000;
 
@@ -88,9 +80,9 @@ public class TurnTokenGeneratorTest {
         DynamicConfigurationManager.class);
 
     when(mockDynamicConfigManager.getConfiguration()).thenReturn(config);
+
     final TurnTokenGenerator turnTokenGenerator =
-        new TurnTokenGenerator(mockDynamicConfigManager, "bloop".getBytes(StandardCharsets.UTF_8),
-            CLOUDFLARE_TURN_CONFIGURATION);
+        new TurnTokenGenerator(mockDynamicConfigManager, "bloop".getBytes(StandardCharsets.UTF_8));
 
     final long COUNT = 1000;
 
@@ -133,8 +125,7 @@ public class TurnTokenGeneratorTest {
     when(mockDynamicConfigManager.getConfiguration()).thenReturn(config);
 
     final TurnTokenGenerator turnTokenGenerator =
-        new TurnTokenGenerator(mockDynamicConfigManager, "bloop".getBytes(StandardCharsets.UTF_8),
-            CLOUDFLARE_TURN_CONFIGURATION);
+        new TurnTokenGenerator(mockDynamicConfigManager, "bloop".getBytes(StandardCharsets.UTF_8));
 
     TurnToken token = turnTokenGenerator.generate(UUID.fromString("732506d7-d04f-43a4-b1d7-8a3a91ebe8a6"));
     assertThat(token.urls().get(0)).isEqualTo("enrolled.org");

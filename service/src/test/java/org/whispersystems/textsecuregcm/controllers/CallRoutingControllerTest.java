@@ -16,6 +16,7 @@ import static org.mockito.Mockito.when;
 import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
@@ -28,13 +29,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.CloudflareTurnCredentialsManager;
 import org.whispersystems.textsecuregcm.auth.TurnToken;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
 import org.whispersystems.textsecuregcm.calls.routing.TurnCallRouter;
 import org.whispersystems.textsecuregcm.calls.routing.TurnServerOptions;
-import org.whispersystems.textsecuregcm.configuration.CloudflareTurnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
-import org.whispersystems.textsecuregcm.configuration.secrets.SecretString;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -57,9 +57,10 @@ class CallRoutingControllerTest {
   private static final ExperimentEnrollmentManager experimentEnrollmentManager = mock(
       ExperimentEnrollmentManager.class);
   private static final TurnTokenGenerator turnTokenGenerator = new TurnTokenGenerator(dynamicConfigurationManager,
-      "bloop".getBytes(StandardCharsets.UTF_8),
-      new CloudflareTurnConfiguration(new SecretString("cf_username"), new SecretString("cf_password"),
-          List.of("turn:cf.example.com"), "cf.example.com"));
+      "bloop".getBytes(StandardCharsets.UTF_8));
+  private static final CloudflareTurnCredentialsManager cloudflareTurnCredentialsManager = mock(
+      CloudflareTurnCredentialsManager.class);
+
   private static final TurnCallRouter turnCallRouter = mock(TurnCallRouter.class);
 
   private static final ResourceExtension resources = ResourceExtension.builder()
@@ -70,7 +71,7 @@ class CallRoutingControllerTest {
       .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(new CallRoutingController(rateLimiters, turnCallRouter, turnTokenGenerator,
-          experimentEnrollmentManager))
+          experimentEnrollmentManager, cloudflareTurnCredentialsManager))
       .build();
 
   @BeforeEach
@@ -97,7 +98,7 @@ class CallRoutingControllerTest {
         eq(Optional.of(InetAddress.getByName(REMOTE_ADDRESS))),
         anyInt())
     ).thenReturn(options);
-    try(Response response = resources.getJerseyTest()
+    try (Response response = resources.getJerseyTest()
         .target(GET_CALL_ENDPOINTS_PATH)
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
@@ -114,9 +115,13 @@ class CallRoutingControllerTest {
   }
 
   @Test
-  void testGetTurnEndpointsCloudflare() {
+  void testGetTurnEndpointsCloudflare() throws IOException {
     when(experimentEnrollmentManager.isEnrolled(AuthHelper.VALID_UUID, "cloudflareTurn"))
         .thenReturn(true);
+
+    when(cloudflareTurnCredentialsManager.retrieveFromCloudflare()).thenReturn(new TurnToken("ABC", "XYZ",
+        List.of("turn:cloudflare.example.com:3478?transport=udp"), null,
+        "cf.example.com"));
 
     try (Response response = resources.getJerseyTest()
         .target(GET_CALL_ENDPOINTS_PATH)
@@ -126,11 +131,11 @@ class CallRoutingControllerTest {
 
       assertThat(response.getStatus()).isEqualTo(200);
       TurnToken token = response.readEntity(TurnToken.class);
-      assertThat(token.username()).isNotEmpty();
-      assertThat(token.password()).isNotEmpty();
-      assertThat(token.hostname()).isNotEmpty();
+      assertThat(token.username()).isEqualTo("ABC");
+      assertThat(token.password()).isEqualTo("XYZ");
+      assertThat(token.hostname()).isEqualTo("cf.example.com");
       assertThat(token.urlsWithIps()).isNull();
-      assertThat(token.urls()).isEqualTo(List.of("turn:cf.example.com"));
+      assertThat(token.urls()).isEqualTo(List.of("turn:cloudflare.example.com:3478?transport=udp"));
     }
   }
 
@@ -147,7 +152,7 @@ class CallRoutingControllerTest {
         eq(Optional.of(InetAddress.getByName(REMOTE_ADDRESS))),
         anyInt())
     ).thenReturn(options);
-    try(Response response = resources.getJerseyTest()
+    try (Response response = resources.getJerseyTest()
         .target(GET_CALL_ENDPOINTS_PATH)
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
@@ -168,7 +173,7 @@ class CallRoutingControllerTest {
     doThrow(new RateLimitExceededException(null, false))
         .when(getCallEndpointLimiter).validate(AuthHelper.VALID_UUID);
 
-    try(final Response response = resources.getJerseyTest()
+    try (final Response response = resources.getJerseyTest()
         .target(GET_CALL_ENDPOINTS_PATH)
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
