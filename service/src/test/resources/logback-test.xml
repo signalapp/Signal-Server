@@ -1,5 +1,9 @@
 <configuration>
+  <import class="org.whispersystems.textsecuregcm.util.logging.UnknownKeepaliveOptionFilter"/>
+
   <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <filter class="UnknownKeepaliveOptionFilter"/>
+
     <encoder>
       <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
     </encoder>
