@@ -265,6 +265,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
         .thenApplyAsync(deleteItemResponse -> {
           if (deleteItemResponse.attributes() != null && deleteItemResponse.attributes().containsKey(KEY_PARTITION)) {
             try {
+              Metrics.counter(MESSAGES_DELETED_BY_SCHEME_COUNTER_NAME, Tags.of("scheme", scheme.name())).increment();
               return Optional.of(convertItemToEnvelope(deleteItemResponse.attributes()));
             } catch (final InvalidProtocolBufferException e) {
               logger.error("Failed to parse envelope", e);
