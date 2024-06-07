@@ -89,7 +89,7 @@ public class DestinationDeviceValidator {
       final Set<Byte> excludedDeviceIds) throws MismatchedDevicesException {
 
     final Set<Byte> accountDeviceIds = account.getDevices().stream()
-        .filter(Device::isEnabled)
+        .filter(Device::hasMessageDeliveryChannel)
         .map(Device::getId)
         .filter(deviceId -> !excludedDeviceIds.contains(deviceId))
         .collect(Collectors.toSet());

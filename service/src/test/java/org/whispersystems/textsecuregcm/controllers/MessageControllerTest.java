@@ -58,7 +58,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -211,13 +210,13 @@ class MessageControllerTest {
   @BeforeEach
   void setup() {
     final List<Device> singleDeviceList = List.of(
-        generateTestDevice(SINGLE_DEVICE_ID1, SINGLE_DEVICE_REG_ID1, SINGLE_DEVICE_PNI_REG_ID1, System.currentTimeMillis(), System.currentTimeMillis())
+        generateTestDevice(SINGLE_DEVICE_ID1, SINGLE_DEVICE_REG_ID1, SINGLE_DEVICE_PNI_REG_ID1, true)
     );
 
     final List<Device> multiDeviceList = List.of(
-        generateTestDevice(MULTI_DEVICE_ID1, MULTI_DEVICE_REG_ID1, MULTI_DEVICE_PNI_REG_ID1, System.currentTimeMillis(), System.currentTimeMillis()),
-        generateTestDevice(MULTI_DEVICE_ID2, MULTI_DEVICE_REG_ID2, MULTI_DEVICE_PNI_REG_ID2, System.currentTimeMillis(), System.currentTimeMillis()),
-        generateTestDevice(MULTI_DEVICE_ID3, MULTI_DEVICE_REG_ID3, MULTI_DEVICE_PNI_REG_ID3, System.currentTimeMillis(), System.currentTimeMillis() - TimeUnit.DAYS.toMillis(31))
+        generateTestDevice(MULTI_DEVICE_ID1, MULTI_DEVICE_REG_ID1, MULTI_DEVICE_PNI_REG_ID1, true),
+        generateTestDevice(MULTI_DEVICE_ID2, MULTI_DEVICE_REG_ID2, MULTI_DEVICE_PNI_REG_ID2, true),
+        generateTestDevice(MULTI_DEVICE_ID3, MULTI_DEVICE_REG_ID3, MULTI_DEVICE_PNI_REG_ID3, false)
     );
 
     Account singleDeviceAccount  = AccountsHelper.generateTestAccount(SINGLE_DEVICE_RECIPIENT, SINGLE_DEVICE_UUID, SINGLE_DEVICE_PNI, singleDeviceList, UNIDENTIFIED_ACCESS_BYTES);
@@ -260,14 +259,12 @@ class MessageControllerTest {
   }
 
   private static Device generateTestDevice(final byte id, final int registrationId, final int pniRegistrationId,
-      final long createdAt, final long lastSeen) {
+      final boolean enabled) {
     final Device device = new Device();
     device.setId(id);
     device.setRegistrationId(registrationId);
     device.setPhoneNumberIdentityRegistrationId(pniRegistrationId);
-    device.setCreated(createdAt);
-    device.setLastSeen(lastSeen);
-    device.setGcmId("isgcm");
+    device.setFetchesMessages(enabled);
 
     return device;
   }
@@ -1125,8 +1122,7 @@ class MessageControllerTest {
           IntStream.range(1, devicesPerRecipient + 1)
           .mapToObj(
               d -> generateTestDevice(
-                  (byte) d, 100 + d, 10 * d, System.currentTimeMillis(),
-                  System.currentTimeMillis()))
+                  (byte) d, 100 + d, 10 * d, true))
           .collect(Collectors.toList());
       final UUID aci = new UUID(0L, (long) i);
       final UUID pni = new UUID(1L, (long) i);

@@ -138,11 +138,11 @@ public class AuthHelper {
     when(VALID_DEVICE_3_PRIMARY.getId()).thenReturn(Device.PRIMARY_ID);
     when(VALID_DEVICE_3_LINKED.getId()).thenReturn((byte) 2);
 
-    when(VALID_DEVICE.isEnabled()).thenReturn(true);
-    when(VALID_DEVICE_TWO.isEnabled()).thenReturn(true);
+    when(VALID_DEVICE.hasMessageDeliveryChannel()).thenReturn(true);
+    when(VALID_DEVICE_TWO.hasMessageDeliveryChannel()).thenReturn(true);
     when(UNDISCOVERABLE_DEVICE.isPrimary()).thenReturn(true);
-    when(VALID_DEVICE_3_PRIMARY.isEnabled()).thenReturn(true);
-    when(VALID_DEVICE_3_LINKED.isEnabled()).thenReturn(true);
+    when(VALID_DEVICE_3_PRIMARY.hasMessageDeliveryChannel()).thenReturn(true);
+    when(VALID_DEVICE_3_LINKED.hasMessageDeliveryChannel()).thenReturn(true);
 
     when(VALID_ACCOUNT.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(VALID_DEVICE));
     when(VALID_ACCOUNT.getPrimaryDevice()).thenReturn(VALID_DEVICE);
@@ -279,7 +279,7 @@ public class AuthHelper {
       when(device.getAuthTokenHash()).thenReturn(saltedTokenHash);
       when(device.isPrimary()).thenReturn(true);
       when(device.getId()).thenReturn(Device.PRIMARY_ID);
-      when(device.isEnabled()).thenReturn(true);
+      when(device.hasMessageDeliveryChannel()).thenReturn(true);
       when(account.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(device));
       when(account.getPrimaryDevice()).thenReturn(device);
       when(account.getNumber()).thenReturn(number);

@@ -134,7 +134,7 @@ public class ChangeNumberManagerTest {
     when(account.getPhoneNumberIdentifier()).thenReturn(pni);
 
     final Device d2 = mock(Device.class);
-    when(d2.isEnabled()).thenReturn(true);
+    when(d2.hasMessageDeliveryChannel()).thenReturn(true);
     final byte deviceId2 = 2;
     when(d2.getId()).thenReturn(deviceId2);
 
@@ -181,7 +181,7 @@ public class ChangeNumberManagerTest {
     when(account.getPhoneNumberIdentifier()).thenReturn(pni);
 
     final Device d2 = mock(Device.class);
-    when(d2.isEnabled()).thenReturn(true);
+    when(d2.hasMessageDeliveryChannel()).thenReturn(true);
     final byte deviceId2 = 2;
     when(d2.getId()).thenReturn(deviceId2);
 
@@ -228,7 +228,7 @@ public class ChangeNumberManagerTest {
     when(account.getPhoneNumberIdentifier()).thenReturn(pni);
 
     final Device d2 = mock(Device.class);
-    when(d2.isEnabled()).thenReturn(true);
+    when(d2.hasMessageDeliveryChannel()).thenReturn(true);
     final byte deviceId2 = 2;
     when(d2.getId()).thenReturn(deviceId2);
 
@@ -273,7 +273,7 @@ public class ChangeNumberManagerTest {
     when(account.getPhoneNumberIdentifier()).thenReturn(pni);
 
     final Device d2 = mock(Device.class);
-    when(d2.isEnabled()).thenReturn(true);
+    when(d2.hasMessageDeliveryChannel()).thenReturn(true);
     final byte deviceId2 = 2;
     when(d2.getId()).thenReturn(deviceId2);
 
@@ -316,7 +316,7 @@ public class ChangeNumberManagerTest {
     when(account.getPhoneNumberIdentifier()).thenReturn(pni);
 
     final Device d2 = mock(Device.class);
-    when(d2.isEnabled()).thenReturn(true);
+    when(d2.hasMessageDeliveryChannel()).thenReturn(true);
     final byte deviceId2 = 2;
     when(d2.getId()).thenReturn(deviceId2);
 
@@ -361,7 +361,7 @@ public class ChangeNumberManagerTest {
     for (byte i = 1; i <= 3; i++) {
       final Device device = mock(Device.class);
       when(device.getId()).thenReturn(i);
-      when(device.isEnabled()).thenReturn(true);
+      when(device.hasMessageDeliveryChannel()).thenReturn(true);
       when(device.getRegistrationId()).thenReturn((int) i);
 
       devices.add(device);
@@ -400,7 +400,7 @@ public class ChangeNumberManagerTest {
     for (byte i = 1; i <= 3; i++) {
       final Device device = mock(Device.class);
       when(device.getId()).thenReturn(i);
-      when(device.isEnabled()).thenReturn(true);
+      when(device.hasMessageDeliveryChannel()).thenReturn(true);
       when(device.getRegistrationId()).thenReturn((int) i);
 
       devices.add(device);
@@ -439,7 +439,7 @@ public class ChangeNumberManagerTest {
     for (byte i = 1; i <= 3; i++) {
       final Device device = mock(Device.class);
       when(device.getId()).thenReturn(i);
-      when(device.isEnabled()).thenReturn(true);
+      when(device.hasMessageDeliveryChannel()).thenReturn(true);
       when(device.getRegistrationId()).thenReturn((int) i);
 
       devices.add(device);

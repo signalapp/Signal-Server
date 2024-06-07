@@ -130,7 +130,7 @@ public class ProcessPushNotificationFeedbackCommand extends AbstractSinglePassCr
 
   @VisibleForTesting
   boolean deviceNeedsUpdate(final Device device) {
-    return pushFeedbackIntervalElapsed(device) && (device.isEnabled() || device.getLastSeen() > device.getUninstalledFeedbackTimestamp());
+    return pushFeedbackIntervalElapsed(device) && (device.hasMessageDeliveryChannel() || device.getLastSeen() > device.getUninstalledFeedbackTimestamp());
   }
 
   @VisibleForTesting

@@ -440,11 +440,11 @@ public class KeysController {
 
   private List<Device> parseDeviceId(String deviceId, Account account) {
     if (deviceId.equals("*")) {
-      return account.getDevices().stream().filter(Device::isEnabled).toList();
+      return account.getDevices().stream().filter(Device::hasMessageDeliveryChannel).toList();
     }
     try {
       byte id = Byte.parseByte(deviceId);
-      return account.getDevice(id).filter(Device::isEnabled).map(List::of).orElse(List.of());
+      return account.getDevice(id).filter(Device::hasMessageDeliveryChannel).map(List::of).orElse(List.of());
     } catch (NumberFormatException e) {
       throw new WebApplicationException(Response.status(422).build());
     }

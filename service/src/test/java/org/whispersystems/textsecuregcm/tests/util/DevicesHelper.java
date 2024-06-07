@@ -6,9 +6,7 @@
 package org.whispersystems.textsecuregcm.tests.util;
 
 import java.util.Random;
-import org.signal.libsignal.protocol.ecc.Curve;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.util.Util;
 
 public class DevicesHelper {
 
@@ -48,13 +46,12 @@ public class DevicesHelper {
   public static void setEnabled(Device device, boolean enabled) {
     if (enabled) {
       device.setGcmId("testGcmId" + RANDOM.nextLong());
-      device.setLastSeen(Util.todayInMillis());
     } else {
-      device.setLastSeen(0);
+      device.setGcmId(null);
     }
 
     // fail fast, to guard against a change to the isEnabled() implementation causing unexpected test behavior
-    assert enabled == device.isEnabled();
+    assert enabled == device.hasMessageDeliveryChannel();
   }
 
 }

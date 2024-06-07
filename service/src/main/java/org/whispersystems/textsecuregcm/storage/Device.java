@@ -11,7 +11,6 @@ import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import java.time.Duration;
 import java.util.List;
 import java.util.OptionalInt;
-import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import javax.annotation.Nullable;
@@ -199,10 +198,8 @@ public class Device {
     this.capabilities = capabilities;
   }
 
-  public boolean isEnabled() {
-    boolean hasChannel = fetchesMessages || StringUtils.isNotEmpty(getApnId()) || StringUtils.isNotEmpty(getGcmId());
-
-    return (id == PRIMARY_ID && hasChannel) || (id != PRIMARY_ID && hasChannel && !isExpired());
+  public boolean hasMessageDeliveryChannel() {
+    return fetchesMessages || StringUtils.isNotEmpty(getApnId()) || StringUtils.isNotEmpty(getGcmId());
   }
 
   public boolean isExpired() {

@@ -19,41 +19,22 @@ class DeviceTest {
 
   @ParameterizedTest
   @MethodSource
-  void testIsEnabled(final boolean primary, final boolean fetchesMessages, final String apnId, final String gcmId,
-      final Duration timeSinceLastSeen, final boolean expectEnabled) {
-
-    final long lastSeen = System.currentTimeMillis() - timeSinceLastSeen.toMillis();
+  void testHasMessageDeliveryChannel(final boolean fetchesMessages, final String apnId, final String gcmId, final boolean expectEnabled) {
 
     final Device device = new Device();
-    device.setId(primary ? Device.PRIMARY_ID : Device.PRIMARY_ID + 1);
     device.setFetchesMessages(fetchesMessages);
     device.setApnId(apnId);
     device.setGcmId(gcmId);
-    device.setCreated(lastSeen);
-    device.setLastSeen(lastSeen);
 
-    assertEquals(expectEnabled, device.isEnabled());
+    assertEquals(expectEnabled, device.hasMessageDeliveryChannel());
   }
 
-  private static Stream<Arguments> testIsEnabled() {
+  private static Stream<Arguments> testHasMessageDeliveryChannel() {
     return Stream.of(
-        //           primary fetchesMessages apnId     gcmId     lastSeen             expectEnabled
-        Arguments.of(true,   false,          null,     null,     Duration.ofDays(60), false),
-        Arguments.of(true,   false,          null,     null,     Duration.ofDays(1),  false),
-        Arguments.of(true,   false,          null,     "gcm-id", Duration.ofDays(60), true),
-        Arguments.of(true,   false,          null,     "gcm-id", Duration.ofDays(1),  true),
-        Arguments.of(true,   false,          "apn-id", null,     Duration.ofDays(60), true),
-        Arguments.of(true,   false,          "apn-id", null,     Duration.ofDays(1),  true),
-        Arguments.of(true,   true,           null,     null,     Duration.ofDays(60), true),
-        Arguments.of(true,   true,           null,     null,     Duration.ofDays(1),  true),
-        Arguments.of(false,  false,          null,     null,     Duration.ofDays(60), false),
-        Arguments.of(false,  false,          null,     null,     Duration.ofDays(1),  false),
-        Arguments.of(false,  false,          null,     "gcm-id", Duration.ofDays(60), false),
-        Arguments.of(false,  false,          null,     "gcm-id", Duration.ofDays(1),  true),
-        Arguments.of(false,  false,          "apn-id", null,     Duration.ofDays(60), false),
-        Arguments.of(false,  false,          "apn-id", null,     Duration.ofDays(1),  true),
-        Arguments.of(false,  true,           null,     null,     Duration.ofDays(60), false),
-        Arguments.of(false,  true,           null,     null,     Duration.ofDays(1),  true)
+        Arguments.of(false, null, null, false),
+        Arguments.of(false, null, "gcm-id", true),
+        Arguments.of(false, "apn-id", null, true),
+        Arguments.of(true, null, null, true)
     );
   }
 

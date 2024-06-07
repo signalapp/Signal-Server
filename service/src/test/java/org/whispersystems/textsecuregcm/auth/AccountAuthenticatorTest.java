@@ -163,7 +163,7 @@ class AccountAuthenticatorTest {
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
     when(account.isEnabled()).thenReturn(true);
     when(device.getId()).thenReturn(deviceId);
-    when(device.isEnabled()).thenReturn(true);
+    when(device.hasMessageDeliveryChannel()).thenReturn(true);
     when(device.getAuthTokenHash()).thenReturn(credentials);
     when(credentials.verify(password)).thenReturn(true);
     when(credentials.getVersion()).thenReturn(SaltedTokenHash.CURRENT_VERSION);
@@ -193,7 +193,7 @@ class AccountAuthenticatorTest {
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
     when(account.isEnabled()).thenReturn(true);
     when(device.getId()).thenReturn(deviceId);
-    when(device.isEnabled()).thenReturn(true);
+    when(device.hasMessageDeliveryChannel()).thenReturn(true);
     when(device.getAuthTokenHash()).thenReturn(credentials);
     when(credentials.verify(password)).thenReturn(true);
     when(credentials.getVersion()).thenReturn(SaltedTokenHash.CURRENT_VERSION);
@@ -226,7 +226,7 @@ class AccountAuthenticatorTest {
     when(account.getDevice(deviceId)).thenReturn(Optional.of(authenticatedDevice));
     when(account.isEnabled()).thenReturn(accountEnabled);
     when(authenticatedDevice.getId()).thenReturn(deviceId);
-    when(authenticatedDevice.isEnabled()).thenReturn(deviceEnabled);
+    when(authenticatedDevice.hasMessageDeliveryChannel()).thenReturn(deviceEnabled);
     when(authenticatedDevice.getAuthTokenHash()).thenReturn(credentials);
     when(credentials.verify(password)).thenReturn(true);
     when(credentials.getVersion()).thenReturn(SaltedTokenHash.CURRENT_VERSION);
@@ -262,7 +262,7 @@ class AccountAuthenticatorTest {
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
     when(account.isEnabled()).thenReturn(true);
     when(device.getId()).thenReturn(deviceId);
-    when(device.isEnabled()).thenReturn(true);
+    when(device.hasMessageDeliveryChannel()).thenReturn(true);
     when(device.getAuthTokenHash()).thenReturn(credentials);
     when(credentials.verify(password)).thenReturn(true);
     when(credentials.getVersion()).thenReturn(SaltedTokenHash.Version.V1);
@@ -299,7 +299,7 @@ class AccountAuthenticatorTest {
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
     when(account.isEnabled()).thenReturn(true);
     when(device.getId()).thenReturn(deviceId);
-    when(device.isEnabled()).thenReturn(true);
+    when(device.hasMessageDeliveryChannel()).thenReturn(true);
     when(device.getAuthTokenHash()).thenReturn(credentials);
     when(credentials.verify(password)).thenReturn(true);
     when(credentials.getVersion()).thenReturn(SaltedTokenHash.CURRENT_VERSION);
@@ -327,7 +327,7 @@ class AccountAuthenticatorTest {
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
     when(account.isEnabled()).thenReturn(true);
     when(device.getId()).thenReturn(deviceId);
-    when(device.isEnabled()).thenReturn(true);
+    when(device.hasMessageDeliveryChannel()).thenReturn(true);
     when(device.getAuthTokenHash()).thenReturn(credentials);
     when(credentials.verify(password)).thenReturn(true);
     when(credentials.getVersion()).thenReturn(SaltedTokenHash.CURRENT_VERSION);

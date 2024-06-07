@@ -53,35 +53,35 @@ class AccountTest {
   @BeforeEach
   void setup() {
     when(oldPrimaryDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(366));
-    when(oldPrimaryDevice.isEnabled()).thenReturn(true);
+    when(oldPrimaryDevice.hasMessageDeliveryChannel()).thenReturn(true);
     when(oldPrimaryDevice.getId()).thenReturn(Device.PRIMARY_ID);
 
     when(recentPrimaryDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(1));
-    when(recentPrimaryDevice.isEnabled()).thenReturn(true);
+    when(recentPrimaryDevice.hasMessageDeliveryChannel()).thenReturn(true);
     when(recentPrimaryDevice.getId()).thenReturn(Device.PRIMARY_ID);
 
     when(agingSecondaryDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(31));
-    when(agingSecondaryDevice.isEnabled()).thenReturn(false);
+    when(agingSecondaryDevice.hasMessageDeliveryChannel()).thenReturn(false);
     final byte deviceId2 = 2;
     when(agingSecondaryDevice.getId()).thenReturn(deviceId2);
 
     when(recentSecondaryDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(1));
-    when(recentSecondaryDevice.isEnabled()).thenReturn(true);
+    when(recentSecondaryDevice.hasMessageDeliveryChannel()).thenReturn(true);
     when(recentSecondaryDevice.getId()).thenReturn(deviceId2);
 
     when(oldSecondaryDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(366));
-    when(oldSecondaryDevice.isEnabled()).thenReturn(false);
+    when(oldSecondaryDevice.hasMessageDeliveryChannel()).thenReturn(false);
     when(oldSecondaryDevice.getId()).thenReturn(deviceId2);
 
     when(paymentActivationCapableDevice.getCapabilities()).thenReturn(
         new DeviceCapabilities(true, true, true));
-    when(paymentActivationCapableDevice.isEnabled()).thenReturn(true);
+    when(paymentActivationCapableDevice.hasMessageDeliveryChannel()).thenReturn(true);
     when(paymentActivationIncapableDevice.getCapabilities()).thenReturn(
         new DeviceCapabilities(true, true, false));
-    when(paymentActivationIncapableDevice.isEnabled()).thenReturn(true);
+    when(paymentActivationIncapableDevice.hasMessageDeliveryChannel()).thenReturn(true);
     when(paymentActivationIncapableExpiredDevice.getCapabilities()).thenReturn(
         new DeviceCapabilities(true, true, false));
-    when(paymentActivationIncapableExpiredDevice.isEnabled()).thenReturn(false);
+    when(paymentActivationIncapableExpiredDevice.hasMessageDeliveryChannel()).thenReturn(false);
 
   }
 
@@ -92,10 +92,10 @@ class AccountTest {
     final Device disabledPrimaryDevice = mock(Device.class);
     final Device disabledLinkedDevice = mock(Device.class);
 
-    when(enabledPrimaryDevice.isEnabled()).thenReturn(true);
-    when(enabledLinkedDevice.isEnabled()).thenReturn(true);
-    when(disabledPrimaryDevice.isEnabled()).thenReturn(false);
-    when(disabledLinkedDevice.isEnabled()).thenReturn(false);
+    when(enabledPrimaryDevice.hasMessageDeliveryChannel()).thenReturn(true);
+    when(enabledLinkedDevice.hasMessageDeliveryChannel()).thenReturn(true);
+    when(disabledPrimaryDevice.hasMessageDeliveryChannel()).thenReturn(false);
+    when(disabledLinkedDevice.hasMessageDeliveryChannel()).thenReturn(false);
 
     when(enabledPrimaryDevice.getId()).thenReturn(Device.PRIMARY_ID);
     final byte deviceId2 = 2;
@@ -296,7 +296,7 @@ class AccountTest {
 
   static Stream<Arguments> testHasEnabledLinkedDevice() {
     final Device enabledPrimary = mock(Device.class);
-    when(enabledPrimary.isEnabled()).thenReturn(true);
+    when(enabledPrimary.hasMessageDeliveryChannel()).thenReturn(true);
     when(enabledPrimary.getId()).thenReturn(Device.PRIMARY_ID);
 
     final Device disabledPrimary = mock(Device.class);
@@ -304,7 +304,7 @@ class AccountTest {
 
     final byte linked1DeviceId = Device.PRIMARY_ID + 1;
     final Device enabledLinked1 = mock(Device.class);
-    when(enabledLinked1.isEnabled()).thenReturn(true);
+    when(enabledLinked1.hasMessageDeliveryChannel()).thenReturn(true);
     when(enabledLinked1.getId()).thenReturn(linked1DeviceId);
 
     final Device disabledLinked1 = mock(Device.class);
@@ -312,7 +312,7 @@ class AccountTest {
 
     final byte linked2DeviceId = Device.PRIMARY_ID + 2;
     final Device enabledLinked2 = mock(Device.class);
-    when(enabledLinked2.isEnabled()).thenReturn(true);
+    when(enabledLinked2.hasMessageDeliveryChannel()).thenReturn(true);
     when(enabledLinked2.getId()).thenReturn(linked2DeviceId);
 
     final Device disabledLinked2 = mock(Device.class);

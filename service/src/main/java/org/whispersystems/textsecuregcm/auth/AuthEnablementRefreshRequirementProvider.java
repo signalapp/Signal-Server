@@ -23,9 +23,9 @@ import org.whispersystems.textsecuregcm.util.Pair;
 
 /**
  * This {@link WebsocketRefreshRequirementProvider} observes intra-request changes in {@link Account#isEnabled()} and
- * {@link Device#isEnabled()}.
+ * {@link Device#hasMessageDeliveryChannel()}.
  * <p>
- * If a change in {@link Account#isEnabled()} or any associated {@link Device#isEnabled()} is observed, then any active
+ * If a change in {@link Account#isEnabled()} or any associated {@link Device#hasMessageDeliveryChannel()} is observed, then any active
  * WebSocket connections for the account must be closed in order for clients to get a refreshed
  * {@link io.dropwizard.auth.Auth} object with a current device list.
  *

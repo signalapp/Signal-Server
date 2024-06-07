@@ -17,7 +17,7 @@ import java.util.stream.Collectors;
 class ContainerRequestUtil {
 
   private static Map<Byte, Boolean> buildDevicesEnabledMap(final Account account) {
-    return account.getDevices().stream().collect(Collectors.toMap(Device::getId, Device::isEnabled));
+    return account.getDevices().stream().collect(Collectors.toMap(Device::getId, Device::hasMessageDeliveryChannel));
   }
 
   /**

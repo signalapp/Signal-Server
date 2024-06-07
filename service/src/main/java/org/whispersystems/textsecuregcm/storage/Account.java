@@ -296,14 +296,14 @@ public class Account {
     requireNotStale();
 
     return devices.stream()
-        .filter(Device::isEnabled)
+        .filter(Device::hasMessageDeliveryChannel)
         .allMatch(device -> device.getCapabilities() != null && predicate.test(device.getCapabilities()));
   }
 
   public boolean isEnabled() {
     requireNotStale();
 
-    return getPrimaryDevice().isEnabled();
+    return getPrimaryDevice().hasMessageDeliveryChannel();
   }
 
   public byte getNextDeviceId() {
@@ -327,7 +327,7 @@ public class Account {
 
     return devices.stream()
         .filter(d -> Device.PRIMARY_ID != d.getId())
-        .anyMatch(Device::isEnabled);
+        .anyMatch(Device::hasMessageDeliveryChannel);
   }
 
   public void setIdentityKey(final IdentityKey identityKey) {

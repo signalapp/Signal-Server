@@ -35,7 +35,7 @@ public class ContainerRequestUtilTest {
         .forEach(id -> {
           final Device device = mock(Device.class);
           when(device.getId()).thenReturn((byte) id);
-          when(device.isEnabled()).thenReturn(id != disabledDeviceId);
+          when(device.hasMessageDeliveryChannel()).thenReturn(id != disabledDeviceId);
           devices.add(device);
         });
 

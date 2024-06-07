@@ -98,7 +98,7 @@ class ProcessPushNotificationFeedbackCommandTest {
     final Account accountWithActiveDevice = mock(Account.class);
     {
       final Device device = mock(Device.class);
-      when(device.isEnabled()).thenReturn(true);
+      when(device.hasMessageDeliveryChannel()).thenReturn(true);
 
       when(accountWithActiveDevice.getDevices()).thenReturn(List.of(device));
     }
@@ -106,7 +106,7 @@ class ProcessPushNotificationFeedbackCommandTest {
     final Account accountWithUninstalledDevice = mock(Account.class);
     {
       final Device uninstalledDevice = mock(Device.class);
-      when(uninstalledDevice.isEnabled()).thenReturn(true);
+      when(uninstalledDevice.hasMessageDeliveryChannel()).thenReturn(true);
       when(uninstalledDevice.getUninstalledFeedbackTimestamp())
           .thenReturn(clock.instant().minus(ProcessPushNotificationFeedbackCommand.MAX_TOKEN_REFRESH_DELAY.multipliedBy(2)).toEpochMilli());
 
@@ -116,7 +116,7 @@ class ProcessPushNotificationFeedbackCommandTest {
     final Account accountWithAlreadyDisabledUninstalledDevice = mock(Account.class);
     {
       final Device previouslyDisabledUninstalledDevice = mock(Device.class);
-      when(previouslyDisabledUninstalledDevice.isEnabled()).thenReturn(false);
+      when(previouslyDisabledUninstalledDevice.hasMessageDeliveryChannel()).thenReturn(false);
       when(previouslyDisabledUninstalledDevice.getUninstalledFeedbackTimestamp())
           .thenReturn(clock.instant().minus(ProcessPushNotificationFeedbackCommand.MAX_TOKEN_REFRESH_DELAY.multipliedBy(2)).toEpochMilli());
 
@@ -196,7 +196,7 @@ class ProcessPushNotificationFeedbackCommandTest {
     {
       // Device is active, enabled, and has no push feedback
       final Device device = mock(Device.class);
-      when(device.isEnabled()).thenReturn(true);
+      when(device.hasMessageDeliveryChannel()).thenReturn(true);
       when(device.getUninstalledFeedbackTimestamp()).thenReturn(0L);
       when(device.getLastSeen()).thenReturn(CURRENT_TIME.toEpochMilli());
 
@@ -206,7 +206,7 @@ class ProcessPushNotificationFeedbackCommandTest {
     {
       // Device is active, but not enabled, and has no push feedback
       final Device device = mock(Device.class);
-      when(device.isEnabled()).thenReturn(false);
+      when(device.hasMessageDeliveryChannel()).thenReturn(false);
       when(device.getUninstalledFeedbackTimestamp()).thenReturn(0L);
       when(device.getLastSeen()).thenReturn(CURRENT_TIME.toEpochMilli());
 
@@ -216,7 +216,7 @@ class ProcessPushNotificationFeedbackCommandTest {
     {
       // Device is active, enabled, and has "mature" push feedback
       final Device device = mock(Device.class);
-      when(device.isEnabled()).thenReturn(true);
+      when(device.hasMessageDeliveryChannel()).thenReturn(true);
       when(device.getUninstalledFeedbackTimestamp()).thenReturn(maturePushFeedbackTimestamp);
       when(device.getLastSeen()).thenReturn(CURRENT_TIME.toEpochMilli());
 
@@ -226,7 +226,7 @@ class ProcessPushNotificationFeedbackCommandTest {
     {
       // Device is active, but not enabled, and has "mature" push feedback
       final Device device = mock(Device.class);
-      when(device.isEnabled()).thenReturn(false);
+      when(device.hasMessageDeliveryChannel()).thenReturn(false);
       when(device.getUninstalledFeedbackTimestamp()).thenReturn(maturePushFeedbackTimestamp);
       when(device.getLastSeen()).thenReturn(CURRENT_TIME.toEpochMilli());
 
@@ -236,7 +236,7 @@ class ProcessPushNotificationFeedbackCommandTest {
     {
       // Device is inactive, not enabled, and has "mature" push feedback
       final Device device = mock(Device.class);
-      when(device.isEnabled()).thenReturn(false);
+      when(device.hasMessageDeliveryChannel()).thenReturn(false);
       when(device.getUninstalledFeedbackTimestamp()).thenReturn(maturePushFeedbackTimestamp);
       when(device.getLastSeen()).thenReturn(maturePushFeedbackTimestamp);
 

@@ -245,7 +245,7 @@ public class MessagePersister implements Managed {
     // its messages) is unlinked
     final Device deviceToDelete = account.getDevices()
         .stream()
-        .filter(d -> !d.isPrimary() && !d.isEnabled())
+        .filter(d -> !d.isPrimary() && !d.hasMessageDeliveryChannel())
         .min(Comparator.comparing(Device::getLastSeen))
         .or(() ->
             Flux.fromIterable(account.getDevices())

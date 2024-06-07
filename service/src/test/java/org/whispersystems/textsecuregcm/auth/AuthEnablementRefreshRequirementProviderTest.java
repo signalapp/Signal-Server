@@ -136,7 +136,7 @@ class AuthEnablementRefreshRequirementProviderTest {
   void testDeviceEnabledChanged(final Map<Byte, Boolean> initialEnabled, final Map<Byte, Boolean> finalEnabled) {
     assert initialEnabled.size() == finalEnabled.size();
 
-    assert account.getPrimaryDevice().isEnabled();
+    assert account.getPrimaryDevice().hasMessageDeliveryChannel();
 
     initialEnabled.forEach((deviceId, enabled) ->
         DevicesHelper.setEnabled(account.getDevice(deviceId).orElseThrow(), enabled));
@@ -177,7 +177,7 @@ class AuthEnablementRefreshRequirementProviderTest {
 
   @Test
   void testDeviceAdded() {
-    assert account.getPrimaryDevice().isEnabled();
+    assert account.getPrimaryDevice().hasMessageDeliveryChannel();
 
     final int initialDeviceCount = account.getDevices().size();
 
@@ -204,7 +204,7 @@ class AuthEnablementRefreshRequirementProviderTest {
   @ParameterizedTest
   @ValueSource(ints = {1, 2})
   void testDeviceRemoved(final int removedDeviceCount) {
-    assert account.getPrimaryDevice().isEnabled();
+    assert account.getPrimaryDevice().hasMessageDeliveryChannel();
 
     final List<Byte> initialDeviceIds = account.getDevices().stream().map(Device::getId).toList();
 
@@ -367,7 +367,7 @@ class AuthEnablementRefreshRequirementProviderTest {
 
       DevicesHelper.setEnabled(device, enabled);
 
-      assert device.isEnabled() == enabled;
+      assert device.hasMessageDeliveryChannel() == enabled;
 
       return String.format("Set account to %s", enabled);
     }

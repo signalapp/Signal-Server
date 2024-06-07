@@ -107,7 +107,7 @@ class DestinationDeviceValidatorTest {
 
     enabledStateByDeviceId.forEach((deviceId, enabled) -> {
       final Device device = mock(Device.class);
-      when(device.isEnabled()).thenReturn(enabled);
+      when(device.hasMessageDeliveryChannel()).thenReturn(enabled);
       when(device.getId()).thenReturn(deviceId);
       when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
 

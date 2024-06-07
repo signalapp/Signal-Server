@@ -31,7 +31,7 @@ public class OptionalAccess {
 
         Optional<Device> targetDevice = targetAccount.get().getDevice(deviceId);
 
-        if (targetDevice.isPresent() && targetDevice.get().isEnabled()) {
+        if (targetDevice.isPresent() && targetDevice.get().hasMessageDeliveryChannel()) {
           return;
         }
 
