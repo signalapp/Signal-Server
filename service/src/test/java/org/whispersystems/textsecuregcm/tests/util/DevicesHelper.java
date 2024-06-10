@@ -27,8 +27,6 @@ public class DevicesHelper {
     device.setUserAgent("OWT");
     device.setRegistrationId(registrationId);
 
-    setEnabled(device, true);
-
     return device;
   }
 
@@ -38,20 +36,6 @@ public class DevicesHelper {
     device.setUserAgent("OWT");
     device.setRegistrationId(registrationId);
 
-    setEnabled(device, false);
-
     return device;
   }
-
-  public static void setEnabled(Device device, boolean enabled) {
-    if (enabled) {
-      device.setGcmId("testGcmId" + RANDOM.nextLong());
-    } else {
-      device.setGcmId(null);
-    }
-
-    // fail fast, to guard against a change to the isEnabled() implementation causing unexpected test behavior
-    assert enabled == device.hasMessageDeliveryChannel();
-  }
-
 }

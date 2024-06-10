@@ -11,26 +11,23 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import javax.ws.rs.core.SecurityContext;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 class ContainerRequestUtil {
 
-  private static Map<Byte, Boolean> buildDevicesEnabledMap(final Account account) {
-    return account.getDevices().stream().collect(Collectors.toMap(Device::getId, Device::hasMessageDeliveryChannel));
-  }
-
   /**
    * A read-only subset of the authenticated Account object, to enforce that filter-based consumers do not perform
    * account modifying operations.
    */
-  record AccountInfo(UUID accountId, String e164, Map<Byte, Boolean> devicesEnabled) {
+  record AccountInfo(UUID accountId, String e164, Set<Byte> deviceIds) {
 
     static AccountInfo fromAccount(final Account account) {
       return new AccountInfo(
           account.getUuid(),
           account.getNumber(),
-          buildDevicesEnabledMap(account));
+          account.getDevices().stream().map(Device::getId).collect(Collectors.toSet()));
     }
   }
 

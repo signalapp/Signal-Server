@@ -131,54 +131,8 @@ class AuthEnablementRefreshRequirementProviderTest {
         .forEach(device -> when(clientPresenceManager.isPresent(uuid, device.getId())).thenReturn(true));
   }
 
-  @ParameterizedTest
-  @MethodSource
-  void testDeviceEnabledChanged(final Map<Byte, Boolean> initialEnabled, final Map<Byte, Boolean> finalEnabled) {
-    assert initialEnabled.size() == finalEnabled.size();
-
-    assert account.getPrimaryDevice().hasMessageDeliveryChannel();
-
-    initialEnabled.forEach((deviceId, enabled) ->
-        DevicesHelper.setEnabled(account.getDevice(deviceId).orElseThrow(), enabled));
-
-    final Response response = resources.getJerseyTest()
-        .target("/v1/test/account/devices/enabled")
-        .request()
-        .header("Authorization",
-            "Basic " + Base64.getEncoder().encodeToString("user:pass".getBytes(StandardCharsets.UTF_8)))
-        .post(Entity.entity(finalEnabled, MediaType.APPLICATION_JSON));
-
-    assertEquals(200, response.getStatus());
-
-    final boolean expectDisplacedPresence = !initialEnabled.equals(finalEnabled);
-
-    assertAll(
-        initialEnabled.keySet().stream()
-            .map(deviceId -> () -> verify(clientPresenceManager, times(expectDisplacedPresence ? 1 : 0))
-                .disconnectPresence(account.getUuid(), deviceId)));
-
-    assertAll(
-        finalEnabled.keySet().stream()
-            .map(deviceId -> () -> verify(clientPresenceManager, times(expectDisplacedPresence ? 1 : 0))
-                .disconnectPresence(account.getUuid(), deviceId)));
-  }
-
-  static Stream<Arguments> testDeviceEnabledChanged() {
-    final byte deviceId2 = 2;
-    final byte deviceId3 = 3;
-    return Stream.of(
-        Arguments.of(Map.of(deviceId2, false, deviceId3, false), Map.of(deviceId2, true, deviceId3, true)),
-        Arguments.of(Map.of(deviceId2, true, deviceId3, true), Map.of(deviceId2, false, deviceId3, false)),
-        Arguments.of(Map.of(deviceId2, true, deviceId3, true), Map.of(deviceId2, true, deviceId3, true)),
-        Arguments.of(Map.of(deviceId2, false, deviceId3, true), Map.of(deviceId2, true, deviceId3, true)),
-        Arguments.of(Map.of(deviceId2, true, deviceId3, false), Map.of(deviceId2, true, deviceId3, true))
-    );
-  }
-
   @Test
   void testDeviceAdded() {
-    assert account.getPrimaryDevice().hasMessageDeliveryChannel();
-
     final int initialDeviceCount = account.getDevices().size();
 
     final List<String> addedDeviceNames = List.of(
@@ -204,8 +158,6 @@ class AuthEnablementRefreshRequirementProviderTest {
   @ParameterizedTest
   @ValueSource(ints = {1, 2})
   void testDeviceRemoved(final int removedDeviceCount) {
-    assert account.getPrimaryDevice().hasMessageDeliveryChannel();
-
     final List<Byte> initialDeviceIds = account.getDevices().stream().map(Device::getId).toList();
 
     final List<Byte> deletedDeviceIds = account.getDevices().stream()
@@ -359,39 +311,8 @@ class AuthEnablementRefreshRequirementProviderTest {
     }
 
     @PUT
-    @Path("/account/enabled/{enabled}")
-    @ChangesDeviceEnabledState
-    public String setAccountEnabled(@Auth TestPrincipal principal, @PathParam("enabled") final boolean enabled) {
-
-      final Device device = principal.getAccount().getPrimaryDevice();
-
-      DevicesHelper.setEnabled(device, enabled);
-
-      assert device.hasMessageDeliveryChannel() == enabled;
-
-      return String.format("Set account to %s", enabled);
-    }
-
-    @POST
-    @Path("/account/devices/enabled")
-    @ChangesDeviceEnabledState
-    public String setEnabled(@Auth TestPrincipal principal, Map<Byte, Boolean> deviceIdsEnabled) {
-
-      final StringBuilder response = new StringBuilder();
-
-      for (Entry<Byte, Boolean> deviceIdEnabled : deviceIdsEnabled.entrySet()) {
-        final Device device = principal.getAccount().getDevice(deviceIdEnabled.getKey()).orElseThrow();
-        DevicesHelper.setEnabled(device, deviceIdEnabled.getValue());
-
-        response.append(String.format("Set device enabled %s", deviceIdEnabled));
-      }
-
-      return response.toString();
-    }
-
-    @PUT
     @Path("/account/devices")
-    @ChangesDeviceEnabledState
+    @ChangesLinkedDevices
     public String addDevices(@Auth TestPrincipal auth, List<byte[]> deviceNames) {
 
       deviceNames.forEach(name -> {
@@ -406,7 +327,7 @@ class AuthEnablementRefreshRequirementProviderTest {
 
     @DELETE
     @Path("/account/devices/{deviceIds}")
-    @ChangesDeviceEnabledState
+    @ChangesLinkedDevices
     public String removeDevices(@Auth TestPrincipal auth, @PathParam("deviceIds") String deviceIds) {
 
       Arrays.stream(deviceIds.split(","))
@@ -414,18 +335,6 @@ class AuthEnablementRefreshRequirementProviderTest {
           .forEach(auth.getAccount()::removeDevice);
 
       return "Removed device(s) " + deviceIds;
-    }
-
-    @POST
-    @Path("/account/disablePrimaryDeviceAndDeleteDevice/{deviceId}")
-    @ChangesDeviceEnabledState
-    public String disablePrimaryDeviceAndRemoveDevice(@Auth TestPrincipal auth, @PathParam("deviceId") byte deviceId) {
-
-      DevicesHelper.setEnabled(auth.getAccount().getPrimaryDevice(), false);
-
-      auth.getAccount().removeDevice(deviceId);
-
-      return "Removed device " + deviceId;
     }
   }
 }

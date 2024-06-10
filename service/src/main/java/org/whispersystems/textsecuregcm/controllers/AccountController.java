@@ -34,7 +34,6 @@ import javax.ws.rs.core.Response.Status;
 import org.signal.libsignal.usernames.BaseUsernameException;
 import org.whispersystems.textsecuregcm.auth.AccountAndAuthenticatedDeviceHolder;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
-import org.whispersystems.textsecuregcm.auth.ChangesDeviceEnabledState;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.auth.TurnToken;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
@@ -109,7 +108,6 @@ public class AccountController {
   @Path("/gcm/")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  @ChangesDeviceEnabledState
   public void setGcmRegistrationId(@Mutable @Auth AuthenticatedAccount auth,
       @NotNull @Valid GcmRegistrationId registrationId) {
 
@@ -130,7 +128,6 @@ public class AccountController {
 
   @DELETE
   @Path("/gcm/")
-  @ChangesDeviceEnabledState
   public void deleteGcmRegistrationId(@Mutable @Auth AuthenticatedAccount auth) {
     Account account = auth.getAccount();
     Device device = auth.getAuthenticatedDevice();
@@ -146,7 +143,6 @@ public class AccountController {
   @Path("/apn/")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  @ChangesDeviceEnabledState
   public void setApnRegistrationId(@Mutable @Auth AuthenticatedAccount auth,
       @NotNull @Valid ApnRegistrationId registrationId) {
 
@@ -165,7 +161,6 @@ public class AccountController {
 
   @DELETE
   @Path("/apn/")
-  @ChangesDeviceEnabledState
   public void deleteApnRegistrationId(@Mutable @Auth AuthenticatedAccount auth) {
     Account account = auth.getAccount();
     Device device = auth.getAuthenticatedDevice();
@@ -210,7 +205,6 @@ public class AccountController {
   @Path("/attributes/")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  @ChangesDeviceEnabledState
   public void setAccountAttributes(
       @Mutable @Auth AuthenticatedAccount auth,
       @HeaderParam(HeaderUtils.X_SIGNAL_AGENT) String userAgent,

@@ -49,7 +49,7 @@ import org.glassfish.jersey.server.ContainerRequest;
 import org.whispersystems.textsecuregcm.auth.AuthEnablementRefreshRequirementProvider;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.BasicAuthorizationHeader;
-import org.whispersystems.textsecuregcm.auth.ChangesDeviceEnabledState;
+import org.whispersystems.textsecuregcm.auth.ChangesLinkedDevices;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.DeviceActivationRequest;
 import org.whispersystems.textsecuregcm.entities.DeviceInfo;
@@ -132,7 +132,7 @@ public class DeviceController {
   @DELETE
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/{device_id}")
-  @ChangesDeviceEnabledState
+  @ChangesLinkedDevices
   public void removeDevice(@Mutable @Auth AuthenticatedAccount auth, @PathParam("device_id") byte deviceId) {
     if (auth.getAuthenticatedDevice().getId() != Device.PRIMARY_ID) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
@@ -176,7 +176,7 @@ public class DeviceController {
   @Produces(MediaType.APPLICATION_JSON)
   @Consumes(MediaType.APPLICATION_JSON)
   @Path("/link")
-  @ChangesDeviceEnabledState
+  @ChangesLinkedDevices
   @Operation(summary = "Link a device to an account",
       description = """
           Links a device to an account identified by a given phone number.

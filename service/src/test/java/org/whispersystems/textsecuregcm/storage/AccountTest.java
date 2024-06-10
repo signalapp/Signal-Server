@@ -15,7 +15,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.whispersystems.textsecuregcm.tests.util.DevicesHelper.createDevice;
-import static org.whispersystems.textsecuregcm.tests.util.DevicesHelper.setEnabled;
 
 import com.fasterxml.jackson.annotation.JsonFilter;
 import java.lang.annotation.Annotation;
@@ -28,12 +27,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.util.TestClock;
@@ -206,12 +201,6 @@ class AccountTest {
 
     final byte deviceId3 = 3;
     assertThat(account.getNextDeviceId()).isEqualTo(deviceId3);
-
-    account.addDevice(createDevice(deviceId3));
-
-    setEnabled(account.getDevice(deviceId2).orElseThrow(), false);
-
-    assertThat(account.getNextDeviceId()).isEqualTo((byte) 4);
 
     account.removeDevice(deviceId2);
 
