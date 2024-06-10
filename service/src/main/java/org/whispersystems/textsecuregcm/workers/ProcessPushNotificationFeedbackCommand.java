@@ -28,7 +28,7 @@ public class ProcessPushNotificationFeedbackCommand extends AbstractSinglePassCr
   private final Clock clock;
 
   @VisibleForTesting
-  static final Duration MAX_TOKEN_REFRESH_DELAY = Duration.ofDays(3);
+  static final Duration MAX_TOKEN_REFRESH_DELAY = Duration.ofDays(14);
 
   @VisibleForTesting
   static final String DRY_RUN_ARGUMENT = "dry-run";
