@@ -108,9 +108,10 @@ public class AccountAuthenticator implements Authenticator<BasicCredentials, Aut
               SaltedTokenHash.generateFor(basicCredentials.getPassword()));  // new credentials have current version
         }
         return Optional.of(new AuthenticatedAccount(authenticatedAccount, device.get()));
+      } else {
+        failureReason = "incorrectPassword";
+        return Optional.empty();
       }
-
-      return Optional.empty();
     } catch (IllegalArgumentException | InvalidAuthorizationHeaderException iae) {
       failureReason = "invalidHeader";
       return Optional.empty();
