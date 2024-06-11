@@ -15,6 +15,7 @@ import com.google.protobuf.ByteString;
 import io.dropwizard.auth.Auth;
 import io.dropwizard.util.DataSize;
 import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
@@ -176,7 +177,7 @@ public class MessageController {
 
   private static final String REJECT_OVERSIZE_MESSAGE_COUNTER = name(MessageController.class, "rejectOversizeMessage");
   private static final String SENT_MESSAGE_COUNTER_NAME = name(MessageController.class, "sentMessages");
-  private static final String CONTENT_SIZE_DISTRIBUTION_NAME = name(MessageController.class, "messageContentSize");
+  private static final String CONTENT_SIZE_DISTRIBUTION_NAME = MetricsUtil.name(MessageController.class, "messageContentSize");
   private static final String OUTGOING_MESSAGE_LIST_SIZE_BYTES_DISTRIBUTION_NAME = name(MessageController.class, "outgoingMessageListSizeBytes");
   private static final String RATE_LIMITED_MESSAGE_COUNTER_NAME = name(MessageController.class, "rateLimitedMessage");
 
@@ -933,15 +934,19 @@ public class MessageController {
   }
 
   private void validateContentLength(final int contentLength, final String userAgent) {
-    Metrics.summary(CONTENT_SIZE_DISTRIBUTION_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent)))
+    final boolean oversize = contentLength > MAX_MESSAGE_SIZE;
+
+    DistributionSummary.builder(CONTENT_SIZE_DISTRIBUTION_NAME)
+        .tags(Tags.of(UserAgentTagUtil.getPlatformTag(userAgent), Tag.of("oversize", String.valueOf(oversize))))
+        .publishPercentileHistogram(true)
+        .register(Metrics.globalRegistry)
         .record(contentLength);
 
-    if (contentLength > MAX_MESSAGE_SIZE) {
+    if (oversize) {
       Metrics.counter(REJECT_OVERSIZE_MESSAGE_COUNTER, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent)))
           .increment();
       throw new WebApplicationException(Status.REQUEST_ENTITY_TOO_LARGE);
     }
-
   }
 
   private void validateEnvelopeType(final int type, final String userAgent) {
