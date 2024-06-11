@@ -8,8 +8,6 @@ import static com.codahale.metrics.MetricRegistry.name;
 
 import com.codahale.metrics.annotation.Timed;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.net.HttpHeaders;
 import com.google.protobuf.ByteString;
 import io.dropwizard.auth.Auth;
@@ -633,40 +631,41 @@ public class MessageController {
 
     try {
       CompletableFuture.allOf(
-          recipients.values().stream()
-              .flatMap(recipientData -> {
-                final Counter sentMessageCounter = Metrics.counter(SENT_MESSAGE_COUNTER_NAME, Tags.of(
-                    UserAgentTagUtil.getPlatformTag(userAgent),
-                    Tag.of(EPHEMERAL_TAG_NAME, String.valueOf(online)),
-                    Tag.of(SENDER_TYPE_TAG_NAME, SENDER_TYPE_UNIDENTIFIED),
-                    Tag.of(IDENTITY_TYPE_TAG_NAME, recipientData.serviceIdentifier().identityType().name())));
+              recipients.values().stream()
+                  .flatMap(recipientData -> {
+                    final Counter sentMessageCounter = Metrics.counter(SENT_MESSAGE_COUNTER_NAME, Tags.of(
+                        UserAgentTagUtil.getPlatformTag(userAgent),
+                        Tag.of(EPHEMERAL_TAG_NAME, String.valueOf(online)),
+                        Tag.of(SENDER_TYPE_TAG_NAME, SENDER_TYPE_UNIDENTIFIED),
+                        Tag.of(IDENTITY_TYPE_TAG_NAME, recipientData.serviceIdentifier().identityType().name())));
 
-                  validateContentLength(multiRecipientMessage.messageSizeForRecipient(recipientData.recipient()), true, userAgent);
+                    validateContentLength(multiRecipientMessage.messageSizeForRecipient(recipientData.recipient()), true, userAgent);
 
-                  return recipientData.deviceIdToRegistrationId().keySet().stream().map(
-                      deviceId ->CompletableFuture.runAsync(
-                          () -> {
-                            final Account destinationAccount = recipientData.account();
-                            final byte[] payload = multiRecipientMessage.messageForRecipient(recipientData.recipient());
+                    return recipientData.deviceIdToRegistrationId().keySet().stream().map(
+                        deviceId -> CompletableFuture.runAsync(
+                            () -> {
+                              final Account destinationAccount = recipientData.account();
+                              final byte[] payload = multiRecipientMessage.messageForRecipient(recipientData.recipient());
 
-                            // we asserted this must exist in validateCompleteDeviceList
-                            final Device destinationDevice = destinationAccount.getDevice(deviceId).orElseThrow();
-                            try {
-                              sentMessageCounter.increment();
-                              sendCommonPayloadMessage(
-                                  destinationAccount, destinationDevice, recipientData.serviceIdentifier(), timestamp, online,
-                                  isStory, isUrgent, payload);
-                            } catch (NoSuchUserException e) {
-                              // this should never happen, because we already asserted the device is present and enabled
-                              Metrics.counter(
-                                  UNEXPECTED_MISSING_USER_COUNTER_NAME,
-                                  Tags.of("isPrimary", String.valueOf(destinationDevice.isPrimary()))).increment();
-                              uuids404.add(recipientData.serviceIdentifier());
-                            }
-                          },
-                          multiRecipientMessageExecutor));
-              })
-              .toArray(CompletableFuture[]::new))
+                              // we asserted this must exist in validateCompleteDeviceList
+                              final Device destinationDevice = destinationAccount.getDevice(deviceId).orElseThrow();
+                              try {
+                                sentMessageCounter.increment();
+                                sendCommonPayloadMessage(
+                                    destinationAccount, destinationDevice, recipientData.serviceIdentifier(), timestamp,
+                                    online,
+                                    isStory, isUrgent, payload);
+                              } catch (NoSuchUserException e) {
+                                // this should never happen, because we already asserted the device is present and enabled
+                                Metrics.counter(
+                                    UNEXPECTED_MISSING_USER_COUNTER_NAME,
+                                    Tags.of("isPrimary", String.valueOf(destinationDevice.isPrimary()))).increment();
+                                uuids404.add(recipientData.serviceIdentifier());
+                              }
+                            },
+                            multiRecipientMessageExecutor));
+                  })
+                  .toArray(CompletableFuture[]::new))
           .get();
     } catch (InterruptedException e) {
       logger.error("interrupted while delivering multi-recipient messages", e);
