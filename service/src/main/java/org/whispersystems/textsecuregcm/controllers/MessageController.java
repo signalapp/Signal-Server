@@ -344,7 +344,7 @@ public class MessageController {
           contentLength += message.content().length();
         }
 
-        validateContentLength(contentLength, userAgent);
+        validateContentLength(contentLength, false, userAgent);
         validateEnvelopeType(message.type(), userAgent);
 
         totalContentLength += contentLength;
@@ -641,6 +641,8 @@ public class MessageController {
                     Tag.of(SENDER_TYPE_TAG_NAME, SENDER_TYPE_UNIDENTIFIED),
                     Tag.of(IDENTITY_TYPE_TAG_NAME, recipientData.serviceIdentifier().identityType().name())));
 
+                  validateContentLength(multiRecipientMessage.messageSizeForRecipient(recipientData.recipient()), true, userAgent);
+
                   return recipientData.deviceIdToRegistrationId().keySet().stream().map(
                       deviceId ->CompletableFuture.runAsync(
                           () -> {
@@ -933,11 +935,13 @@ public class MessageController {
     }
   }
 
-  private void validateContentLength(final int contentLength, final String userAgent) {
+  private void validateContentLength(final int contentLength, final boolean multiRecipientMessage, final String userAgent) {
     final boolean oversize = contentLength > MAX_MESSAGE_SIZE;
 
     DistributionSummary.builder(CONTENT_SIZE_DISTRIBUTION_NAME)
-        .tags(Tags.of(UserAgentTagUtil.getPlatformTag(userAgent), Tag.of("oversize", String.valueOf(oversize))))
+        .tags(Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
+            Tag.of("oversize", String.valueOf(oversize)),
+            Tag.of("multiRecipientMessage", String.valueOf(multiRecipientMessage))))
         .publishPercentileHistogram(true)
         .register(Metrics.globalRegistry)
         .record(contentLength);
