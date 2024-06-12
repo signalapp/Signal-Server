@@ -49,6 +49,8 @@ class AccountTest {
   private final Device paymentActivationCapableDevice = mock(Device.class);
   private final Device paymentActivationIncapableDevice = mock(Device.class);
   private final Device paymentActivationIncapableExpiredDevice = mock(Device.class);
+  private final Device deleteSyncCapableDevice = mock(Device.class);
+  private final Device deleteSyncIncapableDevice = mock(Device.class);
 
   @BeforeEach
   void setup() {
@@ -74,14 +76,23 @@ class AccountTest {
     when(oldSecondaryDevice.getId()).thenReturn(deviceId2);
 
     when(paymentActivationCapableDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true));
+        new DeviceCapabilities(true, true, true, false));
     when(paymentActivationCapableDevice.hasMessageDeliveryChannel()).thenReturn(true);
     when(paymentActivationIncapableDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, false));
+        new DeviceCapabilities(true, true, false, false));
     when(paymentActivationIncapableDevice.hasMessageDeliveryChannel()).thenReturn(true);
     when(paymentActivationIncapableExpiredDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, false));
+        new DeviceCapabilities(true, true, false, false));
     when(paymentActivationIncapableExpiredDevice.hasMessageDeliveryChannel()).thenReturn(false);
+
+    when(deleteSyncCapableDevice.getCapabilities()).thenReturn(
+        new DeviceCapabilities(true, true, true, true)
+    );
+    when(deleteSyncCapableDevice.hasMessageDeliveryChannel()).thenReturn(true);
+    when(deleteSyncIncapableDevice.getCapabilities()).thenReturn(
+        new DeviceCapabilities(true, true, true, false)
+    );
+    when(deleteSyncIncapableDevice.hasMessageDeliveryChannel()).thenReturn(true);
 
   }
 
@@ -182,6 +193,16 @@ class AccountTest {
     assertThat(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(),
         List.of(paymentActivationCapableDevice, paymentActivationIncapableExpiredDevice),
         "1234".getBytes(StandardCharsets.UTF_8)).isPaymentActivationSupported()).isTrue();
+  }
+
+  @Test
+  void isDeleteSyncSupported() {
+    assertTrue(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(),
+        List.of(deleteSyncCapableDevice),
+        "1234".getBytes(StandardCharsets.UTF_8)).isDeleteSyncSupported());
+    assertFalse(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(),
+        List.of(deleteSyncCapableDevice, deleteSyncIncapableDevice),
+        "1234".getBytes(StandardCharsets.UTF_8)).isDeleteSyncSupported());
   }
 
   @Test

@@ -322,6 +322,10 @@ message UserCapabilities {
    * Whether all devices linked to the account support MobileCoin payments.
    */
   bool payment_activation = 1;
+  /**
+   * Whether all devices linked to the account support delete syncing
+   */
+  bool delete_sync = 2;
 }
 
 message Badge {

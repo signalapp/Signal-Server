@@ -144,6 +144,7 @@ class ProfileControllerTest {
 
   private DynamicPaymentsConfiguration dynamicPaymentsConfiguration;
   private Account profileAccount;
+  private Account capabilitiesAccount;
 
   private static final ResourceExtension resources = ResourceExtension.builder()
       .addProperty(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE)
@@ -203,12 +204,11 @@ class ProfileControllerTest {
     when(profileAccount.getUsernameHash()).thenReturn(Optional.of(USERNAME_HASH));
     when(profileAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of(UNIDENTIFIED_ACCESS_KEY));
 
-    Account capabilitiesAccount = mock(Account.class);
+    capabilitiesAccount = mock(Account.class);
 
     when(capabilitiesAccount.getUuid()).thenReturn(AuthHelper.VALID_UUID);
     when(capabilitiesAccount.getIdentityKey(IdentityType.ACI)).thenReturn(ACCOUNT_IDENTITY_KEY);
     when(capabilitiesAccount.getIdentityKey(IdentityType.PNI)).thenReturn(ACCOUNT_PHONE_NUMBER_IDENTITY_KEY);
-    when(capabilitiesAccount.isPaymentActivationSupported()).thenReturn(false);
     when(capabilitiesAccount.isEnabled()).thenReturn(true);
 
     when(accountsManager.getByServiceIdentifier(any())).thenReturn(Optional.empty());
@@ -439,14 +439,17 @@ class ProfileControllerTest {
     assertThat(response.getStatus()).isEqualTo(401);
   }
 
-  @Test
-  void testProfileCapabilities() {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void testProfileCapabilities(final boolean isDeleteSyncSupported) {
+    when(capabilitiesAccount.isDeleteSyncSupported()).thenReturn(isDeleteSyncSupported);
     final BaseProfileResponse profile = resources.getJerseyTest()
         .target("/v1/profile/" + AuthHelper.VALID_UUID)
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get(BaseProfileResponse.class);
 
+    assertEquals(isDeleteSyncSupported, profile.getCapabilities().deleteSync());
     assertThat(profile.getCapabilities().paymentActivation()).isTrue();
   }
 

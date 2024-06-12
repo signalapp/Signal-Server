@@ -83,6 +83,7 @@ public class ProfileGrpcHelper {
   static UserCapabilities buildUserCapabilities(final org.whispersystems.textsecuregcm.entities.UserCapabilities capabilities) {
     return UserCapabilities.newBuilder()
         .setPaymentActivation(capabilities.paymentActivation())
+        .setDeleteSync(capabilities.deleteSync())
         .build();
   }
 
@@ -104,7 +105,7 @@ public class ProfileGrpcHelper {
       final ProfileBadgeConverter profileBadgeConverter) {
     final GetUnversionedProfileResponse.Builder responseBuilder = GetUnversionedProfileResponse.newBuilder()
         .setIdentityKey(ByteString.copyFrom(targetAccount.getIdentityKey(targetIdentifier.identityType()).serialize()))
-        .setCapabilities(buildUserCapabilities(new org.whispersystems.textsecuregcm.entities.UserCapabilities()));
+        .setCapabilities(buildUserCapabilities(org.whispersystems.textsecuregcm.entities.UserCapabilities.createForAccount(targetAccount)));
 
     switch (targetIdentifier.identityType()) {
       case ACI -> {

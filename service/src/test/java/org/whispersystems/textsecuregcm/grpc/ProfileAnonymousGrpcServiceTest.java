@@ -162,7 +162,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
         .setIdentityKey(ByteString.copyFrom(identityKey.serialize()))
         .setUnidentifiedAccess(ByteString.copyFrom(unidentifiedAccessChecksum))
         .setUnrestrictedUnidentifiedAccess(false)
-        .setCapabilities(ProfileGrpcHelper.buildUserCapabilities(new UserCapabilities()))
+        .setCapabilities(ProfileGrpcHelper.buildUserCapabilities(UserCapabilities.createForAccount(account)))
         .addAllBadges(ProfileGrpcHelper.buildBadges(badges))
         .build();
 
@@ -214,7 +214,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
     final GetUnversionedProfileResponse expectedResponse = GetUnversionedProfileResponse.newBuilder()
         .setIdentityKey(ByteString.copyFrom(identityKey.serialize()))
         .setUnrestrictedUnidentifiedAccess(false)
-        .setCapabilities(ProfileGrpcHelper.buildUserCapabilities(new UserCapabilities()))
+        .setCapabilities(ProfileGrpcHelper.buildUserCapabilities(UserCapabilities.createForAccount(account)))
         .addAllBadges(ProfileGrpcHelper.buildBadges(badges))
         .build();
 

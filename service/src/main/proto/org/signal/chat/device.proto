@@ -148,6 +148,7 @@ message SetCapabilitiesRequest {
   bool storage = 1;
   bool transfer = 2;
   bool paymentActivation = 3;
+  bool deleteSync = 4;
 }
 
 message SetCapabilitiesResponse {}

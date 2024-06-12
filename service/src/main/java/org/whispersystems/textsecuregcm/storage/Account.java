@@ -292,6 +292,10 @@ public class Account {
     return allEnabledDevicesHaveCapability(DeviceCapabilities::paymentActivation);
   }
 
+  public boolean isDeleteSyncSupported() {
+    return allEnabledDevicesHaveCapability(DeviceCapabilities::deleteSync);
+  }
+
   private boolean allEnabledDevicesHaveCapability(final Predicate<DeviceCapabilities> predicate) {
     requireNotStale();
 

@@ -447,7 +447,7 @@ public class ProfileController {
     return new BaseProfileResponse(account.getIdentityKey(IdentityType.ACI),
         account.getUnidentifiedAccessKey().map(UnidentifiedAccessChecksum::generateFor).orElse(null),
         account.isUnrestrictedUnidentifiedAccess(),
-        new UserCapabilities(),
+        UserCapabilities.createForAccount(account),
         profileBadgeConverter.convert(
             getAcceptableLanguagesForRequest(containerRequestContext),
             account.getBadges(),
@@ -459,7 +459,7 @@ public class ProfileController {
     return new BaseProfileResponse(account.getIdentityKey(IdentityType.PNI),
         null,
         false,
-        new UserCapabilities(),
+        UserCapabilities.createForAccount(account),
         Collections.emptyList(),
         new PniServiceIdentifier(account.getPhoneNumberIdentifier()));
   }

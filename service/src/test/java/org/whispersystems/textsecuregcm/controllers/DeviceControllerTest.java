@@ -218,7 +218,8 @@ class DeviceControllerTest {
 
     when(asyncCommands.set(any(), any(), any())).thenReturn(MockRedisFuture.completedFuture(null));
 
-    final AccountAttributes accountAttributes = new AccountAttributes(fetchesMessages, 1234, 5678, null, null, true, new DeviceCapabilities(true, true, true));
+    final AccountAttributes accountAttributes = new AccountAttributes(fetchesMessages, 1234, 5678, null,
+        null, true, new DeviceCapabilities(true, true, true, false));
 
     final LinkDeviceRequest request = new LinkDeviceRequest(deviceCode.verificationCode(),
         accountAttributes,
@@ -262,6 +263,58 @@ class DeviceControllerTest {
         Arguments.of(false, Optional.of(new ApnRegistrationId(apnsToken, apnsVoipToken)), Optional.empty(), Optional.of(apnsToken), Optional.of(apnsVoipToken), Optional.empty()),
         Arguments.of(false, Optional.empty(), Optional.of(new GcmRegistrationId(gcmToken)), Optional.empty(), Optional.empty(), Optional.of(gcmToken))
     );
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void deviceDowngradeDeleteSync(final boolean accountSupportsDeleteSync, final boolean deviceSupportsDeleteSync, final int expectedStatus) {
+    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
+    when(accountsManager.addDevice(any(), any()))
+            .thenReturn(CompletableFuture.completedFuture(new Pair<>(mock(Account.class), mock(Device.class))));
+
+    final Device primaryDevice = mock(Device.class);
+    when(primaryDevice.getId()).thenReturn(Device.PRIMARY_ID);
+    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(primaryDevice));
+
+    final ECSignedPreKey aciSignedPreKey;
+    final ECSignedPreKey pniSignedPreKey;
+    final KEMSignedPreKey aciPqLastResortPreKey;
+    final KEMSignedPreKey pniPqLastResortPreKey;
+
+    final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+
+    aciSignedPreKey = KeysHelper.signedECPreKey(1, aciIdentityKeyPair);
+    pniSignedPreKey = KeysHelper.signedECPreKey(2, pniIdentityKeyPair);
+    aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair);
+    pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair);
+
+    when(account.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
+    when(account.getIdentityKey(IdentityType.PNI)).thenReturn(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
+    when(account.isDeleteSyncSupported()).thenReturn(accountSupportsDeleteSync);
+
+    when(asyncCommands.set(any(), any(), any())).thenReturn(MockRedisFuture.completedFuture(null));
+
+    final LinkDeviceRequest request = new LinkDeviceRequest(deviceController.generateVerificationToken(AuthHelper.VALID_UUID),
+            new AccountAttributes(false, 1234, 5678, null, null, true, new DeviceCapabilities(true, true, true, deviceSupportsDeleteSync)),
+            new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, Optional.empty(), Optional.of(new GcmRegistrationId("gcm-id"))));
+
+    try (final Response response = resources.getJerseyTest()
+            .target("/v1/devices/link")
+            .request()
+            .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
+            .put(Entity.entity(request, MediaType.APPLICATION_JSON_TYPE))) {
+
+      assertEquals(expectedStatus, response.getStatus());
+    }
+  }
+
+  private static List<Arguments> deviceDowngradeDeleteSync() {
+    return List.of(
+            Arguments.of(true, true, 200),
+            Arguments.of(true, false, 409),
+            Arguments.of(false, true, 200),
+            Arguments.of(false, false, 200));
   }
 
   @Test
@@ -633,7 +686,7 @@ class DeviceControllerTest {
     when(asyncCommands.set(any(), any(), any())).thenReturn(MockRedisFuture.completedFuture(null));
 
     final LinkDeviceRequest request = new LinkDeviceRequest(deviceCode.verificationCode(),
-        new AccountAttributes(false, registrationId, pniRegistrationId, null, null, true, new DeviceCapabilities(true, true, true)),
+        new AccountAttributes(false, registrationId, pniRegistrationId, null, null, true, new DeviceCapabilities(true, true, true, false)),
         new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, Optional.of(new ApnRegistrationId("apn", null)), Optional.empty()));
 
     try (final Response response = resources.getJerseyTest()
@@ -692,7 +745,7 @@ class DeviceControllerTest {
 
   @Test
   void putCapabilitiesSuccessTest() {
-    final DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, true);
+    final DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, true, false);
     final Response response = resources
         .getJerseyTest()
         .target("/v1/devices/capabilities")
