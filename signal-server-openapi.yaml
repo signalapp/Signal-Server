@@ -3326,6 +3326,8 @@ components:
           type: boolean
         paymentActivation:
           type: boolean
+        deleteSync:
+          type: boolean
     ApnRegistrationId:
       required:
       - apnRegistrationId
@@ -4555,11 +4557,7 @@ components:
       properties:
         paymentActivation:
           type: boolean
-        pni:
-          type: boolean
-        pnp:
-          type: boolean
-        giftBadges:
+        deleteSync:
           type: boolean
     VersionedProfileResponse:
       type: object
