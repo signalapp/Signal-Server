@@ -27,7 +27,6 @@ import io.dropwizard.testing.junit5.ResourceExtension;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -448,7 +447,6 @@ class ProfileControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get(BaseProfileResponse.class);
 
-    assertThat(profile.getCapabilities().pni()).isTrue();
     assertThat(profile.getCapabilities().paymentActivation()).isTrue();
   }
 
@@ -932,7 +930,6 @@ class ProfileControllerTest {
     assertThat(profile.getAboutEmoji()).containsExactly(emoji);
     assertThat(profile.getAvatar()).isEqualTo("profiles/validavatar");
     assertThat(profile.getPhoneNumberSharing()).containsExactly(phoneNumberSharing);
-    assertThat(profile.getBaseProfileResponse().getCapabilities().pni()).isTrue();
     assertThat(profile.getBaseProfileResponse().getUuid()).isEqualTo(new AciServiceIdentifier(AuthHelper.VALID_UUID_TWO));
     assertThat(profile.getBaseProfileResponse().getBadges()).hasSize(1).element(0).has(new Condition<>(
         badge -> "Test Badge".equals(badge.getName()), "has badge with expected name"));

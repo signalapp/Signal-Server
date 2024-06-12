@@ -322,10 +322,6 @@ message UserCapabilities {
    * Whether all devices linked to the account support MobileCoin payments.
    */
   bool payment_activation = 1;
-  /**
-   * Whether all devices linked to the account support phone number privacy.
-   */
-  bool pni = 2;
 }
 
 message Badge {

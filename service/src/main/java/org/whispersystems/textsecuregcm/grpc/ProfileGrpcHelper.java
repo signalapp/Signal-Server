@@ -83,7 +83,6 @@ public class ProfileGrpcHelper {
   static UserCapabilities buildUserCapabilities(final org.whispersystems.textsecuregcm.entities.UserCapabilities capabilities) {
     return UserCapabilities.newBuilder()
         .setPaymentActivation(capabilities.paymentActivation())
-        .setPni(capabilities.pni())
         .build();
   }
 
