@@ -5,6 +5,7 @@
 
 package org.signal.integration;
 
+import io.micrometer.common.util.StringUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.entities.CreateVerificationSessionRequest;
@@ -29,6 +30,8 @@ public class RegistrationTest {
         .executeExpectSuccess(VerificationSessionResponse.class);
 
     final String sessionId = verificationSessionResponse.id();
+    Assertions.assertTrue(StringUtils.isNotBlank(sessionId));
+
     final String pushChallenge = Operations.peekVerificationSessionPushChallenge(sessionId);
 
     // supply push challenge

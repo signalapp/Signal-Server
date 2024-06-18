@@ -50,6 +50,7 @@ import org.whispersystems.textsecuregcm.entities.RegistrationRequest;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
+import org.whispersystems.textsecuregcm.util.HttpUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import javax.validation.ConstraintViolation;
 
@@ -249,7 +250,7 @@ public final class Operations {
     public Pair<Integer, Void> executeExpectSuccess() {
       final Pair<Integer, Void> execute = execute();
       Validate.isTrue(
-          execute.getLeft() >= 200 && execute.getLeft() < 300,
+          HttpUtils.isSuccessfulResponse(execute.getLeft()),
           "Unexpected response code: %d",
           execute.getLeft());
       return execute;
@@ -257,6 +258,10 @@ public final class Operations {
 
     public <T> T executeExpectSuccess(final Class<T> expectedType) {
       final Pair<Integer, T> execute = execute(expectedType);
+      Validate.isTrue(
+          HttpUtils.isSuccessfulResponse(execute.getLeft()),
+          "Unexpected response code: %d : %s",
+          execute.getLeft(), execute.getRight());
       return requireNonNull(execute.getRight());
     }
 
