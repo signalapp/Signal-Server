@@ -49,9 +49,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.signal.libsignal.protocol.InvalidKeyException;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
@@ -79,6 +79,15 @@ public class BackupManagerTest {
   @RegisterExtension
   public static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(
       DynamoDbExtensionSchema.Tables.BACKUPS);
+
+  private static final MediaEncryptionParameters COPY_ENCRYPTION_PARAM = new MediaEncryptionParameters(
+      TestRandomUtil.nextBytes(32),
+      TestRandomUtil.nextBytes(32),
+      TestRandomUtil.nextBytes(16));
+  private static final CopyParameters COPY_PARAM = new CopyParameters(
+      3, "abc", 100,
+      COPY_ENCRYPTION_PARAM, TestRandomUtil.nextBytes(15));
+  private static final String COPY_DEST_STRING = Base64.getEncoder().encodeToString(COPY_PARAM.destinationMediaId());
 
   private final TestClock testClock = TestClock.now();
   private final BackupAuthTestUtil backupAuthTestUtil = new BackupAuthTestUtil(testClock);
@@ -139,7 +148,7 @@ public class BackupManagerTest {
   }
 
   @Test
-  public void createTemporaryMediaAttachmentRateLimited()  {
+  public void createTemporaryMediaAttachmentRateLimited() {
     final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupLevel.MEDIA);
     when(mediaUploadLimiter.validateAsync(eq(BackupManager.rateLimitKey(backupUser))))
         .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(null, true)));
@@ -348,24 +357,15 @@ public class BackupManagerTest {
   @Test
   public void copySuccess() {
     final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupLevel.MEDIA);
-    when(tusCredentialGenerator.generateUpload(any()))
-        .thenReturn(new BackupUploadDescriptor(3, "def", Collections.emptyMap(), ""));
-    when(remoteStorageManager.copy(eq(3), eq("abc"), eq(100), any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(null));
-    final MediaEncryptionParameters encryptionParams = new MediaEncryptionParameters(
-        TestRandomUtil.nextBytes(32),
-        TestRandomUtil.nextBytes(32),
-        TestRandomUtil.nextBytes(16));
-
-    final BackupManager.StorageDescriptor copied = backupManager.copyToBackup(
-        backupUser, 3, "abc", 100, encryptionParams, "def".getBytes(StandardCharsets.UTF_8)).join();
+    final CopyResult copied = copy(backupUser);
 
     assertThat(copied.cdn()).isEqualTo(3);
-    assertThat(copied.key()).isEqualTo("def".getBytes(StandardCharsets.UTF_8));
+    assertThat(copied.mediaId()).isEqualTo(COPY_PARAM.destinationMediaId());
+    assertThat(copied.outcome()).isEqualTo(CopyResult.Outcome.SUCCESS);
 
     final Map<String, AttributeValue> backup = getBackupItem(backupUser);
     final long bytesUsed = AttributeValues.getLong(backup, BackupsDb.ATTR_MEDIA_BYTES_USED, 0L);
-    assertThat(bytesUsed).isEqualTo(encryptionParams.outputSize(100));
+    assertThat(bytesUsed).isEqualTo(COPY_PARAM.destinationObjectSize());
 
     final long mediaCount = AttributeValues.getLong(backup, BackupsDb.ATTR_MEDIA_COUNT, 0L);
     assertThat(mediaCount).isEqualTo(1);
@@ -374,22 +374,44 @@ public class BackupManagerTest {
   @Test
   public void copyFailure() {
     final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupLevel.MEDIA);
-    when(tusCredentialGenerator.generateUpload(any()))
-        .thenReturn(new BackupUploadDescriptor(3, "def", Collections.emptyMap(), ""));
-    when(remoteStorageManager.copy(eq(3), eq("abc"), eq(100), any(), any()))
-        .thenReturn(CompletableFuture.failedFuture(new SourceObjectNotFoundException()));
-
-    CompletableFutureTestUtil.assertFailsWithCause(SourceObjectNotFoundException.class,
-        backupManager.copyToBackup(
-            backupUser,
-            3, "abc", 100,
-            mock(MediaEncryptionParameters.class),
-            "def".getBytes(StandardCharsets.UTF_8)));
+    assertThat(copyError(backupUser, new SourceObjectNotFoundException()).outcome())
+        .isEqualTo(CopyResult.Outcome.SOURCE_NOT_FOUND);
 
     // usage should be rolled back after a known copy failure
     final Map<String, AttributeValue> backup = getBackupItem(backupUser);
     assertThat(AttributeValues.getLong(backup, BackupsDb.ATTR_MEDIA_BYTES_USED, -1L)).isEqualTo(0L);
     assertThat(AttributeValues.getLong(backup, BackupsDb.ATTR_MEDIA_COUNT, -1L)).isEqualTo(0L);
+  }
+
+  @Test
+  public void copyPartialSuccess() {
+    final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupLevel.MEDIA);
+    final List<CopyParameters> toCopy = List.of(
+        new CopyParameters(3, "success", 100, COPY_ENCRYPTION_PARAM, TestRandomUtil.nextBytes(15)),
+        new CopyParameters(3, "missing", 200, COPY_ENCRYPTION_PARAM, TestRandomUtil.nextBytes(15)),
+        new CopyParameters(3, "badlength", 300, COPY_ENCRYPTION_PARAM, TestRandomUtil.nextBytes(15)));
+
+    when(tusCredentialGenerator.generateUpload(any()))
+        .thenReturn(new BackupUploadDescriptor(3, "", Collections.emptyMap(), ""));
+    when(remoteStorageManager.copy(eq(3), eq("success"), eq(100), any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(null));
+    when(remoteStorageManager.copy(eq(3), eq("missing"), eq(200), any(), any()))
+        .thenReturn(CompletableFuture.failedFuture(new SourceObjectNotFoundException()));
+    when(remoteStorageManager.copy(eq(3), eq("badlength"), eq(300), any(), any()))
+        .thenReturn(CompletableFuture.failedFuture(new InvalidLengthException("")));
+
+    final List<CopyResult> results = backupManager.copyToBackup(backupUser, toCopy)
+        .collectList().block();
+
+    assertThat(results.get(0).outcome()).isEqualTo(CopyResult.Outcome.SUCCESS);
+    assertThat(results.get(1).outcome()).isEqualTo(CopyResult.Outcome.SOURCE_NOT_FOUND);
+    assertThat(results.get(2).outcome()).isEqualTo(CopyResult.Outcome.SOURCE_WRONG_LENGTH);
+
+    // usage should be rolled back after a known copy failure
+    final Map<String, AttributeValue> backup = getBackupItem(backupUser);
+    assertThat(AttributeValues.getLong(backup, BackupsDb.ATTR_MEDIA_BYTES_USED, -1L))
+        .isEqualTo(toCopy.get(0).destinationObjectSize());
+    assertThat(AttributeValues.getLong(backup, BackupsDb.ATTR_MEDIA_COUNT, -1L)).isEqualTo(1L);
   }
 
   @Test
@@ -404,7 +426,9 @@ public class BackupManagerTest {
     testClock.pin(Instant.ofEpochSecond(0)
         .plus(BackupManager.MAX_QUOTA_STALENESS)
         .minus(Duration.ofSeconds(1)));
-    assertThat(backupManager.canStoreMedia(backupUser, 10).join()).isFalse();
+
+    // Try to copy
+    assertThat(copy(backupUser).outcome()).isEqualTo(CopyResult.Outcome.OUT_OF_QUOTA);
   }
 
   @Test
@@ -412,56 +436,58 @@ public class BackupManagerTest {
     final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupLevel.MEDIA);
     final String backupMediaPrefix = "%s/%s/".formatted(backupUser.backupDir(), backupUser.mediaDir());
 
-    // on recalculation, say there's actually 10 bytes left
-    when(remoteStorageManager.calculateBytesUsed(eq(backupMediaPrefix)))
-        .thenReturn(
-            CompletableFuture.completedFuture(new UsageInfo(BackupManager.MAX_TOTAL_BACKUP_MEDIA_BYTES - 10, 1000)));
+    final long remainingAfterRecalc = BackupManager.MAX_TOTAL_BACKUP_MEDIA_BYTES - COPY_PARAM.destinationObjectSize();
 
-    // set the backupsDb to be out of quota at t=0
+    // on recalculation, say there's actually enough left to do the copy
+    when(remoteStorageManager.calculateBytesUsed(eq(backupMediaPrefix)))
+        .thenReturn(CompletableFuture.completedFuture(new UsageInfo(remainingAfterRecalc, 1000)));
+
+    // set the backupsDb to be totally out of quota at t=0
     testClock.pin(Instant.ofEpochSecond(0));
     backupsDb.setMediaUsage(backupUser, new UsageInfo(BackupManager.MAX_TOTAL_BACKUP_MEDIA_BYTES, 1000)).join();
     testClock.pin(Instant.ofEpochSecond(0).plus(BackupManager.MAX_QUOTA_STALENESS));
-    assertThat(backupManager.canStoreMedia(backupUser, 10).join()).isTrue();
+
+    // Should recalculate quota and copy can succeed
+    assertThat(copy(backupUser).outcome()).isEqualTo(CopyResult.Outcome.SUCCESS);
 
     // backupsDb should have the new value
     final BackupsDb.TimestampedUsageInfo info = backupsDb.getMediaUsage(backupUser).join();
-    assertThat(info.lastRecalculationTime()).isEqualTo(
-        Instant.ofEpochSecond(0).plus(BackupManager.MAX_QUOTA_STALENESS));
-    assertThat(info.usageInfo().bytesUsed()).isEqualTo(BackupManager.MAX_TOTAL_BACKUP_MEDIA_BYTES - 10);
+    assertThat(info.lastRecalculationTime())
+        .isEqualTo(Instant.ofEpochSecond(0).plus(BackupManager.MAX_QUOTA_STALENESS));
+    assertThat(info.usageInfo().bytesUsed()).isEqualTo(BackupManager.MAX_TOTAL_BACKUP_MEDIA_BYTES);
+    assertThat(info.usageInfo().numObjects()).isEqualTo(1001);
   }
 
-  @ParameterizedTest
-  @CsvSource({
-      "true,  10, 10, true",
-      "true,  10, 11, false",
-      "true,  0,  1,  false",
-      "true,  0,  0,  true",
-      "false, 10, 10, true",
-      "false, 10, 11, false",
-      "false, 0,  1,  false",
-      "false, 0,  0,  true",
-  })
+  @CartesianTest()
   public void quotaEnforcement(
-      boolean recalculation,
-      final long spaceLeft,
-      final long mediaToAddSize,
-      boolean shouldAccept) {
+      @CartesianTest.Values(booleans = {true, false}) boolean hasSpaceBeforeRecalc,
+      @CartesianTest.Values(booleans = {true, false}) boolean hasSpaceAfterRecalc,
+      @CartesianTest.Values(booleans = {true, false}) boolean doesReaclc) {
     final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupLevel.MEDIA);
     final String backupMediaPrefix = "%s/%s/".formatted(backupUser.backupDir(), backupUser.mediaDir());
 
+    final long destSize = COPY_PARAM.destinationObjectSize();
+    final long originalRemainingSpace =
+        BackupManager.MAX_TOTAL_BACKUP_MEDIA_BYTES - (hasSpaceBeforeRecalc ? destSize : (destSize - 1));
+    final long afterRecalcRemainingSpace =
+        BackupManager.MAX_TOTAL_BACKUP_MEDIA_BYTES - (hasSpaceAfterRecalc ? destSize : (destSize - 1));
+
     // set the backupsDb to be out of quota at t=0
     testClock.pin(Instant.ofEpochSecond(0));
-    backupsDb.setMediaUsage(backupUser, new UsageInfo(BackupManager.MAX_TOTAL_BACKUP_MEDIA_BYTES - spaceLeft, 1000))
-        .join();
+    backupsDb.setMediaUsage(backupUser, new UsageInfo(originalRemainingSpace, 1000)).join();
 
-    if (recalculation) {
+    if (doesReaclc) {
       testClock.pin(Instant.ofEpochSecond(0).plus(BackupManager.MAX_QUOTA_STALENESS).plus(Duration.ofSeconds(1)));
       when(remoteStorageManager.calculateBytesUsed(eq(backupMediaPrefix)))
-          .thenReturn(CompletableFuture.completedFuture(
-              new UsageInfo(BackupManager.MAX_TOTAL_BACKUP_MEDIA_BYTES - spaceLeft, 1000)));
+          .thenReturn(CompletableFuture.completedFuture(new UsageInfo(afterRecalcRemainingSpace, 1000)));
     }
-    assertThat(backupManager.canStoreMedia(backupUser, mediaToAddSize).join()).isEqualTo(shouldAccept);
-    if (recalculation && !shouldAccept) {
+    final CopyResult copyResult = copy(backupUser);
+    if (hasSpaceBeforeRecalc || (hasSpaceAfterRecalc && doesReaclc)) {
+      assertThat(copyResult.outcome()).isEqualTo(CopyResult.Outcome.SUCCESS);
+    } else {
+      assertThat(copyResult.outcome()).isEqualTo(CopyResult.Outcome.OUT_OF_QUOTA);
+    }
+    if (doesReaclc && !hasSpaceBeforeRecalc) {
       // should have recalculated if we exceeded quota
       verify(remoteStorageManager, times(1)).calculateBytesUsed(anyString());
     }
@@ -488,7 +514,7 @@ public class BackupManagerTest {
     assertThat(result.media().getFirst().key()).isEqualTo(
         Base64.getDecoder().decode("aaa".getBytes(StandardCharsets.UTF_8)));
     assertThat(result.media().getFirst().length()).isEqualTo(123);
-    assertThat(result.cursor().get()).isEqualTo("newCursor");
+    assertThat(result.cursor().orElseThrow()).isEqualTo("newCursor");
 
   }
 
@@ -539,8 +565,8 @@ public class BackupManagerTest {
     when(remoteStorageManager.delete(backupMediaKey))
         .thenReturn(CompletableFuture.completedFuture(7L));
     when(remoteStorageManager.cdnNumber()).thenReturn(5);
-    backupManager.delete(backupUser, List.of(new BackupManager.StorageDescriptor(5, mediaId))).toCompletableFuture()
-        .join();
+    backupManager.deleteMedia(backupUser, List.of(new BackupManager.StorageDescriptor(5, mediaId)))
+        .collectList().block();
 
     assertThat(backupsDb.getMediaUsage(backupUser).join().usageInfo())
         .isEqualTo(new UsageInfo(93, 999));
@@ -549,9 +575,10 @@ public class BackupManagerTest {
   @Test
   public void deleteUnknownCdn() {
     final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupLevel.MEDIA);
+    final BackupManager.StorageDescriptor sd = new BackupManager.StorageDescriptor(4, TestRandomUtil.nextBytes(15));
     when(remoteStorageManager.cdnNumber()).thenReturn(5);
     assertThatThrownBy(() ->
-        backupManager.delete(backupUser, List.of(new BackupManager.StorageDescriptor(4, TestRandomUtil.nextBytes(15)))))
+        backupManager.deleteMedia(backupUser, List.of(sd)).then().block())
         .isInstanceOf(StatusRuntimeException.class)
         .matches(e -> ((StatusRuntimeException) e).getStatus().getCode() == Status.INVALID_ARGUMENT.getCode());
   }
@@ -562,7 +589,7 @@ public class BackupManagerTest {
 
     final List<BackupManager.StorageDescriptor> descriptors = new ArrayList<>();
     long initialBytes = 0;
-    for (int i = 1; i <= 10; i++) {
+    for (int i = 1; i <= 5; i++) {
       final BackupManager.StorageDescriptor descriptor = new BackupManager.StorageDescriptor(5,
           TestRandomUtil.nextBytes(15));
       descriptors.add(descriptor);
@@ -572,20 +599,24 @@ public class BackupManagerTest {
           BackupManager.encodeMediaIdForCdn(descriptor.key()));
 
       initialBytes += i;
-      // fail 2 deletions, otherwise return the corresponding object's size as i
-      final CompletableFuture<Long> deleteResult =
-          i == 3 || i == 6
-              ? CompletableFuture.failedFuture(new IOException("oh no"))
-              : CompletableFuture.completedFuture(Long.valueOf(i));
+      // fail deletion 3, otherwise return the corresponding object's size as i
+      final CompletableFuture<Long> deleteResult = i == 3
+          ? CompletableFuture.failedFuture(new IOException("oh no"))
+          : CompletableFuture.completedFuture(Long.valueOf(i));
 
       when(remoteStorageManager.delete(backupMediaKey)).thenReturn(deleteResult);
     }
     when(remoteStorageManager.cdnNumber()).thenReturn(5);
-    backupsDb.setMediaUsage(backupUser, new UsageInfo(initialBytes, 10)).join();
-    CompletableFutureTestUtil.assertFailsWithCause(IOException.class, backupManager.delete(backupUser, descriptors));
-    // 2 objects should have failed to be deleted
+    backupsDb.setMediaUsage(backupUser, new UsageInfo(initialBytes, 5)).join();
+
+    final List<BackupManager.StorageDescriptor> deleted = backupManager
+        .deleteMedia(backupUser, descriptors)
+        .onErrorComplete()
+        .collectList().block();
+    // first two objects should be deleted
+    assertThat(deleted.size()).isEqualTo(2);
     assertThat(backupsDb.getMediaUsage(backupUser).join().usageInfo())
-        .isEqualTo(new UsageInfo(9, 2));
+        .isEqualTo(new UsageInfo(initialBytes - 1 - 2, 3));
 
   }
 
@@ -603,8 +634,7 @@ public class BackupManagerTest {
     // Deletion doesn't remove anything
     when(remoteStorageManager.delete(backupMediaKey)).thenReturn(CompletableFuture.completedFuture(0L));
     when(remoteStorageManager.cdnNumber()).thenReturn(5);
-    backupManager.delete(backupUser, List.of(new BackupManager.StorageDescriptor(5, mediaId))).toCompletableFuture()
-        .join();
+    backupManager.deleteMedia(backupUser, List.of(new BackupManager.StorageDescriptor(5, mediaId))).then().block();
 
     assertThat(backupsDb.getMediaUsage(backupUser).join().usageInfo())
         .isEqualTo(new UsageInfo(100, 5));
@@ -750,6 +780,24 @@ public class BackupManagerTest {
     verify(remoteStorageManager, times(1)).delete(mediaPrefix + "def");
     verify(remoteStorageManager, times(1)).delete(mediaPrefix + "ghi");
     verifyNoMoreInteractions(remoteStorageManager);
+  }
+
+  private CopyResult copyError(final AuthenticatedBackupUser backupUser, Throwable copyException) {
+    when(tusCredentialGenerator.generateUpload(any()))
+        .thenReturn(new BackupUploadDescriptor(3, "def", Collections.emptyMap(), ""));
+    when(remoteStorageManager.copy(eq(3), eq(COPY_PARAM.sourceKey()), eq(COPY_PARAM.sourceLength()), any(), any()))
+        .thenReturn(CompletableFuture.failedFuture(copyException));
+    return backupManager.copyToBackup(backupUser, List.of(COPY_PARAM)).single().block();
+  }
+
+  private CopyResult copy(final AuthenticatedBackupUser backupUser) {
+    when(tusCredentialGenerator.generateUpload(any()))
+        .thenReturn(new BackupUploadDescriptor(3, "def", Collections.emptyMap(), ""));
+    when(tusCredentialGenerator.generateUpload(any()))
+        .thenReturn(new BackupUploadDescriptor(3, "def", Collections.emptyMap(), ""));
+    when(remoteStorageManager.copy(eq(3), eq(COPY_PARAM.sourceKey()), eq(COPY_PARAM.sourceLength()), any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(null));
+    return backupManager.copyToBackup(backupUser, List.of(COPY_PARAM)).single().block();
   }
 
   private static ExpiredBackup expiredBackup(final ExpiredBackup.ExpirationType expirationType,

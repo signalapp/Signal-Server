@@ -7,8 +7,6 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
@@ -66,15 +64,15 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedBackupUser;
 import org.whispersystems.textsecuregcm.backup.BackupAuthManager;
 import org.whispersystems.textsecuregcm.backup.BackupAuthTestUtil;
 import org.whispersystems.textsecuregcm.backup.BackupManager;
-import org.whispersystems.textsecuregcm.backup.InvalidLengthException;
-import org.whispersystems.textsecuregcm.backup.SourceObjectNotFoundException;
 import org.whispersystems.textsecuregcm.backup.BackupUploadDescriptor;
+import org.whispersystems.textsecuregcm.backup.CopyResult;
 import org.whispersystems.textsecuregcm.mappers.CompletionExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.GrpcStatusRuntimeExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
+import reactor.core.publisher.Flux;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 public class ArchiveControllerTest {
@@ -346,14 +344,11 @@ public class ArchiveControllerTest {
         BackupLevel.MEDIA, backupKey, aci);
     when(backupManager.authenticateBackupUser(any(), any()))
         .thenReturn(CompletableFuture.completedFuture(backupUser(presentation.getBackupId(), BackupLevel.MEDIA)));
-    when(backupManager.canStoreMedia(any(), anyLong())).thenReturn(CompletableFuture.completedFuture(true));
-    when(backupManager.copyToBackup(any(), anyInt(), any(), anyInt(), any(), any()))
-        .thenAnswer(invocation -> {
-          byte[] mediaId = invocation.getArgument(5, byte[].class);
-          return CompletableFuture.completedFuture(new BackupManager.StorageDescriptor(1, mediaId));
-        });
-
     final byte[][] mediaIds = new byte[][]{TestRandomUtil.nextBytes(15), TestRandomUtil.nextBytes(15)};
+    when(backupManager.copyToBackup(any(), any()))
+        .thenReturn(Flux.just(
+            new CopyResult(CopyResult.Outcome.SUCCESS, mediaIds[0], 1),
+            new CopyResult(CopyResult.Outcome.SUCCESS, mediaIds[1], 1)));
 
     final Response r = resources.getJerseyTest()
         .target("v1/archives/media/batch")
@@ -397,15 +392,13 @@ public class ArchiveControllerTest {
     when(backupManager.authenticateBackupUser(any(), any()))
         .thenReturn(CompletableFuture.completedFuture(backupUser(presentation.getBackupId(), BackupLevel.MEDIA)));
 
-    final byte[][] mediaIds = IntStream.range(0, 3).mapToObj(i -> TestRandomUtil.nextBytes(15)).toArray(byte[][]::new);
-    when(backupManager.canStoreMedia(any(), anyLong())).thenReturn(CompletableFuture.completedFuture(true));
-
-    when(backupManager.copyToBackup(any(), anyInt(), any(), anyInt(), any(), eq(mediaIds[0])))
-        .thenReturn(CompletableFuture.completedFuture(new BackupManager.StorageDescriptor(1, mediaIds[0])));
-    when(backupManager.copyToBackup(any(), anyInt(), any(), anyInt(), any(), eq(mediaIds[1])))
-        .thenReturn(CompletableFuture.failedFuture(new SourceObjectNotFoundException()));
-    when(backupManager.copyToBackup(any(), anyInt(), any(), anyInt(), any(), eq(mediaIds[2])))
-        .thenReturn(CompletableFuture.failedFuture(new InvalidLengthException("bad length")));
+    final byte[][] mediaIds = IntStream.range(0, 4).mapToObj(i -> TestRandomUtil.nextBytes(15)).toArray(byte[][]::new);
+    when(backupManager.copyToBackup(any(), any()))
+        .thenReturn(Flux.just(
+            new CopyResult(CopyResult.Outcome.SUCCESS, mediaIds[0], 1),
+            new CopyResult(CopyResult.Outcome.SOURCE_NOT_FOUND, mediaIds[1], null),
+            new CopyResult(CopyResult.Outcome.SOURCE_WRONG_LENGTH, mediaIds[2], null),
+            new CopyResult(CopyResult.Outcome.OUT_OF_QUOTA, mediaIds[3], null)));
 
     final List<ArchiveController.CopyMediaRequest> copyRequests = Arrays.stream(mediaIds)
         .map(mediaId -> new ArchiveController.CopyMediaRequest(
@@ -427,7 +420,7 @@ public class ArchiveControllerTest {
     final ArchiveController.CopyMediaBatchResponse copyResponse = r.readEntity(
         ArchiveController.CopyMediaBatchResponse.class);
 
-    assertThat(copyResponse.responses()).hasSize(3);
+    assertThat(copyResponse.responses()).hasSize(4);
 
     final ArchiveController.CopyMediaBatchResponse.Entry r1 = copyResponse.responses().get(0);
     assertThat(r1.cdn()).isEqualTo(1);
@@ -443,33 +436,11 @@ public class ArchiveControllerTest {
     assertThat(r3.mediaId()).isEqualTo(mediaIds[2]);
     assertThat(r3.status()).isEqualTo(400);
     assertThat(r3.failureReason()).isNotBlank();
-  }
 
-  @Test
-  public void putMediaBatchOutOfSpace() throws VerificationFailedException {
-    final BackupAuthCredentialPresentation presentation = backupAuthTestUtil.getPresentation(
-        BackupLevel.MEDIA, backupKey, aci);
-    when(backupManager.authenticateBackupUser(any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(backupUser(presentation.getBackupId(), BackupLevel.MEDIA)));
-
-    when(backupManager.canStoreMedia(any(), eq(1L + 2L + 3L)))
-        .thenReturn(CompletableFuture.completedFuture(false));
-
-    final Response response = resources.getJerseyTest()
-        .target("v1/archives/media/batch")
-        .request()
-        .header("X-Signal-ZK-Auth", Base64.getEncoder().encodeToString(presentation.serialize()))
-        .header("X-Signal-ZK-Auth-Signature", "aaa")
-        .put(Entity.json(new ArchiveController.CopyMediaBatchRequest(IntStream.range(0, 3)
-            .mapToObj(i -> new ArchiveController.CopyMediaRequest(
-                new ArchiveController.RemoteAttachment(3, "abc"),
-                i + 1,
-                TestRandomUtil.nextBytes(15),
-                TestRandomUtil.nextBytes(32),
-                TestRandomUtil.nextBytes(32),
-                TestRandomUtil.nextBytes(16))
-            ).toList())));
-    assertThat(response.getStatus()).isEqualTo(413);
+    final ArchiveController.CopyMediaBatchResponse.Entry r4 = copyResponse.responses().get(3);
+    assertThat(r4.mediaId()).isEqualTo(mediaIds[3]);
+    assertThat(r4.status()).isEqualTo(413);
+    assertThat(r4.failureReason()).isNotBlank();
   }
 
   @CartesianTest
@@ -523,7 +494,9 @@ public class ArchiveControllerTest {
             .mapToObj(i -> new ArchiveController.DeleteMedia.MediaToDelete(3, TestRandomUtil.nextBytes(15)))
             .toList());
 
-    when(backupManager.delete(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(backupManager.deleteMedia(any(), any()))
+        .thenReturn(Flux.fromStream(deleteRequest.mediaToDelete().stream()
+            .map(m -> new BackupManager.StorageDescriptor(m.cdn(), m.mediaId()))));
 
     final Response response = resources.getJerseyTest()
         .target("v1/archives/media/delete")
