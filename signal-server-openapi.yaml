@@ -1915,15 +1915,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
   /v1/messages/uuid/{uuid}:
@@ -2666,15 +2666,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2712,15 +2712,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2753,15 +2753,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2883,15 +2883,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       deprecated: true
       security:
       - authenticatedAccount: []
@@ -2920,15 +2920,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2964,15 +2964,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -3011,15 +3011,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -3769,6 +3769,7 @@ components:
             A 200 indicates the object was successfully copied.
             A 400 indicates an invalid argument in the request
             A 410 indicates that the source object was not found
+            A 413 indicates that the media quota was exhausted
           format: int32
         failureReason:
           type: string
