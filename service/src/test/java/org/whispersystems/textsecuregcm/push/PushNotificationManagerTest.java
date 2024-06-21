@@ -15,6 +15,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.google.common.net.HttpHeaders;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -244,9 +245,13 @@ class PushNotificationManagerTest {
   void testSendNotificationUnregisteredApn() {
     final Account account = mock(Account.class);
     final Device device = mock(Device.class);
-
+    final UUID aci = UUID.randomUUID();
     when(device.getId()).thenReturn(Device.PRIMARY_ID);
+    when(device.getApnId()).thenReturn("apns-token");
+    when(device.getVoipApnId()).thenReturn("apns-voip-token");
     when(account.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(device));
+    when(account.getUuid()).thenReturn(aci);
+    when(accountsManager.getByAccountIdentifier(aci)).thenReturn(Optional.of(account));
 
     final PushNotification pushNotification = new PushNotification(
         "token", PushNotification.TokenType.APN_VOIP, PushNotification.NotificationType.NOTIFICATION, null, account, device, true);
@@ -260,9 +265,43 @@ class PushNotificationManagerTest {
     pushNotificationManager.sendNotification(pushNotification);
 
     verifyNoInteractions(fcmSender);
-    verify(accountsManager, never()).updateDevice(eq(account), eq(Device.PRIMARY_ID), any());
-    verify(device, never()).setGcmId(any());
+    verify(accountsManager).updateDevice(eq(account), eq(Device.PRIMARY_ID), any());
+    verify(device).setVoipApnId(null);
+    verify(device, never()).setApnId(any());
     verify(apnPushNotificationScheduler).cancelScheduledNotifications(account, device);
+  }
+
+  @Test
+  void testSendNotificationUnregisteredApnTokenUpdated() {
+    final Instant tokenTimestamp = Instant.now();
+
+    final Account account = mock(Account.class);
+    final Device device = mock(Device.class);
+    final UUID aci = UUID.randomUUID();
+    when(device.getId()).thenReturn(Device.PRIMARY_ID);
+    when(device.getApnId()).thenReturn("apns-token");
+    when(device.getVoipApnId()).thenReturn("apns-voip-token");
+    when(device.getPushTimestamp()).thenReturn(tokenTimestamp.toEpochMilli());
+    when(account.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(device));
+    when(account.getUuid()).thenReturn(aci);
+    when(accountsManager.getByAccountIdentifier(aci)).thenReturn(Optional.of(account));
+
+    final PushNotification pushNotification = new PushNotification(
+        "token", PushNotification.TokenType.APN_VOIP, PushNotification.NotificationType.NOTIFICATION, null, account, device, true);
+
+    when(apnSender.sendNotification(pushNotification))
+        .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(false, Optional.empty(), true, Optional.of(tokenTimestamp.minusSeconds(60)))));
+
+    when(apnPushNotificationScheduler.cancelScheduledNotifications(account, device))
+        .thenReturn(CompletableFuture.completedFuture(null));
+
+    pushNotificationManager.sendNotification(pushNotification);
+
+    verifyNoInteractions(fcmSender);
+    verify(accountsManager, never()).updateDevice(eq(account), eq(Device.PRIMARY_ID), any());
+    verify(device, never()).setVoipApnId(any());
+    verify(device, never()).setApnId(any());
+    verify(apnPushNotificationScheduler, never()).cancelScheduledNotifications(account, device);
   }
 
   @Test

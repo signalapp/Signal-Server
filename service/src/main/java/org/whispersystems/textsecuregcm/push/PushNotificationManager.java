@@ -10,6 +10,7 @@ import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 import org.apache.commons.lang3.StringUtils;
@@ -131,7 +132,11 @@ public class PushNotificationManager {
 
           if (result.unregistered() && pushNotification.destination() != null
               && pushNotification.destinationDevice() != null) {
-            handleDeviceUnregistered(pushNotification.destination(), pushNotification.destinationDevice());
+
+            handleDeviceUnregistered(pushNotification.destination(),
+                pushNotification.destinationDevice(),
+                pushNotification.tokenType(),
+                result.unregisteredTimestamp());
           }
 
           if (result.accepted() &&
@@ -164,28 +169,53 @@ public class PushNotificationManager {
     };
   }
 
-  private void handleDeviceUnregistered(final Account account, final Device device) {
-    if (StringUtils.isNotBlank(device.getGcmId())) {
-      final String originalFcmId = device.getGcmId();
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+  private void handleDeviceUnregistered(final Account account,
+      final Device device,
+      final PushNotification.TokenType tokenType,
+      final Optional<Instant> maybeTokenInvalidationTimestamp) {
 
-      // Reread the account to avoid marking the caller's account as stale. The consumers of this class tend to
-      // promise not to modify accounts. There's no need to force the caller to be considered mutable just for
-      // updating an uninstalled feedback timestamp though.
-      final Optional<Account> rereadAccount = accountsManager.getByAccountIdentifier(account.getUuid());
-      if (rereadAccount.isEmpty()) {
-        // Don't bother removing the token; the account is gone
-        return;
+    final boolean tokenExpired = maybeTokenInvalidationTimestamp.map(tokenInvalidationTimestamp ->
+        tokenInvalidationTimestamp.isAfter(Instant.ofEpochMilli(device.getPushTimestamp()))).orElse(true);
+
+    if (tokenExpired) {
+      if (tokenType == PushNotification.TokenType.APN || tokenType == PushNotification.TokenType.APN_VOIP) {
+        apnPushNotificationScheduler.cancelScheduledNotifications(account, device).whenComplete(logErrors());
       }
 
-      rereadAccount.get().getDevice(device.getId()).ifPresent(rereadDevice ->
-          accountsManager.updateDevice(rereadAccount.get(), device.getId(), d -> {
-            // Don't clear the token if it's already changed
-            if (originalFcmId.equals(d.getGcmId())) {
-              d.setGcmId(null);
-            }
-          }));
-    } else {
-      apnPushNotificationScheduler.cancelScheduledNotifications(account, device).whenComplete(logErrors());
+      clearPushToken(account, device, tokenType);
     }
+  }
+
+  private void clearPushToken(final Account account, final Device device, final PushNotification.TokenType tokenType) {
+    final String originalToken = getPushToken(device, tokenType);
+
+    if (originalToken == null) {
+      return;
+    }
+
+    // Reread the account to avoid marking the caller's account as stale. The consumers of this class tend to
+    // promise not to modify accounts. There's no need to force the caller to be considered mutable just for
+    // updating an uninstalled feedback timestamp though.
+    accountsManager.getByAccountIdentifier(account.getUuid()).ifPresent(rereadAccount ->
+        rereadAccount.getDevice(device.getId()).ifPresent(rereadDevice ->
+            accountsManager.updateDevice(rereadAccount, device.getId(), d -> {
+              // Don't clear the token if it's already changed
+              if (originalToken.equals(getPushToken(d, tokenType))) {
+                switch (tokenType) {
+                  case FCM -> d.setGcmId(null);
+                  case APN -> d.setApnId(null);
+                  case APN_VOIP -> d.setVoipApnId(null);
+                }
+              }
+            })));
+  }
+
+  private static String getPushToken(final Device device, final PushNotification.TokenType tokenType) {
+    return switch (tokenType) {
+      case FCM -> device.getGcmId();
+      case APN -> device.getApnId();
+      case APN_VOIP -> device.getVoipApnId();
+    };
   }
 }
