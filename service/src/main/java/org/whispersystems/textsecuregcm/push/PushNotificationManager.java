@@ -123,8 +123,8 @@ public class PushNotificationManager {
               "accepted", String.valueOf(result.accepted()),
               "unregistered", String.valueOf(result.unregistered()));
 
-          if (StringUtils.isNotBlank(result.errorCode())) {
-            tags = tags.and("errorCode", result.errorCode());
+          if (result.errorCode().isPresent()) {
+            tags = tags.and("errorCode", result.errorCode().get());
           }
 
           Metrics.counter(SENT_NOTIFICATION_COUNTER_NAME, tags).increment();

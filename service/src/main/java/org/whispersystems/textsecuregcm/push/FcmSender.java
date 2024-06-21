@@ -23,6 +23,7 @@ import io.micrometer.core.instrument.Timer;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadFactory;
@@ -96,7 +97,7 @@ public class FcmSender implements PushNotificationSender {
 
     return GoogleApiUtil.toCompletableFuture(firebaseMessagingClient.sendAsync(builder.build()), executor)
         .whenComplete((ignored, throwable) -> sample.stop(SEND_NOTIFICATION_TIMER))
-        .thenApply(ignored -> new SendPushNotificationResult(true, null, false))
+        .thenApply(ignored -> new SendPushNotificationResult(true, Optional.empty(), false, Optional.empty()))
         .exceptionally(throwable -> {
           if (ExceptionUtils.unwrap(throwable) instanceof final FirebaseMessagingException firebaseMessagingException) {
             final String errorCode;
@@ -111,7 +112,7 @@ public class FcmSender implements PushNotificationSender {
             final boolean unregistered =
                 firebaseMessagingException.getMessagingErrorCode() == MessagingErrorCode.UNREGISTERED;
 
-            return new SendPushNotificationResult(false, errorCode, unregistered);
+            return new SendPushNotificationResult(false, Optional.of(errorCode), unregistered, Optional.empty());
           } else {
             throw ExceptionUtils.wrap(throwable);
           }

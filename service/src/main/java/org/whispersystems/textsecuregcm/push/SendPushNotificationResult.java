@@ -5,7 +5,11 @@
 
 package org.whispersystems.textsecuregcm.push;
 
-import javax.annotation.Nullable;
+import java.time.Instant;
+import java.util.Optional;
 
-public record SendPushNotificationResult(boolean accepted, @Nullable String errorCode, boolean unregistered) {
+public record SendPushNotificationResult(boolean accepted,
+                                         Optional<String> errorCode,
+                                         boolean unregistered,
+                                         Optional<Instant> unregisteredTimestamp) {
 }

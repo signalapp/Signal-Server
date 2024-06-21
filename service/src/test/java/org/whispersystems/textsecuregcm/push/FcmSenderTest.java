@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.push;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -21,6 +20,7 @@ import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.Message;
 import com.google.firebase.messaging.MessagingErrorCode;
 import java.io.IOException;
+import java.util.Optional;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -65,7 +65,7 @@ class FcmSenderTest {
 
     verify(firebaseMessaging).sendAsync(any(Message.class));
     assertTrue(result.accepted());
-    assertNull(result.errorCode());
+    assertTrue(result.errorCode().isEmpty());
     assertFalse(result.unregistered());
   }
 
@@ -85,7 +85,7 @@ class FcmSenderTest {
 
     verify(firebaseMessaging).sendAsync(any(Message.class));
     assertFalse(result.accepted());
-    assertEquals("INVALID_ARGUMENT", result.errorCode());
+    assertEquals(Optional.of("INVALID_ARGUMENT"), result.errorCode());
     assertFalse(result.unregistered());
   }
 
@@ -105,7 +105,7 @@ class FcmSenderTest {
 
     verify(firebaseMessaging).sendAsync(any(Message.class));
     assertFalse(result.accepted());
-    assertEquals("UNREGISTERED", result.errorCode());
+    assertEquals(Optional.of("UNREGISTERED"), result.errorCode());
     assertTrue(result.unregistered());
   }
 

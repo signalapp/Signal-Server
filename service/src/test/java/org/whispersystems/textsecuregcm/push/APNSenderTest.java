@@ -84,7 +84,7 @@ class APNSenderTest {
     assertThat(notification.getValue().getTopic()).isEqualTo(BUNDLE_ID + ".voip");
 
     assertThat(result.accepted()).isTrue();
-    assertThat(result.errorCode()).isNull();
+    assertThat(result.errorCode()).isEmpty();
     assertThat(result.unregistered()).isFalse();
 
     verifyNoMoreInteractions(apnsClient);
@@ -127,7 +127,7 @@ class APNSenderTest {
     }
 
     assertThat(result.accepted()).isTrue();
-    assertThat(result.errorCode()).isNull();
+    assertThat(result.errorCode()).isEmpty();
     assertThat(result.unregistered()).isFalse();
 
     verifyNoMoreInteractions(apnsClient);
@@ -160,7 +160,7 @@ class APNSenderTest {
     assertThat(notification.getValue().getPriority()).isEqualTo(DeliveryPriority.IMMEDIATE);
 
     assertThat(result.accepted()).isFalse();
-    assertThat(result.errorCode()).isEqualTo("Unregistered");
+    assertThat(result.errorCode()).hasValue("Unregistered");
     assertThat(result.unregistered()).isTrue();
   }
 
@@ -188,7 +188,7 @@ class APNSenderTest {
     assertThat(notification.getValue().getPriority()).isEqualTo(DeliveryPriority.IMMEDIATE);
 
     assertThat(result.accepted()).isFalse();
-    assertThat(result.errorCode()).isEqualTo("BadTopic");
+    assertThat(result.errorCode()).hasValue("BadTopic");
     assertThat(result.unregistered()).isFalse();
   }
 

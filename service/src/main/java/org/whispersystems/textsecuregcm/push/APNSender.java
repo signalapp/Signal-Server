@@ -23,6 +23,7 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import org.whispersystems.textsecuregcm.configuration.ApnConfiguration;
@@ -156,20 +157,21 @@ public class APNSender implements Managed, PushNotificationSender {
         })
         .thenApplyAsync(response -> {
           final boolean accepted;
-          final String rejectionReason;
+          final Optional<String> rejectionReason;
           final boolean unregistered;
 
           if (response.isAccepted()) {
             accepted = true;
-            rejectionReason = null;
+            rejectionReason = Optional.empty();
             unregistered = false;
           } else {
             accepted = false;
-            rejectionReason = response.getRejectionReason().orElse("unknown");
-            unregistered = ("Unregistered".equals(rejectionReason) || "BadDeviceToken".equals(rejectionReason));
+            rejectionReason = response.getRejectionReason();
+            unregistered = response.getRejectionReason().map(reason -> "Unregistered".equals(reason) || "BadDeviceToken".equals(reason))
+                .orElse(false);
           }
 
-          return new SendPushNotificationResult(accepted, rejectionReason, unregistered);
+          return new SendPushNotificationResult(accepted, rejectionReason, unregistered, response.getTokenInvalidationTimestamp());
         }, executor);
   }
 
