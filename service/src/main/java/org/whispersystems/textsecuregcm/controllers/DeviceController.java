@@ -183,6 +183,7 @@ public class DeviceController {
           """)
   @ApiResponse(responseCode = "200", description = "The new device was linked to the calling account", useReturnTypeSchema = true)
   @ApiResponse(responseCode = "403", description = "The given account was not found or the given verification code was incorrect")
+  @ApiResponse(responseCode = "409", description = "The new device is missing a capability supported by all other devices on the account")
   @ApiResponse(responseCode = "411", description = "The given account already has its maximum number of linked devices")
   @ApiResponse(responseCode = "422", description = "The request did not pass validation")
   @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
