@@ -72,7 +72,7 @@
     <semver4j.version>3.1.0</semver4j.version>
     <slf4j.version>2.0.13</slf4j.version>
     <stripe.version>23.10.0</stripe.version>
-    <swagger.version>2.2.17</swagger.version>
+    <swagger.version>2.2.22</swagger.version>
 
     <!-- 21.0.3_9-jre-jammy -->
     <docker.image.sha256>434c26bd14f3208b9e739277e2679c2c7ef3f85d4a4f32c5a27b12a7fc206b09</docker.image.sha256>
@@ -390,7 +390,7 @@
         <plugin>
           <groupId>com.google.cloud.tools</groupId>
           <artifactId>jib-maven-plugin</artifactId>
-          <version>3.4.0</version>
+          <version>3.4.3</version>
         </plugin>
       </plugins>
     </pluginManagement>
@@ -431,7 +431,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.11.0</version>
+        <version>3.13.0</version>
         <configuration>
           <release>21</release>
         </configuration>
@@ -440,7 +440,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-jar-plugin</artifactId>
-        <version>3.3.0</version>
+        <version>3.4.2</version>
         <configuration>
           <archive>
             <manifest>
@@ -453,7 +453,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-dependency-plugin</artifactId>
-        <version>3.3.0</version>
+        <version>3.7.1</version>
         <executions>
           <execution>
             <id>copy</id>
@@ -473,7 +473,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
-        <version>3.1.2</version>
+        <version>3.3.0</version>
         <configuration>
           <systemProperties>
             <property>
@@ -487,7 +487,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-enforcer-plugin</artifactId>
-        <version>3.3.0</version>
+        <version>3.5.0</version>
         <executions>
           <execution>
             <goals>
@@ -508,7 +508,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-install-plugin</artifactId>
-        <version>3.1.1</version>
+        <version>3.1.2</version>
         <configuration>
           <skip>true</skip>
         </configuration>
@@ -517,7 +517,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-deploy-plugin</artifactId>
-        <version>3.1.1</version>
+        <version>3.1.2</version>
         <configuration>
           <skip>true</skip>
         </configuration>
