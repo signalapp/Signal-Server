@@ -289,18 +289,17 @@ public class Account {
   }
 
   public boolean isPaymentActivationSupported() {
-    return allEnabledDevicesHaveCapability(DeviceCapabilities::paymentActivation);
+    return allDevicesHaveCapability(DeviceCapabilities::paymentActivation);
   }
 
   public boolean isDeleteSyncSupported() {
-    return allEnabledDevicesHaveCapability(DeviceCapabilities::deleteSync);
+    return allDevicesHaveCapability(DeviceCapabilities::deleteSync);
   }
 
-  private boolean allEnabledDevicesHaveCapability(final Predicate<DeviceCapabilities> predicate) {
+  private boolean allDevicesHaveCapability(final Predicate<DeviceCapabilities> predicate) {
     requireNotStale();
 
     return devices.stream()
-        .filter(Device::hasMessageDeliveryChannel)
         .allMatch(device -> device.getCapabilities() != null && predicate.test(device.getCapabilities()));
   }
 

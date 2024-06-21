@@ -48,7 +48,7 @@ class AccountTest {
 
   private final Device paymentActivationCapableDevice = mock(Device.class);
   private final Device paymentActivationIncapableDevice = mock(Device.class);
-  private final Device paymentActivationIncapableExpiredDevice = mock(Device.class);
+  private final Device paymentActivationIncapableDeviceWithoutDeliveryChannel = mock(Device.class);
   private final Device deleteSyncCapableDevice = mock(Device.class);
   private final Device deleteSyncIncapableDevice = mock(Device.class);
 
@@ -81,9 +81,9 @@ class AccountTest {
     when(paymentActivationIncapableDevice.getCapabilities()).thenReturn(
         new DeviceCapabilities(true, true, false, false));
     when(paymentActivationIncapableDevice.hasMessageDeliveryChannel()).thenReturn(true);
-    when(paymentActivationIncapableExpiredDevice.getCapabilities()).thenReturn(
+    when(paymentActivationIncapableDeviceWithoutDeliveryChannel.getCapabilities()).thenReturn(
         new DeviceCapabilities(true, true, false, false));
-    when(paymentActivationIncapableExpiredDevice.hasMessageDeliveryChannel()).thenReturn(false);
+    when(paymentActivationIncapableDeviceWithoutDeliveryChannel.hasMessageDeliveryChannel()).thenReturn(false);
 
     when(deleteSyncCapableDevice.getCapabilities()).thenReturn(
         new DeviceCapabilities(true, true, true, true)
@@ -191,8 +191,8 @@ class AccountTest {
         List.of(paymentActivationCapableDevice, paymentActivationIncapableDevice),
         "1234".getBytes(StandardCharsets.UTF_8)).isPaymentActivationSupported()).isFalse();
     assertThat(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(),
-        List.of(paymentActivationCapableDevice, paymentActivationIncapableExpiredDevice),
-        "1234".getBytes(StandardCharsets.UTF_8)).isPaymentActivationSupported()).isTrue();
+        List.of(paymentActivationCapableDevice, paymentActivationIncapableDeviceWithoutDeliveryChannel),
+        "1234".getBytes(StandardCharsets.UTF_8)).isPaymentActivationSupported()).isFalse();
   }
 
   @Test
