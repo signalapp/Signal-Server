@@ -14,17 +14,10 @@ import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import java.io.IOException;
 import java.util.Base64;
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.Metrics;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.InvalidKeyException;
-import org.signal.libsignal.protocol.ecc.ECPublicKey;
-import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 
 public class IdentityKeyAdapter {
-
-  private static final Counter IDENTITY_KEY_WITHOUT_VERSION_BYTE_COUNTER =
-      Metrics.counter(MetricsUtil.name(IdentityKeyAdapter.class, "identityKeyWithoutVersionByte"));
 
   public static class Serializer extends JsonSerializer<IdentityKey> {
 
@@ -56,11 +49,6 @@ public class IdentityKeyAdapter {
       try {
         return new IdentityKey(identityKeyBytes);
       } catch (final InvalidKeyException e) {
-        if (identityKeyBytes.length == ECPublicKey.KEY_SIZE - 1) {
-          IDENTITY_KEY_WITHOUT_VERSION_BYTE_COUNTER.increment();
-          return new IdentityKey(ECPublicKey.fromPublicKeyBytes(identityKeyBytes));
-        }
-
         throw new JsonParseException(parser, "Could not interpret identity key bytes as an EC public key", e);
       }
     }
