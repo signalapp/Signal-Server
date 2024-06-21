@@ -153,12 +153,8 @@ public class AccountController {
     final Account account = auth.getAccount();
     final Device device = auth.getAuthenticatedDevice();
 
-    if (Objects.equals(device.getApnId(), registrationId.apnRegistrationId()) &&
-        Objects.equals(device.getVoipApnId(), registrationId.voipRegistrationId())) {
-
-      return;
-    }
-
+    // Unlike FCM tokens, we need current "last updated" timestamps for APNs tokens and so update device records
+    // unconditionally
     accounts.updateDevice(account, device.getId(), d -> {
       d.setApnId(registrationId.apnRegistrationId());
       d.setVoipApnId(registrationId.voipRegistrationId());
