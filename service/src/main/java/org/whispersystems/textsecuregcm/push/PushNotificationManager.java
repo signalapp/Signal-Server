@@ -20,7 +20,6 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.Pair;
-import org.whispersystems.textsecuregcm.util.Util;
 
 public class PushNotificationManager {
 
@@ -167,23 +166,24 @@ public class PushNotificationManager {
 
   private void handleDeviceUnregistered(final Account account, final Device device) {
     if (StringUtils.isNotBlank(device.getGcmId())) {
-      if (device.getUninstalledFeedbackTimestamp() == 0) {
-        // Reread the account to avoid marking the caller's account as stale. The consumers of this class tend to
-        // promise not to modify accounts. There's no need to force the caller to be considered mutable just for
-        // updating an uninstalled feedback timestamp though.
-        final Optional<Account> rereadAccount = accountsManager.getByAccountIdentifier(account.getUuid());
-        if (rereadAccount.isEmpty()) {
-          // don't bother adding the uninstalled timestamp, the account is gone
-          return;
-        }
-        final Optional<Device> rereadDevice = rereadAccount.get().getDevice(device.getId());
-        if (rereadDevice.map(Device::getUninstalledFeedbackTimestamp).orElse(-1L) != 0) {
-          // don't bother adding the uninstalled timestamp, the device is gone or already updated
-          return;
-        }
-        accountsManager.updateDevice(rereadAccount.get(), device.getId(), d ->
-            d.setUninstalledFeedbackTimestamp(Util.todayInMillis()));
+      final String originalFcmId = device.getGcmId();
+
+      // Reread the account to avoid marking the caller's account as stale. The consumers of this class tend to
+      // promise not to modify accounts. There's no need to force the caller to be considered mutable just for
+      // updating an uninstalled feedback timestamp though.
+      final Optional<Account> rereadAccount = accountsManager.getByAccountIdentifier(account.getUuid());
+      if (rereadAccount.isEmpty()) {
+        // Don't bother removing the token; the account is gone
+        return;
       }
+
+      rereadAccount.get().getDevice(device.getId()).ifPresent(rereadDevice ->
+          accountsManager.updateDevice(rereadAccount.get(), device.getId(), d -> {
+            // Don't clear the token if it's already changed
+            if (originalFcmId.equals(d.getGcmId())) {
+              d.setGcmId(null);
+            }
+          }));
     } else {
       apnPushNotificationScheduler.cancelScheduledNotifications(account, device).whenComplete(logErrors());
     }

@@ -26,7 +26,6 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
-import org.whispersystems.textsecuregcm.util.Util;
 
 class PushNotificationManagerTest {
 
@@ -153,7 +152,7 @@ class PushNotificationManagerTest {
     verify(fcmSender).sendNotification(pushNotification);
     verifyNoInteractions(apnSender);
     verify(accountsManager, never()).updateDevice(eq(account), eq(Device.PRIMARY_ID), any());
-    verify(device, never()).setUninstalledFeedbackTimestamp(Util.todayInMillis());
+    verify(device, never()).setGcmId(any());
     verifyNoInteractions(apnPushNotificationScheduler);
   }
 
@@ -211,7 +210,7 @@ class PushNotificationManagerTest {
 
     verifyNoInteractions(fcmSender);
     verify(accountsManager, never()).updateDevice(eq(account), eq(Device.PRIMARY_ID), any());
-    verify(device, never()).setUninstalledFeedbackTimestamp(Util.todayInMillis());
+    verify(device, never()).setGcmId(any());
     verify(apnPushNotificationScheduler).scheduleRecurringVoipNotification(account, device);
     verify(apnPushNotificationScheduler, never()).scheduleBackgroundNotification(any(), any());
   }
@@ -236,7 +235,7 @@ class PushNotificationManagerTest {
     pushNotificationManager.sendNotification(pushNotification);
 
     verify(accountsManager).updateDevice(eq(account), eq(Device.PRIMARY_ID), any());
-    verify(device).setUninstalledFeedbackTimestamp(Util.todayInMillis());
+    verify(device).setGcmId(null);
     verifyNoInteractions(apnSender);
     verifyNoInteractions(apnPushNotificationScheduler);
   }
@@ -262,7 +261,7 @@ class PushNotificationManagerTest {
 
     verifyNoInteractions(fcmSender);
     verify(accountsManager, never()).updateDevice(eq(account), eq(Device.PRIMARY_ID), any());
-    verify(device, never()).setUninstalledFeedbackTimestamp(Util.todayInMillis());
+    verify(device, never()).setGcmId(any());
     verify(apnPushNotificationScheduler).cancelScheduledNotifications(account, device);
   }
 

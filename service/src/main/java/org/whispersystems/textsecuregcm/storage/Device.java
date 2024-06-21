@@ -57,9 +57,6 @@ public class Device {
   private long pushTimestamp;
 
   @JsonProperty
-  private long uninstalledFeedback;
-
-  @JsonProperty
   private boolean fetchesMessages;
 
   @JsonProperty
@@ -99,14 +96,6 @@ public class Device {
 
   public void setVoipApnId(String voipApnId) {
     this.voipApnId = voipApnId;
-  }
-
-  public void setUninstalledFeedbackTimestamp(long uninstalledFeedback) {
-    this.uninstalledFeedback = uninstalledFeedback;
-  }
-
-  public long getUninstalledFeedbackTimestamp() {
-    return uninstalledFeedback;
   }
 
   public void setLastSeen(long lastSeen) {
