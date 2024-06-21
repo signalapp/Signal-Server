@@ -26,7 +26,7 @@ public class RemoveExpiredAccountsCommand extends AbstractSinglePassCrawlAccount
   private final Clock clock;
 
   @VisibleForTesting
-  static final Duration MAX_IDLE_DURATION = Duration.ofDays(180);
+  static final Duration MAX_IDLE_DURATION = Duration.ofDays(120);
 
   @VisibleForTesting
   static final String DRY_RUN_ARGUMENT = "dry-run";
