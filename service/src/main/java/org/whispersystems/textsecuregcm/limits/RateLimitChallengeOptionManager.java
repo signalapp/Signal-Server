@@ -13,7 +13,7 @@ public class RateLimitChallengeOptionManager {
 
   private final RateLimiters rateLimiters;
 
-  public static final String OPTION_CAPTCHA = "recaptcha";
+  public static final String OPTION_CAPTCHA = "captcha";
   public static final String OPTION_PUSH_CHALLENGE = "pushChallenge";
 
   public RateLimitChallengeOptionManager(final RateLimiters rateLimiters) {

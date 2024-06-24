@@ -18,7 +18,7 @@ import org.whispersystems.textsecuregcm.util.SystemMapper;
 class AnswerChallengeRequestTest {
 
   @ParameterizedTest
-  @ValueSource(strings = {"captcha", "recaptcha"})
+  @ValueSource(strings = {"captcha"})
   void parse(final String type) throws JsonProcessingException {
     {
       final String pushChallengeJson = """
