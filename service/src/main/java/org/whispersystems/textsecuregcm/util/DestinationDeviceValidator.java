@@ -96,12 +96,6 @@ public class DestinationDeviceValidator {
     final Set<Byte> missingDeviceIds = new HashSet<>(accountDeviceIds);
     missingDeviceIds.removeAll(messageDeviceIds);
 
-    // Temporarily "excuse" missing devices if they're missing a message delivery channel as a transitional measure
-    missingDeviceIds.removeAll(account.getDevices().stream()
-        .filter(device -> !device.hasMessageDeliveryChannel())
-        .map(Device::getId)
-        .collect(Collectors.toSet()));
-
     final Set<Byte> extraDeviceIds = new HashSet<>(messageDeviceIds);
     extraDeviceIds.removeAll(accountDeviceIds);
 

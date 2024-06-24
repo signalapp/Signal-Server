@@ -12,5 +12,12 @@
         "destinationRegistrationId" : 3333,
         "content" : "Zm9vYmFyego",
         "timestamp" : 1234
-    }]
+    },
+      {
+        "type" : 1,
+        "destinationDeviceId" : 3,
+        "destinationRegistrationId" : 4444,
+        "content" : "Zm9vYmFyego",
+        "timestamp" : 1234
+      }]
 }

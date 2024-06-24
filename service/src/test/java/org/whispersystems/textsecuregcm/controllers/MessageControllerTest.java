@@ -562,7 +562,7 @@ class MessageControllerTest {
 
       final ArgumentCaptor<Envelope> envelopeCaptor = ArgumentCaptor.forClass(Envelope.class);
 
-      verify(messageSender, times(2))
+      verify(messageSender, times(3))
           .sendMessage(any(Account.class), any(Device.class), envelopeCaptor.capture(), eq(false));
 
       envelopeCaptor.getAllValues().forEach(envelope -> assertTrue(envelope.getUrgent()));
@@ -584,7 +584,7 @@ class MessageControllerTest {
 
       final ArgumentCaptor<Envelope> envelopeCaptor = ArgumentCaptor.forClass(Envelope.class);
 
-      verify(messageSender, times(2))
+      verify(messageSender, times(3))
           .sendMessage(any(Account.class), any(Device.class), envelopeCaptor.capture(), eq(false));
 
       envelopeCaptor.getAllValues().forEach(envelope -> assertFalse(envelope.getUrgent()));
@@ -604,7 +604,7 @@ class MessageControllerTest {
 
       assertThat("Good Response Code", response.getStatus(), is(equalTo(200)));
 
-      verify(messageSender, times(2))
+      verify(messageSender, times(3))
           .sendMessage(any(Account.class), any(Device.class), any(Envelope.class), eq(false));
     }
   }
@@ -1220,21 +1220,22 @@ class MessageControllerTest {
   }
 
   private static Map<ServiceIdentifier, Map<Byte, Integer>> multiRecipientTargetMap() {
-    return
+    return Map.of(
+        SINGLE_DEVICE_ACI_ID, Map.of(SINGLE_DEVICE_ID1, SINGLE_DEVICE_REG_ID1),
+        SINGLE_DEVICE_PNI_ID, Map.of(SINGLE_DEVICE_ID1, SINGLE_DEVICE_PNI_REG_ID1),
+        MULTI_DEVICE_ACI_ID,
         Map.of(
-            SINGLE_DEVICE_ACI_ID, Map.of(SINGLE_DEVICE_ID1, SINGLE_DEVICE_REG_ID1),
-            SINGLE_DEVICE_PNI_ID, Map.of(SINGLE_DEVICE_ID1, SINGLE_DEVICE_PNI_REG_ID1),
-            MULTI_DEVICE_ACI_ID,
-            Map.of(
-                 MULTI_DEVICE_ID1, MULTI_DEVICE_REG_ID1,
-                 MULTI_DEVICE_ID2, MULTI_DEVICE_REG_ID2),
-            MULTI_DEVICE_PNI_ID,
-            Map.of(
-                 MULTI_DEVICE_ID1, MULTI_DEVICE_PNI_REG_ID1,
-                 MULTI_DEVICE_ID2, MULTI_DEVICE_PNI_REG_ID2),
-            NONEXISTENT_ACI_ID, Map.of(SINGLE_DEVICE_ID1, SINGLE_DEVICE_REG_ID1),
-            NONEXISTENT_PNI_ID, Map.of(SINGLE_DEVICE_ID1, SINGLE_DEVICE_PNI_REG_ID1)
-        );
+            MULTI_DEVICE_ID1, MULTI_DEVICE_REG_ID1,
+            MULTI_DEVICE_ID2, MULTI_DEVICE_REG_ID2,
+            MULTI_DEVICE_ID3, MULTI_DEVICE_REG_ID3),
+        MULTI_DEVICE_PNI_ID,
+        Map.of(
+            MULTI_DEVICE_ID1, MULTI_DEVICE_PNI_REG_ID1,
+            MULTI_DEVICE_ID2, MULTI_DEVICE_PNI_REG_ID2,
+            MULTI_DEVICE_ID3, MULTI_DEVICE_PNI_REG_ID3),
+        NONEXISTENT_ACI_ID, Map.of(SINGLE_DEVICE_ID1, SINGLE_DEVICE_REG_ID1),
+        NONEXISTENT_PNI_ID, Map.of(SINGLE_DEVICE_ID1, SINGLE_DEVICE_PNI_REG_ID1)
+    );
   }
 
   private record MultiRecipientMessageTestCase(
@@ -1273,9 +1274,9 @@ class MessageControllerTest {
     return ArgumentSets
         .argumentsForFirstParameter(
             new MultiRecipientMessageTestCase(singleDeviceAci, unauth, story, 200, 1),
-            new MultiRecipientMessageTestCase(multiDeviceAci, unauth, story, 200, 2),
-            new MultiRecipientMessageTestCase(bothAccountsAci, unauth, story, 200, 3),
-            new MultiRecipientMessageTestCase(realAndFakeAci, unauth, story, 200, 3),
+            new MultiRecipientMessageTestCase(multiDeviceAci, unauth, story, 200, 3),
+            new MultiRecipientMessageTestCase(bothAccountsAci, unauth, story, 200, 4),
+            new MultiRecipientMessageTestCase(realAndFakeAci, unauth, story, 200, 4),
 
             new MultiRecipientMessageTestCase(singleDeviceAci, unauth, notStory, 401, 0),
             new MultiRecipientMessageTestCase(multiDeviceAci, unauth, notStory, 401, 0),
@@ -1283,13 +1284,13 @@ class MessageControllerTest {
             new MultiRecipientMessageTestCase(realAndFakeAci, unauth, notStory, 404, 0),
 
             new MultiRecipientMessageTestCase(singleDeviceAci, auth, story, 200, 1),
-            new MultiRecipientMessageTestCase(multiDeviceAci, auth, story, 200, 2),
-            new MultiRecipientMessageTestCase(bothAccountsAci, auth, story, 200, 3),
-            new MultiRecipientMessageTestCase(realAndFakeAci, auth, story, 200, 3),
+            new MultiRecipientMessageTestCase(multiDeviceAci, auth, story, 200, 3),
+            new MultiRecipientMessageTestCase(bothAccountsAci, auth, story, 200, 4),
+            new MultiRecipientMessageTestCase(realAndFakeAci, auth, story, 200, 4),
 
             new MultiRecipientMessageTestCase(singleDeviceAci, auth, notStory, 200, 1),
-            new MultiRecipientMessageTestCase(multiDeviceAci, auth, notStory, 200, 2),
-            new MultiRecipientMessageTestCase(bothAccountsAci, auth, notStory, 200, 3),
+            new MultiRecipientMessageTestCase(multiDeviceAci, auth, notStory, 200, 3),
+            new MultiRecipientMessageTestCase(bothAccountsAci, auth, notStory, 200, 4),
             new MultiRecipientMessageTestCase(realAndFakeAci, auth, notStory, 404, 0))
         .argumentsForNextParameter(false, true) // urgent
         .argumentsForNextParameter(false, true); // explicitIdentifiers
@@ -1326,9 +1327,9 @@ class MessageControllerTest {
         .argumentsForFirstParameter(
             new MultiRecipientMessageTestCase(singleDevicePni, unauth, story, 200, 1),
             new MultiRecipientMessageTestCase(singleDeviceAciAndPni, unauth, story, 200, 2),
-            new MultiRecipientMessageTestCase(multiDevicePni, unauth, story, 200, 2),
-            new MultiRecipientMessageTestCase(bothAccountsMixed, unauth, story, 200, 3),
-            new MultiRecipientMessageTestCase(realAndFakeMixed, unauth, story, 200, 3),
+            new MultiRecipientMessageTestCase(multiDevicePni, unauth, story, 200, 3),
+            new MultiRecipientMessageTestCase(bothAccountsMixed, unauth, story, 200, 4),
+            new MultiRecipientMessageTestCase(realAndFakeMixed, unauth, story, 200, 4),
 
             new MultiRecipientMessageTestCase(singleDevicePni, unauth, notStory, 401, 0),
             new MultiRecipientMessageTestCase(singleDeviceAciAndPni, unauth, notStory, 401, 0),
@@ -1338,14 +1339,14 @@ class MessageControllerTest {
 
             new MultiRecipientMessageTestCase(singleDevicePni, auth, story, 200, 1),
             new MultiRecipientMessageTestCase(singleDeviceAciAndPni, auth, story, 200, 2),
-            new MultiRecipientMessageTestCase(multiDevicePni, auth, story, 200, 2),
-            new MultiRecipientMessageTestCase(bothAccountsMixed, auth, story, 200, 3),
-            new MultiRecipientMessageTestCase(realAndFakeMixed, auth, story, 200, 3),
+            new MultiRecipientMessageTestCase(multiDevicePni, auth, story, 200, 3),
+            new MultiRecipientMessageTestCase(bothAccountsMixed, auth, story, 200, 4),
+            new MultiRecipientMessageTestCase(realAndFakeMixed, auth, story, 200, 4),
 
             new MultiRecipientMessageTestCase(singleDevicePni, auth, notStory, 200, 1),
             new MultiRecipientMessageTestCase(singleDeviceAciAndPni, unauth, story, 200, 2),
-            new MultiRecipientMessageTestCase(multiDevicePni, auth, notStory, 200, 2),
-            new MultiRecipientMessageTestCase(bothAccountsMixed, auth, notStory, 200, 3),
+            new MultiRecipientMessageTestCase(multiDevicePni, auth, notStory, 200, 3),
+            new MultiRecipientMessageTestCase(bothAccountsMixed, auth, notStory, 200, 4),
             new MultiRecipientMessageTestCase(realAndFakeMixed, auth, notStory, 404, 0))
         .argumentsForNextParameter(false, true); // urgent
   }
@@ -1355,7 +1356,8 @@ class MessageControllerTest {
     final List<Recipient> recipients = List.of(
         new Recipient(SINGLE_DEVICE_ACI_ID, SINGLE_DEVICE_ID1, SINGLE_DEVICE_REG_ID1, new byte[48]),
         new Recipient(MULTI_DEVICE_ACI_ID, MULTI_DEVICE_ID1, MULTI_DEVICE_REG_ID1, new byte[48]),
-        new Recipient(MULTI_DEVICE_ACI_ID, MULTI_DEVICE_ID2, MULTI_DEVICE_REG_ID2, new byte[48]));
+        new Recipient(MULTI_DEVICE_ACI_ID, MULTI_DEVICE_ID2, MULTI_DEVICE_REG_ID2, new byte[48]),
+        new Recipient(MULTI_DEVICE_ACI_ID, MULTI_DEVICE_ID3, MULTI_DEVICE_REG_ID3, new byte[48]));
 
     // initialize our binary payload and create an input stream
     byte[] buffer = new byte[2048];
@@ -1378,7 +1380,7 @@ class MessageControllerTest {
 
       assertThat("Unexpected response", response.getStatus(), is(equalTo(200)));
       verify(messageSender,
-          exactly(3))
+          exactly(4))
           .sendMessage(
               any(),
               any(),
@@ -1527,8 +1529,9 @@ class MessageControllerTest {
 
     Recipient r2 = new Recipient(MULTI_DEVICE_ACI_ID, MULTI_DEVICE_ID1, MULTI_DEVICE_REG_ID1, new byte[48]);
     Recipient r3 = new Recipient(MULTI_DEVICE_ACI_ID, MULTI_DEVICE_ID2, MULTI_DEVICE_REG_ID2, new byte[48]);
+    Recipient r4 = new Recipient(MULTI_DEVICE_ACI_ID, MULTI_DEVICE_ID3, MULTI_DEVICE_REG_ID3, new byte[48]);
 
-    List<Recipient> recipients = List.of(r1, r2, r3);
+    List<Recipient> recipients = List.of(r1, r2, r3, r4);
 
     byte[] buffer = new byte[2048];
     InputStream stream = initializeMultiPayload(recipients, buffer, useExplicitIdentifier);
@@ -1635,7 +1638,8 @@ class MessageControllerTest {
   void sendMultiRecipientMessageStaleDevices(final ServiceIdentifier serviceIdentifier) throws JsonProcessingException {
     final List<Recipient> recipients = List.of(
         new Recipient(serviceIdentifier, MULTI_DEVICE_ID1, MULTI_DEVICE_REG_ID1 + 1, new byte[48]),
-        new Recipient(serviceIdentifier, MULTI_DEVICE_ID2, MULTI_DEVICE_REG_ID2 + 1, new byte[48]));
+        new Recipient(serviceIdentifier, MULTI_DEVICE_ID2, MULTI_DEVICE_REG_ID2 + 1, new byte[48]),
+        new Recipient(serviceIdentifier, MULTI_DEVICE_ID3, MULTI_DEVICE_REG_ID3 + 1, new byte[48]));
 
     // initialize our binary payload and create an input stream
     byte[] buffer = new byte[2048];
@@ -1668,7 +1672,7 @@ class MessageControllerTest {
 
       assertEquals(1, staleDevices.size());
       assertEquals(serviceIdentifier, staleDevices.getFirst().uuid());
-      assertEquals(Set.of(MULTI_DEVICE_ID1, MULTI_DEVICE_ID2),
+      assertEquals(Set.of(MULTI_DEVICE_ID1, MULTI_DEVICE_ID2, MULTI_DEVICE_ID3),
           new HashSet<>(staleDevices.getFirst().devices().staleDevices()));
     }
   }
