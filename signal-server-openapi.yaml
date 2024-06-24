@@ -1547,6 +1547,9 @@ paths:
         "403":
           description: The given account was not found or the given verification code
             was incorrect
+        "409":
+          description: The new device is missing a capability supported by all other
+            devices on the account
         "411":
           description: The given account already has its maximum number of linked
             devices
@@ -2037,13 +2040,17 @@ paths:
           content:
             application/json:
               schema:
-                type: string
+                type: array
+                items:
+                  $ref: '#/components/schemas/AccountMismatchedDevices'
         "410":
           description: Mismatched registration ids supplied for some recipient devices
           content:
             application/json:
               schema:
-                type: string
+                type: array
+                items:
+                  $ref: '#/components/schemas/AccountStaleDevices'
       security:
       - authenticatedAccount: []
       - {}
@@ -2123,13 +2130,17 @@ paths:
           content:
             application/json:
               schema:
-                type: string
+                type: array
+                items:
+                  $ref: '#/components/schemas/AccountMismatchedDevices'
         "410":
           description: Mismatched registration ids supplied for some recipient devices
           content:
             application/json:
               schema:
-                type: string
+                type: array
+                items:
+                  $ref: '#/components/schemas/AccountStaleDevices'
   /v1/payments/auth:
     get:
       tags:
@@ -3178,15 +3189,11 @@ components:
       type: object
       properties:
         usernameHash:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
         zkProof:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
         encryptedUsername:
           maxLength: 128
           minLength: 1
@@ -3208,12 +3215,9 @@ components:
           description: the account identifier for this account's phone-number identity
           format: uuid
         usernameHash:
-          type: array
+          type: string
           description: "a hash of this account's username, if set"
-          items:
-            type: string
-            description: "a hash of this account's username, if set"
-            format: byte
+          format: byte
         storageCapable:
           type: boolean
           description: whether any of this account's devices support storage
@@ -3261,10 +3265,8 @@ components:
       type: object
       properties:
         usernameHash:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
     ReserveUsernameHashRequest:
       required:
       - usernameHashes
@@ -3275,10 +3277,8 @@ components:
           minItems: 1
           type: array
           items:
-            type: array
-            items:
-              type: string
-              format: byte
+            type: string
+            format: byte
     AccountAttributes:
       type: object
       properties:
@@ -3288,19 +3288,15 @@ components:
           type: integer
           format: int32
         name:
-          maxItems: 225
-          minItems: 0
-          type: array
-          items:
-            type: string
-            format: byte
+          maxLength: 225
+          minLength: 0
+          type: string
+          format: byte
         registrationLock:
           type: string
         unidentifiedAccessKey:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
         unrestrictedUnidentifiedAccess:
           type: boolean
         capabilities:
@@ -3308,10 +3304,8 @@ components:
         discoverableByPhoneNumber:
           type: boolean
         recoveryPassword:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
         eachRegistrationIdValid:
           type: boolean
         pniRegistrationId:
@@ -3360,12 +3354,10 @@ components:
       type: object
       properties:
         deviceName:
-          maxItems: 225
-          minItems: 0
-          type: array
-          items:
-            type: string
-            format: byte
+          maxLength: 225
+          minLength: 0
+          type: string
+          format: byte
     RegistrationLock:
       required:
       - registrationLock
@@ -3459,10 +3451,6 @@ components:
       - pniRegistrationIds
       type: object
       properties:
-        reglock:
-          type: string
-          description: "the registration lock password for the new phone number, if\
-            \ necessary"
         sessionId:
           type: string
           description: |-
@@ -3516,6 +3504,10 @@ components:
           type: boolean
         valid:
           type: boolean
+        reglock:
+          type: string
+          description: "the registration lock password for the new phone number, if\
+            \ necessary"
     ECPublicKey:
       type: object
       properties:
@@ -3523,10 +3515,8 @@ components:
           type: integer
           format: int32
         publicKeyBytes:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
     ECSignedPreKey:
       type: object
       properties:
@@ -3875,12 +3865,9 @@ components:
       type: object
       properties:
         credential:
-          type: array
+          type: string
           description: "A BackupAuthCredential, encoded in standard padded base64"
-          items:
-            type: string
-            description: "A BackupAuthCredential, encoded in standard padded base64"
-            format: byte
+          format: byte
         redemptionTime:
           type: integer
           description: The day on which this credential is valid. Seconds since epoch
@@ -4019,10 +4006,8 @@ components:
       type: object
       properties:
         credential:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
         redemptionTime:
           type: integer
           format: int64
@@ -4032,26 +4017,20 @@ components:
       type: object
       properties:
         createCallLinkCredentialRequest:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
     DeliveryCertificate:
       type: object
       properties:
         certificate:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
     CallLinkAuthCredential:
       type: object
       properties:
         credential:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
         redemptionTime:
           type: integer
           format: int64
@@ -4059,10 +4038,8 @@ components:
       type: object
       properties:
         credential:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
         redemptionTime:
           type: integer
           format: int64
@@ -4128,10 +4105,8 @@ components:
           type: integer
           format: int64
         name:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
         lastSeen:
           type: integer
           format: int64
@@ -4221,10 +4196,8 @@ components:
       type: object
       properties:
         receiptCredentialPresentation:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
         visible:
           type: boolean
         primary:
@@ -4260,7 +4233,7 @@ components:
           - ACI
           - PNI
         digest:
-          type: array
+          type: string
           description: |
             A 32-byte digest of the client's repeated-use keys for the given identity type. The digest is calculated as:
 
@@ -4276,24 +4249,7 @@ components:
             - lastResortKeyId: an 8-byte, big-endian representation of the ID of the client's last-resort Kyber key
             - lastResortKeyBytes: the serialized form of the client's last-resort Kyber key as produced by libsignal (i.e.
               one version byte followed by 1568 bytes of key material for a total of 1569 bytes)
-          items:
-            type: string
-            description: |
-              A 32-byte digest of the client's repeated-use keys for the given identity type. The digest is calculated as:
-
-              SHA256(identityKeyBytes || signedEcPreKeyId || signedEcPreKeyIdBytes || lastResortKeyId || lastResortKeyBytes)
-
-              …where the elements of the hash are:
-
-              - identityKeyBytes: the serialized form of the client's public identity key as produced by libsignal (i.e. one
-                version byte followed by 32 bytes of key material for a total of 33 bytes)
-              - signedEcPreKeyId: an 8-byte, big-endian representation of the ID of the client's signed EC pre-key
-              - signedEcPreKeyBytes: the serialized form of the client's signed EC pre-key as produced by libsignal (i.e. one
-                version byte followed by 32 bytes of key material for a total of 33 bytes)
-              - lastResortKeyId: an 8-byte, big-endian representation of the ID of the client's last-resort Kyber key
-              - lastResortKeyBytes: the serialized form of the client's last-resort Kyber key as produced by libsignal (i.e.
-                one version byte followed by 1568 bytes of key material for a total of 1569 bytes)
-            format: byte
+          format: byte
     ECPreKey:
       type: object
       properties:
@@ -4343,10 +4299,8 @@ components:
       type: object
       properties:
         accessKey:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
     GroupSendFullToken:
       type: object
       properties:
@@ -4354,10 +4308,8 @@ components:
           type: string
           format: date-time
         internalContentsForJNI:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
     GroupSendTokenHeader:
       type: object
       properties:
@@ -4403,10 +4355,8 @@ components:
       type: object
       properties:
         token:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
     AccountMismatchedDevices:
       type: object
       properties:
@@ -4445,18 +4395,14 @@ components:
       type: object
       properties:
         accessKeys:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
     Recipient:
       type: object
       properties:
         devices:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
         devicesAndRegistrationIds:
           type: object
           properties:
@@ -4537,10 +4483,8 @@ components:
         identityKey:
           $ref: '#/components/schemas/IdentityKey'
         unidentifiedAccess:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
         unrestrictedUnidentifiedAccess:
           type: boolean
         capabilities:
@@ -4566,10 +4510,8 @@ components:
         identityKey:
           $ref: '#/components/schemas/IdentityKey'
         unidentifiedAccess:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
         unrestrictedUnidentifiedAccess:
           type: boolean
         capabilities:
@@ -4583,42 +4525,30 @@ components:
           description: A service identifier is a tuple of a UUID and identity type
             that identifies an account and identity within the Signal service.
         name:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
         about:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
         aboutEmoji:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
         avatar:
           type: string
         paymentAddress:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
         phoneNumberSharing:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
     CredentialProfileResponse:
       type: object
       properties:
         identityKey:
           $ref: '#/components/schemas/IdentityKey'
         unidentifiedAccess:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
         unrestrictedUnidentifiedAccess:
           type: boolean
         capabilities:
@@ -4632,32 +4562,22 @@ components:
           description: A service identifier is a tuple of a UUID and identity type
             that identifies an account and identity within the Signal service.
         name:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
         about:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
         aboutEmoji:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
         avatar:
           type: string
         paymentAddress:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
         phoneNumberSharing:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
     BatchIdentityCheckResponse:
       type: object
       properties:
@@ -4678,10 +4598,8 @@ components:
           type: string
           description: An identifier for an account based on the account's ACI
         fingerprint:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
     BatchIdentityCheckRequest:
       required:
       - elements
@@ -4699,57 +4617,45 @@ components:
       - version
       type: object
       properties:
-        avatar:
-          type: boolean
-        badgeIds:
-          type: array
-          items:
-            type: string
         commitment:
           $ref: '#/components/schemas/ProfileKeyCommitment'
         version:
           type: string
         name:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
         aboutEmoji:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
         about:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
         paymentAddress:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
         sameAvatar:
           type: boolean
         phoneNumberSharing:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
         avatarChange:
           type: string
           enum:
           - UNCHANGED
           - CLEAR
           - UPDATE
+        avatar:
+          type: boolean
+        badgeIds:
+          type: array
+          items:
+            type: string
     ProfileKeyCommitment:
       type: object
       properties:
         internalContentsForJNI:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
     ProvisioningMessage:
       required:
       - body
@@ -4776,16 +4682,11 @@ components:
             metadata object. Must be provided if `recoveryPassword` is not provided; must not be
             provided if `recoveryPassword` is provided.
         recoveryPassword:
-          type: array
+          type: string
           description: |
             A base64-encoded registration recovery password. Must be provided if `sessionId` is
             not provided; must not be provided if `sessionId` is provided
-          items:
-            type: string
-            description: |
-              A base64-encoded registration recovery password. Must be provided if `sessionId` is
-              not provided; must not be provided if `sessionId` is provided
-            format: byte
+          format: byte
         accountAttributes:
           $ref: '#/components/schemas/AccountAttributes'
         skipDeviceTransfer:
@@ -4857,6 +4758,9 @@ components:
       - tokens
       type: object
       properties:
+        number:
+          type: string
+          description: The e164-formatted phone number.
         tokens:
           maxItems: 10
           minItems: 0
@@ -4865,15 +4769,10 @@ components:
             A list of SVR tokens, previously retrieved from `backup/auth`. Tokens should be the
             of the form "username:password". May contain at most 10 tokens.
           items:
-            maxLength: 10
-            minLength: 0
             type: string
             description: |-
               A list of SVR tokens, previously retrieved from `backup/auth`. Tokens should be the
               of the form "username:password". May contain at most 10 tokens.
-        number:
-          type: string
-          description: The e164-formatted phone number.
     AuthCheckResponseV3:
       required:
       - matches
@@ -5005,10 +4904,8 @@ components:
         paymentIntentId:
           type: string
         receiptCredentialRequest:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
         processor:
           type: string
           enum:
@@ -5058,10 +4955,8 @@ components:
       type: object
       properties:
         receiptCredentialRequest:
-          type: array
-          items:
-            type: string
-            format: byte
+          type: string
+          format: byte
     VerificationSessionResponse:
       type: object
       properties:
