@@ -5,15 +5,21 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 
 class MessagesManagerTest {
@@ -45,5 +51,30 @@ class MessagesManagerTest {
     messagesManager.insert(destinationUuid, Device.PRIMARY_ID, syncMessage);
 
     verifyNoMoreInteractions(reportMessageManager);
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+      "false, false, false",
+      "false, true, true",
+      "true, false, true",
+      "true, true, true"
+  })
+  void mayHaveMessages(final boolean hasCachedMessages, final boolean hasPersistedMessages, final boolean expectMayHaveMessages) {
+    final UUID accountIdentifier = UUID.randomUUID();
+    final Device device = mock(Device.class);
+    when(device.getId()).thenReturn(Device.PRIMARY_ID);
+
+    when(messagesCache.hasMessagesAsync(accountIdentifier, Device.PRIMARY_ID))
+        .thenReturn(CompletableFuture.completedFuture(hasCachedMessages));
+
+    when(messagesDynamoDb.mayHaveMessages(accountIdentifier, device))
+        .thenReturn(CompletableFuture.completedFuture(hasPersistedMessages));
+
+    if (hasCachedMessages) {
+      verifyNoInteractions(messagesDynamoDb);
+    }
+
+    assertEquals(expectMayHaveMessages, messagesManager.mayHaveMessages(accountIdentifier, device).join());
   }
 }

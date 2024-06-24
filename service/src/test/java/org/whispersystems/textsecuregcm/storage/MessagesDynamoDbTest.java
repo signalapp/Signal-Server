@@ -25,9 +25,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.reactivestreams.Publisher;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicMessagesConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
@@ -416,4 +418,31 @@ class MessagesDynamoDbTest {
         .isEmpty();
   }
 
+  @ParameterizedTest
+  @MethodSource
+  void mayHaveMessages(final List<DynamicMessagesConfiguration.DynamoKeyScheme> schemes) {
+    final UUID destinationUuid = UUID.randomUUID();
+    final byte destinationDeviceId = (byte) (random.nextInt(Device.MAXIMUM_DEVICE_ID) + 1);
+    final Device destinationDevice = DevicesHelper.createDevice(destinationDeviceId);
+
+    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
+    when(dynamicConfiguration.getMessagesConfiguration()).thenReturn(new DynamicMessagesConfiguration(schemes));
+
+    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
+
+    assertThat(messagesDynamoDb.mayHaveMessages(destinationUuid, destinationDevice).join()).isFalse();
+
+    messagesDynamoDb.store(List.of(MESSAGE1, MESSAGE2, MESSAGE3), destinationUuid, destinationDevice);
+
+    assertThat(messagesDynamoDb.mayHaveMessages(destinationUuid, destinationDevice).join()).isTrue();
+  }
+
+  private static List<List<DynamicMessagesConfiguration.DynamoKeyScheme>> mayHaveMessages() {
+    return List.of(
+        List.of(DynamicMessagesConfiguration.DynamoKeyScheme.TRADITIONAL),
+        List.of(DynamicMessagesConfiguration.DynamoKeyScheme.LAZY_DELETION),
+        List.of(DynamicMessagesConfiguration.DynamoKeyScheme.TRADITIONAL, DynamicMessagesConfiguration.DynamoKeyScheme.LAZY_DELETION),
+        List.of(DynamicMessagesConfiguration.DynamoKeyScheme.LAZY_DELETION, DynamicMessagesConfiguration.DynamoKeyScheme.TRADITIONAL)
+    );
+  }
 }

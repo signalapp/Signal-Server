@@ -129,6 +129,40 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
     Metrics.counter(MESSAGES_STORED_BY_SCHEME_COUNTER_NAME, Tags.of("scheme", scheme.name())).increment(writeItems.size());
   }
 
+  public CompletableFuture<Boolean> mayHaveMessages(final UUID accountIdentifier, final Device device) {
+    return Flux.fromIterable(dynamicConfig.getConfiguration().getMessagesConfiguration().dynamoKeySchemes())
+        .flatMap(scheme -> mayHaveMessages(accountIdentifier, device, scheme))
+        .any(mayHaveMessages -> mayHaveMessages)
+        .toFuture();
+  }
+
+  private Mono<Boolean> mayHaveMessages(final UUID accountIdentifier, final Device device, final DynamoKeyScheme scheme) {
+    final AttributeValue partitionKey = convertPartitionKey(accountIdentifier, device, scheme);
+
+    QueryRequest.Builder queryRequestBuilder = QueryRequest.builder()
+        .tableName(tableName)
+        .consistentRead(false)
+        .limit(1);
+
+    queryRequestBuilder = switch (scheme) {
+      case TRADITIONAL -> queryRequestBuilder
+          .keyConditionExpression("#part = :part AND begins_with ( #sort , :sortprefix )")
+          .expressionAttributeNames(Map.of(
+              "#part", KEY_PARTITION,
+              "#sort", KEY_SORT))
+          .expressionAttributeValues(Map.of(
+              ":part", partitionKey,
+              ":sortprefix", convertDestinationDeviceIdToSortKeyPrefix(device.getId(), scheme)));
+      case LAZY_DELETION -> queryRequestBuilder
+          .keyConditionExpression("#part = :part")
+          .expressionAttributeNames(Map.of("#part", KEY_PARTITION))
+          .expressionAttributeValues(Map.of(":part", partitionKey));
+    };
+
+    return Mono.fromFuture(dbAsyncClient.query(queryRequestBuilder.build())
+        .thenApply(queryResponse -> queryResponse.count() > 0));
+  }
+
   public Publisher<MessageProtos.Envelope> load(final UUID destinationAccountUuid, final Device device, final Integer limit) {
     return Flux.concat(
         dynamicConfig.getConfiguration().getMessagesConfiguration().dynamoKeySchemes()

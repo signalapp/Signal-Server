@@ -201,6 +201,17 @@ class MessagesCacheTest {
       assertTrue(messagesCache.hasMessages(DESTINATION_UUID, DESTINATION_DEVICE_ID));
     }
 
+    @Test
+    void testHasMessagesAsync() {
+      assertFalse(messagesCache.hasMessagesAsync(DESTINATION_UUID, DESTINATION_DEVICE_ID).join());
+
+      final UUID messageGuid = UUID.randomUUID();
+      final MessageProtos.Envelope message = generateRandomMessage(messageGuid, true);
+      messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, message);
+
+      assertTrue(messagesCache.hasMessagesAsync(DESTINATION_UUID, DESTINATION_DEVICE_ID).join());
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void testGetMessages(final boolean sealedSender) throws Exception {
