@@ -79,7 +79,6 @@ class WebsocketHandshakeCompleteHandlerTest extends AbstractLeakDetectionTest {
     embeddedChannel = new MutableRemoteAddressEmbeddedChannel(
         new WebsocketHandshakeCompleteHandler(mock(ClientPublicKeysManager.class),
             Curve.generateKeyPair(),
-            new byte[64],
             RECOGNIZED_PROXY_SECRET),
         userEventRecordingHandler);
 
@@ -88,7 +87,7 @@ class WebsocketHandshakeCompleteHandlerTest extends AbstractLeakDetectionTest {
 
   @ParameterizedTest
   @MethodSource
-  void handleWebSocketHandshakeComplete(final String uri, final Class<? extends AbstractNoiseHandshakeHandler> expectedHandlerClass) {
+  void handleWebSocketHandshakeComplete(final String uri, final Class<? extends ChannelHandler> expectedHandlerClass) {
     final WebSocketServerProtocolHandler.HandshakeComplete handshakeCompleteEvent =
         new WebSocketServerProtocolHandler.HandshakeComplete(uri, new DefaultHttpHeaders(), null);
 
@@ -102,8 +101,8 @@ class WebsocketHandshakeCompleteHandlerTest extends AbstractLeakDetectionTest {
 
   private static List<Arguments> handleWebSocketHandshakeComplete() {
     return List.of(
-        Arguments.of(NoiseWebSocketTunnelServer.AUTHENTICATED_SERVICE_PATH, NoiseXXHandshakeHandler.class),
-        Arguments.of(NoiseWebSocketTunnelServer.ANONYMOUS_SERVICE_PATH, NoiseNXHandshakeHandler.class));
+        Arguments.of(NoiseWebSocketTunnelServer.AUTHENTICATED_SERVICE_PATH, NoiseAuthenticatedHandler.class),
+        Arguments.of(NoiseWebSocketTunnelServer.ANONYMOUS_SERVICE_PATH, NoiseAnonymousHandler.class));
   }
 
   @Test

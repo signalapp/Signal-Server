@@ -15,7 +15,6 @@ public record NoiseWebSocketTunnelConfiguration(@Positive int port,
                                                 @Nullable String tlsKeyStoreEntryAlias,
                                                 @Nullable SecretString tlsKeyStorePassword,
                                                 @NotNull SecretBytes noiseStaticPrivateKey,
-                                                @NotNull byte[] noiseRootPublicKeySignature,
                                                 @NotNull SecretString recognizedProxySecret) {
 
   public ECKeyPair noiseStaticKeyPair() throws InvalidKeyException {

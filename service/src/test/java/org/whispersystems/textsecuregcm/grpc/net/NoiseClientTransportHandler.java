@@ -11,30 +11,26 @@ import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.http.websocketx.BinaryWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.WebSocketFrame;
 import io.netty.util.ReferenceCountUtil;
-import javax.crypto.BadPaddingException;
-import javax.crypto.ShortBufferException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * A Noise transport handler manages a bidirectional Noise session after a handshake has completed.
  */
-class NoiseTransportHandler extends ChannelDuplexHandler {
+class NoiseClientTransportHandler extends ChannelDuplexHandler {
 
   private final CipherStatePair cipherStatePair;
 
-  private static final Logger log = LoggerFactory.getLogger(NoiseTransportHandler.class);
+  private static final Logger log = LoggerFactory.getLogger(NoiseClientTransportHandler.class);
 
-  NoiseTransportHandler(CipherStatePair cipherStatePair) {
+  NoiseClientTransportHandler(CipherStatePair cipherStatePair) {
     this.cipherStatePair = cipherStatePair;
   }
 
   @Override
-  public void channelRead(final ChannelHandlerContext context, final Object message)
-      throws ShortBufferException, BadPaddingException {
-
-    if (message instanceof BinaryWebSocketFrame frame) {
-      try {
+  public void channelRead(final ChannelHandlerContext context, final Object message) throws Exception {
+    try {
+      if (message instanceof BinaryWebSocketFrame frame) {
         final CipherState cipherState = cipherStatePair.getReceiver();
 
         // We've read this frame off the wire, and so it's most likely a direct buffer that's not backed by an array.
@@ -45,22 +41,22 @@ class NoiseTransportHandler extends ChannelDuplexHandler {
         final int plaintextLength = cipherState.decryptWithAd(null, noiseBuffer, 0, noiseBuffer, 0, noiseBuffer.length);
 
         context.fireChannelRead(Unpooled.wrappedBuffer(noiseBuffer, 0, plaintextLength));
-      } finally {
-        frame.release();
+      } else {
+        // Anything except binary WebSocket frames should have been filtered out of the pipeline by now; treat this as an
+        // error
+        throw new IllegalArgumentException("Unexpected message in pipeline: " + message);
       }
-    } else {
-      // Anything except binary WebSocket frames should have been filtered out of the pipeline by now; treat this as an
-      // error
+    } finally {
       ReferenceCountUtil.release(message);
-      throw new IllegalArgumentException("Unexpected message in pipeline: " + message);
     }
   }
 
+
   @Override
-  public void write(final ChannelHandlerContext context, final Object message, final ChannelPromise promise) throws Exception {
+  public void write(final ChannelHandlerContext context, final Object message, final ChannelPromise promise)
+      throws Exception {
     if (message instanceof ByteBuf plaintext) {
       try {
-        // TODO Buffer/consolidate Noise writes to avoid sending a bazillion tiny (or empty) frames
         final CipherState cipherState = cipherStatePair.getSender();
         final int plaintextLength = plaintext.readableBytes();
 
@@ -75,7 +71,7 @@ class NoiseTransportHandler extends ChannelDuplexHandler {
 
         context.write(new BinaryWebSocketFrame(Unpooled.wrappedBuffer(noiseBuffer)), promise);
       } finally {
-        plaintext.release();
+        ReferenceCountUtil.release(plaintext);
       }
     } else {
       if (!(message instanceof WebSocketFrame)) {
@@ -83,7 +79,6 @@ class NoiseTransportHandler extends ChannelDuplexHandler {
         // get issued in response to exceptions)
         log.warn("Unexpected object in pipeline: {}", message);
       }
-
       context.write(message, promise);
     }
   }

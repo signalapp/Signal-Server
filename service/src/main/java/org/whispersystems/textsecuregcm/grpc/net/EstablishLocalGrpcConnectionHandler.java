@@ -48,12 +48,12 @@ class EstablishLocalGrpcConnectionHandler extends ChannelInboundHandlerAdapter {
 
   @Override
   public void userEventTriggered(final ChannelHandlerContext remoteChannelContext, final Object event) {
-    if (event instanceof NoiseHandshakeCompleteEvent noiseHandshakeCompleteEvent) {
+    if (event instanceof NoiseIdentityDeterminedEvent noiseIdentityDeterminedEvent) {
       // We assume that we'll only get a completed handshake event if the handshake met all authentication requirements
       // for the requested service. If the handshake doesn't have an authenticated device, we assume we're trying to
       // connect to the anonymous service. If it does have an authenticated device, we assume we're aiming for the
       // authenticated service.
-      final LocalAddress grpcServerAddress = noiseHandshakeCompleteEvent.authenticatedDevice().isPresent()
+      final LocalAddress grpcServerAddress = noiseIdentityDeterminedEvent.authenticatedDevice().isPresent()
           ? authenticatedGrpcServerAddress
           : anonymousGrpcServerAddress;
 
@@ -72,7 +72,7 @@ class EstablishLocalGrpcConnectionHandler extends ChannelInboundHandlerAdapter {
             if (localChannelFuture.isSuccess()) {
               clientConnectionManager.handleConnectionEstablished((LocalChannel) localChannelFuture.channel(),
                   remoteChannelContext.channel(),
-                  noiseHandshakeCompleteEvent.authenticatedDevice());
+                  noiseIdentityDeterminedEvent.authenticatedDevice());
 
               // Close the local connection if the remote channel closes and vice versa
               remoteChannelContext.channel().closeFuture().addListener(closeFuture -> localChannelFuture.channel().close());

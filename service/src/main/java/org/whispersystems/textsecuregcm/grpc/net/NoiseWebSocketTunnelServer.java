@@ -53,7 +53,6 @@ public class NoiseWebSocketTunnelServer implements Managed {
       final ClientConnectionManager clientConnectionManager,
       final ClientPublicKeysManager clientPublicKeysManager,
       final ECKeyPair ecKeyPair,
-      final byte[] publicKeySignature,
       final LocalAddress authenticatedGrpcServerAddress,
       final LocalAddress anonymousGrpcServerAddress,
       final String recognizedProxySecret) throws SSLException {
@@ -107,7 +106,7 @@ public class NoiseWebSocketTunnelServer implements Managed {
                 .addLast(new RejectUnsupportedMessagesHandler())
                 // The WebSocket handshake complete listener will replace itself with an appropriate Noise handshake handler once
                 // a WebSocket handshake has been completed
-                .addLast(new WebsocketHandshakeCompleteHandler(clientPublicKeysManager, ecKeyPair, publicKeySignature, recognizedProxySecret))
+                .addLast(new WebsocketHandshakeCompleteHandler(clientPublicKeysManager, ecKeyPair, recognizedProxySecret))
                 // This handler will open a local connection to the appropriate gRPC server and install a ProxyHandler
                 // once the Noise handshake has completed
                 .addLast(new EstablishLocalGrpcConnectionHandler(clientConnectionManager, authenticatedGrpcServerAddress, anonymousGrpcServerAddress))

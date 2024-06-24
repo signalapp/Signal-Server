@@ -31,7 +31,6 @@ class WebsocketHandshakeCompleteHandler extends ChannelInboundHandlerAdapter {
   private final ClientPublicKeysManager clientPublicKeysManager;
 
   private final ECKeyPair ecKeyPair;
-  private final byte[] publicKeySignature;
 
   private final byte[] recognizedProxySecret;
 
@@ -45,12 +44,10 @@ class WebsocketHandshakeCompleteHandler extends ChannelInboundHandlerAdapter {
 
   WebsocketHandshakeCompleteHandler(final ClientPublicKeysManager clientPublicKeysManager,
       final ECKeyPair ecKeyPair,
-      final byte[] publicKeySignature,
       final String recognizedProxySecret) {
 
     this.clientPublicKeysManager = clientPublicKeysManager;
     this.ecKeyPair = ecKeyPair;
-    this.publicKeySignature = publicKeySignature;
 
     // The recognized proxy secret is an arbitrary string, and not an encoded byte sequence (i.e. a base64- or hex-
     // encoded value). We convert it into a byte array here for easier constant-time comparisons via
@@ -84,10 +81,10 @@ class WebsocketHandshakeCompleteHandler extends ChannelInboundHandlerAdapter {
 
       final ChannelHandler noiseHandshakeHandler = switch (handshakeCompleteEvent.requestUri()) {
         case NoiseWebSocketTunnelServer.AUTHENTICATED_SERVICE_PATH ->
-            new NoiseXXHandshakeHandler(clientPublicKeysManager, ecKeyPair, publicKeySignature);
+            new NoiseAuthenticatedHandler(clientPublicKeysManager, ecKeyPair);
 
         case NoiseWebSocketTunnelServer.ANONYMOUS_SERVICE_PATH ->
-            new NoiseNXHandshakeHandler(ecKeyPair, publicKeySignature);
+            new NoiseAnonymousHandler(ecKeyPair);
 
         default -> {
           // The WebSocketOpeningHandshakeHandler should have caught all of these cases already; we'll consider it an

@@ -9,6 +9,7 @@ import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler;
 import javax.crypto.BadPaddingException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 
 /**
  * An error handler serves as a general backstop for exceptions elsewhere in the pipeline. If the client has completed a
@@ -38,7 +39,7 @@ class ErrorHandler extends ChannelInboundHandlerAdapter {
   @Override
   public void exceptionCaught(final ChannelHandlerContext context, final Throwable cause) {
     if (websocketHandshakeComplete) {
-      final WebSocketCloseStatus webSocketCloseStatus = switch (cause) {
+      final WebSocketCloseStatus webSocketCloseStatus = switch (ExceptionUtils.unwrap(cause)) {
         case NoiseHandshakeException e -> ApplicationWebSocketCloseReason.NOISE_HANDSHAKE_ERROR.toWebSocketCloseStatus(e.getMessage());
         case ClientAuthenticationException ignored -> ApplicationWebSocketCloseReason.CLIENT_AUTHENTICATION_ERROR.toWebSocketCloseStatus("Not authenticated");
         case BadPaddingException ignored -> ApplicationWebSocketCloseReason.NOISE_ENCRYPTION_ERROR.toWebSocketCloseStatus("Noise encryption error");
@@ -51,6 +52,7 @@ class ErrorHandler extends ChannelInboundHandlerAdapter {
       context.writeAndFlush(new CloseWebSocketFrame(webSocketCloseStatus))
           .addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
     } else {
+      log.debug("Error occurred before websocket handshake complete", cause);
       // We haven't completed a websocket handshake, so we can't really communicate errors in a semantically-meaningful
       // way; just close the connection instead.
       context.close();

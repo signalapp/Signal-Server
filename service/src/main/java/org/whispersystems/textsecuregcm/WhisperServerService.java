@@ -933,7 +933,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         clientConnectionManager,
         clientPublicKeysManager,
         config.getNoiseWebSocketTunnelConfiguration().noiseStaticKeyPair(),
-        config.getNoiseWebSocketTunnelConfiguration().noiseRootPublicKeySignature(),
         authenticatedGrpcServerAddress,
         anonymousGrpcServerAddress,
         config.getNoiseWebSocketTunnelConfiguration().recognizedProxySecret().value());
