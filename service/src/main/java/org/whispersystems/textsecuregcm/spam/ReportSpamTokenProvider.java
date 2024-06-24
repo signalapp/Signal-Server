@@ -1,9 +1,9 @@
 package org.whispersystems.textsecuregcm.spam;
 
+import org.whispersystems.textsecuregcm.auth.AccountAndAuthenticatedDeviceHolder;
 import org.whispersystems.textsecuregcm.storage.Account;
 import javax.ws.rs.container.ContainerRequestContext;
 import java.util.Optional;
-import java.util.function.Function;
 
 /**
  * Generates ReportSpamTokens to be used for spam reports.
@@ -18,7 +18,7 @@ public interface ReportSpamTokenProvider {
    * @param maybeDestination the intended recepient of the message if available
    * @return either a generated token or nothing
    */
-  Optional<byte[]> makeReportSpamToken(ContainerRequestContext context, final Account sender,
+  Optional<byte[]> makeReportSpamToken(ContainerRequestContext context, final AccountAndAuthenticatedDeviceHolder sender,
       final Optional<Account> maybeDestination);
 
   /**

@@ -327,7 +327,7 @@ public class MessageController {
 
       final Optional<byte[]> spamReportToken = switch (senderType) {
         case SENDER_TYPE_IDENTIFIED ->
-        reportSpamTokenProvider.makeReportSpamToken(context, source.get().getAccount(), destination);
+        reportSpamTokenProvider.makeReportSpamToken(context, source.get(), destination);
         default -> Optional.empty();
       };
 
