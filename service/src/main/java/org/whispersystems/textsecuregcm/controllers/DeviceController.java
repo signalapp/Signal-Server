@@ -46,7 +46,7 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import org.glassfish.jersey.server.ContainerRequest;
-import org.whispersystems.textsecuregcm.auth.AuthEnablementRefreshRequirementProvider;
+import org.whispersystems.textsecuregcm.auth.LinkedDeviceRefreshRequirementProvider;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.BasicAuthorizationHeader;
 import org.whispersystems.textsecuregcm.auth.ChangesLinkedDevices;
@@ -221,7 +221,7 @@ public class DeviceController {
     // Normally, the "do we need to refresh somebody's websockets" listener can do this on its own. In this case,
     // we're not using the conventional authentication system, and so we need to give it a hint so it knows who the
     // active user is and what their device states look like.
-    AuthEnablementRefreshRequirementProvider.setAccount(containerRequest, account);
+    LinkedDeviceRefreshRequirementProvider.setAccount(containerRequest, account);
 
     final int maxDeviceLimit = maxDeviceConfiguration.getOrDefault(account.getNumber(), MAX_DEVICES);
 

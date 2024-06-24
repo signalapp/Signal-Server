@@ -23,7 +23,7 @@ public class WebsocketRefreshApplicationEventListener implements ApplicationEven
       final ClientPresenceManager clientPresenceManager) {
 
     this.websocketRefreshRequestEventListener = new WebsocketRefreshRequestEventListener(clientPresenceManager,
-        new AuthEnablementRefreshRequirementProvider(accountsManager),
+        new LinkedDeviceRefreshRequirementProvider(accountsManager),
         new PhoneNumberChangeRefreshRequirementProvider(accountsManager));
   }
 

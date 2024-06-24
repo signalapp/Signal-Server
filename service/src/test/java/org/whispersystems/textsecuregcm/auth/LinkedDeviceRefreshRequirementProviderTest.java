@@ -10,7 +10,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -32,17 +31,13 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
-import javax.ws.rs.POST;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -62,8 +57,6 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
@@ -83,7 +76,7 @@ import org.whispersystems.websocket.messages.protobuf.SubProtocol;
 import org.whispersystems.websocket.session.WebSocketSessionContextValueFactoryProvider;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
-class AuthEnablementRefreshRequirementProviderTest {
+class LinkedDeviceRefreshRequirementProviderTest {
 
   private final ApplicationEventListener applicationEventListener = mock(ApplicationEventListener.class);
 
@@ -105,14 +98,14 @@ class AuthEnablementRefreshRequirementProviderTest {
   private AccountsManager accountsManager;
   private ClientPresenceManager clientPresenceManager;
 
-  private AuthEnablementRefreshRequirementProvider provider;
+  private LinkedDeviceRefreshRequirementProvider provider;
 
   @BeforeEach
   void setup() {
     accountsManager = mock(AccountsManager.class);
     clientPresenceManager = mock(ClientPresenceManager.class);
 
-    provider = new AuthEnablementRefreshRequirementProvider(accountsManager);
+    provider = new LinkedDeviceRefreshRequirementProvider(accountsManager);
 
     final WebsocketRefreshRequestEventListener listener =
         new WebsocketRefreshRequestEventListener(clientPresenceManager, provider);

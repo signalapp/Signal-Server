@@ -27,16 +27,16 @@ import org.whispersystems.textsecuregcm.util.Pair;
  *
  * @see AuthenticatedAccount
  */
-public class AuthEnablementRefreshRequirementProvider implements WebsocketRefreshRequirementProvider {
+public class LinkedDeviceRefreshRequirementProvider implements WebsocketRefreshRequirementProvider {
 
   private final AccountsManager accountsManager;
 
-  private static final Logger logger = LoggerFactory.getLogger(AuthEnablementRefreshRequirementProvider.class);
+  private static final Logger logger = LoggerFactory.getLogger(LinkedDeviceRefreshRequirementProvider.class);
 
-  private static final String ACCOUNT_UUID = AuthEnablementRefreshRequirementProvider.class.getName() + ".accountUuid";
-  private static final String LINKED_DEVICE_IDS = AuthEnablementRefreshRequirementProvider.class.getName() + ".deviceIds";
+  private static final String ACCOUNT_UUID = LinkedDeviceRefreshRequirementProvider.class.getName() + ".accountUuid";
+  private static final String LINKED_DEVICE_IDS = LinkedDeviceRefreshRequirementProvider.class.getName() + ".deviceIds";
 
-  public AuthEnablementRefreshRequirementProvider(final AccountsManager accountsManager) {
+  public LinkedDeviceRefreshRequirementProvider(final AccountsManager accountsManager) {
     this.accountsManager = accountsManager;
   }
 
