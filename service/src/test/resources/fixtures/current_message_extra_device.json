@@ -10,5 +10,11 @@
         "destinationDeviceId" : 3,
         "content" : "Zm9vYmFyego",
         "timestamp" : 1234
-    }]
+    },
+      {
+        "type" : 1,
+        "destinationDeviceId" : 4,
+        "content" : "Zm9vYmFyego",
+        "timestamp" : 1234
+      }]
 }

@@ -303,12 +303,6 @@ public class Account {
         .allMatch(device -> device.getCapabilities() != null && predicate.test(device.getCapabilities()));
   }
 
-  public boolean isEnabled() {
-    requireNotStale();
-
-    return getPrimaryDevice().hasMessageDeliveryChannel();
-  }
-
   public byte getNextDeviceId() {
     requireNotStale();
 
@@ -323,14 +317,6 @@ public class Account {
     }
 
     return candidateId;
-  }
-
-  public boolean hasEnabledLinkedDevice() {
-    requireNotStale();
-
-    return devices.stream()
-        .filter(d -> Device.PRIMARY_ID != d.getId())
-        .anyMatch(Device::hasMessageDeliveryChannel);
   }
 
   public void setIdentityKey(final IdentityKey identityKey) {
@@ -501,12 +487,6 @@ public class Account {
     requireNotStale();
 
     this.discoverableByPhoneNumber = discoverableByPhoneNumber;
-  }
-
-  public boolean shouldBeVisibleInDirectory() {
-    requireNotStale();
-
-    return isEnabled() && isDiscoverableByPhoneNumber();
   }
 
   public int getVersion() {

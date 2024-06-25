@@ -240,7 +240,6 @@ class KeysControllerTest {
     when(existsAccount.getDevice(sampleDevice4Id)).thenReturn(Optional.of(sampleDevice4));
     when(existsAccount.getDevice((byte) 22)).thenReturn(Optional.empty());
     when(existsAccount.getDevices()).thenReturn(allDevices);
-    when(existsAccount.isEnabled()).thenReturn(true);
     when(existsAccount.getIdentityKey(IdentityType.ACI)).thenReturn(IDENTITY_KEY);
     when(existsAccount.getIdentityKey(IdentityType.PNI)).thenReturn(PNI_IDENTITY_KEY);
     when(existsAccount.getNumber()).thenReturn(EXISTS_NUMBER);
@@ -676,7 +675,7 @@ class KeysControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get(PreKeyResponse.class);
 
-    assertThat(results.getDevicesCount()).isEqualTo(3);
+    assertThat(results.getDevicesCount()).isEqualTo(4);
     assertThat(results.getIdentityKey()).isEqualTo(existsAccount.getIdentityKey(IdentityType.ACI));
 
     ECSignedPreKey signedPreKey = results.getDevice(SAMPLE_DEVICE_ID).getSignedPreKey();
@@ -711,12 +710,15 @@ class KeysControllerTest {
 
     verify(KEYS).takeEC(EXISTS_UUID, SAMPLE_DEVICE_ID);
     verify(KEYS).takeEC(EXISTS_UUID, SAMPLE_DEVICE_ID2);
+    verify(KEYS).takeEC(EXISTS_UUID, SAMPLE_DEVICE_ID3);
     verify(KEYS).takeEC(EXISTS_UUID, SAMPLE_DEVICE_ID4);
     verify(KEYS).takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID);
     verify(KEYS).takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID2);
+    verify(KEYS).takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID3);
     verify(KEYS).takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID4);
     verify(KEYS).getEcSignedPreKey(EXISTS_UUID, SAMPLE_DEVICE_ID);
     verify(KEYS).getEcSignedPreKey(EXISTS_UUID, SAMPLE_DEVICE_ID2);
+    verify(KEYS).getEcSignedPreKey(EXISTS_UUID, SAMPLE_DEVICE_ID3);
     verify(KEYS).getEcSignedPreKey(EXISTS_UUID, SAMPLE_DEVICE_ID4);
     verifyNoMoreInteractions(KEYS);
   }
@@ -746,7 +748,7 @@ class KeysControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get(PreKeyResponse.class);
 
-    assertThat(results.getDevicesCount()).isEqualTo(3);
+    assertThat(results.getDevicesCount()).isEqualTo(4);
     assertThat(results.getIdentityKey()).isEqualTo(existsAccount.getIdentityKey(IdentityType.ACI));
 
     ECSignedPreKey signedPreKey = results.getDevice(SAMPLE_DEVICE_ID).getSignedPreKey();
@@ -789,10 +791,13 @@ class KeysControllerTest {
     verify(KEYS).takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID);
     verify(KEYS).takeEC(EXISTS_UUID, SAMPLE_DEVICE_ID2);
     verify(KEYS).takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID2);
+    verify(KEYS).takeEC(EXISTS_UUID, SAMPLE_DEVICE_ID3);
+    verify(KEYS).takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID3);
     verify(KEYS).takeEC(EXISTS_UUID, SAMPLE_DEVICE_ID4);
     verify(KEYS).takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID4);
     verify(KEYS).getEcSignedPreKey(EXISTS_UUID, SAMPLE_DEVICE_ID);
     verify(KEYS).getEcSignedPreKey(EXISTS_UUID, SAMPLE_DEVICE_ID2);
+    verify(KEYS).getEcSignedPreKey(EXISTS_UUID, SAMPLE_DEVICE_ID3);
     verify(KEYS).getEcSignedPreKey(EXISTS_UUID, SAMPLE_DEVICE_ID4);
     verifyNoMoreInteractions(KEYS);
   }

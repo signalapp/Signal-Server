@@ -161,7 +161,6 @@ class AccountAuthenticatorTest {
     when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
     when(account.getUuid()).thenReturn(uuid);
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
-    when(account.isEnabled()).thenReturn(true);
     when(device.getId()).thenReturn(deviceId);
     when(device.hasMessageDeliveryChannel()).thenReturn(true);
     when(device.getAuthTokenHash()).thenReturn(credentials);
@@ -191,7 +190,6 @@ class AccountAuthenticatorTest {
     when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
     when(account.getUuid()).thenReturn(uuid);
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
-    when(account.isEnabled()).thenReturn(true);
     when(device.getId()).thenReturn(deviceId);
     when(device.hasMessageDeliveryChannel()).thenReturn(true);
     when(device.getAuthTokenHash()).thenReturn(credentials);
@@ -224,7 +222,6 @@ class AccountAuthenticatorTest {
     when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
     when(account.getUuid()).thenReturn(uuid);
     when(account.getDevice(deviceId)).thenReturn(Optional.of(authenticatedDevice));
-    when(account.isEnabled()).thenReturn(accountEnabled);
     when(authenticatedDevice.getId()).thenReturn(deviceId);
     when(authenticatedDevice.hasMessageDeliveryChannel()).thenReturn(deviceEnabled);
     when(authenticatedDevice.getAuthTokenHash()).thenReturn(credentials);
@@ -260,7 +257,6 @@ class AccountAuthenticatorTest {
     when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
     when(account.getUuid()).thenReturn(uuid);
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
-    when(account.isEnabled()).thenReturn(true);
     when(device.getId()).thenReturn(deviceId);
     when(device.hasMessageDeliveryChannel()).thenReturn(true);
     when(device.getAuthTokenHash()).thenReturn(credentials);
@@ -297,7 +293,6 @@ class AccountAuthenticatorTest {
     when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
     when(account.getUuid()).thenReturn(uuid);
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
-    when(account.isEnabled()).thenReturn(true);
     when(device.getId()).thenReturn(deviceId);
     when(device.hasMessageDeliveryChannel()).thenReturn(true);
     when(device.getAuthTokenHash()).thenReturn(credentials);
@@ -325,7 +320,6 @@ class AccountAuthenticatorTest {
     when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
     when(account.getUuid()).thenReturn(uuid);
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
-    when(account.isEnabled()).thenReturn(true);
     when(device.getId()).thenReturn(deviceId);
     when(device.hasMessageDeliveryChannel()).thenReturn(true);
     when(device.getAuthTokenHash()).thenReturn(credentials);

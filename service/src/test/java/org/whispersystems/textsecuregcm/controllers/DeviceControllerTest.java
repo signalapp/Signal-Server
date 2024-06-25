@@ -143,7 +143,6 @@ class DeviceControllerTest {
     when(account.getNumber()).thenReturn(AuthHelper.VALID_NUMBER);
     when(account.getUuid()).thenReturn(AuthHelper.VALID_UUID);
     when(account.getPhoneNumberIdentifier()).thenReturn(AuthHelper.VALID_PNI);
-    when(account.isEnabled()).thenReturn(false);
     when(account.isPaymentActivationSupported()).thenReturn(false);
 
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));

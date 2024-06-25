@@ -119,35 +119,44 @@ class DestinationDeviceValidatorTest {
     return account;
   }
 
-  static Stream<Arguments> validateCompleteDeviceListSource() {
+  static Stream<Arguments> validateCompleteDeviceList() {
     final byte id1 = 1;
     final byte id2 = 2;
     final byte id3 = 3;
     return Stream.of(
+        // Device IDs provided for all enabled devices
         arguments(
             mockAccountWithDeviceAndEnabled(Map.of(id1, true, id2, false, id3, true)),
             Set.of(id1, id3),
             null,
             null,
             Collections.emptySet()),
+
+        // Device ID provided for disabled device
         arguments(
             mockAccountWithDeviceAndEnabled(Map.of(id1, true, id2, false, id3, true)),
             Set.of(id1, id2, id3),
             null,
-            Set.of(id2),
+            null,
             Collections.emptySet()),
+
+        // Device ID omitted for enabled device
         arguments(
             mockAccountWithDeviceAndEnabled(Map.of(id1, true, id2, false, id3, true)),
             Set.of(id1),
             Set.of(id3),
             null,
             Collections.emptySet()),
+
+        // Device ID included for disabled device, omitted for enabled device
         arguments(
             mockAccountWithDeviceAndEnabled(Map.of(id1, true, id2, false, id3, true)),
             Set.of(id1, id2),
             Set.of(id3),
-            Set.of(id2),
+            null,
             Collections.emptySet()),
+
+        // Device ID omitted for enabled device, included for device in excluded list
         arguments(
             mockAccountWithDeviceAndEnabled(Map.of(id1, true, id2, false, id3, true)),
             Set.of(id1),
@@ -155,13 +164,17 @@ class DestinationDeviceValidatorTest {
             Set.of(id1),
             Set.of(id1)
         ),
+
+        // Device ID omitted for enabled device, included for disabled device, omitted for excluded device
         arguments(
             mockAccountWithDeviceAndEnabled(Map.of(id1, true, id2, false, id3, true)),
             Set.of(id2),
             Set.of(id3),
-            Set.of(id2),
+            null,
             Set.of(id1)
         ),
+
+        // Device ID included for enabled device, omitted for excluded device
         arguments(
             mockAccountWithDeviceAndEnabled(Map.of(id1, true, id2, false, id3, true)),
             Set.of(id3),
@@ -173,8 +186,8 @@ class DestinationDeviceValidatorTest {
   }
 
   @ParameterizedTest
-  @MethodSource("validateCompleteDeviceListSource")
-  void testValidateCompleteDeviceList(
+  @MethodSource
+  void validateCompleteDeviceList(
       Account account,
       Set<Byte> deviceIds,
       Collection<Byte> expectedMissingDeviceIds,

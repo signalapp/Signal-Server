@@ -315,7 +315,7 @@ class AccountsTest {
                   Accounts.ATTR_ACCOUNT_E164, AttributeValues.fromString(account.getNumber()),
                   Accounts.ATTR_ACCOUNT_DATA, AttributeValues.fromByteArray(SystemMapper.jsonMapper().writeValueAsBytes(account)),
                   Accounts.ATTR_VERSION, AttributeValues.fromInt(account.getVersion()),
-                  Accounts.ATTR_CANONICALLY_DISCOVERABLE, AttributeValues.fromBool(account.shouldBeVisibleInDirectory())))
+                  Accounts.ATTR_CANONICALLY_DISCOVERABLE, AttributeValues.fromBool(account.isDiscoverableByPhoneNumber())))
               .build())
           .build();
 

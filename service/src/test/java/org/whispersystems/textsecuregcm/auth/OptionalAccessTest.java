@@ -5,152 +5,141 @@
 
 package org.whispersystems.textsecuregcm.auth;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import javax.ws.rs.WebApplicationException;
-import org.junit.jupiter.api.Test;
+import org.apache.commons.lang3.RandomStringUtils;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.Device;
 
 class OptionalAccessTest {
 
-  @Test
-  void testUnidentifiedMissingTarget() {
-    try {
-      OptionalAccess.verify(Optional.empty(), Optional.empty(), Optional.empty());
-      throw new AssertionError("should fail");
-    } catch (WebApplicationException e) {
-      assertEquals(e.getResponse().getStatus(), 401);
-    }
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+  @ParameterizedTest
+  @MethodSource
+  void verify(final Optional<Account> requestAccount,
+      final Optional<Anonymous> accessKey,
+      final Optional<Account> targetAccount,
+      final String deviceSelector,
+      final OptionalInt expectedStatusCode) {
+
+    expectedStatusCode.ifPresentOrElse(statusCode -> {
+      final WebApplicationException webApplicationException = assertThrows(WebApplicationException.class,
+          () -> OptionalAccess.verify(requestAccount, accessKey, targetAccount, deviceSelector));
+
+      assertEquals(statusCode, webApplicationException.getResponse().getStatus());
+    }, () -> assertDoesNotThrow(() -> OptionalAccess.verify(requestAccount, accessKey, targetAccount, deviceSelector)));
   }
 
-  @Test
-  void testUnidentifiedMissingTargetDevice() {
-    Account account = mock(Account.class);
-    when(account.isEnabled()).thenReturn(true);
-    when(account.getDevice(eq((byte) 10))).thenReturn(Optional.empty());
-    when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of("1234".getBytes()));
+  private static List<Arguments> verify() {
+    final String unidentifiedAccessKey = RandomStringUtils.randomAlphanumeric(16);
 
-    try {
-      OptionalAccess.verify(Optional.empty(), Optional.of(new Anonymous(Base64.getEncoder().encodeToString("1234".getBytes()))), Optional.of(account), "10");
-    } catch (WebApplicationException e) {
-      assertEquals(e.getResponse().getStatus(), 401);
-    }
-  }
+    final Anonymous correctUakHeader =
+        new Anonymous(Base64.getEncoder().encodeToString(unidentifiedAccessKey.getBytes()));
 
-  @Test
-  void testUnidentifiedBadTargetDevice() {
-    Account account = mock(Account.class);
-    when(account.isEnabled()).thenReturn(true);
-    when(account.getDevice(eq((byte) 10))).thenReturn(Optional.empty());
-    when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of("1234".getBytes()));
+    final Anonymous incorrectUakHeader =
+        new Anonymous(Base64.getEncoder().encodeToString((unidentifiedAccessKey + "-incorrect").getBytes()));
 
-    try {
-      OptionalAccess.verify(Optional.empty(), Optional.of(new Anonymous(Base64.getEncoder().encodeToString("1234".getBytes()))), Optional.of(account), "$$");
-    } catch (WebApplicationException e) {
-      assertEquals(e.getResponse().getStatus(), 422);
-    }
-  }
+    final Account targetAccount = mock(Account.class);
+    when(targetAccount.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(mock(Device.class)));
+    when(targetAccount.getUnidentifiedAccessKey())
+        .thenReturn(Optional.of(unidentifiedAccessKey.getBytes(StandardCharsets.UTF_8)));
 
+    final Account allowAllTargetAccount = mock(Account.class);
+    when(allowAllTargetAccount.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(mock(Device.class)));
+    when(allowAllTargetAccount.isUnrestrictedUnidentifiedAccess()).thenReturn(true);
 
-  @Test
-  void testUnidentifiedBadCode() {
-    Account account = mock(Account.class);
-    when(account.isEnabled()).thenReturn(true);
-    when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of("1234".getBytes()));
+    final Account noUakTargetAccount = mock(Account.class);
+    when(noUakTargetAccount.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(mock(Device.class)));
+    when(noUakTargetAccount.getUnidentifiedAccessKey()).thenReturn(Optional.empty());
 
-    try {
-      OptionalAccess.verify(Optional.empty(), Optional.of(new Anonymous(Base64.getEncoder().encodeToString("5678".getBytes()))), Optional.of(account));
-      throw new AssertionError("should fail");
-    } catch (WebApplicationException e) {
-      assertEquals(e.getResponse().getStatus(), 401);
-    }
-  }
+    final Account inactiveTargetAccount = mock(Account.class);
+    when(inactiveTargetAccount.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(mock(Device.class)));
+    when(inactiveTargetAccount.getUnidentifiedAccessKey())
+        .thenReturn(Optional.of(unidentifiedAccessKey.getBytes(StandardCharsets.UTF_8)));
 
-  @Test
-  void testIdentifiedMissingTarget() {
-    Account account =  mock(Account.class);
-    when(account.isEnabled()).thenReturn(true);
+    return List.of(
+        // Unidentified caller; correct UAK
+        Arguments.of(Optional.empty(),
+            Optional.of(correctUakHeader),
+            Optional.of(targetAccount),
+            OptionalAccess.ALL_DEVICES_SELECTOR,
+            OptionalInt.empty()),
 
-    try {
-      OptionalAccess.verify(Optional.of(account), Optional.empty(), Optional.empty());
-      throw new AssertionError("should fail");
-    } catch (WebApplicationException e) {
-      assertEquals(e.getResponse().getStatus(), 404);
-    }
-  }
+        // Identified caller; no UAK needed
+        Arguments.of(Optional.of(mock(Account.class)),
+            Optional.empty(),
+            Optional.of(targetAccount),
+            OptionalAccess.ALL_DEVICES_SELECTOR,
+            OptionalInt.empty()),
 
-  @Test
-  void testUnsolicitedBadTarget() {
-    Account account = mock(Account.class);
-    when(account.isUnrestrictedUnidentifiedAccess()).thenReturn(false);
-    when(account.isEnabled()).thenReturn(true);
+        // Unidentified caller; target account not found
+        Arguments.of(Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            OptionalAccess.ALL_DEVICES_SELECTOR,
+            OptionalInt.of(401)),
 
-    try {
-      OptionalAccess.verify(Optional.empty(), Optional.empty(), Optional.of(account));
-      throw new AssertionError("should fail");
-    } catch (WebApplicationException e) {
-      assertEquals(e.getResponse().getStatus(), 401);
-    }
-  }
+        // Identified caller; target account not found
+        Arguments.of(Optional.of(mock(Account.class)),
+            Optional.empty(),
+            Optional.empty(),
+            OptionalAccess.ALL_DEVICES_SELECTOR,
+            OptionalInt.of(404)),
 
-  @Test
-  void testUnsolicitedGoodTarget() {
-    Account account = mock(Account.class);
-    Anonymous random = mock(Anonymous.class);
-    when(account.isUnrestrictedUnidentifiedAccess()).thenReturn(true);
-    when(account.isEnabled()).thenReturn(true);
-    OptionalAccess.verify(Optional.empty(), Optional.of(random), Optional.of(account));
-  }
+        // Unidentified caller; target account found, but target device not found
+        Arguments.of(Optional.empty(),
+            Optional.of(correctUakHeader),
+            Optional.of(targetAccount),
+            String.valueOf(Device.PRIMARY_ID + 1),
+            OptionalInt.of(401)),
 
-  @Test
-  void testUnidentifiedGoodTarget() {
-    Account account = mock(Account.class);
-    when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of("1234".getBytes()));
-    when(account.isEnabled()).thenReturn(true);
-    OptionalAccess.verify(Optional.empty(), Optional.of(new Anonymous(Base64.getEncoder().encodeToString("1234".getBytes()))), Optional.of(account));
-  }
+        // Unidentified caller; target account found, but incorrect UAK provided
+        Arguments.of(Optional.empty(),
+            Optional.of(incorrectUakHeader),
+            Optional.of(targetAccount),
+            OptionalAccess.ALL_DEVICES_SELECTOR,
+            OptionalInt.of(401)),
 
-  @Test
-  void testUnidentifiedTargetMissingAccessKey() {
-    Account account = mock(Account.class);
-    when(account.getUnidentifiedAccessKey()).thenReturn(Optional.empty());
-    when(account.isEnabled()).thenReturn(true);
-    try {
-      OptionalAccess.verify(
-          Optional.empty(),
-          Optional.of(new Anonymous(Base64.getEncoder().encodeToString("1234".getBytes()))),
-          Optional.of(account));
-      throw new AssertionError("should fail");
-    } catch (WebApplicationException e) {
-      assertEquals(e.getResponse().getStatus(), 401);
-    }
-  }
+        // Unidentified caller; target account found, but has no UAK
+        Arguments.of(Optional.empty(),
+            Optional.of(correctUakHeader),
+            Optional.of(noUakTargetAccount),
+            OptionalAccess.ALL_DEVICES_SELECTOR,
+            OptionalInt.of(401)),
 
-  @Test
-  void testUnidentifiedInactive() {
-    Account account = mock(Account.class);
-    when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of("1234".getBytes()));
-    when(account.isEnabled()).thenReturn(false);
+        // Unidentified caller; target account found, allows unrestricted unidentified access
+        Arguments.of(Optional.empty(),
+            Optional.of(incorrectUakHeader),
+            Optional.of(allowAllTargetAccount),
+            OptionalAccess.ALL_DEVICES_SELECTOR,
+            OptionalInt.empty()),
 
-    try {
-      OptionalAccess.verify(Optional.empty(), Optional.of(new Anonymous(Base64.getEncoder().encodeToString("1234".getBytes()))), Optional.of(account));
-      throw new AssertionError();
-    } catch (WebApplicationException e) {
-      assertEquals(e.getResponse().getStatus(), 401);
-    }
-  }
+        // Unidentified caller; target account found, but inactive
+        Arguments.of(Optional.empty(),
+            Optional.of(correctUakHeader),
+            Optional.of(inactiveTargetAccount),
+            OptionalAccess.ALL_DEVICES_SELECTOR,
+            OptionalInt.empty()),
 
-  @Test
-  void testIdentifiedGoodTarget() {
-    Account source = mock(Account.class);
-    Account target = mock(Account.class);
-    when(target.isEnabled()).thenReturn(true);
-    OptionalAccess.verify(Optional.of(source), Optional.empty(), Optional.of(target));
+        // Malformed device ID
+        Arguments.of(Optional.empty(),
+            Optional.of(correctUakHeader),
+            Optional.of(targetAccount),
+            "not a valid identifier",
+            OptionalInt.of(422))
+    );
   }
 }

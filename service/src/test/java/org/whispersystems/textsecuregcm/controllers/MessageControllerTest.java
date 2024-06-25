@@ -1584,18 +1584,20 @@ class MessageControllerTest {
   void sendMultiRecipientMessageMismatchedDevices(final ServiceIdentifier serviceIdentifier)
       throws JsonProcessingException {
 
+    final byte extraDeviceId = MULTI_DEVICE_ID3 + 1;
+
     final List<Recipient> recipients = List.of(
         new Recipient(serviceIdentifier, MULTI_DEVICE_ID1, MULTI_DEVICE_REG_ID1, new byte[48]),
         new Recipient(serviceIdentifier, MULTI_DEVICE_ID2, MULTI_DEVICE_REG_ID2, new byte[48]),
-        new Recipient(serviceIdentifier, MULTI_DEVICE_ID3, MULTI_DEVICE_REG_ID3, new byte[48]));
+        new Recipient(serviceIdentifier, MULTI_DEVICE_ID3, MULTI_DEVICE_REG_ID3, new byte[48]),
+        new Recipient(serviceIdentifier, extraDeviceId, 1234, new byte[48]));
 
     // initialize our binary payload and create an input stream
-    byte[] buffer = new byte[2048];
-    // InputStream stream = initializeMultiPayload(recipientUUID, buffer);
-    InputStream stream = initializeMultiPayload(recipients, buffer, true);
+    final byte[] buffer = new byte[2048];
+    final InputStream stream = initializeMultiPayload(recipients, buffer, true);
 
     // set up the entity to use in our PUT request
-    Entity<InputStream> entity = Entity.entity(stream, MultiRecipientMessageProvider.MEDIA_TYPE);
+    final Entity<InputStream> entity = Entity.entity(stream, MultiRecipientMessageProvider.MEDIA_TYPE);
 
     // start building the request
     final Invocation.Builder invocationBuilder = resources
@@ -1619,7 +1621,7 @@ class MessageControllerTest {
                   .constructCollectionType(List.class, AccountMismatchedDevices.class));
 
       assertEquals(List.of(new AccountMismatchedDevices(serviceIdentifier,
-              new MismatchedDevices(Collections.emptyList(), List.of(MULTI_DEVICE_ID3)))),
+              new MismatchedDevices(Collections.emptyList(), List.of(extraDeviceId)))),
           mismatchedDevices);
     }
   }

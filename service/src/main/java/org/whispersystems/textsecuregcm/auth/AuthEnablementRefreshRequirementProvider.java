@@ -22,12 +22,12 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.Pair;
 
 /**
- * This {@link WebsocketRefreshRequirementProvider} observes intra-request changes in {@link Account#isEnabled()} and
+ * This {@link WebsocketRefreshRequirementProvider} observes intra-request changes in
  * {@link Device#hasMessageDeliveryChannel()}.
  * <p>
- * If a change in {@link Account#isEnabled()} or any associated {@link Device#hasMessageDeliveryChannel()} is observed, then any active
- * WebSocket connections for the account must be closed in order for clients to get a refreshed
- * {@link io.dropwizard.auth.Auth} object with a current device list.
+ * If a change in any associated {@link Device#hasMessageDeliveryChannel()} is observed, then any active WebSocket
+ * connections for the account must be closed in order for clients to get a refreshed {@link io.dropwizard.auth.Auth}
+ * object with a current device list.
  *
  * @see AuthenticatedAccount
  */
@@ -48,9 +48,8 @@ public class AuthEnablementRefreshRequirementProvider implements WebsocketRefres
   @Override
   public void handleRequestFiltered(final RequestEvent requestEvent) {
     if (requestEvent.getUriInfo().getMatchedResourceMethod().getInvocable().getHandlingMethod().getAnnotation(ChangesDeviceEnabledState.class) != null) {
-      // The authenticated principal, if any, will be available after filters have run.
-      // Now that the account is known, capture a snapshot of `isEnabled` for the account's devices before carrying out
-      // the request’s business logic.
+      // The authenticated principal, if any, will be available after filters have run. Now that the account is known,
+      // capture a snapshot of the account's devices before carrying out the request’s business logic.
       ContainerRequestUtil.getAuthenticatedAccount(requestEvent.getContainerRequest()).ifPresent(account ->
           setAccount(requestEvent.getContainerRequest(), account));
     }
@@ -66,8 +65,8 @@ public class AuthEnablementRefreshRequirementProvider implements WebsocketRefres
 
   @Override
   public List<Pair<UUID, Byte>> handleRequestFinished(final RequestEvent requestEvent) {
-    // Now that the request is finished, check whether `isEnabled` changed for any of the devices. If the value did
-    // change or if a devices was added or removed, all devices must disconnect and reauthenticate.
+    // Now that the request is finished, check whether `hasMessageDeliveryChannel` changed for any of the devices. If
+    // the value did change or if a devices was added or removed, all devices must disconnect and reauthenticate.
     if (requestEvent.getContainerRequest().getProperty(DEVICES_ENABLED) != null) {
 
       @SuppressWarnings("unchecked") final Map<Byte, Boolean> initialDevicesEnabled =

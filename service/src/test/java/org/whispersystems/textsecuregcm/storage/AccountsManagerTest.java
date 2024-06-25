@@ -1066,11 +1066,13 @@ class AccountsManagerTest {
     final ECKeyPair identityKeyPair = Curve.generateKeyPair();
     final Map<Byte, ECSignedPreKey> newSignedKeys = Map.of(
         Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, identityKeyPair),
-        deviceId2, KeysHelper.signedECPreKey(2, identityKeyPair));
+        deviceId2, KeysHelper.signedECPreKey(2, identityKeyPair),
+        deviceId3, KeysHelper.signedECPreKey(3, identityKeyPair));
     final Map<Byte, KEMSignedPreKey> newSignedPqKeys = Map.of(
-        Device.PRIMARY_ID, KeysHelper.signedKEMPreKey(3, identityKeyPair),
-        deviceId2, KeysHelper.signedKEMPreKey(4, identityKeyPair));
-    final Map<Byte, Integer> newRegistrationIds = Map.of(Device.PRIMARY_ID, 201, deviceId2, 202);
+        Device.PRIMARY_ID, KeysHelper.signedKEMPreKey(4, identityKeyPair),
+        deviceId2, KeysHelper.signedKEMPreKey(5, identityKeyPair),
+        deviceId3, KeysHelper.signedKEMPreKey(6, identityKeyPair));
+    final Map<Byte, Integer> newRegistrationIds = Map.of(Device.PRIMARY_ID, 201, deviceId2, 202, deviceId3, 203);
 
     final Account existingAccount = AccountsHelper.generateTestAccount(targetNumber, existingAccountUuid, targetPni, new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
     when(accounts.getByE164(targetNumber)).thenReturn(Optional.of(existingAccount));
@@ -1097,7 +1099,9 @@ class AccountsManagerTest {
     verify(keysManager).getPqEnabledDevices(uuid);
     verify(keysManager).buildWriteItemForEcSignedPreKey(eq(newPni), eq(Device.PRIMARY_ID), any());
     verify(keysManager).buildWriteItemForEcSignedPreKey(eq(newPni), eq(deviceId2), any());
+    verify(keysManager).buildWriteItemForEcSignedPreKey(eq(newPni), eq(deviceId3), any());
     verify(keysManager).buildWriteItemForLastResortKey(eq(newPni), eq(Device.PRIMARY_ID), any());
+    verify(keysManager).buildWriteItemForLastResortKey(eq(newPni), eq(deviceId3), any());
     verifyNoMoreInteractions(keysManager);
   }
 

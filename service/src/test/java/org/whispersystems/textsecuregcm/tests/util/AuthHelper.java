@@ -159,8 +159,6 @@ public class AuthHelper {
     when(UNDISCOVERABLE_ACCOUNT.getDevices()).thenReturn(List.of(UNDISCOVERABLE_DEVICE));
     when(VALID_ACCOUNT_3.getDevices()).thenReturn(List.of(VALID_DEVICE_3_PRIMARY, VALID_DEVICE_3_LINKED));
 
-    when(VALID_ACCOUNT_TWO.hasEnabledLinkedDevice()).thenReturn(true);
-
     when(VALID_ACCOUNT.getNumber()).thenReturn(VALID_NUMBER);
     when(VALID_ACCOUNT.getUuid()).thenReturn(VALID_UUID);
     when(VALID_ACCOUNT.getPhoneNumberIdentifier()).thenReturn(VALID_PNI);
@@ -179,11 +177,6 @@ public class AuthHelper {
     when(VALID_ACCOUNT_3.getPhoneNumberIdentifier()).thenReturn(VALID_PNI_3);
     when(VALID_ACCOUNT_3.getIdentifier(IdentityType.ACI)).thenReturn(VALID_UUID_3);
     when(VALID_ACCOUNT_3.getIdentifier(IdentityType.PNI)).thenReturn(VALID_PNI_3);
-
-    when(VALID_ACCOUNT.isEnabled()).thenReturn(true);
-    when(VALID_ACCOUNT_TWO.isEnabled()).thenReturn(true);
-    when(UNDISCOVERABLE_ACCOUNT.isEnabled()).thenReturn(true);
-    when(VALID_ACCOUNT_3.isEnabled()).thenReturn(true);
 
     when(VALID_ACCOUNT.isDiscoverableByPhoneNumber()).thenReturn(true);
     when(VALID_ACCOUNT_TWO.isDiscoverableByPhoneNumber()).thenReturn(true);
@@ -284,7 +277,6 @@ public class AuthHelper {
       when(account.getPrimaryDevice()).thenReturn(device);
       when(account.getNumber()).thenReturn(number);
       when(account.getUuid()).thenReturn(uuid);
-      when(account.isEnabled()).thenReturn(true);
       when(accountsManager.getByE164(number)).thenReturn(Optional.of(account));
       when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
     }

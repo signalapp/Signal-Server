@@ -313,7 +313,7 @@ public class KeysController {
   @ApiResponse(responseCode = "200", description = "Indicates at least one prekey was available for at least one requested device.", useReturnTypeSchema = true)
   @ApiResponse(responseCode = "400", description = "A group send endorsement and other authorization (account authentication or unidentified-access key) were both provided.")
   @ApiResponse(responseCode = "401", description = "Account authentication check failed and unidentified-access key or group send endorsement token was not supplied or invalid.")
-  @ApiResponse(responseCode = "404", description = "Requested identity or device does not exist, is not active, or has no available prekeys.")
+  @ApiResponse(responseCode = "404", description = "Requested identity or device does not exist or device has no available prekeys.")
   @ApiResponse(responseCode = "429", description = "Rate limit exceeded.", headers = @Header(
       name = "Retry-After",
       description = "If present, a positive integer indicating the number of seconds before a subsequent attempt could succeed"))
@@ -440,11 +440,11 @@ public class KeysController {
 
   private List<Device> parseDeviceId(String deviceId, Account account) {
     if (deviceId.equals("*")) {
-      return account.getDevices().stream().filter(Device::hasMessageDeliveryChannel).toList();
+      return account.getDevices();
     }
     try {
       byte id = Byte.parseByte(deviceId);
-      return account.getDevice(id).filter(Device::hasMessageDeliveryChannel).map(List::of).orElse(List.of());
+      return account.getDevice(id).map(List::of).orElse(List.of());
     } catch (NumberFormatException e) {
       throw new WebApplicationException(Response.status(422).build());
     }

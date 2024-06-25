@@ -97,32 +97,6 @@ class AccountTest {
   }
 
   @Test
-  void testIsEnabled() {
-    final Device enabledPrimaryDevice = mock(Device.class);
-    final Device enabledLinkedDevice = mock(Device.class);
-    final Device disabledPrimaryDevice = mock(Device.class);
-    final Device disabledLinkedDevice = mock(Device.class);
-
-    when(enabledPrimaryDevice.hasMessageDeliveryChannel()).thenReturn(true);
-    when(enabledLinkedDevice.hasMessageDeliveryChannel()).thenReturn(true);
-    when(disabledPrimaryDevice.hasMessageDeliveryChannel()).thenReturn(false);
-    when(disabledLinkedDevice.hasMessageDeliveryChannel()).thenReturn(false);
-
-    when(enabledPrimaryDevice.getId()).thenReturn(Device.PRIMARY_ID);
-    final byte deviceId2 = 2;
-    when(enabledLinkedDevice.getId()).thenReturn(deviceId2);
-    when(disabledPrimaryDevice.getId()).thenReturn(Device.PRIMARY_ID);
-    when(disabledLinkedDevice.getId()).thenReturn(deviceId2);
-
-    assertTrue(AccountsHelper.generateTestAccount("+14151234567", List.of(enabledPrimaryDevice)).isEnabled());
-    assertTrue(AccountsHelper.generateTestAccount("+14151234567", List.of(enabledPrimaryDevice, enabledLinkedDevice)).isEnabled());
-    assertTrue(AccountsHelper.generateTestAccount("+14151234567", List.of(enabledPrimaryDevice, disabledLinkedDevice)).isEnabled());
-    assertFalse(AccountsHelper.generateTestAccount("+14151234567", List.of(disabledPrimaryDevice)).isEnabled());
-    assertFalse(AccountsHelper.generateTestAccount("+14151234567", List.of(disabledPrimaryDevice, enabledLinkedDevice)).isEnabled());
-    assertFalse(AccountsHelper.generateTestAccount("+14151234567", List.of(disabledPrimaryDevice, disabledLinkedDevice)).isEnabled());
-  }
-
-  @Test
   void testIsTransferSupported() {
     final Device transferCapablePrimaryDevice = mock(Device.class);
     final Device nonTransferCapablePrimaryDevice = mock(Device.class);
@@ -307,50 +281,5 @@ class AccountTest {
     assertTrue(maybeJsonFilterAnnotation.isPresent());
     final JsonFilter jsonFilterAnnotation = (JsonFilter) maybeJsonFilterAnnotation.get();
     assertEquals(Account.class.getSimpleName(), jsonFilterAnnotation.value());
-  }
-
-  @ParameterizedTest
-  @MethodSource
-  public void testHasEnabledLinkedDevice(final Account account, final boolean expect) {
-    assertEquals(expect, account.hasEnabledLinkedDevice());
-  }
-
-  static Stream<Arguments> testHasEnabledLinkedDevice() {
-    final Device enabledPrimary = mock(Device.class);
-    when(enabledPrimary.hasMessageDeliveryChannel()).thenReturn(true);
-    when(enabledPrimary.getId()).thenReturn(Device.PRIMARY_ID);
-
-    final Device disabledPrimary = mock(Device.class);
-    when(disabledPrimary.getId()).thenReturn(Device.PRIMARY_ID);
-
-    final byte linked1DeviceId = Device.PRIMARY_ID + 1;
-    final Device enabledLinked1 = mock(Device.class);
-    when(enabledLinked1.hasMessageDeliveryChannel()).thenReturn(true);
-    when(enabledLinked1.getId()).thenReturn(linked1DeviceId);
-
-    final Device disabledLinked1 = mock(Device.class);
-    when(disabledLinked1.getId()).thenReturn(linked1DeviceId);
-
-    final byte linked2DeviceId = Device.PRIMARY_ID + 2;
-    final Device enabledLinked2 = mock(Device.class);
-    when(enabledLinked2.hasMessageDeliveryChannel()).thenReturn(true);
-    when(enabledLinked2.getId()).thenReturn(linked2DeviceId);
-
-    final Device disabledLinked2 = mock(Device.class);
-    when(disabledLinked2.getId()).thenReturn(linked2DeviceId);
-
-    return Stream.of(
-        Arguments.of(AccountsHelper.generateTestAccount("+14155550123", List.of(enabledPrimary)), false),
-        Arguments.of(AccountsHelper.generateTestAccount("+14155550123", List.of(enabledPrimary, disabledLinked1)),
-            false),
-        Arguments.of(AccountsHelper.generateTestAccount("+14155550123",
-            List.of(enabledPrimary, disabledLinked1, disabledLinked2)), false),
-        Arguments.of(AccountsHelper.generateTestAccount("+14155550123",
-            List.of(enabledPrimary, enabledLinked1, disabledLinked2)), true),
-        Arguments.of(AccountsHelper.generateTestAccount("+14155550123",
-            List.of(enabledPrimary, disabledLinked1, enabledLinked2)), true),
-        Arguments.of(AccountsHelper.generateTestAccount("+14155550123",
-            List.of(disabledLinked2, enabledLinked1, enabledLinked2)), true)
-    );
   }
 }

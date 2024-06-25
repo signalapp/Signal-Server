@@ -39,7 +39,6 @@ class KeysGrpcHelper {
         : Flux.from(Mono.justOrEmpty(targetAccount.getDevice(targetDeviceId)));
 
     return devices
-        .filter(Device::hasMessageDeliveryChannel)
         .switchIfEmpty(Mono.error(Status.NOT_FOUND.asException()))
         .flatMap(device -> Flux.merge(
                 Mono.fromFuture(() -> keysManager.takeEC(targetAccount.getIdentifier(identityType), device.getId())),

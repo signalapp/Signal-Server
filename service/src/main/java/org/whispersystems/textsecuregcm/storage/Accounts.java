@@ -443,7 +443,7 @@ public class Accounts extends AbstractDynamoDbStore {
                     .expressionAttributeValues(Map.of(
                         ":number", numberAttr,
                         ":data", accountDataAttributeValue(account),
-                        ":cds", AttributeValues.fromBool(account.shouldBeVisibleInDirectory()),
+                        ":cds", AttributeValues.fromBool(account.isDiscoverableByPhoneNumber()),
                         ":pni", pniAttr,
                         ":version", AttributeValues.fromInt(account.getVersion()),
                         ":version_increment", AttributeValues.fromInt(1)))
@@ -924,7 +924,7 @@ public class Accounts extends AbstractDynamoDbStore {
 
       final Map<String, AttributeValue> attrValues = new HashMap<>(Map.of(
           ":data", accountDataAttributeValue(account),
-          ":cds", AttributeValues.fromBool(account.shouldBeVisibleInDirectory()),
+          ":cds", AttributeValues.fromBool(account.isDiscoverableByPhoneNumber()),
           ":version", AttributeValues.fromInt(account.getVersion()),
           ":version_increment", AttributeValues.fromInt(1)));
 
@@ -1359,7 +1359,7 @@ public class Accounts extends AbstractDynamoDbStore {
         ATTR_PNI_UUID, pniUuidAttr,
         ATTR_ACCOUNT_DATA, accountDataAttributeValue(account),
         ATTR_VERSION, AttributeValues.fromInt(account.getVersion()),
-        ATTR_CANONICALLY_DISCOVERABLE, AttributeValues.fromBool(account.shouldBeVisibleInDirectory())));
+        ATTR_CANONICALLY_DISCOVERABLE, AttributeValues.fromBool(account.isDiscoverableByPhoneNumber())));
 
     // Add the UAK if it's in the account
     account.getUnidentifiedAccessKey()

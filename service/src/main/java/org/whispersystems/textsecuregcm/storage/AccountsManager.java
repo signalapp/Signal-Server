@@ -490,7 +490,6 @@ public class AccountsManager {
 
     account.getDevices()
         .stream()
-        .filter(Device::hasMessageDeliveryChannel)
         .forEach(device -> device.setPhoneNumberIdentityRegistrationId(pniRegistrationIds.get(device.getId())));
 
     account.setPhoneNumberIdentityKey(pniIdentityKey);

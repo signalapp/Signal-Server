@@ -18,6 +18,8 @@ import java.util.Optional;
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class OptionalAccess {
 
+  public static String ALL_DEVICES_SELECTOR = "*";
+
   public static void verify(Optional<Account>   requestAccount,
                             Optional<Anonymous> accessKey,
                             Optional<Account>   targetAccount,
@@ -26,12 +28,12 @@ public class OptionalAccess {
     try {
       verify(requestAccount, accessKey, targetAccount);
 
-      if (!deviceSelector.equals("*")) {
+      if (!ALL_DEVICES_SELECTOR.equals(deviceSelector)) {
         byte deviceId = Byte.parseByte(deviceSelector);
 
         Optional<Device> targetDevice = targetAccount.get().getDevice(deviceId);
 
-        if (targetDevice.isPresent() && targetDevice.get().hasMessageDeliveryChannel()) {
+        if (targetDevice.isPresent()) {
           return;
         }
 
@@ -48,11 +50,10 @@ public class OptionalAccess {
 
   public static void verify(Optional<Account>   requestAccount,
                             Optional<Anonymous> accessKey,
-                            Optional<Account>   targetAccount)
-  {
+                            Optional<Account>   targetAccount) {
     if (requestAccount.isPresent()) {
-      // Authenticated requests are never unauthorized; if the target exists and is enabled, return OK, otherwise throw not-found.
-      if (targetAccount.isPresent() && targetAccount.get().isEnabled()) {
+      // Authenticated requests are never unauthorized; if the target exists, return OK, otherwise throw not-found.
+      if (targetAccount.isPresent()) {
         return;
       } else {
         throw new NotFoundException();
@@ -63,7 +64,7 @@ public class OptionalAccess {
     // has unrestricted unidentified access, callers need to supply a fake access key. Likewise, if
     // the target account does not exist, we *also* report unauthorized here (*not* not-found,
     // since that would provide a free exists check).
-    if (accessKey.isEmpty() || !targetAccount.map(Account::isEnabled).orElse(false)) {
+    if (accessKey.isEmpty() || targetAccount.isEmpty()) {
       throw new NotAuthorizedException(Response.Status.UNAUTHORIZED);
     }
 
