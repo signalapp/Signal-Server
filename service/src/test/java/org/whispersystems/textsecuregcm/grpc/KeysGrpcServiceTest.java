@@ -489,7 +489,6 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
 
       final Device device = mock(Device.class);
       when(device.getId()).thenReturn(deviceId);
-      when(device.hasMessageDeliveryChannel()).thenReturn(true);
 
       devices.put(deviceId, device);
       when(targetAccount.getDevice(deviceId)).thenReturn(Optional.of(device));

@@ -14,7 +14,6 @@ import java.util.OptionalInt;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import javax.annotation.Nullable;
-import org.apache.commons.lang3.StringUtils;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.util.DeviceNameByteArrayAdapter;
 
@@ -185,10 +184,6 @@ public class Device {
 
   public void setCapabilities(DeviceCapabilities capabilities) {
     this.capabilities = capabilities;
-  }
-
-  public boolean hasMessageDeliveryChannel() {
-    return fetchesMessages || StringUtils.isNotEmpty(getApnId()) || StringUtils.isNotEmpty(getGcmId());
   }
 
   public boolean isExpired() {

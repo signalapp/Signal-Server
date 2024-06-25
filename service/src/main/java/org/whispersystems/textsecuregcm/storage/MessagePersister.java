@@ -22,6 +22,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
@@ -245,7 +246,7 @@ public class MessagePersister implements Managed {
     // its messages) is unlinked
     final Device deviceToDelete = account.getDevices()
         .stream()
-        .filter(d -> !d.isPrimary() && !d.hasMessageDeliveryChannel())
+        .filter(d -> !d.isPrimary() && !deviceHasMessageDeliveryChannel(d))
         .min(Comparator.comparing(Device::getLastSeen))
         .or(() ->
             Flux.fromIterable(account.getDevices())
@@ -287,5 +288,9 @@ public class MessagePersister implements Managed {
             }
           }
         });
+  }
+
+  private static boolean deviceHasMessageDeliveryChannel(final Device device) {
+    return device.getFetchesMessages() || StringUtils.isNotEmpty(device.getApnId()) || StringUtils.isNotEmpty(device.getGcmId());
   }
 }

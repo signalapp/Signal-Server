@@ -221,10 +221,6 @@ class KeysControllerTest {
     when(sampleDevice3.getRegistrationId()).thenReturn(SAMPLE_REGISTRATION_ID2);
     when(sampleDevice4.getRegistrationId()).thenReturn(SAMPLE_REGISTRATION_ID4);
     when(sampleDevice.getPhoneNumberIdentityRegistrationId()).thenReturn(OptionalInt.of(SAMPLE_PNI_REGISTRATION_ID));
-    when(sampleDevice.hasMessageDeliveryChannel()).thenReturn(true);
-    when(sampleDevice2.hasMessageDeliveryChannel()).thenReturn(true);
-    when(sampleDevice3.hasMessageDeliveryChannel()).thenReturn(false);
-    when(sampleDevice4.hasMessageDeliveryChannel()).thenReturn(true);
     when(sampleDevice.getId()).thenReturn(sampleDeviceId);
     when(sampleDevice2.getId()).thenReturn(sampleDevice2Id);
     when(sampleDevice3.getId()).thenReturn(sampleDevice3Id);

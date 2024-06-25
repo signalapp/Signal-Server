@@ -81,8 +81,8 @@ class MessagePersisterTest {
   void setUp() throws Exception {
 
     messagesManager = mock(MessagesManager.class);
-    final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = mock(
-        DynamicConfigurationManager.class);
+    @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
+        mock(DynamicConfigurationManager.class);
 
     messagesDynamoDb = mock(MessagesDynamoDb.class);
     accountsManager = mock(AccountsManager.class);
@@ -106,6 +106,9 @@ class MessagePersisterTest {
         messageDeliveryScheduler, sharedExecutorService, Clock.systemUTC());
     messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager, clientPresenceManager,
         keysManager, dynamicConfigurationManager, PERSIST_DELAY, 1, MoreExecutors.newDirectExecutorService());
+
+    when(messagesManager.clear(any(UUID.class), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
+    when(keysManager.deleteSingleUsePreKeys(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
 
     when(messagesManager.persistMessages(any(UUID.class), any(), any())).thenAnswer(invocation -> {
       final UUID destinationUuid = invocation.getArgument(0);
@@ -258,29 +261,29 @@ class MessagePersisterTest {
     final Device primary = mock(Device.class);
     when(primary.getId()).thenReturn((byte) 1);
     when(primary.isPrimary()).thenReturn(true);
-    when(primary.hasMessageDeliveryChannel()).thenReturn(true);
+    when(primary.getFetchesMessages()).thenReturn(true);
+
     final Device activeA = mock(Device.class);
     when(activeA.getId()).thenReturn((byte) 2);
-    when(activeA.hasMessageDeliveryChannel()).thenReturn(true);
+    when(activeA.getFetchesMessages()).thenReturn(true);
+
     final Device inactiveB = mock(Device.class);
     final byte inactiveId = 3;
     when(inactiveB.getId()).thenReturn(inactiveId);
-    when(inactiveB.hasMessageDeliveryChannel()).thenReturn(false);
+
     final Device inactiveC = mock(Device.class);
     when(inactiveC.getId()).thenReturn((byte) 4);
-    when(inactiveC.hasMessageDeliveryChannel()).thenReturn(false);
+
     final Device activeD = mock(Device.class);
     when(activeD.getId()).thenReturn((byte) 5);
-    when(activeD.hasMessageDeliveryChannel()).thenReturn(true);
+    when(activeD.getFetchesMessages()).thenReturn(true);
+
     final Device destination = mock(Device.class);
     when(destination.getId()).thenReturn(DESTINATION_DEVICE_ID);
-    when(destination.hasMessageDeliveryChannel()).thenReturn(true);
 
     when(destinationAccount.getDevices()).thenReturn(List.of(primary, activeA, inactiveB, inactiveC, activeD, destination));
 
     when(messagesManager.persistMessages(any(UUID.class), any(), anyList())).thenThrow(ItemCollectionSizeLimitExceededException.builder().build());
-    when(messagesManager.clear(any(UUID.class), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
-    when(keysManager.deleteSingleUsePreKeys(any(), eq(inactiveId))).thenReturn(CompletableFuture.completedFuture(null));
 
     assertTimeoutPreemptively(Duration.ofSeconds(1), () ->
         messagePersister.persistQueue(destinationAccount, DESTINATION_DEVICE));
@@ -302,27 +305,27 @@ class MessagePersisterTest {
     final byte primaryId = 1;
     when(primary.getId()).thenReturn(primaryId);
     when(primary.isPrimary()).thenReturn(true);
-    when(primary.hasMessageDeliveryChannel()).thenReturn(true);
+    when(primary.getFetchesMessages()).thenReturn(true);
     when(messagesManager.getEarliestUndeliveredTimestampForDevice(any(), eq(primary)))
         .thenReturn(Mono.just(4L));
 
     final Device deviceA = mock(Device.class);
     final byte deviceIdA = 2;
     when(deviceA.getId()).thenReturn(deviceIdA);
-    when(deviceA.hasMessageDeliveryChannel()).thenReturn(true);
+    when(deviceA.getFetchesMessages()).thenReturn(true);
     when(messagesManager.getEarliestUndeliveredTimestampForDevice(any(), eq(deviceA)))
         .thenReturn(Mono.empty());
 
     final Device deviceB = mock(Device.class);
     final byte deviceIdB = 3;
     when(deviceB.getId()).thenReturn(deviceIdB);
-    when(deviceB.hasMessageDeliveryChannel()).thenReturn(true);
+    when(deviceB.getFetchesMessages()).thenReturn(true);
     when(messagesManager.getEarliestUndeliveredTimestampForDevice(any(), eq(deviceB)))
         .thenReturn(Mono.just(2L));
 
     final Device destination = mock(Device.class);
     when(destination.getId()).thenReturn(DESTINATION_DEVICE_ID);
-    when(destination.hasMessageDeliveryChannel()).thenReturn(true);
+    when(destination.getFetchesMessages()).thenReturn(true);
     when(messagesManager.getEarliestUndeliveredTimestampForDevice(any(), eq(destination)))
         .thenReturn(Mono.just(5L));
 
@@ -352,27 +355,27 @@ class MessagePersisterTest {
     final byte primaryId = 1;
     when(primary.getId()).thenReturn(primaryId);
     when(primary.isPrimary()).thenReturn(true);
-    when(primary.hasMessageDeliveryChannel()).thenReturn(true);
+    when(primary.getFetchesMessages()).thenReturn(true);
     when(messagesManager.getEarliestUndeliveredTimestampForDevice(any(), eq(primary)))
         .thenReturn(Mono.just(1L));
 
     final Device deviceA = mock(Device.class);
     final byte deviceIdA = 2;
     when(deviceA.getId()).thenReturn(deviceIdA);
-    when(deviceA.hasMessageDeliveryChannel()).thenReturn(true);
+    when(deviceA.getFetchesMessages()).thenReturn(true);
     when(messagesManager.getEarliestUndeliveredTimestampForDevice(any(), eq(deviceA)))
         .thenReturn(Mono.just(3L));
 
     final Device deviceB = mock(Device.class);
     final byte deviceIdB = 2;
     when(deviceB.getId()).thenReturn(deviceIdB);
-    when(deviceB.hasMessageDeliveryChannel()).thenReturn(true);
+    when(deviceB.getFetchesMessages()).thenReturn(true);
     when(messagesManager.getEarliestUndeliveredTimestampForDevice(any(), eq(deviceB)))
         .thenReturn(Mono.empty());
 
     final Device destination = mock(Device.class);
     when(destination.getId()).thenReturn(DESTINATION_DEVICE_ID);
-    when(destination.hasMessageDeliveryChannel()).thenReturn(true);
+    when(destination.getFetchesMessages()).thenReturn(true);
     when(messagesManager.getEarliestUndeliveredTimestampForDevice(any(), eq(destination)))
         .thenReturn(Mono.just(2L));
 

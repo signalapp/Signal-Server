@@ -50,44 +50,35 @@ class AccountTest {
   @BeforeEach
   void setup() {
     when(oldPrimaryDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(366));
-    when(oldPrimaryDevice.hasMessageDeliveryChannel()).thenReturn(true);
     when(oldPrimaryDevice.getId()).thenReturn(Device.PRIMARY_ID);
 
     when(recentPrimaryDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(1));
-    when(recentPrimaryDevice.hasMessageDeliveryChannel()).thenReturn(true);
     when(recentPrimaryDevice.getId()).thenReturn(Device.PRIMARY_ID);
 
     when(agingSecondaryDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(31));
-    when(agingSecondaryDevice.hasMessageDeliveryChannel()).thenReturn(false);
     final byte deviceId2 = 2;
     when(agingSecondaryDevice.getId()).thenReturn(deviceId2);
 
     when(recentSecondaryDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(1));
-    when(recentSecondaryDevice.hasMessageDeliveryChannel()).thenReturn(true);
     when(recentSecondaryDevice.getId()).thenReturn(deviceId2);
 
     when(oldSecondaryDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(366));
-    when(oldSecondaryDevice.hasMessageDeliveryChannel()).thenReturn(false);
     when(oldSecondaryDevice.getId()).thenReturn(deviceId2);
 
-    when(paymentActivationCapableDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, false));
-    when(paymentActivationCapableDevice.hasMessageDeliveryChannel()).thenReturn(true);
-    when(paymentActivationIncapableDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, false, false));
-    when(paymentActivationIncapableDevice.hasMessageDeliveryChannel()).thenReturn(true);
-    when(paymentActivationIncapableDeviceWithoutDeliveryChannel.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, false, false));
-    when(paymentActivationIncapableDeviceWithoutDeliveryChannel.hasMessageDeliveryChannel()).thenReturn(false);
+    when(paymentActivationCapableDevice.getCapabilities())
+        .thenReturn(new DeviceCapabilities(true, true, true, false));
 
-    when(deleteSyncCapableDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, true)
-    );
-    when(deleteSyncCapableDevice.hasMessageDeliveryChannel()).thenReturn(true);
-    when(deleteSyncIncapableDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, false)
-    );
-    when(deleteSyncIncapableDevice.hasMessageDeliveryChannel()).thenReturn(true);
+    when(paymentActivationIncapableDevice.getCapabilities())
+        .thenReturn(new DeviceCapabilities(true, true, false, false));
+
+    when(paymentActivationIncapableDeviceWithoutDeliveryChannel.getCapabilities())
+        .thenReturn(new DeviceCapabilities(true, true, false, false));
+
+    when(deleteSyncCapableDevice.getCapabilities())
+        .thenReturn(new DeviceCapabilities(true, true, true, true));
+
+    when(deleteSyncIncapableDevice.getCapabilities())
+        .thenReturn(new DeviceCapabilities(true, true, true, false));
 
   }
 

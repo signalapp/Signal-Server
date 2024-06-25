@@ -9,34 +9,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.stream.Stream;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.junit.jupiter.params.provider.MethodSource;
 
 class DeviceTest {
-
-  @ParameterizedTest
-  @MethodSource
-  void testHasMessageDeliveryChannel(final boolean fetchesMessages, final String apnId, final String gcmId, final boolean expectEnabled) {
-
-    final Device device = new Device();
-    device.setFetchesMessages(fetchesMessages);
-    device.setApnId(apnId);
-    device.setGcmId(gcmId);
-
-    assertEquals(expectEnabled, device.hasMessageDeliveryChannel());
-  }
-
-  private static Stream<Arguments> testHasMessageDeliveryChannel() {
-    return Stream.of(
-        Arguments.of(false, null, null, false),
-        Arguments.of(false, null, "gcm-id", true),
-        Arguments.of(false, "apn-id", null, true),
-        Arguments.of(true, null, null, true)
-    );
-  }
 
   @ParameterizedTest
   @CsvSource({
