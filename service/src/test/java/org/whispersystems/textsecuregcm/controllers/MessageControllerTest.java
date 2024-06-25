@@ -20,7 +20,6 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.anyBoolean;
 import static org.mockito.Mockito.anyString;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
@@ -109,7 +108,6 @@ import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.providers.MultiRecipientMessageProvider;
 import org.whispersystems.textsecuregcm.push.MessageSender;
-import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.spam.ReportSpamTokenProvider;
@@ -1679,50 +1677,6 @@ class MessageControllerTest {
     return Stream.of(
         Arguments.of(MULTI_DEVICE_ACI_ID),
         Arguments.of(MULTI_DEVICE_PNI_ID));
-  }
-
-  @ParameterizedTest
-  @MethodSource
-  void sendMultiRecipientMessage404(final ServiceIdentifier serviceIdentifier, final int regId1, final int regId2)
-      throws NotPushRegisteredException {
-
-    final List<Recipient> recipients = List.of(
-        new Recipient(serviceIdentifier, MULTI_DEVICE_ID1, regId1, new byte[48]),
-        new Recipient(serviceIdentifier, MULTI_DEVICE_ID2, regId2, new byte[48]));
-
-    // initialize our binary payload and create an input stream
-    byte[] buffer = new byte[2048];
-    // InputStream stream = initializeMultiPayload(recipientUUID, buffer);
-    InputStream stream = initializeMultiPayload(recipients, buffer, true);
-
-    // set up the entity to use in our PUT request
-    Entity<InputStream> entity = Entity.entity(stream, MultiRecipientMessageProvider.MEDIA_TYPE);
-
-    // start building the request
-    final Invocation.Builder invocationBuilder = resources
-        .getJerseyTest()
-        .target("/v1/messages/multi_recipient")
-        .queryParam("online", false)
-        .queryParam("ts", System.currentTimeMillis())
-        .queryParam("story", true)
-        .queryParam("urgent", true)
-        .request()
-        .header(HttpHeaders.USER_AGENT, "FIXME")
-        .header(HeaderUtils.UNIDENTIFIED_ACCESS_KEY, Base64.getEncoder().encodeToString(UNIDENTIFIED_ACCESS_BYTES));
-
-    doThrow(NotPushRegisteredException.class)
-        .when(messageSender).sendMessage(any(), any(), any(), anyBoolean());
-
-    // make the PUT request
-    final SendMultiRecipientMessageResponse response = invocationBuilder.put(entity, SendMultiRecipientMessageResponse.class);
-
-    assertEquals(List.of(serviceIdentifier), response.uuids404());
-  }
-
-  private static Stream<Arguments> sendMultiRecipientMessage404() {
-    return Stream.of(
-        Arguments.of(MULTI_DEVICE_ACI_ID, MULTI_DEVICE_REG_ID1, MULTI_DEVICE_REG_ID2),
-        Arguments.of(MULTI_DEVICE_PNI_ID, MULTI_DEVICE_PNI_REG_ID1, MULTI_DEVICE_PNI_REG_ID2));
   }
 
   @Test

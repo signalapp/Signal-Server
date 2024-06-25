@@ -142,6 +142,16 @@ class MessageSenderTest {
     verify(messagesManager).insert(ACCOUNT_UUID, DEVICE_ID, message);
   }
 
+  @Test
+  void testSendMessageNoChannel() {
+    when(device.getGcmId()).thenReturn(null);
+    when(device.getApnId()).thenReturn(null);
+    when(device.getFetchesMessages()).thenReturn(false);
+
+    assertDoesNotThrow(() -> messageSender.sendMessage(account, device, message, false));
+    verify(messagesManager).insert(ACCOUNT_UUID, DEVICE_ID, message);
+  }
+
   private MessageProtos.Envelope generateRandomMessage() {
     return MessageProtos.Envelope.newBuilder()
         .setTimestamp(System.currentTimeMillis())

@@ -112,7 +112,6 @@ import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.providers.MultiRecipientMessageProvider;
 import org.whispersystems.textsecuregcm.push.MessageSender;
-import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.spam.ReportSpamTokenProvider;
@@ -180,7 +179,6 @@ public class MessageController {
   private static final String RATE_LIMITED_MESSAGE_COUNTER_NAME = name(MessageController.class, "rateLimitedMessage");
 
   private static final String REJECT_INVALID_ENVELOPE_TYPE = name(MessageController.class, "rejectInvalidEnvelopeType");
-  private static final String UNEXPECTED_MISSING_USER_COUNTER_NAME = name(MessageController.class, "unexpectedMissingDestinationForMultiRecipientMessage");
   private static final Timer SEND_MESSAGE_LATENCY_TIMER =
       Timer.builder(MetricsUtil.name(MessageController.class, "sendMessageLatency"))
           .publishPercentileHistogram(true)
@@ -434,8 +432,6 @@ public class MessageController {
         }
 
         return Response.ok(new SendMessageResponse(needsSync)).build();
-      } catch (NoSuchUserException e) {
-        throw new WebApplicationException(Response.status(404).build());
       } catch (MismatchedDevicesException e) {
         throw new WebApplicationException(Response.status(409)
             .type(MediaType.APPLICATION_JSON_TYPE)
@@ -627,8 +623,6 @@ public class MessageController {
           .build();
     }
 
-    List<ServiceIdentifier> uuids404 = Collections.synchronizedList(new ArrayList<>());
-
     try {
       CompletableFuture.allOf(
               recipients.values().stream()
@@ -649,19 +643,12 @@ public class MessageController {
 
                               // we asserted this must exist in validateCompleteDeviceList
                               final Device destinationDevice = destinationAccount.getDevice(deviceId).orElseThrow();
-                              try {
-                                sentMessageCounter.increment();
-                                sendCommonPayloadMessage(
-                                    destinationAccount, destinationDevice, recipientData.serviceIdentifier(), timestamp,
-                                    online,
-                                    isStory, isUrgent, payload);
-                              } catch (NoSuchUserException e) {
-                                // this should never happen, because we already asserted the device is present and enabled
-                                Metrics.counter(
-                                    UNEXPECTED_MISSING_USER_COUNTER_NAME,
-                                    Tags.of("isPrimary", String.valueOf(destinationDevice.isPrimary()))).increment();
-                                uuids404.add(recipientData.serviceIdentifier());
-                              }
+
+                              sentMessageCounter.increment();
+                              sendCommonPayloadMessage(
+                                  destinationAccount, destinationDevice, recipientData.serviceIdentifier(), timestamp,
+                                  online,
+                                  isStory, isUrgent, payload);
                             },
                             multiRecipientMessageExecutor));
                   })
@@ -677,7 +664,7 @@ public class MessageController {
       logger.error("partial failure while delivering multi-recipient messages", e.getCause());
       return Response.serverError().entity("failure during delivery").build();
     }
-    return Response.ok(new SendMultiRecipientMessageResponse(uuids404)).build();
+    return Response.ok(new SendMultiRecipientMessageResponse(Collections.emptyList())).build();
   }
 
   private void checkGroupSendToken(
@@ -858,32 +845,27 @@ public class MessageController {
       boolean urgent,
       IncomingMessage incomingMessage,
       String userAgentString,
-      Optional<byte[]> spamReportToken)
-      throws NoSuchUserException {
+      Optional<byte[]> spamReportToken) {
+
+    final Envelope envelope;
+
     try {
-      final Envelope envelope;
-
-      try {
-        Account sourceAccount = source.map(AuthenticatedAccount::getAccount).orElse(null);
-        Byte sourceDeviceId = source.map(account -> account.getAuthenticatedDevice().getId()).orElse(null);
-        envelope = incomingMessage.toEnvelope(
-            destinationIdentifier,
-            sourceAccount,
-            sourceDeviceId,
-            timestamp == 0 ? System.currentTimeMillis() : timestamp,
-            story,
-            urgent,
-            spamReportToken.orElse(null));
-      } catch (final IllegalArgumentException e) {
-        logger.warn("Received bad envelope type {} from {}", incomingMessage.type(), userAgentString);
-        throw new BadRequestException(e);
-      }
-
-      messageSender.sendMessage(destinationAccount, destinationDevice, envelope, online);
-    } catch (NotPushRegisteredException e) {
-      if (destinationDevice.isPrimary()) throw new NoSuchUserException(e);
-      else                              logger.debug("Not registered", e);
+      final Account sourceAccount = source.map(AuthenticatedAccount::getAccount).orElse(null);
+      final Byte sourceDeviceId = source.map(account -> account.getAuthenticatedDevice().getId()).orElse(null);
+      envelope = incomingMessage.toEnvelope(
+          destinationIdentifier,
+          sourceAccount,
+          sourceDeviceId,
+          timestamp == 0 ? System.currentTimeMillis() : timestamp,
+          story,
+          urgent,
+          spamReportToken.orElse(null));
+    } catch (final IllegalArgumentException e) {
+      logger.warn("Received bad envelope type {} from {}", incomingMessage.type(), userAgentString);
+      throw new BadRequestException(e);
     }
+
+    messageSender.sendMessage(destinationAccount, destinationDevice, envelope, online);
   }
 
   private void sendCommonPayloadMessage(Account destinationAccount,
@@ -893,28 +875,21 @@ public class MessageController {
       boolean online,
       boolean story,
       boolean urgent,
-      byte[] payload) throws NoSuchUserException {
-    try {
-      Envelope.Builder messageBuilder = Envelope.newBuilder();
-      long serverTimestamp = System.currentTimeMillis();
+      byte[] payload) {
 
-      messageBuilder
-          .setType(Type.UNIDENTIFIED_SENDER)
-          .setTimestamp(timestamp == 0 ? serverTimestamp : timestamp)
-          .setServerTimestamp(serverTimestamp)
-          .setContent(ByteString.copyFrom(payload))
-          .setStory(story)
-          .setUrgent(urgent)
-          .setDestinationUuid(serviceIdentifier.toServiceIdentifierString());
+    final Envelope.Builder messageBuilder = Envelope.newBuilder();
+    final long serverTimestamp = System.currentTimeMillis();
 
-      messageSender.sendMessage(destinationAccount, destinationDevice, messageBuilder.build(), online);
-    } catch (NotPushRegisteredException e) {
-      if (destinationDevice.isPrimary()) {
-        throw new NoSuchUserException(e);
-      } else {
-        logger.debug("Not registered", e);
-      }
-    }
+    messageBuilder
+        .setType(Type.UNIDENTIFIED_SENDER)
+        .setTimestamp(timestamp == 0 ? serverTimestamp : timestamp)
+        .setServerTimestamp(serverTimestamp)
+        .setContent(ByteString.copyFrom(payload))
+        .setStory(story)
+        .setUrgent(urgent)
+        .setDestinationUuid(serviceIdentifier.toServiceIdentifierString());
+
+    messageSender.sendMessage(destinationAccount, destinationDevice, messageBuilder.build(), online);
   }
 
   private void checkMessageRateLimit(AuthenticatedAccount source, Account destination, String userAgent)

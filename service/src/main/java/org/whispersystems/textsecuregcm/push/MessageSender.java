@@ -52,8 +52,7 @@ public class MessageSender {
     this.pushLatencyManager = pushLatencyManager;
   }
 
-  public void sendMessage(final Account account, final Device device, final Envelope message, final boolean online)
-      throws NotPushRegisteredException {
+  public void sendMessage(final Account account, final Device device, final Envelope message, final boolean online) {
 
     final String channel;
 
@@ -64,7 +63,7 @@ public class MessageSender {
     } else if (device.getFetchesMessages()) {
       channel = "websocket";
     } else {
-      throw new AssertionError();
+      channel = "none";
     }
 
     final boolean clientPresent;
@@ -89,10 +88,7 @@ public class MessageSender {
 
           final boolean useVoip = StringUtils.isNotBlank(device.getVoipApnId());
           RedisOperation.unchecked(() -> pushLatencyManager.recordPushSent(account.getUuid(), device.getId(), useVoip, message.getUrgent()));
-        } catch (final NotPushRegisteredException e) {
-          if (!device.getFetchesMessages()) {
-            throw e;
-          }
+        } catch (final NotPushRegisteredException ignored) {
         }
       }
     }

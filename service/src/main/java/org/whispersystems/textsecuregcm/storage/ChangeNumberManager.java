@@ -130,23 +130,20 @@ public class ChangeNumberManager {
       logger.debug("destination device not present");
       return;
     }
-    try {
-      long serverTimestamp = System.currentTimeMillis();
-      Envelope envelope = Envelope.newBuilder()
-          .setType(Envelope.Type.forNumber(message.type()))
-          .setTimestamp(serverTimestamp)
-          .setServerTimestamp(serverTimestamp)
-          .setDestinationUuid(new AciServiceIdentifier(sourceAndDestinationAccount.getUuid()).toServiceIdentifierString())
-          .setContent(ByteString.copyFrom(contents.get()))
-          .setSourceUuid(new AciServiceIdentifier(sourceAndDestinationAccount.getUuid()).toServiceIdentifierString())
-          .setSourceDevice((int) Device.PRIMARY_ID)
-          .setUpdatedPni(sourceAndDestinationAccount.getPhoneNumberIdentifier().toString())
-          .setUrgent(true)
-          .build();
 
-      messageSender.sendMessage(sourceAndDestinationAccount, destinationDevice.get(), envelope, false);
-    } catch (NotPushRegisteredException e) {
-      logger.debug("Not registered", e);
-    }
+    final long serverTimestamp = System.currentTimeMillis();
+    final Envelope envelope = Envelope.newBuilder()
+        .setType(Envelope.Type.forNumber(message.type()))
+        .setTimestamp(serverTimestamp)
+        .setServerTimestamp(serverTimestamp)
+        .setDestinationUuid(new AciServiceIdentifier(sourceAndDestinationAccount.getUuid()).toServiceIdentifierString())
+        .setContent(ByteString.copyFrom(contents.get()))
+        .setSourceUuid(new AciServiceIdentifier(sourceAndDestinationAccount.getUuid()).toServiceIdentifierString())
+        .setSourceDevice((int) Device.PRIMARY_ID)
+        .setUpdatedPni(sourceAndDestinationAccount.getPhoneNumberIdentifier().toString())
+        .setUrgent(true)
+        .build();
+
+    messageSender.sendMessage(sourceAndDestinationAccount, destinationDevice.get(), envelope, false);
   }
 }

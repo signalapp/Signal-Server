@@ -55,8 +55,6 @@ public class ReceiptSender {
               for (final Device destinationDevice : destinationAccount.getDevices()) {
                 try {
                   messageSender.sendMessage(destinationAccount, destinationDevice, message.build(), false);
-                } catch (final NotPushRegisteredException e) {
-                  logger.debug("User no longer push registered for delivery receipt: {}", e.getMessage());
                 } catch (final Exception e) {
                   logger.warn("Could not send delivery receipt", e);
                 }
