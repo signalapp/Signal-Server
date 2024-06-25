@@ -1784,8 +1784,8 @@ paths:
           description: Account authentication check failed and unidentified-access
             key or group send endorsement token was not supplied or invalid.
         "404":
-          description: "Requested identity or device does not exist, is not active,\
-            \ or has no available prekeys."
+          description: Requested identity or device does not exist or device has no
+            available prekeys.
         "429":
           description: Rate limit exceeded.
           headers:
