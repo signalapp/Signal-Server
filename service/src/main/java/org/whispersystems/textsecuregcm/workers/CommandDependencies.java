@@ -29,7 +29,6 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfigurati
 import org.whispersystems.textsecuregcm.controllers.SecureStorageController;
 import org.whispersystems.textsecuregcm.controllers.SecureValueRecovery2Controller;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
@@ -90,8 +89,6 @@ record CommandDependencies(
     DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = configuration.getAppConfig().build(
         DynamicConfiguration.class, dynamicConfigurationExecutor, awsCredentialsProvider);
     dynamicConfigurationManager.start();
-
-    MetricsUtil.configureRegistries(configuration, environment, dynamicConfigurationManager);
 
     final ClientResources.Builder redisClientResourcesBuilder = ClientResources.builder();
 

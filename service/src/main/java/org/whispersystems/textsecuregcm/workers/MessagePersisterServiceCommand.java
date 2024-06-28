@@ -49,6 +49,7 @@ public class MessagePersisterServiceCommand extends ServerCommand<WhisperServerC
     UncaughtExceptionHandler.register();
 
     final CommandDependencies deps = CommandDependencies.build("message-persister-service", environment, configuration);
+    MetricsUtil.configureRegistries(configuration, environment, deps.dynamicConfigurationManager());
 
     if (configuration.getServerFactory() instanceof DefaultServerFactory defaultServerFactory) {
       defaultServerFactory.getApplicationConnectors()

@@ -53,6 +53,7 @@ public class ScheduledApnPushNotificationSenderServiceCommand extends ServerComm
     UncaughtExceptionHandler.register();
 
     final CommandDependencies deps = CommandDependencies.build("scheduled-apn-sender", environment, configuration);
+    MetricsUtil.configureRegistries(configuration, environment, deps.dynamicConfigurationManager());
 
     if (configuration.getServerFactory() instanceof DefaultServerFactory defaultServerFactory) {
       defaultServerFactory.getApplicationConnectors()
