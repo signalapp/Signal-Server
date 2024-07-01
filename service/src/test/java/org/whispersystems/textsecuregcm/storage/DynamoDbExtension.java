@@ -10,6 +10,7 @@ import com.amazonaws.services.dynamodbv2.local.main.ServerRunner;
 import com.amazonaws.services.dynamodbv2.local.server.DynamoDBProxyServer;
 import java.net.ServerSocket;
 import java.net.URI;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -161,12 +162,18 @@ public class DynamoDbExtension implements BeforeEachCallback, AfterEachCallback 
         .region(Region.of("local-test-region"))
         .credentialsProvider(StaticCredentialsProvider.create(
             AwsBasicCredentials.create("accessKey", "secretKey")))
+        .overrideConfiguration(builder ->
+            builder.apiCallTimeout(Duration.ofSeconds(1))
+                .apiCallAttemptTimeout(Duration.ofSeconds(1)))
         .build();
     dynamoAsyncDB2 = DynamoDbAsyncClient.builder()
         .endpointOverride(URI.create("http://localhost:" + port))
         .region(Region.of("local-test-region"))
         .credentialsProvider(StaticCredentialsProvider.create(
             AwsBasicCredentials.create("accessKey", "secretKey")))
+        .overrideConfiguration(builder ->
+            builder.apiCallTimeout(Duration.ofSeconds(1))
+                .apiCallAttemptTimeout(Duration.ofSeconds(1)))
         .build();
   }
 
