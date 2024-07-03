@@ -409,35 +409,6 @@ public class KeysController {
     return new PreKeyResponse(identityKey, responseItems);
   }
 
-  @PUT
-  @Path("/signed")
-  @Consumes(MediaType.APPLICATION_JSON)
-  @Operation(summary = "Upload a new signed prekey",
-      description = """
-          Upload a new signed elliptic-curve prekey for this device. Deprecated; use PUT /v2/keys instead.
-      """)
-  @ApiResponse(responseCode = "200", description = "Indicates that new prekey was successfully stored.")
-  @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
-  @ApiResponse(responseCode = "422", description = "Invalid request format.")
-  // TODO Remove this endpoint on or after 2024-05-24
-  @Deprecated(forRemoval = true)
-  public CompletableFuture<Response> setSignedKey(
-      @ReadOnly @Auth final AuthenticatedAccount auth,
-      @HeaderParam(HttpHeaders.USER_AGENT) @Nullable final String userAgent,
-      @Valid final ECSignedPreKey signedPreKey,
-      @QueryParam("identity") @DefaultValue("aci") final IdentityType identityType) {
-
-    final UUID identifier = auth.getAccount().getIdentifier(identityType);
-    final byte deviceId = auth.getAuthenticatedDevice().getId();
-
-    if (!PreKeySignatureValidator.validatePreKeySignatures(auth.getAccount().getIdentityKey(identityType), List.of(signedPreKey), userAgent, "set-signed-pre-key")) {
-      throw new WebApplicationException("Invalid signature", 422);
-    }
-
-    return keysManager.storeEcSignedPreKeys(identifier, deviceId, signedPreKey)
-        .thenApply(Util.ASYNC_EMPTY_RESPONSE);
-  }
-
   private List<Device> parseDeviceId(String deviceId, Account account) {
     if (deviceId.equals("*")) {
       return account.getDevices();

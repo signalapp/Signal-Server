@@ -327,54 +327,6 @@ class KeysControllerTest {
   }
 
   @Test
-  void putSignedPreKeyV2() {
-    final ECSignedPreKey signedPreKey = KeysHelper.signedECPreKey(9998, AuthHelper.VALID_IDENTITY_KEY_PAIR);
-
-    try (final Response response = resources.getJerseyTest()
-                                 .target("/v2/keys/signed")
-                                 .request()
-                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                                 .put(Entity.entity(signedPreKey, MediaType.APPLICATION_JSON_TYPE))) {
-
-      assertThat(response.getStatus()).isEqualTo(204);
-      verify(KEYS).storeEcSignedPreKeys(AuthHelper.VALID_UUID, AuthHelper.VALID_DEVICE.getId(), signedPreKey);
-    }
-  }
-
-  @Test
-  void putPhoneNumberIdentitySignedPreKeyV2() {
-    final ECSignedPreKey pniSignedPreKey = KeysHelper.signedECPreKey(9998, AuthHelper.VALID_PNI_IDENTITY_KEY_PAIR);
-
-    try (final Response response = resources.getJerseyTest()
-        .target("/v2/keys/signed")
-        .queryParam("identity", "pni")
-        .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .put(Entity.entity(pniSignedPreKey, MediaType.APPLICATION_JSON_TYPE))) {
-
-      assertThat(response.getStatus()).isEqualTo(204);
-      verify(KEYS).storeEcSignedPreKeys(AuthHelper.VALID_PNI, AuthHelper.VALID_DEVICE.getId(), pniSignedPreKey);
-    }
-  }
-
-  @ParameterizedTest
-  @EnumSource(IdentityType.class)
-  void putSignedPreKeyV2BadSignature(final IdentityType identityType) {
-    final ECSignedPreKey signedPreKey = KeysHelper.signedECPreKey(9998, Curve.generateKeyPair());
-
-    try (final Response response = resources.getJerseyTest()
-        .target("/v2/keys/signed")
-        .queryParam("identity", identityType.name().toLowerCase())
-        .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .put(Entity.entity(signedPreKey, MediaType.APPLICATION_JSON_TYPE))) {
-
-      assertThat(response.getStatus()).isEqualTo(422);
-      verify(KEYS, never()).storeEcSignedPreKeys(any(), anyByte(), any());
-    }
-  }
-
-  @Test
   void validSingleRequestTestV2() {
     PreKeyResponse result = resources.getJerseyTest()
         .target(String.format("/v2/keys/%s/1", EXISTS_UUID))
