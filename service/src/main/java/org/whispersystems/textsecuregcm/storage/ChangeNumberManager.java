@@ -115,8 +115,13 @@ public class ChangeNumberManager {
   }
 
   private void sendDeviceMessages(final Account account, final List<IncomingMessage> deviceMessages) {
-    deviceMessages.forEach(message ->
-        sendMessageToSelf(account, account.getDevice(message.destinationDeviceId()), message));
+    try {
+      deviceMessages.forEach(message ->
+          sendMessageToSelf(account, account.getDevice(message.destinationDeviceId()), message));
+    } catch (RuntimeException e) {
+      logger.warn("Changed number but could not send all device messages on {}", account.getUuid(), e);
+      throw e;
+    }
   }
 
   @VisibleForTesting
