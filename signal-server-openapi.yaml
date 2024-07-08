@@ -1860,42 +1860,6 @@ paths:
           description: Invalid request format.
       security:
       - authenticatedAccount: []
-  /v2/keys/signed:
-    put:
-      tags:
-      - Keys
-      summary: Upload a new signed prekey
-      description: |2
-            Upload a new signed elliptic-curve prekey for this device. Deprecated; use PUT /v2/keys instead.
-      operationId: setSignedKey
-      parameters:
-      - name: User-Agent
-        in: header
-        schema:
-          type: string
-      - name: identity
-        in: query
-        schema:
-          type: string
-          default: aci
-          enum:
-          - ACI
-          - PNI
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ECSignedPreKey'
-      responses:
-        "200":
-          description: Indicates that new prekey was successfully stored.
-        "401":
-          description: Account authentication check failed.
-        "422":
-          description: Invalid request format.
-      deprecated: true
-      security:
-      - authenticatedAccount: []
   /v1/messages:
     get:
       tags:
