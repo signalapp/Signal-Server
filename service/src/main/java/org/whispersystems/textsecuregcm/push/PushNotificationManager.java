@@ -32,6 +32,7 @@ public class PushNotificationManager {
 
   private static final String SENT_NOTIFICATION_COUNTER_NAME = name(PushNotificationManager.class, "sentPushNotification");
   private static final String FAILED_NOTIFICATION_COUNTER_NAME = name(PushNotificationManager.class, "failedPushNotification");
+  private static final String DEVICE_TOKEN_UNREGISTERED_COUNTER_NAME = name(PushNotificationManager.class, "deviceTokenUnregistered");
 
   private static final Logger logger = LoggerFactory.getLogger(PushNotificationManager.class);
 
@@ -136,6 +137,7 @@ public class PushNotificationManager {
             handleDeviceUnregistered(pushNotification.destination(),
                 pushNotification.destinationDevice(),
                 pushNotification.tokenType(),
+                result.errorCode(),
                 result.unregisteredTimestamp());
           }
 
@@ -173,6 +175,7 @@ public class PushNotificationManager {
   private void handleDeviceUnregistered(final Account account,
       final Device device,
       final PushNotification.TokenType tokenType,
+      final Optional<String> maybeErrorCode,
       final Optional<Instant> maybeTokenInvalidationTimestamp) {
 
     final boolean tokenExpired = maybeTokenInvalidationTimestamp.map(tokenInvalidationTimestamp ->
@@ -185,6 +188,12 @@ public class PushNotificationManager {
 
       clearPushToken(account, device, tokenType);
     }
+    Metrics.counter(DEVICE_TOKEN_UNREGISTERED_COUNTER_NAME,
+        "errorCode", maybeErrorCode.orElse("unknown"),
+        "isPrimary", String.valueOf(device.isPrimary()),
+        "hasUnregisteredTimestamp", String.valueOf(maybeTokenInvalidationTimestamp.isPresent()),
+        "tokenType", tokenType.name(),
+        "tokenExpired", String.valueOf(tokenExpired)).increment();
   }
 
   private void clearPushToken(final Account account, final Device device, final PushNotification.TokenType tokenType) {
