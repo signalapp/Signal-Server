@@ -167,7 +167,7 @@ public class APNSender implements Managed, PushNotificationSender {
           } else {
             accepted = false;
             rejectionReason = response.getRejectionReason();
-            unregistered = response.getRejectionReason().map(reason -> "Unregistered".equals(reason) || "BadDeviceToken".equals(reason))
+            unregistered = response.getRejectionReason().map(reason -> "Unregistered".equals(reason) || "BadDeviceToken".equals(reason) || "ExpiredToken".equals(reason))
                 .orElse(false);
           }
 

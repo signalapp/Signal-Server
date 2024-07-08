@@ -133,11 +133,12 @@ class APNSenderTest {
     verifyNoMoreInteractions(apnsClient);
   }
 
-  @Test
-  void testUnregisteredUser() {
+  @ParameterizedTest
+  @ValueSource(strings = {"Unregistered", "BadDeviceToken", "ExpiredToken"})
+  void testUnregisteredUser(final String rejectionReason) {
     PushNotificationResponse<SimpleApnsPushNotification> response = mock(PushNotificationResponse.class);
     when(response.isAccepted()).thenReturn(false);
-    when(response.getRejectionReason()).thenReturn(Optional.of("Unregistered"));
+    when(response.getRejectionReason()).thenReturn(Optional.of(rejectionReason));
 
     when(apnsClient.sendNotification(any(SimpleApnsPushNotification.class)))
         .thenAnswer(
@@ -160,7 +161,7 @@ class APNSenderTest {
     assertThat(notification.getValue().getPriority()).isEqualTo(DeliveryPriority.IMMEDIATE);
 
     assertThat(result.accepted()).isFalse();
-    assertThat(result.errorCode()).hasValue("Unregistered");
+    assertThat(result.errorCode()).hasValue(rejectionReason);
     assertThat(result.unregistered()).isTrue();
   }
 
