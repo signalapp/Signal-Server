@@ -186,6 +186,7 @@ public class MessageController {
 
   private static final String EPHEMERAL_TAG_NAME = "ephemeral";
   private static final String SENDER_TYPE_TAG_NAME = "senderType";
+  private static final String AUTH_TYPE_TAG_NAME = "authType";
   private static final String SENDER_COUNTRY_TAG_NAME = "senderCountry";
   private static final String RATE_LIMIT_REASON_TAG_NAME = "rateLimitReason";
   private static final String ENVELOPE_TYPE_TAG_NAME = "envelopeType";
@@ -194,6 +195,10 @@ public class MessageController {
   private static final String SENDER_TYPE_IDENTIFIED = "identified";
   private static final String SENDER_TYPE_UNIDENTIFIED = "unidentified";
   private static final String SENDER_TYPE_SELF = "self";
+
+  private static final String AUTH_TYPE_IDENTIFIED = "identified";
+  private static final String AUTH_TYPE_ACCESS_KEY = "accessKey";
+  private static final String AUTH_TYPE_GROUP_SEND_TOKEN = "groupSendToken";
 
   @VisibleForTesting
   static final long MAX_MESSAGE_SIZE = DataSize.kibibytes(256).toBytes();
@@ -406,9 +411,19 @@ public class MessageController {
             IncomingMessage::destinationRegistrationId,
             destination.get().getPhoneNumberIdentifier().equals(destinationIdentifier.uuid()));
 
+        final String authType;
+        if (SENDER_TYPE_IDENTIFIED.equals(senderType)) {
+          authType = AUTH_TYPE_IDENTIFIED;
+        } else if (groupSendToken != null) {
+          authType = AUTH_TYPE_GROUP_SEND_TOKEN;
+        } else {
+          authType = AUTH_TYPE_ACCESS_KEY;
+        }
+
         final List<Tag> tags = List.of(UserAgentTagUtil.getPlatformTag(userAgent),
             Tag.of(EPHEMERAL_TAG_NAME, String.valueOf(messages.online())),
             Tag.of(SENDER_TYPE_TAG_NAME, senderType),
+            Tag.of(AUTH_TYPE_TAG_NAME, authType),
             Tag.of(IDENTITY_TYPE_TAG_NAME, destinationIdentifier.identityType().name()));
 
         for (IncomingMessage incomingMessage : messages.messages()) {
@@ -631,6 +646,8 @@ public class MessageController {
                         UserAgentTagUtil.getPlatformTag(userAgent),
                         Tag.of(EPHEMERAL_TAG_NAME, String.valueOf(online)),
                         Tag.of(SENDER_TYPE_TAG_NAME, SENDER_TYPE_UNIDENTIFIED),
+                        Tag.of(AUTH_TYPE_TAG_NAME,
+                            groupSendToken != null ? AUTH_TYPE_GROUP_SEND_TOKEN : AUTH_TYPE_ACCESS_KEY),
                         Tag.of(IDENTITY_TYPE_TAG_NAME, recipientData.serviceIdentifier().identityType().name())));
 
                     validateContentLength(multiRecipientMessage.messageSizeForRecipient(recipientData.recipient()), true, userAgent);
