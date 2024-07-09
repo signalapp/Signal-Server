@@ -5,7 +5,11 @@
 
 package org.whispersystems.textsecuregcm.providers;
 
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
+
 import io.dropwizard.util.DataSizeUnit;
+import io.micrometer.core.instrument.DistributionSummary;
+import io.micrometer.core.instrument.Metrics;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.annotation.Annotation;
@@ -18,9 +22,9 @@ import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.NoContentException;
 import javax.ws.rs.ext.MessageBodyReader;
 import javax.ws.rs.ext.Provider;
-import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
 import org.signal.libsignal.protocol.InvalidMessageException;
 import org.signal.libsignal.protocol.InvalidVersionException;
+import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
 
 @Provider
 @Consumes(MultiRecipientMessageProvider.MEDIA_TYPE)
@@ -29,6 +33,11 @@ public class MultiRecipientMessageProvider implements MessageBodyReader<SealedSe
   public static final String MEDIA_TYPE = "application/vnd.signal-messenger.mrm";
   public static final int MAX_RECIPIENT_COUNT = 5000;
   public static final int MAX_MESSAGE_SIZE = Math.toIntExact(32 + DataSizeUnit.KIBIBYTES.toBytes(256));
+
+  private static final DistributionSummary RECIPIENT_COUNT_DISTRIBUTION = DistributionSummary
+      .builder(name(MultiRecipientMessageProvider.class, "recipients"))
+      .publishPercentileHistogram(true)
+      .register(Metrics.globalRegistry);
 
   @Override
   public boolean isReadable(Class<?> type, Type genericType, Annotation[] annotations, MediaType mediaType) {
@@ -46,6 +55,8 @@ public class MultiRecipientMessageProvider implements MessageBodyReader<SealedSe
 
     try {
       final SealedSenderMultiRecipientMessage message = SealedSenderMultiRecipientMessage.parse(fullMessage);
+      RECIPIENT_COUNT_DISTRIBUTION.record(message.getRecipients().keySet().size());
+
       if (message.getRecipients().values().stream().anyMatch(r -> message.messageSizeForRecipient(r) > MAX_MESSAGE_SIZE)) {
         throw new BadRequestException("message payload too large");
       }
