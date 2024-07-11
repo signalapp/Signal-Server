@@ -406,9 +406,10 @@ public class BackupAuthManagerTest {
     when(accountsManager.updateAsync(any(), any())).thenReturn(CompletableFuture.completedFuture(account));
 
     // Should be rate limited
-    CompletableFutureTestUtil.assertFailsWithCause(
+    final RateLimitExceededException ex = CompletableFutureTestUtil.assertFailsWithCause(
         RateLimitExceededException.class,
         authManager.commitBackupId(account, credentialRequest));
+    assertThat(ex.isLegacy()).isFalse();
 
     // If we don't change the request, shouldn't be rate limited
     when(account.getBackupCredentialRequest()).thenReturn(credentialRequest.serialize());

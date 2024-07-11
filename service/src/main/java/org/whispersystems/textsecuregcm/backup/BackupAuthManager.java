@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 import org.signal.libsignal.zkgroup.GenericServerSecretParams;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
@@ -28,12 +29,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
+import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.RedeemedReceiptsManager;
 import org.whispersystems.textsecuregcm.util.Util;
-import javax.annotation.Nullable;
 
 /**
  * Issues ZK backup auth credentials for authenticated accounts
@@ -101,8 +102,9 @@ public class BackupAuthManager {
       return CompletableFuture.completedFuture(null);
     }
 
-    return rateLimiters.forDescriptor(RateLimiters.For.SET_BACKUP_ID)
-        .validateAsync(account.getUuid())
+    return RateLimiter.adaptLegacyException(rateLimiters
+            .forDescriptor(RateLimiters.For.SET_BACKUP_ID)
+            .validateAsync(account.getUuid()))
         .thenCompose(ignored -> this.accountsManager
             .updateAsync(account, acc -> acc.setBackupCredentialRequest(serializedRequest))
             .thenRun(Util.NOOP))
