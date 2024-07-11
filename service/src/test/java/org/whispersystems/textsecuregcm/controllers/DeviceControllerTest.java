@@ -132,8 +132,6 @@ class DeviceControllerTest {
 
   @BeforeEach
   void setup() {
-    when(rateLimiters.getSmsDestinationLimiter()).thenReturn(rateLimiter);
-    when(rateLimiters.getVerifyLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getAllocateDeviceLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getVerifyDeviceLimiter()).thenReturn(rateLimiter);
 

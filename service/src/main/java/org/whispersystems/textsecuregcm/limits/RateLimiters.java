@@ -18,8 +18,6 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
 
   public enum For implements RateLimiterDescriptor {
     BACKUP_AUTH_CHECK("backupAuthCheck", false, new RateLimiterConfig(100, Duration.ofMinutes(15))),
-    SMS_DESTINATION("smsDestination", false, new RateLimiterConfig(2, Duration.ofSeconds(30))),
-    VERIFY("verify", false, new RateLimiterConfig(6, Duration.ofSeconds(30))),
     PIN("pin", false, new RateLimiterConfig(10, Duration.ofDays(1))),
     ATTACHMENT("attachmentCreate", false, new RateLimiterConfig(50, Duration.ofMillis(1200))),
     BACKUP_ATTACHMENT("backupAttachmentCreate", true, new RateLimiterConfig(10_000, Duration.ofSeconds(1))),
@@ -116,14 +114,6 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
 
   public RateLimiter getAttachmentLimiter() {
     return forDescriptor(For.ATTACHMENT);
-  }
-
-  public RateLimiter getSmsDestinationLimiter() {
-    return forDescriptor(For.SMS_DESTINATION);
-  }
-
-  public RateLimiter getVerifyLimiter() {
-    return forDescriptor(For.VERIFY);
   }
 
   public RateLimiter getPinLimiter() {
