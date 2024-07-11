@@ -393,6 +393,14 @@
       <artifactId>libphonenumber</artifactId>
     </dependency>
 
+    <!-- Provides tools for mapping phone numbers to time zones, which is helpful for scheduling push notifications
+    during waking hours -->
+    <dependency>
+      <groupId>com.googlecode.libphonenumber</groupId>
+      <artifactId>geocoder</artifactId>
+      <version>2.234</version>
+    </dependency>
+
     <dependency>
       <groupId>net.sourceforge.argparse4j</groupId>
       <artifactId>argparse4j</artifactId>
