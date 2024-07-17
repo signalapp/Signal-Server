@@ -34,7 +34,6 @@ class PushNotificationManagerTest {
   private APNSender apnSender;
   private FcmSender fcmSender;
   private ApnPushNotificationScheduler apnPushNotificationScheduler;
-  private PushLatencyManager pushLatencyManager;
 
   private PushNotificationManager pushNotificationManager;
 
@@ -44,12 +43,11 @@ class PushNotificationManagerTest {
     apnSender = mock(APNSender.class);
     fcmSender = mock(FcmSender.class);
     apnPushNotificationScheduler = mock(ApnPushNotificationScheduler.class);
-    pushLatencyManager = mock(PushLatencyManager.class);
 
     AccountsHelper.setupMockUpdate(accountsManager);
 
-    pushNotificationManager = new PushNotificationManager(accountsManager, apnSender, fcmSender,
-        apnPushNotificationScheduler, pushLatencyManager);
+    pushNotificationManager =
+        new PushNotificationManager(accountsManager, apnSender, fcmSender, apnPushNotificationScheduler);
   }
 
   @ParameterizedTest
@@ -319,7 +317,6 @@ class PushNotificationManagerTest {
 
     pushNotificationManager.handleMessagesRetrieved(account, device, userAgent);
 
-    verify(pushLatencyManager).recordQueueRead(accountIdentifier, Device.PRIMARY_ID, userAgent);
     verify(apnPushNotificationScheduler).cancelScheduledNotifications(account, device);
   }
 }

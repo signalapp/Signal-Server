@@ -29,7 +29,6 @@ public class PushNotificationManager {
   private final APNSender apnSender;
   private final FcmSender fcmSender;
   private final ApnPushNotificationScheduler apnPushNotificationScheduler;
-  private final PushLatencyManager pushLatencyManager;
 
   private static final String SENT_NOTIFICATION_COUNTER_NAME = name(PushNotificationManager.class, "sentPushNotification");
   private static final String FAILED_NOTIFICATION_COUNTER_NAME = name(PushNotificationManager.class, "failedPushNotification");
@@ -40,14 +39,12 @@ public class PushNotificationManager {
   public PushNotificationManager(final AccountsManager accountsManager,
       final APNSender apnSender,
       final FcmSender fcmSender,
-      final ApnPushNotificationScheduler apnPushNotificationScheduler,
-      final PushLatencyManager pushLatencyManager) {
+      final ApnPushNotificationScheduler apnPushNotificationScheduler) {
 
     this.accountsManager = accountsManager;
     this.apnSender = apnSender;
     this.fcmSender = fcmSender;
     this.apnPushNotificationScheduler = apnPushNotificationScheduler;
-    this.pushLatencyManager = pushLatencyManager;
   }
 
   public CompletableFuture<Optional<SendPushNotificationResult>> sendNewMessageNotification(final Account destination, final byte destinationDeviceId, final boolean urgent) throws NotPushRegisteredException {
@@ -85,7 +82,6 @@ public class PushNotificationManager {
   }
 
   public void handleMessagesRetrieved(final Account account, final Device device, final String userAgent) {
-    RedisOperation.unchecked(() -> pushLatencyManager.recordQueueRead(account.getUuid(), device.getId(), userAgent));
     apnPushNotificationScheduler.cancelScheduledNotifications(account, device).whenComplete(logErrors());
   }
 

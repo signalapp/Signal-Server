@@ -19,12 +19,9 @@ import io.micrometer.core.instrument.binder.system.ProcessorMetrics;
 import io.micrometer.core.instrument.config.MeterFilter;
 import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
 import io.micrometer.statsd.StatsdMeterRegistry;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.WhisperServerVersion;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
-import org.whispersystems.textsecuregcm.push.PushLatencyManager;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.util.Constants;
 
@@ -33,8 +30,6 @@ public class MetricsUtil {
   public static final String PREFIX = "chat";
 
   private static volatile boolean registeredMetrics = false;
-
-  private static final Logger log = LoggerFactory.getLogger(MetricsUtil.class);
 
   /**
    * Returns a dot-separated ('.') name for the given class and name parts
@@ -113,7 +108,6 @@ public class MetricsUtil {
             return MeterFilter.super.map(id);
           }
         })
-        .meterFilter(MeterFilter.denyNameStartsWith(PushLatencyManager.TIMER_NAME + ".percentile"))
         .meterFilter(MeterFilter.denyNameStartsWith(MessageMetrics.DELIVERY_LATENCY_TIMER_NAME + ".percentile"));
   }
 

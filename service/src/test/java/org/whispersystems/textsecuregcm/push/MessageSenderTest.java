@@ -54,10 +54,7 @@ class MessageSenderTest {
     clientPresenceManager = mock(ClientPresenceManager.class);
     messagesManager = mock(MessagesManager.class);
     pushNotificationManager = mock(PushNotificationManager.class);
-    messageSender = new MessageSender(clientPresenceManager,
-        messagesManager,
-        pushNotificationManager,
-        mock(PushLatencyManager.class));
+    messageSender = new MessageSender(clientPresenceManager, messagesManager, pushNotificationManager);
 
     when(account.getUuid()).thenReturn(ACCOUNT_UUID);
     when(device.getId()).thenReturn(DEVICE_ID);

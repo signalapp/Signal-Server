@@ -8,8 +8,6 @@ import static com.codahale.metrics.MetricRegistry.name;
 import static org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 
 import io.micrometer.core.instrument.Metrics;
-import org.apache.commons.lang3.StringUtils;
-import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
@@ -32,7 +30,6 @@ public class MessageSender {
   private final ClientPresenceManager clientPresenceManager;
   private final MessagesManager messagesManager;
   private final PushNotificationManager pushNotificationManager;
-  private final PushLatencyManager pushLatencyManager;
 
   private static final String SEND_COUNTER_NAME = name(MessageSender.class, "sendMessage");
   private static final String CHANNEL_TAG_NAME = "channel";
@@ -42,14 +39,13 @@ public class MessageSender {
   private static final String STORY_TAG_NAME = "story";
   private static final String SEALED_SENDER_TAG_NAME = "sealedSender";
 
-  public MessageSender(ClientPresenceManager clientPresenceManager,
-      MessagesManager messagesManager,
-      PushNotificationManager pushNotificationManager,
-      PushLatencyManager pushLatencyManager) {
+  public MessageSender(final ClientPresenceManager clientPresenceManager,
+      final MessagesManager messagesManager,
+      final PushNotificationManager pushNotificationManager) {
+
     this.clientPresenceManager = clientPresenceManager;
     this.messagesManager = messagesManager;
     this.pushNotificationManager = pushNotificationManager;
-    this.pushLatencyManager = pushLatencyManager;
   }
 
   public void sendMessage(final Account account, final Device device, final Envelope message, final boolean online) {
@@ -85,9 +81,6 @@ public class MessageSender {
       if (!clientPresent) {
         try {
           pushNotificationManager.sendNewMessageNotification(account, device.getId(), message.getUrgent());
-
-          final boolean useVoip = StringUtils.isNotBlank(device.getVoipApnId());
-          RedisOperation.unchecked(() -> pushLatencyManager.recordPushSent(account.getUuid(), device.getId(), useVoip, message.getUrgent()));
         } catch (final NotPushRegisteredException ignored) {
         }
       }

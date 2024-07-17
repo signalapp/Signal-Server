@@ -189,7 +189,6 @@ import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.push.FcmSender;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.ProvisioningManager;
-import org.whispersystems.textsecuregcm.push.PushLatencyManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.redis.ConnectionEventLogger;
@@ -596,7 +595,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         recurringJobExecutor,
         config.getClientReleaseConfiguration().refreshInterval(),
         Clock.systemUTC());
-    PushLatencyManager pushLatencyManager = new PushLatencyManager(metricsCluster, clientReleaseManager);
     ReportMessageManager reportMessageManager = new ReportMessageManager(reportMessageDynamoDb, rateLimitersCluster,
         config.getReportMessageConfiguration().getCounterTtl());
     MessagesManager messagesManager = new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager,
@@ -616,8 +614,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     FcmSender fcmSender = new FcmSender(fcmSenderExecutor, config.getFcmConfiguration().credentials().value());
     ApnPushNotificationScheduler apnPushNotificationScheduler = new ApnPushNotificationScheduler(pushSchedulerCluster,
         apnSender, accountsManager, 0);
-    PushNotificationManager pushNotificationManager = new PushNotificationManager(accountsManager, apnSender, fcmSender,
-        apnPushNotificationScheduler, pushLatencyManager);
+    PushNotificationManager pushNotificationManager =
+        new PushNotificationManager(accountsManager, apnSender, fcmSender, apnPushNotificationScheduler);
     RateLimiters rateLimiters = RateLimiters.createAndValidate(config.getLimitsConfiguration(),
         dynamicConfigurationManager, rateLimitersCluster);
     ProvisioningManager provisioningManager = new ProvisioningManager(
@@ -649,9 +647,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     final AccountAuthenticator accountAuthenticator = new AccountAuthenticator(accountsManager);
 
-    final MessageSender messageSender = new MessageSender(clientPresenceManager, messagesManager,
-        pushNotificationManager,
-        pushLatencyManager);
+    final MessageSender messageSender =
+        new MessageSender(clientPresenceManager, messagesManager, pushNotificationManager);
     final ReceiptSender receiptSender = new ReceiptSender(accountsManager, messageSender, receiptSenderExecutor);
     final TurnTokenGenerator turnTokenGenerator = new TurnTokenGenerator(dynamicConfigurationManager,
         config.getTurnConfiguration().secret().value());
