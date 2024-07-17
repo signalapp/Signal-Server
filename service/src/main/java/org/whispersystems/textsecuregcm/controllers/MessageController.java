@@ -742,7 +742,11 @@ public class MessageController {
               .map(OutgoingMessageEntity::fromEnvelope)
               .peek(outgoingMessageEntity -> {
                 messageMetrics.measureAccountOutgoingMessageUuidMismatches(auth.getAccount(), outgoingMessageEntity);
-                messageMetrics.measureOutgoingMessageLatency(outgoingMessageEntity.serverTimestamp(), "rest", userAgent, clientReleaseManager);
+                messageMetrics.measureOutgoingMessageLatency(outgoingMessageEntity.serverTimestamp(),
+                    "rest",
+                    auth.getAuthenticatedDevice().isPrimary(),
+                    userAgent,
+                    clientReleaseManager);
               })
               .collect(Collectors.toList()),
               messagesAndHasMore.second());

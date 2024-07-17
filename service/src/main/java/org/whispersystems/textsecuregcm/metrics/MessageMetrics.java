@@ -70,12 +70,14 @@ public final class MessageMetrics {
 
   public void measureOutgoingMessageLatency(final long serverTimestamp,
       final String channel,
+      final boolean isPrimaryDevice,
       final String userAgent,
       final ClientReleaseManager clientReleaseManager) {
 
-    final List<Tag> tags = new ArrayList<>(3);
+    final List<Tag> tags = new ArrayList<>(4);
     tags.add(UserAgentTagUtil.getPlatformTag(userAgent));
     tags.add(Tag.of("channel", channel));
+    tags.add(Tag.of("isPrimary", String.valueOf(isPrimaryDevice)));
 
     UserAgentTagUtil.getClientVersionTag(userAgent, clientReleaseManager).ifPresent(tags::add);
 

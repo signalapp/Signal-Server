@@ -222,7 +222,11 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
           if (throwable != null) {
             sendFailuresCounter.increment();
           } else {
-            messageMetrics.measureOutgoingMessageLatency(message.getServerTimestamp(), "websocket", client.getUserAgent(), clientReleaseManager);
+            messageMetrics.measureOutgoingMessageLatency(message.getServerTimestamp(),
+                "websocket",
+                device.isPrimary(),
+                client.getUserAgent(),
+                clientReleaseManager);
           }
         }).thenCompose(response -> {
           final CompletableFuture<Void> result;
