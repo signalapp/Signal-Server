@@ -25,6 +25,8 @@ import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.websocket.auth.ReadOnly;
 
+// To be removed when Desktop 7.17 reaches saturation, likely some time toward the end of October 2024
+@Deprecated(forRemoval = true)
 @Path("/v3/attachments")
 @Tag(name = "Attachments")
 public class AttachmentControllerV3 {

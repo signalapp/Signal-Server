@@ -31,6 +31,8 @@ import org.whispersystems.textsecuregcm.util.Conversions;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.websocket.auth.ReadOnly;
 
+// To be removed when Android 7.12 reaches saturation, likely some time toward the end of October 2024
+@Deprecated(forRemoval = true)
 @Path("/v2/attachments")
 @Tag(name = "Attachments")
 public class AttachmentControllerV2 {
