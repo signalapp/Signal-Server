@@ -1237,6 +1237,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AttachmentDescriptorV2'
+      deprecated: true
       security:
       - authenticatedAccount: []
   /v3/attachments/form/upload:
@@ -1251,6 +1252,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AttachmentDescriptorV3'
+      deprecated: true
       security:
       - authenticatedAccount: []
   /v4/attachments/form/upload:
