@@ -784,7 +784,7 @@ public class MessageController {
         .thenAccept(maybeDeletedMessage -> {
           maybeDeletedMessage.ifPresent(deletedMessage -> {
 
-            WebSocketConnection.recordMessageDeliveryDuration(deletedMessage.getTimestamp(),
+            WebSocketConnection.recordMessageDeliveryDuration(deletedMessage.getServerTimestamp(),
                 auth.getAuthenticatedDevice());
 
             if (deletedMessage.hasSourceUuid() && deletedMessage.getType() != Type.SERVER_DELIVERY_RECEIPT) {
