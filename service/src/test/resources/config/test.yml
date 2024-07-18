@@ -120,6 +120,9 @@ dynamoDbTables:
     tableName: remote_config_test
   reportMessage:
     tableName: report_messages_test
+  scheduledJobs:
+    tableName: scheduled_jobs_test
+    expiration: P7D
   subscriptions:
     tableName: subscriptions_test
   clientPublicKeys:

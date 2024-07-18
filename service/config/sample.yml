@@ -126,6 +126,9 @@ dynamoDbTables:
     tableName: Example_RemoteConfig
   reportMessage:
     tableName: Example_ReportMessage
+  scheduledJobs:
+    tableName: Example_ScheduledJobs
+    expiration: P7D
   subscriptions:
     tableName: Example_Subscriptions
   clientPublicKeys:

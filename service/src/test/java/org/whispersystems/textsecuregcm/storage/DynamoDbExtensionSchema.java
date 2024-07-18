@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.storage;
 import java.util.Collections;
 import java.util.List;
 import org.whispersystems.textsecuregcm.backup.BackupsDb;
+import org.whispersystems.textsecuregcm.scheduler.JobScheduler;
 import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
 import software.amazon.awssdk.services.dynamodb.model.GlobalSecondaryIndex;
 import software.amazon.awssdk.services.dynamodb.model.KeySchemaElement;
@@ -297,6 +298,21 @@ public final class DynamoDbExtensionSchema {
             .attributeType(ScalarAttributeType.B)
             .build()),
         List.of(), List.of()),
+
+    SCHEDULED_JOBS("scheduled_jobs_test",
+        JobScheduler.KEY_SCHEDULER_NAME,
+        JobScheduler.ATTR_RUN_AT,
+        List.of(AttributeDefinition.builder()
+                .attributeName(JobScheduler.KEY_SCHEDULER_NAME)
+                .attributeType(ScalarAttributeType.S)
+                .build(),
+
+            AttributeDefinition.builder()
+                .attributeName(JobScheduler.ATTR_RUN_AT)
+                .attributeType(ScalarAttributeType.B)
+                .build()),
+        List.of(),
+        List.of()),
 
     SUBSCRIPTIONS("subscriptions_test",
         SubscriptionManager.KEY_USER,
