@@ -717,6 +717,13 @@ public class MessageController {
       final @NotNull CombinedUnidentifiedSenderAccessKeys accessKeys,
       final Collection<MultiRecipientDeliveryData> destinations) {
     final int keyLength = UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH;
+
+    if (destinations.stream()
+        .anyMatch(destination -> IdentityType.PNI.equals(destination.serviceIdentifier.identityType()))) {
+      throw new WebApplicationException("Multi-recipient messages must be addressed to ACI service IDs",
+          Status.UNAUTHORIZED);
+    }
+
     final byte[] combinedUnidentifiedAccessKeys = destinations.stream()
         .map(MultiRecipientDeliveryData::account)
         .filter(Predicate.not(Account::isUnrestrictedUnidentifiedAccess))

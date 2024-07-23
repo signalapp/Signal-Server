@@ -1343,10 +1343,10 @@ class MessageControllerTest {
             new MultiRecipientMessageTestCase(bothAccountsMixed, auth, story, 200, 4),
             new MultiRecipientMessageTestCase(realAndFakeMixed, auth, story, 200, 4),
 
-            new MultiRecipientMessageTestCase(singleDevicePni, auth, notStory, 200, 1),
-            new MultiRecipientMessageTestCase(singleDeviceAciAndPni, unauth, story, 200, 2),
-            new MultiRecipientMessageTestCase(multiDevicePni, auth, notStory, 200, 3),
-            new MultiRecipientMessageTestCase(bothAccountsMixed, auth, notStory, 200, 4),
+            new MultiRecipientMessageTestCase(singleDevicePni, auth, notStory, 401, 0),
+            new MultiRecipientMessageTestCase(singleDeviceAciAndPni, auth, notStory, 401, 0),
+            new MultiRecipientMessageTestCase(multiDevicePni, auth, notStory, 401, 0),
+            new MultiRecipientMessageTestCase(bothAccountsMixed, auth, notStory, 401, 0),
             new MultiRecipientMessageTestCase(realAndFakeMixed, auth, notStory, 404, 0))
         .argumentsForNextParameter(false, true); // urgent
   }
@@ -1580,10 +1580,10 @@ class MessageControllerTest {
     );
   }
 
-  @ParameterizedTest
-  @MethodSource
-  void sendMultiRecipientMessageMismatchedDevices(final ServiceIdentifier serviceIdentifier)
-      throws JsonProcessingException {
+  @Test
+  void sendMultiRecipientMessageMismatchedDevices() throws JsonProcessingException {
+
+    final ServiceIdentifier serviceIdentifier = MULTI_DEVICE_ACI_ID;
 
     final byte extraDeviceId = MULTI_DEVICE_ID3 + 1;
 
@@ -1627,15 +1627,9 @@ class MessageControllerTest {
     }
   }
 
-  private static Stream<Arguments> sendMultiRecipientMessageMismatchedDevices() {
-    return Stream.of(
-        Arguments.of(MULTI_DEVICE_ACI_ID),
-        Arguments.of(MULTI_DEVICE_PNI_ID));
-  }
-
-  @ParameterizedTest
-  @MethodSource
-  void sendMultiRecipientMessageStaleDevices(final ServiceIdentifier serviceIdentifier) throws JsonProcessingException {
+  @Test
+  void sendMultiRecipientMessageStaleDevices() throws JsonProcessingException {
+    final ServiceIdentifier serviceIdentifier = MULTI_DEVICE_ACI_ID;
     final List<Recipient> recipients = List.of(
         new Recipient(serviceIdentifier, MULTI_DEVICE_ID1, MULTI_DEVICE_REG_ID1 + 1, new byte[48]),
         new Recipient(serviceIdentifier, MULTI_DEVICE_ID2, MULTI_DEVICE_REG_ID2 + 1, new byte[48]),
@@ -1675,12 +1669,6 @@ class MessageControllerTest {
       assertEquals(Set.of(MULTI_DEVICE_ID1, MULTI_DEVICE_ID2, MULTI_DEVICE_ID3),
           new HashSet<>(staleDevices.getFirst().devices().staleDevices()));
     }
-  }
-
-  private static Stream<Arguments> sendMultiRecipientMessageStaleDevices() {
-    return Stream.of(
-        Arguments.of(MULTI_DEVICE_ACI_ID),
-        Arguments.of(MULTI_DEVICE_PNI_ID));
   }
 
   @Test
