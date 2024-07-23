@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.southernstorm.noise.protocol.CipherStatePair;
+import com.southernstorm.noise.protocol.Noise;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
@@ -19,18 +20,22 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.embedded.EmbeddedChannel;
 import io.netty.handler.codec.http.websocketx.BinaryWebSocketFrame;
+import io.netty.util.ReferenceCountUtil;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.concurrent.ThreadLocalRandom;
 import javax.annotation.Nullable;
 import javax.crypto.AEADBadTagException;
 import javax.crypto.BadPaddingException;
 import javax.crypto.ShortBufferException;
-import io.netty.util.ReferenceCountUtil;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 abstract class AbstractNoiseHandlerTest extends AbstractLeakDetectionTest {
 
@@ -252,6 +257,31 @@ abstract class AbstractNoiseHandlerTest extends AbstractLeakDetectionTest {
 
     assertEquals(unexpectedMessaged, embeddedChannel.outboundMessages().poll());
     assertTrue(embeddedChannel.outboundMessages().isEmpty());
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {Noise.MAX_PACKET_LEN - 16, Noise.MAX_PACKET_LEN - 15, Noise.MAX_PACKET_LEN * 5})
+  void writeHugeOutboundMessage(final int plaintextLength) throws Throwable {
+    final CipherStatePair clientCipherStatePair = doHandshake();
+    final byte[] plaintext = TestRandomUtil.nextBytes(plaintextLength);
+    final ByteBuf plaintextBuffer = Unpooled.wrappedBuffer(Arrays.copyOf(plaintext, plaintext.length));
+
+    final ChannelFuture writePlaintextFuture = embeddedChannel.pipeline().writeAndFlush(plaintextBuffer);
+    assertTrue(writePlaintextFuture.isSuccess());
+
+    final byte[] decryptedPlaintext = new byte[plaintextLength];
+    int plaintextOffset = 0;
+    BinaryWebSocketFrame ciphertextFrame;
+    while ((ciphertextFrame = (BinaryWebSocketFrame) embeddedChannel.outboundMessages().poll()) != null) {
+      assertTrue(ciphertextFrame.content().readableBytes() <= Noise.MAX_PACKET_LEN);
+      final byte[] ciphertext = ByteBufUtil.getBytes(ciphertextFrame.content());
+      ciphertextFrame.release();
+      plaintextOffset += clientCipherStatePair.getReceiver()
+          .decryptWithAd(null, ciphertext, 0, decryptedPlaintext, plaintextOffset, ciphertext.length);
+    }
+    assertArrayEquals(plaintext, decryptedPlaintext);
+    assertEquals(0, plaintextBuffer.refCnt());
+
   }
 
 }

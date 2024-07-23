@@ -6,6 +6,7 @@ package org.whispersystems.textsecuregcm.grpc.net;
 
 import com.southernstorm.noise.protocol.CipherState;
 import com.southernstorm.noise.protocol.CipherStatePair;
+import com.southernstorm.noise.protocol.Noise;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
@@ -16,6 +17,7 @@ import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.http.websocketx.BinaryWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.WebSocketFrame;
 import io.netty.util.ReferenceCountUtil;
+import io.netty.util.concurrent.PromiseCombiner;
 import io.netty.util.internal.EmptyArrays;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -163,25 +165,35 @@ abstract class NoiseHandler extends ChannelDuplexHandler {
   @Override
   public void write(final ChannelHandlerContext context, final Object message, final ChannelPromise promise)
       throws Exception {
-    if (message instanceof ByteBuf plaintext) {
+    if (message instanceof ByteBuf byteBuf) {
       try {
         // TODO Buffer/consolidate Noise writes to avoid sending a bazillion tiny (or empty) frames
         final CipherState cipherState = cipherStatePair.getSender();
-        final int plaintextLength = plaintext.readableBytes();
 
-        // We've read these bytes from a local connection; although that likely means they're backed by a heap array, the
-        // buffer is read-only and won't grant us access to the underlying array. Instead, we need to copy the bytes to a
-        // mutable array. We also want to encrypt in place, so we allocate enough extra space for the trailing MAC.
-        final byte[] noiseBuffer = new byte[plaintext.readableBytes() + cipherState.getMACLength()];
-        plaintext.readBytes(noiseBuffer, 0, plaintext.readableBytes());
+        // Server message might not fit in a single noise packet, break it up into as many chunks as we need
+        final PromiseCombiner pc = new PromiseCombiner(context.executor());
+        while (byteBuf.isReadable()) {
+          final ByteBuf plaintext = byteBuf.readSlice(Math.min(
+              // need room for a 16-byte AEAD tag
+              Noise.MAX_PACKET_LEN - 16,
+              byteBuf.readableBytes()));
 
-        // Overwrite the plaintext with the ciphertext to avoid an extra allocation for a dedicated ciphertext buffer
-        cipherState.encryptWithAd(null, noiseBuffer, 0, noiseBuffer, 0, plaintextLength);
+          final int plaintextLength = plaintext.readableBytes();
 
-        context.write(new BinaryWebSocketFrame(Unpooled.wrappedBuffer(noiseBuffer)), promise);
+          // We've read these bytes from a local connection; although that likely means they're backed by a heap array, the
+          // buffer is read-only and won't grant us access to the underlying array. Instead, we need to copy the bytes to a
+          // mutable array. We also want to encrypt in place, so we allocate enough extra space for the trailing MAC.
+          final byte[] noiseBuffer = new byte[plaintext.readableBytes() + cipherState.getMACLength()];
+          plaintext.readBytes(noiseBuffer, 0, plaintext.readableBytes());
 
+          // Overwrite the plaintext with the ciphertext to avoid an extra allocation for a dedicated ciphertext buffer
+          cipherState.encryptWithAd(null, noiseBuffer, 0, noiseBuffer, 0, plaintextLength);
+
+          pc.add(context.write(new BinaryWebSocketFrame(Unpooled.wrappedBuffer(noiseBuffer))));
+        }
+        pc.finish(promise);
       } finally {
-        ReferenceCountUtil.release(plaintext);
+        ReferenceCountUtil.release(byteBuf);
       }
     } else {
       if (!(message instanceof WebSocketFrame)) {
