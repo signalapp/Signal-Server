@@ -4171,10 +4171,10 @@ components:
     WebSocketClient:
       type: object
       properties:
-        open:
-          type: boolean
         userAgent:
           type: string
+        open:
+          type: boolean
         createdTimestamp:
           type: integer
           format: int64
