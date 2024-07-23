@@ -202,6 +202,8 @@ class ProfileControllerTest {
     when(profileAccount.getCurrentProfileVersion()).thenReturn(Optional.empty());
     when(profileAccount.getUsernameHash()).thenReturn(Optional.of(USERNAME_HASH));
     when(profileAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of(UNIDENTIFIED_ACCESS_KEY));
+    when(profileAccount.isIdentifiedBy(eq(new AciServiceIdentifier(AuthHelper.VALID_UUID_TWO)))).thenReturn(true);
+    when(profileAccount.isIdentifiedBy(eq(new PniServiceIdentifier(AuthHelper.VALID_PNI_TWO)))).thenReturn(true);
 
     capabilitiesAccount = mock(Account.class);
 
@@ -1166,6 +1168,7 @@ class ProfileControllerTest {
     when(account.getUuid()).thenReturn(AuthHelper.VALID_UUID);
     when(account.getCurrentProfileVersion()).thenReturn(Optional.of(version));
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(UNIDENTIFIED_ACCESS_KEY));
+    when(account.isIdentifiedBy(new AciServiceIdentifier(AuthHelper.VALID_UUID))).thenReturn(true);
 
     final Instant expiration = Instant.now().plus(org.whispersystems.textsecuregcm.util.ProfileHelper.EXPIRING_PROFILE_KEY_CREDENTIAL_EXPIRATION)
         .truncatedTo(ChronoUnit.DAYS);
@@ -1231,6 +1234,7 @@ class ProfileControllerTest {
     final Account account = mock(Account.class);
     when(account.getUuid()).thenReturn(AuthHelper.VALID_UUID);
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(UNIDENTIFIED_ACCESS_KEY));
+    when(account.isIdentifiedBy(new AciServiceIdentifier(AuthHelper.VALID_UUID))).thenReturn(true);
 
     when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(AuthHelper.VALID_UUID))).thenReturn(Optional.of(account));
     when(profilesManager.get(AuthHelper.VALID_UUID, version)).thenReturn(Optional.of(versionedProfile));

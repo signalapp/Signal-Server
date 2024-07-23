@@ -19,7 +19,6 @@ import java.time.Clock;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HexFormat;
@@ -32,7 +31,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import javax.ws.rs.BadRequestException;
@@ -48,7 +46,6 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.ProcessingException;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
-import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.HttpHeaders;
@@ -503,7 +500,7 @@ public class ProfileController {
 
     final Optional<Account> maybeTargetAccount = accountsManager.getByServiceIdentifier(accountIdentifier);
 
-    OptionalAccess.verify(maybeRequester, maybeAccessKey, maybeTargetAccount);
+    OptionalAccess.verify(maybeRequester, maybeAccessKey, maybeTargetAccount, accountIdentifier);
     assert maybeTargetAccount.isPresent();
 
     return maybeTargetAccount.get();
@@ -520,19 +517,4 @@ public class ProfileController {
         now.format(PostPolicyGenerator.AWS_DATE_TIME), policy.second(), signature);
   }
 
-  @Nullable
-  private static byte[] decodeFromBase64(@Nullable final String input) {
-    if (input == null) {
-      return null;
-    }
-    return Base64.getDecoder().decode(input);
-  }
-
-  @Nullable
-  private static String encodeToBase64(@Nullable final byte[] input) {
-    if (input == null) {
-      return null;
-    }
-    return Base64.getEncoder().encodeToString(input);
-  }
 }

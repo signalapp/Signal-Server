@@ -5,28 +5,30 @@
 
 package org.whispersystems.textsecuregcm.auth;
 
-import org.whispersystems.textsecuregcm.storage.Account;
-import org.whispersystems.textsecuregcm.storage.Device;
-
+import java.security.MessageDigest;
+import java.util.Optional;
 import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.NotFoundException;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
-import java.security.MessageDigest;
-import java.util.Optional;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
+import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
+import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.Device;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class OptionalAccess {
 
   public static String ALL_DEVICES_SELECTOR = "*";
 
-  public static void verify(Optional<Account>   requestAccount,
-                            Optional<Anonymous> accessKey,
-                            Optional<Account>   targetAccount,
-                            String              deviceSelector)
-  {
+  public static void verify(Optional<Account> requestAccount,
+      Optional<Anonymous> accessKey,
+      Optional<Account> targetAccount,
+      ServiceIdentifier targetIdentifier,
+      String deviceSelector) {
+
     try {
-      verify(requestAccount, accessKey, targetAccount);
+      verify(requestAccount, accessKey, targetAccount, targetIdentifier);
 
       if (!ALL_DEVICES_SELECTOR.equals(deviceSelector)) {
         byte deviceId = Byte.parseByte(deviceSelector);
@@ -48,9 +50,11 @@ public class OptionalAccess {
     }
   }
 
-  public static void verify(Optional<Account>   requestAccount,
-                            Optional<Anonymous> accessKey,
-                            Optional<Account>   targetAccount) {
+  public static void verify(Optional<Account> requestAccount,
+      Optional<Anonymous> accessKey,
+      Optional<Account> targetAccount,
+      ServiceIdentifier targetIdentifier) {
+
     if (requestAccount.isPresent()) {
       // Authenticated requests are never unauthorized; if the target exists, return OK, otherwise throw not-found.
       if (targetAccount.isPresent()) {
@@ -72,6 +76,15 @@ public class OptionalAccess {
     // caller provided is right or not.
     if (targetAccount.get().isUnrestrictedUnidentifiedAccess()) {
       return;
+    }
+
+    if (!targetAccount.get().isIdentifiedBy(targetIdentifier)) {
+      throw new IllegalArgumentException("Target account is not identified by the given identifier");
+    }
+
+    // Unidentified access is only for ACI identities
+    if (IdentityType.PNI.equals(targetIdentifier.identityType())) {
+      throw new NotAuthorizedException(Response.Status.UNAUTHORIZED);
     }
 
     // At this point, any successful authentication requires a real access key on the target account

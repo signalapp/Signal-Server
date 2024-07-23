@@ -374,7 +374,8 @@ public class MessageController {
             throw new NotFoundException();
           }
         } else {
-          OptionalAccess.verify(source.map(AuthenticatedAccount::getAccount), accessKey, destination);
+          OptionalAccess.verify(source.map(AuthenticatedAccount::getAccount), accessKey, destination,
+              destinationIdentifier);
         }
 
         boolean needsSync = !isSyncMessage && source.isPresent() && source.get().getAccount().getDevices().size() > 1;

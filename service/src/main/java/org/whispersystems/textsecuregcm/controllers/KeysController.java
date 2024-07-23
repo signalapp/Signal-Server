@@ -349,7 +349,7 @@ public class KeysController {
         throw new NotAuthorizedException(e);
       }
     } else {
-      OptionalAccess.verify(account, accessKey, maybeTarget, deviceId);
+      OptionalAccess.verify(account, accessKey, maybeTarget, targetIdentifier, deviceId);
     }
     final Account target = maybeTarget.orElseThrow(NotFoundException::new);
 

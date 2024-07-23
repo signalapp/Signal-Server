@@ -38,7 +38,6 @@ import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
-
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.client.Invocation;
 import javax.ws.rs.core.MediaType;
@@ -51,7 +50,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.signal.libsignal.protocol.IdentityKey;
@@ -227,7 +225,9 @@ class KeysControllerTest {
     when(sampleDevice4.getId()).thenReturn(sampleDevice4Id);
 
     when(existsAccount.getUuid()).thenReturn(EXISTS_UUID);
+    when(existsAccount.isIdentifiedBy(new AciServiceIdentifier(EXISTS_UUID))).thenReturn(true);
     when(existsAccount.getPhoneNumberIdentifier()).thenReturn(EXISTS_PNI);
+    when(existsAccount.isIdentifiedBy(new PniServiceIdentifier(EXISTS_PNI))).thenReturn(true);
     when(existsAccount.getIdentifier(IdentityType.ACI)).thenReturn(EXISTS_UUID);
     when(existsAccount.getIdentifier(IdentityType.PNI)).thenReturn(EXISTS_PNI);
     when(existsAccount.getDevice(sampleDeviceId)).thenReturn(Optional.of(sampleDevice));
