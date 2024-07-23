@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.southernstorm.noise.protocol.CipherStatePair;
@@ -284,4 +285,11 @@ abstract class AbstractNoiseHandlerTest extends AbstractLeakDetectionTest {
 
   }
 
+  @Test
+  public void writeHugeInboundMessage() throws Throwable {
+    doHandshake();
+    final byte[] big = TestRandomUtil.nextBytes(Noise.MAX_PACKET_LEN + 1);
+    embeddedChannel.pipeline().fireChannelRead(new BinaryWebSocketFrame(Unpooled.wrappedBuffer(big)));
+    assertThrows(NoiseException.class, embeddedChannel::checkException);
+  }
 }

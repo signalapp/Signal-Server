@@ -14,6 +14,7 @@ import static org.mockito.Mockito.when;
 
 import com.southernstorm.noise.protocol.CipherStatePair;
 import com.southernstorm.noise.protocol.HandshakeState;
+import com.southernstorm.noise.protocol.Noise;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.embedded.EmbeddedChannel;
@@ -35,6 +36,7 @@ import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.storage.ClientPublicKeysManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
 class NoiseAuthenticatedHandlerTest extends AbstractNoiseHandlerTest {
@@ -217,6 +219,16 @@ class NoiseAuthenticatedHandlerTest extends AbstractNoiseHandlerTest {
     // shouldn't return any response or error, we've already processed an error
     embeddedChannel.checkException();
     assertNull(embeddedChannel.outboundMessages().poll());
+  }
+
+  @Test
+  public void handleOversizeHandshakeMessage() {
+    final EmbeddedChannel embeddedChannel = getEmbeddedChannel();
+    final byte[] big = TestRandomUtil.nextBytes(Noise.MAX_PACKET_LEN + 1);
+    ByteBuffer.wrap(big)
+        .put(UUIDUtil.toBytes(UUID.randomUUID()))
+        .put((byte) 0x01);
+    assertThrows(NoiseHandshakeException.class, () -> doHandshake(big));
   }
 
   private HandshakeState clientHandshakeState() throws NoSuchAlgorithmException {

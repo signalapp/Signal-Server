@@ -83,6 +83,10 @@ abstract class NoiseHandler extends ChannelDuplexHandler {
   public void channelRead(final ChannelHandlerContext context, final Object message) throws Exception {
     try {
       if (message instanceof BinaryWebSocketFrame frame) {
+        if (frame.content().readableBytes() > Noise.MAX_PACKET_LEN) {
+          final String error = "Invalid noise message length " + frame.content().readableBytes();
+          throw state == State.HANDSHAKE ? new NoiseHandshakeException(error) : new NoiseException(error);
+        }
         // We've read this frame off the wire, and so it's most likely a direct buffer that's not backed by an array.
         // We'll need to copy it to a heap buffer.
         handleInboundMessage(context, ByteBufUtil.getBytes(frame.content()));
