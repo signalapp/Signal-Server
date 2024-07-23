@@ -44,7 +44,6 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
@@ -88,9 +87,6 @@ class WebSocketConnectionIntegrationTest {
 
   @BeforeEach
   void setUp() throws Exception {
-    final DynamicConfigurationManager<DynamicConfiguration> mockDynamicConfigurationManager = mock(DynamicConfigurationManager.class);
-    when(mockDynamicConfigurationManager.getConfiguration()).thenReturn(new DynamicConfiguration());
-
     sharedExecutorService = Executors.newSingleThreadExecutor();
     scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
     messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
@@ -98,7 +94,7 @@ class WebSocketConnectionIntegrationTest {
         messageDeliveryScheduler, sharedExecutorService, Clock.systemUTC());
     messagesDynamoDb = new MessagesDynamoDb(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
         DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(), Tables.MESSAGES.tableName(), Duration.ofDays(7),
-        mockDynamicConfigurationManager, sharedExecutorService);
+        sharedExecutorService);
     reportMessageManager = mock(ReportMessageManager.class);
     account = mock(Account.class);
     device = mock(Device.class);

@@ -25,11 +25,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.reactivestreams.Publisher;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicMessagesConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
@@ -80,7 +77,6 @@ class MessagesDynamoDbTest {
   }
 
   private ExecutorService messageDeletionExecutorService;
-  private DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private MessagesDynamoDb messagesDynamoDb;
 
   @RegisterExtension
@@ -89,11 +85,9 @@ class MessagesDynamoDbTest {
   @BeforeEach
   void setup() {
     messageDeletionExecutorService = Executors.newSingleThreadExecutor();
-    dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
-    when(dynamicConfigurationManager.getConfiguration()).thenReturn(new DynamicConfiguration());
     messagesDynamoDb = new MessagesDynamoDb(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
         DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(), Tables.MESSAGES.tableName(), Duration.ofDays(14),
-        dynamicConfigurationManager, messageDeletionExecutorService);
+        messageDeletionExecutorService);
   }
 
   @AfterEach
@@ -196,61 +190,6 @@ class MessagesDynamoDbTest {
   }
 
   @Test
-  void testDeleteForDestination() {
-    final UUID destinationUuid = UUID.randomUUID();
-    final UUID secondDestinationUuid = UUID.randomUUID();
-    final Device primary = DevicesHelper.createDevice((byte) 1);
-    final Device device2 = DevicesHelper.createDevice((byte) 2);
-
-    messagesDynamoDb.store(List.of(MESSAGE1), destinationUuid, primary);
-    messagesDynamoDb.store(List.of(MESSAGE2), secondDestinationUuid, primary);
-    messagesDynamoDb.store(List.of(MESSAGE3), destinationUuid, device2);
-
-    assertThat(load(destinationUuid, primary, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
-        .element(0).isEqualTo(MESSAGE1);
-    assertThat(load(destinationUuid, device2, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
-        .element(0).isEqualTo(MESSAGE3);
-    assertThat(load(secondDestinationUuid, primary, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
-        .hasSize(1).element(0).isEqualTo(MESSAGE2);
-
-    messagesDynamoDb.deleteAllMessagesForAccount(destinationUuid).join();
-
-    assertThat(load(destinationUuid, primary, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().isEmpty();
-    assertThat(load(destinationUuid, device2, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().isEmpty();
-    assertThat(load(secondDestinationUuid, primary, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
-        .hasSize(1).element(0).isEqualTo(MESSAGE2);
-  }
-
-  @Test
-  void testDeleteForDestinationDevice() {
-    final UUID destinationUuid = UUID.randomUUID();
-    final UUID secondDestinationUuid = UUID.randomUUID();
-    final Device primary = DevicesHelper.createDevice((byte) 1);
-    final Device device2 = DevicesHelper.createDevice((byte) 2);
-
-    messagesDynamoDb.store(List.of(MESSAGE1), destinationUuid, primary);
-    messagesDynamoDb.store(List.of(MESSAGE2), secondDestinationUuid, primary);
-    messagesDynamoDb.store(List.of(MESSAGE3), destinationUuid, device2);
-
-    assertThat(load(destinationUuid, primary, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
-        .element(0).isEqualTo(MESSAGE1);
-    assertThat(load(destinationUuid, device2, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
-        .hasSize(1)
-        .element(0).isEqualTo(MESSAGE3);
-    assertThat(load(secondDestinationUuid, primary, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
-        .hasSize(1).element(0).isEqualTo(MESSAGE2);
-
-    messagesDynamoDb.deleteAllMessagesForDevice(destinationUuid, device2.getId()).join();
-
-    assertThat(load(destinationUuid, primary, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
-        .element(0).isEqualTo(MESSAGE1);
-    assertThat(load(destinationUuid, device2, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
-        .isEmpty();
-    assertThat(load(secondDestinationUuid, primary, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
-        .hasSize(1).element(0).isEqualTo(MESSAGE2);
-  }
-
-  @Test
   void testDeleteMessageByDestinationAndGuid() throws Exception {
     final UUID destinationUuid = UUID.randomUUID();
     final UUID secondDestinationUuid = UUID.randomUUID();
@@ -331,64 +270,10 @@ class MessagesDynamoDbTest {
   }
 
   @Test
-  void testMessageKeySchemeMigration() throws Exception {
-    final UUID destinationUuid = UUID.randomUUID();
-    final Device primary = DevicesHelper.createDevice((byte) 1);
-
-    // store message 1 in old scheme
-    when(dynamicConfigurationManager.getConfiguration()).thenReturn(SystemMapper.yamlMapper().readValue("""
-        messagesConfiguration:
-                dynamoKeySchemes:
-                  - TRADITIONAL
-    """, DynamicConfiguration.class));
-    messagesDynamoDb.store(List.of(MESSAGE1), destinationUuid, primary);
-
-    // store message 2 in new scheme during migration
-    when(dynamicConfigurationManager.getConfiguration()).thenReturn(SystemMapper.yamlMapper().readValue("""
-        messagesConfiguration:
-                dynamoKeySchemes:
-                  - TRADITIONAL
-                  - LAZY_DELETION
-    """, DynamicConfiguration.class));
-    messagesDynamoDb.store(List.of(MESSAGE2), destinationUuid, primary);
-
-    // in old scheme, we should only get message 1 back (we would never actually do this, it's just a way to prove we used the new scheme for message 2)
-    when(dynamicConfigurationManager.getConfiguration()).thenReturn(SystemMapper.yamlMapper().readValue("""
-        messagesConfiguration:
-                dynamoKeySchemes:
-                  - TRADITIONAL
-    """, DynamicConfiguration.class));
-    assertThat(load(destinationUuid, primary, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).containsExactly(MESSAGE1);
-
-    // during migration we should get both messages back in order
-    when(dynamicConfigurationManager.getConfiguration()).thenReturn(SystemMapper.yamlMapper().readValue("""
-        messagesConfiguration:
-                dynamoKeySchemes:
-                  - TRADITIONAL
-                  - LAZY_DELETION
-    """, DynamicConfiguration.class));
-    assertThat(load(destinationUuid, primary, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).containsExactly(MESSAGE1, MESSAGE2);
-
-    // after migration we would only get message 2 back (we shouldn't do this either in practice)
-    when(dynamicConfigurationManager.getConfiguration()).thenReturn(SystemMapper.yamlMapper().readValue("""
-        messagesConfiguration:
-                dynamoKeySchemes:
-                  - LAZY_DELETION
-    """, DynamicConfiguration.class));
-    assertThat(load(destinationUuid, primary, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).containsExactly(MESSAGE2);
-  }
-
-  @Test
   void testLazyMessageDeletion() throws Exception {
     final UUID destinationUuid = UUID.randomUUID();
     final Device primary = DevicesHelper.createDevice((byte) 1);
     primary.setCreated(System.currentTimeMillis());
-
-    when(dynamicConfigurationManager.getConfiguration()).thenReturn(SystemMapper.yamlMapper().readValue("""
-        messagesConfiguration:
-                dynamoKeySchemes:
-                  - LAZY_DELETION
-    """, DynamicConfiguration.class));
 
     messagesDynamoDb.store(List.of(MESSAGE1, MESSAGE2, MESSAGE3), destinationUuid, primary);
     assertThat(load(destinationUuid, primary, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE))
@@ -404,45 +289,22 @@ class MessagesDynamoDbTest {
     assertThat(load(destinationUuid, primary, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE))
         .as("deleting message by guid and timestamp should work").containsExactly(MESSAGE3);
 
-    messagesDynamoDb.deleteAllMessagesForDevice(destinationUuid, (byte) 1).get(1, TimeUnit.SECONDS);
-    assertThat(load(destinationUuid, primary, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE))
-        .as("deleting all messages for device should do nothing").containsExactly(MESSAGE3);
-
-    messagesDynamoDb.deleteAllMessagesForAccount(destinationUuid).get(1, TimeUnit.SECONDS);
-    assertThat(load(destinationUuid, primary, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE))
-        .as("deleting all messages for account should do nothing").containsExactly(MESSAGE3);
-
     primary.setCreated(primary.getCreated() + 1000);
     assertThat(load(destinationUuid, primary, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE))
         .as("devices with the same id but different create timestamps should see no messages")
         .isEmpty();
   }
 
-  @ParameterizedTest
-  @MethodSource
-  void mayHaveMessages(final List<DynamicMessagesConfiguration.DynamoKeyScheme> schemes) {
+  @Test
+  void mayHaveMessages() {
     final UUID destinationUuid = UUID.randomUUID();
     final byte destinationDeviceId = (byte) (random.nextInt(Device.MAXIMUM_DEVICE_ID) + 1);
     final Device destinationDevice = DevicesHelper.createDevice(destinationDeviceId);
-
-    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
-    when(dynamicConfiguration.getMessagesConfiguration()).thenReturn(new DynamicMessagesConfiguration(schemes));
-
-    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
 
     assertThat(messagesDynamoDb.mayHaveMessages(destinationUuid, destinationDevice).join()).isFalse();
 
     messagesDynamoDb.store(List.of(MESSAGE1, MESSAGE2, MESSAGE3), destinationUuid, destinationDevice);
 
     assertThat(messagesDynamoDb.mayHaveMessages(destinationUuid, destinationDevice).join()).isTrue();
-  }
-
-  private static List<List<DynamicMessagesConfiguration.DynamoKeyScheme>> mayHaveMessages() {
-    return List.of(
-        List.of(DynamicMessagesConfiguration.DynamoKeyScheme.TRADITIONAL),
-        List.of(DynamicMessagesConfiguration.DynamoKeyScheme.LAZY_DELETION),
-        List.of(DynamicMessagesConfiguration.DynamoKeyScheme.TRADITIONAL, DynamicMessagesConfiguration.DynamoKeyScheme.LAZY_DELETION),
-        List.of(DynamicMessagesConfiguration.DynamoKeyScheme.LAZY_DELETION, DynamicMessagesConfiguration.DynamoKeyScheme.TRADITIONAL)
-    );
   }
 }

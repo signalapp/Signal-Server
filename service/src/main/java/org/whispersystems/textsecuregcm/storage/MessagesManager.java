@@ -107,15 +107,11 @@ public class MessagesManager {
   }
 
   public CompletableFuture<Void> clear(UUID destinationUuid) {
-    return CompletableFuture.allOf(
-        messagesCache.clear(destinationUuid),
-        messagesDynamoDb.deleteAllMessagesForAccount(destinationUuid));
+    return messagesCache.clear(destinationUuid);
   }
 
   public CompletableFuture<Void> clear(UUID destinationUuid, byte deviceId) {
-    return CompletableFuture.allOf(
-        messagesCache.clear(destinationUuid, deviceId),
-        messagesDynamoDb.deleteAllMessagesForDevice(destinationUuid, deviceId));
+    return messagesCache.clear(destinationUuid, deviceId);
   }
 
   public CompletableFuture<Optional<Envelope>> delete(UUID destinationUuid, Device destinationDevice, UUID guid,

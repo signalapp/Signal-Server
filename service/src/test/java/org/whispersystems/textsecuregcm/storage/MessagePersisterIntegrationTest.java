@@ -76,7 +76,7 @@ class MessagePersisterIntegrationTest {
     messageDeletionExecutorService = Executors.newSingleThreadExecutor();
     final MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
         DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(), Tables.MESSAGES.tableName(), Duration.ofDays(14),
-        dynamicConfigurationManager, messageDeletionExecutorService);
+        messageDeletionExecutorService);
     final AccountsManager accountsManager = mock(AccountsManager.class);
 
     notificationExecutorService = Executors.newSingleThreadExecutor();
