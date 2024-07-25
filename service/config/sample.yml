@@ -116,6 +116,8 @@ dynamoDbTables:
     tableName: Example_Profiles
   pushChallenge:
     tableName: Example_PushChallenge
+  pushNotificationExperimentSamples:
+    tableName: Example_PushNotificationExperimentSamples
   redeemedReceipts:
     tableName: Example_RedeemedReceipts
     expiration: P30D # Duration of time until rows expire

@@ -19,7 +19,6 @@ import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.push.APNSender;
 import org.whispersystems.textsecuregcm.push.ApnPushNotificationScheduler;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.util.logging.UncaughtExceptionHandler;
 
 public class ScheduledApnPushNotificationSenderServiceCommand extends ServerCommand<WhisperServerConfiguration> {
@@ -64,15 +63,12 @@ public class ScheduledApnPushNotificationSenderServiceCommand extends ServerComm
           });
     }
 
-    final FaultTolerantRedisCluster pushSchedulerCluster = configuration.getPushSchedulerCluster()
-        .build("push_scheduler", deps.redisClusterClientResourcesBuilder());
-
     final ExecutorService apnSenderExecutor = environment.lifecycle().executorService(name(getClass(), "apnSender-%d"))
         .maxThreads(1).minThreads(1).build();
 
     final APNSender apnSender = new APNSender(apnSenderExecutor, configuration.getApnConfiguration());
     final ApnPushNotificationScheduler apnPushNotificationScheduler = new ApnPushNotificationScheduler(
-        pushSchedulerCluster, apnSender, deps.accountsManager(), namespace.getInt(WORKER_COUNT));
+        deps.pushSchedulerCluster(), apnSender, deps.accountsManager(), namespace.getInt(WORKER_COUNT));
 
     environment.lifecycle().manage(apnSender);
     environment.lifecycle().manage(apnPushNotificationScheduler);

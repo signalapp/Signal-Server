@@ -11,6 +11,8 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import io.dropwizard.core.setup.Environment;
 import io.lettuce.core.resource.ClientResources;
 import java.io.IOException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.time.Clock;
 import java.util.concurrent.ExecutorService;
@@ -28,8 +30,13 @@ import org.whispersystems.textsecuregcm.backup.Cdn3RemoteStorageManager;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.SecureStorageController;
 import org.whispersystems.textsecuregcm.controllers.SecureValueRecovery2Controller;
+import org.whispersystems.textsecuregcm.experiment.PushNotificationExperimentSamples;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.push.APNSender;
+import org.whispersystems.textsecuregcm.push.ApnPushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
+import org.whispersystems.textsecuregcm.push.FcmSender;
+import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
@@ -68,7 +75,10 @@ record CommandDependencies(
     MessagesManager messagesManager,
     ClientPresenceManager clientPresenceManager,
     KeysManager keysManager,
+    PushNotificationManager pushNotificationManager,
+    PushNotificationExperimentSamples pushNotificationExperimentSamples,
     FaultTolerantRedisCluster cacheCluster,
+    FaultTolerantRedisCluster pushSchedulerCluster,
     ClientResources.Builder redisClusterClientResourcesBuilder,
     BackupManager backupManager,
     DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
@@ -76,7 +86,8 @@ record CommandDependencies(
   static CommandDependencies build(
       final String name,
       final Environment environment,
-      final WhisperServerConfiguration configuration) throws IOException, CertificateException {
+      final WhisperServerConfiguration configuration)
+      throws IOException, CertificateException, NoSuchAlgorithmException, InvalidKeyException {
     Clock clock = Clock.systemUTC();
 
     environment.getObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
@@ -92,8 +103,10 @@ record CommandDependencies(
 
     final ClientResources.Builder redisClientResourcesBuilder = ClientResources.builder();
 
-    FaultTolerantRedisCluster cacheCluster = configuration.getCacheClusterConfiguration().build("main_cache",
-        redisClientResourcesBuilder);
+    FaultTolerantRedisCluster cacheCluster = configuration.getCacheClusterConfiguration()
+        .build("main_cache", redisClientResourcesBuilder);
+    FaultTolerantRedisCluster pushSchedulerCluster = configuration.getPushSchedulerCluster()
+        .build("push_scheduler", redisClientResourcesBuilder);
 
     ScheduledExecutorService recurringJobExecutor = environment.lifecycle()
         .scheduledExecutorService(name(name, "recurringJob-%d")).threads(2).build();
@@ -115,6 +128,10 @@ record CommandDependencies(
         .executorService(name(name, "remoteStorage-%d"))
         .minThreads(0).maxThreads(Integer.MAX_VALUE).workQueue(new SynchronousQueue<>())
         .keepAliveTime(io.dropwizard.util.Duration.seconds(60L)).build();
+    ExecutorService apnSenderExecutor = environment.lifecycle().executorService(name(name, "apnSender-%d"))
+        .maxThreads(1).minThreads(1).build();
+    ExecutorService fcmSenderExecutor = environment.lifecycle().executorService(name(name, "fcmSender-%d"))
+        .maxThreads(16).minThreads(16).build();
 
     ScheduledExecutorService secureValueRecoveryServiceRetryExecutor = environment.lifecycle()
         .scheduledExecutorService(name(name, "secureValueRecoveryServiceRetry-%d")).threads(1).build();
@@ -225,6 +242,16 @@ record CommandDependencies(
             remoteStorageRetryExecutor,
             configuration.getCdn3StorageManagerConfiguration()),
         clock);
+    APNSender apnSender = new APNSender(apnSenderExecutor, configuration.getApnConfiguration());
+    FcmSender fcmSender = new FcmSender(fcmSenderExecutor, configuration.getFcmConfiguration().credentials().value());
+    ApnPushNotificationScheduler apnPushNotificationScheduler = new ApnPushNotificationScheduler(pushSchedulerCluster,
+        apnSender, accountsManager, 0);
+    PushNotificationManager pushNotificationManager =
+        new PushNotificationManager(accountsManager, apnSender, fcmSender, apnPushNotificationScheduler);
+    PushNotificationExperimentSamples pushNotificationExperimentSamples =
+        new PushNotificationExperimentSamples(dynamoDbAsyncClient,
+            configuration.getDynamoDbTables().getPushNotificationExperimentSamples().getTableName(),
+            Clock.systemUTC());
 
     environment.lifecycle().manage(messagesCache);
     environment.lifecycle().manage(clientPresenceManager);
@@ -238,7 +265,10 @@ record CommandDependencies(
         messagesManager,
         clientPresenceManager,
         keys,
+        pushNotificationManager,
+        pushNotificationExperimentSamples,
         cacheCluster,
+        pushSchedulerCluster,
         redisClientResourcesBuilder,
         backupManager,
         dynamicConfigurationManager

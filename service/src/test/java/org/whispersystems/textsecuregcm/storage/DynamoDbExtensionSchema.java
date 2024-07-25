@@ -9,6 +9,7 @@ import java.util.Collections;
 import java.util.List;
 import org.whispersystems.textsecuregcm.backup.BackupsDb;
 import org.whispersystems.textsecuregcm.scheduler.JobScheduler;
+import org.whispersystems.textsecuregcm.experiment.PushNotificationExperimentSamples;
 import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
 import software.amazon.awssdk.services.dynamodb.model.GlobalSecondaryIndex;
 import software.amazon.awssdk.services.dynamodb.model.KeySchemaElement;
@@ -137,6 +138,20 @@ public final class DynamoDbExtensionSchema {
                 .build(),
             AttributeDefinition.builder()
                 .attributeName(SingleUsePreKeyStore.KEY_DEVICE_ID_KEY_ID)
+                .attributeType(ScalarAttributeType.B)
+                .build()),
+        List.of(), List.of()),
+
+    PUSH_NOTIFICATION_EXPERIMENT_SAMPLES("push_notification_experiment_samples_test",
+        PushNotificationExperimentSamples.KEY_EXPERIMENT_NAME,
+        PushNotificationExperimentSamples.ATTR_ACI_AND_DEVICE_ID,
+        List.of(
+            AttributeDefinition.builder()
+                .attributeName(PushNotificationExperimentSamples.KEY_EXPERIMENT_NAME)
+                .attributeType(ScalarAttributeType.S)
+                .build(),
+            AttributeDefinition.builder()
+                .attributeName(PushNotificationExperimentSamples.ATTR_ACI_AND_DEVICE_ID)
                 .attributeType(ScalarAttributeType.B)
                 .build()),
         List.of(), List.of()),
