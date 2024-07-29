@@ -81,7 +81,8 @@ record CommandDependencies(
     FaultTolerantRedisCluster pushSchedulerCluster,
     ClientResources.Builder redisClusterClientResourcesBuilder,
     BackupManager backupManager,
-    DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
+    DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
+    DynamoDbAsyncClient dynamoDbAsyncClient) {
 
   static CommandDependencies build(
       final String name,
@@ -271,7 +272,8 @@ record CommandDependencies(
         pushSchedulerCluster,
         redisClientResourcesBuilder,
         backupManager,
-        dynamicConfigurationManager
+        dynamicConfigurationManager,
+        dynamoDbAsyncClient
     );
   }
 

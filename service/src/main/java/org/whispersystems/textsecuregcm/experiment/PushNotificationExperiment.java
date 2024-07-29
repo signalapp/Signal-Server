@@ -2,6 +2,7 @@ package org.whispersystems.textsecuregcm.experiment;
 
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
+import reactor.core.publisher.Flux;
 import javax.annotation.Nullable;
 import java.util.concurrent.CompletableFuture;
 
@@ -65,4 +66,12 @@ public interface PushNotificationExperiment<T> {
    * @return a future that completes when the experimental treatment has been applied for the given device
    */
   CompletableFuture<Void> applyExperimentTreatment(Account account, Device device);
+
+  /**
+   * Consumes a stream of finished samples and emits an analysis of the results via an implementation-specific channel
+   * (e.g. a log message). Implementations must block until all samples have been consumed and analyzed.
+   *
+   * @param samples a stream of finished samples from this experiment
+   */
+  void analyzeResults(Flux<PushNotificationExperimentSample<T>> samples);
 }

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import net.sourceforge.argparse4j.inf.Namespace;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.experiment.PushNotificationExperiment;
 import org.whispersystems.textsecuregcm.experiment.PushNotificationExperimentSample;
 import org.whispersystems.textsecuregcm.experiment.PushNotificationExperimentSamples;
@@ -23,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -69,12 +71,20 @@ class FinishPushNotificationExperimentCommandTest {
         null,
         null,
         null,
+        null,
         null);
 
     //noinspection unchecked
     experiment = mock(PushNotificationExperiment.class);
     when(experiment.getExperimentName()).thenReturn(EXPERIMENT_NAME);
     when(experiment.getState(any(), any())).thenReturn("test");
+
+    doAnswer(invocation -> {
+      final Flux<PushNotificationExperimentSample<String>> samples = invocation.getArgument(0);
+      samples.then().block();
+
+      return null;
+    }).when(experiment).analyzeResults(any());
 
     finishPushNotificationExperimentCommand = new TestFinishPushNotificationExperimentCommand(experiment);
   }

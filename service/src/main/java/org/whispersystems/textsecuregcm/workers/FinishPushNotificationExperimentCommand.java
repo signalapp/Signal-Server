@@ -10,10 +10,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.experiment.PushNotificationExperiment;
+import org.whispersystems.textsecuregcm.experiment.PushNotificationExperimentSample;
 import org.whispersystems.textsecuregcm.experiment.PushNotificationExperimentSamples;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuples;
 import reactor.util.retry.Retry;
@@ -71,47 +73,50 @@ public class FinishPushNotificationExperimentCommand<T> extends AbstractCommandW
     final AccountsManager accountsManager = commandDependencies.accountsManager();
     final PushNotificationExperimentSamples pushNotificationExperimentSamples = commandDependencies.pushNotificationExperimentSamples();
 
-    pushNotificationExperimentSamples.getDevicesPendingFinalState(experiment.getExperimentName())
-        .flatMap(accountIdentifierAndDeviceId ->
-            Mono.fromFuture(() -> accountsManager.getByAccountIdentifierAsync(accountIdentifierAndDeviceId.getT1()))
-                .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
-                .map(maybeAccount -> Tuples.of(accountIdentifierAndDeviceId.getT1(), accountIdentifierAndDeviceId.getT2(), maybeAccount)), maxConcurrency)
-        .map(accountIdentifierAndDeviceIdAndMaybeAccount -> {
-          final UUID accountIdentifier = accountIdentifierAndDeviceIdAndMaybeAccount.getT1();
-          final byte deviceId = accountIdentifierAndDeviceIdAndMaybeAccount.getT2();
+    final Flux<PushNotificationExperimentSample<T>> finishedSamples =
+        pushNotificationExperimentSamples.getDevicesPendingFinalState(experiment.getExperimentName())
+            .flatMap(accountIdentifierAndDeviceId ->
+                Mono.fromFuture(() -> accountsManager.getByAccountIdentifierAsync(accountIdentifierAndDeviceId.getT1()))
+                    .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
+                    .map(maybeAccount -> Tuples.of(accountIdentifierAndDeviceId.getT1(),
+                        accountIdentifierAndDeviceId.getT2(), maybeAccount)), maxConcurrency)
+            .map(accountIdentifierAndDeviceIdAndMaybeAccount -> {
+              final UUID accountIdentifier = accountIdentifierAndDeviceIdAndMaybeAccount.getT1();
+              final byte deviceId = accountIdentifierAndDeviceIdAndMaybeAccount.getT2();
 
-          @Nullable final Account account = accountIdentifierAndDeviceIdAndMaybeAccount.getT3()
-              .orElse(null);
+              @Nullable final Account account = accountIdentifierAndDeviceIdAndMaybeAccount.getT3()
+                  .orElse(null);
 
-          @Nullable final Device device = accountIdentifierAndDeviceIdAndMaybeAccount.getT3()
-              .flatMap(a -> a.getDevice(deviceId))
-              .orElse(null);
+              @Nullable final Device device = accountIdentifierAndDeviceIdAndMaybeAccount.getT3()
+                  .flatMap(a -> a.getDevice(deviceId))
+                  .orElse(null);
 
-          return Tuples.of(accountIdentifier, deviceId, experiment.getState(account, device));
-        })
-        .flatMap(accountIdentifierAndDeviceIdAndFinalState -> {
-          final UUID accountIdentifier = accountIdentifierAndDeviceIdAndFinalState.getT1();
-          final byte deviceId = accountIdentifierAndDeviceIdAndFinalState.getT2();
-          final T finalState = accountIdentifierAndDeviceIdAndFinalState.getT3();
+              return Tuples.of(accountIdentifier, deviceId, experiment.getState(account, device));
+            })
+            .flatMap(accountIdentifierAndDeviceIdAndFinalState -> {
+              final UUID accountIdentifier = accountIdentifierAndDeviceIdAndFinalState.getT1();
+              final byte deviceId = accountIdentifierAndDeviceIdAndFinalState.getT2();
+              final T finalState = accountIdentifierAndDeviceIdAndFinalState.getT3();
 
-          return Mono.fromFuture(() -> {
-                try {
-                  return pushNotificationExperimentSamples.recordFinalState(accountIdentifier, deviceId,
-                      experiment.getExperimentName(), finalState);
-                } catch (final JsonProcessingException e) {
-                  throw new RuntimeException(e);
-                }
-              })
-              .onErrorResume(ConditionalCheckFailedException.class, throwable -> Mono.empty())
-              .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
-              .onErrorResume(throwable -> {
-                log.warn("Failed to record final state for {}:{} in experiment {}",
-                    accountIdentifier, deviceId, experiment.getExperimentName(), throwable);
+              return Mono.fromFuture(() -> {
+                    try {
+                      return pushNotificationExperimentSamples.recordFinalState(accountIdentifier, deviceId,
+                          experiment.getExperimentName(), finalState);
+                    } catch (final JsonProcessingException e) {
+                      throw new RuntimeException(e);
+                    }
+                  })
+                  .onErrorResume(ConditionalCheckFailedException.class, throwable -> Mono.empty())
+                  .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
+                  .onErrorResume(throwable -> {
+                    log.warn("Failed to record final state for {}:{} in experiment {}",
+                        accountIdentifier, deviceId, experiment.getExperimentName(), throwable);
 
-                return Mono.empty();
-              });
-        }, maxConcurrency)
-        .then()
-        .block();
+                    return Mono.empty();
+                  });
+            }, maxConcurrency)
+            .flatMap(Mono::justOrEmpty);
+
+    experiment.analyzeResults(finishedSamples);
   }
 }
