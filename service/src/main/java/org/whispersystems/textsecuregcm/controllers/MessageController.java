@@ -191,6 +191,7 @@ public class MessageController {
   private static final String RATE_LIMIT_REASON_TAG_NAME = "rateLimitReason";
   private static final String ENVELOPE_TYPE_TAG_NAME = "envelopeType";
   private static final String IDENTITY_TYPE_TAG_NAME = "identityType";
+  private static final String ENDPOINT_TYPE_TAG_NAME = "endpoint";
 
   private static final String SENDER_TYPE_IDENTIFIED = "identified";
   private static final String SENDER_TYPE_UNIDENTIFIED = "unidentified";
@@ -199,6 +200,10 @@ public class MessageController {
   private static final String AUTH_TYPE_IDENTIFIED = "identified";
   private static final String AUTH_TYPE_ACCESS_KEY = "accessKey";
   private static final String AUTH_TYPE_GROUP_SEND_TOKEN = "groupSendToken";
+  private static final String AUTH_TYPE_STORY = "story";
+
+  private static final String ENDPOINT_TYPE_SINGLE = "single";
+  private static final String ENDPOINT_TYPE_MULTI = "multi";
 
   @VisibleForTesting
   static final long MAX_MESSAGE_SIZE = DataSize.kibibytes(256).toBytes();
@@ -414,6 +419,8 @@ public class MessageController {
         final String authType;
         if (SENDER_TYPE_IDENTIFIED.equals(senderType)) {
           authType = AUTH_TYPE_IDENTIFIED;
+        } else if (isStory) {
+          authType = AUTH_TYPE_STORY;
         } else if (groupSendToken != null) {
           authType = AUTH_TYPE_GROUP_SEND_TOKEN;
         } else {
@@ -421,6 +428,7 @@ public class MessageController {
         }
 
         final List<Tag> tags = List.of(UserAgentTagUtil.getPlatformTag(userAgent),
+            Tag.of(ENDPOINT_TYPE_TAG_NAME, ENDPOINT_TYPE_SINGLE),
             Tag.of(EPHEMERAL_TAG_NAME, String.valueOf(messages.online())),
             Tag.of(SENDER_TYPE_TAG_NAME, senderType),
             Tag.of(AUTH_TYPE_TAG_NAME, authType),
@@ -638,16 +646,25 @@ public class MessageController {
           .build();
     }
 
+    final String authType;
+    if (isStory) {
+      authType = AUTH_TYPE_STORY;
+    } else if (groupSendToken != null) {
+      authType = AUTH_TYPE_GROUP_SEND_TOKEN;
+    } else {
+      authType = AUTH_TYPE_ACCESS_KEY;
+    }
+
     try {
       CompletableFuture.allOf(
               recipients.values().stream()
                   .flatMap(recipientData -> {
                     final Counter sentMessageCounter = Metrics.counter(SENT_MESSAGE_COUNTER_NAME, Tags.of(
                         UserAgentTagUtil.getPlatformTag(userAgent),
+                        Tag.of(ENDPOINT_TYPE_TAG_NAME, ENDPOINT_TYPE_MULTI),
                         Tag.of(EPHEMERAL_TAG_NAME, String.valueOf(online)),
                         Tag.of(SENDER_TYPE_TAG_NAME, SENDER_TYPE_UNIDENTIFIED),
-                        Tag.of(AUTH_TYPE_TAG_NAME,
-                            groupSendToken != null ? AUTH_TYPE_GROUP_SEND_TOKEN : AUTH_TYPE_ACCESS_KEY),
+                        Tag.of(AUTH_TYPE_TAG_NAME, authType),
                         Tag.of(IDENTITY_TYPE_TAG_NAME, recipientData.serviceIdentifier().identityType().name())));
 
                     validateContentLength(multiRecipientMessage.messageSizeForRecipient(recipientData.recipient()), true, userAgent);
