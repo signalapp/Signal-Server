@@ -83,6 +83,8 @@ public class StartPushNotificationExperimentCommand<T> extends AbstractSinglePas
     final PushNotificationExperimentSamples pushNotificationExperimentSamples =
         getCommandDependencies().pushNotificationExperimentSamples();
 
+    log.info("Starting \"{}\" with max concurrency: {}", experiment.getExperimentName(), maxConcurrency);
+
     accounts
         .flatMap(account -> Flux.fromIterable(account.getDevices()).map(device -> Tuples.of(account, device)))
         .doOnNext(ignored -> DEVICE_INSPECTED_COUNTER.increment())

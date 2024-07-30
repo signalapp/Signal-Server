@@ -70,6 +70,8 @@ public class FinishPushNotificationExperimentCommand<T> extends AbstractCommandW
 
     final int maxConcurrency = namespace.getInt(MAX_CONCURRENCY_ARGUMENT);
 
+    log.info("Finishing \"{}\" with max concurrency: {}", experiment.getExperimentName(), maxConcurrency);
+
     final AccountsManager accountsManager = commandDependencies.accountsManager();
     final PushNotificationExperimentSamples pushNotificationExperimentSamples = commandDependencies.pushNotificationExperimentSamples();
 
