@@ -558,10 +558,6 @@ public class Account {
     this.usernameHolds = usernameHolds;
   }
 
-  boolean isStale() {
-    return stale;
-  }
-
   public void markStale() {
     stale = true;
   }

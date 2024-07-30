@@ -80,9 +80,4 @@ public class StoredRegistrationLock {
       return false;
     }
   }
-
-  @VisibleForTesting
-  public StoredRegistrationLock forTime(long timestamp) {
-    return new StoredRegistrationLock(registrationLock, registrationLockSalt, Instant.ofEpochMilli(timestamp));
-  }
 }
