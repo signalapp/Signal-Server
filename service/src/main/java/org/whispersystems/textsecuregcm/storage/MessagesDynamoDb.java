@@ -12,8 +12,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.InvalidProtocolBufferException;
 
-import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
 import java.nio.ByteBuffer;
 import java.time.Duration;
@@ -37,8 +35,6 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
-import reactor.util.function.Tuples;
-import reactor.util.function.Tuple2;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
@@ -67,8 +63,6 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
   private static final String KEY_ENVELOPE_BYTES = "EB";
 
   private final Timer storeTimer = timer(name(getClass(), "store"));
-  private final String DELETE_BY_ACCOUNT_TIMER_NAME = name(getClass(), "delete", "account");
-  private final String DELETE_BY_DEVICE_TIMER_NAME = name(getClass(), "delete", "device");
 
   private final DynamoDbAsyncClient dbAsyncClient;
   private final String tableName;
@@ -108,7 +102,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
 
       final ImmutableMap.Builder<String, AttributeValue> item = ImmutableMap.<String, AttributeValue>builder()
           .put(KEY_PARTITION, partitionKey)
-          .put(KEY_SORT, convertSortKey(destinationDevice.getId(), message.getServerTimestamp(), messageUuid))
+          .put(KEY_SORT, convertSortKey(message.getServerTimestamp(), messageUuid))
           .put(LOCAL_INDEX_MESSAGE_UUID_KEY_SORT, convertLocalIndexMessageUuidSortKey(messageUuid))
           .put(KEY_TTL, AttributeValues.fromLong(getTtlForMessage(message)))
           .put(KEY_ENVELOPE_BYTES, AttributeValue.builder().b(SdkBytes.fromByteArray(message.toByteArray())).build());
@@ -240,7 +234,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
   }
 
   public CompletableFuture<Optional<MessageProtos.Envelope>> deleteMessage(final AttributeValue partitionKey, final Device destinationDevice, final UUID messageUuid, final long serverTimestamp) {
-    final AttributeValue sortKey = convertSortKey(destinationDevice.getId(), serverTimestamp, messageUuid);
+    final AttributeValue sortKey = convertSortKey(serverTimestamp, messageUuid);
     DeleteItemRequest.Builder deleteItemRequest = DeleteItemRequest.builder()
         .tableName(tableName)
         .key(Map.of(KEY_PARTITION, partitionKey, KEY_SORT, sortKey))
@@ -287,7 +281,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
     return AttributeValues.fromByteBuffer(byteBuffer.flip());
   }
 
-  private static AttributeValue convertSortKey(final byte destinationDeviceId, final long serverTimestamp, final UUID messageUuid) {
+  private static AttributeValue convertSortKey(final long serverTimestamp, final UUID messageUuid) {
     final ByteBuffer byteBuffer = ByteBuffer.allocate(24);
     byteBuffer.putLong(serverTimestamp);
     byteBuffer.putLong(messageUuid.getMostSignificantBits());
