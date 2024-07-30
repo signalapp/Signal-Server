@@ -18,6 +18,8 @@ import java.util.concurrent.CompletableFuture;
 import net.sourceforge.argparse4j.inf.Namespace;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.experiment.PushNotificationExperiment;
 import org.whispersystems.textsecuregcm.experiment.PushNotificationExperimentSamples;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
@@ -30,7 +32,7 @@ class StartPushNotificationExperimentCommandTest {
   private PushNotificationExperimentSamples pushNotificationExperimentSamples;
   private PushNotificationExperiment<String> experiment;
 
-  private StartPushNotificationExperimentCommand<String> startPushNotificationExperimentCommand;
+  private TestStartPushNotificationExperimentCommand startPushNotificationExperimentCommand;
 
   // Taken together, these parameters will produce a device that's enrolled in the experimental group (as opposed to the
   // control group) for an experiment.
@@ -41,6 +43,7 @@ class StartPushNotificationExperimentCommandTest {
   private static class TestStartPushNotificationExperimentCommand extends StartPushNotificationExperimentCommand<String> {
 
     private final CommandDependencies commandDependencies;
+    private boolean dryRun = false;
 
     public TestStartPushNotificationExperimentCommand(
         final PushNotificationExperimentSamples pushNotificationExperimentSamples,
@@ -67,9 +70,15 @@ class StartPushNotificationExperimentCommandTest {
           null);
     }
 
+    void setDryRun(final boolean dryRun) {
+      this.dryRun = dryRun;
+    }
+
     @Override
     protected Namespace getNamespace() {
-      return new Namespace(Map.of(StartPushNotificationExperimentCommand.MAX_CONCURRENCY_ARGUMENT, 1));
+      return new Namespace(Map.of(
+          StartPushNotificationExperimentCommand.MAX_CONCURRENCY_ARGUMENT, 1,
+          StartPushNotificationExperimentCommand.DRY_RUN_ARGUMENT, dryRun));
     }
 
     @Override
@@ -100,8 +109,11 @@ class StartPushNotificationExperimentCommandTest {
         new TestStartPushNotificationExperimentCommand(pushNotificationExperimentSamples, experiment);
   }
 
-  @Test
-  void crawlAccounts() {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void crawlAccounts(final boolean dryRun) {
+    startPushNotificationExperimentCommand.setDryRun(dryRun);
+
     final Device device = mock(Device.class);
     when(device.getId()).thenReturn(DEVICE_ID);
 
@@ -110,11 +122,21 @@ class StartPushNotificationExperimentCommandTest {
     when(account.getDevices()).thenReturn(List.of(device));
 
     assertDoesNotThrow(() -> startPushNotificationExperimentCommand.crawlAccounts(Flux.just(account)));
-    verify(experiment).applyExperimentTreatment(account, device);
+
+    if (dryRun) {
+      verify(experiment, never()).applyExperimentTreatment(any(), any());
+    } else {
+      verify(experiment).applyExperimentTreatment(account, device);
+    }
+
+    verify(experiment, never()).applyControlTreatment(account, device);
   }
 
-  @Test
-  void crawlAccountsExistingSample() throws JsonProcessingException {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void crawlAccountsExistingSample(final boolean dryRun) throws JsonProcessingException {
+    startPushNotificationExperimentCommand.setDryRun(dryRun);
+
     final Device device = mock(Device.class);
     when(device.getId()).thenReturn(DEVICE_ID);
 
@@ -126,11 +148,14 @@ class StartPushNotificationExperimentCommandTest {
         .thenReturn(CompletableFuture.completedFuture(false));
 
     assertDoesNotThrow(() -> startPushNotificationExperimentCommand.crawlAccounts(Flux.just(account)));
-    verify(experiment, never()).applyExperimentTreatment(account, device);
+    verify(experiment, never()).applyExperimentTreatment(any(), any());
   }
 
-  @Test
-  void crawlAccountsSampleRetry() throws JsonProcessingException {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void crawlAccountsSampleRetry(final boolean dryRun) throws JsonProcessingException {
+    startPushNotificationExperimentCommand.setDryRun(dryRun);
+
     final Device device = mock(Device.class);
     when(device.getId()).thenReturn(DEVICE_ID);
 
@@ -144,9 +169,18 @@ class StartPushNotificationExperimentCommandTest {
         .thenReturn(CompletableFuture.completedFuture(true));
 
     assertDoesNotThrow(() -> startPushNotificationExperimentCommand.crawlAccounts(Flux.just(account)));
-    verify(experiment).applyExperimentTreatment(account, device);
-    verify(pushNotificationExperimentSamples, times(3))
-        .recordInitialState(ACCOUNT_IDENTIFIER, DEVICE_ID, EXPERIMENT_NAME, true, "test");
+
+    if (dryRun) {
+      verify(experiment, never()).applyExperimentTreatment(any(), any());
+      verify(pushNotificationExperimentSamples, never())
+          .recordInitialState(any(), anyByte(), any(), anyBoolean(), any());
+    } else {
+      verify(experiment).applyExperimentTreatment(account, device);
+      verify(pushNotificationExperimentSamples, times(3))
+          .recordInitialState(ACCOUNT_IDENTIFIER, DEVICE_ID, EXPERIMENT_NAME, true, "test");
+    }
+
+    verify(experiment, never()).applyControlTreatment(account, device);
   }
 
   @Test
