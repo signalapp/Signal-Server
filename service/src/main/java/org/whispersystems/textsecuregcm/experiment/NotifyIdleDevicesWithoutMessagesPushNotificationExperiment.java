@@ -64,8 +64,8 @@ public class NotifyIdleDevicesWithoutMessagesPushNotificationExperiment implemen
       return CompletableFuture.completedFuture(false);
     }
 
-    return messagesManager.mayHaveMessages(account.getIdentifier(IdentityType.ACI), device)
-        .thenApply(mayHaveMessages -> !mayHaveMessages);
+    return messagesManager.mayHavePersistedMessages(account.getIdentifier(IdentityType.ACI), device)
+        .thenApply(mayHavePersistedMessages -> !mayHavePersistedMessages);
   }
 
   @VisibleForTesting

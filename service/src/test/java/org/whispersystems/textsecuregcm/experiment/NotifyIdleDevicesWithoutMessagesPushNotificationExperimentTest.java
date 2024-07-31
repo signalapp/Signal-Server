@@ -53,7 +53,7 @@ class NotifyIdleDevicesWithoutMessagesPushNotificationExperimentTest {
       final boolean mayHaveMessages,
       final boolean expectEligible) {
 
-    when(messagesManager.mayHaveMessages(account.getIdentifier(IdentityType.ACI), device))
+    when(messagesManager.mayHavePersistedMessages(account.getIdentifier(IdentityType.ACI), device))
         .thenReturn(CompletableFuture.completedFuture(mayHaveMessages));
 
     when(idleDeviceNotificationScheduler.isIdle(device)).thenReturn(isDeviceIdle);

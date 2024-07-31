@@ -67,6 +67,10 @@ public class MessagesManager {
     }
   }
 
+  public CompletableFuture<Boolean> mayHavePersistedMessages(final UUID destinationUuid, final Device destinationDevice) {
+    return messagesDynamoDb.mayHaveMessages(destinationUuid, destinationDevice);
+  }
+
   public CompletableFuture<Boolean> mayHaveMessages(final UUID destinationUuid, final Device destinationDevice) {
     return messagesCache.hasMessagesAsync(destinationUuid, destinationDevice.getId())
         .thenCombine(messagesDynamoDb.mayHaveMessages(destinationUuid, destinationDevice),
