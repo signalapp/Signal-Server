@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.backup;
 
 import com.google.common.annotations.VisibleForTesting;
+import io.dropwizard.util.DataSize;
 import io.grpc.Status;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
@@ -47,8 +48,8 @@ public class BackupManager {
   private static final Logger logger = LoggerFactory.getLogger(BackupManager.class);
 
   static final String MESSAGE_BACKUP_NAME = "messageBackup";
-  static final long MAX_TOTAL_BACKUP_MEDIA_BYTES = 1024L * 1024L * 1024L * 50L;
-  static final long MAX_MEDIA_OBJECT_SIZE = 1024L * 1024L * 101L;
+  public static final long MAX_TOTAL_BACKUP_MEDIA_BYTES = DataSize.gibibytes(100).toBytes();
+  static final long MAX_MEDIA_OBJECT_SIZE = DataSize.mebibytes(101).toBytes();
 
   // If the last media usage recalculation is over MAX_QUOTA_STALENESS, force a recalculation before quota enforcement.
   static final Duration MAX_QUOTA_STALENESS = Duration.ofDays(1);

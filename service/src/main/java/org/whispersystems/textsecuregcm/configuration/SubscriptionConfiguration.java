@@ -29,6 +29,7 @@ public class SubscriptionConfiguration {
   private final Duration badgeExpiration;
 
   private final Duration backupExpiration;
+  private final Duration backupFreeTierMediaDuration;
   private final Map<Long, SubscriptionLevelConfiguration.Donation> donationLevels;
   private final Map<Long, SubscriptionLevelConfiguration.Backup> backupLevels;
 
@@ -37,10 +38,12 @@ public class SubscriptionConfiguration {
       @JsonProperty("badgeGracePeriod") @Valid Duration badgeGracePeriod,
       @JsonProperty("badgeExpiration") @Valid Duration badgeExpiration,
       @JsonProperty("backupExpiration") @Valid Duration backupExpiration,
+      @JsonProperty("backupFreeTierMediaDuration") @Valid Duration backupFreeTierMediaDuration,
       @JsonProperty("levels") @Valid Map<@NotNull @Min(1) Long, SubscriptionLevelConfiguration.@NotNull @Valid Donation> donationLevels,
       @JsonProperty("backupLevels") @Valid Map<@NotNull @Min(1) Long, SubscriptionLevelConfiguration.@NotNull @Valid Backup> backupLevels) {
     this.badgeGracePeriod = badgeGracePeriod;
     this.badgeExpiration = badgeExpiration;
+    this.backupFreeTierMediaDuration = backupFreeTierMediaDuration;
     this.donationLevels = donationLevels;
     this.backupExpiration = backupExpiration;
     this.backupLevels = backupLevels == null ? Collections.emptyMap() : backupLevels;
@@ -107,6 +110,10 @@ public class SubscriptionConfiguration {
     return subscriptionLevels.values().stream().allMatch(level -> currencies.equals(level.prices().keySet()));
   }
 
+  public Duration getbackupFreeTierMediaDuration() {
+    return backupFreeTierMediaDuration;
+  }
+
   private static boolean isValidBackupLevel(final long receiptLevel) {
     try {
       BackupLevelUtil.fromReceiptLevel(receiptLevel);
@@ -115,4 +122,5 @@ public class SubscriptionConfiguration {
       return false;
     }
   }
+
 }

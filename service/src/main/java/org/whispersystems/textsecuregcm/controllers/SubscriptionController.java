@@ -14,6 +14,10 @@ import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import java.math.BigDecimal;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -74,6 +78,7 @@ import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.backup.BackupManager;
 import org.whispersystems.textsecuregcm.badges.BadgeTranslator;
 import org.whispersystems.textsecuregcm.badges.LevelTranslator;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
@@ -200,18 +205,18 @@ public class SubscriptionController {
   @VisibleForTesting
   GetSubscriptionConfigurationResponse buildGetSubscriptionConfigurationResponse(
       final List<Locale> acceptableLanguages) {
-    final Map<String, LevelConfiguration> levels = new HashMap<>();
+    final Map<String, LevelConfiguration> donationLevels = new HashMap<>();
 
     subscriptionConfiguration.getDonationLevels().forEach((levelId, levelConfig) -> {
       final LevelConfiguration levelConfiguration = new LevelConfiguration(
           levelTranslator.translate(acceptableLanguages, levelConfig.badge()),
           badgeTranslator.translate(acceptableLanguages, levelConfig.badge()));
-      levels.put(String.valueOf(levelId), levelConfiguration);
+      donationLevels.put(String.valueOf(levelId), levelConfiguration);
     });
 
     final Badge boostBadge = badgeTranslator.translate(acceptableLanguages,
         oneTimeDonationConfiguration.boost().badge());
-    levels.put(String.valueOf(oneTimeDonationConfiguration.boost().level()),
+    donationLevels.put(String.valueOf(oneTimeDonationConfiguration.boost().level()),
         new LevelConfiguration(
             boostBadge.getName(),
             // NB: the one-time badges are PurchasableBadge, which has a `duration` field
@@ -220,14 +225,22 @@ public class SubscriptionController {
                 oneTimeDonationConfiguration.boost().expiration())));
 
     final Badge giftBadge = badgeTranslator.translate(acceptableLanguages, oneTimeDonationConfiguration.gift().badge());
-    levels.put(String.valueOf(oneTimeDonationConfiguration.gift().level()),
+    donationLevels.put(String.valueOf(oneTimeDonationConfiguration.gift().level()),
         new LevelConfiguration(
             giftBadge.getName(),
             new PurchasableBadge(
                 giftBadge,
                 oneTimeDonationConfiguration.gift().expiration())));
 
-    return new GetSubscriptionConfigurationResponse(buildCurrencyConfiguration(), levels, oneTimeDonationConfiguration.sepaMaximumEuros());
+    final Map<String, BackupLevelConfiguration> backupLevels = subscriptionConfiguration.getBackupLevels()
+        .entrySet().stream()
+        .collect(Collectors.toMap(
+            e -> String.valueOf(e.getKey()),
+            ignored -> new BackupLevelConfiguration(BackupManager.MAX_TOTAL_BACKUP_MEDIA_BYTES)));
+
+    return new GetSubscriptionConfigurationResponse(buildCurrencyConfiguration(), donationLevels,
+        new BackupConfiguration(backupLevels, subscriptionConfiguration.getbackupFreeTierMediaDuration().toDays()),
+        oneTimeDonationConfiguration.sepaMaximumEuros());
   }
 
   @DELETE
@@ -542,48 +555,61 @@ public class SubscriptionController {
         == subscriptionConfiguration.getSubscriptionLevel(level2).type();
   }
 
-  /**
-   * Comprehensive configuration for subscriptions and one-time donations
-   *
-   * @param currencies map of lower-cased ISO 3 currency codes to minimums and level-specific scalar amounts
-   * @param levels     map of numeric level IDs to level-specific configuration
-   */
-  public record GetSubscriptionConfigurationResponse(Map<String, CurrencyConfiguration> currencies,
-                                                     Map<String, LevelConfiguration> levels,
-                                                     BigDecimal sepaMaximumEuros) {
+  @Schema(description = """
+      Comprehensive configuration for donation subscriptions, backup subscriptions, gift subscriptions, and one-time
+      donations pricing information for all levels are included in currencies. All levels that have an associated
+      badge are included in levels.  All levels that correspond to a backup payment tier are included in
+      backupLevels.""")
+  public record GetSubscriptionConfigurationResponse(
+      @Schema(description = "A map of lower-cased ISO 3 currency codes to minimums and level-specific scalar amounts")
+      Map<String, CurrencyConfiguration> currencies,
+      @Schema(description = "A map of numeric donation level IDs to level-specific badge configuration")
+      Map<String, LevelConfiguration> levels,
+      @Schema(description = "Backup specific configuration")
+      BackupConfiguration backup,
+      @Schema(description = "The maximum value of a one-time donation SEPA transaction")
+      BigDecimal sepaMaximumEuros) {}
 
-  }
+  @Schema(description = "Configuration for a currency - use to present appropriate client interfaces")
+  public record CurrencyConfiguration(
+      @Schema(description = "The minimum amount that may be submitted for a one-time donation in the currency")
+      BigDecimal minimum,
+      @Schema(description = "A map of numeric one-time donation level IDs to the list of default amounts to be presented")
+      Map<String, List<BigDecimal>> oneTime,
+      @Schema(description = "A map of numeric subscription level IDs to the amount charged for that level")
+      Map<String, BigDecimal> subscription,
+      @Schema(description = "A map of numeric backup level IDs to the amount charged for that level")
+      Map<String, BigDecimal> backupSubscription,
+      @Schema(description = "The payment methods that support the given currency")
+      List<String> supportedPaymentMethods) {}
 
-  /**
-   * Configuration for a currency - use to present appropriate client interfaces
-   *
-   * @param minimum                 the minimum amount that may be submitted for a one-time donation in the currency
-   * @param oneTime                 map of numeric one-time donation level IDs to the list of default amounts to be
-   *                                presented
-   * @param subscription            map of numeric subscription level IDs to the amount charged for that level
-   * @param backupSubscription      map of numeric backup level IDs to the amount charged for that level
-   * @param supportedPaymentMethods the payment methods that support the given currency
-   */
-  public record CurrencyConfiguration(BigDecimal minimum, Map<String, List<BigDecimal>> oneTime,
-                                      Map<String, BigDecimal> subscription,
-                                      Map<String, BigDecimal> backupSubscription,
-                                      List<String> supportedPaymentMethods) {
+  @Schema(description = "Configuration for a donation level - use to present appropriate client interfaces")
+  public record LevelConfiguration(
+      @Schema(description = "The localized name for the level")
+      String name,
+      @Schema(description = "The displayable badge associated with the level")
+      Badge badge) {}
 
-  }
+  public record BackupConfiguration(
+      @Schema(description = "A map of numeric backup level IDs to level-specific backup configuration")
+      Map<String, BackupLevelConfiguration> levels,
+      @Schema(description = "The number of days of media a free tier backup user gets")
+      long backupFreeTierMediaDays) {}
 
-  /**
-   * Configuration for a donation level - use to present appropriate client interfaces
-   *
-   * @param name  the localized name for the level
-   * @param badge the displayable badge associated with the level
-   */
-  public record LevelConfiguration(String name, Badge badge) {
-
-  }
+  @Schema(description = "Configuration for a backup level - use to present appropriate client interfaces")
+  public record BackupLevelConfiguration(
+      @Schema(description = "The amount of media storage in bytes that a paying subscriber may store")
+      long storageAllowanceBytes) {}
 
   @GET
   @Path("/configuration")
   @Produces(MediaType.APPLICATION_JSON)
+  @Operation(
+      summary = "Subscription configuration ",
+      description = """
+          Returns all configuration for badges, donation subscriptions, backup subscriptions, and one-time donation (
+          "boost" and "gift") minimum and suggested amounts.""")
+  @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = GetSubscriptionConfigurationResponse.class)))
   public CompletableFuture<Response> getConfiguration(@Context ContainerRequestContext containerRequestContext) {
     return CompletableFuture.supplyAsync(() -> {
       List<Locale> acceptableLanguages = getAcceptableLanguagesForRequest(containerRequestContext);

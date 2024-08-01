@@ -64,6 +64,7 @@ import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialResponse;
 import org.signal.libsignal.zkgroup.receipts.ReceiptSerial;
 import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.backup.BackupManager;
 import org.whispersystems.textsecuregcm.badges.BadgeTranslator;
 import org.whispersystems.textsecuregcm.badges.LevelTranslator;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
@@ -1017,6 +1018,11 @@ class SubscriptionControllerTest {
       });
     });
 
+    assertThat(response.backup().levels()).containsOnlyKeys("201").extractingByKey("201").satisfies(configuration -> {
+      assertThat(configuration.storageAllowanceBytes()).isEqualTo(BackupManager.MAX_TOTAL_BACKUP_MEDIA_BYTES);
+    });
+    assertThat(response.backup().backupFreeTierMediaDays()).isEqualTo(30);
+
     // check the badge vs purchasable badge fields
     // subscription levels are Badge, while one-time levels are PurchasableBadge, which adds `duration`
     Map<String, Object> genericResponse = RESOURCE_EXTENSION.target("/v1/subscription/configuration")
@@ -1068,6 +1074,7 @@ class SubscriptionControllerTest {
         badgeExpiration: P30D
         badgeGracePeriod: P15D
         backupExpiration: P13D
+        backupFreeTierMediaDuration: P30D
         backupLevels:
           201:
             prices:

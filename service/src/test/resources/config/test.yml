@@ -361,6 +361,8 @@ badges:
 subscription: # configuration for Stripe subscriptions
   badgeExpiration: P30D
   badgeGracePeriod: P15D
+  backupExpiration: P30D
+  backupFreeTierMediaDuration: P30D
   levels:
     500:
       badge: EXAMPLE
