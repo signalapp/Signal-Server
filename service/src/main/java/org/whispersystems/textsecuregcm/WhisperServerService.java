@@ -251,11 +251,8 @@ import org.whispersystems.textsecuregcm.workers.BackupMetricsCommand;
 import org.whispersystems.textsecuregcm.workers.CertificateCommand;
 import org.whispersystems.textsecuregcm.workers.CheckDynamicConfigurationCommand;
 import org.whispersystems.textsecuregcm.workers.DeleteUserCommand;
-import org.whispersystems.textsecuregcm.workers.DiscardPushNotificationExperimentSamplesCommand;
-import org.whispersystems.textsecuregcm.workers.FinishPushNotificationExperimentCommand;
 import org.whispersystems.textsecuregcm.workers.IdleDeviceNotificationSchedulerFactory;
 import org.whispersystems.textsecuregcm.workers.MessagePersisterServiceCommand;
-import org.whispersystems.textsecuregcm.workers.NotifyIdleDevicesWithoutMessagesExperimentFactory;
 import org.whispersystems.textsecuregcm.workers.ProcessScheduledJobsServiceCommand;
 import org.whispersystems.textsecuregcm.workers.RemoveExpiredAccountsCommand;
 import org.whispersystems.textsecuregcm.workers.RemoveExpiredBackupsCommand;
@@ -265,7 +262,6 @@ import org.whispersystems.textsecuregcm.workers.ScheduledApnPushNotificationSend
 import org.whispersystems.textsecuregcm.workers.ServerVersionCommand;
 import org.whispersystems.textsecuregcm.workers.SetRequestLoggingEnabledTask;
 import org.whispersystems.textsecuregcm.workers.SetUserDiscoverabilityCommand;
-import org.whispersystems.textsecuregcm.workers.StartPushNotificationExperimentCommand;
 import org.whispersystems.textsecuregcm.workers.UnlinkDeviceCommand;
 import org.whispersystems.textsecuregcm.workers.ZkParamsCommand;
 import org.whispersystems.websocket.WebSocketResourceProviderFactory;
@@ -322,21 +318,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     bootstrap.addCommand(new ProcessScheduledJobsServiceCommand("process-idle-device-notification-jobs",
         "Processes scheduled jobs to send notifications to idle devices",
         new IdleDeviceNotificationSchedulerFactory()));
-
-    bootstrap.addCommand(
-        new StartPushNotificationExperimentCommand<>("start-notify-idle-devices-without-messages-experiment",
-            "Start an experiment to send push notifications to idle devices with empty message queues",
-            new NotifyIdleDevicesWithoutMessagesExperimentFactory()));
-
-    bootstrap.addCommand(
-        new FinishPushNotificationExperimentCommand<>("finish-notify-idle-devices-without-messages-experiment",
-            "Finish an experiment to send push notifications to idle devices with empty message queues",
-            new NotifyIdleDevicesWithoutMessagesExperimentFactory()));
-
-    bootstrap.addCommand(
-        new DiscardPushNotificationExperimentSamplesCommand("discard-notify-idle-devices-without-messages-samples",
-            "Discard samples from the \"notify idle devices without messages\" experiment",
-            new NotifyIdleDevicesWithoutMessagesExperimentFactory()));
   }
 
   @Override
