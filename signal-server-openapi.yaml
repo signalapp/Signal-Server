@@ -2830,12 +2830,17 @@ paths:
     get:
       tags:
       - Subscriptions
+      summary: 'Subscription configuration '
+      description: |-
+        Returns all configuration for badges, donation subscriptions, backup subscriptions, and one-time donation (
+        "boost" and "gift") minimum and suggested amounts.
       operationId: getConfiguration
       responses:
-        default:
-          description: default response
+        "200":
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetSubscriptionConfigurationResponse'
   /v1/subscription/{subscriberId}/default_payment_method/{paymentMethodId}:
     post:
       tags:
@@ -4433,6 +4438,7 @@ components:
             $ref: '#/components/schemas/BadgeSvg'
         imageUrl:
           type: string
+      description: The displayable badge associated with the level
     BadgeSvg:
       required:
       - dark
@@ -4923,6 +4929,108 @@ components:
         receiptCredentialRequest:
           type: string
           format: byte
+    BackupConfiguration:
+      type: object
+      properties:
+        levels:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/BackupLevelConfiguration'
+          description: A map of numeric backup level IDs to level-specific backup
+            configuration
+        backupFreeTierMediaDays:
+          type: integer
+          description: The number of days of media a free tier backup user gets
+          format: int64
+      description: Backup specific configuration
+    BackupLevelConfiguration:
+      type: object
+      properties:
+        storageAllowanceBytes:
+          type: integer
+          description: The amount of media storage in bytes that a paying subscriber
+            may store
+          format: int64
+      description: Configuration for a backup level - use to present appropriate client
+        interfaces
+    CurrencyConfiguration:
+      type: object
+      properties:
+        minimum:
+          type: number
+          description: The minimum amount that may be submitted for a one-time donation
+            in the currency
+        oneTime:
+          type: object
+          additionalProperties:
+            type: array
+            description: A map of numeric one-time donation level IDs to the list
+              of default amounts to be presented
+            items:
+              type: number
+              description: A map of numeric one-time donation level IDs to the list
+                of default amounts to be presented
+          description: A map of numeric one-time donation level IDs to the list of
+            default amounts to be presented
+        subscription:
+          type: object
+          additionalProperties:
+            type: number
+            description: A map of numeric subscription level IDs to the amount charged
+              for that level
+          description: A map of numeric subscription level IDs to the amount charged
+            for that level
+        backupSubscription:
+          type: object
+          additionalProperties:
+            type: number
+            description: A map of numeric backup level IDs to the amount charged for
+              that level
+          description: A map of numeric backup level IDs to the amount charged for
+            that level
+        supportedPaymentMethods:
+          type: array
+          description: The payment methods that support the given currency
+          items:
+            type: string
+            description: The payment methods that support the given currency
+      description: Configuration for a currency - use to present appropriate client
+        interfaces
+    GetSubscriptionConfigurationResponse:
+      type: object
+      properties:
+        currencies:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/CurrencyConfiguration'
+          description: A map of lower-cased ISO 3 currency codes to minimums and level-specific
+            scalar amounts
+        levels:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/LevelConfiguration'
+          description: A map of numeric donation level IDs to level-specific badge
+            configuration
+        backup:
+          $ref: '#/components/schemas/BackupConfiguration'
+        sepaMaximumEuros:
+          type: number
+          description: The maximum value of a one-time donation SEPA transaction
+      description: |-
+        Comprehensive configuration for donation subscriptions, backup subscriptions, gift subscriptions, and one-time
+        donations pricing information for all levels are included in currencies. All levels that have an associated
+        badge are included in levels.  All levels that correspond to a backup payment tier are included in
+        backupLevels.
+    LevelConfiguration:
+      type: object
+      properties:
+        name:
+          type: string
+          description: The localized name for the level
+        badge:
+          $ref: '#/components/schemas/Badge'
+      description: Configuration for a donation level - use to present appropriate
+        client interfaces
     VerificationSessionResponse:
       type: object
       properties:
