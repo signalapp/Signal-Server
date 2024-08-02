@@ -395,20 +395,6 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
         connection -> connection.sync().del(getPersistInProgressKey(accountUuid, deviceId)));
   }
 
-  boolean lockAccountForMessagePersisterCleanup(final UUID accountUuid) {
-    return redisCluster.withBinaryCluster(
-        connection -> "OK".equals(
-            connection.sync().set(
-                getUnlinkInProgressKey(accountUuid),
-                LOCK_VALUE,
-                new SetArgs().ex(MessagePersister.UNLINK_TIMEOUT.toSeconds()).nx())));
-  }
-
-  void unlockAccountForMessagePersisterCleanup(final UUID accountUuid) {
-    redisCluster.useBinaryCluster(
-        connection -> connection.sync().del(getUnlinkInProgressKey(accountUuid)));
-  }
-
   public void addMessageAvailabilityListener(final UUID destinationUuid, final byte deviceId,
       final MessageAvailabilityListener listener) {
     final String queueName = getQueueName(destinationUuid, deviceId);

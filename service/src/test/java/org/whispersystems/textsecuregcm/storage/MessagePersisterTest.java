@@ -20,7 +20,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.whispersystems.textsecuregcm.util.MockUtils.exactly;
 
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.protobuf.ByteString;
 import io.lettuce.core.cluster.SlotHash;
 import java.nio.charset.StandardCharsets;
@@ -31,10 +30,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -105,7 +106,7 @@ class MessagePersisterTest {
     messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(), sharedExecutorService,
         messageDeliveryScheduler, sharedExecutorService, Clock.systemUTC());
     messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager, clientPresenceManager,
-        keysManager, dynamicConfigurationManager, PERSIST_DELAY, 1, MoreExecutors.newDirectExecutorService());
+        keysManager, dynamicConfigurationManager, PERSIST_DELAY, 1);
 
     when(messagesManager.clear(any(UUID.class), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
     when(keysManager.deleteSingleUsePreKeys(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
@@ -249,7 +250,7 @@ class MessagePersisterTest {
   }
 
   @Test
-  void testUnlinkFirstInactiveDeviceOnFullQueue() {
+  void testUnlinkOnFullQueue() {
     final String queueName = new String(
         MessagesCache.getMessageQueueKey(DESTINATION_ACCOUNT_UUID, DESTINATION_DEVICE_ID), StandardCharsets.UTF_8);
     final int messageCount = 1;
@@ -287,12 +288,11 @@ class MessagePersisterTest {
 
     assertTimeoutPreemptively(Duration.ofSeconds(1), () ->
         messagePersister.persistQueue(destinationAccount, DESTINATION_DEVICE));
-
-    verify(messagesManager, exactly()).clear(DESTINATION_ACCOUNT_UUID, inactiveId);
+    verify(accountsManager, exactly()).removeDevice(destinationAccount, DESTINATION_DEVICE_ID);
   }
 
   @Test
-  void testUnlinkActiveDeviceWithOldestMessageOnFullQueueWithNoInactiveDevices() {
+  void testFailedUnlinkOnFullQueueThrowsForRetry() {
     final String queueName = new String(
         MessagesCache.getMessageQueueKey(DESTINATION_ACCOUNT_UUID, DESTINATION_DEVICE_ID), StandardCharsets.UTF_8);
     final int messageCount = 1;
@@ -302,93 +302,34 @@ class MessagePersisterTest {
     setNextSlotToPersist(SlotHash.getSlot(queueName));
 
     final Device primary = mock(Device.class);
-    final byte primaryId = 1;
-    when(primary.getId()).thenReturn(primaryId);
+    when(primary.getId()).thenReturn((byte) 1);
     when(primary.isPrimary()).thenReturn(true);
     when(primary.getFetchesMessages()).thenReturn(true);
-    when(messagesManager.getEarliestUndeliveredTimestampForDevice(any(), eq(primary)))
-        .thenReturn(Mono.just(4L));
 
-    final Device deviceA = mock(Device.class);
-    final byte deviceIdA = 2;
-    when(deviceA.getId()).thenReturn(deviceIdA);
-    when(deviceA.getFetchesMessages()).thenReturn(true);
-    when(messagesManager.getEarliestUndeliveredTimestampForDevice(any(), eq(deviceA)))
-        .thenReturn(Mono.empty());
+    final Device activeA = mock(Device.class);
+    when(activeA.getId()).thenReturn((byte) 2);
+    when(activeA.getFetchesMessages()).thenReturn(true);
 
-    final Device deviceB = mock(Device.class);
-    final byte deviceIdB = 3;
-    when(deviceB.getId()).thenReturn(deviceIdB);
-    when(deviceB.getFetchesMessages()).thenReturn(true);
-    when(messagesManager.getEarliestUndeliveredTimestampForDevice(any(), eq(deviceB)))
-        .thenReturn(Mono.just(2L));
+    final Device inactiveB = mock(Device.class);
+    final byte inactiveId = 3;
+    when(inactiveB.getId()).thenReturn(inactiveId);
+
+    final Device inactiveC = mock(Device.class);
+    when(inactiveC.getId()).thenReturn((byte) 4);
+
+    final Device activeD = mock(Device.class);
+    when(activeD.getId()).thenReturn((byte) 5);
+    when(activeD.getFetchesMessages()).thenReturn(true);
 
     final Device destination = mock(Device.class);
     when(destination.getId()).thenReturn(DESTINATION_DEVICE_ID);
-    when(destination.getFetchesMessages()).thenReturn(true);
-    when(messagesManager.getEarliestUndeliveredTimestampForDevice(any(), eq(destination)))
-        .thenReturn(Mono.just(5L));
 
-    when(destinationAccount.getDevices()).thenReturn(List.of(primary, deviceA, deviceB, destination));
+    when(destinationAccount.getDevices()).thenReturn(List.of(primary, activeA, inactiveB, inactiveC, activeD, destination));
 
     when(messagesManager.persistMessages(any(UUID.class), any(), anyList())).thenThrow(ItemCollectionSizeLimitExceededException.builder().build());
-    when(messagesManager.clear(any(UUID.class), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
-    when(keysManager.deleteSingleUsePreKeys(any(), eq(deviceIdB))).thenReturn(CompletableFuture.completedFuture(null));
+    when(accountsManager.removeDevice(destinationAccount, DESTINATION_DEVICE_ID)).thenReturn(CompletableFuture.failedFuture(new TimeoutException()));
 
-    assertTimeoutPreemptively(Duration.ofSeconds(1), () ->
-        messagePersister.persistQueue(destinationAccount, DESTINATION_DEVICE));
-
-    verify(messagesManager, exactly()).clear(DESTINATION_ACCOUNT_UUID, deviceIdB);
-  }
-
-  @Test
-  void testUnlinkDestinationDevice() {
-    final String queueName = new String(
-        MessagesCache.getMessageQueueKey(DESTINATION_ACCOUNT_UUID, DESTINATION_DEVICE_ID), StandardCharsets.UTF_8);
-    final int messageCount = 1;
-    final Instant now = Instant.now();
-
-    insertMessages(DESTINATION_ACCOUNT_UUID, DESTINATION_DEVICE_ID, messageCount, now);
-    setNextSlotToPersist(SlotHash.getSlot(queueName));
-
-    final Device primary = mock(Device.class);
-    final byte primaryId = 1;
-    when(primary.getId()).thenReturn(primaryId);
-    when(primary.isPrimary()).thenReturn(true);
-    when(primary.getFetchesMessages()).thenReturn(true);
-    when(messagesManager.getEarliestUndeliveredTimestampForDevice(any(), eq(primary)))
-        .thenReturn(Mono.just(1L));
-
-    final Device deviceA = mock(Device.class);
-    final byte deviceIdA = 2;
-    when(deviceA.getId()).thenReturn(deviceIdA);
-    when(deviceA.getFetchesMessages()).thenReturn(true);
-    when(messagesManager.getEarliestUndeliveredTimestampForDevice(any(), eq(deviceA)))
-        .thenReturn(Mono.just(3L));
-
-    final Device deviceB = mock(Device.class);
-    final byte deviceIdB = 2;
-    when(deviceB.getId()).thenReturn(deviceIdB);
-    when(deviceB.getFetchesMessages()).thenReturn(true);
-    when(messagesManager.getEarliestUndeliveredTimestampForDevice(any(), eq(deviceB)))
-        .thenReturn(Mono.empty());
-
-    final Device destination = mock(Device.class);
-    when(destination.getId()).thenReturn(DESTINATION_DEVICE_ID);
-    when(destination.getFetchesMessages()).thenReturn(true);
-    when(messagesManager.getEarliestUndeliveredTimestampForDevice(any(), eq(destination)))
-        .thenReturn(Mono.just(2L));
-
-    when(destinationAccount.getDevices()).thenReturn(List.of(primary, deviceA, deviceB, destination));
-
-    when(messagesManager.persistMessages(any(UUID.class), any(), anyList())).thenThrow(ItemCollectionSizeLimitExceededException.builder().build());
-    when(messagesManager.clear(any(UUID.class), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
-    when(keysManager.deleteSingleUsePreKeys(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
-
-    assertTimeoutPreemptively(Duration.ofSeconds(1), () ->
-        messagePersister.persistQueue(destinationAccount, DESTINATION_DEVICE));
-
-    verify(messagesManager, exactly()).clear(DESTINATION_ACCOUNT_UUID, DESTINATION_DEVICE_ID);
+    assertThrows(CompletionException.class, () -> messagePersister.persistQueue(destinationAccount, DESTINATION_DEVICE));
   }
 
   @SuppressWarnings("SameParameterValue")
