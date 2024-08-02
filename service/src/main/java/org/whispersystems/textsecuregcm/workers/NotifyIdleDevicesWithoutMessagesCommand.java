@@ -18,6 +18,8 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuples;
 import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalTime;
 
 public class NotifyIdleDevicesWithoutMessagesCommand extends AbstractSinglePassCrawlAccountsCommand {
@@ -32,6 +34,12 @@ public class NotifyIdleDevicesWithoutMessagesCommand extends AbstractSinglePassC
 
   @VisibleForTesting
   static final LocalTime PREFERRED_NOTIFICATION_TIME = LocalTime.of(14, 0);
+
+  @VisibleForTesting
+  static final Duration MIN_IDLE_DURATION = Duration.ofDays(15);
+
+  @VisibleForTesting
+  static final Duration MAX_IDLE_DURATION = Duration.ofDays(30);
 
   private static final Counter DEVICE_INSPECTED_COUNTER =
       Metrics.counter(MetricsUtil.name(StartPushNotificationExperimentCommand.class, "deviceInspected"));
@@ -72,11 +80,12 @@ public class NotifyIdleDevicesWithoutMessagesCommand extends AbstractSinglePassC
 
     final MessagesManager messagesManager = getCommandDependencies().messagesManager();
     final IdleDeviceNotificationScheduler idleDeviceNotificationScheduler = buildIdleDeviceNotificationScheduler();
+    final Clock clock = getClock();
 
     accounts
         .flatMap(account -> Flux.fromIterable(account.getDevices()).map(device -> Tuples.of(account, device)))
         .doOnNext(ignored -> DEVICE_INSPECTED_COUNTER.increment())
-        .flatMap(accountAndDevice -> isDeviceEligible(accountAndDevice.getT1(), accountAndDevice.getT2(), idleDeviceNotificationScheduler, messagesManager)
+        .flatMap(accountAndDevice -> isDeviceEligible(accountAndDevice.getT1(), accountAndDevice.getT2(), messagesManager, clock)
             .mapNotNull(eligible -> eligible ? accountAndDevice : null), maxConcurrency)
         .flatMap(accountAndDevice -> {
           final Account account = accountAndDevice.getT1();
@@ -84,7 +93,7 @@ public class NotifyIdleDevicesWithoutMessagesCommand extends AbstractSinglePassC
 
           final Mono<Void> scheduleNotificationMono = dryRun
               ? Mono.empty()
-              : Mono.fromFuture(() -> idleDeviceNotificationScheduler.scheduleNotification(account, device.getId(), PREFERRED_NOTIFICATION_TIME))
+              : Mono.fromFuture(() -> idleDeviceNotificationScheduler.scheduleNotification(account, device, PREFERRED_NOTIFICATION_TIME))
                   .onErrorResume(throwable -> {
                     log.warn("Failed to schedule notification for {}:{}",
                         account.getIdentifier(IdentityType.ACI),
@@ -104,6 +113,11 @@ public class NotifyIdleDevicesWithoutMessagesCommand extends AbstractSinglePassC
   }
 
   @VisibleForTesting
+  protected Clock getClock() {
+    return Clock.systemUTC();
+  }
+
+  @VisibleForTesting
   protected IdleDeviceNotificationScheduler buildIdleDeviceNotificationScheduler() {
     final DynamoDbTables.TableWithExpiration tableConfiguration = getConfiguration().getDynamoDbTables().getScheduledJobs();
 
@@ -119,19 +133,26 @@ public class NotifyIdleDevicesWithoutMessagesCommand extends AbstractSinglePassC
   @VisibleForTesting
   static Mono<Boolean> isDeviceEligible(final Account account,
       final Device device,
-      final IdleDeviceNotificationScheduler idleDeviceNotificationScheduler,
-      final MessagesManager messagesManager) {
+      final MessagesManager messagesManager,
+      final Clock clock) {
 
     if (!hasPushToken(device)) {
       return Mono.just(false);
     }
 
-    if (!idleDeviceNotificationScheduler.isIdle(device)) {
+    if (!isIdle(device, clock)) {
       return Mono.just(false);
     }
 
     return Mono.fromFuture(messagesManager.mayHavePersistedMessages(account.getIdentifier(IdentityType.ACI), device))
         .map(mayHavePersistedMessages -> !mayHavePersistedMessages);
+  }
+
+  @VisibleForTesting
+  static boolean isIdle(final Device device, final Clock clock) {
+    final Duration idleDuration = Duration.between(Instant.ofEpochMilli(device.getLastSeen()), clock.instant());
+
+    return idleDuration.compareTo(MIN_IDLE_DURATION) >= 0 && idleDuration.compareTo(MAX_IDLE_DURATION) < 0;
   }
 
   @VisibleForTesting

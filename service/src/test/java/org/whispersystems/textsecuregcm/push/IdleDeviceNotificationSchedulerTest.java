@@ -1,8 +1,6 @@
 package org.whispersystems.textsecuregcm.push;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyByte;
@@ -19,7 +17,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -57,14 +54,14 @@ class IdleDeviceNotificationSchedulerTest {
   void processJob(final boolean accountPresent,
       final boolean devicePresent,
       final boolean tokenPresent,
-      final Instant deviceLastSeen,
+      final boolean lastSeenChanged,
       final String expectedOutcome) throws JsonProcessingException, NotPushRegisteredException {
 
     final UUID accountIdentifier = UUID.randomUUID();
     final byte deviceId = Device.PRIMARY_ID;
 
     final Device device = mock(Device.class);
-    when(device.getLastSeen()).thenReturn(deviceLastSeen.toEpochMilli());
+    when(device.getLastSeen()).thenReturn(0L);
 
     final Account account = mock(Account.class);
     when(account.getDevice(deviceId)).thenReturn(devicePresent ? Optional.of(device) : Optional.empty());
@@ -82,50 +79,27 @@ class IdleDeviceNotificationSchedulerTest {
     }
 
     final byte[] jobData = SystemMapper.jsonMapper().writeValueAsBytes(
-        new IdleDeviceNotificationScheduler.AccountAndDeviceIdentifier(accountIdentifier, deviceId));
+        new IdleDeviceNotificationScheduler.JobDescriptor(accountIdentifier, deviceId, lastSeenChanged ? 1 : 0));
 
     assertEquals(expectedOutcome, idleDeviceNotificationScheduler.processJob(jobData).join());
   }
 
   private static List<Arguments> processJob() {
-    final Instant idleDeviceLastSeenTimestamp = CURRENT_TIME
-        .minus(IdleDeviceNotificationScheduler.MIN_IDLE_DURATION)
-        .minus(Duration.ofDays(1));
-
     return List.of(
         // Account present, device present, device has tokens, device is idle
-        Arguments.of(true, true, true, idleDeviceLastSeenTimestamp, "sent"),
+        Arguments.of(true, true, true, false, "sent"),
 
         // Account present, device present, device has tokens, but device is active
-        Arguments.of(true, true, true, CURRENT_TIME, "deviceSeenRecently"),
+        Arguments.of(true, true, true, true, "deviceSeenRecently"),
 
         // Account present, device present, device is idle, but missing tokens
-        Arguments.of(true, true, false, idleDeviceLastSeenTimestamp, "deviceTokenDeleted"),
+        Arguments.of(true, true, false, false, "deviceTokenDeleted"),
 
         // Account present, but device missing
-        Arguments.of(true, false, true, idleDeviceLastSeenTimestamp, "deviceDeleted"),
+        Arguments.of(true, false, true, false, "deviceDeleted"),
 
         // Account missing
-        Arguments.of(false, true, true, idleDeviceLastSeenTimestamp, "accountDeleted")
+        Arguments.of(false, true, true, false, "accountDeleted")
     );
-  }
-
-  @Test
-  void isIdle() {
-    {
-      final Device idleDevice = mock(Device.class);
-      when(idleDevice.getLastSeen())
-          .thenReturn(CURRENT_TIME.minus(IdleDeviceNotificationScheduler.MIN_IDLE_DURATION).minus(Duration.ofDays(1))
-              .toEpochMilli());
-
-      assertTrue(idleDeviceNotificationScheduler.isIdle(idleDevice));
-    }
-
-    {
-      final Device activeDevice = mock(Device.class);
-      when(activeDevice.getLastSeen()).thenReturn(CURRENT_TIME.toEpochMilli());
-
-      assertFalse(idleDeviceNotificationScheduler.isIdle(activeDevice));
-    }
   }
 }

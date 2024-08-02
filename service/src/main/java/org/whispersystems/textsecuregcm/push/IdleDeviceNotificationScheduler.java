@@ -26,10 +26,7 @@ public class IdleDeviceNotificationScheduler extends JobScheduler {
   private final Clock clock;
 
   @VisibleForTesting
-  static final Duration MIN_IDLE_DURATION = Duration.ofDays(14);
-
-  @VisibleForTesting
-  record AccountAndDeviceIdentifier(UUID accountIdentifier, byte deviceId) {}
+  record JobDescriptor(UUID accountIdentifier, byte deviceId, long lastSeen) {}
 
   public IdleDeviceNotificationScheduler(final AccountsManager accountsManager,
       final PushNotificationManager pushNotificationManager,
@@ -52,24 +49,24 @@ public class IdleDeviceNotificationScheduler extends JobScheduler {
 
   @Override
   protected CompletableFuture<String> processJob(@Nullable final byte[] jobData) {
-    final AccountAndDeviceIdentifier accountAndDeviceIdentifier;
+    final JobDescriptor jobDescriptor;
 
     try {
-      accountAndDeviceIdentifier = SystemMapper.jsonMapper().readValue(jobData, AccountAndDeviceIdentifier.class);
+      jobDescriptor = SystemMapper.jsonMapper().readValue(jobData, JobDescriptor.class);
     } catch (final IOException e) {
       return CompletableFuture.failedFuture(e);
     }
 
-    return accountsManager.getByAccountIdentifierAsync(accountAndDeviceIdentifier.accountIdentifier())
+    return accountsManager.getByAccountIdentifierAsync(jobDescriptor.accountIdentifier())
         .thenCompose(maybeAccount -> maybeAccount.map(account ->
-                account.getDevice(accountAndDeviceIdentifier.deviceId()).map(device -> {
-                      if (!isIdle(device)) {
+                account.getDevice(jobDescriptor.deviceId()).map(device -> {
+                      if (jobDescriptor.lastSeen() != device.getLastSeen()) {
                         return CompletableFuture.completedFuture("deviceSeenRecently");
                       }
 
                       try {
                         return pushNotificationManager
-                            .sendNewMessageNotification(account, accountAndDeviceIdentifier.deviceId(), true)
+                            .sendNewMessageNotification(account, jobDescriptor.deviceId(), true)
                             .thenApply(ignored -> "sent");
                       } catch (final NotPushRegisteredException e) {
                         return CompletableFuture.completedFuture("deviceTokenDeleted");
@@ -79,18 +76,12 @@ public class IdleDeviceNotificationScheduler extends JobScheduler {
             .orElse(CompletableFuture.completedFuture("accountDeleted")));
   }
 
-  public boolean isIdle(final Device device) {
-    final Duration idleDuration = Duration.between(Instant.ofEpochMilli(device.getLastSeen()), clock.instant());
-
-    return idleDuration.compareTo(MIN_IDLE_DURATION) >= 0;
-  }
-
-  public CompletableFuture<Void> scheduleNotification(final Account account, final byte deviceId, final LocalTime preferredDeliveryTime) {
+  public CompletableFuture<Void> scheduleNotification(final Account account, final Device device, final LocalTime preferredDeliveryTime) {
     final Instant runAt = SchedulingUtil.getNextRecommendedNotificationTime(account, preferredDeliveryTime, clock);
 
     try {
       return scheduleJob(runAt, SystemMapper.jsonMapper().writeValueAsBytes(
-          new AccountAndDeviceIdentifier(account.getIdentifier(IdentityType.ACI), deviceId)));
+          new JobDescriptor(account.getIdentifier(IdentityType.ACI), device.getId(), device.getLastSeen())));
     } catch (final JsonProcessingException e) {
       // This should never happen when serializing an `AccountAndDeviceIdentifier`
       throw new AssertionError(e);
