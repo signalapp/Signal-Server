@@ -121,7 +121,7 @@ class AccountsAnonymousGrpcServiceTest extends
     final Duration retryAfter = Duration.ofSeconds(11);
 
     when(rateLimiter.validateReactive(anyString()))
-        .thenReturn(Mono.error(new RateLimitExceededException(retryAfter, false)));
+        .thenReturn(Mono.error(new RateLimitExceededException(retryAfter)));
 
     //noinspection ResultOfMethodCallIgnored
     GrpcTestUtils.assertRateLimitExceeded(retryAfter,
@@ -186,7 +186,7 @@ class AccountsAnonymousGrpcServiceTest extends
     final Duration retryAfter = Duration.ofSeconds(13);
 
     when(rateLimiter.validateReactive(anyString()))
-        .thenReturn(Mono.error(new RateLimitExceededException(retryAfter, false)));
+        .thenReturn(Mono.error(new RateLimitExceededException(retryAfter)));
 
     //noinspection ResultOfMethodCallIgnored
     GrpcTestUtils.assertRateLimitExceeded(retryAfter,
@@ -254,7 +254,7 @@ class AccountsAnonymousGrpcServiceTest extends
     final Duration retryAfter = Duration.ofSeconds(17);
 
     when(rateLimiter.validateReactive(anyString()))
-        .thenReturn(Mono.error(new RateLimitExceededException(retryAfter, false)));
+        .thenReturn(Mono.error(new RateLimitExceededException(retryAfter)));
 
     //noinspection ResultOfMethodCallIgnored
     GrpcTestUtils.assertRateLimitExceeded(retryAfter,

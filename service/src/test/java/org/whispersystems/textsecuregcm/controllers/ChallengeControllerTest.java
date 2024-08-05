@@ -100,7 +100,7 @@ class ChallengeControllerTest {
         """;
 
     final Duration retryAfter = Duration.ofMinutes(17);
-    doThrow(new RateLimitExceededException(retryAfter, true)).when(rateLimitChallengeManager)
+    doThrow(new RateLimitExceededException(retryAfter)).when(rateLimitChallengeManager)
         .answerPushChallenge(any(), any());
 
     final Response response = EXTENSION.target("/v1/challenge")
@@ -108,7 +108,7 @@ class ChallengeControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .put(Entity.json(pushChallengeJson));
 
-    assertEquals(413, response.getStatus());
+    assertEquals(429, response.getStatus());
     assertEquals(String.valueOf(retryAfter.toSeconds()), response.getHeaderString("Retry-After"));
   }
 
@@ -175,7 +175,7 @@ class ChallengeControllerTest {
         """;
 
     final Duration retryAfter = Duration.ofMinutes(17);
-    doThrow(new RateLimitExceededException(retryAfter, true)).when(rateLimitChallengeManager)
+    doThrow(new RateLimitExceededException(retryAfter)).when(rateLimitChallengeManager)
         .answerCaptchaChallenge(any(), any(), any(), any(), any());
 
     final Response response = EXTENSION.target("/v1/challenge")
@@ -183,7 +183,7 @@ class ChallengeControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .put(Entity.json(captchaChallengeJson));
 
-    assertEquals(413, response.getStatus());
+    assertEquals(429, response.getStatus());
     assertEquals(String.valueOf(retryAfter.toSeconds()), response.getHeaderString("Retry-After"));
   }
 

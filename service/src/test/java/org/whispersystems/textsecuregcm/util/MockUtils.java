@@ -101,7 +101,7 @@ public final class MockUtils {
       final Duration retryAfter,
       final boolean legacyStatusCode) {
     try {
-      final RateLimitExceededException exception = new RateLimitExceededException(retryAfter, legacyStatusCode);
+      final RateLimitExceededException exception = new RateLimitExceededException(retryAfter);
       doThrow(exception).when(mockRateLimiter).validate(eq(input));
       doReturn(CompletableFuture.failedFuture(exception)).when(mockRateLimiter).validateAsync(eq(input));
       doReturn(Mono.fromFuture(CompletableFuture.failedFuture(exception))).when(mockRateLimiter).validateReactive(eq(input));
@@ -117,7 +117,7 @@ public final class MockUtils {
       final Duration retryAfter,
       final boolean legacyStatusCode) {
     try {
-      final RateLimitExceededException exception = new RateLimitExceededException(retryAfter, legacyStatusCode);
+      final RateLimitExceededException exception = new RateLimitExceededException(retryAfter);
       doThrow(exception).when(mockRateLimiter).validate(eq(input));
       doReturn(CompletableFuture.failedFuture(exception)).when(mockRateLimiter).validateAsync(eq(input));
       doReturn(Mono.fromFuture(CompletableFuture.failedFuture(exception))).when(mockRateLimiter).validateReactive(eq(input));

@@ -263,7 +263,7 @@ class ProfileControllerTest {
 
   @Test
   void testProfileGetByAciRateLimited() throws RateLimitExceededException {
-    doThrow(new RateLimitExceededException(Duration.ofSeconds(13), true)).when(rateLimiter)
+    doThrow(new RateLimitExceededException(Duration.ofSeconds(13))).when(rateLimiter)
         .validate(AuthHelper.VALID_UUID);
 
     final Response response = resources.getJerseyTest()
@@ -272,7 +272,7 @@ class ProfileControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get();
 
-    assertThat(response.getStatus()).isEqualTo(413);
+    assertThat(response.getStatus()).isEqualTo(429);
     assertThat(response.getHeaderString("Retry-After")).isEqualTo(String.valueOf(Duration.ofSeconds(13).toSeconds()));
   }
 
@@ -392,7 +392,7 @@ class ProfileControllerTest {
 
   @Test
   void testProfileGetByPniRateLimited() throws RateLimitExceededException {
-    doThrow(new RateLimitExceededException(Duration.ofSeconds(13), true)).when(rateLimiter)
+    doThrow(new RateLimitExceededException(Duration.ofSeconds(13))).when(rateLimiter)
         .validate(AuthHelper.VALID_UUID);
 
     final Response response = resources.getJerseyTest()
@@ -401,7 +401,7 @@ class ProfileControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get();
 
-    assertThat(response.getStatus()).isEqualTo(413);
+    assertThat(response.getStatus()).isEqualTo(429);
     assertThat(response.getHeaderString("Retry-After")).isEqualTo(String.valueOf(Duration.ofSeconds(13).toSeconds()));
   }
 

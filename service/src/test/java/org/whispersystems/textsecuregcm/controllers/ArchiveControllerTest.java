@@ -252,7 +252,7 @@ public class ArchiveControllerTest {
 
   public static Stream<Arguments> setBackupIdException() {
     return Stream.of(
-        Arguments.of(new RateLimitExceededException(null, false), false, 429),
+        Arguments.of(new RateLimitExceededException(null), false, 429),
         Arguments.of(Status.INVALID_ARGUMENT.withDescription("async").asRuntimeException(), false, 400),
         Arguments.of(Status.INVALID_ARGUMENT.withDescription("sync").asRuntimeException(), true, 400)
     );
@@ -529,7 +529,7 @@ public class ArchiveControllerTest {
 
     // rate limit
     when(backupManager.createTemporaryAttachmentUploadDescriptor(any()))
-        .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(null, false)));
+        .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(null)));
     final Response response = resources.getJerseyTest()
         .target("v1/archives/media/upload/form")
         .request()

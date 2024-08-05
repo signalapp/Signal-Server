@@ -24,7 +24,7 @@ public class VerificationSessionRateLimitExceededException extends RateLimitExce
   public VerificationSessionRateLimitExceededException(
       final RegistrationServiceSession registrationServiceSession, @Nullable final Duration retryDuration,
       final boolean legacy) {
-    super(retryDuration, legacy);
+    super(retryDuration);
     this.registrationServiceSession = registrationServiceSession;
   }
 

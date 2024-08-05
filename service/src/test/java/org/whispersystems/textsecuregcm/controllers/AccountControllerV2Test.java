@@ -292,7 +292,7 @@ class AccountControllerV2Test {
 
     @Test
     void rateLimitedNumber() throws Exception {
-      doThrow(new RateLimitExceededException(null, true))
+      doThrow(new RateLimitExceededException(null))
           .when(registrationLimiter).validate(anyString());
 
       final Invocation.Builder request = resources.getJerseyTest()
@@ -364,7 +364,7 @@ class AccountControllerV2Test {
 
       final Exception e = switch (error) {
         case MISMATCH -> new WebApplicationException(error.getExpectedStatus());
-        case RATE_LIMITED -> new RateLimitExceededException(null, true);
+        case RATE_LIMITED -> new RateLimitExceededException(null);
       };
       doThrow(e)
           .when(registrationLockVerificationManager).verifyRegistrationLock(any(), any(), any(), any(), any());

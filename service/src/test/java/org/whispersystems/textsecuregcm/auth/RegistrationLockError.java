@@ -7,7 +7,7 @@ package org.whispersystems.textsecuregcm.auth;
 
 public enum RegistrationLockError {
   MISMATCH(RegistrationLockVerificationManager.FAILURE_HTTP_STATUS),
-  RATE_LIMITED(413) // This will be changed to 429 in a future revision
+  RATE_LIMITED(429)
   ;
 
   private final int expectedStatus;

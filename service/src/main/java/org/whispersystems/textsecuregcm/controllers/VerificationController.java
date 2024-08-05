@@ -173,9 +173,7 @@ public class VerificationController {
     } catch (final CompletionException e) {
 
       if (ExceptionUtils.unwrap(e) instanceof RateLimitExceededException re) {
-        RateLimiter.adaptLegacyException(() -> {
-          throw re;
-        });
+        throw re;
       }
 
       throw new ServerErrorException(Response.Status.INTERNAL_SERVER_ERROR, e);
@@ -318,9 +316,8 @@ public class VerificationController {
 
     final boolean pushChallengePresent = updateVerificationSessionRequest.pushChallenge() != null;
     if (pushChallengePresent) {
-      RateLimiter.adaptLegacyException(
-          () -> rateLimiters.getVerificationPushChallengeLimiter()
-              .validate(registrationServiceSession.encodedSessionId()));
+      rateLimiters.getVerificationPushChallengeLimiter()
+          .validate(registrationServiceSession.encodedSessionId());
     }
 
     final boolean pushChallengeMatches;
@@ -383,8 +380,7 @@ public class VerificationController {
       return verificationSession;
     }
 
-    RateLimiter.adaptLegacyException(
-        () -> rateLimiters.getVerificationCaptchaLimiter().validate(registrationServiceSession.encodedSessionId()));
+    rateLimiters.getVerificationCaptchaLimiter().validate(registrationServiceSession.encodedSessionId());
 
     final AssessmentResult assessmentResult;
     try {
@@ -507,7 +503,7 @@ public class VerificationController {
           throw new ClientErrorException(response);
         }
 
-        throw new RateLimitExceededException(rateLimitExceededException.getRetryDuration().orElse(null), false);
+        throw new RateLimitExceededException(rateLimitExceededException.getRetryDuration().orElse(null));
       } else if (unwrappedException instanceof RegistrationServiceException registrationServiceException) {
 
         throw registrationServiceException.getRegistrationSession()
@@ -584,7 +580,7 @@ public class VerificationController {
           throw new ClientErrorException(response);
         }
 
-        throw new RateLimitExceededException(rateLimitExceededException.getRetryDuration().orElse(null), false);
+        throw new RateLimitExceededException(rateLimitExceededException.getRetryDuration().orElse(null));
 
       } else if (unwrappedException instanceof RegistrationServiceException registrationServiceException) {
 

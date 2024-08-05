@@ -101,7 +101,7 @@ class ProvisioningControllerTest {
     final String destination = UUID.randomUUID().toString();
     final byte[] messageBody = "test".getBytes(StandardCharsets.UTF_8);
 
-    doThrow(new RateLimitExceededException(Duration.ZERO, true))
+    doThrow(new RateLimitExceededException(Duration.ZERO))
         .when(messagesRateLimiter).validate(AuthHelper.VALID_UUID);
 
     try (final Response response = RESOURCE_EXTENSION.getJerseyTest()
@@ -111,7 +111,7 @@ class ProvisioningControllerTest {
         .put(Entity.entity(new ProvisioningMessage(Base64.getMimeEncoder().encodeToString(messageBody)),
             MediaType.APPLICATION_JSON))) {
 
-      assertEquals(413, response.getStatus());
+      assertEquals(429, response.getStatus());
 
       verify(provisioningManager, never()).sendProvisioningMessage(any(), any());
     }

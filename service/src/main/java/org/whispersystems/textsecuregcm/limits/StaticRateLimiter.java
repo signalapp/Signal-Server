@@ -65,7 +65,7 @@ public class StaticRateLimiter implements RateLimiter {
         counter.increment();
         final Duration retryAfter = Duration.ofMillis(
             (long) Math.ceil((double) deficitPermitsAmount / config.leakRatePerMillis()));
-        throw new RateLimitExceededException(retryAfter, true);
+        throw new RateLimitExceededException(retryAfter);
       }
     } catch (RedisException e) {
       if (!failOpen()) {
@@ -84,7 +84,7 @@ public class StaticRateLimiter implements RateLimiter {
           counter.increment();
           final Duration retryAfter = Duration.ofMillis(
               (long) Math.ceil((double) deficitPermitsAmount / config.leakRatePerMillis()));
-          return failedFuture(new RateLimitExceededException(retryAfter, true));
+          return failedFuture(new RateLimitExceededException(retryAfter));
         })
         .exceptionally(throwable -> {
           if (ExceptionUtils.unwrap(throwable) instanceof RedisException && failOpen()) {

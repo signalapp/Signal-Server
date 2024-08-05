@@ -97,8 +97,8 @@ public class RegistrationServiceClient implements Managed {
               case CREATE_REGISTRATION_SESSION_ERROR_TYPE_RATE_LIMITED -> throw new CompletionException(
                   new RateLimitExceededException(response.getError().getMayRetry()
                       ? Duration.ofSeconds(response.getError().getRetryAfterSeconds())
-                      : null,
-                      true));
+                      : null
+                  ));
               case CREATE_REGISTRATION_SESSION_ERROR_TYPE_ILLEGAL_PHONE_NUMBER -> throw new IllegalArgumentException();
               default -> throw new RuntimeException(
                   "Unrecognized error type from registration service: " + response.getError().getErrorType());

@@ -151,11 +151,10 @@ public class BackupManagerTest {
   public void createTemporaryMediaAttachmentRateLimited() {
     final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupLevel.MEDIA);
     when(mediaUploadLimiter.validateAsync(eq(BackupManager.rateLimitKey(backupUser))))
-        .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(null, true)));
+        .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(null)));
     final RateLimitExceededException e = CompletableFutureTestUtil.assertFailsWithCause(
         RateLimitExceededException.class,
         backupManager.createTemporaryAttachmentUploadDescriptor(backupUser).toCompletableFuture());
-    assertThat(e.isLegacy()).isFalse();
   }
 
   @Test

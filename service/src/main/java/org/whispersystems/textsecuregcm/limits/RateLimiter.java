@@ -78,32 +78,4 @@ public interface RateLimiter {
   default CompletionStage<Void> clearAsync(final UUID accountUuid) {
     return clearAsync(accountUuid.toString());
   }
-
-  /**
-   * If the future throws a {@link RateLimitExceededException}, it will adapt it to ensure that
-   * {@link RateLimitExceededException#isLegacy()} returns {@code false}
-   */
-  static CompletionStage<Void> adaptLegacyException(final CompletionStage<Void> rateLimitFuture) {
-    return rateLimitFuture.exceptionally(ExceptionUtils.exceptionallyHandler(RateLimitExceededException.class, e -> {
-      throw ExceptionUtils.wrap(new RateLimitExceededException(e.getRetryDuration().orElse(null), false));
-    }));
-  }
-
-  /**
-   * If the wrapped {@code validate()} call throws a {@link RateLimitExceededException}, it will adapt it to ensure that
-   * {@link RateLimitExceededException#isLegacy()} returns {@code false}
-   */
-  static void adaptLegacyException(final RateLimitValidator validator) throws RateLimitExceededException {
-    try {
-      validator.validate();
-    } catch (final RateLimitExceededException e) {
-      throw new RateLimitExceededException(e.getRetryDuration().orElse(null), false);
-    }
-  }
-
-  @FunctionalInterface
-  interface RateLimitValidator {
-
-    void validate() throws RateLimitExceededException;
-  }
 }

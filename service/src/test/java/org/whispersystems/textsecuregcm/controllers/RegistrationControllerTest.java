@@ -339,7 +339,7 @@ class RegistrationControllerTest {
     } else if (error != null) {
       final Exception e = switch (error) {
         case MISMATCH -> new WebApplicationException(error.getExpectedStatus());
-        case RATE_LIMITED -> new RateLimitExceededException(null, true);
+        case RATE_LIMITED -> new RateLimitExceededException(null);
       };
       doThrow(e)
           .when(registrationLockVerificationManager).verifyRegistrationLock(any(), any(), any(), any(), any());

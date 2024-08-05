@@ -462,7 +462,7 @@ class KeysControllerTest {
   @Test
   void testGetKeysRateLimited() throws RateLimitExceededException {
     Duration retryAfter = Duration.ofSeconds(31);
-    doThrow(new RateLimitExceededException(retryAfter, true)).when(rateLimiter).validate(anyString());
+    doThrow(new RateLimitExceededException(retryAfter)).when(rateLimiter).validate(anyString());
 
     Response result = resources.getJerseyTest()
         .target(String.format("/v2/keys/PNI:%s/*", EXISTS_PNI))
@@ -470,7 +470,7 @@ class KeysControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get();
 
-    assertThat(result.getStatus()).isEqualTo(413);
+    assertThat(result.getStatus()).isEqualTo(429);
     assertThat(result.getHeaderString("Retry-After")).isEqualTo(String.valueOf(retryAfter.toSeconds()));
   }
 

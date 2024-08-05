@@ -628,7 +628,7 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
 
     final Duration retryAfterDuration = Duration.ofMinutes(7);
     when(preKeysRateLimiter.validateReactive(anyString()))
-        .thenReturn(Mono.error(new RateLimitExceededException(retryAfterDuration, false)));
+        .thenReturn(Mono.error(new RateLimitExceededException(retryAfterDuration)));
 
     assertRateLimitExceeded(retryAfterDuration, () -> authenticatedServiceStub().getPreKeys(GetPreKeysRequest.newBuilder()
         .setTargetIdentifier(ServiceIdentifier.newBuilder()

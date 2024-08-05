@@ -409,7 +409,6 @@ public class BackupAuthManagerTest {
     final RateLimitExceededException ex = CompletableFutureTestUtil.assertFailsWithCause(
         RateLimitExceededException.class,
         authManager.commitBackupId(account, credentialRequest));
-    assertThat(ex.isLegacy()).isFalse();
 
     // If we don't change the request, shouldn't be rate limited
     when(account.getBackupCredentialRequest()).thenReturn(credentialRequest.serialize());
@@ -436,7 +435,7 @@ public class BackupAuthManagerTest {
     final RateLimiters limiters = mock(RateLimiters.class);
     final RateLimiter limiter = mock(RateLimiter.class);
     when(limiter.validateAsync(aci))
-        .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(null, false)));
+        .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(null)));
     when(limiters.forDescriptor(RateLimiters.For.SET_BACKUP_ID)).thenReturn(limiter);
     return limiters;
   }

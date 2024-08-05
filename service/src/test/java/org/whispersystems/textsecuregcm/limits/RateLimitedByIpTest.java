@@ -69,11 +69,11 @@ public class RateLimitedByIpTest {
   public void testRateLimits() throws Exception {
     doNothing().when(RATE_LIMITER).validate(eq(IP));
     validateSuccess("/test/strict");
-    doThrow(new RateLimitExceededException(RETRY_AFTER, true)).when(RATE_LIMITER).validate(eq(IP));
+    doThrow(new RateLimitExceededException(RETRY_AFTER)).when(RATE_LIMITER).validate(eq(IP));
     validateFailure("/test/strict", RETRY_AFTER);
     doNothing().when(RATE_LIMITER).validate(eq(IP));
     validateSuccess("/test/strict");
-    doThrow(new RateLimitExceededException(RETRY_AFTER, true)).when(RATE_LIMITER).validate(eq(IP));
+    doThrow(new RateLimitExceededException(RETRY_AFTER)).when(RATE_LIMITER).validate(eq(IP));
     validateFailure("/test/strict", RETRY_AFTER);
   }
 
@@ -92,7 +92,7 @@ public class RateLimitedByIpTest {
         .request()
         .get();
 
-    assertEquals(413, response.getStatus());
+    assertEquals(429, response.getStatus());
     assertEquals("" + expectedRetryAfter.getSeconds(), response.getHeaderString(HttpHeaders.RETRY_AFTER));
   }
 }

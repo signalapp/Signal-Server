@@ -156,9 +156,8 @@ public class BackupManager {
       final AuthenticatedBackupUser backupUser) {
     checkBackupLevel(backupUser, BackupLevel.MEDIA);
 
-    return RateLimiter.adaptLegacyException(rateLimiters
-        .forDescriptor(RateLimiters.For.BACKUP_ATTACHMENT)
-        .validateAsync(rateLimitKey(backupUser))).thenApply(ignored -> {
+    return rateLimiters.forDescriptor(RateLimiters.For.BACKUP_ATTACHMENT)
+        .validateAsync(rateLimitKey(backupUser)).thenApply(ignored -> {
       final byte[] bytes = new byte[15];
       secureRandom.nextBytes(bytes);
       final String attachmentKey = Base64.getUrlEncoder().encodeToString(bytes);

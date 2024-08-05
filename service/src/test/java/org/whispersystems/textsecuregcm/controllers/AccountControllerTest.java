@@ -912,7 +912,7 @@ class AccountControllerTest {
         .request()
         .head()) {
 
-      assertThat(response.getStatus()).isEqualTo(413);
+      assertThat(response.getStatus()).isEqualTo(429);
       assertThat(response.getHeaderString("Retry-After")).isEqualTo(String.valueOf(expectedRetryAfter.toSeconds()));
     }
   }
@@ -963,7 +963,7 @@ class AccountControllerTest {
         .request()
         .get();
 
-    assertThat(response.getStatus()).isEqualTo(413);
+    assertThat(response.getStatus()).isEqualTo(429);
     assertThat(response.getHeaderString("Retry-After")).isEqualTo(String.valueOf(expectedRetryAfter.toSeconds()));
   }
 

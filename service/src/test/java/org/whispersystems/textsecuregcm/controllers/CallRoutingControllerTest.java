@@ -170,7 +170,7 @@ class CallRoutingControllerTest {
 
   @Test
   void testGetTurnEndpointRateLimited() throws RateLimitExceededException {
-    doThrow(new RateLimitExceededException(null, false))
+    doThrow(new RateLimitExceededException(null))
         .when(getCallEndpointLimiter).validate(AuthHelper.VALID_UUID);
 
     try (final Response response = resources.getJerseyTest()

@@ -16,11 +16,8 @@ public class RateLimitExceededExceptionMapper implements ExceptionMapper<RateLim
 
   private static final Logger logger = LoggerFactory.getLogger(RateLimitExceededExceptionMapper.class);
 
-  private static final int LEGACY_STATUS_CODE = 413;
-  private static final int STATUS_CODE = 429;
-
   /**
-   * Convert a RateLimitExceededException to a {@value STATUS_CODE} (or legacy {@value  LEGACY_STATUS_CODE}) response
+   * Convert a RateLimitExceededException to a 429 response
    * with a Retry-After header.
    *
    * @param e A RateLimitExceededException potentially containing a recommended retry duration
@@ -28,7 +25,6 @@ public class RateLimitExceededExceptionMapper implements ExceptionMapper<RateLim
    */
   @Override
   public Response toResponse(RateLimitExceededException e) {
-    final int statusCode = e.isLegacy() ? LEGACY_STATUS_CODE : STATUS_CODE;
     return e.getRetryDuration()
         .filter(d -> {
           if (d.isNegative()) {
@@ -38,7 +34,7 @@ public class RateLimitExceededExceptionMapper implements ExceptionMapper<RateLim
           // only include non-negative durations in retry headers
           return !d.isNegative();
         })
-        .map(d -> Response.status(statusCode).header("Retry-After", d.toSeconds()))
-        .orElseGet(() -> Response.status(statusCode)).build();
+        .map(d -> Response.status(Response.Status.TOO_MANY_REQUESTS).header("Retry-After", d.toSeconds()))
+        .orElseGet(() -> Response.status(Response.Status.TOO_MANY_REQUESTS)).build();
   }
 }

@@ -122,7 +122,7 @@ public class CallLinkControllerTest {
 
   @Test
   void testGetCreateAuthRatelimited() throws RateLimitExceededException{
-    doThrow(new RateLimitExceededException(null, false))
+    doThrow(new RateLimitExceededException(null))
         .when(createCallLinkLimiter).validate(AuthHelper.VALID_UUID);
 
     try (Response response = resources.getJerseyTest()

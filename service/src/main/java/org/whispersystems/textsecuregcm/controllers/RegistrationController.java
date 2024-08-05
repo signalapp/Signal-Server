@@ -111,7 +111,7 @@ public class RegistrationController {
       throw new WebApplicationException("Invalid signature", 422);
     }
 
-    RateLimiter.adaptLegacyException(() -> rateLimiters.getRegistrationLimiter().validate(number));
+    rateLimiters.getRegistrationLimiter().validate(number);
 
     final PhoneVerificationRequest.VerificationType verificationType = phoneVerificationTokenManager.verify(number,
         registrationRequest);

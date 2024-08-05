@@ -102,9 +102,8 @@ public class BackupAuthManager {
       return CompletableFuture.completedFuture(null);
     }
 
-    return RateLimiter.adaptLegacyException(rateLimiters
-            .forDescriptor(RateLimiters.For.SET_BACKUP_ID)
-            .validateAsync(account.getUuid()))
+    return rateLimiters.forDescriptor(RateLimiters.For.SET_BACKUP_ID)
+        .validateAsync(account.getUuid())
         .thenCompose(ignored -> this.accountsManager
             .updateAsync(account, acc -> acc.setBackupCredentialRequest(serializedRequest))
             .thenRun(Util.NOOP))

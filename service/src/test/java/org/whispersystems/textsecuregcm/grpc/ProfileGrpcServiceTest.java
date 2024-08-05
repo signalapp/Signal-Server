@@ -477,7 +477,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     final Duration retryAfterDuration = Duration.ofMinutes(7);
     when(accountsManager.getByServiceIdentifierAsync(any())).thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
     when(rateLimiter.validateReactive(any(UUID.class)))
-        .thenReturn(Mono.error(new RateLimitExceededException(retryAfterDuration, false)));
+        .thenReturn(Mono.error(new RateLimitExceededException(retryAfterDuration)));
 
     final GetUnversionedProfileRequest request = GetUnversionedProfileRequest.newBuilder()
         .setServiceIdentifier(ServiceIdentifier.newBuilder()

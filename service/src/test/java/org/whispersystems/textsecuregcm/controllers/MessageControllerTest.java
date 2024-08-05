@@ -1695,10 +1695,10 @@ class MessageControllerTest {
         .header(HeaderUtils.UNIDENTIFIED_ACCESS_KEY, Base64.getEncoder().encodeToString(UNIDENTIFIED_ACCESS_BYTES));
 
     when(rateLimiter.validateAsync(any(UUID.class)))
-        .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(Duration.ofSeconds(77), true)));
+        .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(Duration.ofSeconds(77))));
 
     try (final Response response = invocationBuilder.put(entity)) {
-      assertEquals(413, response.getStatus());
+      assertEquals(429, response.getStatus());
     }
   }
 

@@ -342,7 +342,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     final Duration retryAfter = Duration.ofMinutes(3);
 
     when(rateLimiter.validateReactive(any(UUID.class)))
-        .thenReturn(Mono.error(new RateLimitExceededException(retryAfter, false)));
+        .thenReturn(Mono.error(new RateLimitExceededException(retryAfter)));
 
     //noinspection ResultOfMethodCallIgnored
     GrpcTestUtils.assertRateLimitExceeded(retryAfter,
@@ -577,7 +577,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     final Duration retryAfter = Duration.ofSeconds(97);
 
     when(rateLimiter.validateReactive(any(UUID.class)))
-        .thenReturn(Mono.error(new RateLimitExceededException(retryAfter, false)));
+        .thenReturn(Mono.error(new RateLimitExceededException(retryAfter)));
 
     final byte[] usernameCiphertext = TestRandomUtil.nextBytes(EncryptedUsername.MAX_SIZE);
 
@@ -607,7 +607,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     final Duration retryAfter = Duration.ofSeconds(11);
 
     when(rateLimiter.validateReactive(any(UUID.class)))
-        .thenReturn(Mono.error(new RateLimitExceededException(retryAfter, false)));
+        .thenReturn(Mono.error(new RateLimitExceededException(retryAfter)));
 
     //noinspection ResultOfMethodCallIgnored
     GrpcTestUtils.assertRateLimitExceeded(retryAfter,

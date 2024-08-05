@@ -134,7 +134,7 @@ public class AccountControllerV2 {
     // Only verify and check reglock if there's a data change to be made...
     if (!authenticatedAccount.getAccount().getNumber().equals(number)) {
 
-      RateLimiter.adaptLegacyException(() -> rateLimiters.getRegistrationLimiter().validate(number));
+      rateLimiters.getRegistrationLimiter().validate(number);
 
       final PhoneVerificationRequest.VerificationType verificationType = phoneVerificationTokenManager.verify(number,
           request);

@@ -180,7 +180,7 @@ class VerificationControllerTest {
   @Test
   void createSessionRateLimited() {
     when(registrationServiceClient.createRegistrationSession(any(), anyBoolean(), any()))
-        .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(null, true)));
+        .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(null)));
 
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/verification/session")
