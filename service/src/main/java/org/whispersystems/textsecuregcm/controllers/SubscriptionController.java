@@ -419,23 +419,6 @@ public class SubscriptionController {
   }
 
   @POST
-  @Path("/{subscriberId}/default_payment_method/{paymentMethodId}")
-  @Consumes(MediaType.APPLICATION_JSON)
-  @Produces(MediaType.APPLICATION_JSON)
-  @Deprecated // use /{subscriberId}/default_payment_method/{processor}/{paymentMethodId}
-  public CompletableFuture<Response> setDefaultPaymentMethod(
-      @ReadOnly @Auth Optional<AuthenticatedAccount> authenticatedAccount,
-      @PathParam("subscriberId") String subscriberId,
-      @PathParam("paymentMethodId") @NotEmpty String paymentMethodId) {
-    RequestData requestData = RequestData.process(authenticatedAccount, subscriberId, clock);
-    return subscriptionManager.get(requestData.subscriberUser, requestData.hmac)
-        .thenApply(this::requireRecordFromGetResult)
-        .thenCompose(record -> stripeManager.setDefaultPaymentMethodForCustomer(
-            record.getProcessorCustomer().orElseThrow().customerId(), paymentMethodId, record.subscriptionId))
-        .thenApply(customer -> Response.ok().build());
-  }
-
-  @POST
   @Path("/{subscriberId}/default_payment_method/{processor}/{paymentMethodToken}")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
@@ -635,28 +618,6 @@ public class SubscriptionController {
       public record Level(PurchasableBadge badge) {
       }
     }
-
-  @GET
-  @Path("/boost/badges")
-  @Produces(MediaType.APPLICATION_JSON)
-  @Deprecated // use /configuration
-  public CompletableFuture<Response> getBoostBadges(@Context ContainerRequestContext containerRequestContext) {
-    return CompletableFuture.supplyAsync(() -> {
-      long boostLevel = oneTimeDonationConfiguration.boost().level();
-      String boostBadge = oneTimeDonationConfiguration.boost().badge();
-      long giftLevel = oneTimeDonationConfiguration.gift().level();
-      String giftBadge = oneTimeDonationConfiguration.gift().badge();
-      List<Locale> acceptableLanguages = getAcceptableLanguagesForRequest(containerRequestContext);
-      GetBoostBadgesResponse getBoostBadgesResponse = new GetBoostBadgesResponse(Map.of(
-          boostLevel, new GetBoostBadgesResponse.Level(
-              new PurchasableBadge(badgeTranslator.translate(acceptableLanguages, boostBadge),
-                  oneTimeDonationConfiguration.boost().expiration())),
-          giftLevel, new GetBoostBadgesResponse.Level(
-              new PurchasableBadge(badgeTranslator.translate(acceptableLanguages, giftBadge),
-                  oneTimeDonationConfiguration.gift().expiration()))));
-      return Response.ok(getBoostBadgesResponse).build();
-    });
-  }
 
   public static class CreateBoostRequest {
 
