@@ -9,9 +9,11 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import java.time.Clock;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -19,7 +21,7 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtension;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
-import reactor.util.function.Tuples;
+import reactor.core.scheduler.Schedulers;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
@@ -63,7 +65,7 @@ class PushNotificationExperimentSamplesTest {
         .join(),
         "Attempt to record an initial state should succeed for entirely new records");
 
-    assertEquals(new PushNotificationExperimentSample<>(inExperimentGroup, new TestDeviceState(bounciness), null),
+    assertEquals(new PushNotificationExperimentSample<>(accountIdentifier, deviceId, inExperimentGroup, new TestDeviceState(bounciness), null),
         getSample(accountIdentifier, deviceId, experimentName, TestDeviceState.class));
 
     assertTrue(pushNotificationExperimentSamples.recordInitialState(accountIdentifier,
@@ -74,7 +76,7 @@ class PushNotificationExperimentSamplesTest {
             .join(),
         "Attempt to re-record an initial state should succeed for existing-but-unchanged records");
 
-    assertEquals(new PushNotificationExperimentSample<>(inExperimentGroup, new TestDeviceState(bounciness), null),
+    assertEquals(new PushNotificationExperimentSample<>(accountIdentifier, deviceId, inExperimentGroup, new TestDeviceState(bounciness), null),
         getSample(accountIdentifier, deviceId, experimentName, TestDeviceState.class),
         "Recorded initial state should be unchanged after repeated write");
 
@@ -86,7 +88,7 @@ class PushNotificationExperimentSamplesTest {
         .join(),
         "Attempt to record a conflicting initial state should fail");
 
-    assertEquals(new PushNotificationExperimentSample<>(inExperimentGroup, new TestDeviceState(bounciness), null),
+    assertEquals(new PushNotificationExperimentSample<>(accountIdentifier, deviceId, inExperimentGroup, new TestDeviceState(bounciness), null),
         getSample(accountIdentifier, deviceId, experimentName, TestDeviceState.class),
         "Recorded initial state should be unchanged after unsuccessful write");
 
@@ -98,7 +100,7 @@ class PushNotificationExperimentSamplesTest {
         .join(),
         "Attempt to record a new group assignment should fail");
 
-    assertEquals(new PushNotificationExperimentSample<>(inExperimentGroup, new TestDeviceState(bounciness), null),
+    assertEquals(new PushNotificationExperimentSample<>(accountIdentifier, deviceId, inExperimentGroup, new TestDeviceState(bounciness), null),
         getSample(accountIdentifier, deviceId, experimentName, TestDeviceState.class),
         "Recorded initial state should be unchanged after unsuccessful write");
 
@@ -118,7 +120,7 @@ class PushNotificationExperimentSamplesTest {
             .join(),
         "Attempt to record an initial state should fail for samples with final states");
 
-    assertEquals(new PushNotificationExperimentSample<>(inExperimentGroup, new TestDeviceState(bounciness), new TestDeviceState(finalBounciness)),
+    assertEquals(new PushNotificationExperimentSample<>(accountIdentifier, deviceId, inExperimentGroup, new TestDeviceState(bounciness), new TestDeviceState(finalBounciness)),
         getSample(accountIdentifier, deviceId, experimentName, TestDeviceState.class),
         "Recorded initial state should be unchanged after unsuccessful write");
   }
@@ -148,7 +150,7 @@ class PushNotificationExperimentSamplesTest {
               .join();
 
       final PushNotificationExperimentSample<TestDeviceState> expectedSample =
-          new PushNotificationExperimentSample<>(inExperimentGroup,
+          new PushNotificationExperimentSample<>(accountIdentifier, deviceId, inExperimentGroup,
           new TestDeviceState(initialBounciness),
           new TestDeviceState(finalBounciness));
 
@@ -190,92 +192,65 @@ class PushNotificationExperimentSamplesTest {
         ? SystemMapper.jsonMapper().readValue(response.item().get(PushNotificationExperimentSamples.ATTR_FINAL_STATE).s(), stateClass)
         : null;
 
-    return new PushNotificationExperimentSample<>(inExperimentGroup, initialState, finalState);
+    return new PushNotificationExperimentSample<>(accountIdentifier, deviceId, inExperimentGroup, initialState, finalState);
   }
 
   @Test
-  void getDevicesPendingFinalState() throws JsonProcessingException {
+  void getSamples() throws JsonProcessingException {
     final String experimentName = "test-experiment";
-    final UUID accountIdentifier = UUID.randomUUID();
-    final byte deviceId = (byte) ThreadLocalRandom.current().nextInt(Device.MAXIMUM_DEVICE_ID);
-    final boolean inExperimentGroup = ThreadLocalRandom.current().nextBoolean();
-    final int initialBounciness = ThreadLocalRandom.current().nextInt();
+    final UUID initialSampleAccountIdentifier = UUID.randomUUID();
+    final byte initialSampleDeviceId = (byte) ThreadLocalRandom.current().nextInt(Device.MAXIMUM_DEVICE_ID);
+    final boolean initialSampleInExperimentGroup = ThreadLocalRandom.current().nextBoolean();
 
-    //noinspection DataFlowIssue
-    assertTrue(pushNotificationExperimentSamples.getDevicesPendingFinalState(experimentName).collectList().block().isEmpty());
+    final UUID finalSampleAccountIdentifier = UUID.randomUUID();
+    final byte finalSampleDeviceId = (byte) ThreadLocalRandom.current().nextInt(Device.MAXIMUM_DEVICE_ID);
+    final boolean finalSampleInExperimentGroup = ThreadLocalRandom.current().nextBoolean();
 
-    pushNotificationExperimentSamples.recordInitialState(accountIdentifier,
-            deviceId,
-            experimentName,
-            inExperimentGroup,
-            new TestDeviceState(initialBounciness))
-        .join();
-
-    pushNotificationExperimentSamples.recordInitialState(accountIdentifier,
-            (byte) (deviceId + 1),
-            experimentName + "-different",
-            inExperimentGroup,
-            new TestDeviceState(initialBounciness))
-        .join();
-
-    assertEquals(List.of(Tuples.of(accountIdentifier, deviceId)),
-        pushNotificationExperimentSamples.getDevicesPendingFinalState(experimentName).collectList().block());
-  }
-
-  @Test
-  void getFinishedSamples() throws JsonProcessingException {
-    final String experimentName = "test-experiment";
-    final UUID accountIdentifier = UUID.randomUUID();
-    final byte deviceId = (byte) ThreadLocalRandom.current().nextInt(Device.MAXIMUM_DEVICE_ID);
-    final boolean inExperimentGroup = ThreadLocalRandom.current().nextBoolean();
     final int initialBounciness = ThreadLocalRandom.current().nextInt();
     final int finalBounciness = initialBounciness + 17;
 
-    //noinspection DataFlowIssue
-    assertTrue(pushNotificationExperimentSamples.getFinishedSamples(experimentName, TestDeviceState.class).collectList().block().isEmpty());
-
-    pushNotificationExperimentSamples.recordInitialState(accountIdentifier,
-            deviceId,
+    pushNotificationExperimentSamples.recordInitialState(initialSampleAccountIdentifier,
+            initialSampleDeviceId,
             experimentName,
-            inExperimentGroup,
+            initialSampleInExperimentGroup,
             new TestDeviceState(initialBounciness))
         .join();
 
-    //noinspection DataFlowIssue
-    assertTrue(pushNotificationExperimentSamples.getFinishedSamples(experimentName, TestDeviceState.class).collectList().block().isEmpty(),
-        "Publisher should not return unfinished samples");
-
-    pushNotificationExperimentSamples.recordFinalState(accountIdentifier,
-        deviceId,
-        experimentName,
-        new TestDeviceState(finalBounciness))
-        .join();
-
-    final List<PushNotificationExperimentSample<TestDeviceState>> expectedSamples =
-        List.of(new PushNotificationExperimentSample<>(inExperimentGroup, new TestDeviceState(initialBounciness), new TestDeviceState(finalBounciness)));
-
-    assertEquals(
-        expectedSamples,
-        pushNotificationExperimentSamples.getFinishedSamples(experimentName, TestDeviceState.class).collectList().block(),
-        "Publisher should return finished samples");
-
-    pushNotificationExperimentSamples.recordInitialState(accountIdentifier,
-            deviceId,
-            experimentName + "-different",
-            inExperimentGroup,
+    pushNotificationExperimentSamples.recordInitialState(finalSampleAccountIdentifier,
+            finalSampleDeviceId,
+            experimentName,
+            finalSampleInExperimentGroup,
             new TestDeviceState(initialBounciness))
         .join();
 
-    pushNotificationExperimentSamples.recordFinalState(accountIdentifier,
-            deviceId,
-            experimentName + "-different",
+    pushNotificationExperimentSamples.recordFinalState(finalSampleAccountIdentifier,
+            finalSampleDeviceId,
+            experimentName,
             new TestDeviceState(finalBounciness))
         .join();
 
-    assertEquals(
-        expectedSamples,
-        pushNotificationExperimentSamples.getFinishedSamples(experimentName, TestDeviceState.class).collectList().block(),
-        "Publisher should return finished samples only from named experiment");
+    pushNotificationExperimentSamples.recordInitialState(UUID.randomUUID(),
+            (byte) ThreadLocalRandom.current().nextInt(Device.MAXIMUM_DEVICE_ID),
+            experimentName + "-different",
+            ThreadLocalRandom.current().nextBoolean(),
+            new TestDeviceState(ThreadLocalRandom.current().nextInt()))
+        .join();
+
+    final Set<PushNotificationExperimentSample<TestDeviceState>> expectedSamples = Set.of(
+        new PushNotificationExperimentSample<>(initialSampleAccountIdentifier,
+            initialSampleDeviceId,
+            initialSampleInExperimentGroup,
+            new TestDeviceState(initialBounciness),
+            null),
+
+        new PushNotificationExperimentSample<>(finalSampleAccountIdentifier,
+            finalSampleDeviceId,
+            finalSampleInExperimentGroup,
+            new TestDeviceState(initialBounciness),
+            new TestDeviceState(finalBounciness)));
+
+    assertEquals(expectedSamples,
+        pushNotificationExperimentSamples.getSamples(experimentName, TestDeviceState.class, 1, Schedulers.immediate()).collect(Collectors.toSet()).block());
   }
 
   @Test

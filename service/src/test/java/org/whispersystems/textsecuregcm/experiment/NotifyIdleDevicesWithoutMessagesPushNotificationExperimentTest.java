@@ -206,7 +206,7 @@ class NotifyIdleDevicesWithoutMessagesPushNotificationExperimentTest {
 
     final DeviceLastSeenState state = new DeviceLastSeenState(true, 0, true, 0, tokenType);
     final PushNotificationExperimentSample<DeviceLastSeenState> sample =
-        new PushNotificationExperimentSample<>(inExperimentGroup, state, state);
+        new PushNotificationExperimentSample<>(UUID.randomUUID(), Device.PRIMARY_ID, inExperimentGroup, state, state);
 
     assertEquals(expectedPopulation, NotifyIdleDevicesWithoutMessagesPushNotificationExperiment.getPopulation(sample));
   }
@@ -234,7 +234,7 @@ class NotifyIdleDevicesWithoutMessagesPushNotificationExperimentTest {
       final NotifyIdleDevicesWithoutMessagesPushNotificationExperiment.Outcome expectedOutcome) {
 
     final PushNotificationExperimentSample<DeviceLastSeenState> sample =
-        new PushNotificationExperimentSample<>(true, initialState, finalState);
+        new PushNotificationExperimentSample<>(UUID.randomUUID(), Device.PRIMARY_ID, true, initialState, finalState);
 
     assertEquals(expectedOutcome, NotifyIdleDevicesWithoutMessagesPushNotificationExperiment.getOutcome(sample));
   }

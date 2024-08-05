@@ -68,6 +68,11 @@ public class NotifyIdleDevicesWithoutMessagesPushNotificationExperiment implemen
         .thenApply(mayHavePersistedMessages -> !mayHavePersistedMessages);
   }
 
+  @Override
+  public Class<DeviceLastSeenState> getStateClass() {
+    return DeviceLastSeenState.class;
+  }
+
   @VisibleForTesting
   static boolean hasPushToken(final Device device) {
     // Exclude VOIP tokens since they have their own, distinct delivery mechanism

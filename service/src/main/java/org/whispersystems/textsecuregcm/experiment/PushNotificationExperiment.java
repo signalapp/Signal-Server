@@ -1,3 +1,4 @@
+
 package org.whispersystems.textsecuregcm.experiment;
 
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -31,6 +32,13 @@ public interface PushNotificationExperiment<T> {
    * @return a future that yields a boolean value indicating whether the target device is eligible for this experiment
    */
   CompletableFuture<Boolean> isDeviceEligible(Account account, Device device);
+
+  /**
+   * Returns the class of the state object stored for this experiment.
+   *
+   * @return the class of the state object stored for this experiment
+   */
+  Class<T> getStateClass();
 
   /**
    * Generates an experiment specific state "snapshot" of the given device. Experiment results are generally evaluated

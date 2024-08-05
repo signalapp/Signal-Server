@@ -14,6 +14,7 @@ import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Scheduler;
 import reactor.util.function.Tuple2;
 import reactor.util.function.Tuples;
 import reactor.util.retry.Retry;
@@ -23,7 +24,6 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
 import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
-import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
 import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
@@ -130,106 +130,129 @@ public class PushNotificationExperimentSamples {
    * @param finalState the final state of the object; must be serializable as a JSON text and of the same type as the
    *                   previously-stored initial state
 
-   * @return a future that completes when the final state has been stored; yields a finished sample if an initial sample
-   * was found or empty if no initial sample was found for the given account, device, and experiment
+   * @return A future that completes when the final state has been stored; yields a finished sample if an initial sample
+   * was found or empty if no initial sample was found for the given account, device, and experiment. The future may
+   * with a {@link JsonProcessingException} if the initial state could not be read or the final state could not be
+   * written as a JSON text.
    *
    * @param <T> the type of state object for this sample
-   *
-   * @throws JsonProcessingException if the given {@code finalState} could not be serialized as a JSON text
    */
   public <T> CompletableFuture<PushNotificationExperimentSample<T>> recordFinalState(final UUID accountIdentifier,
       final byte deviceId,
       final String experimentName,
-      final T finalState) throws JsonProcessingException {
+      final T finalState) {
+
+    CompletableFuture<String> finalStateJsonFuture;
+
+    // Process the final state JSON on the calling thread, but inside a CompletionStage so there's just one "channel"
+    // for reporting JSON exceptions. The alternative is to `throw JsonProcessingException`, but then callers would have
+    // to both catch the exception when calling this method and also watch the returned future for the same exception.
+    try {
+      finalStateJsonFuture =
+          CompletableFuture.completedFuture(SystemMapper.jsonMapper().writeValueAsString(finalState));
+    } catch (final JsonProcessingException e) {
+      finalStateJsonFuture = CompletableFuture.failedFuture(e);
+    }
 
     final AttributeValue aciAndDeviceIdAttributeValue = buildSortKey(accountIdentifier, deviceId);
 
-    return dynamoDbAsyncClient.updateItem(UpdateItemRequest.builder()
-        .tableName(tableName)
-        .key(Map.of(
-            KEY_EXPERIMENT_NAME, AttributeValue.fromS(experimentName),
-            ATTR_ACI_AND_DEVICE_ID, aciAndDeviceIdAttributeValue))
-        // `UpdateItem` will, by default, create a new item if one does not already exist for the given primary key. We
-        // want update-only-if-exists behavior, though, and so check that there's already an existing item for this ACI
-        // and device ID.
-        .conditionExpression("#aciAndDeviceId = :aciAndDeviceId")
-        .updateExpression("SET #finalState = if_not_exists(#finalState, :finalState)")
-        .expressionAttributeNames(Map.of(
-            "#aciAndDeviceId", ATTR_ACI_AND_DEVICE_ID,
-            "#finalState", ATTR_FINAL_STATE))
-        .expressionAttributeValues(Map.of(
-            ":aciAndDeviceId", aciAndDeviceIdAttributeValue,
-            ":finalState", AttributeValue.fromS(SystemMapper.jsonMapper().writeValueAsString(finalState))))
-        .returnValues(ReturnValue.ALL_NEW)
-        .build())
-        .thenApply(updateItemResponse -> {
-          try {
-            final boolean inExperimentGroup = updateItemResponse.attributes().get(ATTR_IN_EXPERIMENT_GROUP).bool();
+    return finalStateJsonFuture.thenCompose(finalStateJson -> {
+      return dynamoDbAsyncClient.updateItem(UpdateItemRequest.builder()
+              .tableName(tableName)
+              .key(Map.of(
+                  KEY_EXPERIMENT_NAME, AttributeValue.fromS(experimentName),
+                  ATTR_ACI_AND_DEVICE_ID, aciAndDeviceIdAttributeValue))
+              // `UpdateItem` will, by default, create a new item if one does not already exist for the given primary key. We
+              // want update-only-if-exists behavior, though, and so check that there's already an existing item for this ACI
+              // and device ID.
+              .conditionExpression("#aciAndDeviceId = :aciAndDeviceId")
+              .updateExpression("SET #finalState = if_not_exists(#finalState, :finalState)")
+              .expressionAttributeNames(Map.of(
+                  "#aciAndDeviceId", ATTR_ACI_AND_DEVICE_ID,
+                  "#finalState", ATTR_FINAL_STATE))
+              .expressionAttributeValues(Map.of(
+                  ":aciAndDeviceId", aciAndDeviceIdAttributeValue,
+                  ":finalState", AttributeValue.fromS(finalStateJson)))
+              .returnValues(ReturnValue.ALL_NEW)
+              .build())
+          .thenApply(updateItemResponse -> {
+            try {
+              final boolean inExperimentGroup = updateItemResponse.attributes().get(ATTR_IN_EXPERIMENT_GROUP).bool();
 
-            @SuppressWarnings("unchecked") final T parsedInitialState =
-                (T) parseState(updateItemResponse.attributes().get(ATTR_INITIAL_STATE).s(), finalState.getClass());
+              @SuppressWarnings("unchecked") final T parsedInitialState =
+                  (T) parseState(updateItemResponse.attributes().get(ATTR_INITIAL_STATE).s(), finalState.getClass());
 
-            @SuppressWarnings("unchecked") final T parsedFinalState =
-                (T) parseState(updateItemResponse.attributes().get(ATTR_FINAL_STATE).s(), finalState.getClass());
+              @SuppressWarnings("unchecked") final T parsedFinalState =
+                  (T) parseState(updateItemResponse.attributes().get(ATTR_FINAL_STATE).s(), finalState.getClass());
 
-            return new PushNotificationExperimentSample<>(inExperimentGroup, parsedInitialState, parsedFinalState);
-          } catch (final JsonProcessingException e) {
-            throw ExceptionUtils.wrap(e);
-          }
-        });
+              return new PushNotificationExperimentSample<>(accountIdentifier, deviceId, inExperimentGroup, parsedInitialState, parsedFinalState);
+            } catch (final JsonProcessingException e) {
+              throw ExceptionUtils.wrap(e);
+            }
+          });
+    });
   }
 
   /**
-   * Returns a publisher across all samples pending a final state for a given experiment.
+   * Returns a publisher across all samples for a given experiment.
    *
-   * @param experimentName the name of the experiment for which to retrieve samples pending a final state
-   *
-   * @return a publisher across all samples pending a final state for a given experiment
-   */
-  public Flux<Tuple2<UUID, Byte>> getDevicesPendingFinalState(final String experimentName) {
-    return Flux.from(dynamoDbAsyncClient.queryPaginator(QueryRequest.builder()
-                .tableName(tableName)
-                .keyConditionExpression("#experiment = :experiment")
-                .filterExpression("attribute_not_exists(#finalState)")
-                .expressionAttributeNames(Map.of(
-                    "#experiment", KEY_EXPERIMENT_NAME,
-                    "#finalState", ATTR_FINAL_STATE))
-                .expressionAttributeValues(Map.of(":experiment", AttributeValue.fromS(experimentName)))
-                .projectionExpression(ATTR_ACI_AND_DEVICE_ID)
-                .build())
-            .items())
-        .map(item -> parseSortKey(item.get(ATTR_ACI_AND_DEVICE_ID)));
-  }
-
-  /**
-   * Returns a publisher across all finished samples (i.e. samples with a recorded final state) for a given experiment.
-   *
-   * @param experimentName the name of the experiment for which to retrieve finished samples
+   * @param experimentName the name of the experiment for which to fetch samples
    * @param stateClass the type of state object for sample in the given experiment
+   * @param totalSegments the number of segments into which the scan of the backing data store will be divided
    *
-   * @return a publisher across all finished samples for the given experiment
+   * @return a publisher of tuples of ACI, device ID, and sample for all samples associated with the given experiment
    *
    * @param <T> the type of the sample's state objects
+   *
+   * @see <a href="https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Scan.html#Scan.ParallelScan">Working with scans - Parallel scan</a>
    */
-  public <T> Flux<PushNotificationExperimentSample<T>> getFinishedSamples(final String experimentName,
-      final Class<T> stateClass) {
-    return Flux.from(dynamoDbAsyncClient.queryPaginator(QueryRequest.builder()
-            .tableName(tableName)
-            .keyConditionExpression("#experiment = :experiment")
-            .filterExpression("attribute_exists(#finalState)")
-                .expressionAttributeNames(Map.of(
-                    "#experiment", KEY_EXPERIMENT_NAME,
-                    "#finalState", ATTR_FINAL_STATE))
+  public <T> Flux<PushNotificationExperimentSample<T>> getSamples(final String experimentName,
+      final Class<T> stateClass,
+      final int totalSegments,
+      final Scheduler scheduler) {
+
+    // Note that we're using a DynamoDB Scan operation instead of a Query. A Query would allow us to limit the search
+    // space to a specific experiment, but doesn't allow us to use segments. A Scan will always inspect all items in the
+    // table, but allows us to segment the search. Since we're generally calling this method in conjunction with "…and
+    // record a final state for the sample," distributing reads/writes across shards helps us avoid per-partition
+    // throughput limits. If we wind up with many concurrent experiments, it may be worthwhile to revisit this decision.
+
+    if (totalSegments < 1) {
+      throw new IllegalArgumentException("Total number of segments must be positive");
+    }
+
+    return Flux.range(0, totalSegments)
+        .parallel()
+        .runOn(scheduler)
+        .flatMap(segment -> getSamplesFromSegment(experimentName, stateClass, segment, totalSegments))
+        .sequential();
+  }
+
+  private <T> Flux<PushNotificationExperimentSample<T>> getSamplesFromSegment(final String experimentName,
+      final Class<T> stateClass,
+      final int segment,
+      final int totalSegments) {
+
+    return Flux.from(dynamoDbAsyncClient.scanPaginator(ScanRequest.builder()
+                .tableName(tableName)
+                .segment(segment)
+                .totalSegments(totalSegments)
+                .filterExpression("#experiment = :experiment")
+                .expressionAttributeNames(Map.of("#experiment", KEY_EXPERIMENT_NAME))
                 .expressionAttributeValues(Map.of(":experiment", AttributeValue.fromS(experimentName)))
-        .build())
-        .items())
+                .build())
+            .items())
         .handle((item, sink) -> {
           try {
+            final Tuple2<UUID, Byte> aciAndDeviceId = parseSortKey(item.get(ATTR_ACI_AND_DEVICE_ID));
+
             final boolean inExperimentGroup = item.get(ATTR_IN_EXPERIMENT_GROUP).bool();
             final T initialState = parseState(item.get(ATTR_INITIAL_STATE).s(), stateClass);
-            final T finalState = parseState(item.get(ATTR_FINAL_STATE).s(), stateClass);
+            final T finalState = item.get(ATTR_FINAL_STATE) != null
+                ? parseState(item.get(ATTR_FINAL_STATE).s(), stateClass)
+                : null;
 
-            sink.next(new PushNotificationExperimentSample<>(inExperimentGroup, initialState, finalState));
+            sink.next(new PushNotificationExperimentSample<>(aciAndDeviceId.getT1(), aciAndDeviceId.getT2(), inExperimentGroup, initialState, finalState));
           } catch (final JsonProcessingException e) {
             sink.error(e);
           }

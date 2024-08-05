@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.core.Application;
 import io.dropwizard.core.setup.Environment;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Metrics;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 import org.slf4j.Logger;
@@ -12,17 +14,14 @@ import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.experiment.PushNotificationExperiment;
 import org.whispersystems.textsecuregcm.experiment.PushNotificationExperimentSample;
 import org.whispersystems.textsecuregcm.experiment.PushNotificationExperimentSamples;
-import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.storage.Device;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.util.function.Tuples;
+import reactor.core.scheduler.Schedulers;
 import reactor.util.retry.Retry;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
-import javax.annotation.Nullable;
 import java.time.Duration;
-import java.util.UUID;
 
 public class FinishPushNotificationExperimentCommand<T> extends AbstractCommandWithDependencies {
 
@@ -32,6 +31,18 @@ public class FinishPushNotificationExperimentCommand<T> extends AbstractCommandW
 
   @VisibleForTesting
   static final String MAX_CONCURRENCY_ARGUMENT = "max-concurrency";
+
+  @VisibleForTesting
+  static final String SEGMENT_COUNT_ARGUMENT = "segments";
+
+  private static final String SAMPLES_READ_COUNTER_NAME =
+      MetricsUtil.name(FinishPushNotificationExperimentCommand.class, "samplesRead");
+
+  private static final Counter ACCOUNT_READ_COUNTER =
+      Metrics.counter(MetricsUtil.name(FinishPushNotificationExperimentCommand.class, "accountRead"));
+
+  private static final Counter FINAL_SAMPLE_STORED_COUNTER =
+      Metrics.counter(MetricsUtil.name(FinishPushNotificationExperimentCommand.class, "finalSampleStored"));
 
   private static final Logger log = LoggerFactory.getLogger(FinishPushNotificationExperimentCommand.class);
 
@@ -57,6 +68,13 @@ public class FinishPushNotificationExperimentCommand<T> extends AbstractCommandW
         .dest(MAX_CONCURRENCY_ARGUMENT)
         .setDefault(DEFAULT_MAX_CONCURRENCY)
         .help("Max concurrency for DynamoDB operations");
+
+    subparser.addArgument("--segments")
+        .type(Integer.class)
+        .dest(SEGMENT_COUNT_ARGUMENT)
+        .required(false)
+        .setDefault(16)
+        .help("The total number of segments for a DynamoDB scan");
   }
 
   @Override
@@ -69,6 +87,7 @@ public class FinishPushNotificationExperimentCommand<T> extends AbstractCommandW
         experimentFactory.buildExperiment(commandDependencies, configuration);
 
     final int maxConcurrency = namespace.getInt(MAX_CONCURRENCY_ARGUMENT);
+    final int segments = namespace.getInt(SEGMENT_COUNT_ARGUMENT);
 
     log.info("Finishing \"{}\" with max concurrency: {}", experiment.getExperimentName(), maxConcurrency);
 
@@ -76,48 +95,44 @@ public class FinishPushNotificationExperimentCommand<T> extends AbstractCommandW
     final PushNotificationExperimentSamples pushNotificationExperimentSamples = commandDependencies.pushNotificationExperimentSamples();
 
     final Flux<PushNotificationExperimentSample<T>> finishedSamples =
-        pushNotificationExperimentSamples.getDevicesPendingFinalState(experiment.getExperimentName())
-            .flatMap(accountIdentifierAndDeviceId ->
-                Mono.fromFuture(() -> accountsManager.getByAccountIdentifierAsync(accountIdentifierAndDeviceId.getT1()))
+        pushNotificationExperimentSamples.getSamples(experiment.getExperimentName(),
+                experiment.getStateClass(),
+                segments,
+                Schedulers.parallel())
+            .doOnNext(sample -> Metrics.counter(SAMPLES_READ_COUNTER_NAME, "final", String.valueOf(sample.finalState() != null)).increment())
+            .flatMap(sample -> {
+              if (sample.finalState() == null) {
+                // We still need to record a final state for this sample
+                return Mono.fromFuture(() -> accountsManager.getByAccountIdentifierAsync(sample.accountIdentifier()))
                     .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
-                    .map(maybeAccount -> Tuples.of(accountIdentifierAndDeviceId.getT1(),
-                        accountIdentifierAndDeviceId.getT2(), maybeAccount)), maxConcurrency)
-            .map(accountIdentifierAndDeviceIdAndMaybeAccount -> {
-              final UUID accountIdentifier = accountIdentifierAndDeviceIdAndMaybeAccount.getT1();
-              final byte deviceId = accountIdentifierAndDeviceIdAndMaybeAccount.getT2();
+                    .doOnNext(ignored -> ACCOUNT_READ_COUNTER.increment())
+                    .flatMap(maybeAccount -> {
+                      final T finalState = experiment.getState(maybeAccount.orElse(null),
+                          maybeAccount.flatMap(account -> account.getDevice(sample.deviceId())).orElse(null));
 
-              @Nullable final Account account = accountIdentifierAndDeviceIdAndMaybeAccount.getT3()
-                  .orElse(null);
+                      return Mono.fromFuture(
+                              () -> pushNotificationExperimentSamples.recordFinalState(sample.accountIdentifier(),
+                                  sample.deviceId(),
+                                  experiment.getExperimentName(),
+                                  finalState))
+                          .onErrorResume(ConditionalCheckFailedException.class, throwable -> Mono.empty())
+                          .onErrorResume(JsonProcessingException.class, throwable -> {
+                            log.error("Failed to parse sample state JSON", throwable);
+                            return Mono.empty();
+                          })
+                          .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
+                          .onErrorResume(throwable -> {
+                            log.warn("Failed to record final state for {}:{} in experiment {}",
+                                sample.accountIdentifier(), sample.deviceId(), experiment.getExperimentName(), throwable);
 
-              @Nullable final Device device = accountIdentifierAndDeviceIdAndMaybeAccount.getT3()
-                  .flatMap(a -> a.getDevice(deviceId))
-                  .orElse(null);
-
-              return Tuples.of(accountIdentifier, deviceId, experiment.getState(account, device));
-            })
-            .flatMap(accountIdentifierAndDeviceIdAndFinalState -> {
-              final UUID accountIdentifier = accountIdentifierAndDeviceIdAndFinalState.getT1();
-              final byte deviceId = accountIdentifierAndDeviceIdAndFinalState.getT2();
-              final T finalState = accountIdentifierAndDeviceIdAndFinalState.getT3();
-
-              return Mono.fromFuture(() -> {
-                    try {
-                      return pushNotificationExperimentSamples.recordFinalState(accountIdentifier, deviceId,
-                          experiment.getExperimentName(), finalState);
-                    } catch (final JsonProcessingException e) {
-                      throw new RuntimeException(e);
-                    }
-                  })
-                  .onErrorResume(ConditionalCheckFailedException.class, throwable -> Mono.empty())
-                  .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
-                  .onErrorResume(throwable -> {
-                    log.warn("Failed to record final state for {}:{} in experiment {}",
-                        accountIdentifier, deviceId, experiment.getExperimentName(), throwable);
-
-                    return Mono.empty();
-                  });
-            }, maxConcurrency)
-            .flatMap(Mono::justOrEmpty);
+                            return Mono.empty();
+                          })
+                          .doOnSuccess(ignored -> FINAL_SAMPLE_STORED_COUNTER.increment());
+                    });
+              } else {
+                return Mono.just(sample);
+              }
+            }, maxConcurrency);
 
     experiment.analyzeResults(finishedSamples);
   }
