@@ -272,7 +272,7 @@
       <dependency>
         <groupId>org.signal</groupId>
         <artifactId>libsignal-server</artifactId>
-        <version>0.51.1</version>
+        <version>0.54.2</version>
       </dependency>
       <dependency>
         <groupId>org.signal.forks</groupId>
