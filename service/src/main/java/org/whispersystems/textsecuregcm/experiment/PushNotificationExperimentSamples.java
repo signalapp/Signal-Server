@@ -14,7 +14,6 @@ import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Scheduler;
 import reactor.util.function.Tuple2;
 import reactor.util.function.Tuples;
 import reactor.util.retry.Retry;
@@ -24,6 +23,7 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
 import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
 import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
@@ -198,7 +198,6 @@ public class PushNotificationExperimentSamples {
    *
    * @param experimentName the name of the experiment for which to fetch samples
    * @param stateClass the type of state object for sample in the given experiment
-   * @param totalSegments the number of segments into which the scan of the backing data store will be divided
    *
    * @return a publisher of tuples of ACI, device ID, and sample for all samples associated with the given experiment
    *
@@ -206,38 +205,11 @@ public class PushNotificationExperimentSamples {
    *
    * @see <a href="https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Scan.html#Scan.ParallelScan">Working with scans - Parallel scan</a>
    */
-  public <T> Flux<PushNotificationExperimentSample<T>> getSamples(final String experimentName,
-      final Class<T> stateClass,
-      final int totalSegments,
-      final Scheduler scheduler) {
+  public <T> Flux<PushNotificationExperimentSample<T>> getSamples(final String experimentName, final Class<T> stateClass) {
 
-    // Note that we're using a DynamoDB Scan operation instead of a Query. A Query would allow us to limit the search
-    // space to a specific experiment, but doesn't allow us to use segments. A Scan will always inspect all items in the
-    // table, but allows us to segment the search. Since we're generally calling this method in conjunction with "…and
-    // record a final state for the sample," distributing reads/writes across shards helps us avoid per-partition
-    // throughput limits. If we wind up with many concurrent experiments, it may be worthwhile to revisit this decision.
-
-    if (totalSegments < 1) {
-      throw new IllegalArgumentException("Total number of segments must be positive");
-    }
-
-    return Flux.range(0, totalSegments)
-        .parallel()
-        .runOn(scheduler)
-        .flatMap(segment -> getSamplesFromSegment(experimentName, stateClass, segment, totalSegments))
-        .sequential();
-  }
-
-  private <T> Flux<PushNotificationExperimentSample<T>> getSamplesFromSegment(final String experimentName,
-      final Class<T> stateClass,
-      final int segment,
-      final int totalSegments) {
-
-    return Flux.from(dynamoDbAsyncClient.scanPaginator(ScanRequest.builder()
+    return Flux.from(dynamoDbAsyncClient.queryPaginator(QueryRequest.builder()
                 .tableName(tableName)
-                .segment(segment)
-                .totalSegments(totalSegments)
-                .filterExpression("#experiment = :experiment")
+                .keyConditionExpression("#experiment = :experiment")
                 .expressionAttributeNames(Map.of("#experiment", KEY_EXPERIMENT_NAME))
                 .expressionAttributeValues(Map.of(":experiment", AttributeValue.fromS(experimentName)))
                 .build())

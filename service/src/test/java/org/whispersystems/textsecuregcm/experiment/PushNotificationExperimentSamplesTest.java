@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import java.time.Clock;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -21,7 +20,6 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtension;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
-import reactor.core.scheduler.Schedulers;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
@@ -250,7 +248,7 @@ class PushNotificationExperimentSamplesTest {
             new TestDeviceState(finalBounciness)));
 
     assertEquals(expectedSamples,
-        pushNotificationExperimentSamples.getSamples(experimentName, TestDeviceState.class, 1, Schedulers.immediate()).collect(Collectors.toSet()).block());
+        pushNotificationExperimentSamples.getSamples(experimentName, TestDeviceState.class).collect(Collectors.toSet()).block());
   }
 
   @Test

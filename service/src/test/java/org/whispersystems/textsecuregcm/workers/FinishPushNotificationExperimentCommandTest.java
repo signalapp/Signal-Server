@@ -3,7 +3,6 @@ package org.whispersystems.textsecuregcm.workers;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyByte;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -37,9 +36,8 @@ class FinishPushNotificationExperimentCommandTest {
 
   private static final String EXPERIMENT_NAME = "test";
 
-  private static final Namespace NAMESPACE = new Namespace(Map.of(
-      FinishPushNotificationExperimentCommand.MAX_CONCURRENCY_ARGUMENT, 1,
-      FinishPushNotificationExperimentCommand.SEGMENT_COUNT_ARGUMENT, 1));
+  private static final Namespace NAMESPACE =
+      new Namespace(Map.of(FinishPushNotificationExperimentCommand.MAX_CONCURRENCY_ARGUMENT, 1));
 
   private static class TestFinishPushNotificationExperimentCommand extends FinishPushNotificationExperimentCommand<String> {
 
@@ -112,7 +110,7 @@ class FinishPushNotificationExperimentCommandTest {
     when(commandDependencies.accountsManager().getByAccountIdentifierAsync(accountIdentifier))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
 
-    when(commandDependencies.pushNotificationExperimentSamples().getSamples(eq(EXPERIMENT_NAME), eq(String.class), anyInt(), any()))
+    when(commandDependencies.pushNotificationExperimentSamples().getSamples(eq(EXPERIMENT_NAME), eq(String.class)))
         .thenReturn(Flux.just(new PushNotificationExperimentSample<>(accountIdentifier, deviceId, true, "test", null)));
 
     assertDoesNotThrow(() -> finishPushNotificationExperimentCommand.run(null, NAMESPACE, null, commandDependencies));
@@ -129,7 +127,7 @@ class FinishPushNotificationExperimentCommandTest {
     when(commandDependencies.accountsManager().getByAccountIdentifierAsync(accountIdentifier))
         .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
 
-    when(commandDependencies.pushNotificationExperimentSamples().getSamples(eq(EXPERIMENT_NAME), eq(String.class), anyInt(), any()))
+    when(commandDependencies.pushNotificationExperimentSamples().getSamples(eq(EXPERIMENT_NAME), eq(String.class)))
         .thenReturn(Flux.just(new PushNotificationExperimentSample<>(accountIdentifier, deviceId, true, "test", null)));
 
     assertDoesNotThrow(() -> finishPushNotificationExperimentCommand.run(null, NAMESPACE, null, commandDependencies));
@@ -149,7 +147,7 @@ class FinishPushNotificationExperimentCommandTest {
     when(commandDependencies.accountsManager().getByAccountIdentifierAsync(accountIdentifier))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
 
-    when(commandDependencies.pushNotificationExperimentSamples().getSamples(eq(EXPERIMENT_NAME), eq(String.class), anyInt(), any()))
+    when(commandDependencies.pushNotificationExperimentSamples().getSamples(eq(EXPERIMENT_NAME), eq(String.class)))
         .thenReturn(Flux.just(new PushNotificationExperimentSample<>(accountIdentifier, deviceId, true, "test", null)));
 
     assertDoesNotThrow(() -> finishPushNotificationExperimentCommand.run(null, NAMESPACE, null, commandDependencies));
@@ -174,7 +172,7 @@ class FinishPushNotificationExperimentCommandTest {
         .thenReturn(CompletableFuture.failedFuture(new RuntimeException()))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
 
-    when(commandDependencies.pushNotificationExperimentSamples().getSamples(eq(EXPERIMENT_NAME), eq(String.class), anyInt(), any()))
+    when(commandDependencies.pushNotificationExperimentSamples().getSamples(eq(EXPERIMENT_NAME), eq(String.class)))
         .thenReturn(Flux.just(new PushNotificationExperimentSample<>(accountIdentifier, deviceId, true, "test", null)));
 
     assertDoesNotThrow(() -> finishPushNotificationExperimentCommand.run(null, NAMESPACE, null, commandDependencies));
@@ -199,7 +197,7 @@ class FinishPushNotificationExperimentCommandTest {
     when(commandDependencies.accountsManager().getByAccountIdentifierAsync(accountIdentifier))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
 
-    when(commandDependencies.pushNotificationExperimentSamples().getSamples(eq(EXPERIMENT_NAME), eq(String.class), anyInt(), any()))
+    when(commandDependencies.pushNotificationExperimentSamples().getSamples(eq(EXPERIMENT_NAME), eq(String.class)))
         .thenReturn(Flux.just(new PushNotificationExperimentSample<>(accountIdentifier, deviceId, true, "test", null)));
 
     when(commandDependencies.pushNotificationExperimentSamples().recordFinalState(any(), anyByte(), any(), any()))
@@ -227,7 +225,7 @@ class FinishPushNotificationExperimentCommandTest {
     when(commandDependencies.accountsManager().getByAccountIdentifierAsync(accountIdentifier))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
 
-    when(commandDependencies.pushNotificationExperimentSamples().getSamples(eq(EXPERIMENT_NAME), eq(String.class), anyInt(), any()))
+    when(commandDependencies.pushNotificationExperimentSamples().getSamples(eq(EXPERIMENT_NAME), eq(String.class)))
         .thenReturn(Flux.just(new PushNotificationExperimentSample<>(accountIdentifier, deviceId, true, "test", null)));
 
     when(commandDependencies.pushNotificationExperimentSamples().recordFinalState(any(), anyByte(), any(), any()))
@@ -241,7 +239,7 @@ class FinishPushNotificationExperimentCommandTest {
 
   @Test
   void runFinalSampleAlreadyRecorded() {
-    when(commandDependencies.pushNotificationExperimentSamples().getSamples(eq(EXPERIMENT_NAME), eq(String.class), anyInt(), any()))
+    when(commandDependencies.pushNotificationExperimentSamples().getSamples(eq(EXPERIMENT_NAME), eq(String.class)))
         .thenReturn(Flux.just(new PushNotificationExperimentSample<>(UUID.randomUUID(), Device.PRIMARY_ID, true, "test", "test")));
 
     assertDoesNotThrow(() -> finishPushNotificationExperimentCommand.run(null, NAMESPACE, null, commandDependencies));

@@ -18,7 +18,6 @@ import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 import reactor.util.retry.Retry;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
 import java.time.Duration;
@@ -31,9 +30,6 @@ public class FinishPushNotificationExperimentCommand<T> extends AbstractCommandW
 
   @VisibleForTesting
   static final String MAX_CONCURRENCY_ARGUMENT = "max-concurrency";
-
-  @VisibleForTesting
-  static final String SEGMENT_COUNT_ARGUMENT = "segments";
 
   private static final String SAMPLES_READ_COUNTER_NAME =
       MetricsUtil.name(FinishPushNotificationExperimentCommand.class, "samplesRead");
@@ -68,13 +64,6 @@ public class FinishPushNotificationExperimentCommand<T> extends AbstractCommandW
         .dest(MAX_CONCURRENCY_ARGUMENT)
         .setDefault(DEFAULT_MAX_CONCURRENCY)
         .help("Max concurrency for DynamoDB operations");
-
-    subparser.addArgument("--segments")
-        .type(Integer.class)
-        .dest(SEGMENT_COUNT_ARGUMENT)
-        .required(false)
-        .setDefault(16)
-        .help("The total number of segments for a DynamoDB scan");
   }
 
   @Override
@@ -87,7 +76,6 @@ public class FinishPushNotificationExperimentCommand<T> extends AbstractCommandW
         experimentFactory.buildExperiment(commandDependencies, configuration);
 
     final int maxConcurrency = namespace.getInt(MAX_CONCURRENCY_ARGUMENT);
-    final int segments = namespace.getInt(SEGMENT_COUNT_ARGUMENT);
 
     log.info("Finishing \"{}\" with max concurrency: {}", experiment.getExperimentName(), maxConcurrency);
 
@@ -95,10 +83,7 @@ public class FinishPushNotificationExperimentCommand<T> extends AbstractCommandW
     final PushNotificationExperimentSamples pushNotificationExperimentSamples = commandDependencies.pushNotificationExperimentSamples();
 
     final Flux<PushNotificationExperimentSample<T>> finishedSamples =
-        pushNotificationExperimentSamples.getSamples(experiment.getExperimentName(),
-                experiment.getStateClass(),
-                segments,
-                Schedulers.parallel())
+        pushNotificationExperimentSamples.getSamples(experiment.getExperimentName(), experiment.getStateClass())
             .doOnNext(sample -> Metrics.counter(SAMPLES_READ_COUNTER_NAME, "final", String.valueOf(sample.finalState() != null)).increment())
             .flatMap(sample -> {
               if (sample.finalState() == null) {
