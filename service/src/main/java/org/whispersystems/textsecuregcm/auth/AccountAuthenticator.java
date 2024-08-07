@@ -10,6 +10,7 @@ import static com.codahale.metrics.MetricRegistry.name;
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.auth.Authenticator;
 import io.dropwizard.auth.basic.BasicCredentials;
+import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
 import java.time.Clock;
@@ -34,6 +35,9 @@ public class AccountAuthenticator implements Authenticator<BasicCredentials, Aut
 
   private static final String DAYS_SINCE_LAST_SEEN_DISTRIBUTION_NAME = name(LEGACY_NAME_PREFIX, "daysSinceLastSeen");
   private static final String IS_PRIMARY_DEVICE_TAG = "isPrimary";
+
+  private static final Counter OLD_TOKEN_VERSION_COUNTER =
+      Metrics.counter(name(AccountAuthenticator.class, "oldTokenVersionCounter"));
 
   @VisibleForTesting
   static final char DEVICE_ID_SEPARATOR = '.';
@@ -102,6 +106,7 @@ public class AccountAuthenticator implements Authenticator<BasicCredentials, Aut
         succeeded = true;
         Account authenticatedAccount = updateLastSeen(account.get(), device.get());
         if (deviceSaltedTokenHash.getVersion() != SaltedTokenHash.CURRENT_VERSION) {
+          OLD_TOKEN_VERSION_COUNTER.increment();
           authenticatedAccount = accountsManager.updateDeviceAuthentication(
               authenticatedAccount,
               device.get(),
