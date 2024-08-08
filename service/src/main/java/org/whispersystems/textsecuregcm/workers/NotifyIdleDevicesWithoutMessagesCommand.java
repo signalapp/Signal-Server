@@ -42,7 +42,7 @@ public class NotifyIdleDevicesWithoutMessagesCommand extends AbstractSinglePassC
   static final Duration MAX_IDLE_DURATION = Duration.ofDays(30);
 
   private static final Counter DEVICE_INSPECTED_COUNTER =
-      Metrics.counter(MetricsUtil.name(StartPushNotificationExperimentCommand.class, "deviceInspected"));
+      Metrics.counter(MetricsUtil.name(NotifyIdleDevicesWithoutMessagesCommand.class, "deviceInspected"));
 
   private static final String SCHEDULED_NOTIFICATION_COUNTER_NAME =
       MetricsUtil.name(NotifyIdleDevicesWithoutMessagesCommand.class, "scheduleNotification");
