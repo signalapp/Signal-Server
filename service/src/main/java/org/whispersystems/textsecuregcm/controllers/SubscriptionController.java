@@ -130,6 +130,9 @@ public class SubscriptionController {
   private static final String INVALID_ACCEPT_LANGUAGE_COUNTER_NAME = MetricsUtil.name(SubscriptionController.class,
       "invalidAcceptLanguage");
   private static final String RECEIPT_ISSUED_COUNTER_NAME = MetricsUtil.name(SubscriptionController.class, "receiptIssued");
+  private static final String AUTHENTICATED_BOOST_OPERATION_COUNTER_NAME =
+      MetricsUtil.name(SubscriptionController.class, "authenticatedBoostOperation");
+  public static final String OPERATION_TAG_NAME = "operation";
   private static final String PROCESSOR_TAG_NAME = "processor";
   private static final String TYPE_TAG_NAME = "type";
   private static final String SUBSCRIPTION_TYPE_TAG_NAME = "subscriptionType";
@@ -656,8 +659,16 @@ public class SubscriptionController {
   @Path("/boost/create")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletableFuture<Response> createBoostPaymentIntent(@NotNull @Valid CreateBoostRequest request,
+  public CompletableFuture<Response> createBoostPaymentIntent(
+      @ReadOnly @Auth Optional<AuthenticatedAccount> authenticatedAccount,
+      @NotNull @Valid CreateBoostRequest request,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) {
+
+    if (authenticatedAccount.isPresent()) {
+      Metrics.counter(AUTHENTICATED_BOOST_OPERATION_COUNTER_NAME, Tags.of(
+          UserAgentTagUtil.getPlatformTag(userAgent),
+          Tag.of(OPERATION_TAG_NAME, "boost/create"))).increment();
+    }
 
     return CompletableFuture.runAsync(() -> {
           if (request.level == null) {
@@ -720,8 +731,17 @@ public class SubscriptionController {
   @Path("/boost/paypal/create")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletableFuture<Response> createPayPalBoost(@NotNull @Valid CreatePayPalBoostRequest request,
+  public CompletableFuture<Response> createPayPalBoost(
+      @ReadOnly @Auth Optional<AuthenticatedAccount> authenticatedAccount,
+      @NotNull @Valid CreatePayPalBoostRequest request,
+      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
       @Context ContainerRequestContext containerRequestContext) {
+
+    if (authenticatedAccount.isPresent()) {
+      Metrics.counter(AUTHENTICATED_BOOST_OPERATION_COUNTER_NAME, Tags.of(
+          UserAgentTagUtil.getPlatformTag(userAgent),
+          Tag.of(OPERATION_TAG_NAME, "boost/paypal/create"))).increment();
+    }
 
     return CompletableFuture.runAsync(() -> {
           if (request.level == null) {
@@ -762,8 +782,16 @@ public class SubscriptionController {
   @Path("/boost/paypal/confirm")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletableFuture<Response> confirmPayPalBoost(@NotNull @Valid ConfirmPayPalBoostRequest request,
+  public CompletableFuture<Response> confirmPayPalBoost(
+      @ReadOnly @Auth Optional<AuthenticatedAccount> authenticatedAccount,
+      @NotNull @Valid ConfirmPayPalBoostRequest request,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) {
+
+    if (authenticatedAccount.isPresent()) {
+      Metrics.counter(AUTHENTICATED_BOOST_OPERATION_COUNTER_NAME, Tags.of(
+          UserAgentTagUtil.getPlatformTag(userAgent),
+          Tag.of(OPERATION_TAG_NAME, "boost/paypal/confirm"))).increment();
+    }
 
     return CompletableFuture.runAsync(() -> {
           if (request.level == null) {
@@ -801,8 +829,15 @@ public class SubscriptionController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletableFuture<Response> createBoostReceiptCredentials(
+      @ReadOnly @Auth Optional<AuthenticatedAccount> authenticatedAccount,
       @NotNull @Valid final CreateBoostReceiptCredentialsRequest request,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) {
+
+    if (authenticatedAccount.isPresent()) {
+      Metrics.counter(AUTHENTICATED_BOOST_OPERATION_COUNTER_NAME, Tags.of(
+          UserAgentTagUtil.getPlatformTag(userAgent),
+          Tag.of(OPERATION_TAG_NAME, "boost/receipt_credentials"))).increment();
+    }
 
     final SubscriptionProcessorManager manager = getManagerForProcessor(request.processor);
 
