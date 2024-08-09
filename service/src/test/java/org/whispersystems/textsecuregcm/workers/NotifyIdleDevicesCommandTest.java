@@ -31,23 +31,23 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import reactor.core.publisher.Flux;
 
-class NotifyIdleDevicesWithoutMessagesCommandTest {
+class NotifyIdleDevicesCommandTest {
 
   private MessagesManager messagesManager;
   private IdleDeviceNotificationScheduler idleDeviceNotificationScheduler;
 
-  private TestNotifyIdleDevicesWithoutMessagesCommand notifyIdleDevicesWithoutMessagesCommand;
+  private TestNotifyIdleDevicesCommand notifyIdleDevicesWithoutMessagesCommand;
 
   private static final Instant CURRENT_TIME = Instant.now();
 
-  private static class TestNotifyIdleDevicesWithoutMessagesCommand extends NotifyIdleDevicesWithoutMessagesCommand {
+  private static class TestNotifyIdleDevicesCommand extends NotifyIdleDevicesCommand {
 
     private final CommandDependencies commandDependencies;
     private final IdleDeviceNotificationScheduler idleDeviceNotificationScheduler;
 
     private boolean dryRun = false;
 
-    private TestNotifyIdleDevicesWithoutMessagesCommand(final MessagesManager messagesManager,
+    private TestNotifyIdleDevicesCommand(final MessagesManager messagesManager,
         final IdleDeviceNotificationScheduler idleDeviceNotificationScheduler) {
 
       this.commandDependencies = new CommandDependencies(
@@ -94,8 +94,8 @@ class NotifyIdleDevicesWithoutMessagesCommandTest {
     @Override
     protected Namespace getNamespace() {
       return new Namespace(Map.of(
-          NotifyIdleDevicesWithoutMessagesCommand.MAX_CONCURRENCY_ARGUMENT, 1,
-          NotifyIdleDevicesWithoutMessagesCommand.DRY_RUN_ARGUMENT, dryRun));
+          NotifyIdleDevicesCommand.MAX_CONCURRENCY_ARGUMENT, 1,
+          NotifyIdleDevicesCommand.DRY_RUN_ARGUMENT, dryRun));
     }
   }
 
@@ -108,7 +108,7 @@ class NotifyIdleDevicesWithoutMessagesCommandTest {
         .thenReturn(CompletableFuture.completedFuture(null));
 
     notifyIdleDevicesWithoutMessagesCommand =
-        new TestNotifyIdleDevicesWithoutMessagesCommand(messagesManager, idleDeviceNotificationScheduler);
+        new TestNotifyIdleDevicesCommand(messagesManager, idleDeviceNotificationScheduler);
   }
 
   @ParameterizedTest
@@ -122,7 +122,7 @@ class NotifyIdleDevicesWithoutMessagesCommandTest {
     when(eligibleDevice.getId()).thenReturn(Device.PRIMARY_ID);
     when(eligibleDevice.getApnId()).thenReturn("apns-token");
     when(eligibleDevice.getLastSeen())
-        .thenReturn(CURRENT_TIME.minus(NotifyIdleDevicesWithoutMessagesCommand.MIN_IDLE_DURATION).toEpochMilli());
+        .thenReturn(CURRENT_TIME.minus(NotifyIdleDevicesCommand.MIN_LONG_IDLE_DURATION).toEpochMilli());
 
     final Device ineligibleDevice = mock(Device.class);
     when(ineligibleDevice.getId()).thenReturn((byte) (Device.PRIMARY_ID + 1));
@@ -138,9 +138,9 @@ class NotifyIdleDevicesWithoutMessagesCommandTest {
     notifyIdleDevicesWithoutMessagesCommand.crawlAccounts(Flux.just(account));
 
     if (dryRun) {
-      verify(idleDeviceNotificationScheduler, never()).scheduleNotification(account, eligibleDevice, NotifyIdleDevicesWithoutMessagesCommand.PREFERRED_NOTIFICATION_TIME);
+      verify(idleDeviceNotificationScheduler, never()).scheduleNotification(account, eligibleDevice, NotifyIdleDevicesCommand.PREFERRED_NOTIFICATION_TIME);
     } else {
-      verify(idleDeviceNotificationScheduler).scheduleNotification(account, eligibleDevice, NotifyIdleDevicesWithoutMessagesCommand.PREFERRED_NOTIFICATION_TIME);
+      verify(idleDeviceNotificationScheduler).scheduleNotification(account, eligibleDevice, NotifyIdleDevicesCommand.PREFERRED_NOTIFICATION_TIME);
     }
 
     verify(idleDeviceNotificationScheduler, never()).scheduleNotification(eq(account), eq(ineligibleDevice), any());
@@ -151,13 +151,17 @@ class NotifyIdleDevicesWithoutMessagesCommandTest {
   void isDeviceEligible(final Account account,
       final Device device,
       final boolean mayHaveMessages,
+      final boolean mayHaveUrgentMessages,
       final boolean expectEligible) {
 
     when(messagesManager.mayHavePersistedMessages(account.getIdentifier(IdentityType.ACI), device))
         .thenReturn(CompletableFuture.completedFuture(mayHaveMessages));
 
+    when(messagesManager.mayHaveUrgentPersistedMessages(account.getIdentifier(IdentityType.ACI), device))
+        .thenReturn(CompletableFuture.completedFuture(mayHaveUrgentMessages));
+
     assertEquals(expectEligible,
-        NotifyIdleDevicesWithoutMessagesCommand.isDeviceEligible(account, device, messagesManager, Clock.fixed(CURRENT_TIME, ZoneId.systemDefault())).block());
+        NotifyIdleDevicesCommand.isDeviceEligible(account, device, messagesManager, Clock.fixed(CURRENT_TIME, ZoneId.systemDefault())).block());
   }
 
   private static List<Arguments> isDeviceEligible() {
@@ -169,54 +173,97 @@ class NotifyIdleDevicesWithoutMessagesCommandTest {
         PhoneNumberUtil.getInstance().getExampleNumber("US"), PhoneNumberUtil.PhoneNumberFormat.E164));
 
     {
-      // Idle device with push token and messages
+      // Long-idle device with push token and messages
       final Device device = mock(Device.class);
       when(device.getApnId()).thenReturn("apns-token");
-      when(device.getLastSeen()).thenReturn(CURRENT_TIME.minus(NotifyIdleDevicesWithoutMessagesCommand.MIN_IDLE_DURATION).toEpochMilli());
+      when(device.getLastSeen()).thenReturn(CURRENT_TIME.minus(NotifyIdleDevicesCommand.MIN_LONG_IDLE_DURATION).toEpochMilli());
 
-      arguments.add(Arguments.of(account, device, true, false));
+      arguments.add(Arguments.of(account, device, true, true, false));
     }
 
     {
-      // Idle device missing push token, but with messages
+      // Long-idle device missing push token, but with messages
       final Device device = mock(Device.class);
-      when(device.getLastSeen()).thenReturn(CURRENT_TIME.minus(NotifyIdleDevicesWithoutMessagesCommand.MIN_IDLE_DURATION).toEpochMilli());
+      when(device.getLastSeen()).thenReturn(CURRENT_TIME.minus(NotifyIdleDevicesCommand.MIN_LONG_IDLE_DURATION).toEpochMilli());
 
-      arguments.add(Arguments.of(account, device, true, false));
+      arguments.add(Arguments.of(account, device, true, true, false));
     }
 
     {
-      // Idle device missing push token and messages
+      // Long-idle device missing push token and messages
       final Device device = mock(Device.class);
-      when(device.getLastSeen()).thenReturn(CURRENT_TIME.minus(NotifyIdleDevicesWithoutMessagesCommand.MIN_IDLE_DURATION).toEpochMilli());
+      when(device.getLastSeen()).thenReturn(CURRENT_TIME.minus(NotifyIdleDevicesCommand.MIN_LONG_IDLE_DURATION).toEpochMilli());
 
-      arguments.add(Arguments.of(account, device, false, false));
+      arguments.add(Arguments.of(account, device, false, false, false));
     }
 
     {
-      // Idle device with push token, but no messages
+      // Long-idle device with push token, but no messages
       final Device device = mock(Device.class);
-      when(device.getLastSeen()).thenReturn(CURRENT_TIME.minus(NotifyIdleDevicesWithoutMessagesCommand.MIN_IDLE_DURATION).toEpochMilli());
+      when(device.getLastSeen()).thenReturn(CURRENT_TIME.minus(NotifyIdleDevicesCommand.MIN_LONG_IDLE_DURATION).toEpochMilli());
       when(device.getApnId()).thenReturn("apns-token");
 
-      arguments.add(Arguments.of(account, device, false, true));
+      arguments.add(Arguments.of(account, device, false, false, true));
     }
 
     {
-      // Active device with push token and messages
+      // Short-idle device with push token and urgent messages
+      final Device device = mock(Device.class);
+      when(device.getApnId()).thenReturn("apns-token");
+      when(device.getLastSeen()).thenReturn(CURRENT_TIME.minus(NotifyIdleDevicesCommand.MIN_SHORT_IDLE_DURATION).toEpochMilli());
+
+      arguments.add(Arguments.of(account, device, true, true, true));
+    }
+
+    {
+      // Short-idle device with push token and only non-urgent messages
+      final Device device = mock(Device.class);
+      when(device.getApnId()).thenReturn("apns-token");
+      when(device.getLastSeen()).thenReturn(CURRENT_TIME.minus(NotifyIdleDevicesCommand.MIN_SHORT_IDLE_DURATION).toEpochMilli());
+
+      arguments.add(Arguments.of(account, device, true, false, false));
+    }
+
+    {
+      // Short-idle device missing push token, but with urgent messages
+      final Device device = mock(Device.class);
+      when(device.getLastSeen()).thenReturn(CURRENT_TIME.minus(NotifyIdleDevicesCommand.MIN_SHORT_IDLE_DURATION).toEpochMilli());
+
+      arguments.add(Arguments.of(account, device, true, true, false));
+    }
+
+    {
+      // Short-idle device missing push token and messages
+      final Device device = mock(Device.class);
+      when(device.getLastSeen()).thenReturn(CURRENT_TIME.minus(NotifyIdleDevicesCommand.MIN_SHORT_IDLE_DURATION).toEpochMilli());
+
+      arguments.add(Arguments.of(account, device, false, false, false));
+    }
+
+    {
+      // Short-idle device with push token, but no messages
+      final Device device = mock(Device.class);
+      when(device.getLastSeen()).thenReturn(CURRENT_TIME.minus(NotifyIdleDevicesCommand.MIN_SHORT_IDLE_DURATION).toEpochMilli());
+      when(device.getApnId()).thenReturn("apns-token");
+
+      arguments.add(Arguments.of(account, device, false, false, false));
+    }
+
+    {
+      // Active device with push token and urgent messages
       final Device device = mock(Device.class);
       when(device.getLastSeen()).thenReturn(CURRENT_TIME.toEpochMilli());
       when(device.getApnId()).thenReturn("apns-token");
 
-      arguments.add(Arguments.of(account, device, true, false));
+      arguments.add(Arguments.of(account, device, true, true, false));
     }
 
     {
-      // Active device missing push token, but with messages
+      // Active device missing push token, but with urgent messages
       final Device device = mock(Device.class);
       when(device.getLastSeen()).thenReturn(CURRENT_TIME.toEpochMilli());
 
-      arguments.add(Arguments.of(account, device, true, false));
+      arguments.add(Arguments.of(account, device, true, true, false));
     }
 
     {
@@ -224,7 +271,7 @@ class NotifyIdleDevicesWithoutMessagesCommandTest {
       final Device device = mock(Device.class);
       when(device.getLastSeen()).thenReturn(CURRENT_TIME.toEpochMilli());
 
-      arguments.add(Arguments.of(account, device, false, false));
+      arguments.add(Arguments.of(account, device, false, false, false));
     }
 
     {
@@ -233,7 +280,7 @@ class NotifyIdleDevicesWithoutMessagesCommandTest {
       when(device.getLastSeen()).thenReturn(CURRENT_TIME.toEpochMilli());
       when(device.getApnId()).thenReturn("apns-token");
 
-      arguments.add(Arguments.of(account, device, false, false));
+      arguments.add(Arguments.of(account, device, false, false, false));
     }
 
     return arguments;
@@ -241,31 +288,54 @@ class NotifyIdleDevicesWithoutMessagesCommandTest {
 
   @ParameterizedTest
   @MethodSource
-  void isIdle(final Duration idleDuration, final boolean expectIdle) {
+  void isShortIdle(final Duration idleDuration, final boolean expectIdle) {
     final Instant currentTime = Instant.now();
     final Clock clock = Clock.fixed(currentTime, ZoneId.systemDefault());
 
     final Device device = mock(Device.class);
     when(device.getLastSeen()).thenReturn(currentTime.minus(idleDuration).toEpochMilli());
 
-    assertEquals(expectIdle, NotifyIdleDevicesWithoutMessagesCommand.isIdle(device, clock));
+    assertEquals(expectIdle, NotifyIdleDevicesCommand.isShortIdle(device, clock));
   }
 
-  private static List<Arguments> isIdle() {
+  private static List<Arguments> isShortIdle() {
     return List.of(
-        Arguments.of(NotifyIdleDevicesWithoutMessagesCommand.MIN_IDLE_DURATION, true),
-        Arguments.of(NotifyIdleDevicesWithoutMessagesCommand.MIN_IDLE_DURATION.plusMillis(1), true),
-        Arguments.of(NotifyIdleDevicesWithoutMessagesCommand.MIN_IDLE_DURATION.minusMillis(1), false),
-        Arguments.of(NotifyIdleDevicesWithoutMessagesCommand.MAX_IDLE_DURATION, false),
-        Arguments.of(NotifyIdleDevicesWithoutMessagesCommand.MAX_IDLE_DURATION.plusMillis(1), false),
-        Arguments.of(NotifyIdleDevicesWithoutMessagesCommand.MAX_IDLE_DURATION.minusMillis(1), true)
+        Arguments.of(NotifyIdleDevicesCommand.MIN_SHORT_IDLE_DURATION, true),
+        Arguments.of(NotifyIdleDevicesCommand.MIN_SHORT_IDLE_DURATION.plusMillis(1), true),
+        Arguments.of(NotifyIdleDevicesCommand.MIN_SHORT_IDLE_DURATION.minusMillis(1), false),
+        Arguments.of(NotifyIdleDevicesCommand.MAX_SHORT_IDLE_DURATION, false),
+        Arguments.of(NotifyIdleDevicesCommand.MAX_SHORT_IDLE_DURATION.plusMillis(1), false),
+        Arguments.of(NotifyIdleDevicesCommand.MAX_SHORT_IDLE_DURATION.minusMillis(1), true)
+    );
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void isLongIdle(final Duration idleDuration, final boolean expectIdle) {
+    final Instant currentTime = Instant.now();
+    final Clock clock = Clock.fixed(currentTime, ZoneId.systemDefault());
+
+    final Device device = mock(Device.class);
+    when(device.getLastSeen()).thenReturn(currentTime.minus(idleDuration).toEpochMilli());
+
+    assertEquals(expectIdle, NotifyIdleDevicesCommand.isLongIdle(device, clock));
+  }
+
+  private static List<Arguments> isLongIdle() {
+    return List.of(
+        Arguments.of(NotifyIdleDevicesCommand.MIN_LONG_IDLE_DURATION, true),
+        Arguments.of(NotifyIdleDevicesCommand.MIN_LONG_IDLE_DURATION.plusMillis(1), true),
+        Arguments.of(NotifyIdleDevicesCommand.MIN_LONG_IDLE_DURATION.minusMillis(1), false),
+        Arguments.of(NotifyIdleDevicesCommand.MAX_LONG_IDLE_DURATION, false),
+        Arguments.of(NotifyIdleDevicesCommand.MAX_LONG_IDLE_DURATION.plusMillis(1), false),
+        Arguments.of(NotifyIdleDevicesCommand.MAX_LONG_IDLE_DURATION.minusMillis(1), true)
     );
   }
 
   @ParameterizedTest
   @MethodSource
   void hasPushToken(final Device device, final boolean expectHasPushToken) {
-    assertEquals(expectHasPushToken, NotifyIdleDevicesWithoutMessagesCommand.hasPushToken(device));
+    assertEquals(expectHasPushToken, NotifyIdleDevicesCommand.hasPushToken(device));
   }
 
   private static List<Arguments> hasPushToken() {

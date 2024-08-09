@@ -22,7 +22,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalTime;
 
-public class NotifyIdleDevicesWithoutMessagesCommand extends AbstractSinglePassCrawlAccountsCommand {
+public class NotifyIdleDevicesCommand extends AbstractSinglePassCrawlAccountsCommand {
 
   private static final int DEFAULT_MAX_CONCURRENCY = 16;
 
@@ -36,23 +36,29 @@ public class NotifyIdleDevicesWithoutMessagesCommand extends AbstractSinglePassC
   static final LocalTime PREFERRED_NOTIFICATION_TIME = LocalTime.of(14, 0);
 
   @VisibleForTesting
-  static final Duration MIN_IDLE_DURATION = Duration.ofDays(30);
+  static final Duration MIN_SHORT_IDLE_DURATION = Duration.ofDays(3);
 
   @VisibleForTesting
-  static final Duration MAX_IDLE_DURATION = Duration.ofDays(45);
+  static final Duration MAX_SHORT_IDLE_DURATION = Duration.ofDays(30);
+
+  @VisibleForTesting
+  static final Duration MIN_LONG_IDLE_DURATION = Duration.ofDays(30);
+
+  @VisibleForTesting
+  static final Duration MAX_LONG_IDLE_DURATION = Duration.ofDays(45);
 
   private static final Counter DEVICE_INSPECTED_COUNTER =
-      Metrics.counter(MetricsUtil.name(NotifyIdleDevicesWithoutMessagesCommand.class, "deviceInspected"));
+      Metrics.counter(MetricsUtil.name(NotifyIdleDevicesCommand.class, "deviceInspected"));
 
   private static final String SCHEDULED_NOTIFICATION_COUNTER_NAME =
-      MetricsUtil.name(NotifyIdleDevicesWithoutMessagesCommand.class, "scheduleNotification");
+      MetricsUtil.name(NotifyIdleDevicesCommand.class, "scheduleNotification");
 
   private static final String DRY_RUN_TAG_NAME = "dryRun";
 
-  private static final Logger log = LoggerFactory.getLogger(NotifyIdleDevicesWithoutMessagesCommand.class);
+  private static final Logger log = LoggerFactory.getLogger(NotifyIdleDevicesCommand.class);
 
-  public NotifyIdleDevicesWithoutMessagesCommand() {
-    super("notify-idle-devices-without-messages", "Schedules push notifications for devices that have been idle for a long time, but have no pending messages");
+  public NotifyIdleDevicesCommand() {
+    super("notify-idle-devices", "Schedules push notifications for idle devices");
   }
 
   @Override
@@ -136,23 +142,42 @@ public class NotifyIdleDevicesWithoutMessagesCommand extends AbstractSinglePassC
       final MessagesManager messagesManager,
       final Clock clock) {
 
+    // There are two populations of interest for this crawler:
+    //
+    // 1. Devices that have only been idle for a little while, but have messages that they don't seem to be retrieving
+    // 2. Devices that have been idle for a long time, but don't have any messages
+    //
+    // We think the first group sometimes just needs a little nudge to wake up and get their messages, and the latter
+    // group generally WOULD get their messages if they had any. We want to notify the first group to prompt them to
+    // actually get their messages and the latter group to prevent them from getting deleted due to inactivity (since
+    // they are otherwise healthy installations that just aren't getting much traffic).
+
     if (!hasPushToken(device)) {
       return Mono.just(false);
     }
 
-    if (!isIdle(device, clock)) {
+    if (isShortIdle(device, clock)) {
+      return Mono.fromFuture(messagesManager.mayHaveUrgentPersistedMessages(account.getIdentifier(IdentityType.ACI), device));
+    } else if (isLongIdle(device, clock)) {
+      return Mono.fromFuture(messagesManager.mayHavePersistedMessages(account.getIdentifier(IdentityType.ACI), device))
+          .map(mayHavePersistedMessages -> !mayHavePersistedMessages);
+    } else {
       return Mono.just(false);
     }
-
-    return Mono.fromFuture(messagesManager.mayHavePersistedMessages(account.getIdentifier(IdentityType.ACI), device))
-        .map(mayHavePersistedMessages -> !mayHavePersistedMessages);
   }
 
   @VisibleForTesting
-  static boolean isIdle(final Device device, final Clock clock) {
+  static boolean isShortIdle(final Device device, final Clock clock) {
     final Duration idleDuration = Duration.between(Instant.ofEpochMilli(device.getLastSeen()), clock.instant());
 
-    return idleDuration.compareTo(MIN_IDLE_DURATION) >= 0 && idleDuration.compareTo(MAX_IDLE_DURATION) < 0;
+    return idleDuration.compareTo(MIN_SHORT_IDLE_DURATION) >= 0 && idleDuration.compareTo(MAX_SHORT_IDLE_DURATION) < 0;
+  }
+
+  @VisibleForTesting
+  static boolean isLongIdle(final Device device, final Clock clock) {
+    final Duration idleDuration = Duration.between(Instant.ofEpochMilli(device.getLastSeen()), clock.instant());
+
+    return idleDuration.compareTo(MIN_LONG_IDLE_DURATION) >= 0 && idleDuration.compareTo(MAX_LONG_IDLE_DURATION) < 0;
   }
 
   @VisibleForTesting
