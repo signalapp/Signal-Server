@@ -2555,7 +2555,22 @@ paths:
         default:
           description: default response
           content:
-            application/json: {}
+            application/json:
+              schema:
+                type: object
+                properties:
+                  completedExceptionally:
+                    type: boolean
+                  numberOfDependents:
+                    type: integer
+                    format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
+      security:
+      - authenticatedAccount: []
+      - {}
   /v1/subscription/boost/create:
     post:
       tags:
@@ -2576,7 +2591,22 @@ paths:
         default:
           description: default response
           content:
-            application/json: {}
+            application/json:
+              schema:
+                type: object
+                properties:
+                  completedExceptionally:
+                    type: boolean
+                  numberOfDependents:
+                    type: integer
+                    format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
+      security:
+      - authenticatedAccount: []
+      - {}
   /v1/subscription/boost/receipt_credentials:
     post:
       tags:
@@ -2597,12 +2627,32 @@ paths:
         default:
           description: default response
           content:
-            application/json: {}
+            application/json:
+              schema:
+                type: object
+                properties:
+                  completedExceptionally:
+                    type: boolean
+                  numberOfDependents:
+                    type: integer
+                    format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
+      security:
+      - authenticatedAccount: []
+      - {}
   /v1/subscription/boost/paypal/create:
     post:
       tags:
       - Subscriptions
       operationId: createPayPalBoost
+      parameters:
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
       requestBody:
         content:
           application/json:
@@ -2613,7 +2663,22 @@ paths:
         default:
           description: default response
           content:
-            application/json: {}
+            application/json:
+              schema:
+                type: object
+                properties:
+                  completedExceptionally:
+                    type: boolean
+                  numberOfDependents:
+                    type: integer
+                    format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
+      security:
+      - authenticatedAccount: []
+      - {}
   /v1/subscription/{subscriberId}/create_payment_method/paypal:
     post:
       tags:
@@ -4128,10 +4193,10 @@ components:
     WebSocketClient:
       type: object
       properties:
-        userAgent:
-          type: string
         open:
           type: boolean
+        userAgent:
+          type: string
         createdTimestamp:
           type: integer
           format: int64
