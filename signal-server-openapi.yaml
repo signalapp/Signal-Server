@@ -1696,6 +1696,69 @@ paths:
           description: default response
           content:
             '*/*': {}
+  /v1/key-transparency/monitor:
+    post:
+      tags:
+      - KeyTransparency
+      summary: Monitor the given search keys in the key transparency log
+      description: |
+        Enforced unauthenticated endpoint. Return proofs proving that the log tree
+        has been constructed correctly in later entries for each of the given search keys .
+      operationId: monitor
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              $ref: '#/components/schemas/KeyTransparencyMonitorRequest'
+        required: true
+      responses:
+        "200":
+          description: All search keys exist in the log
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KeyTransparencyMonitorResponse'
+        "404":
+          description: At least one search key lookup did not find the key
+        "413":
+          description: Ratelimited
+        "422":
+          description: Invalid request format
+      security:
+      - authenticatedAccount: []
+      - {}
+  /v1/key-transparency/search:
+    post:
+      tags:
+      - KeyTransparency
+      summary: Search for the given search keys in the key transparency log
+      description: |
+        Enforced unauthenticated endpoint. Returns a response if all search keys exist in the key transparency log.
+      operationId: search
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              $ref: '#/components/schemas/KeyTransparencySearchRequest'
+        required: true
+      responses:
+        "200":
+          description: All search key lookups were successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KeyTransparencySearchResponse'
+        "403":
+          description: At least one search key lookup to value mapping was invalid
+        "404":
+          description: At least one search key lookup did not find the key
+        "413":
+          description: Ratelimited
+        "422":
+          description: Invalid request format
+      security:
+      - authenticatedAccount: []
+      - {}
   /v2/keys/check:
     post:
       tags:
@@ -4193,10 +4256,10 @@ components:
     WebSocketClient:
       type: object
       properties:
-        open:
-          type: boolean
         userAgent:
           type: string
+        open:
+          type: boolean
         createdTimestamp:
           type: integer
           format: int64
@@ -4207,6 +4270,3866 @@ components:
           type: object
         client:
           $ref: '#/components/schemas/WebSocketClient'
+    AuditorTreeHead:
+      type: object
+      properties:
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        treeHead:
+          $ref: '#/components/schemas/TreeHead'
+        serializedSize:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/AuditorTreeHead'
+        parserForType:
+          $ref: '#/components/schemas/ParserAuditorTreeHead'
+        consistencyList:
+          type: array
+          items:
+            $ref: '#/components/schemas/ByteString'
+        consistencyCount:
+          type: integer
+          format: int32
+        treeHeadOrBuilder:
+          $ref: '#/components/schemas/TreeHeadOrBuilder'
+        rootValue:
+          $ref: '#/components/schemas/ByteString'
+        initialized:
+          type: boolean
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        memoizedSerializedSize:
+          type: integer
+          format: int32
+          writeOnly: true
+    AuditorTreeHeadOrBuilder:
+      type: object
+      properties:
+        treeHead:
+          $ref: '#/components/schemas/TreeHead'
+        consistencyList:
+          type: array
+          items:
+            $ref: '#/components/schemas/ByteString'
+        consistencyCount:
+          type: integer
+          format: int32
+        treeHeadOrBuilder:
+          $ref: '#/components/schemas/TreeHeadOrBuilder'
+        rootValue:
+          $ref: '#/components/schemas/ByteString'
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        defaultInstanceForType:
+          $ref: '#/components/schemas/Message'
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        initialized:
+          type: boolean
+    ByteString:
+      type: object
+      properties:
+        empty:
+          type: boolean
+        validUtf8:
+          type: boolean
+    Declaration:
+      type: object
+      properties:
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        type:
+          type: string
+        number:
+          type: integer
+          format: int32
+        fullName:
+          type: string
+        serializedSize:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/Declaration'
+        parserForType:
+          $ref: '#/components/schemas/ParserDeclaration'
+        repeated:
+          type: boolean
+        fullNameBytes:
+          $ref: '#/components/schemas/ByteString'
+        typeBytes:
+          $ref: '#/components/schemas/ByteString'
+        reserved:
+          type: boolean
+        initialized:
+          type: boolean
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        memoizedSerializedSize:
+          type: integer
+          format: int32
+          writeOnly: true
+    DeclarationOrBuilder:
+      type: object
+      properties:
+        type:
+          type: string
+        number:
+          type: integer
+          format: int32
+        fullName:
+          type: string
+        repeated:
+          type: boolean
+        fullNameBytes:
+          $ref: '#/components/schemas/ByteString'
+        typeBytes:
+          $ref: '#/components/schemas/ByteString'
+        reserved:
+          type: boolean
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        defaultInstanceForType:
+          $ref: '#/components/schemas/Message'
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        initialized:
+          type: boolean
+    Descriptor:
+      type: object
+      properties:
+        index:
+          type: integer
+          format: int32
+        proto:
+          $ref: '#/components/schemas/DescriptorProto'
+        fullName:
+          type: string
+        file:
+          $ref: '#/components/schemas/FileDescriptor'
+        containingType:
+          $ref: '#/components/schemas/Descriptor'
+        nestedTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Descriptor'
+        enumTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnumDescriptor'
+        fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldDescriptor'
+        extensions:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldDescriptor'
+        oneofs:
+          type: array
+          items:
+            $ref: '#/components/schemas/OneofDescriptor'
+        name:
+          type: string
+        options:
+          $ref: '#/components/schemas/MessageOptions'
+        realOneofs:
+          type: array
+          items:
+            $ref: '#/components/schemas/OneofDescriptor'
+        extendable:
+          type: boolean
+    DescriptorProto:
+      type: object
+      properties:
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        name:
+          type: string
+        options:
+          $ref: '#/components/schemas/MessageOptions'
+        fieldCount:
+          type: integer
+          format: int32
+        serializedSize:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/DescriptorProto'
+        parserForType:
+          $ref: '#/components/schemas/ParserDescriptorProto'
+        reservedRangeList:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReservedRange'
+        reservedNameList:
+          type: array
+          properties:
+            empty:
+              type: boolean
+            first:
+              type: string
+            last:
+              type: string
+          items:
+            type: string
+        extensionRangeList:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExtensionRange'
+        oneofDeclCount:
+          type: integer
+          format: int32
+        nestedTypeCount:
+          type: integer
+          format: int32
+        enumTypeCount:
+          type: integer
+          format: int32
+        extensionCount:
+          type: integer
+          format: int32
+        extensionRangeCount:
+          type: integer
+          format: int32
+        nameBytes:
+          $ref: '#/components/schemas/ByteString'
+        fieldList:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldDescriptorProto'
+        fieldOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldDescriptorProtoOrBuilder'
+        extensionList:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldDescriptorProto'
+        extensionOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldDescriptorProtoOrBuilder'
+        nestedTypeList:
+          type: array
+          items:
+            $ref: '#/components/schemas/DescriptorProto'
+        nestedTypeOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/DescriptorProtoOrBuilder'
+        enumTypeList:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnumDescriptorProto'
+        enumTypeOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnumDescriptorProtoOrBuilder'
+        extensionRangeOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExtensionRangeOrBuilder'
+        oneofDeclList:
+          type: array
+          items:
+            $ref: '#/components/schemas/OneofDescriptorProto'
+        oneofDeclOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/OneofDescriptorProtoOrBuilder'
+        optionsOrBuilder:
+          $ref: '#/components/schemas/MessageOptionsOrBuilder'
+        reservedRangeOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReservedRangeOrBuilder'
+        reservedRangeCount:
+          type: integer
+          format: int32
+        reservedNameCount:
+          type: integer
+          format: int32
+        initialized:
+          type: boolean
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        memoizedSerializedSize:
+          type: integer
+          format: int32
+          writeOnly: true
+    DescriptorProtoOrBuilder:
+      type: object
+      properties:
+        name:
+          type: string
+        options:
+          $ref: '#/components/schemas/MessageOptions'
+        fieldCount:
+          type: integer
+          format: int32
+        reservedRangeList:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReservedRange'
+        reservedNameList:
+          type: array
+          items:
+            type: string
+        extensionRangeList:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExtensionRange'
+        oneofDeclCount:
+          type: integer
+          format: int32
+        nestedTypeCount:
+          type: integer
+          format: int32
+        enumTypeCount:
+          type: integer
+          format: int32
+        extensionCount:
+          type: integer
+          format: int32
+        extensionRangeCount:
+          type: integer
+          format: int32
+        nameBytes:
+          $ref: '#/components/schemas/ByteString'
+        fieldList:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldDescriptorProto'
+        fieldOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldDescriptorProtoOrBuilder'
+        extensionList:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldDescriptorProto'
+        extensionOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldDescriptorProtoOrBuilder'
+        nestedTypeList:
+          type: array
+          items:
+            $ref: '#/components/schemas/DescriptorProto'
+        enumTypeList:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnumDescriptorProto'
+        enumTypeOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnumDescriptorProtoOrBuilder'
+        extensionRangeOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExtensionRangeOrBuilder'
+        oneofDeclList:
+          type: array
+          items:
+            $ref: '#/components/schemas/OneofDescriptorProto'
+        oneofDeclOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/OneofDescriptorProtoOrBuilder'
+        optionsOrBuilder:
+          $ref: '#/components/schemas/MessageOptionsOrBuilder'
+        reservedRangeOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReservedRangeOrBuilder'
+        reservedRangeCount:
+          type: integer
+          format: int32
+        reservedNameCount:
+          type: integer
+          format: int32
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        defaultInstanceForType:
+          $ref: '#/components/schemas/Message'
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        initialized:
+          type: boolean
+    EditionDefault:
+      type: object
+      properties:
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        value:
+          type: string
+        serializedSize:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/EditionDefault'
+        parserForType:
+          $ref: '#/components/schemas/ParserEditionDefault'
+        edition:
+          type: string
+          enum:
+          - EDITION_UNKNOWN
+          - EDITION_PROTO2
+          - EDITION_PROTO3
+          - EDITION_2023
+          - EDITION_1_TEST_ONLY
+          - EDITION_2_TEST_ONLY
+          - EDITION_99997_TEST_ONLY
+          - EDITION_99998_TEST_ONLY
+          - EDITION_99999_TEST_ONLY
+        valueBytes:
+          $ref: '#/components/schemas/ByteString'
+        initialized:
+          type: boolean
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        memoizedSerializedSize:
+          type: integer
+          format: int32
+          writeOnly: true
+    EditionDefaultOrBuilder:
+      type: object
+      properties:
+        value:
+          type: string
+        edition:
+          type: string
+          enum:
+          - EDITION_UNKNOWN
+          - EDITION_PROTO2
+          - EDITION_PROTO3
+          - EDITION_2023
+          - EDITION_1_TEST_ONLY
+          - EDITION_2_TEST_ONLY
+          - EDITION_99997_TEST_ONLY
+          - EDITION_99998_TEST_ONLY
+          - EDITION_99999_TEST_ONLY
+        valueBytes:
+          $ref: '#/components/schemas/ByteString'
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        defaultInstanceForType:
+          $ref: '#/components/schemas/Message'
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        initialized:
+          type: boolean
+    EnumDescriptor:
+      type: object
+      properties:
+        index:
+          type: integer
+          format: int32
+        proto:
+          $ref: '#/components/schemas/EnumDescriptorProto'
+        fullName:
+          type: string
+        file:
+          $ref: '#/components/schemas/FileDescriptor'
+        containingType:
+          $ref: '#/components/schemas/Descriptor'
+        values:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnumValueDescriptor'
+        closed:
+          type: boolean
+        name:
+          type: string
+        options:
+          $ref: '#/components/schemas/EnumOptions'
+    EnumDescriptorProto:
+      type: object
+      properties:
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        name:
+          type: string
+        options:
+          $ref: '#/components/schemas/EnumOptions'
+        serializedSize:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/EnumDescriptorProto'
+        parserForType:
+          $ref: '#/components/schemas/ParserEnumDescriptorProto'
+        reservedRangeList:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnumReservedRange'
+        reservedNameList:
+          type: array
+          properties:
+            empty:
+              type: boolean
+            first:
+              type: string
+            last:
+              type: string
+          items:
+            type: string
+        valueCount:
+          type: integer
+          format: int32
+        nameBytes:
+          $ref: '#/components/schemas/ByteString'
+        optionsOrBuilder:
+          $ref: '#/components/schemas/EnumOptionsOrBuilder'
+        reservedRangeOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnumReservedRangeOrBuilder'
+        reservedRangeCount:
+          type: integer
+          format: int32
+        reservedNameCount:
+          type: integer
+          format: int32
+        valueList:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnumValueDescriptorProto'
+        valueOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnumValueDescriptorProtoOrBuilder'
+        initialized:
+          type: boolean
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        memoizedSerializedSize:
+          type: integer
+          format: int32
+          writeOnly: true
+    EnumDescriptorProtoOrBuilder:
+      type: object
+      properties:
+        name:
+          type: string
+        options:
+          $ref: '#/components/schemas/EnumOptions'
+        reservedRangeList:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnumReservedRange'
+        reservedNameList:
+          type: array
+          items:
+            type: string
+        valueCount:
+          type: integer
+          format: int32
+        nameBytes:
+          $ref: '#/components/schemas/ByteString'
+        optionsOrBuilder:
+          $ref: '#/components/schemas/EnumOptionsOrBuilder'
+        reservedRangeOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnumReservedRangeOrBuilder'
+        reservedRangeCount:
+          type: integer
+          format: int32
+        reservedNameCount:
+          type: integer
+          format: int32
+        valueList:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnumValueDescriptorProto'
+        valueOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnumValueDescriptorProtoOrBuilder'
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        defaultInstanceForType:
+          $ref: '#/components/schemas/Message'
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        initialized:
+          type: boolean
+    EnumOptions:
+      type: object
+      properties:
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        deprecated:
+          type: boolean
+        features:
+          $ref: '#/components/schemas/FeatureSet'
+        serializedSize:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/EnumOptions'
+        parserForType:
+          $ref: '#/components/schemas/ParserEnumOptions'
+        deprecatedLegacyJsonFieldConflicts:
+          type: boolean
+        featuresOrBuilder:
+          $ref: '#/components/schemas/FeatureSetOrBuilder'
+        uninterpretedOptionList:
+          type: array
+          items:
+            $ref: '#/components/schemas/UninterpretedOption'
+        uninterpretedOptionOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/UninterpretedOptionOrBuilder'
+        uninterpretedOptionCount:
+          type: integer
+          format: int32
+        allowAlias:
+          type: boolean
+        initialized:
+          type: boolean
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        allFieldsRaw:
+          type: object
+          additionalProperties:
+            type: object
+        memoizedSerializedSize:
+          type: integer
+          format: int32
+          writeOnly: true
+    EnumOptionsOrBuilder:
+      type: object
+      properties:
+        deprecated:
+          type: boolean
+        features:
+          $ref: '#/components/schemas/FeatureSet'
+        deprecatedLegacyJsonFieldConflicts:
+          type: boolean
+        featuresOrBuilder:
+          $ref: '#/components/schemas/FeatureSetOrBuilder'
+        uninterpretedOptionList:
+          type: array
+          items:
+            $ref: '#/components/schemas/UninterpretedOption'
+        uninterpretedOptionOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/UninterpretedOptionOrBuilder'
+        uninterpretedOptionCount:
+          type: integer
+          format: int32
+        allowAlias:
+          type: boolean
+        defaultInstanceForType:
+          $ref: '#/components/schemas/Message'
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        initialized:
+          type: boolean
+    EnumReservedRange:
+      type: object
+      properties:
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        end:
+          type: integer
+          format: int32
+        start:
+          type: integer
+          format: int32
+        serializedSize:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/EnumReservedRange'
+        parserForType:
+          $ref: '#/components/schemas/ParserEnumReservedRange'
+        initialized:
+          type: boolean
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        memoizedSerializedSize:
+          type: integer
+          format: int32
+          writeOnly: true
+    EnumReservedRangeOrBuilder:
+      type: object
+      properties:
+        end:
+          type: integer
+          format: int32
+        start:
+          type: integer
+          format: int32
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        defaultInstanceForType:
+          $ref: '#/components/schemas/Message'
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        initialized:
+          type: boolean
+    EnumValueDescriptor:
+      type: object
+      properties:
+        index:
+          type: integer
+          format: int32
+        proto:
+          $ref: '#/components/schemas/EnumValueDescriptorProto'
+        fullName:
+          type: string
+        type:
+          $ref: '#/components/schemas/EnumDescriptor'
+        name:
+          type: string
+        file:
+          $ref: '#/components/schemas/FileDescriptor'
+        number:
+          type: integer
+          format: int32
+        options:
+          $ref: '#/components/schemas/EnumValueOptions'
+    EnumValueDescriptorProto:
+      type: object
+      properties:
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        name:
+          type: string
+        number:
+          type: integer
+          format: int32
+        options:
+          $ref: '#/components/schemas/EnumValueOptions'
+        serializedSize:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/EnumValueDescriptorProto'
+        parserForType:
+          $ref: '#/components/schemas/ParserEnumValueDescriptorProto'
+        nameBytes:
+          $ref: '#/components/schemas/ByteString'
+        optionsOrBuilder:
+          $ref: '#/components/schemas/EnumValueOptionsOrBuilder'
+        initialized:
+          type: boolean
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        memoizedSerializedSize:
+          type: integer
+          format: int32
+          writeOnly: true
+    EnumValueDescriptorProtoOrBuilder:
+      type: object
+      properties:
+        name:
+          type: string
+        number:
+          type: integer
+          format: int32
+        options:
+          $ref: '#/components/schemas/EnumValueOptions'
+        nameBytes:
+          $ref: '#/components/schemas/ByteString'
+        optionsOrBuilder:
+          $ref: '#/components/schemas/EnumValueOptionsOrBuilder'
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        defaultInstanceForType:
+          $ref: '#/components/schemas/Message'
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        initialized:
+          type: boolean
+    EnumValueOptions:
+      type: object
+      properties:
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        deprecated:
+          type: boolean
+        features:
+          $ref: '#/components/schemas/FeatureSet'
+        serializedSize:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/EnumValueOptions'
+        parserForType:
+          $ref: '#/components/schemas/ParserEnumValueOptions'
+        featuresOrBuilder:
+          $ref: '#/components/schemas/FeatureSetOrBuilder'
+        uninterpretedOptionList:
+          type: array
+          items:
+            $ref: '#/components/schemas/UninterpretedOption'
+        uninterpretedOptionOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/UninterpretedOptionOrBuilder'
+        uninterpretedOptionCount:
+          type: integer
+          format: int32
+        debugRedact:
+          type: boolean
+        initialized:
+          type: boolean
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        allFieldsRaw:
+          type: object
+          additionalProperties:
+            type: object
+        memoizedSerializedSize:
+          type: integer
+          format: int32
+          writeOnly: true
+    EnumValueOptionsOrBuilder:
+      type: object
+      properties:
+        deprecated:
+          type: boolean
+        features:
+          $ref: '#/components/schemas/FeatureSet'
+        featuresOrBuilder:
+          $ref: '#/components/schemas/FeatureSetOrBuilder'
+        uninterpretedOptionList:
+          type: array
+          items:
+            $ref: '#/components/schemas/UninterpretedOption'
+        uninterpretedOptionOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/UninterpretedOptionOrBuilder'
+        uninterpretedOptionCount:
+          type: integer
+          format: int32
+        debugRedact:
+          type: boolean
+        defaultInstanceForType:
+          $ref: '#/components/schemas/Message'
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        initialized:
+          type: boolean
+    ExtensionRange:
+      type: object
+      properties:
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        options:
+          $ref: '#/components/schemas/ExtensionRangeOptions'
+        end:
+          type: integer
+          format: int32
+        start:
+          type: integer
+          format: int32
+        serializedSize:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/ExtensionRange'
+        parserForType:
+          $ref: '#/components/schemas/ParserExtensionRange'
+        optionsOrBuilder:
+          $ref: '#/components/schemas/ExtensionRangeOptionsOrBuilder'
+        initialized:
+          type: boolean
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        memoizedSerializedSize:
+          type: integer
+          format: int32
+          writeOnly: true
+    ExtensionRangeOptions:
+      type: object
+      properties:
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        features:
+          $ref: '#/components/schemas/FeatureSet'
+        serializedSize:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/ExtensionRangeOptions'
+        parserForType:
+          $ref: '#/components/schemas/ParserExtensionRangeOptions'
+        declarationOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeclarationOrBuilder'
+        featuresOrBuilder:
+          $ref: '#/components/schemas/FeatureSetOrBuilder'
+        uninterpretedOptionList:
+          type: array
+          items:
+            $ref: '#/components/schemas/UninterpretedOption'
+        uninterpretedOptionOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/UninterpretedOptionOrBuilder'
+        uninterpretedOptionCount:
+          type: integer
+          format: int32
+        declarationList:
+          type: array
+          items:
+            $ref: '#/components/schemas/Declaration'
+        declarationCount:
+          type: integer
+          format: int32
+        verification:
+          type: string
+          enum:
+          - DECLARATION
+          - UNVERIFIED
+        initialized:
+          type: boolean
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        allFieldsRaw:
+          type: object
+          additionalProperties:
+            type: object
+        memoizedSerializedSize:
+          type: integer
+          format: int32
+          writeOnly: true
+    ExtensionRangeOptionsOrBuilder:
+      type: object
+      properties:
+        features:
+          $ref: '#/components/schemas/FeatureSet'
+        declarationOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeclarationOrBuilder'
+        featuresOrBuilder:
+          $ref: '#/components/schemas/FeatureSetOrBuilder'
+        uninterpretedOptionList:
+          type: array
+          items:
+            $ref: '#/components/schemas/UninterpretedOption'
+        uninterpretedOptionOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/UninterpretedOptionOrBuilder'
+        uninterpretedOptionCount:
+          type: integer
+          format: int32
+        declarationList:
+          type: array
+          items:
+            $ref: '#/components/schemas/Declaration'
+        declarationCount:
+          type: integer
+          format: int32
+        verification:
+          type: string
+          enum:
+          - DECLARATION
+          - UNVERIFIED
+        defaultInstanceForType:
+          $ref: '#/components/schemas/Message'
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        initialized:
+          type: boolean
+    ExtensionRangeOrBuilder:
+      type: object
+      properties:
+        options:
+          $ref: '#/components/schemas/ExtensionRangeOptions'
+        end:
+          type: integer
+          format: int32
+        start:
+          type: integer
+          format: int32
+        optionsOrBuilder:
+          $ref: '#/components/schemas/ExtensionRangeOptionsOrBuilder'
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        defaultInstanceForType:
+          $ref: '#/components/schemas/Message'
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        initialized:
+          type: boolean
+    FeatureSet:
+      type: object
+      properties:
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        enumType:
+          type: string
+          enum:
+          - ENUM_TYPE_UNKNOWN
+          - OPEN
+          - CLOSED
+        serializedSize:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/FeatureSet'
+        parserForType:
+          $ref: '#/components/schemas/ParserFeatureSet'
+        fieldPresence:
+          type: string
+          enum:
+          - FIELD_PRESENCE_UNKNOWN
+          - EXPLICIT
+          - IMPLICIT
+          - LEGACY_REQUIRED
+        repeatedFieldEncoding:
+          type: string
+          enum:
+          - REPEATED_FIELD_ENCODING_UNKNOWN
+          - PACKED
+          - EXPANDED
+        messageEncoding:
+          type: string
+          enum:
+          - MESSAGE_ENCODING_UNKNOWN
+          - LENGTH_PREFIXED
+          - DELIMITED
+        jsonFormat:
+          type: string
+          enum:
+          - JSON_FORMAT_UNKNOWN
+          - ALLOW
+          - LEGACY_BEST_EFFORT
+        utf8Validation:
+          type: string
+          enum:
+          - UTF8_VALIDATION_UNKNOWN
+          - NONE
+          - VERIFY
+        initialized:
+          type: boolean
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        allFieldsRaw:
+          type: object
+          additionalProperties:
+            type: object
+        memoizedSerializedSize:
+          type: integer
+          format: int32
+          writeOnly: true
+    FeatureSetOrBuilder:
+      type: object
+      properties:
+        enumType:
+          type: string
+          enum:
+          - ENUM_TYPE_UNKNOWN
+          - OPEN
+          - CLOSED
+        fieldPresence:
+          type: string
+          enum:
+          - FIELD_PRESENCE_UNKNOWN
+          - EXPLICIT
+          - IMPLICIT
+          - LEGACY_REQUIRED
+        repeatedFieldEncoding:
+          type: string
+          enum:
+          - REPEATED_FIELD_ENCODING_UNKNOWN
+          - PACKED
+          - EXPANDED
+        messageEncoding:
+          type: string
+          enum:
+          - MESSAGE_ENCODING_UNKNOWN
+          - LENGTH_PREFIXED
+          - DELIMITED
+        jsonFormat:
+          type: string
+          enum:
+          - JSON_FORMAT_UNKNOWN
+          - ALLOW
+          - LEGACY_BEST_EFFORT
+        utf8Validation:
+          type: string
+          enum:
+          - UTF8_VALIDATION_UNKNOWN
+          - NONE
+          - VERIFY
+        defaultInstanceForType:
+          $ref: '#/components/schemas/Message'
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        initialized:
+          type: boolean
+    FieldDescriptor:
+      type: object
+      properties:
+        index:
+          type: integer
+          format: int32
+        proto:
+          $ref: '#/components/schemas/FieldDescriptorProto'
+        fullName:
+          type: string
+        jsonName:
+          type: string
+        file:
+          $ref: '#/components/schemas/FileDescriptor'
+        extensionScope:
+          $ref: '#/components/schemas/Descriptor'
+        type:
+          type: string
+          enum:
+          - DOUBLE
+          - FLOAT
+          - INT64
+          - UINT64
+          - INT32
+          - FIXED64
+          - FIXED32
+          - BOOL
+          - STRING
+          - GROUP
+          - MESSAGE
+          - BYTES
+          - UINT32
+          - ENUM
+          - SFIXED32
+          - SFIXED64
+          - SINT32
+          - SINT64
+        containingType:
+          $ref: '#/components/schemas/Descriptor'
+        messageType:
+          $ref: '#/components/schemas/Descriptor'
+        containingOneof:
+          $ref: '#/components/schemas/OneofDescriptor'
+        enumType:
+          $ref: '#/components/schemas/EnumDescriptor'
+        defaultValue:
+          type: object
+        name:
+          type: string
+        number:
+          type: integer
+          format: int32
+        options:
+          $ref: '#/components/schemas/FieldOptions'
+        required:
+          type: boolean
+        optional:
+          type: boolean
+        packed:
+          type: boolean
+        extension:
+          type: boolean
+        repeated:
+          type: boolean
+        javaType:
+          type: string
+          enum:
+          - INT
+          - LONG
+          - FLOAT
+          - DOUBLE
+          - BOOLEAN
+          - STRING
+          - BYTE_STRING
+          - ENUM
+          - MESSAGE
+        mapField:
+          type: boolean
+        liteJavaType:
+          type: string
+          enum:
+          - INT
+          - LONG
+          - FLOAT
+          - DOUBLE
+          - BOOLEAN
+          - STRING
+          - BYTE_STRING
+          - ENUM
+          - MESSAGE
+        liteType:
+          type: string
+          enum:
+          - DOUBLE
+          - FLOAT
+          - INT64
+          - UINT64
+          - INT32
+          - FIXED64
+          - FIXED32
+          - BOOL
+          - STRING
+          - GROUP
+          - MESSAGE
+          - BYTES
+          - UINT32
+          - ENUM
+          - SFIXED32
+          - SFIXED64
+          - SINT32
+          - SINT64
+        packable:
+          type: boolean
+        realContainingOneof:
+          $ref: '#/components/schemas/OneofDescriptor'
+    FieldDescriptorProto:
+      type: object
+      properties:
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        label:
+          type: string
+          enum:
+          - LABEL_OPTIONAL
+          - LABEL_REPEATED
+          - LABEL_REQUIRED
+        name:
+          type: string
+        typeName:
+          type: string
+        type:
+          type: string
+          enum:
+          - TYPE_DOUBLE
+          - TYPE_FLOAT
+          - TYPE_INT64
+          - TYPE_UINT64
+          - TYPE_INT32
+          - TYPE_FIXED64
+          - TYPE_FIXED32
+          - TYPE_BOOL
+          - TYPE_STRING
+          - TYPE_GROUP
+          - TYPE_MESSAGE
+          - TYPE_BYTES
+          - TYPE_UINT32
+          - TYPE_ENUM
+          - TYPE_SFIXED32
+          - TYPE_SFIXED64
+          - TYPE_SINT32
+          - TYPE_SINT64
+        defaultValue:
+          type: string
+        number:
+          type: integer
+          format: int32
+        options:
+          $ref: '#/components/schemas/FieldOptions'
+        serializedSize:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/FieldDescriptorProto'
+        parserForType:
+          $ref: '#/components/schemas/ParserFieldDescriptorProto'
+        jsonName:
+          type: string
+        proto3Optional:
+          type: boolean
+        oneofIndex:
+          type: integer
+          format: int32
+        extendee:
+          type: string
+        nameBytes:
+          $ref: '#/components/schemas/ByteString'
+        optionsOrBuilder:
+          $ref: '#/components/schemas/FieldOptionsOrBuilder'
+        typeNameBytes:
+          $ref: '#/components/schemas/ByteString'
+        extendeeBytes:
+          $ref: '#/components/schemas/ByteString'
+        defaultValueBytes:
+          $ref: '#/components/schemas/ByteString'
+        jsonNameBytes:
+          $ref: '#/components/schemas/ByteString'
+        initialized:
+          type: boolean
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        memoizedSerializedSize:
+          type: integer
+          format: int32
+          writeOnly: true
+    FieldDescriptorProtoOrBuilder:
+      type: object
+      properties:
+        label:
+          type: string
+          enum:
+          - LABEL_OPTIONAL
+          - LABEL_REPEATED
+          - LABEL_REQUIRED
+        name:
+          type: string
+        typeName:
+          type: string
+        type:
+          type: string
+          enum:
+          - TYPE_DOUBLE
+          - TYPE_FLOAT
+          - TYPE_INT64
+          - TYPE_UINT64
+          - TYPE_INT32
+          - TYPE_FIXED64
+          - TYPE_FIXED32
+          - TYPE_BOOL
+          - TYPE_STRING
+          - TYPE_GROUP
+          - TYPE_MESSAGE
+          - TYPE_BYTES
+          - TYPE_UINT32
+          - TYPE_ENUM
+          - TYPE_SFIXED32
+          - TYPE_SFIXED64
+          - TYPE_SINT32
+          - TYPE_SINT64
+        defaultValue:
+          type: string
+        number:
+          type: integer
+          format: int32
+        options:
+          $ref: '#/components/schemas/FieldOptions'
+        jsonName:
+          type: string
+        proto3Optional:
+          type: boolean
+        oneofIndex:
+          type: integer
+          format: int32
+        extendee:
+          type: string
+        nameBytes:
+          $ref: '#/components/schemas/ByteString'
+        optionsOrBuilder:
+          $ref: '#/components/schemas/FieldOptionsOrBuilder'
+        typeNameBytes:
+          $ref: '#/components/schemas/ByteString'
+        extendeeBytes:
+          $ref: '#/components/schemas/ByteString'
+        defaultValueBytes:
+          $ref: '#/components/schemas/ByteString'
+        jsonNameBytes:
+          $ref: '#/components/schemas/ByteString'
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        defaultInstanceForType:
+          $ref: '#/components/schemas/Message'
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        initialized:
+          type: boolean
+    FieldOptions:
+      type: object
+      properties:
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        deprecated:
+          type: boolean
+        retention:
+          type: string
+          enum:
+          - RETENTION_UNKNOWN
+          - RETENTION_RUNTIME
+          - RETENTION_SOURCE
+        features:
+          $ref: '#/components/schemas/FeatureSet'
+        serializedSize:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/FieldOptions'
+        parserForType:
+          $ref: '#/components/schemas/ParserFieldOptions'
+        packed:
+          type: boolean
+        featuresOrBuilder:
+          $ref: '#/components/schemas/FeatureSetOrBuilder'
+        uninterpretedOptionList:
+          type: array
+          items:
+            $ref: '#/components/schemas/UninterpretedOption'
+        uninterpretedOptionOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/UninterpretedOptionOrBuilder'
+        uninterpretedOptionCount:
+          type: integer
+          format: int32
+        editionDefaultsOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/EditionDefaultOrBuilder'
+        ctype:
+          type: string
+          enum:
+          - STRING
+          - CORD
+          - STRING_PIECE
+        jstype:
+          type: string
+          enum:
+          - JS_NORMAL
+          - JS_STRING
+          - JS_NUMBER
+        lazy:
+          type: boolean
+        unverifiedLazy:
+          type: boolean
+        weak:
+          type: boolean
+        debugRedact:
+          type: boolean
+        targetsList:
+          type: array
+          items:
+            type: string
+            enum:
+            - TARGET_TYPE_UNKNOWN
+            - TARGET_TYPE_FILE
+            - TARGET_TYPE_EXTENSION_RANGE
+            - TARGET_TYPE_MESSAGE
+            - TARGET_TYPE_FIELD
+            - TARGET_TYPE_ONEOF
+            - TARGET_TYPE_ENUM
+            - TARGET_TYPE_ENUM_ENTRY
+            - TARGET_TYPE_SERVICE
+            - TARGET_TYPE_METHOD
+        targetsCount:
+          type: integer
+          format: int32
+        editionDefaultsList:
+          type: array
+          items:
+            $ref: '#/components/schemas/EditionDefault'
+        editionDefaultsCount:
+          type: integer
+          format: int32
+        initialized:
+          type: boolean
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        allFieldsRaw:
+          type: object
+          additionalProperties:
+            type: object
+        memoizedSerializedSize:
+          type: integer
+          format: int32
+          writeOnly: true
+    FieldOptionsOrBuilder:
+      type: object
+      properties:
+        deprecated:
+          type: boolean
+        retention:
+          type: string
+          enum:
+          - RETENTION_UNKNOWN
+          - RETENTION_RUNTIME
+          - RETENTION_SOURCE
+        features:
+          $ref: '#/components/schemas/FeatureSet'
+        packed:
+          type: boolean
+        featuresOrBuilder:
+          $ref: '#/components/schemas/FeatureSetOrBuilder'
+        uninterpretedOptionList:
+          type: array
+          items:
+            $ref: '#/components/schemas/UninterpretedOption'
+        uninterpretedOptionOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/UninterpretedOptionOrBuilder'
+        uninterpretedOptionCount:
+          type: integer
+          format: int32
+        editionDefaultsOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/EditionDefaultOrBuilder'
+        ctype:
+          type: string
+          enum:
+          - STRING
+          - CORD
+          - STRING_PIECE
+        jstype:
+          type: string
+          enum:
+          - JS_NORMAL
+          - JS_STRING
+          - JS_NUMBER
+        lazy:
+          type: boolean
+        unverifiedLazy:
+          type: boolean
+        weak:
+          type: boolean
+        debugRedact:
+          type: boolean
+        targetsList:
+          type: array
+          items:
+            type: string
+            enum:
+            - TARGET_TYPE_UNKNOWN
+            - TARGET_TYPE_FILE
+            - TARGET_TYPE_EXTENSION_RANGE
+            - TARGET_TYPE_MESSAGE
+            - TARGET_TYPE_FIELD
+            - TARGET_TYPE_ONEOF
+            - TARGET_TYPE_ENUM
+            - TARGET_TYPE_ENUM_ENTRY
+            - TARGET_TYPE_SERVICE
+            - TARGET_TYPE_METHOD
+        targetsCount:
+          type: integer
+          format: int32
+        editionDefaultsList:
+          type: array
+          items:
+            $ref: '#/components/schemas/EditionDefault'
+        editionDefaultsCount:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/Message'
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        initialized:
+          type: boolean
+    FileDescriptor:
+      type: object
+      properties:
+        proto:
+          $ref: '#/components/schemas/FileDescriptorProto'
+        messageTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Descriptor'
+        enumTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnumDescriptor'
+        services:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceDescriptor'
+        extensions:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldDescriptor'
+        dependencies:
+          type: array
+          items:
+            $ref: '#/components/schemas/FileDescriptor'
+        publicDependencies:
+          type: array
+          items:
+            $ref: '#/components/schemas/FileDescriptor'
+        name:
+          type: string
+        package:
+          type: string
+        file:
+          $ref: '#/components/schemas/FileDescriptor'
+        fullName:
+          type: string
+        options:
+          $ref: '#/components/schemas/FileOptions'
+        syntax:
+          type: string
+          enum:
+          - UNKNOWN
+          - PROTO2
+          - PROTO3
+          - EDITIONS
+        edition:
+          type: string
+          enum:
+          - EDITION_UNKNOWN
+          - EDITION_PROTO2
+          - EDITION_PROTO3
+          - EDITION_2023
+          - EDITION_1_TEST_ONLY
+          - EDITION_2_TEST_ONLY
+          - EDITION_99997_TEST_ONLY
+          - EDITION_99998_TEST_ONLY
+          - EDITION_99999_TEST_ONLY
+        editionName:
+          type: string
+    FileDescriptorProto:
+      type: object
+      properties:
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        name:
+          type: string
+        package:
+          type: string
+        options:
+          $ref: '#/components/schemas/FileOptions'
+        serializedSize:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/FileDescriptorProto'
+        parserForType:
+          $ref: '#/components/schemas/ParserFileDescriptorProto'
+        enumTypeCount:
+          type: integer
+          format: int32
+        extensionCount:
+          type: integer
+          format: int32
+        syntax:
+          type: string
+        publicDependencyCount:
+          type: integer
+          format: int32
+        dependencyCount:
+          type: integer
+          format: int32
+        messageTypeCount:
+          type: integer
+          format: int32
+        serviceCount:
+          type: integer
+          format: int32
+        nameBytes:
+          $ref: '#/components/schemas/ByteString'
+        extensionList:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldDescriptorProto'
+        extensionOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldDescriptorProtoOrBuilder'
+        enumTypeList:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnumDescriptorProto'
+        enumTypeOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnumDescriptorProtoOrBuilder'
+        optionsOrBuilder:
+          $ref: '#/components/schemas/FileOptionsOrBuilder'
+        edition:
+          type: string
+          enum:
+          - EDITION_UNKNOWN
+          - EDITION_PROTO2
+          - EDITION_PROTO3
+          - EDITION_2023
+          - EDITION_1_TEST_ONLY
+          - EDITION_2_TEST_ONLY
+          - EDITION_99997_TEST_ONLY
+          - EDITION_99998_TEST_ONLY
+          - EDITION_99999_TEST_ONLY
+        packageBytes:
+          $ref: '#/components/schemas/ByteString'
+        dependencyList:
+          type: array
+          properties:
+            empty:
+              type: boolean
+            first:
+              type: string
+            last:
+              type: string
+          items:
+            type: string
+        publicDependencyList:
+          type: array
+          items:
+            type: integer
+            format: int32
+        weakDependencyList:
+          type: array
+          items:
+            type: integer
+            format: int32
+        weakDependencyCount:
+          type: integer
+          format: int32
+        messageTypeList:
+          type: array
+          items:
+            $ref: '#/components/schemas/DescriptorProto'
+        messageTypeOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/DescriptorProtoOrBuilder'
+        serviceList:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceDescriptorProto'
+        serviceOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceDescriptorProtoOrBuilder'
+        sourceCodeInfo:
+          $ref: '#/components/schemas/SourceCodeInfo'
+        sourceCodeInfoOrBuilder:
+          $ref: '#/components/schemas/SourceCodeInfoOrBuilder'
+        syntaxBytes:
+          $ref: '#/components/schemas/ByteString'
+        initialized:
+          type: boolean
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        memoizedSerializedSize:
+          type: integer
+          format: int32
+          writeOnly: true
+    FileOptions:
+      type: object
+      properties:
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        deprecated:
+          type: boolean
+        features:
+          $ref: '#/components/schemas/FeatureSet'
+        serializedSize:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/FileOptions'
+        parserForType:
+          $ref: '#/components/schemas/ParserFileOptions'
+        javaStringCheckUtf8:
+          type: boolean
+        featuresOrBuilder:
+          $ref: '#/components/schemas/FeatureSetOrBuilder'
+        uninterpretedOptionList:
+          type: array
+          items:
+            $ref: '#/components/schemas/UninterpretedOption'
+        uninterpretedOptionOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/UninterpretedOptionOrBuilder'
+        uninterpretedOptionCount:
+          type: integer
+          format: int32
+        javaPackage:
+          type: string
+        javaPackageBytes:
+          $ref: '#/components/schemas/ByteString'
+        javaOuterClassname:
+          type: string
+        javaOuterClassnameBytes:
+          $ref: '#/components/schemas/ByteString'
+        javaMultipleFiles:
+          type: boolean
+        javaGenerateEqualsAndHash:
+          type: boolean
+        optimizeFor:
+          type: string
+          enum:
+          - SPEED
+          - CODE_SIZE
+          - LITE_RUNTIME
+        goPackage:
+          type: string
+        goPackageBytes:
+          $ref: '#/components/schemas/ByteString'
+        ccGenericServices:
+          type: boolean
+        javaGenericServices:
+          type: boolean
+        pyGenericServices:
+          type: boolean
+        phpGenericServices:
+          type: boolean
+        ccEnableArenas:
+          type: boolean
+        objcClassPrefix:
+          type: string
+        objcClassPrefixBytes:
+          $ref: '#/components/schemas/ByteString'
+        csharpNamespace:
+          type: string
+        csharpNamespaceBytes:
+          $ref: '#/components/schemas/ByteString'
+        swiftPrefix:
+          type: string
+        swiftPrefixBytes:
+          $ref: '#/components/schemas/ByteString'
+        phpClassPrefix:
+          type: string
+        phpClassPrefixBytes:
+          $ref: '#/components/schemas/ByteString'
+        phpNamespace:
+          type: string
+        phpNamespaceBytes:
+          $ref: '#/components/schemas/ByteString'
+        phpMetadataNamespace:
+          type: string
+        phpMetadataNamespaceBytes:
+          $ref: '#/components/schemas/ByteString'
+        rubyPackage:
+          type: string
+        rubyPackageBytes:
+          $ref: '#/components/schemas/ByteString'
+        initialized:
+          type: boolean
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        allFieldsRaw:
+          type: object
+          additionalProperties:
+            type: object
+        memoizedSerializedSize:
+          type: integer
+          format: int32
+          writeOnly: true
+    FileOptionsOrBuilder:
+      type: object
+      properties:
+        deprecated:
+          type: boolean
+        features:
+          $ref: '#/components/schemas/FeatureSet'
+        javaStringCheckUtf8:
+          type: boolean
+        featuresOrBuilder:
+          $ref: '#/components/schemas/FeatureSetOrBuilder'
+        uninterpretedOptionList:
+          type: array
+          items:
+            $ref: '#/components/schemas/UninterpretedOption'
+        uninterpretedOptionOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/UninterpretedOptionOrBuilder'
+        uninterpretedOptionCount:
+          type: integer
+          format: int32
+        javaPackage:
+          type: string
+        javaPackageBytes:
+          $ref: '#/components/schemas/ByteString'
+        javaOuterClassname:
+          type: string
+        javaOuterClassnameBytes:
+          $ref: '#/components/schemas/ByteString'
+        javaMultipleFiles:
+          type: boolean
+        javaGenerateEqualsAndHash:
+          type: boolean
+        optimizeFor:
+          type: string
+          enum:
+          - SPEED
+          - CODE_SIZE
+          - LITE_RUNTIME
+        goPackage:
+          type: string
+        goPackageBytes:
+          $ref: '#/components/schemas/ByteString'
+        ccGenericServices:
+          type: boolean
+        javaGenericServices:
+          type: boolean
+        pyGenericServices:
+          type: boolean
+        phpGenericServices:
+          type: boolean
+        ccEnableArenas:
+          type: boolean
+        objcClassPrefix:
+          type: string
+        objcClassPrefixBytes:
+          $ref: '#/components/schemas/ByteString'
+        csharpNamespace:
+          type: string
+        csharpNamespaceBytes:
+          $ref: '#/components/schemas/ByteString'
+        swiftPrefix:
+          type: string
+        swiftPrefixBytes:
+          $ref: '#/components/schemas/ByteString'
+        phpClassPrefix:
+          type: string
+        phpClassPrefixBytes:
+          $ref: '#/components/schemas/ByteString'
+        phpNamespace:
+          type: string
+        phpNamespaceBytes:
+          $ref: '#/components/schemas/ByteString'
+        phpMetadataNamespace:
+          type: string
+        phpMetadataNamespaceBytes:
+          $ref: '#/components/schemas/ByteString'
+        rubyPackage:
+          type: string
+        rubyPackageBytes:
+          $ref: '#/components/schemas/ByteString'
+        defaultInstanceForType:
+          $ref: '#/components/schemas/Message'
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        initialized:
+          type: boolean
+    FullTreeHead:
+      type: object
+      properties:
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        treeHead:
+          $ref: '#/components/schemas/TreeHead'
+        serializedSize:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/FullTreeHead'
+        parserForType:
+          $ref: '#/components/schemas/ParserFullTreeHead'
+        auditorTreeHead:
+          $ref: '#/components/schemas/AuditorTreeHead'
+        consistencyList:
+          type: array
+          items:
+            $ref: '#/components/schemas/ByteString'
+        consistencyCount:
+          type: integer
+          format: int32
+        treeHeadOrBuilder:
+          $ref: '#/components/schemas/TreeHeadOrBuilder'
+        auditorTreeHeadOrBuilder:
+          $ref: '#/components/schemas/AuditorTreeHeadOrBuilder'
+        initialized:
+          type: boolean
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        memoizedSerializedSize:
+          type: integer
+          format: int32
+          writeOnly: true
+    KeyTransparencyMonitorResponse:
+      required:
+      - aciMonitorProof
+      - fullTreeHead
+      - inclusionProof
+      type: object
+      properties:
+        fullTreeHead:
+          $ref: '#/components/schemas/FullTreeHead'
+        aciMonitorProof:
+          $ref: '#/components/schemas/MonitorProof'
+        e164MonitorProof:
+          $ref: '#/components/schemas/MonitorProof'
+        usernameHashMonitorProof:
+          $ref: '#/components/schemas/MonitorProof'
+        inclusionProof:
+          type: array
+          description: "A list of hashes encoded in standard, unpadded base64 that\
+            \ prove inclusion across all monitor proofs "
+          items:
+            type: string
+            description: "A list of hashes encoded in standard, unpadded base64 that\
+              \ prove inclusion across all monitor proofs "
+            format: byte
+    Location:
+      type: object
+      properties:
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        serializedSize:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/Location'
+        parserForType:
+          $ref: '#/components/schemas/ParserLocation'
+        pathList:
+          type: array
+          items:
+            type: integer
+            format: int32
+        pathCount:
+          type: integer
+          format: int32
+        spanList:
+          type: array
+          items:
+            type: integer
+            format: int32
+        spanCount:
+          type: integer
+          format: int32
+        leadingComments:
+          type: string
+        leadingCommentsBytes:
+          $ref: '#/components/schemas/ByteString'
+        trailingComments:
+          type: string
+        trailingCommentsBytes:
+          $ref: '#/components/schemas/ByteString'
+        leadingDetachedCommentsList:
+          type: array
+          properties:
+            empty:
+              type: boolean
+            first:
+              type: string
+            last:
+              type: string
+          items:
+            type: string
+        leadingDetachedCommentsCount:
+          type: integer
+          format: int32
+        initialized:
+          type: boolean
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        memoizedSerializedSize:
+          type: integer
+          format: int32
+          writeOnly: true
+    LocationOrBuilder:
+      type: object
+      properties:
+        pathList:
+          type: array
+          items:
+            type: integer
+            format: int32
+        pathCount:
+          type: integer
+          format: int32
+        spanList:
+          type: array
+          items:
+            type: integer
+            format: int32
+        spanCount:
+          type: integer
+          format: int32
+        leadingComments:
+          type: string
+        leadingCommentsBytes:
+          $ref: '#/components/schemas/ByteString'
+        trailingComments:
+          type: string
+        trailingCommentsBytes:
+          $ref: '#/components/schemas/ByteString'
+        leadingDetachedCommentsList:
+          type: array
+          items:
+            type: string
+        leadingDetachedCommentsCount:
+          type: integer
+          format: int32
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        defaultInstanceForType:
+          $ref: '#/components/schemas/Message'
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        initialized:
+          type: boolean
+    Message:
+      type: object
+      properties:
+        parserForType:
+          $ref: '#/components/schemas/ParserMessage'
+        serializedSize:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/MessageLite'
+        initialized:
+          type: boolean
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+    MessageLite:
+      type: object
+      properties:
+        serializedSize:
+          type: integer
+          format: int32
+        parserForType:
+          $ref: '#/components/schemas/ParserMessageLite'
+        defaultInstanceForType:
+          $ref: '#/components/schemas/MessageLite'
+        initialized:
+          type: boolean
+    MessageOptions:
+      type: object
+      properties:
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        deprecated:
+          type: boolean
+        features:
+          $ref: '#/components/schemas/FeatureSet'
+        serializedSize:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/MessageOptions'
+        parserForType:
+          $ref: '#/components/schemas/ParserMessageOptions'
+        mapEntry:
+          type: boolean
+        messageSetWireFormat:
+          type: boolean
+        noStandardDescriptorAccessor:
+          type: boolean
+        deprecatedLegacyJsonFieldConflicts:
+          type: boolean
+        featuresOrBuilder:
+          $ref: '#/components/schemas/FeatureSetOrBuilder'
+        uninterpretedOptionList:
+          type: array
+          items:
+            $ref: '#/components/schemas/UninterpretedOption'
+        uninterpretedOptionOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/UninterpretedOptionOrBuilder'
+        uninterpretedOptionCount:
+          type: integer
+          format: int32
+        initialized:
+          type: boolean
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        allFieldsRaw:
+          type: object
+          additionalProperties:
+            type: object
+        memoizedSerializedSize:
+          type: integer
+          format: int32
+          writeOnly: true
+    MessageOptionsOrBuilder:
+      type: object
+      properties:
+        deprecated:
+          type: boolean
+        features:
+          $ref: '#/components/schemas/FeatureSet'
+        mapEntry:
+          type: boolean
+        messageSetWireFormat:
+          type: boolean
+        noStandardDescriptorAccessor:
+          type: boolean
+        deprecatedLegacyJsonFieldConflicts:
+          type: boolean
+        featuresOrBuilder:
+          $ref: '#/components/schemas/FeatureSetOrBuilder'
+        uninterpretedOptionList:
+          type: array
+          items:
+            $ref: '#/components/schemas/UninterpretedOption'
+        uninterpretedOptionOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/UninterpretedOptionOrBuilder'
+        uninterpretedOptionCount:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/Message'
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        initialized:
+          type: boolean
+    MethodDescriptor:
+      type: object
+      properties:
+        index:
+          type: integer
+          format: int32
+        proto:
+          $ref: '#/components/schemas/MethodDescriptorProto'
+        fullName:
+          type: string
+        file:
+          $ref: '#/components/schemas/FileDescriptor'
+        service:
+          $ref: '#/components/schemas/ServiceDescriptor'
+        inputType:
+          $ref: '#/components/schemas/Descriptor'
+        outputType:
+          $ref: '#/components/schemas/Descriptor'
+        name:
+          type: string
+        options:
+          $ref: '#/components/schemas/MethodOptions'
+        clientStreaming:
+          type: boolean
+        serverStreaming:
+          type: boolean
+    MethodDescriptorProto:
+      type: object
+      properties:
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        name:
+          type: string
+        options:
+          $ref: '#/components/schemas/MethodOptions'
+        outputType:
+          type: string
+        inputType:
+          type: string
+        serializedSize:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/MethodDescriptorProto'
+        parserForType:
+          $ref: '#/components/schemas/ParserMethodDescriptorProto'
+        nameBytes:
+          $ref: '#/components/schemas/ByteString'
+        optionsOrBuilder:
+          $ref: '#/components/schemas/MethodOptionsOrBuilder'
+        inputTypeBytes:
+          $ref: '#/components/schemas/ByteString'
+        outputTypeBytes:
+          $ref: '#/components/schemas/ByteString'
+        clientStreaming:
+          type: boolean
+        serverStreaming:
+          type: boolean
+        initialized:
+          type: boolean
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        memoizedSerializedSize:
+          type: integer
+          format: int32
+          writeOnly: true
+    MethodDescriptorProtoOrBuilder:
+      type: object
+      properties:
+        name:
+          type: string
+        options:
+          $ref: '#/components/schemas/MethodOptions'
+        outputType:
+          type: string
+        inputType:
+          type: string
+        nameBytes:
+          $ref: '#/components/schemas/ByteString'
+        optionsOrBuilder:
+          $ref: '#/components/schemas/MethodOptionsOrBuilder'
+        inputTypeBytes:
+          $ref: '#/components/schemas/ByteString'
+        outputTypeBytes:
+          $ref: '#/components/schemas/ByteString'
+        clientStreaming:
+          type: boolean
+        serverStreaming:
+          type: boolean
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        defaultInstanceForType:
+          $ref: '#/components/schemas/Message'
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        initialized:
+          type: boolean
+    MethodOptions:
+      type: object
+      properties:
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        deprecated:
+          type: boolean
+        features:
+          $ref: '#/components/schemas/FeatureSet'
+        serializedSize:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/MethodOptions'
+        parserForType:
+          $ref: '#/components/schemas/ParserMethodOptions'
+        featuresOrBuilder:
+          $ref: '#/components/schemas/FeatureSetOrBuilder'
+        uninterpretedOptionList:
+          type: array
+          items:
+            $ref: '#/components/schemas/UninterpretedOption'
+        uninterpretedOptionOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/UninterpretedOptionOrBuilder'
+        uninterpretedOptionCount:
+          type: integer
+          format: int32
+        idempotencyLevel:
+          type: string
+          enum:
+          - IDEMPOTENCY_UNKNOWN
+          - NO_SIDE_EFFECTS
+          - IDEMPOTENT
+        initialized:
+          type: boolean
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        allFieldsRaw:
+          type: object
+          additionalProperties:
+            type: object
+        memoizedSerializedSize:
+          type: integer
+          format: int32
+          writeOnly: true
+    MethodOptionsOrBuilder:
+      type: object
+      properties:
+        deprecated:
+          type: boolean
+        features:
+          $ref: '#/components/schemas/FeatureSet'
+        featuresOrBuilder:
+          $ref: '#/components/schemas/FeatureSetOrBuilder'
+        uninterpretedOptionList:
+          type: array
+          items:
+            $ref: '#/components/schemas/UninterpretedOption'
+        uninterpretedOptionOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/UninterpretedOptionOrBuilder'
+        uninterpretedOptionCount:
+          type: integer
+          format: int32
+        idempotencyLevel:
+          type: string
+          enum:
+          - IDEMPOTENCY_UNKNOWN
+          - NO_SIDE_EFFECTS
+          - IDEMPOTENT
+        defaultInstanceForType:
+          $ref: '#/components/schemas/Message'
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        initialized:
+          type: boolean
+    MonitorProof:
+      type: object
+      properties:
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        serializedSize:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/MonitorProof'
+        parserForType:
+          $ref: '#/components/schemas/ParserMonitorProof'
+        stepsList:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProofStep'
+        stepsCount:
+          type: integer
+          format: int32
+        stepsOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProofStepOrBuilder'
+        initialized:
+          type: boolean
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        memoizedSerializedSize:
+          type: integer
+          format: int32
+          writeOnly: true
+      description: The monitor proof for the username hash search key
+    NamePart:
+      type: object
+      properties:
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        serializedSize:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/NamePart'
+        parserForType:
+          $ref: '#/components/schemas/ParserNamePart'
+        namePart:
+          type: string
+        namePartBytes:
+          $ref: '#/components/schemas/ByteString'
+        isExtension:
+          type: boolean
+        initialized:
+          type: boolean
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        memoizedSerializedSize:
+          type: integer
+          format: int32
+          writeOnly: true
+    NamePartOrBuilder:
+      type: object
+      properties:
+        namePart:
+          type: string
+        namePartBytes:
+          $ref: '#/components/schemas/ByteString'
+        isExtension:
+          type: boolean
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        defaultInstanceForType:
+          $ref: '#/components/schemas/Message'
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        initialized:
+          type: boolean
+    OneofDescriptor:
+      type: object
+      properties:
+        index:
+          type: integer
+          format: int32
+        proto:
+          $ref: '#/components/schemas/OneofDescriptorProto'
+        fullName:
+          type: string
+        file:
+          $ref: '#/components/schemas/FileDescriptor'
+        containingType:
+          $ref: '#/components/schemas/Descriptor'
+        fieldCount:
+          type: integer
+          format: int32
+        name:
+          type: string
+        synthetic:
+          type: boolean
+        options:
+          $ref: '#/components/schemas/OneofOptions'
+    OneofDescriptorProto:
+      type: object
+      properties:
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        name:
+          type: string
+        options:
+          $ref: '#/components/schemas/OneofOptions'
+        serializedSize:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/OneofDescriptorProto'
+        parserForType:
+          $ref: '#/components/schemas/ParserOneofDescriptorProto'
+        nameBytes:
+          $ref: '#/components/schemas/ByteString'
+        optionsOrBuilder:
+          $ref: '#/components/schemas/OneofOptionsOrBuilder'
+        initialized:
+          type: boolean
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        memoizedSerializedSize:
+          type: integer
+          format: int32
+          writeOnly: true
+    OneofDescriptorProtoOrBuilder:
+      type: object
+      properties:
+        name:
+          type: string
+        options:
+          $ref: '#/components/schemas/OneofOptions'
+        nameBytes:
+          $ref: '#/components/schemas/ByteString'
+        optionsOrBuilder:
+          $ref: '#/components/schemas/OneofOptionsOrBuilder'
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        defaultInstanceForType:
+          $ref: '#/components/schemas/Message'
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        initialized:
+          type: boolean
+    OneofOptions:
+      type: object
+      properties:
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        features:
+          $ref: '#/components/schemas/FeatureSet'
+        serializedSize:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/OneofOptions'
+        parserForType:
+          $ref: '#/components/schemas/ParserOneofOptions'
+        featuresOrBuilder:
+          $ref: '#/components/schemas/FeatureSetOrBuilder'
+        uninterpretedOptionList:
+          type: array
+          items:
+            $ref: '#/components/schemas/UninterpretedOption'
+        uninterpretedOptionOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/UninterpretedOptionOrBuilder'
+        uninterpretedOptionCount:
+          type: integer
+          format: int32
+        initialized:
+          type: boolean
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        allFieldsRaw:
+          type: object
+          additionalProperties:
+            type: object
+        memoizedSerializedSize:
+          type: integer
+          format: int32
+          writeOnly: true
+    OneofOptionsOrBuilder:
+      type: object
+      properties:
+        features:
+          $ref: '#/components/schemas/FeatureSet'
+        featuresOrBuilder:
+          $ref: '#/components/schemas/FeatureSetOrBuilder'
+        uninterpretedOptionList:
+          type: array
+          items:
+            $ref: '#/components/schemas/UninterpretedOption'
+        uninterpretedOptionOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/UninterpretedOptionOrBuilder'
+        uninterpretedOptionCount:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/Message'
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        initialized:
+          type: boolean
+    Parser:
+      type: object
+    ParserAuditorTreeHead:
+      type: object
+    ParserDeclaration:
+      type: object
+    ParserDescriptorProto:
+      type: object
+    ParserEditionDefault:
+      type: object
+    ParserEnumDescriptorProto:
+      type: object
+    ParserEnumOptions:
+      type: object
+    ParserEnumReservedRange:
+      type: object
+    ParserEnumValueDescriptorProto:
+      type: object
+    ParserEnumValueOptions:
+      type: object
+    ParserExtensionRange:
+      type: object
+    ParserExtensionRangeOptions:
+      type: object
+    ParserFeatureSet:
+      type: object
+    ParserFieldDescriptorProto:
+      type: object
+    ParserFieldOptions:
+      type: object
+    ParserFileDescriptorProto:
+      type: object
+    ParserFileOptions:
+      type: object
+    ParserFullTreeHead:
+      type: object
+    ParserLocation:
+      type: object
+    ParserMessage:
+      type: object
+    ParserMessageLite:
+      type: object
+    ParserMessageOptions:
+      type: object
+    ParserMethodDescriptorProto:
+      type: object
+    ParserMethodOptions:
+      type: object
+    ParserMonitorProof:
+      type: object
+    ParserNamePart:
+      type: object
+    ParserOneofDescriptorProto:
+      type: object
+    ParserOneofOptions:
+      type: object
+    ParserPrefixSearchResult:
+      type: object
+    ParserProofStep:
+      type: object
+    ParserReservedRange:
+      type: object
+    ParserServiceDescriptorProto:
+      type: object
+    ParserServiceOptions:
+      type: object
+    ParserSourceCodeInfo:
+      type: object
+    ParserTreeHead:
+      type: object
+    ParserUninterpretedOption:
+      type: object
+    PrefixSearchResult:
+      type: object
+      properties:
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        counter:
+          type: integer
+          format: int32
+        serializedSize:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/PrefixSearchResult'
+        parserForType:
+          $ref: '#/components/schemas/ParserPrefixSearchResult'
+        proofList:
+          type: array
+          items:
+            $ref: '#/components/schemas/ByteString'
+        proofCount:
+          type: integer
+          format: int32
+        initialized:
+          type: boolean
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        memoizedSerializedSize:
+          type: integer
+          format: int32
+          writeOnly: true
+    PrefixSearchResultOrBuilder:
+      type: object
+      properties:
+        counter:
+          type: integer
+          format: int32
+        proofList:
+          type: array
+          items:
+            $ref: '#/components/schemas/ByteString'
+        proofCount:
+          type: integer
+          format: int32
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        defaultInstanceForType:
+          $ref: '#/components/schemas/Message'
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        initialized:
+          type: boolean
+    ProofStep:
+      type: object
+      properties:
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        prefix:
+          $ref: '#/components/schemas/PrefixSearchResult'
+        serializedSize:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/ProofStep'
+        parserForType:
+          $ref: '#/components/schemas/ParserProofStep'
+        commitment:
+          $ref: '#/components/schemas/ByteString'
+        prefixOrBuilder:
+          $ref: '#/components/schemas/PrefixSearchResultOrBuilder'
+        initialized:
+          type: boolean
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        memoizedSerializedSize:
+          type: integer
+          format: int32
+          writeOnly: true
+    ProofStepOrBuilder:
+      type: object
+      properties:
+        prefix:
+          $ref: '#/components/schemas/PrefixSearchResult'
+        commitment:
+          $ref: '#/components/schemas/ByteString'
+        prefixOrBuilder:
+          $ref: '#/components/schemas/PrefixSearchResultOrBuilder'
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        defaultInstanceForType:
+          $ref: '#/components/schemas/Message'
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        initialized:
+          type: boolean
+    ProtocolStringList:
+      type: array
+      properties:
+        empty:
+          type: boolean
+        first:
+          type: string
+        last:
+          type: string
+      items:
+        type: string
+    ReservedRange:
+      type: object
+      properties:
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        end:
+          type: integer
+          format: int32
+        start:
+          type: integer
+          format: int32
+        serializedSize:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/ReservedRange'
+        parserForType:
+          $ref: '#/components/schemas/ParserReservedRange'
+        initialized:
+          type: boolean
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        memoizedSerializedSize:
+          type: integer
+          format: int32
+          writeOnly: true
+    ReservedRangeOrBuilder:
+      type: object
+      properties:
+        end:
+          type: integer
+          format: int32
+        start:
+          type: integer
+          format: int32
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        defaultInstanceForType:
+          $ref: '#/components/schemas/Message'
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        initialized:
+          type: boolean
+    ServiceDescriptor:
+      type: object
+      properties:
+        index:
+          type: integer
+          format: int32
+        proto:
+          $ref: '#/components/schemas/ServiceDescriptorProto'
+        fullName:
+          type: string
+        file:
+          $ref: '#/components/schemas/FileDescriptor'
+        methods:
+          type: array
+          items:
+            $ref: '#/components/schemas/MethodDescriptor'
+        name:
+          type: string
+        options:
+          $ref: '#/components/schemas/ServiceOptions'
+    ServiceDescriptorProto:
+      type: object
+      properties:
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        name:
+          type: string
+        options:
+          $ref: '#/components/schemas/ServiceOptions'
+        serializedSize:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/ServiceDescriptorProto'
+        parserForType:
+          $ref: '#/components/schemas/ParserServiceDescriptorProto'
+        nameBytes:
+          $ref: '#/components/schemas/ByteString'
+        optionsOrBuilder:
+          $ref: '#/components/schemas/ServiceOptionsOrBuilder'
+        methodCount:
+          type: integer
+          format: int32
+        methodList:
+          type: array
+          items:
+            $ref: '#/components/schemas/MethodDescriptorProto'
+        methodOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/MethodDescriptorProtoOrBuilder'
+        initialized:
+          type: boolean
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        memoizedSerializedSize:
+          type: integer
+          format: int32
+          writeOnly: true
+    ServiceDescriptorProtoOrBuilder:
+      type: object
+      properties:
+        name:
+          type: string
+        options:
+          $ref: '#/components/schemas/ServiceOptions'
+        nameBytes:
+          $ref: '#/components/schemas/ByteString'
+        optionsOrBuilder:
+          $ref: '#/components/schemas/ServiceOptionsOrBuilder'
+        methodCount:
+          type: integer
+          format: int32
+        methodList:
+          type: array
+          items:
+            $ref: '#/components/schemas/MethodDescriptorProto'
+        methodOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/MethodDescriptorProtoOrBuilder'
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        defaultInstanceForType:
+          $ref: '#/components/schemas/Message'
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        initialized:
+          type: boolean
+    ServiceOptions:
+      type: object
+      properties:
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        deprecated:
+          type: boolean
+        features:
+          $ref: '#/components/schemas/FeatureSet'
+        serializedSize:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/ServiceOptions'
+        parserForType:
+          $ref: '#/components/schemas/ParserServiceOptions'
+        featuresOrBuilder:
+          $ref: '#/components/schemas/FeatureSetOrBuilder'
+        uninterpretedOptionList:
+          type: array
+          items:
+            $ref: '#/components/schemas/UninterpretedOption'
+        uninterpretedOptionOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/UninterpretedOptionOrBuilder'
+        uninterpretedOptionCount:
+          type: integer
+          format: int32
+        initialized:
+          type: boolean
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        allFieldsRaw:
+          type: object
+          additionalProperties:
+            type: object
+        memoizedSerializedSize:
+          type: integer
+          format: int32
+          writeOnly: true
+    ServiceOptionsOrBuilder:
+      type: object
+      properties:
+        deprecated:
+          type: boolean
+        features:
+          $ref: '#/components/schemas/FeatureSet'
+        featuresOrBuilder:
+          $ref: '#/components/schemas/FeatureSetOrBuilder'
+        uninterpretedOptionList:
+          type: array
+          items:
+            $ref: '#/components/schemas/UninterpretedOption'
+        uninterpretedOptionOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/UninterpretedOptionOrBuilder'
+        uninterpretedOptionCount:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/Message'
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        initialized:
+          type: boolean
+    SourceCodeInfo:
+      type: object
+      properties:
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        serializedSize:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/SourceCodeInfo'
+        parserForType:
+          $ref: '#/components/schemas/ParserSourceCodeInfo'
+        locationList:
+          type: array
+          items:
+            $ref: '#/components/schemas/Location'
+        locationCount:
+          type: integer
+          format: int32
+        locationOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/LocationOrBuilder'
+        initialized:
+          type: boolean
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        memoizedSerializedSize:
+          type: integer
+          format: int32
+          writeOnly: true
+    SourceCodeInfoOrBuilder:
+      type: object
+      properties:
+        locationList:
+          type: array
+          items:
+            $ref: '#/components/schemas/Location'
+        locationCount:
+          type: integer
+          format: int32
+        locationOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/LocationOrBuilder'
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        defaultInstanceForType:
+          $ref: '#/components/schemas/Message'
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        initialized:
+          type: boolean
+    TreeHead:
+      type: object
+      properties:
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        signature:
+          $ref: '#/components/schemas/ByteString'
+        timestamp:
+          type: integer
+          format: int64
+        serializedSize:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/TreeHead'
+        parserForType:
+          $ref: '#/components/schemas/ParserTreeHead'
+        treeSize:
+          type: integer
+          format: int64
+        initialized:
+          type: boolean
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        memoizedSerializedSize:
+          type: integer
+          format: int32
+          writeOnly: true
+    TreeHeadOrBuilder:
+      type: object
+      properties:
+        signature:
+          $ref: '#/components/schemas/ByteString'
+        timestamp:
+          type: integer
+          format: int64
+        treeSize:
+          type: integer
+          format: int64
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        defaultInstanceForType:
+          $ref: '#/components/schemas/Message'
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        initialized:
+          type: boolean
+    UninterpretedOption:
+      type: object
+      properties:
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        nameCount:
+          type: integer
+          format: int32
+        doubleValue:
+          type: number
+          format: double
+        serializedSize:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/UninterpretedOption'
+        parserForType:
+          $ref: '#/components/schemas/ParserUninterpretedOption'
+        nameList:
+          type: array
+          items:
+            $ref: '#/components/schemas/NamePart'
+        nameOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/NamePartOrBuilder'
+        identifierValue:
+          type: string
+        identifierValueBytes:
+          $ref: '#/components/schemas/ByteString'
+        positiveIntValue:
+          type: integer
+          format: int64
+        negativeIntValue:
+          type: integer
+          format: int64
+        stringValue:
+          $ref: '#/components/schemas/ByteString'
+        aggregateValue:
+          type: string
+        aggregateValueBytes:
+          $ref: '#/components/schemas/ByteString'
+        initialized:
+          type: boolean
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        memoizedSerializedSize:
+          type: integer
+          format: int32
+          writeOnly: true
+    UninterpretedOptionOrBuilder:
+      type: object
+      properties:
+        nameCount:
+          type: integer
+          format: int32
+        doubleValue:
+          type: number
+          format: double
+        nameList:
+          type: array
+          items:
+            $ref: '#/components/schemas/NamePart'
+        nameOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/NamePartOrBuilder'
+        identifierValue:
+          type: string
+        identifierValueBytes:
+          $ref: '#/components/schemas/ByteString'
+        positiveIntValue:
+          type: integer
+          format: int64
+        negativeIntValue:
+          type: integer
+          format: int64
+        stringValue:
+          $ref: '#/components/schemas/ByteString'
+        aggregateValue:
+          type: string
+        aggregateValueBytes:
+          $ref: '#/components/schemas/ByteString'
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        defaultInstanceForType:
+          $ref: '#/components/schemas/Message'
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        initialized:
+          type: boolean
+    UnknownFieldSet:
+      type: object
+      properties:
+        serializedSize:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        parserForType:
+          $ref: '#/components/schemas/Parser'
+        serializedSizeAsMessageSet:
+          type: integer
+          format: int32
+        initialized:
+          type: boolean
+    KeyTransparencyMonitorRequest:
+      required:
+      - aci
+      - aciPositions
+      type: object
+      properties:
+        aci:
+          type: string
+          description: An identifier for an account based on the account's ACI
+        aciPositions:
+          type: array
+          description: A list of log tree positions maintained by the client for the
+            aci search key.
+          items:
+            type: integer
+            description: A list of log tree positions maintained by the client for
+              the aci search key.
+            format: int64
+        e164:
+          type: string
+          description: The e164-formatted phone number to monitor
+        e164Positions:
+          type: array
+          description: A list of log tree positions maintained by the client for the
+            e164 search key.
+          items:
+            type: integer
+            description: A list of log tree positions maintained by the client for
+              the e164 search key.
+            format: int64
+        usernameHash:
+          type: string
+          description: "The username hash to monitor, encoded in url-safe unpadded\
+            \ base64."
+          format: byte
+        usernameHashPositions:
+          type: array
+          description: A list of log tree positions maintained by the client for the
+            username hash search key.
+          items:
+            type: integer
+            description: A list of log tree positions maintained by the client for
+              the username hash search key.
+            format: int64
+        lastTreeHeadSize:
+          type: integer
+          description: The tree head size to prove consistency against.
+          format: int64
+        usernameHashFieldsValid:
+          type: boolean
+        e164VFieldsValid:
+          type: boolean
+    FullTreeHeadOrBuilder:
+      type: object
+      properties:
+        treeHead:
+          $ref: '#/components/schemas/TreeHead'
+        auditorTreeHead:
+          $ref: '#/components/schemas/AuditorTreeHead'
+        consistencyList:
+          type: array
+          items:
+            $ref: '#/components/schemas/ByteString'
+        consistencyCount:
+          type: integer
+          format: int32
+        treeHeadOrBuilder:
+          $ref: '#/components/schemas/TreeHeadOrBuilder'
+        auditorTreeHeadOrBuilder:
+          $ref: '#/components/schemas/AuditorTreeHeadOrBuilder'
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        defaultInstanceForType:
+          $ref: '#/components/schemas/Message'
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        initialized:
+          type: boolean
+    KeyTransparencySearchResponse:
+      required:
+      - aciSearchResponse
+      type: object
+      properties:
+        aciSearchResponse:
+          $ref: '#/components/schemas/SearchResponse'
+        e164SearchResponse:
+          $ref: '#/components/schemas/SearchResponse'
+        usernameHashSearchResponse:
+          $ref: '#/components/schemas/SearchResponse'
+    ParserSearchProof:
+      type: object
+    ParserSearchResponse:
+      type: object
+    ParserUpdateValue:
+      type: object
+    SearchProof:
+      type: object
+      properties:
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        pos:
+          type: integer
+          format: int64
+        inclusionList:
+          type: array
+          items:
+            $ref: '#/components/schemas/ByteString'
+        serializedSize:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/SearchProof'
+        parserForType:
+          $ref: '#/components/schemas/ParserSearchProof'
+        stepsList:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProofStep'
+        stepsCount:
+          type: integer
+          format: int32
+        stepsOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProofStepOrBuilder'
+        inclusionCount:
+          type: integer
+          format: int32
+        initialized:
+          type: boolean
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        memoizedSerializedSize:
+          type: integer
+          format: int32
+          writeOnly: true
+    SearchProofOrBuilder:
+      type: object
+      properties:
+        pos:
+          type: integer
+          format: int64
+        inclusionList:
+          type: array
+          items:
+            $ref: '#/components/schemas/ByteString'
+        stepsList:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProofStep'
+        stepsCount:
+          type: integer
+          format: int32
+        stepsOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProofStepOrBuilder'
+        inclusionCount:
+          type: integer
+          format: int32
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        defaultInstanceForType:
+          $ref: '#/components/schemas/Message'
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        initialized:
+          type: boolean
+    SearchResponse:
+      type: object
+      properties:
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        value:
+          $ref: '#/components/schemas/UpdateValue'
+        treeHead:
+          $ref: '#/components/schemas/FullTreeHead'
+        serializedSize:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/SearchResponse'
+        parserForType:
+          $ref: '#/components/schemas/ParserSearchResponse'
+        treeHeadOrBuilder:
+          $ref: '#/components/schemas/FullTreeHeadOrBuilder'
+        valueOrBuilder:
+          $ref: '#/components/schemas/UpdateValueOrBuilder'
+        search:
+          $ref: '#/components/schemas/SearchProof'
+        vrfProof:
+          $ref: '#/components/schemas/ByteString'
+        opening:
+          $ref: '#/components/schemas/ByteString'
+        searchOrBuilder:
+          $ref: '#/components/schemas/SearchProofOrBuilder'
+        initialized:
+          type: boolean
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        memoizedSerializedSize:
+          type: integer
+          format: int32
+          writeOnly: true
+      description: The search response for the username hash search key
+    UpdateValue:
+      type: object
+      properties:
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        value:
+          $ref: '#/components/schemas/ByteString'
+        serializedSize:
+          type: integer
+          format: int32
+        defaultInstanceForType:
+          $ref: '#/components/schemas/UpdateValue'
+        parserForType:
+          $ref: '#/components/schemas/ParserUpdateValue'
+        initialized:
+          type: boolean
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        memoizedSerializedSize:
+          type: integer
+          format: int32
+          writeOnly: true
+    UpdateValueOrBuilder:
+      type: object
+      properties:
+        value:
+          $ref: '#/components/schemas/ByteString'
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
+        defaultInstanceForType:
+          $ref: '#/components/schemas/Message'
+        initializationErrorString:
+          type: string
+        descriptorForType:
+          $ref: '#/components/schemas/Descriptor'
+        allFields:
+          type: object
+          additionalProperties:
+            type: object
+        initialized:
+          type: boolean
+    KeyTransparencySearchRequest:
+      required:
+      - aci
+      type: object
+      properties:
+        aci:
+          type: string
+          description: An identifier for an account based on the account's ACI
+        e164:
+          type: string
+          description: The e164-formatted phone number to look up
+        usernameHash:
+          type: string
+          description: "The username hash to look up, encoded in web-safe unpadded\
+            \ base64."
+          format: byte
+        lastTreeHeadSize:
+          type: integer
+          description: The tree head size to prove consistency against.
+          format: int64
     CheckKeysRequest:
       required:
       - digest
