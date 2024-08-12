@@ -603,6 +603,16 @@
             <configuration>
               <from>
                 <image>eclipse-temurin@sha256:${docker.image.sha256}</image>
+                <platforms>
+                  <platform>
+                    <architecture>amd64</architecture>
+                    <os>linux</os>
+                  </platform>
+                  <platform>
+                    <architecture>arm64</architecture>
+                    <os>linux</os>
+                  </platform>
+                </platforms>
               </from>
               <to>
                 <image>${docker.repo}:${project.version}</image>

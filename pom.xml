@@ -73,8 +73,8 @@
     <stripe.version>23.10.0</stripe.version>
     <swagger.version>2.2.22</swagger.version>
 
-    <!-- 21.0.3_9-jre-jammy -->
-    <docker.image.sha256>434c26bd14f3208b9e739277e2679c2c7ef3f85d4a4f32c5a27b12a7fc206b09</docker.image.sha256>
+    <!-- 21.0.4_7-jre-jammy (note: always use the multi-arch manifest *LIST* here) -->
+    <docker.image.sha256>870aae69d4521fdaf26e952f8026f75b37cb721e6302d4d4d7100f6b09823057</docker.image.sha256>
 
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
