@@ -37,6 +37,7 @@ import org.whispersystems.textsecuregcm.configuration.FcmConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GcpAttachmentsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GenericZkConfig;
 import org.whispersystems.textsecuregcm.configuration.HCaptchaClientFactory;
+import org.whispersystems.textsecuregcm.configuration.KeyTransparencyServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.LinkDeviceSecretConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MaxDeviceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MessageByteLimitCardinalityEstimatorConfiguration;
@@ -341,6 +342,11 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private ExternalRequestFilterConfiguration externalRequestFilter;
 
+  @Valid
+  @NotNull
+  @JsonProperty
+  private KeyTransparencyServiceConfiguration keyTransparencyService;
+
   public TlsKeyStoreConfiguration getTlsKeyStoreConfiguration() {
     return tlsKeyStore;
   }
@@ -566,5 +572,9 @@ public class WhisperServerConfiguration extends Configuration {
 
   public ExternalRequestFilterConfiguration getExternalRequestFilterConfiguration() {
     return externalRequestFilter;
+  }
+
+  public KeyTransparencyServiceConfiguration getKeyTransparencyServiceConfiguration() {
+    return keyTransparencyService;
   }
 }

@@ -1,0 +1,241 @@
+/*
+ * Copyright 2024 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
+syntax = "proto3";
+
+option java_multiple_files = true;
+
+package katie;
+
+service Katie {
+  /**
+   * Provides proof that a specific version of the search key exists in the log tree.
+   */
+  rpc Search(SearchRequest) returns (SearchResponse) {}
+  /**
+   * Allows users to monitor a set of search keys by providing proof that the log tree continues to be
+   * constructed correctly in later entries for those search keys. 
+   */
+  rpc Monitor(MonitorRequest) returns (MonitorResponse) {}
+}
+
+// TODO: add a `value` field so that the KT server can verify that the given search key is mapped
+// to the provided value.
+message SearchRequest {
+  /**
+   * The key to look up in the log tree.
+   * A key can be an ACI, an E164 phone number, or a username hash and
+   * is prefixed with a unique identifier to indicate its type.
+   */
+  bytes search_key = 1;
+  /**
+   * TODO: Remove this protobuf field in the KT server
+   * The version of the key to look up. If not specified, the key transparency server
+   * defaults to returning the most recent version of the key.
+   */
+  optional uint32 version = 2;
+  /**
+   * The tree head size to prove consistency against.
+   */
+  optional uint64 last = 3;
+}
+
+message SearchResponse {
+  /**
+   * A signed representation of the log tree's current state along with some
+   * additional information necessary for validation such as a consistency proof and an auditor-signed tree head.
+   */
+  FullTreeHead tree_head = 1;
+  /**
+   * A proof that is combined with the original requested search key and the VRF public key
+   * and outputs whether the proof is valid, and if so, the commitment index.
+   */
+  bytes vrf_proof = 2;
+  /**
+   * A proof that the binary search for the given search key was done correctly.
+   */
+  SearchProof search = 3;
+  /**
+   * A 32 byte value computed based on the log position and a random 32 byte key that is only known by
+   * the key transparency service. It is provided so that clients can recompute and verify the commitment.
+   */
+  bytes opening = 4;
+  /**
+   * The new or updated value of the search key.
+   */
+  UpdateValue value = 5;
+}
+
+message FullTreeHead {
+  /**
+   * A representation of the log tree's current state signed by the key transparency service.
+   */
+  TreeHead tree_head = 1;
+  /**
+   * A consistency proof between the current tree size and the requested tree size.
+   */
+  repeated bytes consistency = 2;
+  /**
+   * A tree head signed by a third-party auditor.
+   */
+  optional AuditorTreeHead auditor_tree_head = 3;
+}
+
+message TreeHead {
+  /**
+   * The number of entries in the log tree.
+   */
+  uint64 tree_size = 1;
+  /**
+   * The time in milliseconds since epoch when the tree head signature was generated.
+   */
+  int64 timestamp = 2;
+  /**
+   * A signature computed over the log tree's current state and long-term log configuration.
+   */
+  bytes signature = 3;
+}
+
+message AuditorTreeHead {
+  /**
+   * A representation of the log tree state signed by a third-party auditor.
+   */
+  TreeHead tree_head = 1;
+  /**
+   * Provided if the auditor tree head size is smaller than the size of the most recent
+   * tree head provided to the user.
+   * The root hash of the log tree when the auditor produced the tree head signature.
+   */
+  optional bytes root_value = 2;
+  /**
+   * Provided if the auditor tree head size is smaller than the size of the most recent
+   * tree head provided by the key transparency service to the user.
+   * A consistency proof between the auditor tree head and the most recent tree head.
+   */
+  repeated bytes consistency = 3;
+}
+
+/**
+ * A ProofStep represents one "step" or log entry in the binary search
+ * and can be used to calculate a log tree leaf hash.
+ */
+message ProofStep {
+  /**
+   * Provides the data needed to recompute the prefix tree root hash corresponding to the given log entry.
+   */
+  PrefixSearchResult prefix = 1;
+  /**
+   * A cryptographic hash of the update used to calculate the log tree leaf hash.
+   */
+  bytes commitment = 2;
+}
+
+message SearchProof {
+  /**
+   * The position in the log tree of the first occurrence of the requested search key.
+   */
+  uint64 pos = 1;
+  /**
+   * The steps of a binary search through the entries of the log tree for the given search key version.
+   * Each ProofStep corresponds to a log entry and provides the information necessary to recompute a log tree
+   * leaf hash.
+   */
+  repeated ProofStep steps = 2;
+  /**
+   * A batch inclusion proof for all log tree leaves involved in the binary search for the given search key.
+   */
+  repeated bytes inclusion = 3;
+}
+
+
+message UpdateValue {
+  /**
+   * TODO: Update KT server to remove this field since it's only relevant to third-party management and we're not doing that.
+   */
+  // optional bytes signature = 1;
+  /**
+   * The new value for a search key.
+   */
+  bytes value = 2;
+}
+
+message PrefixSearchResult {
+  /**
+   * A proof from a prefix tree that indicates a search was done correctly for a given search key.
+   * The elements of this array are the copath of the prefix tree leaf node in bottom-to-top order.
+   */
+  repeated bytes proof = 1;
+  /**
+   * The version of the requested search key in the prefix tree.
+   */
+  uint32 counter = 2;
+}
+
+message MonitorKey {
+  /**
+   * The key to search for in the log tree.
+   */
+  bytes search_key = 1;
+  /**
+   * A list of log tree positions maintained by a client for the search key being monitored.
+   * Each position is in the direct path to a key version and corresponds to a tree head
+   * that has been verified to contain that version or greater.
+   * The key transparency server uses this list to compute which log entries to return
+   * in the corresponding MonitorProof.
+   */
+  repeated uint64 entries = 2;
+}
+
+
+message MonitorRequest {
+  /**
+   * TODO: Remove this protobuf field in the KT server
+   */
+  repeated MonitorKey owned_keys = 1;
+  /**
+   * The list of search keys that the client would like to monitor.
+   * All search keys *must* belong to the same user.
+   */
+  repeated MonitorKey contact_keys = 2;
+  /**
+   * The tree head size that the key transparency server must prove consistency against.
+   */
+  optional uint64 last = 3;
+}
+
+message MonitorProof {
+  /**
+   * Generated based on the monitored entries provided in MonitorKey.entries. Each ProofStep
+   * corresponds to a log tree entry that exists in the search path to each monitored entry
+   * and that came *after* that monitored entry. It proves that the log tree has been constructed
+   * correctly at that later entry. This list also includes any remaining entries
+   * along the "frontier" of the log tree which proves that the very last entry in the log
+   * has been constructed correctly.
+   */
+  repeated ProofStep steps = 1;
+}
+
+message MonitorResponse {
+  /**
+   * A signed representation of the log tree's current state along with some
+   * additional information necessary for validation such as a consistency proof and an auditor-signed tree head.
+   */
+  FullTreeHead tree_head = 1;
+  /**
+   * TODO: Remove this protobuf field in the KT server
+   */
+  repeated MonitorProof owned_proofs = 2;
+  /**
+   * A list of proofs, one for each key in MonitorRequest.contact_keys, each proving that the given search key
+   * continues to be constructed correctly in later entries of hte log tree.
+   */
+  repeated MonitorProof contact_proofs = 3;
+  /**
+   * A batch inclusion proof that the log entries involved in the binary search for each of the entries
+   * being monitored in MonitorKey.entries are included in the current log tree.
+   */
+  repeated bytes inclusion = 4;
+}
+

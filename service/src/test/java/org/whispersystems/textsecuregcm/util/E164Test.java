@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Method;
+import java.util.Optional;
 import java.util.Set;
 import javax.validation.ConstraintViolation;
 import javax.validation.Validation;
@@ -31,14 +32,18 @@ public class E164Test {
     @E164
     private final String number;
 
-    private Data(final String number) {
+    @E164
+    private final Optional<String> optionalNumber;
+
+    private Data(final String number, final Optional<String> optionalNumber) {
       this.number = number;
+      this.optionalNumber = optionalNumber;
     }
   }
 
   private static class Methods {
 
-    public void foo(@E164 final String number) {
+    public void foo(@E164 final String number, @E164 final Optional<String> optionalNumber) {
       // noop
     }
 
@@ -46,36 +51,41 @@ public class E164Test {
     public String bar() {
       return "nevermind";
     }
+
+    @E164
+    public Optional<String> barOptionalString() {
+      return Optional.of("nevermind");
+    }
   }
 
-  private record Rec(@E164 String number) {
+  private record Rec(@E164 String number, @E164 Optional<String> optionalNumber) {
   }
 
   @Test
-  public void testRecord() throws Exception {
-    checkNoViolations(new Rec(E164_VALID));
-    checkHasViolations(new Rec(E164_INVALID));
-    checkHasViolations(new Rec(EMPTY));
+  public void testRecord() {
+    checkNoViolations(new Rec(E164_VALID, Optional.of(E164_VALID)));
+    checkHasViolations(new Rec(E164_INVALID, Optional.of(E164_INVALID)));
+    checkHasViolations(new Rec(EMPTY, Optional.of(EMPTY)));
   }
 
   @Test
-  public void testClassField() throws Exception {
-    checkNoViolations(new Data(E164_VALID));
-    checkHasViolations(new Data(E164_INVALID));
-    checkHasViolations(new Data(EMPTY));
+  public void testClassField() {
+    checkNoViolations(new Data(E164_VALID, Optional.of(E164_VALID)));
+    checkHasViolations(new Data(E164_INVALID, Optional.of(E164_INVALID)));
+    checkHasViolations(new Data(EMPTY, Optional.of(EMPTY)));
   }
 
   @Test
   public void testParameters() throws Exception {
     final Methods m = new Methods();
-    final Method foo = Methods.class.getMethod("foo", String.class);
+    final Method foo = Methods.class.getMethod("foo", String.class, Optional.class);
 
     final Set<ConstraintViolation<Methods>> violations1 =
-        VALIDATOR.forExecutables().validateParameters(m, foo, new Object[] {E164_VALID});
+        VALIDATOR.forExecutables().validateParameters(m, foo, new Object[] {E164_VALID, Optional.of(E164_VALID)});
     final Set<ConstraintViolation<Methods>> violations2 =
-        VALIDATOR.forExecutables().validateParameters(m, foo, new Object[] {E164_INVALID});
+        VALIDATOR.forExecutables().validateParameters(m, foo, new Object[] {E164_INVALID, Optional.of(E164_INVALID)});
     final Set<ConstraintViolation<Methods>> violations3 =
-        VALIDATOR.forExecutables().validateParameters(m, foo, new Object[] {EMPTY});
+        VALIDATOR.forExecutables().validateParameters(m, foo, new Object[] {EMPTY, Optional.of(EMPTY)});
 
     assertTrue(violations1.isEmpty());
     assertFalse(violations2.isEmpty());
@@ -93,6 +103,23 @@ public class E164Test {
         VALIDATOR.forExecutables().validateReturnValue(m, bar, E164_INVALID);
     final Set<ConstraintViolation<Methods>> violations3 =
         VALIDATOR.forExecutables().validateReturnValue(m, bar, EMPTY);
+
+    assertTrue(violations1.isEmpty());
+    assertFalse(violations2.isEmpty());
+    assertFalse(violations3.isEmpty());
+  }
+
+  @Test
+  public void testOptionalReturnValue() throws Exception {
+    final Methods m = new Methods();
+    final Method bar = Methods.class.getMethod("barOptionalString");
+
+    final Set<ConstraintViolation<Methods>> violations1 =
+        VALIDATOR.forExecutables().validateReturnValue(m, bar, Optional.of(E164_VALID));
+    final Set<ConstraintViolation<Methods>> violations2 =
+        VALIDATOR.forExecutables().validateReturnValue(m, bar, Optional.of(E164_INVALID));
+    final Set<ConstraintViolation<Methods>> violations3 =
+        VALIDATOR.forExecutables().validateReturnValue(m, bar, Optional.of(EMPTY));
 
     assertTrue(violations1.isEmpty());
     assertFalse(violations2.isEmpty());

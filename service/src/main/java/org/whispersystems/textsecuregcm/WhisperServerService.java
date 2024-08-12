@@ -119,6 +119,7 @@ import org.whispersystems.textsecuregcm.controllers.DeviceController;
 import org.whispersystems.textsecuregcm.controllers.DirectoryV2Controller;
 import org.whispersystems.textsecuregcm.controllers.DonationController;
 import org.whispersystems.textsecuregcm.controllers.KeepAliveController;
+import org.whispersystems.textsecuregcm.controllers.KeyTransparencyController;
 import org.whispersystems.textsecuregcm.controllers.KeysController;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
 import org.whispersystems.textsecuregcm.controllers.PaymentsController;
@@ -159,6 +160,7 @@ import org.whispersystems.textsecuregcm.grpc.net.ManagedLocalGrpcServer;
 import org.whispersystems.textsecuregcm.grpc.net.ManagedNioEventLoopGroup;
 import org.whispersystems.textsecuregcm.grpc.net.NoiseWebSocketTunnelServer;
 import org.whispersystems.textsecuregcm.jetty.JettyHttpConfigurationCustomizer;
+import org.whispersystems.textsecuregcm.keytransparency.KeyTransparencyServiceClient;
 import org.whispersystems.textsecuregcm.limits.CardinalityEstimator;
 import org.whispersystems.textsecuregcm.limits.PushChallengeManager;
 import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
@@ -572,6 +574,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .maxThreads(2)
         .minThreads(2)
         .build();
+    ExecutorService keyTransparencyCallbackExecutor = new VirtualExecutorServiceProvider(name(getClass(), "keyTransparency-%d"))
+        .getExecutorService();
 
     ScheduledExecutorService subscriptionProcessorRetryExecutor = environment.lifecycle()
         .scheduledExecutorService(name(getClass(), "subscriptionProcessorRetry-%d")).threads(1).build();
@@ -607,6 +611,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     RegistrationServiceClient registrationServiceClient = config.getRegistrationServiceConfiguration()
         .build(environment, registrationCallbackExecutor, registrationIdentityTokenRefreshExecutor);
+    KeyTransparencyServiceClient keyTransparencyServiceClient = new KeyTransparencyServiceClient(
+        config.getKeyTransparencyServiceConfiguration().host(),
+        config.getKeyTransparencyServiceConfiguration().port(),
+        config.getKeyTransparencyServiceConfiguration().tlsCertificate(),
+        keyTransparencyCallbackExecutor);
     SecureValueRecovery2Client secureValueRecovery2Client = new SecureValueRecovery2Client(svr2CredentialsGenerator,
         secureValueRecoveryServiceExecutor, secureValueRecoveryServiceRetryExecutor, config.getSvr2Configuration());
     SecureStorageClient secureStorageClient = new SecureStorageClient(storageCredentialsGenerator,
@@ -737,6 +746,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.lifecycle().manage(clientPresenceManager);
     environment.lifecycle().manage(currencyManager);
     environment.lifecycle().manage(registrationServiceClient);
+    environment.lifecycle().manage(keyTransparencyServiceClient);
     environment.lifecycle().manage(clientReleaseManager);
     environment.lifecycle().manage(virtualThreadPinEventMonitor);
 
@@ -978,6 +988,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final MessageMetrics messageMetrics = new MessageMetrics();
 
     environment.jersey().register(new BufferingInterceptor());
+    environment.jersey().register(keyTransparencyCallbackExecutor);
     environment.jersey().register(new VirtualExecutorServiceProvider("managed-async-virtual-thread-"));
     environment.jersey().register(new RequestStatisticsFilter(TrafficSource.HTTP));
     environment.jersey().register(MultiRecipientMessageProvider.class);
@@ -1084,6 +1095,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new DonationController(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager, config.getBadges(),
             ReceiptCredentialPresentation::new),
         new KeysController(rateLimiters, keysManager, accountsManager, zkSecretParams, Clock.systemUTC()),
+        new KeyTransparencyController(keyTransparencyServiceClient),
         new MessageController(rateLimiters, messageByteLimitCardinalityEstimator, messageSender, receiptSender,
             accountsManager, messagesManager, pushNotificationManager, reportMessageManager,
             multiRecipientMessageExecutor, messageDeliveryScheduler, reportSpamTokenProvider, clientReleaseManager,

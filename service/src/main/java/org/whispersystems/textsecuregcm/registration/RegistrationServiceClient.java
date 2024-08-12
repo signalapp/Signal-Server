@@ -1,8 +1,5 @@
 package org.whispersystems.textsecuregcm.registration;
 
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
@@ -34,6 +31,7 @@ import org.signal.registration.rpc.SendVerificationCodeRequest;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.controllers.VerificationSessionRateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.RegistrationServiceSession;
+import org.whispersystems.textsecuregcm.util.CompletableFutureUtil;
 
 public class RegistrationServiceClient implements Managed {
 
@@ -84,11 +82,11 @@ public class RegistrationServiceClient implements Managed {
     final long e164 = Long.parseLong(
         PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164).substring(1));
 
-    return toCompletableFuture(stub.withDeadline(toDeadline(timeout))
+    return CompletableFutureUtil.toCompletableFuture(stub.withDeadline(toDeadline(timeout))
         .createSession(CreateRegistrationSessionRequest.newBuilder()
             .setE164(e164)
             .setAccountExistsWithE164(accountExistsWithPhoneNumber)
-            .build()))
+            .build()), callbackExecutor)
         .thenApply(response -> switch (response.getResponseCase()) {
           case SESSION_METADATA -> buildSessionResponseFromMetadata(response.getSessionMetadata());
 
@@ -129,8 +127,8 @@ public class RegistrationServiceClient implements Managed {
       requestBuilder.setSenderName(senderOverride);
     }
 
-    return toCompletableFuture(stub.withDeadline(toDeadline(timeout))
-        .sendVerificationCode(requestBuilder.build()))
+    return CompletableFutureUtil.toCompletableFuture(stub.withDeadline(toDeadline(timeout))
+        .sendVerificationCode(requestBuilder.build()), callbackExecutor)
         .thenApply(response -> {
           if (response.hasError()) {
             switch (response.getError().getErrorType()) {
@@ -172,11 +170,11 @@ public class RegistrationServiceClient implements Managed {
   public CompletableFuture<RegistrationServiceSession> checkVerificationCode(final byte[] sessionId,
       final String verificationCode,
       final Duration timeout) {
-    return toCompletableFuture(stub.withDeadline(toDeadline(timeout))
+    return CompletableFutureUtil.toCompletableFuture(stub.withDeadline(toDeadline(timeout))
         .checkVerificationCode(CheckVerificationCodeRequest.newBuilder()
             .setSessionId(ByteString.copyFrom(sessionId))
             .setVerificationCode(verificationCode)
-            .build()))
+            .build()), callbackExecutor)
         .thenApply(response -> {
           if (response.hasError()) {
             switch (response.getError().getErrorType()) {
@@ -208,9 +206,9 @@ public class RegistrationServiceClient implements Managed {
 
   public CompletableFuture<Optional<RegistrationServiceSession>> getSession(final byte[] sessionId,
       final Duration timeout) {
-    return toCompletableFuture(stub.withDeadline(toDeadline(timeout)).getSessionMetadata(
+    return CompletableFutureUtil.toCompletableFuture(stub.withDeadline(toDeadline(timeout)).getSessionMetadata(
         GetRegistrationSessionMetadataRequest.newBuilder()
-            .setSessionId(ByteString.copyFrom(sessionId)).build()))
+            .setSessionId(ByteString.copyFrom(sessionId)).build()), callbackExecutor)
         .thenApply(response -> {
           if (response.hasError()) {
             switch (response.getError().getErrorType()) {
@@ -249,24 +247,6 @@ public class RegistrationServiceClient implements Managed {
       case SMS -> org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS;
       case VOICE -> org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_VOICE;
     };
-  }
-
-  private <T> CompletableFuture<T> toCompletableFuture(final ListenableFuture<T> listenableFuture) {
-    final CompletableFuture<T> completableFuture = new CompletableFuture<>();
-
-    Futures.addCallback(listenableFuture, new FutureCallback<T>() {
-      @Override
-      public void onSuccess(@Nullable final T result) {
-        completableFuture.complete(result);
-      }
-
-      @Override
-      public void onFailure(final Throwable throwable) {
-        completableFuture.completeExceptionally(throwable);
-      }
-    }, callbackExecutor);
-
-    return completableFuture;
   }
 
   @Override
