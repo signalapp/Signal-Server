@@ -28,6 +28,7 @@ import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import javax.ws.rs.BadRequestException;
 import javax.ws.rs.Consumes;
+import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
@@ -79,9 +80,6 @@ public class OneTimeDonationController {
 
   private static final Logger logger = LoggerFactory.getLogger(SubscriptionController.class);
 
-  private static final String AUTHENTICATED_BOOST_OPERATION_COUNTER_NAME =
-      MetricsUtil.name(SubscriptionController.class, "authenticatedBoostOperation");
-  private static final String OPERATION_TAG_NAME = "operation";
   private static final String EURO_CURRENCY_CODE = "EUR";
 
   private final Clock clock;
@@ -136,9 +134,7 @@ public class OneTimeDonationController {
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) {
 
     if (authenticatedAccount.isPresent()) {
-      Metrics.counter(AUTHENTICATED_BOOST_OPERATION_COUNTER_NAME, Tags.of(
-          UserAgentTagUtil.getPlatformTag(userAgent),
-          Tag.of(OPERATION_TAG_NAME, "boost/create"))).increment();
+      throw new ForbiddenException("must not use authenticated connection for one-time donation operations");
     }
 
     return CompletableFuture.runAsync(() -> {
@@ -225,9 +221,7 @@ public class OneTimeDonationController {
       @Context ContainerRequestContext containerRequestContext) {
 
     if (authenticatedAccount.isPresent()) {
-      Metrics.counter(AUTHENTICATED_BOOST_OPERATION_COUNTER_NAME, Tags.of(
-          UserAgentTagUtil.getPlatformTag(userAgent),
-          Tag.of(OPERATION_TAG_NAME, "boost/paypal/create"))).increment();
+      throw new ForbiddenException("must not use authenticated connection for one-time donation operations");
     }
 
     return CompletableFuture.runAsync(() -> {
@@ -273,9 +267,7 @@ public class OneTimeDonationController {
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) {
 
     if (authenticatedAccount.isPresent()) {
-      Metrics.counter(AUTHENTICATED_BOOST_OPERATION_COUNTER_NAME, Tags.of(
-          UserAgentTagUtil.getPlatformTag(userAgent),
-          Tag.of(OPERATION_TAG_NAME, "boost/paypal/confirm"))).increment();
+      throw new ForbiddenException("must not use authenticated connection for one-time donation operations");
     }
 
     return CompletableFuture.runAsync(() -> {
@@ -321,9 +313,7 @@ public class OneTimeDonationController {
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) {
 
     if (authenticatedAccount.isPresent()) {
-      Metrics.counter(AUTHENTICATED_BOOST_OPERATION_COUNTER_NAME, Tags.of(
-          UserAgentTagUtil.getPlatformTag(userAgent),
-          Tag.of(OPERATION_TAG_NAME, "boost/receipt_credentials"))).increment();
+      throw new ForbiddenException("must not use authenticated connection for one-time donation operations");
     }
 
     final CompletableFuture<PaymentDetails> paymentDetailsFut = switch (request.processor) {
