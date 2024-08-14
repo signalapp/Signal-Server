@@ -26,7 +26,7 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.entities.ProvisioningMessage;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
@@ -56,7 +56,7 @@ public class ProvisioningController {
   @PUT
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public void sendProvisioningMessage(@ReadOnly @Auth AuthenticatedAccount auth,
+  public void sendProvisioningMessage(@ReadOnly @Auth AuthenticatedDevice auth,
       @PathParam("destination") String destinationName,
       @NotNull @Valid ProvisioningMessage message,
       @HeaderParam(HttpHeaders.USER_AGENT) String userAgent)

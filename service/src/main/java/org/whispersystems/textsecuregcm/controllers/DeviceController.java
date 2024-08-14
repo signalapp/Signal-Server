@@ -47,7 +47,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import org.glassfish.jersey.server.ContainerRequest;
 import org.whispersystems.textsecuregcm.auth.LinkedDeviceRefreshRequirementProvider;
-import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.BasicAuthorizationHeader;
 import org.whispersystems.textsecuregcm.auth.ChangesLinkedDevices;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
@@ -118,7 +118,7 @@ public class DeviceController {
 
   @GET
   @Produces(MediaType.APPLICATION_JSON)
-  public DeviceInfoList getDevices(@ReadOnly @Auth AuthenticatedAccount auth) {
+  public DeviceInfoList getDevices(@ReadOnly @Auth AuthenticatedDevice auth) {
     List<DeviceInfo> devices = new LinkedList<>();
 
     for (Device device : auth.getAccount().getDevices()) {
@@ -133,7 +133,7 @@ public class DeviceController {
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/{device_id}")
   @ChangesLinkedDevices
-  public void removeDevice(@Mutable @Auth AuthenticatedAccount auth, @PathParam("device_id") byte deviceId) {
+  public void removeDevice(@Mutable @Auth AuthenticatedDevice auth, @PathParam("device_id") byte deviceId) {
     if (auth.getAuthenticatedDevice().getId() != Device.PRIMARY_ID) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
@@ -148,7 +148,7 @@ public class DeviceController {
   @GET
   @Path("/provisioning/code")
   @Produces(MediaType.APPLICATION_JSON)
-  public VerificationCode createDeviceToken(@ReadOnly @Auth AuthenticatedAccount auth)
+  public VerificationCode createDeviceToken(@ReadOnly @Auth AuthenticatedDevice auth)
       throws RateLimitExceededException, DeviceLimitExceededException {
 
     final Account account = auth.getAccount();
@@ -273,7 +273,7 @@ public class DeviceController {
   @PUT
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/unauthenticated_delivery")
-  public void setUnauthenticatedDelivery(@Mutable @Auth AuthenticatedAccount auth) {
+  public void setUnauthenticatedDelivery(@Mutable @Auth AuthenticatedDevice auth) {
     assert (auth.getAuthenticatedDevice() != null);
     // Deprecated
   }
@@ -281,7 +281,7 @@ public class DeviceController {
   @PUT
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/capabilities")
-  public void setCapabilities(@Mutable @Auth AuthenticatedAccount auth, @NotNull @Valid DeviceCapabilities capabilities) {
+  public void setCapabilities(@Mutable @Auth AuthenticatedDevice auth, @NotNull @Valid DeviceCapabilities capabilities) {
     assert (auth.getAuthenticatedDevice() != null);
     final byte deviceId = auth.getAuthenticatedDevice().getId();
     accounts.updateDevice(auth.getAccount(), deviceId, d -> d.setCapabilities(capabilities));
@@ -301,7 +301,7 @@ public class DeviceController {
   @ApiResponse(responseCode = "200", description = "Public key stored successfully")
   @ApiResponse(responseCode = "401", description = "Account authentication check failed")
   @ApiResponse(responseCode = "422", description = "Invalid request format")
-  public CompletableFuture<Void> setPublicKey(@Auth final AuthenticatedAccount auth,
+  public CompletableFuture<Void> setPublicKey(@Auth final AuthenticatedDevice auth,
       final SetPublicKeyRequest setPublicKeyRequest) {
 
     return clientPublicKeysManager.setPublicKey(auth.getAccount(),

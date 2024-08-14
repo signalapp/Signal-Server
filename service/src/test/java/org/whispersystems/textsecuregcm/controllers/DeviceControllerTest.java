@@ -51,7 +51,7 @@ import org.mockito.ArgumentCaptor;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
-import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.WebsocketRefreshApplicationEventListener;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
@@ -119,7 +119,7 @@ class DeviceControllerTest {
   private static final ResourceExtension resources = ResourceExtension.builder()
       .addProperty(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE)
       .addProvider(AuthHelper.getAuthFilter())
-      .addProvider(new AuthValueFactoryProvider.Binder<>(AuthenticatedAccount.class))
+      .addProvider(new AuthValueFactoryProvider.Binder<>(AuthenticatedDevice.class))
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addProvider(new WebsocketRefreshApplicationEventListener(accountsManager, clientPresenceManager))
       .addProvider(new DeviceLimitExceededExceptionMapper())

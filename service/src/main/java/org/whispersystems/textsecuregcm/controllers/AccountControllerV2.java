@@ -36,7 +36,7 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.ChangesPhoneNumber;
 import org.whispersystems.textsecuregcm.auth.PhoneVerificationTokenManager;
 import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager;
@@ -49,7 +49,6 @@ import org.whispersystems.textsecuregcm.entities.PhoneNumberIdentityKeyDistribut
 import org.whispersystems.textsecuregcm.entities.PhoneVerificationRequest;
 import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
 import org.whispersystems.textsecuregcm.entities.StaleDevices;
-import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -106,11 +105,11 @@ public class AccountControllerV2 {
   @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
       name = "Retry-After",
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
-  public AccountIdentityResponse changeNumber(@Mutable @Auth final AuthenticatedAccount authenticatedAccount,
+  public AccountIdentityResponse changeNumber(@Mutable @Auth final AuthenticatedDevice authenticatedDevice,
       @NotNull @Valid final ChangeNumberRequest request, @HeaderParam(HttpHeaders.USER_AGENT) final String userAgentString)
       throws RateLimitExceededException, InterruptedException {
 
-    if (!authenticatedAccount.getAuthenticatedDevice().isPrimary()) {
+    if (!authenticatedDevice.getAuthenticatedDevice().isPrimary()) {
       throw new ForbiddenException();
     }
 
@@ -132,7 +131,7 @@ public class AccountControllerV2 {
     final String number = request.number();
 
     // Only verify and check reglock if there's a data change to be made...
-    if (!authenticatedAccount.getAccount().getNumber().equals(number)) {
+    if (!authenticatedDevice.getAccount().getNumber().equals(number)) {
 
       rateLimiters.getRegistrationLimiter().validate(number);
 
@@ -154,7 +153,7 @@ public class AccountControllerV2 {
     // ...but always attempt to make the change in case a client retries and needs to re-send messages
     try {
       final Account updatedAccount = changeNumberManager.changeNumber(
-          authenticatedAccount.getAccount(),
+          authenticatedDevice.getAccount(),
           request.number(),
           request.pniIdentityKey(),
           request.devicePniSignedPrekeys(),
@@ -199,11 +198,11 @@ public class AccountControllerV2 {
   @ApiResponse(responseCode = "410", description = "The registration IDs provided for some devices do not match those stored on the server.",
       content = @Content(schema = @Schema(implementation = StaleDevices.class)))
   public AccountIdentityResponse distributePhoneNumberIdentityKeys(
-      @Mutable @Auth final AuthenticatedAccount authenticatedAccount,
+      @Mutable @Auth final AuthenticatedDevice authenticatedDevice,
       @HeaderParam(HttpHeaders.USER_AGENT) @Nullable final String userAgentString,
       @NotNull @Valid final PhoneNumberIdentityKeyDistributionRequest request) {
 
-    if (!authenticatedAccount.getAuthenticatedDevice().isPrimary()) {
+    if (!authenticatedDevice.getAuthenticatedDevice().isPrimary()) {
       throw new ForbiddenException();
     }
 
@@ -213,7 +212,7 @@ public class AccountControllerV2 {
 
     try {
       final Account updatedAccount = changeNumberManager.updatePniKeys(
-          authenticatedAccount.getAccount(),
+          authenticatedDevice.getAccount(),
           request.pniIdentityKey(),
           request.devicePniSignedPrekeys(),
           request.devicePniPqLastResortPrekeys(),
@@ -247,7 +246,7 @@ public class AccountControllerV2 {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public void setPhoneNumberDiscoverability(
-      @Mutable @Auth AuthenticatedAccount auth,
+      @Mutable @Auth AuthenticatedDevice auth,
       @NotNull @Valid PhoneNumberDiscoverabilityRequest phoneNumberDiscoverability
   ) {
     accountsManager.update(auth.getAccount(), a -> a.setDiscoverableByPhoneNumber(
@@ -261,7 +260,7 @@ public class AccountControllerV2 {
   @ApiResponse(responseCode = "200",
       description = "Response with data report. A plain text representation is a field in the response.",
       useReturnTypeSchema = true)
-  public AccountDataReportResponse getAccountDataReport(@ReadOnly @Auth final AuthenticatedAccount auth) {
+  public AccountDataReportResponse getAccountDataReport(@ReadOnly @Auth final AuthenticatedDevice auth) {
 
     final Account account = auth.getAccount();
 

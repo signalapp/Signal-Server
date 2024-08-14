@@ -32,7 +32,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.tests.util.TestWebsocketListener;
 import org.whispersystems.websocket.ReusableAuth;
@@ -70,7 +70,7 @@ public class WebsocketResourceProviderIntegrationTest {
 
       final WebSocketConfiguration webSocketConfiguration = new WebSocketConfiguration();
 
-      final WebSocketEnvironment<AuthenticatedAccount> webSocketEnvironment =
+      final WebSocketEnvironment<AuthenticatedDevice> webSocketEnvironment =
           new WebSocketEnvironment<>(environment, webSocketConfiguration);
 
       environment.jersey().register(testController);
@@ -80,14 +80,14 @@ public class WebsocketResourceProviderIntegrationTest {
       webSocketEnvironment.jersey().register(testController);
       webSocketEnvironment.jersey().register(new RemoteAddressFilter());
       webSocketEnvironment.setAuthenticator(upgradeRequest ->
-          ReusableAuth.authenticated(mock(AuthenticatedAccount.class), PrincipalSupplier.forImmutablePrincipal()));
+          ReusableAuth.authenticated(mock(AuthenticatedDevice.class), PrincipalSupplier.forImmutablePrincipal()));
 
       webSocketEnvironment.jersey().property(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE);
       webSocketEnvironment.setConnectListener(webSocketSessionContext -> {
       });
 
-      final WebSocketResourceProviderFactory<AuthenticatedAccount> webSocketServlet =
-          new WebSocketResourceProviderFactory<>(webSocketEnvironment, AuthenticatedAccount.class,
+      final WebSocketResourceProviderFactory<AuthenticatedDevice> webSocketServlet =
+          new WebSocketResourceProviderFactory<>(webSocketEnvironment, AuthenticatedDevice.class,
               webSocketConfiguration, REMOTE_ADDRESS_ATTRIBUTE_NAME);
 
       JettyWebSocketServletContainerInitializer.configure(environment.getApplicationContext(), null);

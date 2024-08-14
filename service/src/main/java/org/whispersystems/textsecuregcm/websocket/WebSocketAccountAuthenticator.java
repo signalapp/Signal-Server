@@ -14,30 +14,30 @@ import java.util.Map;
 import javax.annotation.Nullable;
 import org.eclipse.jetty.websocket.api.UpgradeRequest;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
-import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.websocket.ReusableAuth;
 import org.whispersystems.websocket.auth.AuthenticationException;
 import org.whispersystems.websocket.auth.PrincipalSupplier;
 import org.whispersystems.websocket.auth.WebSocketAuthenticator;
 
 
-public class WebSocketAccountAuthenticator implements WebSocketAuthenticator<AuthenticatedAccount> {
+public class WebSocketAccountAuthenticator implements WebSocketAuthenticator<AuthenticatedDevice> {
 
-  private static final ReusableAuth<AuthenticatedAccount> CREDENTIALS_NOT_PRESENTED = ReusableAuth.anonymous();
+  private static final ReusableAuth<AuthenticatedDevice> CREDENTIALS_NOT_PRESENTED = ReusableAuth.anonymous();
 
-  private static final ReusableAuth<AuthenticatedAccount> INVALID_CREDENTIALS_PRESENTED = ReusableAuth.invalid();
+  private static final ReusableAuth<AuthenticatedDevice> INVALID_CREDENTIALS_PRESENTED = ReusableAuth.invalid();
 
   private final AccountAuthenticator accountAuthenticator;
-  private final PrincipalSupplier<AuthenticatedAccount> principalSupplier;
+  private final PrincipalSupplier<AuthenticatedDevice> principalSupplier;
 
   public WebSocketAccountAuthenticator(final AccountAuthenticator accountAuthenticator,
-      final PrincipalSupplier<AuthenticatedAccount> principalSupplier) {
+      final PrincipalSupplier<AuthenticatedDevice> principalSupplier) {
     this.accountAuthenticator = accountAuthenticator;
     this.principalSupplier = principalSupplier;
   }
 
   @Override
-  public ReusableAuth<AuthenticatedAccount> authenticate(final UpgradeRequest request)
+  public ReusableAuth<AuthenticatedDevice> authenticate(final UpgradeRequest request)
       throws AuthenticationException {
     try {
       // If the `Authorization` header was set for the request it takes priority, and we use the result of the
@@ -54,7 +54,7 @@ public class WebSocketAccountAuthenticator implements WebSocketAuthenticator<Aut
     }
   }
 
-  private ReusableAuth<AuthenticatedAccount> authenticatedAccountFromQueryParams(final UpgradeRequest request) {
+  private ReusableAuth<AuthenticatedDevice> authenticatedAccountFromQueryParams(final UpgradeRequest request) {
     final Map<String, List<String>> parameters = request.getParameterMap();
     final List<String> usernames = parameters.get("login");
     final List<String> passwords = parameters.get("password");
@@ -69,7 +69,7 @@ public class WebSocketAccountAuthenticator implements WebSocketAuthenticator<Aut
         .orElse(INVALID_CREDENTIALS_PRESENTED);
   }
 
-  private ReusableAuth<AuthenticatedAccount> authenticatedAccountFromHeaderAuth(@Nullable final String authHeader)
+  private ReusableAuth<AuthenticatedDevice> authenticatedAccountFromHeaderAuth(@Nullable final String authHeader)
       throws AuthenticationException {
     if (authHeader == null) {
       return CREDENTIALS_NOT_PRESENTED;

@@ -17,7 +17,7 @@ import javax.ws.rs.Path;
 import javax.ws.rs.core.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.websocket.auth.ReadOnly;
@@ -41,7 +41,7 @@ public class KeepAliveController {
   }
 
   @GET
-  public Response getKeepAlive(@ReadOnly @Auth Optional<AuthenticatedAccount> maybeAuth,
+  public Response getKeepAlive(@ReadOnly @Auth Optional<AuthenticatedDevice> maybeAuth,
       @WebSocketSession WebSocketSessionContext context) {
 
     maybeAuth.ifPresent(auth -> {

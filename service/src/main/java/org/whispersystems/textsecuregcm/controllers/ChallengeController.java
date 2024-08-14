@@ -30,7 +30,7 @@ import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.entities.AnswerChallengeRequest;
 import org.whispersystems.textsecuregcm.entities.AnswerPushChallengeRequest;
 import org.whispersystems.textsecuregcm.entities.AnswerCaptchaChallengeRequest;
@@ -79,7 +79,7 @@ public class ChallengeController {
   @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
       name = "Retry-After",
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
-  public Response handleChallengeResponse(@ReadOnly @Auth final AuthenticatedAccount auth,
+  public Response handleChallengeResponse(@ReadOnly @Auth final AuthenticatedDevice auth,
       @Valid final AnswerChallengeRequest answerRequest,
       @Context ContainerRequestContext requestContext,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) throws RateLimitExceededException, IOException {
@@ -165,7 +165,7 @@ public class ChallengeController {
   @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
       name = "Retry-After",
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
-  public Response requestPushChallenge(@ReadOnly @Auth final AuthenticatedAccount auth,
+  public Response requestPushChallenge(@ReadOnly @Auth final AuthenticatedDevice auth,
       @Context ContainerRequestContext requestContext) {
     final ChallengeConstraints constraints = challengeConstraintChecker.challengeConstraints(
         requestContext, auth.getAccount());

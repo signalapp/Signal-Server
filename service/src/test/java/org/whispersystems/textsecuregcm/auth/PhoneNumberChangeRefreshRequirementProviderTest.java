@@ -112,7 +112,7 @@ class PhoneNumberChangeRefreshRequirementProviderTest {
 
       final WebSocketConfiguration webSocketConfiguration = new WebSocketConfiguration();
 
-      final WebSocketEnvironment<AuthenticatedAccount> webSocketEnvironment =
+      final WebSocketEnvironment<AuthenticatedDevice> webSocketEnvironment =
           new WebSocketEnvironment<>(environment, webSocketConfiguration);
 
       environment.jersey().register(testController);
@@ -129,13 +129,13 @@ class PhoneNumberChangeRefreshRequirementProviderTest {
       });
 
 
-      environment.jersey().register(new AuthDynamicFeature(new BasicCredentialAuthFilter.Builder<AuthenticatedAccount>()
+      environment.jersey().register(new AuthDynamicFeature(new BasicCredentialAuthFilter.Builder<AuthenticatedDevice>()
           .setAuthenticator(AUTHENTICATOR)
           .buildAuthFilter()));
       webSocketEnvironment.setAuthenticator(new WebSocketAccountAuthenticator(AUTHENTICATOR, mock(PrincipalSupplier.class)));
 
-      final WebSocketResourceProviderFactory<AuthenticatedAccount> webSocketServlet =
-          new WebSocketResourceProviderFactory<>(webSocketEnvironment, AuthenticatedAccount.class,
+      final WebSocketResourceProviderFactory<AuthenticatedDevice> webSocketServlet =
+          new WebSocketResourceProviderFactory<>(webSocketEnvironment, AuthenticatedDevice.class,
               webSocketConfiguration, REMOTE_ADDRESS_ATTRIBUTE_NAME);
 
       JettyWebSocketServletContainerInitializer.configure(environment.getApplicationContext(), null);
@@ -160,7 +160,7 @@ class PhoneNumberChangeRefreshRequirementProviderTest {
   private void makeAuthenticatedRequest(
       final Protocol protocol,
       final String requestPath) throws IOException {
-    when(AUTHENTICATOR.authenticate(any())).thenReturn(Optional.of(new AuthenticatedAccount(account1, authenticatedDevice)));
+    when(AUTHENTICATOR.authenticate(any())).thenReturn(Optional.of(new AuthenticatedDevice(account1, authenticatedDevice)));
     makeRequest(protocol,requestPath, false);
   }
 
@@ -206,7 +206,7 @@ class PhoneNumberChangeRefreshRequirementProviderTest {
   @EnumSource(Protocol.class)
   void handleRequestChange(final Protocol protocol) throws IOException {
     when(ACCOUNTS_MANAGER.getByAccountIdentifier(any())).thenReturn(Optional.of(account2));
-    when(AUTHENTICATOR.authenticate(any())).thenReturn(Optional.of(new AuthenticatedAccount(account1, authenticatedDevice)));
+    when(AUTHENTICATOR.authenticate(any())).thenReturn(Optional.of(new AuthenticatedDevice(account1, authenticatedDevice)));
 
     makeAuthenticatedRequest(protocol, "/test/annotated");
 
@@ -220,7 +220,7 @@ class PhoneNumberChangeRefreshRequirementProviderTest {
   @Test
   void handleRequestChangeAsyncEndpoint() throws IOException {
     when(ACCOUNTS_MANAGER.getByAccountIdentifier(any())).thenReturn(Optional.of(account2));
-    when(AUTHENTICATOR.authenticate(any())).thenReturn(Optional.of(new AuthenticatedAccount(account1, authenticatedDevice)));
+    when(AUTHENTICATOR.authenticate(any())).thenReturn(Optional.of(new AuthenticatedDevice(account1, authenticatedDevice)));
 
     // Event listeners with asynchronous HTTP endpoints don't currently correctly maintain state between request and
     // response
@@ -268,7 +268,7 @@ class PhoneNumberChangeRefreshRequirementProviderTest {
     @GET
     @Path("/annotated")
     @ChangesPhoneNumber
-    public String annotated(@ReadOnly @Auth final AuthenticatedAccount account) {
+    public String annotated(@ReadOnly @Auth final AuthenticatedDevice account) {
       return "ok";
     }
 
@@ -276,7 +276,7 @@ class PhoneNumberChangeRefreshRequirementProviderTest {
     @Path("/async-annotated")
     @ChangesPhoneNumber
     @ManagedAsync
-    public String asyncAnnotated(@ReadOnly @Auth final AuthenticatedAccount account) {
+    public String asyncAnnotated(@ReadOnly @Auth final AuthenticatedDevice account) {
       return "ok";
     }
 
@@ -289,7 +289,7 @@ class PhoneNumberChangeRefreshRequirementProviderTest {
 
     @GET
     @Path("/not-annotated")
-    public String notAnnotated(@ReadOnly @Auth final AuthenticatedAccount account) {
+    public String notAnnotated(@ReadOnly @Auth final AuthenticatedDevice account) {
       return "ok";
     }
   }

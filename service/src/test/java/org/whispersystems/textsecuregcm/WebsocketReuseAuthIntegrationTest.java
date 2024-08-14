@@ -43,7 +43,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.storage.RefreshingAccountNotFoundException;
 import org.whispersystems.textsecuregcm.tests.util.TestWebsocketListener;
@@ -58,9 +58,9 @@ import org.whispersystems.websocket.setup.WebSocketEnvironment;
 @ExtendWith(DropwizardExtensionsSupport.class)
 public class WebsocketReuseAuthIntegrationTest {
 
-  private static final AuthenticatedAccount ACCOUNT = mock(AuthenticatedAccount.class);
+  private static final AuthenticatedDevice ACCOUNT = mock(AuthenticatedDevice.class);
   @SuppressWarnings("unchecked")
-  private static final PrincipalSupplier<AuthenticatedAccount> PRINCIPAL_SUPPLIER = mock(PrincipalSupplier.class);
+  private static final PrincipalSupplier<AuthenticatedDevice> PRINCIPAL_SUPPLIER = mock(PrincipalSupplier.class);
   private static final DropwizardAppExtension<Configuration> DROPWIZARD_APP_EXTENSION =
       new DropwizardAppExtension<>(TestApplication.class);
 
@@ -90,7 +90,7 @@ public class WebsocketReuseAuthIntegrationTest {
 
       final WebSocketConfiguration webSocketConfiguration = new WebSocketConfiguration();
 
-      final WebSocketEnvironment<AuthenticatedAccount> webSocketEnvironment =
+      final WebSocketEnvironment<AuthenticatedDevice> webSocketEnvironment =
           new WebSocketEnvironment<>(environment, webSocketConfiguration);
 
       environment.jersey().register(testController);
@@ -105,8 +105,8 @@ public class WebsocketReuseAuthIntegrationTest {
       webSocketEnvironment.setConnectListener(webSocketSessionContext -> {
       });
 
-      final WebSocketResourceProviderFactory<AuthenticatedAccount> webSocketServlet =
-          new WebSocketResourceProviderFactory<>(webSocketEnvironment, AuthenticatedAccount.class,
+      final WebSocketResourceProviderFactory<AuthenticatedDevice> webSocketServlet =
+          new WebSocketResourceProviderFactory<>(webSocketEnvironment, AuthenticatedDevice.class,
               webSocketConfiguration, REMOTE_ADDRESS_ATTRIBUTE_NAME);
 
       JettyWebSocketServletContainerInitializer.configure(environment.getApplicationContext(), null);
@@ -139,7 +139,7 @@ public class WebsocketReuseAuthIntegrationTest {
   @ParameterizedTest
   @ValueSource(strings = {"/test/write-auth", "/test/optional-write-auth"})
   public void writeAuth(final String path) throws IOException {
-    final AuthenticatedAccount copiedAccount = mock(AuthenticatedAccount.class);
+    final AuthenticatedDevice copiedAccount = mock(AuthenticatedDevice.class);
     when(copiedAccount.getName()).thenReturn("copy");
     when(PRINCIPAL_SUPPLIER.deepCopy(any())).thenReturn(copiedAccount);
 
@@ -153,7 +153,7 @@ public class WebsocketReuseAuthIntegrationTest {
   @Test
   public void readAfterWrite() throws IOException {
     when(PRINCIPAL_SUPPLIER.deepCopy(any())).thenReturn(ACCOUNT);
-    final AuthenticatedAccount account2 = mock(AuthenticatedAccount.class);
+    final AuthenticatedDevice account2 = mock(AuthenticatedDevice.class);
     when(account2.getName()).thenReturn("refresh");
     when(PRINCIPAL_SUPPLIER.refresh(any())).thenReturn(account2);
 
@@ -189,11 +189,11 @@ public class WebsocketReuseAuthIntegrationTest {
 
   @Test
   public void readConcurrentWithWrite() throws IOException, ExecutionException, InterruptedException, TimeoutException {
-    final AuthenticatedAccount deepCopy = mock(AuthenticatedAccount.class);
+    final AuthenticatedDevice deepCopy = mock(AuthenticatedDevice.class);
     when(deepCopy.getName()).thenReturn("deepCopy");
     when(PRINCIPAL_SUPPLIER.deepCopy(any())).thenReturn(deepCopy);
 
-    final AuthenticatedAccount refresh = mock(AuthenticatedAccount.class);
+    final AuthenticatedDevice refresh = mock(AuthenticatedDevice.class);
     when(refresh.getName()).thenReturn("refresh");
     when(PRINCIPAL_SUPPLIER.refresh(any())).thenReturn(refresh);
 
@@ -234,35 +234,35 @@ public class WebsocketReuseAuthIntegrationTest {
     @GET
     @Path("/read-auth")
     @ManagedAsync
-    public String readAuth(@ReadOnly @Auth final AuthenticatedAccount account) {
+    public String readAuth(@ReadOnly @Auth final AuthenticatedDevice account) {
       return account.getName();
     }
 
     @GET
     @Path("/optional-read-auth")
     @ManagedAsync
-    public String optionalReadAuth(@ReadOnly @Auth final Optional<AuthenticatedAccount> account) {
-      return account.map(AuthenticatedAccount::getName).orElse("empty");
+    public String optionalReadAuth(@ReadOnly @Auth final Optional<AuthenticatedDevice> account) {
+      return account.map(AuthenticatedDevice::getName).orElse("empty");
     }
 
     @GET
     @Path("/write-auth")
     @ManagedAsync
-    public String writeAuth(@Auth final AuthenticatedAccount account) {
+    public String writeAuth(@Auth final AuthenticatedDevice account) {
       return account.getName();
     }
 
     @GET
     @Path("/optional-write-auth")
     @ManagedAsync
-    public String optionalWriteAuth(@Auth final Optional<AuthenticatedAccount> account) {
-      return account.map(AuthenticatedAccount::getName).orElse("empty");
+    public String optionalWriteAuth(@Auth final Optional<AuthenticatedDevice> account) {
+      return account.map(AuthenticatedDevice::getName).orElse("empty");
     }
 
     @GET
     @Path("/start-delayed-write/{id}")
     @ManagedAsync
-    public String startDelayedWrite(@Auth final AuthenticatedAccount account, @PathParam("id") String id)
+    public String startDelayedWrite(@Auth final AuthenticatedDevice account, @PathParam("id") String id)
         throws InterruptedException {
       delayedWriteLatches.computeIfAbsent(id, i -> new CountDownLatch(1)).await();
       return account.getName();

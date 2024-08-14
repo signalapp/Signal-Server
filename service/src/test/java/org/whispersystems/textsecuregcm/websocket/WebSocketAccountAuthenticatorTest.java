@@ -24,7 +24,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
-import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
@@ -52,7 +52,7 @@ class WebSocketAccountAuthenticatorTest {
     accountAuthenticator = mock(AccountAuthenticator.class);
 
     when(accountAuthenticator.authenticate(eq(new BasicCredentials(VALID_USER, VALID_PASSWORD))))
-        .thenReturn(Optional.of(new AuthenticatedAccount(mock(Account.class), mock(Device.class))));
+        .thenReturn(Optional.of(new AuthenticatedDevice(mock(Account.class), mock(Device.class))));
 
     when(accountAuthenticator.authenticate(eq(new BasicCredentials(INVALID_USER, INVALID_PASSWORD))))
         .thenReturn(Optional.empty());
@@ -77,7 +77,7 @@ class WebSocketAccountAuthenticatorTest {
         accountAuthenticator,
         mock(PrincipalSupplier.class));
 
-    final ReusableAuth<AuthenticatedAccount> result = webSocketAuthenticator.authenticate(upgradeRequest);
+    final ReusableAuth<AuthenticatedDevice> result = webSocketAuthenticator.authenticate(upgradeRequest);
 
     assertEquals(expectAccount, result.ref().isPresent());
     assertEquals(expectInvalid, result.invalidCredentialsProvided());

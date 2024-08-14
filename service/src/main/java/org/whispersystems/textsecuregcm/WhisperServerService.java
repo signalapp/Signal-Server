@@ -76,7 +76,7 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.attachments.GcsAttachmentGenerator;
 import org.whispersystems.textsecuregcm.attachments.TusAttachmentGenerator;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
-import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.CertificateGenerator;
 import org.whispersystems.textsecuregcm.auth.CloudflareTurnCredentialsManager;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
@@ -974,8 +974,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
               config.getExternalRequestFilterConfiguration().paths().toArray(new String[]{}));
     }
 
-    final AuthFilter<BasicCredentials, AuthenticatedAccount> accountAuthFilter =
-        new BasicCredentialAuthFilter.Builder<AuthenticatedAccount>()
+    final AuthFilter<BasicCredentials, AuthenticatedDevice> accountAuthFilter =
+        new BasicCredentialAuthFilter.Builder<AuthenticatedDevice>()
             .setAuthenticator(accountAuthenticator)
             .buildAuthFilter();
 
@@ -992,12 +992,12 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.jersey().register(new RequestStatisticsFilter(TrafficSource.HTTP));
     environment.jersey().register(MultiRecipientMessageProvider.class);
     environment.jersey().register(new AuthDynamicFeature(accountAuthFilter));
-    environment.jersey().register(new AuthValueFactoryProvider.Binder<>(AuthenticatedAccount.class));
+    environment.jersey().register(new AuthValueFactoryProvider.Binder<>(AuthenticatedDevice.class));
     environment.jersey().register(new WebsocketRefreshApplicationEventListener(accountsManager, clientPresenceManager));
     environment.jersey().register(new TimestampResponseFilter());
 
     ///
-    WebSocketEnvironment<AuthenticatedAccount> webSocketEnvironment = new WebSocketEnvironment<>(environment,
+    WebSocketEnvironment<AuthenticatedDevice> webSocketEnvironment = new WebSocketEnvironment<>(environment,
         config.getWebSocketConfiguration(), Duration.ofMillis(90000));
     webSocketEnvironment.jersey().register(new VirtualExecutorServiceProvider("managed-async-websocket-virtual-thread-"));
     webSocketEnvironment.setAuthenticator(new WebSocketAccountAuthenticator(accountAuthenticator, new AccountPrincipalSupplier(accountsManager)));
@@ -1128,7 +1128,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
       webSocketEnvironment.jersey().register(controller);
     }
 
-    WebSocketEnvironment<AuthenticatedAccount> provisioningEnvironment = new WebSocketEnvironment<>(environment,
+    WebSocketEnvironment<AuthenticatedDevice> provisioningEnvironment = new WebSocketEnvironment<>(environment,
         webSocketEnvironment.getRequestLog(), Duration.ofMillis(60000));
     provisioningEnvironment.jersey().register(new WebsocketRefreshApplicationEventListener(accountsManager, clientPresenceManager));
     provisioningEnvironment.setConnectListener(new ProvisioningConnectListener(provisioningManager));
@@ -1144,11 +1144,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     JettyWebSocketServletContainerInitializer.configure(environment.getApplicationContext(), null);
 
-    WebSocketResourceProviderFactory<AuthenticatedAccount> webSocketServlet = new WebSocketResourceProviderFactory<>(
-        webSocketEnvironment, AuthenticatedAccount.class, config.getWebSocketConfiguration(),
+    WebSocketResourceProviderFactory<AuthenticatedDevice> webSocketServlet = new WebSocketResourceProviderFactory<>(
+        webSocketEnvironment, AuthenticatedDevice.class, config.getWebSocketConfiguration(),
         RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME);
-    WebSocketResourceProviderFactory<AuthenticatedAccount> provisioningServlet = new WebSocketResourceProviderFactory<>(
-        provisioningEnvironment, AuthenticatedAccount.class, config.getWebSocketConfiguration(),
+    WebSocketResourceProviderFactory<AuthenticatedDevice> provisioningServlet = new WebSocketResourceProviderFactory<>(
+        provisioningEnvironment, AuthenticatedDevice.class, config.getWebSocketConfiguration(),
         RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME);
 
     ServletRegistration.Dynamic websocket = environment.servlets().addServlet("WebSocket", webSocketServlet);
@@ -1169,8 +1169,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
   }
 
   private void registerExceptionMappers(Environment environment,
-      WebSocketEnvironment<AuthenticatedAccount> webSocketEnvironment,
-      WebSocketEnvironment<AuthenticatedAccount> provisioningEnvironment) {
+      WebSocketEnvironment<AuthenticatedDevice> webSocketEnvironment,
+      WebSocketEnvironment<AuthenticatedDevice> provisioningEnvironment) {
 
     List.of(
         new LoggingUnhandledExceptionMapper(),

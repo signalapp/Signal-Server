@@ -24,7 +24,7 @@ import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
-import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsSelector;
@@ -85,7 +85,7 @@ public class SecureValueRecovery3Controller {
           """)
   @ApiResponse(responseCode = "200", description = "`JSON` with generated credentials and share-set", useReturnTypeSchema = true)
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
-  public Svr3Credentials getAuth(@ReadOnly @Auth final AuthenticatedAccount auth) {
+  public Svr3Credentials getAuth(@ReadOnly @Auth final AuthenticatedDevice auth) {
     final ExternalServiceCredentials creds = backupServiceCredentialGenerator.generateFor(
         auth.getAccount().getUuid().toString());
     return new Svr3Credentials(creds.username(), creds.password(), auth.getAccount().getSvr3ShareSet());
@@ -104,7 +104,7 @@ public class SecureValueRecovery3Controller {
   @ApiResponse(responseCode = "204", description = "Successfully set share-set")
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
   public void setShareSet(
-      @Mutable @Auth final AuthenticatedAccount auth,
+      @Mutable @Auth final AuthenticatedDevice auth,
       @NotNull @Valid final SetShareSetRequest request) {
     accountsManager.update(auth.getAccount(), account -> account.setSvr3ShareSet(request.shareSet()));
   }

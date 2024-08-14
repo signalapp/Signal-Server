@@ -83,7 +83,7 @@ import org.signal.libsignal.zkgroup.groupsend.GroupSendFullToken;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
-import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.CombinedUnidentifiedSenderAccessKeys;
 import org.whispersystems.textsecuregcm.auth.GroupSendTokenHeader;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
@@ -270,7 +270,7 @@ public class MessageController {
   @ApiResponse(
       responseCode = "410", description = "Mismatched registration ids supplied for some recipient devices",
       content = @Content(schema = @Schema(implementation = AccountStaleDevices[].class)))
-  public Response sendMessage(@ReadOnly @Auth Optional<AuthenticatedAccount> source,
+  public Response sendMessage(@ReadOnly @Auth Optional<AuthenticatedDevice> source,
       @Parameter(description="The recipient's unidentified access key")
       @HeaderParam(HeaderUtils.UNIDENTIFIED_ACCESS_KEY) Optional<Anonymous> accessKey,
 
@@ -326,11 +326,11 @@ public class MessageController {
       if (!isSyncMessage) {
         destination = accountsManager.getByServiceIdentifier(destinationIdentifier);
       } else {
-        destination = source.map(AuthenticatedAccount::getAccount);
+        destination = source.map(AuthenticatedDevice::getAccount);
       }
 
       final Optional<Response> spamCheck = spamChecker.checkForSpam(
-          context, source.map(AuthenticatedAccount::getAccount), destination);
+          context, source.map(AuthenticatedDevice::getAccount), destination);
       if (spamCheck.isPresent()) {
         return spamCheck.get();
       }
@@ -374,7 +374,7 @@ public class MessageController {
             throw new NotFoundException();
           }
         } else {
-          OptionalAccess.verify(source.map(AuthenticatedAccount::getAccount), accessKey, destination,
+          OptionalAccess.verify(source.map(AuthenticatedDevice::getAccount), accessKey, destination,
               destinationIdentifier);
         }
 
@@ -745,7 +745,7 @@ public class MessageController {
   @Timed
   @GET
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletableFuture<OutgoingMessageEntityList> getPendingMessages(@ReadOnly @Auth AuthenticatedAccount auth,
+  public CompletableFuture<OutgoingMessageEntityList> getPendingMessages(@ReadOnly @Auth AuthenticatedDevice auth,
       @HeaderParam(Stories.X_SIGNAL_RECEIVE_STORIES) String receiveStoriesHeader,
       @HeaderParam(HttpHeaders.USER_AGENT) String userAgent) {
 
@@ -800,7 +800,7 @@ public class MessageController {
   @Timed
   @DELETE
   @Path("/uuid/{uuid}")
-  public CompletableFuture<Response> removePendingMessage(@ReadOnly @Auth AuthenticatedAccount auth, @PathParam("uuid") UUID uuid) {
+  public CompletableFuture<Response> removePendingMessage(@ReadOnly @Auth AuthenticatedDevice auth, @PathParam("uuid") UUID uuid) {
     return messagesManager.delete(
             auth.getAccount().getUuid(),
             auth.getAuthenticatedDevice(),
@@ -831,7 +831,7 @@ public class MessageController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Path("/report/{source}/{messageGuid}")
   public Response reportSpamMessage(
-      @ReadOnly @Auth AuthenticatedAccount auth,
+      @ReadOnly @Auth AuthenticatedDevice auth,
       @PathParam("source") String source,
       @PathParam("messageGuid") UUID messageGuid,
       @Nullable SpamReport spamReport,
@@ -881,7 +881,7 @@ public class MessageController {
   }
 
   private void sendIndividualMessage(
-      Optional<AuthenticatedAccount> source,
+      Optional<AuthenticatedDevice> source,
       Account destinationAccount,
       Device destinationDevice,
       ServiceIdentifier destinationIdentifier,
@@ -896,7 +896,7 @@ public class MessageController {
     final Envelope envelope;
 
     try {
-      final Account sourceAccount = source.map(AuthenticatedAccount::getAccount).orElse(null);
+      final Account sourceAccount = source.map(AuthenticatedDevice::getAccount).orElse(null);
       final Byte sourceDeviceId = source.map(account -> account.getAuthenticatedDevice().getId()).orElse(null);
       envelope = incomingMessage.toEnvelope(
           destinationIdentifier,
@@ -938,7 +938,7 @@ public class MessageController {
     messageSender.sendMessage(destinationAccount, destinationDevice, messageBuilder.build(), online);
   }
 
-  private void checkMessageRateLimit(AuthenticatedAccount source, Account destination, String userAgent)
+  private void checkMessageRateLimit(AuthenticatedDevice source, Account destination, String userAgent)
       throws RateLimitExceededException {
     final String senderCountryCode = Util.getCountryCode(source.getAccount().getNumber());
 

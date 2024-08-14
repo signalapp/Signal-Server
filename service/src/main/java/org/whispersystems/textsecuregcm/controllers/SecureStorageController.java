@@ -11,7 +11,7 @@ import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
-import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.configuration.SecureStorageServiceConfiguration;
@@ -37,7 +37,7 @@ public class SecureStorageController {
   @GET
   @Path("/auth")
   @Produces(MediaType.APPLICATION_JSON)
-  public ExternalServiceCredentials getAuth(@ReadOnly @Auth AuthenticatedAccount auth) {
+  public ExternalServiceCredentials getAuth(@ReadOnly @Auth AuthenticatedDevice auth) {
     return storageServiceCredentialsGenerator.generateForUuid(auth.getAccount().getUuid());
   }
 }

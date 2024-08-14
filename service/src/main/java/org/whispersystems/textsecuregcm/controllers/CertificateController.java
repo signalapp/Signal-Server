@@ -34,7 +34,7 @@ import org.signal.libsignal.zkgroup.GenericServerSecretParams;
 import org.signal.libsignal.zkgroup.auth.AuthCredentialWithPniResponse;
 import org.signal.libsignal.zkgroup.auth.ServerZkAuthOperations;
 import org.signal.libsignal.zkgroup.calllinks.CallLinkAuthCredentialResponse;
-import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.CertificateGenerator;
 import org.whispersystems.textsecuregcm.entities.DeliveryCertificate;
 import org.whispersystems.textsecuregcm.entities.GroupCredentials;
@@ -70,7 +70,7 @@ public class CertificateController {
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/delivery")
-  public DeliveryCertificate getDeliveryCertificate(@ReadOnly @Auth AuthenticatedAccount auth,
+  public DeliveryCertificate getDeliveryCertificate(@ReadOnly @Auth AuthenticatedDevice auth,
       @QueryParam("includeE164") @DefaultValue("true") boolean includeE164)
       throws InvalidKeyException {
 
@@ -89,7 +89,7 @@ public class CertificateController {
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/auth/group")
   public GroupCredentials getGroupAuthenticationCredentials(
-      @ReadOnly @Auth AuthenticatedAccount auth,
+      @ReadOnly @Auth AuthenticatedDevice auth,
       @QueryParam("redemptionStartSeconds") long startSeconds,
       @QueryParam("redemptionEndSeconds") long endSeconds,
       @QueryParam("zkcCredential") boolean zkcCredential) {

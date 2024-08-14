@@ -25,7 +25,7 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.Util;
 
-public class AccountAuthenticator implements Authenticator<BasicCredentials, AuthenticatedAccount> {
+public class AccountAuthenticator implements Authenticator<BasicCredentials, AuthenticatedDevice> {
 
   private static final String LEGACY_NAME_PREFIX = "org.whispersystems.textsecuregcm.auth.BaseAccountAuthenticator";
 
@@ -73,7 +73,7 @@ public class AccountAuthenticator implements Authenticator<BasicCredentials, Aut
   }
 
   @Override
-  public Optional<AuthenticatedAccount> authenticate(BasicCredentials basicCredentials) {
+  public Optional<AuthenticatedDevice> authenticate(BasicCredentials basicCredentials) {
     boolean succeeded = false;
     String failureReason = null;
 
@@ -112,7 +112,7 @@ public class AccountAuthenticator implements Authenticator<BasicCredentials, Aut
               device.get(),
               SaltedTokenHash.generateFor(basicCredentials.getPassword()));  // new credentials have current version
         }
-        return Optional.of(new AuthenticatedAccount(authenticatedAccount, device.get()));
+        return Optional.of(new AuthenticatedDevice(authenticatedAccount, device.get()));
       } else {
         failureReason = "incorrectPassword";
         return Optional.empty();

@@ -15,13 +15,12 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
-import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.configuration.DirectoryV2ClientConfiguration;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.util.Pair;
 
 class DirectoryControllerV2Test {
 
@@ -39,7 +38,7 @@ class DirectoryControllerV2Test {
     when(account.getUuid()).thenReturn(uuid);
 
     final ExternalServiceCredentials credentials = (ExternalServiceCredentials) controller.getAuthToken(
-        new AuthenticatedAccount(account, mock(Device.class))).getEntity();
+        new AuthenticatedDevice(account, mock(Device.class))).getEntity();
 
     assertEquals(credentials.username(), "d369bc712e2e0dd36258");
     assertEquals(credentials.password(), "1633738643:4433b0fab41f25f79dd4");

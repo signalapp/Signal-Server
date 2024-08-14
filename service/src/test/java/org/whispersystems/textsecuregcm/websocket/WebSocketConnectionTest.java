@@ -10,7 +10,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
@@ -55,7 +54,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
-import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
@@ -89,7 +88,7 @@ class WebSocketConnectionTest {
   private AccountsManager accountsManager;
   private Account account;
   private Device device;
-  private AuthenticatedAccount auth;
+  private AuthenticatedDevice auth;
   private UpgradeRequest upgradeRequest;
   private MessagesManager messagesManager;
   private ReceiptSender receiptSender;
@@ -103,7 +102,7 @@ class WebSocketConnectionTest {
     accountsManager = mock(AccountsManager.class);
     account = mock(Account.class);
     device = mock(Device.class);
-    auth = new AuthenticatedAccount(account, device);
+    auth = new AuthenticatedDevice(account, device);
     upgradeRequest = mock(UpgradeRequest.class);
     messagesManager = mock(MessagesManager.class);
     receiptSender = mock(ReceiptSender.class);
@@ -128,11 +127,11 @@ class WebSocketConnectionTest {
     WebSocketSessionContext sessionContext = mock(WebSocketSessionContext.class);
 
     when(accountAuthenticator.authenticate(eq(new BasicCredentials(VALID_USER, VALID_PASSWORD))))
-        .thenReturn(Optional.of(new AuthenticatedAccount(account, device)));
+        .thenReturn(Optional.of(new AuthenticatedDevice(account, device)));
 
-    ReusableAuth<AuthenticatedAccount> account = webSocketAuthenticator.authenticate(upgradeRequest);
+    ReusableAuth<AuthenticatedDevice> account = webSocketAuthenticator.authenticate(upgradeRequest);
     when(sessionContext.getAuthenticated()).thenReturn(account.ref().orElse(null));
-    when(sessionContext.getAuthenticated(AuthenticatedAccount.class)).thenReturn(account.ref().orElse(null));
+    when(sessionContext.getAuthenticated(AuthenticatedDevice.class)).thenReturn(account.ref().orElse(null));
 
     final WebSocketClient webSocketClient = mock(WebSocketClient.class);
     when(webSocketClient.getUserAgent()).thenReturn("Signal-Android/6.22.8");

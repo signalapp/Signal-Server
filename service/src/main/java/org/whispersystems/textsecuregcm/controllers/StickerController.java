@@ -20,7 +20,7 @@ import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
-import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.entities.StickerPackFormUploadAttributes;
 import org.whispersystems.textsecuregcm.entities.StickerPackFormUploadAttributes.StickerPackFormUploadItem;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -47,7 +47,7 @@ public class StickerController {
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/pack/form/{count}")
-  public StickerPackFormUploadAttributes getStickersForm(@ReadOnly @Auth AuthenticatedAccount auth,
+  public StickerPackFormUploadAttributes getStickersForm(@ReadOnly @Auth AuthenticatedDevice auth,
       @PathParam("count") @Min(1) @Max(201) int stickerCount)
       throws RateLimitExceededException {
     rateLimiters.getStickerPackLimiter().validate(auth.getAccount().getUuid());

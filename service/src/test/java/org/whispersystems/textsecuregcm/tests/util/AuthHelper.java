@@ -47,7 +47,7 @@ import org.signal.libsignal.zkgroup.groupsend.GroupSendEndorsementsResponse;
 import org.signal.libsignal.zkgroup.groupsend.GroupSendFullToken;
 import org.signal.libsignal.zkgroup.groupsend.GroupSendEndorsementsResponse.ReceivedEndorsements;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
-import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
@@ -213,10 +213,10 @@ public class AuthHelper {
       testAccount.setup(ACCOUNTS_MANAGER);
     }
 
-    AuthFilter<BasicCredentials, AuthenticatedAccount> accountAuthFilter = new BasicCredentialAuthFilter.Builder<AuthenticatedAccount>().setAuthenticator(
+    AuthFilter<BasicCredentials, AuthenticatedDevice> accountAuthFilter = new BasicCredentialAuthFilter.Builder<AuthenticatedDevice>().setAuthenticator(
         new AccountAuthenticator(ACCOUNTS_MANAGER)).buildAuthFilter();
 
-    return new PolymorphicAuthDynamicFeature<>(ImmutableMap.of(AuthenticatedAccount.class, accountAuthFilter));
+    return new PolymorphicAuthDynamicFeature<>(ImmutableMap.of(AuthenticatedDevice.class, accountAuthFilter));
   }
 
   public static String getAuthHeader(UUID uuid, byte deviceId, String password) {

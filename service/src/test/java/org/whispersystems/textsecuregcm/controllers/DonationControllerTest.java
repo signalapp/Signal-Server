@@ -32,7 +32,7 @@ import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialPresentation;
 import org.signal.libsignal.zkgroup.receipts.ReceiptSerial;
 import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
-import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.configuration.BadgeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
 import org.whispersystems.textsecuregcm.entities.BadgeSvg;
@@ -94,7 +94,7 @@ class DonationControllerTest {
 
     resources = ResourceExtension.builder()
         .addProvider(AuthHelper.getAuthFilter())
-        .addProvider(new AuthValueFactoryProvider.Binder<>(AuthenticatedAccount.class))
+        .addProvider(new AuthValueFactoryProvider.Binder<>(AuthenticatedDevice.class))
         .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
         .addResource(new DonationController(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager,
             getBadgesConfiguration(), receiptCredentialPresentationFactory))

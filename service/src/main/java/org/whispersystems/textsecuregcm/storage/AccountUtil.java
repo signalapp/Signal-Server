@@ -5,9 +5,7 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
-import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
-import org.whispersystems.websocket.auth.PrincipalSupplier;
 import java.io.IOException;
 
 public class AccountUtil {

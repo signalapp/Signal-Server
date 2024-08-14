@@ -25,7 +25,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.entities.KeyTransparencyMonitorRequest;
 import org.whispersystems.textsecuregcm.entities.KeyTransparencyMonitorResponse;
 import org.whispersystems.textsecuregcm.entities.KeyTransparencySearchRequest;
@@ -81,7 +81,7 @@ public class KeyTransparencyControllerTest {
 
   private final ResourceExtension resources = ResourceExtension.builder()
       .addProvider(AuthHelper.getAuthFilter())
-      .addProvider(new AuthValueFactoryProvider.Binder<>(AuthenticatedAccount.class))
+      .addProvider(new AuthValueFactoryProvider.Binder<>(AuthenticatedDevice.class))
       .addProvider(TEST_REMOTE_ADDRESS_FILTER_PROVIDER)
       .addProvider(new RateLimitByIpFilter(rateLimiters))
       .setMapper(SystemMapper.jsonMapper())

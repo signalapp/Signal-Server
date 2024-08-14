@@ -34,7 +34,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.whispersystems.textsecuregcm.attachments.GcsAttachmentGenerator;
 import org.whispersystems.textsecuregcm.attachments.TusAttachmentGenerator;
 import org.whispersystems.textsecuregcm.attachments.TusConfiguration;
-import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretBytes;
 import org.whispersystems.textsecuregcm.entities.AttachmentDescriptorV2;
 import org.whispersystems.textsecuregcm.entities.AttachmentDescriptorV3;
@@ -90,7 +90,7 @@ class AttachmentControllerTest {
           "signal@example.com", 1000, "/attach-here", RSA_PRIVATE_KEY_PEM);
       resources = ResourceExtension.builder()
           .addProvider(AuthHelper.getAuthFilter())
-          .addProvider(new AuthValueFactoryProvider.Binder<>(AuthenticatedAccount.class))
+          .addProvider(new AuthValueFactoryProvider.Binder<>(AuthenticatedDevice.class))
           .setMapper(SystemMapper.jsonMapper())
           .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
           .addResource(new AttachmentControllerV2(RATE_LIMITERS, "accessKey", "accessSecret", "us-east-1",

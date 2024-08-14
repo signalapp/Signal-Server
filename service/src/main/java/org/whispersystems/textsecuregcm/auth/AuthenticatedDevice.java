@@ -6,16 +6,16 @@
 package org.whispersystems.textsecuregcm.auth;
 
 import java.security.Principal;
-import java.util.function.Supplier;
 import javax.security.auth.Subject;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 
-public class AuthenticatedAccount implements Principal, AccountAndAuthenticatedDeviceHolder {
+public class AuthenticatedDevice implements Principal, AccountAndAuthenticatedDeviceHolder {
+
   private final Account account;
   private final Device device;
 
- public AuthenticatedAccount(final Account account, final Device device) {
+  public AuthenticatedDevice(final Account account, final Device device) {
     this.account = account;
     this.device = device;
   }

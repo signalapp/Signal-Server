@@ -166,7 +166,7 @@ class AccountAuthenticatorTest {
     when(credentials.verify(password)).thenReturn(true);
     when(credentials.getVersion()).thenReturn(SaltedTokenHash.CURRENT_VERSION);
 
-    final Optional<AuthenticatedAccount> maybeAuthenticatedAccount =
+    final Optional<AuthenticatedDevice> maybeAuthenticatedAccount =
         accountAuthenticator.authenticate(new BasicCredentials(uuid.toString(), password));
 
     assertThat(maybeAuthenticatedAccount).isPresent();
@@ -194,7 +194,7 @@ class AccountAuthenticatorTest {
     when(credentials.verify(password)).thenReturn(true);
     when(credentials.getVersion()).thenReturn(SaltedTokenHash.CURRENT_VERSION);
 
-    final Optional<AuthenticatedAccount> maybeAuthenticatedAccount =
+    final Optional<AuthenticatedDevice> maybeAuthenticatedAccount =
         accountAuthenticator.authenticate(new BasicCredentials(uuid + "." + deviceId, password));
 
     assertThat(maybeAuthenticatedAccount).isPresent();
@@ -231,7 +231,7 @@ class AccountAuthenticatorTest {
     } else {
       identifier = uuid.toString() + AccountAuthenticator.DEVICE_ID_SEPARATOR + deviceId;
     }
-    final Optional<AuthenticatedAccount> maybeAuthenticatedAccount =
+    final Optional<AuthenticatedDevice> maybeAuthenticatedAccount =
         accountAuthenticator.authenticate(new BasicCredentials(identifier, password));
 
     assertThat(maybeAuthenticatedAccount).isPresent();
@@ -259,7 +259,7 @@ class AccountAuthenticatorTest {
     when(credentials.verify(password)).thenReturn(true);
     when(credentials.getVersion()).thenReturn(SaltedTokenHash.Version.V1);
 
-    final Optional<AuthenticatedAccount> maybeAuthenticatedAccount =
+    final Optional<AuthenticatedDevice> maybeAuthenticatedAccount =
         accountAuthenticator.authenticate(new BasicCredentials(uuid.toString(), password));
 
     assertThat(maybeAuthenticatedAccount).isPresent();
@@ -294,7 +294,7 @@ class AccountAuthenticatorTest {
     when(credentials.verify(password)).thenReturn(true);
     when(credentials.getVersion()).thenReturn(SaltedTokenHash.CURRENT_VERSION);
 
-    final Optional<AuthenticatedAccount> maybeAuthenticatedAccount =
+    final Optional<AuthenticatedDevice> maybeAuthenticatedAccount =
         accountAuthenticator.authenticate(new BasicCredentials(uuid + "." + (deviceId + 1), password));
 
     assertThat(maybeAuthenticatedAccount).isEmpty();
@@ -322,7 +322,7 @@ class AccountAuthenticatorTest {
 
     final String incorrectPassword = password + "incorrect";
 
-    final Optional<AuthenticatedAccount> maybeAuthenticatedAccount =
+    final Optional<AuthenticatedDevice> maybeAuthenticatedAccount =
         accountAuthenticator.authenticate(new BasicCredentials(uuid.toString(), incorrectPassword));
 
     assertThat(maybeAuthenticatedAccount).isEmpty();
@@ -332,7 +332,7 @@ class AccountAuthenticatorTest {
   @ParameterizedTest
   @MethodSource
   void testAuthenticateMalformedCredentials(final String username) {
-    final Optional<AuthenticatedAccount> maybeAuthenticatedAccount = assertDoesNotThrow(
+    final Optional<AuthenticatedDevice> maybeAuthenticatedAccount = assertDoesNotThrow(
         () -> accountAuthenticator.authenticate(new BasicCredentials(username, "password")));
 
     assertThat(maybeAuthenticatedAccount).isEmpty();

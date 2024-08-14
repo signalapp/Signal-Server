@@ -25,7 +25,7 @@ import org.whispersystems.textsecuregcm.util.Pair;
  * any active WebSocket connections for the account must be closed in order for clients to get a refreshed
  * {@link io.dropwizard.auth.Auth} object with a current device list.
  *
- * @see AuthenticatedAccount
+ * @see AuthenticatedDevice
  */
 public class LinkedDeviceRefreshRequirementProvider implements WebsocketRefreshRequirementProvider {
 

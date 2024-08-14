@@ -43,7 +43,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
-import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
@@ -127,7 +127,7 @@ class WebSocketConnectionIntegrationTest {
         new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager, sharedExecutorService),
         new MessageMetrics(),
         mock(PushNotificationManager.class),
-        new AuthenticatedAccount(account, device),
+        new AuthenticatedDevice(account, device),
         webSocketClient,
         scheduledExecutorService,
         messageDeliveryScheduler,
@@ -213,7 +213,7 @@ class WebSocketConnectionIntegrationTest {
         new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager, sharedExecutorService),
         new MessageMetrics(),
         mock(PushNotificationManager.class),
-        new AuthenticatedAccount(account, device),
+        new AuthenticatedDevice(account, device),
         webSocketClient,
         scheduledExecutorService,
         messageDeliveryScheduler,
@@ -280,7 +280,7 @@ class WebSocketConnectionIntegrationTest {
         new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager, sharedExecutorService),
         new MessageMetrics(),
         mock(PushNotificationManager.class),
-        new AuthenticatedAccount(account, device),
+        new AuthenticatedDevice(account, device),
         webSocketClient,
         100, // use a very short timeout, so that this test completes quickly
         scheduledExecutorService,

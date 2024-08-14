@@ -49,7 +49,7 @@ import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.signal.libsignal.zkgroup.groupsend.GroupSendDerivedKeyPair;
 import org.signal.libsignal.zkgroup.groupsend.GroupSendFullToken;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
-import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.GroupSendTokenHeader;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
 import org.whispersystems.textsecuregcm.entities.CheckKeysRequest;
@@ -108,7 +108,7 @@ public class KeysController {
       description = "Gets the number of one-time prekeys uploaded for this device and still available")
   @ApiResponse(responseCode = "200", description = "Body contains the number of available one-time prekeys for the device.", useReturnTypeSchema = true)
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
-  public CompletableFuture<PreKeyCount> getStatus(@ReadOnly @Auth final AuthenticatedAccount auth,
+  public CompletableFuture<PreKeyCount> getStatus(@ReadOnly @Auth final AuthenticatedDevice auth,
       @QueryParam("identity") @DefaultValue("aci") final IdentityType identityType) {
 
     final CompletableFuture<Integer> ecCountFuture =
@@ -129,7 +129,7 @@ public class KeysController {
   @ApiResponse(responseCode = "403", description = "Attempt to change identity key from a non-primary device.")
   @ApiResponse(responseCode = "422", description = "Invalid request format.")
   public CompletableFuture<Response> setKeys(
-      @ReadOnly @Auth final AuthenticatedAccount auth,
+      @ReadOnly @Auth final AuthenticatedDevice auth,
       @RequestBody @NotNull @Valid final SetKeysRequest setKeysRequest,
 
       @Parameter(allowEmptyValue=true)
@@ -243,7 +243,7 @@ public class KeysController {
   """)
   @ApiResponse(responseCode = "422", description = "Invalid request format")
   public CompletableFuture<Response> checkKeys(
-      @ReadOnly @Auth final AuthenticatedAccount auth,
+      @ReadOnly @Auth final AuthenticatedDevice auth,
       @RequestBody @NotNull @Valid final CheckKeysRequest checkKeysRequest,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) {
 
@@ -318,7 +318,7 @@ public class KeysController {
       name = "Retry-After",
       description = "If present, a positive integer indicating the number of seconds before a subsequent attempt could succeed"))
   public PreKeyResponse getDeviceKeys(
-      @ReadOnly @Auth Optional<AuthenticatedAccount> auth,
+      @ReadOnly @Auth Optional<AuthenticatedDevice> auth,
       @HeaderParam(HeaderUtils.UNIDENTIFIED_ACCESS_KEY) Optional<Anonymous> accessKey,
       @HeaderParam(HeaderUtils.GROUP_SEND_TOKEN) Optional<GroupSendTokenHeader> groupSendToken,
 
@@ -335,7 +335,7 @@ public class KeysController {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 
-    final Optional<Account> account = auth.map(AuthenticatedAccount::getAccount);
+    final Optional<Account> account = auth.map(AuthenticatedDevice::getAccount);
     final Optional<Account> maybeTarget = accounts.getByServiceIdentifier(targetIdentifier);
 
     if (groupSendToken.isPresent()) {

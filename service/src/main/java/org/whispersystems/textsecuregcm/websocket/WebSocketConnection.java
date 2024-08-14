@@ -34,7 +34,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.reactivestreams.Publisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
@@ -116,7 +116,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   private final MessageMetrics messageMetrics;
   private final PushNotificationManager pushNotificationManager;
 
-  private final AuthenticatedAccount auth;
+  private final AuthenticatedDevice auth;
   private final WebSocketClient client;
 
   private final int sendFuturesTimeoutMillis;
@@ -148,7 +148,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
       MessagesManager messagesManager,
       MessageMetrics messageMetrics,
       PushNotificationManager pushNotificationManager,
-      AuthenticatedAccount auth,
+      AuthenticatedDevice auth,
       WebSocketClient client,
       ScheduledExecutorService scheduledExecutorService,
       Scheduler messageDeliveryScheduler,
@@ -171,7 +171,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
       MessagesManager messagesManager,
       MessageMetrics messageMetrics,
       PushNotificationManager pushNotificationManager,
-      AuthenticatedAccount auth,
+      AuthenticatedDevice auth,
       WebSocketClient client,
       int sendFuturesTimeoutMillis,
       ScheduledExecutorService scheduledExecutorService,

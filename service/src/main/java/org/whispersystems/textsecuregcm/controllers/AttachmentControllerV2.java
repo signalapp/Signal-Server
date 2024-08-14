@@ -20,7 +20,7 @@ import javax.ws.rs.HeaderParam;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
-import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.entities.AttachmentDescriptorV2;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -54,7 +54,7 @@ public class AttachmentControllerV2 {
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/form/upload")
   public AttachmentDescriptorV2 getAttachmentUploadForm(
-      @ReadOnly @Auth AuthenticatedAccount auth,
+      @ReadOnly @Auth AuthenticatedDevice auth,
       @HeaderParam(HttpHeaders.USER_AGENT) String userAgent)
       throws RateLimitExceededException {
     rateLimiter.validate(auth.getAccount().getUuid());

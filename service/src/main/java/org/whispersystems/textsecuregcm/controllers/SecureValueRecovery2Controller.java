@@ -23,7 +23,7 @@ import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
-import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsSelector;
@@ -78,7 +78,7 @@ public class SecureValueRecovery2Controller {
   )
   @ApiResponse(responseCode = "200", description = "`JSON` with generated credentials.", useReturnTypeSchema = true)
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
-  public ExternalServiceCredentials getAuth(@ReadOnly @Auth final AuthenticatedAccount auth) {
+  public ExternalServiceCredentials getAuth(@ReadOnly @Auth final AuthenticatedDevice auth) {
     return backupServiceCredentialGenerator.generateFor(auth.getAccount().getUuid().toString());
   }
 

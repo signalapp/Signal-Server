@@ -22,7 +22,7 @@ import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
-import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.entities.UserRemoteConfig;
 import org.whispersystems.textsecuregcm.entities.UserRemoteConfigList;
 import org.whispersystems.textsecuregcm.storage.RemoteConfigsManager;
@@ -52,7 +52,7 @@ public class RemoteConfigController {
 
   @GET
   @Produces(MediaType.APPLICATION_JSON)
-  public UserRemoteConfigList getAll(@ReadOnly @Auth AuthenticatedAccount auth) {
+  public UserRemoteConfigList getAll(@ReadOnly @Auth AuthenticatedDevice auth) {
     try {
       MessageDigest digest = MessageDigest.getInstance("SHA1");
 

@@ -33,7 +33,7 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import org.signal.libsignal.usernames.BaseUsernameException;
 import org.whispersystems.textsecuregcm.auth.AccountAndAuthenticatedDeviceHolder;
-import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.auth.TurnToken;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
@@ -99,7 +99,7 @@ public class AccountController {
   @GET
   @Path("/turn/")
   @Produces(MediaType.APPLICATION_JSON)
-  public TurnToken getTurnToken(@ReadOnly @Auth AuthenticatedAccount auth) throws RateLimitExceededException {
+  public TurnToken getTurnToken(@ReadOnly @Auth AuthenticatedDevice auth) throws RateLimitExceededException {
     rateLimiters.getTurnLimiter().validate(auth.getAccount().getUuid());
     return turnTokenGenerator.generate(auth.getAccount().getUuid());
   }
@@ -108,7 +108,7 @@ public class AccountController {
   @Path("/gcm/")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public void setGcmRegistrationId(@Mutable @Auth AuthenticatedAccount auth,
+  public void setGcmRegistrationId(@Mutable @Auth AuthenticatedDevice auth,
       @NotNull @Valid GcmRegistrationId registrationId) {
 
     final Account account = auth.getAccount();
@@ -128,7 +128,7 @@ public class AccountController {
 
   @DELETE
   @Path("/gcm/")
-  public void deleteGcmRegistrationId(@Mutable @Auth AuthenticatedAccount auth) {
+  public void deleteGcmRegistrationId(@Mutable @Auth AuthenticatedDevice auth) {
     Account account = auth.getAccount();
     Device device = auth.getAuthenticatedDevice();
 
@@ -143,7 +143,7 @@ public class AccountController {
   @Path("/apn/")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public void setApnRegistrationId(@Mutable @Auth AuthenticatedAccount auth,
+  public void setApnRegistrationId(@Mutable @Auth AuthenticatedDevice auth,
       @NotNull @Valid ApnRegistrationId registrationId) {
 
     final Account account = auth.getAccount();
@@ -161,7 +161,7 @@ public class AccountController {
 
   @DELETE
   @Path("/apn/")
-  public void deleteApnRegistrationId(@Mutable @Auth AuthenticatedAccount auth) {
+  public void deleteApnRegistrationId(@Mutable @Auth AuthenticatedDevice auth) {
     Account account = auth.getAccount();
     Device device = auth.getAuthenticatedDevice();
 
@@ -180,7 +180,7 @@ public class AccountController {
   @PUT
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/registration_lock")
-  public void setRegistrationLock(@Mutable @Auth AuthenticatedAccount auth, @NotNull @Valid RegistrationLock accountLock) {
+  public void setRegistrationLock(@Mutable @Auth AuthenticatedDevice auth, @NotNull @Valid RegistrationLock accountLock) {
     SaltedTokenHash credentials = SaltedTokenHash.generateFor(accountLock.getRegistrationLock());
 
     accounts.update(auth.getAccount(),
@@ -189,13 +189,13 @@ public class AccountController {
 
   @DELETE
   @Path("/registration_lock")
-  public void removeRegistrationLock(@Mutable @Auth AuthenticatedAccount auth) {
+  public void removeRegistrationLock(@Mutable @Auth AuthenticatedDevice auth) {
     accounts.update(auth.getAccount(), a -> a.setRegistrationLock(null, null));
   }
 
   @PUT
   @Path("/name/")
-  public void setName(@Mutable @Auth AuthenticatedAccount auth, @NotNull @Valid DeviceName deviceName) {
+  public void setName(@Mutable @Auth AuthenticatedDevice auth, @NotNull @Valid DeviceName deviceName) {
     Account account = auth.getAccount();
     Device device = auth.getAuthenticatedDevice();
     accounts.updateDevice(account, device.getId(), d -> d.setName(deviceName.getDeviceName()));
@@ -206,7 +206,7 @@ public class AccountController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public void setAccountAttributes(
-      @Mutable @Auth AuthenticatedAccount auth,
+      @Mutable @Auth AuthenticatedDevice auth,
       @HeaderParam(HeaderUtils.X_SIGNAL_AGENT) String userAgent,
       @NotNull @Valid AccountAttributes attributes) {
     final Account account = auth.getAccount();
@@ -236,14 +236,14 @@ public class AccountController {
   @Path("/me")
   @Deprecated() // use whoami
   @Produces(MediaType.APPLICATION_JSON)
-  public AccountIdentityResponse getMe(@ReadOnly @Auth AuthenticatedAccount auth) {
+  public AccountIdentityResponse getMe(@ReadOnly @Auth AuthenticatedDevice auth) {
     return buildAccountIdentityResponse(auth);
   }
 
   @GET
   @Path("/whoami")
   @Produces(MediaType.APPLICATION_JSON)
-  public AccountIdentityResponse whoAmI(@ReadOnly @Auth AuthenticatedAccount auth) {
+  public AccountIdentityResponse whoAmI(@ReadOnly @Auth AuthenticatedDevice auth) {
     return buildAccountIdentityResponse(auth);
   }
 
@@ -266,7 +266,7 @@ public class AccountController {
   )
   @ApiResponse(responseCode = "204", description = "Username successfully deleted.", useReturnTypeSchema = true)
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
-  public CompletableFuture<Response> deleteUsernameHash(@Mutable @Auth final AuthenticatedAccount auth) {
+  public CompletableFuture<Response> deleteUsernameHash(@Mutable @Auth final AuthenticatedDevice auth) {
     return accounts.clearUsernameHash(auth.getAccount())
         .thenApply(Util.ASYNC_EMPTY_RESPONSE);
   }
@@ -288,7 +288,7 @@ public class AccountController {
   @ApiResponse(responseCode = "422", description = "Invalid request format.")
   @ApiResponse(responseCode = "429", description = "Ratelimited.")
   public CompletableFuture<ReserveUsernameHashResponse> reserveUsernameHash(
-      @Mutable @Auth final AuthenticatedAccount auth,
+      @Mutable @Auth final AuthenticatedDevice auth,
       @NotNull @Valid final ReserveUsernameHashRequest usernameRequest) throws RateLimitExceededException {
 
     rateLimiters.getUsernameReserveLimiter().validate(auth.getAccount().getUuid());
@@ -328,7 +328,7 @@ public class AccountController {
   @ApiResponse(responseCode = "422", description = "Invalid request format.")
   @ApiResponse(responseCode = "429", description = "Ratelimited.")
   public CompletableFuture<UsernameHashResponse> confirmUsernameHash(
-      @Mutable @Auth final AuthenticatedAccount auth,
+      @Mutable @Auth final AuthenticatedDevice auth,
       @NotNull @Valid final ConfirmUsernameHashRequest confirmRequest) {
 
     try {
@@ -373,7 +373,7 @@ public class AccountController {
   @ApiResponse(responseCode = "400", description = "Request must not be authenticated.")
   @ApiResponse(responseCode = "404", description = "Account not found for the given username.")
   public CompletableFuture<AccountIdentifierResponse> lookupUsernameHash(
-      @ReadOnly @Auth final Optional<AuthenticatedAccount> maybeAuthenticatedAccount,
+      @ReadOnly @Auth final Optional<AuthenticatedDevice> maybeAuthenticatedAccount,
       @PathParam("usernameHash") final String usernameHash) {
 
     requireNotAuthenticated(maybeAuthenticatedAccount);
@@ -412,7 +412,7 @@ public class AccountController {
   @ApiResponse(responseCode = "422", description = "Invalid request format.")
   @ApiResponse(responseCode = "429", description = "Ratelimited.")
   public UsernameLinkHandle updateUsernameLink(
-      @Mutable @Auth final AuthenticatedAccount auth,
+      @Mutable @Auth final AuthenticatedDevice auth,
       @NotNull @Valid final EncryptedUsername encryptedUsername) throws RateLimitExceededException {
     // check ratelimiter for username link operations
     rateLimiters.forDescriptor(RateLimiters.For.USERNAME_LINK_OPERATION).validate(auth.getAccount().getUuid());
@@ -446,7 +446,7 @@ public class AccountController {
   @ApiResponse(responseCode = "204", description = "Username Link successfully deleted.", useReturnTypeSchema = true)
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
   @ApiResponse(responseCode = "429", description = "Ratelimited.")
-  public void deleteUsernameLink(@Mutable @Auth final AuthenticatedAccount auth) throws RateLimitExceededException {
+  public void deleteUsernameLink(@Mutable @Auth final AuthenticatedDevice auth) throws RateLimitExceededException {
     // check ratelimiter for username link operations
     rateLimiters.forDescriptor(RateLimiters.For.USERNAME_LINK_OPERATION).validate(auth.getAccount().getUuid());
     clearUsernameLink(auth.getAccount());
@@ -469,7 +469,7 @@ public class AccountController {
   @ApiResponse(responseCode = "422", description = "Invalid request format.")
   @ApiResponse(responseCode = "429", description = "Ratelimited.")
   public CompletableFuture<EncryptedUsername> lookupUsernameLink(
-      @ReadOnly @Auth final Optional<AuthenticatedAccount> maybeAuthenticatedAccount,
+      @ReadOnly @Auth final Optional<AuthenticatedDevice> maybeAuthenticatedAccount,
       @PathParam("uuid") final UUID usernameLinkHandle) {
 
     requireNotAuthenticated(maybeAuthenticatedAccount);
@@ -495,7 +495,7 @@ public class AccountController {
   @Path("/account/{identifier}")
   @RateLimitedByIp(RateLimiters.For.CHECK_ACCOUNT_EXISTENCE)
   public Response accountExists(
-      @ReadOnly @Auth final Optional<AuthenticatedAccount> authenticatedAccount,
+      @ReadOnly @Auth final Optional<AuthenticatedDevice> authenticatedAccount,
 
       @Parameter(description = "An ACI or PNI account identifier to check")
       @PathParam("identifier") final ServiceIdentifier accountIdentifier) {
@@ -510,7 +510,7 @@ public class AccountController {
 
   @DELETE
   @Path("/me")
-  public CompletableFuture<Response> deleteAccount(@Mutable @Auth AuthenticatedAccount auth) {
+  public CompletableFuture<Response> deleteAccount(@Mutable @Auth AuthenticatedDevice auth) {
     return accounts.delete(auth.getAccount(), AccountsManager.DeletionReason.USER_REQUEST).thenApply(Util.ASYNC_EMPTY_RESPONSE);
   }
 
@@ -528,7 +528,7 @@ public class AccountController {
     accounts.update(account, a -> a.setUsernameLinkDetails(usernameLinkHandle, encryptedUsername));
   }
 
-  private void requireNotAuthenticated(final Optional<AuthenticatedAccount> authenticatedAccount) {
+  private void requireNotAuthenticated(final Optional<AuthenticatedDevice> authenticatedAccount) {
     if (authenticatedAccount.isPresent()) {
       throw new BadRequestException("Operation requires unauthenticated access");
     }

@@ -64,7 +64,7 @@ import org.signal.libsignal.zkgroup.profiles.ServerZkProfileOperations;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
-import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.GroupSendTokenHeader;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessChecksum;
@@ -167,7 +167,7 @@ public class ProfileController {
   @PUT
   @Produces(MediaType.APPLICATION_JSON)
   @Consumes(MediaType.APPLICATION_JSON)
-  public Response setProfile(@Mutable @Auth AuthenticatedAccount auth, @NotNull @Valid CreateProfileRequest request) {
+  public Response setProfile(@Mutable @Auth AuthenticatedDevice auth, @NotNull @Valid CreateProfileRequest request) {
 
     final Optional<VersionedProfile> currentProfile = profilesManager.get(auth.getAccount().getUuid(),
         request.version());
@@ -233,14 +233,14 @@ public class ProfileController {
   @Path("/{identifier}/{version}")
   @ManagedAsync
   public VersionedProfileResponse getProfile(
-      @ReadOnly @Auth Optional<AuthenticatedAccount> auth,
+      @ReadOnly @Auth Optional<AuthenticatedDevice> auth,
       @HeaderParam(HeaderUtils.UNIDENTIFIED_ACCESS_KEY) Optional<Anonymous> accessKey,
       @Context ContainerRequestContext containerRequestContext,
       @PathParam("identifier") AciServiceIdentifier accountIdentifier,
       @PathParam("version") String version)
       throws RateLimitExceededException {
 
-    final Optional<Account> maybeRequester = auth.map(AuthenticatedAccount::getAccount);
+    final Optional<Account> maybeRequester = auth.map(AuthenticatedDevice::getAccount);
     final Account targetAccount = verifyPermissionToReceiveProfile(maybeRequester, accessKey, accountIdentifier);
 
     return buildVersionedProfileResponse(targetAccount,
@@ -253,7 +253,7 @@ public class ProfileController {
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/{identifier}/{version}/{credentialRequest}")
   public CredentialProfileResponse getProfile(
-      @ReadOnly @Auth Optional<AuthenticatedAccount> auth,
+      @ReadOnly @Auth Optional<AuthenticatedDevice> auth,
       @HeaderParam(HeaderUtils.UNIDENTIFIED_ACCESS_KEY) Optional<Anonymous> accessKey,
       @Context ContainerRequestContext containerRequestContext,
       @PathParam("identifier") AciServiceIdentifier accountIdentifier,
@@ -266,7 +266,7 @@ public class ProfileController {
       throw new BadRequestException();
     }
 
-    final Optional<Account> maybeRequester = auth.map(AuthenticatedAccount::getAccount);
+    final Optional<Account> maybeRequester = auth.map(AuthenticatedDevice::getAccount);
     final Account targetAccount = verifyPermissionToReceiveProfile(maybeRequester, accessKey, accountIdentifier);
     final boolean isSelf = maybeRequester.map(requester -> ProfileHelper.isSelfProfileRequest(requester.getUuid(), accountIdentifier)).orElse(false);
 
@@ -284,7 +284,7 @@ public class ProfileController {
   @Path("/{identifier}")
   @ManagedAsync
   public BaseProfileResponse getUnversionedProfile(
-      @ReadOnly @Auth Optional<AuthenticatedAccount> auth,
+      @ReadOnly @Auth Optional<AuthenticatedDevice> auth,
       @HeaderParam(HeaderUtils.UNIDENTIFIED_ACCESS_KEY) Optional<Anonymous> accessKey,
       @HeaderParam(HeaderUtils.GROUP_SEND_TOKEN) Optional<GroupSendTokenHeader> groupSendToken,
       @Context ContainerRequestContext containerRequestContext,
@@ -293,7 +293,7 @@ public class ProfileController {
       @QueryParam("ca") boolean useCaCertificate)
       throws RateLimitExceededException {
 
-    final Optional<Account> maybeRequester = auth.map(AuthenticatedAccount::getAccount);
+    final Optional<Account> maybeRequester = auth.map(AuthenticatedDevice::getAccount);
 
     final Account targetAccount;
     if (groupSendToken.isPresent()) {

@@ -21,7 +21,7 @@ import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.Set;
 import javax.ws.rs.Consumes;
-import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 
 /**
  * One of the extension mechanisms of Swagger Core library (OpenAPI processor) is via custom implementations
@@ -62,11 +62,11 @@ public class OpenApiExtension extends AbstractOpenAPIExtension {
     if (annotations.stream().anyMatch(a -> a.annotationType().equals(Auth.class))) {
       // this is the case of authenticated endpoint,
       if (type instanceof SimpleType simpleType
-          && simpleType.getRawClass().equals(AuthenticatedAccount.class)) {
+          && simpleType.getRawClass().equals(AuthenticatedDevice.class)) {
         return AUTHENTICATED_ACCOUNT;
       }
       if (type instanceof SimpleType simpleType
-          && isOptionalOfType(simpleType, AuthenticatedAccount.class)) {
+          && isOptionalOfType(simpleType, AuthenticatedDevice.class)) {
         return OPTIONAL_AUTHENTICATED_ACCOUNT;
       }
     }

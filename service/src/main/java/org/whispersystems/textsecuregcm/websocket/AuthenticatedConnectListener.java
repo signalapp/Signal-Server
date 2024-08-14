@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
@@ -136,7 +136,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
     final Timer connectionTimer = getConnectionTimer(userAgent, authenticated);
 
     if (authenticated) {
-      final AuthenticatedAccount auth = context.getAuthenticated(AuthenticatedAccount.class);
+      final AuthenticatedDevice auth = context.getAuthenticated(AuthenticatedDevice.class);
       final Timer.Sample sample = Timer.start();
       final WebSocketConnection connection = new WebSocketConnection(receiptSender,
           messagesManager,

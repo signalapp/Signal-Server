@@ -20,7 +20,7 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.CloudflareTurnCredentialsManager;
 import org.whispersystems.textsecuregcm.auth.TurnToken;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
@@ -73,7 +73,7 @@ public class CallRoutingController {
   @ApiResponse(responseCode = "422", description = "Invalid request format.")
   @ApiResponse(responseCode = "429", description = "Rate limited.")
   public TurnToken getCallingRelays(
-      final @ReadOnly @Auth AuthenticatedAccount auth,
+      final @ReadOnly @Auth AuthenticatedDevice auth,
       @Context ContainerRequestContext requestContext
   ) throws RateLimitExceededException, IOException {
     UUID aci = auth.getAccount().getUuid();

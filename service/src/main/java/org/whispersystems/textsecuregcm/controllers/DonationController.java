@@ -28,9 +28,7 @@ import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialPresentation;
 import org.signal.libsignal.zkgroup.receipts.ReceiptSerial;
 import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
 import org.whispersystems.textsecuregcm.entities.RedeemReceiptRequest;
 import org.whispersystems.textsecuregcm.storage.AccountBadge;
@@ -73,7 +71,7 @@ public class DonationController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces({MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN})
   public CompletionStage<Response> redeemReceipt(
-      @Mutable @Auth final AuthenticatedAccount auth,
+      @Mutable @Auth final AuthenticatedDevice auth,
       @NotNull @Valid final RedeemReceiptRequest request) {
     return CompletableFuture.supplyAsync(() -> {
       ReceiptCredentialPresentation receiptCredentialPresentation;
