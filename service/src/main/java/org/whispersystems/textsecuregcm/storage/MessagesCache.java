@@ -12,7 +12,6 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import io.dropwizard.lifecycle.Managed;
 import io.lettuce.core.ScoredValue;
 import io.lettuce.core.ScriptOutputType;
-import io.lettuce.core.SetArgs;
 import io.lettuce.core.ZAddArgs;
 import io.lettuce.core.cluster.SlotHash;
 import io.lettuce.core.cluster.models.partitions.RedisClusterNode;

@@ -47,12 +47,12 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
+import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtension;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.storage.MessagesCache;
@@ -126,8 +126,8 @@ class WebSocketConnectionIntegrationTest {
         mock(ReceiptSender.class),
         new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager, sharedExecutorService),
         new MessageMetrics(),
+        mock(PushNotificationManager.class),
         new AuthenticatedAccount(account, device),
-        device,
         webSocketClient,
         scheduledExecutorService,
         messageDeliveryScheduler,
@@ -212,8 +212,8 @@ class WebSocketConnectionIntegrationTest {
         mock(ReceiptSender.class),
         new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager, sharedExecutorService),
         new MessageMetrics(),
+        mock(PushNotificationManager.class),
         new AuthenticatedAccount(account, device),
-        device,
         webSocketClient,
         scheduledExecutorService,
         messageDeliveryScheduler,
@@ -279,8 +279,8 @@ class WebSocketConnectionIntegrationTest {
         mock(ReceiptSender.class),
         new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager, sharedExecutorService),
         new MessageMetrics(),
+        mock(PushNotificationManager.class),
         new AuthenticatedAccount(account, device),
-        device,
         webSocketClient,
         100, // use a very short timeout, so that this test completes quickly
         scheduledExecutorService,

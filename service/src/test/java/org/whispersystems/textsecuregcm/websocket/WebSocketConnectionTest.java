@@ -626,7 +626,8 @@ class WebSocketConnectionTest {
   }
 
   private @NotNull WebSocketConnection webSocketConnection(final WebSocketClient client) {
-    return new WebSocketConnection(receiptSender, messagesManager, new MessageMetrics(), auth, device, client,
+    return new WebSocketConnection(receiptSender, messagesManager, new MessageMetrics(),
+        mock(PushNotificationManager.class), auth, client,
         retrySchedulingExecutor, Schedulers.immediate(), clientReleaseManager);
   }
 

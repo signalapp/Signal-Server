@@ -43,6 +43,8 @@ import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.DisplacedPresenceListener;
+import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
+import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -86,6 +88,8 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
       "sendMessages");
   private static final String SEND_MESSAGE_ERROR_COUNTER = MetricsUtil.name(WebSocketConnection.class,
       "sendMessageError");
+  private static final String PUSH_NOTIFICATION_ON_CLOSE_COUNTER_NAME =
+      MetricsUtil.name(WebSocketConnection.class, "pushNotificationOnClose");
   private static final String STATUS_CODE_TAG = "status";
   private static final String STATUS_MESSAGE_TAG = "message";
   private static final String ERROR_TYPE_TAG = "errorType";
@@ -110,9 +114,9 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   private final ReceiptSender receiptSender;
   private final MessagesManager messagesManager;
   private final MessageMetrics messageMetrics;
+  private final PushNotificationManager pushNotificationManager;
 
   private final AuthenticatedAccount auth;
-  private final Device device;
   private final WebSocketClient client;
 
   private final int sendFuturesTimeoutMillis;
@@ -143,8 +147,8 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   public WebSocketConnection(ReceiptSender receiptSender,
       MessagesManager messagesManager,
       MessageMetrics messageMetrics,
+      PushNotificationManager pushNotificationManager,
       AuthenticatedAccount auth,
-      Device device,
       WebSocketClient client,
       ScheduledExecutorService scheduledExecutorService,
       Scheduler messageDeliveryScheduler,
@@ -153,8 +157,8 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
     this(receiptSender,
         messagesManager,
         messageMetrics,
+        pushNotificationManager,
         auth,
-        device,
         client,
         DEFAULT_SEND_FUTURES_TIMEOUT_MILLIS,
         scheduledExecutorService,
@@ -166,8 +170,8 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   WebSocketConnection(ReceiptSender receiptSender,
       MessagesManager messagesManager,
       MessageMetrics messageMetrics,
+      PushNotificationManager pushNotificationManager,
       AuthenticatedAccount auth,
-      Device device,
       WebSocketClient client,
       int sendFuturesTimeoutMillis,
       ScheduledExecutorService scheduledExecutorService,
@@ -177,8 +181,8 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
     this.receiptSender = receiptSender;
     this.messagesManager = messagesManager;
     this.messageMetrics = messageMetrics;
+    this.pushNotificationManager = pushNotificationManager;
     this.auth = auth;
-    this.device = device;
     this.client = client;
     this.sendFuturesTimeoutMillis = sendFuturesTimeoutMillis;
     this.scheduledExecutorService = scheduledExecutorService;
@@ -187,6 +191,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   }
 
   public void start() {
+    pushNotificationManager.handleMessagesRetrieved(auth.getAccount(), auth.getAuthenticatedDevice(), client.getUserAgent());
     queueDrainStartTime.set(System.currentTimeMillis());
     processStoredMessages();
   }
@@ -204,6 +209,17 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
     }
 
     client.close(1000, "OK");
+
+    if (storedMessageState.get() != StoredMessageState.EMPTY) {
+      try {
+        pushNotificationManager.sendNewMessageNotification(auth.getAccount(), auth.getAuthenticatedDevice().getId(), true);
+
+        Metrics.counter(PUSH_NOTIFICATION_ON_CLOSE_COUNTER_NAME,
+                Tags.of(UserAgentTagUtil.getPlatformTag(client.getUserAgent())))
+            .increment();
+      } catch (NotPushRegisteredException ignored) {
+      }
+    }
   }
 
   private CompletableFuture<Void> sendMessage(final Envelope message, StoredMessageInfo storedMessageInfo) {
@@ -224,7 +240,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
           } else {
             messageMetrics.measureOutgoingMessageLatency(message.getServerTimestamp(),
                 "websocket",
-                device.isPrimary(),
+                auth.getAuthenticatedDevice().isPrimary(),
                 client.getUserAgent(),
                 clientReleaseManager);
           }
@@ -232,12 +248,12 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
           final CompletableFuture<Void> result;
           if (isSuccessResponse(response)) {
 
-            result = messagesManager.delete(auth.getAccount().getUuid(), device,
+            result = messagesManager.delete(auth.getAccount().getUuid(), auth.getAuthenticatedDevice(),
                     storedMessageInfo.guid(), storedMessageInfo.serverTimestamp())
                 .thenApply(ignored -> null);
 
             if (message.getType() != Envelope.Type.SERVER_DELIVERY_RECEIPT) {
-              recordMessageDeliveryDuration(message.getServerTimestamp(), device);
+              recordMessageDeliveryDuration(message.getServerTimestamp(), auth.getAuthenticatedDevice());
               sendDeliveryReceiptFor(message);
             }
           } else {
@@ -359,7 +375,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   private void sendMessages(final boolean cachedMessagesOnly, final CompletableFuture<Void> queueCleared) {
 
     final Publisher<Envelope> messages =
-        messagesManager.getMessagesForDeviceReactive(auth.getAccount().getUuid(), device, cachedMessagesOnly);
+        messagesManager.getMessagesForDeviceReactive(auth.getAccount().getUuid(), auth.getAuthenticatedDevice(), cachedMessagesOnly);
 
     final AtomicBoolean hasErrored = new AtomicBoolean();
 
@@ -418,7 +434,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
     final UUID messageGuid = UUID.fromString(envelope.getServerGuid());
 
     if (envelope.getStory() && !client.shouldDeliverStories()) {
-      messagesManager.delete(auth.getAccount().getUuid(), device, messageGuid, envelope.getServerTimestamp());
+      messagesManager.delete(auth.getAccount().getUuid(), auth.getAuthenticatedDevice(), messageGuid, envelope.getServerTimestamp());
 
       return CompletableFuture.completedFuture(null);
     } else {

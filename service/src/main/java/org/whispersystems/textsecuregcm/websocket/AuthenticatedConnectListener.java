@@ -23,12 +23,10 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
-import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
-import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
@@ -139,18 +137,18 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
 
     if (authenticated) {
       final AuthenticatedAccount auth = context.getAuthenticated(AuthenticatedAccount.class);
-      final Device device = auth.getAuthenticatedDevice();
       final Timer.Sample sample = Timer.start();
       final WebSocketConnection connection = new WebSocketConnection(receiptSender,
-          messagesManager, messageMetrics, auth, device,
+          messagesManager,
+          messageMetrics,
+          pushNotificationManager,
+          auth,
           context.getClient(),
           scheduledExecutorService,
           messageDeliveryScheduler,
           clientReleaseManager);
 
       openWebsocketAtomicInteger.incrementAndGet();
-
-      pushNotificationManager.handleMessagesRetrieved(auth.getAccount(), device, userAgent);
 
       final AtomicReference<ScheduledFuture<?>> renewPresenceFutureReference = new AtomicReference<>();
 
@@ -164,29 +162,41 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
           renewPresenceFuture.cancel(false);
         }
 
+        // We begin the shutdown process by removing this client's "presence," which means it will again begin to
+        // receive push notifications for inbound messages. We should do this first because, at this point, the
+        // connection has already closed and attempts to actually deliver a message via the connection will not succeed.
+        // It's preferable to start sending push notifications as soon as possible.
+        RedisOperation.unchecked(() -> clientPresenceManager.clearPresence(auth.getAccount().getUuid(), auth.getAuthenticatedDevice().getId(), connection));
+
+        // Next, we stop listening for inbound messages. If a message arrives after this call, the websocket connection
+        // will not be notified and will not change its state, but that's okay because it has already closed and
+        // attempts to deliver mesages via this connection will not succeed.
+        RedisOperation.unchecked(() -> messagesManager.removeMessageAvailabilityListener(connection));
+
+        // Finally, stop trying to deliver messages and send a push notification if the connection is aware of any
+        // undelivered messages.
         connection.stop();
-
-        RedisOperation.unchecked(
-            () -> clientPresenceManager.clearPresence(auth.getAccount().getUuid(), device.getId(), connection));
-        RedisOperation.unchecked(() -> {
-          messagesManager.removeMessageAvailabilityListener(connection);
-
-          if (messagesManager.hasCachedMessages(auth.getAccount().getUuid(), device.getId())) {
-            try {
-              pushNotificationManager.sendNewMessageNotification(auth.getAccount(), device.getId(), true);
-            } catch (NotPushRegisteredException ignored) {
-            }
-          }
-        });
       });
 
       try {
+        // Once we add this connection as a message availability listener, it will be notified any time a new message
+        // arrives in the message cache. This updates the connection's "may have messages" state. It's important that
+        // we do this first because we want to make sure we're accurately tracking message availability in the
+        // connection's internal state.
+        messagesManager.addMessageAvailabilityListener(auth.getAccount().getUuid(), auth.getAuthenticatedDevice().getId(), connection);
+
+        // Once we "start" the websocket connection, we'll cancel any scheduled "you may have new messages" push
+        // notifications and begin delivering any stored messages for the connected device. We have not yet declared the
+        // client as "present" yet. If a message arrives at this point, we will update the message availability state
+        // correctly, but we may also send a spurious push notification.
         connection.start();
-        clientPresenceManager.setPresent(auth.getAccount().getUuid(), device.getId(), connection);
-        messagesManager.addMessageAvailabilityListener(auth.getAccount().getUuid(), device.getId(), connection);
+
+        // Finally, we register this client's presence, which suppresses push notifications. We do this last because
+        // receiving extra push notifications is generally preferable to missing out on a push notification.
+        clientPresenceManager.setPresent(auth.getAccount().getUuid(), auth.getAuthenticatedDevice().getId(), connection);
 
         renewPresenceFutureReference.set(scheduledExecutorService.scheduleAtFixedRate(() -> RedisOperation.unchecked(() ->
-                clientPresenceManager.renewPresence(auth.getAccount().getUuid(), device.getId())),
+                clientPresenceManager.renewPresence(auth.getAccount().getUuid(), auth.getAuthenticatedDevice().getId())),
             RENEW_PRESENCE_INTERVAL_MINUTES,
             RENEW_PRESENCE_INTERVAL_MINUTES,
             TimeUnit.MINUTES));
