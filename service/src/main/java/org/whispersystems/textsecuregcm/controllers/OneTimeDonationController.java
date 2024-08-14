@@ -56,8 +56,8 @@ import org.whispersystems.textsecuregcm.subscriptions.PaymentDetails;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionCurrencyUtil;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessor;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorManager;
+import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPaymentProcessor;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
@@ -170,7 +170,7 @@ public class OneTimeDonationController {
    * @throws BadRequestException indicates validation failed. Inspect {@code response.error} for details
    */
   private void validateRequestCurrencyAmount(CreateBoostRequest request, BigDecimal amount,
-      SubscriptionProcessorManager manager) {
+      SubscriptionPaymentProcessor manager) {
     if (!manager.getSupportedCurrenciesForPaymentMethod(request.paymentMethod)
         .contains(request.currency.toLowerCase(Locale.ROOT))) {
       throw new BadRequestException(Response.status(Response.Status.BAD_REQUEST)
@@ -302,7 +302,7 @@ public class OneTimeDonationController {
     public byte[] receiptCredentialRequest;
 
     @NotNull
-    public SubscriptionProcessor processor = SubscriptionProcessor.STRIPE;
+    public PaymentProvider processor = PaymentProvider.STRIPE;
   }
 
   public record CreateBoostReceiptCredentialsSuccessResponse(byte[] receiptCredentialResponse) {

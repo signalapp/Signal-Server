@@ -12,9 +12,9 @@ import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessor;
+import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
 
-public record SubscriptionPriceConfiguration(@Valid @NotEmpty Map<SubscriptionProcessor, @NotBlank String> processorIds,
+public record SubscriptionPriceConfiguration(@Valid @NotEmpty Map<PaymentProvider, @NotBlank String> processorIds,
                                              @NotNull @DecimalMin("0.01") BigDecimal amount) {
 
 }

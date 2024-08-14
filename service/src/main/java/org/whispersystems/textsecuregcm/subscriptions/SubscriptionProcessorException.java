@@ -7,16 +7,16 @@ package org.whispersystems.textsecuregcm.subscriptions;
 
 public class SubscriptionProcessorException extends Exception {
 
-  private final SubscriptionProcessor processor;
+  private final PaymentProvider processor;
   private final ChargeFailure chargeFailure;
 
-  public SubscriptionProcessorException(final SubscriptionProcessor processor,
+  public SubscriptionProcessorException(final PaymentProvider processor,
       final ChargeFailure chargeFailure) {
     this.processor = processor;
     this.chargeFailure = chargeFailure;
   }
 
-  public SubscriptionProcessor getProcessor() {
+  public PaymentProvider getProcessor() {
     return processor;
   }
 

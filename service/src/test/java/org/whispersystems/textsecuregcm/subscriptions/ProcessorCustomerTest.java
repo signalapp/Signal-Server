@@ -8,9 +8,9 @@ class ProcessorCustomerTest {
 
   @Test
   void toDynamoBytes() {
-    final ProcessorCustomer processorCustomer = new ProcessorCustomer("Test", SubscriptionProcessor.BRAINTREE);
+    final ProcessorCustomer processorCustomer = new ProcessorCustomer("Test", PaymentProvider.BRAINTREE);
 
-    assertArrayEquals(new byte[] { SubscriptionProcessor.BRAINTREE.getId(), 'T', 'e', 's', 't' },
+    assertArrayEquals(new byte[] { PaymentProvider.BRAINTREE.getId(), 'T', 'e', 's', 't' },
         processorCustomer.toDynamoBytes());
   }
 }

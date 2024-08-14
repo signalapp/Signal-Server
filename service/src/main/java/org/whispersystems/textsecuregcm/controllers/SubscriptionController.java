@@ -9,7 +9,6 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.net.HttpHeaders;
-import com.stripe.exception.StripeException;
 import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
@@ -19,13 +18,10 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import java.math.BigDecimal;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -34,13 +30,10 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
 import javax.validation.Valid;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotEmpty;
@@ -50,11 +43,8 @@ import javax.ws.rs.ClientErrorException;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.DefaultValue;
-import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
-import javax.ws.rs.InternalServerErrorException;
-import javax.ws.rs.NotFoundException;
 import javax.ws.rs.POST;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
@@ -66,11 +56,7 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
-import org.signal.libsignal.zkgroup.InvalidInputException;
-import org.signal.libsignal.zkgroup.VerificationFailedException;
-import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialRequest;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialResponse;
-import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
@@ -85,18 +71,20 @@ import org.whispersystems.textsecuregcm.entities.Badge;
 import org.whispersystems.textsecuregcm.entities.PurchasableBadge;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
-import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
+import org.whispersystems.textsecuregcm.storage.SubscriberCredentials;
+import org.whispersystems.textsecuregcm.storage.SubscriptionException;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
-import org.whispersystems.textsecuregcm.storage.SubscriptionManager.GetResult;
+import org.whispersystems.textsecuregcm.storage.Subscriptions;
 import org.whispersystems.textsecuregcm.subscriptions.BankMandateTranslator;
 import org.whispersystems.textsecuregcm.subscriptions.BankTransferType;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
 import org.whispersystems.textsecuregcm.subscriptions.ChargeFailure;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
+import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessor;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorManager;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPaymentProcessor;
+import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
@@ -115,8 +103,6 @@ public class SubscriptionController {
   private final SubscriptionManager subscriptionManager;
   private final StripeManager stripeManager;
   private final BraintreeManager braintreeManager;
-  private final ServerZkReceiptOperations zkReceiptOperations;
-  private final IssuedReceiptsManager issuedReceiptsManager;
   private final BadgeTranslator badgeTranslator;
   private final LevelTranslator levelTranslator;
   private final BankMandateTranslator bankMandateTranslator;
@@ -132,26 +118,22 @@ public class SubscriptionController {
       @Nonnull SubscriptionManager subscriptionManager,
       @Nonnull StripeManager stripeManager,
       @Nonnull BraintreeManager braintreeManager,
-      @Nonnull ServerZkReceiptOperations zkReceiptOperations,
-      @Nonnull IssuedReceiptsManager issuedReceiptsManager,
       @Nonnull BadgeTranslator badgeTranslator,
       @Nonnull LevelTranslator levelTranslator,
       @Nonnull BankMandateTranslator bankMandateTranslator) {
+    this.subscriptionManager = subscriptionManager;
     this.clock = Objects.requireNonNull(clock);
     this.subscriptionConfiguration = Objects.requireNonNull(subscriptionConfiguration);
     this.oneTimeDonationConfiguration = Objects.requireNonNull(oneTimeDonationConfiguration);
-    this.subscriptionManager = Objects.requireNonNull(subscriptionManager);
     this.stripeManager = Objects.requireNonNull(stripeManager);
     this.braintreeManager = Objects.requireNonNull(braintreeManager);
-    this.zkReceiptOperations = Objects.requireNonNull(zkReceiptOperations);
-    this.issuedReceiptsManager = Objects.requireNonNull(issuedReceiptsManager);
     this.badgeTranslator = Objects.requireNonNull(badgeTranslator);
     this.levelTranslator = Objects.requireNonNull(levelTranslator);
     this.bankMandateTranslator = Objects.requireNonNull(bankMandateTranslator);
   }
 
   private Map<String, CurrencyConfiguration> buildCurrencyConfiguration() {
-    final List<SubscriptionProcessorManager> subscriptionProcessorManagers = List.of(stripeManager, braintreeManager);
+    final List<SubscriptionPaymentProcessor> subscriptionPaymentProcessors = List.of(stripeManager, braintreeManager);
     return oneTimeDonationConfiguration.currencies()
         .entrySet().stream()
         .collect(Collectors.toMap(Entry::getKey, currencyAndConfig -> {
@@ -171,7 +153,7 @@ public class SubscriptionController {
                       levelIdAndConfig -> levelIdAndConfig.getValue().prices().get(currency).amount()));
 
           final List<String> supportedPaymentMethods = Arrays.stream(PaymentMethod.values())
-              .filter(paymentMethod -> subscriptionProcessorManagers.stream()
+              .filter(paymentMethod -> subscriptionPaymentProcessors.stream()
                   .anyMatch(manager -> manager.supportsPaymentMethod(paymentMethod)
                       && manager.getSupportedCurrenciesForPaymentMethod(paymentMethod).contains(currency)))
               .map(PaymentMethod::name)
@@ -236,20 +218,10 @@ public class SubscriptionController {
   @Produces(MediaType.APPLICATION_JSON)
   public CompletableFuture<Response> deleteSubscriber(
       @ReadOnly @Auth Optional<AuthenticatedDevice> authenticatedAccount,
-      @PathParam("subscriberId") String subscriberId) {
-    RequestData requestData = RequestData.process(authenticatedAccount, subscriberId, clock);
-    return subscriptionManager.get(requestData.subscriberUser, requestData.hmac)
-        .thenCompose(getResult -> {
-          if (getResult == GetResult.NOT_STORED || getResult == GetResult.PASSWORD_MISMATCH) {
-            throw new NotFoundException();
-          }
-          return getResult.record.getProcessorCustomer()
-                  .map(processorCustomer -> getManagerForProcessor(processorCustomer.processor()).cancelAllActiveSubscriptions(processorCustomer.customerId()))
-              // a missing customer ID is OK; it means the subscriber never started to add a payment method
-              .orElseGet(() -> CompletableFuture.completedFuture(null));
-        })
-        .thenCompose(unused -> subscriptionManager.canceledAt(requestData.subscriberUser, requestData.now))
-        .thenApply(unused -> Response.ok().build());
+      @PathParam("subscriberId") String subscriberId) throws SubscriptionException {
+    SubscriberCredentials subscriberCredentials =
+        SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
+    return subscriptionManager.deleteSubscriber(subscriberCredentials).thenApply(unused -> Response.ok().build());
   }
 
   @PUT
@@ -258,31 +230,13 @@ public class SubscriptionController {
   @Produces(MediaType.APPLICATION_JSON)
   public CompletableFuture<Response> updateSubscriber(
       @ReadOnly @Auth Optional<AuthenticatedDevice> authenticatedAccount,
-      @PathParam("subscriberId") String subscriberId) {
-    RequestData requestData = RequestData.process(authenticatedAccount, subscriberId, clock);
-    return subscriptionManager.get(requestData.subscriberUser, requestData.hmac)
-        .thenCompose(getResult -> {
-          if (getResult == GetResult.PASSWORD_MISMATCH) {
-            throw new ForbiddenException("subscriberId mismatch");
-          } else if (getResult == GetResult.NOT_STORED) {
-            // create a customer and write it to ddb
-            return subscriptionManager.create(requestData.subscriberUser, requestData.hmac, requestData.now)
-                .thenApply(updatedRecord -> {
-                  if (updatedRecord == null) {
-                    throw new ForbiddenException();
-                  }
-                  return updatedRecord;
-                });
-          } else {
-            // already exists so just touch access time and return
-            return subscriptionManager.accessedAt(requestData.subscriberUser, requestData.now)
-                .thenApply(unused -> getResult.record);
-          }
-        })
-        .thenApply(record -> Response.ok().build());
+      @PathParam("subscriberId") String subscriberId) throws SubscriptionException {
+    SubscriberCredentials subscriberCredentials =
+        SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
+    return subscriptionManager.updateSubscriber(subscriberCredentials).thenApply(record -> Response.ok().build());
   }
 
-  record CreatePaymentMethodResponse(String clientSecret, SubscriptionProcessor processor) {
+  record CreatePaymentMethodResponse(String clientSecret, PaymentProvider processor) {
 
   }
 
@@ -294,52 +248,25 @@ public class SubscriptionController {
       @ReadOnly @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId,
       @QueryParam("type") @DefaultValue("CARD") PaymentMethod paymentMethodType,
-      @HeaderParam(HttpHeaders.USER_AGENT) @Nullable final String userAgentString) {
+      @HeaderParam(HttpHeaders.USER_AGENT) @Nullable final String userAgentString) throws SubscriptionException {
 
-    RequestData requestData = RequestData.process(authenticatedAccount, subscriberId, clock);
+    SubscriberCredentials subscriberCredentials =
+        SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
 
-    final SubscriptionProcessorManager subscriptionProcessorManager = getManagerForPaymentMethod(paymentMethodType);
+    final SubscriptionPaymentProcessor subscriptionPaymentProcessor = getManagerForPaymentMethod(paymentMethodType);
 
-    return subscriptionManager.get(requestData.subscriberUser, requestData.hmac)
-        .thenApply(this::requireRecordFromGetResult)
-        .thenCompose(record -> {
-          final CompletableFuture<SubscriptionManager.Record> updatedRecordFuture =
-              record.getProcessorCustomer()
-                  .map(ProcessorCustomer::processor)
-                  .map(processor -> {
-                    if (processor != subscriptionProcessorManager.getProcessor()) {
-                      throw new ClientErrorException("existing processor does not match", Status.CONFLICT);
-                    }
-
-                    return CompletableFuture.completedFuture(record);
-                  })
-                  .orElseGet(() -> subscriptionProcessorManager.createCustomer(requestData.subscriberUser, getClientPlatform(userAgentString))
-                      .thenApply(ProcessorCustomer::customerId)
-                      .thenCompose(customerId -> subscriptionManager.setProcessorAndCustomerId(record,
-                          new ProcessorCustomer(customerId, subscriptionProcessorManager.getProcessor()),
-                          Instant.now())));
-
-          return updatedRecordFuture.thenCompose(
-              updatedRecord -> {
-                final String customerId = updatedRecord.getProcessorCustomer()
-                    .filter(pc -> pc.processor().equals(subscriptionProcessorManager.getProcessor()))
-                    .orElseThrow(() -> new InternalServerErrorException("record should not be missing customer"))
-                    .customerId();
-                return subscriptionProcessorManager.createPaymentMethodSetupToken(customerId);
-              });
-        })
-        .thenApply(
-            token -> Response.ok(new CreatePaymentMethodResponse(token, subscriptionProcessorManager.getProcessor()))
-                .build());
+    return subscriptionManager.addPaymentMethodToCustomer(
+            subscriberCredentials,
+            subscriptionPaymentProcessor,
+            getClientPlatform(userAgentString),
+            SubscriptionPaymentProcessor::createPaymentMethodSetupToken)
+        .thenApply(token ->
+            Response.ok(new CreatePaymentMethodResponse(token, subscriptionPaymentProcessor.getProvider())).build());
   }
 
-  public record CreatePayPalBillingAgreementRequest(@NotBlank String returnUrl, @NotBlank String cancelUrl) {
+  public record CreatePayPalBillingAgreementRequest(@NotBlank String returnUrl, @NotBlank String cancelUrl) {}
 
-  }
-
-  public record CreatePayPalBillingAgreementResponse(@NotBlank String approvalUrl, @NotBlank String token) {
-
-  }
+  public record CreatePayPalBillingAgreementResponse(@NotBlank String approvalUrl, @NotBlank String token) {}
 
   @POST
   @Path("/{subscriberId}/create_payment_method/paypal")
@@ -350,48 +277,29 @@ public class SubscriptionController {
       @PathParam("subscriberId") String subscriberId,
       @NotNull @Valid CreatePayPalBillingAgreementRequest request,
       @Context ContainerRequestContext containerRequestContext,
-      @HeaderParam(HttpHeaders.USER_AGENT) @Nullable final String userAgentString) {
+      @HeaderParam(HttpHeaders.USER_AGENT) @Nullable final String userAgentString) throws SubscriptionException {
 
-    RequestData requestData = RequestData.process(authenticatedAccount, subscriberId, clock);
+    final SubscriberCredentials subscriberCredentials =
+        SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
+    final Locale locale = HeaderUtils.getAcceptableLanguagesForRequest(containerRequestContext).stream()
+        .filter(l -> !"*".equals(l.getLanguage()))
+        .findFirst()
+        .orElse(Locale.US);
 
-    return subscriptionManager.get(requestData.subscriberUser, requestData.hmac)
-        .thenApply(this::requireRecordFromGetResult)
-        .thenCompose(record -> {
-
-          final CompletableFuture<SubscriptionManager.Record> updatedRecordFuture =
-              record.getProcessorCustomer()
-                  .map(ProcessorCustomer::processor)
-                  .map(processor -> {
-                    if (processor != braintreeManager.getProcessor()) {
-                      throw new ClientErrorException("existing processor does not match", Status.CONFLICT);
-                    }
-                    return CompletableFuture.completedFuture(record);
-                  })
-                  .orElseGet(() -> braintreeManager.createCustomer(requestData.subscriberUser, getClientPlatform(userAgentString))
-                      .thenApply(ProcessorCustomer::customerId)
-                      .thenCompose(customerId -> subscriptionManager.setProcessorAndCustomerId(record,
-                          new ProcessorCustomer(customerId, braintreeManager.getProcessor()),
-                          Instant.now())));
-
-          return updatedRecordFuture.thenCompose(
-              updatedRecord -> {
-                final Locale locale = HeaderUtils.getAcceptableLanguagesForRequest(containerRequestContext).stream()
-                    .filter(l -> !"*".equals(l.getLanguage()))
-                    .findFirst()
-                    .orElse(Locale.US);
-
-                return braintreeManager.createPayPalBillingAgreement(request.returnUrl, request.cancelUrl,
-                    locale.toLanguageTag());
-              });
-        })
-        .thenApply(
-            billingAgreementApprovalDetails -> Response.ok(
-                    new CreatePayPalBillingAgreementResponse(billingAgreementApprovalDetails.approvalUrl(),
-                        billingAgreementApprovalDetails.billingAgreementToken()))
-                .build());
+    return subscriptionManager.addPaymentMethodToCustomer(
+            subscriberCredentials,
+            braintreeManager,
+            getClientPlatform(userAgentString),
+            (mgr, customerId) ->
+                mgr.createPayPalBillingAgreement(request.returnUrl, request.cancelUrl, locale.toLanguageTag()))
+        .thenApply(billingAgreementApprovalDetails -> Response.ok(
+                new CreatePayPalBillingAgreementResponse(
+                    billingAgreementApprovalDetails.approvalUrl(),
+                    billingAgreementApprovalDetails.billingAgreementToken()))
+            .build());
   }
 
-  private SubscriptionProcessorManager getManagerForPaymentMethod(PaymentMethod paymentMethod) {
+  private SubscriptionPaymentProcessor getManagerForPaymentMethod(PaymentMethod paymentMethod) {
     return switch (paymentMethod) {
       case CARD, SEPA_DEBIT, IDEAL -> stripeManager;
       case PAYPAL -> braintreeManager;
@@ -399,7 +307,7 @@ public class SubscriptionController {
     };
   }
 
-  private SubscriptionProcessorManager getManagerForProcessor(SubscriptionProcessor processor) {
+  private SubscriptionPaymentProcessor getManagerForProcessor(PaymentProvider processor) {
     return switch (processor) {
       case STRIPE -> stripeManager;
       case BRAINTREE -> braintreeManager;
@@ -413,13 +321,14 @@ public class SubscriptionController {
   public CompletableFuture<Response> setDefaultPaymentMethodWithProcessor(
       @ReadOnly @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId,
-      @PathParam("processor") SubscriptionProcessor processor,
-      @PathParam("paymentMethodToken") @NotEmpty String paymentMethodToken) {
-    RequestData requestData = RequestData.process(authenticatedAccount, subscriberId, clock);
+      @PathParam("processor") PaymentProvider processor,
+      @PathParam("paymentMethodToken") @NotEmpty String paymentMethodToken) throws SubscriptionException {
+    SubscriberCredentials subscriberCredentials =
+        SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
 
-    final SubscriptionProcessorManager manager = getManagerForProcessor(processor);
+    final SubscriptionPaymentProcessor manager = getManagerForProcessor(processor);
 
-    return setDefaultPaymentMethod(manager, paymentMethodToken, requestData);
+    return setDefaultPaymentMethod(manager, paymentMethodToken, subscriberCredentials);
   }
 
   public record SetSubscriptionLevelSuccessResponse(long level) {
@@ -446,12 +355,11 @@ public class SubscriptionController {
       @PathParam("subscriberId") String subscriberId,
       @PathParam("level") long level,
       @PathParam("currency") String currency,
-      @PathParam("idempotencyKey") String idempotencyKey) {
-    RequestData requestData = RequestData.process(authenticatedAccount, subscriberId, clock);
-    return subscriptionManager.get(requestData.subscriberUser, requestData.hmac)
-        .thenApply(this::requireRecordFromGetResult)
+      @PathParam("idempotencyKey") String idempotencyKey) throws SubscriptionException {
+    SubscriberCredentials subscriberCredentials =
+        SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
+    return subscriptionManager.getSubscriber(subscriberCredentials)
         .thenCompose(record -> {
-
           final ProcessorCustomer processorCustomer = record.getProcessorCustomer()
               .orElseThrow(() ->
                   // a missing customer ID indicates the client made requests out of order,
@@ -461,64 +369,25 @@ public class SubscriptionController {
           final String subscriptionTemplateId = getSubscriptionTemplateId(level, currency,
               processorCustomer.processor());
 
-          final SubscriptionProcessorManager manager = getManagerForProcessor(processorCustomer.processor());
-
-          return Optional.ofNullable(record.subscriptionId).map(subId -> {
-            // we already have a subscription in our records so let's check the level and currency,
-            // and only change it if needed
-            return manager.getSubscription(subId).thenCompose(
-                subscription -> manager.getLevelAndCurrencyForSubscription(subscription)
-                    .thenCompose(existingLevelAndCurrency -> {
-                      if (existingLevelAndCurrency.equals(new SubscriptionProcessorManager.LevelAndCurrency(level,
-                          currency.toLowerCase(Locale.ROOT)))) {
-                        return CompletableFuture.completedFuture(subscription);
-                      }
-                      if (!subscriptionsAreSameType(existingLevelAndCurrency.level(), level)) {
-                        throw new BadRequestException(Response.status(Status.BAD_REQUEST)
-                            .entity(new SetSubscriptionLevelErrorResponse(List.of(
-                                new SetSubscriptionLevelErrorResponse.Error(
-                                    SetSubscriptionLevelErrorResponse.Error.Type.UNSUPPORTED_LEVEL, null))))
-                            .build());
-                      }
-                      return manager.updateSubscription(
-                              subscription, subscriptionTemplateId, level, idempotencyKey)
-                          .thenCompose(updatedSubscription ->
-                              subscriptionManager.subscriptionLevelChanged(requestData.subscriberUser,
-                                      requestData.now,
-                                      level, updatedSubscription.id())
-                                  .thenApply(unused -> updatedSubscription));
-                    }));
-          }).orElseGet(() -> {
-            long lastSubscriptionCreatedAt =
-                record.subscriptionCreatedAt != null ? record.subscriptionCreatedAt.getEpochSecond() : 0;
-
-            // we don't have a subscription yet so create it and then record the subscription id
-            return manager.createSubscription(processorCustomer.customerId(),
-                    subscriptionTemplateId,
-                    level,
-                    lastSubscriptionCreatedAt)
-                .exceptionally(e -> {
-                  if (e.getCause() instanceof StripeException stripeException
-                      && "subscription_payment_intent_requires_action".equals(stripeException.getCode())) {
-                    throw new BadRequestException(Response.status(Status.BAD_REQUEST)
-                        .entity(new SetSubscriptionLevelErrorResponse(List.of(
-                            new SetSubscriptionLevelErrorResponse.Error(
-                                SetSubscriptionLevelErrorResponse.Error.Type.PAYMENT_REQUIRES_ACTION, null
-                            )
-                        ))).build());
-                  }
-                  if (e instanceof RuntimeException re) {
-                    throw re;
-                  }
-
-                  throw new CompletionException(e);
-                })
-                .thenCompose(subscription -> subscriptionManager.subscriptionCreated(
-                        requestData.subscriberUser, subscription.id(), requestData.now, level)
-                    .thenApply(unused -> subscription));
-          });
+          final SubscriptionPaymentProcessor manager = getManagerForProcessor(processorCustomer.processor());
+          return subscriptionManager.updateSubscriptionLevelForCustomer(subscriberCredentials, record, manager, level,
+              currency, idempotencyKey, subscriptionTemplateId, this::subscriptionsAreSameType);
         })
-            .thenApply(unused -> Response.ok(new SetSubscriptionLevelSuccessResponse(level)).build());
+        .exceptionally(ExceptionUtils.exceptionallyHandler(SubscriptionException.InvalidLevel.class, e -> {
+          throw new BadRequestException(Response.status(Response.Status.BAD_REQUEST)
+              .entity(new SubscriptionController.SetSubscriptionLevelErrorResponse(List.of(
+                  new SubscriptionController.SetSubscriptionLevelErrorResponse.Error(
+                      SubscriptionController.SetSubscriptionLevelErrorResponse.Error.Type.UNSUPPORTED_LEVEL,
+                      null))))
+              .build());
+        }))
+        .exceptionally(ExceptionUtils.exceptionallyHandler(SubscriptionException.PaymentRequiresAction.class, e -> {
+          throw new BadRequestException(Response.status(Response.Status.BAD_REQUEST)
+              .entity(new SetSubscriptionLevelErrorResponse(List.of(new SetSubscriptionLevelErrorResponse.Error(
+                  SetSubscriptionLevelErrorResponse.Error.Type.PAYMENT_REQUIRES_ACTION, null))))
+              .build());
+        }))
+        .thenApply(unused -> Response.ok(new SetSubscriptionLevelSuccessResponse(level)).build());
   }
 
   public boolean subscriptionsAreSameType(long level1, long level2) {
@@ -608,7 +477,7 @@ public class SubscriptionController {
 
       public record Subscription(long level, Instant billingCycleAnchor, Instant endOfCurrentPeriod, boolean active,
                                  boolean cancelAtPeriodEnd, String currency, BigDecimal amount, String status,
-                                 SubscriptionProcessor processor, PaymentMethod paymentMethod, boolean paymentProcessing) {
+                                 PaymentProvider processor, PaymentMethod paymentMethod, boolean paymentProcessing) {
 
       }
     }
@@ -618,16 +487,15 @@ public class SubscriptionController {
   @Produces(MediaType.APPLICATION_JSON)
   public CompletableFuture<Response> getSubscriptionInformation(
       @ReadOnly @Auth Optional<AuthenticatedDevice> authenticatedAccount,
-      @PathParam("subscriberId") String subscriberId) {
-    RequestData requestData = RequestData.process(authenticatedAccount, subscriberId, clock);
-    return subscriptionManager.get(requestData.subscriberUser, requestData.hmac)
-        .thenApply(this::requireRecordFromGetResult)
+      @PathParam("subscriberId") String subscriberId) throws SubscriptionException {
+    SubscriberCredentials subscriberCredentials = SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
+    return subscriptionManager.getSubscriber(subscriberCredentials)
         .thenCompose(record -> {
             if (record.subscriptionId == null) {
                 return CompletableFuture.completedFuture(Response.ok(new GetSubscriptionInformationResponse(null, null)).build());
             }
 
-            final SubscriptionProcessorManager manager = getManagerForProcessor(record.getProcessorCustomer().orElseThrow().processor());
+            final SubscriptionPaymentProcessor manager = getManagerForProcessor(record.getProcessorCustomer().orElseThrow().processor());
 
             return manager.getSubscription(record.subscriptionId).thenCompose(subscription ->
                 manager.getSubscriptionInformation(subscription).thenApply(subscriptionInformation -> Response.ok(
@@ -641,7 +509,7 @@ public class SubscriptionController {
                             subscriptionInformation.price().currency(),
                             subscriptionInformation.price().amount(),
                             subscriptionInformation.status().getApiValue(),
-                            manager.getProcessor(),
+                            manager.getProvider(),
                             subscriptionInformation.paymentMethod(),
                             subscriptionInformation.paymentProcessing()),
                         subscriptionInformation.chargeFailure()
@@ -663,49 +531,22 @@ public class SubscriptionController {
       @ReadOnly @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
       @PathParam("subscriberId") String subscriberId,
-      @NotNull @Valid GetReceiptCredentialsRequest request) {
-    RequestData requestData = RequestData.process(authenticatedAccount, subscriberId, clock);
-    return subscriptionManager.get(requestData.subscriberUser, requestData.hmac)
-        .thenApply(this::requireRecordFromGetResult)
-        .thenCompose(record -> {
-            if (record.subscriptionId == null) {
-                return CompletableFuture.completedFuture(Response.status(Status.NOT_FOUND).build());
-            }
-            ReceiptCredentialRequest receiptCredentialRequest;
-            try {
-                receiptCredentialRequest = new ReceiptCredentialRequest(request.receiptCredentialRequest());
-            } catch (InvalidInputException e) {
-                throw new BadRequestException("invalid receipt credential request", e);
-            }
-
-            final SubscriptionProcessorManager manager = getManagerForProcessor(record.getProcessorCustomer().orElseThrow().processor());
-            return manager.getReceiptItem(record.subscriptionId)
-                    .thenCompose(receipt -> issuedReceiptsManager.recordIssuance(
-                            receipt.itemId(), manager.getProcessor(), receiptCredentialRequest,
-                            requestData.now)
-                            .thenApply(unused -> receipt))
-                    .thenApply(receipt -> {
-                      ReceiptCredentialResponse receiptCredentialResponse;
-                      try {
-                        receiptCredentialResponse = zkReceiptOperations.issueReceiptCredential(
-                            receiptCredentialRequest,
-                            receiptExpirationWithGracePeriod(receipt.paidAt(), receipt.level()).getEpochSecond(),
-                            receipt.level());
-                      } catch (VerificationFailedException e) {
-                        throw new BadRequestException("receipt credential request failed verification", e);
-                      }
-                      Metrics.counter(RECEIPT_ISSUED_COUNTER_NAME,
-                              Tags.of(
-                                  Tag.of(PROCESSOR_TAG_NAME, manager.getProcessor().toString()),
-                                  Tag.of(TYPE_TAG_NAME, "subscription"),
-                                  Tag.of(SUBSCRIPTION_TYPE_TAG_NAME,
-                                      subscriptionConfiguration.getSubscriptionLevel(receipt.level()).type().name()
-                                          .toLowerCase(Locale.ROOT)),
-                                  UserAgentTagUtil.getPlatformTag(userAgent)))
-                          .increment();
-                      return Response.ok(new GetReceiptCredentialsResponse(receiptCredentialResponse.serialize()))
-                          .build();
-                    });
+      @NotNull @Valid GetReceiptCredentialsRequest request) throws SubscriptionException {
+    SubscriberCredentials subscriberCredentials = SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
+    return subscriptionManager.createReceiptCredentials(subscriberCredentials, request, this::receiptExpirationWithGracePeriod)
+        .thenApply(receiptCredential -> {
+          final ReceiptCredentialResponse receiptCredentialResponse = receiptCredential.receiptCredentialResponse();
+          final SubscriptionPaymentProcessor.ReceiptItem receipt = receiptCredential.receiptItem();
+          Metrics.counter(RECEIPT_ISSUED_COUNTER_NAME,
+                  Tags.of(
+                      Tag.of(PROCESSOR_TAG_NAME, receiptCredential.paymentProvider().toString()),
+                      Tag.of(TYPE_TAG_NAME, "subscription"),
+                      Tag.of(SUBSCRIPTION_TYPE_TAG_NAME,
+                          subscriptionConfiguration.getSubscriptionLevel(receipt.level()).type().name()
+                              .toLowerCase(Locale.ROOT)),
+                      UserAgentTagUtil.getPlatformTag(userAgent)))
+              .increment();
+          return Response.ok(new GetReceiptCredentialsResponse(receiptCredentialResponse.serialize())).build();
         });
   }
 
@@ -715,18 +556,18 @@ public class SubscriptionController {
   public CompletableFuture<Response> setDefaultPaymentMethodForIdeal(
       @ReadOnly @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId,
-      @PathParam("setupIntentId") @NotEmpty String setupIntentId) {
-    RequestData requestData = RequestData.process(authenticatedAccount, subscriberId, clock);
+      @PathParam("setupIntentId") @NotEmpty String setupIntentId) throws SubscriptionException {
+    SubscriberCredentials subscriberCredentials =
+        SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
 
     return stripeManager.getGeneratedSepaIdFromSetupIntent(setupIntentId)
-        .thenCompose(generatedSepaId -> setDefaultPaymentMethod(stripeManager, generatedSepaId, requestData));
+        .thenCompose(generatedSepaId -> setDefaultPaymentMethod(stripeManager, generatedSepaId, subscriberCredentials));
   }
 
-  private CompletableFuture<Response> setDefaultPaymentMethod(final SubscriptionProcessorManager manager,
+  private CompletableFuture<Response> setDefaultPaymentMethod(final SubscriptionPaymentProcessor manager,
       final String paymentMethodId,
-      final RequestData requestData) {
-    return subscriptionManager.get(requestData.subscriberUser, requestData.hmac)
-        .thenApply(this::requireRecordFromGetResult)
+      final SubscriberCredentials requestData) {
+    return subscriptionManager.getSubscriber(requestData)
         .thenCompose(record -> record.getProcessorCustomer()
             .map(processorCustomer -> manager.setDefaultPaymentMethodForCustomer(processorCustomer.customerId(),
                 paymentMethodId, record.subscriptionId))
@@ -737,8 +578,9 @@ public class SubscriptionController {
         .thenApply(customer -> Response.ok().build());
   }
 
-  private Instant receiptExpirationWithGracePeriod(Instant paidAt, long level) {
-    return switch (subscriptionConfiguration.getSubscriptionLevel(level).type()) {
+  private Instant receiptExpirationWithGracePeriod(SubscriptionPaymentProcessor.ReceiptItem receiptItem) {
+    final Instant paidAt = receiptItem.paidAt();
+    return switch (subscriptionConfiguration.getSubscriptionLevel(receiptItem.level()).type()) {
       case DONATION -> paidAt.plus(subscriptionConfiguration.getBadgeExpiration())
           .plus(subscriptionConfiguration.getBadgeGracePeriod())
           .truncatedTo(ChronoUnit.DAYS)
@@ -750,7 +592,7 @@ public class SubscriptionController {
   }
 
 
-  private String getSubscriptionTemplateId(long level, String currency, SubscriptionProcessor processor) {
+  private String getSubscriptionTemplateId(long level, String currency, PaymentProvider processor) {
     final SubscriptionLevelConfiguration config = subscriptionConfiguration.getSubscriptionLevel(level);
     if (config == null) {
       throw new BadRequestException(Response.status(Status.BAD_REQUEST)
@@ -769,16 +611,6 @@ public class SubscriptionController {
         .build()));
   }
 
-  private SubscriptionManager.Record requireRecordFromGetResult(SubscriptionManager.GetResult getResult) {
-    if (getResult == GetResult.PASSWORD_MISMATCH) {
-      throw new ForbiddenException("subscriberId mismatch");
-    } else if (getResult == GetResult.NOT_STORED) {
-      throw new NotFoundException();
-    } else {
-      return getResult.record;
-    }
-  }
-
   @Nullable
   private static ClientPlatform getClientPlatform(@Nullable final String userAgentString) {
     try {
@@ -787,60 +619,4 @@ public class SubscriptionController {
       return null;
     }
   }
-
-  private record RequestData(@Nonnull byte[] subscriberBytes,
-                             @Nonnull byte[] subscriberUser,
-                             @Nonnull byte[] subscriberKey,
-                             @Nonnull byte[] hmac,
-                             @Nonnull Instant now) {
-
-      public static RequestData process(
-          Optional<AuthenticatedDevice> authenticatedAccount,
-          String subscriberId,
-          Clock clock) {
-        Instant now = clock.instant();
-        if (authenticatedAccount.isPresent()) {
-          throw new ForbiddenException("must not use authenticated connection for subscriber operations");
-        }
-        byte[] subscriberBytes = convertSubscriberIdStringToBytes(subscriberId);
-        byte[] subscriberUser = getUser(subscriberBytes);
-        byte[] subscriberKey = getKey(subscriberBytes);
-        byte[] hmac = computeHmac(subscriberUser, subscriberKey);
-        return new RequestData(subscriberBytes, subscriberUser, subscriberKey, hmac, now);
-      }
-
-      private static byte[] convertSubscriberIdStringToBytes(String subscriberId) {
-        try {
-          byte[] bytes = Base64.getUrlDecoder().decode(subscriberId);
-          if (bytes.length != 32) {
-            throw new NotFoundException();
-          }
-          return bytes;
-        } catch (IllegalArgumentException e) {
-          throw new NotFoundException(e);
-        }
-      }
-
-      private static byte[] getUser(byte[] subscriberBytes) {
-        byte[] user = new byte[16];
-        System.arraycopy(subscriberBytes, 0, user, 0, user.length);
-        return user;
-      }
-
-      private static byte[] getKey(byte[] subscriberBytes) {
-        byte[] key = new byte[16];
-        System.arraycopy(subscriberBytes, 16, key, 0, key.length);
-        return key;
-      }
-
-      private static byte[] computeHmac(byte[] subscriberUser, byte[] subscriberKey) {
-        try {
-          Mac mac = Mac.getInstance("HmacSHA256");
-          mac.init(new SecretKeySpec(subscriberKey, "HmacSHA256"));
-          return mac.doFinal(subscriberUser);
-        } catch (NoSuchAlgorithmException | InvalidKeyException e) {
-          throw new InternalServerErrorException(e);
-        }
-      }
-    }
 }

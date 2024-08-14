@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialRequest;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessor;
+import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 class IssuedReceiptsManagerTest {
@@ -47,19 +47,19 @@ class IssuedReceiptsManagerTest {
     Instant now = Instant.ofEpochSecond(NOW_EPOCH_SECONDS);
     byte[] request1 = TestRandomUtil.nextBytes(20);
     when(receiptCredentialRequest.serialize()).thenReturn(request1);
-    CompletableFuture<Void> future = issuedReceiptsManager.recordIssuance("item-1", SubscriptionProcessor.STRIPE,
+    CompletableFuture<Void> future = issuedReceiptsManager.recordIssuance("item-1", PaymentProvider.STRIPE,
         receiptCredentialRequest, now);
     assertThat(future).succeedsWithin(Duration.ofSeconds(3));
 
     // same request should succeed
-    future = issuedReceiptsManager.recordIssuance("item-1", SubscriptionProcessor.STRIPE, receiptCredentialRequest,
+    future = issuedReceiptsManager.recordIssuance("item-1", PaymentProvider.STRIPE, receiptCredentialRequest,
         now);
     assertThat(future).succeedsWithin(Duration.ofSeconds(3));
 
     // same item with new request should fail
     byte[] request2 = TestRandomUtil.nextBytes(20);
     when(receiptCredentialRequest.serialize()).thenReturn(request2);
-    future = issuedReceiptsManager.recordIssuance("item-1", SubscriptionProcessor.STRIPE, receiptCredentialRequest,
+    future = issuedReceiptsManager.recordIssuance("item-1", PaymentProvider.STRIPE, receiptCredentialRequest,
         now);
     assertThat(future).failsWithin(Duration.ofSeconds(3)).
         withThrowableOfType(Throwable.class).
@@ -70,7 +70,7 @@ class IssuedReceiptsManagerTest {
             "status 409"));
 
     // different item with new request should be okay though
-    future = issuedReceiptsManager.recordIssuance("item-2", SubscriptionProcessor.STRIPE, receiptCredentialRequest,
+    future = issuedReceiptsManager.recordIssuance("item-2", PaymentProvider.STRIPE, receiptCredentialRequest,
         now);
     assertThat(future).succeedsWithin(Duration.ofSeconds(3));
   }

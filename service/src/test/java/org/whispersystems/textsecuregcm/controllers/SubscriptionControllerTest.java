@@ -74,10 +74,12 @@ import org.whispersystems.textsecuregcm.controllers.SubscriptionController.GetSu
 import org.whispersystems.textsecuregcm.entities.Badge;
 import org.whispersystems.textsecuregcm.entities.BadgeSvg;
 import org.whispersystems.textsecuregcm.mappers.CompletionExceptionMapper;
+import org.whispersystems.textsecuregcm.mappers.SubscriptionExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.SubscriptionProcessorExceptionMapper;
 import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.OneTimeDonationsManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
+import org.whispersystems.textsecuregcm.storage.Subscriptions;
 import org.whispersystems.textsecuregcm.subscriptions.BankMandateTranslator;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager.PayPalOneTimePaymentApprovalDetails;
@@ -87,10 +89,11 @@ import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentStatus;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessor;
+import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorManager;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPaymentProcessor;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
+import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
@@ -103,9 +106,11 @@ class SubscriptionControllerTest {
 
   private static final SubscriptionConfiguration SUBSCRIPTION_CONFIG = ConfigHelper.getSubscriptionConfig();
   private static final OneTimeDonationConfiguration ONETIME_CONFIG = ConfigHelper.getOneTimeConfig();
-  private static final SubscriptionManager SUBSCRIPTION_MANAGER = mock(SubscriptionManager.class);
-  private static final StripeManager STRIPE_MANAGER = mock(StripeManager.class);
-  private static final BraintreeManager BRAINTREE_MANAGER = mock(BraintreeManager.class);
+  private static final Subscriptions SUBSCRIPTIONS = mock(Subscriptions.class);
+  private static final StripeManager STRIPE_MANAGER = MockUtils.buildMock(StripeManager.class, mgr ->
+      when(mgr.getProvider()).thenReturn(PaymentProvider.STRIPE));
+  private static final BraintreeManager BRAINTREE_MANAGER = MockUtils.buildMock(BraintreeManager.class, mgr ->
+      when(mgr.getProvider()).thenReturn(PaymentProvider.BRAINTREE));
   private static final PaymentIntent PAYMENT_INTENT = mock(PaymentIntent.class);
   private static final ServerZkReceiptOperations ZK_OPS = mock(ServerZkReceiptOperations.class);
   private static final IssuedReceiptsManager ISSUED_RECEIPTS_MANAGER = mock(IssuedReceiptsManager.class);
@@ -113,17 +118,19 @@ class SubscriptionControllerTest {
   private static final BadgeTranslator BADGE_TRANSLATOR = mock(BadgeTranslator.class);
   private static final LevelTranslator LEVEL_TRANSLATOR = mock(LevelTranslator.class);
   private static final BankMandateTranslator BANK_MANDATE_TRANSLATOR = mock(BankMandateTranslator.class);
-  private static final SubscriptionController SUBSCRIPTION_CONTROLLER = new SubscriptionController(
-      CLOCK, SUBSCRIPTION_CONFIG, ONETIME_CONFIG, SUBSCRIPTION_MANAGER, STRIPE_MANAGER, BRAINTREE_MANAGER, ZK_OPS,
-      ISSUED_RECEIPTS_MANAGER, BADGE_TRANSLATOR, LEVEL_TRANSLATOR, BANK_MANDATE_TRANSLATOR);
-  private static final OneTimeDonationController ONE_TIME_CONTROLLER = new OneTimeDonationController(CLOCK, ONETIME_CONFIG, STRIPE_MANAGER,
-      BRAINTREE_MANAGER, ZK_OPS, ISSUED_RECEIPTS_MANAGER, ONE_TIME_DONATIONS_MANAGER);
+  private final static SubscriptionController SUBSCRIPTION_CONTROLLER = new SubscriptionController(CLOCK, SUBSCRIPTION_CONFIG,
+      ONETIME_CONFIG, new SubscriptionManager(SUBSCRIPTIONS, List.of(STRIPE_MANAGER, BRAINTREE_MANAGER), ZK_OPS,
+      ISSUED_RECEIPTS_MANAGER), STRIPE_MANAGER, BRAINTREE_MANAGER, BADGE_TRANSLATOR, LEVEL_TRANSLATOR,
+      BANK_MANDATE_TRANSLATOR);
+  private static final OneTimeDonationController ONE_TIME_CONTROLLER = new OneTimeDonationController(CLOCK,
+      ONETIME_CONFIG, STRIPE_MANAGER, BRAINTREE_MANAGER, ZK_OPS, ISSUED_RECEIPTS_MANAGER, ONE_TIME_DONATIONS_MANAGER);
   private static final ResourceExtension RESOURCE_EXTENSION = ResourceExtension.builder()
       .addProperty(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE)
       .addProvider(AuthHelper.getAuthFilter())
       .addProvider(CompletionExceptionMapper.class)
       .addProvider(SubscriptionProcessorExceptionMapper.class)
       .addProvider(new AuthValueFactoryProvider.Binder<>(AuthenticatedDevice.class))
+      .addProvider(SubscriptionExceptionMapper.class)
       .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(SUBSCRIPTION_CONTROLLER)
@@ -132,11 +139,11 @@ class SubscriptionControllerTest {
 
   @BeforeEach
   void setUp() {
-    reset(CLOCK, SUBSCRIPTION_MANAGER, STRIPE_MANAGER, BRAINTREE_MANAGER, ZK_OPS, ISSUED_RECEIPTS_MANAGER,
+    reset(CLOCK, SUBSCRIPTIONS, STRIPE_MANAGER, BRAINTREE_MANAGER, ZK_OPS, ISSUED_RECEIPTS_MANAGER,
         BADGE_TRANSLATOR, LEVEL_TRANSLATOR);
 
-    when(STRIPE_MANAGER.getProcessor()).thenReturn(SubscriptionProcessor.STRIPE);
-    when(BRAINTREE_MANAGER.getProcessor()).thenReturn(SubscriptionProcessor.BRAINTREE);
+    when(STRIPE_MANAGER.getProvider()).thenReturn(PaymentProvider.STRIPE);
+    when(BRAINTREE_MANAGER.getProvider()).thenReturn(PaymentProvider.BRAINTREE);
 
     List.of(STRIPE_MANAGER, BRAINTREE_MANAGER)
         .forEach(manager -> {
@@ -328,7 +335,7 @@ class SubscriptionControllerTest {
 
     when(BRAINTREE_MANAGER.captureOneTimePayment(anyString(), anyString(), anyString(), anyString(), anyLong(),
         anyLong(), any()))
-        .thenReturn(CompletableFuture.failedFuture(new SubscriptionProcessorException(SubscriptionProcessor.BRAINTREE,
+        .thenReturn(CompletableFuture.failedFuture(new SubscriptionProcessorException(PaymentProvider.BRAINTREE,
             new ChargeFailure("2046", "Declined", null, null, null))));
 
     final Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/paypal/confirm")
@@ -373,26 +380,26 @@ class SubscriptionControllerTest {
       Arrays.fill(subscriberUserAndKey, (byte) 1);
       subscriberId = Base64.getEncoder().encodeToString(subscriberUserAndKey);
 
-      final ProcessorCustomer processorCustomer = new ProcessorCustomer("testCustomerId", SubscriptionProcessor.STRIPE);
+      final ProcessorCustomer processorCustomer = new ProcessorCustomer("testCustomerId", PaymentProvider.STRIPE);
 
-      final Map<String, AttributeValue> dynamoItem = Map.of(SubscriptionManager.KEY_PASSWORD, b(new byte[16]),
-          SubscriptionManager.KEY_CREATED_AT, n(Instant.now().getEpochSecond()),
-          SubscriptionManager.KEY_ACCESSED_AT, n(Instant.now().getEpochSecond()),
-          SubscriptionManager.KEY_PROCESSOR_ID_CUSTOMER_ID, b(processorCustomer.toDynamoBytes())
+      final Map<String, AttributeValue> dynamoItem = Map.of(Subscriptions.KEY_PASSWORD, b(new byte[16]),
+          Subscriptions.KEY_CREATED_AT, n(Instant.now().getEpochSecond()),
+          Subscriptions.KEY_ACCESSED_AT, n(Instant.now().getEpochSecond()),
+          Subscriptions.KEY_PROCESSOR_ID_CUSTOMER_ID, b(processorCustomer.toDynamoBytes())
       );
-      final SubscriptionManager.Record record = SubscriptionManager.Record.from(
+      final Subscriptions.Record record = Subscriptions.Record.from(
           Arrays.copyOfRange(subscriberUserAndKey, 0, 16), dynamoItem);
-      when(SUBSCRIPTION_MANAGER.get(eq(Arrays.copyOfRange(subscriberUserAndKey, 0, 16)), any()))
-          .thenReturn(CompletableFuture.completedFuture(SubscriptionManager.GetResult.found(record)));
+      when(SUBSCRIPTIONS.get(eq(Arrays.copyOfRange(subscriberUserAndKey, 0, 16)), any()))
+          .thenReturn(CompletableFuture.completedFuture(Subscriptions.GetResult.found(record)));
 
-      when(SUBSCRIPTION_MANAGER.subscriptionCreated(any(), any(), any(), anyLong()))
+      when(SUBSCRIPTIONS.subscriptionCreated(any(), any(), any(), anyLong()))
           .thenReturn(CompletableFuture.completedFuture(null));
     }
 
     @Test
     void createSubscriptionSuccess() {
       when(STRIPE_MANAGER.createSubscription(any(), any(), anyLong(), anyLong()))
-          .thenReturn(CompletableFuture.completedFuture(mock(SubscriptionProcessorManager.SubscriptionId.class)));
+          .thenReturn(CompletableFuture.completedFuture(mock(SubscriptionPaymentProcessor.SubscriptionId.class)));
 
       final String level = String.valueOf(levelId);
       final String idempotencyKey = UUID.randomUUID().toString();
@@ -407,7 +414,7 @@ class SubscriptionControllerTest {
     @Test
     void createSubscriptionProcessorDeclined() {
       when(STRIPE_MANAGER.createSubscription(any(), any(), anyLong(), anyLong()))
-          .thenReturn(CompletableFuture.failedFuture(new SubscriptionProcessorException(SubscriptionProcessor.STRIPE,
+          .thenReturn(CompletableFuture.failedFuture(new SubscriptionProcessorException(PaymentProvider.STRIPE,
               new ChargeFailure("card_declined", "Insufficient funds", null, null, null))));
 
       final String level = String.valueOf(levelId);
@@ -434,15 +441,15 @@ class SubscriptionControllerTest {
       Arrays.fill(subscriberUserAndKey, (byte) 1);
       subscriberId = Base64.getEncoder().encodeToString(subscriberUserAndKey);
 
-      final Map<String, AttributeValue> dynamoItem = Map.of(SubscriptionManager.KEY_PASSWORD, b(new byte[16]),
-          SubscriptionManager.KEY_CREATED_AT, n(Instant.now().getEpochSecond()),
-          SubscriptionManager.KEY_ACCESSED_AT, n(Instant.now().getEpochSecond())
+      final Map<String, AttributeValue> dynamoItem = Map.of(Subscriptions.KEY_PASSWORD, b(new byte[16]),
+          Subscriptions.KEY_CREATED_AT, n(Instant.now().getEpochSecond()),
+          Subscriptions.KEY_ACCESSED_AT, n(Instant.now().getEpochSecond())
           // missing processor:customer field
       );
-      final SubscriptionManager.Record record = SubscriptionManager.Record.from(
+      final Subscriptions.Record record = Subscriptions.Record.from(
           Arrays.copyOfRange(subscriberUserAndKey, 0, 16), dynamoItem);
-      when(SUBSCRIPTION_MANAGER.get(eq(Arrays.copyOfRange(subscriberUserAndKey, 0, 16)), any()))
-          .thenReturn(CompletableFuture.completedFuture(SubscriptionManager.GetResult.found(record)));
+      when(SUBSCRIPTIONS.get(eq(Arrays.copyOfRange(subscriberUserAndKey, 0, 16)), any()))
+          .thenReturn(CompletableFuture.completedFuture(Subscriptions.GetResult.found(record)));
 
       final String level = String.valueOf(levelId);
       final String idempotencyKey = UUID.randomUUID().toString();
@@ -490,16 +497,16 @@ class SubscriptionControllerTest {
     Arrays.fill(subscriberUserAndKey, (byte) 1);
     final String subscriberId = Base64.getEncoder().encodeToString(subscriberUserAndKey);
 
-    when(SUBSCRIPTION_MANAGER.get(any(), any())).thenReturn(CompletableFuture.completedFuture(
-        SubscriptionManager.GetResult.NOT_STORED));
+    when(SUBSCRIPTIONS.get(any(), any())).thenReturn(CompletableFuture.completedFuture(
+        Subscriptions.GetResult.NOT_STORED));
 
-    final Map<String, AttributeValue> dynamoItem = Map.of(SubscriptionManager.KEY_PASSWORD, b(new byte[16]),
-        SubscriptionManager.KEY_CREATED_AT, n(Instant.now().getEpochSecond()),
-        SubscriptionManager.KEY_ACCESSED_AT, n(Instant.now().getEpochSecond())
+    final Map<String, AttributeValue> dynamoItem = Map.of(Subscriptions.KEY_PASSWORD, b(new byte[16]),
+        Subscriptions.KEY_CREATED_AT, n(Instant.now().getEpochSecond()),
+        Subscriptions.KEY_ACCESSED_AT, n(Instant.now().getEpochSecond())
     );
-    final SubscriptionManager.Record record = SubscriptionManager.Record.from(
+    final Subscriptions.Record record = Subscriptions.Record.from(
         Arrays.copyOfRange(subscriberUserAndKey, 0, 16), dynamoItem);
-    when(SUBSCRIPTION_MANAGER.create(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(record));
+    when(SUBSCRIPTIONS.create(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(record));
 
     final Response createResponse = RESOURCE_EXTENSION.target(String.format("/v1/subscription/%s", subscriberId))
         .request()
@@ -507,9 +514,9 @@ class SubscriptionControllerTest {
     assertThat(createResponse.getStatus()).isEqualTo(200);
 
     // creating should be idempotent
-    when(SUBSCRIPTION_MANAGER.get(any(), any())).thenReturn(CompletableFuture.completedFuture(
-        SubscriptionManager.GetResult.found(record)));
-    when(SUBSCRIPTION_MANAGER.accessedAt(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(SUBSCRIPTIONS.get(any(), any())).thenReturn(CompletableFuture.completedFuture(
+        Subscriptions.GetResult.found(record)));
+    when(SUBSCRIPTIONS.accessedAt(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
     final Response idempotentCreateResponse = RESOURCE_EXTENSION.target(
             String.format("/v1/subscription/%s", subscriberId))
@@ -519,9 +526,9 @@ class SubscriptionControllerTest {
 
     // when the manager returns `null`, it means there was a password mismatch from the storage layer `create`.
     // this could happen if there is a race between two concurrent `create` requests for the same user ID
-    when(SUBSCRIPTION_MANAGER.get(any(), any())).thenReturn(CompletableFuture.completedFuture(
-        SubscriptionManager.GetResult.NOT_STORED));
-    when(SUBSCRIPTION_MANAGER.create(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(SUBSCRIPTIONS.get(any(), any())).thenReturn(CompletableFuture.completedFuture(
+        Subscriptions.GetResult.NOT_STORED));
+    when(SUBSCRIPTIONS.create(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
     final Response managerCreateNullResponse = RESOURCE_EXTENSION.target(
             String.format("/v1/subscription/%s", subscriberId))
@@ -535,8 +542,8 @@ class SubscriptionControllerTest {
     final String mismatchedSubscriberId = Base64.getEncoder().encodeToString(subscriberUserAndMismatchedKey);
 
     // a password mismatch for an existing record
-    when(SUBSCRIPTION_MANAGER.get(any(), any())).thenReturn(CompletableFuture.completedFuture(
-        SubscriptionManager.GetResult.PASSWORD_MISMATCH));
+    when(SUBSCRIPTIONS.get(any(), any())).thenReturn(CompletableFuture.completedFuture(
+        Subscriptions.GetResult.PASSWORD_MISMATCH));
 
     final Response passwordMismatchResponse = RESOURCE_EXTENSION.target(
             String.format("/v1/subscription/%s", mismatchedSubscriberId))
@@ -565,16 +572,16 @@ class SubscriptionControllerTest {
     final String subscriberId = Base64.getEncoder().encodeToString(subscriberUserAndKey);
 
     when(CLOCK.instant()).thenReturn(Instant.now());
-    when(SUBSCRIPTION_MANAGER.get(any(), any())).thenReturn(CompletableFuture.completedFuture(
-        SubscriptionManager.GetResult.NOT_STORED));
+    when(SUBSCRIPTIONS.get(any(), any())).thenReturn(CompletableFuture.completedFuture(
+        Subscriptions.GetResult.NOT_STORED));
 
-    final Map<String, AttributeValue> dynamoItem = Map.of(SubscriptionManager.KEY_PASSWORD, b(new byte[16]),
-        SubscriptionManager.KEY_CREATED_AT, n(Instant.now().getEpochSecond()),
-        SubscriptionManager.KEY_ACCESSED_AT, n(Instant.now().getEpochSecond())
+    final Map<String, AttributeValue> dynamoItem = Map.of(Subscriptions.KEY_PASSWORD, b(new byte[16]),
+        Subscriptions.KEY_CREATED_AT, n(Instant.now().getEpochSecond()),
+        Subscriptions.KEY_ACCESSED_AT, n(Instant.now().getEpochSecond())
     );
-    final SubscriptionManager.Record record = SubscriptionManager.Record.from(
+    final Subscriptions.Record record = Subscriptions.Record.from(
         Arrays.copyOfRange(subscriberUserAndKey, 0, 16), dynamoItem);
-    when(SUBSCRIPTION_MANAGER.create(any(), any(), any(Instant.class)))
+    when(SUBSCRIPTIONS.create(any(), any(), any(Instant.class)))
         .thenReturn(CompletableFuture.completedFuture(record));
 
     final Response createSubscriberResponse = RESOURCE_EXTENSION
@@ -584,22 +591,22 @@ class SubscriptionControllerTest {
 
     assertThat(createSubscriberResponse.getStatus()).isEqualTo(200);
 
-    when(SUBSCRIPTION_MANAGER.get(any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(SubscriptionManager.GetResult.found(record)));
+    when(SUBSCRIPTIONS.get(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(Subscriptions.GetResult.found(record)));
 
     final String customerId = "some-customer-id";
     final ProcessorCustomer customer = new ProcessorCustomer(
-        customerId, SubscriptionProcessor.STRIPE);
+        customerId, PaymentProvider.STRIPE);
     when(STRIPE_MANAGER.createCustomer(any(), any()))
         .thenReturn(CompletableFuture.completedFuture(customer));
 
     final Map<String, AttributeValue> dynamoItemWithProcessorCustomer = new HashMap<>(dynamoItem);
-    dynamoItemWithProcessorCustomer.put(SubscriptionManager.KEY_PROCESSOR_ID_CUSTOMER_ID,
-        b(new ProcessorCustomer(customerId, SubscriptionProcessor.STRIPE).toDynamoBytes()));
-    final SubscriptionManager.Record recordWithCustomerId = SubscriptionManager.Record.from(record.user,
+    dynamoItemWithProcessorCustomer.put(Subscriptions.KEY_PROCESSOR_ID_CUSTOMER_ID,
+        b(new ProcessorCustomer(customerId, PaymentProvider.STRIPE).toDynamoBytes()));
+    final Subscriptions.Record recordWithCustomerId = Subscriptions.Record.from(record.user,
         dynamoItemWithProcessorCustomer);
 
-    when(SUBSCRIPTION_MANAGER.setProcessorAndCustomerId(any(SubscriptionManager.Record.class), any(),
+    when(SUBSCRIPTIONS.setProcessorAndCustomerId(any(Subscriptions.Record.class), any(),
         any(Instant.class)))
         .thenReturn(CompletableFuture.completedFuture(recordWithCustomerId));
 
@@ -613,7 +620,7 @@ class SubscriptionControllerTest {
         .post(Entity.json(""))
         .readEntity(SubscriptionController.CreatePaymentMethodResponse.class);
 
-    assertThat(createPaymentMethodResponse.processor()).isEqualTo(SubscriptionProcessor.STRIPE);
+    assertThat(createPaymentMethodResponse.processor()).isEqualTo(PaymentProvider.STRIPE);
     assertThat(createPaymentMethodResponse.clientSecret()).isEqualTo(clientSecret);
 
   }
@@ -625,19 +632,19 @@ class SubscriptionControllerTest {
     Arrays.fill(subscriberUserAndKey, (byte) 1);
     final String subscriberId = Base64.getEncoder().encodeToString(subscriberUserAndKey);
 
-    final Map<String, AttributeValue> dynamoItem = Map.of(SubscriptionManager.KEY_PASSWORD, b(new byte[16]),
-        SubscriptionManager.KEY_CREATED_AT, n(Instant.now().getEpochSecond()),
-        SubscriptionManager.KEY_ACCESSED_AT, n(Instant.now().getEpochSecond())
+    final Map<String, AttributeValue> dynamoItem = Map.of(Subscriptions.KEY_PASSWORD, b(new byte[16]),
+        Subscriptions.KEY_CREATED_AT, n(Instant.now().getEpochSecond()),
+        Subscriptions.KEY_ACCESSED_AT, n(Instant.now().getEpochSecond())
     );
-    final SubscriptionManager.Record record = SubscriptionManager.Record.from(
+    final Subscriptions.Record record = Subscriptions.Record.from(
         Arrays.copyOfRange(subscriberUserAndKey, 0, 16), dynamoItem);
-    when(SUBSCRIPTION_MANAGER.create(any(), any(), any(Instant.class)))
+    when(SUBSCRIPTIONS.create(any(), any(), any(Instant.class)))
         .thenReturn(CompletableFuture.completedFuture(record));
 
     // set up mocks
     when(CLOCK.instant()).thenReturn(Instant.now());
-    when(SUBSCRIPTION_MANAGER.get(any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(SubscriptionManager.GetResult.found(record)));
+    when(SUBSCRIPTIONS.get(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(Subscriptions.GetResult.found(record)));
 
     final Response response = RESOURCE_EXTENSION
         .target(String.format("/v1/subscription/%s/level/%d/%s/%s", subscriberId, 5, "usd", "abcd"))
@@ -661,26 +668,26 @@ class SubscriptionControllerTest {
     final String subscriberId = Base64.getEncoder().encodeToString(subscriberUserAndKey);
 
     final String customerId = "customer";
-    final Map<String, AttributeValue> dynamoItem = Map.of(SubscriptionManager.KEY_PASSWORD, b(new byte[16]),
-        SubscriptionManager.KEY_CREATED_AT, n(Instant.now().getEpochSecond()),
-        SubscriptionManager.KEY_ACCESSED_AT, n(Instant.now().getEpochSecond()),
-        SubscriptionManager.KEY_PROCESSOR_ID_CUSTOMER_ID,
-        b(new ProcessorCustomer(customerId, SubscriptionProcessor.BRAINTREE).toDynamoBytes())
+    final Map<String, AttributeValue> dynamoItem = Map.of(Subscriptions.KEY_PASSWORD, b(new byte[16]),
+        Subscriptions.KEY_CREATED_AT, n(Instant.now().getEpochSecond()),
+        Subscriptions.KEY_ACCESSED_AT, n(Instant.now().getEpochSecond()),
+        Subscriptions.KEY_PROCESSOR_ID_CUSTOMER_ID,
+        b(new ProcessorCustomer(customerId, PaymentProvider.BRAINTREE).toDynamoBytes())
     );
-    final SubscriptionManager.Record record = SubscriptionManager.Record.from(
+    final Subscriptions.Record record = Subscriptions.Record.from(
         Arrays.copyOfRange(subscriberUserAndKey, 0, 16), dynamoItem);
-    when(SUBSCRIPTION_MANAGER.create(any(), any(), any(Instant.class)))
+    when(SUBSCRIPTIONS.create(any(), any(), any(Instant.class)))
         .thenReturn(CompletableFuture.completedFuture(record));
 
     // set up mocks
     when(CLOCK.instant()).thenReturn(Instant.now());
-    when(SUBSCRIPTION_MANAGER.get(any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(SubscriptionManager.GetResult.found(record)));
+    when(SUBSCRIPTIONS.get(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(Subscriptions.GetResult.found(record)));
 
     when(BRAINTREE_MANAGER.createSubscription(any(), any(), anyLong(), anyLong()))
-        .thenReturn(CompletableFuture.completedFuture(new SubscriptionProcessorManager.SubscriptionId(
+        .thenReturn(CompletableFuture.completedFuture(new SubscriptionPaymentProcessor.SubscriptionId(
             "subscription")));
-    when(SUBSCRIPTION_MANAGER.subscriptionCreated(any(), any(), any(), anyLong()))
+    when(SUBSCRIPTIONS.subscriptionCreated(any(), any(), any(), anyLong()))
         .thenReturn(CompletableFuture.completedFuture(null));
 
     final Response response = RESOURCE_EXTENSION
@@ -710,36 +717,36 @@ class SubscriptionControllerTest {
 
     final String customerId = "customer";
     final String existingSubscriptionId = "existingSubscription";
-    final Map<String, AttributeValue> dynamoItem = Map.of(SubscriptionManager.KEY_PASSWORD, b(new byte[16]),
-        SubscriptionManager.KEY_CREATED_AT, n(Instant.now().getEpochSecond()),
-        SubscriptionManager.KEY_ACCESSED_AT, n(Instant.now().getEpochSecond()),
-        SubscriptionManager.KEY_PROCESSOR_ID_CUSTOMER_ID,
-        b(new ProcessorCustomer(customerId, SubscriptionProcessor.BRAINTREE).toDynamoBytes()),
-        SubscriptionManager.KEY_SUBSCRIPTION_ID, s(existingSubscriptionId)
+    final Map<String, AttributeValue> dynamoItem = Map.of(Subscriptions.KEY_PASSWORD, b(new byte[16]),
+        Subscriptions.KEY_CREATED_AT, n(Instant.now().getEpochSecond()),
+        Subscriptions.KEY_ACCESSED_AT, n(Instant.now().getEpochSecond()),
+        Subscriptions.KEY_PROCESSOR_ID_CUSTOMER_ID,
+        b(new ProcessorCustomer(customerId, PaymentProvider.BRAINTREE).toDynamoBytes()),
+        Subscriptions.KEY_SUBSCRIPTION_ID, s(existingSubscriptionId)
     );
-    final SubscriptionManager.Record record = SubscriptionManager.Record.from(
+    final Subscriptions.Record record = Subscriptions.Record.from(
         Arrays.copyOfRange(subscriberUserAndKey, 0, 16), dynamoItem);
-    when(SUBSCRIPTION_MANAGER.create(any(), any(), any(Instant.class)))
+    when(SUBSCRIPTIONS.create(any(), any(), any(Instant.class)))
         .thenReturn(CompletableFuture.completedFuture(record));
 
     // set up mocks
     when(CLOCK.instant()).thenReturn(Instant.now());
-    when(SUBSCRIPTION_MANAGER.get(any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(SubscriptionManager.GetResult.found(record)));
+    when(SUBSCRIPTIONS.get(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(Subscriptions.GetResult.found(record)));
 
     final Object subscriptionObj = new Object();
     when(BRAINTREE_MANAGER.getSubscription(any()))
         .thenReturn(CompletableFuture.completedFuture(subscriptionObj));
     when(BRAINTREE_MANAGER.getLevelAndCurrencyForSubscription(subscriptionObj))
         .thenReturn(CompletableFuture.completedFuture(
-            new SubscriptionProcessorManager.LevelAndCurrency(existingLevel, existingCurrency)));
+            new SubscriptionPaymentProcessor.LevelAndCurrency(existingLevel, existingCurrency)));
     final String updatedSubscriptionId = "updatedSubscriptionId";
 
     if (expectUpdate) {
       when(BRAINTREE_MANAGER.updateSubscription(any(), any(), anyLong(), anyString()))
-          .thenReturn(CompletableFuture.completedFuture(new SubscriptionProcessorManager.SubscriptionId(
+          .thenReturn(CompletableFuture.completedFuture(new SubscriptionPaymentProcessor.SubscriptionId(
               updatedSubscriptionId)));
-      when(SUBSCRIPTION_MANAGER.subscriptionLevelChanged(any(), any(), anyLong(), anyString()))
+      when(SUBSCRIPTIONS.subscriptionLevelChanged(any(), any(), anyLong(), anyString()))
           .thenReturn(CompletableFuture.completedFuture(null));
     }
 
@@ -755,7 +762,7 @@ class SubscriptionControllerTest {
 
     if (expectUpdate) {
       verify(BRAINTREE_MANAGER).updateSubscription(any(), any(), eq(requestLevel), eq(idempotencyKey));
-      verify(SUBSCRIPTION_MANAGER).subscriptionLevelChanged(any(), any(), eq(requestLevel), eq(updatedSubscriptionId));
+      verify(SUBSCRIPTIONS).subscriptionLevelChanged(any(), any(), eq(requestLevel), eq(updatedSubscriptionId));
     }
 
     verifyNoMoreInteractions(BRAINTREE_MANAGER);
@@ -787,27 +794,27 @@ class SubscriptionControllerTest {
 
     final String customerId = "customer";
     final String existingSubscriptionId = "existingSubscription";
-    final Map<String, AttributeValue> dynamoItem = Map.of(SubscriptionManager.KEY_PASSWORD, b(new byte[16]),
-        SubscriptionManager.KEY_CREATED_AT, n(Instant.now().getEpochSecond()),
-        SubscriptionManager.KEY_ACCESSED_AT, n(Instant.now().getEpochSecond()),
-        SubscriptionManager.KEY_PROCESSOR_ID_CUSTOMER_ID,
-        b(new ProcessorCustomer(customerId, SubscriptionProcessor.BRAINTREE).toDynamoBytes()),
-        SubscriptionManager.KEY_SUBSCRIPTION_ID, s(existingSubscriptionId));
-    final SubscriptionManager.Record record = SubscriptionManager.Record.from(
+    final Map<String, AttributeValue> dynamoItem = Map.of(Subscriptions.KEY_PASSWORD, b(new byte[16]),
+        Subscriptions.KEY_CREATED_AT, n(Instant.now().getEpochSecond()),
+        Subscriptions.KEY_ACCESSED_AT, n(Instant.now().getEpochSecond()),
+        Subscriptions.KEY_PROCESSOR_ID_CUSTOMER_ID,
+        b(new ProcessorCustomer(customerId, PaymentProvider.BRAINTREE).toDynamoBytes()),
+        Subscriptions.KEY_SUBSCRIPTION_ID, s(existingSubscriptionId));
+    final Subscriptions.Record record = Subscriptions.Record.from(
         Arrays.copyOfRange(subscriberUserAndKey, 0, 16), dynamoItem);
-    when(SUBSCRIPTION_MANAGER.create(any(), any(), any(Instant.class)))
+    when(SUBSCRIPTIONS.create(any(), any(), any(Instant.class)))
         .thenReturn(CompletableFuture.completedFuture(record));
 
     when(CLOCK.instant()).thenReturn(Instant.now());
-    when(SUBSCRIPTION_MANAGER.get(any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(SubscriptionManager.GetResult.found(record)));
+    when(SUBSCRIPTIONS.get(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(Subscriptions.GetResult.found(record)));
 
     final Object subscriptionObj = new Object();
     when(BRAINTREE_MANAGER.getSubscription(any()))
         .thenReturn(CompletableFuture.completedFuture(subscriptionObj));
     when(BRAINTREE_MANAGER.getLevelAndCurrencyForSubscription(subscriptionObj))
         .thenReturn(CompletableFuture.completedFuture(
-            new SubscriptionProcessorManager.LevelAndCurrency(201, "usd")));
+            new SubscriptionPaymentProcessor.LevelAndCurrency(201, "usd")));
 
     // Try to change from a backup subscription (201) to a donation subscription (5)
     final Response response = RESOURCE_EXTENSION
@@ -833,13 +840,13 @@ class SubscriptionControllerTest {
 
     final String customerId = "customer";
     final String subscriptionId = "subscriptionId";
-    final Map<String, AttributeValue> dynamoItem = Map.of(SubscriptionManager.KEY_PASSWORD, b(new byte[16]),
-        SubscriptionManager.KEY_CREATED_AT, n(Instant.now().getEpochSecond()),
-        SubscriptionManager.KEY_ACCESSED_AT, n(Instant.now().getEpochSecond()),
-        SubscriptionManager.KEY_PROCESSOR_ID_CUSTOMER_ID,
-        b(new ProcessorCustomer(customerId, SubscriptionProcessor.BRAINTREE).toDynamoBytes()),
-        SubscriptionManager.KEY_SUBSCRIPTION_ID, s(subscriptionId));
-    final SubscriptionManager.Record record = SubscriptionManager.Record.from(
+    final Map<String, AttributeValue> dynamoItem = Map.of(Subscriptions.KEY_PASSWORD, b(new byte[16]),
+        Subscriptions.KEY_CREATED_AT, n(Instant.now().getEpochSecond()),
+        Subscriptions.KEY_ACCESSED_AT, n(Instant.now().getEpochSecond()),
+        Subscriptions.KEY_PROCESSOR_ID_CUSTOMER_ID,
+        b(new ProcessorCustomer(customerId, PaymentProvider.BRAINTREE).toDynamoBytes()),
+        Subscriptions.KEY_SUBSCRIPTION_ID, s(subscriptionId));
+    final Subscriptions.Record record = Subscriptions.Record.from(
         Arrays.copyOfRange(subscriberUserAndKey, 0, 16), dynamoItem);
     final ReceiptCredentialRequest receiptRequest = new ClientZkReceiptOperations(
         ServerSecretParams.generate().getPublicParams()).createReceiptCredentialRequestContext(
@@ -847,15 +854,15 @@ class SubscriptionControllerTest {
     final ReceiptCredentialResponse receiptCredentialResponse = mock(ReceiptCredentialResponse.class);
 
     when(CLOCK.instant()).thenReturn(Instant.now());
-    when(SUBSCRIPTION_MANAGER.get(any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(SubscriptionManager.GetResult.found(record)));
+    when(SUBSCRIPTIONS.get(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(Subscriptions.GetResult.found(record)));
     when(BRAINTREE_MANAGER.getReceiptItem(subscriptionId)).thenReturn(
-        CompletableFuture.completedFuture(new SubscriptionProcessorManager.ReceiptItem(
+        CompletableFuture.completedFuture(new SubscriptionPaymentProcessor.ReceiptItem(
             "itemId",
             Instant.ofEpochSecond(10).plus(Duration.ofDays(1)),
             level
         )));
-    when(ISSUED_RECEIPTS_MANAGER.recordIssuance(eq("itemId"), eq(SubscriptionProcessor.BRAINTREE), eq(receiptRequest), any()))
+    when(ISSUED_RECEIPTS_MANAGER.recordIssuance(eq("itemId"), eq(PaymentProvider.BRAINTREE), eq(receiptRequest), any()))
         .thenReturn(CompletableFuture.completedFuture(null));
     when(ZK_OPS.issueReceiptCredential(any(), anyLong(), eq(level))).thenReturn(receiptCredentialResponse);
     when(receiptCredentialResponse.serialize()).thenReturn(new byte[0]);

@@ -52,7 +52,7 @@ import org.whispersystems.textsecuregcm.util.GoogleApiUtil;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
-public class BraintreeManager implements SubscriptionProcessorManager {
+public class BraintreeManager implements SubscriptionPaymentProcessor {
 
   private static final Logger logger = LoggerFactory.getLogger(BraintreeManager.class);
 
@@ -124,8 +124,8 @@ public class BraintreeManager implements SubscriptionProcessorManager {
   }
 
   @Override
-  public SubscriptionProcessor getProcessor() {
-    return SubscriptionProcessor.BRAINTREE;
+  public PaymentProvider getProvider() {
+    return PaymentProvider.BRAINTREE;
   }
 
   @Override
@@ -211,7 +211,7 @@ public class BraintreeManager implements SubscriptionProcessorManager {
               return switch (unsuccessfulTx.getProcessorResponseCode()) {
                 case GENERIC_DECLINED_PROCESSOR_CODE, PAYPAL_FUNDING_INSTRUMENT_DECLINED_PROCESSOR_CODE ->
                     CompletableFuture.failedFuture(
-                        new SubscriptionProcessorException(getProcessor(), createChargeFailure(unsuccessfulTx)));
+                        new SubscriptionProcessorException(getProvider(), createChargeFailure(unsuccessfulTx)));
 
                 default -> {
                   logger.info("PayPal charge unexpectedly failed: {}", unsuccessfulTx.getProcessorResponseCode());
@@ -342,7 +342,7 @@ public class BraintreeManager implements SubscriptionProcessorManager {
             throw new CompletionException(new BraintreeException(result.getMessage()));
           }
 
-          return new ProcessorCustomer(result.getTarget().getId(), SubscriptionProcessor.BRAINTREE);
+          return new ProcessorCustomer(result.getTarget().getId(), PaymentProvider.BRAINTREE);
         });
 
   }
@@ -423,7 +423,7 @@ public class BraintreeManager implements SubscriptionProcessorManager {
                   if (result.getTarget() != null) {
                     completionException = result.getTarget().getTransactions().stream().findFirst()
                         .map(transaction -> new CompletionException(
-                            new SubscriptionProcessorException(getProcessor(), createChargeFailure(transaction))))
+                            new SubscriptionProcessorException(getProvider(), createChargeFailure(transaction))))
                         .orElseGet(() -> new CompletionException(new BraintreeException(result.getMessage())));
                   } else {
                     completionException = new CompletionException(new BraintreeException(result.getMessage()));

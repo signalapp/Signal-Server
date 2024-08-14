@@ -12,10 +12,10 @@ import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
-public interface SubscriptionProcessorManager {
-  SubscriptionProcessor getProcessor();
+public interface SubscriptionPaymentProcessor extends SubscriptionManager.Processor {
 
   boolean supportsPaymentMethod(PaymentMethod paymentMethod);
 
@@ -48,10 +48,6 @@ public interface SubscriptionProcessorManager {
    * @return the subscription’s current level and lower-case currency code
    */
   CompletableFuture<LevelAndCurrency> getLevelAndCurrencyForSubscription(Object subscription);
-
-  CompletableFuture<Void> cancelAllActiveSubscriptions(String customerId);
-
-  CompletableFuture<ReceiptItem> getReceiptItem(String subscriptionId);
 
   CompletableFuture<SubscriptionInformation> getSubscriptionInformation(Object subscription);
 
@@ -102,13 +98,13 @@ public interface SubscriptionProcessorManager {
         case "incomplete" -> INCOMPLETE;
 
         case "trialing" -> {
-          final Logger logger = LoggerFactory.getLogger(SubscriptionProcessorManager.class);
+          final Logger logger = LoggerFactory.getLogger(SubscriptionPaymentProcessor.class);
           logger.error("Subscription has status that should never happen: {}", status);
 
           yield UNKNOWN;
         }
         default -> {
-          final Logger logger = LoggerFactory.getLogger(SubscriptionProcessorManager.class);
+          final Logger logger = LoggerFactory.getLogger(SubscriptionPaymentProcessor.class);
           logger.error("Subscription has unknown status: {}", status);
 
           yield UNKNOWN;
@@ -134,10 +130,6 @@ public interface SubscriptionProcessorManager {
   }
 
   record SubscriptionPrice(String currency, BigDecimal amount) {
-
-  }
-
-  record ReceiptItem(String itemId, Instant paidAt, long level) {
 
   }
 

@@ -76,7 +76,7 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.util.Conversions;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
-public class StripeManager implements SubscriptionProcessorManager {
+public class StripeManager implements SubscriptionPaymentProcessor {
   private static final Logger logger = LoggerFactory.getLogger(StripeManager.class);
   private static final String METADATA_KEY_LEVEL = "level";
   private static final String METADATA_KEY_CLIENT_PLATFORM = "clientPlatform";
@@ -107,8 +107,8 @@ public class StripeManager implements SubscriptionProcessorManager {
   }
 
   @Override
-  public SubscriptionProcessor getProcessor() {
-    return SubscriptionProcessor.STRIPE;
+  public PaymentProvider getProvider() {
+    return PaymentProvider.STRIPE;
   }
 
   @Override
@@ -145,7 +145,7 @@ public class StripeManager implements SubscriptionProcessorManager {
             throw new CompletionException(e);
           }
         }, executor)
-        .thenApply(customer -> new ProcessorCustomer(customer.getId(), getProcessor()));
+        .thenApply(customer -> new ProcessorCustomer(customer.getId(), getProvider()));
   }
 
   public CompletableFuture<Customer> getCustomer(String customerId) {
@@ -300,7 +300,7 @@ public class StripeManager implements SubscriptionProcessorManager {
 
             if (e instanceof CardException ce) {
               throw new CompletionException(
-                  new SubscriptionProcessorException(getProcessor(), createChargeFailureFromCardException(e, ce)));
+                  new SubscriptionProcessorException(getProvider(), createChargeFailureFromCardException(e, ce)));
             }
 
             throw new CompletionException(e);
@@ -348,7 +348,7 @@ public class StripeManager implements SubscriptionProcessorManager {
 
             if (e instanceof CardException ce) {
               throw new CompletionException(
-                  new SubscriptionProcessorException(getProcessor(), createChargeFailureFromCardException(e, ce)));
+                  new SubscriptionProcessorException(getProvider(), createChargeFailureFromCardException(e, ce)));
             }
             throw new CompletionException(e);
           }

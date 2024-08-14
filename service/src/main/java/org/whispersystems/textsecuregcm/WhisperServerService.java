@@ -177,6 +177,7 @@ import org.whispersystems.textsecuregcm.mappers.NonNormalizedPhoneNumberExceptio
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RegistrationServiceSenderExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.ServerRejectedExceptionMapper;
+import org.whispersystems.textsecuregcm.mappers.SubscriptionExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.SubscriptionProcessorExceptionMapper;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.MetricsApplicationEventListener;
@@ -234,6 +235,7 @@ import org.whispersystems.textsecuregcm.storage.RemoteConfigsManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageDynamoDb;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
+import org.whispersystems.textsecuregcm.storage.Subscriptions;
 import org.whispersystems.textsecuregcm.storage.VerificationSessionManager;
 import org.whispersystems.textsecuregcm.storage.VerificationSessions;
 import org.whispersystems.textsecuregcm.subscriptions.BankMandateTranslator;
@@ -667,7 +669,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getDynamoDbTables().getRedeemedReceipts().getTableName(),
         dynamoDbAsyncClient,
         config.getDynamoDbTables().getRedeemedReceipts().getExpiration());
-    SubscriptionManager subscriptionManager = new SubscriptionManager(
+    Subscriptions subscriptions = new Subscriptions(
         config.getDynamoDbTables().getSubscriptions().getTableName(), dynamoDbAsyncClient);
 
     final RegistrationLockVerificationManager registrationLockVerificationManager = new RegistrationLockVerificationManager(
@@ -1119,9 +1121,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             accountsManager, registrationFraudChecker, dynamicConfigurationManager, clock)
     );
     if (config.getSubscription() != null && config.getOneTimeDonations() != null) {
+      SubscriptionManager subscriptionManager = new SubscriptionManager(subscriptions,
+          List.of(stripeManager, braintreeManager), zkReceiptOperations, issuedReceiptsManager);
       commonControllers.add(new SubscriptionController(clock, config.getSubscription(), config.getOneTimeDonations(),
-          subscriptionManager, stripeManager, braintreeManager, zkReceiptOperations, issuedReceiptsManager,
-          profileBadgeConverter, resourceBundleLevelTranslator, bankMandateTranslator));
+          subscriptionManager, stripeManager, braintreeManager, profileBadgeConverter, resourceBundleLevelTranslator,
+          bankMandateTranslator));
       commonControllers.add(new OneTimeDonationController(clock, config.getOneTimeDonations(), stripeManager, braintreeManager,
           zkReceiptOperations, issuedReceiptsManager, oneTimeDonationsManager));
     }
@@ -1188,6 +1192,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new NonNormalizedPhoneNumberExceptionMapper(),
         new RegistrationServiceSenderExceptionMapper(),
         new SubscriptionProcessorExceptionMapper(),
+        new SubscriptionExceptionMapper(),
         new JsonMappingExceptionMapper()
     ).forEach(exceptionMapper -> {
       environment.jersey().register(exceptionMapper);

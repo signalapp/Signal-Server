@@ -330,21 +330,21 @@ public final class DynamoDbExtensionSchema {
         List.of()),
 
     SUBSCRIPTIONS("subscriptions_test",
-        SubscriptionManager.KEY_USER,
+        Subscriptions.KEY_USER,
         null,
         List.of(
             AttributeDefinition.builder()
-                .attributeName(SubscriptionManager.KEY_USER)
+                .attributeName(Subscriptions.KEY_USER)
                 .attributeType(ScalarAttributeType.B)
                 .build(),
             AttributeDefinition.builder()
-                .attributeName(SubscriptionManager.KEY_PROCESSOR_ID_CUSTOMER_ID)
+                .attributeName(Subscriptions.KEY_PROCESSOR_ID_CUSTOMER_ID)
                 .attributeType(ScalarAttributeType.B)
                 .build()),
         List.of(GlobalSecondaryIndex.builder()
-            .indexName(SubscriptionManager.INDEX_NAME)
+            .indexName(Subscriptions.INDEX_NAME)
             .keySchema(KeySchemaElement.builder()
-                .attributeName(SubscriptionManager.KEY_PROCESSOR_ID_CUSTOMER_ID)
+                .attributeName(Subscriptions.KEY_PROCESSOR_ID_CUSTOMER_ID)
                 .keyType(KeyType.HASH)
                 .build())
             .projection(Projection.builder()

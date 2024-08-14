@@ -7,7 +7,7 @@ package org.whispersystems.textsecuregcm.subscriptions;
 
 import java.nio.charset.StandardCharsets;
 
-public record ProcessorCustomer(String customerId, SubscriptionProcessor processor) {
+public record ProcessorCustomer(String customerId, PaymentProvider processor) {
 
   public byte[] toDynamoBytes() {
     final byte[] customerIdBytes = customerId.getBytes(StandardCharsets.UTF_8);
