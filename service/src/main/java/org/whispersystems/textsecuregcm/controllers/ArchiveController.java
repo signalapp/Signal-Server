@@ -65,6 +65,7 @@ import org.whispersystems.textsecuregcm.util.ByteArrayBase64UrlAdapter;
 import org.whispersystems.textsecuregcm.util.ECPublicKeyAdapter;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
 import org.whispersystems.textsecuregcm.util.Util;
+import org.whispersystems.textsecuregcm.util.ValidBase64URLString;
 import org.whispersystems.websocket.auth.Mutable;
 import org.whispersystems.websocket.auth.ReadOnly;
 import reactor.core.publisher.Mono;
@@ -464,13 +465,16 @@ public class ArchiveController {
       @Schema(description = "The attachment cdn")
       @NotNull
       Integer cdn,
+
       @NotBlank
+      @ValidBase64URLString
       @Schema(description = "The attachment key")
       String key) {}
 
   public record CopyMediaRequest(
       @Schema(description = "The object on the attachment CDN to copy")
       @NotNull
+      @Valid
       RemoteAttachment sourceAttachment,
 
       @Schema(description = "The length of the source attachment before the encryption applied by the copy operation")

@@ -594,6 +594,27 @@ public class ArchiveControllerTest {
     assertThat(response.getStatus()).isEqualTo(204);
   }
 
+  @Test
+  public void invalidSourceAttachmentKey() throws VerificationFailedException {
+    final BackupAuthCredentialPresentation presentation = backupAuthTestUtil.getPresentation(
+        BackupLevel.MEDIA, backupKey, aci);
+    when(backupManager.authenticateBackupUser(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(backupUser(presentation.getBackupId(), BackupLevel.MEDIA)));
+    final Response r = resources.getJerseyTest()
+        .target("v1/archives/media")
+        .request()
+        .header("X-Signal-ZK-Auth", Base64.getEncoder().encodeToString(presentation.serialize()))
+        .header("X-Signal-ZK-Auth-Signature", "aaa")
+        .put(Entity.json(new ArchiveController.CopyMediaRequest(
+                new ArchiveController.RemoteAttachment(3, "invalid/urlBase64"),
+                100,
+                TestRandomUtil.nextBytes(15),
+                TestRandomUtil.nextBytes(32),
+                TestRandomUtil.nextBytes(32),
+                TestRandomUtil.nextBytes(16))));
+    assertThat(r.getStatus()).isEqualTo(422);
+  }
+
   private static AuthenticatedBackupUser backupUser(byte[] backupId, BackupLevel backupLevel) {
     return new AuthenticatedBackupUser(backupId, backupLevel, "myBackupDir", "myMediaDir");
   }
