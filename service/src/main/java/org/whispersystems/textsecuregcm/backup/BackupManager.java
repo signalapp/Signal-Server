@@ -273,7 +273,7 @@ public class BackupManager {
       final List<CopyParameters> toCopy) {
     final long totalBytesAdded = toCopy.stream()
         .mapToLong(copyParameters -> {
-          if (copyParameters.sourceLength() > MAX_MEDIA_OBJECT_SIZE) {
+          if (copyParameters.sourceLength() > MAX_MEDIA_OBJECT_SIZE || copyParameters.sourceLength() < 0) {
             throw Status.INVALID_ARGUMENT
                 .withDescription("Invalid sourceObject size")
                 .asRuntimeException();

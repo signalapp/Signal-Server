@@ -443,6 +443,39 @@ public class ArchiveControllerTest {
     assertThat(r4.failureReason()).isNotBlank();
   }
 
+
+  @Test
+  public void copyMediaWithNegativeLength() throws VerificationFailedException {
+    final BackupAuthCredentialPresentation presentation = backupAuthTestUtil.getPresentation(
+        BackupLevel.MEDIA, backupKey, aci);
+    when(backupManager.authenticateBackupUser(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(backupUser(presentation.getBackupId(), BackupLevel.MEDIA)));
+    final byte[][] mediaIds = new byte[][]{TestRandomUtil.nextBytes(15), TestRandomUtil.nextBytes(15)};
+    final Response r = resources.getJerseyTest()
+        .target("v1/archives/media/batch")
+        .request()
+        .header("X-Signal-ZK-Auth", Base64.getEncoder().encodeToString(presentation.serialize()))
+        .header("X-Signal-ZK-Auth-Signature", "aaa")
+        .put(Entity.json(new ArchiveController.CopyMediaBatchRequest(List.of(
+            new ArchiveController.CopyMediaRequest(
+                new ArchiveController.RemoteAttachment(3, "abc"),
+                1,
+                mediaIds[0],
+                TestRandomUtil.nextBytes(32),
+                TestRandomUtil.nextBytes(32),
+                TestRandomUtil.nextBytes(16)),
+
+            new ArchiveController.CopyMediaRequest(
+                new ArchiveController.RemoteAttachment(3, "def"),
+                -1,
+                mediaIds[1],
+                TestRandomUtil.nextBytes(32),
+                TestRandomUtil.nextBytes(32),
+                TestRandomUtil.nextBytes(16))
+        ))));
+    assertThat(r.getStatus()).isEqualTo(422);
+  }
+
   @CartesianTest
   public void list(
       @CartesianTest.Values(booleans = {true, false}) final boolean cursorProvided,

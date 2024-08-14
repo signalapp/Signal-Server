@@ -34,6 +34,7 @@ import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
+import javax.validation.constraints.PositiveOrZero;
 import javax.validation.constraints.Size;
 import javax.ws.rs.BadRequestException;
 import javax.ws.rs.ClientErrorException;
@@ -479,6 +480,7 @@ public class ArchiveController {
 
       @Schema(description = "The length of the source attachment before the encryption applied by the copy operation")
       @NotNull
+      @PositiveOrZero
       int objectLength,
 
       @Schema(description = "mediaId to copy on to the backup CDN, encoded in URL-safe padded base64", implementation = String.class)
@@ -575,7 +577,7 @@ public class ArchiveController {
       @Schema(description = "A list of media objects to copy from the attachments CDN to the backup CDN")
       @NotNull
       @Size(min = 1, max = 1000)
-      List<CopyMediaRequest> items) {}
+      List<@Valid CopyMediaRequest> items) {}
 
   public record CopyMediaBatchResponse(
 
