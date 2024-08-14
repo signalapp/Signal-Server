@@ -4275,6 +4275,8 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
+        initialized:
+          type: boolean
         treeHead:
           $ref: '#/components/schemas/TreeHead'
         serializedSize:
@@ -4295,8 +4297,6 @@ components:
           $ref: '#/components/schemas/TreeHeadOrBuilder'
         rootValue:
           $ref: '#/components/schemas/ByteString'
-        initialized:
-          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -4358,6 +4358,8 @@ components:
           format: int32
         fullName:
           type: string
+        initialized:
+          type: boolean
         serializedSize:
           type: integer
           format: int32
@@ -4372,8 +4374,6 @@ components:
         typeBytes:
           $ref: '#/components/schemas/ByteString'
         reserved:
-          type: boolean
-        initialized:
           type: boolean
         initializationErrorString:
           type: string
@@ -4470,6 +4470,8 @@ components:
           $ref: '#/components/schemas/UnknownFieldSet'
         name:
           type: string
+        initialized:
+          type: boolean
         options:
           $ref: '#/components/schemas/MessageOptions'
         fieldCount:
@@ -4574,8 +4576,6 @@ components:
         reservedNameCount:
           type: integer
           format: int32
-        initialized:
-          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -4700,6 +4700,8 @@ components:
           $ref: '#/components/schemas/UnknownFieldSet'
         value:
           type: string
+        initialized:
+          type: boolean
         serializedSize:
           type: integer
           format: int32
@@ -4721,8 +4723,6 @@ components:
           - EDITION_99999_TEST_ONLY
         valueBytes:
           $ref: '#/components/schemas/ByteString'
-        initialized:
-          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -4799,6 +4799,8 @@ components:
           $ref: '#/components/schemas/UnknownFieldSet'
         name:
           type: string
+        initialized:
+          type: boolean
         options:
           $ref: '#/components/schemas/EnumOptions'
         serializedSize:
@@ -4848,8 +4850,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/EnumValueDescriptorProtoOrBuilder'
-        initialized:
-          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -4921,6 +4921,8 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
+        initialized:
+          type: boolean
         deprecated:
           type: boolean
         features:
@@ -4948,8 +4950,6 @@ components:
           type: integer
           format: int32
         allowAlias:
-          type: boolean
-        initialized:
           type: boolean
         initializationErrorString:
           type: string
@@ -5010,6 +5010,8 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
+        initialized:
+          type: boolean
         end:
           type: integer
           format: int32
@@ -5023,8 +5025,6 @@ components:
           $ref: '#/components/schemas/EnumReservedRange'
         parserForType:
           $ref: '#/components/schemas/ParserEnumReservedRange'
-        initialized:
-          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -5091,6 +5091,8 @@ components:
         number:
           type: integer
           format: int32
+        initialized:
+          type: boolean
         options:
           $ref: '#/components/schemas/EnumValueOptions'
         serializedSize:
@@ -5104,8 +5106,6 @@ components:
           $ref: '#/components/schemas/ByteString'
         optionsOrBuilder:
           $ref: '#/components/schemas/EnumValueOptionsOrBuilder'
-        initialized:
-          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -5151,6 +5151,8 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
+        initialized:
+          type: boolean
         deprecated:
           type: boolean
         features:
@@ -5176,8 +5178,6 @@ components:
           type: integer
           format: int32
         debugRedact:
-          type: boolean
-        initialized:
           type: boolean
         initializationErrorString:
           type: string
@@ -5236,6 +5236,8 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
+        initialized:
+          type: boolean
         options:
           $ref: '#/components/schemas/ExtensionRangeOptions'
         end:
@@ -5253,8 +5255,6 @@ components:
           $ref: '#/components/schemas/ParserExtensionRange'
         optionsOrBuilder:
           $ref: '#/components/schemas/ExtensionRangeOptionsOrBuilder'
-        initialized:
-          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -5272,6 +5272,8 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
+        initialized:
+          type: boolean
         features:
           $ref: '#/components/schemas/FeatureSet'
         serializedSize:
@@ -5281,10 +5283,6 @@ components:
           $ref: '#/components/schemas/ExtensionRangeOptions'
         parserForType:
           $ref: '#/components/schemas/ParserExtensionRangeOptions'
-        declarationOrBuilderList:
-          type: array
-          items:
-            $ref: '#/components/schemas/DeclarationOrBuilder'
         featuresOrBuilder:
           $ref: '#/components/schemas/FeatureSetOrBuilder'
         uninterpretedOptionList:
@@ -5298,6 +5296,10 @@ components:
         uninterpretedOptionCount:
           type: integer
           format: int32
+        declarationOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeclarationOrBuilder'
         declarationList:
           type: array
           items:
@@ -5310,8 +5312,6 @@ components:
           enum:
           - DECLARATION
           - UNVERIFIED
-        initialized:
-          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -5333,10 +5333,6 @@ components:
       properties:
         features:
           $ref: '#/components/schemas/FeatureSet'
-        declarationOrBuilderList:
-          type: array
-          items:
-            $ref: '#/components/schemas/DeclarationOrBuilder'
         featuresOrBuilder:
           $ref: '#/components/schemas/FeatureSetOrBuilder'
         uninterpretedOptionList:
@@ -5350,6 +5346,10 @@ components:
         uninterpretedOptionCount:
           type: integer
           format: int32
+        declarationOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeclarationOrBuilder'
         declarationList:
           type: array
           items:
@@ -5408,6 +5408,8 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
+        initialized:
+          type: boolean
         enumType:
           type: string
           enum:
@@ -5452,8 +5454,6 @@ components:
           - UTF8_VALIDATION_UNKNOWN
           - NONE
           - VERIFY
-        initialized:
-          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -5680,6 +5680,8 @@ components:
         number:
           type: integer
           format: int32
+        initialized:
+          type: boolean
         options:
           $ref: '#/components/schemas/FieldOptions'
         serializedSize:
@@ -5710,8 +5712,6 @@ components:
           $ref: '#/components/schemas/ByteString'
         jsonNameBytes:
           $ref: '#/components/schemas/ByteString'
-        initialized:
-          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -5805,6 +5805,8 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
+        initialized:
+          type: boolean
         deprecated:
           type: boolean
         retention:
@@ -5886,8 +5888,6 @@ components:
         editionDefaultsCount:
           type: integer
           format: int32
-        initialized:
-          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -6064,6 +6064,8 @@ components:
           type: string
         package:
           type: string
+        initialized:
+          type: boolean
         options:
           $ref: '#/components/schemas/FileOptions'
         serializedSize:
@@ -6173,8 +6175,6 @@ components:
           $ref: '#/components/schemas/SourceCodeInfoOrBuilder'
         syntaxBytes:
           $ref: '#/components/schemas/ByteString'
-        initialized:
-          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -6192,6 +6192,8 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
+        initialized:
+          type: boolean
         deprecated:
           type: boolean
         features:
@@ -6278,8 +6280,6 @@ components:
           type: string
         rubyPackageBytes:
           $ref: '#/components/schemas/ByteString'
-        initialized:
-          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -6397,6 +6397,8 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
+        initialized:
+          type: boolean
         treeHead:
           $ref: '#/components/schemas/TreeHead'
         serializedSize:
@@ -6419,8 +6421,6 @@ components:
           $ref: '#/components/schemas/TreeHeadOrBuilder'
         auditorTreeHeadOrBuilder:
           $ref: '#/components/schemas/AuditorTreeHeadOrBuilder'
-        initialized:
-          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -6462,6 +6462,8 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
+        initialized:
+          type: boolean
         serializedSize:
           type: integer
           format: int32
@@ -6507,8 +6509,6 @@ components:
         leadingDetachedCommentsCount:
           type: integer
           format: int32
-        initialized:
-          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -6577,10 +6577,10 @@ components:
         serializedSize:
           type: integer
           format: int32
-        defaultInstanceForType:
-          $ref: '#/components/schemas/MessageLite'
         initialized:
           type: boolean
+        defaultInstanceForType:
+          $ref: '#/components/schemas/MessageLite'
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
         initializationErrorString:
@@ -6599,15 +6599,17 @@ components:
           format: int32
         parserForType:
           $ref: '#/components/schemas/ParserMessageLite'
-        defaultInstanceForType:
-          $ref: '#/components/schemas/MessageLite'
         initialized:
           type: boolean
+        defaultInstanceForType:
+          $ref: '#/components/schemas/MessageLite'
     MessageOptions:
       type: object
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
+        initialized:
+          type: boolean
         deprecated:
           type: boolean
         features:
@@ -6640,8 +6642,6 @@ components:
         uninterpretedOptionCount:
           type: integer
           format: int32
-        initialized:
-          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -6733,11 +6733,13 @@ components:
           $ref: '#/components/schemas/UnknownFieldSet'
         name:
           type: string
+        initialized:
+          type: boolean
         options:
           $ref: '#/components/schemas/MethodOptions'
-        outputType:
-          type: string
         inputType:
+          type: string
+        outputType:
           type: string
         serializedSize:
           type: integer
@@ -6758,8 +6760,6 @@ components:
           type: boolean
         serverStreaming:
           type: boolean
-        initialized:
-          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -6779,9 +6779,9 @@ components:
           type: string
         options:
           $ref: '#/components/schemas/MethodOptions'
-        outputType:
-          type: string
         inputType:
+          type: string
+        outputType:
           type: string
         nameBytes:
           $ref: '#/components/schemas/ByteString'
@@ -6814,6 +6814,8 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
+        initialized:
+          type: boolean
         deprecated:
           type: boolean
         features:
@@ -6844,8 +6846,6 @@ components:
           - IDEMPOTENCY_UNKNOWN
           - NO_SIDE_EFFECTS
           - IDEMPOTENT
-        initialized:
-          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -6907,6 +6907,8 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
+        initialized:
+          type: boolean
         serializedSize:
           type: integer
           format: int32
@@ -6925,8 +6927,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ProofStepOrBuilder'
-        initialized:
-          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -6945,6 +6945,8 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
+        initialized:
+          type: boolean
         serializedSize:
           type: integer
           format: int32
@@ -6957,8 +6959,6 @@ components:
         namePartBytes:
           $ref: '#/components/schemas/ByteString'
         isExtension:
-          type: boolean
-        initialized:
           type: boolean
         initializationErrorString:
           type: string
@@ -7025,6 +7025,8 @@ components:
           $ref: '#/components/schemas/UnknownFieldSet'
         name:
           type: string
+        initialized:
+          type: boolean
         options:
           $ref: '#/components/schemas/OneofOptions'
         serializedSize:
@@ -7038,8 +7040,6 @@ components:
           $ref: '#/components/schemas/ByteString'
         optionsOrBuilder:
           $ref: '#/components/schemas/OneofOptionsOrBuilder'
-        initialized:
-          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -7082,6 +7082,8 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
+        initialized:
+          type: boolean
         features:
           $ref: '#/components/schemas/FeatureSet'
         serializedSize:
@@ -7104,8 +7106,6 @@ components:
         uninterpretedOptionCount:
           type: integer
           format: int32
-        initialized:
-          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -7234,6 +7234,8 @@ components:
         counter:
           type: integer
           format: int32
+        initialized:
+          type: boolean
         serializedSize:
           type: integer
           format: int32
@@ -7248,8 +7250,6 @@ components:
         proofCount:
           type: integer
           format: int32
-        initialized:
-          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -7294,6 +7294,8 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
+        initialized:
+          type: boolean
         prefix:
           $ref: '#/components/schemas/PrefixSearchResult'
         serializedSize:
@@ -7307,8 +7309,6 @@ components:
           $ref: '#/components/schemas/ByteString'
         prefixOrBuilder:
           $ref: '#/components/schemas/PrefixSearchResultOrBuilder'
-        initialized:
-          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -7360,6 +7360,8 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
+        initialized:
+          type: boolean
         end:
           type: integer
           format: int32
@@ -7373,8 +7375,6 @@ components:
           $ref: '#/components/schemas/ReservedRange'
         parserForType:
           $ref: '#/components/schemas/ParserReservedRange'
-        initialized:
-          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -7437,6 +7437,8 @@ components:
           $ref: '#/components/schemas/UnknownFieldSet'
         name:
           type: string
+        initialized:
+          type: boolean
         options:
           $ref: '#/components/schemas/ServiceOptions'
         serializedSize:
@@ -7461,8 +7463,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/MethodDescriptorProtoOrBuilder'
-        initialized:
-          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -7516,6 +7516,8 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
+        initialized:
+          type: boolean
         deprecated:
           type: boolean
         features:
@@ -7540,8 +7542,6 @@ components:
         uninterpretedOptionCount:
           type: integer
           format: int32
-        initialized:
-          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -7597,6 +7597,8 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
+        initialized:
+          type: boolean
         serializedSize:
           type: integer
           format: int32
@@ -7615,8 +7617,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/LocationOrBuilder'
-        initialized:
-          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -7667,6 +7667,8 @@ components:
         timestamp:
           type: integer
           format: int64
+        initialized:
+          type: boolean
         serializedSize:
           type: integer
           format: int32
@@ -7677,8 +7679,6 @@ components:
         treeSize:
           type: integer
           format: int64
-        initialized:
-          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -7724,6 +7724,8 @@ components:
         nameCount:
           type: integer
           format: int32
+        initialized:
+          type: boolean
         doubleValue:
           type: number
           format: double
@@ -7758,8 +7760,6 @@ components:
           type: string
         aggregateValueBytes:
           $ref: '#/components/schemas/ByteString'
-        initialized:
-          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -7822,6 +7822,8 @@ components:
     UnknownFieldSet:
       type: object
       properties:
+        initialized:
+          type: boolean
         serializedSize:
           type: integer
           format: int32
@@ -7832,8 +7834,6 @@ components:
         serializedSizeAsMessageSet:
           type: integer
           format: int32
-        initialized:
-          type: boolean
     KeyTransparencyMonitorRequest:
       required:
       - aci
@@ -7940,6 +7940,8 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
+        initialized:
+          type: boolean
         pos:
           type: integer
           format: int64
@@ -7968,8 +7970,6 @@ components:
         inclusionCount:
           type: integer
           format: int32
-        initialized:
-          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -8027,6 +8027,8 @@ components:
           $ref: '#/components/schemas/UnknownFieldSet'
         value:
           $ref: '#/components/schemas/UpdateValue'
+        initialized:
+          type: boolean
         treeHead:
           $ref: '#/components/schemas/FullTreeHead'
         serializedSize:
@@ -8048,8 +8050,6 @@ components:
           $ref: '#/components/schemas/ByteString'
         searchOrBuilder:
           $ref: '#/components/schemas/SearchProofOrBuilder'
-        initialized:
-          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -8070,6 +8070,8 @@ components:
           $ref: '#/components/schemas/UnknownFieldSet'
         value:
           $ref: '#/components/schemas/ByteString'
+        initialized:
+          type: boolean
         serializedSize:
           type: integer
           format: int32
@@ -8077,8 +8079,6 @@ components:
           $ref: '#/components/schemas/UpdateValue'
         parserForType:
           $ref: '#/components/schemas/ParserUpdateValue'
-        initialized:
-          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
