@@ -574,8 +574,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .maxThreads(2)
         .minThreads(2)
         .build();
-    ExecutorService keyTransparencyCallbackExecutor = new VirtualExecutorServiceProvider(name(getClass(), "keyTransparency-%d"))
-        .getExecutorService();
+    ExecutorService keyTransparencyCallbackExecutor = environment.lifecycle()
+        .virtualExecutorService(name(getClass(), "keyTransparency-%d"));
 
     ScheduledExecutorService subscriptionProcessorRetryExecutor = environment.lifecycle()
         .scheduledExecutorService(name(getClass(), "subscriptionProcessorRetry-%d")).threads(1).build();
@@ -988,7 +988,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final MessageMetrics messageMetrics = new MessageMetrics();
 
     environment.jersey().register(new BufferingInterceptor());
-    environment.jersey().register(keyTransparencyCallbackExecutor);
     environment.jersey().register(new VirtualExecutorServiceProvider("managed-async-virtual-thread-"));
     environment.jersey().register(new RequestStatisticsFilter(TrafficSource.HTTP));
     environment.jersey().register(MultiRecipientMessageProvider.class);
