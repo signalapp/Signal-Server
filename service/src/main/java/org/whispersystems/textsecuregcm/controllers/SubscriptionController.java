@@ -253,6 +253,10 @@ public class SubscriptionController {
     SubscriberCredentials subscriberCredentials =
         SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
 
+    if (paymentMethodType == PaymentMethod.PAYPAL) {
+      throw new BadRequestException("The PAYPAL payment type must use create_payment_method/paypal");
+    }
+
     final SubscriptionPaymentProcessor subscriptionPaymentProcessor = getManagerForPaymentMethod(paymentMethodType);
 
     return subscriptionManager.addPaymentMethodToCustomer(
@@ -301,7 +305,10 @@ public class SubscriptionController {
 
   private SubscriptionPaymentProcessor getManagerForPaymentMethod(PaymentMethod paymentMethod) {
     return switch (paymentMethod) {
+      // Today, we always choose stripe to process non-paypal payment types, however we could use braintree to process
+      // other types (like CARD) in the future.
       case CARD, SEPA_DEBIT, IDEAL -> stripeManager;
+      // PAYPAL payments can only be processed with braintree
       case PAYPAL -> braintreeManager;
       case UNKNOWN -> throw new BadRequestException("Invalid payment method");
     };
