@@ -22,7 +22,6 @@ import java.math.BigDecimal;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
@@ -43,7 +42,6 @@ import javax.annotation.Nullable;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import javax.validation.Valid;
-import javax.validation.constraints.Min;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
@@ -61,10 +59,8 @@ import javax.ws.rs.POST;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
-import javax.ws.rs.ProcessingException;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
-import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
@@ -90,7 +86,6 @@ import org.whispersystems.textsecuregcm.entities.PurchasableBadge;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
-import org.whispersystems.textsecuregcm.storage.OneTimeDonationsManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager.GetResult;
 import org.whispersystems.textsecuregcm.subscriptions.BankMandateTranslator;
@@ -100,10 +95,9 @@ import org.whispersystems.textsecuregcm.subscriptions.ChargeFailure;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionCurrencyUtil;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessor;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorManager;
-import org.whispersystems.textsecuregcm.util.ExactlySize;
+import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
 import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
@@ -123,20 +117,13 @@ public class SubscriptionController {
   private final BraintreeManager braintreeManager;
   private final ServerZkReceiptOperations zkReceiptOperations;
   private final IssuedReceiptsManager issuedReceiptsManager;
-  private final OneTimeDonationsManager oneTimeDonationsManager;
   private final BadgeTranslator badgeTranslator;
   private final LevelTranslator levelTranslator;
   private final BankMandateTranslator bankMandateTranslator;
-  private static final String INVALID_ACCEPT_LANGUAGE_COUNTER_NAME = MetricsUtil.name(SubscriptionController.class,
-      "invalidAcceptLanguage");
-  private static final String RECEIPT_ISSUED_COUNTER_NAME = MetricsUtil.name(SubscriptionController.class, "receiptIssued");
-  private static final String AUTHENTICATED_BOOST_OPERATION_COUNTER_NAME =
-      MetricsUtil.name(SubscriptionController.class, "authenticatedBoostOperation");
-  public static final String OPERATION_TAG_NAME = "operation";
-  private static final String PROCESSOR_TAG_NAME = "processor";
-  private static final String TYPE_TAG_NAME = "type";
+  static final String RECEIPT_ISSUED_COUNTER_NAME = MetricsUtil.name(SubscriptionController.class, "receiptIssued");
+  static final String PROCESSOR_TAG_NAME = "processor";
+  static final String TYPE_TAG_NAME = "type";
   private static final String SUBSCRIPTION_TYPE_TAG_NAME = "subscriptionType";
-  private static final String EURO_CURRENCY_CODE = "EUR";
 
   public SubscriptionController(
       @Nonnull Clock clock,
@@ -147,7 +134,6 @@ public class SubscriptionController {
       @Nonnull BraintreeManager braintreeManager,
       @Nonnull ServerZkReceiptOperations zkReceiptOperations,
       @Nonnull IssuedReceiptsManager issuedReceiptsManager,
-      @Nonnull OneTimeDonationsManager oneTimeDonationsManager,
       @Nonnull BadgeTranslator badgeTranslator,
       @Nonnull LevelTranslator levelTranslator,
       @Nonnull BankMandateTranslator bankMandateTranslator) {
@@ -159,7 +145,6 @@ public class SubscriptionController {
     this.braintreeManager = Objects.requireNonNull(braintreeManager);
     this.zkReceiptOperations = Objects.requireNonNull(zkReceiptOperations);
     this.issuedReceiptsManager = Objects.requireNonNull(issuedReceiptsManager);
-    this.oneTimeDonationsManager = Objects.requireNonNull(oneTimeDonationsManager);
     this.badgeTranslator = Objects.requireNonNull(badgeTranslator);
     this.levelTranslator = Objects.requireNonNull(levelTranslator);
     this.bankMandateTranslator = Objects.requireNonNull(bankMandateTranslator);
@@ -390,7 +375,7 @@ public class SubscriptionController {
 
           return updatedRecordFuture.thenCompose(
               updatedRecord -> {
-                final Locale locale = getAcceptableLanguagesForRequest(containerRequestContext).stream()
+                final Locale locale = HeaderUtils.getAcceptableLanguagesForRequest(containerRequestContext).stream()
                     .filter(l -> !"*".equals(l.getLanguage()))
                     .findFirst()
                     .orElse(Locale.US);
@@ -598,7 +583,7 @@ public class SubscriptionController {
   @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = GetSubscriptionConfigurationResponse.class)))
   public CompletableFuture<Response> getConfiguration(@Context ContainerRequestContext containerRequestContext) {
     return CompletableFuture.supplyAsync(() -> {
-      List<Locale> acceptableLanguages = getAcceptableLanguagesForRequest(containerRequestContext);
+      List<Locale> acceptableLanguages = HeaderUtils.getAcceptableLanguagesForRequest(containerRequestContext);
       return Response.ok(buildGetSubscriptionConfigurationResponse(acceptableLanguages)).build();
     });
   }
@@ -609,305 +594,13 @@ public class SubscriptionController {
   public CompletableFuture<Response> getBankMandate(final @Context ContainerRequestContext containerRequestContext,
       final @PathParam("bankTransferType") BankTransferType bankTransferType) {
     return CompletableFuture.supplyAsync(() -> {
-      List<Locale> acceptableLanguages = getAcceptableLanguagesForRequest(containerRequestContext);
+      List<Locale> acceptableLanguages = HeaderUtils.getAcceptableLanguagesForRequest(containerRequestContext);
       return Response.ok(new GetBankMandateResponse(
           bankMandateTranslator.translate(acceptableLanguages, bankTransferType))).build();
     });
   }
 
   public record GetBankMandateResponse(String mandate) {}
-
-  public record GetBoostBadgesResponse(Map<Long, Level> levels) {
-      public record Level(PurchasableBadge badge) {
-      }
-    }
-
-  public static class CreateBoostRequest {
-
-    @NotEmpty
-    @ExactlySize(3)
-    public String currency;
-    @Min(1)
-    public long amount;
-    public Long level;
-    public PaymentMethod paymentMethod = PaymentMethod.CARD;
-  }
-
-  public static class CreatePayPalBoostRequest extends CreateBoostRequest {
-
-    @NotEmpty
-    public String returnUrl;
-    @NotEmpty
-    public String cancelUrl;
-
-    public CreatePayPalBoostRequest() {
-      super.paymentMethod = PaymentMethod.PAYPAL;
-    }
-  }
-
-  record CreatePayPalBoostResponse(String approvalUrl, String paymentId) {
-
-  }
-
-  public record CreateBoostResponse(String clientSecret) {
-  }
-
-  /**
-   * Creates a Stripe PaymentIntent with the requested amount and currency
-   */
-  @POST
-  @Path("/boost/create")
-  @Consumes(MediaType.APPLICATION_JSON)
-  @Produces(MediaType.APPLICATION_JSON)
-  public CompletableFuture<Response> createBoostPaymentIntent(
-      @ReadOnly @Auth Optional<AuthenticatedDevice> authenticatedAccount,
-      @NotNull @Valid CreateBoostRequest request,
-      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) {
-
-    if (authenticatedAccount.isPresent()) {
-      Metrics.counter(AUTHENTICATED_BOOST_OPERATION_COUNTER_NAME, Tags.of(
-          UserAgentTagUtil.getPlatformTag(userAgent),
-          Tag.of(OPERATION_TAG_NAME, "boost/create"))).increment();
-    }
-
-    return CompletableFuture.runAsync(() -> {
-          if (request.level == null) {
-            request.level = oneTimeDonationConfiguration.boost().level();
-          }
-          BigDecimal amount = BigDecimal.valueOf(request.amount);
-          if (request.level == oneTimeDonationConfiguration.gift().level()) {
-            BigDecimal amountConfigured = oneTimeDonationConfiguration.currencies()
-                .get(request.currency.toLowerCase(Locale.ROOT)).gift();
-            if (amountConfigured == null ||
-                SubscriptionCurrencyUtil.convertConfiguredAmountToStripeAmount(request.currency, amountConfigured)
-                    .compareTo(amount) != 0) {
-              throw new WebApplicationException(
-                  Response.status(Status.CONFLICT).entity(Map.of("error", "level_amount_mismatch")).build());
-            }
-          }
-          validateRequestCurrencyAmount(request, amount, stripeManager);
-        })
-        .thenCompose(unused -> stripeManager.createPaymentIntent(request.currency, request.amount, request.level, getClientPlatform(userAgent)))
-        .thenApply(paymentIntent -> Response.ok(new CreateBoostResponse(paymentIntent.getClientSecret())).build());
-  }
-
-  /**
-   * Validates that the currency is supported by the {@code manager} and {@code request.paymentMethod}
-   * and that the amount meets minimum and maximum constraints.
-   *
-   * @throws BadRequestException indicates validation failed. Inspect {@code response.error} for details
-   */
-  private void validateRequestCurrencyAmount(CreateBoostRequest request, BigDecimal amount,
-      SubscriptionProcessorManager manager) {
-    if (!manager.getSupportedCurrenciesForPaymentMethod(request.paymentMethod).contains(request.currency.toLowerCase(Locale.ROOT))) {
-      throw new BadRequestException(Response.status(Status.BAD_REQUEST)
-          .entity(Map.of("error", "unsupported_currency")).build());
-    }
-
-    BigDecimal minCurrencyAmountMajorUnits = oneTimeDonationConfiguration.currencies()
-        .get(request.currency.toLowerCase(Locale.ROOT)).minimum();
-    BigDecimal minCurrencyAmountMinorUnits = SubscriptionCurrencyUtil.convertConfiguredAmountToApiAmount(
-        request.currency,
-        minCurrencyAmountMajorUnits);
-    if (minCurrencyAmountMinorUnits.compareTo(amount) > 0) {
-      throw new BadRequestException(Response.status(Status.BAD_REQUEST)
-          .entity(Map.of(
-              "error", "amount_below_currency_minimum",
-              "minimum", minCurrencyAmountMajorUnits.toString())).build());
-    }
-
-    if (request.paymentMethod == PaymentMethod.SEPA_DEBIT &&
-        amount.compareTo(SubscriptionCurrencyUtil.convertConfiguredAmountToApiAmount(
-            EURO_CURRENCY_CODE,
-            oneTimeDonationConfiguration.sepaMaximumEuros())) > 0) {
-      throw new BadRequestException(Response.status(Status.BAD_REQUEST)
-          .entity(Map.of(
-              "error", "amount_above_sepa_limit",
-              "maximum", oneTimeDonationConfiguration.sepaMaximumEuros().toString())).build());
-    }
-  }
-
-  @POST
-  @Path("/boost/paypal/create")
-  @Consumes(MediaType.APPLICATION_JSON)
-  @Produces(MediaType.APPLICATION_JSON)
-  public CompletableFuture<Response> createPayPalBoost(
-      @ReadOnly @Auth Optional<AuthenticatedDevice> authenticatedAccount,
-      @NotNull @Valid CreatePayPalBoostRequest request,
-      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
-      @Context ContainerRequestContext containerRequestContext) {
-
-    if (authenticatedAccount.isPresent()) {
-      Metrics.counter(AUTHENTICATED_BOOST_OPERATION_COUNTER_NAME, Tags.of(
-          UserAgentTagUtil.getPlatformTag(userAgent),
-          Tag.of(OPERATION_TAG_NAME, "boost/paypal/create"))).increment();
-    }
-
-    return CompletableFuture.runAsync(() -> {
-          if (request.level == null) {
-            request.level = oneTimeDonationConfiguration.boost().level();
-          }
-
-          validateRequestCurrencyAmount(request, BigDecimal.valueOf(request.amount), braintreeManager);
-        })
-        .thenCompose(unused -> {
-          final Locale locale = getAcceptableLanguagesForRequest(containerRequestContext).stream()
-              .filter(l -> !"*".equals(l.getLanguage()))
-              .findFirst()
-              .orElse(Locale.US);
-
-          return braintreeManager.createOneTimePayment(request.currency.toUpperCase(Locale.ROOT), request.amount,
-              locale.toLanguageTag(),
-              request.returnUrl, request.cancelUrl);
-        })
-        .thenApply(approvalDetails -> Response.ok(
-            new CreatePayPalBoostResponse(approvalDetails.approvalUrl(), approvalDetails.paymentId())).build());
-  }
-
-  public static class ConfirmPayPalBoostRequest extends CreateBoostRequest {
-
-    @NotEmpty
-    public String payerId;
-    @NotEmpty
-    public String paymentId; // PAYID-…
-    @NotEmpty
-    public String paymentToken; // EC-…
-  }
-
-  record ConfirmPayPalBoostResponse(String paymentId) {
-
-  }
-
-  @POST
-  @Path("/boost/paypal/confirm")
-  @Consumes(MediaType.APPLICATION_JSON)
-  @Produces(MediaType.APPLICATION_JSON)
-  public CompletableFuture<Response> confirmPayPalBoost(
-      @ReadOnly @Auth Optional<AuthenticatedDevice> authenticatedAccount,
-      @NotNull @Valid ConfirmPayPalBoostRequest request,
-      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) {
-
-    if (authenticatedAccount.isPresent()) {
-      Metrics.counter(AUTHENTICATED_BOOST_OPERATION_COUNTER_NAME, Tags.of(
-          UserAgentTagUtil.getPlatformTag(userAgent),
-          Tag.of(OPERATION_TAG_NAME, "boost/paypal/confirm"))).increment();
-    }
-
-    return CompletableFuture.runAsync(() -> {
-          if (request.level == null) {
-            request.level = oneTimeDonationConfiguration.boost().level();
-          }
-        })
-        .thenCompose(unused -> braintreeManager.captureOneTimePayment(request.payerId, request.paymentId,
-            request.paymentToken, request.currency, request.amount, request.level, getClientPlatform(userAgent)))
-        .thenCompose(chargeSuccessDetails -> oneTimeDonationsManager.putPaidAt(chargeSuccessDetails.paymentId(), Instant.now()))
-        .thenApply(paymentId -> Response.ok(
-            new ConfirmPayPalBoostResponse(paymentId)).build());
-  }
-
-  public static class CreateBoostReceiptCredentialsRequest {
-
-    /**
-     * a payment ID from {@link #processor}
-     */
-    @NotNull
-    public String paymentIntentId;
-    @NotNull
-    public byte[] receiptCredentialRequest;
-
-    @NotNull
-    public SubscriptionProcessor processor = SubscriptionProcessor.STRIPE;
-  }
-
-  public record CreateBoostReceiptCredentialsSuccessResponse(byte[] receiptCredentialResponse) {
-  }
-
-  public record CreateBoostReceiptCredentialsErrorResponse(@JsonInclude(Include.NON_NULL) ChargeFailure chargeFailure) {}
-
-  @POST
-  @Path("/boost/receipt_credentials")
-  @Consumes(MediaType.APPLICATION_JSON)
-  @Produces(MediaType.APPLICATION_JSON)
-  public CompletableFuture<Response> createBoostReceiptCredentials(
-      @ReadOnly @Auth Optional<AuthenticatedDevice> authenticatedAccount,
-      @NotNull @Valid final CreateBoostReceiptCredentialsRequest request,
-      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) {
-
-    if (authenticatedAccount.isPresent()) {
-      Metrics.counter(AUTHENTICATED_BOOST_OPERATION_COUNTER_NAME, Tags.of(
-          UserAgentTagUtil.getPlatformTag(userAgent),
-          Tag.of(OPERATION_TAG_NAME, "boost/receipt_credentials"))).increment();
-    }
-
-    final SubscriptionProcessorManager manager = getManagerForProcessor(request.processor);
-
-    return manager.getPaymentDetails(request.paymentIntentId)
-        .thenCompose(paymentDetails -> {
-          if (paymentDetails == null) {
-            throw new WebApplicationException(Status.NOT_FOUND);
-          }
-          switch (paymentDetails.status()) {
-            case PROCESSING -> throw new WebApplicationException(Status.NO_CONTENT);
-            case SUCCEEDED -> {
-            }
-            default -> throw new WebApplicationException(Response.status(Status.PAYMENT_REQUIRED)
-                .entity(new CreateBoostReceiptCredentialsErrorResponse(paymentDetails.chargeFailure())).build());
-          }
-
-          long level = oneTimeDonationConfiguration.boost().level();
-          if (paymentDetails.customMetadata() != null) {
-            String levelMetadata = paymentDetails.customMetadata()
-                .getOrDefault("level", Long.toString(oneTimeDonationConfiguration.boost().level()));
-            try {
-              level = Long.parseLong(levelMetadata);
-            } catch (NumberFormatException e) {
-              logger.error("failed to parse level metadata ({}) on payment intent {}", levelMetadata,
-                  paymentDetails.id(), e);
-              throw new WebApplicationException(Status.INTERNAL_SERVER_ERROR);
-            }
-          }
-          Duration levelExpiration;
-          if (oneTimeDonationConfiguration.boost().level() == level) {
-            levelExpiration = oneTimeDonationConfiguration.boost().expiration();
-          } else if (oneTimeDonationConfiguration.gift().level() == level) {
-            levelExpiration = oneTimeDonationConfiguration.gift().expiration();
-          } else {
-            logger.error("level ({}) returned from payment intent that is unknown to the server", level);
-            throw new WebApplicationException(Status.INTERNAL_SERVER_ERROR);
-          }
-          ReceiptCredentialRequest receiptCredentialRequest;
-          try {
-            receiptCredentialRequest = new ReceiptCredentialRequest(request.receiptCredentialRequest);
-          } catch (InvalidInputException e) {
-            throw new BadRequestException("invalid receipt credential request", e);
-          }
-          final long finalLevel = level;
-          return issuedReceiptsManager.recordIssuance(paymentDetails.id(), manager.getProcessor(),
-                  receiptCredentialRequest, clock.instant())
-              .thenCompose(unused -> oneTimeDonationsManager.getPaidAt(paymentDetails.id(), paymentDetails.created()))
-              .thenApply(paidAt -> {
-                Instant expiration = paidAt
-                    .plus(levelExpiration)
-                    .truncatedTo(ChronoUnit.DAYS)
-                    .plus(1, ChronoUnit.DAYS);
-                ReceiptCredentialResponse receiptCredentialResponse;
-                try {
-                  receiptCredentialResponse = zkReceiptOperations.issueReceiptCredential(
-                      receiptCredentialRequest, expiration.getEpochSecond(), finalLevel);
-                } catch (VerificationFailedException e) {
-                  throw new BadRequestException("receipt credential request failed verification", e);
-                }
-                Metrics.counter(RECEIPT_ISSUED_COUNTER_NAME,
-                        Tags.of(
-                            Tag.of(PROCESSOR_TAG_NAME, manager.getProcessor().toString()),
-                            Tag.of(TYPE_TAG_NAME, "boost"),
-                            UserAgentTagUtil.getPlatformTag(userAgent)))
-                    .increment();
-                return Response.ok(new CreateBoostReceiptCredentialsSuccessResponse(receiptCredentialResponse.serialize()))
-                    .build();
-              });
-        });
-  }
 
   public record GetSubscriptionInformationResponse(
       SubscriptionController.GetSubscriptionInformationResponse.Subscription subscription,
@@ -1083,21 +776,6 @@ public class SubscriptionController {
       throw new NotFoundException();
     } else {
       return getResult.record;
-    }
-  }
-
-  private List<Locale> getAcceptableLanguagesForRequest(ContainerRequestContext containerRequestContext) {
-    try {
-      return containerRequestContext.getAcceptableLanguages();
-    } catch (final ProcessingException e) {
-      final String userAgent = containerRequestContext.getHeaderString(HttpHeaders.USER_AGENT);
-      Metrics.counter(INVALID_ACCEPT_LANGUAGE_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent))).increment();
-      logger.debug("Could not get acceptable languages; Accept-Language: {}; User-Agent: {}",
-          containerRequestContext.getHeaderString(HttpHeaders.ACCEPT_LANGUAGE),
-          userAgent,
-          e);
-
-      return List.of();
     }
   }
 

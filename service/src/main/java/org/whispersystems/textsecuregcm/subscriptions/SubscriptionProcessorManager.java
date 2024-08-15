@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.subscriptions;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nullable;
@@ -21,8 +20,6 @@ public interface SubscriptionProcessorManager {
   boolean supportsPaymentMethod(PaymentMethod paymentMethod);
 
   Set<String> getSupportedCurrenciesForPaymentMethod(PaymentMethod paymentMethod);
-
-  CompletableFuture<PaymentDetails> getPaymentDetails(String paymentId);
 
   CompletableFuture<ProcessorCustomer> createCustomer(byte[] subscriberUser, @Nullable ClientPlatform clientPlatform);
 
@@ -57,21 +54,6 @@ public interface SubscriptionProcessorManager {
   CompletableFuture<ReceiptItem> getReceiptItem(String subscriptionId);
 
   CompletableFuture<SubscriptionInformation> getSubscriptionInformation(Object subscription);
-
-  record PaymentDetails(String id,
-                        Map<String, String> customMetadata,
-                        PaymentStatus status,
-                        Instant created,
-                        @Nullable ChargeFailure chargeFailure) {
-
-  }
-
-  enum PaymentStatus {
-    SUCCEEDED,
-    PROCESSING,
-    FAILED,
-    UNKNOWN,
-  }
 
   enum SubscriptionStatus {
     /**

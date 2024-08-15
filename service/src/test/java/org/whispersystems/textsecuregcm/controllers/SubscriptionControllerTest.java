@@ -82,7 +82,9 @@ import org.whispersystems.textsecuregcm.subscriptions.BankMandateTranslator;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager.PayPalOneTimePaymentApprovalDetails;
 import org.whispersystems.textsecuregcm.subscriptions.ChargeFailure;
+import org.whispersystems.textsecuregcm.subscriptions.PaymentDetails;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
+import org.whispersystems.textsecuregcm.subscriptions.PaymentStatus;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessor;
@@ -113,7 +115,9 @@ class SubscriptionControllerTest {
   private static final BankMandateTranslator BANK_MANDATE_TRANSLATOR = mock(BankMandateTranslator.class);
   private static final SubscriptionController SUBSCRIPTION_CONTROLLER = new SubscriptionController(
       CLOCK, SUBSCRIPTION_CONFIG, ONETIME_CONFIG, SUBSCRIPTION_MANAGER, STRIPE_MANAGER, BRAINTREE_MANAGER, ZK_OPS,
-      ISSUED_RECEIPTS_MANAGER, ONE_TIME_DONATIONS_MANAGER, BADGE_TRANSLATOR, LEVEL_TRANSLATOR, BANK_MANDATE_TRANSLATOR);
+      ISSUED_RECEIPTS_MANAGER, BADGE_TRANSLATOR, LEVEL_TRANSLATOR, BANK_MANDATE_TRANSLATOR);
+  private static final OneTimeDonationController ONE_TIME_CONTROLLER = new OneTimeDonationController(CLOCK, ONETIME_CONFIG, STRIPE_MANAGER,
+      BRAINTREE_MANAGER, ZK_OPS, ISSUED_RECEIPTS_MANAGER, ONE_TIME_DONATIONS_MANAGER);
   private static final ResourceExtension RESOURCE_EXTENSION = ResourceExtension.builder()
       .addProperty(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE)
       .addProvider(AuthHelper.getAuthFilter())
@@ -123,6 +127,7 @@ class SubscriptionControllerTest {
       .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(SUBSCRIPTION_CONTROLLER)
+      .addResource(ONE_TIME_CONTROLLER)
       .build();
 
   @BeforeEach
@@ -280,10 +285,10 @@ class SubscriptionControllerTest {
   @ParameterizedTest
   @MethodSource
   void createBoostReceiptPaymentRequired(final ChargeFailure chargeFailure, boolean expectChargeFailure) {
-    when(STRIPE_MANAGER.getPaymentDetails(any())).thenReturn(CompletableFuture.completedFuture(new SubscriptionProcessorManager.PaymentDetails(
+    when(STRIPE_MANAGER.getPaymentDetails(any())).thenReturn(CompletableFuture.completedFuture(new PaymentDetails(
         "id",
         Collections.emptyMap(),
-        SubscriptionProcessorManager.PaymentStatus.FAILED,
+        PaymentStatus.FAILED,
         Instant.now(),
         chargeFailure)
     ));
@@ -299,7 +304,7 @@ class SubscriptionControllerTest {
     assertThat(response.getStatus()).isEqualTo(402);
 
     if (expectChargeFailure) {
-      assertThat(response.readEntity(SubscriptionController.CreateBoostReceiptCredentialsErrorResponse.class).chargeFailure()).isEqualTo(chargeFailure);
+      assertThat(response.readEntity(OneTimeDonationController.CreateBoostReceiptCredentialsErrorResponse.class).chargeFailure()).isEqualTo(chargeFailure);
     } else {
       assertThat(response.readEntity(String.class)).isEqualTo("{}");
     }

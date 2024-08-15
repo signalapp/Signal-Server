@@ -111,6 +111,7 @@ import org.whispersystems.textsecuregcm.controllers.ArtController;
 import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV2;
 import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV3;
 import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV4;
+import org.whispersystems.textsecuregcm.controllers.OneTimeDonationController;
 import org.whispersystems.textsecuregcm.controllers.CallLinkController;
 import org.whispersystems.textsecuregcm.controllers.CallRoutingController;
 import org.whispersystems.textsecuregcm.controllers.CertificateController;
@@ -1119,8 +1120,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     );
     if (config.getSubscription() != null && config.getOneTimeDonations() != null) {
       commonControllers.add(new SubscriptionController(clock, config.getSubscription(), config.getOneTimeDonations(),
-          subscriptionManager, stripeManager, braintreeManager, zkReceiptOperations, issuedReceiptsManager, oneTimeDonationsManager,
+          subscriptionManager, stripeManager, braintreeManager, zkReceiptOperations, issuedReceiptsManager,
           profileBadgeConverter, resourceBundleLevelTranslator, bankMandateTranslator));
+      commonControllers.add(new OneTimeDonationController(clock, config.getOneTimeDonations(), stripeManager, braintreeManager,
+          zkReceiptOperations, issuedReceiptsManager, oneTimeDonationsManager));
     }
 
     for (Object controller : commonControllers) {

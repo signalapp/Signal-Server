@@ -133,7 +133,6 @@ public class BraintreeManager implements SubscriptionProcessorManager {
     return paymentMethod == PaymentMethod.PAYPAL;
   }
 
-  @Override
   public CompletableFuture<PaymentDetails> getPaymentDetails(final String paymentId) {
     return CompletableFuture.supplyAsync(() -> {
       try {

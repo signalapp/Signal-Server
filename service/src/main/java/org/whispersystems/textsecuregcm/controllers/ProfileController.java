@@ -446,7 +446,7 @@ public class ProfileController {
         account.isUnrestrictedUnidentifiedAccess(),
         UserCapabilities.createForAccount(account),
         profileBadgeConverter.convert(
-            getAcceptableLanguagesForRequest(containerRequestContext),
+            HeaderUtils.getAcceptableLanguagesForRequest(containerRequestContext),
             account.getBadges(),
             isSelf),
         new AciServiceIdentifier(account.getUuid()));
@@ -459,21 +459,6 @@ public class ProfileController {
         UserCapabilities.createForAccount(account),
         Collections.emptyList(),
         new PniServiceIdentifier(account.getPhoneNumberIdentifier()));
-  }
-
-  private List<Locale> getAcceptableLanguagesForRequest(final ContainerRequestContext containerRequestContext) {
-    try {
-      return containerRequestContext.getAcceptableLanguages();
-    } catch (final ProcessingException e) {
-      final String userAgent = containerRequestContext.getHeaderString(HttpHeaders.USER_AGENT);
-      Metrics.counter(INVALID_ACCEPT_LANGUAGE_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent))).increment();
-      logger.debug("Could not get acceptable languages; Accept-Language: {}; User-Agent: {}",
-          containerRequestContext.getHeaderString(HttpHeaders.ACCEPT_LANGUAGE),
-          userAgent,
-          e);
-
-      return List.of();
-    }
   }
 
   /**
