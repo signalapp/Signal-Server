@@ -134,7 +134,8 @@ public class DeviceController {
   @Path("/{device_id}")
   @ChangesLinkedDevices
   public void removeDevice(@Mutable @Auth AuthenticatedDevice auth, @PathParam("device_id") byte deviceId) {
-    if (auth.getAuthenticatedDevice().getId() != Device.PRIMARY_ID) {
+    if (auth.getAuthenticatedDevice().getId() != Device.PRIMARY_ID &&
+        auth.getAuthenticatedDevice().getId() != deviceId) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 

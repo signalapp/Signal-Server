@@ -811,6 +811,46 @@ class DeviceControllerTest {
   }
 
   @Test
+  void removeDeviceBySelf() {
+    final byte deviceId = 2;
+
+    when(accountsManager.removeDevice(AuthHelper.VALID_ACCOUNT_3, deviceId))
+        .thenReturn(CompletableFuture.completedFuture(AuthHelper.VALID_ACCOUNT));
+
+    final Response response = resources
+        .getJerseyTest()
+        .target("/v1/devices/" + deviceId)
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_3, deviceId, AuthHelper.VALID_PASSWORD_3_LINKED))
+        .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
+        .delete();
+
+    assertThat(response.getStatus()).isEqualTo(204);
+    assertThat(response.hasEntity()).isFalse();
+
+    verify(accountsManager).removeDevice(AuthHelper.VALID_ACCOUNT_3, deviceId);
+  }
+
+  @Test
+  void removeDeviceByOther() {
+    final byte deviceId = 2;
+    final byte otherDeviceId = 3;
+
+    try (final Response response = resources
+        .getJerseyTest()
+        .target("/v1/devices/" + otherDeviceId)
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_3, deviceId, AuthHelper.VALID_PASSWORD_3_LINKED))
+        .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
+        .delete()) {
+
+      assertThat(response.getStatus()).isEqualTo(401);
+
+      verify(accountsManager, never()).removeDevice(any(), anyByte());
+    }
+  }
+
+  @Test
   void checkVerificationToken() {
     final UUID uuid = UUID.randomUUID();
 
