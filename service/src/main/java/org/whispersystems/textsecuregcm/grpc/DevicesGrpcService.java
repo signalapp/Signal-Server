@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.grpc;
 
 import com.google.protobuf.ByteString;
 import io.grpc.Status;
-import java.util.Base64;
 import java.util.Objects;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
@@ -28,26 +27,17 @@ import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticationUtil;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.KeysManager;
-import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 public class DevicesGrpcService extends ReactorDevicesGrpc.DevicesImplBase {
 
   private final AccountsManager accountsManager;
-  private final KeysManager keysManager;
-  private final MessagesManager messagesManager;
 
   private static final int MAX_NAME_LENGTH = 256;
 
-  public DevicesGrpcService(final AccountsManager accountsManager,
-      final KeysManager keysManager,
-      final MessagesManager messagesManager) {
-
+  public DevicesGrpcService(final AccountsManager accountsManager) {
     this.accountsManager = accountsManager;
-    this.keysManager = keysManager;
-    this.messagesManager = messagesManager;
   }
 
   @Override
@@ -79,9 +69,15 @@ public class DevicesGrpcService extends ReactorDevicesGrpc.DevicesImplBase {
       throw Status.INVALID_ARGUMENT.withDescription("Cannot remove primary device").asRuntimeException();
     }
 
-    final byte deviceId = DeviceIdUtil.validate(request.getId());
+    final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
 
-    final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedPrimaryDevice();
+    if (authenticatedDevice.deviceId() != Device.PRIMARY_ID && request.getId() != authenticatedDevice.deviceId()) {
+      throw Status.PERMISSION_DENIED
+          .withDescription("Linked devices cannot remove devices other than themselves")
+          .asRuntimeException();
+    }
+
+    final byte deviceId = DeviceIdUtil.validate(request.getId());
 
     return Mono.fromFuture(() -> accountsManager.getByAccountIdentifierAsync(authenticatedDevice.accountIdentifier()))
         .map(maybeAccount -> maybeAccount.orElseThrow(Status.UNAUTHENTICATED::asRuntimeException))

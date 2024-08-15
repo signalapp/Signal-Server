@@ -50,8 +50,6 @@ import org.signal.chat.device.SetPushTokenResponse;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.KeysManager;
-import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, DevicesGrpc.DevicesBlockingStub> {
@@ -60,14 +58,7 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
   private AccountsManager accountsManager;
 
   @Mock
-  private KeysManager keysManager;
-
-  @Mock
-  private MessagesManager messagesManager;
-
-  @Mock
   private Account authenticatedAccount;
-
 
   @Override
   protected DevicesGrpcService createServiceBeforeEachTest() {
@@ -75,6 +66,9 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
 
     when(accountsManager.getByAccountIdentifierAsync(AUTHENTICATED_ACI))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(authenticatedAccount)));
+
+    when(accountsManager.removeDevice(any(), anyByte()))
+        .thenReturn(CompletableFuture.completedFuture(authenticatedAccount));
 
     when(accountsManager.updateAsync(any(), any()))
         .thenAnswer(invocation -> {
@@ -97,10 +91,7 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
           return CompletableFuture.completedFuture(account);
         });
 
-    when(keysManager.deleteSingleUsePreKeys(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
-    when(messagesManager.clear(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
-
-    return new DevicesGrpcService(accountsManager, keysManager, messagesManager);
+    return new DevicesGrpcService(accountsManager);
   }
 
   @Test
@@ -146,9 +137,6 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
   void removeDevice() {
     final byte deviceId = 17;
 
-    when(accountsManager.removeDevice(any(), anyByte()))
-        .thenReturn(CompletableFuture.completedFuture(authenticatedAccount));
-
     final RemoveDeviceResponse ignored = authenticatedServiceStub().removeDevice(RemoveDeviceRequest.newBuilder()
         .setId(deviceId)
         .build());
@@ -166,7 +154,20 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
   }
 
   @Test
-  void removeDeviceNonPrimaryAuthenticated() {
+  void removeDeviceNonPrimaryMatchAuthenticated() {
+    final byte deviceId = Device.PRIMARY_ID + 1;
+
+    mockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, deviceId);
+
+    final RemoveDeviceResponse ignored = authenticatedServiceStub().removeDevice(RemoveDeviceRequest.newBuilder()
+        .setId(deviceId)
+        .build());
+
+    verify(accountsManager).removeDevice(authenticatedAccount, deviceId);
+  }
+
+  @Test
+  void removeDeviceNonPrimaryMismatchAuthenticated() {
     mockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, (byte) (Device.PRIMARY_ID + 1));
     assertStatusException(Status.PERMISSION_DENIED, () -> authenticatedServiceStub().removeDevice(RemoveDeviceRequest.newBuilder()
         .setId(17)
