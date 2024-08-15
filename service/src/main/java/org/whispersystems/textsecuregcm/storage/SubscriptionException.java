@@ -4,30 +4,51 @@
  */
 package org.whispersystems.textsecuregcm.storage;
 
+import java.util.Optional;
+import javax.annotation.Nullable;
+
 public class SubscriptionException extends Exception {
-  public SubscriptionException(String message, Exception cause) {
-    super(message, cause);
+
+  private @Nullable String errorDetail;
+
+  public SubscriptionException(Exception cause) {
+    this(cause, null);
+  }
+
+  SubscriptionException(Exception cause, String errorDetail) {
+    super(cause);
+    this.errorDetail = errorDetail;
+  }
+
+  /**
+   * @return An error message suitable to include in a client response
+   */
+  public Optional<String> errorDetail() {
+    return Optional.ofNullable(errorDetail);
   }
 
   public static class NotFound extends SubscriptionException {
+
     public NotFound() {
-      super(null, null);
+      super(null);
     }
 
     public NotFound(Exception cause) {
-      super(null, cause);
+      super(cause);
     }
   }
 
   public static class Forbidden extends SubscriptionException {
+
     public Forbidden(final String message) {
-      super(message, null);
+      super(null, message);
     }
   }
 
   public static class InvalidArguments extends SubscriptionException {
+
     public InvalidArguments(final String message, final Exception cause) {
-      super(message, cause);
+      super(cause, message);
     }
   }
 
@@ -45,7 +66,7 @@ public class SubscriptionException extends Exception {
 
   public static class ProcessorConflict extends SubscriptionException {
     public ProcessorConflict(final String message) {
-      super(message, null);
+      super(null, message);
     }
   }
 }

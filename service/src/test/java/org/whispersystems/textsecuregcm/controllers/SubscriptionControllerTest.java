@@ -457,8 +457,34 @@ class SubscriptionControllerTest {
               String.format("/v1/subscription/%s/level/%s/%s/%s", subscriberId, level, currency, idempotencyKey))
           .request()
           .put(Entity.json(""));
+      assertThat(response.getStatus()).isEqualTo(409);
+      assertThat(response.readEntity(Map.class)).containsOnlyKeys("code", "message");
+    }
+
+    @Test
+    void wrongProcessor() {
+      final byte[] subscriberUserAndKey = new byte[32];
+      Arrays.fill(subscriberUserAndKey, (byte) 1);
+      subscriberId = Base64.getEncoder().encodeToString(subscriberUserAndKey);
+
+      final ProcessorCustomer processorCustomer = new ProcessorCustomer("testCustomerId", PaymentProvider.BRAINTREE);
+      final Map<String, AttributeValue> dynamoItem = Map.of(Subscriptions.KEY_PASSWORD, b(new byte[16]),
+          Subscriptions.KEY_CREATED_AT, n(Instant.now().getEpochSecond()),
+          Subscriptions.KEY_ACCESSED_AT, n(Instant.now().getEpochSecond()),
+          Subscriptions.KEY_PROCESSOR_ID_CUSTOMER_ID, b(processorCustomer.toDynamoBytes())
+      );
+      final Subscriptions.Record record = Subscriptions.Record.from(
+          Arrays.copyOfRange(subscriberUserAndKey, 0, 16), dynamoItem);
+      when(SUBSCRIPTIONS.get(eq(Arrays.copyOfRange(subscriberUserAndKey, 0, 16)), any()))
+          .thenReturn(CompletableFuture.completedFuture(Subscriptions.GetResult.found(record)));
+
+      final Response response = RESOURCE_EXTENSION
+          .target(String.format("/v1/subscription/%s/create_payment_method", subscriberId))
+          .request()
+          .post(Entity.json(""));
 
       assertThat(response.getStatus()).isEqualTo(409);
+      assertThat(response.readEntity(Map.class)).containsOnlyKeys("code", "message");
     }
 
     @Test

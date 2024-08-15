@@ -263,7 +263,7 @@ public class SubscriptionManager {
           final String customerId = updatedRecord.getProcessorCustomer()
               .filter(pc -> pc.processor().equals(subscriptionPaymentProcessor.getProvider()))
               .orElseThrow(() ->
-                  ExceptionUtils.wrap(new SubscriptionException("record should not be missing customer", null)))
+                  ExceptionUtils.wrap(new SubscriptionException(null, "record should not be missing customer")))
               .customerId();
           return paymentSetupFunction.apply(subscriptionPaymentProcessor, customerId);
         });

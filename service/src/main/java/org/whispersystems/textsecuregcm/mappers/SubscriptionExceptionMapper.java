@@ -5,11 +5,9 @@
 
 package org.whispersystems.textsecuregcm.mappers;
 
-import javax.ws.rs.BadRequestException;
-import javax.ws.rs.ClientErrorException;
-import javax.ws.rs.ForbiddenException;
-import javax.ws.rs.InternalServerErrorException;
-import javax.ws.rs.NotFoundException;
+import io.dropwizard.jersey.errors.ErrorMessage;
+import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.ext.ExceptionMapper;
 import org.whispersystems.textsecuregcm.storage.SubscriptionException;
@@ -18,14 +16,24 @@ public class SubscriptionExceptionMapper implements ExceptionMapper<Subscription
 
   @Override
   public Response toResponse(final SubscriptionException exception) {
-    return switch (exception) {
-      case SubscriptionException.NotFound e -> new NotFoundException(e.getMessage(), e.getCause()).getResponse();
-      case SubscriptionException.Forbidden e -> new ForbiddenException(e.getMessage(), e.getCause()).getResponse();
-      case SubscriptionException.InvalidArguments e ->
-          new BadRequestException(e.getMessage(), e.getCause()).getResponse();
-      case SubscriptionException.ProcessorConflict e ->
-          new ClientErrorException("existing processor does not match", Response.Status.CONFLICT).getResponse();
-      default -> new InternalServerErrorException(exception.getMessage(), exception.getCause()).getResponse();
-    };
+    final Response.Status status = (switch (exception) {
+      case SubscriptionException.NotFound e -> Response.Status.NOT_FOUND;
+      case SubscriptionException.Forbidden e -> Response.Status.FORBIDDEN;
+      case SubscriptionException.InvalidArguments e -> Response.Status.BAD_REQUEST;
+      case SubscriptionException.ProcessorConflict e -> Response.Status.CONFLICT;
+      default -> Response.Status.INTERNAL_SERVER_ERROR;
+    });
+
+    // If the SubscriptionException came with suitable error message, include that in the response body. Otherwise,
+    // don't provide any message to the WebApplicationException constructor so the response includes the default
+    // HTTP error message for the status.
+    final WebApplicationException wae = exception.errorDetail()
+        .map(errorMessage -> new WebApplicationException(errorMessage, exception, Response.status(status).build()))
+        .orElseGet(() -> new WebApplicationException(exception, Response.status(status).build()));
+
+    return Response
+        .fromResponse(wae.getResponse())
+        .type(MediaType.APPLICATION_JSON_TYPE)
+        .entity(new ErrorMessage(wae.getResponse().getStatus(), wae.getLocalizedMessage())).build();
   }
 }
