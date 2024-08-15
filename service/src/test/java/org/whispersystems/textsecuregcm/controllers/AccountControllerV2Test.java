@@ -56,7 +56,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
@@ -416,49 +415,6 @@ class AccountControllerV2Test {
               AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD));
       try (Response response = request.put(Entity.json(requestJsonRecoveryPassword(new byte[32], NEW_NUMBER)))) {
         assertEquals(403, response.getStatus());
-      }
-    }
-
-    @ParameterizedTest
-    @CsvSource({
-        "Signal-Android/4.68.3, true",
-        "Signal-Android/6.46.7, false",
-        "Signal-Android/6.46.8, false",
-        "Signal-Desktop/1.2.3 Linux, false",
-        "Signal-iOS/3.9.0 iOS/14.2, false",
-        "Not a real user-agent string, false"
-    })
-    void changeNumberVersionEnforced(final String userAgentString, final boolean expectBlocked) throws Exception {
-
-      when(registrationServiceClient.getSession(any(), any()))
-          .thenReturn(CompletableFuture.completedFuture(
-              Optional.of(new RegistrationServiceSession(new byte[16], NEW_NUMBER, true, null, null, null,
-                  SESSION_EXPIRATION_SECONDS))));
-
-      try (final Response response = resources.getJerseyTest()
-              .target("/v2/accounts/number")
-              .request()
-              .header(HttpHeaders.AUTHORIZATION,
-                  AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-              .header(HttpHeaders.USER_AGENT, userAgentString)
-              .put(Entity.entity(
-                  new ChangeNumberRequest(encodeSessionId("session"), null, NEW_NUMBER, "123", new IdentityKey(Curve.generateKeyPair().getPublicKey()),
-                      Collections.emptyList(),
-                      Collections.emptyMap(), null, Collections.emptyMap()),
-                  MediaType.APPLICATION_JSON_TYPE))) {
-
-        if (expectBlocked) {
-          assertEquals(499, response.getStatus());
-
-          verify(changeNumberManager, never())
-              .changeNumber(eq(AuthHelper.VALID_ACCOUNT), eq(NEW_NUMBER), any(), any(), any(), any(), any());
-        } else {
-          assertEquals(200, response.getStatus());
-
-          verify(changeNumberManager)
-              .changeNumber(eq(AuthHelper.VALID_ACCOUNT), eq(NEW_NUMBER), any(), any(), any(), any(), any());
-
-        }
       }
     }
 

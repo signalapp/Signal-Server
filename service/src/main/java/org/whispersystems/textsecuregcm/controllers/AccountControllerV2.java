@@ -8,9 +8,7 @@ package org.whispersystems.textsecuregcm.controllers;
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import com.google.common.net.HttpHeaders;
-import com.vdurmont.semver4j.Semver;
 import io.dropwizard.auth.Auth;
-import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
@@ -54,10 +52,6 @@ import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
-import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
-import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
-import org.whispersystems.textsecuregcm.util.ua.UserAgent;
-import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 import org.whispersystems.websocket.auth.Mutable;
 import org.whispersystems.websocket.auth.ReadOnly;
 
@@ -68,20 +62,18 @@ public class AccountControllerV2 {
   private static final String CHANGE_NUMBER_COUNTER_NAME = name(AccountControllerV2.class, "changeNumber");
   private static final String VERIFICATION_TYPE_TAG_NAME = "verification";
 
-  private static final Counter ANDROID_CHANGE_NUMBER_REJECTED_COUNTER =
-      Metrics.counter(name(AccountControllerV2.class, "androidChangeNumberRejected"));
-
   private final AccountsManager accountsManager;
   private final ChangeNumberManager changeNumberManager;
   private final PhoneVerificationTokenManager phoneVerificationTokenManager;
   private final RegistrationLockVerificationManager registrationLockVerificationManager;
   private final RateLimiters rateLimiters;
 
-  private static final Semver MINIMUM_ANDROID_CHANGE_NUMBER_VERSION = new Semver("6.46.7");
-
-  public AccountControllerV2(final AccountsManager accountsManager, final ChangeNumberManager changeNumberManager,
+  public AccountControllerV2(final AccountsManager accountsManager,
+      final ChangeNumberManager changeNumberManager,
       final PhoneVerificationTokenManager phoneVerificationTokenManager,
-      final RegistrationLockVerificationManager registrationLockVerificationManager, final RateLimiters rateLimiters) {
+      final RegistrationLockVerificationManager registrationLockVerificationManager,
+      final RateLimiters rateLimiters) {
+
     this.accountsManager = accountsManager;
     this.changeNumberManager = changeNumberManager;
     this.phoneVerificationTokenManager = phoneVerificationTokenManager;
@@ -113,17 +105,6 @@ public class AccountControllerV2 {
       throw new ForbiddenException();
     }
 
-    // We can remove this check after old versions of the Android app expire on or after 2024-05-08
-    try {
-      final UserAgent userAgent = UserAgentUtil.parseUserAgentString(userAgentString);
-
-      if (userAgent.getPlatform().equals(ClientPlatform.ANDROID) && userAgent.getVersion().isLowerThan(MINIMUM_ANDROID_CHANGE_NUMBER_VERSION)) {
-        ANDROID_CHANGE_NUMBER_REJECTED_COUNTER.increment();
-        throw new WebApplicationException(499);
-      }
-    } catch (final UnrecognizedUserAgentException ignored) {
-    }
-
     if (!request.isSignatureValidOnEachSignedPreKey(userAgentString)) {
       throw new WebApplicationException("Invalid signature", 422);
     }
@@ -135,8 +116,8 @@ public class AccountControllerV2 {
 
       rateLimiters.getRegistrationLimiter().validate(number);
 
-      final PhoneVerificationRequest.VerificationType verificationType = phoneVerificationTokenManager.verify(number,
-          request);
+      final PhoneVerificationRequest.VerificationType verificationType =
+          phoneVerificationTokenManager.verify(number, request);
 
       final Optional<Account> existingAccount = accountsManager.getByE164(number);
 
