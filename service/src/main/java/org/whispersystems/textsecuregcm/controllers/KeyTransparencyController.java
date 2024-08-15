@@ -57,7 +57,8 @@ import java.util.concurrent.CompletionException;
 public class KeyTransparencyController {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(KeyTransparencyController.class);
-  private static final Duration KEY_TRANSPARENCY_RPC_TIMEOUT = Duration.ofSeconds(15);
+  @VisibleForTesting
+  static final Duration KEY_TRANSPARENCY_RPC_TIMEOUT = Duration.ofSeconds(15);
   private static final byte USERNAME_PREFIX = (byte) 'u';
   private static final byte E164_PREFIX = (byte) 'n';
   @VisibleForTesting
@@ -95,12 +96,14 @@ public class KeyTransparencyController {
       final CompletableFuture<SearchResponse> aciSearchKeyResponseFuture = keyTransparencyServiceClient.search(
           getFullSearchKeyByteString(ACI_PREFIX, request.aci().toCompactByteArray()),
           request.lastTreeHeadSize(),
+          request.distinguishedTreeHeadSize(),
           KEY_TRANSPARENCY_RPC_TIMEOUT);
 
       final CompletableFuture<SearchResponse> e164SearchKeyResponseFuture = request.e164()
           .map(e164 -> keyTransparencyServiceClient.search(
               getFullSearchKeyByteString(E164_PREFIX, e164.getBytes(StandardCharsets.UTF_8)),
               request.lastTreeHeadSize(),
+              request.distinguishedTreeHeadSize(),
               KEY_TRANSPARENCY_RPC_TIMEOUT))
           .orElse(CompletableFuture.completedFuture(null));
 
@@ -108,6 +111,7 @@ public class KeyTransparencyController {
           .map(usernameHash -> keyTransparencyServiceClient.search(
               getFullSearchKeyByteString(USERNAME_PREFIX, request.usernameHash().get()),
               request.lastTreeHeadSize(),
+              request.distinguishedTreeHeadSize(),
               KEY_TRANSPARENCY_RPC_TIMEOUT))
           .orElse(CompletableFuture.completedFuture(null));
 
@@ -169,7 +173,8 @@ public class KeyTransparencyController {
 
       final MonitorResponse monitorResponse = keyTransparencyServiceClient.monitor(
           monitorKeys,
-          request.lastTreeHeadSize(),
+          request.lastNonDistinguishedTreeHeadSize(),
+          request.lastDistinguishedTreeHeadSize(),
           KEY_TRANSPARENCY_RPC_TIMEOUT).join();
 
       MonitorProof usernameHashMonitorProof = null;

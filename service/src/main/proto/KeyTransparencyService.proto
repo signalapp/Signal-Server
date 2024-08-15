@@ -21,6 +21,27 @@ service Katie {
   rpc Monitor(MonitorRequest) returns (MonitorResponse) {}
 }
 
+/**
+ * The tree head size(s) to prove consistency against. A client's very first
+ * key transparency request should be looking up the "distinguished" key;
+ * in this case, both fields will be omitted since the client has no previous
+ * tree heads to prove consistency against.
+ */
+message ConsistencyParameters {
+  /**
+   * The non-distinguished tree head size to prove consistency against.
+   * This field may be omitted if the client is looking up a search key
+   * for the first time.
+   */
+  optional uint64 last = 1;
+  /**
+   * The distinguished tree head size to prove consistency against.
+   * This field may be omitted when the client is looking up the
+   * "distinguished" key for the very first time. 
+   */
+  optional uint64 distinguished = 2;
+}
+
 // TODO: add a `value` field so that the KT server can verify that the given search key is mapped
 // to the provided value.
 message SearchRequest {
@@ -37,9 +58,9 @@ message SearchRequest {
    */
   optional uint32 version = 2;
   /**
-   * The tree head size to prove consistency against.
+   * The tree head size(s) to prove consistency against.
    */
-  optional uint64 last = 3;
+  ConsistencyParameters consistency = 3;
 }
 
 message SearchResponse {
@@ -74,13 +95,17 @@ message FullTreeHead {
    */
   TreeHead tree_head = 1;
   /**
+   * A consistency proof between the current tree size and the requested distinguished tree size.
+   */
+  repeated bytes distinguished = 2;
+  /**
    * A consistency proof between the current tree size and the requested tree size.
    */
-  repeated bytes consistency = 2;
+  repeated bytes consistency = 3;
   /**
    * A tree head signed by a third-party auditor.
    */
-  optional AuditorTreeHead auditor_tree_head = 3;
+  optional AuditorTreeHead auditor_tree_head = 4;
 }
 
 message TreeHead {
@@ -200,9 +225,9 @@ message MonitorRequest {
    */
   repeated MonitorKey contact_keys = 2;
   /**
-   * The tree head size that the key transparency server must prove consistency against.
+   * The tree head size(s) to prove consistency against.
    */
-  optional uint64 last = 3;
+  ConsistencyParameters consistency = 3;
 }
 
 message MonitorProof {

@@ -45,7 +45,10 @@ public record KeyTransparencyMonitorRequest(
     Optional<List<@Positive Long>> usernameHashPositions,
 
     @Schema(description = "The tree head size to prove consistency against.")
-    Optional<@Positive Long> lastTreeHeadSize
+    Optional<@Positive Long> lastNonDistinguishedTreeHeadSize,
+
+    @Schema(description = "The distinguished tree head size to prove consistency against.")
+    Optional<@Positive Long> lastDistinguishedTreeHeadSize
 ) {
 
   @AssertTrue

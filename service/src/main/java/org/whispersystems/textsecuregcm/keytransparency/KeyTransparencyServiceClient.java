@@ -18,6 +18,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
 import io.grpc.TlsChannelCredentials;
+import katie.ConsistencyParameters;
 import katie.KatieGrpc;
 import katie.MonitorKey;
 import katie.MonitorRequest;
@@ -55,11 +56,16 @@ public class KeyTransparencyServiceClient implements Managed {
   public CompletableFuture<SearchResponse> search(
       final ByteString searchKey,
       final Optional<Long> lastTreeHeadSize,
+      final Optional<Long> distinguishedTreeHeadSize,
       final Duration timeout) {
     final SearchRequest.Builder searchRequestBuilder = SearchRequest.newBuilder()
         .setSearchKey(searchKey);
 
-    lastTreeHeadSize.ifPresent(searchRequestBuilder::setLast);
+    final ConsistencyParameters.Builder consistency = ConsistencyParameters.newBuilder();
+    lastTreeHeadSize.ifPresent(consistency::setLast);
+    distinguishedTreeHeadSize.ifPresent(consistency::setDistinguished);
+
+    searchRequestBuilder.setConsistency(consistency);
 
     return CompletableFutureUtil.toCompletableFuture(stub.withDeadline(toDeadline(timeout))
         .search(searchRequestBuilder.build()), callbackExecutor);
@@ -67,11 +73,16 @@ public class KeyTransparencyServiceClient implements Managed {
 
   public CompletableFuture<MonitorResponse> monitor(final List<MonitorKey> monitorKeys,
       final Optional<Long> lastTreeHeadSize,
+      final Optional<Long> distinguishedTreeHeadSize,
       final Duration timeout) {
     final MonitorRequest.Builder monitorRequestBuilder = MonitorRequest.newBuilder()
         .addAllContactKeys(monitorKeys);
 
-    lastTreeHeadSize.ifPresent(monitorRequestBuilder::setLast);
+    final ConsistencyParameters.Builder consistency = ConsistencyParameters.newBuilder();
+    lastTreeHeadSize.ifPresent(consistency::setLast);
+    distinguishedTreeHeadSize.ifPresent(consistency::setDistinguished);
+
+    monitorRequestBuilder.setConsistency(consistency);
 
     return CompletableFutureUtil.toCompletableFuture(stub.withDeadline(toDeadline(timeout))
         .monitor(monitorRequestBuilder.build()), callbackExecutor);

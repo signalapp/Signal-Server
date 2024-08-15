@@ -33,6 +33,9 @@ public record KeyTransparencySearchRequest(
     @Schema(description = "The username hash to look up, encoded in web-safe unpadded base64.")
     Optional<byte[]> usernameHash,
 
-    @Schema(description = "The tree head size to prove consistency against.")
-    Optional<@Positive Long> lastTreeHeadSize
+    @Schema(description = "The non-distinguished tree head size to prove consistency against.")
+    Optional<@Positive Long> lastTreeHeadSize,
+
+    @Schema(description = "The distinguished tree head size to prove consistency against.")
+    Optional<@Positive Long> distinguishedTreeHeadSize
 ) {}
