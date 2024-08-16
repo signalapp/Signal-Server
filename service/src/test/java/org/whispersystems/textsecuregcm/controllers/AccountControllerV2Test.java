@@ -80,6 +80,7 @@ import org.whispersystems.textsecuregcm.mappers.ImpossiblePhoneNumberExceptionMa
 import org.whispersystems.textsecuregcm.mappers.NonNormalizedPhoneNumberExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
+import org.whispersystems.textsecuregcm.spam.RegistrationRecoveryChecker;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountBadge;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -111,6 +112,7 @@ class AccountControllerV2Test {
       RegistrationLockVerificationManager.class);
   private final RateLimiters rateLimiters = mock(RateLimiters.class);
   private final RateLimiter registrationLimiter = mock(RateLimiter.class);
+  private final RegistrationRecoveryChecker registrationRecoveryChecker = mock(RegistrationRecoveryChecker.class);
 
   private final ResourceExtension resources = ResourceExtension.builder()
       .addProperty(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE)
@@ -123,7 +125,8 @@ class AccountControllerV2Test {
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(
           new AccountControllerV2(accountsManager, changeNumberManager,
-              new PhoneVerificationTokenManager(registrationServiceClient, registrationRecoveryPasswordsManager),
+              new PhoneVerificationTokenManager(registrationServiceClient, registrationRecoveryPasswordsManager,
+                  registrationRecoveryChecker),
               registrationLockVerificationManager, rateLimiters))
       .build();
 
@@ -382,6 +385,8 @@ class AccountControllerV2Test {
     void recoveryPasswordManagerVerificationTrue() throws Exception {
       when(registrationRecoveryPasswordsManager.verify(any(), any()))
           .thenReturn(CompletableFuture.completedFuture(true));
+      when(registrationRecoveryChecker.checkRegistrationRecoveryAttempt(any(), any()))
+          .thenReturn(true);
 
       final Invocation.Builder request = resources.getJerseyTest()
           .target("/v2/accounts/number")
@@ -414,6 +419,40 @@ class AccountControllerV2Test {
           .header(HttpHeaders.AUTHORIZATION,
               AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD));
       try (Response response = request.put(Entity.json(requestJsonRecoveryPassword(new byte[32], NEW_NUMBER)))) {
+        assertEquals(403, response.getStatus());
+      }
+    }
+
+    @Test
+    void registrationRecoveryCheckerAllowsAttempt() {
+      when(registrationRecoveryChecker.checkRegistrationRecoveryAttempt(any(), any())).thenReturn(true);
+      when(registrationRecoveryPasswordsManager.verify(any(), any()))
+          .thenReturn(CompletableFuture.completedFuture(true));
+
+      final Invocation.Builder request = resources.getJerseyTest()
+          .target("/v2/accounts/number")
+          .request()
+          .header(HttpHeaders.AUTHORIZATION,
+              AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD));
+      final byte[] recoveryPassword = new byte[32];
+      try (Response response = request.put(Entity.json(requestJsonRecoveryPassword(recoveryPassword, NEW_NUMBER)))) {
+        assertEquals(200, response.getStatus());
+      }
+    }
+
+    @Test
+    void registrationRecoveryCheckerDisallowsAttempt() {
+      when(registrationRecoveryChecker.checkRegistrationRecoveryAttempt(any(), any())).thenReturn(false);
+      when(registrationRecoveryPasswordsManager.verify(any(), any()))
+          .thenReturn(CompletableFuture.completedFuture(true));
+
+      final Invocation.Builder request = resources.getJerseyTest()
+          .target("/v2/accounts/number")
+          .request()
+          .header(HttpHeaders.AUTHORIZATION,
+              AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD));
+      final byte[] recoveryPassword = new byte[32];
+      try (Response response = request.put(Entity.json(requestJsonRecoveryPassword(recoveryPassword, NEW_NUMBER)))) {
         assertEquals(403, response.getStatus());
       }
     }

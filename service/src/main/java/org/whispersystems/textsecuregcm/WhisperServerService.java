@@ -204,6 +204,7 @@ import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.spam.ChallengeConstraintChecker;
 import org.whispersystems.textsecuregcm.spam.RegistrationFraudChecker;
+import org.whispersystems.textsecuregcm.spam.RegistrationRecoveryChecker;
 import org.whispersystems.textsecuregcm.spam.ReportSpamTokenProvider;
 import org.whispersystems.textsecuregcm.spam.SpamChecker;
 import org.whispersystems.textsecuregcm.spam.SpamFilter;
@@ -675,8 +676,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final RegistrationLockVerificationManager registrationLockVerificationManager = new RegistrationLockVerificationManager(
         accountsManager, clientPresenceManager, svr2CredentialsGenerator, svr3CredentialsGenerator,
         registrationRecoveryPasswordsManager, pushNotificationManager, rateLimiters);
-    final PhoneVerificationTokenManager phoneVerificationTokenManager = new PhoneVerificationTokenManager(
-        registrationServiceClient, registrationRecoveryPasswordsManager);
 
     final ReportedMessageMetricsListener reportedMessageMetricsListener = new ReportedMessageMetricsListener(
         accountsManager);
@@ -1059,6 +1058,12 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
           log.warn("No registration-fraud-checkers found; using default (no-op) provider as a default");
           return RegistrationFraudChecker.noop();
         });
+    final RegistrationRecoveryChecker registrationRecoveryChecker = spamFilter
+        .map(SpamFilter::getRegistrationRecoveryChecker)
+        .orElseGet(() -> {
+          log.warn("No registration-recovery-checkers found; using default (no-op) provider as a default");
+          return RegistrationRecoveryChecker.noop();
+        });
 
 
     spamFilter.map(SpamFilter::getReportedMessageListener).ifPresent(reportMessageManager::addListener);
@@ -1072,6 +1077,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     });
 
 
+    final PhoneVerificationTokenManager phoneVerificationTokenManager = new PhoneVerificationTokenManager(
+        registrationServiceClient, registrationRecoveryPasswordsManager, registrationRecoveryChecker);
     final List<Object> commonControllers = Lists.newArrayList(
         new AccountController(accountsManager, rateLimiters, turnTokenGenerator, registrationRecoveryPasswordsManager,
             usernameHashZkProofVerifier),

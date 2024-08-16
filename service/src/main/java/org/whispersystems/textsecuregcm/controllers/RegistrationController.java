@@ -29,6 +29,8 @@ import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.container.ContainerRequestContext;
+import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import org.whispersystems.textsecuregcm.auth.BasicAuthorizationHeader;
@@ -102,7 +104,8 @@ public class RegistrationController {
       @HeaderParam(HttpHeaders.AUTHORIZATION) @NotNull final BasicAuthorizationHeader authorizationHeader,
       @HeaderParam(HeaderUtils.X_SIGNAL_AGENT) final String signalAgent,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
-      @NotNull @Valid final RegistrationRequest registrationRequest) throws RateLimitExceededException, InterruptedException {
+      @NotNull @Valid final RegistrationRequest registrationRequest,
+      @Context final ContainerRequestContext requestContext) throws RateLimitExceededException, InterruptedException {
 
     final String number = authorizationHeader.getUsername();
     final String password = authorizationHeader.getPassword();
@@ -113,8 +116,8 @@ public class RegistrationController {
 
     rateLimiters.getRegistrationLimiter().validate(number);
 
-    final PhoneVerificationRequest.VerificationType verificationType = phoneVerificationTokenManager.verify(number,
-        registrationRequest);
+    final PhoneVerificationRequest.VerificationType verificationType = phoneVerificationTokenManager.verify(
+        requestContext, number, registrationRequest);
 
     final Optional<Account> existingAccount = accounts.getByE164(number);
 

@@ -71,6 +71,7 @@ import org.whispersystems.textsecuregcm.mappers.ImpossiblePhoneNumberExceptionMa
 import org.whispersystems.textsecuregcm.mappers.NonNormalizedPhoneNumberExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
+import org.whispersystems.textsecuregcm.spam.RegistrationRecoveryChecker;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DeviceSpec;
@@ -97,6 +98,7 @@ class RegistrationControllerTest {
       RegistrationLockVerificationManager.class);
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager = mock(
       RegistrationRecoveryPasswordsManager.class);
+  private final RegistrationRecoveryChecker registrationRecoveryChecker = mock(RegistrationRecoveryChecker.class);
   private final RateLimiters rateLimiters = mock(RateLimiters.class);
 
   private final RateLimiter registrationLimiter = mock(RateLimiter.class);
@@ -110,7 +112,8 @@ class RegistrationControllerTest {
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(
           new RegistrationController(accountsManager,
-              new PhoneVerificationTokenManager(registrationServiceClient, registrationRecoveryPasswordsManager),
+              new PhoneVerificationTokenManager(registrationServiceClient, registrationRecoveryPasswordsManager,
+                  registrationRecoveryChecker),
               registrationLockVerificationManager, rateLimiters))
       .build();
 
@@ -239,6 +242,7 @@ class RegistrationControllerTest {
 
   @Test
   void recoveryPasswordManagerVerificationFailureOrTimeout() {
+    when(registrationRecoveryChecker.checkRegistrationRecoveryAttempt(any(), any())).thenReturn(true);
     when(registrationRecoveryPasswordsManager.verify(any(), any()))
         .thenReturn(CompletableFuture.failedFuture(new RuntimeException()));
 
@@ -284,6 +288,7 @@ class RegistrationControllerTest {
 
   @Test
   void recoveryPasswordManagerVerificationTrue() throws InterruptedException {
+    when(registrationRecoveryChecker.checkRegistrationRecoveryAttempt(any(), any())).thenReturn(true);
     when(registrationRecoveryPasswordsManager.verify(any(), any()))
         .thenReturn(CompletableFuture.completedFuture(true));
 
@@ -313,6 +318,50 @@ class RegistrationControllerTest {
         .request()
         .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
     try (Response response = request.post(Entity.json(requestJsonRecoveryPassword(new byte[32])))) {
+      assertEquals(403, response.getStatus());
+    }
+  }
+
+  @Test
+  void registrationRecoveryCheckerAllowsAttempt() throws InterruptedException {
+    when(registrationRecoveryChecker.checkRegistrationRecoveryAttempt(any(), any())).thenReturn(true);
+    when(registrationRecoveryPasswordsManager.verify(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(true));
+
+    final Account account = mock(Account.class);
+    when(account.getPrimaryDevice()).thenReturn(mock(Device.class));
+
+    when(accountsManager.create(any(), any(), any(), any(), any(), any()))
+        .thenReturn(account);
+
+    final Invocation.Builder request = resources.getJerseyTest()
+        .target("/v1/registration")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
+    final byte[] recoveryPassword = new byte[32];
+    try (Response response = request.post(Entity.json(requestJsonRecoveryPassword(recoveryPassword)))) {
+      assertEquals(200, response.getStatus());
+    }
+  }
+
+  @Test
+  void registrationRecoveryCheckerDisallowsAttempt() throws InterruptedException {
+    when(registrationRecoveryChecker.checkRegistrationRecoveryAttempt(any(), any())).thenReturn(false);
+    when(registrationRecoveryPasswordsManager.verify(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(true));
+
+    final Account account = mock(Account.class);
+    when(account.getPrimaryDevice()).thenReturn(mock(Device.class));
+
+    when(accountsManager.create(any(), any(), any(), any(), any(), any()))
+        .thenReturn(account);
+
+    final Invocation.Builder request = resources.getJerseyTest()
+        .target("/v1/registration")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
+    final byte[] recoveryPassword = new byte[32];
+    try (Response response = request.post(Entity.json(requestJsonRecoveryPassword(recoveryPassword)))) {
       assertEquals(403, response.getStatus());
     }
   }

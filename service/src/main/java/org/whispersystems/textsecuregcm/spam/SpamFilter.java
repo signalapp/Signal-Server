@@ -79,4 +79,12 @@ public interface SpamFilter extends Managed {
    * @return a {@link ChallengeConstraintChecker} controlled by the spam filter
    */
   ChallengeConstraintChecker getChallengeConstraintChecker();
+
+  /**
+   * Return a checker that will be called to determine if a user is allowed to use their
+   * registration recovery password to re-register
+   *
+   * @return a {@link RegistrationRecoveryChecker} controlled by the spam filter
+   */
+  RegistrationRecoveryChecker getRegistrationRecoveryChecker();
 }

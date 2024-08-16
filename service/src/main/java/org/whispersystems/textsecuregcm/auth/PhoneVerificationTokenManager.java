@@ -17,12 +17,14 @@ import javax.ws.rs.BadRequestException;
 import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.ServerErrorException;
+import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.PhoneVerificationRequest;
 import org.whispersystems.textsecuregcm.entities.RegistrationServiceSession;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
+import org.whispersystems.textsecuregcm.spam.RegistrationRecoveryChecker;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 
 public class PhoneVerificationTokenManager {
@@ -33,17 +35,21 @@ public class PhoneVerificationTokenManager {
 
   private final RegistrationServiceClient registrationServiceClient;
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
+  private final RegistrationRecoveryChecker registrationRecoveryChecker;
 
   public PhoneVerificationTokenManager(final RegistrationServiceClient registrationServiceClient,
-      final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager) {
+      final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
+      final RegistrationRecoveryChecker registrationRecoveryChecker) {
     this.registrationServiceClient = registrationServiceClient;
     this.registrationRecoveryPasswordsManager = registrationRecoveryPasswordsManager;
+    this.registrationRecoveryChecker = registrationRecoveryChecker;
   }
 
   /**
    * Checks if a {@link PhoneVerificationRequest} has a token that verifies the caller has confirmed access to the e164
    * number
    *
+   * @param requestContext the container request context
    * @param number  the e164 presented for verification
    * @param request the request with exactly one verification token (RegistrationService sessionId or registration
    *                recovery password)
@@ -54,13 +60,13 @@ public class PhoneVerificationTokenManager {
    * @throws ForbiddenException     if the recovery password is not valid
    * @throws InterruptedException   if verification did not complete before a timeout
    */
-  public PhoneVerificationRequest.VerificationType verify(final String number, final PhoneVerificationRequest request)
+  public PhoneVerificationRequest.VerificationType verify(final ContainerRequestContext requestContext, final String number, final PhoneVerificationRequest request)
       throws InterruptedException {
 
     final PhoneVerificationRequest.VerificationType verificationType = request.verificationType();
     switch (verificationType) {
       case SESSION -> verifyBySessionId(number, request.decodeSessionId());
-      case RECOVERY_PASSWORD -> verifyByRecoveryPassword(number, request.recoveryPassword());
+      case RECOVERY_PASSWORD -> verifyByRecoveryPassword(requestContext, number, request.recoveryPassword());
     }
 
     return verificationType;
@@ -97,8 +103,11 @@ public class PhoneVerificationTokenManager {
     }
   }
 
-  private void verifyByRecoveryPassword(final String number, final byte[] recoveryPassword)
+  private void verifyByRecoveryPassword(final ContainerRequestContext requestContext, final String number, final byte[] recoveryPassword)
       throws InterruptedException {
+    if (!registrationRecoveryChecker.checkRegistrationRecoveryAttempt(requestContext, number)) {
+      throw new ForbiddenException("recoveryPassword couldn't be verified");
+    }
     try {
       final boolean verified = registrationRecoveryPasswordsManager.verify(number, recoveryPassword)
           .get(VERIFICATION_TIMEOUT_SECONDS, TimeUnit.SECONDS);

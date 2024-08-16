@@ -32,6 +32,8 @@ import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.container.ContainerRequestContext;
+import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
@@ -98,7 +100,8 @@ public class AccountControllerV2 {
       name = "Retry-After",
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
   public AccountIdentityResponse changeNumber(@Mutable @Auth final AuthenticatedDevice authenticatedDevice,
-      @NotNull @Valid final ChangeNumberRequest request, @HeaderParam(HttpHeaders.USER_AGENT) final String userAgentString)
+      @NotNull @Valid final ChangeNumberRequest request, @HeaderParam(HttpHeaders.USER_AGENT) final String userAgentString,
+      @Context final ContainerRequestContext requestContext)
       throws RateLimitExceededException, InterruptedException {
 
     if (!authenticatedDevice.getAuthenticatedDevice().isPrimary()) {
@@ -116,8 +119,8 @@ public class AccountControllerV2 {
 
       rateLimiters.getRegistrationLimiter().validate(number);
 
-      final PhoneVerificationRequest.VerificationType verificationType =
-          phoneVerificationTokenManager.verify(number, request);
+      final PhoneVerificationRequest.VerificationType verificationType = phoneVerificationTokenManager.verify(
+          requestContext, number, request);
 
       final Optional<Account> existingAccount = accountsManager.getByE164(number);
 
