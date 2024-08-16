@@ -75,6 +75,8 @@ record CommandDependencies(
     MessagesManager messagesManager,
     ClientPresenceManager clientPresenceManager,
     KeysManager keysManager,
+    APNSender apnSender,
+    FcmSender fcmSender,
     PushNotificationManager pushNotificationManager,
     PushNotificationExperimentSamples pushNotificationExperimentSamples,
     FaultTolerantRedisCluster cacheCluster,
@@ -254,6 +256,7 @@ record CommandDependencies(
             configuration.getDynamoDbTables().getPushNotificationExperimentSamples().getTableName(),
             Clock.systemUTC());
 
+    environment.lifecycle().manage(apnSender);
     environment.lifecycle().manage(messagesCache);
     environment.lifecycle().manage(clientPresenceManager);
     environment.lifecycle().manage(new ManagedAwsCrt());
@@ -266,6 +269,8 @@ record CommandDependencies(
         messagesManager,
         clientPresenceManager,
         keys,
+        apnSender,
+        fcmSender,
         pushNotificationManager,
         pushNotificationExperimentSamples,
         cacheCluster,
