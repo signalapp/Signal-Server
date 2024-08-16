@@ -2170,6 +2170,150 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/AccountStaleDevices'
+  /v1/subscription/boost/paypal/confirm:
+    post:
+      tags:
+      - OneTimeDonations
+      operationId: confirmPayPalBoost
+      parameters:
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmPayPalBoostRequest'
+        required: true
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  completedExceptionally:
+                    type: boolean
+                  numberOfDependents:
+                    type: integer
+                    format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
+      security:
+      - authenticatedAccount: []
+      - {}
+  /v1/subscription/boost/create:
+    post:
+      tags:
+      - OneTimeDonations
+      operationId: createBoostPaymentIntent
+      parameters:
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBoostRequest'
+        required: true
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  completedExceptionally:
+                    type: boolean
+                  numberOfDependents:
+                    type: integer
+                    format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
+      security:
+      - authenticatedAccount: []
+      - {}
+  /v1/subscription/boost/receipt_credentials:
+    post:
+      tags:
+      - OneTimeDonations
+      operationId: createBoostReceiptCredentials
+      parameters:
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBoostReceiptCredentialsRequest'
+        required: true
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  completedExceptionally:
+                    type: boolean
+                  numberOfDependents:
+                    type: integer
+                    format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
+      security:
+      - authenticatedAccount: []
+      - {}
+  /v1/subscription/boost/paypal/create:
+    post:
+      tags:
+      - OneTimeDonations
+      operationId: createPayPalBoost
+      parameters:
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePayPalBoostRequest'
+        required: true
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  completedExceptionally:
+                    type: boolean
+                  numberOfDependents:
+                    type: integer
+                    format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
+      security:
+      - authenticatedAccount: []
+      - {}
   /v1/payments/auth:
     get:
       tags:
@@ -2598,150 +2742,6 @@ paths:
                 $ref: '#/components/schemas/StickerPackFormUploadAttributes'
       security:
       - authenticatedAccount: []
-  /v1/subscription/boost/paypal/confirm:
-    post:
-      tags:
-      - Subscriptions
-      operationId: confirmPayPalBoost
-      parameters:
-      - name: User-Agent
-        in: header
-        schema:
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ConfirmPayPalBoostRequest'
-        required: true
-      responses:
-        default:
-          description: default response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  completedExceptionally:
-                    type: boolean
-                  numberOfDependents:
-                    type: integer
-                    format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
-      security:
-      - authenticatedAccount: []
-      - {}
-  /v1/subscription/boost/create:
-    post:
-      tags:
-      - Subscriptions
-      operationId: createBoostPaymentIntent
-      parameters:
-      - name: User-Agent
-        in: header
-        schema:
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateBoostRequest'
-        required: true
-      responses:
-        default:
-          description: default response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  completedExceptionally:
-                    type: boolean
-                  numberOfDependents:
-                    type: integer
-                    format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
-      security:
-      - authenticatedAccount: []
-      - {}
-  /v1/subscription/boost/receipt_credentials:
-    post:
-      tags:
-      - Subscriptions
-      operationId: createBoostReceiptCredentials
-      parameters:
-      - name: User-Agent
-        in: header
-        schema:
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateBoostReceiptCredentialsRequest'
-        required: true
-      responses:
-        default:
-          description: default response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  completedExceptionally:
-                    type: boolean
-                  numberOfDependents:
-                    type: integer
-                    format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
-      security:
-      - authenticatedAccount: []
-      - {}
-  /v1/subscription/boost/paypal/create:
-    post:
-      tags:
-      - Subscriptions
-      operationId: createPayPalBoost
-      parameters:
-      - name: User-Agent
-        in: header
-        schema:
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreatePayPalBoostRequest'
-        required: true
-      responses:
-        default:
-          description: default response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  completedExceptionally:
-                    type: boolean
-                  numberOfDependents:
-                    type: integer
-                    format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
-      security:
-      - authenticatedAccount: []
-      - {}
   /v1/subscription/{subscriberId}/create_payment_method/paypal:
     post:
       tags:
@@ -4275,8 +4275,6 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
-        initialized:
-          type: boolean
         treeHead:
           $ref: '#/components/schemas/TreeHead'
         serializedSize:
@@ -4297,6 +4295,8 @@ components:
           $ref: '#/components/schemas/TreeHeadOrBuilder'
         rootValue:
           $ref: '#/components/schemas/ByteString'
+        initialized:
+          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -4358,8 +4358,6 @@ components:
           format: int32
         fullName:
           type: string
-        initialized:
-          type: boolean
         serializedSize:
           type: integer
           format: int32
@@ -4374,6 +4372,8 @@ components:
         typeBytes:
           $ref: '#/components/schemas/ByteString'
         reserved:
+          type: boolean
+        initialized:
           type: boolean
         initializationErrorString:
           type: string
@@ -4470,8 +4470,6 @@ components:
           $ref: '#/components/schemas/UnknownFieldSet'
         name:
           type: string
-        initialized:
-          type: boolean
         options:
           $ref: '#/components/schemas/MessageOptions'
         fieldCount:
@@ -4576,6 +4574,8 @@ components:
         reservedNameCount:
           type: integer
           format: int32
+        initialized:
+          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -4700,8 +4700,6 @@ components:
           $ref: '#/components/schemas/UnknownFieldSet'
         value:
           type: string
-        initialized:
-          type: boolean
         serializedSize:
           type: integer
           format: int32
@@ -4723,6 +4721,8 @@ components:
           - EDITION_99999_TEST_ONLY
         valueBytes:
           $ref: '#/components/schemas/ByteString'
+        initialized:
+          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -4799,8 +4799,6 @@ components:
           $ref: '#/components/schemas/UnknownFieldSet'
         name:
           type: string
-        initialized:
-          type: boolean
         options:
           $ref: '#/components/schemas/EnumOptions'
         serializedSize:
@@ -4850,6 +4848,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/EnumValueDescriptorProtoOrBuilder'
+        initialized:
+          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -4921,8 +4921,6 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
-        initialized:
-          type: boolean
         deprecated:
           type: boolean
         features:
@@ -4950,6 +4948,8 @@ components:
           type: integer
           format: int32
         allowAlias:
+          type: boolean
+        initialized:
           type: boolean
         initializationErrorString:
           type: string
@@ -5010,8 +5010,6 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
-        initialized:
-          type: boolean
         end:
           type: integer
           format: int32
@@ -5025,6 +5023,8 @@ components:
           $ref: '#/components/schemas/EnumReservedRange'
         parserForType:
           $ref: '#/components/schemas/ParserEnumReservedRange'
+        initialized:
+          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -5091,8 +5091,6 @@ components:
         number:
           type: integer
           format: int32
-        initialized:
-          type: boolean
         options:
           $ref: '#/components/schemas/EnumValueOptions'
         serializedSize:
@@ -5106,6 +5104,8 @@ components:
           $ref: '#/components/schemas/ByteString'
         optionsOrBuilder:
           $ref: '#/components/schemas/EnumValueOptionsOrBuilder'
+        initialized:
+          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -5151,8 +5151,6 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
-        initialized:
-          type: boolean
         deprecated:
           type: boolean
         features:
@@ -5178,6 +5176,8 @@ components:
           type: integer
           format: int32
         debugRedact:
+          type: boolean
+        initialized:
           type: boolean
         initializationErrorString:
           type: string
@@ -5236,8 +5236,6 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
-        initialized:
-          type: boolean
         options:
           $ref: '#/components/schemas/ExtensionRangeOptions'
         end:
@@ -5255,6 +5253,8 @@ components:
           $ref: '#/components/schemas/ParserExtensionRange'
         optionsOrBuilder:
           $ref: '#/components/schemas/ExtensionRangeOptionsOrBuilder'
+        initialized:
+          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -5272,8 +5272,6 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
-        initialized:
-          type: boolean
         features:
           $ref: '#/components/schemas/FeatureSet'
         serializedSize:
@@ -5312,6 +5310,8 @@ components:
           enum:
           - DECLARATION
           - UNVERIFIED
+        initialized:
+          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -5408,8 +5408,6 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
-        initialized:
-          type: boolean
         enumType:
           type: string
           enum:
@@ -5454,6 +5452,8 @@ components:
           - UTF8_VALIDATION_UNKNOWN
           - NONE
           - VERIFY
+        initialized:
+          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -5680,8 +5680,6 @@ components:
         number:
           type: integer
           format: int32
-        initialized:
-          type: boolean
         options:
           $ref: '#/components/schemas/FieldOptions'
         serializedSize:
@@ -5712,6 +5710,8 @@ components:
           $ref: '#/components/schemas/ByteString'
         jsonNameBytes:
           $ref: '#/components/schemas/ByteString'
+        initialized:
+          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -5805,8 +5805,6 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
-        initialized:
-          type: boolean
         deprecated:
           type: boolean
         retention:
@@ -5888,6 +5886,8 @@ components:
         editionDefaultsCount:
           type: integer
           format: int32
+        initialized:
+          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -6064,8 +6064,6 @@ components:
           type: string
         package:
           type: string
-        initialized:
-          type: boolean
         options:
           $ref: '#/components/schemas/FileOptions'
         serializedSize:
@@ -6075,6 +6073,54 @@ components:
           $ref: '#/components/schemas/FileDescriptorProto'
         parserForType:
           $ref: '#/components/schemas/ParserFileDescriptorProto'
+        packageBytes:
+          $ref: '#/components/schemas/ByteString'
+        dependencyList:
+          type: array
+          properties:
+            empty:
+              type: boolean
+            first:
+              type: string
+            last:
+              type: string
+          items:
+            type: string
+        publicDependencyList:
+          type: array
+          items:
+            type: integer
+            format: int32
+        weakDependencyList:
+          type: array
+          items:
+            type: integer
+            format: int32
+        weakDependencyCount:
+          type: integer
+          format: int32
+        messageTypeList:
+          type: array
+          items:
+            $ref: '#/components/schemas/DescriptorProto'
+        messageTypeOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/DescriptorProtoOrBuilder'
+        serviceList:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceDescriptorProto'
+        serviceOrBuilderList:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceDescriptorProtoOrBuilder'
+        sourceCodeInfo:
+          $ref: '#/components/schemas/SourceCodeInfo'
+        sourceCodeInfoOrBuilder:
+          $ref: '#/components/schemas/SourceCodeInfoOrBuilder'
+        syntaxBytes:
+          $ref: '#/components/schemas/ByteString'
         enumTypeCount:
           type: integer
           format: int32
@@ -6127,54 +6173,8 @@ components:
           - EDITION_99997_TEST_ONLY
           - EDITION_99998_TEST_ONLY
           - EDITION_99999_TEST_ONLY
-        packageBytes:
-          $ref: '#/components/schemas/ByteString'
-        dependencyList:
-          type: array
-          properties:
-            empty:
-              type: boolean
-            first:
-              type: string
-            last:
-              type: string
-          items:
-            type: string
-        publicDependencyList:
-          type: array
-          items:
-            type: integer
-            format: int32
-        weakDependencyList:
-          type: array
-          items:
-            type: integer
-            format: int32
-        weakDependencyCount:
-          type: integer
-          format: int32
-        messageTypeList:
-          type: array
-          items:
-            $ref: '#/components/schemas/DescriptorProto'
-        messageTypeOrBuilderList:
-          type: array
-          items:
-            $ref: '#/components/schemas/DescriptorProtoOrBuilder'
-        serviceList:
-          type: array
-          items:
-            $ref: '#/components/schemas/ServiceDescriptorProto'
-        serviceOrBuilderList:
-          type: array
-          items:
-            $ref: '#/components/schemas/ServiceDescriptorProtoOrBuilder'
-        sourceCodeInfo:
-          $ref: '#/components/schemas/SourceCodeInfo'
-        sourceCodeInfoOrBuilder:
-          $ref: '#/components/schemas/SourceCodeInfoOrBuilder'
-        syntaxBytes:
-          $ref: '#/components/schemas/ByteString'
+        initialized:
+          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -6192,8 +6192,6 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
-        initialized:
-          type: boolean
         deprecated:
           type: boolean
         features:
@@ -6280,6 +6278,8 @@ components:
           type: string
         rubyPackageBytes:
           $ref: '#/components/schemas/ByteString'
+        initialized:
+          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -6397,8 +6397,6 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
-        initialized:
-          type: boolean
         treeHead:
           $ref: '#/components/schemas/TreeHead'
         serializedSize:
@@ -6410,10 +6408,17 @@ components:
           $ref: '#/components/schemas/ParserFullTreeHead'
         auditorTreeHead:
           $ref: '#/components/schemas/AuditorTreeHead'
+        distinguishedList:
+          type: array
+          items:
+            $ref: '#/components/schemas/ByteString'
         consistencyList:
           type: array
           items:
             $ref: '#/components/schemas/ByteString'
+        distinguishedCount:
+          type: integer
+          format: int32
         consistencyCount:
           type: integer
           format: int32
@@ -6421,6 +6426,8 @@ components:
           $ref: '#/components/schemas/TreeHeadOrBuilder'
         auditorTreeHeadOrBuilder:
           $ref: '#/components/schemas/AuditorTreeHeadOrBuilder'
+        initialized:
+          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -6462,8 +6469,6 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
-        initialized:
-          type: boolean
         serializedSize:
           type: integer
           format: int32
@@ -6509,6 +6514,8 @@ components:
         leadingDetachedCommentsCount:
           type: integer
           format: int32
+        initialized:
+          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -6577,10 +6584,10 @@ components:
         serializedSize:
           type: integer
           format: int32
-        initialized:
-          type: boolean
         defaultInstanceForType:
           $ref: '#/components/schemas/MessageLite'
+        initialized:
+          type: boolean
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
         initializationErrorString:
@@ -6599,17 +6606,15 @@ components:
           format: int32
         parserForType:
           $ref: '#/components/schemas/ParserMessageLite'
-        initialized:
-          type: boolean
         defaultInstanceForType:
           $ref: '#/components/schemas/MessageLite'
+        initialized:
+          type: boolean
     MessageOptions:
       type: object
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
-        initialized:
-          type: boolean
         deprecated:
           type: boolean
         features:
@@ -6642,6 +6647,8 @@ components:
         uninterpretedOptionCount:
           type: integer
           format: int32
+        initialized:
+          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -6733,13 +6740,11 @@ components:
           $ref: '#/components/schemas/UnknownFieldSet'
         name:
           type: string
-        initialized:
-          type: boolean
         options:
           $ref: '#/components/schemas/MethodOptions'
-        inputType:
-          type: string
         outputType:
+          type: string
+        inputType:
           type: string
         serializedSize:
           type: integer
@@ -6760,6 +6765,8 @@ components:
           type: boolean
         serverStreaming:
           type: boolean
+        initialized:
+          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -6779,9 +6786,9 @@ components:
           type: string
         options:
           $ref: '#/components/schemas/MethodOptions'
-        inputType:
-          type: string
         outputType:
+          type: string
+        inputType:
           type: string
         nameBytes:
           $ref: '#/components/schemas/ByteString'
@@ -6814,8 +6821,6 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
-        initialized:
-          type: boolean
         deprecated:
           type: boolean
         features:
@@ -6846,6 +6851,8 @@ components:
           - IDEMPOTENCY_UNKNOWN
           - NO_SIDE_EFFECTS
           - IDEMPOTENT
+        initialized:
+          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -6907,8 +6914,6 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
-        initialized:
-          type: boolean
         serializedSize:
           type: integer
           format: int32
@@ -6927,6 +6932,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ProofStepOrBuilder'
+        initialized:
+          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -6945,8 +6952,6 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
-        initialized:
-          type: boolean
         serializedSize:
           type: integer
           format: int32
@@ -6959,6 +6964,8 @@ components:
         namePartBytes:
           $ref: '#/components/schemas/ByteString'
         isExtension:
+          type: boolean
+        initialized:
           type: boolean
         initializationErrorString:
           type: string
@@ -7025,8 +7032,6 @@ components:
           $ref: '#/components/schemas/UnknownFieldSet'
         name:
           type: string
-        initialized:
-          type: boolean
         options:
           $ref: '#/components/schemas/OneofOptions'
         serializedSize:
@@ -7040,6 +7045,8 @@ components:
           $ref: '#/components/schemas/ByteString'
         optionsOrBuilder:
           $ref: '#/components/schemas/OneofOptionsOrBuilder'
+        initialized:
+          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -7082,8 +7089,6 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
-        initialized:
-          type: boolean
         features:
           $ref: '#/components/schemas/FeatureSet'
         serializedSize:
@@ -7106,6 +7111,8 @@ components:
         uninterpretedOptionCount:
           type: integer
           format: int32
+        initialized:
+          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -7234,8 +7241,6 @@ components:
         counter:
           type: integer
           format: int32
-        initialized:
-          type: boolean
         serializedSize:
           type: integer
           format: int32
@@ -7250,6 +7255,8 @@ components:
         proofCount:
           type: integer
           format: int32
+        initialized:
+          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -7294,8 +7301,6 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
-        initialized:
-          type: boolean
         prefix:
           $ref: '#/components/schemas/PrefixSearchResult'
         serializedSize:
@@ -7309,6 +7314,8 @@ components:
           $ref: '#/components/schemas/ByteString'
         prefixOrBuilder:
           $ref: '#/components/schemas/PrefixSearchResultOrBuilder'
+        initialized:
+          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -7360,8 +7367,6 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
-        initialized:
-          type: boolean
         end:
           type: integer
           format: int32
@@ -7375,6 +7380,8 @@ components:
           $ref: '#/components/schemas/ReservedRange'
         parserForType:
           $ref: '#/components/schemas/ParserReservedRange'
+        initialized:
+          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -7437,8 +7444,6 @@ components:
           $ref: '#/components/schemas/UnknownFieldSet'
         name:
           type: string
-        initialized:
-          type: boolean
         options:
           $ref: '#/components/schemas/ServiceOptions'
         serializedSize:
@@ -7463,6 +7468,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/MethodDescriptorProtoOrBuilder'
+        initialized:
+          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -7516,8 +7523,6 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
-        initialized:
-          type: boolean
         deprecated:
           type: boolean
         features:
@@ -7542,6 +7547,8 @@ components:
         uninterpretedOptionCount:
           type: integer
           format: int32
+        initialized:
+          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -7597,8 +7604,6 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
-        initialized:
-          type: boolean
         serializedSize:
           type: integer
           format: int32
@@ -7617,6 +7622,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/LocationOrBuilder'
+        initialized:
+          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -7667,8 +7674,6 @@ components:
         timestamp:
           type: integer
           format: int64
-        initialized:
-          type: boolean
         serializedSize:
           type: integer
           format: int32
@@ -7679,6 +7684,8 @@ components:
         treeSize:
           type: integer
           format: int64
+        initialized:
+          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -7724,8 +7731,6 @@ components:
         nameCount:
           type: integer
           format: int32
-        initialized:
-          type: boolean
         doubleValue:
           type: number
           format: double
@@ -7760,6 +7765,8 @@ components:
           type: string
         aggregateValueBytes:
           $ref: '#/components/schemas/ByteString'
+        initialized:
+          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -7822,8 +7829,6 @@ components:
     UnknownFieldSet:
       type: object
       properties:
-        initialized:
-          type: boolean
         serializedSize:
           type: integer
           format: int32
@@ -7834,6 +7839,8 @@ components:
         serializedSizeAsMessageSet:
           type: integer
           format: int32
+        initialized:
+          type: boolean
     KeyTransparencyMonitorRequest:
       required:
       - aci
@@ -7878,9 +7885,13 @@ components:
             description: A list of log tree positions maintained by the client for
               the username hash search key.
             format: int64
-        lastTreeHeadSize:
+        lastNonDistinguishedTreeHeadSize:
           type: integer
           description: The tree head size to prove consistency against.
+          format: int64
+        lastDistinguishedTreeHeadSize:
+          type: integer
+          description: The distinguished tree head size to prove consistency against.
           format: int64
         usernameHashFieldsValid:
           type: boolean
@@ -7893,10 +7904,17 @@ components:
           $ref: '#/components/schemas/TreeHead'
         auditorTreeHead:
           $ref: '#/components/schemas/AuditorTreeHead'
+        distinguishedList:
+          type: array
+          items:
+            $ref: '#/components/schemas/ByteString'
         consistencyList:
           type: array
           items:
             $ref: '#/components/schemas/ByteString'
+        distinguishedCount:
+          type: integer
+          format: int32
         consistencyCount:
           type: integer
           format: int32
@@ -7940,8 +7958,6 @@ components:
       properties:
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
-        initialized:
-          type: boolean
         pos:
           type: integer
           format: int64
@@ -7970,6 +7986,8 @@ components:
         inclusionCount:
           type: integer
           format: int32
+        initialized:
+          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -8027,8 +8045,6 @@ components:
           $ref: '#/components/schemas/UnknownFieldSet'
         value:
           $ref: '#/components/schemas/UpdateValue'
-        initialized:
-          type: boolean
         treeHead:
           $ref: '#/components/schemas/FullTreeHead'
         serializedSize:
@@ -8050,6 +8066,8 @@ components:
           $ref: '#/components/schemas/ByteString'
         searchOrBuilder:
           $ref: '#/components/schemas/SearchProofOrBuilder'
+        initialized:
+          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -8070,8 +8088,6 @@ components:
           $ref: '#/components/schemas/UnknownFieldSet'
         value:
           $ref: '#/components/schemas/ByteString'
-        initialized:
-          type: boolean
         serializedSize:
           type: integer
           format: int32
@@ -8079,6 +8095,8 @@ components:
           $ref: '#/components/schemas/UpdateValue'
         parserForType:
           $ref: '#/components/schemas/ParserUpdateValue'
+        initialized:
+          type: boolean
         initializationErrorString:
           type: string
         descriptorForType:
@@ -8128,7 +8146,11 @@ components:
           format: byte
         lastTreeHeadSize:
           type: integer
-          description: The tree head size to prove consistency against.
+          description: The non-distinguished tree head size to prove consistency against.
+          format: int64
+        distinguishedTreeHeadSize:
+          type: integer
+          description: The distinguished tree head size to prove consistency against.
           format: int64
     CheckKeysRequest:
       required:
@@ -8336,6 +8358,104 @@ components:
         rawUUID:
           type: string
           format: uuid
+    ConfirmPayPalBoostRequest:
+      required:
+      - currency
+      - payerId
+      - paymentId
+      - paymentToken
+      type: object
+      properties:
+        currency:
+          type: string
+        amount:
+          minimum: 1
+          type: integer
+          format: int64
+        level:
+          type: integer
+          format: int64
+        paymentMethod:
+          type: string
+          enum:
+          - UNKNOWN
+          - CARD
+          - PAYPAL
+          - SEPA_DEBIT
+          - IDEAL
+        payerId:
+          type: string
+        paymentId:
+          type: string
+        paymentToken:
+          type: string
+    CreateBoostRequest:
+      required:
+      - currency
+      type: object
+      properties:
+        currency:
+          type: string
+        amount:
+          minimum: 1
+          type: integer
+          format: int64
+        level:
+          type: integer
+          format: int64
+        paymentMethod:
+          type: string
+          enum:
+          - UNKNOWN
+          - CARD
+          - PAYPAL
+          - SEPA_DEBIT
+          - IDEAL
+    CreateBoostReceiptCredentialsRequest:
+      required:
+      - paymentIntentId
+      - processor
+      - receiptCredentialRequest
+      type: object
+      properties:
+        paymentIntentId:
+          type: string
+        receiptCredentialRequest:
+          type: string
+          format: byte
+        processor:
+          type: string
+          enum:
+          - STRIPE
+          - BRAINTREE
+    CreatePayPalBoostRequest:
+      required:
+      - cancelUrl
+      - currency
+      - returnUrl
+      type: object
+      properties:
+        currency:
+          type: string
+        amount:
+          minimum: 1
+          type: integer
+          format: int64
+        level:
+          type: integer
+          format: int64
+        paymentMethod:
+          type: string
+          enum:
+          - UNKNOWN
+          - CARD
+          - PAYPAL
+          - SEPA_DEBIT
+          - IDEAL
+        returnUrl:
+          type: string
+        cancelUrl:
+          type: string
     CurrencyConversionEntity:
       type: object
       properties:
@@ -8752,104 +8872,6 @@ components:
         policy:
           type: string
         signature:
-          type: string
-    ConfirmPayPalBoostRequest:
-      required:
-      - currency
-      - payerId
-      - paymentId
-      - paymentToken
-      type: object
-      properties:
-        currency:
-          type: string
-        amount:
-          minimum: 1
-          type: integer
-          format: int64
-        level:
-          type: integer
-          format: int64
-        paymentMethod:
-          type: string
-          enum:
-          - UNKNOWN
-          - CARD
-          - PAYPAL
-          - SEPA_DEBIT
-          - IDEAL
-        payerId:
-          type: string
-        paymentId:
-          type: string
-        paymentToken:
-          type: string
-    CreateBoostRequest:
-      required:
-      - currency
-      type: object
-      properties:
-        currency:
-          type: string
-        amount:
-          minimum: 1
-          type: integer
-          format: int64
-        level:
-          type: integer
-          format: int64
-        paymentMethod:
-          type: string
-          enum:
-          - UNKNOWN
-          - CARD
-          - PAYPAL
-          - SEPA_DEBIT
-          - IDEAL
-    CreateBoostReceiptCredentialsRequest:
-      required:
-      - paymentIntentId
-      - processor
-      - receiptCredentialRequest
-      type: object
-      properties:
-        paymentIntentId:
-          type: string
-        receiptCredentialRequest:
-          type: string
-          format: byte
-        processor:
-          type: string
-          enum:
-          - STRIPE
-          - BRAINTREE
-    CreatePayPalBoostRequest:
-      required:
-      - cancelUrl
-      - currency
-      - returnUrl
-      type: object
-      properties:
-        currency:
-          type: string
-        amount:
-          minimum: 1
-          type: integer
-          format: int64
-        level:
-          type: integer
-          format: int64
-        paymentMethod:
-          type: string
-          enum:
-          - UNKNOWN
-          - CARD
-          - PAYPAL
-          - SEPA_DEBIT
-          - IDEAL
-        returnUrl:
-          type: string
-        cancelUrl:
           type: string
     CreatePayPalBillingAgreementRequest:
       required:
