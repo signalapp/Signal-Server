@@ -33,7 +33,7 @@ class PushNotificationManagerTest {
   private AccountsManager accountsManager;
   private APNSender apnSender;
   private FcmSender fcmSender;
-  private ApnPushNotificationScheduler apnPushNotificationScheduler;
+  private PushNotificationScheduler pushNotificationScheduler;
 
   private PushNotificationManager pushNotificationManager;
 
@@ -42,12 +42,12 @@ class PushNotificationManagerTest {
     accountsManager = mock(AccountsManager.class);
     apnSender = mock(APNSender.class);
     fcmSender = mock(FcmSender.class);
-    apnPushNotificationScheduler = mock(ApnPushNotificationScheduler.class);
+    pushNotificationScheduler = mock(PushNotificationScheduler.class);
 
     AccountsHelper.setupMockUpdate(accountsManager);
 
     pushNotificationManager =
-        new PushNotificationManager(accountsManager, apnSender, fcmSender, apnPushNotificationScheduler);
+        new PushNotificationManager(accountsManager, apnSender, fcmSender, pushNotificationScheduler);
   }
 
   @ParameterizedTest
@@ -152,7 +152,7 @@ class PushNotificationManagerTest {
     verifyNoInteractions(apnSender);
     verify(accountsManager, never()).updateDevice(eq(account), eq(Device.PRIMARY_ID), any());
     verify(device, never()).setGcmId(any());
-    verifyNoInteractions(apnPushNotificationScheduler);
+    verifyNoInteractions(pushNotificationScheduler);
   }
 
   @ParameterizedTest
@@ -171,7 +171,7 @@ class PushNotificationManagerTest {
         .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(true, Optional.empty(), false, Optional.empty())));
 
     if (!urgent) {
-      when(apnPushNotificationScheduler.scheduleBackgroundNotification(account, device))
+      when(pushNotificationScheduler.scheduleBackgroundApnsNotification(account, device))
           .thenReturn(CompletableFuture.completedFuture(null));
     }
 
@@ -181,10 +181,10 @@ class PushNotificationManagerTest {
 
     if (urgent) {
       verify(apnSender).sendNotification(pushNotification);
-      verifyNoInteractions(apnPushNotificationScheduler);
+      verifyNoInteractions(pushNotificationScheduler);
     } else {
       verifyNoInteractions(apnSender);
-      verify(apnPushNotificationScheduler).scheduleBackgroundNotification(account, device);
+      verify(pushNotificationScheduler).scheduleBackgroundApnsNotification(account, device);
     }
   }
 
@@ -210,8 +210,8 @@ class PushNotificationManagerTest {
     verifyNoInteractions(fcmSender);
     verify(accountsManager, never()).updateDevice(eq(account), eq(Device.PRIMARY_ID), any());
     verify(device, never()).setGcmId(any());
-    verify(apnPushNotificationScheduler).scheduleRecurringVoipNotification(account, device);
-    verify(apnPushNotificationScheduler, never()).scheduleBackgroundNotification(any(), any());
+    verify(pushNotificationScheduler).scheduleRecurringApnsVoipNotification(account, device);
+    verify(pushNotificationScheduler, never()).scheduleBackgroundApnsNotification(any(), any());
   }
 
   @Test
@@ -236,7 +236,7 @@ class PushNotificationManagerTest {
     verify(accountsManager).updateDevice(eq(account), eq(Device.PRIMARY_ID), any());
     verify(device).setGcmId(null);
     verifyNoInteractions(apnSender);
-    verifyNoInteractions(apnPushNotificationScheduler);
+    verifyNoInteractions(pushNotificationScheduler);
   }
 
   @Test
@@ -257,7 +257,7 @@ class PushNotificationManagerTest {
     when(apnSender.sendNotification(pushNotification))
         .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(false, Optional.empty(), true, Optional.empty())));
 
-    when(apnPushNotificationScheduler.cancelScheduledNotifications(account, device))
+    when(pushNotificationScheduler.cancelScheduledNotifications(account, device))
         .thenReturn(CompletableFuture.completedFuture(null));
 
     pushNotificationManager.sendNotification(pushNotification);
@@ -266,7 +266,7 @@ class PushNotificationManagerTest {
     verify(accountsManager).updateDevice(eq(account), eq(Device.PRIMARY_ID), any());
     verify(device).setVoipApnId(null);
     verify(device, never()).setApnId(any());
-    verify(apnPushNotificationScheduler).cancelScheduledNotifications(account, device);
+    verify(pushNotificationScheduler).cancelScheduledNotifications(account, device);
   }
 
   @Test
@@ -290,7 +290,7 @@ class PushNotificationManagerTest {
     when(apnSender.sendNotification(pushNotification))
         .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(false, Optional.empty(), true, Optional.of(tokenTimestamp.minusSeconds(60)))));
 
-    when(apnPushNotificationScheduler.cancelScheduledNotifications(account, device))
+    when(pushNotificationScheduler.cancelScheduledNotifications(account, device))
         .thenReturn(CompletableFuture.completedFuture(null));
 
     pushNotificationManager.sendNotification(pushNotification);
@@ -299,7 +299,7 @@ class PushNotificationManagerTest {
     verify(accountsManager, never()).updateDevice(eq(account), eq(Device.PRIMARY_ID), any());
     verify(device, never()).setVoipApnId(any());
     verify(device, never()).setApnId(any());
-    verify(apnPushNotificationScheduler, never()).cancelScheduledNotifications(account, device);
+    verify(pushNotificationScheduler, never()).cancelScheduledNotifications(account, device);
   }
 
   @Test
@@ -312,11 +312,11 @@ class PushNotificationManagerTest {
     when(account.getUuid()).thenReturn(accountIdentifier);
     when(device.getId()).thenReturn(Device.PRIMARY_ID);
 
-    when(apnPushNotificationScheduler.cancelScheduledNotifications(account, device))
+    when(pushNotificationScheduler.cancelScheduledNotifications(account, device))
         .thenReturn(CompletableFuture.completedFuture(null));
 
     pushNotificationManager.handleMessagesRetrieved(account, device, userAgent);
 
-    verify(apnPushNotificationScheduler).cancelScheduledNotifications(account, device);
+    verify(pushNotificationScheduler).cancelScheduledNotifications(account, device);
   }
 }

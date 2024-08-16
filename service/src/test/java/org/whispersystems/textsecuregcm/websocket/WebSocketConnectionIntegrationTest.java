@@ -48,6 +48,7 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
+import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -127,6 +128,7 @@ class WebSocketConnectionIntegrationTest {
         new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager, sharedExecutorService),
         new MessageMetrics(),
         mock(PushNotificationManager.class),
+        mock(PushNotificationScheduler.class),
         new AuthenticatedDevice(account, device),
         webSocketClient,
         scheduledExecutorService,
@@ -213,6 +215,7 @@ class WebSocketConnectionIntegrationTest {
         new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager, sharedExecutorService),
         new MessageMetrics(),
         mock(PushNotificationManager.class),
+        mock(PushNotificationScheduler.class),
         new AuthenticatedDevice(account, device),
         webSocketClient,
         scheduledExecutorService,
@@ -280,6 +283,7 @@ class WebSocketConnectionIntegrationTest {
         new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager, sharedExecutorService),
         new MessageMetrics(),
         mock(PushNotificationManager.class),
+        mock(PushNotificationScheduler.class),
         new AuthenticatedDevice(account, device),
         webSocketClient,
         100, // use a very short timeout, so that this test completes quickly

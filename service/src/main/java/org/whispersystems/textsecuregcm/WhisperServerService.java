@@ -188,7 +188,7 @@ import org.whispersystems.textsecuregcm.metrics.TrafficSource;
 import org.whispersystems.textsecuregcm.providers.MultiRecipientMessageProvider;
 import org.whispersystems.textsecuregcm.providers.RedisClusterHealthCheck;
 import org.whispersystems.textsecuregcm.push.APNSender;
-import org.whispersystems.textsecuregcm.push.ApnPushNotificationScheduler;
+import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.push.FcmSender;
 import org.whispersystems.textsecuregcm.push.MessageSender;
@@ -649,10 +649,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     RemoteConfigsManager remoteConfigsManager = new RemoteConfigsManager(remoteConfigs);
     APNSender apnSender = new APNSender(apnSenderExecutor, config.getApnConfiguration());
     FcmSender fcmSender = new FcmSender(fcmSenderExecutor, config.getFcmConfiguration().credentials().value());
-    ApnPushNotificationScheduler apnPushNotificationScheduler = new ApnPushNotificationScheduler(pushSchedulerCluster,
-        apnSender, accountsManager, 0);
+    PushNotificationScheduler pushNotificationScheduler = new PushNotificationScheduler(pushSchedulerCluster,
+        apnSender, fcmSender, accountsManager, 0, 0);
     PushNotificationManager pushNotificationManager =
-        new PushNotificationManager(accountsManager, apnSender, fcmSender, apnPushNotificationScheduler);
+        new PushNotificationManager(accountsManager, apnSender, fcmSender, pushNotificationScheduler);
     RateLimiters rateLimiters = RateLimiters.createAndValidate(config.getLimitsConfiguration(),
         dynamicConfigurationManager, rateLimitersCluster);
     ProvisioningManager provisioningManager = new ProvisioningManager(
@@ -743,7 +743,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         subscriptionProcessorRetryExecutor);
 
     environment.lifecycle().manage(apnSender);
-    environment.lifecycle().manage(apnPushNotificationScheduler);
+    environment.lifecycle().manage(pushNotificationScheduler);
     environment.lifecycle().manage(provisioningManager);
     environment.lifecycle().manage(messagesCache);
     environment.lifecycle().manage(clientPresenceManager);
@@ -1006,7 +1006,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     webSocketEnvironment.setAuthenticator(new WebSocketAccountAuthenticator(accountAuthenticator, new AccountPrincipalSupplier(accountsManager)));
     webSocketEnvironment.setConnectListener(
         new AuthenticatedConnectListener(receiptSender, messagesManager, messageMetrics, pushNotificationManager,
-            clientPresenceManager, websocketScheduledExecutor, messageDeliveryScheduler, clientReleaseManager));
+            pushNotificationScheduler, clientPresenceManager, websocketScheduledExecutor, messageDeliveryScheduler,
+            clientReleaseManager));
     webSocketEnvironment.jersey()
         .register(new WebsocketRefreshApplicationEventListener(accountsManager, clientPresenceManager));
     webSocketEnvironment.jersey().register(new RequestStatisticsFilter(TrafficSource.WEBSOCKET));
@@ -1099,7 +1100,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new KeysController(rateLimiters, keysManager, accountsManager, zkSecretParams, Clock.systemUTC()),
         new KeyTransparencyController(keyTransparencyServiceClient),
         new MessageController(rateLimiters, messageByteLimitCardinalityEstimator, messageSender, receiptSender,
-            accountsManager, messagesManager, pushNotificationManager, reportMessageManager,
+            accountsManager, messagesManager, pushNotificationManager, pushNotificationScheduler, reportMessageManager,
             multiRecipientMessageExecutor, messageDeliveryScheduler, reportSpamTokenProvider, clientReleaseManager,
             dynamicConfigurationManager, zkSecretParams, spamChecker, messageMetrics, Clock.systemUTC()),
         new PaymentsController(currencyManager, paymentsCredentialsGenerator),

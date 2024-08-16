@@ -33,7 +33,7 @@ import org.whispersystems.textsecuregcm.controllers.SecureValueRecovery2Controll
 import org.whispersystems.textsecuregcm.experiment.PushNotificationExperimentSamples;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.push.APNSender;
-import org.whispersystems.textsecuregcm.push.ApnPushNotificationScheduler;
+import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.push.FcmSender;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
@@ -245,10 +245,10 @@ record CommandDependencies(
         clock);
     APNSender apnSender = new APNSender(apnSenderExecutor, configuration.getApnConfiguration());
     FcmSender fcmSender = new FcmSender(fcmSenderExecutor, configuration.getFcmConfiguration().credentials().value());
-    ApnPushNotificationScheduler apnPushNotificationScheduler = new ApnPushNotificationScheduler(pushSchedulerCluster,
-        apnSender, accountsManager, 0);
+    PushNotificationScheduler pushNotificationScheduler = new PushNotificationScheduler(pushSchedulerCluster,
+        apnSender, fcmSender, accountsManager, 0, 0);
     PushNotificationManager pushNotificationManager =
-        new PushNotificationManager(accountsManager, apnSender, fcmSender, apnPushNotificationScheduler);
+        new PushNotificationManager(accountsManager, apnSender, fcmSender, pushNotificationScheduler);
     PushNotificationExperimentSamples pushNotificationExperimentSamples =
         new PushNotificationExperimentSamples(dynamoDbAsyncClient,
             configuration.getDynamoDbTables().getPushNotificationExperimentSamples().getTableName(),

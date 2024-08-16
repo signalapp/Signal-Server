@@ -24,6 +24,7 @@ import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
+import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
@@ -52,6 +53,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
   private final MessagesManager messagesManager;
   private final MessageMetrics messageMetrics;
   private final PushNotificationManager pushNotificationManager;
+  private final PushNotificationScheduler pushNotificationScheduler;
   private final ClientPresenceManager clientPresenceManager;
   private final ScheduledExecutorService scheduledExecutorService;
   private final Scheduler messageDeliveryScheduler;
@@ -71,6 +73,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
       MessagesManager messagesManager,
       MessageMetrics messageMetrics,
       PushNotificationManager pushNotificationManager,
+      PushNotificationScheduler pushNotificationScheduler,
       ClientPresenceManager clientPresenceManager,
       ScheduledExecutorService scheduledExecutorService,
       Scheduler messageDeliveryScheduler,
@@ -79,6 +82,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
     this.messagesManager = messagesManager;
     this.messageMetrics = messageMetrics;
     this.pushNotificationManager = pushNotificationManager;
+    this.pushNotificationScheduler = pushNotificationScheduler;
     this.clientPresenceManager = clientPresenceManager;
     this.scheduledExecutorService = scheduledExecutorService;
     this.messageDeliveryScheduler = messageDeliveryScheduler;
@@ -142,6 +146,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
           messagesManager,
           messageMetrics,
           pushNotificationManager,
+          pushNotificationScheduler,
           auth,
           context.getClient(),
           scheduledExecutorService,

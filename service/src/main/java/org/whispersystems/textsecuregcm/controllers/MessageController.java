@@ -113,6 +113,7 @@ import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.providers.MultiRecipientMessageProvider;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
+import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.spam.ReportSpamTokenProvider;
 import org.whispersystems.textsecuregcm.spam.SpamChecker;
@@ -157,6 +158,7 @@ public class MessageController {
   private final AccountsManager accountsManager;
   private final MessagesManager messagesManager;
   private final PushNotificationManager pushNotificationManager;
+  private final PushNotificationScheduler pushNotificationScheduler;
   private final ReportMessageManager reportMessageManager;
   private final ExecutorService multiRecipientMessageExecutor;
   private final Scheduler messageDeliveryScheduler;
@@ -208,6 +210,8 @@ public class MessageController {
   @VisibleForTesting
   static final long MAX_MESSAGE_SIZE = DataSize.kibibytes(256).toBytes();
 
+  private static final Duration NOTIFY_FOR_REMAINING_MESSAGES_DELAY = Duration.ofMinutes(1);
+
   public MessageController(
       RateLimiters rateLimiters,
       CardinalityEstimator messageByteLimitEstimator,
@@ -216,6 +220,7 @@ public class MessageController {
       AccountsManager accountsManager,
       MessagesManager messagesManager,
       PushNotificationManager pushNotificationManager,
+      PushNotificationScheduler pushNotificationScheduler,
       ReportMessageManager reportMessageManager,
       @Nonnull ExecutorService multiRecipientMessageExecutor,
       Scheduler messageDeliveryScheduler,
@@ -233,6 +238,7 @@ public class MessageController {
     this.accountsManager = accountsManager;
     this.messagesManager = messagesManager;
     this.pushNotificationManager = pushNotificationManager;
+    this.pushNotificationScheduler = pushNotificationScheduler;
     this.reportMessageManager = reportMessageManager;
     this.multiRecipientMessageExecutor = Objects.requireNonNull(multiRecipientMessageExecutor);
     this.messageDeliveryScheduler = messageDeliveryScheduler;
@@ -778,6 +784,10 @@ public class MessageController {
 
           Metrics.summary(OUTGOING_MESSAGE_LIST_SIZE_BYTES_DISTRIBUTION_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent)))
               .record(estimateMessageListSizeBytes(messages));
+
+          if (messagesAndHasMore.second()) {
+            pushNotificationScheduler.scheduleDelayedNotification(auth.getAccount(), auth.getAuthenticatedDevice(), NOTIFY_FOR_REMAINING_MESSAGES_DELAY);
+          }
 
           return messages;
         })

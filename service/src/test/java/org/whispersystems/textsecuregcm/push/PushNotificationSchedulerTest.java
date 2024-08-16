@@ -1,0 +1,327 @@
+/*
+ * Copyright 2021 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
+package org.whispersystems.textsecuregcm.push;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+
+import io.lettuce.core.cluster.SlotHash;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import org.apache.commons.lang3.RandomStringUtils;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.mockito.ArgumentCaptor;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
+import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.util.Pair;
+import org.whispersystems.textsecuregcm.util.TestClock;
+
+class PushNotificationSchedulerTest {
+
+  @RegisterExtension
+  static final RedisClusterExtension REDIS_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
+
+  private Account account;
+  private Device device;
+
+  private APNSender apnSender;
+  private FcmSender fcmSender;
+  private TestClock clock;
+
+  private PushNotificationScheduler pushNotificationScheduler;
+
+  private static final UUID ACCOUNT_UUID = UUID.randomUUID();
+  private static final String ACCOUNT_NUMBER = "+18005551234";
+  private static final byte DEVICE_ID = 1;
+  private static final String APN_ID = RandomStringUtils.randomAlphanumeric(32);
+  private static final String VOIP_APN_ID = RandomStringUtils.randomAlphanumeric(32);
+
+  @BeforeEach
+  void setUp() throws Exception {
+
+    device = mock(Device.class);
+    when(device.getId()).thenReturn(DEVICE_ID);
+    when(device.getApnId()).thenReturn(APN_ID);
+    when(device.getVoipApnId()).thenReturn(VOIP_APN_ID);
+    when(device.getLastSeen()).thenReturn(System.currentTimeMillis());
+
+    account = mock(Account.class);
+    when(account.getUuid()).thenReturn(ACCOUNT_UUID);
+    when(account.getIdentifier(IdentityType.ACI)).thenReturn(ACCOUNT_UUID);
+    when(account.getNumber()).thenReturn(ACCOUNT_NUMBER);
+    when(account.getDevice(DEVICE_ID)).thenReturn(Optional.of(device));
+
+    final AccountsManager accountsManager = mock(AccountsManager.class);
+    when(accountsManager.getByE164(ACCOUNT_NUMBER)).thenReturn(Optional.of(account));
+    when(accountsManager.getByAccountIdentifierAsync(ACCOUNT_UUID))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+
+    apnSender = mock(APNSender.class);
+    fcmSender = mock(FcmSender.class);
+    clock = TestClock.now();
+
+    when(apnSender.sendNotification(any()))
+        .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(true, Optional.empty(), false, Optional.empty())));
+
+    when(fcmSender.sendNotification(any()))
+        .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(true, Optional.empty(), false, Optional.empty())));
+
+    pushNotificationScheduler = new PushNotificationScheduler(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
+        apnSender, fcmSender, accountsManager, clock, 1, 1);
+  }
+
+  @Test
+  void testClusterInsert() throws ExecutionException, InterruptedException {
+    final String endpoint = PushNotificationScheduler.getVoipEndpointKey(ACCOUNT_UUID, DEVICE_ID);
+    final long currentTimeMillis = System.currentTimeMillis();
+
+    assertTrue(
+        pushNotificationScheduler.getPendingDestinationsForRecurringApnsVoipNotifications(SlotHash.getSlot(endpoint), 1).isEmpty());
+
+    clock.pin(Instant.ofEpochMilli(currentTimeMillis - 30_000));
+    pushNotificationScheduler.scheduleRecurringApnsVoipNotification(account, device).toCompletableFuture().get();
+
+    clock.pin(Instant.ofEpochMilli(currentTimeMillis));
+    final List<String> pendingDestinations = pushNotificationScheduler.getPendingDestinationsForRecurringApnsVoipNotifications(SlotHash.getSlot(endpoint), 2);
+    assertEquals(1, pendingDestinations.size());
+
+    final Pair<UUID, Byte> aciAndDeviceId =
+        PushNotificationScheduler.decodeAciAndDeviceId(pendingDestinations.getFirst());
+
+    assertEquals(ACCOUNT_UUID, aciAndDeviceId.first());
+    assertEquals(DEVICE_ID, aciAndDeviceId.second());
+
+    assertTrue(
+        pushNotificationScheduler.getPendingDestinationsForRecurringApnsVoipNotifications(SlotHash.getSlot(endpoint), 1).isEmpty());
+  }
+
+  @Test
+  void testProcessRecurringVoipNotifications() throws ExecutionException, InterruptedException {
+    final PushNotificationScheduler.NotificationWorker worker = pushNotificationScheduler.new NotificationWorker(1);
+    final long currentTimeMillis = System.currentTimeMillis();
+
+    clock.pin(Instant.ofEpochMilli(currentTimeMillis - 30_000));
+    pushNotificationScheduler.scheduleRecurringApnsVoipNotification(account, device).toCompletableFuture().get();
+
+    clock.pin(Instant.ofEpochMilli(currentTimeMillis));
+
+    final int slot = SlotHash.getSlot(PushNotificationScheduler.getVoipEndpointKey(ACCOUNT_UUID, DEVICE_ID));
+
+    assertEquals(1, worker.processRecurringApnsVoipNotifications(slot));
+
+    final ArgumentCaptor<PushNotification> notificationCaptor = ArgumentCaptor.forClass(PushNotification.class);
+    verify(apnSender).sendNotification(notificationCaptor.capture());
+
+    final PushNotification pushNotification = notificationCaptor.getValue();
+
+    assertEquals(VOIP_APN_ID, pushNotification.deviceToken());
+    assertEquals(account, pushNotification.destination());
+    assertEquals(device, pushNotification.destinationDevice());
+
+    assertEquals(0, worker.processRecurringApnsVoipNotifications(slot));
+  }
+
+  @Test
+  void testScheduleBackgroundNotificationWithNoRecentApnsNotification() throws ExecutionException, InterruptedException {
+    final Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
+    clock.pin(now);
+
+    assertEquals(Optional.empty(),
+        pushNotificationScheduler.getLastBackgroundApnsNotificationTimestamp(account, device));
+
+    assertEquals(Optional.empty(),
+        pushNotificationScheduler.getNextScheduledBackgroundApnsNotificationTimestamp(account, device));
+
+    pushNotificationScheduler.scheduleBackgroundApnsNotification(account, device).toCompletableFuture().get();
+
+    assertEquals(Optional.of(now),
+        pushNotificationScheduler.getNextScheduledBackgroundApnsNotificationTimestamp(account, device));
+  }
+
+  @Test
+  void testScheduleBackgroundNotificationWithRecentApnsNotification() throws ExecutionException, InterruptedException {
+    final Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
+    final Instant recentNotificationTimestamp =
+        now.minus(PushNotificationScheduler.BACKGROUND_NOTIFICATION_PERIOD.dividedBy(2));
+
+    // Insert a timestamp for a recently-sent background push notification
+    clock.pin(Instant.ofEpochMilli(recentNotificationTimestamp.toEpochMilli()));
+    pushNotificationScheduler.sendBackgroundApnsNotification(account, device);
+
+    clock.pin(now);
+    pushNotificationScheduler.scheduleBackgroundApnsNotification(account, device).toCompletableFuture().get();
+
+    final Instant expectedScheduledTimestamp =
+        recentNotificationTimestamp.plus(PushNotificationScheduler.BACKGROUND_NOTIFICATION_PERIOD);
+
+    assertEquals(Optional.of(expectedScheduledTimestamp),
+        pushNotificationScheduler.getNextScheduledBackgroundApnsNotificationTimestamp(account, device));
+  }
+
+  @Test
+  void testCancelBackgroundApnsNotifications() {
+    final Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
+    clock.pin(now);
+
+    pushNotificationScheduler.scheduleBackgroundApnsNotification(account, device).toCompletableFuture().join();
+    pushNotificationScheduler.cancelBackgroundApnsNotifications(account, device).join();
+
+    assertEquals(Optional.empty(),
+        pushNotificationScheduler.getLastBackgroundApnsNotificationTimestamp(account, device));
+
+    assertEquals(Optional.empty(),
+        pushNotificationScheduler.getNextScheduledBackgroundApnsNotificationTimestamp(account, device));
+  }
+
+  @Test
+  void testProcessScheduledBackgroundNotifications() {
+    final PushNotificationScheduler.NotificationWorker worker = pushNotificationScheduler.new NotificationWorker(1);
+
+    final Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
+
+    clock.pin(Instant.ofEpochMilli(now.toEpochMilli()));
+    pushNotificationScheduler.scheduleBackgroundApnsNotification(account, device).toCompletableFuture().join();
+
+    final int slot =
+        SlotHash.getSlot(PushNotificationScheduler.getPendingBackgroundApnsNotificationQueueKey(account, device));
+
+    clock.pin(Instant.ofEpochMilli(now.minusMillis(1).toEpochMilli()));
+    assertEquals(0, worker.processScheduledBackgroundApnsNotifications(slot));
+
+    clock.pin(now);
+    assertEquals(1, worker.processScheduledBackgroundApnsNotifications(slot));
+
+    final ArgumentCaptor<PushNotification> notificationCaptor = ArgumentCaptor.forClass(PushNotification.class);
+    verify(apnSender).sendNotification(notificationCaptor.capture());
+
+    final PushNotification pushNotification = notificationCaptor.getValue();
+
+    assertEquals(PushNotification.TokenType.APN, pushNotification.tokenType());
+    assertEquals(APN_ID, pushNotification.deviceToken());
+    assertEquals(account, pushNotification.destination());
+    assertEquals(device, pushNotification.destinationDevice());
+    assertEquals(PushNotification.NotificationType.NOTIFICATION, pushNotification.notificationType());
+    assertFalse(pushNotification.urgent());
+
+    assertEquals(0, worker.processRecurringApnsVoipNotifications(slot));
+
+    assertEquals(Optional.empty(),
+        pushNotificationScheduler.getNextScheduledBackgroundApnsNotificationTimestamp(account, device));
+  }
+
+  @Test
+  void testProcessScheduledBackgroundNotificationsCancelled() throws ExecutionException, InterruptedException {
+    final PushNotificationScheduler.NotificationWorker worker = pushNotificationScheduler.new NotificationWorker(1);
+
+    final Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
+
+    clock.pin(now);
+    pushNotificationScheduler.scheduleBackgroundApnsNotification(account, device).toCompletableFuture().get();
+    pushNotificationScheduler.cancelScheduledNotifications(account, device).toCompletableFuture().get();
+
+    final int slot =
+        SlotHash.getSlot(PushNotificationScheduler.getPendingBackgroundApnsNotificationQueueKey(account, device));
+
+    assertEquals(0, worker.processScheduledBackgroundApnsNotifications(slot));
+
+    verify(apnSender, never()).sendNotification(any());
+  }
+
+  @Test
+  void testScheduleDelayedNotification() {
+    clock.pin(Instant.now());
+
+    assertEquals(Optional.empty(),
+        pushNotificationScheduler.getNextScheduledDelayedNotificationTimestamp(account, device));
+
+    pushNotificationScheduler.scheduleDelayedNotification(account, device, Duration.ofMinutes(1)).join();
+
+    assertEquals(Optional.of(clock.instant().truncatedTo(ChronoUnit.MILLIS).plus(Duration.ofMinutes(1))),
+        pushNotificationScheduler.getNextScheduledDelayedNotificationTimestamp(account, device));
+
+    pushNotificationScheduler.scheduleDelayedNotification(account, device, Duration.ofMinutes(2)).join();
+
+    assertEquals(Optional.of(clock.instant().truncatedTo(ChronoUnit.MILLIS).plus(Duration.ofMinutes(2))),
+        pushNotificationScheduler.getNextScheduledDelayedNotificationTimestamp(account, device));
+  }
+
+  @Test
+  void testCancelDelayedNotification() {
+    pushNotificationScheduler.scheduleDelayedNotification(account, device, Duration.ofMinutes(1)).join();
+    pushNotificationScheduler.cancelDelayedNotifications(account, device).join();
+
+    assertEquals(Optional.empty(),
+        pushNotificationScheduler.getNextScheduledDelayedNotificationTimestamp(account, device));
+  }
+
+  @Test
+  void testProcessScheduledDelayedNotifications() {
+    final PushNotificationScheduler.NotificationWorker worker = pushNotificationScheduler.new NotificationWorker(1);
+    final int slot = SlotHash.getSlot(PushNotificationScheduler.getDelayedNotificationQueueKey(account, device));
+
+    clock.pin(Instant.now());
+
+    pushNotificationScheduler.scheduleDelayedNotification(account, device, Duration.ofMinutes(1)).join();
+
+    assertEquals(0, worker.processScheduledDelayedNotifications(slot));
+
+    clock.pin(clock.instant().plus(Duration.ofMinutes(1)));
+
+    assertEquals(1, worker.processScheduledDelayedNotifications(slot));
+    assertEquals(Optional.empty(),
+        pushNotificationScheduler.getNextScheduledDelayedNotificationTimestamp(account, device));
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+      "1, true",
+      "0, false",
+  })
+  void testDedicatedProcessDynamicConfiguration(final int dedicatedThreadCount, final boolean expectActivity)
+      throws Exception {
+
+    final FaultTolerantRedisCluster redisCluster = mock(FaultTolerantRedisCluster.class);
+    when(redisCluster.withCluster(any())).thenReturn(0L);
+
+    final AccountsManager accountsManager = mock(AccountsManager.class);
+
+    pushNotificationScheduler = new PushNotificationScheduler(redisCluster, apnSender, fcmSender,
+        accountsManager, dedicatedThreadCount, 1);
+
+    pushNotificationScheduler.start();
+    pushNotificationScheduler.stop();
+
+    if (expectActivity) {
+      verify(redisCluster, atLeastOnce()).withCluster(any());
+    } else {
+      verifyNoInteractions(redisCluster);
+      verifyNoInteractions(accountsManager);
+      verifyNoInteractions(apnSender);
+    }
+  }
+}

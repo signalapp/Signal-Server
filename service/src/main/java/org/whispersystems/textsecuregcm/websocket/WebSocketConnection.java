@@ -13,6 +13,7 @@ import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -43,8 +44,8 @@ import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.DisplacedPresenceListener;
-import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
+import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -88,8 +89,6 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
       "sendMessages");
   private static final String SEND_MESSAGE_ERROR_COUNTER = MetricsUtil.name(WebSocketConnection.class,
       "sendMessageError");
-  private static final String PUSH_NOTIFICATION_ON_CLOSE_COUNTER_NAME =
-      MetricsUtil.name(WebSocketConnection.class, "pushNotificationOnClose");
   private static final String STATUS_CODE_TAG = "status";
   private static final String STATUS_MESSAGE_TAG = "message";
   private static final String ERROR_TYPE_TAG = "errorType";
@@ -109,12 +108,15 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
 
   private static final int DEFAULT_SEND_FUTURES_TIMEOUT_MILLIS = 5 * 60 * 1000;
 
+  private static final Duration CLOSE_WITH_PENDING_MESSAGES_NOTIFICATION_DELAY = Duration.ofMinutes(1);
+
   private static final Logger logger = LoggerFactory.getLogger(WebSocketConnection.class);
 
   private final ReceiptSender receiptSender;
   private final MessagesManager messagesManager;
   private final MessageMetrics messageMetrics;
   private final PushNotificationManager pushNotificationManager;
+  private final PushNotificationScheduler pushNotificationScheduler;
 
   private final AuthenticatedDevice auth;
   private final WebSocketClient client;
@@ -148,6 +150,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
       MessagesManager messagesManager,
       MessageMetrics messageMetrics,
       PushNotificationManager pushNotificationManager,
+      PushNotificationScheduler pushNotificationScheduler,
       AuthenticatedDevice auth,
       WebSocketClient client,
       ScheduledExecutorService scheduledExecutorService,
@@ -158,6 +161,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
         messagesManager,
         messageMetrics,
         pushNotificationManager,
+        pushNotificationScheduler,
         auth,
         client,
         DEFAULT_SEND_FUTURES_TIMEOUT_MILLIS,
@@ -171,6 +175,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
       MessagesManager messagesManager,
       MessageMetrics messageMetrics,
       PushNotificationManager pushNotificationManager,
+      PushNotificationScheduler pushNotificationScheduler,
       AuthenticatedDevice auth,
       WebSocketClient client,
       int sendFuturesTimeoutMillis,
@@ -182,6 +187,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
     this.messagesManager = messagesManager;
     this.messageMetrics = messageMetrics;
     this.pushNotificationManager = pushNotificationManager;
+    this.pushNotificationScheduler = pushNotificationScheduler;
     this.auth = auth;
     this.client = client;
     this.sendFuturesTimeoutMillis = sendFuturesTimeoutMillis;
@@ -211,14 +217,9 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
     client.close(1000, "OK");
 
     if (storedMessageState.get() != StoredMessageState.EMPTY) {
-      try {
-        pushNotificationManager.sendNewMessageNotification(auth.getAccount(), auth.getAuthenticatedDevice().getId(), true);
-
-        Metrics.counter(PUSH_NOTIFICATION_ON_CLOSE_COUNTER_NAME,
-                Tags.of(UserAgentTagUtil.getPlatformTag(client.getUserAgent())))
-            .increment();
-      } catch (NotPushRegisteredException ignored) {
-      }
+      pushNotificationScheduler.scheduleDelayedNotification(auth.getAccount(),
+          auth.getAuthenticatedDevice(),
+          CLOSE_WITH_PENDING_MESSAGES_NOTIFICATION_DELAY);
     }
   }
 

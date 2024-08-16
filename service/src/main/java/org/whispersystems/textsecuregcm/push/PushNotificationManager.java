@@ -17,7 +17,6 @@ import java.util.function.BiConsumer;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -28,7 +27,7 @@ public class PushNotificationManager {
   private final AccountsManager accountsManager;
   private final APNSender apnSender;
   private final FcmSender fcmSender;
-  private final ApnPushNotificationScheduler apnPushNotificationScheduler;
+  private final PushNotificationScheduler pushNotificationScheduler;
 
   private static final String SENT_NOTIFICATION_COUNTER_NAME = name(PushNotificationManager.class, "sentPushNotification");
   private static final String FAILED_NOTIFICATION_COUNTER_NAME = name(PushNotificationManager.class, "failedPushNotification");
@@ -39,12 +38,12 @@ public class PushNotificationManager {
   public PushNotificationManager(final AccountsManager accountsManager,
       final APNSender apnSender,
       final FcmSender fcmSender,
-      final ApnPushNotificationScheduler apnPushNotificationScheduler) {
+      final PushNotificationScheduler pushNotificationScheduler) {
 
     this.accountsManager = accountsManager;
     this.apnSender = apnSender;
     this.fcmSender = fcmSender;
-    this.apnPushNotificationScheduler = apnPushNotificationScheduler;
+    this.pushNotificationScheduler = pushNotificationScheduler;
   }
 
   public CompletableFuture<Optional<SendPushNotificationResult>> sendNewMessageNotification(final Account destination, final byte destinationDeviceId, final boolean urgent) throws NotPushRegisteredException {
@@ -82,7 +81,7 @@ public class PushNotificationManager {
   }
 
   public void handleMessagesRetrieved(final Account account, final Device device, final String userAgent) {
-    apnPushNotificationScheduler.cancelScheduledNotifications(account, device).whenComplete(logErrors());
+    pushNotificationScheduler.cancelScheduledNotifications(account, device).whenComplete(logErrors());
   }
 
   @VisibleForTesting
@@ -107,8 +106,8 @@ public class PushNotificationManager {
     if (pushNotification.tokenType() == PushNotification.TokenType.APN && !pushNotification.urgent()) {
       // APNs imposes a per-device limit on background push notifications; schedule a notification for some time in the
       // future (possibly even now!) rather than sending a notification directly
-      return apnPushNotificationScheduler
-          .scheduleBackgroundNotification(pushNotification.destination(), pushNotification.destinationDevice())
+      return pushNotificationScheduler
+          .scheduleBackgroundApnsNotification(pushNotification.destination(), pushNotification.destinationDevice())
           .whenComplete(logErrors())
           .thenApply(ignored -> Optional.<SendPushNotificationResult>empty())
           .toCompletableFuture();
@@ -149,7 +148,7 @@ public class PushNotificationManager {
             pushNotification.destination() != null &&
             pushNotification.destinationDevice() != null) {
 
-          apnPushNotificationScheduler.scheduleRecurringVoipNotification(
+          pushNotificationScheduler.scheduleRecurringApnsVoipNotification(
                   pushNotification.destination(),
                   pushNotification.destinationDevice())
               .whenComplete(logErrors());
@@ -185,7 +184,7 @@ public class PushNotificationManager {
 
     if (tokenExpired) {
       if (tokenType == PushNotification.TokenType.APN || tokenType == PushNotification.TokenType.APN_VOIP) {
-        apnPushNotificationScheduler.cancelScheduledNotifications(account, device).whenComplete(logErrors());
+        pushNotificationScheduler.cancelScheduledNotifications(account, device).whenComplete(logErrors());
       }
 
       clearPushToken(account, device, tokenType);

@@ -18,12 +18,14 @@ import net.sourceforge.argparse4j.inf.Subparser;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.push.APNSender;
-import org.whispersystems.textsecuregcm.push.ApnPushNotificationScheduler;
+import org.whispersystems.textsecuregcm.push.FcmSender;
+import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.util.logging.UncaughtExceptionHandler;
 
 public class ScheduledApnPushNotificationSenderServiceCommand extends ServerCommand<WhisperServerConfiguration> {
 
   private static final String WORKER_COUNT = "workers";
+  private static final String MAX_CONCURRENCY = "max_concurrency";
 
   public ScheduledApnPushNotificationSenderServiceCommand() {
     super(new Application<>() {
@@ -38,11 +40,19 @@ public class ScheduledApnPushNotificationSenderServiceCommand extends ServerComm
   @Override
   public void configure(final Subparser subparser) {
     super.configure(subparser);
+
     subparser.addArgument("--workers")
         .type(Integer.class)
         .dest(WORKER_COUNT)
         .required(true)
         .help("The number of worker threads");
+
+    subparser.addArgument("--max-concurrency")
+        .type(Integer.class)
+        .dest(MAX_CONCURRENCY)
+        .required(false)
+        .setDefault(16)
+        .help("The number of concurrent operations per worker thread");
   }
 
   @Override
@@ -63,15 +73,16 @@ public class ScheduledApnPushNotificationSenderServiceCommand extends ServerComm
           });
     }
 
-    final ExecutorService apnSenderExecutor = environment.lifecycle().executorService(name(getClass(), "apnSender-%d"))
+    final ExecutorService pushNotificationSenderExecutor = environment.lifecycle().executorService(name(getClass(), "apnSender-%d"))
         .maxThreads(1).minThreads(1).build();
 
-    final APNSender apnSender = new APNSender(apnSenderExecutor, configuration.getApnConfiguration());
-    final ApnPushNotificationScheduler apnPushNotificationScheduler = new ApnPushNotificationScheduler(
-        deps.pushSchedulerCluster(), apnSender, deps.accountsManager(), namespace.getInt(WORKER_COUNT));
+    final APNSender apnSender = new APNSender(pushNotificationSenderExecutor, configuration.getApnConfiguration());
+    final FcmSender fcmSender = new FcmSender(pushNotificationSenderExecutor, configuration.getFcmConfiguration().credentials().value());
+    final PushNotificationScheduler pushNotificationScheduler = new PushNotificationScheduler(
+        deps.pushSchedulerCluster(), apnSender, fcmSender, deps.accountsManager(), namespace.getInt(WORKER_COUNT), namespace.getInt(MAX_CONCURRENCY));
 
     environment.lifecycle().manage(apnSender);
-    environment.lifecycle().manage(apnPushNotificationScheduler);
+    environment.lifecycle().manage(pushNotificationScheduler);
 
     MetricsUtil.registerSystemResourceMetrics(environment);
 

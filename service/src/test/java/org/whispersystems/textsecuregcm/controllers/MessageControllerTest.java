@@ -76,6 +76,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junitpioneer.jupiter.cartesian.ArgumentSets;
@@ -109,6 +110,7 @@ import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.providers.MultiRecipientMessageProvider;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
+import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.spam.ReportSpamTokenProvider;
 import org.whispersystems.textsecuregcm.spam.SpamChecker;
@@ -179,6 +181,7 @@ class MessageControllerTest {
   private static final CardinalityEstimator cardinalityEstimator = mock(CardinalityEstimator.class);
   private static final RateLimiter rateLimiter = mock(RateLimiter.class);
   private static final PushNotificationManager pushNotificationManager = mock(PushNotificationManager.class);
+  private static final PushNotificationScheduler pushNotificationScheduler = mock(PushNotificationScheduler.class);
   private static final ReportMessageManager reportMessageManager = mock(ReportMessageManager.class);
   private static final ExecutorService multiRecipientMessageExecutor = MoreExecutors.newDirectExecutorService();
   private static final Scheduler messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
@@ -200,13 +203,15 @@ class MessageControllerTest {
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(
           new MessageController(rateLimiters, cardinalityEstimator, messageSender, receiptSender, accountsManager,
-              messagesManager, pushNotificationManager, reportMessageManager, multiRecipientMessageExecutor,
+              messagesManager, pushNotificationManager, pushNotificationScheduler, reportMessageManager, multiRecipientMessageExecutor,
               messageDeliveryScheduler, ReportSpamTokenProvider.noop(), mock(ClientReleaseManager.class), dynamicConfigurationManager,
               serverSecretParams, SpamChecker.noop(), new MessageMetrics(), clock))
       .build();
 
   @BeforeEach
   void setup() {
+    reset(pushNotificationScheduler);
+
     final List<Device> singleDeviceList = List.of(
         generateTestDevice(SINGLE_DEVICE_ID1, SINGLE_DEVICE_REG_ID1, SINGLE_DEVICE_PNI_REG_ID1, true)
     );
@@ -630,8 +635,13 @@ class MessageControllerTest {
   }
 
   @ParameterizedTest
-  @MethodSource
-  void testGetMessages(boolean receiveStories) {
+  @CsvSource({
+      "false, false",
+      "false, true",
+      "true, false",
+      "true, true"
+  })
+  void testGetMessages(final boolean receiveStories, final boolean hasMore) {
 
     final long timestampOne = 313377;
     final long timestampTwo = 313388;
@@ -651,7 +661,7 @@ class MessageControllerTest {
     );
 
     when(messagesManager.getMessagesForDevice(eq(AuthHelper.VALID_UUID), eq(AuthHelper.VALID_DEVICE), anyBoolean()))
-        .thenReturn(Mono.just(new Pair<>(envelopes, false)));
+        .thenReturn(Mono.just(new Pair<>(envelopes, hasMore)));
 
     final String userAgent = "Test-UA";
 
@@ -685,13 +695,12 @@ class MessageControllerTest {
     }
 
     verify(pushNotificationManager).handleMessagesRetrieved(AuthHelper.VALID_ACCOUNT, AuthHelper.VALID_DEVICE, userAgent);
-  }
 
-  private static Stream<Arguments> testGetMessages() {
-    return Stream.of(
-        Arguments.of(true),
-        Arguments.of(false)
-    );
+    if (hasMore) {
+      verify(pushNotificationScheduler).scheduleDelayedNotification(eq(AuthHelper.VALID_ACCOUNT), eq(AuthHelper.VALID_DEVICE), any());
+    } else {
+      verify(pushNotificationScheduler, never()).scheduleDelayedNotification(any(), any(), any());
+    }
   }
 
   @Test
