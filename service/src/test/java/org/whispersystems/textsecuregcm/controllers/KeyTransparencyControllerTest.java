@@ -13,10 +13,6 @@ import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
-import katie.FullTreeHead;
-import katie.MonitorProof;
-import katie.MonitorResponse;
-import katie.SearchResponse;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,7 +42,6 @@ import javax.ws.rs.client.Invocation;
 import javax.ws.rs.core.Response;
 import java.io.UncheckedIOException;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -123,9 +118,8 @@ public class KeyTransparencyControllerTest {
   @ParameterizedTest
   @MethodSource
   void searchSuccess(final Optional<String> e164, final Optional<byte[]> usernameHash, final int expectedNumClientCalls) {
-    final SearchResponse searchResponse = SearchResponse.newBuilder().build();
     when(keyTransparencyServiceClient.search(any(), any(), any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(searchResponse));
+        .thenReturn(CompletableFuture.completedFuture(TestRandomUtil.nextBytes(16)));
 
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/key-transparency/search")
@@ -235,25 +229,10 @@ public class KeyTransparencyControllerTest {
     }
   }
 
-  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-  @ParameterizedTest
-  @MethodSource
-  void monitorSuccess(
-      final Optional<String> e164,
-      final Optional<List<Long>> e164Positions,
-      final Optional<byte[]> usernameHash,
-      final Optional<List<Long>> usernameHashPositions) {
-    final List<MonitorProof> monitorProofs = new ArrayList<>(List.of(MonitorProof.newBuilder().build()));
-    e164.ifPresent(ignored -> monitorProofs.add(MonitorProof.newBuilder().build()));
-    usernameHash.ifPresent(ignored -> monitorProofs.add(MonitorProof.newBuilder().build()));
-
-    final MonitorResponse monitorResponse = MonitorResponse.newBuilder()
-        .setTreeHead(FullTreeHead.newBuilder().build())
-        .addAllContactProofs(monitorProofs)
-        .build();
-
+  @Test
+  void monitorSuccess() {
     when(keyTransparencyServiceClient.monitor(any(), any(), any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(monitorResponse));
+        .thenReturn(CompletableFuture.completedFuture(TestRandomUtil.nextBytes(16)));
 
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/key-transparency/monitor")
@@ -262,33 +241,18 @@ public class KeyTransparencyControllerTest {
     try (Response response = request.post(Entity.json(
         createMonitorRequestJson(
             ACI, List.of(3L),
-            usernameHash, usernameHashPositions,
-            e164, e164Positions,
+            Optional.empty(), Optional.empty(),
+            Optional.empty(), Optional.empty(),
             Optional.of(3L), Optional.of(4L))))) {
       assertEquals(200, response.getStatus());
 
       final KeyTransparencyMonitorResponse keyTransparencyMonitorResponse = response.readEntity(
           KeyTransparencyMonitorResponse.class);
-      assertNotNull(keyTransparencyMonitorResponse.aciMonitorProof());
-
-      usernameHash.ifPresentOrElse(
-          ignored -> assertTrue(keyTransparencyMonitorResponse.usernameHashMonitorProof().isPresent()),
-          () -> assertTrue(keyTransparencyMonitorResponse.usernameHashMonitorProof().isEmpty()));
-
-      e164.ifPresentOrElse(ignored -> assertTrue(keyTransparencyMonitorResponse.e164MonitorProof().isPresent()),
-          () -> assertTrue(keyTransparencyMonitorResponse.e164MonitorProof().isEmpty()));
+      assertNotNull(keyTransparencyMonitorResponse.monitorResponse());
 
       verify(keyTransparencyServiceClient, times(1)).monitor(
           any(), eq(Optional.of(3L)), eq(Optional.of(4L)), eq(KeyTransparencyController.KEY_TRANSPARENCY_RPC_TIMEOUT));
     }
-  }
-
-  private static Stream<Arguments> monitorSuccess() {
-    return Stream.of(
-        Arguments.of(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
-        Arguments.of(Optional.empty(), Optional.empty(), Optional.of(TestRandomUtil.nextBytes(20)), Optional.of(List.of(3L))),
-        Arguments.of(Optional.of(NUMBER), Optional.of(List.of(3L)), Optional.empty(), Optional.empty())
-    );
   }
 
   @Test
@@ -395,10 +359,6 @@ public class KeyTransparencyControllerTest {
   }
 
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-  /**
-   * Create an invalid monitor request by supplying an invalid combination of inputs. For example, providing
-   * a username hash but no corresponding list of positions.
-   */
   private static String createMonitorRequestJson(
       final AciServiceIdentifier aci,
       final List<Long> aciPositions,

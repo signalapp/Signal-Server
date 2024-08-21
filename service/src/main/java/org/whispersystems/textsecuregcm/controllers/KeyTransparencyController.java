@@ -14,9 +14,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import katie.MonitorKey;
-import katie.MonitorProof;
-import katie.MonitorResponse;
-import katie.SearchResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
@@ -93,13 +90,13 @@ public class KeyTransparencyController {
     requireNotAuthenticated(authenticatedAccount);
 
     try {
-      final CompletableFuture<SearchResponse> aciSearchKeyResponseFuture = keyTransparencyServiceClient.search(
+      final CompletableFuture<byte[]> aciSearchKeyResponseFuture = keyTransparencyServiceClient.search(
           getFullSearchKeyByteString(ACI_PREFIX, request.aci().toCompactByteArray()),
           request.lastTreeHeadSize(),
           request.distinguishedTreeHeadSize(),
           KEY_TRANSPARENCY_RPC_TIMEOUT);
 
-      final CompletableFuture<SearchResponse> e164SearchKeyResponseFuture = request.e164()
+      final CompletableFuture<byte[]> e164SearchKeyResponseFuture = request.e164()
           .map(e164 -> keyTransparencyServiceClient.search(
               getFullSearchKeyByteString(E164_PREFIX, e164.getBytes(StandardCharsets.UTF_8)),
               request.lastTreeHeadSize(),
@@ -107,7 +104,7 @@ public class KeyTransparencyController {
               KEY_TRANSPARENCY_RPC_TIMEOUT))
           .orElse(CompletableFuture.completedFuture(null));
 
-      final CompletableFuture<SearchResponse> usernameHashSearchKeyResponseFuture = request.usernameHash()
+      final CompletableFuture<byte[]> usernameHashSearchKeyResponseFuture = request.usernameHash()
           .map(usernameHash -> keyTransparencyServiceClient.search(
               getFullSearchKeyByteString(USERNAME_PREFIX, request.usernameHash().get()),
               request.lastTreeHeadSize(),
@@ -171,32 +168,11 @@ public class KeyTransparencyController {
                   request.e164Positions().get()))
       );
 
-      final MonitorResponse monitorResponse = keyTransparencyServiceClient.monitor(
+      return new KeyTransparencyMonitorResponse(keyTransparencyServiceClient.monitor(
           monitorKeys,
           request.lastNonDistinguishedTreeHeadSize(),
           request.lastDistinguishedTreeHeadSize(),
-          KEY_TRANSPARENCY_RPC_TIMEOUT).join();
-
-      MonitorProof usernameHashMonitorProof = null;
-      MonitorProof e164MonitorProof = null;
-
-      // In the future we'll update KT's monitor response structure to enumerate each monitor key proof
-      // rather than returning everything in a list
-      if (monitorResponse.getContactProofsCount() == 3) {
-        e164MonitorProof = monitorResponse.getContactProofs(1);
-        usernameHashMonitorProof = monitorResponse.getContactProofs(2);
-      } else if (monitorResponse.getContactProofsCount() == 2) {
-        if (request.usernameHash().isPresent()) {
-          usernameHashMonitorProof = monitorResponse.getContactProofs(1);
-        } else if (request.e164().isPresent()) {
-          e164MonitorProof = monitorResponse.getContactProofs(1);
-        }
-      }
-      return new KeyTransparencyMonitorResponse(monitorResponse.getTreeHead(),
-          monitorResponse.getContactProofs(0),
-          Optional.ofNullable(e164MonitorProof),
-          Optional.ofNullable(usernameHashMonitorProof),
-          monitorResponse.getInclusionList().stream().map(ByteString::toByteArray).toList());
+          KEY_TRANSPARENCY_RPC_TIMEOUT).join());
     } catch (final CancellationException exception) {
       LOGGER.error("Unexpected cancellation from key transparency service", exception);
       throw new ServerErrorException(Response.Status.SERVICE_UNAVAILABLE, exception);

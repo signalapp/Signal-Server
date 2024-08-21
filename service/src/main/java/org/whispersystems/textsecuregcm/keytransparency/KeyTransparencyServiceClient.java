@@ -1,5 +1,6 @@
 package org.whispersystems.textsecuregcm.keytransparency;
 
+import com.google.protobuf.AbstractMessageLite;
 import com.google.protobuf.ByteString;
 import io.dropwizard.lifecycle.Managed;
 import io.grpc.ChannelCredentials;
@@ -53,7 +54,7 @@ public class KeyTransparencyServiceClient implements Managed {
     this.callbackExecutor = callbackExecutor;
   }
 
-  public CompletableFuture<SearchResponse> search(
+  public CompletableFuture<byte[]> search(
       final ByteString searchKey,
       final Optional<Long> lastTreeHeadSize,
       final Optional<Long> distinguishedTreeHeadSize,
@@ -68,10 +69,11 @@ public class KeyTransparencyServiceClient implements Managed {
     searchRequestBuilder.setConsistency(consistency);
 
     return CompletableFutureUtil.toCompletableFuture(stub.withDeadline(toDeadline(timeout))
-        .search(searchRequestBuilder.build()), callbackExecutor);
+        .search(searchRequestBuilder.build()), callbackExecutor)
+        .thenApply(AbstractMessageLite::toByteArray);
   }
 
-  public CompletableFuture<MonitorResponse> monitor(final List<MonitorKey> monitorKeys,
+  public CompletableFuture<byte[]> monitor(final List<MonitorKey> monitorKeys,
       final Optional<Long> lastTreeHeadSize,
       final Optional<Long> distinguishedTreeHeadSize,
       final Duration timeout) {
@@ -85,7 +87,8 @@ public class KeyTransparencyServiceClient implements Managed {
     monitorRequestBuilder.setConsistency(consistency);
 
     return CompletableFutureUtil.toCompletableFuture(stub.withDeadline(toDeadline(timeout))
-        .monitor(monitorRequestBuilder.build()), callbackExecutor);
+        .monitor(monitorRequestBuilder.build()), callbackExecutor)
+        .thenApply(AbstractMessageLite::toByteArray);
   }
 
   private static Deadline toDeadline(final Duration timeout) {
