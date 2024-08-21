@@ -67,18 +67,23 @@ class AccountTest {
     when(oldSecondaryDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(366));
     when(oldSecondaryDevice.getId()).thenReturn(deviceId2);
 
+    when(paymentActivationCapableDevice.getId()).thenReturn((byte) 1);
     when(paymentActivationCapableDevice.getCapabilities())
         .thenReturn(new DeviceCapabilities(true, true, true, false, false));
 
+    when(paymentActivationIncapableDevice.getId()).thenReturn((byte) 2);
     when(paymentActivationIncapableDevice.getCapabilities())
         .thenReturn(new DeviceCapabilities(true, true, false, false, false));
 
+    when(paymentActivationIncapableDeviceWithoutDeliveryChannel.getId()).thenReturn((byte) 3);
     when(paymentActivationIncapableDeviceWithoutDeliveryChannel.getCapabilities())
         .thenReturn(new DeviceCapabilities(true, true, false, false, false));
 
+    when(deleteSyncCapableDevice.getId()).thenReturn((byte) 1);
     when(deleteSyncCapableDevice.getCapabilities())
         .thenReturn(new DeviceCapabilities(true, true, true, true, false));
 
+    when(deleteSyncIncapableDevice.getId()).thenReturn((byte) 2);
     when(deleteSyncIncapableDevice.getCapabilities())
         .thenReturn(new DeviceCapabilities(true, true, true, false, false));
 
@@ -158,10 +163,10 @@ class AccountTest {
         List.of(paymentActivationCapableDevice),
         "1234".getBytes(StandardCharsets.UTF_8)).isPaymentActivationSupported()).isTrue();
     assertThat(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(),
-        List.of(paymentActivationCapableDevice, paymentActivationIncapableDevice),
+        List.of(paymentActivationIncapableDevice, paymentActivationCapableDevice),
         "1234".getBytes(StandardCharsets.UTF_8)).isPaymentActivationSupported()).isFalse();
     assertThat(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(),
-        List.of(paymentActivationCapableDevice, paymentActivationIncapableDeviceWithoutDeliveryChannel),
+        List.of(paymentActivationIncapableDeviceWithoutDeliveryChannel, paymentActivationCapableDevice),
         "1234".getBytes(StandardCharsets.UTF_8)).isPaymentActivationSupported()).isFalse();
   }
 
@@ -171,7 +176,7 @@ class AccountTest {
         List.of(deleteSyncCapableDevice),
         "1234".getBytes(StandardCharsets.UTF_8)).isDeleteSyncSupported());
     assertFalse(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(),
-        List.of(deleteSyncCapableDevice, deleteSyncIncapableDevice),
+        List.of(deleteSyncIncapableDevice, deleteSyncCapableDevice),
         "1234".getBytes(StandardCharsets.UTF_8)).isDeleteSyncSupported());
   }
 
