@@ -296,6 +296,10 @@ public class Account {
     return allDevicesHaveCapability(DeviceCapabilities::deleteSync);
   }
 
+  public boolean isVersionedExpirationTimerSupported() {
+    return allDevicesHaveCapability(DeviceCapabilities::versionedExpirationTimer);
+  }
+
   private boolean allDevicesHaveCapability(final Predicate<DeviceCapabilities> predicate) {
     requireNotStale();
 

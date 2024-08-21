@@ -59,6 +59,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.mockito.ArgumentCaptor;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ServiceId;
@@ -439,10 +440,12 @@ class ProfileControllerTest {
     assertThat(response.getStatus()).isEqualTo(401);
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void testProfileCapabilities(final boolean isDeleteSyncSupported) {
+  @CartesianTest
+  void testProfileCapabilities(
+      @CartesianTest.Values(booleans = {true, false}) final boolean isDeleteSyncSupported,
+      @CartesianTest.Values(booleans = {true, false}) final boolean isVersionedExpirationTimerSupported) {
     when(capabilitiesAccount.isDeleteSyncSupported()).thenReturn(isDeleteSyncSupported);
+    when(capabilitiesAccount.isVersionedExpirationTimerSupported()).thenReturn(isVersionedExpirationTimerSupported);
     final BaseProfileResponse profile = resources.getJerseyTest()
         .target("/v1/profile/" + AuthHelper.VALID_UUID)
         .request()
@@ -450,6 +453,7 @@ class ProfileControllerTest {
         .get(BaseProfileResponse.class);
 
     assertEquals(isDeleteSyncSupported, profile.getCapabilities().deleteSync());
+    assertEquals(isVersionedExpirationTimerSupported, profile.getCapabilities().versionedExpirationTimer());
     assertThat(profile.getCapabilities().paymentActivation()).isTrue();
   }
 

@@ -84,6 +84,7 @@ public class ProfileGrpcHelper {
     return UserCapabilities.newBuilder()
         .setPaymentActivation(capabilities.paymentActivation())
         .setDeleteSync(capabilities.deleteSync())
+        .setVersionedExpirationTimer(capabilities.versionedExpirationTimer())
         .build();
   }
 

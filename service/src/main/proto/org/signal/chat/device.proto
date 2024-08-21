@@ -149,6 +149,7 @@ message SetCapabilitiesRequest {
   bool transfer = 2;
   bool paymentActivation = 3;
   bool deleteSync = 4;
+  bool versionedExpirationTimer = 5;
 }
 
 message SetCapabilitiesResponse {}

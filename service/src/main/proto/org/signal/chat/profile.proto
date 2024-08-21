@@ -326,6 +326,10 @@ message UserCapabilities {
    * Whether all devices linked to the account support delete syncing
    */
   bool delete_sync = 2;
+  /**
+   * Whether all devices linked to the account support a versioned expiration timer
+   */
+  bool versioned_expiration_timer = 3;
 }
 
 message Badge {

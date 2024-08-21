@@ -198,7 +198,8 @@ public class DevicesGrpcService extends ReactorDevicesGrpc.DevicesImplBase {
                     request.getStorage(),
                     request.getTransfer(),
                     request.getPaymentActivation(),
-                    request.getDeleteSync())))))
+                    request.getDeleteSync(),
+                    request.getVersionedExpirationTimer())))))
         .thenReturn(SetCapabilitiesResponse.newBuilder().build());
   }
 }

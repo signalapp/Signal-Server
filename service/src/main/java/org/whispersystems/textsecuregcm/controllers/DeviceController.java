@@ -392,7 +392,10 @@ public class DeviceController {
   }
 
   private static boolean isCapabilityDowngrade(Account account, DeviceCapabilities capabilities) {
-    return account.isDeleteSyncSupported() && !capabilities.deleteSync();
+    boolean isDowngrade = false;
+    isDowngrade |= account.isDeleteSyncSupported() && !capabilities.deleteSync();
+    isDowngrade |= account.isVersionedExpirationTimerSupported() && !capabilities.versionedExpirationTimer();
+    return isDowngrade;
   }
 
   private static String getUsedTokenKey(final String token) {

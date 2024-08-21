@@ -46,6 +46,8 @@ class AccountTest {
   private final Device paymentActivationIncapableDeviceWithoutDeliveryChannel = mock(Device.class);
   private final Device deleteSyncCapableDevice = mock(Device.class);
   private final Device deleteSyncIncapableDevice = mock(Device.class);
+  private final Device versionedExpirationTimerCapableDevice = mock(Device.class);
+  private final Device versionedExpirationTimerIncapableDevice = mock(Device.class);
 
   @BeforeEach
   void setup() {
@@ -66,19 +68,27 @@ class AccountTest {
     when(oldSecondaryDevice.getId()).thenReturn(deviceId2);
 
     when(paymentActivationCapableDevice.getCapabilities())
-        .thenReturn(new DeviceCapabilities(true, true, true, false));
+        .thenReturn(new DeviceCapabilities(true, true, true, false, false));
 
     when(paymentActivationIncapableDevice.getCapabilities())
-        .thenReturn(new DeviceCapabilities(true, true, false, false));
+        .thenReturn(new DeviceCapabilities(true, true, false, false, false));
 
     when(paymentActivationIncapableDeviceWithoutDeliveryChannel.getCapabilities())
-        .thenReturn(new DeviceCapabilities(true, true, false, false));
+        .thenReturn(new DeviceCapabilities(true, true, false, false, false));
 
     when(deleteSyncCapableDevice.getCapabilities())
-        .thenReturn(new DeviceCapabilities(true, true, true, true));
+        .thenReturn(new DeviceCapabilities(true, true, true, true, false));
 
     when(deleteSyncIncapableDevice.getCapabilities())
-        .thenReturn(new DeviceCapabilities(true, true, true, false));
+        .thenReturn(new DeviceCapabilities(true, true, true, false, false));
+
+    when(versionedExpirationTimerCapableDevice.getId()).thenReturn((byte) 1);
+    when(versionedExpirationTimerCapableDevice.getCapabilities())
+        .thenReturn(new DeviceCapabilities(true, true, true, false, true));
+
+    when(versionedExpirationTimerIncapableDevice.getId()).thenReturn((byte) 2);
+    when(versionedExpirationTimerIncapableDevice.getCapabilities())
+        .thenReturn(new DeviceCapabilities(true, true, true, false, false));
 
   }
 
@@ -163,6 +173,16 @@ class AccountTest {
     assertFalse(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(),
         List.of(deleteSyncCapableDevice, deleteSyncIncapableDevice),
         "1234".getBytes(StandardCharsets.UTF_8)).isDeleteSyncSupported());
+  }
+
+  @Test
+  void isVersionedExpirationTimerSupported() {
+    assertTrue(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(),
+        List.of(versionedExpirationTimerCapableDevice),
+        "1234".getBytes(StandardCharsets.UTF_8)).isVersionedExpirationTimerSupported());
+    assertFalse(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(),
+        List.of(versionedExpirationTimerIncapableDevice, versionedExpirationTimerCapableDevice),
+        "1234".getBytes(StandardCharsets.UTF_8)).isVersionedExpirationTimerSupported());
   }
 
   @Test

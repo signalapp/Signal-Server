@@ -187,6 +187,7 @@ public class AccountCreationDeletionIntegrationTest {
         ThreadLocalRandom.current().nextBoolean(),
         ThreadLocalRandom.current().nextBoolean(),
         ThreadLocalRandom.current().nextBoolean(),
+        ThreadLocalRandom.current().nextBoolean(),
         ThreadLocalRandom.current().nextBoolean());
 
     final AccountAttributes accountAttributes = new AccountAttributes(deliveryChannels.fetchesMessages(),
@@ -297,14 +298,15 @@ public class AccountCreationDeletionIntegrationTest {
       final KEMSignedPreKey pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniKeyPair);
 
       final Account originalAccount = accountsManager.create(number,
-          new AccountAttributes(true, 1, 1, "name".getBytes(StandardCharsets.UTF_8), "registration-lock", false, new Device.DeviceCapabilities(false, false, false, false)),
+          new AccountAttributes(true, 1, 1, "name".getBytes(StandardCharsets.UTF_8), "registration-lock", false,
+              new Device.DeviceCapabilities(false, false, false, false, false)),
           Collections.emptyList(),
           new IdentityKey(aciKeyPair.getPublicKey()),
           new IdentityKey(pniKeyPair.getPublicKey()),
           new DeviceSpec(null,
               "password?",
               "OWI",
-              new Device.DeviceCapabilities(false, false, false, false),
+              new Device.DeviceCapabilities(false, false, false, false, false),
               1,
               2,
               true,
@@ -326,6 +328,7 @@ public class AccountCreationDeletionIntegrationTest {
     final String registrationLockSecret = RandomStringUtils.randomAlphanumeric(16);
 
     final Device.DeviceCapabilities deviceCapabilities = new Device.DeviceCapabilities(
+        ThreadLocalRandom.current().nextBoolean(),
         ThreadLocalRandom.current().nextBoolean(),
         ThreadLocalRandom.current().nextBoolean(),
         ThreadLocalRandom.current().nextBoolean(),
@@ -416,6 +419,7 @@ public class AccountCreationDeletionIntegrationTest {
     final String registrationLockSecret = RandomStringUtils.randomAlphanumeric(16);
 
     final Device.DeviceCapabilities deviceCapabilities = new Device.DeviceCapabilities(
+        ThreadLocalRandom.current().nextBoolean(),
         ThreadLocalRandom.current().nextBoolean(),
         ThreadLocalRandom.current().nextBoolean(),
         ThreadLocalRandom.current().nextBoolean(),
