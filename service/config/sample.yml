@@ -221,9 +221,6 @@ messageCache: # Redis server configuration for message store cache
   cluster:
     configurationUri: redis://redis.example.com:6379/
 
-metricsCluster:
-  configurationUri: redis://redis.example.com:6379/
-
 awsAttachments: # AWS S3 configuration
   bucket: aws-attachments
   credentials:

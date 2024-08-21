@@ -216,9 +216,6 @@ messageCache: # Redis server configuration for message store cache
   cluster:
     type: local
 
-metricsCluster:
-  type: local
-
 awsAttachments: # AWS S3 configuration
   bucket: aws-attachments
   credentials:

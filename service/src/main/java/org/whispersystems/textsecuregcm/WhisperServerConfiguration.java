@@ -131,11 +131,6 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @Valid
   @JsonProperty
-  private FaultTolerantRedisClusterFactory metricsCluster;
-
-  @NotNull
-  @Valid
-  @JsonProperty
   private ProvisioningConfiguration provisioning;
 
   @NotNull
@@ -398,11 +393,6 @@ public class WhisperServerConfiguration extends Configuration {
   public ProvisioningConfiguration getProvisioningConfiguration() {
     return provisioning;
   }
-
-  public FaultTolerantRedisClusterFactory getMetricsClusterConfiguration() {
-    return metricsCluster;
-  }
-
 
   public SecureValueRecovery2Configuration getSvr2Configuration() {
     return svr2;
