@@ -21,6 +21,7 @@ public class SubscriptionExceptionMapper implements ExceptionMapper<Subscription
       case SubscriptionException.Forbidden e -> Response.Status.FORBIDDEN;
       case SubscriptionException.InvalidArguments e -> Response.Status.BAD_REQUEST;
       case SubscriptionException.ProcessorConflict e -> Response.Status.CONFLICT;
+      case SubscriptionException.PaymentRequired e -> Response.Status.PAYMENT_REQUIRED;
       default -> Response.Status.INTERNAL_SERVER_ERROR;
     });
 

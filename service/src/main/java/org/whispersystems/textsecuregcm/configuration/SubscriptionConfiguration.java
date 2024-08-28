@@ -29,6 +29,7 @@ public class SubscriptionConfiguration {
   private final Duration badgeExpiration;
 
   private final Duration backupExpiration;
+  private final Duration backupGracePeriod;
   private final Duration backupFreeTierMediaDuration;
   private final Map<Long, SubscriptionLevelConfiguration.Donation> donationLevels;
   private final Map<Long, SubscriptionLevelConfiguration.Backup> backupLevels;
@@ -38,6 +39,7 @@ public class SubscriptionConfiguration {
       @JsonProperty("badgeGracePeriod") @Valid Duration badgeGracePeriod,
       @JsonProperty("badgeExpiration") @Valid Duration badgeExpiration,
       @JsonProperty("backupExpiration") @Valid Duration backupExpiration,
+      @JsonProperty("backupGracePeriod") @Valid Duration backupGracePeriod,
       @JsonProperty("backupFreeTierMediaDuration") @Valid Duration backupFreeTierMediaDuration,
       @JsonProperty("levels") @Valid Map<@NotNull @Min(1) Long, SubscriptionLevelConfiguration.@NotNull @Valid Donation> donationLevels,
       @JsonProperty("backupLevels") @Valid Map<@NotNull @Min(1) Long, SubscriptionLevelConfiguration.@NotNull @Valid Backup> backupLevels) {
@@ -46,6 +48,7 @@ public class SubscriptionConfiguration {
     this.backupFreeTierMediaDuration = backupFreeTierMediaDuration;
     this.donationLevels = donationLevels;
     this.backupExpiration = backupExpiration;
+    this.backupGracePeriod = backupGracePeriod;
     this.backupLevels = backupLevels == null ? Collections.emptyMap() : backupLevels;
   }
 
@@ -60,6 +63,10 @@ public class SubscriptionConfiguration {
 
   public Duration getBackupExpiration() {
     return backupExpiration;
+  }
+
+  public Duration getBackupGracePeriod() {
+    return backupGracePeriod;
   }
 
   public SubscriptionLevelConfiguration getSubscriptionLevel(long level) {

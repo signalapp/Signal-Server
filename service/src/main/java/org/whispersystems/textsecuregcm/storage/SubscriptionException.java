@@ -59,8 +59,20 @@ public class SubscriptionException extends Exception {
   }
 
   public static class PaymentRequiresAction extends InvalidArguments {
+    public PaymentRequiresAction(String message) {
+      super(message, null);
+    }
     public PaymentRequiresAction() {
       super(null, null);
+    }
+  }
+
+  public static class PaymentRequired extends SubscriptionException {
+    public PaymentRequired() {
+      super(null, null);
+    }
+    public PaymentRequired(String message) {
+      super(null, message);
     }
   }
 

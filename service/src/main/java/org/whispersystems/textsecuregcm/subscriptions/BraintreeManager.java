@@ -48,6 +48,7 @@ import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguratio
 import org.whispersystems.textsecuregcm.currency.CurrencyConversionManager;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
+import org.whispersystems.textsecuregcm.storage.PaymentTime;
 import org.whispersystems.textsecuregcm.util.GoogleApiUtil;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
@@ -628,7 +629,7 @@ public class BraintreeManager implements SubscriptionPaymentProcessor {
                 throw new RuntimeException(e);
               }
 
-              return new ReceiptItem(transaction.getId(), paidAt, metadata.level());
+              return new ReceiptItem(transaction.getId(), PaymentTime.periodStart(paidAt), metadata.level());
             })
             .orElseThrow(() -> new WebApplicationException(Response.Status.NO_CONTENT)));
   }

@@ -69,6 +69,12 @@ braintree:
   pubSubPublisher:
     type: stub
 
+googlePlayBilling:
+  credentialsJson: secret://googlePlayBilling.credentialsJson
+  packageName: package.name
+  applicationName: test
+  productIdToLevel: {}
+
 dynamoDbClient:
   type: local
 
@@ -359,6 +365,7 @@ subscription: # configuration for Stripe subscriptions
   badgeExpiration: P30D
   badgeGracePeriod: P15D
   backupExpiration: P30D
+  backupGracePeriod: P15D
   backupFreeTierMediaDuration: P30D
   levels:
     500:

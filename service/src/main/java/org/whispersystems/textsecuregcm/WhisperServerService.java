@@ -33,8 +33,10 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.resolver.ResolvedAddressTypes;
 import io.netty.resolver.dns.DnsNameResolver;
 import io.netty.resolver.dns.DnsNameResolverBuilder;
+import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.net.http.HttpClient;
+import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
@@ -241,6 +243,7 @@ import org.whispersystems.textsecuregcm.storage.VerificationSessionManager;
 import org.whispersystems.textsecuregcm.storage.VerificationSessions;
 import org.whispersystems.textsecuregcm.subscriptions.BankMandateTranslator;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
+import org.whispersystems.textsecuregcm.subscriptions.GooglePlayBillingManager;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
 import org.whispersystems.textsecuregcm.util.BufferingInterceptor;
 import org.whispersystems.textsecuregcm.util.ManagedAwsCrt;
@@ -578,6 +581,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .build();
     ExecutorService keyTransparencyCallbackExecutor = environment.lifecycle()
         .virtualExecutorService(name(getClass(), "keyTransparency-%d"));
+    ExecutorService googlePlayBillingExecutor = environment.lifecycle()
+        .virtualExecutorService(name(getClass(), "googlePlayBilling-%d"));
 
     ScheduledExecutorService subscriptionProcessorRetryExecutor = environment.lifecycle()
         .scheduledExecutorService(name(getClass(), "subscriptionProcessorRetry-%d")).threads(1).build();
@@ -738,6 +743,12 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getBraintree().graphqlUrl(), currencyManager, config.getBraintree().pubSubPublisher().build(),
         config.getBraintree().circuitBreaker(), subscriptionProcessorExecutor,
         subscriptionProcessorRetryExecutor);
+    GooglePlayBillingManager googlePlayBillingManager = new GooglePlayBillingManager(
+        new ByteArrayInputStream(config.getGooglePlayBilling().credentialsJson().value().getBytes(StandardCharsets.UTF_8)),
+        config.getGooglePlayBilling().packageName(),
+        config.getGooglePlayBilling().applicationName(),
+        config.getGooglePlayBilling().productIdToLevel(),
+        googlePlayBillingExecutor);
 
     environment.lifecycle().manage(apnSender);
     environment.lifecycle().manage(pushNotificationScheduler);
@@ -1128,7 +1139,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     );
     if (config.getSubscription() != null && config.getOneTimeDonations() != null) {
       SubscriptionManager subscriptionManager = new SubscriptionManager(subscriptions,
-          List.of(stripeManager, braintreeManager), zkReceiptOperations, issuedReceiptsManager);
+          List.of(stripeManager, braintreeManager, googlePlayBillingManager),
+          zkReceiptOperations, issuedReceiptsManager);
       commonControllers.add(new SubscriptionController(clock, config.getSubscription(), config.getOneTimeDonations(),
           subscriptionManager, stripeManager, braintreeManager, profileBadgeConverter, resourceBundleLevelTranslator,
           bankMandateTranslator));

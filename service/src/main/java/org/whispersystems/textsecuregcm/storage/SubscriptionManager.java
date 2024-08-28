@@ -22,6 +22,7 @@ import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialRequest;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialResponse;
 import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.whispersystems.textsecuregcm.controllers.SubscriptionController;
+import org.whispersystems.textsecuregcm.subscriptions.GooglePlayBillingManager;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPaymentProcessor;
@@ -63,12 +64,12 @@ public class SubscriptionManager {
     /**
      * A receipt of payment from a payment provider
      *
-     * @param itemId An identifier for the payment that should be unique within the payment provider. Note that this
-     *               must identify an actual individual charge, not the subscription as a whole.
-     * @param paidAt The time this payment was made
-     * @param level  The level which this payment corresponds to
+     * @param itemId      An identifier for the payment that should be unique within the payment provider. Note that
+     *                    this must identify an actual individual charge, not the subscription as a whole.
+     * @param paymentTime The time this payment was for
+     * @param level       The level which this payment corresponds to
      */
-    record ReceiptItem(String itemId, Instant paidAt, long level) {}
+    record ReceiptItem(String itemId, PaymentTime paymentTime, long level) {}
 
     /**
      * Retrieve a {@link ReceiptItem} for the subscriptionId stored in the subscriptions table
@@ -270,6 +271,7 @@ public class SubscriptionManager {
   }
 
   public interface LevelTransitionValidator {
+
     /**
      * Check is a level update is valid
      *
@@ -351,6 +353,45 @@ public class SubscriptionManager {
               .thenCompose(subscription -> subscriptions.subscriptionCreated(
                   subscriberCredentials.subscriberUser(), subscription.id(), subscriberCredentials.now(), level));
         });
+  }
+
+  /**
+   * Check the provided play billing purchase token and write it the subscriptions table if is valid.
+   *
+   * @param subscriberCredentials    Subscriber credentials derived from the subscriberId
+   * @param googlePlayBillingManager Performs play billing API operations
+   * @param purchaseToken            The client provided purchaseToken that represents a purchased subscription in the
+   *                                 play store
+   * @return A stage that completes with the subscription level for the accepted subscription
+   */
+  public CompletableFuture<Long> updatePlayBillingPurchaseToken(
+      final SubscriberCredentials subscriberCredentials,
+      final GooglePlayBillingManager googlePlayBillingManager,
+      final String purchaseToken) {
+
+    return getSubscriber(subscriberCredentials).thenCompose(record -> {
+      if (record.processorCustomer != null
+          && record.processorCustomer.processor() != PaymentProvider.GOOGLE_PLAY_BILLING) {
+        return CompletableFuture.failedFuture(
+            new SubscriptionException.ProcessorConflict("existing processor does not match"));
+      }
+
+      // For IAP providers, the subscriptionId and the customerId are both just the purchaseToken. Changes to the
+      // subscription always just result in a new purchaseToken
+      final ProcessorCustomer pc = new ProcessorCustomer(purchaseToken, PaymentProvider.GOOGLE_PLAY_BILLING);
+
+      return googlePlayBillingManager
+          // Validating ensures we don't allow a user-determined token that's totally bunk into the subscription manager,
+          // but we don't want to acknowledge it until it's successfully persisted.
+          .validateToken(record.subscriptionId)
+          // Store the purchaseToken with the subscriber
+          .thenCompose(validatedToken -> subscriptions.setIapPurchase(
+                  record, pc, purchaseToken, validatedToken.getLevel(), subscriberCredentials.now())
+              // Now that the purchaseToken is durable, we can acknowledge it
+              .thenCompose(ignore -> validatedToken.acknowledgePurchase())
+              .thenApply(ignore -> validatedToken.getLevel()));
+    });
+
   }
 
   private Processor getProcessor(PaymentProvider provider) {

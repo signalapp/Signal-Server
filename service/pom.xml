@@ -14,9 +14,16 @@
     <firebase-admin.version>9.2.0</firebase-admin.version>
     <java-uuid-generator.version>5.1.0</java-uuid-generator.version>
     <sqlite4java.version>1.0.392</sqlite4java.version>
+    <google-androidpublisher.version>v3-rev20240820-2.0.0</google-androidpublisher.version>
   </properties>
 
   <dependencies>
+    <dependency>
+      <groupId>com.google.apis</groupId>
+      <artifactId>google-api-services-androidpublisher</artifactId>
+      <version>${google-androidpublisher.version}</version>
+    </dependency>
+
     <dependency>
       <groupId>io.swagger.core.v3</groupId>
       <artifactId>swagger-jaxrs2</artifactId>

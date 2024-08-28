@@ -25,9 +25,10 @@ import javax.ws.rs.ClientErrorException;
 import javax.ws.rs.core.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
+import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
 import org.whispersystems.textsecuregcm.util.Pair;
+import org.whispersystems.textsecuregcm.util.Util;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
@@ -42,6 +43,7 @@ public class Subscriptions {
   private static final Logger logger = LoggerFactory.getLogger(Subscriptions.class);
 
   private static final int USER_LENGTH = 16;
+  private static final byte[] EMPTY_PROCESSOR = new byte[0];
 
   public static final String KEY_USER = "U";  // B  (Hash Key)
   public static final String KEY_PASSWORD = "P";  // B
@@ -325,6 +327,77 @@ public class Subscriptions {
           Throwables.throwIfUnchecked(throwable);
           throw new CompletionException(throwable);
         });
+  }
+
+  /**
+   * Associate an IAP subscription with a subscriberId.
+   * <p>
+   * IAP subscriptions do not have a distinction between customerId and subscriptionId, so they should both be set
+   * simultaneously with this method instead of calling {@link #setProcessorAndCustomerId},
+   * {@link #subscriptionCreated}, and {@link #subscriptionLevelChanged}.
+   *
+   * @param record            The record to update
+   * @param processorCustomer The processorCustomer. The processor component must match the existing processor, if the
+   *                          record already has one.
+   * @param subscriptionId    The subscriptionId. For IAP subscriptions, the subscriptionId should match the
+   *                          customerId.
+   * @param level             The corresponding level for this subscription
+   * @param updatedAt         The time of this update
+   * @return A stage that completes once the record has been updated
+   */
+  public CompletableFuture<Void> setIapPurchase(
+      final Record record,
+      final ProcessorCustomer processorCustomer,
+      final String subscriptionId,
+      final long level,
+      final Instant updatedAt) {
+    if (record.processorCustomer != null && record.processorCustomer.processor() != processorCustomer.processor()) {
+      throw new IllegalArgumentException("cannot change processor on existing subscription");
+    }
+    final byte[] oldProcessorCustomerBytes = record.processorCustomer != null
+        ? record.processorCustomer.toDynamoBytes()
+        : EMPTY_PROCESSOR;
+
+    final UpdateItemRequest request = UpdateItemRequest.builder()
+        .tableName(table)
+        .key(Map.of(KEY_USER, b(record.user)))
+        .returnValues(ReturnValue.ALL_NEW)
+        .conditionExpression(
+            "attribute_not_exists(#processor_customer_id) OR #processor_customer_id = :old_processor_customer_id")
+        .updateExpression("SET "
+            + "#processor_customer_id = :processor_customer_id, "
+            + "#accessed_at = :accessed_at, "
+            + "#subscription_id = :subscription_id, "
+            + "#subscription_level = :subscription_level, "
+            + "#subscription_created_at = if_not_exists(#subscription_created_at, :subscription_created_at), "
+            + "#subscription_level_changed_at = :subscription_level_changed_at"
+        )
+        .expressionAttributeNames(Map.of(
+            "#processor_customer_id", KEY_PROCESSOR_ID_CUSTOMER_ID,
+            "#accessed_at", KEY_ACCESSED_AT,
+            "#subscription_id", KEY_SUBSCRIPTION_ID,
+            "#subscription_level", KEY_SUBSCRIPTION_LEVEL,
+            "#subscription_created_at", KEY_SUBSCRIPTION_CREATED_AT,
+            "#subscription_level_changed_at", KEY_SUBSCRIPTION_LEVEL_CHANGED_AT))
+        .expressionAttributeValues(Map.of(
+            ":accessed_at", n(updatedAt.getEpochSecond()),
+            ":processor_customer_id", b(processorCustomer.toDynamoBytes()),
+            ":old_processor_customer_id", b(oldProcessorCustomerBytes),
+            ":subscription_id", s(subscriptionId),
+            ":subscription_level", n(level),
+            ":subscription_created_at", n(updatedAt.getEpochSecond()),
+            ":subscription_level_changed_at", n(updatedAt.getEpochSecond())))
+        .build();
+
+    return client.updateItem(request)
+        .exceptionallyCompose(throwable -> {
+          if (Throwables.getRootCause(throwable) instanceof ConditionalCheckFailedException) {
+            throw new ClientErrorException(Response.Status.CONFLICT);
+          }
+          Throwables.throwIfUnchecked(throwable);
+          throw new CompletionException(throwable);
+        })
+        .thenRun(Util.NOOP);
   }
 
   public CompletableFuture<Void> accessedAt(byte[] user, Instant accessedAt) {

@@ -23,4 +23,5 @@ public enum PaymentMethod {
    * An iDEAL account
    */
   IDEAL,
+  GOOGLE_PLAY_BILLING
 }

@@ -36,6 +36,7 @@ import org.whispersystems.textsecuregcm.configuration.FaultTolerantRedisClusterF
 import org.whispersystems.textsecuregcm.configuration.FcmConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GcpAttachmentsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GenericZkConfig;
+import org.whispersystems.textsecuregcm.configuration.GooglePlayBillingConfiguration;
 import org.whispersystems.textsecuregcm.configuration.HCaptchaClientFactory;
 import org.whispersystems.textsecuregcm.configuration.KeyTransparencyServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.LinkDeviceSecretConfiguration;
@@ -87,6 +88,11 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @JsonProperty
   private BraintreeConfiguration braintree;
+
+  @NotNull
+  @Valid
+  @JsonProperty
+  private GooglePlayBillingConfiguration googlePlayBilling;
 
   @NotNull
   @Valid
@@ -356,6 +362,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public BraintreeConfiguration getBraintree() {
     return braintree;
+  }
+
+  public GooglePlayBillingConfiguration getGooglePlayBilling() {
+    return googlePlayBilling;
   }
 
   public DynamoDbClientFactory getDynamoDbClientConfiguration() {

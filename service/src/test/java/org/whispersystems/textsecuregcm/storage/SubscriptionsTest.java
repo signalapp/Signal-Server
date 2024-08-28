@@ -6,6 +6,8 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.Fail.fail;
 import static org.whispersystems.textsecuregcm.storage.Subscriptions.GetResult.Type.FOUND;
 import static org.whispersystems.textsecuregcm.storage.Subscriptions.GetResult.Type.NOT_STORED;
 import static org.whispersystems.textsecuregcm.storage.Subscriptions.GetResult.Type.PASSWORD_MISMATCH;
@@ -27,8 +29,9 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.storage.Subscriptions.GetResult;
 import org.whispersystems.textsecuregcm.storage.Subscriptions.Record;
-import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
+import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
+import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 class SubscriptionsTest {
@@ -232,6 +235,58 @@ class SubscriptionsTest {
         assertThat(record.subscriptionId).isEqualTo(updatedSubscriptionId);
       });
     });
+  }
+
+  @Test
+  void testSetIapPurchase() {
+    Instant at = Instant.ofEpochSecond(NOW_EPOCH_SECONDS + 500);
+    long level = 100;
+
+    ProcessorCustomer pc = new ProcessorCustomer("customerId", PaymentProvider.GOOGLE_PLAY_BILLING);
+    Record record = subscriptions.create(user, password, created).join();
+
+    // Should be able to set a fresh subscription
+    assertThat(subscriptions.setIapPurchase(record, pc, "subscriptionId", level, at))
+        .succeedsWithin(DEFAULT_TIMEOUT);
+
+    record = subscriptions.get(user, password).join().record;
+    assertThat(record.subscriptionLevel).isEqualTo(level);
+    assertThat(record.subscriptionLevelChangedAt).isEqualTo(at);
+    assertThat(record.subscriptionCreatedAt).isEqualTo(at);
+    assertThat(record.getProcessorCustomer().orElseThrow()).isEqualTo(pc);
+
+    // should be able to update the level
+    Instant nextAt = at.plus(Duration.ofSeconds(10));
+    long nextLevel = level + 1;
+    assertThat(subscriptions.setIapPurchase(record, pc, "subscriptionId", nextLevel, nextAt))
+        .succeedsWithin(DEFAULT_TIMEOUT);
+
+    record = subscriptions.get(user, password).join().record;
+    assertThat(record.subscriptionLevel).isEqualTo(nextLevel);
+    assertThat(record.subscriptionLevelChangedAt).isEqualTo(nextAt);
+    assertThat(record.subscriptionCreatedAt).isEqualTo(at);
+    assertThat(record.getProcessorCustomer().orElseThrow()).isEqualTo(pc);
+
+    nextAt = nextAt.plus(Duration.ofSeconds(10));
+    nextLevel = level + 1;
+
+    pc = new ProcessorCustomer("newCustomerId", PaymentProvider.STRIPE);
+    try {
+      subscriptions.setIapPurchase(record, pc, "subscriptionId", nextLevel, nextAt).join();
+      fail("should not be able to change the processor for an existing subscription record");
+    } catch (IllegalArgumentException e) {
+    }
+
+    // should be able to change the customerId of an existing record if the processor matches
+    pc = new ProcessorCustomer("newCustomerId", PaymentProvider.GOOGLE_PLAY_BILLING);
+    assertThat(subscriptions.setIapPurchase(record, pc, "subscriptionId", nextLevel, nextAt))
+        .succeedsWithin(DEFAULT_TIMEOUT);
+
+    record = subscriptions.get(user, password).join().record;
+    assertThat(record.subscriptionLevel).isEqualTo(nextLevel);
+    assertThat(record.subscriptionLevelChangedAt).isEqualTo(nextAt);
+    assertThat(record.subscriptionCreatedAt).isEqualTo(at);
+    assertThat(record.getProcessorCustomer().orElseThrow()).isEqualTo(pc);
   }
 
   @Test

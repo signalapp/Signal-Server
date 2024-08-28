@@ -73,6 +73,7 @@ import javax.ws.rs.core.Response.Status;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.storage.PaymentTime;
 import org.whispersystems.textsecuregcm.util.Conversions;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
@@ -645,7 +646,7 @@ public class StripeManager implements SubscriptionPaymentProcessor {
     }
     return getProductForPrice(subscriptionLineItem.getPrice().getId()).thenApply(product -> new ReceiptItem(
         subscriptionLineItem.getId(),
-        paidAt,
+        PaymentTime.periodStart(paidAt),
         getLevelForProduct(product)));
   }
 

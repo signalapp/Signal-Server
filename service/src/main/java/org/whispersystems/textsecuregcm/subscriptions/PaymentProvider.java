@@ -17,6 +17,7 @@ public enum PaymentProvider {
   // must be used if a provider is removed from the list
   STRIPE(1),
   BRAINTREE(2),
+  GOOGLE_PLAY_BILLING(3),
   ;
 
   private static final Map<Integer, PaymentProvider> IDS_TO_PROCESSORS = new HashMap<>();

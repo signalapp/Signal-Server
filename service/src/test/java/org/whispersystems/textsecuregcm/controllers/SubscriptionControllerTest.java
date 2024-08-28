@@ -78,12 +78,14 @@ import org.whispersystems.textsecuregcm.mappers.SubscriptionExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.SubscriptionProcessorExceptionMapper;
 import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.OneTimeDonationsManager;
+import org.whispersystems.textsecuregcm.storage.PaymentTime;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.storage.Subscriptions;
 import org.whispersystems.textsecuregcm.subscriptions.BankMandateTranslator;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager.PayPalOneTimePaymentApprovalDetails;
 import org.whispersystems.textsecuregcm.subscriptions.ChargeFailure;
+import org.whispersystems.textsecuregcm.subscriptions.GooglePlayBillingManager;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentDetails;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentStatus;
@@ -111,6 +113,8 @@ class SubscriptionControllerTest {
       when(mgr.getProvider()).thenReturn(PaymentProvider.STRIPE));
   private static final BraintreeManager BRAINTREE_MANAGER = MockUtils.buildMock(BraintreeManager.class, mgr ->
       when(mgr.getProvider()).thenReturn(PaymentProvider.BRAINTREE));
+  private static final GooglePlayBillingManager PLAY_MANAGER = MockUtils.buildMock(GooglePlayBillingManager.class,
+      mgr -> when(mgr.getProvider()).thenReturn(PaymentProvider.GOOGLE_PLAY_BILLING));
   private static final PaymentIntent PAYMENT_INTENT = mock(PaymentIntent.class);
   private static final ServerZkReceiptOperations ZK_OPS = mock(ServerZkReceiptOperations.class);
   private static final IssuedReceiptsManager ISSUED_RECEIPTS_MANAGER = mock(IssuedReceiptsManager.class);
@@ -119,7 +123,7 @@ class SubscriptionControllerTest {
   private static final LevelTranslator LEVEL_TRANSLATOR = mock(LevelTranslator.class);
   private static final BankMandateTranslator BANK_MANDATE_TRANSLATOR = mock(BankMandateTranslator.class);
   private final static SubscriptionController SUBSCRIPTION_CONTROLLER = new SubscriptionController(CLOCK, SUBSCRIPTION_CONFIG,
-      ONETIME_CONFIG, new SubscriptionManager(SUBSCRIPTIONS, List.of(STRIPE_MANAGER, BRAINTREE_MANAGER), ZK_OPS,
+      ONETIME_CONFIG, new SubscriptionManager(SUBSCRIPTIONS, List.of(STRIPE_MANAGER, BRAINTREE_MANAGER, PLAY_MANAGER), ZK_OPS,
       ISSUED_RECEIPTS_MANAGER), STRIPE_MANAGER, BRAINTREE_MANAGER, BADGE_TRANSLATOR, LEVEL_TRANSLATOR,
       BANK_MANDATE_TRANSLATOR);
   private static final OneTimeDonationController ONE_TIME_CONTROLLER = new OneTimeDonationController(CLOCK,
@@ -885,7 +889,7 @@ class SubscriptionControllerTest {
     when(BRAINTREE_MANAGER.getReceiptItem(subscriptionId)).thenReturn(
         CompletableFuture.completedFuture(new SubscriptionPaymentProcessor.ReceiptItem(
             "itemId",
-            Instant.ofEpochSecond(10).plus(Duration.ofDays(1)),
+            PaymentTime.periodStart(Instant.ofEpochSecond(10).plus(Duration.ofDays(1))),
             level
         )));
     when(ISSUED_RECEIPTS_MANAGER.recordIssuance(eq("itemId"), eq(PaymentProvider.BRAINTREE), eq(receiptRequest), any()))
@@ -1111,7 +1115,8 @@ class SubscriptionControllerTest {
     private static final String SUBSCRIPTION_CONFIG_YAML = """
         badgeExpiration: P30D
         badgeGracePeriod: P15D
-        backupExpiration: P13D
+        backupExpiration: P3D
+        backupGracePeriod: P10D
         backupFreeTierMediaDuration: P30D
         backupLevels:
           201:

@@ -319,6 +319,7 @@ public class OneTimeDonationController {
     final CompletableFuture<PaymentDetails> paymentDetailsFut = switch (request.processor) {
       case STRIPE -> stripeManager.getPaymentDetails(request.paymentIntentId);
       case BRAINTREE -> braintreeManager.getPaymentDetails(request.paymentIntentId);
+      case GOOGLE_PLAY_BILLING -> throw new BadRequestException("cannot use play billing for one-time donations");
     };
 
     return paymentDetailsFut.thenCompose(paymentDetails -> {

@@ -20,7 +20,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -71,10 +70,10 @@ import org.whispersystems.textsecuregcm.entities.Badge;
 import org.whispersystems.textsecuregcm.entities.PurchasableBadge;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
+import org.whispersystems.textsecuregcm.storage.PaymentTime;
 import org.whispersystems.textsecuregcm.storage.SubscriberCredentials;
 import org.whispersystems.textsecuregcm.storage.SubscriptionException;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
-import org.whispersystems.textsecuregcm.storage.Subscriptions;
 import org.whispersystems.textsecuregcm.subscriptions.BankMandateTranslator;
 import org.whispersystems.textsecuregcm.subscriptions.BankTransferType;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
@@ -253,11 +252,15 @@ public class SubscriptionController {
     SubscriberCredentials subscriberCredentials =
         SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
 
-    if (paymentMethodType == PaymentMethod.PAYPAL) {
-      throw new BadRequestException("The PAYPAL payment type must use create_payment_method/paypal");
-    }
-
-    final SubscriptionPaymentProcessor subscriptionPaymentProcessor = getManagerForPaymentMethod(paymentMethodType);
+    final SubscriptionPaymentProcessor subscriptionPaymentProcessor = switch (paymentMethodType) {
+      // Today, we always choose stripe to process non-paypal payment types, however we could use braintree to process
+      // other types (like CARD) in the future.
+      case CARD, SEPA_DEBIT, IDEAL -> stripeManager;
+      case GOOGLE_PLAY_BILLING ->
+          throw new BadRequestException("cannot create payment methods with payment type GOOGLE_PLAY_BILLING");
+      case PAYPAL -> throw new BadRequestException("The PAYPAL payment type must use create_payment_method/paypal");
+      case UNKNOWN -> throw new BadRequestException("Invalid payment method");
+    };
 
     return subscriptionManager.addPaymentMethodToCustomer(
             subscriberCredentials,
@@ -303,21 +306,11 @@ public class SubscriptionController {
             .build());
   }
 
-  private SubscriptionPaymentProcessor getManagerForPaymentMethod(PaymentMethod paymentMethod) {
-    return switch (paymentMethod) {
-      // Today, we always choose stripe to process non-paypal payment types, however we could use braintree to process
-      // other types (like CARD) in the future.
-      case CARD, SEPA_DEBIT, IDEAL -> stripeManager;
-      // PAYPAL payments can only be processed with braintree
-      case PAYPAL -> braintreeManager;
-      case UNKNOWN -> throw new BadRequestException("Invalid payment method");
-    };
-  }
-
   private SubscriptionPaymentProcessor getManagerForProcessor(PaymentProvider processor) {
     return switch (processor) {
       case STRIPE -> stripeManager;
       case BRAINTREE -> braintreeManager;
+      case GOOGLE_PLAY_BILLING -> throw new BadRequestException("Operation cannot be performed with the GOOGLE_PLAY_BILLING payment provider");
     };
   }
 
@@ -586,15 +579,14 @@ public class SubscriptionController {
   }
 
   private Instant receiptExpirationWithGracePeriod(SubscriptionPaymentProcessor.ReceiptItem receiptItem) {
-    final Instant paidAt = receiptItem.paidAt();
+    final PaymentTime paymentTime = receiptItem.paymentTime();
     return switch (subscriptionConfiguration.getSubscriptionLevel(receiptItem.level()).type()) {
-      case DONATION -> paidAt.plus(subscriptionConfiguration.getBadgeExpiration())
-          .plus(subscriptionConfiguration.getBadgeGracePeriod())
-          .truncatedTo(ChronoUnit.DAYS)
-          .plus(1, ChronoUnit.DAYS);
-      case BACKUP -> paidAt.plus(subscriptionConfiguration.getBackupExpiration())
-          .truncatedTo(ChronoUnit.DAYS)
-          .plus(1, ChronoUnit.DAYS);
+      case DONATION -> paymentTime.receiptExpiration(
+          subscriptionConfiguration.getBadgeExpiration(),
+          subscriptionConfiguration.getBadgeGracePeriod());
+      case BACKUP -> paymentTime.receiptExpiration(
+          subscriptionConfiguration.getBackupExpiration(),
+          subscriptionConfiguration.getBackupGracePeriod());
     };
   }
 
