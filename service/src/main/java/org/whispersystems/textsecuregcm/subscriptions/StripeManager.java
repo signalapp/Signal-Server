@@ -316,6 +316,12 @@ public class StripeManager implements SubscriptionPaymentProcessor {
 
     final Subscription subscription = getSubscription(subscriptionObj);
 
+    if (getSubscriptionStatus(subscription.getStatus()) == SubscriptionStatus.CANCELED) {
+      // If the existing subscription is cancelled, just create a new subscription rather than trying to update a
+      // cancelled subscription (which stripe forbids)
+      return createSubscription(subscription.getCustomer(), priceId, level, subscription.getCreated());
+    }
+
     return CompletableFuture.supplyAsync(() -> {
           List<SubscriptionUpdateParams.Item> items = new ArrayList<>();
           try {
