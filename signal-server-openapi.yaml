@@ -2805,6 +2805,7 @@ paths:
           - PAYPAL
           - SEPA_DEBIT
           - IDEAL
+          - GOOGLE_PLAY_BILLING
       - name: User-Agent
         in: header
         schema:
@@ -3013,6 +3014,7 @@ paths:
           enum:
           - STRIPE
           - BRAINTREE
+          - GOOGLE_PLAY_BILLING
       - name: paymentMethodToken
         in: path
         required: true
@@ -4612,6 +4614,7 @@ components:
           - PAYPAL
           - SEPA_DEBIT
           - IDEAL
+          - GOOGLE_PLAY_BILLING
         payerId:
           type: string
         paymentId:
@@ -4640,6 +4643,7 @@ components:
           - PAYPAL
           - SEPA_DEBIT
           - IDEAL
+          - GOOGLE_PLAY_BILLING
     CreateBoostReceiptCredentialsRequest:
       required:
       - paymentIntentId
@@ -4657,6 +4661,7 @@ components:
           enum:
           - STRIPE
           - BRAINTREE
+          - GOOGLE_PLAY_BILLING
     CreatePayPalBoostRequest:
       required:
       - cancelUrl
@@ -4681,6 +4686,7 @@ components:
           - PAYPAL
           - SEPA_DEBIT
           - IDEAL
+          - GOOGLE_PLAY_BILLING
         returnUrl:
           type: string
         cancelUrl:
