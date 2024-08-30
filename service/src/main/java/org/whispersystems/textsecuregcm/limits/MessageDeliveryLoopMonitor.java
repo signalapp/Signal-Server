@@ -54,7 +54,7 @@ public class MessageDeliveryLoopMonitor {
         .thenAccept(deliveryAttemptCount -> {
           if (deliveryAttemptCount == DELIVERY_LOOP_THRESHOLD) {
             logger.warn("Detected loop delivering message {} via {} to {}:{} ({})",
-                messageGuid, accountIdentifier, deviceId, context, userAgent);
+                messageGuid, context, accountIdentifier, deviceId, userAgent);
           }
         });
   }
