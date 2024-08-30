@@ -36,10 +36,10 @@ public class NotifyIdleDevicesWithoutMessagesCommand extends AbstractSinglePassC
   static final LocalTime PREFERRED_NOTIFICATION_TIME = LocalTime.of(14, 0);
 
   @VisibleForTesting
-  static final Duration MIN_IDLE_DURATION = Duration.ofDays(15);
+  static final Duration MIN_IDLE_DURATION = Duration.ofDays(30);
 
   @VisibleForTesting
-  static final Duration MAX_IDLE_DURATION = Duration.ofDays(30);
+  static final Duration MAX_IDLE_DURATION = Duration.ofDays(45);
 
   private static final Counter DEVICE_INSPECTED_COUNTER =
       Metrics.counter(MetricsUtil.name(NotifyIdleDevicesWithoutMessagesCommand.class, "deviceInspected"));
