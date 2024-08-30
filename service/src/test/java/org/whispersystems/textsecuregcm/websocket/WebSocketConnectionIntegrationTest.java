@@ -46,6 +46,7 @@ import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
+import org.whispersystems.textsecuregcm.limits.MessageDeliveryLoopMonitor;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
@@ -133,7 +134,8 @@ class WebSocketConnectionIntegrationTest {
         webSocketClient,
         scheduledExecutorService,
         messageDeliveryScheduler,
-        clientReleaseManager);
+        clientReleaseManager,
+        mock(MessageDeliveryLoopMonitor.class));
 
     final List<MessageProtos.Envelope> expectedMessages = new ArrayList<>(persistedMessageCount + cachedMessageCount);
 
@@ -220,7 +222,8 @@ class WebSocketConnectionIntegrationTest {
         webSocketClient,
         scheduledExecutorService,
         messageDeliveryScheduler,
-        clientReleaseManager);
+        clientReleaseManager,
+        mock(MessageDeliveryLoopMonitor.class));
 
     final int persistedMessageCount = 207;
     final int cachedMessageCount = 173;
@@ -289,7 +292,8 @@ class WebSocketConnectionIntegrationTest {
         100, // use a very short timeout, so that this test completes quickly
         scheduledExecutorService,
         messageDeliveryScheduler,
-        clientReleaseManager);
+        clientReleaseManager,
+        mock(MessageDeliveryLoopMonitor.class));
 
     final int persistedMessageCount = 207;
     final int cachedMessageCount = 173;

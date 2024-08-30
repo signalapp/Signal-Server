@@ -20,6 +20,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
+import org.whispersystems.textsecuregcm.limits.MessageDeliveryLoopMonitor;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
@@ -58,6 +59,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
   private final ScheduledExecutorService scheduledExecutorService;
   private final Scheduler messageDeliveryScheduler;
   private final ClientReleaseManager clientReleaseManager;
+  private final MessageDeliveryLoopMonitor messageDeliveryLoopMonitor;
 
   private final Map<ClientPlatform, AtomicInteger> openAuthenticatedWebsocketsByClientPlatform;
   private final Map<ClientPlatform, AtomicInteger> openUnauthenticatedWebsocketsByClientPlatform;
@@ -77,7 +79,8 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
       ClientPresenceManager clientPresenceManager,
       ScheduledExecutorService scheduledExecutorService,
       Scheduler messageDeliveryScheduler,
-      ClientReleaseManager clientReleaseManager) {
+      ClientReleaseManager clientReleaseManager,
+      MessageDeliveryLoopMonitor messageDeliveryLoopMonitor) {
     this.receiptSender = receiptSender;
     this.messagesManager = messagesManager;
     this.messageMetrics = messageMetrics;
@@ -87,6 +90,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
     this.scheduledExecutorService = scheduledExecutorService;
     this.messageDeliveryScheduler = messageDeliveryScheduler;
     this.clientReleaseManager = clientReleaseManager;
+    this.messageDeliveryLoopMonitor = messageDeliveryLoopMonitor;
 
     openAuthenticatedWebsocketsByClientPlatform = new EnumMap<>(ClientPlatform.class);
     openUnauthenticatedWebsocketsByClientPlatform = new EnumMap<>(ClientPlatform.class);
@@ -151,7 +155,8 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
           context.getClient(),
           scheduledExecutorService,
           messageDeliveryScheduler,
-          clientReleaseManager);
+          clientReleaseManager,
+          messageDeliveryLoopMonitor);
 
       openWebsocketAtomicInteger.incrementAndGet();
 

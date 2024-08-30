@@ -106,6 +106,7 @@ import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.CardinalityEstimator;
+import org.whispersystems.textsecuregcm.limits.MessageDeliveryLoopMonitor;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
@@ -168,6 +169,7 @@ public class MessageController {
   private final ServerSecretParams serverSecretParams;
   private final SpamChecker spamChecker;
   private final MessageMetrics messageMetrics;
+  private final MessageDeliveryLoopMonitor messageDeliveryLoopMonitor;
   private final Clock clock;
 
   private static final int MAX_FETCH_ACCOUNT_CONCURRENCY = 8;
@@ -230,6 +232,7 @@ public class MessageController {
       final ServerSecretParams serverSecretParams,
       final SpamChecker spamChecker,
       final MessageMetrics messageMetrics,
+      final MessageDeliveryLoopMonitor messageDeliveryLoopMonitor,
       final Clock clock) {
     this.rateLimiters = rateLimiters;
     this.messageByteLimitEstimator = messageByteLimitEstimator;
@@ -248,6 +251,7 @@ public class MessageController {
     this.serverSecretParams = serverSecretParams;
     this.spamChecker = spamChecker;
     this.messageMetrics = messageMetrics;
+    this.messageDeliveryLoopMonitor = messageDeliveryLoopMonitor;
     this.clock = clock;
   }
 
@@ -784,6 +788,14 @@ public class MessageController {
 
           Metrics.summary(OUTGOING_MESSAGE_LIST_SIZE_BYTES_DISTRIBUTION_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent)))
               .record(estimateMessageListSizeBytes(messages));
+
+          if (!messages.messages().isEmpty()) {
+            messageDeliveryLoopMonitor.recordDeliveryAttempt(auth.getAccount().getIdentifier(IdentityType.ACI),
+                auth.getAuthenticatedDevice().getId(),
+                messages.messages().getFirst().guid(),
+                userAgent,
+                "rest");
+          }
 
           if (messagesAndHasMore.second()) {
             pushNotificationScheduler.scheduleDelayedNotification(auth.getAccount(), auth.getAuthenticatedDevice(), NOTIFY_FOR_REMAINING_MESSAGES_DELAY);

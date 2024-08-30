@@ -39,7 +39,9 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
+import org.whispersystems.textsecuregcm.limits.MessageDeliveryLoopMonitor;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
@@ -117,6 +119,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   private final MessageMetrics messageMetrics;
   private final PushNotificationManager pushNotificationManager;
   private final PushNotificationScheduler pushNotificationScheduler;
+  private final MessageDeliveryLoopMonitor messageDeliveryLoopMonitor;
 
   private final AuthenticatedDevice auth;
   private final WebSocketClient client;
@@ -155,7 +158,8 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
       WebSocketClient client,
       ScheduledExecutorService scheduledExecutorService,
       Scheduler messageDeliveryScheduler,
-      ClientReleaseManager clientReleaseManager) {
+      ClientReleaseManager clientReleaseManager,
+      MessageDeliveryLoopMonitor messageDeliveryLoopMonitor) {
 
     this(receiptSender,
         messagesManager,
@@ -167,7 +171,8 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
         DEFAULT_SEND_FUTURES_TIMEOUT_MILLIS,
         scheduledExecutorService,
         messageDeliveryScheduler,
-        clientReleaseManager);
+        clientReleaseManager,
+        messageDeliveryLoopMonitor);
   }
 
   @VisibleForTesting
@@ -181,7 +186,8 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
       int sendFuturesTimeoutMillis,
       ScheduledExecutorService scheduledExecutorService,
       Scheduler messageDeliveryScheduler,
-      ClientReleaseManager clientReleaseManager) {
+      ClientReleaseManager clientReleaseManager,
+      MessageDeliveryLoopMonitor messageDeliveryLoopMonitor) {
 
     this.receiptSender = receiptSender;
     this.messagesManager = messagesManager;
@@ -194,6 +200,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
     this.scheduledExecutorService = scheduledExecutorService;
     this.messageDeliveryScheduler = messageDeliveryScheduler;
     this.clientReleaseManager = clientReleaseManager;
+    this.messageDeliveryLoopMonitor = messageDeliveryLoopMonitor;
   }
 
   public void start() {
@@ -378,12 +385,22 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
     final Publisher<Envelope> messages =
         messagesManager.getMessagesForDeviceReactive(auth.getAccount().getUuid(), auth.getAuthenticatedDevice(), cachedMessagesOnly);
 
+    final AtomicBoolean hasSentFirstMessage = new AtomicBoolean();
     final AtomicBoolean hasErrored = new AtomicBoolean();
 
     final Disposable subscription = Flux.from(messages)
         .name(SEND_MESSAGES_FLUX_NAME)
         .tap(Micrometer.metrics(Metrics.globalRegistry))
         .limitRate(MESSAGE_PUBLISHER_LIMIT_RATE)
+        .doOnNext(envelope -> {
+          if (hasSentFirstMessage.compareAndSet(false, true)) {
+            messageDeliveryLoopMonitor.recordDeliveryAttempt(auth.getAccount().getIdentifier(IdentityType.ACI),
+                auth.getAuthenticatedDevice().getId(),
+                UUID.fromString(envelope.getServerGuid()),
+                client.getUserAgent(),
+                "websocket");
+          }
+        })
         .flatMapSequential(envelope ->
             Mono.fromFuture(() -> sendMessage(envelope)
                     .orTimeout(sendFuturesTimeoutMillis, TimeUnit.MILLISECONDS))
