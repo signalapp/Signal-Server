@@ -16,9 +16,15 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.google.api.services.androidpublisher.AndroidPublisher;
+import com.google.api.services.androidpublisher.model.BasePlan;
+import com.google.api.services.androidpublisher.model.Money;
+import com.google.api.services.androidpublisher.model.OfferDetails;
+import com.google.api.services.androidpublisher.model.RegionalBasePlanConfig;
+import com.google.api.services.androidpublisher.model.Subscription;
 import com.google.api.services.androidpublisher.model.SubscriptionPurchaseLineItem;
 import com.google.api.services.androidpublisher.model.SubscriptionPurchaseV2;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -32,7 +38,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.whispersystems.textsecuregcm.storage.SubscriptionException;
-import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
 import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.MutableClock;
@@ -56,6 +61,10 @@ class GooglePlayBillingManagerTest {
   private final AndroidPublisher.Purchases.Subscriptions.Cancel cancel =
       mock(AndroidPublisher.Purchases.Subscriptions.Cancel.class);
 
+  // Returned in response to a monetization.subscriptions.get
+  private final AndroidPublisher.Monetization.Subscriptions.Get subscriptionConfig =
+      mock(AndroidPublisher.Monetization.Subscriptions.Get.class);
+
   private final MutableClock clock = MockUtils.mutableClock(0L);
 
   private ExecutorService executor;
@@ -68,9 +77,12 @@ class GooglePlayBillingManagerTest {
 
     AndroidPublisher androidPublisher = mock(AndroidPublisher.class);
     AndroidPublisher.Purchases purchases = mock(AndroidPublisher.Purchases.class);
+    AndroidPublisher.Monetization monetization = mock(AndroidPublisher.Monetization.class);
+
+    when(androidPublisher.purchases()).thenReturn(purchases);
+    when(androidPublisher.monetization()).thenReturn(monetization);
 
     AndroidPublisher.Purchases.Subscriptionsv2 subscriptionsv2 = mock(AndroidPublisher.Purchases.Subscriptionsv2.class);
-    when(androidPublisher.purchases()).thenReturn(purchases);
     when(purchases.subscriptionsv2()).thenReturn(subscriptionsv2);
     when(subscriptionsv2.get(PACKAGE_NAME, PURCHASE_TOKEN)).thenReturn(subscriptionsv2Get);
 
@@ -80,6 +92,11 @@ class GooglePlayBillingManagerTest {
         .thenReturn(acknowledge);
     when(subscriptions.cancel(PACKAGE_NAME, PRODUCT_ID, PURCHASE_TOKEN))
         .thenReturn(cancel);
+
+    AndroidPublisher.Monetization.Subscriptions msubscriptions = mock(
+        AndroidPublisher.Monetization.Subscriptions.class);
+    when(monetization.subscriptions()).thenReturn(msubscriptions);
+    when(msubscriptions.get(PACKAGE_NAME, PRODUCT_ID)).thenReturn(subscriptionConfig);
 
     executor = Executors.newSingleThreadExecutor();
     googlePlayBillingManager = new GooglePlayBillingManager(
@@ -186,7 +203,7 @@ class GooglePlayBillingManagerTest {
             .setProductId(PRODUCT_ID))));
 
     clock.setTimeInstant(day9);
-    SubscriptionManager.Processor.ReceiptItem item = googlePlayBillingManager.getReceiptItem(PURCHASE_TOKEN).join();
+    SubscriptionPaymentProcessor.ReceiptItem item = googlePlayBillingManager.getReceiptItem(PURCHASE_TOKEN).join();
     assertThat(item.itemId()).isEqualTo(ORDER_ID);
     assertThat(item.level()).isEqualTo(201L);
 
@@ -205,6 +222,35 @@ class GooglePlayBillingManagerTest {
     CompletableFutureTestUtil.assertFailsWithCause(
         SubscriptionException.PaymentRequired.class,
         googlePlayBillingManager.getReceiptItem(PURCHASE_TOKEN));
+  }
+
+  @Test
+  public void getSubscriptionInfo() throws IOException {
+    final String basePlanId = "basePlanId";
+    when(subscriptionsv2Get.execute()).thenReturn(new SubscriptionPurchaseV2()
+        .setAcknowledgementState(GooglePlayBillingManager.AcknowledgementState.ACKNOWLEDGED.apiString())
+        .setSubscriptionState(GooglePlayBillingManager.SubscriptionState.ACTIVE.apiString())
+        .setLatestOrderId(ORDER_ID)
+        .setRegionCode("US")
+        .setLineItems(List.of(new SubscriptionPurchaseLineItem()
+            .setExpiryTime(Instant.now().plus(Duration.ofDays(1)).toString())
+            .setProductId(PRODUCT_ID)
+            .setOfferDetails(new OfferDetails().setBasePlanId(basePlanId)))));
+
+    final BasePlan basePlan = new BasePlan()
+        .setBasePlanId(basePlanId)
+        .setRegionalConfigs(List.of(
+            new RegionalBasePlanConfig()
+                .setRegionCode("US")
+                .setPrice(new Money().setCurrencyCode("USD").setUnits(1L).setNanos(750_000_000))));
+    when(subscriptionConfig.execute()).thenReturn(new Subscription().setBasePlans(List.of(basePlan)));
+
+    final SubscriptionInformation info = googlePlayBillingManager.getSubscriptionInformation(PURCHASE_TOKEN).join();
+    assertThat(info.active()).isTrue();
+    assertThat(info.paymentProcessing()).isFalse();
+    assertThat(info.price().currency()).isEqualTo("USD");
+    assertThat(info.price().amount().compareTo(new BigDecimal("175"))).isEqualTo(0); // 175 cents
+    assertThat(info.level()).isEqualTo(201L);
   }
 
 }

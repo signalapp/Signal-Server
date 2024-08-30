@@ -22,9 +22,11 @@ import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialRequest;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialResponse;
 import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.whispersystems.textsecuregcm.controllers.SubscriptionController;
+import org.whispersystems.textsecuregcm.subscriptions.CustomerAwareSubscriptionPaymentProcessor;
 import org.whispersystems.textsecuregcm.subscriptions.GooglePlayBillingManager;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInformation;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPaymentProcessor;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -41,52 +43,20 @@ import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 public class SubscriptionManager {
 
   private final Subscriptions subscriptions;
-  private final EnumMap<PaymentProvider, Processor> processors;
+  private final EnumMap<PaymentProvider, SubscriptionPaymentProcessor> processors;
   private final ServerZkReceiptOperations zkReceiptOperations;
   private final IssuedReceiptsManager issuedReceiptsManager;
 
   public SubscriptionManager(
       @Nonnull Subscriptions subscriptions,
-      @Nonnull List<Processor> processors,
+      @Nonnull List<SubscriptionPaymentProcessor> processors,
       @Nonnull ServerZkReceiptOperations zkReceiptOperations,
       @Nonnull IssuedReceiptsManager issuedReceiptsManager) {
     this.subscriptions = Objects.requireNonNull(subscriptions);
     this.processors = new EnumMap<>(processors.stream()
-        .collect(Collectors.toMap(Processor::getProvider, Function.identity())));
+        .collect(Collectors.toMap(SubscriptionPaymentProcessor::getProvider, Function.identity())));
     this.zkReceiptOperations = Objects.requireNonNull(zkReceiptOperations);
     this.issuedReceiptsManager = Objects.requireNonNull(issuedReceiptsManager);
-  }
-
-  public interface Processor {
-
-    PaymentProvider getProvider();
-
-    /**
-     * A receipt of payment from a payment provider
-     *
-     * @param itemId      An identifier for the payment that should be unique within the payment provider. Note that
-     *                    this must identify an actual individual charge, not the subscription as a whole.
-     * @param paymentTime The time this payment was for
-     * @param level       The level which this payment corresponds to
-     */
-    record ReceiptItem(String itemId, PaymentTime paymentTime, long level) {}
-
-    /**
-     * Retrieve a {@link ReceiptItem} for the subscriptionId stored in the subscriptions table
-     *
-     * @param subscriptionId A subscriptionId that potentially corresponds to a valid subscription
-     * @return A {@link ReceiptItem} if the subscription is valid
-     */
-    CompletableFuture<ReceiptItem> getReceiptItem(String subscriptionId);
-
-    /**
-     * Cancel all active subscriptions for this key within the payment provider.
-     *
-     * @param key An identifier for the subscriber within the payment provider, corresponds to the customerId field in
-     *            the subscriptions table
-     * @return A stage that completes when all subscriptions associated with the key are cancelled
-     */
-    CompletableFuture<Void> cancelAllActiveSubscriptions(String key);
   }
 
   /**
@@ -146,6 +116,16 @@ public class SubscriptionManager {
         .thenRun(Util.NOOP);
   }
 
+  public CompletableFuture<Optional<SubscriptionInformation>> getSubscriptionInformation(final SubscriberCredentials subscriberCredentials) {
+    return getSubscriber(subscriberCredentials).thenCompose(record -> {
+      if (record.subscriptionId == null) {
+        return CompletableFuture.completedFuture(Optional.empty());
+      }
+      final SubscriptionPaymentProcessor manager = getProcessor(record.processorCustomer.processor());
+      return manager.getSubscriptionInformation(record.subscriptionId).thenApply(Optional::of);
+    });
+  }
+
   /**
    * Get the subscriber record
    *
@@ -167,7 +147,7 @@ public class SubscriptionManager {
 
   public record ReceiptResult(
       ReceiptCredentialResponse receiptCredentialResponse,
-      SubscriptionPaymentProcessor.ReceiptItem receiptItem,
+      CustomerAwareSubscriptionPaymentProcessor.ReceiptItem receiptItem,
       PaymentProvider paymentProvider) {}
 
   /**
@@ -175,14 +155,14 @@ public class SubscriptionManager {
    *
    * @param subscriberCredentials Subscriber credentials derived from the subscriberId
    * @param request               The ZK Receipt credential request
-   * @param expiration            A function that takes a {@link SubscriptionPaymentProcessor.ReceiptItem} and returns
+   * @param expiration            A function that takes a {@link CustomerAwareSubscriptionPaymentProcessor.ReceiptItem} and returns
    *                              the expiration time of the receipt
    * @return If the subscription had a valid payment, the requested ZK receipt credential
    */
   public CompletableFuture<ReceiptResult> createReceiptCredentials(
       final SubscriberCredentials subscriberCredentials,
       final SubscriptionController.GetReceiptCredentialsRequest request,
-      final Function<SubscriptionPaymentProcessor.ReceiptItem, Instant> expiration) {
+      final Function<CustomerAwareSubscriptionPaymentProcessor.ReceiptItem, Instant> expiration) {
     return getSubscriber(subscriberCredentials).thenCompose(record -> {
       if (record.subscriptionId == null) {
         return CompletableFuture.failedFuture(new SubscriptionException.NotFound());
@@ -197,7 +177,7 @@ public class SubscriptionManager {
       }
 
       final PaymentProvider processor = record.getProcessorCustomer().orElseThrow().processor();
-      final Processor manager = getProcessor(processor);
+      final SubscriptionPaymentProcessor manager = getProcessor(processor);
       return manager.getReceiptItem(record.subscriptionId)
           .thenCompose(receipt -> issuedReceiptsManager.recordIssuance(
                   receipt.itemId(), manager.getProvider(), receiptCredentialRequest,
@@ -224,7 +204,7 @@ public class SubscriptionManager {
    * <p>
    * If the customer does not exist in the table, a customer is created via the subscriptionPaymentProcessor and added
    * to the table. Not all payment processors support server-managed customers, so a payment processor that implements
-   * {@link SubscriptionPaymentProcessor} must be passed in.
+   * {@link CustomerAwareSubscriptionPaymentProcessor} must be passed in.
    *
    * @param subscriberCredentials        Subscriber credentials derived from the subscriberId
    * @param subscriptionPaymentProcessor A customer-aware payment processor to use. If the subscriber already has a
@@ -240,7 +220,7 @@ public class SubscriptionManager {
    * @return A stage that completes when the payment method has been created in the payment processor and the table has
    * been updated
    */
-  public <T extends SubscriptionPaymentProcessor, R> CompletableFuture<R> addPaymentMethodToCustomer(
+  public <T extends CustomerAwareSubscriptionPaymentProcessor, R> CompletableFuture<R> addPaymentMethodToCustomer(
       final SubscriberCredentials subscriberCredentials,
       final T subscriptionPaymentProcessor,
       final ClientPlatform clientPlatform,
@@ -305,7 +285,7 @@ public class SubscriptionManager {
   public CompletableFuture<Void> updateSubscriptionLevelForCustomer(
       final SubscriberCredentials subscriberCredentials,
       final Subscriptions.Record record,
-      final SubscriptionPaymentProcessor processor,
+      final CustomerAwareSubscriptionPaymentProcessor processor,
       final long level,
       final String currency,
       final String idempotencyKey,
@@ -320,7 +300,7 @@ public class SubscriptionManager {
             .getSubscription(subId)
             .thenCompose(subscription -> processor.getLevelAndCurrencyForSubscription(subscription)
                 .thenCompose(existingLevelAndCurrency -> {
-                  if (existingLevelAndCurrency.equals(new SubscriptionPaymentProcessor.LevelAndCurrency(level,
+                  if (existingLevelAndCurrency.equals(new CustomerAwareSubscriptionPaymentProcessor.LevelAndCurrency(level,
                       currency.toLowerCase(Locale.ROOT)))) {
                     return CompletableFuture.completedFuture(null);
                   }
@@ -383,7 +363,7 @@ public class SubscriptionManager {
       return googlePlayBillingManager
           // Validating ensures we don't allow a user-determined token that's totally bunk into the subscription manager,
           // but we don't want to acknowledge it until it's successfully persisted.
-          .validateToken(record.subscriptionId)
+          .validateToken(purchaseToken)
           // Store the purchaseToken with the subscriber
           .thenCompose(validatedToken -> subscriptions.setIapPurchase(
                   record, pc, purchaseToken, validatedToken.getLevel(), subscriberCredentials.now())
@@ -394,7 +374,7 @@ public class SubscriptionManager {
 
   }
 
-  private Processor getProcessor(PaymentProvider provider) {
+  private SubscriptionPaymentProcessor getProcessor(PaymentProvider provider) {
     return processors.get(provider);
   }
 }

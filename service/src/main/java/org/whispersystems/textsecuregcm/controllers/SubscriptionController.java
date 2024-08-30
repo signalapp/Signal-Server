@@ -13,6 +13,7 @@ import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
+import io.swagger.v3.oas.annotations.ExternalDocumentation;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -78,11 +79,12 @@ import org.whispersystems.textsecuregcm.subscriptions.BankMandateTranslator;
 import org.whispersystems.textsecuregcm.subscriptions.BankTransferType;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
 import org.whispersystems.textsecuregcm.subscriptions.ChargeFailure;
+import org.whispersystems.textsecuregcm.subscriptions.CustomerAwareSubscriptionPaymentProcessor;
+import org.whispersystems.textsecuregcm.subscriptions.GooglePlayBillingManager;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPaymentProcessor;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
@@ -102,6 +104,7 @@ public class SubscriptionController {
   private final SubscriptionManager subscriptionManager;
   private final StripeManager stripeManager;
   private final BraintreeManager braintreeManager;
+  private final GooglePlayBillingManager googlePlayBillingManager;
   private final BadgeTranslator badgeTranslator;
   private final LevelTranslator levelTranslator;
   private final BankMandateTranslator bankMandateTranslator;
@@ -117,6 +120,7 @@ public class SubscriptionController {
       @Nonnull SubscriptionManager subscriptionManager,
       @Nonnull StripeManager stripeManager,
       @Nonnull BraintreeManager braintreeManager,
+      @Nonnull GooglePlayBillingManager googlePlayBillingManager,
       @Nonnull BadgeTranslator badgeTranslator,
       @Nonnull LevelTranslator levelTranslator,
       @Nonnull BankMandateTranslator bankMandateTranslator) {
@@ -126,13 +130,14 @@ public class SubscriptionController {
     this.oneTimeDonationConfiguration = Objects.requireNonNull(oneTimeDonationConfiguration);
     this.stripeManager = Objects.requireNonNull(stripeManager);
     this.braintreeManager = Objects.requireNonNull(braintreeManager);
+    this.googlePlayBillingManager = Objects.requireNonNull(googlePlayBillingManager);
     this.badgeTranslator = Objects.requireNonNull(badgeTranslator);
     this.levelTranslator = Objects.requireNonNull(levelTranslator);
     this.bankMandateTranslator = Objects.requireNonNull(bankMandateTranslator);
   }
 
   private Map<String, CurrencyConfiguration> buildCurrencyConfiguration() {
-    final List<SubscriptionPaymentProcessor> subscriptionPaymentProcessors = List.of(stripeManager, braintreeManager);
+    final List<CustomerAwareSubscriptionPaymentProcessor> subscriptionPaymentProcessors = List.of(stripeManager, braintreeManager);
     return oneTimeDonationConfiguration.currencies()
         .entrySet().stream()
         .collect(Collectors.toMap(Entry::getKey, currencyAndConfig -> {
@@ -252,7 +257,7 @@ public class SubscriptionController {
     SubscriberCredentials subscriberCredentials =
         SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
 
-    final SubscriptionPaymentProcessor subscriptionPaymentProcessor = switch (paymentMethodType) {
+    final CustomerAwareSubscriptionPaymentProcessor customerAwareSubscriptionPaymentProcessor = switch (paymentMethodType) {
       // Today, we always choose stripe to process non-paypal payment types, however we could use braintree to process
       // other types (like CARD) in the future.
       case CARD, SEPA_DEBIT, IDEAL -> stripeManager;
@@ -264,11 +269,11 @@ public class SubscriptionController {
 
     return subscriptionManager.addPaymentMethodToCustomer(
             subscriberCredentials,
-            subscriptionPaymentProcessor,
+            customerAwareSubscriptionPaymentProcessor,
             getClientPlatform(userAgentString),
-            SubscriptionPaymentProcessor::createPaymentMethodSetupToken)
+            CustomerAwareSubscriptionPaymentProcessor::createPaymentMethodSetupToken)
         .thenApply(token ->
-            Response.ok(new CreatePaymentMethodResponse(token, subscriptionPaymentProcessor.getProvider())).build());
+            Response.ok(new CreatePaymentMethodResponse(token, customerAwareSubscriptionPaymentProcessor.getProvider())).build());
   }
 
   public record CreatePayPalBillingAgreementRequest(@NotBlank String returnUrl, @NotBlank String cancelUrl) {}
@@ -306,7 +311,7 @@ public class SubscriptionController {
             .build());
   }
 
-  private SubscriptionPaymentProcessor getManagerForProcessor(PaymentProvider processor) {
+  private CustomerAwareSubscriptionPaymentProcessor getCustomerAwareProcessor(PaymentProvider processor) {
     return switch (processor) {
       case STRIPE -> stripeManager;
       case BRAINTREE -> braintreeManager;
@@ -326,7 +331,7 @@ public class SubscriptionController {
     SubscriberCredentials subscriberCredentials =
         SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
 
-    final SubscriptionPaymentProcessor manager = getManagerForProcessor(processor);
+    final CustomerAwareSubscriptionPaymentProcessor manager = getCustomerAwareProcessor(processor);
 
     return setDefaultPaymentMethod(manager, paymentMethodToken, subscriberCredentials);
   }
@@ -369,7 +374,7 @@ public class SubscriptionController {
           final String subscriptionTemplateId = getSubscriptionTemplateId(level, currency,
               processorCustomer.processor());
 
-          final SubscriptionPaymentProcessor manager = getManagerForProcessor(processorCustomer.processor());
+          final CustomerAwareSubscriptionPaymentProcessor manager = getCustomerAwareProcessor(processorCustomer.processor());
           return subscriptionManager.updateSubscriptionLevelForCustomer(subscriberCredentials, record, manager, level,
               currency, idempotencyKey, subscriptionTemplateId, this::subscriptionsAreSameType);
         })
@@ -393,6 +398,43 @@ public class SubscriptionController {
   public boolean subscriptionsAreSameType(long level1, long level2) {
     return subscriptionConfiguration.getSubscriptionLevel(level1).type()
         == subscriptionConfiguration.getSubscriptionLevel(level2).type();
+  }
+
+
+  @POST
+  @Path("/{subscriberId}/playbilling/{purchaseToken}")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Set a google play billing purchase token", description = """
+  Set a purchaseToken that represents an IAP subscription made with Google Play Billing.
+
+  To set up a subscription with Google Play Billing:
+  1. Create a subscriber with `PUT subscriptions/{subscriberId}` (you must regularly refresh this subscriber)
+  2. [Create a subscription](https://developer.android.com/google/play/billing/integrate) with Google Play Billing
+     directly and obtain a purchaseToken. Do not [acknowledge](https://developer.android.com/google/play/billing/integrate#subscriptions)
+     the purchaseToken.
+  3. `POST` the purchaseToken here
+  4. Obtain a receipt at `POST /v1/subscription/{subscriberId}/receipt_credentials` which can then be used to obtain the
+     entitlement
+
+  After calling this method, the payment is confirmed. Callers must durably store their subscriberId before calling
+  this method to ensure their payment is tracked.
+  """)
+  @ApiResponse(responseCode = "200", description = "The purchaseToken was validated and acknowledged")
+  @ApiResponse(responseCode = "402", description = "The purchaseToken payment is incomplete or invalid")
+  @ApiResponse(responseCode = "403", description = "subscriberId authentication failure OR account authentication is present")
+  @ApiResponse(responseCode = "404", description = "No such subscriberId exists or subscriberId is malformed or the purchaseToken does not exist")
+  @ApiResponse(responseCode = "409", description = "subscriberId is already linked to a processor that does not support Play Billing. Delete this subscriberId and use a new one.")
+  public CompletableFuture<SetSubscriptionLevelSuccessResponse> setPlayStoreSubscription(
+      @ReadOnly @Auth Optional<AuthenticatedDevice> authenticatedAccount,
+      @PathParam("subscriberId") String subscriberId,
+      @PathParam("purchaseToken") String purchaseToken) throws SubscriptionException {
+    final SubscriberCredentials subscriberCredentials =
+        SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
+
+    return subscriptionManager
+        .updatePlayBillingPurchaseToken(subscriberCredentials, googlePlayBillingManager, purchaseToken)
+        .thenApply(SetSubscriptionLevelSuccessResponse::new);
   }
 
   @Schema(description = """
@@ -472,49 +514,89 @@ public class SubscriptionController {
   public record GetBankMandateResponse(String mandate) {}
 
   public record GetSubscriptionInformationResponse(
+      @Schema(description = "Information about the subscription, or null if no subscription is present")
       SubscriptionController.GetSubscriptionInformationResponse.Subscription subscription,
+      @Schema(description = "May be omitted entirely if no charge failure is detected")
       @JsonInclude(Include.NON_NULL) ChargeFailure chargeFailure) {
 
-      public record Subscription(long level, Instant billingCycleAnchor, Instant endOfCurrentPeriod, boolean active,
-                                 boolean cancelAtPeriodEnd, String currency, BigDecimal amount, String status,
-                                 PaymentProvider processor, PaymentMethod paymentMethod, boolean paymentProcessing) {
+    public record Subscription(
+        @Schema(description = "The subscription level")
+        long level,
 
-      }
-    }
+        @Schema(
+            description = "If present, UNIX Epoch Timestamp in seconds, can be used to calculate next billing date. May be absent for IAP subscriptions",
+            externalDocs = @ExternalDocumentation(description = "Calculate next billing date", url = "https://stripe.com/docs/billing/subscriptions/billing-cycle"))
+        Instant billingCycleAnchor,
+
+        @Schema(description = "UNIX Epoch Timestamp in seconds, when the current subscription period ends")
+        Instant endOfCurrentPeriod,
+
+        @Schema(description = "Whether there is a currently active subscription")
+        boolean active,
+
+        @Schema(description = "If true, an active subscription will not auto-renew at the end of the current period")
+        boolean cancelAtPeriodEnd,
+
+        @Schema(description = "A three-letter ISO 4217 currency code for currency used in the subscription")
+        String currency,
+
+        @Schema(
+            description = "The amount paid for the subscription in the currency's smallest unit",
+            externalDocs = @ExternalDocumentation(description = "Stripe Currencies", url = "https://docs.stripe.com/currencies"))
+        BigDecimal amount,
+
+        @Schema(
+            description = "The subscription's status, mapped to Stripe's statuses. trialing will never be returned",
+            externalDocs = @ExternalDocumentation(description = "Stripe subscription statuses", url = "https://docs.stripe.com/billing/subscriptions/overview#subscription-statuses"))
+        String status,
+
+        @Schema(description = "The payment provider associated with the subscription")
+        PaymentProvider processor,
+
+        @Schema(description = "The payment method associated with the subscription")
+        PaymentMethod paymentMethod,
+
+        @Schema(description = "Whether the latest invoice for the subscription is in a non-terminal state")
+        boolean paymentProcessing) {}
+  }
 
   @GET
   @Path("/{subscriberId}")
   @Produces(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Subscription information", description = """
+      Returns information about the current subscription associated with the provided subscriberId if one exists.
+  
+      Although it uses [Stripe’s values](https://stripe.com/docs/billing/subscriptions/overview#subscription-statuses),
+      the status field in the response is generic, with [Braintree-specific values](https://developer.paypal.com/braintree/docs/guides/recurring-billing/overview#subscription-statuses) mapped
+      to Stripe's. Since we don’t support trials or unpaid subscriptions, the associated statuses will never be returned
+      by the API.
+      """)
+  @ApiResponse(responseCode = "200", description = "The subscriberId exists", content = @Content(schema = @Schema(implementation = GetSubscriptionInformationResponse.class)))
+  @ApiResponse(responseCode = "403", description = "subscriberId authentication failure OR account authentication is present")
+  @ApiResponse(responseCode = "404", description = "No such subscriberId exists or subscriberId is malformed")
   public CompletableFuture<Response> getSubscriptionInformation(
       @ReadOnly @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId) throws SubscriptionException {
-    SubscriberCredentials subscriberCredentials = SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
-    return subscriptionManager.getSubscriber(subscriberCredentials)
-        .thenCompose(record -> {
-            if (record.subscriptionId == null) {
-                return CompletableFuture.completedFuture(Response.ok(new GetSubscriptionInformationResponse(null, null)).build());
-            }
-
-            final SubscriptionPaymentProcessor manager = getManagerForProcessor(record.getProcessorCustomer().orElseThrow().processor());
-
-            return manager.getSubscription(record.subscriptionId).thenCompose(subscription ->
-                manager.getSubscriptionInformation(subscription).thenApply(subscriptionInformation -> Response.ok(
-                    new GetSubscriptionInformationResponse(
-                        new GetSubscriptionInformationResponse.Subscription(
-                            subscriptionInformation.level(),
-                            subscriptionInformation.billingCycleAnchor(),
-                            subscriptionInformation.endOfCurrentPeriod(),
-                            subscriptionInformation.active(),
-                            subscriptionInformation.cancelAtPeriodEnd(),
-                            subscriptionInformation.price().currency(),
-                            subscriptionInformation.price().amount(),
-                            subscriptionInformation.status().getApiValue(),
-                            manager.getProvider(),
-                            subscriptionInformation.paymentMethod(),
-                            subscriptionInformation.paymentProcessing()),
-                        subscriptionInformation.chargeFailure()
-                    )).build()));
-        });
+    SubscriberCredentials subscriberCredentials =
+        SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
+    return subscriptionManager.getSubscriptionInformation(subscriberCredentials).thenApply(maybeInfo -> maybeInfo
+        .map(subscriptionInformation -> Response.ok(
+            new GetSubscriptionInformationResponse(
+                new GetSubscriptionInformationResponse.Subscription(
+                    subscriptionInformation.level(),
+                    subscriptionInformation.billingCycleAnchor(),
+                    subscriptionInformation.endOfCurrentPeriod(),
+                    subscriptionInformation.active(),
+                    subscriptionInformation.cancelAtPeriodEnd(),
+                    subscriptionInformation.price().currency(),
+                    subscriptionInformation.price().amount(),
+                    subscriptionInformation.status().getApiValue(),
+                    subscriptionInformation.paymentProvider(),
+                    subscriptionInformation.paymentMethod(),
+                    subscriptionInformation.paymentProcessing()),
+                subscriptionInformation.chargeFailure()
+            )).build())
+        .orElseGet(() -> Response.ok(new GetSubscriptionInformationResponse(null, null)).build()));
   }
 
   public record GetReceiptCredentialsRequest(@NotEmpty byte[] receiptCredentialRequest) {
@@ -536,7 +618,7 @@ public class SubscriptionController {
     return subscriptionManager.createReceiptCredentials(subscriberCredentials, request, this::receiptExpirationWithGracePeriod)
         .thenApply(receiptCredential -> {
           final ReceiptCredentialResponse receiptCredentialResponse = receiptCredential.receiptCredentialResponse();
-          final SubscriptionPaymentProcessor.ReceiptItem receipt = receiptCredential.receiptItem();
+          final CustomerAwareSubscriptionPaymentProcessor.ReceiptItem receipt = receiptCredential.receiptItem();
           Metrics.counter(RECEIPT_ISSUED_COUNTER_NAME,
                   Tags.of(
                       Tag.of(PROCESSOR_TAG_NAME, receiptCredential.paymentProvider().toString()),
@@ -564,7 +646,7 @@ public class SubscriptionController {
         .thenCompose(generatedSepaId -> setDefaultPaymentMethod(stripeManager, generatedSepaId, subscriberCredentials));
   }
 
-  private CompletableFuture<Response> setDefaultPaymentMethod(final SubscriptionPaymentProcessor manager,
+  private CompletableFuture<Response> setDefaultPaymentMethod(final CustomerAwareSubscriptionPaymentProcessor manager,
       final String paymentMethodId,
       final SubscriberCredentials requestData) {
     return subscriptionManager.getSubscriber(requestData)
@@ -578,7 +660,7 @@ public class SubscriptionController {
         .thenApply(customer -> Response.ok().build());
   }
 
-  private Instant receiptExpirationWithGracePeriod(SubscriptionPaymentProcessor.ReceiptItem receiptItem) {
+  private Instant receiptExpirationWithGracePeriod(CustomerAwareSubscriptionPaymentProcessor.ReceiptItem receiptItem) {
     final PaymentTime paymentTime = receiptItem.paymentTime();
     return switch (subscriptionConfiguration.getSubscriptionLevel(receiptItem.level()).type()) {
       case DONATION -> paymentTime.receiptExpiration(

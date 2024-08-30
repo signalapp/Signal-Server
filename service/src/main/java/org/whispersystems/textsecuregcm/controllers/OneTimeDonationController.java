@@ -47,7 +47,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
-import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.OneTimeDonationsManager;
@@ -58,7 +57,7 @@ import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionCurrencyUtil;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPaymentProcessor;
+import org.whispersystems.textsecuregcm.subscriptions.CustomerAwareSubscriptionPaymentProcessor;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
@@ -166,7 +165,7 @@ public class OneTimeDonationController {
    * @throws BadRequestException indicates validation failed. Inspect {@code response.error} for details
    */
   private void validateRequestCurrencyAmount(CreateBoostRequest request, BigDecimal amount,
-      SubscriptionPaymentProcessor manager) {
+      CustomerAwareSubscriptionPaymentProcessor manager) {
     if (!manager.getSupportedCurrenciesForPaymentMethod(request.paymentMethod)
         .contains(request.currency.toLowerCase(Locale.ROOT))) {
       throw new BadRequestException(Response.status(Response.Status.BAD_REQUEST)

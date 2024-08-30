@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.subscriptions;
 
+import com.google.api.services.androidpublisher.model.Money;
 import java.math.BigDecimal;
 import java.util.Locale;
 import java.util.Set;
@@ -70,5 +71,17 @@ public class SubscriptionCurrencyUtil {
    */
   static BigDecimal convertBraintreeAmountToApiAmount(final String currency, final BigDecimal amount) {
     return convertConfiguredAmountToApiAmount(currency, amount);
+  }
+
+  /**
+   * Convert Play Billing's representation of currency amounts to a Stripe-style amount
+   *
+   * @see org.whispersystems.textsecuregcm.subscriptions.SubscriptionCurrencyUtil#convertConfiguredAmountToApiAmount(String,
+   * BigDecimal)
+   */
+  static BigDecimal convertGoogleMoneyToApiAmount(final Money money) {
+    final BigDecimal fractionalComponent = BigDecimal.valueOf(money.getNanos()).scaleByPowerOfTen(-9);
+    final BigDecimal amount = BigDecimal.valueOf(money.getUnits()).add(fractionalComponent);
+    return convertConfiguredAmountToApiAmount(money.getCurrencyCode(), amount);
   }
 }

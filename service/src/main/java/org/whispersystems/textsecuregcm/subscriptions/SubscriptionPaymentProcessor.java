@@ -2,139 +2,42 @@
  * Copyright 2022 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
-
 package org.whispersystems.textsecuregcm.subscriptions;
 
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.util.Set;
+import org.whispersystems.textsecuregcm.storage.PaymentTime;
+
 import java.util.concurrent.CompletableFuture;
-import javax.annotation.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
-import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
-public interface SubscriptionPaymentProcessor extends SubscriptionManager.Processor {
+public interface SubscriptionPaymentProcessor {
 
-  boolean supportsPaymentMethod(PaymentMethod paymentMethod);
-
-  Set<String> getSupportedCurrenciesForPaymentMethod(PaymentMethod paymentMethod);
-
-  CompletableFuture<ProcessorCustomer> createCustomer(byte[] subscriberUser, @Nullable ClientPlatform clientPlatform);
-
-  CompletableFuture<String> createPaymentMethodSetupToken(String customerId);
-
+  PaymentProvider getProvider();
 
   /**
-   * @param customerId
-   * @param paymentMethodToken    a processor-specific token necessary
-   * @param currentSubscriptionId (nullable) an active subscription ID, in case it needs an explicit update
-   * @return
+   * A receipt of payment from a payment provider
+   *
+   * @param itemId      An identifier for the payment that should be unique within the payment provider. Note that this
+   *                    must identify an actual individual charge, not the subscription as a whole.
+   * @param paymentTime The time this payment was for
+   * @param level       The level which this payment corresponds to
    */
-  CompletableFuture<Void> setDefaultPaymentMethodForCustomer(String customerId, String paymentMethodToken,
-      @Nullable String currentSubscriptionId);
-
-  CompletableFuture<Object> getSubscription(String subscriptionId);
-
-  CompletableFuture<SubscriptionId> createSubscription(String customerId, String templateId, long level,
-      long lastSubscriptionCreatedAt);
-
-  CompletableFuture<SubscriptionId> updateSubscription(
-      Object subscription, String templateId, long level, String idempotencyKey);
+  record ReceiptItem(String itemId, PaymentTime paymentTime, long level) {}
 
   /**
-   * @param subscription
-   * @return the subscription’s current level and lower-case currency code
+   * Retrieve a {@link ReceiptItem} for the subscriptionId stored in the subscriptions table
+   *
+   * @param subscriptionId A subscriptionId that potentially corresponds to a valid subscription
+   * @return A {@link ReceiptItem} if the subscription is valid
    */
-  CompletableFuture<LevelAndCurrency> getLevelAndCurrencyForSubscription(Object subscription);
+  CompletableFuture<ReceiptItem> getReceiptItem(String subscriptionId);
 
-  CompletableFuture<SubscriptionInformation> getSubscriptionInformation(Object subscription);
+  /**
+   * Cancel all active subscriptions for this key within the payment provider.
+   *
+   * @param key An identifier for the subscriber within the payment provider, corresponds to the customerId field in the
+   *            subscriptions table
+   * @return A stage that completes when all subscriptions associated with the key are cancelled
+   */
+  CompletableFuture<Void> cancelAllActiveSubscriptions(String key);
 
-  enum SubscriptionStatus {
-    /**
-     * The subscription is in good standing and the most recent payment was successful.
-     */
-    ACTIVE("active"),
-
-    /**
-     * Payment failed when creating the subscription, or the subscription’s start date is in the future.
-     */
-    INCOMPLETE("incomplete"),
-
-    /**
-     * Payment on the latest renewal failed but there are processor retries left, or payment wasn't attempted.
-     */
-    PAST_DUE("past_due"),
-
-    /**
-     * The subscription has been canceled.
-     */
-    CANCELED("canceled"),
-
-    /**
-     * The latest renewal hasn't been paid but the subscription remains in place.
-     */
-    UNPAID("unpaid"),
-
-    /**
-     * The status from the downstream processor is unknown.
-     */
-    UNKNOWN("unknown");
-
-
-    private final String apiValue;
-
-    SubscriptionStatus(String apiValue) {
-      this.apiValue = apiValue;
-    }
-
-    public static SubscriptionStatus forApiValue(String status) {
-      return switch (status) {
-        case "active" -> ACTIVE;
-        case "canceled", "incomplete_expired" -> CANCELED;
-        case "unpaid" -> UNPAID;
-        case "past_due" -> PAST_DUE;
-        case "incomplete" -> INCOMPLETE;
-
-        case "trialing" -> {
-          final Logger logger = LoggerFactory.getLogger(SubscriptionPaymentProcessor.class);
-          logger.error("Subscription has status that should never happen: {}", status);
-
-          yield UNKNOWN;
-        }
-        default -> {
-          final Logger logger = LoggerFactory.getLogger(SubscriptionPaymentProcessor.class);
-          logger.error("Subscription has unknown status: {}", status);
-
-          yield UNKNOWN;
-        }
-      };
-    }
-
-    public String getApiValue() {
-      return apiValue;
-    }
-  }
-
-
-  record SubscriptionId(String id) {
-
-  }
-
-  record SubscriptionInformation(SubscriptionPrice price, long level, Instant billingCycleAnchor,
-                                 Instant endOfCurrentPeriod, boolean active, boolean cancelAtPeriodEnd,
-                                 SubscriptionStatus status, PaymentMethod paymentMethod, boolean paymentProcessing,
-                                 @Nullable ChargeFailure chargeFailure) {
-
-  }
-
-  record SubscriptionPrice(String currency, BigDecimal amount) {
-
-  }
-
-  record LevelAndCurrency(long level, String currency) {
-
-  }
-
+  CompletableFuture<SubscriptionInformation> getSubscriptionInformation(final String subscriptionId);
 }

@@ -77,7 +77,7 @@ import org.whispersystems.textsecuregcm.storage.PaymentTime;
 import org.whispersystems.textsecuregcm.util.Conversions;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
-public class StripeManager implements SubscriptionPaymentProcessor {
+public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor {
   private static final Logger logger = LoggerFactory.getLogger(StripeManager.class);
   private static final String METADATA_KEY_LEVEL = "level";
   private static final String METADATA_KEY_CLIENT_PLATFORM = "clientPlatform";
@@ -364,6 +364,7 @@ public class StripeManager implements SubscriptionPaymentProcessor {
         .thenApply(subscription1 -> new SubscriptionId(subscription1.getId()));
   }
 
+  @Override
   public CompletableFuture<Object> getSubscription(String subscriptionId) {
     return CompletableFuture.supplyAsync(() -> {
       SubscriptionRetrieveParams params = SubscriptionRetrieveParams.builder()
@@ -378,6 +379,7 @@ public class StripeManager implements SubscriptionPaymentProcessor {
     }, executor);
   }
 
+  @Override
   public CompletableFuture<Void> cancelAllActiveSubscriptions(String customerId) {
     return getCustomer(customerId).thenCompose(customer -> {
       if (customer == null) {
@@ -536,46 +538,45 @@ public class StripeManager implements SubscriptionPaymentProcessor {
   }
 
   @Override
-  public CompletableFuture<SubscriptionInformation> getSubscriptionInformation(Object subscriptionObj) {
+  public CompletableFuture<SubscriptionInformation> getSubscriptionInformation(final String subscriptionId) {
+    return getSubscription(subscriptionId).thenApply(this::getSubscription).thenCompose(subscription ->
+        getPriceForSubscription(subscription).thenCompose(price ->
+          getLevelForPrice(price).thenApply(level -> {
+            ChargeFailure chargeFailure = null;
+            boolean paymentProcessing = false;
+            PaymentMethod paymentMethod = null;
 
-    final Subscription subscription = getSubscription(subscriptionObj);
+            if (subscription.getLatestInvoiceObject() != null) {
+              final Invoice invoice = subscription.getLatestInvoiceObject();
+              paymentProcessing = "open".equals(invoice.getStatus());
 
-    return getPriceForSubscription(subscription).thenCompose(price ->
-            getLevelForPrice(price).thenApply(level -> {
-              ChargeFailure chargeFailure = null;
-              boolean paymentProcessing = false;
-              PaymentMethod paymentMethod = null;
+              if (invoice.getChargeObject() != null) {
+                final Charge charge = invoice.getChargeObject();
+                if (charge.getFailureCode() != null || charge.getFailureMessage() != null) {
+                  chargeFailure = createChargeFailure(charge);
+                }
 
-              if (subscription.getLatestInvoiceObject() != null) {
-                final Invoice invoice = subscription.getLatestInvoiceObject();
-                paymentProcessing = "open".equals(invoice.getStatus());
-
-                if (invoice.getChargeObject() != null) {
-                  final Charge charge = invoice.getChargeObject();
-                  if (charge.getFailureCode() != null || charge.getFailureMessage() != null) {
-                    chargeFailure = createChargeFailure(charge);
-                  }
-
-                  if (charge.getPaymentMethodDetails() != null
-                      && charge.getPaymentMethodDetails().getType() != null) {
-                    paymentMethod = getPaymentMethodFromStripeString(charge.getPaymentMethodDetails().getType(), invoice.getId());
-                  }
+                if (charge.getPaymentMethodDetails() != null
+                    && charge.getPaymentMethodDetails().getType() != null) {
+                  paymentMethod = getPaymentMethodFromStripeString(charge.getPaymentMethodDetails().getType(), invoice.getId());
                 }
               }
+            }
 
-              return new SubscriptionInformation(
-                  new SubscriptionPrice(price.getCurrency().toUpperCase(Locale.ROOT), price.getUnitAmountDecimal()),
-                  level,
-                  Instant.ofEpochSecond(subscription.getBillingCycleAnchor()),
-                  Instant.ofEpochSecond(subscription.getCurrentPeriodEnd()),
-                  Objects.equals(subscription.getStatus(), "active"),
-                  subscription.getCancelAtPeriodEnd(),
-                  getSubscriptionStatus(subscription.getStatus()),
-                  paymentMethod,
-                  paymentProcessing,
-                  chargeFailure
-              );
-            }));
+            return new SubscriptionInformation(
+                new SubscriptionPrice(price.getCurrency().toUpperCase(Locale.ROOT), price.getUnitAmountDecimal()),
+                level,
+                Instant.ofEpochSecond(subscription.getBillingCycleAnchor()),
+                Instant.ofEpochSecond(subscription.getCurrentPeriodEnd()),
+                Objects.equals(subscription.getStatus(), "active"),
+                subscription.getCancelAtPeriodEnd(),
+                getSubscriptionStatus(subscription.getStatus()),
+                PaymentProvider.STRIPE,
+                paymentMethod,
+                paymentProcessing,
+                chargeFailure
+            );
+          })));
   }
 
   private static PaymentMethod getPaymentMethodFromStripeString(final String paymentMethodString, final String invoiceId) {

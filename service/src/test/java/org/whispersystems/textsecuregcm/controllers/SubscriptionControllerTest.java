@@ -12,6 +12,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -93,7 +94,7 @@ import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPaymentProcessor;
+import org.whispersystems.textsecuregcm.subscriptions.CustomerAwareSubscriptionPaymentProcessor;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -124,7 +125,7 @@ class SubscriptionControllerTest {
   private static final BankMandateTranslator BANK_MANDATE_TRANSLATOR = mock(BankMandateTranslator.class);
   private final static SubscriptionController SUBSCRIPTION_CONTROLLER = new SubscriptionController(CLOCK, SUBSCRIPTION_CONFIG,
       ONETIME_CONFIG, new SubscriptionManager(SUBSCRIPTIONS, List.of(STRIPE_MANAGER, BRAINTREE_MANAGER, PLAY_MANAGER), ZK_OPS,
-      ISSUED_RECEIPTS_MANAGER), STRIPE_MANAGER, BRAINTREE_MANAGER, BADGE_TRANSLATOR, LEVEL_TRANSLATOR,
+      ISSUED_RECEIPTS_MANAGER), STRIPE_MANAGER, BRAINTREE_MANAGER, PLAY_MANAGER, BADGE_TRANSLATOR, LEVEL_TRANSLATOR,
       BANK_MANDATE_TRANSLATOR);
   private static final OneTimeDonationController ONE_TIME_CONTROLLER = new OneTimeDonationController(CLOCK,
       ONETIME_CONFIG, STRIPE_MANAGER, BRAINTREE_MANAGER, ZK_OPS, ISSUED_RECEIPTS_MANAGER, ONE_TIME_DONATIONS_MANAGER);
@@ -403,7 +404,7 @@ class SubscriptionControllerTest {
     @Test
     void createSubscriptionSuccess() {
       when(STRIPE_MANAGER.createSubscription(any(), any(), anyLong(), anyLong()))
-          .thenReturn(CompletableFuture.completedFuture(mock(SubscriptionPaymentProcessor.SubscriptionId.class)));
+          .thenReturn(CompletableFuture.completedFuture(mock(CustomerAwareSubscriptionPaymentProcessor.SubscriptionId.class)));
 
       final String level = String.valueOf(levelId);
       final String idempotencyKey = UUID.randomUUID().toString();
@@ -715,7 +716,7 @@ class SubscriptionControllerTest {
         .thenReturn(CompletableFuture.completedFuture(Subscriptions.GetResult.found(record)));
 
     when(BRAINTREE_MANAGER.createSubscription(any(), any(), anyLong(), anyLong()))
-        .thenReturn(CompletableFuture.completedFuture(new SubscriptionPaymentProcessor.SubscriptionId(
+        .thenReturn(CompletableFuture.completedFuture(new CustomerAwareSubscriptionPaymentProcessor.SubscriptionId(
             "subscription")));
     when(SUBSCRIPTIONS.subscriptionCreated(any(), any(), any(), anyLong()))
         .thenReturn(CompletableFuture.completedFuture(null));
@@ -769,12 +770,12 @@ class SubscriptionControllerTest {
         .thenReturn(CompletableFuture.completedFuture(subscriptionObj));
     when(BRAINTREE_MANAGER.getLevelAndCurrencyForSubscription(subscriptionObj))
         .thenReturn(CompletableFuture.completedFuture(
-            new SubscriptionPaymentProcessor.LevelAndCurrency(existingLevel, existingCurrency)));
+            new CustomerAwareSubscriptionPaymentProcessor.LevelAndCurrency(existingLevel, existingCurrency)));
     final String updatedSubscriptionId = "updatedSubscriptionId";
 
     if (expectUpdate) {
       when(BRAINTREE_MANAGER.updateSubscription(any(), any(), anyLong(), anyString()))
-          .thenReturn(CompletableFuture.completedFuture(new SubscriptionPaymentProcessor.SubscriptionId(
+          .thenReturn(CompletableFuture.completedFuture(new CustomerAwareSubscriptionPaymentProcessor.SubscriptionId(
               updatedSubscriptionId)));
       when(SUBSCRIPTIONS.subscriptionLevelChanged(any(), any(), anyLong(), anyString()))
           .thenReturn(CompletableFuture.completedFuture(null));
@@ -844,7 +845,7 @@ class SubscriptionControllerTest {
         .thenReturn(CompletableFuture.completedFuture(subscriptionObj));
     when(BRAINTREE_MANAGER.getLevelAndCurrencyForSubscription(subscriptionObj))
         .thenReturn(CompletableFuture.completedFuture(
-            new SubscriptionPaymentProcessor.LevelAndCurrency(201, "usd")));
+            new CustomerAwareSubscriptionPaymentProcessor.LevelAndCurrency(201, "usd")));
 
     // Try to change from a backup subscription (201) to a donation subscription (5)
     final Response response = RESOURCE_EXTENSION
@@ -858,6 +859,50 @@ class SubscriptionControllerTest {
         .hasSize(1).first()
         .extracting(error -> error.type())
         .isEqualTo(SubscriptionController.SetSubscriptionLevelErrorResponse.Error.Type.UNSUPPORTED_LEVEL);
+  }
+
+
+  @Test
+  public void setPlayPurchaseToken() {
+    final String purchaseToken = "aPurchaseToken";
+    final byte[] subscriberUserAndKey = new byte[32];
+    Arrays.fill(subscriberUserAndKey, (byte) 1);
+    final byte[] user = Arrays.copyOfRange(subscriberUserAndKey, 0, 16);
+    final String subscriberId = Base64.getEncoder().encodeToString(subscriberUserAndKey);
+
+    final Instant now = Instant.now();
+    when(CLOCK.instant()).thenReturn(now);
+
+    final Map<String, AttributeValue> dynamoItem = Map.of(Subscriptions.KEY_PASSWORD, b(new byte[16]),
+        Subscriptions.KEY_CREATED_AT, n(Instant.now().getEpochSecond()),
+        Subscriptions.KEY_ACCESSED_AT, n(Instant.now().getEpochSecond())
+    );
+    final Subscriptions.Record record = Subscriptions.Record.from(user, dynamoItem);
+    when(SUBSCRIPTIONS.get(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(Subscriptions.GetResult.found(record)));
+
+    final GooglePlayBillingManager.ValidatedToken validatedToken = mock(GooglePlayBillingManager.ValidatedToken.class);
+    when(validatedToken.getLevel()).thenReturn(99L);
+    when(validatedToken.acknowledgePurchase()).thenReturn(CompletableFuture.completedFuture(null));
+    when(PLAY_MANAGER.validateToken(eq(purchaseToken))).thenReturn(CompletableFuture.completedFuture(validatedToken));
+
+    when(SUBSCRIPTIONS.setIapPurchase(any(), any(), anyString(), anyLong(), any()))
+        .thenReturn(CompletableFuture.completedFuture(null));
+
+    final Response response = RESOURCE_EXTENSION
+        .target(String.format("/v1/subscription/%s/playbilling/%s", subscriberId, purchaseToken))
+        .request()
+        .post(Entity.json(""));
+    assertThat(response.getStatus()).isEqualTo(200);
+    assertThat(response.readEntity(SubscriptionController.SetSubscriptionLevelSuccessResponse.class).level())
+        .isEqualTo(99L);
+
+    verify(SUBSCRIPTIONS, times(1)).setIapPurchase(
+        any(),
+        eq(new ProcessorCustomer(purchaseToken, PaymentProvider.GOOGLE_PLAY_BILLING)),
+        eq(purchaseToken),
+        eq(99L),
+        eq(now));
   }
 
   @ParameterizedTest
@@ -887,7 +932,7 @@ class SubscriptionControllerTest {
     when(SUBSCRIPTIONS.get(any(), any()))
         .thenReturn(CompletableFuture.completedFuture(Subscriptions.GetResult.found(record)));
     when(BRAINTREE_MANAGER.getReceiptItem(subscriptionId)).thenReturn(
-        CompletableFuture.completedFuture(new SubscriptionPaymentProcessor.ReceiptItem(
+        CompletableFuture.completedFuture(new CustomerAwareSubscriptionPaymentProcessor.ReceiptItem(
             "itemId",
             PaymentTime.periodStart(Instant.ofEpochSecond(10).plus(Duration.ofDays(1))),
             level

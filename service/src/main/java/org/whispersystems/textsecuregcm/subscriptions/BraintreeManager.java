@@ -53,7 +53,7 @@ import org.whispersystems.textsecuregcm.util.GoogleApiUtil;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
-public class BraintreeManager implements SubscriptionPaymentProcessor {
+public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcessor {
 
   private static final Logger logger = LoggerFactory.getLogger(BraintreeManager.class);
 
@@ -496,10 +496,9 @@ public class BraintreeManager implements SubscriptionPaymentProcessor {
   }
 
   @Override
-  public CompletableFuture<SubscriptionInformation> getSubscriptionInformation(Object subscriptionObj) {
-    final Subscription subscription = getSubscription(subscriptionObj);
-
-    return CompletableFuture.supplyAsync(() -> {
+  public CompletableFuture<SubscriptionInformation> getSubscriptionInformation(final String subscriptionId) {
+    return getSubscription(subscriptionId).thenApplyAsync(subscriptionObj -> {
+      final Subscription subscription = getSubscription(subscriptionObj);
 
       final Plan plan = braintreeGateway.plan().find(subscription.getPlanId());
 
@@ -531,10 +530,12 @@ public class BraintreeManager implements SubscriptionPaymentProcessor {
           Subscription.Status.ACTIVE == subscription.getStatus(),
           !subscription.neverExpires(),
           getSubscriptionStatus(subscription.getStatus(), latestTransactionFailed),
+          PaymentProvider.BRAINTREE,
           latestTransaction.map(this::getPaymentMethodFromTransaction).orElse(PaymentMethod.PAYPAL),
           paymentProcessing,
           chargeFailure
       );
+
     }, executor);
   }
 

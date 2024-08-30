@@ -12,6 +12,9 @@ import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.services.androidpublisher.AndroidPublisher;
 import com.google.api.services.androidpublisher.AndroidPublisherRequest;
 import com.google.api.services.androidpublisher.AndroidPublisherScopes;
+import com.google.api.services.androidpublisher.model.BasePlan;
+import com.google.api.services.androidpublisher.model.OfferDetails;
+import com.google.api.services.androidpublisher.model.RegionalBasePlanConfig;
 import com.google.api.services.androidpublisher.model.SubscriptionPurchaseLineItem;
 import com.google.api.services.androidpublisher.model.SubscriptionPurchaseV2;
 import com.google.api.services.androidpublisher.model.SubscriptionPurchasesAcknowledgeRequest;
@@ -28,6 +31,7 @@ import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -41,7 +45,6 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.PaymentTime;
 import org.whispersystems.textsecuregcm.storage.SubscriptionException;
-import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 
 /**
@@ -56,7 +59,7 @@ import org.whispersystems.textsecuregcm.util.ExceptionUtils;
  * <li> querying the current status of a token's underlying subscription </li>
  * </ul>
  */
-public class GooglePlayBillingManager implements SubscriptionManager.Processor {
+public class GooglePlayBillingManager implements SubscriptionPaymentProcessor {
 
   private static final Logger logger = LoggerFactory.getLogger(GooglePlayBillingManager.class);
 
@@ -218,6 +221,67 @@ public class GooglePlayBillingManager implements SubscriptionManager.Processor {
     });
   }
 
+  @Override
+  public CompletableFuture<SubscriptionInformation> getSubscriptionInformation(final String purchaseToken) {
+
+    final CompletableFuture<SubscriptionPurchaseV2> subscriptionFuture = lookupSubscription(purchaseToken);
+    final CompletableFuture<SubscriptionPrice> priceFuture = subscriptionFuture.thenCompose(this::getSubscriptionPrice);
+
+    return subscriptionFuture.thenCombineAsync(priceFuture, (subscription, price) -> {
+
+      final SubscriptionPurchaseLineItem lineItem = getLineItem(subscription);
+      final Optional<Instant> expiration = getExpiration(lineItem);
+
+      final SubscriptionStatus status = switch (SubscriptionState
+          .fromString(subscription.getSubscriptionState())
+          .orElse(SubscriptionState.UNSPECIFIED)) {
+        case ACTIVE -> SubscriptionStatus.ACTIVE;
+        case PENDING -> SubscriptionStatus.INCOMPLETE;
+        case EXPIRED, ON_HOLD, PAUSED -> SubscriptionStatus.PAST_DUE;
+        case IN_GRACE_PERIOD -> SubscriptionStatus.UNPAID;
+        case CANCELED, PENDING_PURCHASE_CANCELED -> SubscriptionStatus.CANCELED;
+        case UNSPECIFIED -> SubscriptionStatus.UNKNOWN;
+      };
+
+      return new SubscriptionInformation(
+          price,
+          productIdToLevel(lineItem.getProductId()),
+          null, expiration.orElse(null),
+          expiration.map(clock.instant()::isBefore).orElse(false),
+          lineItem.getAutoRenewingPlan() != null && lineItem.getAutoRenewingPlan().getAutoRenewEnabled(),
+          status,
+          PaymentProvider.GOOGLE_PLAY_BILLING,
+          PaymentMethod.GOOGLE_PLAY_BILLING,
+          false,
+          null);
+    }, executor);
+  }
+
+  private CompletableFuture<SubscriptionPrice> getSubscriptionPrice(final SubscriptionPurchaseV2 subscriptionPurchase) {
+
+    final SubscriptionPurchaseLineItem lineItem = getLineItem(subscriptionPurchase);
+    final OfferDetails offerDetails = lineItem.getOfferDetails();
+    final String basePlanId = offerDetails.getBasePlanId();
+
+    return this.executeAsync(pub -> pub.monetization().subscriptions().get(packageName, lineItem.getProductId()))
+        .thenApplyAsync(subscription -> {
+
+          final BasePlan basePlan = subscription.getBasePlans().stream()
+              .filter(bp -> bp.getBasePlanId().equals(basePlanId))
+              .findFirst()
+              .orElseThrow(() -> ExceptionUtils.wrap(new IOException("unknown basePlanId " + basePlanId)));
+          final String region = subscriptionPurchase.getRegionCode();
+          final RegionalBasePlanConfig basePlanConfig = basePlan.getRegionalConfigs()
+              .stream()
+              .filter(rbpc -> Objects.equals(region, rbpc.getRegionCode()))
+              .findFirst()
+              .orElseThrow(() -> ExceptionUtils.wrap(new IOException("unknown subscription region " + region)));
+
+          return new SubscriptionPrice(
+              basePlanConfig.getPrice().getCurrencyCode().toUpperCase(Locale.ROOT),
+              SubscriptionCurrencyUtil.convertGoogleMoneyToApiAmount(basePlanConfig.getPrice()));
+        }, executor);
+  }
 
   @Override
   public CompletableFuture<ReceiptItem> getReceiptItem(String purchaseToken) {
