@@ -2875,6 +2875,14 @@ paths:
     get:
       tags:
       - Subscriptions
+      summary: Subscription information
+      description: |
+        Returns information about the current subscription associated with the provided subscriberId if one exists.
+
+        Although it uses [Stripe’s values](https://stripe.com/docs/billing/subscriptions/overview#subscription-statuses),
+        the status field in the response is generic, with [Braintree-specific values](https://developer.paypal.com/braintree/docs/guides/recurring-billing/overview#subscription-statuses) mapped
+        to Stripe's. Since we don’t support trials or unpaid subscriptions, the associated statuses will never be returned
+        by the API.
       operationId: getSubscriptionInformation
       parameters:
       - name: subscriberId
@@ -2883,10 +2891,17 @@ paths:
         schema:
           type: string
       responses:
-        default:
-          description: default response
+        "200":
+          description: The subscriberId exists
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetSubscriptionInformationResponse'
+        "403":
+          description: subscriberId authentication failure OR account authentication
+            is present
+        "404":
+          description: No such subscriberId exists or subscriberId is malformed
       security:
       - authenticatedAccount: []
       - {}
@@ -3037,6 +3052,54 @@ paths:
                     type: boolean
                   cancelled:
                     type: boolean
+      security:
+      - authenticatedAccount: []
+      - {}
+  /v1/subscription/{subscriberId}/playbilling/{purchaseToken}:
+    post:
+      tags:
+      - Subscriptions
+      summary: Set a google play billing purchase token
+      description: |
+        Set a purchaseToken that represents an IAP subscription made with Google Play Billing.
+
+        To set up a subscription with Google Play Billing:
+        1. Create a subscriber with `PUT subscriptions/{subscriberId}` (you must regularly refresh this subscriber)
+        2. [Create a subscription](https://developer.android.com/google/play/billing/integrate) with Google Play Billing
+           directly and obtain a purchaseToken. Do not [acknowledge](https://developer.android.com/google/play/billing/integrate#subscriptions)
+           the purchaseToken.
+        3. `POST` the purchaseToken here
+        4. Obtain a receipt at `POST /v1/subscription/{subscriberId}/receipt_credentials` which can then be used to obtain the
+           entitlement
+
+        After calling this method, the payment is confirmed. Callers must durably store their subscriberId before calling
+        this method to ensure their payment is tracked.
+      operationId: setPlayStoreSubscription
+      parameters:
+      - name: subscriberId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: purchaseToken
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: The purchaseToken was validated and acknowledged
+        "402":
+          description: The purchaseToken payment is incomplete or invalid
+        "403":
+          description: subscriberId authentication failure OR account authentication
+            is present
+        "404":
+          description: No such subscriberId exists or subscriberId is malformed or
+            the purchaseToken does not exist
+        "409":
+          description: subscriberId is already linked to a processor that does not
+            support Play Billing. Delete this subscriberId and use a new one.
       security:
       - authenticatedAccount: []
       - {}
@@ -5137,7 +5200,7 @@ components:
             $ref: '#/components/schemas/BackupLevelConfiguration'
           description: A map of numeric backup level IDs to level-specific backup
             configuration
-        backupFreeTierMediaDays:
+        freeTierMediaDays:
           type: integer
           description: The number of days of media a free tier backup user gets
           format: int64
@@ -5150,6 +5213,9 @@ components:
           description: The amount of media storage in bytes that a paying subscriber
             may store
           format: int64
+        playProductId:
+          type: string
+          description: The play billing productID associated with this backup level
       description: Configuration for a backup level - use to present appropriate client
         interfaces
     CurrencyConfiguration:
@@ -5230,6 +5296,125 @@ components:
           $ref: '#/components/schemas/Badge'
       description: Configuration for a donation level - use to present appropriate
         client interfaces
+    ChargeFailure:
+      type: object
+      properties:
+        code:
+          type: string
+          description: |
+            See [Stripe failure codes](https://stripe.com/docs/api/charges/object#charge_object-failure_code) or
+            [Braintree decline codes](https://developer.paypal.com/braintree/docs/reference/general/processor-responses/authorization-responses#decline-codes)
+            depending on which processor was used
+        message:
+          type: string
+          description: |
+            See [Stripe failure codes](https://stripe.com/docs/api/charges/object#charge_object-failure_code) or
+            [Braintree decline codes](https://developer.paypal.com/braintree/docs/reference/general/processor-responses/authorization-responses#decline-codes)
+            depending on which processor was used
+        outcomeNetworkStatus:
+          type: string
+          externalDocs:
+            description: Outcome Network Status
+            url: https://stripe.com/docs/api/charges/object#charge_object-outcome-network_status
+        outcomeReason:
+          type: string
+          externalDocs:
+            description: Outcome Reason
+            url: https://stripe.com/docs/api/charges/object#charge_object-outcome-reason
+        outcomeType:
+          type: string
+          externalDocs:
+            description: Outcome Type
+            url: https://stripe.com/docs/api/charges/object#charge_object-outcome-type
+      description: |2
+          Meaningfully interpreting chargeFailure response fields requires inspecting the processor field first.
+
+          For Stripe, code will be one of the [codes defined here](https://stripe.com/docs/api/charges/object#charge_object-failure_code),
+          while message [may contain a further textual description](https://stripe.com/docs/api/charges/object#charge_object-failure_message).
+          The outcome fields are nullable, but present values will directly map to Stripe [response properties](https://stripe.com/docs/api/charges/object#charge_object-outcome-network_status)
+
+          For Braintree, the outcome fields will be null. The code and message will contain one of
+            - a processor decline code (as a string) in code, and associated text in message, as defined this [table](https://developer.paypal.com/braintree/docs/reference/general/processor-responses/authorization-responses)
+            - `gateway` in code, with a [reason](https://developer.paypal.com/braintree/articles/control-panel/transactions/gateway-rejections) in message
+            - `code` = "unknown", message = "unknown"
+
+          IAP payment processors will never include charge failure information, and detailed order information should be
+          retrieved from the payment processor directly
+    GetSubscriptionInformationResponse:
+      type: object
+      properties:
+        subscription:
+          $ref: '#/components/schemas/Subscription'
+        chargeFailure:
+          $ref: '#/components/schemas/ChargeFailure'
+    Subscription:
+      type: object
+      properties:
+        level:
+          type: integer
+          description: The subscription level
+          format: int64
+        billingCycleAnchor:
+          type: string
+          description: "If present, UNIX Epoch Timestamp in seconds, can be used to\
+            \ calculate next billing date. May be absent for IAP subscriptions"
+          format: date-time
+          externalDocs:
+            description: Calculate next billing date
+            url: https://stripe.com/docs/billing/subscriptions/billing-cycle
+        endOfCurrentPeriod:
+          type: string
+          description: "UNIX Epoch Timestamp in seconds, when the current subscription\
+            \ period ends"
+          format: date-time
+        active:
+          type: boolean
+          description: Whether there is a currently active subscription
+        cancelAtPeriodEnd:
+          type: boolean
+          description: "If true, an active subscription will not auto-renew at the\
+            \ end of the current period"
+        currency:
+          type: string
+          description: A three-letter ISO 4217 currency code for currency used in
+            the subscription
+        amount:
+          type: number
+          description: The amount paid for the subscription in the currency's smallest
+            unit
+          externalDocs:
+            description: Stripe Currencies
+            url: https://docs.stripe.com/currencies
+        status:
+          type: string
+          description: "The subscription's status, mapped to Stripe's statuses. trialing\
+            \ will never be returned"
+          externalDocs:
+            description: Stripe subscription statuses
+            url: https://docs.stripe.com/billing/subscriptions/overview#subscription-statuses
+        processor:
+          type: string
+          description: The payment provider associated with the subscription
+          enum:
+          - STRIPE
+          - BRAINTREE
+          - GOOGLE_PLAY_BILLING
+        paymentMethod:
+          type: string
+          description: The payment method associated with the subscription
+          enum:
+          - UNKNOWN
+          - CARD
+          - PAYPAL
+          - SEPA_DEBIT
+          - IDEAL
+          - GOOGLE_PLAY_BILLING
+        paymentProcessing:
+          type: boolean
+          description: Whether the latest invoice for the subscription is in a non-terminal
+            state
+      description: "Information about the subscription, or null if no subscription\
+        \ is present"
     VerificationSessionResponse:
       type: object
       properties:
