@@ -29,6 +29,7 @@ public sealed interface SubscriptionLevelConfiguration permits
   }
 
   record Backup(
+      @JsonProperty("playProductId") @NotEmpty String playProductId,
       @JsonProperty("prices") @Valid Map<@NotEmpty String, @NotNull @Valid SubscriptionPriceConfiguration> prices)
       implements SubscriptionLevelConfiguration {}
 

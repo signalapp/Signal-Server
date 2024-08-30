@@ -210,7 +210,7 @@ public class SubscriptionController {
         .entrySet().stream()
         .collect(Collectors.toMap(
             e -> String.valueOf(e.getKey()),
-            ignored -> new BackupLevelConfiguration(BackupManager.MAX_TOTAL_BACKUP_MEDIA_BYTES)));
+            e -> new BackupLevelConfiguration(BackupManager.MAX_TOTAL_BACKUP_MEDIA_BYTES, e.getValue().playProductId())));
 
     return new GetSubscriptionConfigurationResponse(buildCurrencyConfiguration(), donationLevels,
         new BackupConfiguration(backupLevels, subscriptionConfiguration.getbackupFreeTierMediaDuration().toDays()),
@@ -476,12 +476,14 @@ public class SubscriptionController {
       @Schema(description = "A map of numeric backup level IDs to level-specific backup configuration")
       Map<String, BackupLevelConfiguration> levels,
       @Schema(description = "The number of days of media a free tier backup user gets")
-      long backupFreeTierMediaDays) {}
+      long freeTierMediaDays) {}
 
   @Schema(description = "Configuration for a backup level - use to present appropriate client interfaces")
   public record BackupLevelConfiguration(
       @Schema(description = "The amount of media storage in bytes that a paying subscriber may store")
-      long storageAllowanceBytes) {}
+      long storageAllowanceBytes,
+      @Schema(description = "The play billing productID associated with this backup level")
+      String playProductId) {}
 
   @GET
   @Path("/configuration")

@@ -1107,8 +1107,9 @@ class SubscriptionControllerTest {
 
     assertThat(response.backup().levels()).containsOnlyKeys("201").extractingByKey("201").satisfies(configuration -> {
       assertThat(configuration.storageAllowanceBytes()).isEqualTo(BackupManager.MAX_TOTAL_BACKUP_MEDIA_BYTES);
+      assertThat(configuration.playProductId()).isEqualTo("testPlayProductId");
     });
-    assertThat(response.backup().backupFreeTierMediaDays()).isEqualTo(30);
+    assertThat(response.backup().freeTierMediaDays()).isEqualTo(30);
 
     // check the badge vs purchasable badge fields
     // subscription levels are Badge, while one-time levels are PurchasableBadge, which adds `duration`
@@ -1165,6 +1166,7 @@ class SubscriptionControllerTest {
         backupFreeTierMediaDuration: P30D
         backupLevels:
           201:
+            playProductId: testPlayProductId
             prices:
               usd:
                 amount: '5'
