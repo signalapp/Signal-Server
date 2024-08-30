@@ -82,6 +82,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
   private final Timer insertTimer = Metrics.timer(name(MessagesCache.class, "insert"));
   private final Timer getMessagesTimer = Metrics.timer(name(MessagesCache.class, "get"));
   private final Timer getQueuesToPersistTimer = Metrics.timer(name(MessagesCache.class, "getQueuesToPersist"));
+  private final Timer removeByGuidTimer = Metrics.timer(name(MessagesCache.class, "removeByGuid"));
   private final Timer clearQueueTimer = Metrics.timer(name(MessagesCache.class, "clear"));
   private final Counter pubSubMessageCounter = Metrics.counter(name(MessagesCache.class, "pubSubMessage"));
   private final Counter newMessageNotificationCounter = Metrics.counter(
@@ -185,6 +186,8 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
       final byte destinationDevice,
       final List<UUID> messageGuids) {
 
+    final Timer.Sample sample = Timer.start();
+
     return removeByGuidScript.executeBinaryAsync(List.of(getMessageQueueKey(destinationUuid, destinationDevice),
                 getMessageQueueMetadataKey(destinationUuid, destinationDevice),
                 getQueueIndexKey(destinationUuid, destinationDevice)),
@@ -204,7 +207,8 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
           }
 
           return removedMessages;
-        }, messageDeletionExecutorService);
+        }, messageDeletionExecutorService)
+        .whenComplete((ignored, throwable) -> sample.stop(removeByGuidTimer));
   }
 
   public boolean hasMessages(final UUID destinationUuid, final byte destinationDevice) {
