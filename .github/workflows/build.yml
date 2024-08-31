@@ -22,8 +22,13 @@ jobs:
           distribution: 'oracle'
           java-version: '17'
 
-      - name: Install Maven
-        run: sudo apt-get install -y maven
+      - name: Install Maven 3.8.6
+        run: |
+          wget https://archive.apache.org/dist/maven/maven-3/3.8.6/binaries/apache-maven-3.8.6-bin.tar.gz
+          tar xzf apache-maven-3.8.6-bin.tar.gz
+          sudo mv apache-maven-3.8.6 /opt/maven
+          sudo ln -s /opt/maven/bin/mvn /usr/bin/mvn
+
 
       - name: Build with Maven
         run: mvn clean install
