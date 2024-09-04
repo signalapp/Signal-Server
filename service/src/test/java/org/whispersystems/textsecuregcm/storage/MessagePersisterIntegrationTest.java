@@ -81,7 +81,7 @@ class MessagePersisterIntegrationTest {
 
     notificationExecutorService = Executors.newSingleThreadExecutor();
     messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(), notificationExecutorService,
-        messageDeliveryScheduler, messageDeletionExecutorService, Clock.systemUTC());
+        messageDeliveryScheduler, messageDeletionExecutorService, Clock.systemUTC(), dynamicConfigurationManager);
     messagesManager = new MessagesManager(messagesDynamoDb, messagesCache, mock(ReportMessageManager.class),
         messageDeletionExecutorService);
     messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager,
@@ -185,12 +185,12 @@ class MessagePersisterIntegrationTest {
 
   private MessageProtos.Envelope generateRandomMessage(final UUID messageGuid, final long serverTimestamp) {
     return MessageProtos.Envelope.newBuilder()
-        .setTimestamp(serverTimestamp * 2) // client timestamp may not be accurate
+        .setClientTimestamp(serverTimestamp * 2) // client timestamp may not be accurate
         .setServerTimestamp(serverTimestamp)
         .setContent(ByteString.copyFromUtf8(RandomStringUtils.randomAlphanumeric(256)))
         .setType(MessageProtos.Envelope.Type.CIPHERTEXT)
         .setServerGuid(messageGuid.toString())
-        .setDestinationUuid(UUID.randomUUID().toString())
+        .setDestinationServiceId(UUID.randomUUID().toString())
         .build();
   }
 }

@@ -46,7 +46,7 @@ local getNextInterval = function(interval)
 end
 
 
-local results  = redis.call("ZRANGEBYSCORE", pendingNotificationQueue, 0, maxTime, "LIMIT", 0, limit)
+local results  = redis.call("ZRANGE", pendingNotificationQueue, 0, maxTime, "BYSCORE", "LIMIT", 0, limit)
 local collated = {}
 
 if results and next(results) then

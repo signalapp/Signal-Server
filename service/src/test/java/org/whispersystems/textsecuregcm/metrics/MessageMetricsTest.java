@@ -104,7 +104,7 @@ class MessageMetricsTest {
     final MessageProtos.Envelope.Builder builder = MessageProtos.Envelope.newBuilder();
 
     if (destinationIdentifier != null) {
-      builder.setDestinationUuid(destinationIdentifier.toServiceIdentifierString());
+      builder.setDestinationServiceId(destinationIdentifier.toServiceIdentifierString());
     }
 
     return builder.build();

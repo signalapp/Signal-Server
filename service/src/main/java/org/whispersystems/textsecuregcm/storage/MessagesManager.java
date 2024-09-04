@@ -19,8 +19,10 @@ import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.reactivestreams.Publisher;
+import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.util.Pair;
@@ -62,8 +64,8 @@ public class MessagesManager {
 
     messagesCache.insert(messageGuid, destinationUuid, destinationDevice, message);
 
-    if (message.hasSourceUuid() && !destinationUuid.toString().equals(message.getSourceUuid())) {
-      reportMessageManager.store(message.getSourceUuid(), messageGuid);
+    if (message.hasSourceServiceId() && !destinationUuid.toString().equals(message.getSourceServiceId())) {
+      reportMessageManager.store(message.getSourceServiceId(), messageGuid);
     }
   }
 
@@ -137,7 +139,7 @@ public class MessagesManager {
     return messagesCache.clear(destinationUuid, deviceId);
   }
 
-  public CompletableFuture<Optional<Envelope>> delete(UUID destinationUuid, Device destinationDevice, UUID guid,
+  public CompletableFuture<Optional<RemovedMessage>> delete(UUID destinationUuid, Device destinationDevice, UUID guid,
       @Nullable Long serverTimestamp) {
     return messagesCache.remove(destinationUuid, destinationDevice.getId(), guid)
         .thenComposeAsync(removed -> {
@@ -146,12 +148,16 @@ public class MessagesManager {
             return CompletableFuture.completedFuture(removed);
           }
 
+          final CompletableFuture<Optional<MessageProtos.Envelope>> maybeDeletedEnvelope;
           if (serverTimestamp == null) {
-            return messagesDynamoDb.deleteMessageByDestinationAndGuid(destinationUuid, destinationDevice, guid);
+            maybeDeletedEnvelope = messagesDynamoDb.deleteMessageByDestinationAndGuid(destinationUuid,
+                destinationDevice, guid);
           } else {
-            return messagesDynamoDb.deleteMessage(destinationUuid, destinationDevice, guid, serverTimestamp);
+            maybeDeletedEnvelope = messagesDynamoDb.deleteMessage(destinationUuid, destinationDevice, guid,
+                serverTimestamp);
           }
 
+          return maybeDeletedEnvelope.thenApply(maybeEnvelope -> maybeEnvelope.map(RemovedMessage::fromEnvelope));
         }, messageDeletionExecutor);
   }
 
@@ -194,4 +200,14 @@ public class MessagesManager {
     messagesCache.removeMessageAvailabilityListener(listener);
   }
 
+  /**
+   * Inserts the shared multi-recipient message payload to storage.
+   *
+   * @return a key where the shared data is stored
+   * @see MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript
+   */
+  public byte[] insertSharedMultiRecipientMessagePayload(
+      SealedSenderMultiRecipientMessage sealedSenderMultiRecipientMessage) {
+    return messagesCache.insertSharedMultiRecipientMessagePayload(UUID.randomUUID(), sealedSenderMultiRecipientMessage);
+  }
 }

@@ -92,7 +92,7 @@ public class MessageSender {
             CLIENT_ONLINE_TAG_NAME, String.valueOf(clientPresent),
             URGENT_TAG_NAME, String.valueOf(message.getUrgent()),
             STORY_TAG_NAME, String.valueOf(message.getStory()),
-            SEALED_SENDER_TAG_NAME, String.valueOf(!message.hasSourceUuid()))
+            SEALED_SENDER_TAG_NAME, String.valueOf(!message.hasSourceServiceId()))
         .increment();
   }
 }

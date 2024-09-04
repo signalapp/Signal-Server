@@ -31,15 +31,15 @@ public record IncomingMessage(int type, byte destinationDeviceId, int destinatio
     final MessageProtos.Envelope.Builder envelopeBuilder = MessageProtos.Envelope.newBuilder();
 
     envelopeBuilder.setType(envelopeType)
-        .setTimestamp(timestamp)
+        .setClientTimestamp(timestamp)
         .setServerTimestamp(System.currentTimeMillis())
-        .setDestinationUuid(destinationIdentifier.toServiceIdentifierString())
+        .setDestinationServiceId(destinationIdentifier.toServiceIdentifierString())
         .setStory(story)
         .setUrgent(urgent);
 
     if (sourceAccount != null && sourceDeviceId != null) {
       envelopeBuilder
-          .setSourceUuid(new AciServiceIdentifier(sourceAccount.getUuid()).toServiceIdentifierString())
+          .setSourceServiceId(new AciServiceIdentifier(sourceAccount.getUuid()).toServiceIdentifierString())
           .setSourceDevice(sourceDeviceId.intValue());
     }
 

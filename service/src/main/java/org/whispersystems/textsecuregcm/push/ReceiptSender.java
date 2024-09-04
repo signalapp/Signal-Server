@@ -45,10 +45,10 @@ public class ReceiptSender {
             destinationAccount -> {
               final Envelope.Builder message = Envelope.newBuilder()
                   .setServerTimestamp(System.currentTimeMillis())
-                  .setSourceUuid(sourceIdentifier.toServiceIdentifierString())
-                  .setSourceDevice((int) sourceDeviceId)
-                  .setDestinationUuid(destinationIdentifier.toServiceIdentifierString())
-                  .setTimestamp(messageId)
+                  .setSourceServiceId(sourceIdentifier.toServiceIdentifierString())
+                  .setSourceDevice(sourceDeviceId)
+                  .setDestinationServiceId(destinationIdentifier.toServiceIdentifierString())
+                  .setClientTimestamp(messageId)
                   .setType(Envelope.Type.SERVER_DELIVERY_RECEIPT)
                   .setUrgent(false);
 

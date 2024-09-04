@@ -151,7 +151,7 @@ class MessageSenderTest {
 
   private MessageProtos.Envelope generateRandomMessage() {
     return MessageProtos.Envelope.newBuilder()
-        .setTimestamp(System.currentTimeMillis())
+        .setClientTimestamp(System.currentTimeMillis())
         .setServerTimestamp(System.currentTimeMillis())
         .setContent(ByteString.copyFromUtf8(RandomStringUtils.randomAlphanumeric(256)))
         .setType(MessageProtos.Envelope.Type.CIPHERTEXT)

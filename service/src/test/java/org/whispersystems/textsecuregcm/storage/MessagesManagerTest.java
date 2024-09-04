@@ -35,7 +35,7 @@ class MessagesManagerTest {
   void insert() {
     final UUID sourceAci = UUID.randomUUID();
     final Envelope message = Envelope.newBuilder()
-        .setSourceUuid(sourceAci.toString())
+        .setSourceServiceId(sourceAci.toString())
         .build();
 
     final UUID destinationUuid = UUID.randomUUID();
@@ -45,7 +45,7 @@ class MessagesManagerTest {
     verify(reportMessageManager).store(eq(sourceAci.toString()), any(UUID.class));
 
     final Envelope syncMessage = Envelope.newBuilder(message)
-        .setSourceUuid(destinationUuid.toString())
+        .setSourceServiceId(destinationUuid.toString())
         .build();
 
     messagesManager.insert(destinationUuid, Device.PRIMARY_ID, syncMessage);

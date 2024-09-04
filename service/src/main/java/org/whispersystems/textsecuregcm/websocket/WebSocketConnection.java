@@ -294,16 +294,16 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   }
 
   private void sendDeliveryReceiptFor(Envelope message) {
-    if (!message.hasSourceUuid()) {
+    if (!message.hasSourceServiceId()) {
       return;
     }
 
     try {
-      receiptSender.sendReceipt(ServiceIdentifier.valueOf(message.getDestinationUuid()),
-          auth.getAuthenticatedDevice().getId(), AciServiceIdentifier.valueOf(message.getSourceUuid()),
-          message.getTimestamp());
+      receiptSender.sendReceipt(ServiceIdentifier.valueOf(message.getDestinationServiceId()),
+          auth.getAuthenticatedDevice().getId(), AciServiceIdentifier.valueOf(message.getSourceServiceId()),
+          message.getClientTimestamp());
     } catch (IllegalArgumentException e) {
-      logger.error("Could not parse UUID: {}", message.getSourceUuid());
+      logger.error("Could not parse UUID: {}", message.getSourceServiceId());
     } catch (Exception e) {
       logger.warn("Failed to send receipt", e);
     }

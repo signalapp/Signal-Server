@@ -632,7 +632,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         keyspaceNotificationDispatchExecutor);
     ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster);
     MessagesCache messagesCache = new MessagesCache(messagesCluster, keyspaceNotificationDispatchExecutor,
-        messageDeliveryScheduler, messageDeletionAsyncExecutor, clock);
+        messageDeliveryScheduler, messageDeletionAsyncExecutor, clock, dynamicConfigurationManager);
     ClientReleaseManager clientReleaseManager = new ClientReleaseManager(clientReleases,
         recurringJobExecutor,
         config.getClientReleaseConfiguration().refreshInterval(),

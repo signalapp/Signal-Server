@@ -160,8 +160,8 @@ public class ChangeNumberManagerTest {
 
     final MessageProtos.Envelope envelope = envelopeCaptor.getValue();
 
-    assertEquals(aci, UUID.fromString(envelope.getDestinationUuid()));
-    assertEquals(aci, UUID.fromString(envelope.getSourceUuid()));
+    assertEquals(aci, UUID.fromString(envelope.getDestinationServiceId()));
+    assertEquals(aci, UUID.fromString(envelope.getSourceServiceId()));
     assertEquals(Device.PRIMARY_ID, envelope.getSourceDevice());
     assertEquals(updatedPhoneNumberIdentifiersByAccount.get(account), UUID.fromString(envelope.getUpdatedPni()));
   }
@@ -208,8 +208,8 @@ public class ChangeNumberManagerTest {
 
     final MessageProtos.Envelope envelope = envelopeCaptor.getValue();
 
-    assertEquals(aci, UUID.fromString(envelope.getDestinationUuid()));
-    assertEquals(aci, UUID.fromString(envelope.getSourceUuid()));
+    assertEquals(aci, UUID.fromString(envelope.getDestinationServiceId()));
+    assertEquals(aci, UUID.fromString(envelope.getSourceServiceId()));
     assertEquals(Device.PRIMARY_ID, envelope.getSourceDevice());
     assertEquals(updatedPhoneNumberIdentifiersByAccount.get(account), UUID.fromString(envelope.getUpdatedPni()));
   }
@@ -254,8 +254,8 @@ public class ChangeNumberManagerTest {
 
     final MessageProtos.Envelope envelope = envelopeCaptor.getValue();
 
-    assertEquals(aci, UUID.fromString(envelope.getDestinationUuid()));
-    assertEquals(aci, UUID.fromString(envelope.getSourceUuid()));
+    assertEquals(aci, UUID.fromString(envelope.getDestinationServiceId()));
+    assertEquals(aci, UUID.fromString(envelope.getSourceServiceId()));
     assertEquals(Device.PRIMARY_ID, envelope.getSourceDevice());
     assertFalse(updatedPhoneNumberIdentifiersByAccount.containsKey(account));
   }
@@ -296,8 +296,8 @@ public class ChangeNumberManagerTest {
 
     final MessageProtos.Envelope envelope = envelopeCaptor.getValue();
 
-    assertEquals(aci, UUID.fromString(envelope.getDestinationUuid()));
-    assertEquals(aci, UUID.fromString(envelope.getSourceUuid()));
+    assertEquals(aci, UUID.fromString(envelope.getDestinationServiceId()));
+    assertEquals(aci, UUID.fromString(envelope.getSourceServiceId()));
     assertEquals(Device.PRIMARY_ID, envelope.getSourceDevice());
     assertFalse(updatedPhoneNumberIdentifiersByAccount.containsKey(account));
   }
@@ -340,8 +340,8 @@ public class ChangeNumberManagerTest {
 
     final MessageProtos.Envelope envelope = envelopeCaptor.getValue();
 
-    assertEquals(aci, UUID.fromString(envelope.getDestinationUuid()));
-    assertEquals(aci, UUID.fromString(envelope.getSourceUuid()));
+    assertEquals(aci, UUID.fromString(envelope.getDestinationServiceId()));
+    assertEquals(aci, UUID.fromString(envelope.getSourceServiceId()));
     assertEquals(Device.PRIMARY_ID, envelope.getSourceDevice());
     assertFalse(updatedPhoneNumberIdentifiersByAccount.containsKey(account));
   }

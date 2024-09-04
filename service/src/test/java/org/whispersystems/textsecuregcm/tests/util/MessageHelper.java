@@ -17,11 +17,11 @@ public class MessageHelper {
     return MessageProtos.Envelope.newBuilder()
         .setServerGuid(UUID.randomUUID().toString())
         .setType(MessageProtos.Envelope.Type.CIPHERTEXT)
-        .setTimestamp(timestamp)
+        .setClientTimestamp(timestamp)
         .setServerTimestamp(0)
-        .setSourceUuid(senderUuid.toString())
+        .setSourceServiceId(senderUuid.toString())
         .setSourceDevice(senderDeviceId)
-        .setDestinationUuid(destinationUuid.toString())
+        .setDestinationServiceId(destinationUuid.toString())
         .setContent(ByteString.copyFrom(content.getBytes(StandardCharsets.UTF_8)))
         .build();
   }

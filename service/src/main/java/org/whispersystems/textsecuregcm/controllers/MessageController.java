@@ -24,7 +24,6 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
-
 import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.Duration;
@@ -73,8 +72,8 @@ import javax.ws.rs.core.Response.Status;
 import org.apache.commons.lang3.StringUtils;
 import org.glassfish.jersey.server.ManagedAsync;
 import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
-import org.signal.libsignal.protocol.ServiceId;
 import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage.Recipient;
+import org.signal.libsignal.protocol.ServiceId;
 import org.signal.libsignal.protocol.util.Pair;
 import org.signal.libsignal.zkgroup.ServerSecretParams;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
@@ -261,7 +260,7 @@ public class MessageController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   @ManagedAsync
-    @Operation(
+  @Operation(
       summary = "Send a message",
       description = """
           Deliver a message to a single recipient. May be authenticated or unauthenticated; if unauthenticated,
@@ -309,9 +308,10 @@ public class MessageController {
 
       if (groupSendToken != null) {
         if (!source.isEmpty() || !accessKey.isEmpty()) {
-            throw new BadRequestException("Group send endorsement tokens should not be combined with other authentication");
+          throw new BadRequestException(
+              "Group send endorsement tokens should not be combined with other authentication");
         } else if (isStory) {
-            throw new BadRequestException("Group send endorsement tokens should not be sent for story messages");
+          throw new BadRequestException("Group send endorsement tokens should not be sent for story messages");
         }
       }
 
@@ -346,8 +346,7 @@ public class MessageController {
       }
 
       final Optional<byte[]> spamReportToken = switch (senderType) {
-        case SENDER_TYPE_IDENTIFIED ->
-        reportSpamTokenProvider.makeReportSpamToken(context, source.get(), destination);
+        case SENDER_TYPE_IDENTIFIED -> reportSpamTokenProvider.makeReportSpamToken(context, source.get(), destination);
         default -> Optional.empty();
       };
 
@@ -470,7 +469,7 @@ public class MessageController {
         throw new WebApplicationException(Response.status(409)
             .type(MediaType.APPLICATION_JSON_TYPE)
             .entity(new MismatchedDevices(e.getMissingDevices(),
-                    e.getExtraDevices()))
+                e.getExtraDevices()))
             .build());
       } catch (StaleDevicesException e) {
         throw new WebApplicationException(Response.status(410)
@@ -621,27 +620,28 @@ public class MessageController {
     Collection<AccountMismatchedDevices> accountMismatchedDevices = new ArrayList<>();
     Collection<AccountStaleDevices> accountStaleDevices = new ArrayList<>();
     recipients.values().forEach(recipient -> {
-          final Account account = recipient.account();
+      final Account account = recipient.account();
 
-          try {
-            DestinationDeviceValidator.validateCompleteDeviceList(account, recipient.deviceIdToRegistrationId().keySet(), Collections.emptySet());
+      try {
+        DestinationDeviceValidator.validateCompleteDeviceList(account, recipient.deviceIdToRegistrationId().keySet(),
+            Collections.emptySet());
 
-            DestinationDeviceValidator.validateRegistrationIds(
-                account,
-                recipient.deviceIdToRegistrationId().entrySet(),
-                Map.Entry<Byte, Short>::getKey,
-                e -> Integer.valueOf(e.getValue()),
-                recipient.serviceIdentifier().identityType() == IdentityType.PNI);
-          } catch (MismatchedDevicesException e) {
-            accountMismatchedDevices.add(
-                new AccountMismatchedDevices(
-                    recipient.serviceIdentifier(),
-                    new MismatchedDevices(e.getMissingDevices(), e.getExtraDevices())));
-          } catch (StaleDevicesException e) {
-            accountStaleDevices.add(
-                new AccountStaleDevices(recipient.serviceIdentifier(), new StaleDevices(e.getStaleDevices())));
-          }
-        });
+        DestinationDeviceValidator.validateRegistrationIds(
+            account,
+            recipient.deviceIdToRegistrationId().entrySet(),
+            Map.Entry<Byte, Short>::getKey,
+            e -> Integer.valueOf(e.getValue()),
+            recipient.serviceIdentifier().identityType() == IdentityType.PNI);
+      } catch (MismatchedDevicesException e) {
+        accountMismatchedDevices.add(
+            new AccountMismatchedDevices(
+                recipient.serviceIdentifier(),
+                new MismatchedDevices(e.getMissingDevices(), e.getExtraDevices())));
+      } catch (StaleDevicesException e) {
+        accountStaleDevices.add(
+            new AccountStaleDevices(recipient.serviceIdentifier(), new StaleDevices(e.getStaleDevices())));
+      }
+    });
     if (!accountMismatchedDevices.isEmpty()) {
       return Response
           .status(409)
@@ -667,6 +667,11 @@ public class MessageController {
     }
 
     try {
+      @Nullable final byte[] sharedMrmKey =
+          dynamicConfigurationManager.getConfiguration().getMessagesConfiguration().storeSharedMrmData()
+              ? messagesManager.insertSharedMultiRecipientMessagePayload(multiRecipientMessage)
+          : null;
+
       CompletableFuture.allOf(
               recipients.values().stream()
                   .flatMap(recipientData -> {
@@ -692,8 +697,7 @@ public class MessageController {
                               sentMessageCounter.increment();
                               sendCommonPayloadMessage(
                                   destinationAccount, destinationDevice, recipientData.serviceIdentifier(), timestamp,
-                                  online,
-                                  isStory, isUrgent, payload);
+                                  online, isStory, isUrgent, payload, sharedMrmKey);
                             },
                             multiRecipientMessageExecutor));
                   })
@@ -739,8 +743,8 @@ public class MessageController {
         .filter(Predicate.not(Account::isUnrestrictedUnidentifiedAccess))
         .map(account ->
             account.getUnidentifiedAccessKey()
-            .filter(b -> b.length == keyLength)
-            .orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED)))
+                .filter(b -> b.length == keyLength)
+                .orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED)))
         .reduce(new byte[keyLength],
             (a, b) -> {
               final byte[] xor = new byte[keyLength];
@@ -828,23 +832,28 @@ public class MessageController {
             auth.getAuthenticatedDevice(),
             uuid,
             null)
-        .thenAccept(maybeDeletedMessage -> {
-          maybeDeletedMessage.ifPresent(deletedMessage -> {
+        .thenAccept(maybeRemovedMessage -> maybeRemovedMessage.ifPresent(removedMessage -> {
 
-            WebSocketConnection.recordMessageDeliveryDuration(deletedMessage.getServerTimestamp(),
-                auth.getAuthenticatedDevice());
+          WebSocketConnection.recordMessageDeliveryDuration(removedMessage.serverTimestamp(),
+              auth.getAuthenticatedDevice());
 
-            if (deletedMessage.hasSourceUuid() && deletedMessage.getType() != Type.SERVER_DELIVERY_RECEIPT) {
+          if (removedMessage.sourceServiceId().isPresent()
+              && removedMessage.envelopeType() != Type.SERVER_DELIVERY_RECEIPT) {
+            if (removedMessage.sourceServiceId().get() instanceof AciServiceIdentifier aciServiceIdentifier) {
               try {
-                receiptSender.sendReceipt(
-                    ServiceIdentifier.valueOf(deletedMessage.getDestinationUuid()), auth.getAuthenticatedDevice().getId(),
-                    AciServiceIdentifier.valueOf(deletedMessage.getSourceUuid()), deletedMessage.getTimestamp());
+                receiptSender.sendReceipt(removedMessage.destinationServiceId(), auth.getAuthenticatedDevice().getId(),
+                    aciServiceIdentifier, removedMessage.clientTimestamp());
               } catch (Exception e) {
                 logger.warn("Failed to send delivery receipt", e);
               }
+            } else {
+              // If source service ID is present and the envelope type is not a server delivery receipt, then
+              // the source service ID *should always* be an ACI -- PNIs are receive-only, so they can only be the
+              // "source" via server delivery receipts
+              logger.warn("Source service ID unexpectedly a PNI service ID");
             }
-          });
-        })
+          }
+        }))
         .thenApply(Util.ASYNC_EMPTY_RESPONSE);
   }
 
@@ -943,19 +952,25 @@ public class MessageController {
       boolean online,
       boolean story,
       boolean urgent,
-      byte[] payload) {
+      byte[] payload,
+      @Nullable byte[] sharedMrmKey) {
 
     final Envelope.Builder messageBuilder = Envelope.newBuilder();
     final long serverTimestamp = System.currentTimeMillis();
 
     messageBuilder
         .setType(Type.UNIDENTIFIED_SENDER)
-        .setTimestamp(timestamp == 0 ? serverTimestamp : timestamp)
+        .setClientTimestamp(timestamp == 0 ? serverTimestamp : timestamp)
         .setServerTimestamp(serverTimestamp)
-        .setContent(ByteString.copyFrom(payload))
         .setStory(story)
         .setUrgent(urgent)
-        .setDestinationUuid(serviceIdentifier.toServiceIdentifierString());
+        .setDestinationServiceId(serviceIdentifier.toServiceIdentifierString());
+
+    if (sharedMrmKey != null) {
+      messageBuilder.setSharedMrmKey(ByteString.copyFrom(sharedMrmKey));
+    }
+    // mrm views phase 1: always set content
+    messageBuilder.setContent(ByteString.copyFrom(payload));
 
     messageSender.sendMessage(destinationAccount, destinationDevice, messageBuilder.build(), online);
   }

@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
@@ -25,6 +26,8 @@ import io.lettuce.core.cluster.api.async.RedisAdvancedClusterAsyncCommands;
 import io.lettuce.core.cluster.api.reactive.RedisAdvancedClusterReactiveCommands;
 import io.lettuce.core.protocol.AsyncCommand;
 import io.lettuce.core.protocol.RedisCommand;
+import java.io.ByteArrayOutputStream;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
@@ -32,9 +35,12 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
@@ -42,11 +48,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -57,7 +65,12 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.reactivestreams.Publisher;
+import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
+import org.signal.libsignal.protocol.ServiceId;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicMessagesConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
+import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
@@ -83,6 +96,8 @@ class MessagesCacheTest {
     private Scheduler messageDeliveryScheduler;
     private MessagesCache messagesCache;
 
+    private DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
+
     private static final UUID DESTINATION_UUID = UUID.randomUUID();
 
     private static final byte DESTINATION_DEVICE_ID = 7;
@@ -95,11 +110,16 @@ class MessagesCacheTest {
         connection.sync().upstream().commands().configSet("notify-keyspace-events", "K$glz");
       });
 
+      final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
+      when(dynamicConfiguration.getMessagesConfiguration()).thenReturn(new DynamicMessagesConfiguration(true, true));
+      dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
+      when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
+
       sharedExecutorService = Executors.newSingleThreadExecutor();
       resubscribeRetryExecutorService = Executors.newSingleThreadScheduledExecutor();
       messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
       messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(), sharedExecutorService,
-          messageDeliveryScheduler, sharedExecutorService, Clock.systemUTC());
+          messageDeliveryScheduler, sharedExecutorService, Clock.systemUTC(), dynamicConfigurationManager);
 
       messagesCache.start();
     }
@@ -148,10 +168,10 @@ class MessagesCacheTest {
       final MessageProtos.Envelope message = generateRandomMessage(messageGuid, sealedSender);
 
       messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, message);
-      final Optional<MessageProtos.Envelope> maybeRemovedMessage = messagesCache.remove(DESTINATION_UUID,
+      final Optional<RemovedMessage> maybeRemovedMessage = messagesCache.remove(DESTINATION_UUID,
           DESTINATION_DEVICE_ID, messageGuid).get(5, TimeUnit.SECONDS);
 
-      assertEquals(Optional.of(message), maybeRemovedMessage);
+      assertEquals(Optional.of(RemovedMessage.fromEnvelope(message)), maybeRemovedMessage);
     }
 
     @ParameterizedTest
@@ -181,11 +201,11 @@ class MessagesCacheTest {
             message);
       }
 
-      final List<MessageProtos.Envelope> removedMessages = messagesCache.remove(DESTINATION_UUID, DESTINATION_DEVICE_ID,
+      final List<RemovedMessage> removedMessages = messagesCache.remove(DESTINATION_UUID, DESTINATION_DEVICE_ID,
           messagesToRemove.stream().map(message -> UUID.fromString(message.getServerGuid()))
               .collect(Collectors.toList())).get(5, TimeUnit.SECONDS);
 
-      assertEquals(messagesToRemove, removedMessages);
+      assertEquals(messagesToRemove.stream().map(RemovedMessage::fromEnvelope).toList(), removedMessages);
       assertEquals(messagesToPreserve,
           messagesCache.getMessagesToPersist(DESTINATION_UUID, DESTINATION_DEVICE_ID, messageCount));
     }
@@ -283,7 +303,8 @@ class MessagesCacheTest {
       }
 
       final MessagesCache messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-          sharedExecutorService, messageDeliveryScheduler, sharedExecutorService, cacheClock);
+          sharedExecutorService, messageDeliveryScheduler, sharedExecutorService, cacheClock,
+          dynamicConfigurationManager);
 
       final List<MessageProtos.Envelope> actualMessages = Flux.from(
               messagesCache.get(DESTINATION_UUID, DESTINATION_DEVICE_ID))
@@ -320,7 +341,7 @@ class MessagesCacheTest {
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void testClearQueueForDevice(final boolean sealedSender) {
-      final int messageCount = 100;
+      final int messageCount = 1000;
 
       for (final byte deviceId : new byte[]{DESTINATION_DEVICE_ID, DESTINATION_DEVICE_ID + 1}) {
         for (int i = 0; i < messageCount; i++) {
@@ -340,7 +361,7 @@ class MessagesCacheTest {
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void testClearQueueForAccount(final boolean sealedSender) {
-      final int messageCount = 100;
+      final int messageCount = 1000;
 
       for (final byte deviceId : new byte[]{DESTINATION_DEVICE_ID, DESTINATION_DEVICE_ID + 1}) {
         for (int i = 0; i < messageCount; i++) {
@@ -542,6 +563,57 @@ class MessagesCacheTest {
       });
     }
 
+    @Test
+    void testMultiRecipientMessage() throws Exception {
+      final UUID destinationUuid = UUID.randomUUID();
+      final byte deviceId = 1;
+
+      final UUID mrmGuid = UUID.randomUUID();
+      final SealedSenderMultiRecipientMessage mrm = generateRandomMrmMessage(
+          new AciServiceIdentifier(destinationUuid), deviceId);
+      final byte[] sharedMrmDataKey = messagesCache.insertSharedMultiRecipientMessagePayload(mrmGuid, mrm);
+
+      final UUID guid = UUID.randomUUID();
+      final MessageProtos.Envelope message = generateRandomMessage(guid, true)
+          .toBuilder()
+          // clear some things added by the helper
+          .clearServerGuid()
+          // mrm views phase 1: messages have content
+          .setContent(
+              ByteString.copyFrom(mrm.messageForRecipient(mrm.getRecipients().get(new ServiceId.Aci(destinationUuid)))))
+          .setSharedMrmKey(ByteString.copyFrom(sharedMrmDataKey))
+          .build();
+      messagesCache.insert(guid, destinationUuid, deviceId, message);
+
+      assertEquals(1L, (long) REDIS_CLUSTER_EXTENSION.getRedisCluster()
+          .withBinaryCluster(conn -> conn.sync().exists(MessagesCache.getSharedMrmKey(mrmGuid))));
+
+      final List<MessageProtos.Envelope> messages = get(destinationUuid, deviceId, 1);
+      assertEquals(1, messages.size());
+      assertEquals(guid, UUID.fromString(messages.getFirst().getServerGuid()));
+      assertFalse(messages.getFirst().hasSharedMrmKey());
+
+      final SealedSenderMultiRecipientMessage.Recipient recipient = mrm.getRecipients()
+          .get(new ServiceId.Aci(destinationUuid));
+      assertArrayEquals(mrm.messageForRecipient(recipient), messages.getFirst().getContent().toByteArray());
+
+      final Optional<RemovedMessage> removedMessage = messagesCache.remove(destinationUuid, deviceId, guid)
+          .join();
+
+      assertTrue(removedMessage.isPresent());
+      assertEquals(guid, UUID.fromString(removedMessage.get().serverGuid().toString()));
+      assertTrue(get(destinationUuid, deviceId, 1).isEmpty());
+
+      // updating the shared MRM data is purely async, so we just wait for it
+      assertTimeoutPreemptively(Duration.ofSeconds(1), () -> {
+        boolean exists;
+        do {
+          exists = 1 == REDIS_CLUSTER_EXTENSION.getRedisCluster()
+              .withBinaryCluster(conn -> conn.sync().exists(MessagesCache.getSharedMrmKey(mrmGuid)));
+        } while (exists);
+      });
+    }
+
     private List<MessageProtos.Envelope> get(final UUID destinationUuid, final byte destinationDeviceId,
         final int messageCount) {
       return Flux.from(messagesCache.get(destinationUuid, destinationDeviceId))
@@ -573,7 +645,7 @@ class MessagesCacheTest {
       messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
 
       messagesCache = new MessagesCache(mockCluster, mock(ExecutorService.class), messageDeliveryScheduler,
-          Executors.newSingleThreadExecutor(), Clock.systemUTC());
+          Executors.newSingleThreadExecutor(), Clock.systemUTC(), mock(DynamicConfigurationManager.class));
     }
 
     @AfterEach
@@ -755,18 +827,85 @@ class MessagesCacheTest {
   private MessageProtos.Envelope generateRandomMessage(final UUID messageGuid, final boolean sealedSender,
       final long timestamp) {
     final MessageProtos.Envelope.Builder envelopeBuilder = MessageProtos.Envelope.newBuilder()
-        .setTimestamp(timestamp)
+        .setClientTimestamp(timestamp)
         .setServerTimestamp(timestamp)
         .setContent(ByteString.copyFromUtf8(RandomStringUtils.randomAlphanumeric(256)))
         .setType(MessageProtos.Envelope.Type.CIPHERTEXT)
         .setServerGuid(messageGuid.toString())
-        .setDestinationUuid(UUID.randomUUID().toString());
+        .setDestinationServiceId(UUID.randomUUID().toString());
 
     if (!sealedSender) {
       envelopeBuilder.setSourceDevice(random.nextInt(Device.MAXIMUM_DEVICE_ID) + 1)
-          .setSourceUuid(UUID.randomUUID().toString());
+          .setSourceServiceId(UUID.randomUUID().toString());
     }
 
     return envelopeBuilder.build();
+  }
+
+  static SealedSenderMultiRecipientMessage generateRandomMrmMessage(
+      Map<AciServiceIdentifier, List<Byte>> destinations) {
+
+
+    try {
+      final ByteBuffer prefix = ByteBuffer.allocate(7);
+      prefix.put((byte) 0x23); // version
+      writeVarint(prefix, destinations.size()); // recipient count
+      prefix.flip();
+
+      List<ByteBuffer> recipients = new ArrayList<>(destinations.size());
+
+      for (Map.Entry<AciServiceIdentifier, List<Byte>> aciServiceIdentifierAndDeviceIds : destinations.entrySet()) {
+
+        final AciServiceIdentifier destination = aciServiceIdentifierAndDeviceIds.getKey();
+        final List<Byte> deviceIds = aciServiceIdentifierAndDeviceIds.getValue();
+
+        assert deviceIds.size() < 255;
+
+        final ByteBuffer recipient = ByteBuffer.allocate(17 + 3 * deviceIds.size() + 48);
+
+        recipient.put(destination.toFixedWidthByteArray());
+        for (int i = 0; i < deviceIds.size(); i++) {
+          final int hasMore = i == deviceIds.size() - 1 ? 0x0000 : 0x8000;
+          recipient.put(new byte[]{deviceIds.get(i)}); // device ID
+          recipient.putShort((short) ((100 + deviceIds.get(i)) | hasMore)); // registration ID
+        }
+
+        final byte[] keyMaterial = new byte[48];
+        ThreadLocalRandom.current().nextBytes(keyMaterial);
+        recipient.put(keyMaterial);
+
+        recipients.add(recipient);
+      }
+
+      final byte[] commonPayload = new byte[64];
+      ThreadLocalRandom.current().nextBytes(commonPayload);
+
+      final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+      baos.write(prefix.array(), 0, prefix.limit());
+      for (ByteBuffer recipient : recipients) {
+        baos.write(recipient.array());
+      }
+      baos.write(commonPayload);
+
+      return SealedSenderMultiRecipientMessage.parse(baos.toByteArray());
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  static SealedSenderMultiRecipientMessage generateRandomMrmMessage(AciServiceIdentifier destination,
+      byte... deviceIds) {
+
+    final Map<AciServiceIdentifier, List<Byte>> destinations = new HashMap<>();
+    destinations.put(destination, Arrays.asList(ArrayUtils.toObject(deviceIds)));
+    return generateRandomMrmMessage(destinations);
+  }
+
+  private static void writeVarint(ByteBuffer bb, long n) {
+    while (n >= 0x80) {
+      bb.put((byte) (n & 0x7F | 0x80));
+      n = n >> 7;
+    }
+    bb.put((byte) (n & 0x7F));
   }
 }

@@ -87,6 +87,7 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicInboundMessageByteLimitConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicMessagesConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountMismatchedDevices;
 import org.whispersystems.textsecuregcm.entities.AccountStaleDevices;
 import org.whispersystems.textsecuregcm.entities.IncomingMessage;
@@ -121,6 +122,7 @@ import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
+import org.whispersystems.textsecuregcm.storage.RemovedMessage;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
@@ -251,6 +253,7 @@ class MessageControllerTest {
 
     final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
     when(dynamicConfiguration.getInboundMessageByteLimitConfiguration()).thenReturn(inboundMessageByteLimitConfiguration);
+    when(dynamicConfiguration.getMessagesConfiguration()).thenReturn(new DynamicMessagesConfiguration(true, true));
 
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
 
@@ -311,7 +314,7 @@ class MessageControllerTest {
       ArgumentCaptor<Envelope> captor = ArgumentCaptor.forClass(Envelope.class);
       verify(messageSender, times(1)).sendMessage(any(Account.class), any(Device.class), captor.capture(), eq(false));
 
-      assertTrue(captor.getValue().hasSourceUuid());
+      assertTrue(captor.getValue().hasSourceServiceId());
       assertTrue(captor.getValue().hasSourceDevice());
       assertTrue(captor.getValue().getUrgent());
     }
@@ -353,7 +356,7 @@ class MessageControllerTest {
       ArgumentCaptor<Envelope> captor = ArgumentCaptor.forClass(Envelope.class);
       verify(messageSender, times(1)).sendMessage(any(Account.class), any(Device.class), captor.capture(), eq(false));
 
-      assertTrue(captor.getValue().hasSourceUuid());
+      assertTrue(captor.getValue().hasSourceServiceId());
       assertTrue(captor.getValue().hasSourceDevice());
       assertFalse(captor.getValue().getUrgent());
     }
@@ -375,7 +378,7 @@ class MessageControllerTest {
       ArgumentCaptor<Envelope> captor = ArgumentCaptor.forClass(Envelope.class);
       verify(messageSender, times(1)).sendMessage(any(Account.class), any(Device.class), captor.capture(), eq(false));
 
-      assertTrue(captor.getValue().hasSourceUuid());
+      assertTrue(captor.getValue().hasSourceServiceId());
       assertTrue(captor.getValue().hasSourceDevice());
     }
   }
@@ -410,7 +413,7 @@ class MessageControllerTest {
       ArgumentCaptor<Envelope> captor = ArgumentCaptor.forClass(Envelope.class);
       verify(messageSender, times(1)).sendMessage(any(Account.class), any(Device.class), captor.capture(), eq(false));
 
-      assertFalse(captor.getValue().hasSourceUuid());
+      assertFalse(captor.getValue().hasSourceServiceId());
       assertFalse(captor.getValue().hasSourceDevice());
     }
   }
@@ -444,7 +447,7 @@ class MessageControllerTest {
       assertThat("Good Response", response.getStatus(), is(equalTo(expectedResponse)));
       if (expectedResponse == 200) {
         verify(messageSender).sendMessage(
-            any(Account.class), any(Device.class), argThat(env -> !env.hasSourceUuid() && !env.hasSourceDevice()),
+            any(Account.class), any(Device.class), argThat(env -> !env.hasSourceServiceId() && !env.hasSourceDevice()),
             eq(false));
       } else {
         verifyNoMoreInteractions(messageSender);
@@ -732,23 +735,27 @@ class MessageControllerTest {
 
   @Test
   void testDeleteMessages() {
-    long timestamp = System.currentTimeMillis();
+    long clientTimestamp = System.currentTimeMillis();
 
     UUID sourceUuid = UUID.randomUUID();
 
     UUID uuid1 = UUID.randomUUID();
 
+    final long serverTimestamp = 0;
     when(messagesManager.delete(AuthHelper.VALID_UUID, AuthHelper.VALID_DEVICE, uuid1, null))
         .thenReturn(
-            CompletableFutureTestUtil.almostCompletedFuture(Optional.of(generateEnvelope(uuid1, Envelope.Type.CIPHERTEXT_VALUE,
-                timestamp, sourceUuid, (byte) 1, AuthHelper.VALID_UUID, null, "hi".getBytes(), 0))));
+            CompletableFutureTestUtil.almostCompletedFuture(Optional.of(
+                new RemovedMessage(Optional.of(new AciServiceIdentifier(sourceUuid)),
+                    new AciServiceIdentifier(AuthHelper.VALID_UUID), uuid1, serverTimestamp, clientTimestamp,
+                    Envelope.Type.CIPHERTEXT))));
 
     UUID uuid2 = UUID.randomUUID();
     when(messagesManager.delete(AuthHelper.VALID_UUID, AuthHelper.VALID_DEVICE, uuid2, null))
         .thenReturn(
-            CompletableFutureTestUtil.almostCompletedFuture(Optional.of(generateEnvelope(
-                uuid2, Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE,
-                System.currentTimeMillis(), sourceUuid, (byte) 1, AuthHelper.VALID_UUID, null, null, 0))));
+            CompletableFutureTestUtil.almostCompletedFuture(Optional.of(
+                new RemovedMessage(Optional.of(new AciServiceIdentifier(sourceUuid)),
+                    new AciServiceIdentifier(AuthHelper.VALID_UUID), uuid2, serverTimestamp, clientTimestamp,
+                    Envelope.Type.SERVER_DELIVERY_RECEIPT))));
 
     UUID uuid3 = UUID.randomUUID();
     when(messagesManager.delete(AuthHelper.VALID_UUID, AuthHelper.VALID_DEVICE, uuid3, null))
@@ -766,7 +773,7 @@ class MessageControllerTest {
 
       assertThat("Good Response Code", response.getStatus(), is(equalTo(204)));
       verify(receiptSender).sendReceipt(eq(new AciServiceIdentifier(AuthHelper.VALID_UUID)), eq((byte) 1),
-          eq(new AciServiceIdentifier(sourceUuid)), eq(timestamp));
+          eq(new AciServiceIdentifier(sourceUuid)), eq(clientTimestamp));
     }
 
     try (final Response response = resources.getJerseyTest()
@@ -1068,9 +1075,16 @@ class MessageControllerTest {
   }
 
   private record Recipient(ServiceIdentifier uuid,
-      byte deviceId,
-      int registrationId,
-      byte[] perRecipientKeyMaterial) {
+                           Byte[] deviceId,
+                           Integer[] registrationId,
+                           byte[] perRecipientKeyMaterial) {
+
+    Recipient(ServiceIdentifier uuid,
+        byte deviceId,
+        int registrationId,
+        byte[] perRecipientKeyMaterial) {
+      this(uuid, new Byte[]{deviceId}, new Integer[]{registrationId}, perRecipientKeyMaterial);
+    }
   }
 
   private static void writeMultiPayloadRecipient(final ByteBuffer bb, final Recipient r,
@@ -1081,8 +1095,13 @@ class MessageControllerTest {
       bb.put(UUIDUtil.toBytes(r.uuid().uuid()));
     }
 
-    bb.put(r.deviceId()); // device id (1 byte)
-    bb.putShort((short) r.registrationId()); // registration id (2 bytes)
+    assert (r.deviceId.length == r.registrationId.length);
+
+    for (int i = 0; i < r.deviceId.length; i++) {
+      final int hasMore = i == r.deviceId.length - 1 ? 0 : 0x8000;
+      bb.put(r.deviceId()[i]); // device id (1 byte)
+      bb.putShort((short) (r.registrationId()[i] | hasMore)); // registration id (2 bytes)
+    }
     bb.put(r.perRecipientKeyMaterial()); // key material (48 bytes)
   }
 
@@ -1157,7 +1176,7 @@ class MessageControllerTest {
         .queryParam("story", true)
         .queryParam("urgent", false)
         .request()
-        .header(HttpHeaders.USER_AGENT, "FIXME")
+        .header(HttpHeaders.USER_AGENT, "test")
         .put(entity)) {
 
       assertThat(response.readEntity(String.class), response.getStatus(), is(equalTo(200)));
@@ -1206,7 +1225,7 @@ class MessageControllerTest {
         .queryParam("story", isStory)
         .queryParam("urgent", urgent)
         .request()
-        .header(HttpHeaders.USER_AGENT, "FIXME")
+        .header(HttpHeaders.USER_AGENT, "test")
         .header(HeaderUtils.UNIDENTIFIED_ACCESS_KEY, accessHeader)
         .put(entity)) {
 
@@ -1216,7 +1235,7 @@ class MessageControllerTest {
           .sendMessage(
               any(),
               any(),
-              argThat(env -> env.getUrgent() == urgent && !env.hasSourceUuid() && !env.hasSourceDevice()),
+              argThat(env -> env.getUrgent() == urgent && !env.hasSourceServiceId() && !env.hasSourceDevice()),
               eq(true));
       if (expectedStatus == 200) {
         SendMultiRecipientMessageResponse smrmr = response.readEntity(SendMultiRecipientMessageResponse.class);
@@ -1384,7 +1403,7 @@ class MessageControllerTest {
         .queryParam("story", false)
         .queryParam("urgent", false)
         .request()
-        .header(HttpHeaders.USER_AGENT, "FIXME")
+        .header(HttpHeaders.USER_AGENT, "test")
         .header(HeaderUtils.GROUP_SEND_TOKEN, AuthHelper.validGroupSendTokenHeader(
                 serverSecretParams, List.of(SINGLE_DEVICE_ACI_ID, MULTI_DEVICE_ACI_ID), Instant.parse("2024-04-10T00:00:00.00Z")))
         .put(Entity.entity(stream, MultiRecipientMessageProvider.MEDIA_TYPE))) {
@@ -1395,7 +1414,7 @@ class MessageControllerTest {
           .sendMessage(
               any(),
               any(),
-              argThat(env -> !env.hasSourceUuid() && !env.hasSourceDevice()),
+              argThat(env -> !env.hasSourceServiceId() && !env.hasSourceDevice()),
               eq(true));
       SendMultiRecipientMessageResponse smrmr = response.readEntity(SendMultiRecipientMessageResponse.class);
       assertThat(smrmr.uuids404(), is(empty()));
@@ -1423,7 +1442,7 @@ class MessageControllerTest {
         .queryParam("story", false)
         .queryParam("urgent", false)
         .request()
-        .header(HttpHeaders.USER_AGENT, "FIXME")
+        .header(HttpHeaders.USER_AGENT, "test")
         .header(HeaderUtils.GROUP_SEND_TOKEN, AuthHelper.validGroupSendTokenHeader(
                 serverSecretParams, List.of(MULTI_DEVICE_ACI_ID), Instant.parse("2024-04-10T00:00:00.00Z")))
         .put(Entity.entity(stream, MultiRecipientMessageProvider.MEDIA_TYPE))) {
@@ -1454,7 +1473,7 @@ class MessageControllerTest {
         .queryParam("story", false)
         .queryParam("urgent", false)
         .request()
-        .header(HttpHeaders.USER_AGENT, "FIXME")
+        .header(HttpHeaders.USER_AGENT, "test")
         .header(HeaderUtils.GROUP_SEND_TOKEN, AuthHelper.validGroupSendTokenHeader(
                 serverSecretParams, List.of(SINGLE_DEVICE_ACI_ID, MULTI_DEVICE_ACI_ID), Instant.parse("2024-04-10T00:00:00.00Z")))
         .put(Entity.entity(stream, MultiRecipientMessageProvider.MEDIA_TYPE))) {
@@ -1620,7 +1639,7 @@ class MessageControllerTest {
         .queryParam("story", false)
         .queryParam("urgent", true)
         .request()
-        .header(HttpHeaders.USER_AGENT, "FIXME")
+        .header(HttpHeaders.USER_AGENT, "test")
         .header(HeaderUtils.UNIDENTIFIED_ACCESS_KEY, Base64.getEncoder().encodeToString(UNIDENTIFIED_ACCESS_BYTES));
 
     // make the PUT request
@@ -1663,7 +1682,7 @@ class MessageControllerTest {
         .queryParam("story", false)
         .queryParam("urgent", true)
         .request()
-        .header(HttpHeaders.USER_AGENT, "FIXME")
+        .header(HttpHeaders.USER_AGENT, "test")
         .header(HeaderUtils.UNIDENTIFIED_ACCESS_KEY, Base64.getEncoder().encodeToString(UNIDENTIFIED_ACCESS_BYTES));
 
     // make the PUT request
@@ -1702,7 +1721,7 @@ class MessageControllerTest {
         .queryParam("story", true)
         .queryParam("urgent", true)
         .request()
-        .header(HttpHeaders.USER_AGENT, "FIXME")
+        .header(HttpHeaders.USER_AGENT, "test")
         .header(HeaderUtils.UNIDENTIFIED_ACCESS_KEY, Base64.getEncoder().encodeToString(UNIDENTIFIED_ACCESS_BYTES));
 
     when(rateLimiter.validateAsync(any(UUID.class)))
@@ -1730,14 +1749,14 @@ class MessageControllerTest {
 
     final MessageProtos.Envelope.Builder builder = MessageProtos.Envelope.newBuilder()
         .setType(MessageProtos.Envelope.Type.forNumber(type))
-        .setTimestamp(timestamp)
+        .setClientTimestamp(timestamp)
         .setServerTimestamp(serverTimestamp)
-        .setDestinationUuid(destinationUuid.toString())
+        .setDestinationServiceId(destinationUuid.toString())
         .setStory(story)
         .setServerGuid(guid.toString());
 
     if (sourceUuid != null) {
-      builder.setSourceUuid(sourceUuid.toString());
+      builder.setSourceServiceId(sourceUuid.toString());
       builder.setSourceDevice(sourceDevice);
     }
 

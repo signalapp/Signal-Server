@@ -50,11 +50,11 @@ public final class MessageMetrics {
 
   public void measureAccountEnvelopeUuidMismatches(final Account account,
       final MessageProtos.Envelope envelope) {
-    if (envelope.hasDestinationUuid()) {
+    if (envelope.hasDestinationServiceId()) {
       try {
-        measureAccountDestinationUuidMismatches(account, ServiceIdentifier.valueOf(envelope.getDestinationUuid()));
+        measureAccountDestinationUuidMismatches(account, ServiceIdentifier.valueOf(envelope.getDestinationServiceId()));
       } catch (final IllegalArgumentException ignored) {
-        logger.warn("Envelope had invalid destination UUID: {}", envelope.getDestinationUuid());
+        logger.warn("Envelope had invalid destination UUID: {}", envelope.getDestinationServiceId());
       }
     }
   }
