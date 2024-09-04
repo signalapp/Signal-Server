@@ -30,6 +30,7 @@ public class HCaptchaClientTest {
 
   private static final String SITE_KEY = "site-key";
   private static final String TOKEN = "token";
+  private static final String USER_AGENT = "user-agent";
 
 
   static Stream<Arguments> captchaProcessed() {
@@ -56,7 +57,7 @@ public class HCaptchaClientTest {
         success, 1 - score)); // hCaptcha scores are inverted compared to recaptcha scores. (low score is good)
 
     final AssessmentResult result = new HCaptchaClient("fake", client, mockConfig(true, 0.5))
-        .verify(SITE_KEY, Action.CHALLENGE, TOKEN, null);
+        .verify(SITE_KEY, Action.CHALLENGE, TOKEN, null, USER_AGENT);
     if (!success) {
       assertThat(result).isEqualTo(AssessmentResult.invalid());
     } else {
@@ -68,7 +69,7 @@ public class HCaptchaClientTest {
   public void errorResponse() throws IOException, InterruptedException {
     final FaultTolerantHttpClient httpClient = mockResponder(503, "");
     final HCaptchaClient client = new HCaptchaClient("fake", httpClient, mockConfig(true, 0.5));
-    assertThrows(IOException.class, () -> client.verify(SITE_KEY, Action.CHALLENGE, TOKEN, null));
+    assertThrows(IOException.class, () -> client.verify(SITE_KEY, Action.CHALLENGE, TOKEN, null, USER_AGENT));
   }
 
   @Test
@@ -77,7 +78,7 @@ public class HCaptchaClientTest {
         {"success" : true, "score": 1.1}
         """);
     final HCaptchaClient client = new HCaptchaClient("fake", httpClient, mockConfig(true, 0.5));
-    assertThat(client.verify(SITE_KEY, Action.CHALLENGE, TOKEN, null)).isEqualTo(AssessmentResult.invalid());
+    assertThat(client.verify(SITE_KEY, Action.CHALLENGE, TOKEN, null, USER_AGENT)).isEqualTo(AssessmentResult.invalid());
   }
 
   @Test
@@ -86,7 +87,7 @@ public class HCaptchaClientTest {
         {"success" : true,
         """);
     final HCaptchaClient client = new HCaptchaClient("fake", httpClient, mockConfig(true, 0.5));
-    assertThrows(IOException.class, () -> client.verify(SITE_KEY, Action.CHALLENGE, TOKEN, null));
+    assertThrows(IOException.class, () -> client.verify(SITE_KEY, Action.CHALLENGE, TOKEN, null, USER_AGENT));
   }
 
   @Test

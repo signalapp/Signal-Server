@@ -34,6 +34,7 @@ public class CaptchaCheckerTest {
   private static final String PREFIX = "prefix";
   private static final String PREFIX_A = "prefix-a";
   private static final String PREFIX_B = "prefix-b";
+  private static final String USER_AGENT = "user-agent";
 
   static Stream<Arguments> parseInputToken() {
     return Stream.of(
@@ -65,7 +66,7 @@ public class CaptchaCheckerTest {
     when(captchaClient.scheme()).thenReturn(prefix);
     when(captchaClient.validSiteKeys(eq(Action.CHALLENGE))).thenReturn(Collections.singleton(CHALLENGE_SITE_KEY));
     when(captchaClient.validSiteKeys(eq(Action.REGISTRATION))).thenReturn(Collections.singleton(REG_SITE_KEY));
-    when(captchaClient.verify(any(), any(), any(), any())).thenReturn(AssessmentResult.invalid());
+    when(captchaClient.verify(any(), any(), any(), any(), any())).thenReturn(AssessmentResult.invalid());
     return captchaClient;
   }
 
@@ -78,8 +79,8 @@ public class CaptchaCheckerTest {
       final String siteKey,
       final Action expectedAction) throws IOException {
     final CaptchaClient captchaClient = mockClient(PREFIX);
-    new CaptchaChecker(null, List.of(captchaClient)).verify(expectedAction, input, null);
-    verify(captchaClient, times(1)).verify(eq(siteKey), eq(expectedAction), eq(expectedToken), any());
+    new CaptchaChecker(null, List.of(captchaClient)).verify(expectedAction, input, null, USER_AGENT);
+    verify(captchaClient, times(1)).verify(eq(siteKey), eq(expectedAction), eq(expectedToken), any(), eq(USER_AGENT));
   }
 
   @ParameterizedTest
@@ -106,11 +107,11 @@ public class CaptchaCheckerTest {
     final CaptchaClient a = mockClient(PREFIX_A);
     final CaptchaClient b = mockClient(PREFIX_B);
 
-    new CaptchaChecker(null, List.of(a, b)).verify(Action.CHALLENGE, ainput, null);
-    verify(a, times(1)).verify(any(), any(), any(), any());
+    new CaptchaChecker(null, List.of(a, b)).verify(Action.CHALLENGE, ainput, null, USER_AGENT);
+    verify(a, times(1)).verify(any(), any(), any(), any(), any());
 
-    new CaptchaChecker(null, List.of(a, b)).verify(Action.CHALLENGE, binput, null);
-    verify(b, times(1)).verify(any(), any(), any(), any());
+    new CaptchaChecker(null, List.of(a, b)).verify(Action.CHALLENGE, binput, null, USER_AGENT);
+    verify(b, times(1)).verify(any(), any(), any(), any(), any());
   }
 
   static Stream<Arguments> badArgs() {
@@ -131,7 +132,7 @@ public class CaptchaCheckerTest {
   public void badArgs(final String input) throws IOException {
     final CaptchaClient cc = mockClient(PREFIX);
     assertThrows(BadRequestException.class,
-        () -> new CaptchaChecker(null, List.of(cc)).verify(Action.CHALLENGE, input, null));
+        () -> new CaptchaChecker(null, List.of(cc)).verify(Action.CHALLENGE, input, null, USER_AGENT));
 
   }
 
@@ -141,8 +142,8 @@ public class CaptchaCheckerTest {
     final ShortCodeExpander retriever = mock(ShortCodeExpander.class);
     when(retriever.retrieve("abc")).thenReturn(Optional.of(TOKEN));
     final String input = String.join(SEPARATOR, PREFIX + "-short", REG_SITE_KEY, "registration", "abc");
-    new CaptchaChecker(retriever, List.of(captchaClient)).verify(Action.REGISTRATION, input, null);
-    verify(captchaClient, times(1)).verify(eq(REG_SITE_KEY), eq(Action.REGISTRATION), eq(TOKEN), any());
+    new CaptchaChecker(retriever, List.of(captchaClient)).verify(Action.REGISTRATION, input, null, USER_AGENT);
+    verify(captchaClient, times(1)).verify(eq(REG_SITE_KEY), eq(Action.REGISTRATION), eq(TOKEN), any(), any());
 
   }
 }

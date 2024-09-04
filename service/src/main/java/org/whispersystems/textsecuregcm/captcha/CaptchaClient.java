@@ -26,10 +26,11 @@ public interface CaptchaClient {
   /**
    * Verify a provided captcha solution
    *
-   * @param siteKey identifying string for the captcha service
-   * @param action  an action indicating the purpose of the captcha
-   * @param token   the captcha solution that will be verified
-   * @param ip      the ip of the captcha solver
+   * @param siteKey   identifying string for the captcha service
+   * @param action    an action indicating the purpose of the captcha
+   * @param token     the captcha solution that will be verified
+   * @param ip        the ip of the captcha solver
+   * @param userAgent the User-Agent string of the captcha solver
    * @return An {@link AssessmentResult} indicating whether the solution should be accepted
    * @throws IOException if the underlying captcha provider returns an error
    */
@@ -37,5 +38,6 @@ public interface CaptchaClient {
       final String siteKey,
       final Action action,
       final String token,
-      final String ip) throws IOException;
+      final String ip,
+      final String userAgent) throws IOException;
 }

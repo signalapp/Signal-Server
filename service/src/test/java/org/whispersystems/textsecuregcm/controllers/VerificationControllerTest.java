@@ -465,7 +465,7 @@ class VerificationControllerTest {
                 Collections.emptyList(), null, null, false, clock.millis(), clock.millis(),
                 registrationServiceSession.expiration()))));
 
-    when(registrationCaptchaManager.assessCaptcha(any(), any()))
+    when(registrationCaptchaManager.assessCaptcha(any(), any(), any()))
         .thenReturn(Optional.of(AssessmentResult.invalid()));
 
     when(verificationSessionManager.update(any(), any()))
@@ -637,7 +637,7 @@ class VerificationControllerTest {
                 Collections.emptyList(), null, null, false, clock.millis(), clock.millis(),
                 registrationServiceSession.expiration()))));
 
-    when(registrationCaptchaManager.assessCaptcha(any(), any()))
+    when(registrationCaptchaManager.assessCaptcha(any(), any(), any()))
         .thenReturn(Optional.of(AssessmentResult.alwaysValid()));
 
     when(verificationSessionManager.update(any(), any()))
@@ -685,7 +685,7 @@ class VerificationControllerTest {
                 Collections.emptyList(), null, null, false, clock.millis(), clock.millis(),
                 registrationServiceSession.expiration()))));
 
-    when(registrationCaptchaManager.assessCaptcha(any(), any()))
+    when(registrationCaptchaManager.assessCaptcha(any(), any(), any()))
         .thenReturn(Optional.of(AssessmentResult.alwaysValid()));
 
     when(verificationSessionManager.update(any(), any()))
@@ -732,7 +732,7 @@ class VerificationControllerTest {
                 Collections.emptyList(), null, null, false, clock.millis(), clock.millis(),
                 registrationServiceSession.expiration()))));
 
-    when(registrationCaptchaManager.assessCaptcha(any(), any()))
+    when(registrationCaptchaManager.assessCaptcha(any(), any(), any()))
         .thenThrow(new IOException("expected service error"));
 
     when(verificationSessionManager.update(any(), any()))
