@@ -563,15 +563,22 @@ class MessagesCacheTest {
       });
     }
 
-    @Test
-    void testMultiRecipientMessage() throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testMultiRecipientMessage(final boolean sharedMrmKeyPresent) throws Exception {
       final UUID destinationUuid = UUID.randomUUID();
       final byte deviceId = 1;
 
       final UUID mrmGuid = UUID.randomUUID();
       final SealedSenderMultiRecipientMessage mrm = generateRandomMrmMessage(
           new AciServiceIdentifier(destinationUuid), deviceId);
-      final byte[] sharedMrmDataKey = messagesCache.insertSharedMultiRecipientMessagePayload(mrmGuid, mrm);
+
+      final byte[] sharedMrmDataKey;
+      if (sharedMrmKeyPresent) {
+        sharedMrmDataKey = messagesCache.insertSharedMultiRecipientMessagePayload(mrmGuid, mrm);
+      } else {
+        sharedMrmDataKey = new byte[]{1};
+      }
 
       final UUID guid = UUID.randomUUID();
       final MessageProtos.Envelope message = generateRandomMessage(guid, true)
@@ -585,7 +592,7 @@ class MessagesCacheTest {
           .build();
       messagesCache.insert(guid, destinationUuid, deviceId, message);
 
-      assertEquals(1L, (long) REDIS_CLUSTER_EXTENSION.getRedisCluster()
+      assertEquals(sharedMrmKeyPresent ? 1 : 0, (long) REDIS_CLUSTER_EXTENSION.getRedisCluster()
           .withBinaryCluster(conn -> conn.sync().exists(MessagesCache.getSharedMrmKey(mrmGuid))));
 
       final List<MessageProtos.Envelope> messages = get(destinationUuid, deviceId, 1);

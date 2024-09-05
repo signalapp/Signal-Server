@@ -396,10 +396,13 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
 
               final Mono<MessageProtos.Envelope> messageMono;
               if (message.hasSharedMrmKey()) {
-                maybeRunMrmViewExperiment(message, destinationUuid, destinationDevice);
+                final Mono<?> experimentMono = maybeRunMrmViewExperiment(message, destinationUuid, destinationDevice);
 
                 // mrm views phase 1: messageMono for sharedMrmKey is always Mono.just(), because messages always have content
-                messageMono = Mono.just(message.toBuilder().clearSharedMrmKey().build());
+                // To avoid races, wait for the experiment to run, but ignore any errors
+                messageMono = experimentMono
+                    .onErrorComplete()
+                    .then(Mono.just(message.toBuilder().clearSharedMrmKey().build()));
               } else {
                 messageMono = Mono.just(message);
               }
@@ -420,7 +423,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
    *
    * @see DynamicMessagesConfiguration#mrmViewExperimentEnabled()
    */
-  private void maybeRunMrmViewExperiment(final MessageProtos.Envelope mrmMessage, final UUID destinationUuid,
+  private Mono<?> maybeRunMrmViewExperiment(final MessageProtos.Envelope mrmMessage, final UUID destinationUuid,
       final byte destinationDevice) {
     if (dynamicConfigurationManager.getConfiguration().getMessagesConfiguration()
         .mrmViewExperimentEnabled()) {
@@ -456,6 +459,10 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
 
       experiment.compareFutureResult(mrmMessage.toBuilder().clearSharedMrmKey().build(),
           mrmMessageMono.toFuture());
+
+      return mrmMessageMono;
+    } else {
+      return Mono.empty();
     }
   }
 
