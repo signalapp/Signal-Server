@@ -472,6 +472,10 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
   void removeRecipientViewFromMrmData(final List<byte[]> sharedMrmKeys, final UUID accountUuid,
       final byte deviceId) {
 
+    if (sharedMrmKeys.isEmpty()) {
+      return;
+    }
+
     final Timer.Sample sample = Timer.start();
     Flux.fromIterable(sharedMrmKeys)
         .collectMultimap(SlotHash::getSlot)
