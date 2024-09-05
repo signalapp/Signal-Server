@@ -462,7 +462,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
   /**
    * Makes a best-effort attempt at asynchronously updating (and removing when empty) the MRM data structure
    */
-  private void removeRecipientViewFromMrmData(final List<byte[]> sharedMrmKeys, final UUID accountUuid,
+  void removeRecipientViewFromMrmData(final List<byte[]> sharedMrmKeys, final UUID accountUuid,
       final byte deviceId) {
 
     final Timer.Sample sample = Timer.start();
