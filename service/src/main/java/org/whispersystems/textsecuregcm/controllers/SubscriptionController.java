@@ -527,7 +527,7 @@ public class SubscriptionController {
         long level,
 
         @Schema(
-            description = "If present, UNIX Epoch Timestamp in seconds, can be used to calculate next billing date. May be absent for IAP subscriptions",
+            description = "If present, UNIX Epoch Timestamp in seconds, can be used to calculate next billing date.",
             externalDocs = @ExternalDocumentation(description = "Calculate next billing date", url = "https://stripe.com/docs/billing/subscriptions/billing-cycle"))
         Instant billingCycleAnchor,
 

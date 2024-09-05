@@ -230,6 +230,7 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor {
     return subscriptionFuture.thenCombineAsync(priceFuture, (subscription, price) -> {
 
       final SubscriptionPurchaseLineItem lineItem = getLineItem(subscription);
+      final Optional<Instant> billingCycleAnchor = getStartTime(subscription);
       final Optional<Instant> expiration = getExpiration(lineItem);
 
       final SubscriptionStatus status = switch (SubscriptionState
@@ -246,7 +247,8 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor {
       return new SubscriptionInformation(
           price,
           productIdToLevel(lineItem.getProductId()),
-          null, expiration.orElse(null),
+          billingCycleAnchor.orElse(null),
+          expiration.orElse(null),
           expiration.map(clock.instant()::isBefore).orElse(false),
           lineItem.getAutoRenewingPlan() != null && lineItem.getAutoRenewingPlan().getAutoRenewEnabled(),
           status,
@@ -385,17 +387,26 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor {
         "acknowledgementState", subscription.getAcknowledgementState());
   }
 
+  private Optional<Instant> getStartTime(final SubscriptionPurchaseV2 subscription) {
+    return parseTimestamp(subscription.getStartTime());
+  }
+
   private Optional<Instant> getExpiration(final SubscriptionPurchaseLineItem purchaseLineItem) {
-    if (StringUtils.isBlank(purchaseLineItem.getExpiryTime())) {
+    return parseTimestamp(purchaseLineItem.getExpiryTime());
+  }
+
+  private Optional<Instant> parseTimestamp(final String timestamp) {
+    if (StringUtils.isBlank(timestamp)) {
       return Optional.empty();
     }
     try {
-      return Optional.of(Instant.parse(purchaseLineItem.getExpiryTime()));
+      return Optional.of(Instant.parse(timestamp));
     } catch (DateTimeParseException e) {
-      logger.warn("received an expiry time with an invalid format: {}", purchaseLineItem.getExpiryTime());
+      logger.warn("received a timestamp with an invalid format: {}", timestamp);
       return Optional.empty();
     }
   }
+
 
   // https://developers.google.com/android-publisher/api-ref/rest/v3/purchases.subscriptionsv2#SubscriptionState
   @VisibleForTesting
