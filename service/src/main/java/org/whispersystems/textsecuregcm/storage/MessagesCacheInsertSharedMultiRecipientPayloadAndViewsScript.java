@@ -23,6 +23,8 @@ class MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript {
 
   private final ClusterLuaScript script;
 
+  static final String ERROR_KEY_EXISTS = "ERR key exists";
+
   MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript(FaultTolerantRedisCluster redisCluster)
       throws IOException {
     this.script = ClusterLuaScript.fromResource(redisCluster, "lua/insert_shared_multirecipient_message_data.lua",

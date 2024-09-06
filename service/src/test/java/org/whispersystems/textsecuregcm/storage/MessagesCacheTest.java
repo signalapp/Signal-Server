@@ -569,13 +569,12 @@ class MessagesCacheTest {
       final UUID destinationUuid = UUID.randomUUID();
       final byte deviceId = 1;
 
-      final UUID mrmGuid = UUID.randomUUID();
       final SealedSenderMultiRecipientMessage mrm = generateRandomMrmMessage(
           new AciServiceIdentifier(destinationUuid), deviceId);
 
       final byte[] sharedMrmDataKey;
       if (sharedMrmKeyPresent) {
-        sharedMrmDataKey = messagesCache.insertSharedMultiRecipientMessagePayload(mrmGuid, mrm);
+        sharedMrmDataKey = messagesCache.insertSharedMultiRecipientMessagePayload(mrm);
       } else {
         sharedMrmDataKey = new byte[]{1};
       }
@@ -593,7 +592,7 @@ class MessagesCacheTest {
       messagesCache.insert(guid, destinationUuid, deviceId, message);
 
       assertEquals(sharedMrmKeyPresent ? 1 : 0, (long) REDIS_CLUSTER_EXTENSION.getRedisCluster()
-          .withBinaryCluster(conn -> conn.sync().exists(MessagesCache.getSharedMrmKey(mrmGuid))));
+          .withBinaryCluster(conn -> conn.sync().exists(sharedMrmDataKey)));
 
       final List<MessageProtos.Envelope> messages = get(destinationUuid, deviceId, 1);
       assertEquals(1, messages.size());
@@ -616,9 +615,9 @@ class MessagesCacheTest {
         boolean exists;
         do {
           exists = 1 == REDIS_CLUSTER_EXTENSION.getRedisCluster()
-              .withBinaryCluster(conn -> conn.sync().exists(MessagesCache.getSharedMrmKey(mrmGuid)));
+              .withBinaryCluster(conn -> conn.sync().exists(sharedMrmDataKey));
         } while (exists);
-      });
+      }, "Shared MRM data should be deleted asynchronously");
     }
 
     private List<MessageProtos.Envelope> get(final UUID destinationUuid, final byte destinationDeviceId,
@@ -628,7 +627,6 @@ class MessagesCacheTest {
           .collectList()
           .block();
     }
-
   }
 
   @Nested

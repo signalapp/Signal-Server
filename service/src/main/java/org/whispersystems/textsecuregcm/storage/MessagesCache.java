@@ -270,23 +270,24 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
     return insertTimer.record(() -> insertScript.execute(destinationUuid, destinationDevice, messageWithGuid));
   }
 
-  public byte[] insertSharedMultiRecipientMessagePayload(UUID mrmGuid,
-      SealedSenderMultiRecipientMessage sealedSenderMultiRecipientMessage) {
-    final byte[] sharedMrmKey = getSharedMrmKey(mrmGuid);
-    insertSharedMrmPayloadTimer.record(() -> insertMrmScript.execute(sharedMrmKey, sealedSenderMultiRecipientMessage));
-    return sharedMrmKey;
+  public byte[] insertSharedMultiRecipientMessagePayload(
+      final SealedSenderMultiRecipientMessage sealedSenderMultiRecipientMessage) {
+    return insertSharedMrmPayloadTimer.record(() -> {
+          final byte[] sharedMrmKey = getSharedMrmKey(UUID.randomUUID());
+          insertMrmScript.execute(sharedMrmKey, sealedSenderMultiRecipientMessage);
+          return sharedMrmKey;
+      });
   }
 
-  public CompletableFuture<Optional<RemovedMessage>> remove(final UUID destinationUuid,
-      final byte destinationDevice,
+  public CompletableFuture<Optional<RemovedMessage>> remove(final UUID destinationUuid, final byte destinationDevice,
       final UUID messageGuid) {
 
     return remove(destinationUuid, destinationDevice, List.of(messageGuid))
         .thenApply(removed -> removed.isEmpty() ? Optional.empty() : Optional.of(removed.getFirst()));
   }
 
-  public CompletableFuture<List<RemovedMessage>> remove(final UUID destinationUuid,
-      final byte destinationDevice, final List<UUID> messageGuids) {
+  public CompletableFuture<List<RemovedMessage>> remove(final UUID destinationUuid, final byte destinationDevice,
+      final List<UUID> messageGuids) {
 
     final Timer.Sample sample = Timer.start();
 
@@ -469,8 +470,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
   /**
    * Makes a best-effort attempt at asynchronously updating (and removing when empty) the MRM data structure
    */
-  void removeRecipientViewFromMrmData(final List<byte[]> sharedMrmKeys, final UUID accountUuid,
-      final byte deviceId) {
+  void removeRecipientViewFromMrmData(final List<byte[]> sharedMrmKeys, final UUID accountUuid, final byte deviceId) {
 
     if (sharedMrmKeys.isEmpty()) {
       return;
