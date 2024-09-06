@@ -15,6 +15,8 @@ import com.google.common.base.Preconditions;
 import io.lettuce.core.RedisException;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -52,6 +54,7 @@ import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
+import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.RedisOperation;
@@ -167,7 +170,8 @@ public class AccountsManager {
       final List<AccountBadge> accountBadges,
       final IdentityKey aciIdentityKey,
       final IdentityKey pniIdentityKey,
-      final DeviceSpec primaryDeviceSpec) throws InterruptedException {
+      final DeviceSpec primaryDeviceSpec,
+      @Nullable final String userAgent) throws InterruptedException {
 
     final Account account = new Account();
 
@@ -251,7 +255,11 @@ public class AccountsManager {
 
         redisSet(account);
 
-        Metrics.counter(CREATE_COUNTER_NAME, "type", accountCreationType).increment();
+        Metrics.counter(CREATE_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
+                Tag.of("type", accountCreationType),
+                Tag.of("hasPushToken", String.valueOf(
+                    primaryDeviceSpec.apnRegistrationId().isPresent() || primaryDeviceSpec.gcmRegistrationId().isPresent()))))
+            .increment();
 
         accountAttributes.recoveryPassword().ifPresent(registrationRecoveryPassword ->
             registrationRecoveryPasswordsManager.storeForCurrentNumber(account.getNumber(), registrationRecoveryPassword));

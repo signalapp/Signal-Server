@@ -157,7 +157,8 @@ public class RegistrationController {
             registrationRequest.deviceActivationRequest().aciSignedPreKey(),
             registrationRequest.deviceActivationRequest().pniSignedPreKey(),
             registrationRequest.deviceActivationRequest().aciPqLastResortPreKey(),
-            registrationRequest.deviceActivationRequest().pniPqLastResortPreKey()));
+            registrationRequest.deviceActivationRequest().pniPqLastResortPreKey()),
+        userAgent);
 
     Metrics.counter(ACCOUNT_CREATED_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
             Tag.of(COUNTRY_CODE_TAG_NAME, Util.getCountryCode(number)),
