@@ -22,6 +22,7 @@ import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialRequest;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialResponse;
 import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.whispersystems.textsecuregcm.controllers.SubscriptionController;
+import org.whispersystems.textsecuregcm.subscriptions.AppleAppStoreManager;
 import org.whispersystems.textsecuregcm.subscriptions.CustomerAwareSubscriptionPaymentProcessor;
 import org.whispersystems.textsecuregcm.subscriptions.GooglePlayBillingManager;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
@@ -116,7 +117,8 @@ public class SubscriptionManager {
         .thenRun(Util.NOOP);
   }
 
-  public CompletableFuture<Optional<SubscriptionInformation>> getSubscriptionInformation(final SubscriberCredentials subscriberCredentials) {
+  public CompletableFuture<Optional<SubscriptionInformation>> getSubscriptionInformation(
+      final SubscriberCredentials subscriberCredentials) {
     return getSubscriber(subscriberCredentials).thenCompose(record -> {
       if (record.subscriptionId == null) {
         return CompletableFuture.completedFuture(Optional.empty());
@@ -155,8 +157,8 @@ public class SubscriptionManager {
    *
    * @param subscriberCredentials Subscriber credentials derived from the subscriberId
    * @param request               The ZK Receipt credential request
-   * @param expiration            A function that takes a {@link CustomerAwareSubscriptionPaymentProcessor.ReceiptItem} and returns
-   *                              the expiration time of the receipt
+   * @param expiration            A function that takes a {@link CustomerAwareSubscriptionPaymentProcessor.ReceiptItem}
+   *                              and returns the expiration time of the receipt
    * @return If the subscription had a valid payment, the requested ZK receipt credential
    */
   public CompletableFuture<ReceiptResult> createReceiptCredentials(
@@ -300,8 +302,9 @@ public class SubscriptionManager {
             .getSubscription(subId)
             .thenCompose(subscription -> processor.getLevelAndCurrencyForSubscription(subscription)
                 .thenCompose(existingLevelAndCurrency -> {
-                  if (existingLevelAndCurrency.equals(new CustomerAwareSubscriptionPaymentProcessor.LevelAndCurrency(level,
-                      currency.toLowerCase(Locale.ROOT)))) {
+                  if (existingLevelAndCurrency.equals(
+                      new CustomerAwareSubscriptionPaymentProcessor.LevelAndCurrency(level,
+                          currency.toLowerCase(Locale.ROOT)))) {
                     return CompletableFuture.completedFuture(null);
                   }
                   if (!transitionValidator.isTransitionValid(existingLevelAndCurrency.level(), level)) {
@@ -385,6 +388,41 @@ public class SubscriptionManager {
                 // Now that the purchaseToken is durable, we can acknowledge it
                 .thenCompose(ignore -> validatedToken.acknowledgePurchase())
                 .thenApply(ignore -> validatedToken.getLevel())));
+  }
+
+  /**
+   * Check the provided app store transactionId and write it the subscriptions table if is valid.
+   *
+   * @param subscriberCredentials Subscriber credentials derived from the subscriberId
+   * @param appleAppStoreManager  Performs app store API operations
+   * @param originalTransactionId The client provided originalTransactionId that represents a purchased subscription in
+   *                              the app store
+   * @return A stage that completes with the subscription level for the accepted subscription
+   */
+  public CompletableFuture<Long> updateAppStoreTransactionId(
+      final SubscriberCredentials subscriberCredentials,
+      final AppleAppStoreManager appleAppStoreManager,
+      final String originalTransactionId) {
+
+    return getSubscriber(subscriberCredentials).thenCompose(record -> {
+      if (record.processorCustomer != null
+          && record.processorCustomer.processor() != PaymentProvider.APPLE_APP_STORE) {
+        return CompletableFuture.failedFuture(
+            new SubscriptionException.ProcessorConflict("existing processor does not match"));
+      }
+
+      // For IAP providers, the subscriptionId and the customerId are both just the identifier for the subscription in
+      // the provider (in this case, the originalTransactionId). Changes to the subscription always just result in a new
+      // originalTransactionId
+      final ProcessorCustomer pc = new ProcessorCustomer(originalTransactionId, PaymentProvider.APPLE_APP_STORE);
+
+      return appleAppStoreManager
+          .validateTransaction(originalTransactionId)
+          .thenCompose(level -> subscriptions
+              .setIapPurchase(record, pc, originalTransactionId, level, subscriberCredentials.now())
+              .thenApply(ignore -> level));
+    });
+
   }
 
   private SubscriptionPaymentProcessor getProcessor(PaymentProvider provider) {

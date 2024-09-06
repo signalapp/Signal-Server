@@ -76,6 +76,7 @@ import org.whispersystems.textsecuregcm.storage.PaymentTime;
 import org.whispersystems.textsecuregcm.storage.SubscriberCredentials;
 import org.whispersystems.textsecuregcm.storage.SubscriptionException;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
+import org.whispersystems.textsecuregcm.subscriptions.AppleAppStoreManager;
 import org.whispersystems.textsecuregcm.subscriptions.BankMandateTranslator;
 import org.whispersystems.textsecuregcm.subscriptions.BankTransferType;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
@@ -106,6 +107,7 @@ public class SubscriptionController {
   private final StripeManager stripeManager;
   private final BraintreeManager braintreeManager;
   private final GooglePlayBillingManager googlePlayBillingManager;
+  private final AppleAppStoreManager appleAppStoreManager;
   private final BadgeTranslator badgeTranslator;
   private final LevelTranslator levelTranslator;
   private final BankMandateTranslator bankMandateTranslator;
@@ -122,6 +124,7 @@ public class SubscriptionController {
       @Nonnull StripeManager stripeManager,
       @Nonnull BraintreeManager braintreeManager,
       @Nonnull GooglePlayBillingManager googlePlayBillingManager,
+      @Nonnull AppleAppStoreManager appleAppStoreManager,
       @Nonnull BadgeTranslator badgeTranslator,
       @Nonnull LevelTranslator levelTranslator,
       @Nonnull BankMandateTranslator bankMandateTranslator) {
@@ -132,6 +135,7 @@ public class SubscriptionController {
     this.stripeManager = Objects.requireNonNull(stripeManager);
     this.braintreeManager = Objects.requireNonNull(braintreeManager);
     this.googlePlayBillingManager = Objects.requireNonNull(googlePlayBillingManager);
+    this.appleAppStoreManager = appleAppStoreManager;
     this.badgeTranslator = Objects.requireNonNull(badgeTranslator);
     this.levelTranslator = Objects.requireNonNull(levelTranslator);
     this.bankMandateTranslator = Objects.requireNonNull(bankMandateTranslator);
@@ -399,6 +403,39 @@ public class SubscriptionController {
   public boolean subscriptionsAreSameType(long level1, long level2) {
     return subscriptionConfiguration.getSubscriptionLevel(level1).type()
         == subscriptionConfiguration.getSubscriptionLevel(level2).type();
+  }
+
+  @POST
+  @Path("/{subscriberId}/appstore/{originalTransactionId}")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Set app store subscription", description = """
+  Set an originalTransactionId that represents an IAP subscription made with the app store.
+  
+  To set up an app store subscription:
+  1. Create a subscriber with `PUT subscriptions/{subscriberId}` (you must regularly refresh this subscriber)
+  2. [Create a subscription](https://developer.apple.com/documentation/storekit/in-app_purchase/) with the App Store
+     directly via StoreKit and obtain a originalTransactionId.
+  3. `POST` the purchaseToken here
+  4. Obtain a receipt at `POST /v1/subscription/{subscriberId}/receipt_credentials` which can then be used to obtain the
+     entitlement
+  """)
+  @ApiResponse(responseCode = "200", description = "The originalTransactionId was successfully validated")
+  @ApiResponse(responseCode = "402", description = "The subscription transaction is incomplete or invalid")
+  @ApiResponse(responseCode = "403", description = "subscriberId authentication failure OR account authentication is present")
+  @ApiResponse(responseCode = "404", description = "No such subscriberId exists or subscriberId is malformed or the specified transaction does not exist")
+  @ApiResponse(responseCode = "409", description = "subscriberId is already linked to a processor that does not support appstore payments. Delete this subscriberId and use a new one.")
+  @ApiResponse(responseCode = "429", description = "Rate limit exceeded.")
+  public CompletableFuture<SetSubscriptionLevelSuccessResponse> setAppStoreSubscription(
+      @ReadOnly @Auth Optional<AuthenticatedDevice> authenticatedAccount,
+      @PathParam("subscriberId") String subscriberId,
+      @PathParam("originalTransactionId") String originalTransactionId) throws SubscriptionException {
+    final SubscriberCredentials subscriberCredentials =
+        SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
+
+    return subscriptionManager
+        .updateAppStoreTransactionId(subscriberCredentials, appleAppStoreManager, originalTransactionId)
+        .thenApply(SetSubscriptionLevelSuccessResponse::new);
   }
 
 

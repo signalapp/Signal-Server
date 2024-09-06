@@ -82,6 +82,7 @@ import org.whispersystems.textsecuregcm.storage.PaymentTime;
 import org.whispersystems.textsecuregcm.storage.SubscriptionException;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.storage.Subscriptions;
+import org.whispersystems.textsecuregcm.subscriptions.AppleAppStoreManager;
 import org.whispersystems.textsecuregcm.subscriptions.BankMandateTranslator;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager.PayPalOneTimePaymentApprovalDetails;
@@ -115,6 +116,8 @@ class SubscriptionControllerTest {
       when(mgr.getProvider()).thenReturn(PaymentProvider.BRAINTREE));
   private static final GooglePlayBillingManager PLAY_MANAGER = MockUtils.buildMock(GooglePlayBillingManager.class,
       mgr -> when(mgr.getProvider()).thenReturn(PaymentProvider.GOOGLE_PLAY_BILLING));
+  private static final AppleAppStoreManager APPSTORE_MANAGER = MockUtils.buildMock(AppleAppStoreManager.class,
+      mgr -> when(mgr.getProvider()).thenReturn(PaymentProvider.APPLE_APP_STORE));
   private static final PaymentIntent PAYMENT_INTENT = mock(PaymentIntent.class);
   private static final ServerZkReceiptOperations ZK_OPS = mock(ServerZkReceiptOperations.class);
   private static final IssuedReceiptsManager ISSUED_RECEIPTS_MANAGER = mock(IssuedReceiptsManager.class);
@@ -122,10 +125,13 @@ class SubscriptionControllerTest {
   private static final BadgeTranslator BADGE_TRANSLATOR = mock(BadgeTranslator.class);
   private static final LevelTranslator LEVEL_TRANSLATOR = mock(LevelTranslator.class);
   private static final BankMandateTranslator BANK_MANDATE_TRANSLATOR = mock(BankMandateTranslator.class);
-  private final static SubscriptionController SUBSCRIPTION_CONTROLLER = new SubscriptionController(CLOCK, SUBSCRIPTION_CONFIG,
-      ONETIME_CONFIG, new SubscriptionManager(SUBSCRIPTIONS, List.of(STRIPE_MANAGER, BRAINTREE_MANAGER, PLAY_MANAGER), ZK_OPS,
-      ISSUED_RECEIPTS_MANAGER), STRIPE_MANAGER, BRAINTREE_MANAGER, PLAY_MANAGER, BADGE_TRANSLATOR, LEVEL_TRANSLATOR,
-      BANK_MANDATE_TRANSLATOR);
+  private final static SubscriptionController SUBSCRIPTION_CONTROLLER = new SubscriptionController(CLOCK,
+      SUBSCRIPTION_CONFIG, ONETIME_CONFIG,
+      new SubscriptionManager(SUBSCRIPTIONS,
+          List.of(STRIPE_MANAGER, BRAINTREE_MANAGER, PLAY_MANAGER, APPSTORE_MANAGER),
+          ZK_OPS, ISSUED_RECEIPTS_MANAGER),
+      STRIPE_MANAGER, BRAINTREE_MANAGER, PLAY_MANAGER, APPSTORE_MANAGER,
+      BADGE_TRANSLATOR, LEVEL_TRANSLATOR, BANK_MANDATE_TRANSLATOR);
   private static final OneTimeDonationController ONE_TIME_CONTROLLER = new OneTimeDonationController(CLOCK,
       ONETIME_CONFIG, STRIPE_MANAGER, BRAINTREE_MANAGER, ZK_OPS, ISSUED_RECEIPTS_MANAGER, ONE_TIME_DONATIONS_MANAGER);
   private static final ResourceExtension RESOURCE_EXTENSION = ResourceExtension.builder()
@@ -856,6 +862,48 @@ class SubscriptionControllerTest {
         .hasSize(1).first()
         .extracting(error -> error.type())
         .isEqualTo(SubscriptionController.SetSubscriptionLevelErrorResponse.Error.Type.UNSUPPORTED_LEVEL);
+  }
+
+  @Test
+  public void setAppStoreTransactionId() {
+    final String originalTxId = "aTxId";
+    final byte[] subscriberUserAndKey = new byte[32];
+    Arrays.fill(subscriberUserAndKey, (byte) 1);
+    final byte[] user = Arrays.copyOfRange(subscriberUserAndKey, 0, 16);
+    final String subscriberId = Base64.getEncoder().encodeToString(subscriberUserAndKey);
+
+    final Instant now = Instant.now();
+    when(CLOCK.instant()).thenReturn(now);
+
+    final Map<String, AttributeValue> dynamoItem = Map.of(Subscriptions.KEY_PASSWORD, b(new byte[16]),
+        Subscriptions.KEY_CREATED_AT, n(Instant.now().getEpochSecond()),
+        Subscriptions.KEY_ACCESSED_AT, n(Instant.now().getEpochSecond()));
+
+    final Subscriptions.Record record = Subscriptions.Record.from(user, dynamoItem);
+
+    when(SUBSCRIPTIONS.get(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(Subscriptions.GetResult.found(record)));
+
+    when(APPSTORE_MANAGER.validateTransaction(eq(originalTxId)))
+        .thenReturn(CompletableFuture.completedFuture(99L));
+
+    when(SUBSCRIPTIONS.setIapPurchase(any(), any(), anyString(), anyLong(), any()))
+        .thenReturn(CompletableFuture.completedFuture(null));
+
+    final Response response = RESOURCE_EXTENSION
+        .target(String.format("/v1/subscription/%s/appstore/%s", subscriberId, originalTxId))
+        .request()
+        .post(Entity.json(""));
+    assertThat(response.getStatus()).isEqualTo(200);
+    assertThat(response.readEntity(SubscriptionController.SetSubscriptionLevelSuccessResponse.class).level())
+        .isEqualTo(99L);
+
+    verify(SUBSCRIPTIONS, times(1)).setIapPurchase(
+        any(),
+        eq(new ProcessorCustomer(originalTxId, PaymentProvider.APPLE_APP_STORE)),
+        eq(originalTxId),
+        eq(99L),
+        eq(now));
   }
 
 
