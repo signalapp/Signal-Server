@@ -1418,13 +1418,8 @@ paths:
       responses:
         "200":
           description: Indicates the challenge proof was accepted
-        "413":
-          description: Too many attempts
-          headers:
-            Retry-After:
-              description: "If present, an positive integer indicating the number\
-                \ of seconds before a subsequent attempt could succeed"
-              style: simple
+        "428":
+          description: Submitted captcha token is invalid
         "429":
           description: Too many attempts
           headers:
