@@ -15,22 +15,14 @@ import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
-import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.util.Util;
-import reactor.core.publisher.Flux;
-import reactor.util.function.Tuple2;
-import reactor.util.function.Tuples;
 import software.amazon.awssdk.services.dynamodb.model.ItemCollectionSizeLimitExceededException;
 
 public class MessagePersister implements Managed {
@@ -38,8 +30,6 @@ public class MessagePersister implements Managed {
   private final MessagesCache messagesCache;
   private final MessagesManager messagesManager;
   private final AccountsManager accountsManager;
-  private final ClientPresenceManager clientPresenceManager;
-  private final KeysManager keysManager;
 
   private final Duration persistDelay;
 
@@ -72,17 +62,14 @@ public class MessagePersister implements Managed {
   private static final Logger logger = LoggerFactory.getLogger(MessagePersister.class);
 
   public MessagePersister(final MessagesCache messagesCache, final MessagesManager messagesManager,
-      final AccountsManager accountsManager, final ClientPresenceManager clientPresenceManager,
-      final KeysManager keysManager,
-      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
-      final Duration persistDelay,
+      final AccountsManager accountsManager,
+      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager, final Duration persistDelay,
       final int dedicatedProcessWorkerThreadCount
   ) {
+
     this.messagesCache = messagesCache;
     this.messagesManager = messagesManager;
     this.accountsManager = accountsManager;
-    this.clientPresenceManager = clientPresenceManager;
-    this.keysManager = keysManager;
     this.persistDelay = persistDelay;
     this.workerThreads = new Thread[dedicatedProcessWorkerThreadCount];
 

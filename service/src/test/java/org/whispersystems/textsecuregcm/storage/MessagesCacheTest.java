@@ -206,8 +206,7 @@ class MessagesCacheTest {
               .collect(Collectors.toList())).get(5, TimeUnit.SECONDS);
 
       assertEquals(messagesToRemove.stream().map(RemovedMessage::fromEnvelope).toList(), removedMessages);
-      assertEquals(messagesToPreserve,
-          messagesCache.getMessagesToPersist(DESTINATION_UUID, DESTINATION_DEVICE_ID, messageCount));
+      assertEquals(messagesToPreserve, get(DESTINATION_UUID, DESTINATION_DEVICE_ID, messageCount));
     }
 
     @Test
@@ -618,6 +617,55 @@ class MessagesCacheTest {
               .withBinaryCluster(conn -> conn.sync().exists(sharedMrmDataKey));
         } while (exists);
       }, "Shared MRM data should be deleted asynchronously");
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testGetMessagesToPersist(final boolean sharedMrmKeyPresent) throws Exception {
+      final UUID destinationUuid = UUID.randomUUID();
+      final byte deviceId = 1;
+
+      final UUID messageGuid = UUID.randomUUID();
+      final MessageProtos.Envelope message = generateRandomMessage(destinationUuid, true);
+
+      messagesCache.insert(messageGuid, destinationUuid, deviceId, message);
+
+      final SealedSenderMultiRecipientMessage mrm = generateRandomMrmMessage(
+          new AciServiceIdentifier(destinationUuid), deviceId);
+
+      final byte[] sharedMrmDataKey;
+      if (sharedMrmKeyPresent) {
+        sharedMrmDataKey = messagesCache.insertSharedMultiRecipientMessagePayload(mrm);
+      } else {
+        sharedMrmDataKey = new byte[]{1};
+      }
+
+      final UUID mrmMessageGuid = UUID.randomUUID();
+      final MessageProtos.Envelope mrmMessage = generateRandomMessage(mrmMessageGuid, true)
+          .toBuilder()
+          // clear some things added by the helper
+          .clearServerGuid()
+          // mrm views phase 1: messages have content
+          .setContent(
+              ByteString.copyFrom(mrm.messageForRecipient(mrm.getRecipients().get(new ServiceId.Aci(destinationUuid)))))
+          .setSharedMrmKey(ByteString.copyFrom(sharedMrmDataKey))
+          .build();
+      messagesCache.insert(mrmMessageGuid, destinationUuid, deviceId, mrmMessage);
+
+      final List<MessageProtos.Envelope> messages = get(destinationUuid, deviceId, 100);
+
+      assertEquals(2, messages.size());
+
+      assertEquals(message.toBuilder()
+              .setServerGuid(messageGuid.toString())
+              .build(),
+          messages.getFirst());
+
+      assertEquals(mrmMessage.toBuilder().
+              clearSharedMrmKey().
+              setServerGuid(mrmMessageGuid.toString())
+              .build(),
+          messages.getLast());
     }
 
     private List<MessageProtos.Envelope> get(final UUID destinationUuid, final byte destinationDeviceId,

@@ -11,7 +11,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.dropwizard.lifecycle.Managed;
-import io.lettuce.core.ScoredValue;
 import io.lettuce.core.ZAddArgs;
 import io.lettuce.core.cluster.SlotHash;
 import io.lettuce.core.cluster.models.partitions.RedisClusterNode;
@@ -493,8 +492,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
         .subscribe();
   }
 
-  private Mono<Pair<List<byte[]>, Long>> getNextMessagePage(final UUID destinationUuid,
-      final byte destinationDevice,
+  private Mono<Pair<List<byte[]>, Long>> getNextMessagePage(final UUID destinationUuid, final byte destinationDevice,
       long messageId) {
 
     return getItemsScript.execute(destinationUuid, destinationDevice, PAGE_SIZE, messageId)
@@ -520,22 +518,40 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
   @VisibleForTesting
   List<MessageProtos.Envelope> getMessagesToPersist(final UUID accountUuid, final byte destinationDevice,
       final int limit) {
-    return getMessagesTimer.record(() -> {
-      final List<ScoredValue<byte[]>> scoredMessages = redisCluster.withBinaryCluster(
-          connection -> connection.sync()
-              .zrangeWithScores(getMessageQueueKey(accountUuid, destinationDevice), 0, limit));
-      final List<MessageProtos.Envelope> envelopes = new ArrayList<>(scoredMessages.size());
 
-      for (final ScoredValue<byte[]> scoredMessage : scoredMessages) {
-        try {
-          envelopes.add(MessageProtos.Envelope.parseFrom(scoredMessage.getValue()));
-        } catch (InvalidProtocolBufferException e) {
-          logger.warn("Failed to parse envelope", e);
-        }
-      }
+    final Timer.Sample sample = Timer.start();
 
-      return envelopes;
-    });
+    final List<byte[]> messages = redisCluster.withBinaryCluster(connection ->
+        connection.sync().zrange(getMessageQueueKey(accountUuid, destinationDevice), 0, limit));
+
+    return Flux.fromIterable(messages)
+        .mapNotNull(message -> {
+          try {
+            return MessageProtos.Envelope.parseFrom(message);
+          } catch (InvalidProtocolBufferException e) {
+            logger.warn("Failed to parse envelope", e);
+            return null;
+          }
+        })
+        .concatMap(message -> {
+          final Mono<MessageProtos.Envelope> messageMono;
+          if (message.hasSharedMrmKey()) {
+            final Mono<?> experimentMono = maybeRunMrmViewExperiment(message, accountUuid, destinationDevice);
+
+            // mrm views phase 1: messageMono for sharedMrmKey is always Mono.just(), because messages always have content
+            // To avoid races, wait for the experiment to run, but ignore any errors
+            messageMono = experimentMono
+                .onErrorComplete()
+                .then(Mono.just(message.toBuilder().clearSharedMrmKey().build()));
+          } else {
+            messageMono = Mono.just(message);
+          }
+
+          return messageMono;
+        })
+        .collectList()
+        .doOnTerminate(() -> sample.stop(getMessagesTimer))
+        .block(Duration.ofSeconds(5));
   }
 
   public CompletableFuture<Void> clear(final UUID destinationUuid) {
