@@ -42,10 +42,7 @@ class MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript {
 
     message.getRecipients().forEach((serviceId, recipient) -> {
       for (byte device : recipient.getDevices()) {
-        final byte[] key = new byte[18];
-        System.arraycopy(serviceId.toServiceIdFixedWidthBinary(), 0, key, 0, 17);
-        key[17] = device;
-        args.add(key);
+        args.add(MessagesCache.getSharedMrmViewKey(serviceId, device));
         args.add(message.serializedRecipientView(recipient));
       }
     });
