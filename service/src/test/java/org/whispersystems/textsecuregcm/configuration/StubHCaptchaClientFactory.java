@@ -49,8 +49,9 @@ public class StubHCaptchaClientFactory implements HCaptchaClientFactory {
     }
 
     @Override
-    public AssessmentResult verify(final String siteKey, final Action action, final String token, final String ip)
-        throws IOException {
+    public AssessmentResult verify(final String siteKey, final Action action, final String token, final String ip,
+        final String userAgent)
+    throws IOException {
       return AssessmentResult.alwaysValid();
     }
   }

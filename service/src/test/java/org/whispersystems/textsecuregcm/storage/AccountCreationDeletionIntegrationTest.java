@@ -237,7 +237,8 @@ public class AccountCreationDeletionIntegrationTest {
             aciSignedPreKey,
             pniSignedPreKey,
             aciPqLastResortPreKey,
-            pniPqLastResortPreKey));
+            pniPqLastResortPreKey),
+        null);
 
     assertExpectedStoredAccount(account,
         number,
@@ -315,7 +316,8 @@ public class AccountCreationDeletionIntegrationTest {
               aciSignedPreKey,
               pniSignedPreKey,
               aciPqLastResortPreKey,
-              pniPqLastResortPreKey));
+              pniPqLastResortPreKey),
+          null);
 
       existingAccountUuid = originalAccount.getUuid();
     }
@@ -381,7 +383,8 @@ public class AccountCreationDeletionIntegrationTest {
             aciSignedPreKey,
             pniSignedPreKey,
             aciPqLastResortPreKey,
-            pniPqLastResortPreKey));
+            pniPqLastResortPreKey),
+        null);
 
     assertExpectedStoredAccount(reregisteredAccount,
         number,
@@ -464,7 +467,8 @@ public class AccountCreationDeletionIntegrationTest {
             aciSignedPreKey,
             pniSignedPreKey,
             aciPqLastResortPreKey,
-            pniPqLastResortPreKey));
+            pniPqLastResortPreKey),
+        null);
 
     clientPublicKeysManager.setPublicKey(account, Device.PRIMARY_ID, Curve.generateKeyPair().getPublicKey()).join();
 

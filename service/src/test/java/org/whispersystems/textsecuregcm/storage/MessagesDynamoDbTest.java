@@ -6,8 +6,6 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import com.google.protobuf.ByteString;
 import java.time.Duration;
@@ -31,7 +29,6 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
 import org.whispersystems.textsecuregcm.tests.util.MessageHelper;
-import org.whispersystems.textsecuregcm.util.SystemMapper;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
@@ -47,31 +44,31 @@ class MessagesDynamoDbTest {
     final long serverTimestamp = System.currentTimeMillis();
     MessageProtos.Envelope.Builder builder = MessageProtos.Envelope.newBuilder();
     builder.setType(MessageProtos.Envelope.Type.UNIDENTIFIED_SENDER);
-    builder.setTimestamp(123456789L);
+    builder.setClientTimestamp(123456789L);
     builder.setContent(ByteString.copyFrom(new byte[]{(byte) 0xDE, (byte) 0xAD, (byte) 0xBE, (byte) 0xEF}));
     builder.setServerGuid(UUID.randomUUID().toString());
     builder.setServerTimestamp(serverTimestamp);
-    builder.setDestinationUuid(UUID.randomUUID().toString());
+    builder.setDestinationServiceId(UUID.randomUUID().toString());
 
     MESSAGE1 = builder.build();
 
     builder.setType(MessageProtos.Envelope.Type.CIPHERTEXT);
-    builder.setSourceUuid(UUID.randomUUID().toString());
+    builder.setSourceServiceId(UUID.randomUUID().toString());
     builder.setSourceDevice(1);
     builder.setContent(ByteString.copyFromUtf8("MOO"));
     builder.setServerGuid(UUID.randomUUID().toString());
     builder.setServerTimestamp(serverTimestamp + 1);
-    builder.setDestinationUuid(UUID.randomUUID().toString());
+    builder.setDestinationServiceId(UUID.randomUUID().toString());
 
     MESSAGE2 = builder.build();
 
     builder.setType(MessageProtos.Envelope.Type.UNIDENTIFIED_SENDER);
-    builder.clearSourceUuid();
+    builder.clearSourceDevice();
     builder.clearSourceDevice();
     builder.setContent(ByteString.copyFromUtf8("COW"));
     builder.setServerGuid(UUID.randomUUID().toString());
     builder.setServerTimestamp(serverTimestamp);  // Test same millisecond arrival for two different messages
-    builder.setDestinationUuid(UUID.randomUUID().toString());
+    builder.setDestinationServiceId(UUID.randomUUID().toString());
 
     MESSAGE3 = builder.build();
   }

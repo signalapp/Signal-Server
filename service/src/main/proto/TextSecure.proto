@@ -11,30 +11,31 @@ option java_outer_classname = "MessageProtos";
 
 message Envelope {
   enum Type {
-    UNKNOWN             = 0;
-    CIPHERTEXT          = 1;
-    KEY_EXCHANGE        = 2;
-    PREKEY_BUNDLE       = 3;
+    UNKNOWN = 0;
+    CIPHERTEXT = 1;
+    KEY_EXCHANGE = 2;
+    PREKEY_BUNDLE = 3;
     SERVER_DELIVERY_RECEIPT = 5;
     UNIDENTIFIED_SENDER = 6;
     reserved 7;
     PLAINTEXT_CONTENT = 8;  // for decryption error receipts
   }
 
-  optional Type   type = 1;
-  optional string source_uuid = 11;
+  optional Type type = 1;
+  optional string source_service_id = 11;
   optional uint32 source_device = 7;
-  optional uint64 timestamp = 5;
-  optional bytes  content = 8; // Contains an encrypted Content
+  optional uint64 client_timestamp = 5;
+  optional bytes content = 8; // Contains an encrypted Content
   optional string server_guid = 9;
   optional uint64 server_timestamp = 10;
   optional bool ephemeral = 12; // indicates that the message should not be persisted if the recipient is offline
-  optional string destination_uuid = 13;
+  optional string destination_service_id = 13;
   optional bool urgent = 14 [default=true];
   optional string updated_pni = 15;
   optional bool story = 16; // indicates that the content is a story.
   optional bytes report_spam_token = 17; // token sent when reporting spam
-  // next: 18
+  optional bytes shared_mrm_key = 18; // indicates content should be fetched from multi-recipient message datastore
+  // next: 19
 }
 
 message ProvisioningUuid {
@@ -42,25 +43,25 @@ message ProvisioningUuid {
 }
 
 message ServerCertificate {
-    message Certificate {
-        optional uint32 id  = 1;
-        optional bytes  key = 2;
-    }
+  message Certificate {
+    optional uint32 id = 1;
+    optional bytes key = 2;
+  }
 
-    optional bytes certificate = 1;
-    optional bytes signature   = 2;
+  optional bytes certificate = 1;
+  optional bytes signature = 2;
 }
 
 message SenderCertificate {
-    message Certificate {
-        optional string            sender        = 1;
-        optional string            sender_uuid   = 6;
-        optional uint32            sender_device = 2;
-        optional fixed64           expires       = 3;
-        optional bytes             identity_key  = 4;
-        optional ServerCertificate signer        = 5;
-    }
+  message Certificate {
+    optional string sender = 1;
+    optional string sender_uuid = 6;
+    optional uint32 sender_device = 2;
+    optional fixed64 expires = 3;
+    optional bytes identity_key = 4;
+    optional ServerCertificate signer = 5;
+  }
 
-    optional bytes certificate = 1;
-    optional bytes signature   = 2;
+  optional bytes certificate = 1;
+  optional bytes signature = 2;
 }

@@ -27,6 +27,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import javax.ws.rs.core.Response;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
@@ -34,6 +36,7 @@ import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicCaptchaConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
+import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -100,7 +103,8 @@ public class HCaptchaClient implements CaptchaClient {
       final String siteKey,
       final Action action,
       final String token,
-      final String ip)
+      final String ip,
+      final String userAgent)
       throws IOException {
 
     final DynamicCaptchaConfiguration config = dynamicConfigurationManager.getConfiguration().getCaptchaConfiguration();
@@ -134,9 +138,11 @@ public class HCaptchaClient implements CaptchaClient {
 
     if (!hCaptchaResponse.success) {
       for (String errorCode : hCaptchaResponse.errorCodes) {
-        Metrics.counter(INVALID_REASON_COUNTER_NAME,
-            "action", action.getActionName(),
-            "reason", errorCode).increment();
+        Metrics.counter(INVALID_REASON_COUNTER_NAME, Tags.of(
+            Tag.of("action", action.getActionName()),
+            Tag.of("reason", errorCode),
+            UserAgentTagUtil.getPlatformTag(userAgent)
+        )).increment();
       }
       return AssessmentResult.invalid();
     }

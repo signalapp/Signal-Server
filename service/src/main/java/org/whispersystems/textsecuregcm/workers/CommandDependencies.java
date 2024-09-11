@@ -205,7 +205,7 @@ record CommandDependencies(
     ClientPresenceManager clientPresenceManager = new ClientPresenceManager(clientPresenceCluster,
         recurringJobExecutor, keyspaceNotificationDispatchExecutor);
     MessagesCache messagesCache = new MessagesCache(messagesCluster, keyspaceNotificationDispatchExecutor,
-        messageDeliveryScheduler, messageDeletionExecutor, Clock.systemUTC());
+        messageDeliveryScheduler, messageDeletionExecutor, Clock.systemUTC(), dynamicConfigurationManager);
     ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster);
     ReportMessageDynamoDb reportMessageDynamoDb = new ReportMessageDynamoDb(dynamoDbClient,
         configuration.getDynamoDbTables().getReportMessage().getTableName(),

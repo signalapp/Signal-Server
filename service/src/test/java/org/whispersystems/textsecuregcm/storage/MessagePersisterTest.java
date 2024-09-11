@@ -40,6 +40,7 @@ import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
@@ -48,12 +49,11 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
-
-import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 import software.amazon.awssdk.services.dynamodb.model.ItemCollectionSizeLimitExceededException;
 
+@Timeout(value = 5, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
 class MessagePersisterTest {
 
   @RegisterExtension
@@ -104,7 +104,7 @@ class MessagePersisterTest {
     resubscribeRetryExecutorService = Executors.newSingleThreadScheduledExecutor();
     messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
     messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(), sharedExecutorService,
-        messageDeliveryScheduler, sharedExecutorService, Clock.systemUTC());
+        messageDeliveryScheduler, sharedExecutorService, Clock.systemUTC(), dynamicConfigurationManager);
     messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager, clientPresenceManager,
         keysManager, dynamicConfigurationManager, PERSIST_DELAY, 1);
 
@@ -356,7 +356,8 @@ class MessagePersisterTest {
       final UUID messageGuid = UUID.randomUUID();
 
       final MessageProtos.Envelope envelope = MessageProtos.Envelope.newBuilder()
-          .setTimestamp(firstMessageTimestamp.toEpochMilli() + i)
+          .setDestinationServiceId(accountUuid.toString())
+          .setClientTimestamp(firstMessageTimestamp.toEpochMilli() + i)
           .setServerTimestamp(firstMessageTimestamp.toEpochMilli() + i)
           .setContent(ByteString.copyFromUtf8(RandomStringUtils.randomAlphanumeric(256)))
           .setType(MessageProtos.Envelope.Type.CIPHERTEXT)

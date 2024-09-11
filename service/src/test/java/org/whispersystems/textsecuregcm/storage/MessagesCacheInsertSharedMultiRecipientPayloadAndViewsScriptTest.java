@@ -1,0 +1,74 @@
+/*
+ * Copyright 2024 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
+package org.whispersystems.textsecuregcm.storage;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
+import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
+import org.whispersystems.textsecuregcm.util.Pair;
+
+class MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScriptTest {
+
+  @RegisterExtension
+  static final RedisClusterExtension REDIS_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
+
+  @ParameterizedTest
+  @MethodSource
+  void testInsert(final int count, final Map<AciServiceIdentifier, List<Byte>> destinations) throws Exception {
+
+    final MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript insertMrmScript = new MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript(
+        REDIS_CLUSTER_EXTENSION.getRedisCluster());
+
+    final byte[] sharedMrmKey = MessagesCache.getSharedMrmKey(UUID.randomUUID());
+    insertMrmScript.execute(sharedMrmKey,
+        MessagesCacheTest.generateRandomMrmMessage(destinations));
+
+    final int totalDevices = destinations.values().stream().mapToInt(List::size).sum();
+    final long hashFieldCount = REDIS_CLUSTER_EXTENSION.getRedisCluster()
+        .withBinaryCluster(conn -> conn.sync().hlen(sharedMrmKey));
+    assertEquals(totalDevices + 1, hashFieldCount);
+  }
+
+  public static List<Arguments> testInsert() {
+    final Map<AciServiceIdentifier, List<Byte>> singleAccount = Map.of(
+        new AciServiceIdentifier(UUID.randomUUID()), List.of((byte) 1, (byte) 2));
+
+    final List<Arguments> testCases = new ArrayList<>();
+    testCases.add(Arguments.of(1, singleAccount));
+
+    for (int j = 1000; j <= 30000; j += 1000) {
+
+      final Map<Integer, List<Byte>> deviceLists = new HashMap<>();
+      final Map<AciServiceIdentifier, List<Byte>> manyAccounts = IntStream.range(0, j)
+          .mapToObj(i -> {
+            final int deviceCount = 1 + i % 5;
+            final List<Byte> devices = deviceLists.computeIfAbsent(deviceCount, count -> IntStream.rangeClosed(1, count)
+                .mapToObj(v -> (byte) v)
+                .toList());
+
+            return new Pair<>(new AciServiceIdentifier(UUID.randomUUID()), devices);
+          })
+          .collect(Collectors.toMap(Pair::first, Pair::second));
+
+      testCases.add(Arguments.of(j, manyAccounts));
+    }
+
+    return testCases;
+  }
+
+}

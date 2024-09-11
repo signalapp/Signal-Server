@@ -170,7 +170,7 @@ class RegistrationControllerTest {
     final Account account = mock(Account.class);
     when(account.getPrimaryDevice()).thenReturn(mock(Device.class));
 
-    when(accountsManager.create(any(), any(), any(), any(), any(), any()))
+    when(accountsManager.create(any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(account);
 
     final String json = requestJson("sessionId", new byte[0], true, registrationId.orElse(0), pniRegistrationId.orElse(0));
@@ -295,7 +295,7 @@ class RegistrationControllerTest {
     final Account account = mock(Account.class);
     when(account.getPrimaryDevice()).thenReturn(mock(Device.class));
 
-    when(accountsManager.create(any(), any(), any(), any(), any(), any()))
+    when(accountsManager.create(any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(account);
 
     final Invocation.Builder request = resources.getJerseyTest()
@@ -331,7 +331,7 @@ class RegistrationControllerTest {
     final Account account = mock(Account.class);
     when(account.getPrimaryDevice()).thenReturn(mock(Device.class));
 
-    when(accountsManager.create(any(), any(), any(), any(), any(), any()))
+    when(accountsManager.create(any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(account);
 
     final Invocation.Builder request = resources.getJerseyTest()
@@ -353,7 +353,7 @@ class RegistrationControllerTest {
     final Account account = mock(Account.class);
     when(account.getPrimaryDevice()).thenReturn(mock(Device.class));
 
-    when(accountsManager.create(any(), any(), any(), any(), any(), any()))
+    when(accountsManager.create(any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(account);
 
     final Invocation.Builder request = resources.getJerseyTest()
@@ -397,7 +397,7 @@ class RegistrationControllerTest {
       final Account createdAccount = mock(Account.class);
       when(createdAccount.getPrimaryDevice()).thenReturn(mock(Device.class));
 
-      when(accountsManager.create(any(), any(), any(), any(), any(), any()))
+      when(accountsManager.create(any(), any(), any(), any(), any(), any(), any()))
           .thenReturn(createdAccount);
 
       expectedStatus = 200;
@@ -451,7 +451,7 @@ class RegistrationControllerTest {
     final Account account = mock(Account.class);
     when(account.getPrimaryDevice()).thenReturn(mock(Device.class));
 
-    when(accountsManager.create(any(), any(), any(), any(), any(), any()))
+    when(accountsManager.create(any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(account);
 
     final Invocation.Builder request = resources.getJerseyTest()
@@ -475,7 +475,7 @@ class RegistrationControllerTest {
     final Account account = mock(Account.class);
     when(account.getPrimaryDevice()).thenReturn(mock(Device.class));
 
-    when(accountsManager.create(any(), any(), any(), any(), any(), any()))
+    when(accountsManager.create(any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(account);
 
     final Invocation.Builder request = resources.getJerseyTest()
@@ -728,7 +728,7 @@ class RegistrationControllerTest {
       when(a.getPrimaryDevice()).thenReturn(device);
     });
 
-    when(accountsManager.create(any(), any(), any(), any(), any(), any()))
+    when(accountsManager.create(any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(account);
 
     final Invocation.Builder request = resources.getJerseyTest()
@@ -746,7 +746,8 @@ class RegistrationControllerTest {
         eq(Collections.emptyList()),
         eq(expectedAciIdentityKey),
         eq(expectedPniIdentityKey),
-        eq(expectedDeviceSpec));
+        eq(expectedDeviceSpec),
+        any());
   }
 
   private static boolean accountAttributesEqual(final AccountAttributes a, final AccountAttributes b) {

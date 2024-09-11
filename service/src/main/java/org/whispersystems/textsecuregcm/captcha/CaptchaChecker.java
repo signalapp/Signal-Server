@@ -50,6 +50,7 @@ public class CaptchaChecker {
    * @param input          expected to contain a prefix indicating the captcha scheme, sitekey, token, and action. The
    *                       expected format is {@code version-prefix.sitekey.action.token}
    * @param ip             IP of the solver
+   * @param userAgent      User-Agent of the solver
    * @return An {@link AssessmentResult} indicating whether the solution should be accepted, and a score that can be
    * used for metrics
    * @throws IOException         if there is an error validating the captcha with the underlying service
@@ -58,7 +59,8 @@ public class CaptchaChecker {
   public AssessmentResult verify(
       final Action expectedAction,
       final String input,
-      final String ip) throws IOException {
+      final String ip,
+      final String userAgent) throws IOException {
     final String[] parts = input.split("\\" + SEPARATOR, 4);
 
     // we allow missing actions, if we're missing 1 part, assume it's the action
@@ -102,7 +104,7 @@ public class CaptchaChecker {
       throw new BadRequestException("invalid captcha site-key");
     }
 
-    final AssessmentResult result = client.verify(siteKey, parsedAction, token, ip);
+    final AssessmentResult result = client.verify(siteKey, parsedAction, token, ip, userAgent);
     Metrics.counter(ASSESSMENTS_COUNTER_NAME,
             "action", action,
             "score", result.getScoreString(),

@@ -5,21 +5,9 @@
 
 package org.whispersystems.textsecuregcm.configuration.dynamic;
 
-import java.util.List;
-
-import javax.validation.constraints.NotNull;
-
-public record DynamicMessagesConfiguration(@NotNull List<DynamoKeyScheme> dynamoKeySchemes) {
-  public enum DynamoKeyScheme {
-      TRADITIONAL,
-      LAZY_DELETION;
-  }
+public record DynamicMessagesConfiguration(boolean storeSharedMrmData, boolean mrmViewExperimentEnabled) {
 
   public DynamicMessagesConfiguration() {
-    this(List.of(DynamoKeyScheme.TRADITIONAL));
-  }
-
-  public DynamoKeyScheme writeKeyScheme() {
-    return dynamoKeySchemes().getLast();
+    this(false, false);
   }
 }

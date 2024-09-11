@@ -17,10 +17,10 @@ public class RegistrationCaptchaManager {
   }
 
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-  public Optional<AssessmentResult> assessCaptcha(final Optional<String> captcha, final String sourceHost)
+  public Optional<AssessmentResult> assessCaptcha(final Optional<String> captcha, final String sourceHost, final String userAgent)
       throws IOException {
     return captcha.isPresent()
-        ? Optional.of(captchaChecker.verify(Action.REGISTRATION, captcha.get(), sourceHost))
+        ? Optional.of(captchaChecker.verify(Action.REGISTRATION, captcha.get(), sourceHost, userAgent))
         : Optional.empty();
   }
 }

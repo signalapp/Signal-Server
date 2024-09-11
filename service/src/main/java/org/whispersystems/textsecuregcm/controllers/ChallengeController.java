@@ -66,16 +66,14 @@ public class ChallengeController {
       summary = "Submit proof of a challenge completion",
       description = """
           Some server endpoints (the "send message" endpoint, for example) may return a 428 response indicating the client must complete a challenge before continuing.
-          Clients may use this endpoint to provide proof of a completed challenge. If successful, the client may then 
+          Clients may use this endpoint to provide proof of a completed challenge. If successful, the client may then
           continue their original operation.
           """,
       requestBody = @RequestBody(content = {@Content(schema = @Schema(oneOf = {AnswerPushChallengeRequest.class,
           AnswerCaptchaChallengeRequest.class}))})
   )
   @ApiResponse(responseCode = "200", description = "Indicates the challenge proof was accepted")
-  @ApiResponse(responseCode = "413", description = "Too many attempts", headers = @Header(
-      name = "Retry-After",
-      description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
+  @ApiResponse(responseCode = "428", description = "Submitted captcha token is invalid")
   @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
       name = "Retry-After",
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))

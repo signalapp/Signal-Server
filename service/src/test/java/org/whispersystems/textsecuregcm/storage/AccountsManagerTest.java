@@ -1556,6 +1556,7 @@ class AccountsManagerTest {
             KeysHelper.signedECPreKey(1, aciKeyPair),
             KeysHelper.signedECPreKey(2, pniKeyPair),
             KeysHelper.signedKEMPreKey(3, aciKeyPair),
-            KeysHelper.signedKEMPreKey(4, pniKeyPair)));
+            KeysHelper.signedKEMPreKey(4, pniKeyPair)),
+        null);
   }
 }

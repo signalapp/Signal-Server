@@ -1,7 +1,10 @@
-local queueKey     = KEYS[1]
-local queueLockKey = KEYS[2]
-local limit        = ARGV[1]
-local afterMessageId = ARGV[2]
+-- gets messages from a device's queue, up to a given limit
+-- returns a list of all envelopes and their queue-local IDs
+
+local queueKey       = KEYS[1] -- sorted set of all Envelopes for a device, scored by queue-local ID
+local queueLockKey   = KEYS[2] -- a key whose presence indicates that the queue is being persistent and must not be read
+local limit          = ARGV[1] -- [number] the maximum number of messages to return
+local afterMessageId = ARGV[2] -- [number] a queue-local ID to exclusively start after, to support pagination. Use -1 to start at the beginning
 
 local locked = redis.call("GET", queueLockKey)
 
@@ -9,17 +12,8 @@ if locked then
     return {}
 end
 
-if afterMessageId == "null" then
-    -- An index range is inclusive
-    local min = 0
-    local max = limit - 1
-
-    if max < 0 then
-        return {}
-    end
-
-    return redis.call("ZRANGE", queueKey, min, max, "WITHSCORES")
-else
-    -- note: this is deprecated in Redis 6.2, and should be migrated to zrange after the cluster is updated
-    return redis.call("ZRANGEBYSCORE", queueKey, "("..afterMessageId, "+inf", "WITHSCORES", "LIMIT", 0, limit)
+if afterMessageId == "null" or afterMessageId == nil then
+    return redis.error_reply("ERR afterMessageId is required")
 end
+
+return redis.call("ZRANGE", queueKey, "("..afterMessageId, "+inf", "BYSCORE", "LIMIT", 0, limit, "WITHSCORES")

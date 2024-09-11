@@ -69,6 +69,8 @@ public class MessageSender {
 
       if (clientPresent) {
         messagesManager.insert(account.getUuid(), device.getId(), message.toBuilder().setEphemeral(true).build());
+      } else {
+        messagesManager.removeRecipientViewFromMrmData(account.getUuid(), device.getId(), message);
       }
     } else {
       messagesManager.insert(account.getUuid(), device.getId(), message);
@@ -92,7 +94,7 @@ public class MessageSender {
             CLIENT_ONLINE_TAG_NAME, String.valueOf(clientPresent),
             URGENT_TAG_NAME, String.valueOf(message.getUrgent()),
             STORY_TAG_NAME, String.valueOf(message.getStory()),
-            SEALED_SENDER_TAG_NAME, String.valueOf(!message.hasSourceUuid()))
+            SEALED_SENDER_TAG_NAME, String.valueOf(!message.hasSourceServiceId()))
         .increment();
   }
 }

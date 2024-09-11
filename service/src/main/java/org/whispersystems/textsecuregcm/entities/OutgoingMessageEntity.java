@@ -40,15 +40,15 @@ public record OutgoingMessageEntity(UUID guid,
   public MessageProtos.Envelope toEnvelope() {
     final MessageProtos.Envelope.Builder builder = MessageProtos.Envelope.newBuilder()
         .setType(MessageProtos.Envelope.Type.forNumber(type()))
-        .setTimestamp(timestamp())
+        .setClientTimestamp(timestamp())
         .setServerTimestamp(serverTimestamp())
-        .setDestinationUuid(destinationUuid().toServiceIdentifierString())
+        .setDestinationServiceId(destinationUuid().toServiceIdentifierString())
         .setServerGuid(guid().toString())
         .setStory(story)
         .setUrgent(urgent);
 
     if (sourceUuid() != null) {
-      builder.setSourceUuid(sourceUuid().toServiceIdentifierString());
+      builder.setSourceServiceId(sourceUuid().toServiceIdentifierString());
       builder.setSourceDevice(sourceDevice());
     }
 
@@ -72,10 +72,10 @@ public record OutgoingMessageEntity(UUID guid,
     return new OutgoingMessageEntity(
         UUID.fromString(envelope.getServerGuid()),
         envelope.getType().getNumber(),
-        envelope.getTimestamp(),
-        envelope.hasSourceUuid() ? ServiceIdentifier.valueOf(envelope.getSourceUuid()) : null,
+        envelope.getClientTimestamp(),
+        envelope.hasSourceServiceId() ? ServiceIdentifier.valueOf(envelope.getSourceServiceId()) : null,
         envelope.getSourceDevice(),
-        envelope.hasDestinationUuid() ? ServiceIdentifier.valueOf(envelope.getDestinationUuid()) : null,
+        envelope.hasDestinationServiceId() ? ServiceIdentifier.valueOf(envelope.getDestinationServiceId()) : null,
         envelope.hasUpdatedPni() ? UUID.fromString(envelope.getUpdatedPni()) : null,
         envelope.getContent().toByteArray(),
         envelope.getServerTimestamp(),

@@ -138,12 +138,13 @@ public class ChangeNumberManager {
     final long serverTimestamp = System.currentTimeMillis();
     final Envelope envelope = Envelope.newBuilder()
         .setType(Envelope.Type.forNumber(message.type()))
-        .setTimestamp(serverTimestamp)
+        .setClientTimestamp(serverTimestamp)
         .setServerTimestamp(serverTimestamp)
-        .setDestinationUuid(new AciServiceIdentifier(sourceAndDestinationAccount.getUuid()).toServiceIdentifierString())
+        .setDestinationServiceId(
+            new AciServiceIdentifier(sourceAndDestinationAccount.getUuid()).toServiceIdentifierString())
         .setContent(ByteString.copyFrom(contents.get()))
-        .setSourceUuid(new AciServiceIdentifier(sourceAndDestinationAccount.getUuid()).toServiceIdentifierString())
-        .setSourceDevice((int) Device.PRIMARY_ID)
+        .setSourceServiceId(new AciServiceIdentifier(sourceAndDestinationAccount.getUuid()).toServiceIdentifierString())
+        .setSourceDevice(Device.PRIMARY_ID)
         .setUpdatedPni(sourceAndDestinationAccount.getPhoneNumberIdentifier().toString())
         .setUrgent(true)
         .build();

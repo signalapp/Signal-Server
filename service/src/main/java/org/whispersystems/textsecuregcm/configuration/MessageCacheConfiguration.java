@@ -27,5 +27,4 @@ public class MessageCacheConfiguration {
   public int getPersistDelayMinutes() {
     return persistDelayMinutes;
   }
-
 }

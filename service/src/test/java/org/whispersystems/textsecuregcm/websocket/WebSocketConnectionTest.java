@@ -48,7 +48,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.eclipse.jetty.websocket.api.UpgradeRequest;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -297,19 +296,19 @@ class WebSocketConnectionTest {
 
     final Envelope firstMessage = Envelope.newBuilder()
         .setServerGuid(UUID.randomUUID().toString())
-        .setSourceUuid(UUID.randomUUID().toString())
-        .setDestinationUuid(accountUuid.toString())
+        .setSourceServiceId(UUID.randomUUID().toString())
+        .setDestinationServiceId(accountUuid.toString())
         .setUpdatedPni(UUID.randomUUID().toString())
-        .setTimestamp(System.currentTimeMillis())
+        .setClientTimestamp(System.currentTimeMillis())
         .setSourceDevice(1)
         .setType(Envelope.Type.CIPHERTEXT)
         .build();
 
     final Envelope secondMessage = Envelope.newBuilder()
         .setServerGuid(UUID.randomUUID().toString())
-        .setSourceUuid(senderTwoUuid.toString())
-        .setDestinationUuid(accountUuid.toString())
-        .setTimestamp(System.currentTimeMillis())
+        .setSourceServiceId(senderTwoUuid.toString())
+        .setDestinationServiceId(accountUuid.toString())
+        .setClientTimestamp(System.currentTimeMillis())
         .setSourceDevice(2)
         .setType(Envelope.Type.CIPHERTEXT)
         .build();
@@ -365,7 +364,7 @@ class WebSocketConnectionTest {
     futures.get(0).completeExceptionally(new IOException());
 
     verify(receiptSender, times(1)).sendReceipt(eq(new AciServiceIdentifier(account.getUuid())), eq(deviceId), eq(new AciServiceIdentifier(senderTwoUuid)),
-        eq(secondMessage.getTimestamp()));
+        eq(secondMessage.getClientTimestamp()));
 
     connection.stop();
     verify(client).close(anyInt(), anyString());
@@ -616,10 +615,10 @@ class WebSocketConnectionTest {
           final byte[] body = argument.get();
           try {
             final Envelope envelope = Envelope.parseFrom(body);
-            if (!envelope.hasSourceUuid() || envelope.getSourceUuid().length() == 0) {
+            if (!envelope.hasSourceServiceId() || envelope.getSourceServiceId().length() == 0) {
               return false;
             }
-            return envelope.getSourceUuid().equals(senderUuid.toString());
+            return envelope.getSourceServiceId().equals(senderUuid.toString());
           } catch (InvalidProtocolBufferException e) {
             return false;
           }
@@ -627,7 +626,7 @@ class WebSocketConnectionTest {
     verify(client).sendRequest(eq("PUT"), eq("/api/v1/queue/empty"), any(List.class), eq(Optional.empty()));
   }
 
-  private @NotNull WebSocketConnection webSocketConnection(final WebSocketClient client) {
+  private WebSocketConnection webSocketConnection(final WebSocketClient client) {
     return new WebSocketConnection(receiptSender, messagesManager, new MessageMetrics(),
         mock(PushNotificationManager.class), mock(PushNotificationScheduler.class), auth, client,
         retrySchedulingExecutor, Schedulers.immediate(), clientReleaseManager, mock(MessageDeliveryLoopMonitor.class));
@@ -933,11 +932,11 @@ class WebSocketConnectionTest {
     return Envelope.newBuilder()
         .setServerGuid(UUID.randomUUID().toString())
         .setType(Envelope.Type.CIPHERTEXT)
-        .setTimestamp(timestamp)
+        .setClientTimestamp(timestamp)
         .setServerTimestamp(0)
-        .setSourceUuid(senderUuid.toString())
+        .setSourceServiceId(senderUuid.toString())
         .setSourceDevice(SOURCE_DEVICE_ID)
-        .setDestinationUuid(destinationUuid.toString())
+        .setDestinationServiceId(destinationUuid.toString())
         .setContent(ByteString.copyFrom(content.getBytes(StandardCharsets.UTF_8)))
         .build();
   }

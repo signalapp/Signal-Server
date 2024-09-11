@@ -24,6 +24,8 @@ import java.util.UUID;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -71,20 +73,31 @@ class MessageSenderTest {
         MessageProtos.Envelope.class);
 
     verify(messagesManager).insert(any(), anyByte(), envelopeArgumentCaptor.capture());
+    verify(messagesManager, never()).removeRecipientViewFromMrmData(any(), anyByte(),
+        any(MessageProtos.Envelope.class));
 
     assertTrue(envelopeArgumentCaptor.getValue().getEphemeral());
 
     verifyNoInteractions(pushNotificationManager);
   }
 
-  @Test
-  void testSendOnlineMessageClientNotPresent() throws Exception {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void testSendOnlineMessageClientNotPresent(final boolean hasSharedMrmKey) throws Exception {
+
     when(clientPresenceManager.isPresent(ACCOUNT_UUID, DEVICE_ID)).thenReturn(false);
     when(device.getGcmId()).thenReturn("gcm-id");
 
-    messageSender.sendMessage(account, device, message, true);
+    if (hasSharedMrmKey) {
+      messageSender.sendMessage(account, device,
+          message.toBuilder().setSharedMrmKey(ByteString.copyFromUtf8("sharedMrmKey")).build(), true);
+    } else {
+      messageSender.sendMessage(account, device, message, true);
+    }
 
     verify(messagesManager, never()).insert(any(), anyByte(), any());
+    verify(messagesManager).removeRecipientViewFromMrmData(any(), anyByte(), any(MessageProtos.Envelope.class));
+
     verifyNoInteractions(pushNotificationManager);
   }
 
@@ -151,7 +164,7 @@ class MessageSenderTest {
 
   private MessageProtos.Envelope generateRandomMessage() {
     return MessageProtos.Envelope.newBuilder()
-        .setTimestamp(System.currentTimeMillis())
+        .setClientTimestamp(System.currentTimeMillis())
         .setServerTimestamp(System.currentTimeMillis())
         .setContent(ByteString.copyFromUtf8(RandomStringUtils.randomAlphanumeric(256)))
         .setType(MessageProtos.Envelope.Type.CIPHERTEXT)
