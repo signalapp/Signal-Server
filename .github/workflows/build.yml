@@ -36,11 +36,7 @@ jobs:
       run: |
         cd Signal-Server
         ./mvnw clean install -DskipTests -Pexclude-spam-filter
-
-    - name: Prepare configuration
-      run: |
-        cd Signal-Server
-        cp /service/config/sample.yml /service/config/config.yml
+        
     - name: Upload compiled artifacts
       uses: actions/upload-artifact@v3
       with:
