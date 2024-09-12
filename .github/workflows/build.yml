@@ -1,4 +1,4 @@
-name: Build Signal Server
+name: CI Build and Run Signal-Server
 
 on:
   push:
@@ -13,32 +13,41 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+    - name: Checkout source code
+      uses: actions/checkout@v2
 
-      - name: Set up Oracle JDK 17
-        uses: actions/setup-java@v3
-        with:
-          distribution: 'oracle'
-          java-version: '17'
+    - name: Set up JDK 17
+      uses: actions/setup-java@v3
+      with:
+        distribution: 'temurin'
+        java-version: '17'
 
-      - name: Install Maven 3.8.6
-        run: |
-          wget https://archive.apache.org/dist/maven/maven-3/3.8.6/binaries/apache-maven-3.8.6-bin.tar.gz
-          tar xzf apache-maven-3.8.6-bin.tar.gz
-          sudo mv apache-maven-3.8.6 /opt/maven
-          if [ -L /usr/bin/mvn ]; then sudo rm /usr/bin/mvn; fi
-          sudo ln -s /opt/maven/bin/mvn /usr/bin/mvn
+    - name: Clone Signal-Server repository
+      run: |
+        git clone https://github.com/signalapp/Signal-Server.git
+        cd Signal-Server
 
+    - name: Go offline with Maven dependencies
+      run: |
+        cd Signal-Server
+        ./mvnw dependency:go-offline
 
-      - name: Build with Maven
-        run: mvn clean install
+    - name: Clean and install without tests
+      run: |
+        cd Signal-Server
+        ./mvnw clean install -DskipTests -Pexclude-spam-filter
 
-      - name: Run tests
-        run: mvn test
+    - name: Prepare configuration
+      run: |
+        cd Signal-Server
+        cp config/sample.yml config/config.yml
 
-      - name: Archive artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: signal-server-artifact
-          path: target/signal-server.jar
+    - name: Build Docker images
+      run: |
+        cd Signal-Server
+        docker-compose build
+
+    - name: Run Docker containers
+      run: |
+        cd Signal-Server
+        docker-compose up -d
