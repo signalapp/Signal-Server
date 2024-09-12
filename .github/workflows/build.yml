@@ -19,7 +19,7 @@ jobs:
     - name: Set up JDK 21
       uses: actions/setup-java@v3
       with:
-        distribution: 'OpenJDK'
+        distribution: 'adopt'
         java-version: '21'
 
     - name: Clone Signal-Server repository
@@ -41,5 +41,15 @@ jobs:
       run: |
         cd Signal-Server
         cp config/sample.yml config/config.yml
+    - name: Upload compiled artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: signal-server-artifacts
+        path: Signal-Server/service/target/*.jar 
+    - name: Upload compiled artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: signal-server-artifacts
+        path: Signal-Server/websocket-resources/target/*.jar 
 
   
