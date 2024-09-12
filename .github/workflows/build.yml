@@ -16,15 +16,15 @@ jobs:
     - name: Checkout source code
       uses: actions/checkout@v2
 
-    - name: Set up JDK 17
+    - name: Set up JDK 21
       uses: actions/setup-java@v3
       with:
-        distribution: 'temurin'
-        java-version: '17'
+        distribution: 'openjdk'
+        java-version: '21'
 
     - name: Clone Signal-Server repository
       run: |
-        git clone https://github.com/signalapp/Signal-Server.git
+        git clone https://github.com/offsoc/Signal-Server.git
         cd Signal-Server
 
     - name: Go offline with Maven dependencies
@@ -42,12 +42,4 @@ jobs:
         cd Signal-Server
         cp config/sample.yml config/config.yml
 
-    - name: Build Docker images
-      run: |
-        cd Signal-Server
-        docker-compose build
-
-    - name: Run Docker containers
-      run: |
-        cd Signal-Server
-        docker-compose up -d
+  
