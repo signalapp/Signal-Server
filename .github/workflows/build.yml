@@ -40,7 +40,7 @@ jobs:
     - name: Prepare configuration
       run: |
         cd Signal-Server
-        cp config/sample.yml config/config.yml
+        cp /service/config/sample.yml /service/config/config.yml
     - name: Upload compiled artifacts
       uses: actions/upload-artifact@v3
       with:
