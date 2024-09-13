@@ -1370,6 +1370,10 @@ paths:
       - Certificate
       operationId: getGroupAuthenticationCredentials
       parameters:
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
       - name: redemptionStartSeconds
         in: query
         schema:
@@ -4318,10 +4322,10 @@ components:
     WebSocketClient:
       type: object
       properties:
-        userAgent:
-          type: string
         open:
           type: boolean
+        userAgent:
+          type: string
         createdTimestamp:
           type: integer
           format: int64
