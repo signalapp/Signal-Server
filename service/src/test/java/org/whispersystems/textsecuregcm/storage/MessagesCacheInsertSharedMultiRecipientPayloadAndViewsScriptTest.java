@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.storage;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import io.lettuce.core.RedisCommandExecutionException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -15,13 +16,13 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import io.lettuce.core.RedisCommandExecutionException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
+import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.util.Pair;
 
@@ -32,7 +33,7 @@ class MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScriptTest {
 
   @ParameterizedTest
   @MethodSource
-  void testInsert(final int count, final Map<AciServiceIdentifier, List<Byte>> destinations) throws Exception {
+  void testInsert(final int count, final Map<ServiceIdentifier, List<Byte>> destinations) throws Exception {
 
     final MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript insertMrmScript = new MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript(
         REDIS_CLUSTER_EXTENSION.getRedisCluster());
@@ -49,7 +50,7 @@ class MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScriptTest {
   }
 
   public static List<Arguments> testInsert() {
-    final Map<AciServiceIdentifier, List<Byte>> singleAccount = Map.of(
+    final Map<ServiceIdentifier, List<Byte>> singleAccount = Map.of(
         new AciServiceIdentifier(UUID.randomUUID()), List.of((byte) 1, (byte) 2));
 
     final List<Arguments> testCases = new ArrayList<>();
@@ -58,7 +59,7 @@ class MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScriptTest {
     for (int j = 1000; j <= 30000; j += 1000) {
 
       final Map<Integer, List<Byte>> deviceLists = new HashMap<>();
-      final Map<AciServiceIdentifier, List<Byte>> manyAccounts = IntStream.range(0, j)
+      final Map<ServiceIdentifier, List<Byte>> manyAccounts = IntStream.range(0, j)
           .mapToObj(i -> {
             final int deviceCount = 1 + i % 5;
             final List<Byte> devices = deviceLists.computeIfAbsent(deviceCount, count -> IntStream.rangeClosed(1, count)

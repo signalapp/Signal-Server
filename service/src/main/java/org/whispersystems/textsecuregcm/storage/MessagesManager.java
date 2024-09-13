@@ -24,6 +24,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
+import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.util.Pair;
 import reactor.core.observability.micrometer.Micrometer;
@@ -214,10 +215,10 @@ public class MessagesManager {
   /**
    * Removes the recipient's view from shared MRM data if necessary
    */
-  public void removeRecipientViewFromMrmData(final UUID destinationUuid, final byte destinationDeviceId,
-      final Envelope message) {
+  public void removeRecipientViewFromMrmData(final byte destinationDeviceId, final Envelope message) {
     if (message.hasSharedMrmKey()) {
-      messagesCache.removeRecipientViewFromMrmData(List.of(message.getSharedMrmKey().toByteArray()), destinationUuid,
+      messagesCache.removeRecipientViewFromMrmData(List.of(message.getSharedMrmKey().toByteArray()),
+          ServiceIdentifier.valueOf(message.getDestinationServiceId()),
           destinationDeviceId);
     }
   }

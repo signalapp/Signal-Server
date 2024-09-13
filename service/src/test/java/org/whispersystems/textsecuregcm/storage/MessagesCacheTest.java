@@ -71,6 +71,7 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfigurati
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicMessagesConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
+import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
@@ -565,11 +566,10 @@ class MessagesCacheTest {
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void testMultiRecipientMessage(final boolean sharedMrmKeyPresent) throws Exception {
-      final UUID destinationUuid = UUID.randomUUID();
+      final ServiceIdentifier destinationServiceId = new AciServiceIdentifier(UUID.randomUUID());
       final byte deviceId = 1;
 
-      final SealedSenderMultiRecipientMessage mrm = generateRandomMrmMessage(
-          new AciServiceIdentifier(destinationUuid), deviceId);
+      final SealedSenderMultiRecipientMessage mrm = generateRandomMrmMessage(destinationServiceId, deviceId);
 
       final byte[] sharedMrmDataKey;
       if (sharedMrmKeyPresent) {
@@ -579,35 +579,35 @@ class MessagesCacheTest {
       }
 
       final UUID guid = UUID.randomUUID();
-      final MessageProtos.Envelope message = generateRandomMessage(guid, true)
+      final MessageProtos.Envelope message = generateRandomMessage(guid, destinationServiceId, true)
           .toBuilder()
           // clear some things added by the helper
           .clearServerGuid()
           // mrm views phase 1: messages have content
           .setContent(
-              ByteString.copyFrom(mrm.messageForRecipient(mrm.getRecipients().get(new ServiceId.Aci(destinationUuid)))))
+              ByteString.copyFrom(mrm.messageForRecipient(mrm.getRecipients().get(destinationServiceId.toLibsignal()))))
           .setSharedMrmKey(ByteString.copyFrom(sharedMrmDataKey))
           .build();
-      messagesCache.insert(guid, destinationUuid, deviceId, message);
+      messagesCache.insert(guid, destinationServiceId.uuid(), deviceId, message);
 
       assertEquals(sharedMrmKeyPresent ? 1 : 0, (long) REDIS_CLUSTER_EXTENSION.getRedisCluster()
           .withBinaryCluster(conn -> conn.sync().exists(sharedMrmDataKey)));
 
-      final List<MessageProtos.Envelope> messages = get(destinationUuid, deviceId, 1);
+      final List<MessageProtos.Envelope> messages = get(destinationServiceId.uuid(), deviceId, 1);
       assertEquals(1, messages.size());
       assertEquals(guid, UUID.fromString(messages.getFirst().getServerGuid()));
       assertFalse(messages.getFirst().hasSharedMrmKey());
 
       final SealedSenderMultiRecipientMessage.Recipient recipient = mrm.getRecipients()
-          .get(new ServiceId.Aci(destinationUuid));
+          .get(destinationServiceId.toLibsignal());
       assertArrayEquals(mrm.messageForRecipient(recipient), messages.getFirst().getContent().toByteArray());
 
-      final Optional<RemovedMessage> removedMessage = messagesCache.remove(destinationUuid, deviceId, guid)
+      final Optional<RemovedMessage> removedMessage = messagesCache.remove(destinationServiceId.uuid(), deviceId, guid)
           .join();
 
       assertTrue(removedMessage.isPresent());
       assertEquals(guid, UUID.fromString(removedMessage.get().serverGuid().toString()));
-      assertTrue(get(destinationUuid, deviceId, 1).isEmpty());
+      assertTrue(get(destinationServiceId.uuid(), deviceId, 1).isEmpty());
 
       // updating the shared MRM data is purely async, so we just wait for it
       assertTimeoutPreemptively(Duration.ofSeconds(1), () -> {
@@ -874,10 +874,17 @@ class MessagesCacheTest {
   }
 
   private MessageProtos.Envelope generateRandomMessage(final UUID messageGuid, final boolean sealedSender) {
-    return generateRandomMessage(messageGuid, sealedSender, serialTimestamp++);
+    return generateRandomMessage(messageGuid, new AciServiceIdentifier(UUID.randomUUID()), sealedSender,
+        serialTimestamp++);
   }
 
-  private MessageProtos.Envelope generateRandomMessage(final UUID messageGuid, final boolean sealedSender,
+  private MessageProtos.Envelope generateRandomMessage(final UUID messageGuid,
+      final ServiceIdentifier destinationServiceId, final boolean sealedSender) {
+    return generateRandomMessage(messageGuid, destinationServiceId, sealedSender, serialTimestamp++);
+  }
+
+  private MessageProtos.Envelope generateRandomMessage(final UUID messageGuid,
+      final ServiceIdentifier destinationServiceId, final boolean sealedSender,
       final long timestamp) {
     final MessageProtos.Envelope.Builder envelopeBuilder = MessageProtos.Envelope.newBuilder()
         .setClientTimestamp(timestamp)
@@ -885,7 +892,7 @@ class MessagesCacheTest {
         .setContent(ByteString.copyFromUtf8(RandomStringUtils.randomAlphanumeric(256)))
         .setType(MessageProtos.Envelope.Type.CIPHERTEXT)
         .setServerGuid(messageGuid.toString())
-        .setDestinationServiceId(UUID.randomUUID().toString());
+        .setDestinationServiceId(destinationServiceId.toServiceIdentifierString());
 
     if (!sealedSender) {
       envelopeBuilder.setSourceDevice(random.nextInt(Device.MAXIMUM_DEVICE_ID) + 1)
@@ -896,8 +903,7 @@ class MessagesCacheTest {
   }
 
   static SealedSenderMultiRecipientMessage generateRandomMrmMessage(
-      Map<AciServiceIdentifier, List<Byte>> destinations) {
-
+      Map<ServiceIdentifier, List<Byte>> destinations) {
 
     try {
       final ByteBuffer prefix = ByteBuffer.allocate(7);
@@ -907,10 +913,10 @@ class MessagesCacheTest {
 
       List<ByteBuffer> recipients = new ArrayList<>(destinations.size());
 
-      for (Map.Entry<AciServiceIdentifier, List<Byte>> aciServiceIdentifierAndDeviceIds : destinations.entrySet()) {
+      for (Map.Entry<ServiceIdentifier, List<Byte>> serviceIdentifierAndDeviceIds : destinations.entrySet()) {
 
-        final AciServiceIdentifier destination = aciServiceIdentifierAndDeviceIds.getKey();
-        final List<Byte> deviceIds = aciServiceIdentifierAndDeviceIds.getValue();
+        final ServiceIdentifier destination = serviceIdentifierAndDeviceIds.getKey();
+        final List<Byte> deviceIds = serviceIdentifierAndDeviceIds.getValue();
 
         assert deviceIds.size() < 255;
 
@@ -946,10 +952,10 @@ class MessagesCacheTest {
     }
   }
 
-  static SealedSenderMultiRecipientMessage generateRandomMrmMessage(AciServiceIdentifier destination,
+  static SealedSenderMultiRecipientMessage generateRandomMrmMessage(ServiceIdentifier destination,
       byte... deviceIds) {
 
-    final Map<AciServiceIdentifier, List<Byte>> destinations = new HashMap<>();
+    final Map<ServiceIdentifier, List<Byte>> destinations = new HashMap<>();
     destinations.put(destination, Arrays.asList(ArrayUtils.toObject(deviceIds)));
     return generateRandomMrmMessage(destinations);
   }
