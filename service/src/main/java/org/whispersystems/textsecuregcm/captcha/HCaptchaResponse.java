@@ -6,8 +6,7 @@
 package org.whispersystems.textsecuregcm.captcha;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-
-import java.time.Duration;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 
@@ -21,14 +20,11 @@ public class HCaptchaResponse {
   @JsonProperty
   boolean success;
 
-  @JsonProperty(value = "challenge-ts")
-  Duration challengeTs;
+  @JsonProperty(value = "challenge_ts")
+  Instant challengeTs;
 
   @JsonProperty
   String hostname;
-
-  @JsonProperty
-  boolean credit;
 
   @JsonProperty(value = "error-codes")
   List<String> errorCodes = Collections.emptyList();
@@ -36,7 +32,7 @@ public class HCaptchaResponse {
   @JsonProperty
   float score;
 
-  @JsonProperty(value = "score-reasons")
+  @JsonProperty(value = "score_reason")
   List<String> scoreReasons = Collections.emptyList();
 
   public HCaptchaResponse() {
@@ -48,7 +44,6 @@ public class HCaptchaResponse {
         "success=" + success +
         ", challengeTs=" + challengeTs +
         ", hostname='" + hostname + '\'' +
-        ", credit=" + credit +
         ", errorCodes=" + errorCodes +
         ", score=" + score +
         ", scoreReasons=" + scoreReasons +
