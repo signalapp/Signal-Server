@@ -989,14 +989,14 @@ public class AccountsManager {
                     device.getId())))
         .toList();
     CompletableFuture<Void> deleteBackupFuture = secureValueRecovery2Client.deleteBackups(account.getUuid())
-        .exceptionally(exception -> {
+        .exceptionally(ExceptionUtils.exceptionallyHandler(SecureValueRecoveryException.class, exception -> {
           final List<String> svrStatusCodesToIgnore = dynamicConfigurationManager.getConfiguration().getSvrStatusCodesToIgnoreForAccountDeletion();
-          if (exception instanceof SecureValueRecoveryException e && svrStatusCodesToIgnore.contains(e.getStatusCode())) {
+          if (svrStatusCodesToIgnore.contains(exception.getStatusCode())) {
             logger.warn("Failed to delete backup for account: " + account.getUuid(), exception);
             return null;
           }
           throw new CompletionException(exception);
-        });
+        }));
 
     return CompletableFuture.allOf(
             secureStorageClient.deleteStoredData(account.getUuid()),
