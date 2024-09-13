@@ -2,6 +2,7 @@ package org.whispersystems.textsecuregcm.configuration;
 
 import java.util.Collections;
 import java.util.Map;
+import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretString;
 
@@ -24,8 +25,8 @@ public record Cdn3StorageManagerConfiguration(
     @NotNull SecretString clientSecret,
     @NotNull Map<Integer, String> sourceSchemes,
     @NotNull Integer numHttpClients,
-    @NotNull CircuitBreakerConfiguration circuitBreaker,
-    @NotNull RetryConfiguration retry) {
+    @NotNull @Valid CircuitBreakerConfiguration circuitBreaker,
+    @NotNull @Valid RetryConfiguration retry) {
 
   public Cdn3StorageManagerConfiguration {
     if (numHttpClients == null) {
