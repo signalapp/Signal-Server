@@ -152,7 +152,8 @@ public class AccountCreationDeletionIntegrationTest {
         clientPublicKeysManager,
         accountLockExecutor,
         clientPresenceExecutor,
-        CLOCK);
+        CLOCK,
+        dynamicConfigurationManager);
   }
 
   @AfterEach

@@ -222,7 +222,7 @@ record CommandDependencies(
         accountLockManager, keys, messagesManager, profilesManager,
         secureStorageClient, secureValueRecovery2Client, clientPresenceManager,
         registrationRecoveryPasswordsManager, clientPublicKeysManager, accountLockExecutor, clientPresenceExecutor,
-        clock);
+        clock, dynamicConfigurationManager);
     RateLimiters rateLimiters = RateLimiters.createAndValidate(configuration.getLimitsConfiguration(),
         dynamicConfigurationManager, rateLimitersCluster);
     final BackupsDb backupsDb =

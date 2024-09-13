@@ -72,7 +72,7 @@ public class SecureValueRecovery2Client {
         return null;
       }
 
-      throw new SecureValueRecoveryException("Failed to delete backup: " + response.statusCode());
+      throw new SecureValueRecoveryException("Failed to delete backup", String.valueOf(response.statusCode()));
     });
   }
 

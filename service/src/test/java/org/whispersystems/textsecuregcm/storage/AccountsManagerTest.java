@@ -48,6 +48,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -76,6 +77,7 @@ import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
+import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecoveryException;
 import org.whispersystems.textsecuregcm.storage.AccountsManager.UsernameReservation;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
@@ -113,6 +115,8 @@ class AccountsManagerTest {
   private RedisAdvancedClusterAsyncCommands<String, String> asyncCommands;
   private TestClock clock;
   private AccountsManager accountsManager;
+  private SecureValueRecovery2Client svr2Client;
+  private DynamicConfiguration dynamicConfiguration;
 
   private static final Answer<?> ACCOUNT_UPDATE_ANSWER = (answer) -> {
     // it is implicit in the update() contract is that a successful call will
@@ -139,6 +143,7 @@ class AccountsManagerTest {
     profilesManager = mock(ProfilesManager.class);
     clientPresenceManager = mock(ClientPresenceManager.class);
     clientPublicKeysManager = mock(ClientPublicKeysManager.class);
+    dynamicConfiguration = mock(DynamicConfiguration.class);
 
     final Executor clientPresenceExecutor = mock(Executor.class);
 
@@ -175,7 +180,7 @@ class AccountsManagerTest {
     final SecureStorageClient storageClient = mock(SecureStorageClient.class);
     when(storageClient.deleteStoredData(any())).thenReturn(CompletableFuture.completedFuture(null));
 
-    final SecureValueRecovery2Client svr2Client = mock(SecureValueRecovery2Client.class);
+    svr2Client = mock(SecureValueRecovery2Client.class);
     when(svr2Client.deleteBackups(any())).thenReturn(CompletableFuture.completedFuture(null));
 
     final PhoneNumberIdentifiers phoneNumberIdentifiers = mock(PhoneNumberIdentifiers.class);
@@ -189,9 +194,8 @@ class AccountsManagerTest {
     @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
         mock(DynamicConfigurationManager.class);
 
-    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
-
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
+    when(dynamicConfiguration.getSvrStatusCodesToIgnoreForAccountDeletion()).thenReturn(Collections.emptyList());
 
     final AccountLockManager accountLockManager = mock(AccountLockManager.class);
 
@@ -218,6 +222,7 @@ class AccountsManagerTest {
 
     clock = TestClock.now();
 
+
     accountsManager = new AccountsManager(
         accounts,
         phoneNumberIdentifiers,
@@ -236,7 +241,33 @@ class AccountsManagerTest {
         clientPublicKeysManager,
         mock(Executor.class),
         clientPresenceExecutor,
-        clock);
+        clock,
+        dynamicConfigurationManager);
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void testDeleteWithSvrErrorStatusCodes(final String statusCode, final boolean expectError) throws InterruptedException {
+    when(svr2Client.deleteBackups(any())).thenReturn(
+        CompletableFuture.failedFuture(new SecureValueRecoveryException("Failed to delete backup", statusCode)));
+    when(dynamicConfiguration.getSvrStatusCodesToIgnoreForAccountDeletion()).thenReturn(List.of("500"));
+
+    final AccountAttributes attributes = new AccountAttributes(false, 1, 2, null, null, true, null);
+
+    final Account createdAccount = createAccount("+18005550123", attributes);
+
+    if (expectError) {
+      assertThrows(CompletionException.class, () -> accountsManager.delete(createdAccount, AccountsManager.DeletionReason.USER_REQUEST).toCompletableFuture().join());
+    } else {
+      assertDoesNotThrow(() -> accountsManager.delete(createdAccount, AccountsManager.DeletionReason.USER_REQUEST).toCompletableFuture().join());
+    }
+  }
+
+  private static Stream<Arguments> testDeleteWithSvrErrorStatusCodes() {
+    return Stream.of(
+        Arguments.of("500", false),
+        Arguments.of("429", true)
+    );
   }
 
   @Test

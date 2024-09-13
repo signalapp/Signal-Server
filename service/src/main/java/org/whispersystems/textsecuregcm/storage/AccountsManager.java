@@ -33,6 +33,7 @@ import java.util.Optional;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
@@ -48,6 +49,7 @@ import org.signal.libsignal.protocol.IdentityKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
@@ -60,6 +62,7 @@ import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
+import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecoveryException;
 import org.whispersystems.textsecuregcm.util.DestinationDeviceValidator;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.Pair;
@@ -107,6 +110,7 @@ public class AccountsManager {
   private final Executor accountLockExecutor;
   private final Executor clientPresenceExecutor;
   private final Clock clock;
+  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
 
   private static final ObjectWriter ACCOUNT_REDIS_JSON_WRITER = SystemMapper.jsonMapper()
       .writer(SystemMapper.excludingField(Account.class, List.of("uuid")));
@@ -147,7 +151,8 @@ public class AccountsManager {
       final ClientPublicKeysManager clientPublicKeysManager,
       final Executor accountLockExecutor,
       final Executor clientPresenceExecutor,
-      final Clock clock) {
+      final Clock clock,
+      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
     this.accounts = accounts;
     this.phoneNumberIdentifiers = phoneNumberIdentifiers;
     this.cacheCluster = cacheCluster;
@@ -163,6 +168,7 @@ public class AccountsManager {
     this.accountLockExecutor = accountLockExecutor;
     this.clientPresenceExecutor = clientPresenceExecutor;
     this.clock = requireNonNull(clock);
+    this.dynamicConfigurationManager = dynamicConfigurationManager;
   }
 
   public Account create(final String number,
@@ -982,10 +988,19 @@ public class AccountsManager {
                     account.getIdentifier(IdentityType.ACI),
                     device.getId())))
         .toList();
+    CompletableFuture<Void> deleteBackupFuture = secureValueRecovery2Client.deleteBackups(account.getUuid())
+        .exceptionally(exception -> {
+          final List<String> svrStatusCodesToIgnore = dynamicConfigurationManager.getConfiguration().getSvrStatusCodesToIgnoreForAccountDeletion();
+          if (exception instanceof SecureValueRecoveryException e && svrStatusCodesToIgnore.contains(e.getStatusCode())) {
+            logger.warn("Failed to delete backup for account: " + account.getUuid(), exception);
+            return null;
+          }
+          throw new CompletionException(exception);
+        });
 
     return CompletableFuture.allOf(
             secureStorageClient.deleteStoredData(account.getUuid()),
-            secureValueRecovery2Client.deleteBackups(account.getUuid()),
+            deleteBackupFuture,
             keysManager.deleteSingleUsePreKeys(account.getUuid()),
             keysManager.deleteSingleUsePreKeys(account.getPhoneNumberIdentifier()),
             messagesManager.clear(account.getUuid()),

@@ -134,7 +134,8 @@ class AccountsManagerConcurrentModificationIntegrationTest {
           mock(ClientPublicKeysManager.class),
           mock(Executor.class),
           mock(Executor.class),
-          mock(Clock.class)
+          mock(Clock.class),
+          dynamicConfigurationManager
       );
     }
   }
