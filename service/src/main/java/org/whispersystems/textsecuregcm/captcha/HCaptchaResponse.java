@@ -21,7 +21,7 @@ public class HCaptchaResponse {
   @JsonProperty
   boolean success;
 
-  @JsonProperty(value = "challenge_ts")
+  @JsonProperty(value = "challenge-ts")
   Duration challengeTs;
 
   @JsonProperty
@@ -36,7 +36,7 @@ public class HCaptchaResponse {
   @JsonProperty
   float score;
 
-  @JsonProperty(value = "score_reason")
+  @JsonProperty(value = "score-reasons")
   List<String> scoreReasons = Collections.emptyList();
 
   public HCaptchaResponse() {
